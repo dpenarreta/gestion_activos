@@ -19,6 +19,11 @@ from apps.core.models import BaseModel
 # carga masiva vive en su propio módulo por tamaño, no por ser otra app.
 from .models_plantilla import ColumnaPlantillaActivos  # noqa: F401
 
+# Antelación con la que una garantía se considera «por vencer». 30 días es el
+# plazo con el que se alcanza a gestionar una renovación o un reclamo con el
+# proveedor; con una semana ya no da tiempo a nada.
+DIAS_AVISO_GARANTIA = 30
+
 
 class TipoDispositivo(BaseModel):
     """Clase de equipo (laptop, servidor, impresora...).
@@ -48,6 +53,12 @@ class TipoDispositivo(BaseModel):
 
 class Activo(BaseModel):
     """Expediente de un dispositivo electrónico."""
+
+    class Garantia(models.TextChoices):
+        SIN_REGISTRAR = "sin_registrar", "Sin garantía registrada"
+        VIGENTE = "vigente", "En garantía"
+        POR_VENCER = "por_vencer", "Garantía por vencer"
+        VENCIDA = "vencida", "Garantía vencida"
 
     class Estado(models.TextChoices):
         EN_USO = "en_uso", "En uso"
@@ -98,6 +109,13 @@ class Activo(BaseModel):
         help_text="Base del cálculo de longevidad de la política de renovación."
     )
     costo_adquisicion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    proveedor = models.CharField(max_length=150, blank=True)
+    fecha_fin_garantia = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Fin de la cobertura del proveedor. Vacío = el equipo no tiene garantía registrada.",
+    )
     fecha_baja = models.DateField(null=True, blank=True)
     motivo_baja = models.TextField(blank=True)
 
@@ -120,6 +138,33 @@ class Activo(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.codigo_barras} - {self.nombre}"
+
+    @property
+    def estado_garantia(self) -> str:
+        """Situación de la garantía del equipo.
+
+        Se distingue «sin garantía» de «vencida» a propósito: no es lo mismo un
+        equipo cuya cobertura expiró que uno del que nunca se registró la
+        fecha. Confundirlos haría que un inventario a medio capturar pareciera
+        un parque entero fuera de cobertura.
+        """
+        if self.fecha_fin_garantia is None:
+            return self.Garantia.SIN_REGISTRAR
+        dias = self.dias_para_fin_de_garantia
+        if dias < 0:
+            return self.Garantia.VENCIDA
+        if dias <= DIAS_AVISO_GARANTIA:
+            return self.Garantia.POR_VENCER
+        return self.Garantia.VIGENTE
+
+    @property
+    def dias_para_fin_de_garantia(self) -> int | None:
+        """Días que faltan (negativo si ya venció). `None` si no hay fecha."""
+        if self.fecha_fin_garantia is None:
+            return None
+        from django.utils import timezone
+
+        return (self.fecha_fin_garantia - timezone.localdate()).days
 
     @property
     def antiguedad_meses(self) -> int:

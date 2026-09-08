@@ -80,6 +80,7 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
 class ActivoListSerializer(serializers.ModelSerializer):
     """Versión ligera para el listado: sin especificaciones ni historial."""
 
+    estado_garantia = serializers.CharField(read_only=True)
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
     custodio_nombre = serializers.CharField(
         source="custodio.nombre_completo", read_only=True, default=None
@@ -106,6 +107,8 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "estado",
             "estado_display",
             "fecha_adquisicion",
+            "estado_garantia",
+            "fecha_fin_garantia",
             "total_mantenimientos",
             "total_componentes_criticos",
             "requiere_renovacion",
@@ -130,6 +133,10 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
     antiguedad_meses = serializers.IntegerField(read_only=True)
+    estado_garantia = serializers.CharField(read_only=True)
+    estado_garantia_display = serializers.SerializerMethodField()
+    dias_para_fin_de_garantia = serializers.IntegerField(read_only=True)
+    dias_en_reparacion = serializers.SerializerMethodField()
     renovacion = serializers.SerializerMethodField()
 
     class Meta:
@@ -154,9 +161,15 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "estado_display",
             "fecha_adquisicion",
             "costo_adquisicion",
+            "proveedor",
+            "fecha_fin_garantia",
+            "estado_garantia",
+            "estado_garantia_display",
+            "dias_para_fin_de_garantia",
             "fecha_baja",
             "motivo_baja",
             "antiguedad_meses",
+            "dias_en_reparacion",
             "total_mantenimientos",
             "total_componentes_criticos",
             "renovacion",
@@ -177,6 +190,21 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
 
     def get_renovacion(self, obj) -> dict:
         return evaluar_activo(obj).as_dict()
+
+    def get_estado_garantia_display(self, obj) -> str:
+        return Activo.Garantia(obj.estado_garantia).label
+
+    def get_dias_en_reparacion(self, obj) -> int:
+        """Tiempo acumulado fuera de operación (§10 del documento funcional).
+
+        Las intervenciones sin fecha de salida no suman: el equipo sigue fuera
+        y ese tiempo todavía no está cerrado.
+        """
+        return sum(
+            m.dias_fuera_de_operacion or 0
+            for m in obj.mantenimientos.all()
+            if m.fecha_salida is not None
+        )
 
 
 class ActivoWriteSerializer(serializers.ModelSerializer):
@@ -203,6 +231,8 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "ubicacion",
             "fecha_adquisicion",
             "costo_adquisicion",
+            "proveedor",
+            "fecha_fin_garantia",
         ]
 
     def __init__(self, *args, **kwargs):

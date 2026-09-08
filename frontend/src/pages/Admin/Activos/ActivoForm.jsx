@@ -21,6 +21,8 @@ const VACIO = {
   ubicacion: "",
   fecha_adquisicion: "",
   costo_adquisicion: "",
+  proveedor: "",
+  fecha_fin_garantia: "",
 };
 
 export function ActivoForm() {
@@ -68,6 +70,8 @@ export function ActivoForm() {
           ubicacion: datos.ubicacion || "",
           fecha_adquisicion: datos.fecha_adquisicion,
           costo_adquisicion: datos.costo_adquisicion || "",
+          proveedor: datos.proveedor || "",
+          fecha_fin_garantia: datos.fecha_fin_garantia || "",
         })
       )
       .catch(() => setError("No se pudo cargar el activo."));
@@ -93,6 +97,8 @@ export function ActivoForm() {
         ubicacion: valores.ubicacion,
         fecha_adquisicion: valores.fecha_adquisicion,
         costo_adquisicion: valores.costo_adquisicion || null,
+        proveedor: valores.proveedor,
+        fecha_fin_garantia: valores.fecha_fin_garantia || null,
       };
 
       if (esEdicion) {
@@ -320,6 +326,34 @@ export function ActivoForm() {
                 value={valores.costo_adquisicion}
                 onChange={(event) => actualizar("costo_adquisicion", event.target.value)}
               />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label" htmlFor="proveedor">
+                Proveedor
+              </label>
+              <input
+                id="proveedor"
+                className="form-control"
+                maxLength={150}
+                value={valores.proveedor}
+                onChange={(event) => actualizar("proveedor", event.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label" htmlFor="fecha_fin_garantia">
+                Fin de garantía
+              </label>
+              <input
+                id="fecha_fin_garantia"
+                type="date"
+                className="form-control"
+                min={valores.fecha_adquisicion || undefined}
+                value={valores.fecha_fin_garantia}
+                onChange={(event) => actualizar("fecha_fin_garantia", event.target.value)}
+              />
+              <div className="form-text">
+                Déjelo vacío si el equipo no tiene garantía registrada.
+              </div>
             </div>
             <div className="col-12">
               <label className="form-label" htmlFor="observaciones">

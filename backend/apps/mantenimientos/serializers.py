@@ -48,6 +48,9 @@ class MantenimientoSerializer(serializers.ModelSerializer):
     tipo_responsable_display = serializers.CharField(
         source="get_tipo_responsable_display", read_only=True
     )
+    estado_final_display = serializers.CharField(source="get_estado_final_display", read_only=True)
+    dias_fuera_de_operacion = serializers.IntegerField(read_only=True)
+    sigue_fuera_de_operacion = serializers.BooleanField(read_only=True)
     activo_codigo = serializers.CharField(source="activo.codigo_barras", read_only=True)
     activo_nombre = serializers.CharField(source="activo.nombre", read_only=True)
     registrado_por_nombre = serializers.CharField(
@@ -65,11 +68,19 @@ class MantenimientoSerializer(serializers.ModelSerializer):
             "tipo",
             "tipo_display",
             "fecha_intervencion",
+            "fecha_salida",
+            "dias_fuera_de_operacion",
+            "sigue_fuera_de_operacion",
             "tipo_responsable",
             "tipo_responsable_display",
             "responsable",
+            "causa",
             "descripcion",
             "diagnostico",
+            "solucion",
+            "estado_final",
+            "estado_final_display",
+            "garantia_usada",
             "costo_mano_obra",
             "costo_total",
             "componentes",
@@ -105,10 +116,15 @@ class MantenimientoWriteSerializer(serializers.ModelSerializer):
             "activo",
             "tipo",
             "fecha_intervencion",
+            "fecha_salida",
             "tipo_responsable",
             "responsable",
+            "causa",
             "descripcion",
             "diagnostico",
+            "solucion",
+            "estado_final",
+            "garantia_usada",
             "costo_mano_obra",
             "componentes",
         ]
@@ -125,7 +141,16 @@ class MantenimientoWriteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         activo = attrs.get("activo") or getattr(self.instance, "activo", None)
-        fecha = attrs.get("fecha_intervencion")
+        fecha = attrs.get("fecha_intervencion") or getattr(
+            self.instance, "fecha_intervencion", None
+        )
+
+        salida = attrs.get("fecha_salida", getattr(self.instance, "fecha_salida", None))
+        if salida and fecha and salida < fecha:
+            raise serializers.ValidationError(
+                {"fecha_salida": "La salida no puede ser anterior al ingreso."}
+            )
+
         if activo and fecha and fecha < activo.fecha_adquisicion:
             raise serializers.ValidationError(
                 {

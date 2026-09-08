@@ -121,6 +121,41 @@ class ActivoViewSet(viewsets.ModelViewSet):
         if renovacion in {"true", "false"}:
             queryset = queryset.filter(requiere_renovacion=renovacion == "true")
 
+        queryset = self._filtrar_por_garantia(queryset, params.get("garantia"))
+
+        return queryset
+
+    @staticmethod
+    def _filtrar_por_garantia(queryset, valor):
+        """Filtra por situación de garantía.
+
+        Se traduce a rangos de fecha en la consulta en vez de evaluar la
+        propiedad del modelo: filtrar en Python obligaría a traerse el
+        inventario completo, y el documento funcional dimensiona entre 5.000 y
+        10.000 activos.
+        """
+        if not valor:
+            return queryset
+
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from .models import DIAS_AVISO_GARANTIA
+
+        hoy = timezone.localdate()
+        limite_aviso = hoy + timedelta(days=DIAS_AVISO_GARANTIA)
+
+        if valor == "sin_registrar":
+            return queryset.filter(fecha_fin_garantia__isnull=True)
+        if valor == "vencida":
+            return queryset.filter(fecha_fin_garantia__lt=hoy)
+        if valor == "por_vencer":
+            return queryset.filter(
+                fecha_fin_garantia__gte=hoy, fecha_fin_garantia__lte=limite_aviso
+            )
+        if valor == "vigente":
+            return queryset.filter(fecha_fin_garantia__gt=limite_aviso)
         return queryset
 
     def get_serializer_class(self):

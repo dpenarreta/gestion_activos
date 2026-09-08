@@ -71,6 +71,8 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-DSH-003 | Costos de mantenimiento | dashboard-y-reportes.feature | El panel informa el costo de mantenimiento | Sí (pytest) |
 | AC-DSH-004 | Ranking sin activos de baja | dashboard-y-reportes.feature | El ranking señala los equipos problemáticos | Sí (pytest) |
 | AC-DSH-005 | Indicadores ausentes declarados | dashboard-y-reportes.feature | Los indicadores que no se pueden calcular se declaran | Sí (pytest) |
+| AC-DSH-006 | Garantías vencidas y por vencer | garantias.feature | El panel principal separa lo vencido de lo no capturado | Sí (pytest) |
+| AC-DSH-007 | Tiempo fuera de operación acumulado | mantenimientos.feature | El panel acumula el tiempo fuera de operación del parque | Sí (pytest) |
 | AC-EXP-001 | Exportación del inventario | dashboard-y-reportes.feature | El inventario se exporta a Excel | Sí (pytest) |
 | AC-EXP-002 | La exportación respeta filtros | dashboard-y-reportes.feature | La exportación respeta los filtros de la pantalla | Sí (pytest) |
 | AC-EXP-003 | Exportación de la bitácora | dashboard-y-reportes.feature | La bitácora de mantenimientos se exporta a Excel | Sí (pytest) |
@@ -90,6 +92,24 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-MNT-007 | Sin intervenciones previas a la compra | mantenimientos.feature | No se registran intervenciones anteriores a la compra del equipo | Sí (pytest) |
 | AC-MNT-008 | Sin mantenimientos sobre activos de baja | mantenimientos.feature | No se registran mantenimientos sobre un activo dado de baja | Sí (pytest) |
 | AC-MNT-009 | Costo acumulado de sostenimiento | mantenimientos.feature | El sistema informa cuánto se ha invertido en sostener un equipo | Sí (pytest) |
+| AC-MNT-010 | Reparación abierta sin días calculados | mantenimientos.feature | Una reparación sin cerrar no reporta días fuera de operación | Sí (pytest) |
+| AC-MNT-011 | Días fuera de operación al cerrar | mantenimientos.feature | Al cerrar la reparación se calculan los días fuera de operación | Sí (pytest) |
+| AC-MNT-012 | Salida posterior al ingreso | mantenimientos.feature | La salida no puede ser anterior al ingreso | Sí (pytest) |
+| AC-MNT-013 | Causa, solución y desenlace | mantenimientos.feature | La bitácora registra causa, solución y desenlace | Sí (pytest) |
+| AC-MNT-014 | Tiempo fuera acumulado del parque | mantenimientos.feature | El panel acumula el tiempo fuera de operación del parque | Sí (pytest) |
+
+## Garantías (§4.1)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-GAR-001 | Proveedor y fin de garantía en la ficha | garantias.feature | La ficha registra proveedor y fin de garantía | Sí (pytest) |
+| AC-GAR-002 | Sin fecha no es lo mismo que vencida | garantias.feature | Un equipo sin fecha capturada no se cuenta como descubierto | Sí (pytest) |
+| AC-GAR-003 | Garantía vencida con días transcurridos | garantias.feature | Una fecha ya pasada deja la garantía vencida | Sí (pytest) |
+| AC-GAR-004 | Ventana de aviso de 30 días | garantias.feature | La ventana de aviso avisa antes de perder la cobertura | Sí (pytest) |
+| AC-GAR-005 | Filtro por situación de garantía | garantias.feature | El inventario se puede filtrar por situación de garantía | Sí (pytest) |
+| AC-GAR-006 | El filtro se resuelve en SQL | garantias.feature | El filtro de garantía se resuelve en la base de datos | Sí (pytest) |
+| AC-GAR-007 | Filtro desconocido no vacía el listado | garantias.feature | Un valor de filtro desconocido no vacía el inventario | Sí (pytest) |
+| AC-GAR-008 | El panel separa vencido de no capturado | garantias.feature | El panel principal separa lo vencido de lo no capturado | Sí (pytest) |
 
 ## Políticas de renovación (RF-06, RF-07)
 

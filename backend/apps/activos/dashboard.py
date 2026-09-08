@@ -5,9 +5,10 @@ base, no recorriendo los activos en Python: con las 5.000 a 10.000 filas que el
 documento dimensiona, traerse el inventario para contarlo sería la diferencia
 entre una consulta y varios megabytes por cada carga del panel.
 
-Uno de los diez queda fuera: «garantías vencidas» necesita una fecha de
-garantía que el sistema todavía no tiene (ver `docs/funcional/analisis-de-brecha.md`).
-Se omite en vez de devolver un cero, que se leería como «ninguna vencida».
+Cualquier indicador que no se pueda calcular se declara en
+`indicadores_no_disponibles` con su motivo, en vez de devolver un cero: un cero
+en «garantías vencidas» se leería como «ninguna vencida», que es lo contrario
+de «no lo sabemos».
 """
 
 from datetime import timedelta
@@ -20,7 +21,7 @@ from django.utils import timezone
 from apps.mantenimientos.models import ComponenteUtilizado, Mantenimiento
 from apps.politicas.services import evaluar_activo, resolver_politica
 
-from .models import Activo
+from .models import DIAS_AVISO_GARANTIA, Activo
 
 MESES_TENDENCIA = 6
 TOP_EQUIPOS_REPARADOS = 5
@@ -124,6 +125,47 @@ def _con_sugerencia_de_renovacion() -> int:
     return total
 
 
+def _garantias() -> dict:
+    """Cobertura del parque operativo.
+
+    «Sin registrar» se cuenta aparte de «vencida»: no es lo mismo un equipo
+    cuya cobertura expiró que uno del que nunca se capturó la fecha, y
+    mezclarlos haría que un inventario a medio llenar pareciera un parque
+    entero fuera de garantía.
+    """
+    hoy = timezone.localdate()
+    limite_aviso = hoy + timedelta(days=DIAS_AVISO_GARANTIA)
+    operativos = Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+
+    return {
+        "vencidas": operativos.filter(fecha_fin_garantia__lt=hoy).count(),
+        "por_vencer": operativos.filter(
+            fecha_fin_garantia__gte=hoy, fecha_fin_garantia__lte=limite_aviso
+        ).count(),
+        "vigentes": operativos.filter(fecha_fin_garantia__gt=limite_aviso).count(),
+        "sin_registrar": operativos.filter(fecha_fin_garantia__isnull=True).count(),
+        "dias_de_aviso": DIAS_AVISO_GARANTIA,
+    }
+
+
+def _dias_fuera_de_operacion() -> dict:
+    """Tiempo que el parque estuvo sin poder usarse (§10).
+
+    Solo suma las intervenciones cerradas: mientras no haya fecha de salida el
+    equipo sigue fuera y ese tiempo aún no está determinado.
+    """
+    cerradas = Mantenimiento.objects.filter(fecha_salida__isnull=False)
+    total = sum(
+        (m.fecha_salida - m.fecha_intervencion).days
+        for m in cerradas.only("fecha_intervencion", "fecha_salida")
+    )
+    return {
+        "total_dias": total,
+        "intervenciones_cerradas": cerradas.count(),
+        "intervenciones_abiertas": Mantenimiento.objects.filter(fecha_salida__isnull=True).count(),
+    }
+
+
 def construir_indicadores() -> dict:
     """Los indicadores del dashboard principal."""
     por_estado = _conteos_por_estado()
@@ -158,6 +200,8 @@ def construir_indicadores() -> dict:
                 .values_list("tipo", "total")
             ),
         },
+        "garantias": _garantias(),
+        "fuera_de_operacion": _dias_fuera_de_operacion(),
         "equipos_mas_reparados": _equipos_mas_reparados(),
         "por_tipo_dispositivo": list(
             Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
@@ -174,12 +218,8 @@ def construir_indicadores() -> dict:
             )
             .order_by("-total")
         ),
-        # Declarado explícitamente para que la interfaz pueda decir por qué
-        # falta este indicador del documento, en vez de omitirlo en silencio.
-        "indicadores_no_disponibles": [
-            {
-                "clave": "garantias_vencidas",
-                "motivo": "El activo todavía no tiene campo de garantía.",
-            }
-        ],
+        # Los diez indicadores del §15 ya se calculan. La clave se conserva
+        # para que la interfaz siga sabiendo tratar el caso, y para poder
+        # declarar aquí cualquier indicador futuro que no sea posible todavía.
+        "indicadores_no_disponibles": [],
     }

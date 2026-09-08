@@ -10,16 +10,48 @@ import "./Mantenimientos.css";
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
+const CAUSAS_SUGERIDAS = [
+  "Pantalla dañada",
+  "Batería agotada",
+  "Disco fallando",
+  "Teclado dañado",
+  "Lentitud",
+  "Virus o malware",
+  "Fuente de poder",
+  "Sobrecalentamiento",
+  "Falla de red",
+  "Mantenimiento preventivo",
+];
+
+/** Días entre ingreso y salida, para mostrarlos mientras se captura. */
+function diasFuera({ fecha_intervencion: ingreso, fecha_salida: salida }) {
+  if (!ingreso || !salida) return 0;
+  const dias = (new Date(salida) - new Date(ingreso)) / 86400000;
+  return Math.max(Math.round(dias), 0);
+}
+
 const VACIO = {
   activo: "",
   tipo: "correctivo",
   fecha_intervencion: hoy(),
+  fecha_salida: "",
   tipo_responsable: "tecnico_interno",
   responsable: "",
+  causa: "",
   descripcion: "",
   diagnostico: "",
+  solucion: "",
+  estado_final: "reparado",
+  garantia_usada: false,
   costo_mano_obra: "",
 };
+
+const ESTADOS_FINALES = [
+  { valor: "reparado", etiqueta: "Reparado" },
+  { valor: "pendiente", etiqueta: "Pendiente" },
+  { valor: "no_reparable", etiqueta: "No reparable" },
+  { valor: "dado_de_baja", etiqueta: "Dado de baja" },
+];
 
 export function MantenimientoForm() {
   const { id } = useParams();
@@ -63,10 +95,15 @@ export function MantenimientoForm() {
           activo: datos.activo,
           tipo: datos.tipo,
           fecha_intervencion: datos.fecha_intervencion,
+          fecha_salida: datos.fecha_salida || "",
           tipo_responsable: datos.tipo_responsable,
           responsable: datos.responsable,
+          causa: datos.causa || "",
           descripcion: datos.descripcion,
           diagnostico: datos.diagnostico || "",
+          solucion: datos.solucion || "",
+          estado_final: datos.estado_final,
+          garantia_usada: datos.garantia_usada,
           costo_mano_obra: datos.costo_mano_obra || "",
         });
         setLineas(
@@ -103,6 +140,8 @@ export function MantenimientoForm() {
     try {
       const payload = {
         ...valores,
+        // Vacío significa «sigue fuera de operación», no una fecha en blanco.
+        fecha_salida: valores.fecha_salida || null,
         costo_mano_obra: valores.costo_mano_obra || null,
         componentes: lineas
           .filter((linea) => linea.componente)
@@ -187,7 +226,7 @@ export function MantenimientoForm() {
             </div>
             <div className="col-md-3">
               <label className="form-label" htmlFor="fecha">
-                Fecha de intervención
+                Fecha de ingreso
               </label>
               <input
                 id="fecha"
@@ -204,6 +243,25 @@ export function MantenimientoForm() {
                   El equipo se adquirió el {activoSeleccionado.fecha_adquisicion}.
                 </div>
               )}
+            </div>
+            <div className="col-md-3">
+              <label className="form-label" htmlFor="fecha_salida">
+                Fecha de salida
+              </label>
+              <input
+                id="fecha_salida"
+                type="date"
+                className="form-control"
+                max={hoy()}
+                min={valores.fecha_intervencion || undefined}
+                value={valores.fecha_salida}
+                onChange={(event) => actualizar("fecha_salida", event.target.value)}
+              />
+              <div className="form-text">
+                {valores.fecha_salida
+                  ? `${diasFuera(valores)} día(s) fuera de operación.`
+                  : "Vacío mientras el equipo siga fuera de operación."}
+              </div>
             </div>
             <div className="col-md-4">
               <label className="form-label" htmlFor="tipo_responsable">
@@ -232,6 +290,58 @@ export function MantenimientoForm() {
                 onChange={(event) => actualizar("responsable", event.target.value)}
               />
             </div>
+            <div className="col-md-6">
+              <label className="form-label" htmlFor="causa">
+                Causa de la falla
+              </label>
+              <input
+                id="causa"
+                className="form-control"
+                list="causas-frecuentes"
+                maxLength={150}
+                placeholder="Pantalla dañada, batería, disco, lentitud…"
+                value={valores.causa}
+                onChange={(event) => actualizar("causa", event.target.value)}
+              />
+              {/* Sugerencias para que la misma falla no se escriba de tres
+                  formas distintas: es lo que permite ver causas recurrentes. */}
+              <datalist id="causas-frecuentes">
+                {CAUSAS_SUGERIDAS.map((causa) => (
+                  <option key={causa} value={causa} />
+                ))}
+              </datalist>
+            </div>
+            <div className="col-md-3">
+              <label className="form-label" htmlFor="estado_final">
+                Estado final
+              </label>
+              <select
+                id="estado_final"
+                className="form-select"
+                value={valores.estado_final}
+                onChange={(event) => actualizar("estado_final", event.target.value)}
+              >
+                {ESTADOS_FINALES.map((opcion) => (
+                  <option key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-3 d-flex align-items-end">
+              <div className="form-check mb-2">
+                <input
+                  id="garantia_usada"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={valores.garantia_usada}
+                  onChange={(event) => actualizar("garantia_usada", event.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="garantia_usada">
+                  Cubierto por garantía
+                </label>
+              </div>
+            </div>
             <div className="col-12">
               <label className="form-label" htmlFor="descripcion">
                 Trabajo realizado
@@ -255,6 +365,18 @@ export function MantenimientoForm() {
                 rows={2}
                 value={valores.diagnostico}
                 onChange={(event) => actualizar("diagnostico", event.target.value)}
+              />
+            </div>
+            <div className="col-12">
+              <label className="form-label" htmlFor="solucion">
+                Solución aplicada
+              </label>
+              <textarea
+                id="solucion"
+                className="form-control"
+                rows={2}
+                value={valores.solucion}
+                onChange={(event) => actualizar("solucion", event.target.value)}
               />
             </div>
             <div className="col-md-4">

@@ -11,6 +11,7 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
+import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
@@ -46,6 +47,7 @@ export function ActivosList() {
     custodio: searchParams.get("custodio") || "",
     estado: searchParams.get("estado") || "",
     requiere_renovacion: searchParams.get("requiere_renovacion") || "",
+    garantia: searchParams.get("garantia") || "",
   }));
 
   const cargar = useCallback((params) => activosService.list(params), []);
@@ -178,6 +180,18 @@ export function ActivosList() {
         </select>
         <select
           className="form-select form-select-sm w-auto"
+          aria-label="Filtrar por garantía"
+          value={listado.filtros.garantia}
+          onChange={(event) => listado.actualizarFiltros({ garantia: event.target.value })}
+        >
+          <option value="">Garantía: todas</option>
+          <option value="vigente">En garantía</option>
+          <option value="por_vencer">Por vencer</option>
+          <option value="vencida">Vencida</option>
+          <option value="sin_registrar">Sin registrar</option>
+        </select>
+        <select
+          className="form-select form-select-sm w-auto"
           aria-label="Filtrar por sugerencia de renovación"
           value={listado.filtros.requiere_renovacion}
           onChange={(event) => listado.actualizarFiltros({ requiere_renovacion: event.target.value })}
@@ -204,6 +218,7 @@ export function ActivosList() {
               <th>Custodio</th>
               <th>Área</th>
               <th>Estado</th>
+              <th>Garantía</th>
               <th className="text-end" title="Intervenciones acumuladas">
                 Mant.
               </th>
@@ -229,6 +244,9 @@ export function ActivosList() {
                 <td>
                   <EstadoActivo estado={activo.estado} etiqueta={activo.estado_display} />
                 </td>
+                <td>
+                  <EstadoGarantia estado={activo.estado_garantia} compacto />
+                </td>
                 <td className="text-end">{activo.total_mantenimientos}</td>
                 <td>
                   {activo.requiere_renovacion ? (
@@ -249,7 +267,7 @@ export function ActivosList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center text-muted">
+                <td colSpan={10} className="text-center text-muted">
                   Sin activos que coincidan con los filtros
                 </td>
               </tr>

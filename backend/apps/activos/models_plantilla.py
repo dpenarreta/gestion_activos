@@ -30,6 +30,8 @@ CAMPOS_DISPONIBLES = {
     "custodio": "Código del custodio",
     "ubicacion": "Ubicación",
     "costo_adquisicion": "Costo de compra",
+    "proveedor": "Proveedor",
+    "fecha_fin_garantia": "Fin de garantía",
     "especificaciones": "Especificaciones",
     "observaciones": "Observaciones",
 }

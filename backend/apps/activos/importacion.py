@@ -370,6 +370,21 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         datos["ubicacion"] = _texto(celda("ubicacion"))
         datos["observaciones"] = _texto(celda("observaciones"))
+        datos["proveedor"] = _texto(celda("proveedor"))
+
+        # La garantía es opcional: solo se valida el formato si viene algo. Un
+        # equipo sin fecha es «sin garantía registrada», no un error.
+        texto_garantia = _texto(celda("fecha_fin_garantia"))
+        fin_garantia = _parsear_fecha(celda("fecha_fin_garantia"))
+        if texto_garantia and fin_garantia is None:
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_fin_garantia", "Fin de garantía"),
+                    "No se entiende la fecha: use el formato AAAA-MM-DD.",
+                )
+            )
+        datos["fecha_fin_garantia"] = fin_garantia
         # La columna general de especificaciones y las columnas propias
         # (`espec:<Nombre>`) se combinan en el mismo diccionario: son dos
         # formas de llenar el mismo campo del activo.

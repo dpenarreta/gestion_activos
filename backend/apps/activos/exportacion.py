@@ -16,6 +16,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from .models import Activo
+
 RELLENO_CABECERA = PatternFill("solid", fgColor="D9E2F3")
 
 COLUMNAS_ACTIVOS = [
@@ -32,6 +34,9 @@ COLUMNAS_ACTIVOS = [
     ("Fecha de adquisición", 18),
     ("Antigüedad (meses)", 16),
     ("Costo de compra", 16),
+    ("Proveedor", 24),
+    ("Fin de garantía", 16),
+    ("Estado de garantía", 20),
     ("Mantenimientos", 14),
     ("Piezas críticas", 14),
     ("Requiere renovación", 18),
@@ -40,14 +45,20 @@ COLUMNAS_ACTIVOS = [
 ]
 
 COLUMNAS_MANTENIMIENTOS = [
-    ("Fecha", 12),
+    ("Ingreso", 12),
+    ("Salida", 12),
+    ("Días fuera", 12),
     ("Código del activo", 18),
     ("Activo", 28),
     ("Tipo", 14),
     ("Responsable", 24),
     ("A cargo de", 18),
+    ("Causa", 24),
     ("Trabajo realizado", 40),
     ("Diagnóstico", 30),
+    ("Solución", 30),
+    ("Estado final", 16),
+    ("Garantía usada", 14),
     ("Componentes", 34),
     ("Mano de obra", 14),
     ("Repuestos", 14),
@@ -98,6 +109,9 @@ def exportar_activos(queryset) -> bytes:
                 activo.fecha_adquisicion,
                 activo.antiguedad_meses,
                 activo.costo_adquisicion,
+                activo.proveedor,
+                activo.fecha_fin_garantia,
+                Activo.Garantia(activo.estado_garantia).label,
                 activo.total_mantenimientos,
                 activo.total_componentes_criticos,
                 "Sí" if activo.requiere_renovacion else "No",
@@ -129,13 +143,19 @@ def exportar_mantenimientos(queryset) -> bytes:
         hoja.append(
             [
                 mantenimiento.fecha_intervencion,
+                mantenimiento.fecha_salida,
+                mantenimiento.dias_fuera_de_operacion,
                 mantenimiento.activo.codigo_barras,
                 mantenimiento.activo.nombre,
                 mantenimiento.get_tipo_display(),
                 mantenimiento.responsable,
                 mantenimiento.get_tipo_responsable_display(),
+                mantenimiento.causa,
                 mantenimiento.descripcion,
                 mantenimiento.diagnostico,
+                mantenimiento.solucion,
+                mantenimiento.get_estado_final_display(),
+                "Sí" if mantenimiento.garantia_usada else "No",
                 "; ".join(
                     f"{c.componente.nombre} x{c.cantidad}" + (" (crítica)" if c.era_critico else "")
                     for c in componentes

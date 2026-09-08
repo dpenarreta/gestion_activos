@@ -258,3 +258,104 @@ def test_registrar_una_intervencion_queda_auditado(admin, activo, disco_critico)
     assert evento.module == "mantenimientos"
     assert evento.new_values["codigo_barras"] == activo.codigo_barras
     assert evento.new_values["total_mantenimientos"] == 1
+
+
+# --- Tiempo fuera de operación y cierre de la reparación --------------------
+
+
+def test_una_intervencion_sin_fecha_de_salida_sigue_fuera_de_operacion(admin, activo):
+    """`None`, no cero: el equipo sigue fuera y ese tiempo todavía no existe.
+    Devolver cero lo sumaría como si la reparación no hubiera costado días."""
+    mantenimiento = MantenimientoService.registrar(
+        actor=admin, activo=activo, **_datos_mantenimiento()
+    )
+
+    assert mantenimiento.dias_fuera_de_operacion is None
+    assert mantenimiento.sigue_fuera_de_operacion is True
+
+
+def test_al_cerrar_la_reparacion_se_calculan_los_dias_fuera_de_operacion(admin, activo):
+    mantenimiento = MantenimientoService.registrar(
+        actor=admin,
+        activo=activo,
+        **_datos_mantenimiento(
+            fecha_intervencion=datetime.date(2024, 6, 1),
+            fecha_salida=datetime.date(2024, 6, 4),
+        ),
+    )
+
+    assert mantenimiento.dias_fuera_de_operacion == 3
+    assert mantenimiento.sigue_fuera_de_operacion is False
+
+
+def test_ingresar_y_devolver_el_mismo_dia_cuenta_cero_dias(admin, activo):
+    mantenimiento = MantenimientoService.registrar(
+        actor=admin,
+        activo=activo,
+        **_datos_mantenimiento(
+            fecha_intervencion=datetime.date(2024, 6, 1),
+            fecha_salida=datetime.date(2024, 6, 1),
+        ),
+    )
+
+    assert mantenimiento.dias_fuera_de_operacion == 0
+
+
+def test_la_salida_no_puede_ser_anterior_al_ingreso(cliente, activo):
+    respuesta = cliente.post(
+        "/api/v1/mantenimientos/",
+        {
+            "activo": activo.id,
+            "tipo": Mantenimiento.Tipo.CORRECTIVO,
+            "fecha_intervencion": "2024-06-10",
+            "fecha_salida": "2024-06-01",
+            "tipo_responsable": Mantenimiento.TipoResponsable.TECNICO_INTERNO,
+            "responsable": "Luis Torres",
+            "descripcion": "Cambio de disco",
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "fecha_salida" in respuesta.json()["error"]["details"]
+
+
+def test_la_bitacora_guarda_causa_solucion_estado_final_y_garantia(cliente, activo):
+    """Los cuatro campos que el documento pide para poder analizar fallas
+    recurrentes y saber qué se cubrió con la garantía del proveedor."""
+    respuesta = cliente.post(
+        "/api/v1/mantenimientos/",
+        {
+            "activo": activo.id,
+            "tipo": Mantenimiento.Tipo.CORRECTIVO,
+            "fecha_intervencion": "2024-06-10",
+            "fecha_salida": "2024-06-12",
+            "tipo_responsable": Mantenimiento.TipoResponsable.PROVEEDOR_EXTERNO,
+            "responsable": "Tecnomega",
+            "causa": "Disco fallando",
+            "descripcion": "Cambio de disco",
+            "solucion": "Se reemplazó el SSD y se restauró la imagen",
+            "estado_final": Mantenimiento.EstadoFinal.REPARADO,
+            "garantia_usada": True,
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 201
+    guardado = Mantenimiento.objects.get(pk=respuesta.json()["id"])
+    assert guardado.causa == "Disco fallando"
+    assert guardado.solucion.startswith("Se reemplazó")
+    assert guardado.estado_final == Mantenimiento.EstadoFinal.REPARADO
+    assert guardado.garantia_usada is True
+    assert guardado.dias_fuera_de_operacion == 2
+
+
+def test_el_estado_final_por_defecto_no_deja_la_intervencion_sin_desenlace(admin, activo):
+    """Un histórico previo a estos campos no tiene desenlace capturado; el
+    valor por defecto evita nulos, y `pendiente` no sería honesto para una
+    intervención que ya se registró como hecha."""
+    mantenimiento = MantenimientoService.registrar(
+        actor=admin, activo=activo, **_datos_mantenimiento()
+    )
+
+    assert mantenimiento.estado_final == Mantenimiento.EstadoFinal.REPARADO

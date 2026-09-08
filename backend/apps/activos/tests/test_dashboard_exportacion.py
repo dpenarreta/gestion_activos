@@ -162,14 +162,59 @@ def test_el_dashboard_cuenta_los_activos_con_sugerencia_de_renovacion(cliente, a
     assert datos["activos"]["requieren_renovacion"] == 1
 
 
-def test_el_dashboard_declara_los_indicadores_que_no_puede_calcular(cliente, escenario):
-    """«Garantías vencidas» se declara ausente en vez de devolver un cero, que
-    se leería como «ninguna vencida»."""
+def test_el_dashboard_cubre_los_diez_indicadores_del_documento(cliente, escenario):
+    """Ya no queda ninguno sin calcular; la clave se conserva para poder
+    declarar los que aparezcan en el futuro."""
     datos = cliente.get("/api/v1/activos/dashboard/").json()
 
-    faltantes = {i["clave"] for i in datos["indicadores_no_disponibles"]}
-    assert "garantias_vencidas" in faltantes
-    assert "garantias_vencidas" not in datos["activos"]
+    assert datos["indicadores_no_disponibles"] == []
+    assert "garantias" in datos
+
+
+def test_el_dashboard_distingue_garantias_vencidas_de_no_registradas(cliente, escenario):
+    """No es lo mismo una cobertura expirada que una fecha nunca capturada:
+    mezclarlas haría que un inventario a medio llenar pareciera un parque
+    entero fuera de garantía."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    hoy = timezone.localdate()
+    vencido = escenario["crear"]("SN-GAR-1")
+    vencido.fecha_fin_garantia = hoy - timedelta(days=1)
+    vencido.save()
+
+    por_vencer = escenario["crear"]("SN-GAR-2")
+    por_vencer.fecha_fin_garantia = hoy + timedelta(days=10)
+    por_vencer.save()
+
+    vigente = escenario["crear"]("SN-GAR-3")
+    vigente.fecha_fin_garantia = hoy + timedelta(days=365)
+    vigente.save()
+
+    garantias = cliente.get("/api/v1/activos/dashboard/").json()["garantias"]
+
+    assert garantias["vencidas"] == 1
+    assert garantias["por_vencer"] == 1
+    assert garantias["vigentes"] == 1
+    # Dos del escenario base: el tercero está dado de baja, y el panel muestra
+    # el parque operativo (un equipo retirado no tiene garantía que gestionar).
+    assert garantias["sin_registrar"] == 2
+
+
+def test_el_dashboard_informa_el_tiempo_fuera_de_operacion(cliente, admin, escenario):
+    """Solo cuenta las intervenciones cerradas: mientras no haya fecha de
+    salida, el equipo sigue fuera y ese tiempo aún no está determinado."""
+    cerrada = _registrar_mantenimiento(admin, escenario["en_uso"], datetime.date(2024, 6, 1))
+    cerrada.fecha_salida = datetime.date(2024, 6, 4)
+    cerrada.save()
+    _registrar_mantenimiento(admin, escenario["en_bodega"], datetime.date(2024, 7, 1))
+
+    fuera = cliente.get("/api/v1/activos/dashboard/").json()["fuera_de_operacion"]
+
+    assert fuera["total_dias"] == 3
+    assert fuera["intervenciones_cerradas"] == 1
+    assert fuera["intervenciones_abiertas"] == 1
 
 
 def test_el_dashboard_agrupa_por_tipo_y_por_departamento(cliente, escenario):

@@ -38,7 +38,13 @@ export function DashboardPage() {
     return <p className="text-muted">Cargando…</p>;
   }
 
-  const { activos, mantenimientos, equipos_mas_reparados: ranking } = datos;
+  const {
+    activos,
+    mantenimientos,
+    garantias,
+    fuera_de_operacion: fueraDeOperacion,
+    equipos_mas_reparados: ranking,
+  } = datos;
 
   return (
     <div className="dashboard-page">
@@ -80,6 +86,20 @@ export function DashboardPage() {
           variante={activos.requieren_renovacion > 0 ? "alerta" : undefined}
         />
         <Indicador
+          valor={garantias.vencidas}
+          etiqueta="Garantías vencidas"
+          destino="/admin/activos?garantia=vencida"
+          icono="shield-x"
+          variante={garantias.vencidas > 0 ? "alerta" : undefined}
+        />
+        <Indicador
+          valor={garantias.por_vencer}
+          etiqueta={`Garantías por vencer (${garantias.dias_de_aviso} d)`}
+          destino="/admin/activos?garantia=por_vencer"
+          icono="shield-exclamation"
+          variante={garantias.por_vencer > 0 ? "alerta" : undefined}
+        />
+        <Indicador
           valor={activos.dados_de_baja}
           etiqueta="Dados de baja"
           destino="/admin/activos?estado=dado_de_baja"
@@ -87,6 +107,16 @@ export function DashboardPage() {
           variante="apagado"
         />
       </section>
+
+      {garantias.sin_registrar > 0 && (
+        <div className="alert alert-secondary py-2 small">
+          {/* Se distingue de «vencida» a propósito: mezclarlas haría que un
+              inventario a medio capturar pareciera un parque sin cobertura. */}
+          {garantias.sin_registrar} activo(s) no tienen fecha de garantía registrada, así que no
+          entran en los conteos de arriba.{" "}
+          <Link to="/admin/activos?garantia=sin_registrar">Completarlos</Link>.
+        </div>
+      )}
 
       <div className="row g-3">
         <div className="col-lg-7">
@@ -111,6 +141,14 @@ export function DashboardPage() {
                   etiqueta="Costo acumulado"
                 />
               </div>
+
+              <p className="text-muted small mb-3">
+                {fueraDeOperacion.total_dias} día(s) acumulados fuera de operación en{" "}
+                {fueraDeOperacion.intervenciones_cerradas} intervención(es) cerradas
+                {fueraDeOperacion.intervenciones_abiertas > 0 &&
+                  ` · ${fueraDeOperacion.intervenciones_abiertas} equipo(s) aún en reparación`}
+                .
+              </p>
 
               <GraficoMensual series={mantenimientos.por_mes} />
             </div>

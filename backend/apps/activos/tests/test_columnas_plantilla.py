@@ -81,7 +81,11 @@ def test_la_configuracion_arranca_con_las_columnas_del_sistema(cliente, db):
     claves = [c["clave"] for c in respuesta.json()]
     assert "tipo" in claves
     assert "costo_adquisicion" in claves
-    assert len(claves) == 12
+    # Las columnas de garantía se siembran desactivadas: se ofrecen, pero no
+    # engordan la plantilla de quien no lleva ese dato.
+    assert "fecha_fin_garantia" in claves
+    por_clave = {c["clave"]: c for c in respuesta.json()}
+    assert por_clave["fecha_fin_garantia"]["activa"] is False
 
 
 def test_las_columnas_estructurales_se_marcan_como_tales(cliente, db):

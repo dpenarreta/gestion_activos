@@ -70,7 +70,7 @@ Base: `/api/v1/activos/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `requiere_renovacion` |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
 | POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02) |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
@@ -88,6 +88,11 @@ Base: `/api/v1/activos/`
 | GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
 
 `DELETE` no existe en este recurso: un activo se da de baja, nunca se borra.
+
+La situación de garantía (`estado_garantia`, `dias_para_fin_de_garantia`) es de
+solo lectura: se deriva de `fecha_fin_garantia`, que es el único dato que se
+captura. El filtro `garantia` se traduce a rangos de fecha en SQL, no evalúa la
+propiedad en Python.
 
 ## Organización
 
@@ -115,6 +120,12 @@ Base: `/api/v1/mantenimientos/`
 
 Registrar o corregir una intervención recalcula, en la misma transacción, el
 contador de RF-05 y la sugerencia de RF-07 del activo.
+
+`fecha_intervencion` es el ingreso a reparación y `fecha_salida` la devolución;
+mientras `fecha_salida` sea `null` el equipo sigue fuera de operación y
+`dias_fuera_de_operacion` también es `null` (un `0` se sumaría como si la
+reparación no hubiera costado tiempo). La bitácora acepta además `causa`,
+`solucion`, `estado_final` y `garantia_usada`.
 
 ## Políticas de renovación (RF-06, RF-07)
 

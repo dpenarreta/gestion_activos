@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { activosService } from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
+import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { AsignarCustodioDialog } from "../../../components/activos/AsignarCustodioDialog/AsignarCustodioDialog";
 import { CambiarEstadoDialog } from "../../../components/activos/CambiarEstadoDialog/CambiarEstadoDialog";
 import { EtiquetaDialog } from "../../../components/activos/EtiquetaDialog/EtiquetaDialog";
@@ -116,6 +117,18 @@ export function ActivoDetalle() {
                 <Dato etiqueta="Adquirido" valor={formatearFecha(activo.fecha_adquisicion)} />
                 <Dato etiqueta="Antigüedad" valor={`${activo.antiguedad_meses} meses`} />
                 <Dato etiqueta="Costo de compra" valor={formatearMoneda(activo.costo_adquisicion)} />
+                <Dato etiqueta="Proveedor" valor={activo.proveedor} />
+                <Dato
+                  etiqueta="Garantía"
+                  valor={
+                    <EstadoGarantia
+                      estado={activo.estado_garantia}
+                      etiqueta={activo.estado_garantia_display}
+                      fecha={activo.fecha_fin_garantia}
+                      dias={activo.dias_para_fin_de_garantia}
+                    />
+                  }
+                />
                 {estaDadoDeBaja && (
                   <>
                     <Dato etiqueta="Fecha de baja" valor={formatearFecha(activo.fecha_baja)} />
@@ -166,6 +179,7 @@ export function ActivoDetalle() {
               <div className="row text-center g-2">
                 <Indicador valor={activo.total_mantenimientos} etiqueta="Mantenimientos" />
                 <Indicador valor={activo.total_componentes_criticos} etiqueta="Piezas críticas" />
+                <Indicador valor={activo.dias_en_reparacion} etiqueta="Días fuera de operación" />
                 <Indicador
                   valor={formatearMoneda(costos.costo_total)}
                   etiqueta="Invertido"
@@ -261,7 +275,8 @@ function TablaMantenimientos({ mantenimientos }) {
       <table className="table table-sm table-striped align-middle">
         <thead>
           <tr>
-            <th>Fecha</th>
+            <th>Ingreso</th>
+            <th>Días fuera</th>
             <th>Tipo</th>
             <th>Responsable</th>
             <th>Trabajo</th>
@@ -273,6 +288,13 @@ function TablaMantenimientos({ mantenimientos }) {
           {mantenimientos.map((mantenimiento) => (
             <tr key={mantenimiento.id}>
               <td>{formatearFecha(mantenimiento.fecha_intervencion)}</td>
+              <td>
+                {mantenimiento.sigue_fuera_de_operacion ? (
+                  <span className="badge text-bg-warning">En reparación</span>
+                ) : (
+                  `${mantenimiento.dias_fuera_de_operacion} d`
+                )}
+              </td>
               <td>
                 <span
                   className={`badge ${
@@ -287,7 +309,15 @@ function TablaMantenimientos({ mantenimientos }) {
                 <br />
                 <small className="text-muted">{mantenimiento.tipo_responsable_display}</small>
               </td>
-              <td>{mantenimiento.descripcion}</td>
+              <td>
+                {mantenimiento.causa && (
+                  <div className="small text-muted">Causa: {mantenimiento.causa}</div>
+                )}
+                {mantenimiento.descripcion}
+                {mantenimiento.garantia_usada && (
+                  <span className="badge text-bg-success ms-1">garantía</span>
+                )}
+              </td>
               <td>
                 {mantenimiento.componentes.length === 0 ? (
                   <span className="text-muted">—</span>

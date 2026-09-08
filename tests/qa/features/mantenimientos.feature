@@ -58,3 +58,35 @@ Feature: Bitácora de mantenimientos y contador de intervenciones (RF-04, RF-05)
     Given que el activo tiene mantenimientos con costos de mano de obra y repuestos
     When se consulta el resumen de costos del activo
     Then se obtiene el desglose de mano de obra, repuestos y total acumulado
+
+  @AC-MNT-010
+  Scenario: Una reparación sin cerrar no reporta días fuera de operación
+    Given que el equipo ingresó a reparación y aún no se ha devuelto
+    When se consulta el tiempo que estuvo fuera de operación
+    Then el sistema informa que sigue fuera, sin dar un número de días
+    # Un cero se sumaría como si la reparación no hubiera costado tiempo.
+
+  @AC-MNT-011
+  Scenario: Al cerrar la reparación se calculan los días fuera de operación
+    Given que el equipo ingresó a reparación
+    When se registra su fecha de salida tres días después
+    Then el sistema informa tres días fuera de operación
+    And el equipo deja de contarse entre los que siguen en reparación
+
+  @AC-MNT-012
+  Scenario: La salida no puede ser anterior al ingreso
+    When se intenta cerrar una reparación con fecha de salida previa al ingreso
+    Then la solicitud es rechazada
+
+  @AC-MNT-013
+  Scenario: La bitácora registra causa, solución y desenlace
+    When se registra una intervención con causa, solución y estado final
+    Then los tres datos quedan almacenados junto al trabajo realizado
+    And se puede indicar si la intervención se cubrió con la garantía del proveedor
+
+  @AC-MNT-014
+  Scenario: El panel acumula el tiempo fuera de operación del parque
+    Given intervenciones cerradas y otras aún abiertas
+    When se abre el panel principal
+    Then se informan los días acumulados solo de las cerradas
+    And se indica cuántos equipos siguen en reparación

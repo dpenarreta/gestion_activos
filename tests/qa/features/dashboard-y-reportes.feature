@@ -32,7 +32,8 @@ Feature: Panel principal y exportación (§15 y §16 del documento funcional)
   Scenario: Los indicadores que no se pueden calcular se declaran
     When se abre el panel principal
     Then los indicadores del documento que aún no son posibles se indican con su motivo
-    # Devolver un cero en «garantías vencidas» se leería como «ninguna vencida».
+    # Hoy la lista está vacía: los diez indicadores del §15 se calculan. La
+    # clave se conserva para poder declarar los que aparezcan más adelante.
 
   @AC-EXP-001
   Scenario: El inventario se exporta a Excel
