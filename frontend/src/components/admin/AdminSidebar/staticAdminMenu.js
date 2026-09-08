@@ -38,6 +38,46 @@ export const ADMIN_MENU = [
     ],
   },
   {
+    id: "mantenimientos",
+    name: "Mantenimientos",
+    icon: "tools",
+    permission: "mantenimientos.ver",
+    children: [
+      {
+        id: "mantenimientos-bitacora",
+        name: "Bitácora",
+        icon: "journal-text",
+        path: "/admin/mantenimientos",
+      },
+      {
+        id: "mantenimientos-componentes",
+        name: "Componentes",
+        icon: "cpu",
+        path: "/admin/mantenimientos/componentes",
+      },
+    ],
+  },
+  {
+    id: "renovacion",
+    name: "Renovación",
+    icon: "arrow-repeat",
+    permission: "politicas.ver",
+    children: [
+      {
+        id: "renovacion-sugerencias",
+        name: "Sugerencias",
+        icon: "exclamation-triangle",
+        path: "/admin/renovacion/sugerencias",
+      },
+      {
+        id: "renovacion-politicas",
+        name: "Políticas",
+        icon: "sliders",
+        path: "/admin/politicas",
+      },
+    ],
+  },
+  {
     id: "organizacion",
     name: "Organización",
     icon: "diagram-3",

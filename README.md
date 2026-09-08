@@ -15,13 +15,12 @@ Los controles de seguridad descritos en `docs/security-review.md` son el
 Backend Django (patrón Modelo-Vista-Template) + API REST, frontend React, y
 SQL Server como base de datos.
 
-**Estado actual:** infraestructura transversal y **backend completo de los
-ocho requerimientos funcionales** (RF-01 a RF-08): inventario de activos con
-código de barras automático, consulta por escáner, bitácora de
-mantenimientos, motor de sugerencia de renovación e impresión de etiquetas
-térmicas. La interfaz de estos módulos en el frontend está pendiente; el
-panel administrativo heredado (usuarios, roles, permisos, configuración) sí
-funciona.
+**Estado actual:** los ocho requerimientos funcionales (RF-01 a RF-08) están
+implementados de extremo a extremo — backend e interfaz. El panel
+administrativo cubre inventario, escáner, tipos de dispositivo,
+departamentos, empleados, bitácora de mantenimientos, catálogo de
+componentes, políticas de renovación y panel de sugerencias, además de los
+módulos transversales heredados (usuarios, roles, permisos, configuración).
 
 ## 2. Tecnologías principales
 
@@ -185,6 +184,20 @@ relaciones entre usuarios, roles y permisos.
 - **Etiquetas térmicas** (`apps.activos.etiquetas`) — RF-08: generación de
   trabajos de impresión ZPL (Zebra) y TSPL (TSC/Godex).
 
+### Pantallas del panel administrativo
+
+| Ruta | Qué hace |
+| --- | --- |
+| `/admin/activos` | Inventario con filtros por tipo, área, estado y sugerencia de renovación |
+| `/admin/activos/:id` | Ficha completa: datos, custodia, indicadores, bitácora, historial de movimientos, etiqueta |
+| `/admin/activos/escaner` | Consulta de campo por lectora de código de barras (RF-03) |
+| `/admin/activos/tipos` | Catálogo de tipos de dispositivo |
+| `/admin/mantenimientos` | Bitácora con filtros por tipo y rango de fechas |
+| `/admin/mantenimientos/componentes` | Catálogo de repuestos, con la marca de pieza crítica |
+| `/admin/renovacion/sugerencias` | Equipos que exceden sus umbrales, con las cifras de respaldo (RF-07) |
+| `/admin/politicas` | Configuración de umbrales por tipo de dispositivo (RF-06) |
+| `/admin/organizacion/departamentos` · `/empleados` | Catálogos organizacionales |
+
 ## 10. APIs, rutas o interfaces internas
 
 Ver `docs/api-reference.md` para el listado completo de endpoints,
@@ -210,7 +223,8 @@ el frontend React.
 - Backend: 144 pruebas `pytest` (ver `backend/apps/*/tests/`).
 - Integración: 18 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
-- Frontend: 10 pruebas `Vitest` (ver `frontend/tests/`).
+- Frontend: 10 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
+  dominio se verificaron manualmente en navegador contra la API real.
 - Todos los criterios de aceptación están documentados como escenarios
   Gherkin en `tests/qa/features/`, con trazabilidad completa en
   `tests/qa/acceptance-criteria-traceability.md` y resultados reales de

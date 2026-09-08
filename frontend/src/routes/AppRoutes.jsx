@@ -16,6 +16,11 @@ import { ActivosList } from "../pages/Admin/Activos/ActivosList";
 import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
+import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
+import { MantenimientoForm } from "../pages/Admin/Mantenimientos/MantenimientoForm";
+import { MantenimientosList } from "../pages/Admin/Mantenimientos/MantenimientosList";
+import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
+import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
@@ -33,6 +38,8 @@ const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
 const ORGANIZACION_VER = "organizacion.ver";
 const ACTIVOS_VER = "activos.ver";
+const MANTENIMIENTOS_VER = "mantenimientos.ver";
+const POLITICAS_VER = "politicas.ver";
 const CHANGE_PASSWORD_REQUIRED_PATH = "/change-password-required";
 
 export function AppRoutes() {
@@ -156,6 +163,55 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ACTIVOS_VER}>
               <ActivoForm />
+            </RequirePermission>
+          }
+        />
+        {/* Igual que en activos: las rutas fijas preceden a ":id". */}
+        <Route
+          path="mantenimientos"
+          element={
+            <RequirePermission permission={MANTENIMIENTOS_VER}>
+              <MantenimientosList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="mantenimientos/componentes"
+          element={
+            <RequirePermission permission={MANTENIMIENTOS_VER}>
+              <ComponentesList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="mantenimientos/new"
+          element={
+            <RequirePermission permission={MANTENIMIENTOS_VER}>
+              <MantenimientoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="mantenimientos/:id"
+          element={
+            <RequirePermission permission={MANTENIMIENTOS_VER}>
+              <MantenimientoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="politicas"
+          element={
+            <RequirePermission permission={POLITICAS_VER}>
+              <PoliticasList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="renovacion/sugerencias"
+          element={
+            <RequirePermission permission={POLITICAS_VER}>
+              <SugerenciasPage />
             </RequirePermission>
           }
         />

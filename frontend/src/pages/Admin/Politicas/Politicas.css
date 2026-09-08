@@ -1,0 +1,47 @@
+/* Políticas de renovación y panel de sugerencias (RF-06, RF-07). */
+
+.politicas-page h2 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+.sugerencias-grid {
+  display: grid;
+  /* Tarjetas y no una tabla: cada equipo trae de uno a tres motivos con sus
+     cifras, y en una fila de tabla eso obliga a apilar texto dentro de una
+     celda o a repetir el activo en varias filas. */
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.sugerencia-card {
+  background: var(--surface);
+  border-color: var(--state-warning);
+  border-left-width: 3px;
+}
+
+.sugerencia-motivo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
+}
+
+.sugerencia-motivo:last-child {
+  border-bottom: none;
+}
+
+.sugerencia-motivo__criterio {
+  color: var(--text-muted);
+}
+
+.sugerencia-motivo__cifra {
+  font-weight: 600;
+  /* Cifras de igual ancho: se comparan en vertical entre motivos y entre
+     tarjetas. */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
