@@ -2,6 +2,7 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -12,9 +13,14 @@ from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
 
 from . import etiquetas as etiquetas_mod
-from . import etiquetas_pdf
+from . import etiquetas_pdf, importacion, plantilla_importacion
 from .models import Activo, TipoDispositivo
-from .permissions import ActivosPermission, EtiquetasPermission, TiposDispositivoPermission
+from .permissions import (
+    ActivosPermission,
+    EtiquetasPermission,
+    ImportacionPermission,
+    TiposDispositivoPermission,
+)
 from .serializers import (
     ActivoDetailSerializer,
     ActivoListSerializer,
@@ -33,6 +39,11 @@ MAX_ETIQUETAS_POR_LOTE = 200
 # etiqueta antes de imprimirla. ZPL y TSPL siguen disponibles para enviar el
 # trabajo directamente a una impresora térmica (RF-08).
 FORMATO_POR_DEFECTO = "pdf"
+
+# Un .xlsx de 1000 filas con estas columnas ronda los 100 KB; 5 MB deja
+# margen de sobra para hojas con formato y descarta de entrada un archivo que
+# no es lo que dice ser.
+MAX_TAMANO_IMPORTACION = 5 * 1024 * 1024
 FORMATOS_SOPORTADOS = {"pdf", *etiquetas_mod.CONSTRUCTORES}
 
 
@@ -216,6 +227,113 @@ class ActivoViewSet(viewsets.ModelViewSet):
             **serializer.validated_data,
         )
         return Response(ActivoDetailSerializer(activo).data)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="plantilla-importacion",
+        permission_classes=[IsAuthenticated, ImportacionPermission],
+    )
+    def plantilla_importacion(self, request):
+        """Plantilla .xlsx para la carga masiva, con los catálogos vigentes."""
+        contenido = plantilla_importacion.construir_plantilla()
+        respuesta = HttpResponse(
+            contenido,
+            content_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        )
+        respuesta["Content-Disposition"] = 'attachment; filename="plantilla-carga-activos.xlsx"'
+        return respuesta
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="importar",
+        parser_classes=[MultiPartParser],
+        permission_classes=[IsAuthenticated, ImportacionPermission],
+    )
+    def importar(self, request):
+        """Valida un archivo de carga masiva y, si se confirma, lo importa.
+
+        Sin `confirmar=true` solo devuelve el reporte: es la pasada de
+        validación que permite corregir el archivo antes de tocar el
+        inventario. El archivo se envía de nuevo al confirmar, en vez de
+        guardarlo en el servidor entre ambos pasos — almacenar cargas a medio
+        procesar obligaría a limpiarlas y a decidir qué pasa si el catálogo
+        cambia entre una pasada y la otra.
+        """
+        archivo = request.FILES.get("archivo")
+        if archivo is None:
+            return Response(
+                {"error": {"code": "archivo_requerido", "message": "Adjunte el archivo .xlsx."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not archivo.name.lower().endswith(".xlsx"):
+            return Response(
+                {
+                    "error": {
+                        "code": "formato_invalido",
+                        "message": (
+                            "El archivo debe ser .xlsx. Si lo tiene en .xls o .csv, "
+                            "guárdelo como libro de Excel antes de subirlo."
+                        ),
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if archivo.size > MAX_TAMANO_IMPORTACION:
+            return Response(
+                {
+                    "error": {
+                        "code": "archivo_muy_grande",
+                        "message": (
+                            f"El archivo pesa {archivo.size // 1024} KB y el máximo es "
+                            f"{MAX_TAMANO_IMPORTACION // 1024} KB."
+                        ),
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            resultado = importacion.validar_archivo(archivo)
+        except Exception:  # noqa: BLE001
+            # openpyxl lanza distintas excepciones según cómo esté corrupto el
+            # archivo; ninguna es útil para el usuario y algunas exponen rutas
+            # internas, así que se responde un mensaje propio.
+            return Response(
+                {
+                    "error": {
+                        "code": "archivo_ilegible",
+                        "message": (
+                            "No se pudo leer el archivo. Verifique que sea un .xlsx válido "
+                            "y que no esté protegido con contraseña."
+                        ),
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reporte = resultado.as_dict()
+        confirmar = request.data.get("confirmar") in ("true", "True", True, "1")
+
+        if not confirmar:
+            reporte["importado"] = False
+            return Response(reporte)
+
+        if not resultado.es_importable:
+            reporte["importado"] = False
+            return Response(reporte, status=status.HTTP_400_BAD_REQUEST)
+
+        creados = importacion.importar(
+            resultado.filas_validas,
+            actor=request.user,
+            context=get_request_context(request),
+        )
+        reporte["importado"] = True
+        reporte["creados"] = [
+            {"id": a.id, "codigo_barras": a.codigo_barras, "nombre": a.nombre} for a in creados
+        ]
+        return Response(reporte, status=status.HTTP_201_CREATED)
 
     @action(
         detail=True,

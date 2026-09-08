@@ -33,6 +33,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ACT-009 | La edición no cambia al custodio | inventario-activos.feature | La edición de la ficha no puede cambiar al responsable | Sí (pytest) |
 | AC-ACT-010 | Empleado con activos no se desactiva | inventario-activos.feature | No se puede desactivar a un empleado que aún custodia equipos | Sí (pytest) |
 
+## Carga masiva de activos
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-IMP-001 | Plantilla descargable | carga-masiva-activos.feature | El sistema entrega una plantilla lista para llenar | Sí (pytest) |
+| AC-IMP-002 | Hoja de captura sin filas que borrar | carga-masiva-activos.feature | La hoja de captura no exige borrar nada antes de usarla | Sí (pytest) |
+| AC-IMP-003 | La plantilla se carga sin ajustes | carga-masiva-activos.feature | La plantilla descargada se puede llenar y cargar sin ajustes | Sí (pytest) |
+| AC-IMP-004 | Validación previa sin escribir | carga-masiva-activos.feature | Subir el archivo no guarda nada todavía | Sí (pytest) |
+| AC-IMP-005 | Errores con fila y columna | carga-masiva-activos.feature | Los errores se informan con su fila y su columna | Sí (pytest) |
+| AC-IMP-006 | Importación todo o nada | carga-masiva-activos.feature | Un archivo con errores no importa ninguna fila | Sí (pytest) |
+| AC-IMP-007 | Series duplicadas detectadas | carga-masiva-activos.feature | Un número de serie repetido se detecta antes de importar | Sí (pytest) |
+| AC-IMP-008 | Código de barras y movimiento de alta | carga-masiva-activos.feature | Los activos importados reciben su código de barras | Sí (pytest) |
+| AC-IMP-009 | Importación auditada | carga-masiva-activos.feature | La carga masiva queda auditada | Sí (pytest) |
+| AC-IMP-010 | Permiso de creación exigido | carga-masiva-activos.feature | Cargar masivamente exige el permiso de registrar activos | Sí (pytest) |
+
 ## Captura por escáner (RF-03)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

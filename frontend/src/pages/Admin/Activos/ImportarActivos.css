@@ -1,0 +1,88 @@
+/* Carga masiva de activos: pasos guiados y reporte de validación. */
+
+.importar-activos-page {
+  max-width: 68rem;
+}
+
+.importar-activos-page h2 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+/* Los pasos se numeran a la izquierda en vez de usar la numeración nativa de
+   <ol>: hace falta controlar el tamaño y la alineación del número respecto a
+   un bloque de contenido que tiene título, texto y controles. */
+.pasos-carga {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.paso {
+  display: flex;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1rem;
+}
+
+.paso__numero {
+  flex: 0 0 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.paso__contenido {
+  flex: 1;
+  min-width: 0;
+}
+
+.paso__contenido input[type="file"] {
+  max-width: 28rem;
+}
+
+.resumen-caja {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 0.5rem 1rem;
+  min-width: 9rem;
+  text-align: center;
+}
+
+.resumen-caja--ok {
+  border-color: var(--state-success);
+}
+
+.resumen-caja--error {
+  border-color: var(--state-danger);
+}
+
+.resumen-valor {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen-etiqueta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Un botón deshabilitado no debe insinuar que se puede pulsar: Bootstrap le
+   baja la opacidad pero conserva el cursor de mano. */
+.importar-activos-page .btn:disabled {
+  cursor: not-allowed;
+}

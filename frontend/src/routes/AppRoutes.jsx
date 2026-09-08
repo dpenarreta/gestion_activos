@@ -14,6 +14,7 @@ import { ActivoDetalle } from "../pages/Admin/Activos/ActivoDetalle";
 import { ActivoForm } from "../pages/Admin/Activos/ActivoForm";
 import { ActivosList } from "../pages/Admin/Activos/ActivosList";
 import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
+import { ImportarActivosPage } from "../pages/Admin/Activos/ImportarActivosPage";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
 import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
@@ -147,6 +148,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ACTIVOS_VER}>
               <TiposDispositivoList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/importar"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ImportarActivosPage />
             </RequirePermission>
           }
         />

@@ -24,6 +24,12 @@ export const ADMIN_MENU = [
         path: "/admin/activos",
       },
       {
+        id: "activos-importar",
+        name: "Carga masiva",
+        icon: "file-earmark-excel",
+        path: "/admin/activos/importar",
+      },
+      {
         id: "activos-escaner",
         name: "Escáner",
         icon: "upc-scan",

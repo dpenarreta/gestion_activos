@@ -69,6 +69,12 @@ export function ActivosList() {
             Escanear
           </Link>
           {puedeCrear && (
+            <Link to="/admin/activos/importar" className="btn btn-outline-primary btn-sm">
+              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+              Carga masiva
+            </Link>
+          )}
+          {puedeCrear && (
             <Link to="/admin/activos/new" className="btn btn-primary btn-sm">
               Nuevo activo
             </Link>

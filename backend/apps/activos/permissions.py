@@ -35,3 +35,13 @@ class EtiquetasPermission(HasActionPermission):
 
     def get_required_permission(self, request, view) -> str:
         return "activos.imprimir_etiqueta"
+
+
+class ImportacionPermission(HasActionPermission):
+    """La carga masiva exige el mismo permiso que registrar un activo: es la
+    misma acción a otra escala, y separarla llevaría a que alguien con
+    `activos.crear` tuviera que pedir un permiso extra para hacer con 200
+    equipos lo que ya puede hacer 200 veces de a uno."""
+
+    def get_required_permission(self, request, view) -> str:
+        return "activos.crear"

@@ -81,6 +81,36 @@ export const activosService = {
   },
 };
 
+export const importacionActivosService = {
+  /** Plantilla .xlsx con los catálogos vigentes y las instrucciones. */
+  descargarPlantilla() {
+    return apiClient
+      .get(`${ACTIVOS}plantilla-importacion/`, { responseType: "blob" })
+      .then((res) => res.data);
+  },
+
+  /**
+   * Sube el archivo para validarlo o para importarlo.
+   *
+   * El mismo archivo se envía en las dos pasadas: el servidor no guarda cargas
+   * a medio procesar entre la validación y la confirmación, lo que evitaría
+   * tener que limpiarlas y decidir qué pasa si el catálogo cambia entre una y
+   * otra.
+   */
+  enviar(archivo, { confirmar = false } = {}) {
+    const datos = new FormData();
+    datos.append("archivo", archivo);
+    datos.append("confirmar", confirmar ? "true" : "false");
+    return apiClient
+      .post(`${ACTIVOS}importar/`, datos, {
+        // Se deja que el navegador ponga el Content-Type: necesita añadir el
+        // "boundary" del multipart, que no se puede escribir a mano.
+        headers: { "Content-Type": undefined },
+      })
+      .then((res) => res.data);
+  },
+};
+
 export const tiposDispositivoService = {
   list(params = {}) {
     return apiClient.get(TIPOS, { params }).then((res) => res.data);
