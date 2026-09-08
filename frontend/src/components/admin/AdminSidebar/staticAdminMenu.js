@@ -98,25 +98,29 @@ export const ADMIN_MENU = [
     ],
   },
   {
-    id: "usuarios",
-    name: "Usuarios",
+    // Usuarios y roles son un mismo asunto —quién entra y qué puede hacer—,
+    // y se consultan juntos: al revisar por qué alguien no ve una pantalla,
+    // se salta de su ficha al rol y viceversa. El catálogo de permisos no es
+    // una entrada propia: vive como pestaña dentro de Roles, que es donde
+    // efectivamente se asignan (ver pages/Admin/Roles/RolesPage.jsx).
+    id: "accesos",
+    name: "Usuarios y roles",
     icon: "people",
-    path: "/admin/users",
     permission: "usuarios.ver",
-  },
-  {
-    id: "roles",
-    name: "Roles",
-    icon: "shield-lock",
-    path: "/admin/roles",
-    permission: "roles.ver",
-  },
-  {
-    id: "permisos",
-    name: "Permisos",
-    icon: "key",
-    path: "/admin/permissions",
-    permission: "permisos.ver",
+    children: [
+      {
+        id: "accesos-usuarios",
+        name: "Usuarios",
+        icon: "person",
+        path: "/admin/users",
+      },
+      {
+        id: "accesos-roles",
+        name: "Roles y permisos",
+        icon: "shield-lock",
+        path: "/admin/roles",
+      },
+    ],
   },
   {
     id: "configuracion",

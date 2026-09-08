@@ -197,6 +197,8 @@ relaciones entre usuarios, roles y permisos.
 | `/admin/renovacion/sugerencias` | Equipos que exceden sus umbrales, con las cifras de respaldo (RF-07) |
 | `/admin/politicas` | Configuración de umbrales por tipo de dispositivo (RF-06) |
 | `/admin/organizacion/departamentos` · `/empleados` | Catálogos organizacionales |
+| `/admin/users` | Cuentas de usuario del sistema |
+| `/admin/roles` · `/admin/roles/permisos` | Roles y, como pestaña, el catálogo de permisos |
 
 ## 10. APIs, rutas o interfaces internas
 

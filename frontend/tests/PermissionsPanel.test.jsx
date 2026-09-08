@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PermissionsPage } from "../src/pages/Admin/Permissions/PermissionsPage";
+import { PermissionsPanel } from "../src/pages/Admin/Permissions/PermissionsPanel";
 
 const CATALOG = {
   usuarios: {
@@ -16,20 +16,21 @@ vi.mock("../src/api/permissionsService", () => ({
   permissionsService: { catalog: vi.fn(() => Promise.resolve(CATALOG)) },
 }));
 
-describe("PermissionsPage", () => {
+describe("PermissionsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("muestra el catálogo de permisos agrupado por módulo, de solo lectura", async () => {
+  it("muestra el catálogo agrupado por módulo, de solo lectura", async () => {
     render(
       <MemoryRouter>
-        <PermissionsPage />
+        <PermissionsPanel />
       </MemoryRouter>
     );
 
     expect(await screen.findByText("Ver usuarios")).toBeInTheDocument();
     expect(screen.getByText("usuarios.ver")).toBeInTheDocument();
+    // El catálogo se consulta, no se edita: no debe haber casillas aquí.
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 });

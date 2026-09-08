@@ -25,10 +25,9 @@ import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
 import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
-import { PermissionsPage } from "../pages/Admin/Permissions/PermissionsPage";
 import { Register } from "../pages/Register/Register";
 import { RoleForm } from "../pages/Admin/Roles/RoleForm";
-import { RolesList } from "../pages/Admin/Roles/RolesList";
+import { RolesPage } from "../pages/Admin/Roles/RolesPage";
 import { UserForm } from "../pages/Admin/Users/UserForm";
 import { UsersList } from "../pages/Admin/Users/UsersList";
 
@@ -95,7 +94,16 @@ export function AppRoutes() {
           path="roles"
           element={
             <RequirePermission permission={ROLES_VER}>
-              <RolesList />
+              <RolesPage seccion="roles" />
+            </RequirePermission>
+          }
+        />
+        {/* Antes que "roles/:id", o esa ruta capturaría "permisos" como id. */}
+        <Route
+          path="roles/permisos"
+          element={
+            <RequirePermission permission={PERMISOS_VER}>
+              <RolesPage seccion="permisos" />
             </RequirePermission>
           }
         />
@@ -263,14 +271,10 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
-        <Route
-          path="permissions"
-          element={
-            <RequirePermission permission={PERMISOS_VER}>
-              <PermissionsPage />
-            </RequirePermission>
-          }
-        />
+        {/* La sección de permisos dejó de ser independiente: ahora es una
+            pestaña dentro de Roles. Se conserva la ruta anterior redirigiendo,
+            para no romper enlaces guardados o marcados por los usuarios. */}
+        <Route path="permissions" element={<Navigate to="/admin/roles/permisos" replace />} />
         <Route path="configuracion" element={<Navigate to="/admin/configuracion/identidad" replace />} />
         <Route
           path="configuracion/identidad"
