@@ -1,0 +1,374 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+
+import { activosService } from "../../../api/activosService";
+import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
+import { AsignarCustodioDialog } from "../../../components/activos/AsignarCustodioDialog/AsignarCustodioDialog";
+import { CambiarEstadoDialog } from "../../../components/activos/CambiarEstadoDialog/CambiarEstadoDialog";
+import { EtiquetaDialog } from "../../../components/activos/EtiquetaDialog/EtiquetaDialog";
+import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
+import { usePermission } from "../../../hooks/usePermission";
+import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import "./Activos.css";
+
+export function ActivoDetalle() {
+  const { id } = useParams();
+  const puedeAsignar = usePermission("activos.asignar");
+  const puedeDarBaja = usePermission("activos.dar_baja");
+  const puedeEditar = usePermission("activos.editar");
+  const puedeImprimir = usePermission("activos.imprimir_etiqueta");
+  const puedeVerMantenimientos = usePermission("mantenimientos.ver");
+  const puedeRegistrarMantenimiento = usePermission("mantenimientos.registrar");
+
+  const [ficha, setFicha] = useState(null);
+  const [error, setError] = useState(null);
+  const [dialogoAbierto, setDialogoAbierto] = useState(null);
+
+  const cargar = useCallback(() => {
+    activosService
+      .historial(id)
+      .then(setFicha)
+      .catch(() => setError("No se pudo cargar la ficha del activo."));
+  }, [id]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  if (error) {
+    return <div className="alert alert-danger">{error}</div>;
+  }
+  if (!ficha) {
+    return null;
+  }
+
+  const { activo, movimientos, mantenimientos, costos } = ficha;
+  const estaDadoDeBaja = activo.estado === "dado_de_baja";
+
+  return (
+    <div className="activos-page activo-detalle">
+      <Breadcrumbs
+        items={[
+          { label: "Administración" },
+          { label: "Activos", path: "/admin/activos" },
+          { label: activo.codigo_barras },
+        ]}
+      />
+
+      <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+          <h2 className="mb-1">{activo.nombre}</h2>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <code className="codigo-barras fs-6">{activo.codigo_barras}</code>
+            <EstadoActivo estado={activo.estado} etiqueta={activo.estado_display} />
+          </div>
+        </div>
+        <div className="d-flex gap-2 flex-wrap">
+          {puedeImprimir && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setDialogoAbierto("etiqueta")}
+            >
+              <i className="bi bi-printer me-1" aria-hidden="true" />
+              Etiqueta
+            </button>
+          )}
+          {puedeAsignar && !estaDadoDeBaja && (
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setDialogoAbierto("asignar")}
+            >
+              Asignar / trasladar
+            </button>
+          )}
+          {puedeDarBaja && (
+            <button
+              type="button"
+              className="btn btn-outline-warning btn-sm"
+              onClick={() => setDialogoAbierto("estado")}
+            >
+              Cambiar estado
+            </button>
+          )}
+          {puedeEditar && !estaDadoDeBaja && (
+            <Link to={`/admin/activos/${activo.id}/editar`} className="btn btn-outline-secondary btn-sm">
+              Editar ficha
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <AlertaRenovacion renovacion={activo.renovacion} />
+
+      <div className="row g-3">
+        <div className="col-lg-7">
+          <section className="card activo-card">
+            <div className="card-body">
+              <h3 className="h6 text-uppercase text-muted mb-3">Ficha técnica</h3>
+              <dl className="row mb-0">
+                <Dato etiqueta="Tipo" valor={activo.tipo_nombre} />
+                <Dato etiqueta="Marca" valor={activo.marca} />
+                <Dato etiqueta="Modelo" valor={activo.modelo} />
+                <Dato etiqueta="Número de serie" valor={<code>{activo.numero_serie}</code>} />
+                <Dato etiqueta="Adquirido" valor={formatearFecha(activo.fecha_adquisicion)} />
+                <Dato etiqueta="Antigüedad" valor={`${activo.antiguedad_meses} meses`} />
+                <Dato etiqueta="Costo de compra" valor={formatearMoneda(activo.costo_adquisicion)} />
+                {estaDadoDeBaja && (
+                  <>
+                    <Dato etiqueta="Fecha de baja" valor={formatearFecha(activo.fecha_baja)} />
+                    <Dato etiqueta="Motivo de baja" valor={activo.motivo_baja} />
+                  </>
+                )}
+              </dl>
+
+              {Object.keys(activo.especificaciones || {}).length > 0 && (
+                <>
+                  <h3 className="h6 text-uppercase text-muted mt-4 mb-3">Especificaciones</h3>
+                  <dl className="row mb-0">
+                    {Object.entries(activo.especificaciones).map(([clave, valor]) => (
+                      <Dato key={clave} etiqueta={clave} valor={String(valor)} />
+                    ))}
+                  </dl>
+                </>
+              )}
+
+              {activo.observaciones && (
+                <>
+                  <h3 className="h6 text-uppercase text-muted mt-4 mb-2">Observaciones</h3>
+                  <p className="mb-0">{activo.observaciones}</p>
+                </>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="col-lg-5">
+          <section className="card activo-card mb-3">
+            <div className="card-body">
+              <h3 className="h6 text-uppercase text-muted mb-3">Custodia</h3>
+              <dl className="row mb-0">
+                <Dato
+                  etiqueta="Responsable"
+                  valor={activo.custodio_nombre || <span className="text-muted">Sin asignar</span>}
+                />
+                <Dato etiqueta="Departamento" valor={activo.departamento_nombre} />
+                <Dato etiqueta="Ubicación" valor={activo.ubicacion || "—"} />
+              </dl>
+            </div>
+          </section>
+
+          <section className="card activo-card">
+            <div className="card-body">
+              <h3 className="h6 text-uppercase text-muted mb-3">Indicadores</h3>
+              <div className="row text-center g-2">
+                <Indicador valor={activo.total_mantenimientos} etiqueta="Mantenimientos" />
+                <Indicador valor={activo.total_componentes_criticos} etiqueta="Piezas críticas" />
+                <Indicador
+                  valor={formatearMoneda(costos.costo_total)}
+                  etiqueta="Invertido"
+                  ancho="col-12"
+                />
+              </div>
+              {puedeVerMantenimientos && (
+                <div className="small text-muted mt-3">
+                  Mano de obra {formatearMoneda(costos.costo_mano_obra)} · repuestos{" "}
+                  {formatearMoneda(costos.costo_repuestos)}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {puedeVerMantenimientos && (
+        <section className="mt-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h3 className="h5 mb-0">Bitácora de mantenimientos</h3>
+            {puedeRegistrarMantenimiento && !estaDadoDeBaja && (
+              <Link
+                to={`/admin/mantenimientos/new?activo=${activo.id}`}
+                className="btn btn-primary btn-sm"
+              >
+                Registrar mantenimiento
+              </Link>
+            )}
+          </div>
+          <TablaMantenimientos mantenimientos={mantenimientos} />
+        </section>
+      )}
+
+      <section className="mt-4">
+        <h3 className="h5 mb-2">Historial de movimientos</h3>
+        <TablaMovimientos movimientos={movimientos} />
+      </section>
+
+      {dialogoAbierto === "asignar" && (
+        <AsignarCustodioDialog
+          activo={activo}
+          onCerrar={() => setDialogoAbierto(null)}
+          onGuardado={() => {
+            setDialogoAbierto(null);
+            cargar();
+          }}
+        />
+      )}
+      {dialogoAbierto === "estado" && (
+        <CambiarEstadoDialog
+          activo={activo}
+          onCerrar={() => setDialogoAbierto(null)}
+          onGuardado={() => {
+            setDialogoAbierto(null);
+            cargar();
+          }}
+        />
+      )}
+      {dialogoAbierto === "etiqueta" && (
+        <EtiquetaDialog activo={activo} onCerrar={() => setDialogoAbierto(null)} />
+      )}
+    </div>
+  );
+}
+
+function Dato({ etiqueta, valor }) {
+  return (
+    <>
+      <dt className="col-sm-5 text-muted fw-normal">{etiqueta}</dt>
+      <dd className="col-sm-7">{valor || "—"}</dd>
+    </>
+  );
+}
+
+function Indicador({ valor, etiqueta, ancho = "col-6" }) {
+  return (
+    <div className={ancho}>
+      <div className="indicador">
+        <div className="indicador-valor">{valor}</div>
+        <div className="indicador-etiqueta">{etiqueta}</div>
+      </div>
+    </div>
+  );
+}
+
+function TablaMantenimientos({ mantenimientos }) {
+  if (mantenimientos.length === 0) {
+    return <p className="text-muted">Este activo no registra intervenciones.</p>;
+  }
+  return (
+    <div className="table-responsive">
+      <table className="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Responsable</th>
+            <th>Trabajo</th>
+            <th>Componentes</th>
+            <th className="text-end">Costo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mantenimientos.map((mantenimiento) => (
+            <tr key={mantenimiento.id}>
+              <td>{formatearFecha(mantenimiento.fecha_intervencion)}</td>
+              <td>
+                <span
+                  className={`badge ${
+                    mantenimiento.tipo === "correctivo" ? "text-bg-warning" : "text-bg-info"
+                  }`}
+                >
+                  {mantenimiento.tipo_display}
+                </span>
+              </td>
+              <td>
+                {mantenimiento.responsable}
+                <br />
+                <small className="text-muted">{mantenimiento.tipo_responsable_display}</small>
+              </td>
+              <td>{mantenimiento.descripcion}</td>
+              <td>
+                {mantenimiento.componentes.length === 0 ? (
+                  <span className="text-muted">—</span>
+                ) : (
+                  <ul className="list-unstyled mb-0 small">
+                    {mantenimiento.componentes.map((componente) => (
+                      <li key={componente.id}>
+                        {componente.componente_nombre} ×{componente.cantidad}
+                        {componente.era_critico && (
+                          <span className="badge text-bg-danger ms-1">crítica</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </td>
+              <td className="text-end">{formatearMoneda(mantenimiento.costo_total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TablaMovimientos({ movimientos }) {
+  if (movimientos.length === 0) {
+    return <p className="text-muted">Sin movimientos registrados.</p>;
+  }
+  return (
+    <div className="table-responsive">
+      <table className="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Movimiento</th>
+            <th>Custodio</th>
+            <th>Área</th>
+            <th>Motivo</th>
+            <th>Registró</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movimientos.map((movimiento) => (
+            <tr key={movimiento.id}>
+              <td>{formatearFecha(movimiento.created_at, true)}</td>
+              <td>{movimiento.tipo_display}</td>
+              <td>
+                <Transicion
+                  anterior={movimiento.custodio_anterior_nombre}
+                  nuevo={movimiento.custodio_nuevo_nombre}
+                />
+              </td>
+              <td>
+                <Transicion
+                  anterior={movimiento.departamento_anterior_nombre}
+                  nuevo={movimiento.departamento_nuevo_nombre}
+                />
+              </td>
+              <td>{movimiento.motivo || "—"}</td>
+              <td>{movimiento.registrado_por_nombre || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Muestra "antes → después" solo cuando hubo un cambio real. */
+function Transicion({ anterior, nuevo }) {
+  if (!anterior && !nuevo) {
+    return <span className="text-muted">—</span>;
+  }
+  if (anterior && nuevo && anterior !== nuevo) {
+    return (
+      <span>
+        <span className="text-muted text-decoration-line-through">{anterior}</span>{" "}
+        <i className="bi bi-arrow-right" aria-hidden="true" /> {nuevo}
+      </span>
+    );
+  }
+  return <span>{nuevo || anterior}</span>;
+}

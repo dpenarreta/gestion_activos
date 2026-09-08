@@ -1,0 +1,188 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+
+import { activosService } from "../../../api/activosService";
+import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
+import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
+import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
+import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import "./Activos.css";
+
+const BREADCRUMB_ITEMS = [
+  { label: "Administración" },
+  { label: "Activos", path: "/admin/activos" },
+  { label: "Escáner" },
+];
+
+/**
+ * Consulta de campo por lectura de código de barras (RF-03).
+ *
+ * Pantalla propia y no un modal dentro del listado porque el uso real es
+ * repetitivo: el técnico recorre una oficina disparando la pistola equipo por
+ * equipo. Aquí el campo conserva el foco entre lecturas y se lleva un
+ * registro de los últimos escaneos, para poder volver a uno sin repetir el
+ * disparo.
+ */
+export function EscanerPage() {
+  const [ficha, setFicha] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [recientes, setRecientes] = useState([]);
+
+  async function handleEscanear(codigo) {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const datos = await activosService.porCodigo(codigo);
+      setFicha(datos);
+      setRecientes((actuales) => {
+        const sinRepetir = actuales.filter((item) => item.id !== datos.activo.id);
+        return [
+          {
+            id: datos.activo.id,
+            codigo_barras: datos.activo.codigo_barras,
+            nombre: datos.activo.nombre,
+          },
+          ...sinRepetir,
+        ].slice(0, 8);
+      });
+    } catch (err) {
+      setFicha(null);
+      setError(
+        err.response?.status === 404
+          ? `Ningún activo corresponde a "${codigo}". Verifique la etiqueta o busque por número de serie.`
+          : "No se pudo consultar el activo."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="activos-page escaner-page">
+      <Breadcrumbs items={BREADCRUMB_ITEMS} />
+      <h2>Consulta por escáner</h2>
+      <p className="text-muted">
+        Dispare la lectora sobre la etiqueta del equipo. También funciona escribiendo el código o el
+        número de serie del fabricante.
+      </p>
+
+      <EscanerInput
+        className="escaner-page__campo mb-4"
+        placeholder="Esperando lectura…"
+        onEscanear={handleEscanear}
+        enfocarAlMontar
+        mantenerFoco
+        disabled={isLoading}
+      />
+
+      {error && <div className="alert alert-warning">{error}</div>}
+
+      {ficha && <ResultadoEscaneo ficha={ficha} />}
+
+      {recientes.length > 1 && (
+        <section className="mt-4">
+          <h3 className="h6 text-uppercase text-muted">Escaneos recientes</h3>
+          <ul className="list-unstyled d-flex flex-wrap gap-2 mb-0">
+            {recientes.map((item) => (
+              <li key={item.id}>
+                <Link to={`/admin/activos/${item.id}`} className="btn btn-outline-secondary btn-sm">
+                  <code>{item.codigo_barras}</code> · {item.nombre}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function ResultadoEscaneo({ ficha }) {
+  const { activo, movimientos, mantenimientos, costos } = ficha;
+  const ultimoMantenimiento = mantenimientos[0];
+
+  return (
+    <div className="card escaner-resultado">
+      <div className="card-body">
+        <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div>
+            <h3 className="h4 mb-1">{activo.nombre}</h3>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <code className="codigo-barras">{activo.codigo_barras}</code>
+              <EstadoActivo estado={activo.estado} etiqueta={activo.estado_display} />
+            </div>
+          </div>
+          <Link to={`/admin/activos/${activo.id}`} className="btn btn-primary btn-sm">
+            Abrir ficha completa
+          </Link>
+        </div>
+
+        <AlertaRenovacion renovacion={activo.renovacion} />
+
+        <div className="row g-3">
+          <div className="col-md-6">
+            <dl className="row mb-0">
+              <dt className="col-5 text-muted fw-normal">Responsable</dt>
+              <dd className="col-7">
+                {activo.custodio_nombre || <span className="text-muted">Sin asignar</span>}
+              </dd>
+              <dt className="col-5 text-muted fw-normal">Área</dt>
+              <dd className="col-7">{activo.departamento_nombre}</dd>
+              <dt className="col-5 text-muted fw-normal">Ubicación</dt>
+              <dd className="col-7">{activo.ubicacion || "—"}</dd>
+            </dl>
+          </div>
+          <div className="col-md-6">
+            <dl className="row mb-0">
+              <dt className="col-5 text-muted fw-normal">Equipo</dt>
+              <dd className="col-7">
+                {activo.marca} {activo.modelo}
+              </dd>
+              <dt className="col-5 text-muted fw-normal">Serie</dt>
+              <dd className="col-7">
+                <code>{activo.numero_serie}</code>
+              </dd>
+              <dt className="col-5 text-muted fw-normal">Antigüedad</dt>
+              <dd className="col-7">{activo.antiguedad_meses} meses</dd>
+            </dl>
+          </div>
+        </div>
+
+        <hr />
+
+        <div className="row text-center g-2">
+          <div className="col-4">
+            <div className="indicador">
+              <div className="indicador-valor">{activo.total_mantenimientos}</div>
+              <div className="indicador-etiqueta">Mantenimientos</div>
+            </div>
+          </div>
+          <div className="col-4">
+            <div className="indicador">
+              <div className="indicador-valor">{activo.total_componentes_criticos}</div>
+              <div className="indicador-etiqueta">Piezas críticas</div>
+            </div>
+          </div>
+          <div className="col-4">
+            <div className="indicador">
+              <div className="indicador-valor">{formatearMoneda(costos.costo_total)}</div>
+              <div className="indicador-etiqueta">Invertido</div>
+            </div>
+          </div>
+        </div>
+
+        {ultimoMantenimiento && (
+          <p className="text-muted small mb-0 mt-3">
+            Última intervención: {formatearFecha(ultimoMantenimiento.fecha_intervencion)} —{" "}
+            {ultimoMantenimiento.tipo_display}, {ultimoMantenimiento.descripcion}
+          </p>
+        )}
+        <p className="text-muted small mb-0 mt-1">
+          {movimientos.length} movimiento(s) de custodia registrados.
+        </p>
+      </div>
+    </div>
+  );
+}

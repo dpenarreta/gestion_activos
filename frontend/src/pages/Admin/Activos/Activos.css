@@ -1,0 +1,80 @@
+/*
+ * Inventario de activos: listado, ficha, formulario y escáner.
+ *
+ * Una sola hoja para el módulo porque las cuatro pantallas comparten los
+ * mismos elementos —código de barras monoespaciado, tarjetas de sección,
+ * indicadores— y separarlas obligaría a repetirlos.
+ */
+
+.activos-page h2 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+/* El código de barras se coteja a simple vista contra la etiqueta física:
+   monoespaciado para no confundir 0/O ni 1/l, y con algo de interletraje. */
+.codigo-barras {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  background: var(--surface-tint);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+
+.activo-card {
+  background: var(--surface);
+  border-color: var(--border-color);
+  height: 100%;
+}
+
+.indicador {
+  background: var(--surface-alt);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 0.75rem 0.5rem;
+}
+
+.indicador-valor {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  /* Cifras de igual ancho: los indicadores se comparan entre filas y con
+     ancho variable "111" parece más corto que "999". */
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.indicador-etiqueta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.activo-form,
+.activo-detalle {
+  max-width: 75rem;
+}
+
+.activo-form legend {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.escaner-page__campo {
+  max-width: 40rem;
+}
+
+.escaner-resultado {
+  background: var(--surface);
+  border-color: var(--border-color);
+  max-width: 60rem;
+}
+
+.especificaciones-editor .table {
+  background: var(--surface-alt);
+  border-radius: var(--border-radius, 0.5rem);
+}

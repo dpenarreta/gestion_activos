@@ -28,6 +28,18 @@
 }
 
 :root[data-theme="dark"] {
+  /*
+   * Las variables de marca que describen superficies caen aquí en modo
+   * oscuro. `ThemeContext` retira sus valores inline precisamente para que
+   * estas reglas puedan gobernar: si el tema institucional (pensado para
+   * fondo claro) siguiera pintando el body de blanco, el texto secundario
+   * quedaría en 1.30:1 de contraste sobre componentes ya dibujados oscuros.
+   * Los colores de identidad (primario, enlaces, botones) sí se conservan.
+   */
+  --color-background: #1a1d20;
+  --color-text: #dee2e6;
+  --color-headings: #f8f9fa;
+
   --surface: #1a1d20;
   --surface-alt: #212529;
   --surface-muted: rgba(33, 37, 41, 0.65);

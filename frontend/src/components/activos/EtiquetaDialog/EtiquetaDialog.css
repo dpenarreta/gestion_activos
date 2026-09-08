@@ -1,0 +1,66 @@
+/*
+ * Vista previa de la etiqueta física.
+ *
+ * Reproduce la proporción real (50 × 25 mm) para que el operador vea si el
+ * nombre del activo va a caber antes de gastar un rollo de etiquetas. Las
+ * barras son decorativas: representan dónde queda el Code 128, no codifican
+ * el valor — renderizar un código de barras real en pantalla sería una
+ * segunda implementación que podría discrepar de la que imprime el backend.
+ */
+
+.etiqueta-previa {
+  width: 20rem;
+  aspect-ratio: 2 / 1;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid var(--border-color-strong);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow: hidden;
+}
+
+/* Fondo y texto fijos, no tokens de tema: la etiqueta se imprime en negro
+   sobre material blanco, así que la vista previa debe verse igual en modo
+   claro y oscuro o dejaría de anticipar el resultado real. */
+
+.etiqueta-previa__nombre {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.etiqueta-previa__area {
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.etiqueta-previa__barras {
+  flex: 1;
+  margin-top: 0.25rem;
+  background-image: repeating-linear-gradient(
+    to right,
+    #000000 0 2px,
+    transparent 2px 4px,
+    #000000 4px 5px,
+    transparent 5px 9px
+  );
+}
+
+.etiqueta-previa__codigo {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+.etiqueta-contenido {
+  font-size: 0.8rem;
+  background: var(--surface-alt);
+}

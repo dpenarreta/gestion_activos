@@ -1,0 +1,40 @@
+.alerta-renovacion__motivos {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.alerta-renovacion__motivos li {
+  display: grid;
+  grid-template-columns: minmax(10rem, auto) auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  font-size: 0.875rem;
+}
+
+.alerta-renovacion__criterio {
+  font-weight: 600;
+}
+
+.alerta-renovacion__cifras {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.alerta-renovacion__detalle {
+  opacity: 0.9;
+}
+
+/* En pantallas estrechas la rejilla de tres columnas comprime el detalle
+   hasta hacerlo ilegible; se apila. */
+@media (max-width: 40rem) {
+  .alerta-renovacion__motivos li {
+    grid-template-columns: 1fr auto;
+  }
+
+  .alerta-renovacion__detalle {
+    grid-column: 1 / -1;
+  }
+}

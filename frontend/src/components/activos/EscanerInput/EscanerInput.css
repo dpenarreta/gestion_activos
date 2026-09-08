@@ -1,0 +1,14 @@
+/* Campo de captura por lectora de código de barras (RF-03). */
+
+.escaner-input .input-group-text {
+  background-color: var(--surface-alt);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+.escaner-input .form-control {
+  /* Los códigos son alfanuméricos con guiones: una tipografía monoespaciada
+     evita confundir 0/O y 1/l al verificarlos a simple vista. */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.02em;
+}

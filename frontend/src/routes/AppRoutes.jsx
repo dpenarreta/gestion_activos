@@ -10,7 +10,16 @@ import { Login } from "../pages/Login/Login";
 import { ChangePasswordRequired } from "../pages/PasswordReset/ChangePasswordRequired";
 import { ForgotPassword } from "../pages/PasswordReset/ForgotPassword";
 import { ResetPassword } from "../pages/PasswordReset/ResetPassword";
+import { ActivoDetalle } from "../pages/Admin/Activos/ActivoDetalle";
+import { ActivoForm } from "../pages/Admin/Activos/ActivoForm";
+import { ActivosList } from "../pages/Admin/Activos/ActivosList";
+import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
+import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
+import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
+import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
+import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
+import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
 import { PermissionsPage } from "../pages/Admin/Permissions/PermissionsPage";
 import { Register } from "../pages/Register/Register";
 import { RoleForm } from "../pages/Admin/Roles/RoleForm";
@@ -22,6 +31,8 @@ const USUARIOS_VER = "usuarios.ver";
 const ROLES_VER = "roles.ver";
 const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
+const ORGANIZACION_VER = "organizacion.ver";
+const ACTIVOS_VER = "activos.ver";
 const CHANGE_PASSWORD_REQUIRED_PATH = "/change-password-required";
 
 export function AppRoutes() {
@@ -48,7 +59,7 @@ export function AppRoutes() {
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/users" replace />} />
+        <Route index element={<Navigate to="/admin/activos" replace />} />
         <Route
           path="users"
           element={
@@ -94,6 +105,105 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ROLES_VER}>
               <RoleForm />
+            </RequirePermission>
+          }
+        />
+        {/* Las rutas fijas van antes que "activos/:id": si no, React Router
+            resolvería "/admin/activos/escaner" como una ficha con id
+            "escaner". */}
+        <Route
+          path="activos"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ActivosList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/escaner"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <EscanerPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/tipos"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <TiposDispositivoList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/new"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ActivoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/:id"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ActivoDetalle />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/:id/editar"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ActivoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/departamentos"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <DepartamentosList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/departamentos/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <DepartamentoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/departamentos/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <DepartamentoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/empleados"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <EmpleadosList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/empleados/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <EmpleadoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/empleados/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <EmpleadoForm />
             </RequirePermission>
           }
         />

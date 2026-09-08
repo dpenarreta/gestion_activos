@@ -12,6 +12,52 @@
  */
 export const ADMIN_MENU = [
   {
+    id: "activos",
+    name: "Activos",
+    icon: "pc-display",
+    permission: "activos.ver",
+    children: [
+      {
+        id: "activos-inventario",
+        name: "Inventario",
+        icon: "list-ul",
+        path: "/admin/activos",
+      },
+      {
+        id: "activos-escaner",
+        name: "Escáner",
+        icon: "upc-scan",
+        path: "/admin/activos/escaner",
+      },
+      {
+        id: "activos-tipos",
+        name: "Tipos de dispositivo",
+        icon: "tags",
+        path: "/admin/activos/tipos",
+      },
+    ],
+  },
+  {
+    id: "organizacion",
+    name: "Organización",
+    icon: "diagram-3",
+    permission: "organizacion.ver",
+    children: [
+      {
+        id: "organizacion-departamentos",
+        name: "Departamentos",
+        icon: "building",
+        path: "/admin/organizacion/departamentos",
+      },
+      {
+        id: "organizacion-empleados",
+        name: "Empleados",
+        icon: "person-badge",
+        path: "/admin/organizacion/empleados",
+      },
+    ],
+  },
+  {
     id: "usuarios",
     name: "Usuarios",
     icon: "people",
