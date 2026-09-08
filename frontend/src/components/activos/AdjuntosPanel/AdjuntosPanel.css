@@ -1,0 +1,33 @@
+/* Documentos y evidencias de un activo (§18). */
+
+.adjuntos-lista li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.adjuntos-lista li:last-child {
+  border-bottom: none;
+}
+
+.adjuntos-lista__icono {
+  font-size: 1.4rem;
+  color: var(--text-muted);
+}
+
+.adjuntos-lista__datos {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* El nombre del archivo puede ser largo: se recorta en vez de empujar el
+   botón de eliminar fuera de la tarjeta. */
+.adjuntos-lista__datos > button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}

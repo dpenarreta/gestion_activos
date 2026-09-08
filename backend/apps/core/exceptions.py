@@ -2,6 +2,7 @@
 
 import logging
 
+from django.db import transaction
 from rest_framework.views import exception_handler
 
 from .audit import record_audit_event
@@ -12,6 +13,38 @@ from .responses import error_response
 logger = logging.getLogger("apps.core")
 
 _MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+#: Tipos que el registro de auditoría puede guardar tal cual en su JSON.
+_TIPOS_SERIALIZABLES = (str, int, float, bool, type(None))
+
+
+def _valor_auditable(valor):
+    """Convierte a algo que quepa en el JSON de la bitácora.
+
+    El cuerpo de una petición puede traer un archivo subido, que no es
+    serializable: de él se guarda nombre y tamaño, que es lo que sirve para
+    entender después qué se intentó cargar.
+    """
+    if hasattr(valor, "size") and hasattr(valor, "name"):
+        return f"<archivo {valor.name} ({valor.size} bytes)>"
+    if isinstance(valor, (list, tuple)):
+        return [_valor_auditable(elemento) for elemento in valor]
+    if isinstance(valor, dict):
+        return {clave: _valor_auditable(v) for clave, v in valor.items()}
+    if isinstance(valor, _TIPOS_SERIALIZABLES):
+        return valor
+    return str(valor)
+
+
+def _cuerpo_auditable(request) -> dict:
+    if not hasattr(request, "data"):
+        return {}
+    try:
+        return {clave: _valor_auditable(valor) for clave, valor in dict(request.data).items()}
+    except Exception:  # noqa: BLE001
+        # Un cuerpo que ni siquiera se puede recorrer (por ejemplo, un stream
+        # ya consumido) no debe impedir que el 400 llegue al cliente.
+        return {}
 
 
 def _audit_validation_failure(request, view, status_code) -> None:
@@ -34,15 +67,20 @@ def _audit_validation_failure(request, view, status_code) -> None:
         if resolver_match is not None:
             target_id = str(resolver_match.kwargs.get("pk", ""))
 
-        record_audit_event(
-            actor=user,
-            action=f"{view_name}.validation_failed",
-            target_type=view_name,
-            target_id=target_id,
-            new_values=dict(request.data) if hasattr(request, "data") else {},
-            result=AuditLog.Result.FAILURE,
-            context=get_request_context(request),
-        )
+        # El savepoint es lo que hace cierta la promesa del `except`: sin él,
+        # un INSERT fallido deja la transacción de la petición marcada como
+        # rota y la siguiente consulta revienta, convirtiendo un 400 legítimo
+        # en un error interno.
+        with transaction.atomic():
+            record_audit_event(
+                actor=user,
+                action=f"{view_name}.validation_failed",
+                target_type=view_name,
+                target_id=target_id,
+                new_values=_cuerpo_auditable(request),
+                result=AuditLog.Result.FAILURE,
+                context=get_request_context(request),
+            )
     except Exception:  # noqa: BLE001
         # La auditoría nunca debe impedir que el error real llegue al
         # cliente — si falla el registro, solo se deja constancia en logs.

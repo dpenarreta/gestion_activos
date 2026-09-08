@@ -141,6 +141,32 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-POL-024 | Ventana resuelta en una consulta | politicas-renovacion.feature | La ventana se resuelve en una sola consulta agregada | Sí (pytest) |
 | AC-POL-025 | Panel e inventario por nivel | politicas-renovacion.feature | El inventario y el panel distinguen los dos niveles | Sí (pytest) |
 
+## Adjuntos, evidencias y actas (§18, §6)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-ADJ-001 | Adjuntar documentos al activo | adjuntos-y-actas.feature | Se adjunta un documento a un activo | Sí (pytest) |
+| AC-ADJ-002 | Nombre de archivo generado | adjuntos-y-actas.feature | El archivo se guarda con un nombre generado | Sí (pytest) |
+| AC-ADJ-003 | Nombres repetidos no se pisan | adjuntos-y-actas.feature | Dos archivos con el mismo nombre no se pisan | Sí (pytest) |
+| AC-ADJ-004 | Lista cerrada de formatos | adjuntos-y-actas.feature | Solo se admiten los formatos previstos | Sí (pytest) |
+| AC-ADJ-005 | Se verifica la firma del contenido | adjuntos-y-actas.feature | Un ejecutable renombrado a PDF también se rechaza | Sí (pytest) |
+| AC-ADJ-006 | Tamaño máximo | adjuntos-y-actas.feature | Hay un tamaño máximo | Sí (pytest) |
+| AC-ADJ-007 | El archivo se guarda íntegro | adjuntos-y-actas.feature | El archivo se guarda íntegro | Sí (pytest) |
+| AC-ADJ-008 | Descarga con permiso y auditada | adjuntos-y-actas.feature | La descarga pasa por el sistema, no por una URL pública | Sí (pytest) |
+| AC-ADJ-009 | Descarga sin ejecución en el navegador | adjuntos-y-actas.feature | La descarga no permite que el navegador ejecute el archivo | Sí (pytest) |
+| AC-ADJ-010 | Fichero ausente informado | adjuntos-y-actas.feature | Un archivo que ya no está en el servidor se informa | Sí (pytest) |
+| AC-ADJ-011 | Intervención de otro activo rechazada | adjuntos-y-actas.feature | Una intervención de otro equipo no se puede colgar de este activo | Sí (pytest) |
+| AC-ADJ-012 | Eliminar borra el archivo | adjuntos-y-actas.feature | Eliminar un adjunto borra también el archivo | Sí (pytest) |
+| AC-ADJ-013 | Eliminar exige permiso propio | adjuntos-y-actas.feature | Eliminar exige un permiso distinto de subir | Sí (pytest) |
+| AC-ADJ-014 | La baja conserva los documentos | adjuntos-y-actas.feature | Dar de baja un activo no borra sus documentos | Sí (pytest) |
+| AC-ACT-001 | Acta de entrega en PDF | adjuntos-y-actas.feature | La entrega de un equipo genera su acta en PDF | Sí (pytest) |
+| AC-ACT-002 | Acta de devolución | adjuntos-y-actas.feature | La devolución genera un acta de devolución | Sí (pytest) |
+| AC-ACT-003 | El acta parte del movimiento | adjuntos-y-actas.feature | El acta se construye desde el movimiento, no desde la ficha | Sí (pytest) |
+| AC-ACT-004 | Solo entregas y devoluciones | adjuntos-y-actas.feature | Solo las entregas y devoluciones tienen acta | Sí (pytest) |
+| AC-ACT-005 | Revisar sin archivar | adjuntos-y-actas.feature | El acta se puede revisar antes de archivarla | Sí (pytest) |
+| AC-ACT-006 | Acta archivada en la ficha | adjuntos-y-actas.feature | El acta se archiva entre los documentos del equipo | Sí (pytest) |
+| AC-ACT-007 | No se duplica el acta | adjuntos-y-actas.feature | Archivar dos veces no duplica el acta | Sí (pytest) |
+
 ## Centro de alertas (§19)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

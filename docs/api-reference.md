@@ -155,6 +155,33 @@ solo sube, y un equipo que falló mucho hace seis años queda marcado para
 siempre. El conteo se resuelve con una consulta agregada por ventana
 configurada, no una por activo.
 
+## Adjuntos, evidencias y actas (§18, §6)
+
+Base: `/api/v1/adjuntos/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/adjuntos/` | `adjuntos.ver` | Documentos de un activo. Filtros: `activo`, `mantenimiento`, `tipo` |
+| POST | `/adjuntos/` | `adjuntos.subir` | Multipart con `activo`, `tipo` y `archivo` (máx. 10 MB) |
+| GET | `/adjuntos/{id}/descargar/` | `adjuntos.ver` | Entrega el archivo. Queda auditado |
+| DELETE | `/adjuntos/{id}/` | `adjuntos.eliminar` | Borra el registro y el fichero |
+| GET | `/adjuntos/acta/?movimiento=N` | `adjuntos.ver` | Acta de entrega o devolución en PDF, sin archivarla |
+| POST | `/adjuntos/acta/` | `adjuntos.subir` | Genera el acta y la archiva como adjunto del activo |
+
+Los archivos **no se sirven como estáticos**: no hay `MEDIA_URL`. La descarga
+pasa siempre por la vista, que exige permiso, fuerza `attachment` y añade
+`X-Content-Type-Options: nosniff` — aquí se guardan facturas, actas firmadas y
+fotos de los equipos.
+
+Se validan tres cosas antes de guardar: tamaño, extensión (lista cerrada) y
+firma del contenido, de modo que un ejecutable renombrado a `.pdf` no entra. El
+archivo se almacena con un nombre generado; el original se conserva solo como
+metadato para devolverlo en la descarga.
+
+El acta se construye a partir de un `MovimientoActivo` concreto y no del estado
+actual del activo: documenta un hecho con fecha, y rehacerla desde la ficha
+produciría un documento con el custodio equivocado.
+
 ## Centro de alertas (§19)
 
 Base: `/api/v1/alertas/`

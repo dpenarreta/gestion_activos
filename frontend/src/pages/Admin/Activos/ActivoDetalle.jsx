@@ -9,6 +9,9 @@ import { AsignarCustodioDialog } from "../../../components/activos/AsignarCustod
 import { CambiarEstadoDialog } from "../../../components/activos/CambiarEstadoDialog/CambiarEstadoDialog";
 import { EtiquetaDialog } from "../../../components/activos/EtiquetaDialog/EtiquetaDialog";
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
+import { AdjuntosPanel } from "../../../components/activos/AdjuntosPanel/AdjuntosPanel";
+import { adjuntosService } from "../../../api/adjuntosService";
+import { descargarBlob } from "../../../utils/descargas";
 import { usePermission } from "../../../hooks/usePermission";
 import { formatearFecha, formatearMoneda } from "../../../utils/formato";
 import "./Activos.css";
@@ -21,10 +24,13 @@ export function ActivoDetalle() {
   const puedeImprimir = usePermission("activos.imprimir_etiqueta");
   const puedeVerMantenimientos = usePermission("mantenimientos.ver");
   const puedeRegistrarMantenimiento = usePermission("mantenimientos.registrar");
+  const puedeVerAdjuntos = usePermission("adjuntos.ver");
+  const puedeSubirAdjuntos = usePermission("adjuntos.subir");
 
   const [ficha, setFicha] = useState(null);
   const [error, setError] = useState(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(null);
+  const [adjuntosRecargados, setAdjuntosRecargados] = useState(0);
 
   const cargar = useCallback(() => {
     activosService
@@ -214,9 +220,19 @@ export function ActivoDetalle() {
         </section>
       )}
 
+      {puedeVerAdjuntos && (
+        <section className="mt-4">
+          <AdjuntosPanel activoId={activo.id} recargarToken={adjuntosRecargados} />
+        </section>
+      )}
+
       <section className="mt-4">
         <h3 className="h5 mb-2">Historial de movimientos</h3>
-        <TablaMovimientos movimientos={movimientos} />
+        <TablaMovimientos
+          movimientos={movimientos}
+          puedeArchivar={puedeSubirAdjuntos}
+          onArchivada={() => setAdjuntosRecargados((n) => n + 1)}
+        />
       </section>
 
       {dialogoAbierto === "asignar" && (
@@ -343,7 +359,7 @@ function TablaMantenimientos({ mantenimientos }) {
   );
 }
 
-function TablaMovimientos({ movimientos }) {
+function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
   if (movimientos.length === 0) {
     return <p className="text-muted">Sin movimientos registrados.</p>;
   }
@@ -358,6 +374,7 @@ function TablaMovimientos({ movimientos }) {
             <th>Área</th>
             <th>Motivo</th>
             <th>Registró</th>
+            <th>Acta</th>
           </tr>
         </thead>
         <tbody>
@@ -379,10 +396,81 @@ function TablaMovimientos({ movimientos }) {
               </td>
               <td>{movimiento.motivo || "—"}</td>
               <td>{movimiento.registrado_por_nombre || "—"}</td>
+              <td>
+                <AccionesActa
+                  movimiento={movimiento}
+                  puedeArchivar={puedeArchivar}
+                  onArchivada={onArchivada}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * Acta de entrega o devolución de un movimiento (§6, §18).
+ *
+ * Solo las asignaciones y devoluciones tienen acta: un alta o un cambio de
+ * estado no son un traspaso de responsabilidad, y ofrecer el botón en todas
+ * las filas haría creer que sí.
+ */
+function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
+  const [ocupado, setOcupado] = useState(false);
+  const generaActa =
+    movimiento.tipo === "asignacion" || movimiento.tipo === "devolucion";
+
+  if (!generaActa) {
+    return <span className="text-muted">—</span>;
+  }
+
+  async function descargar() {
+    setOcupado(true);
+    try {
+      const blob = await adjuntosService.acta(movimiento.id);
+      descargarBlob(blob, `acta-${movimiento.id}.pdf`);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function archivar() {
+    setOcupado(true);
+    try {
+      await adjuntosService.archivarActa(movimiento.id);
+      onArchivada?.();
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div className="d-flex gap-1">
+      <button
+        type="button"
+        className="btn btn-outline-secondary btn-sm"
+        disabled={ocupado}
+        onClick={descargar}
+        title="Descargar el acta en PDF para firmarla"
+      >
+        <i className="bi bi-file-earmark-pdf" aria-hidden="true" />
+        <span className="visually-hidden">Descargar acta</span>
+      </button>
+      {puedeArchivar && (
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          disabled={ocupado}
+          onClick={archivar}
+          title="Guardar el acta entre los documentos del equipo"
+        >
+          <i className="bi bi-paperclip" aria-hidden="true" />
+          <span className="visually-hidden">Archivar acta</span>
+        </button>
+      )}
     </div>
   );
 }

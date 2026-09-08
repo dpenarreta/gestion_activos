@@ -36,6 +36,7 @@ módulos y permisos.
 | `organizacion` | `ver`, `editar` |
 | `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
 | `politicas` | `ver`, `editar` |
+| `adjuntos` | `ver`, `subir`, `eliminar` |
 | `alertas` | `ver`, `configurar` |
 | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
 

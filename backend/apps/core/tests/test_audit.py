@@ -219,3 +219,41 @@ def test_audit_log_cannot_be_modified_or_deleted_via_api(full_audit_client):
     assert delete_response.status_code == 405
     entry.refresh_from_db()
     assert entry.action == "role.created"
+
+
+def test_auditar_un_cuerpo_con_archivos_no_rompe_la_peticion(tmp_path):
+    """Un archivo subido no es serializable a JSON.
+
+    Al auditar el fallo de validación se intentaba guardar el cuerpo tal cual,
+    el INSERT reventaba y dejaba la transacción de la petición marcada como
+    rota: la siguiente consulta fallaba y un 400 legítimo se convertía en un
+    error interno. Se guarda el nombre y el tamaño del archivo, y el registro
+    va en un savepoint propio.
+    """
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import override_settings
+
+    from apps.adjuntos.models import Adjunto
+
+    usuario = User.objects.create_superuser(
+        username="audit_files", email="af@example.com", password="Sup3r-Secr3t!"
+    )
+    client = APIClient()
+    client.force_authenticate(user=usuario)
+
+    with override_settings(MEDIA_ROOT=str(tmp_path)):
+        respuesta = client.post(
+            "/api/v1/adjuntos/",
+            {
+                "activo": 999999,
+                "tipo": "factura",
+                "archivo": SimpleUploadedFile("factura.pdf", b"%PDF-1.4\ncontenido"),
+            },
+            format="multipart",
+        )
+
+    assert respuesta.status_code == 400
+    assert Adjunto.objects.count() == 0
+    evento = AuditLog.objects.filter(action__endswith=".validation_failed").latest("id")
+    # `request.data` es un QueryDict: cada clave llega como lista.
+    assert "<archivo factura.pdf" in str(evento.new_values["archivo"])

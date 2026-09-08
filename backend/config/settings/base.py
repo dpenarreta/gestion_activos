@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     "apps.mantenimientos",
     "apps.politicas",
     "apps.alertas",
+    "apps.adjuntos",
 ]
 
 MIDDLEWARE = [
@@ -176,6 +177,29 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# --- Archivos subidos (adjuntos y evidencias, §18) ---
+# Deliberadamente NO se define MEDIA_URL ni se sirven estos archivos como
+# estáticos: se entregan por `apps.adjuntos.views.AdjuntoViewSet.descargar`,
+# que exige permiso y deja traza. Aquí se guardan facturas, actas firmadas y
+# fotos de los equipos de la empresa; una URL adivinable bastaría para
+# sacarlas todas sin pasar por el login.
+#
+# En Docker debe ser un volumen: sin él, cada despliegue se lleva por delante
+# lo que la gente haya subido (ver docker-compose.prod.yml).
+MEDIA_ROOT = env.str("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+
+# Un archivo mayor a esto se escribe en un temporal en vez de mantenerse en
+# memoria. El límite real de tamaño lo pone `apps.adjuntos.validators`; esto
+# solo evita que varias subidas simultáneas de 10 MB convivan en RAM.
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=2 * 1024 * 1024)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=12 * 1024 * 1024)
+
+# Permisos del archivo en disco: solo el usuario que corre el proceso. Sin
+# esto, el `umask` del sistema decide, y en algunos entornos deja los
+# archivos legibles por cualquier cuenta de la máquina.
+FILE_UPLOAD_PERMISSIONS = 0o600
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o700
 
 # --- Identidad institucional (branding estático/editable, sin biblioteca de medios) ---
 # logo_url/favicon_url en apps.branding.SiteTheme son URLs de texto (propias

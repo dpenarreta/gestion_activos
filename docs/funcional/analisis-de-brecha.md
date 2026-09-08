@@ -19,7 +19,8 @@ dashboard y reportes que no estaban en el alcance inicial.
 | Dashboard | Implementado |
 | Reportes | Exportación a Excel lista; reportes formales pendientes |
 | Garantías | Implementado |
-| Adjuntos, notificaciones | No implementado |
+| Adjuntos y actas | Implementado |
+| Notificaciones por correo | No implementado |
 
 ## Sección por sección
 
@@ -30,19 +31,19 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 4.2 | Características técnicas | ✅ | Campo `especificaciones`, libre por tipo de equipo |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
 | 5 | Código QR opcional | ❌ | Solo Code 128 |
-| 6 | Asignación y devolución | ⚠️ Parcial | Falta el acta de entrega |
+| 6 | Asignación y devolución | ✅ | Con acta de entrega y devolución en PDF |
 | 7 | Histórico de asignaciones | ✅ | `MovimientoActivo`, append-only |
 | 8 | Registro de reparaciones | ✅ | Causa, solución, estado final, garantía usada e ingreso/salida |
 | 9 | Histórico de reparaciones | ✅ | Días fuera de operación por intervención y acumulados |
 | 10 | Cálculo de tiempos | ⚠️ Parcial | Antigüedad y tiempo en reparación; falta tiempo de asignación por custodio |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ❌ | Solo hay tipo de dispositivo |
-| 13 | Usuarios y roles | ✅ | Roles configurables, 32 permisos |
+| 13 | Usuarios y roles | ✅ | Roles configurables, 35 permisos |
 | 14 | Buscador y filtros | ⚠️ Parcial | Filtro de garantía disponible; faltan ubicación y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ⚠️ Parcial | Exportación a Excel del inventario y la bitácora; faltan los 13 reportes y CSV/PDF |
 | 17 | Auditoría | ✅ | `AuditLog`, append-only |
-| 18 | Adjuntos y evidencias | ❌ | — |
+| 18 | Adjuntos y evidencias | ✅ | `apps.adjuntos`, con los nueve tipos del documento |
 | 19 | Notificaciones y alertas | ⚠️ Parcial | Las siete alertas están en el sistema; falta el envío por correo |
 | 20 | Integraciones | ❌ | Fase 3 del propio documento |
 | 21 | No funcionales | ⚠️ | Ver «Rendimiento» |
@@ -83,6 +84,15 @@ dashboard y la exportación a Excel.
 garantías vencidas y por vencer, desde que se incorporó la fecha de fin de
 garantía. El panel distingue «sin garantía registrada» de «vencida»: mezclarlas
 haría que un inventario a medio capturar pareciera un parque sin cobertura.
+
+### Fase 2 — adjuntos y actas (§18, §6)
+
+- Los nueve tipos de documento del §18, con validación de tamaño, extensión y
+  firma del contenido.
+- Los archivos no se sirven como estáticos: la descarga exige permiso y queda
+  auditada.
+- Actas de entrega y devolución en PDF, generadas desde el movimiento y
+  archivables en la ficha del equipo.
 
 ### Fase 2 — centro de alertas (§19, §22.2)
 

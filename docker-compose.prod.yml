@@ -43,6 +43,10 @@ services:
     depends_on:
       mssql:
         condition: service_healthy
+    volumes:
+      # Los adjuntos (§18) viven en disco, no en la base: sin este volumen,
+      # cada despliegue se llevaría por delante las facturas y actas subidas.
+      - media_data:/app/media
     ports:
       - "8000:8000"
 
@@ -60,3 +64,4 @@ services:
 
 volumes:
   mssql_data:
+  media_data:

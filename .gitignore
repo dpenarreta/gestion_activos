@@ -18,6 +18,11 @@ htmlcov/
 .coverage
 staticfiles/
 
+# Archivos que suben los usuarios (adjuntos y evidencias, §18). Nunca se
+# versionan: son facturas, actas firmadas y fotos de equipos reales, y en
+# producción viven en un volumen, no en el repositorio.
+media/
+
 # --- Node / React ---
 node_modules/
 dist/

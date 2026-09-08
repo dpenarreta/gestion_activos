@@ -93,6 +93,15 @@ PERMISSION_CATALOG = {
             "politicas.editar": "Configurar los umbrales de obsolescencia",
         },
     },
+    "adjuntos": {
+        "label": "Adjuntos",
+        "description": "Documentos y evidencias asociados a los activos.",
+        "permissions": {
+            "adjuntos.ver": "Ver y descargar los adjuntos de un activo",
+            "adjuntos.subir": "Adjuntar documentos y evidencias",
+            "adjuntos.eliminar": "Eliminar adjuntos",
+        },
+    },
     "alertas": {
         "label": "Alertas",
         "description": "Avisos sobre el estado del parque y sus umbrales.",
