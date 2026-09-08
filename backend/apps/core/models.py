@@ -51,7 +51,7 @@ class AuditLog(BaseModel):
     browser = models.CharField(max_length=50, blank=True)
     operating_system = models.CharField(max_length=50, blank=True)
     device = models.CharField(max_length=50, blank=True)
-    # Ubicación aproximada: sin resolver en este skeleton (no integra un
+    # Ubicación aproximada: sin resolver en esta base (no integra un
     # proveedor de geo-IP ni un flujo de consentimiento) — el campo existe
     # para que un proyecto concreto lo complete; ver docs/architecture.md.
     location = models.CharField(max_length=255, blank=True)

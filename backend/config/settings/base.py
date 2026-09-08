@@ -174,7 +174,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # --- Identidad institucional (branding estático/editable, sin biblioteca de medios) ---
 # logo_url/favicon_url en apps.branding.SiteTheme son URLs de texto (propias
-# o externas) — este skeleton no incluye un pipeline de carga de archivos
+# o externas) — esta base no incluye un pipeline de carga de archivos
 # para mantenerse desacoplado de cualquier módulo de negocio.
 BRANDING_LOGO_MAX_URL_LENGTH = 500
 

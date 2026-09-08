@@ -1,6 +1,6 @@
 /**
  * Árbol del Menú Administrativo — estático (a diferencia del proyecto
- * original del que se particionó este skeleton, que lo resolvía vía un
+ * original del que se particionó la plantilla base, que lo resolvía vía un
  * sistema de menús configurable en backend). Este template base solo
  * necesita 4 entradas fijas; un proyecto concreto que agregue módulos de
  * negocio puede sumar entradas aquí sin tocar `AdminSidebar`/`AdminMenuItem`/

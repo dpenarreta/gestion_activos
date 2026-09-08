@@ -40,7 +40,7 @@ function readStoredExpandedIds() {
 
 /** Motor de expandir/colapsar del Menú Administrativo — reutilizado en
  * cualquier nivel del árbol. No vive en Context: la profundidad acotada
- * (2 niveles) del menú de este template no lo justifica. */
+ * (2 niveles) del menú de esta base no lo justifica. */
 export function useMenuAccordion(tree, currentPath) {
   const [expandedIds, setExpandedIds] = useState(() => new Set(readStoredExpandedIds()));
   const previousActiveIdRef = useRef(null);

@@ -15,4 +15,7 @@ extend-exclude = "migrations"
 [tool.isort]
 profile = "black"
 line_length = 100
-skip = ["migrations"]
+# ".venv" es necesario: a diferencia de ruff y black, isort no respeta
+# .gitignore y escanearía las dependencias instaladas, reportando errores
+# de terceros al correr el `isort .` que documenta el README.
+skip = ["migrations", ".venv"]

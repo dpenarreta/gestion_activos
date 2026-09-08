@@ -64,7 +64,7 @@ autenticado se audita automáticamente
 ## AC-038: protección del último administrador activo
 
 Este criterio **no existía en el proyecto original** — se construyó
-específicamente para este template base. Se define "administrador" como
+específicamente para esta base. Se define "administrador" como
 `is_superuser=True` (el único bypass real de autorización). Antes de
 deshabilitar o bloquear un usuario,
 `apps.users.services.UserAdminService._is_last_active_admin` verifica si

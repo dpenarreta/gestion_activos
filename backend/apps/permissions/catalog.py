@@ -9,7 +9,7 @@ y `apps.permissions.authorization`).
 Convención de nombres: `"<modulo>.<accion>"`, ej. `"usuarios.ver"`.
 
 Este catálogo está deliberadamente recortado respecto al proyecto original
-del que se particionó este skeleton: solo contiene los módulos base
+del que se particionó la plantilla base: solo contiene los módulos base
 (usuarios, roles, permisos, auditoría, configuración/branding). Un proyecto
 concreto que agregue módulos de negocio debe sumar aquí sus propias
 entradas (ver docs/roles-and-permissions.md).

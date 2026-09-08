@@ -21,7 +21,7 @@ export function Home() {
     <div className="container home-page">
       <h1>Bienvenido a {env.appName}</h1>
       <p className="text-muted">
-        Página inicial operativa del skeleton reutilizable. Estado del backend:{" "}
+        Página inicial del sistema. Estado del backend:{" "}
         <span className={`badge ${status === "ok" ? "bg-success" : "bg-secondary"}`}>{status}</span>
       </p>
       {isAuthenticated ? (

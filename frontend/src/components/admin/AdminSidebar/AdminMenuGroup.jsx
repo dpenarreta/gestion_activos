@@ -6,9 +6,9 @@ import { hasActiveDescendant } from "./adminMenuTree";
 
 /**
  * Grupo colapsable del Menú Administrativo — recursivo. Versión
- * simplificada respecto del proyecto original del que se particionó este
- * skeleton: sin flyout emergente cuando el sidebar está totalmente
- * colapsado (solo íconos) — con el árbol acotado de este template (2
+ * simplificada respecto del proyecto original del que se particionó la
+ * plantilla base: sin flyout emergente cuando el sidebar está totalmente
+ * colapsado (solo íconos) — con el árbol acotado de esta base (2
  * niveles como máximo) alcanza con expandir en línea igual que expandido,
  * evitando sumar ese componente adicional.
  */

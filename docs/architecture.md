@@ -19,7 +19,7 @@ cómo se construyó la plantilla están en `docs/plantilla/`.
 
 ```
 gestion_activos/
-├── backend/    Django 5.1 + DRF, patrón Modelo-Vista-Template, SQL Server
+├── backend/    Django 5.2 LTS + DRF, patrón Modelo-Vista-Template, SQL Server
 ├── frontend/   React 18 + Vite + Bootstrap 5
 ├── tests/qa/   Criterios de aceptación en Gherkin + step definitions
 └── docs/       Esta documentación (y docs/plantilla/, artefactos heredados)
@@ -43,7 +43,7 @@ una API JSON versionada bajo `/api/v1/`, y el frontend la consume vía
 Esta separación en 5 apps (más `core`) fue una decisión explícita: el
 proyecto original mezclaba auth/roles dentro de `apps.users` y `apps.core`.
 Se solicitó y se implementó la separación literal en apps independientes
-para que este template sea más fácil de entender y de extender.
+para que esta base sea más fácil de entender y de extender.
 
 ## Decisiones de alcance
 
@@ -72,7 +72,7 @@ entienda el porqué:
    autorización (ver `docs/roles-and-permissions.md`).
 4. **El menú administrativo del frontend es estático, no dinámico.** El
    proyecto original resolvía el menú lateral contra un sistema de menús
-   configurable en backend (excluido de este template, es un módulo de
+   configurable en backend (excluido de esta base, es un módulo de
    negocio). Aquí es un array fijo en
    `frontend/src/components/admin/AdminSidebar/staticAdminMenu.js`,
    filtrado en el cliente por los permisos del usuario — la autorización

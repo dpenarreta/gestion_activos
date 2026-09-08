@@ -13,7 +13,7 @@ class SiteTheme(BaseModel):
     login/registro también deben pintarse con la marca configurada.
 
     `logo_url`/`favicon_url` son URLs de texto, no un pipeline de carga de
-    archivos — decisión deliberada para mantener este template base
+    archivos — decisión deliberada para mantener esta base
     desacoplado de cualquier biblioteca de medios (ver docs/architecture.md).
     """
 

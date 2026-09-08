@@ -69,7 +69,7 @@ npm run build
 
 ## Mantenimiento
 
-Cualquier criterio de aceptación nuevo que surja al extender este template
+Cualquier criterio de aceptación nuevo que surja al extender esta base
 debe, como mínimo:
 
 1. Sumarse como un escenario `Scenario` con una etiqueta `@AC-xxx` (o

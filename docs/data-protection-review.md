@@ -75,4 +75,4 @@ estado de automatización.
    integridad referencial del historial de auditoría.
 3. Validar con un asesor legal si la finalidad y el plazo de conservación
    documentados aquí son suficientes para el caso de uso concreto del
-   proyecto que se construya sobre este template.
+   proyecto que se construya sobre esta base.

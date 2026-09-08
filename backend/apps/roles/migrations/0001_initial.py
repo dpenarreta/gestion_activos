@@ -10,6 +10,8 @@ sea o no superusuario de Django)."""
 
 from django.db import migrations
 
+from apps.permissions.catalog import as_django_permission_tuples
+
 DEFAULT_ROLE_NAME = "Superusuario"
 
 
@@ -18,7 +20,21 @@ def seed_superusuario_role(apps, schema_editor):
     Permission = apps.get_model("auth", "Permission")
     ContentType = apps.get_model("contenttypes", "ContentType")
 
-    content_type = ContentType.objects.get(app_label="permissions", model="modulepermission")
+    # El ContentType y los Permission de `permissions.ModulePermission` los
+    # crea normalmente el receptor `post_migrate` de Django, que corre al
+    # *final* de todo el `migrate` — es decir, después de esta migración.
+    # Sobre una base de datos vacía no existen todavía, así que esta siembra
+    # los materializa ella misma desde el catálogo (fuente única de verdad).
+    # `get_or_create` la deja idempotente: cuando `post_migrate` corra luego,
+    # encontrará las filas ya creadas y no duplicará nada.
+    content_type, _ = ContentType.objects.get_or_create(
+        app_label="permissions", model="modulepermission"
+    )
+    for codename, name in as_django_permission_tuples():
+        Permission.objects.get_or_create(
+            content_type=content_type, codename=codename, defaults={"name": name}
+        )
+
     group, _ = Group.objects.get_or_create(name=DEFAULT_ROLE_NAME)
     group.permissions.set(Permission.objects.filter(content_type=content_type))
 
@@ -34,6 +50,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("auth", "0012_alter_user_first_name_max_length"),
+        ("contenttypes", "0002_remove_content_type_name"),
         ("permissions", "0001_initial"),
     ]
 

@@ -28,6 +28,13 @@ DB_TRUST_SERVER_CERTIFICATE=true
 ejecuta Django: la imagen Docker de este proyecto instala
 "ODBC Driver 18 for SQL Server"; en Windows, si ya tiene instalado un
 driver distinto (ej. "ODBC Driver 17 for SQL Server"), ajuste el valor.
+Para saber cuál tiene: `Get-OdbcDriver | Where-Object Name -like "*SQL Server*"`.
+
+> **`DB_PASSWORD` no puede contener `#`.** `django-environ` trata ese
+> carácter como inicio de comentario y trunca el valor en silencio; el
+> síntoma es un `Login failed for user` que no coincide con la contraseña
+> que sí funciona en `sqlcmd`. Evite también `;`, `{`, `}` y `=`, que tienen
+> significado propio en la cadena de conexión ODBC.
 
 ## Levantar SQL Server localmente
 
@@ -41,8 +48,21 @@ raíz del repo, la que usa `docker-compose.yml`). La primera vez hay que
 crear la base de datos (SQL Server no la crea sola):
 
 ```bash
+# Desde el host (o dentro del contenedor: docker exec <contenedor> /opt/mssql-tools18/bin/sqlcmd ...)
 sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE DATABASE gestion_activos_dev;"
+
+# Usuario de aplicación (evita que Django corra como 'sa')
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE LOGIN gestion_activos_user WITH PASSWORD = '<DB_PASSWORD>';"
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos_dev -Q "CREATE USER gestion_activos_user FOR LOGIN gestion_activos_user; ALTER ROLE db_owner ADD MEMBER gestion_activos_user;"
+
+# Solo en desarrollo: pytest crea y destruye 'test_gestion_activos_dev',
+# lo que exige permiso para crear bases. NO otorgar esto en producción.
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "ALTER SERVER ROLE dbcreator ADD MEMBER gestion_activos_user;"
 ```
+
+Si el puerto 1433 del host ya está ocupado por otro proyecto, cambie
+`DB_PORT` en el `.env` de la raíz (mapeo del contenedor) **y** en
+`backend/.env` (conexión de Django); ambos deben coincidir.
 
 ## Migraciones
 

@@ -6,7 +6,7 @@ import "./IdentidadTab.css";
 /**
  * Componente de presentación puro: no tiene estado propio ni llama a la
  * API — recibe `form`/`updateField` de `ConfiguracionPage`. El logo/favicon
- * se ingresan como URL de texto (propia o externa): este template base no
+ * se ingresan como URL de texto (propia o externa): esta base no
  * incluye un pipeline de carga de archivos, para mantenerse desacoplado de
  * cualquier biblioteca de medios.
  */

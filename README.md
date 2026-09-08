@@ -23,11 +23,11 @@ cerrado (`backend/apps/permissions/catalog.py`).
 
 | Componente | Tecnología |
 | --- | --- |
-| Backend | Python 3.12, Django 5.1, Django REST Framework |
+| Backend | Python 3.12, Django 5.2 LTS, Django REST Framework 3.17 |
 | Base de datos | SQL Server (`mssql-django` + `pyodbc`) |
 | Autenticación | JWT (`djangorestframework-simplejwt`) + sesiones propias |
 | Contraseñas | Hash Argon2 (gestionado por Django) |
-| Frontend | React 18, Vite, React Router |
+| Frontend | React 18, Vite 6, React Router 7 |
 | Interfaz visual | Bootstrap 5 + Bootstrap Icons |
 | Pruebas | pytest / pytest-django / pytest-bdd (backend), Vitest (frontend) |
 | Contenedores | Docker / Docker Compose |
@@ -74,6 +74,29 @@ Copiar y completar dos archivos `.env.example`:
 - `frontend/.env.example` → variables de Vite.
 
 Nunca commitear los `.env` reales (ya excluidos por `.gitignore`).
+
+## 5.1 Entorno local ya configurado en esta máquina
+
+Los `.env` de este checkout ya están completos y verificados. Los puertos
+por defecto de la plantilla estaban ocupados por otros proyectos, así que
+este proyecto usa los suyos:
+
+| Servicio | Puerto | Notas |
+| --- | --- | --- |
+| SQL Server (Docker) | `14331` | contenedor `gestion_activos-mssql-1`, volumen propio |
+| Backend (Django) | `8010` | `BACKEND_PORT` en `backend/.env` |
+| Frontend (Vite) | `5174` | `VITE_PORT` en `frontend/.env`; también en `CORS_ALLOWED_ORIGINS` |
+
+`DB_DRIVER` está en "ODBC Driver 17 for SQL Server" porque es el instalado
+en esta máquina (la imagen Docker del backend usa el 18).
+
+Arranque:
+
+```bash
+docker compose up -d mssql
+cd backend && ./.venv/Scripts/python.exe manage.py runserver 8010
+cd frontend && npm run dev
+```
 
 ## 6. Instalación local
 
@@ -212,16 +235,24 @@ asesoría legal.
 
 ## 18. Estado del proyecto
 
-Funcional y validado: migraciones aplicadas contra SQL Server real,
-backend y frontend iniciando correctamente, suites de pruebas en verde,
-build de producción exitoso, y una verificación manual en navegador que
-incluyó login real, creación de roles, y navegación completa del panel
-administrativo. Ver el detalle en `tests/qa/test-execution-report.md`.
+**Base heredada: funcional y verificada de cero el 2026-09-08.** Sobre una
+base de datos SQL Server vacía: 27 migraciones aplicadas, 83 pruebas de
+backend + 13 escenarios Gherkin + 10 pruebas de frontend en verde, lint
+limpio, build de producción exitoso, backend y frontend arrancando, login
+real vía API (JWT + Argon2), control de acceso (401 sin token), throttle de
+fuerza bruta activo y `pip-audit`/`npm audit` sin hallazgos.
+
+**Dominio de negocio: no iniciado.** El sistema todavía no tiene modelo de
+activos, ubicaciones, asignaciones ni mantenimientos. Esa es la siguiente
+capa; ver `docs/architecture.md`, sección "Qué no incluye todavía".
+
+Detalle de la verificación heredada en `tests/qa/test-execution-report.md`.
 
 ## 19. Recomendaciones para próximos mantenimientos
 
-1. Ejecutar `pip-audit`/`npm audit` con revisión manual antes de cada
-   release (ver limitaciones en `docs/security-review.md`).
+1. Ejecutar `pip-audit -r requirements/base.txt` (backend) y `npm audit`
+   (frontend) con revisión manual antes de cada release. Al 2026-09-08 ambos
+   reportan 0 vulnerabilidades; ver `docs/security-review.md`.
 2. Definir una política de retención para `AuditLog`/`LoginAttempt` antes
    de un despliegue con datos reales.
 3. Si se agrega un módulo de negocio nuevo, sumar sus permisos al catálogo

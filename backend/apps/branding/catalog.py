@@ -2,7 +2,7 @@
 
 Deliberadamente una lista estática de fuentes web-safe/del sistema (sin
 dependencia de red ni de la Biblioteca multimedia del proyecto original,
-que este template base no incluye) — un proyecto concreto que necesite un
+que esta base no incluye) — un proyecto concreto que necesite un
 catálogo más amplio o tipografías vía CDN puede reemplazar este archivo sin
 tocar el resto del módulo (ver docs/roles-and-permissions.md /
 docs/architecture.md).
