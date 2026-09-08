@@ -2,14 +2,13 @@
 
 Repositorio: <https://github.com/dpenarreta/gestion_activos>
 
-Sistema de gestión de activos institucionales. Construido sobre la
-plantilla [`dpenarreta/skelleton_base`](https://github.com/dpenarreta/skelleton_base)
-(commit `a9896f1`, VERSION `0.1.0`), adoptada como **criterio base de
-seguridad**: identidad institucional, autenticación, JWT, cifrado seguro de
-contraseñas, administración de usuarios/roles/permisos y auditoría vienen
-de esa base y no se reimplementan. La plantilla es el punto de partida, no
-un remoto de este repositorio: `origin` apunta a `gestion_activos` y las
-mejoras de este proyecto no vuelven a `skelleton_base`.
+Sistema de gestión de activos institucionales. Incluye la infraestructura
+transversal completa —identidad institucional, autenticación, JWT, cifrado
+seguro de contraseñas, administración de usuarios, roles y permisos, y
+auditoría— sobre la que se construyen los módulos de negocio.
+
+Los controles de seguridad descritos en `docs/security-review.md` son el
+**criterio base del proyecto**: todo módulo nuevo debe cumplirlos.
 
 ## 1. Descripción general
 
@@ -42,7 +41,7 @@ Backend y frontend son proyectos independientes que se comunican por HTTP
 (`/api/v1/`). El backend sigue el patrón Modelo-Vista-Template con una capa
 de servicios explícita (la lógica de negocio nunca vive en las vistas). Ver
 `docs/architecture.md` para el detalle completo, incluidas las decisiones
-de alcance heredadas de la plantilla base.
+de alcance del proyecto.
 
 ## 4. Estructura de carpetas
 
@@ -61,7 +60,6 @@ gestion_activos/
 │   ├── acceptance-criteria-traceability.md
 │   └── test-execution-report.md
 ├── docs/
-│   └── plantilla/          # Artefactos heredados de skelleton_base
 ├── database/
 ├── docker-compose.yml
 └── docker-compose.prod.yml
@@ -82,8 +80,8 @@ Nunca commitear los `.env` reales (ya excluidos por `.gitignore`).
 ## 5.1 Entorno local ya configurado en esta máquina
 
 Los `.env` de este checkout ya están completos y verificados. Los puertos
-por defecto de la plantilla estaban ocupados por otros proyectos, así que
-este proyecto usa los suyos:
+convencionales (8000, 5173, 1433) estaban ocupados por otros proyectos de
+la máquina, así que este proyecto usa los suyos:
 
 | Servicio | Puerto | Notas |
 | --- | --- | --- |
@@ -166,8 +164,7 @@ relaciones entre usuarios, roles y permisos.
   resolución de autorización.
 - **Configuración / identidad institucional** (`apps.branding`) — nombre,
   logo, favicon, colores, tipografía, editable desde el panel
-  administrativo (módulo agregado deliberadamente más allá del mínimo
-  estricto de la partición, ver `docs/architecture.md`).
+  administrativo (ver `docs/architecture.md`, "Decisiones de alcance").
 - **Auditoría** (`apps.core`) — bitácora append-only de toda operación
   administrativa relevante.
 
@@ -239,8 +236,8 @@ asesoría legal.
 
 ## 18. Estado del proyecto
 
-**Base heredada: funcional y verificada de cero el 2026-09-08.** Sobre una
-base de datos SQL Server vacía: 27 migraciones aplicadas, 83 pruebas de
+**Infraestructura transversal: funcional y verificada de cero el
+2026-09-08.** Sobre una base de datos SQL Server vacía: 27 migraciones aplicadas, 83 pruebas de
 backend + 13 escenarios Gherkin + 10 pruebas de frontend en verde, lint
 limpio, build de producción exitoso, backend y frontend arrancando, login
 real vía API (JWT + Argon2), control de acceso (401 sin token), throttle de

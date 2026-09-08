@@ -21,7 +21,7 @@
 
 ## Por qué Gherkin y por qué pytest-bdd
 
-El prompt de partición exige que **ningún** criterio de aceptación quede
+La regla del proyecto es que **ningún** criterio de aceptación quede
 documentado solo como lista informal, README o comentario — debe ser un
 escenario Gherkin verificable. Se eligió `pytest-bdd` porque el backend ya
 usa `pytest`/`pytest-django`: permite reutilizar exactamente el mismo
@@ -42,8 +42,8 @@ aportar cobertura nueva. Se conectó un subconjunto que:
   `tests/qa/acceptance-criteria-traceability.md`, nunca como "no
   verificado" cuando en realidad sí lo está por otra vía.
 
-Los escenarios sobre el propio proceso de partición
-(`docs/plantilla/repository-partition.feature`) y buena parte de los de arquitectura
+Los escenarios sobre el propio repositorio
+(`repository-hygiene.feature`) y buena parte de los de arquitectura
 (`acceptance-criteria.feature`) describen hechos sobre el repositorio, no
 comportamiento en tiempo de ejecución — se verifican por inspección directa
 (`git remote -v`, listado de carpetas, lectura de `requirements.txt`), y
@@ -69,7 +69,7 @@ npm run build
 
 ## Mantenimiento
 
-Cualquier criterio de aceptación nuevo que surja al extender esta base
+Cualquier criterio de aceptación nuevo que surja al extender el sistema
 debe, como mínimo:
 
 1. Sumarse como un escenario `Scenario` con una etiqueta `@AC-xxx` (o

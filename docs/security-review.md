@@ -1,12 +1,11 @@
 # Revisión de seguridad
 
-Checklist de controles de seguridad heredados de la plantilla base
-(`docs/plantilla/`), con el estado real de cada punto verificado en este
-repositorio. **Este documento es el criterio de seguridad del proyecto:**
+Checklist de los controles de seguridad del sistema, con el estado real de
+cada punto verificado en este repositorio. **Este documento es el criterio de seguridad del proyecto:**
 todo módulo de negocio nuevo debe cumplirlo, y cualquier control que se
 relaje debe quedar registrado aquí como limitación, no omitido.
 
-Última verificación: 2026-09-08 (arranque del proyecto).
+Última verificación: 2026-09-08.
 
 | Control | Estado | Detalle |
 | --- | --- | --- |
@@ -27,13 +26,12 @@ relaje debe quedar registrado aquí como limitación, no omitido.
 | Dependencias sin vulnerabilidades críticas conocidas | ✅ | `pip-audit` y `npm audit` ejecutados el 2026-09-08 con corrección de todos los hallazgos: **0 vulnerabilidades conocidas** en backend y frontend (ver "Correcciones aplicadas" abajo) |
 | Secretos del `.env` no truncados al parsearse | ✅ | `django-environ` corta el valor en `#`: los secretos generados excluyen ese carácter. Un `DB_PASSWORD` con `#` produce un "Login failed" difícil de diagnosticar |
 | Auditoría de acciones administrativas | ✅ | `AuditLog` append-only, cubre creación/edición/activación/asignación de roles y permisos, cambios de tema |
-| Protección del último administrador | ✅ | AC-038, construido específicamente para esta base (no existía en el original) |
+| Protección del último administrador | ✅ | AC-038: el sistema nunca queda sin un administrador activo |
 | Baja lógica en vez de eliminación física | ✅ | `UserAdminViewSet` sin `DELETE`; roles sí se eliminan físicamente (son configuración, no cuentas con historial) |
 
-## Correcciones aplicadas al adoptar la base (2026-09-08)
+## Correcciones aplicadas (2026-09-08)
 
-La plantilla dejaba la auditoría de dependencias como pendiente explícito.
-Se ejecutó y se corrigió todo lo encontrado:
+Auditoría completa de dependencias, con corrección de todo lo encontrado:
 
 | Hallazgo | Severidad | Acción |
 | --- | --- | --- |
@@ -48,8 +46,8 @@ vulnerabilidades**; las 83 pruebas del backend, los 13 escenarios Gherkin,
 las 10 pruebas del frontend, el lint y el build de producción siguen en
 verde.
 
-También se corrigió un defecto de la plantilla que impedía instalarla
-desde cero: `roles/0001_initial` daba por existente el `ContentType` de
+También se corrigió un defecto que impedía instalar el proyecto desde
+cero: `roles/0001_initial` daba por existente el `ContentType` de
 `permissions.ModulePermission`, que Django recién crea en `post_migrate`
 (al final de todo el `migrate`). Sobre una base de datos vacía la migración
 fallaba; ahora materializa el ContentType y los permisos desde el catálogo

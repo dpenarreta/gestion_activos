@@ -15,7 +15,7 @@ cambios.
 Todo por variables de entorno (`backend/.env`, ver `.env.example`):
 
 ```env
-DB_NAME=gestion_activos_dev
+DB_NAME=gestion_activos
 DB_USER=gestion_activos_user
 DB_PASSWORD=<password-seguro-local>
 DB_HOST=localhost
@@ -49,13 +49,13 @@ crear la base de datos (SQL Server no la crea sola):
 
 ```bash
 # Desde el host (o dentro del contenedor: docker exec <contenedor> /opt/mssql-tools18/bin/sqlcmd ...)
-sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE DATABASE gestion_activos_dev;"
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE DATABASE gestion_activos;"
 
 # Usuario de aplicación (evita que Django corra como 'sa')
 sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE LOGIN gestion_activos_user WITH PASSWORD = '<DB_PASSWORD>';"
-sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos_dev -Q "CREATE USER gestion_activos_user FOR LOGIN gestion_activos_user; ALTER ROLE db_owner ADD MEMBER gestion_activos_user;"
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos -Q "CREATE USER gestion_activos_user FOR LOGIN gestion_activos_user; ALTER ROLE db_owner ADD MEMBER gestion_activos_user;"
 
-# Solo en desarrollo: pytest crea y destruye 'test_gestion_activos_dev',
+# Solo en desarrollo: pytest crea y destruye 'test_gestion_activos',
 # lo que exige permiso para crear bases. NO otorgar esto en producción.
 sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "ALTER SERVER ROLE dbcreator ADD MEMBER gestion_activos_user;"
 ```

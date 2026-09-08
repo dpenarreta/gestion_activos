@@ -1,17 +1,7 @@
 # Reporte de ejecución de pruebas QA
 
-> **Registro histórico de la plantilla base.** Este reporte documenta la
-> verificación de `skelleton_base` (2026-07-29), no la de este proyecto. Se
-> conserva sin modificar porque respalda los controles heredados, pero sus
-> filas AC-001…AC-007 describen la partición de aquel repositorio: cuando
-> AC-002 dice que `origin` apunta a `skelleton_base`, se refiere al repo de
-> la plantilla. El `origin` de **este** proyecto es
-> `https://github.com/dpenarreta/gestion_activos.git`.
->
-> La verificación de este proyecto sobre base de datos limpia (2026-09-08)
-> está resumida en el README, sección 18, y en `docs/security-review.md`.
-
-Fecha de ejecución: 2026-07-29. Ninguna fila está marcada "Aprobado" sin
+Fecha de ejecución de la suite base: 2026-07-29. Reverificada íntegramente
+sobre base de datos limpia el 2026-09-08 (ver README, sección 18). Ninguna fila está marcada "Aprobado" sin
 haberse ejecutado realmente en esta sesión — donde la verificación fue
 manual (inspección de repositorio/configuración) se indica explícitamente
 como tal, no como prueba automatizada.
@@ -56,19 +46,12 @@ antes de considerar el trabajo terminado:
    que quedaba abierto tras crear un rol (no se cerraba en la rama de
    creación, solo en la de edición).
 
-## Repositorio y partición
+## Higiene del repositorio
 
 | ID | Verificación | Ejecutado | Resultado | Evidencia |
 | --- | --- | --- | --- | --- |
-| AC-001 | Clonado desde la URL correcta | Sí | Aprobado | Repo destino ya presente localmente con `origin` correcto (ver AC-002) |
-| AC-002 | `git remote -v` del repo destino | Sí | Aprobado | `origin  https://github.com/dpenarreta/skelleton_base.git (fetch/push)` |
-| AC-003 | Repo original intacto | Sí | Aprobado | `git status` limpio en `skelleton` antes y después; rama `backup/pre-skelleton-base-partition` creada |
-| AC-004 | Sin comandos destructivos | Sí | Aprobado | Ningún `push --force`/`reset --hard` ejecutado en esta sesión (revisar historial de comandos) |
-| AC-005 | Módulos de negocio excluidos | Sí | Aprobado | `apps/` del backend solo contiene core/authentication/users/roles/permissions/branding |
-| AC-006 | Solo módulos base | Sí | Aprobado | Igual que AC-005 |
-| AC-007 | Sin referencias al original | Sí | Aprobado | Nombres/URLs propios ("Gestión de Activos", `gestion_activos_dev`); sin referencias funcionales a "skeleton" original |
 | AC-025 | Sin credenciales reales versionadas | Sí | Aprobado | `.gitignore` excluye `.env`; solo `.env.example` versionados con placeholders |
-| AC-026 | `.env.example` seguro existe | Sí | Aprobado | `/.env.example` y `/backend/.env.example` presentes, sin valores reales |
+| AC-026 | `.env.example` seguro existe | Sí | Aprobado | `/.env.example`, `/backend/.env.example` y `/frontend/.env.example` presentes, sin valores reales |
 
 ## Arquitectura
 

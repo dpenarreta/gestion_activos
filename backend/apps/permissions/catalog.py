@@ -8,11 +8,11 @@ y `apps.permissions.authorization`).
 
 Convención de nombres: `"<modulo>.<accion>"`, ej. `"usuarios.ver"`.
 
-Este catálogo está deliberadamente recortado respecto al proyecto original
-del que se particionó la plantilla base: solo contiene los módulos base
-(usuarios, roles, permisos, auditoría, configuración/branding). Un proyecto
-concreto que agregue módulos de negocio debe sumar aquí sus propias
-entradas (ver docs/roles-and-permissions.md).
+Hoy solo contiene los módulos transversales (usuarios, roles, permisos,
+auditoría, configuración/branding). Cada módulo de negocio que se agregue
+debe sumar aquí sus propias entradas — el catálogo es cerrado: un permiso
+que no esté en este archivo no existe para el sistema
+(ver docs/roles-and-permissions.md).
 """
 
 PERMISSION_CATALOG = {

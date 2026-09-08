@@ -5,12 +5,11 @@ import { AdminMenuItem } from "./AdminMenuItem";
 import { hasActiveDescendant } from "./adminMenuTree";
 
 /**
- * Grupo colapsable del Menú Administrativo — recursivo. Versión
- * simplificada respecto del proyecto original del que se particionó la
- * plantilla base: sin flyout emergente cuando el sidebar está totalmente
- * colapsado (solo íconos) — con el árbol acotado de esta base (2
- * niveles como máximo) alcanza con expandir en línea igual que expandido,
- * evitando sumar ese componente adicional.
+ * Grupo colapsable del Menú Administrativo — recursivo. Sin flyout
+ * emergente cuando el sidebar está totalmente colapsado (solo íconos): con
+ * un árbol de 2 niveles como máximo alcanza con expandir en línea igual que
+ * expandido, evitando sumar ese componente adicional. Si el menú creciera a
+ * 3 niveles, habría que reconsiderarlo.
  */
 export function AdminMenuGroup({ item, isCollapsed, currentPath, onNavigate, accordion, siblingIds = [] }) {
   const sublistId = useId();

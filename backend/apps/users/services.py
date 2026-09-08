@@ -14,9 +14,7 @@ from .models import User
 
 # AC-038: el sistema nunca debe quedar sin al menos un administrador activo
 # (definido como `is_superuser=True` — el único bypass real de autorización,
-# ver `apps.permissions.authorization.user_has_permission`). No existía en el
-# proyecto original del que se particionó la plantilla base; se construyó
-# específicamente para esta base.
+# ver `apps.permissions.authorization.user_has_permission`).
 LAST_ACTIVE_ADMIN_ERROR = (
     "No es posible deshabilitar/bloquear a este usuario: es el único "
     "administrador activo del sistema."

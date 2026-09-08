@@ -12,23 +12,11 @@ Convención de la columna **Automatizado**:
 - **Sí (Vitest)**: cubierto por una prueba de frontend en `frontend/tests/`.
 - **No**: no existe automatización — el criterio se verifica por inspección
   manual (documentado en `test-execution-report.md`), típicamente porque es
-  un hecho sobre el propio repositorio/proceso de partición, no sobre el
-  comportamiento en tiempo de ejecución de la aplicación.
+  un hecho sobre el propio repositorio, no sobre el comportamiento en tiempo
+  de ejecución de la aplicación.
 
 No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 `test-execution-report.md` para el resultado real de cada ejecución.
-
-## Repositorio y partición
-
-| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
-| --- | --- | --- | --- | --- |
-| AC-001 | Repo destino clonado desde la URL correcta | docs/plantilla/repository-partition.feature | El repositorio destino fue clonado desde la URL correcta | No |
-| AC-002 | Remoto `origin` apunta al destino | docs/plantilla/repository-partition.feature | El remoto "origin" apunta al repositorio indicado | No |
-| AC-003 | Original no modificado destructivamente | docs/plantilla/repository-partition.feature | El repositorio original no fue modificado destructivamente | No |
-| AC-004 | Sin comandos de sobrescritura forzada | docs/plantilla/repository-partition.feature | No se utilizaron comandos de sobrescritura forzada | No |
-| AC-005 | Módulos de negocio excluidos | docs/plantilla/repository-partition.feature | Los módulos de negocio fueron excluidos | No |
-| AC-006 | Solo módulos base autorizados | docs/plantilla/repository-partition.feature | Solo permanecen los módulos base autorizados | No |
-| AC-007 | Sin referencias funcionales al original | docs/plantilla/repository-partition.feature | No existen referencias funcionales innecesarias al proyecto original | No |
 
 ## Arquitectura
 
@@ -62,8 +50,8 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-022 | Operaciones protegidas rechazan sin permiso | authorization.feature | Un usuario sin el permiso requerido recibe 403 y queda auditado | **Sí (pytest-bdd)** |
 | AC-023 | Tokens completos no en logs | jwt-security.feature | El registro de auditoría nunca contiene tokens completos | Sí (pytest) |
 | AC-024 | Contraseñas no en logs | password-security.feature | Un fallo de validación con datos de contraseña no filtra el valor | Sí (pytest) |
-| AC-025 | Sin credenciales reales versionadas | docs/plantilla/repository-partition.feature | No existen credenciales reales versionadas | No |
-| AC-026 | `.env.example` seguro existe | docs/plantilla/repository-partition.feature | Existen archivos .env.example seguros | No |
+| AC-025 | Sin credenciales reales versionadas | repository-hygiene.feature | No existen credenciales reales versionadas | No |
+| AC-026 | `.env.example` seguro existe | repository-hygiene.feature | Existen archivos .env.example seguros | No |
 
 ## Usuarios, roles y permisos
 

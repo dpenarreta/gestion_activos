@@ -1,13 +1,10 @@
 Feature: Identidad institucional y tema visual (Configuración)
   Como administrador del sistema
   Quiero personalizar el nombre, logo, colores y tipografía del portal
-  Para que cada proyecto clonado desde este template pueda tener su propia
-  identidad visual sin tocar código
+  Para que el sistema tenga su propia identidad visual sin tocar código
 
-  # Módulo agregado deliberadamente más allá del mínimo estricto del prompt de
-  # partición (que solo exige identidad estática) — a pedido explícito del
-  # responsable del proyecto, con edición completa vía panel administrativo.
-  # Ver docs/architecture.md, sección "Decisiones de alcance".
+  # La identidad es editable por completo desde el panel administrativo, no
+  # solo estática. Ver docs/architecture.md, sección "Decisiones de alcance".
 
   Background:
     Given que existe un administrador con los permisos "configuracion.ver" y "configuracion.editar"

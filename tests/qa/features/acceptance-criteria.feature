@@ -1,10 +1,10 @@
 Feature: Criterios de aceptación transversales del proyecto
   Como responsable de calidad del sistema Gestión de Activos
   Quiero que la arquitectura, la base de datos y la calidad general del
-  proyecto cumplan lo exigido por el prompt de partición
-  Para garantizar que el resultado es una base técnica confiable y reutilizable
+  proyecto cumplan los estándares definidos
+  Para garantizar que el sistema tiene una base técnica confiable
 
-  # Archivo paraguas exigido por nombre exacto (sección 16.1 del prompt). Los
+  # Archivo paraguas de criterios transversales. Los
   # criterios de comportamiento de dominio (autenticación, usuarios, roles,
   # permisos, seguridad, datos personales, branding) viven en sus propios
   # `.feature`, para no duplicar escenarios — ver

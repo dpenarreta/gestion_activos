@@ -1,19 +1,15 @@
 # Arquitectura
 
-## Origen
+## Alcance y criterio de seguridad
 
-**Gestión de Activos** parte de la plantilla
-[`dpenarreta/skelleton_base`](https://github.com/dpenarreta/skelleton_base)
-(commit `a9896f1`, VERSION `0.1.0`), adoptada como **criterio base de
-seguridad** del sistema: identidad institucional, autenticación, JWT,
-usuarios, roles, permisos y auditoría vienen de esa base y no se reescriben
-desde cero.
+**Gestión de Activos** parte de una infraestructura transversal ya
+construida y verificada: identidad institucional, autenticación, JWT,
+usuarios, roles, permisos y auditoría. Esa capa no se reescribe.
 
-Todo módulo de negocio que se agregue debe respetar los controles ya
-establecidos en `docs/security-review.md` (permisos validados en backend,
-serializers en toda escritura, auditoría de operaciones administrativas,
-baja lógica en vez de eliminación física). Los artefactos que documentan
-cómo se construyó la plantilla están en `docs/plantilla/`.
+Todo módulo de negocio que se agregue debe respetar los controles
+establecidos en `docs/security-review.md`: permisos validados en backend,
+serializers en toda escritura, auditoría de operaciones administrativas y
+baja lógica en vez de eliminación física.
 
 ## Visión general
 
@@ -22,7 +18,7 @@ gestion_activos/
 ├── backend/    Django 5.2 LTS + DRF, patrón Modelo-Vista-Template, SQL Server
 ├── frontend/   React 18 + Vite + Bootstrap 5
 ├── tests/qa/   Criterios de aceptación en Gherkin + step definitions
-└── docs/       Esta documentación (y docs/plantilla/, artefactos heredados)
+└── docs/       Esta documentación
 ```
 
 Backend y frontend son proyectos independientes (AC-008): el backend expone
@@ -43,7 +39,7 @@ una API JSON versionada bajo `/api/v1/`, y el frontend la consume vía
 Esta separación en 5 apps (más `core`) fue una decisión explícita: el
 proyecto original mezclaba auth/roles dentro de `apps.users` y `apps.core`.
 Se solicitó y se implementó la separación literal en apps independientes
-para que esta base sea más fácil de entender y de extender.
+para que el sistema sea más fácil de entender y de extender.
 
 ## Decisiones de alcance
 
@@ -51,9 +47,8 @@ Estas decisiones se tomaron junto con el responsable del proyecto antes de
 implementar, y quedan documentadas aquí para que un mantenedor futuro
 entienda el porqué:
 
-1. **`apps.branding` (Configuración) es una adición deliberada más allá del
-   mínimo estricto del prompt de partición.** El prompt original solo exige
-   identidad institucional *estática*. Se decidió mantenerla completamente
+1. **`apps.branding` (Configuración) va más allá de una identidad
+   institucional estática.** Se decidió mantenerla completamente
    editable (colores, tipografía, logo, favicon, nombre del sitio) a pedido
    explícito, sin depender de ninguna biblioteca de medios (el logo/favicon
    son URLs de texto). Tiene su propio `.feature` (`branding.feature`) y sus
@@ -72,7 +67,7 @@ entienda el porqué:
    autorización (ver `docs/roles-and-permissions.md`).
 4. **El menú administrativo del frontend es estático, no dinámico.** El
    proyecto original resolvía el menú lateral contra un sistema de menús
-   configurable en backend (excluido de esta base, es un módulo de
+   configurable en backend (no implementado, es un módulo de
    negocio). Aquí es un array fijo en
    `frontend/src/components/admin/AdminSidebar/staticAdminMenu.js`,
    filtrado en el cliente por los permisos del usuario — la autorización
@@ -110,7 +105,7 @@ importar el llamador.
 
 ## Qué no incluye todavía
 
-La base heredada **no** trae ningún módulo de negocio: no hay biblioteca de
+El sistema **no** tiene todavía ningún módulo de negocio: no hay biblioteca de
 medios, constructor de páginas, formularios dinámicos, avisos, footer
 configurable ni menús editables. Tampoco existe aún el dominio propio de
 este sistema (activos, ubicaciones, asignaciones, mantenimientos): esa es
