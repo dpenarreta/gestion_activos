@@ -1,5 +1,16 @@
 # Reporte de ejecución de pruebas QA
 
+> **Registro histórico de la plantilla base.** Este reporte documenta la
+> verificación de `skelleton_base` (2026-07-29), no la de este proyecto. Se
+> conserva sin modificar porque respalda los controles heredados, pero sus
+> filas AC-001…AC-007 describen la partición de aquel repositorio: cuando
+> AC-002 dice que `origin` apunta a `skelleton_base`, se refiere al repo de
+> la plantilla. El `origin` de **este** proyecto es
+> `https://github.com/dpenarreta/gestion_activos.git`.
+>
+> La verificación de este proyecto sobre base de datos limpia (2026-09-08)
+> está resumida en el README, sección 18, y en `docs/security-review.md`.
+
 Fecha de ejecución: 2026-07-29. Ninguna fila está marcada "Aprobado" sin
 haberse ejecutado realmente en esta sesión — donde la verificación fue
 manual (inspección de repositorio/configuración) se indica explícitamente

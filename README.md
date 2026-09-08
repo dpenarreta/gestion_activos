@@ -1,11 +1,15 @@
 # Gestión de Activos
 
+Repositorio: <https://github.com/dpenarreta/gestion_activos>
+
 Sistema de gestión de activos institucionales. Construido sobre la
 plantilla [`dpenarreta/skelleton_base`](https://github.com/dpenarreta/skelleton_base)
 (commit `a9896f1`, VERSION `0.1.0`), adoptada como **criterio base de
 seguridad**: identidad institucional, autenticación, JWT, cifrado seguro de
 contraseñas, administración de usuarios/roles/permisos y auditoría vienen
-de esa base y no se reimplementan.
+de esa base y no se reimplementan. La plantilla es el punto de partida, no
+un remoto de este repositorio: `origin` apunta a `gestion_activos` y las
+mejoras de este proyecto no vuelven a `skelleton_base`.
 
 ## 1. Descripción general
 
