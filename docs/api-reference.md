@@ -82,6 +82,9 @@ Base: `/api/v1/activos/`
 | POST | `/activos/etiquetas/` | `activos.imprimir_etiqueta` | Lote de etiquetas en un solo trabajo (`{"ids": [...]}`, máx. 200) |
 | GET | `/activos/plantilla-importacion/` | `activos.crear` | Plantilla .xlsx de carga masiva, con los catálogos vigentes |
 | POST | `/activos/importar/` | `activos.crear` | Multipart con `archivo` (.xlsx, máx. 5 MB) y `confirmar`. Sin confirmar solo valida y devuelve el reporte; con `confirmar=true` importa (todo o nada) |
+| GET | `/activos/columnas-plantilla/` | `activos.ver` | Columnas configuradas de la plantilla |
+| POST/PATCH/DELETE | `/activos/columnas-plantilla/` | `activos.editar` | Configura qué se pide. Clave: un campo del activo o `espec:<Nombre>` para una característica propia. Las estructurales (tipo, nombre, serie, departamento, fecha) no se desactivan ni se eliminan |
+| GET | `/activos/columnas-plantilla/campos-disponibles/` | `activos.ver` | Campos que una columna puede llenar, con cuáles ya están en uso |
 | GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
 
 `DELETE` no existe en este recurso: un activo se da de baja, nunca se borra.

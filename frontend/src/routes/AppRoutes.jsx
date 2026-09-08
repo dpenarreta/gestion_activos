@@ -155,7 +155,15 @@ export function AppRoutes() {
           path="activos/importar"
           element={
             <RequirePermission permission={ACTIVOS_VER}>
-              <ImportarActivosPage />
+              <ImportarActivosPage seccion="cargar" />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/importar/columnas"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <ImportarActivosPage seccion="columnas" />
             </RequirePermission>
           }
         />

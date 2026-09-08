@@ -111,6 +111,28 @@ export const importacionActivosService = {
   },
 };
 
+export const columnasPlantillaService = {
+  list() {
+    return apiClient.get(`${ACTIVOS}columnas-plantilla/`).then((res) => res.data);
+  },
+  create(payload) {
+    return apiClient.post(`${ACTIVOS}columnas-plantilla/`, payload).then((res) => res.data);
+  },
+  update(id, payload) {
+    return apiClient
+      .patch(`${ACTIVOS}columnas-plantilla/${id}/`, payload)
+      .then((res) => res.data);
+  },
+  remove(id) {
+    return apiClient.delete(`${ACTIVOS}columnas-plantilla/${id}/`).then((res) => res.data);
+  },
+  camposDisponibles() {
+    return apiClient
+      .get(`${ACTIVOS}columnas-plantilla/campos-disponibles/`)
+      .then((res) => res.data);
+  },
+};
+
 export const tiposDispositivoService = {
   list(params = {}) {
     return apiClient.get(TIPOS, { params }).then((res) => res.data);

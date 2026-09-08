@@ -2,7 +2,9 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { importacionActivosService } from "../../../api/activosService";
+import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { ColumnasPlantillaPanel } from "./ColumnasPlantillaPanel";
 import { mensajeDeError } from "../../../utils/errores";
 import "./ImportarActivos.css";
 
@@ -20,7 +22,33 @@ const BREADCRUMB_ITEMS = [
  * confirmar. Importar directamente dejaría al usuario descubriendo los errores
  * cuando ya hay activos creados, y sin saber cuáles.
  */
-export function ImportarActivosPage() {
+const TABS = [
+  { key: "cargar", label: "Cargar archivo", path: "/admin/activos/importar" },
+  { key: "columnas", label: "Columnas de la plantilla", path: "/admin/activos/importar/columnas" },
+];
+
+export function ImportarActivosPage({ seccion = "cargar" }) {
+  if (seccion === "columnas") {
+    return (
+      <div className="importar-activos-page">
+        <Breadcrumbs items={BREADCRUMB_ITEMS} />
+        <h2>Carga masiva de activos</h2>
+        <AdminTabs tabs={TABS} />
+        <div
+          role="tabpanel"
+          id="admin-tabpanel-columnas"
+          aria-labelledby="admin-tab-columnas"
+          className="pt-3"
+        >
+          <ColumnasPlantillaPanel />
+        </div>
+      </div>
+    );
+  }
+  return <PanelCarga />;
+}
+
+function PanelCarga() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
 
@@ -103,7 +131,10 @@ export function ImportarActivosPage() {
         </Link>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      <AdminTabs tabs={TABS} />
+
+      <div className="pt-3" role="tabpanel" id="admin-tabpanel-cargar" aria-labelledby="admin-tab-cargar">
+        {error && <div className="alert alert-danger">{error}</div>}
 
       <ol className="pasos-carga">
         <li className="paso">
@@ -179,9 +210,13 @@ export function ImportarActivosPage() {
         </div>
       )}
 
-      {resultado && (
-        <ResultadoImportacion resultado={resultado} onVerInventario={() => navigate("/admin/activos")} />
-      )}
+        {resultado && (
+          <ResultadoImportacion
+            resultado={resultado}
+            onVerInventario={() => navigate("/admin/activos")}
+          />
+        )}
+      </div>
     </div>
   );
 }

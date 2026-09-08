@@ -15,6 +15,10 @@ from django.db import models
 
 from apps.core.models import BaseModel
 
+# Reexportado para que Django lo descubra: la configuración de la plantilla de
+# carga masiva vive en su propio módulo por tamaño, no por ser otra app.
+from .models_plantilla import ColumnaPlantillaActivos  # noqa: F401
+
 
 class TipoDispositivo(BaseModel):
     """Clase de equipo (laptop, servidor, impresora...).

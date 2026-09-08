@@ -1,0 +1,19 @@
+/* Configuración de las columnas de la plantilla de carga masiva. */
+
+.columnas-plantilla code {
+  color: var(--text-muted);
+}
+
+/* Una columna desactivada sigue visible —para poder reactivarla— pero atenuada,
+   porque no forma parte de la plantilla que se descarga. */
+.columna-inactiva > td:not(:last-child) {
+  opacity: 0.55;
+}
+
+.columnas-plantilla .form-switch .form-check-input {
+  cursor: pointer;
+}
+
+.columnas-plantilla .form-switch .form-check-input:disabled {
+  cursor: not-allowed;
+}

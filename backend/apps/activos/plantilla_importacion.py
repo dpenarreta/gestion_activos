@@ -22,7 +22,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from apps.organizacion.models import Departamento, Empleado
 
-from .importacion import AYUDAS, COLUMNAS, MAX_FILAS, NOMBRE_HOJA_DATOS
+from .importacion import MAX_FILAS, NOMBRE_HOJA_DATOS, columnas_configuradas
 from .models import TipoDispositivo
 
 RELLENO_OBLIGATORIA = PatternFill("solid", fgColor="D9E2F3")
@@ -43,6 +43,7 @@ ANCHOS = {
     "especificaciones": 44,
     "observaciones": 30,
 }
+ANCHO_POR_DEFECTO = 24
 
 EJEMPLOS = [
     {
@@ -76,26 +77,28 @@ EJEMPLOS = [
 ]
 
 
-def _escribir_encabezados(hoja, con_ayudas: bool) -> None:
-    for indice, (clave, encabezado, obligatoria) in enumerate(COLUMNAS, start=1):
-        celda = hoja.cell(row=1, column=indice, value=encabezado)
+def _escribir_encabezados(hoja, columnas, con_ayudas: bool) -> None:
+    for indice, columna in enumerate(columnas, start=1):
+        celda = hoja.cell(row=1, column=indice, value=columna.encabezado)
         celda.font = Font(bold=True)
-        celda.fill = RELLENO_OBLIGATORIA if obligatoria else RELLENO_OPCIONAL
+        celda.fill = RELLENO_OBLIGATORIA if columna.obligatoria else RELLENO_OPCIONAL
         celda.alignment = Alignment(vertical="center", wrap_text=True)
-        if con_ayudas:
-            comentario = Comment(AYUDAS[clave], "Gestión de Activos")
+        if con_ayudas and columna.ayuda:
+            comentario = Comment(columna.ayuda, "Gestión de Activos")
             comentario.width = 320
             comentario.height = 110
             celda.comment = comentario
-        hoja.column_dimensions[get_column_letter(indice)].width = ANCHOS.get(clave, 20)
+        hoja.column_dimensions[get_column_letter(indice)].width = ANCHOS.get(
+            columna.clave, ANCHO_POR_DEFECTO
+        )
     hoja.freeze_panes = "A2"
 
 
-def _hoja_datos(libro: Workbook) -> None:
+def _hoja_datos(libro: Workbook, columnas) -> None:
     """Hoja de captura: encabezados y nada más."""
     hoja = libro.active
     hoja.title = NOMBRE_HOJA_DATOS
-    _escribir_encabezados(hoja, con_ayudas=True)
+    _escribir_encabezados(hoja, columnas, con_ayudas=True)
 
     # La fecha es el error de captura más frecuente; validarla en Excel lo
     # ataja antes de subir el archivo.
@@ -108,19 +111,23 @@ def _hoja_datos(libro: Workbook) -> None:
         errorTitle="Fecha inválida",
         error="Escriba la fecha como AAAA-MM-DD, por ejemplo 2024-03-15.",
     )
-    hoja.add_data_validation(validacion_fecha)
-    columna_fecha = get_column_letter([c for c, _, _ in COLUMNAS].index("fecha_adquisicion") + 1)
-    validacion_fecha.add(f"{columna_fecha}2:{columna_fecha}{MAX_FILAS + 1}")
+    claves = [columna.clave for columna in columnas]
+    if "fecha_adquisicion" in claves:
+        hoja.add_data_validation(validacion_fecha)
+        columna_fecha = get_column_letter(claves.index("fecha_adquisicion") + 1)
+        validacion_fecha.add(f"{columna_fecha}2:{columna_fecha}{MAX_FILAS + 1}")
 
 
-def _hoja_ejemplo(libro: Workbook) -> None:
+def _hoja_ejemplo(libro: Workbook, columnas) -> None:
     """Mismas columnas, con filas de muestra. Separada de la de captura para
     que no haya nada que borrar antes de importar."""
     hoja = libro.create_sheet("Ejemplo")
-    _escribir_encabezados(hoja, con_ayudas=False)
+    _escribir_encabezados(hoja, columnas, con_ayudas=False)
     for numero_fila, ejemplo in enumerate(EJEMPLOS, start=2):
-        for indice, (clave, _, _) in enumerate(COLUMNAS, start=1):
-            hoja.cell(row=numero_fila, column=indice, value=ejemplo[clave])
+        for indice, columna in enumerate(columnas, start=1):
+            # Una columna propia no tiene ejemplo predefinido: se deja vacía
+            # antes que inventar un valor que confunda.
+            hoja.cell(row=numero_fila, column=indice, value=ejemplo.get(columna.clave, ""))
 
 
 def _hoja_catalogo(libro: Workbook, titulo: str, encabezados: list[str], filas: list[list]) -> None:
@@ -138,7 +145,7 @@ def _hoja_catalogo(libro: Workbook, titulo: str, encabezados: list[str], filas: 
     hoja.freeze_panes = "A2"
 
 
-def _hoja_instrucciones(libro: Workbook) -> None:
+def _hoja_instrucciones(libro: Workbook, columnas) -> None:
     hoja = libro.create_sheet("Instrucciones", 0)
     hoja.column_dimensions["A"].width = 108
 
@@ -184,6 +191,15 @@ def _hoja_instrucciones(libro: Workbook) -> None:
         ),
         (f"Máximo {MAX_FILAS} filas por carga.", False),
         ("", False),
+        ("Columnas de esta plantilla", True),
+        *[
+            (
+                f"· {columna.encabezado}" + (f" — {columna.ayuda}" if columna.ayuda else ""),
+                False,
+            )
+            for columna in columnas
+        ],
+        ("", False),
         ("Errores frecuentes", True),
         ("· Número de serie repetido, dentro del archivo o ya existente en el inventario.", False),
         ("· Fecha en otro formato: use AAAA-MM-DD (por ejemplo 2024-03-15).", False),
@@ -204,10 +220,15 @@ def _hoja_instrucciones(libro: Workbook) -> None:
 
 
 def construir_plantilla() -> bytes:
-    """Genera el .xlsx con la hoja de captura, las instrucciones y los catálogos."""
+    """Genera el .xlsx con la hoja de captura, las instrucciones y los catálogos.
+
+    Las columnas salen de la configuración vigente, de modo que la plantilla
+    refleja siempre lo que el importador va a leer.
+    """
+    columnas = columnas_configuradas()
     libro = Workbook()
-    _hoja_datos(libro)
-    _hoja_ejemplo(libro)
+    _hoja_datos(libro, columnas)
+    _hoja_ejemplo(libro, columnas)
 
     _hoja_catalogo(
         libro,
@@ -239,7 +260,7 @@ def construir_plantilla() -> bytes:
         ],
     )
 
-    _hoja_instrucciones(libro)
+    _hoja_instrucciones(libro, columnas)
     # Se abre en Instrucciones: es lo primero que conviene leer.
     libro.active = 0
 

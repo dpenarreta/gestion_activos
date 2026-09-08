@@ -7,14 +7,30 @@ import pytest
 from openpyxl import Workbook, load_workbook
 from rest_framework.test import APIClient
 
-from apps.activos.importacion import COLUMNAS, MAX_FILAS
+from apps.activos.importacion import MAX_FILAS, columnas_configuradas
 from apps.activos.models import Activo, TipoDispositivo
 from apps.activos.services import ActivoService
 from apps.organizacion.models import Departamento, Empleado
 from apps.users.models import User
 
-ENCABEZADOS = [encabezado for _, encabezado, _ in COLUMNAS]
-CLAVES = [clave for clave, _, _ in COLUMNAS]
+
+@pytest.fixture
+def columnas(db):
+    """Columnas vigentes de la plantilla, sembradas por migración.
+
+    Se leen en cada prueba en vez de fijarlas como constante del módulo: la
+    plantilla es configurable, y una lista fija haría que las pruebas dejaran
+    de verificar lo que el sistema hace de verdad en cuanto alguien la ajuste.
+    """
+    return columnas_configuradas()
+
+
+def _encabezados(columnas):
+    return [columna.encabezado for columna in columnas]
+
+
+def _claves(columnas):
+    return [columna.clave for columna in columnas]
 
 
 @pytest.fixture
@@ -63,13 +79,14 @@ def _fila(**overrides):
     return base
 
 
-def _archivo(filas, encabezados=None):
+def _archivo(columnas, filas, encabezados=None):
     """Construye un .xlsx en memoria con los encabezados de la plantilla."""
     libro = Workbook()
     hoja = libro.active
-    hoja.append(encabezados if encabezados is not None else ENCABEZADOS)
+    hoja.title = "Activos"
+    hoja.append(encabezados if encabezados is not None else _encabezados(columnas))
     for fila in filas:
-        hoja.append([fila.get(clave, "") for clave in CLAVES])
+        hoja.append([fila.get(clave, "") for clave in _claves(columnas)])
     buffer = BytesIO()
     libro.save(buffer)
     buffer.seek(0)
@@ -110,24 +127,24 @@ def test_la_plantilla_trae_los_catalogos_vigentes(cliente, catalogos):
     assert "1712345678" in documentos
 
 
-def test_la_hoja_de_captura_queda_vacia_bajo_los_encabezados(cliente, catalogos):
+def test_la_hoja_de_captura_queda_vacia_bajo_los_encabezados(cliente, catalogos, columnas):
     """Sin filas de ejemplo que haya que acordarse de borrar: olvidarlas
     produciría filas basura en el inventario."""
     respuesta = cliente.get("/api/v1/activos/plantilla-importacion/")
     hoja = load_workbook(BytesIO(respuesta.content))["Activos"]
 
-    assert [c.value for c in hoja[1]] == ENCABEZADOS
+    assert [c.value for c in hoja[1]] == _encabezados(columnas)
     assert hoja.max_row == 1
 
 
-def test_la_plantilla_se_puede_llenar_y_cargar_sin_ajustes(cliente, catalogos):
+def test_la_plantilla_se_puede_llenar_y_cargar_sin_ajustes(cliente, catalogos, columnas):
     """La plantilla descargada debe ser directamente utilizable: si sus
     encabezados no coincidieran con los que espera el importador, el usuario
     recibiría un error incomprensible."""
     respuesta = cliente.get("/api/v1/activos/plantilla-importacion/")
     libro = load_workbook(BytesIO(respuesta.content))
     hoja = libro["Activos"]
-    hoja.append([_fila()[clave] for clave in CLAVES])
+    hoja.append([_fila()[clave] for clave in _claves(columnas)])
 
     buffer = BytesIO()
     libro.save(buffer)
@@ -143,14 +160,14 @@ def test_la_plantilla_se_puede_llenar_y_cargar_sin_ajustes(cliente, catalogos):
 # --- Validación previa -----------------------------------------------------
 
 
-def test_la_validacion_no_escribe_nada_en_el_inventario(cliente, catalogos):
-    _importar(cliente, _archivo([_fila(), _fila(numero_serie="SN-IMP-2")]))
+def test_la_validacion_no_escribe_nada_en_el_inventario(cliente, catalogos, columnas):
+    _importar(cliente, _archivo(columnas, [_fila(), _fila(numero_serie="SN-IMP-2")]))
 
     assert Activo.objects.count() == 0
 
 
-def test_el_reporte_indica_cuantas_filas_son_validas(cliente, catalogos):
-    respuesta = _importar(cliente, _archivo([_fila(), _fila(numero_serie="SN-IMP-2")]))
+def test_el_reporte_indica_cuantas_filas_son_validas(cliente, catalogos, columnas):
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(), _fila(numero_serie="SN-IMP-2")]))
 
     reporte = respuesta.json()
     assert reporte["total_filas"] == 2
@@ -159,15 +176,15 @@ def test_el_reporte_indica_cuantas_filas_son_validas(cliente, catalogos):
     assert reporte["importado"] is False
 
 
-def test_una_serie_repetida_dentro_del_archivo_se_detecta(cliente, catalogos):
-    respuesta = _importar(cliente, _archivo([_fila(), _fila(nombre="Otra")]))
+def test_una_serie_repetida_dentro_del_archivo_se_detecta(cliente, catalogos, columnas):
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(), _fila(nombre="Otra")]))
 
     errores = respuesta.json()["errores"]
     assert any("repetida" in e["mensaje"] for e in errores)
     assert respuesta.json()["es_importable"] is False
 
 
-def test_una_serie_ya_existente_en_el_inventario_se_detecta(cliente, admin, catalogos):
+def test_una_serie_ya_existente_en_el_inventario_se_detecta(cliente, admin, catalogos, columnas):
     ActivoService.crear_activo(
         actor=admin,
         tipo=catalogos["tipo"],
@@ -179,14 +196,17 @@ def test_una_serie_ya_existente_en_el_inventario_se_detecta(cliente, admin, cata
         fecha_adquisicion=datetime.date(2024, 1, 1),
     )
 
-    respuesta = _importar(cliente, _archivo([_fila()]))
+    respuesta = _importar(cliente, _archivo(columnas, [_fila()]))
 
     assert any("Ya existe" in e["mensaje"] for e in respuesta.json()["errores"])
 
 
-def test_un_tipo_o_area_inexistente_se_reporta_con_la_fila_y_la_columna(cliente, catalogos):
+def test_un_tipo_o_area_inexistente_se_reporta_con_la_fila_y_la_columna(
+    cliente, catalogos, columnas
+):
     respuesta = _importar(
-        cliente, _archivo([_fila(tipo="NOEXISTE"), _fila(numero_serie="SN-2", departamento="XX")])
+        cliente,
+        _archivo(columnas, [_fila(tipo="NOEXISTE"), _fila(numero_serie="SN-2", departamento="XX")]),
     )
 
     errores = respuesta.json()["errores"]
@@ -196,50 +216,54 @@ def test_un_tipo_o_area_inexistente_se_reporta_con_la_fila_y_la_columna(cliente,
     assert area_error["fila"] == 3
 
 
-def test_una_fecha_mal_escrita_se_reporta(cliente, catalogos):
-    respuesta = _importar(cliente, _archivo([_fila(fecha_adquisicion="15/13/2024")]))
+def test_una_fecha_mal_escrita_se_reporta(cliente, catalogos, columnas):
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(fecha_adquisicion="15/13/2024")]))
 
     assert any(e["columna"] == "Fecha de adquisición" for e in respuesta.json()["errores"])
 
 
-def test_una_fecha_futura_se_rechaza(cliente, catalogos):
+def test_una_fecha_futura_se_rechaza(cliente, catalogos, columnas):
     manana = datetime.date.today() + datetime.timedelta(days=1)
 
-    respuesta = _importar(cliente, _archivo([_fila(fecha_adquisicion=manana.isoformat())]))
+    respuesta = _importar(
+        cliente, _archivo(columnas, [_fila(fecha_adquisicion=manana.isoformat())])
+    )
 
     assert any("futura" in e["mensaje"] for e in respuesta.json()["errores"])
 
 
-def test_un_custodio_inexistente_se_reporta(cliente, catalogos):
-    respuesta = _importar(cliente, _archivo([_fila(custodio="0000000000")]))
+def test_un_custodio_inexistente_se_reporta(cliente, catalogos, columnas):
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(custodio="0000000000")]))
 
     assert any(e["columna"] == "Documento del custodio" for e in respuesta.json()["errores"])
 
 
-def test_un_costo_con_simbolo_de_moneda_se_reporta(cliente, catalogos):
-    respuesta = _importar(cliente, _archivo([_fila(costo_adquisicion="$1.150,00")]))
+def test_un_costo_con_simbolo_de_moneda_se_reporta(cliente, catalogos, columnas):
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(costo_adquisicion="$1.150,00")]))
 
     assert any(e["columna"] == "Costo de compra" for e in respuesta.json()["errores"])
 
 
-def test_faltar_una_columna_obligatoria_lo_dice_en_vez_de_fallar_fila_por_fila(cliente, catalogos):
-    encabezados_incompletos = [e for e in ENCABEZADOS if e != "Número de serie *"]
+def test_faltar_una_columna_obligatoria_lo_dice_en_vez_de_fallar_fila_por_fila(
+    cliente, catalogos, columnas
+):
+    encabezados_incompletos = [e for e in _encabezados(columnas) if e != "Número de serie *"]
 
-    respuesta = _importar(cliente, _archivo([], encabezados=encabezados_incompletos))
+    respuesta = _importar(cliente, _archivo(columnas, [], encabezados=encabezados_incompletos))
 
     error = respuesta.json()["errores"][0]
     assert error["columna"] == "encabezados"
     assert "Número de serie" in error["mensaje"]
 
 
-def test_las_filas_vacias_del_final_no_cuentan_como_datos(cliente, catalogos):
+def test_las_filas_vacias_del_final_no_cuentan_como_datos(cliente, catalogos, columnas):
     """Excel deja filas en blanco al final de una hoja editada; tomarlas como
     activos produciría un error por cada una."""
-    archivo = _archivo([_fila()])
+    archivo = _archivo(columnas, [_fila()])
     libro = load_workbook(archivo)
     hoja = libro.active
     for _ in range(5):
-        hoja.append(["" for _ in CLAVES])
+        hoja.append(["" for _ in _claves(columnas)])
     buffer = BytesIO()
     libro.save(buffer)
     buffer.seek(0)
@@ -254,14 +278,15 @@ def test_las_filas_vacias_del_final_no_cuentan_como_datos(cliente, catalogos):
 # --- Importación -----------------------------------------------------------
 
 
-def test_confirmar_crea_los_activos_con_su_codigo_de_barras(cliente, catalogos):
+def test_confirmar_crea_los_activos_con_su_codigo_de_barras(cliente, catalogos, columnas):
     respuesta = _importar(
         cliente,
         _archivo(
+            columnas,
             [
                 _fila(custodio="1712345678", costo_adquisicion="1150.50"),
                 _fila(numero_serie="SN-IMP-2", nombre="Laptop 02"),
-            ]
+            ],
         ),
         confirmar=True,
     )
@@ -273,20 +298,20 @@ def test_confirmar_crea_los_activos_con_su_codigo_de_barras(cliente, catalogos):
     assert codigos == ["GA-LAP-000001", "GA-LAP-000002"]
 
 
-def test_la_importacion_deja_el_movimiento_de_alta_de_cada_activo(cliente, catalogos):
-    _importar(cliente, _archivo([_fila()]), confirmar=True)
+def test_la_importacion_deja_el_movimiento_de_alta_de_cada_activo(cliente, catalogos, columnas):
+    _importar(cliente, _archivo(columnas, [_fila()]), confirmar=True)
 
     activo = Activo.objects.get()
     assert activo.movimientos.count() == 1
     assert activo.movimientos.get().tipo == "alta"
 
 
-def test_un_archivo_con_errores_no_importa_ninguna_fila(cliente, catalogos):
+def test_un_archivo_con_errores_no_importa_ninguna_fila(cliente, catalogos, columnas):
     """Todo o nada: un inventario a medio cargar es peor que uno vacío, porque
     nadie sabe cuál de los dos casos está mirando."""
     respuesta = _importar(
         cliente,
-        _archivo([_fila(), _fila(numero_serie="SN-IMP-2", tipo="NOEXISTE")]),
+        _archivo(columnas, [_fila(), _fila(numero_serie="SN-IMP-2", tipo="NOEXISTE")]),
         confirmar=True,
     )
 
@@ -295,10 +320,10 @@ def test_un_archivo_con_errores_no_importa_ninguna_fila(cliente, catalogos):
     assert Activo.objects.count() == 0
 
 
-def test_las_especificaciones_se_convierten_en_pares_clave_valor(cliente, catalogos):
+def test_las_especificaciones_se_convierten_en_pares_clave_valor(cliente, catalogos, columnas):
     _importar(
         cliente,
-        _archivo([_fila(especificaciones="Procesador=i5; RAM=16 GB; Disco=512 GB SSD")]),
+        _archivo(columnas, [_fila(especificaciones="Procesador=i5; RAM=16 GB; Disco=512 GB SSD")]),
         confirmar=True,
     )
 
@@ -310,18 +335,18 @@ def test_las_especificaciones_se_convierten_en_pares_clave_valor(cliente, catalo
     }
 
 
-def test_un_activo_sin_custodio_queda_en_bodega(cliente, catalogos):
-    _importar(cliente, _archivo([_fila(custodio="")]), confirmar=True)
+def test_un_activo_sin_custodio_queda_en_bodega(cliente, catalogos, columnas):
+    _importar(cliente, _archivo(columnas, [_fila(custodio="")]), confirmar=True)
 
     activo = Activo.objects.get()
     assert activo.custodio is None
     assert activo.estado == Activo.Estado.EN_BODEGA
 
 
-def test_la_importacion_queda_auditada(cliente, catalogos):
+def test_la_importacion_queda_auditada(cliente, catalogos, columnas):
     from apps.core.models import AuditLog
 
-    _importar(cliente, _archivo([_fila()]), confirmar=True)
+    _importar(cliente, _archivo(columnas, [_fila()]), confirmar=True)
 
     evento = AuditLog.objects.filter(action="activo.importacion_masiva").get()
     assert evento.new_values["cantidad"] == 1
@@ -362,15 +387,15 @@ def test_sin_archivo_adjunto_se_pide_uno(cliente, catalogos):
     assert respuesta.json()["error"]["code"] == "archivo_requerido"
 
 
-def test_se_rechaza_un_archivo_con_mas_filas_del_maximo(cliente, catalogos):
+def test_se_rechaza_un_archivo_con_mas_filas_del_maximo(cliente, catalogos, columnas):
     filas = [_fila(numero_serie=f"SN-MASIVO-{n}") for n in range(MAX_FILAS + 5)]
 
-    respuesta = _importar(cliente, _archivo(filas))
+    respuesta = _importar(cliente, _archivo(columnas, filas))
 
     assert any("máximo" in e["mensaje"] for e in respuesta.json()["errores"])
 
 
-def test_importar_exige_el_permiso_de_crear_activos(db, catalogos):
+def test_importar_exige_el_permiso_de_crear_activos(db, catalogos, columnas):
     """Ver el inventario no alcanza para cargarlo masivamente."""
     from django.contrib.auth.models import Group, Permission
     from django.contrib.contenttypes.models import ContentType
@@ -393,4 +418,4 @@ def test_importar_exige_el_permiso_de_crear_activos(db, catalogos):
     client.force_authenticate(user=usuario)
 
     assert client.get("/api/v1/activos/plantilla-importacion/").status_code == 403
-    assert _importar(client, _archivo([_fila()])).status_code == 403
+    assert _importar(client, _archivo(columnas, [_fila()])).status_code == 403

@@ -193,6 +193,7 @@ relaciones entre usuarios, roles y permisos.
 | `/admin/activos/:id` | Ficha completa: datos, custodia, indicadores, bitácora, historial de movimientos, etiqueta |
 | `/admin/activos/escaner` | Consulta de campo por lectora de código de barras (RF-03) |
 | `/admin/activos/importar` | Carga masiva desde Excel, con plantilla descargable y validación previa |
+| `/admin/activos/importar/columnas` | Configuración de las columnas que pide la plantilla |
 | `/admin/activos/tipos` | Catálogo de tipos de dispositivo |
 | `/admin/mantenimientos` | Bitácora con filtros por tipo y rango de fechas |
 | `/admin/mantenimientos/componentes` | Catálogo de repuestos, con la marca de pieza crítica |

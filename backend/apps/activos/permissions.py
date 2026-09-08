@@ -45,3 +45,12 @@ class ImportacionPermission(HasActionPermission):
 
     def get_required_permission(self, request, view) -> str:
         return "activos.crear"
+
+
+class ColumnasPlantillaPermission(HasModulePermission):
+    """Configurar la plantilla de carga es administrar el módulo, no capturar
+    datos: quien carga inventario no debería poder cambiar qué se le exige al
+    resto."""
+
+    view_permission = "activos.ver"
+    write_permission = "activos.editar"

@@ -47,6 +47,12 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-IMP-008 | Código de barras y movimiento de alta | carga-masiva-activos.feature | Los activos importados reciben su código de barras | Sí (pytest) |
 | AC-IMP-009 | Importación auditada | carga-masiva-activos.feature | La carga masiva queda auditada | Sí (pytest) |
 | AC-IMP-010 | Permiso de creación exigido | carga-masiva-activos.feature | Cargar masivamente exige el permiso de registrar activos | Sí (pytest) |
+| AC-IMP-011 | Columnas configurables | carga-masiva-activos.feature | Las columnas de la plantilla se configuran desde el panel | Sí (pytest) |
+| AC-IMP-012 | Obligatoriedad configurable | carga-masiva-activos.feature | Una columna opcional se puede volver obligatoria | Sí (pytest) |
+| AC-IMP-013 | Renombrar sincroniza plantilla y lector | carga-masiva-activos.feature | Renombrar una columna cambia el encabezado y lo que se lee | Sí (pytest) |
+| AC-IMP-014 | Columnas propias sin migrar | carga-masiva-activos.feature | Se pueden pedir datos propios sin cambiar la base de datos | Sí (pytest) |
+| AC-IMP-015 | Columnas imprescindibles protegidas | carga-masiva-activos.feature | Las columnas imprescindibles no se pueden quitar | Sí (pytest) |
+| AC-IMP-016 | Configurar exige activos.editar | carga-masiva-activos.feature | Configurar la plantilla exige permiso de edición | Sí (pytest) |
 
 ## Captura por escáner (RF-03)
 

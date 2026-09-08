@@ -63,3 +63,43 @@ Feature: Carga masiva de activos desde hoja de cálculo
     Given un usuario que solo puede ver el inventario
     When intenta descargar la plantilla o subir un archivo
     Then la operación es rechazada por falta de permiso
+
+  @AC-IMP-011
+  Scenario: Las columnas de la plantilla se configuran desde el panel
+    When se desactiva una columna opcional
+    Then deja de aparecer en la plantilla descargada
+    And su valor deja de leerse al importar
+
+  @AC-IMP-012
+  Scenario: Una columna opcional se puede volver obligatoria
+    When se marca como obligatoria una columna que no lo era
+    Then las filas que la dejen vacía se reportan como error
+
+  @AC-IMP-013
+  Scenario: Renombrar una columna cambia el encabezado y lo que se lee
+    When se cambia la etiqueta de una columna
+    Then la plantilla sale con el nuevo encabezado
+    And el archivo llenado con ese encabezado se sigue leyendo
+    # El generador y el lector toman la etiqueta del mismo sitio: si cada uno
+    # tuviera la suya, renombrar produciría archivos ilegibles.
+
+  @AC-IMP-014
+  Scenario: Se pueden pedir datos propios sin cambiar la base de datos
+    When se agrega una columna de característica propia
+    Then aparece en la plantilla
+    And lo capturado se guarda dentro de las especificaciones del activo
+
+  @AC-IMP-015
+  Scenario: Las columnas imprescindibles no se pueden quitar
+    When se intenta desactivar, volver opcional o eliminar el tipo, el nombre,
+      la serie, el departamento o la fecha de adquisición
+    Then la operación es rechazada
+    # Sin esos datos no se puede crear un activo: permitir quitarlas no daría
+    # flexibilidad, daría un archivo que siempre falla.
+
+  @AC-IMP-016
+  Scenario: Configurar la plantilla exige permiso de edición
+    Given un usuario que puede ver y cargar activos, pero no editarlos
+    When intenta cambiar una columna de la plantilla
+    Then la operación es rechazada
+    # Quien carga inventario no debería poder cambiar qué se le exige al resto.

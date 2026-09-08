@@ -37,39 +37,18 @@ MAX_FILAS = 1000
 # desincronizarse (el importador lo usa para encontrar la hoja correcta).
 NOMBRE_HOJA_DATOS = "Activos"
 
-# (clave interna, encabezado en la plantilla, obligatoria)
-COLUMNAS = [
-    ("tipo", "Tipo de dispositivo *", True),
-    ("nombre", "Nombre del activo *", True),
-    ("marca", "Marca *", True),
-    ("modelo", "Modelo *", True),
-    ("numero_serie", "Número de serie *", True),
-    ("departamento", "Departamento *", True),
-    ("fecha_adquisicion", "Fecha de adquisición *", True),
-    ("custodio", "Documento del custodio", False),
-    ("ubicacion", "Ubicación", False),
-    ("costo_adquisicion", "Costo de compra", False),
-    ("especificaciones", "Especificaciones", False),
-    ("observaciones", "Observaciones", False),
-]
 
-ENCABEZADOS = [encabezado for _, encabezado, _ in COLUMNAS]
-ENCABEZADO_POR_CLAVE = {clave: encabezado for clave, encabezado, _ in COLUMNAS}
+def columnas_configuradas():
+    """Columnas activas de la plantilla, en su orden configurado.
 
-AYUDAS = {
-    "tipo": "Código o nombre exacto de un tipo registrado (ej. LAP o Laptop).",
-    "nombre": "Nombre corto del equipo. Se imprime en la etiqueta.",
-    "marca": "Fabricante del equipo.",
-    "modelo": "Modelo comercial.",
-    "numero_serie": "Serie del fabricante. Único en todo el inventario.",
-    "departamento": "Código o nombre exacto de un área registrada (ej. TI o Tecnología).",
-    "fecha_adquisicion": "Formato AAAA-MM-DD. Base del cálculo de vida útil.",
-    "custodio": "Documento de identidad del empleado responsable. Vacío = queda en bodega.",
-    "ubicacion": "Ubicación física (ej. Piso 3, oficina 302).",
-    "costo_adquisicion": "Solo el número, sin símbolo de moneda (ej. 1150.00).",
-    "especificaciones": "Pares clave=valor separados por ';' (ej. Procesador=i5; RAM=16 GB).",
-    "observaciones": "Texto libre.",
-}
+    La plantilla es configurable desde el panel (ver
+    `apps.activos.models_plantilla`), así que el generador y el lector toman de
+    aquí su definición: si tomaran cada uno la suya, cambiar una columna
+    produciría archivos que el propio sistema no sabe leer.
+    """
+    from .models_plantilla import ColumnaPlantillaActivos
+
+    return list(ColumnaPlantillaActivos.objects.filter(activa=True).order_by("orden", "id"))
 
 
 @dataclass
@@ -162,7 +141,7 @@ def _parsear_especificaciones(valor) -> dict:
     return resultado
 
 
-def _indices_de_columnas(encabezados_archivo: list[str]) -> dict[str, int]:
+def _indices_de_columnas(encabezados_archivo: list[str], columnas) -> dict[str, int]:
     """Ubica cada columna por su encabezado, sin depender del orden.
 
     Se compara sin distinguir mayúsculas ni el asterisco de obligatoriedad,
@@ -174,14 +153,14 @@ def _indices_de_columnas(encabezados_archivo: list[str]) -> dict[str, int]:
 
     disponibles = {normalizar(e): i for i, e in enumerate(encabezados_archivo) if e}
     indices = {}
-    for clave, encabezado, _ in COLUMNAS:
-        posicion = disponibles.get(normalizar(encabezado))
+    for columna in columnas:
+        posicion = disponibles.get(normalizar(columna.etiqueta))
         if posicion is not None:
-            indices[clave] = posicion
+            indices[columna.clave] = posicion
     return indices
 
 
-def _hoja_de_datos(libro):
+def _hoja_de_datos(libro, columnas):
     """Elige la hoja que contiene los activos.
 
     La plantilla se abre en «Instrucciones» —es lo primero que conviene leer—,
@@ -195,7 +174,7 @@ def _hoja_de_datos(libro):
 
     for hoja in libro.worksheets:
         primera_fila = next(hoja.iter_rows(max_row=1, values_only=True), ())
-        if _indices_de_columnas([_texto(c) for c in primera_fila]):
+        if _indices_de_columnas([_texto(c) for c in primera_fila], columnas):
             return hoja
 
     return libro.active
@@ -206,11 +185,14 @@ def validar_archivo(archivo) -> ResultadoValidacion:
     from openpyxl import load_workbook
 
     resultado = ResultadoValidacion()
+    columnas = columnas_configuradas()
+    etiqueta_de = {c.clave: c.etiqueta for c in columnas}
+    especificaciones_por_columna = [c for c in columnas if c.es_especificacion]
 
     # `read_only` evita cargar toda la hoja en memoria; `data_only` toma el
     # valor calculado de las fórmulas en vez de su texto.
     libro = load_workbook(archivo, read_only=True, data_only=True)
-    hoja = _hoja_de_datos(libro)
+    hoja = _hoja_de_datos(libro, columnas)
 
     filas = hoja.iter_rows(values_only=True)
     try:
@@ -219,12 +201,8 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         resultado.errores.append(ErrorFila(0, "-", "El archivo está vacío."))
         return resultado
 
-    indices = _indices_de_columnas(encabezados)
-    faltantes = [
-        encabezado
-        for clave, encabezado, obligatoria in COLUMNAS
-        if obligatoria and clave not in indices
-    ]
+    indices = _indices_de_columnas(encabezados, columnas)
+    faltantes = [c.etiqueta for c in columnas if c.obligatoria and c.clave not in indices]
     if faltantes:
         resultado.errores.append(
             ErrorFila(
@@ -275,13 +253,15 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         datos = {"_fila": numero_fila}
 
+        # Obligatoriedad en una sola pasada sobre la configuración vigente: es
+        # la única forma de que marcar obligatoria una columna en el panel
+        # tenga efecto real, incluidas las columnas propias.
+        for columna in columnas:
+            if columna.obligatoria and not _texto(celda(columna.clave)):
+                errores_fila.append(ErrorFila(numero_fila, columna.etiqueta, "Es obligatorio."))
+
         for clave in ("nombre", "marca", "modelo", "numero_serie"):
-            valor = _texto(celda(clave))
-            if not valor:
-                errores_fila.append(
-                    ErrorFila(numero_fila, ENCABEZADO_POR_CLAVE[clave], "Es obligatorio.")
-                )
-            datos[clave] = valor
+            datos[clave] = _texto(celda(clave))
 
         serie = datos.get("numero_serie", "")
         if serie:
@@ -289,7 +269,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        "Número de serie",
+                        etiqueta_de.get("numero_serie", "Número de serie"),
                         f"Ya existe un activo con la serie {serie!r}.",
                     )
                 )
@@ -297,7 +277,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        "Número de serie",
+                        etiqueta_de.get("numero_serie", "Número de serie"),
                         f"La serie {serie!r} está repetida en la fila "
                         f"{series_en_archivo[serie.lower()]} de este mismo archivo.",
                     )
@@ -311,7 +291,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
             errores_fila.append(
                 ErrorFila(
                     numero_fila,
-                    "Tipo de dispositivo",
+                    etiqueta_de.get("tipo", "Tipo de dispositivo"),
                     (
                         f"No existe un tipo activo con código o nombre {_texto(celda('tipo'))!r}."
                         if clave_tipo
@@ -327,7 +307,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
             errores_fila.append(
                 ErrorFila(
                     numero_fila,
-                    "Departamento",
+                    etiqueta_de.get("departamento", "Departamento"),
                     (
                         f"No existe un área activa con código o nombre "
                         f"{_texto(celda('departamento'))!r}."
@@ -339,17 +319,21 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         datos["departamento"] = departamento
 
         fecha = _parsear_fecha(celda("fecha_adquisicion"))
-        if fecha is None:
+        if fecha is None and _texto(celda("fecha_adquisicion")):
             errores_fila.append(
                 ErrorFila(
                     numero_fila,
-                    "Fecha de adquisición",
-                    "Es obligatoria y debe tener formato AAAA-MM-DD.",
+                    etiqueta_de.get("fecha_adquisicion", "Fecha de adquisición"),
+                    "No se entiende la fecha: use el formato AAAA-MM-DD.",
                 )
             )
         elif fecha > datetime.date.today():
             errores_fila.append(
-                ErrorFila(numero_fila, "Fecha de adquisición", "No puede ser futura.")
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_adquisicion", "Fecha de adquisición"),
+                    "No puede ser futura.",
+                )
             )
         datos["fecha_adquisicion"] = fecha
 
@@ -361,7 +345,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        "Documento del custodio",
+                        etiqueta_de.get("custodio", "Documento del custodio"),
                         f"No hay un empleado activo con documento {documento!r}.",
                     )
                 )
@@ -378,7 +362,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        "Costo de compra",
+                        etiqueta_de.get("costo_adquisicion", "Costo de compra"),
                         f"{costo_texto!r} no es un número válido.",
                     )
                 )
@@ -386,7 +370,15 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         datos["ubicacion"] = _texto(celda("ubicacion"))
         datos["observaciones"] = _texto(celda("observaciones"))
-        datos["especificaciones"] = _parsear_especificaciones(celda("especificaciones"))
+        # La columna general de especificaciones y las columnas propias
+        # (`espec:<Nombre>`) se combinan en el mismo diccionario: son dos
+        # formas de llenar el mismo campo del activo.
+        especificaciones = _parsear_especificaciones(celda("especificaciones"))
+        for columna in especificaciones_por_columna:
+            valor = _texto(celda(columna.clave))
+            if valor:
+                especificaciones[columna.nombre_especificacion] = valor
+        datos["especificaciones"] = especificaciones
 
         if errores_fila:
             resultado.errores.extend(errores_fila)
