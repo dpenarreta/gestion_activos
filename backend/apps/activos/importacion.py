@@ -11,9 +11,9 @@ entra ninguna. Un inventario parcialmente cargado es peor que uno vacío,
 porque nadie sabe cuál de los dos casos está mirando.
 
 Las referencias a catálogos (tipo, departamento, custodio) se resuelven por
-código o por documento, no por id: quien llena la plantilla trabaja desde el
-mundo real —"LAP", "TI", la cédula del empleado— y no conoce los
-identificadores internos de la base de datos.
+código, no por id: quien llena la plantilla trabaja con los códigos que ve en
+el sistema —"LAP", "TI", "EMP-0001"— y no con los identificadores internos de
+la base de datos.
 """
 
 from __future__ import annotations
@@ -224,7 +224,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
     for departamento in Departamento.objects.filter(activo=True):
         departamentos[departamento.codigo.lower()] = departamento
         departamentos[departamento.nombre.lower()] = departamento
-    empleados = {e.documento_identidad.lower(): e for e in Empleado.objects.filter(activo=True)}
+    empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
 
     series_existentes = set(Activo.objects.values_list("numero_serie", flat=True))
     series_en_archivo: dict[str, int] = {}
@@ -337,16 +337,16 @@ def validar_archivo(archivo) -> ResultadoValidacion:
             )
         datos["fecha_adquisicion"] = fecha
 
-        documento = _texto(celda("custodio"))
+        codigo_custodio = _texto(celda("custodio"))
         custodio = None
-        if documento:
-            custodio = empleados.get(documento.lower())
+        if codigo_custodio:
+            custodio = empleados.get(codigo_custodio.lower())
             if not custodio:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        etiqueta_de.get("custodio", "Documento del custodio"),
-                        f"No hay un empleado activo con documento {documento!r}.",
+                        etiqueta_de.get("custodio", "Código del custodio"),
+                        f"No hay un empleado activo con el código {codigo_custodio!r}.",
                     )
                 )
         datos["custodio"] = custodio

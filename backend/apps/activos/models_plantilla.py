@@ -27,7 +27,7 @@ CAMPOS_DISPONIBLES = {
     "numero_serie": "Número de serie",
     "departamento": "Departamento",
     "fecha_adquisicion": "Fecha de adquisición",
-    "custodio": "Documento del custodio",
+    "custodio": "Código del custodio",
     "ubicacion": "Ubicación",
     "costo_adquisicion": "Costo de compra",
     "especificaciones": "Especificaciones",

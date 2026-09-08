@@ -54,7 +54,7 @@ def catalogos(db):
     empleado = Empleado.objects.create(
         nombres="Ana",
         apellidos="Pérez",
-        documento_identidad="1712345678",
+        codigo_empleado="EMP-0001",
         departamento=departamento,
     )
     return {"departamento": departamento, "tipo": tipo, "empleado": empleado}
@@ -123,8 +123,8 @@ def test_la_plantilla_trae_los_catalogos_vigentes(cliente, catalogos):
     )
     codigos_tipos = [fila[0] for fila in libro["Tipos"].iter_rows(min_row=2, values_only=True)]
     assert "LAP" in codigos_tipos
-    documentos = [fila[0] for fila in libro["Empleados"].iter_rows(min_row=2, values_only=True)]
-    assert "1712345678" in documentos
+    codigos = [fila[0] for fila in libro["Empleados"].iter_rows(min_row=2, values_only=True)]
+    assert "EMP-0001" in codigos
 
 
 def test_la_hoja_de_captura_queda_vacia_bajo_los_encabezados(cliente, catalogos, columnas):
@@ -233,9 +233,9 @@ def test_una_fecha_futura_se_rechaza(cliente, catalogos, columnas):
 
 
 def test_un_custodio_inexistente_se_reporta(cliente, catalogos, columnas):
-    respuesta = _importar(cliente, _archivo(columnas, [_fila(custodio="0000000000")]))
+    respuesta = _importar(cliente, _archivo(columnas, [_fila(custodio="NO-EXISTE")]))
 
-    assert any(e["columna"] == "Documento del custodio" for e in respuesta.json()["errores"])
+    assert any(e["columna"] == "Código del custodio" for e in respuesta.json()["errores"])
 
 
 def test_un_costo_con_simbolo_de_moneda_se_reporta(cliente, catalogos, columnas):
@@ -284,7 +284,7 @@ def test_confirmar_crea_los_activos_con_su_codigo_de_barras(cliente, catalogos, 
         _archivo(
             columnas,
             [
-                _fila(custodio="1712345678", costo_adquisicion="1150.50"),
+                _fila(custodio="EMP-0001", costo_adquisicion="1150.50"),
                 _fila(numero_serie="SN-IMP-2", nombre="Laptop 02"),
             ],
         ),

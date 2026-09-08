@@ -92,7 +92,7 @@ def test_no_se_puede_desactivar_a_un_empleado_que_aun_custodia_equipos(
     empleado = Empleado.objects.create(
         nombres="Carla",
         apellidos="Ríos",
-        documento_identidad="0999888777",
+        codigo_empleado="EMP-0002",
         departamento=departamento,
     )
     tipo = TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP")
@@ -122,7 +122,7 @@ def test_se_puede_desactivar_a_un_empleado_tras_reasignar_sus_equipos(cliente, a
     empleado = Empleado.objects.create(
         nombres="Diego",
         apellidos="Luna",
-        documento_identidad="0111222333",
+        codigo_empleado="EMP-0003",
         departamento=departamento,
     )
     tipo = TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP")
@@ -150,7 +150,7 @@ def test_no_se_puede_asignar_un_activo_a_un_empleado_inactivo(cliente, admin, de
     empleado = Empleado.objects.create(
         nombres="Elena",
         apellidos="Vaca",
-        documento_identidad="0555444333",
+        codigo_empleado="EMP-0004",
         departamento=departamento,
         activo=False,
     )

@@ -30,6 +30,12 @@ class DepartamentoSerializer(serializers.ModelSerializer):
 
 
 class EmpleadoSerializer(serializers.ModelSerializer):
+    """El empleado se identifica con un código interno, no con su cédula.
+
+    Ver la nota de `apps.organizacion.models.Empleado` y
+    `docs/data-protection-review.md`.
+    """
+
     nombre_completo = serializers.CharField(read_only=True)
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     total_activos = serializers.IntegerField(read_only=True)
@@ -41,7 +47,7 @@ class EmpleadoSerializer(serializers.ModelSerializer):
             "nombres",
             "apellidos",
             "nombre_completo",
-            "documento_identidad",
+            "codigo_empleado",
             "correo",
             "telefono",
             "cargo",
@@ -54,6 +60,7 @@ class EmpleadoSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {"codigo_empleado": {"required": False, "allow_blank": True}}
 
-    def validate_documento_identidad(self, value):
-        return value.strip()
+    def validate_codigo_empleado(self, value):
+        return value.strip().upper()

@@ -50,7 +50,7 @@ export function EmpleadosList() {
         <input
           type="search"
           className="form-control form-control-sm w-auto"
-          placeholder="Nombre, documento o correo"
+          placeholder="Nombre, código o correo"
           aria-label="Buscar empleados"
           value={busqueda}
           onChange={(event) => setBusqueda(event.target.value)}
@@ -89,7 +89,7 @@ export function EmpleadosList() {
         <table className="table table-sm table-striped align-middle">
           <thead>
             <tr>
-              <th>Documento</th>
+              <th>Código</th>
               <th>Nombre</th>
               <th>Cargo</th>
               <th>Departamento</th>
@@ -102,7 +102,7 @@ export function EmpleadosList() {
             {listado.resultados.map((empleado) => (
               <tr key={empleado.id}>
                 <td>
-                  <code>{empleado.documento_identidad}</code>
+                  <code>{empleado.codigo_empleado}</code>
                 </td>
                 <td>{empleado.nombre_completo}</td>
                 <td>{empleado.cargo || "—"}</td>

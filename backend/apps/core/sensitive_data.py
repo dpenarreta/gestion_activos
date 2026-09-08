@@ -9,6 +9,7 @@ MASK_PLACEHOLDER = "***"
 # amplio (mejor de más que dejar pasar una contraseña por un nombre de
 # campo no previsto).
 SENSITIVE_FIELD_FRAGMENTS = [
+    # --- Credenciales ---
     "password",
     "contrasena",
     "contraseña",
@@ -19,6 +20,19 @@ SENSITIVE_FIELD_FRAGMENTS = [
     "key",
     "authorization",
     "credential",
+    # --- Datos personales de contacto e identificación ---
+    # La bitácora es append-only: lo que entra aquí no se puede editar ni
+    # borrar después, así que un correo o un teléfono grabados quedarían
+    # fuera del alcance de un derecho de supresión. Se sigue registrando
+    # *que* el registro cambió y quién lo hizo, que es el propósito de la
+    # auditoría; el valor concreto del dato personal no hace falta para eso.
+    "correo",
+    "email",
+    "telefono",
+    "teléfono",
+    "documento",
+    "cedula",
+    "cédula",
 ]
 
 

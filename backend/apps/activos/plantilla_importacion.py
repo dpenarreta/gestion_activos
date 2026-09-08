@@ -54,7 +54,7 @@ EJEMPLOS = [
         "numero_serie": "DL5440-00002",
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
-        "custodio": "1712345678",
+        "custodio": "EMP-0001",
         "ubicacion": "Piso 2, oficina 204",
         "costo_adquisicion": "1150.00",
         "especificaciones": "Procesador=Intel i5-1335U; RAM=16 GB; Disco=512 GB SSD",
@@ -168,7 +168,7 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
             False,
         ),
         (
-            "5. En «Documento del custodio» use la cédula del empleado (hoja «Empleados»). "
+            "5. En «Código del custodio» use el código interno del empleado (hoja «Empleados»). "
             "Si lo deja vacío, el activo queda en bodega, sin responsable asignado.",
             False,
         ),
@@ -251,9 +251,9 @@ def construir_plantilla() -> bytes:
     _hoja_catalogo(
         libro,
         "Empleados",
-        ["Documento", "Nombre", "Departamento"],
+        ["Código", "Nombre", "Departamento"],
         [
-            [empleado.documento_identidad, empleado.nombre_completo, empleado.departamento.nombre]
+            [empleado.codigo_empleado, empleado.nombre_completo, empleado.departamento.nombre]
             for empleado in Empleado.objects.filter(activo=True)
             .select_related("departamento")
             .order_by("apellidos", "nombres")

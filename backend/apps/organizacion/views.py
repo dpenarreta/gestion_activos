@@ -100,7 +100,7 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
             queryset = queryset.filter(
                 Q(nombres__icontains=busqueda)
                 | Q(apellidos__icontains=busqueda)
-                | Q(documento_identidad__icontains=busqueda)
+                | Q(codigo_empleado__icontains=busqueda)
                 | Q(correo__icontains=busqueda)
             )
         departamento = params.get("departamento")

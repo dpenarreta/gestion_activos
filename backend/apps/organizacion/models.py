@@ -9,10 +9,37 @@ autenticación— sin ningún beneficio. El vínculo con una cuenta real existe,
 pero es opcional (`usuario`).
 """
 
+import re
+
 from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+
+PREFIJO_EMPLEADO = "EMP"
+_PATRON_CODIGO = re.compile(rf"^{PREFIJO_EMPLEADO}-(\d+)$")
+
+
+def generar_codigo_empleado() -> str:
+    """Siguiente código correlativo (EMP-0001, EMP-0002…).
+
+    Se calcula leyendo el máximo existente, lo que no es atómico: dos altas
+    simultáneas pueden proponer el mismo número. La restricción única de la
+    base es la que lo garantiza de verdad; aquí solo se propone un valor
+    razonable, y quien lo necesite puede escribir el suyo.
+    """
+    ultimo = (
+        Empleado.objects.filter(codigo_empleado__startswith=f"{PREFIJO_EMPLEADO}-")
+        .order_by("-codigo_empleado")
+        .values_list("codigo_empleado", flat=True)
+        .first()
+    )
+    siguiente = 1
+    if ultimo:
+        coincidencia = _PATRON_CODIGO.match(ultimo)
+        if coincidencia:
+            siguiente = int(coincidencia.group(1)) + 1
+    return f"{PREFIJO_EMPLEADO}-{siguiente:04d}"
 
 
 class Departamento(BaseModel):
@@ -49,14 +76,21 @@ class Empleado(BaseModel):
     No se elimina físicamente (`activo = False` en su lugar): un empleado que
     sale de la empresa sigue siendo el custodio histórico que aparece en los
     movimientos de sus equipos, y borrarlo dejaría ese historial sin nombre.
+
+    Se identifica con un **código interno** y no con la cédula. El sistema solo
+    necesita un identificador único y estable para saber quién custodia qué; la
+    cédula es un dato personal de identificación que no aporta nada a esa
+    finalidad y sí obligaría a protegerlo en la bitácora de auditoría —que es
+    append-only— y en la plantilla de carga masiva, que se descarga y circula
+    como archivo. Ver `docs/data-protection-review.md`.
     """
 
     nombres = models.CharField(max_length=120)
     apellidos = models.CharField(max_length=120)
-    documento_identidad = models.CharField(
+    codigo_empleado = models.CharField(
         max_length=30,
         unique=True,
-        help_text="Cédula, pasaporte o identificador interno. Único por empleado.",
+        help_text="Identificador interno del empleado (ej. EMP-0001). Se genera solo si se deja vacío.",
     )
     correo = models.EmailField(blank=True)
     telefono = models.CharField(max_length=30, blank=True)
@@ -84,6 +118,11 @@ class Empleado(BaseModel):
 
     def __str__(self) -> str:
         return self.nombre_completo
+
+    def save(self, *args, **kwargs):
+        if not self.codigo_empleado:
+            self.codigo_empleado = generar_codigo_empleado()
+        return super().save(*args, **kwargs)
 
     @property
     def nombre_completo(self) -> str:

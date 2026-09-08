@@ -38,7 +38,7 @@ def empleado(departamento):
     return Empleado.objects.create(
         nombres="Ana",
         apellidos="Pérez",
-        documento_identidad="0102030405",
+        codigo_empleado="EMP-0001",
         departamento=departamento,
     )
 

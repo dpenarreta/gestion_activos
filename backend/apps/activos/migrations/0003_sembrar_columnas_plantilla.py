@@ -39,8 +39,8 @@ COLUMNAS = [
     ),
     (
         "custodio",
-        "Documento del custodio",
-        "Documento de identidad del empleado responsable. Vacío = queda en bodega.",
+        "Código del custodio",
+        "Código interno del empleado responsable (ej. EMP-0001). Vacío = queda en bodega.",
         False,
     ),
     ("ubicacion", "Ubicación", "Ubicación física (ej. Piso 3, oficina 302).", False),

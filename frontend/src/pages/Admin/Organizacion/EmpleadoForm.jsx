@@ -10,7 +10,7 @@ import "./Organizacion.css";
 const VACIO = {
   nombres: "",
   apellidos: "",
-  documento_identidad: "",
+  codigo_empleado: "",
   correo: "",
   telefono: "",
   cargo: "",
@@ -45,7 +45,7 @@ export function EmpleadoForm() {
         setValores({
           nombres: datos.nombres,
           apellidos: datos.apellidos,
-          documento_identidad: datos.documento_identidad,
+          codigo_empleado: datos.codigo_empleado,
           correo: datos.correo || "",
           telefono: datos.telefono || "",
           cargo: datos.cargo || "",
@@ -132,18 +132,22 @@ export function EmpleadoForm() {
             />
           </div>
           <div className="col-md-4">
-            <label className="form-label" htmlFor="documento">
-              Documento de identidad
+            <label className="form-label" htmlFor="codigo">
+              Código de empleado
             </label>
             <input
-              id="documento"
-              className="form-control"
-              required
+              id="codigo"
+              className="form-control text-uppercase font-monospace"
               maxLength={30}
-              value={valores.documento_identidad}
+              placeholder={esEdicion ? "" : "Se genera solo (EMP-0001)"}
+              value={valores.codigo_empleado}
               disabled={!puedeEditar}
-              onChange={(event) => actualizar("documento_identidad", event.target.value)}
+              onChange={(event) => actualizar("codigo_empleado", event.target.value)}
             />
+            <div className="form-text">
+              Identificador interno. Es el que se usa en la carga masiva de activos. Déjelo vacío
+              para que el sistema lo genere.
+            </div>
           </div>
           <div className="col-md-4">
             <label className="form-label" htmlFor="correo">

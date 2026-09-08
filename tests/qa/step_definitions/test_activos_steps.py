@@ -97,7 +97,7 @@ def catalogos_listos(db, contexto):
     contexto["empleado"] = Empleado.objects.create(
         nombres="Ana",
         apellidos="Pérez",
-        documento_identidad="0102030405",
+        codigo_empleado="EMP-0001",
         departamento=contexto["departamento"],
     )
 
