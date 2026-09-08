@@ -1,3 +1,4 @@
+import { NivelRenovacion } from "../NivelRenovacion/NivelRenovacion";
 import "./AlertaRenovacion.css";
 
 const ETIQUETAS_CRITERIO = {
@@ -19,12 +20,28 @@ export function AlertaRenovacion({ renovacion }) {
     return null;
   }
 
+  // El nivel tiñe la alerta entera: un «reemplazo recomendado» y un «evaluar»
+  // con el mismo amarillo se leerían como el mismo grado de urgencia.
+  const esRecomendado = renovacion.nivel_renovacion === "recomendado";
+
   return (
-    <div className="alert alert-warning alerta-renovacion" role="status">
+    <div
+      className={`alert ${esRecomendado ? "alert-danger" : "alert-warning"} alerta-renovacion`}
+      role="status"
+    >
       <div className="d-flex align-items-start gap-2">
-        <i className="bi bi-exclamation-triangle-fill fs-5" aria-hidden="true" />
+        <i
+          className={`bi bi-${esRecomendado ? "exclamation-octagon-fill" : "exclamation-triangle-fill"} fs-5`}
+          aria-hidden="true"
+        />
         <div className="flex-grow-1">
-          <h3 className="h6 mb-1">Sugerencia de cambio o renovación</h3>
+          <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <h3 className="h6 mb-0">Sugerencia de cambio o renovación</h3>
+            <NivelRenovacion
+              nivel={renovacion.nivel_renovacion}
+              etiqueta={renovacion.nivel_renovacion_display}
+            />
+          </div>
           <p className="mb-2 small">
             Este equipo excede los umbrales definidos
             {renovacion.politica_aplicada && (

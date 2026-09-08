@@ -15,13 +15,32 @@ const VACIO = {
   nombre: "",
   tipo_dispositivo: "",
   max_mantenimientos: "",
+  ventana_mantenimientos_meses: "",
   max_componentes_criticos: "",
   vida_util_meses: "",
+  vida_util_critica_meses: "",
   activa: true,
 };
 
 /**
- * Parametrización de los criterios de sustitución (RF-06).
+ * Valores que enuncia el §11 del documento funcional. Se ofrecen como atajo
+ * al crear una política, no como valores por defecto: rellenar solo el que
+ * falta es distinto de imponerle a la empresa unos umbrales que no eligió.
+ */
+const UMBRALES_SUGERIDOS = {
+  vida_util_meses: "48",
+  vida_util_critica_meses: "60",
+  max_mantenimientos: "3",
+  ventana_mantenimientos_meses: "12",
+};
+
+/**
+ * Parametrización de los criterios de sustitución (RF-06, §11).
+ *
+ * Los umbrales están escalonados en dos niveles: la vida útil sugiere
+ * «evaluar» el reemplazo y la vida útil crítica lo «recomienda». Con un solo
+ * nivel había que elegir entre avisar tarde o llenar la pantalla de alertas
+ * que nadie puede atender todas a la vez.
  *
  * Un umbral vacío no significa cero: significa "no evaluar este criterio".
  * Es la distinción más fácil de malinterpretar de todo el módulo —dejar la
@@ -51,8 +70,10 @@ export function PoliticasList() {
     setErrorAccion(null);
     try {
       const resultado = await politicasService.reevaluar();
+      const { recomendado = 0, evaluar = 0 } = resultado.por_nivel ?? {};
       setAviso(
-        `${resultado.activos_evaluados} activo(s) evaluados; ${resultado.con_sugerencia} con sugerencia de renovación.`
+        `${resultado.activos_evaluados} activo(s) evaluados; ${resultado.con_sugerencia} con ` +
+          `sugerencia (${recomendado} con reemplazo recomendado, ${evaluar} a evaluar).`
       );
       listado.refresh();
     } catch (err) {
@@ -121,8 +142,9 @@ export function PoliticasList() {
               <th>Alcance</th>
               <th className="text-end">Máx. mantenimientos</th>
               <th className="text-end">Máx. piezas críticas</th>
-              <th className="text-end">Vida útil</th>
-              <th>Estado</th>
+              <th className="text-end">Evaluar a los</th>
+              <th className="text-end">Recomendar a los</th>
+              <th className="ps-4">Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -137,10 +159,18 @@ export function PoliticasList() {
                     politica.tipo_dispositivo_nombre
                   )}
                 </td>
-                <Umbral valor={politica.max_mantenimientos} />
+                <Umbral
+                  valor={politica.max_mantenimientos}
+                  nota={
+                    politica.ventana_mantenimientos_meses
+                      ? `en ${politica.ventana_mantenimientos_meses} meses`
+                      : "histórico"
+                  }
+                />
                 <Umbral valor={politica.max_componentes_criticos} />
                 <Umbral valor={politica.vida_util_meses} sufijo=" meses" />
-                <td>
+                <Umbral valor={politica.vida_util_critica_meses} sufijo=" meses" />
+                <td className="ps-4">
                   <span className={`badge ${politica.activa ? "text-bg-success" : "text-bg-secondary"}`}>
                     {politica.activa ? "Activa" : "Inactiva"}
                   </span>
@@ -169,7 +199,7 @@ export function PoliticasList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted">
+                <td colSpan={8} className="text-center text-muted">
                   Sin políticas configuradas. Ningún equipo mostrará sugerencias de renovación.
                 </td>
               </tr>
@@ -209,7 +239,7 @@ export function PoliticasList() {
 }
 
 /** Un umbral vacío se muestra como "no evalúa", no como cero. */
-function Umbral({ valor, sufijo = "" }) {
+function Umbral({ valor, sufijo = "", nota }) {
   return (
     <td className="text-end">
       {valor === null || valor === undefined ? (
@@ -218,6 +248,9 @@ function Umbral({ valor, sufijo = "" }) {
         <>
           {valor}
           {sufijo}
+          {/* El periodo acompaña al número: «3 mantenimientos» significa algo
+              muy distinto en 12 meses que en toda la vida del equipo. */}
+          {nota && <small className="d-block text-muted">{nota}</small>}
         </>
       )}
     </td>
@@ -230,8 +263,10 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
     nombre: politica.nombre || "",
     tipo_dispositivo: politica.tipo_dispositivo || "",
     max_mantenimientos: politica.max_mantenimientos ?? "",
+    ventana_mantenimientos_meses: politica.ventana_mantenimientos_meses ?? "",
     max_componentes_criticos: politica.max_componentes_criticos ?? "",
     vida_util_meses: politica.vida_util_meses ?? "",
+    vida_util_critica_meses: politica.vida_util_critica_meses ?? "",
     activa: politica.activa ?? true,
   });
   const [error, setError] = useState(null);
@@ -240,7 +275,17 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
   const sinUmbrales =
     valores.max_mantenimientos === "" &&
     valores.max_componentes_criticos === "" &&
-    valores.vida_util_meses === "";
+    valores.vida_util_meses === "" &&
+    valores.vida_util_critica_meses === "";
+
+  // Se avisa antes de guardar, porque el mensaje del servidor llega cuando el
+  // usuario ya dio por terminado el formulario.
+  const segundoNivelInvertido =
+    valores.vida_util_meses !== "" &&
+    valores.vida_util_critica_meses !== "" &&
+    Number(valores.vida_util_critica_meses) <= Number(valores.vida_util_meses);
+  const ventanaSinMaximo =
+    valores.ventana_mantenimientos_meses !== "" && valores.max_mantenimientos === "";
 
   // Solo puede existir una política global; ofrecer la opción cuando ya hay
   // otra produciría un error de restricción al guardar.
@@ -257,9 +302,15 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         // Cadena vacía significa "no evaluar este criterio": se envía null,
         // que es lo que el backend interpreta como umbral desactivado.
         max_mantenimientos: valores.max_mantenimientos === "" ? null : Number(valores.max_mantenimientos),
+        ventana_mantenimientos_meses:
+          valores.ventana_mantenimientos_meses === ""
+            ? null
+            : Number(valores.ventana_mantenimientos_meses),
         max_componentes_criticos:
           valores.max_componentes_criticos === "" ? null : Number(valores.max_componentes_criticos),
         vida_util_meses: valores.vida_util_meses === "" ? null : Number(valores.vida_util_meses),
+        vida_util_critica_meses:
+          valores.vida_util_critica_meses === "" ? null : Number(valores.vida_util_critica_meses),
         activa: valores.activa,
       };
       if (esEdicion) {
@@ -280,7 +331,7 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
       onCerrar={onCerrar}
       onSubmit={handleSubmit}
       isSaving={isSaving}
-      puedeConfirmar={!sinUmbrales}
+      puedeConfirmar={!sinUmbrales && !segundoNivelInvertido && !ventanaSinMaximo}
     >
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -332,6 +383,38 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         </div>
 
         <div className="row g-3">
+          <div className="col-md-6">
+            <label className="form-label" htmlFor="pol-vida">
+              Evaluar reemplazo a los (meses)
+            </label>
+            <input
+              id="pol-vida"
+              type="number"
+              min="0"
+              className="form-control"
+              placeholder="Sin límite"
+              value={valores.vida_util_meses}
+              onChange={(event) => setValores({ ...valores, vida_util_meses: event.target.value })}
+            />
+            <div className="form-text">Primer aviso: conviene empezar a mirarlo.</div>
+          </div>
+          <div className="col-md-6">
+            <label className="form-label" htmlFor="pol-vida-critica">
+              Recomendar reemplazo a los (meses)
+            </label>
+            <input
+              id="pol-vida-critica"
+              type="number"
+              min="0"
+              className="form-control"
+              placeholder="Sin segundo nivel"
+              value={valores.vida_util_critica_meses}
+              onChange={(event) =>
+                setValores({ ...valores, vida_util_critica_meses: event.target.value })
+              }
+            />
+            <div className="form-text">Segundo aviso: ya toca presupuestarlo.</div>
+          </div>
           <div className="col-md-4">
             <label className="form-label" htmlFor="pol-mant">
               Máx. mantenimientos
@@ -349,6 +432,27 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
             />
           </div>
           <div className="col-md-4">
+            <label className="form-label" htmlFor="pol-ventana">
+              Contados en los últimos (meses)
+            </label>
+            <input
+              id="pol-ventana"
+              type="number"
+              min="1"
+              className="form-control"
+              placeholder="Todo el historial"
+              value={valores.ventana_mantenimientos_meses}
+              onChange={(event) =>
+                setValores({ ...valores, ventana_mantenimientos_meses: event.target.value })
+              }
+            />
+            <div className="form-text">
+              {/* Sin ventana el contador solo sube: un equipo que falló mucho
+                  hace seis años queda marcado para siempre. */}
+              Vacío = todo el historial del equipo.
+            </div>
+          </div>
+          <div className="col-md-4">
             <label className="form-label" htmlFor="pol-criticas">
               Máx. piezas críticas
             </label>
@@ -364,25 +468,32 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               }
             />
           </div>
-          <div className="col-md-4">
-            <label className="form-label" htmlFor="pol-vida">
-              Vida útil (meses)
-            </label>
-            <input
-              id="pol-vida"
-              type="number"
-              min="0"
-              className="form-control"
-              placeholder="Sin límite"
-              value={valores.vida_util_meses}
-              onChange={(event) => setValores({ ...valores, vida_util_meses: event.target.value })}
-            />
-          </div>
         </div>
+
+        {!esEdicion && (
+          <button
+            type="button"
+            className="btn btn-link btn-sm px-0 mt-2"
+            onClick={() => setValores({ ...valores, ...UMBRALES_SUGERIDOS })}
+          >
+            Usar los umbrales del documento funcional (48 / 60 meses, 3 reparaciones en 12 meses)
+          </button>
+        )}
 
         {sinUmbrales && (
           <div className="alert alert-warning mt-3 mb-0 small">
             Defina al menos un umbral: una política sin ninguno no evaluaría nada.
+          </div>
+        )}
+        {segundoNivelInvertido && (
+          <div className="alert alert-warning mt-3 mb-0 small">
+            El segundo nivel debe ser posterior al primero. Al revés, «recomendar» absorbería a
+            «evaluar» y el primer aviso no llegaría nunca.
+          </div>
+        )}
+        {ventanaSinMaximo && (
+          <div className="alert alert-warning mt-3 mb-0 small">
+            La ventana solo tiene sentido junto a un máximo de mantenimientos.
           </div>
         )}
       </fieldset>

@@ -134,12 +134,26 @@ Base: `/api/v1/politicas/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET/POST/PATCH/DELETE | `/politicas/` | `politicas.ver` / `politicas.editar` | Umbrales por tipo de dispositivo, o global si `tipo_dispositivo` va vacío |
-| GET | `/politicas/sugerencias/` | `politicas.ver` | **RF-07.** Activos que hoy exceden algún umbral, con el motivo de cada criterio |
+| GET | `/politicas/sugerencias/` | `politicas.ver` | **RF-07.** Activos que hoy exceden algún umbral, con el motivo de cada criterio. `?nivel=evaluar\|recomendado` filtra por severidad |
 | POST | `/politicas/reevaluar/` | `politicas.editar` | Fuerza el recálculo de la caché de todos los activos |
 
 Guardar una política reevalúa de inmediato los activos que rige. El criterio
 de longevidad se cumple por el paso del tiempo, así que conviene programar
 `manage.py recalcular_indicadores` a diario.
+
+Los umbrales están escalonados en dos niveles (§11): `vida_util_meses` produce
+un veredicto **«evaluar reemplazo»** y `vida_util_critica_meses` uno
+**«reemplazo recomendado»**; el segundo debe ser mayor que el primero. El
+veredicto del activo (`nivel_renovacion`, también filtrable en
+`/activos/?nivel_renovacion=`) es el más severo de sus motivos, y cada motivo
+lleva el suyo.
+
+`ventana_mantenimientos_meses` acota el conteo de intervenciones a los últimos
+N meses («más de 3 reparaciones en 12 meses»). Vacía significa contar todo el
+historial, que es el comportamiento original de RF-06: sin ventana el contador
+solo sube, y un equipo que falló mucho hace seis años queda marcado para
+siempre. El conteo se resuelve con una consulta agregada por ventana
+configurada, no una por activo.
 
 ## Auditoría (`admin/audit-logs/`)
 

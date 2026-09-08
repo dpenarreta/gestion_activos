@@ -13,7 +13,7 @@ from django.core.management.base import BaseCommand
 
 from apps.activos.models import Activo
 from apps.mantenimientos.services import recalcular_indicadores
-from apps.politicas.services import resolver_politica
+from apps.politicas.services import precalcular_ventanas
 
 
 class Command(BaseCommand):
@@ -31,19 +31,23 @@ class Command(BaseCommand):
         if not options["incluir_bajas"]:
             activos = activos.exclude(estado=Activo.Estado.DADO_DE_BAJA)
 
-        politicas = {}
+        # El conteo de la ventana móvil se resuelve antes del bucle, con una
+        # consulta agregada por ventana configurada.
+        activos, politicas = precalcular_ventanas(activos)
         total = con_alerta = 0
+        por_nivel = {"evaluar": 0, "recomendado": 0}
 
         for activo in activos:
-            if activo.tipo_id not in politicas:
-                politicas[activo.tipo_id] = resolver_politica(activo.tipo)
-            resultado = recalcular_indicadores(activo, politica=politicas[activo.tipo_id])
+            resultado = recalcular_indicadores(activo, politica=politicas.get(activo.tipo_id))
             total += 1
             if resultado.requiere_renovacion:
                 con_alerta += 1
+                por_nivel[resultado.nivel] += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"{total} activo(s) evaluados; {con_alerta} con sugerencia de renovación."
+                f"{total} activo(s) evaluados; {con_alerta} con sugerencia de renovación "
+                f"({por_nivel['recomendado']} con reemplazo recomendado, "
+                f"{por_nivel['evaluar']} a evaluar)."
             )
         )

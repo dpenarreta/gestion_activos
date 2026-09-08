@@ -242,7 +242,7 @@ def test_el_inventario_se_exporta_a_excel(cliente, escenario):
     hoja = load_workbook(BytesIO(respuesta.content))["Inventario"]
     encabezados = [c.value for c in hoja[1]]
     assert "Código de barras" in encabezados
-    assert "Requiere renovación" in encabezados
+    assert "Sugerencia de renovación" in encabezados
     assert hoja.max_row == 4  # cabecera + 3 activos
 
 

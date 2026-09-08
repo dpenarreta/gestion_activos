@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { politicasService } from "../../../api/politicasService";
+import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/NivelRenovacion";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Politicas.css";
@@ -26,17 +27,18 @@ const ETIQUETAS_CRITERIO = {
 export function SugerenciasPage() {
   const puedeConfigurar = usePermission("politicas.editar");
   const [datos, setDatos] = useState(null);
+  const [nivel, setNivel] = useState("");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const cargar = useCallback(() => {
     setIsLoading(true);
     politicasService
-      .sugerencias()
+      .sugerencias(nivel ? { nivel } : undefined)
       .then(setDatos)
       .catch(() => setError("No se pudieron cargar las sugerencias de renovación."))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [nivel]);
 
   useEffect(() => {
     cargar();
@@ -47,26 +49,47 @@ export function SugerenciasPage() {
       <Breadcrumbs items={BREADCRUMB_ITEMS} />
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2>Sugerencias de renovación</h2>
-        {puedeConfigurar && (
-          <Link to="/admin/politicas" className="btn btn-outline-secondary btn-sm">
-            Configurar umbrales
-          </Link>
-        )}
+        <div className="d-flex gap-2 align-items-center">
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por nivel de sugerencia"
+            value={nivel}
+            onChange={(event) => setNivel(event.target.value)}
+          >
+            <option value="">Todos los niveles</option>
+            <option value="recomendado">Reemplazo recomendado</option>
+            <option value="evaluar">Evaluar reemplazo</option>
+          </select>
+          {puedeConfigurar && (
+            <Link to="/admin/politicas" className="btn btn-outline-secondary btn-sm">
+              Configurar umbrales
+            </Link>
+          )}
+        </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
       {!isLoading && datos && datos.total === 0 && (
         <div className="alert alert-success">
-          Ningún equipo excede hoy los umbrales configurados.
+          {nivel
+            ? "Ningún equipo está hoy en ese nivel."
+            : "Ningún equipo excede hoy los umbrales configurados."}
         </div>
       )}
 
       {datos && datos.total > 0 && (
         <>
           <p className="text-muted">
-            {datos.total} equipo(s) superan al menos un umbral de su política. Las cifras respaldan
-            la solicitud de reemplazo ante el área financiera.
+            {datos.total} equipo(s) superan al menos un umbral de su política
+            {datos.por_nivel && !nivel && (
+              <>
+                {" "}
+                — {datos.por_nivel.recomendado} con reemplazo recomendado y{" "}
+                {datos.por_nivel.evaluar} a evaluar
+              </>
+            )}
+            . Las cifras respaldan la solicitud de reemplazo ante el área financiera.
           </p>
 
           <div className="sugerencias-grid">
@@ -78,9 +101,18 @@ export function SugerenciasPage() {
                       <h3 className="h6 mb-1">{activo.nombre}</h3>
                       <code className="codigo-barras">{activo.codigo_barras}</code>
                     </div>
-                    <Link to={`/admin/activos/${activo.id}`} className="btn btn-outline-primary btn-sm">
-                      Ficha
-                    </Link>
+                    <div className="text-end">
+                      <NivelRenovacion
+                        nivel={activo.nivel_renovacion}
+                        etiqueta={activo.nivel_renovacion_display}
+                      />
+                      <Link
+                        to={`/admin/activos/${activo.id}`}
+                        className="btn btn-outline-primary btn-sm d-block mt-2"
+                      >
+                        Ficha
+                      </Link>
+                    </div>
                   </div>
 
                   <p className="small text-muted mb-3">

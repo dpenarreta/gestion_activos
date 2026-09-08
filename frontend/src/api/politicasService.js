@@ -23,8 +23,8 @@ export const politicasService = {
    * el criterio de longevidad se cumple por el paso del tiempo: un equipo que
    * nadie tocó puede haber cruzado su vida útil desde la última evaluación.
    */
-  sugerencias() {
-    return apiClient.get(`${POLITICAS}sugerencias/`).then((res) => res.data);
+  sugerencias(params) {
+    return apiClient.get(`${POLITICAS}sugerencias/`, { params }).then((res) => res.data);
   },
   reevaluar() {
     return apiClient.post(`${POLITICAS}reevaluar/`).then((res) => res.data);

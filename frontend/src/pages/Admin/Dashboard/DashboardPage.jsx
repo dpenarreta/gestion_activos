@@ -79,11 +79,18 @@ export function DashboardPage() {
           variante="info"
         />
         <Indicador
-          valor={activos.requieren_renovacion}
-          etiqueta="Por renovar"
-          destino="/admin/renovacion/sugerencias"
+          valor={activos.reemplazo_recomendado}
+          etiqueta="Reemplazo recomendado"
+          destino="/admin/activos?nivel_renovacion=recomendado"
+          icono="exclamation-octagon"
+          variante={activos.reemplazo_recomendado > 0 ? "alerta" : undefined}
+        />
+        <Indicador
+          valor={activos.evaluar_reemplazo}
+          etiqueta="Evaluar reemplazo"
+          destino="/admin/activos?nivel_renovacion=evaluar"
           icono="exclamation-triangle"
-          variante={activos.requieren_renovacion > 0 ? "alerta" : undefined}
+          variante={activos.evaluar_reemplazo > 0 ? "alerta" : undefined}
         />
         <Indicador
           valor={garantias.vencidas}

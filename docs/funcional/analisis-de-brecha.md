@@ -14,7 +14,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | Inventario, código de barras, escáner | Implementado |
 | Asignaciones e histórico | Implementado |
 | Reparaciones e histórico | Implementado |
-| Reglas de reemplazo | Implementado, más simple que lo pedido |
+| Reglas de reemplazo | Implementado |
 | Usuarios, roles, auditoría | Implementado |
 | Dashboard | Implementado |
 | Reportes | Exportación a Excel lista; reportes formales pendientes |
@@ -35,7 +35,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 8 | Registro de reparaciones | ✅ | Causa, solución, estado final, garantía usada e ingreso/salida |
 | 9 | Histórico de reparaciones | ✅ | Días fuera de operación por intervención y acumulados |
 | 10 | Cálculo de tiempos | ⚠️ Parcial | Antigüedad y tiempo en reparación; falta tiempo de asignación por custodio |
-| 11 | Reglas de reemplazo | ⚠️ Parcial | Un solo nivel de alerta, sin ventana temporal |
+| 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ❌ | Solo hay tipo de dispositivo |
 | 13 | Usuarios y roles | ✅ | Roles configurables, 28 permisos |
 | 14 | Buscador y filtros | ⚠️ Parcial | Filtro de garantía disponible; faltan ubicación y antigüedad |
@@ -51,12 +51,6 @@ dashboard y reportes que no estaban en el alcance inicial.
 
 Estos importan más que lo directamente ausente, porque a primera vista dan la
 impresión de estar resueltos.
-
-**Reglas de reemplazo, más finas de lo implementado.** El documento pide dos
-niveles —«Evaluar reemplazo» a los 48 meses y «Reemplazo recomendado» a los
-60— y una regla con ventana móvil: «más de 3 reparaciones **en 12 meses**». El
-motor actual da una alerta binaria y cuenta el acumulado histórico, que nunca
-baja aunque el equipo lleve años sin fallar.
 
 **Estados del activo.** Hay 4 (en uso, en bodega, en mantenimiento, dado de
 baja); el documento pide 9, sumando en garantía, en tránsito, perdido y robado.
@@ -89,6 +83,15 @@ dashboard y la exportación a Excel.
 garantías vencidas y por vencer, desde que se incorporó la fecha de fin de
 garantía. El panel distingue «sin garantía registrada» de «vencida»: mezclarlas
 haría que un inventario a medio capturar pareciera un parque sin cobertura.
+
+### Fase 2 — reglas automáticas de reemplazo (§22.2)
+
+- Dos niveles de sugerencia: «Evaluar reemplazo» y «Reemplazo recomendado»,
+  con un umbral de antigüedad para cada uno.
+- Ventana móvil configurable para el conteo de reparaciones («más de 3 en 12
+  meses»). Vacía = todo el historial, que es el comportamiento anterior.
+- El veredicto de un activo es el nivel más severo de sus motivos; el panel,
+  el inventario y las sugerencias distinguen ambos niveles.
 
 ### Cerrado el 2026-09-08 (garantías y reparación)
 

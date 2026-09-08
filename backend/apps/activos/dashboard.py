@@ -19,7 +19,7 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.mantenimientos.models import ComponenteUtilizado, Mantenimiento
-from apps.politicas.services import evaluar_activo, resolver_politica
+from apps.politicas.services import evaluar_lote
 
 from .models import DIAS_AVISO_GARANTIA, Activo
 
@@ -96,17 +96,15 @@ def _reparaciones_por_mes() -> list[dict]:
     return [{"mes": fila["mes"].isoformat(), "total": fila["total"]} for fila in filas]
 
 
-def _con_sugerencia_de_renovacion() -> int:
-    """Activos que hoy exceden algún umbral.
+def _sugerencias_de_renovacion() -> dict:
+    """Activos que hoy exceden algún umbral, desglosados por nivel (§11).
 
     Se recalcula en vivo y no se filtra por la columna cacheada porque el
     criterio de longevidad se cumple por el paso del tiempo: la caché puede
     estar desactualizada justo para los casos que interesan (ver
     `apps.politicas.services`).
     """
-    politicas: dict[int, object] = {}
-    total = 0
-    for activo in (
+    activos = (
         Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
         .select_related("tipo")
         .only(
@@ -117,12 +115,14 @@ def _con_sugerencia_de_renovacion() -> int:
             "total_componentes_criticos",
             "tipo",
         )
-    ):
-        if activo.tipo_id not in politicas:
-            politicas[activo.tipo_id] = resolver_politica(activo.tipo)
-        if evaluar_activo(activo, politica=politicas[activo.tipo_id]).requiere_renovacion:
-            total += 1
-    return total
+    )
+    conteo = {"total": 0, "evaluar": 0, "recomendado": 0}
+    for _activo, resultado in evaluar_lote(activos):
+        if not resultado.requiere_renovacion:
+            continue
+        conteo["total"] += 1
+        conteo[resultado.nivel] += 1
+    return conteo
 
 
 def _garantias() -> dict:
@@ -178,6 +178,8 @@ def construir_indicadores() -> dict:
         estado=Activo.Estado.EN_BODEGA, updated_at__lt=timezone.now() - timedelta(days=90)
     ).count()
 
+    renovacion = _sugerencias_de_renovacion()
+
     return {
         "activos": {
             "total": sum(por_estado.values()),
@@ -185,7 +187,9 @@ def construir_indicadores() -> dict:
             "en_bodega": por_estado.get(Activo.Estado.EN_BODEGA, 0),
             "en_mantenimiento": por_estado.get(Activo.Estado.EN_MANTENIMIENTO, 0),
             "dados_de_baja": por_estado.get(Activo.Estado.DADO_DE_BAJA, 0),
-            "requieren_renovacion": _con_sugerencia_de_renovacion(),
+            "requieren_renovacion": renovacion["total"],
+            "evaluar_reemplazo": renovacion["evaluar"],
+            "reemplazo_recomendado": renovacion["recomendado"],
             "sin_asignar_mas_de_90_dias": sin_asignar_hace_tiempo,
         },
         "mantenimientos": {

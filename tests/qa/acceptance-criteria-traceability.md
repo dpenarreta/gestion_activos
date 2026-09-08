@@ -128,6 +128,18 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-POL-011 | Reconfigurar reevalúa los activos | politicas-renovacion.feature | Ajustar un umbral reevalúa los activos alcanzados | Sí (pytest) |
 | AC-POL-012 | Un activo de baja no sugiere renovación | politicas-renovacion.feature | Un activo dado de baja deja de sugerir renovación | Sí (pytest) |
 | AC-POL-013 | Política sin umbrales rechazada | politicas-renovacion.feature | Una política sin ningún umbral es rechazada | Sí (pytest) |
+| AC-POL-014 | Dos niveles por antigüedad | politicas-renovacion.feature | La antigüedad escala de «evaluar» a «reemplazo recomendado» | Sí (pytest) |
+| AC-POL-015 | Un solo motivo de antigüedad | politicas-renovacion.feature | La antigüedad no se informa dos veces al cruzar los dos umbrales | Sí (pytest) |
+| AC-POL-016 | Política de un solo nivel intacta | politicas-renovacion.feature | Una política sin segundo nivel se comporta como antes | Sí (pytest) |
+| AC-POL-017 | El veredicto toma el nivel más severo | politicas-renovacion.feature | El nivel reportado es el más severo de los criterios superados | Sí (pytest) |
+| AC-POL-018 | Segundo nivel posterior al primero | politicas-renovacion.feature | El segundo nivel debe ser posterior al primero | Sí (pytest) |
+| AC-POL-019 | Ventana móvil de reparaciones | politicas-renovacion.feature | Las reparaciones se cuentan dentro de una ventana móvil | Sí (pytest) |
+| AC-POL-020 | Reparaciones recientes sí alertan | politicas-renovacion.feature | Cuatro reparaciones dentro de la ventana sí disparan el aviso | Sí (pytest) |
+| AC-POL-021 | Sin ventana, historial completo | politicas-renovacion.feature | Sin ventana configurada se cuenta todo el historial | Sí (pytest) |
+| AC-POL-022 | Una ventana por tipo de dispositivo | politicas-renovacion.feature | Cada tipo de dispositivo cuenta su propia ventana | Sí (pytest) |
+| AC-POL-023 | Ventana sin máximo rechazada | politicas-renovacion.feature | La ventana exige un máximo de reparaciones | Sí (pytest) |
+| AC-POL-024 | Ventana resuelta en una consulta | politicas-renovacion.feature | La ventana se resuelve en una sola consulta agregada | Sí (pytest) |
+| AC-POL-025 | Panel e inventario por nivel | politicas-renovacion.feature | El inventario y el panel distinguen los dos niveles | Sí (pytest) |
 
 ## Etiquetas de activos (RF-08)
 

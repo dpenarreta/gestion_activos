@@ -87,3 +87,99 @@ Feature: Criterios de sustitución y sugerencia de renovación (RF-06, RF-07)
     When se intenta guardar una política sin definir ningún límite
     Then la solicitud es rechazada
     # Aceptarla daría la falsa impresión de que el tipo está cubierto.
+
+  # --- Dos niveles de aviso y ventana móvil (§11) --------------------------
+
+  @AC-POL-014
+  Scenario Outline: La antigüedad escala de «evaluar» a «reemplazo recomendado»
+    Given una política que evalúa a los 48 meses y recomienda a los 60
+    When el activo alcanza <antiguedad> meses
+    Then el nivel de la sugerencia es <nivel>
+
+    Examples:
+      | antiguedad | nivel                 |
+      | 47         | ninguno               |
+      | 48         | evaluar reemplazo     |
+      | 59         | evaluar reemplazo     |
+      | 60         | reemplazo recomendado |
+    # Con un solo nivel había que elegir entre avisar tarde o llenar la
+    # pantalla de alertas que nadie puede atender todas a la vez.
+
+  @AC-POL-015
+  Scenario: La antigüedad no se informa dos veces al cruzar los dos umbrales
+    Given una política con los dos niveles de vida útil
+    When un activo supera ambos
+    Then la alerta enumera un solo motivo de antigüedad, el del nivel más alto
+
+  @AC-POL-016
+  Scenario: Una política sin segundo nivel se comporta como antes
+    Given una política que solo define la vida útil
+    When un activo la supera con creces
+    Then el nivel de la sugerencia es «evaluar reemplazo»
+    # Las políticas configuradas antes de existir los niveles no se quedan
+    # mudas ni escalan solas a una urgencia que nadie configuró.
+
+  @AC-POL-017
+  Scenario: El nivel reportado es el más severo de los criterios superados
+    Given un activo que supera el conteo de reparaciones y la vida útil crítica
+    When se evalúa
+    Then cada motivo conserva su propio nivel
+    And el veredicto del activo es el más severo de todos
+
+  @AC-POL-018
+  Scenario: El segundo nivel debe ser posterior al primero
+    When se intenta guardar una política que recomienda antes de evaluar
+    Then la solicitud es rechazada
+    # Al revés, «recomendado» absorbería a «evaluar» y el primer aviso no
+    # llegaría nunca: todo saltaría ya como urgente.
+
+  @AC-POL-019
+  Scenario: Las reparaciones se cuentan dentro de una ventana móvil
+    Given una política que tolera 3 reparaciones en 12 meses
+    And un activo con cuatro reparaciones, dos de ellas de hace más de dos años
+    When se evalúa
+    Then no se sugiere su renovación por reparaciones
+    # Un contador que solo sube deja marcado para siempre un equipo que falló
+    # mucho hace años y hoy funciona sin problemas.
+
+  @AC-POL-020
+  Scenario: Cuatro reparaciones dentro de la ventana sí disparan el aviso
+    Given una política que tolera 3 reparaciones en 12 meses
+    And un activo con cuatro reparaciones en los últimos nueve meses
+    When se evalúa
+    Then se sugiere evaluar su reemplazo
+    And el motivo dice cuántas reparaciones fueron y en qué periodo
+
+  @AC-POL-021
+  Scenario: Sin ventana configurada se cuenta todo el historial
+    Given una política que tolera 3 reparaciones sin ventana
+    When un activo acumula cuatro a lo largo de su vida
+    Then se sugiere evaluar su reemplazo
+    # Dejar la ventana vacía significa «cuenta todo», no «cuenta los últimos
+    # cero meses».
+
+  @AC-POL-022
+  Scenario: Cada tipo de dispositivo cuenta su propia ventana
+    Given laptops con ventana de 6 meses e impresoras con ventana de 24
+    When ambas tienen una reparación de hace un año
+    Then solo la impresora la cuenta dentro de su ventana
+
+  @AC-POL-023
+  Scenario: La ventana exige un máximo de reparaciones
+    When se intenta guardar una política con ventana pero sin máximo
+    Then la solicitud es rechazada
+    # Una ventana sin umbral no cuenta contra nada.
+
+  @AC-POL-024
+  Scenario: La ventana se resuelve en una sola consulta agregada
+    When se evalúa el parque completo
+    Then el conteo de reparaciones de la ventana se hace en una consulta por ventana configurada
+    # El documento dimensiona entre 5.000 y 10.000 activos: una consulta por
+    # equipo haría inviable el panel.
+
+  @AC-POL-025
+  Scenario: El inventario y el panel distinguen los dos niveles
+    Given equipos en ambos niveles
+    When se abre el panel principal
+    Then se cuentan por separado los de reemplazo recomendado y los de evaluar
+    And el inventario se puede filtrar por cada nivel

@@ -112,6 +112,7 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "total_mantenimientos",
             "total_componentes_criticos",
             "requiere_renovacion",
+            "nivel_renovacion",
             "created_at",
         ]
         read_only_fields = fields

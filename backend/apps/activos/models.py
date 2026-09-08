@@ -123,6 +123,13 @@ class Activo(BaseModel):
     total_mantenimientos = models.PositiveIntegerField(default=0, editable=False)
     total_componentes_criticos = models.PositiveIntegerField(default=0, editable=False)
     requiere_renovacion = models.BooleanField(default=False, editable=False, db_index=True)
+    # Severidad de la sugerencia (§11: "Evaluar reemplazo" / "Reemplazo
+    # recomendado"). Se guarda como texto libre en vez de importar las choices
+    # de `apps.politicas` para no crear una dependencia circular entre apps:
+    # políticas ya importa activos.
+    nivel_renovacion = models.CharField(
+        max_length=15, default="ninguno", editable=False, db_index=True
+    )
     motivos_renovacion = models.JSONField(default=list, blank=True, editable=False)
     renovacion_evaluada_en = models.DateTimeField(null=True, blank=True, editable=False)
 

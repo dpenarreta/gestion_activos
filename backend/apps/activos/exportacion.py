@@ -20,6 +20,15 @@ from .models import Activo
 
 RELLENO_CABECERA = PatternFill("solid", fgColor="D9E2F3")
 
+#: Se exporta el nivel y no un sí/no: «Reemplazo recomendado» y «Evaluar
+#: reemplazo» se presupuestan distinto, y en la hoja de cálculo ese matiz
+#: es justo lo que se filtra.
+NIVELES_RENOVACION = {
+    "ninguno": "No",
+    "evaluar": "Evaluar reemplazo",
+    "recomendado": "Reemplazo recomendado",
+}
+
 COLUMNAS_ACTIVOS = [
     ("Código de barras", 18),
     ("Nombre", 30),
@@ -39,7 +48,7 @@ COLUMNAS_ACTIVOS = [
     ("Estado de garantía", 20),
     ("Mantenimientos", 14),
     ("Piezas críticas", 14),
-    ("Requiere renovación", 18),
+    ("Sugerencia de renovación", 24),
     ("Especificaciones", 40),
     ("Observaciones", 30),
 ]
@@ -114,7 +123,7 @@ def exportar_activos(queryset) -> bytes:
                 Activo.Garantia(activo.estado_garantia).label,
                 activo.total_mantenimientos,
                 activo.total_componentes_criticos,
-                "Sí" if activo.requiere_renovacion else "No",
+                NIVELES_RENOVACION.get(activo.nivel_renovacion, "No"),
                 _especificaciones_a_texto(activo.especificaciones),
                 activo.observaciones,
             ]

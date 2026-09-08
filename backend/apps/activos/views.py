@@ -121,6 +121,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
         if renovacion in {"true", "false"}:
             queryset = queryset.filter(requiere_renovacion=renovacion == "true")
 
+        nivel = params.get("nivel_renovacion")
+        if nivel in {"ninguno", "evaluar", "recomendado"}:
+            queryset = queryset.filter(nivel_renovacion=nivel)
+
         queryset = self._filtrar_por_garantia(queryset, params.get("garantia"))
 
         return queryset

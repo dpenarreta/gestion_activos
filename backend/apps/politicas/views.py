@@ -8,9 +8,9 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import PoliticaObsolescencia
+from .models import VENTANA_MANTENIMIENTOS_MESES, NivelRenovacion, PoliticaObsolescencia
 from .permissions import PoliticasPermission
-from .services import evaluar_activo, refrescar_indicadores_renovacion, resolver_politica
+from .services import evaluar_lote, refrescar_indicadores_renovacion
 
 MODULO = "politicas"
 
@@ -30,8 +30,10 @@ class PoliticaObsolescenciaSerializer(serializers.ModelSerializer):
             "tipo_dispositivo_nombre",
             "es_global",
             "max_mantenimientos",
+            "ventana_mantenimientos_meses",
             "max_componentes_criticos",
             "vida_util_meses",
+            "vida_util_critica_meses",
             "activa",
             "created_at",
             "updated_at",
@@ -41,13 +43,51 @@ class PoliticaObsolescenciaSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Una política sin ningún umbral no evalúa nada: aceptarla daría la
         falsa impresión de que el tipo está cubierto."""
-        umbrales = ("max_mantenimientos", "max_componentes_criticos", "vida_util_meses")
+        umbrales = (
+            "max_mantenimientos",
+            "max_componentes_criticos",
+            "vida_util_meses",
+            "vida_util_critica_meses",
+        )
         valores = {
             campo: attrs.get(campo, getattr(self.instance, campo, None)) for campo in umbrales
         }
         if all(valor is None for valor in valores.values()):
             raise serializers.ValidationError(
                 "Defina al menos un umbral: mantenimientos, componentes críticos o vida útil."
+            )
+
+        vida_util = valores["vida_util_meses"]
+        critica = valores["vida_util_critica_meses"]
+        if vida_util is not None and critica is not None and critica <= vida_util:
+            # Al revés, el nivel «recomendado» absorbería al de «evaluar» y el
+            # primer aviso no llegaría nunca: todo saltaría ya como urgente.
+            raise serializers.ValidationError(
+                {
+                    "vida_util_critica_meses": (
+                        "Debe ser mayor que la vida útil: es el segundo nivel de aviso, "
+                        f"posterior a los {vida_util} meses."
+                    )
+                }
+            )
+
+        ventana = attrs.get(
+            "ventana_mantenimientos_meses",
+            getattr(self.instance, "ventana_mantenimientos_meses", None),
+        )
+        if ventana is not None and valores["max_mantenimientos"] is None:
+            raise serializers.ValidationError(
+                {
+                    "ventana_mantenimientos_meses": (
+                        "La ventana solo tiene sentido junto a un máximo de intervenciones."
+                    )
+                }
+            )
+        if ventana == 0:
+            raise serializers.ValidationError(
+                {
+                    "ventana_mantenimientos_meses": "Deje el campo vacío para contar todo el historial."
+                }
             )
         return attrs
 
@@ -124,8 +164,11 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _reevaluar_queryset(queryset):
-        for activo in queryset.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA):
-            refrescar_indicadores_renovacion(activo)
+        activos = queryset.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        # Se evalúa en lote para resolver la ventana móvil con una consulta
+        # agregada, y luego se persiste el veredicto ya calculado.
+        for activo, resultado in evaluar_lote(activos):
+            refrescar_indicadores_renovacion(activo, resultado=resultado)
 
     @action(detail=False, methods=["get"], url_path="sugerencias")
     def sugerencias(self, request):
@@ -135,18 +178,17 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         criterio de longevidad se cumple por el paso del tiempo, así que la
         caché puede estar desactualizada justo para los casos que interesan.
         """
+        nivel_pedido = request.query_params.get("nivel")
         activos = (
             Activo.objects.select_related("tipo", "custodio", "departamento")
             .exclude(estado=Activo.Estado.DADO_DE_BAJA)
             .order_by("-total_mantenimientos", "fecha_adquisicion")
         )
-        politicas = {}
         sugerencias = []
-        for activo in activos:
-            if activo.tipo_id not in politicas:
-                politicas[activo.tipo_id] = resolver_politica(activo.tipo)
-            resultado = evaluar_activo(activo, politica=politicas[activo.tipo_id])
+        for activo, resultado in evaluar_lote(activos):
             if not resultado.requiere_renovacion:
+                continue
+            if nivel_pedido and resultado.nivel != nivel_pedido:
                 continue
             sugerencias.append(
                 {
@@ -164,7 +206,21 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
                     **resultado.as_dict(),
                 }
             )
-        return Response({"total": len(sugerencias), "resultados": sugerencias})
+
+        # Lo recomendado primero: es lo que hay que presupuestar, y una lista
+        # ordenada solo por antigüedad lo escondería entre los «evaluar».
+        sugerencias.sort(key=lambda fila: fila["nivel_renovacion"] != NivelRenovacion.RECOMENDADO)
+        return Response(
+            {
+                "total": len(sugerencias),
+                "por_nivel": {
+                    nivel.value: sum(1 for fila in sugerencias if fila["nivel_renovacion"] == nivel)
+                    for nivel in (NivelRenovacion.RECOMENDADO, NivelRenovacion.EVALUAR)
+                },
+                "ventana_por_defecto_meses": VENTANA_MANTENIMIENTOS_MESES,
+                "resultados": sugerencias,
+            }
+        )
 
     @action(detail=False, methods=["post"], url_path="reevaluar")
     def reevaluar(self, request):
@@ -172,10 +228,13 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         activos = Activo.objects.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
         total = 0
         con_alerta = 0
-        for activo in activos:
-            resultado = refrescar_indicadores_renovacion(activo)
+        por_nivel = {NivelRenovacion.EVALUAR: 0, NivelRenovacion.RECOMENDADO: 0}
+        for activo, resultado in evaluar_lote(activos):
+            refrescar_indicadores_renovacion(activo, resultado=resultado)
             total += 1
-            con_alerta += 1 if resultado.requiere_renovacion else 0
+            if resultado.requiere_renovacion:
+                con_alerta += 1
+                por_nivel[resultado.nivel] += 1
 
         record_audit_event(
             actor=request.user,
@@ -187,6 +246,10 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
         )
         return Response(
-            {"activos_evaluados": total, "con_sugerencia": con_alerta},
+            {
+                "activos_evaluados": total,
+                "con_sugerencia": con_alerta,
+                "por_nivel": {nivel.value: cuenta for nivel, cuenta in por_nivel.items()},
+            },
             status=status.HTTP_200_OK,
         )

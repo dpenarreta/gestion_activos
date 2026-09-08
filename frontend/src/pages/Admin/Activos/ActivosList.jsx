@@ -12,6 +12,7 @@ import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
+import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/NivelRenovacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
@@ -47,6 +48,7 @@ export function ActivosList() {
     custodio: searchParams.get("custodio") || "",
     estado: searchParams.get("estado") || "",
     requiere_renovacion: searchParams.get("requiere_renovacion") || "",
+    nivel_renovacion: searchParams.get("nivel_renovacion") || "",
     garantia: searchParams.get("garantia") || "",
   }));
 
@@ -193,12 +195,13 @@ export function ActivosList() {
         <select
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por sugerencia de renovación"
-          value={listado.filtros.requiere_renovacion}
-          onChange={(event) => listado.actualizarFiltros({ requiere_renovacion: event.target.value })}
+          value={listado.filtros.nivel_renovacion}
+          onChange={(event) => listado.actualizarFiltros({ nivel_renovacion: event.target.value })}
         >
           <option value="">Renovación: todos</option>
-          <option value="true">Solo los sugeridos</option>
-          <option value="false">Sin sugerencia</option>
+          <option value="recomendado">Reemplazo recomendado</option>
+          <option value="evaluar">Evaluar reemplazo</option>
+          <option value="ninguno">Sin sugerencia</option>
         </select>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
           Buscar
@@ -250,10 +253,7 @@ export function ActivosList() {
                 <td className="text-end">{activo.total_mantenimientos}</td>
                 <td>
                   {activo.requiere_renovacion ? (
-                    <span className="badge text-bg-warning">
-                      <i className="bi bi-exclamation-triangle me-1" aria-hidden="true" />
-                      Sugerida
-                    </span>
+                    <NivelRenovacion nivel={activo.nivel_renovacion} conIcono />
                   ) : (
                     <span className="text-muted">—</span>
                   )}
