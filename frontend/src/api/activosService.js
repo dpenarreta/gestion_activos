@@ -55,12 +55,28 @@ export const activosService = {
    * navegador y en los logs del servidor, que es justo lo que no se quiere
    * de un token de sesión.
    */
-  descargarEtiqueta(id, formato = "zpl") {
+  descargarEtiqueta(id, formato = "pdf") {
     return apiClient
       .get(`${ACTIVOS}${id}/etiqueta/`, {
         params: { formato, descargar: "true" },
         responseType: "blob",
       })
+      .then((res) => res.data);
+  },
+
+  /** PDF listo para revisar en el visor del navegador, sin descargarlo. */
+  previsualizarPdf(id) {
+    return apiClient
+      .get(`${ACTIVOS}${id}/etiqueta/`, {
+        params: { formato: "pdf", descargar: "false" },
+        responseType: "blob",
+      })
+      .then((res) => res.data);
+  },
+
+  descargarEtiquetasLote(ids, formato = "pdf") {
+    return apiClient
+      .post(`${ACTIVOS}etiquetas/`, { ids }, { params: { formato }, responseType: "blob" })
       .then((res) => res.data);
   },
 };

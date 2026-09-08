@@ -181,8 +181,9 @@ relaciones entre usuarios, roles y permisos.
 - **Políticas de renovación** (`apps.politicas`) — RF-06/RF-07: umbrales de
   obsolescencia por tipo de dispositivo (mantenimientos, piezas críticas,
   vida útil) y motor que evalúa cada activo y explica cada criterio superado.
-- **Etiquetas térmicas** (`apps.activos.etiquetas`) — RF-08: generación de
-  trabajos de impresión ZPL (Zebra) y TSPL (TSC/Godex).
+- **Etiquetas** (`apps.activos.etiquetas_pdf`, `apps.activos.etiquetas`) —
+  RF-08: PDF a tamaño físico real (50 × 25 mm) con Code 128 escaneable, y
+  trabajos de impresión térmica directa ZPL (Zebra) y TSPL (TSC/Godex).
 
 ### Pantallas del panel administrativo
 

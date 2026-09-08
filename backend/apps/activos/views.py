@@ -12,6 +12,7 @@ from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
 
 from . import etiquetas as etiquetas_mod
+from . import etiquetas_pdf
 from .models import Activo, TipoDispositivo
 from .permissions import ActivosPermission, EtiquetasPermission, TiposDispositivoPermission
 from .serializers import (
@@ -27,6 +28,12 @@ from .services import ActivoService
 
 MODULO = "activos"
 MAX_ETIQUETAS_POR_LOTE = 200
+
+# PDF es el formato por defecto: lo abre cualquiera y permite revisar la
+# etiqueta antes de imprimirla. ZPL y TSPL siguen disponibles para enviar el
+# trabajo directamente a una impresora térmica (RF-08).
+FORMATO_POR_DEFECTO = "pdf"
+FORMATOS_SOPORTADOS = {"pdf", *etiquetas_mod.CONSTRUCTORES}
 
 
 class TipoDispositivoViewSet(viewsets.ModelViewSet):
@@ -217,10 +224,11 @@ class ActivoViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated, EtiquetasPermission],
     )
     def etiqueta(self, request, pk=None):
-        """Trabajo de impresión térmica de un activo (RF-08).
+        """Etiqueta de un activo (RF-08).
 
-        `?formato=zpl|tspl` elige el lenguaje; `?descargar=true` lo entrega
-        como archivo adjunto para mandarlo a la cola de impresión.
+        `?formato=pdf` (por defecto en la descarga) devuelve el documento
+        imprimible; `?formato=zpl|tspl` devuelve el trabajo de impresión
+        térmica directa. `?descargar=true` fuerza la descarga como adjunto.
         """
         return self._responder_etiquetas(request, [self.get_object()])
 
@@ -264,34 +272,46 @@ class ActivoViewSet(viewsets.ModelViewSet):
         return self._responder_etiquetas(request, activos)
 
     def _responder_etiquetas(self, request, activos):
-        formato = (request.query_params.get("formato") or "zpl").lower()
-        try:
-            contenido = etiquetas_mod.construir_lote(formato, activos)
-        except ValueError as exc:
+        formato = (request.query_params.get("formato") or FORMATO_POR_DEFECTO).lower()
+        if formato not in FORMATOS_SOPORTADOS:
             return Response(
-                {"error": {"code": "formato_invalido", "message": str(exc)}},
+                {
+                    "error": {
+                        "code": "formato_invalido",
+                        "message": (
+                            f"Formato de etiqueta no soportado: {formato!r}. "
+                            f"Opciones: {', '.join(sorted(FORMATOS_SOPORTADOS))}."
+                        ),
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        record_audit_event(
-            actor=request.user,
-            action="activo.etiqueta_generada",
-            target_type="activo",
-            target_id=",".join(str(a.id) for a in activos[:20]),
-            module=MODULO,
-            new_values={"formato": formato, "cantidad": len(activos)},
-            context=get_request_context(request),
-        )
+        self._auditar_etiquetas(request, activos, formato)
+
+        if formato == "pdf":
+            # El PDF es binario: no cabe en el JSON de vista previa, así que
+            # siempre se devuelve como documento. `descargar=false` lo entrega
+            # "inline" para poder revisarlo en el visor del navegador antes de
+            # gastar consumibles.
+            documento = etiquetas_pdf.construir_pdf(activos)
+            disposicion = (
+                "inline" if request.query_params.get("descargar") == "false" else "attachment"
+            )
+            respuesta = HttpResponse(documento, content_type="application/pdf")
+            respuesta["Content-Disposition"] = (
+                f'{disposicion}; filename="{self._nombre_archivo(activos, "pdf")}"'
+            )
+            return respuesta
+
+        contenido = etiquetas_mod.construir_lote(formato, activos)
 
         if request.query_params.get("descargar") == "true":
             extension = etiquetas_mod.EXTENSIONES[formato]
-            nombre = (
-                f"etiqueta-{activos[0].codigo_barras}.{extension}"
-                if len(activos) == 1
-                else f"etiquetas-{len(activos)}.{extension}"
-            )
             respuesta = HttpResponse(contenido, content_type="text/plain; charset=utf-8")
-            respuesta["Content-Disposition"] = f'attachment; filename="{nombre}"'
+            respuesta["Content-Disposition"] = (
+                f'attachment; filename="{self._nombre_archivo(activos, extension)}"'
+            )
             return respuesta
 
         return Response(
@@ -309,4 +329,23 @@ class ActivoViewSet(viewsets.ModelViewSet):
                     for a in activos
                 ],
             }
+        )
+
+    @staticmethod
+    def _nombre_archivo(activos, extension: str) -> str:
+        return (
+            f"etiqueta-{activos[0].codigo_barras}.{extension}"
+            if len(activos) == 1
+            else f"etiquetas-{len(activos)}.{extension}"
+        )
+
+    def _auditar_etiquetas(self, request, activos, formato: str) -> None:
+        record_audit_event(
+            actor=request.user,
+            action="activo.etiqueta_generada",
+            target_type="activo",
+            target_id=",".join(str(a.id) for a in activos[:20]),
+            module=MODULO,
+            new_values={"formato": formato, "cantidad": len(activos)},
+            context=get_request_context(request),
         )

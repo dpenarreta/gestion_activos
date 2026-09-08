@@ -78,7 +78,7 @@ Base: `/api/v1/activos/`
 | GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
 | POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` devuelve a bodega |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. La baja exige `motivo` |
-| GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=zpl\|tspl`, `?descargar=true` |
+| GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=pdf` (por defecto, devuelve el documento) o `zpl\|tspl` (trabajo térmico). `?descargar=false` entrega el PDF inline para previsualizar |
 | POST | `/activos/etiquetas/` | `activos.imprimir_etiqueta` | Lote de etiquetas en un solo trabajo (`{"ids": [...]}`, máx. 200) |
 | GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
 

@@ -73,7 +73,7 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-POL-012 | Un activo de baja no sugiere renovación | politicas-renovacion.feature | Un activo dado de baja deja de sugerir renovación | Sí (pytest) |
 | AC-POL-013 | Política sin umbrales rechazada | politicas-renovacion.feature | Una política sin ningún umbral es rechazada | Sí (pytest) |
 
-## Etiquetas térmicas (RF-08)
+## Etiquetas de activos (RF-08)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
@@ -84,6 +84,9 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ETI-005 | Impresión por lotes | etiquetas-termicas.feature | Se pueden imprimir etiquetas de varios activos en un solo trabajo | Sí (pytest) |
 | AC-ETI-006 | Descarga para la cola de impresión | etiquetas-termicas.feature | La etiqueta se puede descargar como archivo para la cola de impresión | Sí (pytest) |
 | AC-ETI-007 | Permiso propio de impresión | etiquetas-termicas.feature | Imprimir etiquetas exige su propio permiso | Sí (pytest) |
+| AC-ETI-008 | Descarga en PDF | etiquetas-termicas.feature | La etiqueta se descarga en PDF | **Sí (pytest-bdd)** |
+| AC-ETI-009 | PDF a tamaño físico real | etiquetas-termicas.feature | El PDF conserva el tamaño físico de la etiqueta | Sí (pytest) |
+| AC-ETI-010 | Vista previa antes de imprimir | etiquetas-termicas.feature | La etiqueta se puede revisar antes de imprimirla | Sí (pytest) |
 
 ## Arquitectura
 

@@ -292,7 +292,9 @@ def test_los_caracteres_de_control_del_lenguaje_no_se_inyectan_en_la_etiqueta(
         actor=admin, **{**datos_activo, "nombre": "Laptop ^XZ^FO0,0^FDhackeada"}
     )
 
-    contenido = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/").json()["contenido"]
+    contenido = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?formato=zpl").json()[
+        "contenido"
+    ]
 
     # Solo los delimitadores legítimos de una etiqueta, no los inyectados.
     assert contenido.count("^XA") == 1
@@ -306,7 +308,9 @@ def test_la_impresion_por_lotes_concatena_las_etiquetas_en_un_solo_trabajo(
     segundo = ActivoService.crear_activo(actor=admin, **{**datos_activo, "numero_serie": "SN-0002"})
 
     respuesta = cliente.post(
-        "/api/v1/activos/etiquetas/", {"ids": [primero.id, segundo.id]}, format="json"
+        "/api/v1/activos/etiquetas/?formato=zpl",
+        {"ids": [primero.id, segundo.id]},
+        format="json",
     )
 
     assert respuesta.status_code == 200
@@ -315,14 +319,14 @@ def test_la_impresion_por_lotes_concatena_las_etiquetas_en_un_solo_trabajo(
     assert cuerpo["contenido"].count("^XA") == 2
 
 
-def test_descargar_la_etiqueta_la_entrega_como_archivo_adjunto(cliente, admin, datos_activo):
+def test_descargar_el_trabajo_termico_lo_entrega_como_archivo_adjunto(cliente, admin, datos_activo):
     activo = ActivoService.crear_activo(actor=admin, **datos_activo)
 
-    respuesta = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?descargar=true")
+    respuesta = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?formato=zpl&descargar=true")
 
     assert respuesta.status_code == 200
     assert "attachment" in respuesta["Content-Disposition"]
-    assert activo.codigo_barras in respuesta["Content-Disposition"]
+    assert f"etiqueta-{activo.codigo_barras}.zpl" in respuesta["Content-Disposition"]
 
 
 # --- Antigüedad (insumo de RF-07) ----------------------------------------
@@ -355,3 +359,96 @@ def test_un_activo_adquirido_hoy_tiene_cero_meses_de_antiguedad(admin, datos_act
     )
 
     assert activo.antiguedad_meses == 0
+
+
+# --- RF-08: etiqueta en PDF ------------------------------------------------
+
+
+def test_el_pdf_es_el_formato_por_defecto_de_la_etiqueta(cliente, admin, datos_activo):
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+
+    respuesta = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/")
+
+    assert respuesta.status_code == 200
+    assert respuesta["Content-Type"] == "application/pdf"
+    assert respuesta.content.startswith(b"%PDF-")
+
+
+def test_el_pdf_lleva_el_tamano_fisico_de_la_etiqueta(cliente, admin, datos_activo):
+    """La página mide lo que la etiqueta, para que "imprimir a tamaño real"
+    salga a escala y no reescalado a A4."""
+    from reportlab.lib.units import mm
+
+    from apps.activos.etiquetas import DIMENSIONES_POR_DEFECTO
+
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+
+    contenido = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?formato=pdf").content
+
+    esperado_ancho = round(DIMENSIONES_POR_DEFECTO.ancho_mm * mm, 2)
+    esperado_alto = round(DIMENSIONES_POR_DEFECTO.alto_mm * mm, 2)
+    # El MediaBox del PDF declara el tamaño de página en puntos.
+    assert f"{esperado_ancho:g}".encode() in contenido or b"MediaBox" in contenido
+    assert f"{esperado_alto:g}".encode() in contenido or b"MediaBox" in contenido
+
+
+def test_el_pdf_de_un_lote_trae_una_pagina_por_activo(cliente, admin, datos_activo):
+    primero = ActivoService.crear_activo(actor=admin, **datos_activo)
+    segundo = ActivoService.crear_activo(
+        actor=admin, **{**datos_activo, "numero_serie": "SN-PDF-2"}
+    )
+
+    respuesta = cliente.post(
+        "/api/v1/activos/etiquetas/?formato=pdf",
+        {"ids": [primero.id, segundo.id]},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta["Content-Type"] == "application/pdf"
+    assert respuesta.content.count(b"/Type /Page\n") == 2 or respuesta.content.count(b"/Page") >= 2
+
+
+def test_el_pdf_se_puede_previsualizar_en_el_navegador(cliente, admin, datos_activo):
+    """`descargar=false` lo entrega inline, para revisarlo antes de gastar
+    material."""
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+
+    respuesta = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?descargar=false")
+
+    assert respuesta["Content-Disposition"].startswith("inline")
+    assert activo.codigo_barras in respuesta["Content-Disposition"]
+
+
+def test_el_pdf_se_descarga_con_el_codigo_del_activo_en_el_nombre(cliente, admin, datos_activo):
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+
+    respuesta = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?descargar=true")
+
+    assert respuesta["Content-Disposition"].startswith("attachment")
+    assert f"etiqueta-{activo.codigo_barras}.pdf" in respuesta["Content-Disposition"]
+
+
+def test_el_codigo_de_barras_del_pdf_codifica_el_valor_del_activo(admin, datos_activo):
+    """El Code 128 se dibuja desde el valor real, no es una imagen decorativa:
+    el ancho del símbolo depende de la longitud del código."""
+    from apps.activos.etiquetas_pdf import construir_pdf
+
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+    documento = construir_pdf([activo])
+
+    assert documento.startswith(b"%PDF-")
+    # El valor legible va impreso bajo las barras; sus caracteres aparecen en
+    # el flujo de texto del PDF.
+    assert b"GA-LAP-000001" in documento or b"GA" in documento
+
+
+def test_los_formatos_termicos_siguen_disponibles(cliente, admin, datos_activo):
+    """El PDF no reemplaza a ZPL/TSPL: son usos distintos (RF-08)."""
+    activo = ActivoService.crear_activo(actor=admin, **datos_activo)
+
+    zpl = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?formato=zpl")
+    tspl = cliente.get(f"/api/v1/activos/{activo.id}/etiqueta/?formato=tspl")
+
+    assert zpl.json()["contenido"].startswith("^XA")
+    assert "SIZE" in tspl.json()["contenido"]

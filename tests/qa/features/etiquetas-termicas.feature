@@ -1,6 +1,6 @@
-Feature: Impresión de etiquetas en impresora térmica (RF-08)
+Feature: Generación e impresión de etiquetas de activos (RF-08)
   Como personal de bodega
-  Quiero enviar el diseño de la etiqueta a una impresora térmica
+  Quiero obtener la etiqueta de un activo en PDF o enviarla a una impresora térmica
   Para que el etiquetado resista el calor, el roce y la limpieza de los equipos
 
   Background:
@@ -8,9 +8,26 @@ Feature: Impresión de etiquetas en impresora térmica (RF-08)
 
   @AC-ETI-001
   Scenario: La etiqueta contiene código de barras, nombre del activo y área
-    When se genera la etiqueta del activo
+    When se genera el trabajo de impresión térmica del activo
     Then el contenido incluye el código de barras en simbología Code 128
     And incluye el nombre del activo y el nombre de su área
+
+  @AC-ETI-008
+  Scenario: La etiqueta se descarga en PDF
+    When se descarga la etiqueta del activo
+    Then se obtiene un documento PDF
+    And el archivo se nombra con el código de barras del activo
+
+  @AC-ETI-009
+  Scenario: El PDF conserva el tamaño físico de la etiqueta
+    When se genera la etiqueta en PDF
+    Then la página mide lo mismo que la etiqueta física
+    # Así "imprimir a tamaño real" sale a escala y no reescalado a A4.
+
+  @AC-ETI-010
+  Scenario: La etiqueta se puede revisar antes de imprimirla
+    When se solicita la vista previa de la etiqueta
+    Then el PDF se entrega para mostrarse en el visor, sin descargarse
 
   @AC-ETI-002
   Scenario: Se admiten los dos lenguajes de impresión térmica directa

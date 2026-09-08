@@ -5,7 +5,7 @@ import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
 import "./EtiquetaDialog.css";
 
-const FORMATOS = [
+const FORMATOS_TERMICOS = [
   { valor: "zpl", etiqueta: "ZPL — Zebra y compatibles" },
   { valor: "tspl", etiqueta: "TSPL — TSC, Godex y compatibles" },
 ];
@@ -13,57 +13,97 @@ const FORMATOS = [
 const EXTENSIONES = { zpl: "zpl", tspl: "txt" };
 
 /**
- * Generación del trabajo de impresión térmica de una etiqueta (RF-08).
+ * Etiqueta de un activo, en PDF o como trabajo de impresión térmica (RF-08).
  *
- * El servidor no envía nada a la impresora: produce el texto del trabajo y
- * aquí se descarga como archivo para que el operador lo mande a su cola
- * (`lpr`, `copy /b` a un puerto, o el utilitario del fabricante). Se muestra
- * también el contenido en crudo porque, al configurar una impresora nueva,
- * poder ver los comandos exactos es la diferencia entre diagnosticar un
- * problema de márgenes en un minuto o a ciegas.
+ * El PDF es lo que se descarga: lo abre cualquiera, se revisa antes de gastar
+ * consumibles y sirve también para una impresora común. Los lenguajes
+ * térmicos (ZPL/TSPL) quedan a mano en la segunda sección, para enviar el
+ * trabajo directamente a la cola de una impresora de etiquetas.
+ *
+ * La vista previa es el PDF real embebido, no una imitación en HTML: una
+ * maqueta con CSS podría diferir del documento que sale impreso, que es
+ * justamente lo que la previsualización debería evitar.
  */
 export function EtiquetaDialog({ activo, onCerrar }) {
-  const [formato, setFormato] = useState("zpl");
-  const [contenido, setContenido] = useState("");
+  const [urlPrevia, setUrlPrevia] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [formatoTermico, setFormatoTermico] = useState("zpl");
+  const [contenidoTermico, setContenidoTermico] = useState("");
+  const [mostrarTermico, setMostrarTermico] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
-  const cargar = useCallback(() => {
-    setIsLoading(true);
-    setError(null);
+  useEffect(() => {
+    let urlCreada = null;
+    let cancelado = false;
+
     activosService
-      .etiqueta(activo.id, formato)
-      .then((datos) => setContenido(datos.contenido))
-      .catch((err) => setError(mensajeDeError(err, "No se pudo generar la etiqueta.")))
-      .finally(() => setIsLoading(false));
-  }, [activo.id, formato]);
+      .previsualizarPdf(activo.id)
+      .then((blob) => {
+        if (cancelado) return;
+        urlCreada = URL.createObjectURL(blob);
+        setUrlPrevia(urlCreada);
+      })
+      .catch((err) => {
+        if (!cancelado) setError(mensajeDeError(err, "No se pudo generar la etiqueta."));
+      })
+      .finally(() => {
+        if (!cancelado) setIsLoading(false);
+      });
+
+    return () => {
+      cancelado = true;
+      // Liberar el object URL al cerrar: si no, el blob queda retenido en
+      // memoria mientras viva la pestaña.
+      if (urlCreada) URL.revokeObjectURL(urlCreada);
+    };
+  }, [activo.id]);
+
+  const cargarTermico = useCallback(() => {
+    activosService
+      .etiqueta(activo.id, formatoTermico)
+      .then((datos) => setContenidoTermico(datos.contenido))
+      .catch((err) => setError(mensajeDeError(err, "No se pudo generar el trabajo de impresión.")));
+  }, [activo.id, formatoTermico]);
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (mostrarTermico) {
+      cargarTermico();
+    }
+  }, [mostrarTermico, cargarTermico]);
 
-  async function handleDescargar() {
+  function descargarBlob(blob, nombre) {
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombre;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDescargarPdf() {
     try {
-      const blob = await activosService.descargarEtiqueta(activo.id, formato);
-      const url = URL.createObjectURL(blob);
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = `etiqueta-${activo.codigo_barras}.${EXTENSIONES[formato]}`;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-      // Liberar el object URL: sin esto el blob queda retenido en memoria
-      // mientras viva la pestaña.
-      URL.revokeObjectURL(url);
+      const blob = await activosService.descargarEtiqueta(activo.id, "pdf");
+      descargarBlob(blob, `etiqueta-${activo.codigo_barras}.pdf`);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo descargar la etiqueta."));
     }
   }
 
+  async function handleDescargarTermico() {
+    try {
+      const blob = await activosService.descargarEtiqueta(activo.id, formatoTermico);
+      descargarBlob(blob, `etiqueta-${activo.codigo_barras}.${EXTENSIONES[formatoTermico]}`);
+    } catch (err) {
+      setError(mensajeDeError(err, "No se pudo descargar el trabajo de impresión."));
+    }
+  }
+
   async function handleCopiar() {
     try {
-      await navigator.clipboard.writeText(contenido);
+      await navigator.clipboard.writeText(contenidoTermico);
       setCopiado(true);
       window.setTimeout(() => setCopiado(false), 2000);
     } catch {
@@ -75,71 +115,114 @@ export function EtiquetaDialog({ activo, onCerrar }) {
 
   return (
     <ModalDialog
-      titulo="Etiqueta térmica"
+      titulo="Etiqueta del activo"
       subtitulo={`${activo.codigo_barras} · ${activo.nombre}`}
       onCerrar={onCerrar}
-      anchoMaximo="44rem"
+      anchoMaximo="46rem"
     >
       {error && <div className="alert alert-danger">{error}</div>}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="formato-etiqueta">
-          Lenguaje de la impresora
-        </label>
-        <select
-          id="formato-etiqueta"
-          className="form-select"
-          value={formato}
-          onChange={(event) => setFormato(event.target.value)}
-        >
-          {FORMATOS.map((opcion) => (
-            <option key={opcion.valor} value={opcion.valor}>
-              {opcion.etiqueta}
-            </option>
-          ))}
-        </select>
-        <div className="form-text">
-          Etiqueta de 50 × 25 mm a 203 dpi, con el código en Code 128.
-        </div>
+      <p className="text-muted small">
+        Etiqueta de 50 × 25 mm con el código en Code 128. El PDF sale a tamaño real: imprímalo «a
+        escala 100 %», sin ajustar a página.
+      </p>
+
+      <div className="etiqueta-previa-pdf mb-3">
+        {isLoading && <p className="text-muted m-0 p-4 text-center">Generando la etiqueta…</p>}
+        {urlPrevia && (
+          <object
+            data={urlPrevia}
+            type="application/pdf"
+            aria-label={`Vista previa de la etiqueta ${activo.codigo_barras}`}
+          >
+            {/* Algunos navegadores (y varios móviles) no embeben PDF: el
+                enlace es el respaldo, no un adorno. */}
+            <p className="p-3 mb-0">
+              Su navegador no puede mostrar el PDF incrustado.{" "}
+              <a href={urlPrevia} target="_blank" rel="noreferrer">
+                Ábralo en una pestaña nueva
+              </a>
+              .
+            </p>
+          </object>
+        )}
       </div>
 
-      <div className="etiqueta-previa mb-3" aria-label="Vista previa de la etiqueta">
-        <div className="etiqueta-previa__nombre">{activo.nombre}</div>
-        <div className="etiqueta-previa__area">{activo.departamento_nombre}</div>
-        <div className="etiqueta-previa__barras" aria-hidden="true" />
-        <div className="etiqueta-previa__codigo">{activo.codigo_barras}</div>
-      </div>
-
-      <label className="form-label" htmlFor="contenido-etiqueta">
-        Trabajo de impresión
-      </label>
-      <textarea
-        id="contenido-etiqueta"
-        className="form-control font-monospace etiqueta-contenido"
-        rows={9}
-        readOnly
-        value={isLoading ? "Generando…" : contenido}
-      />
-
-      <div className="d-flex gap-2 mt-3">
+      <div className="d-flex gap-2 flex-wrap">
         <button
           type="button"
-          className="btn btn-primary btn-sm"
-          onClick={handleDescargar}
-          disabled={isLoading || !contenido}
+          className="btn btn-primary"
+          onClick={handleDescargarPdf}
+          disabled={isLoading}
         >
-          <i className="bi bi-download me-1" aria-hidden="true" />
-          Descargar archivo
+          <i className="bi bi-file-earmark-pdf me-1" aria-hidden="true" />
+          Descargar PDF
         </button>
         <button
           type="button"
-          className="btn btn-outline-secondary btn-sm"
-          onClick={handleCopiar}
-          disabled={isLoading || !contenido}
+          className="btn btn-outline-secondary"
+          onClick={() => setMostrarTermico((valor) => !valor)}
+          aria-expanded={mostrarTermico}
         >
-          {copiado ? "Copiado" : "Copiar al portapapeles"}
+          <i className="bi bi-printer me-1" aria-hidden="true" />
+          {mostrarTermico ? "Ocultar" : "Impresión térmica directa"}
         </button>
       </div>
+
+      {mostrarTermico && (
+        <section className="etiqueta-termica mt-3">
+          <p className="text-muted small">
+            Para enviar el trabajo directamente a la cola de una impresora de etiquetas, sin pasar
+            por el PDF.
+          </p>
+
+          <label className="form-label" htmlFor="formato-etiqueta">
+            Lenguaje de la impresora
+          </label>
+          <select
+            id="formato-etiqueta"
+            className="form-select mb-3"
+            value={formatoTermico}
+            onChange={(event) => setFormatoTermico(event.target.value)}
+          >
+            {FORMATOS_TERMICOS.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+
+          <label className="form-label" htmlFor="contenido-etiqueta">
+            Trabajo de impresión
+          </label>
+          <textarea
+            id="contenido-etiqueta"
+            className="form-control font-monospace etiqueta-contenido"
+            rows={8}
+            readOnly
+            value={contenidoTermico || "Generando…"}
+          />
+
+          <div className="d-flex gap-2 mt-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleDescargarTermico}
+              disabled={!contenidoTermico}
+            >
+              Descargar .{EXTENSIONES[formatoTermico]}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleCopiar}
+              disabled={!contenidoTermico}
+            >
+              {copiado ? "Copiado" : "Copiar al portapapeles"}
+            </button>
+          </div>
+        </section>
+      )}
     </ModalDialog>
   );
 }

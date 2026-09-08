@@ -1,63 +1,31 @@
 /*
- * Vista previa de la etiqueta física.
- *
- * Reproduce la proporción real (50 × 25 mm) para que el operador vea si el
- * nombre del activo va a caber antes de gastar un rollo de etiquetas. Las
- * barras son decorativas: representan dónde queda el Code 128, no codifican
- * el valor — renderizar un código de barras real en pantalla sería una
- * segunda implementación que podría discrepar de la que imprime el backend.
+ * Diálogo de etiqueta: vista previa del PDF real y, plegado, el trabajo de
+ * impresión térmica.
  */
 
-.etiqueta-previa {
-  width: 20rem;
-  aspect-ratio: 2 / 1;
-  background: #ffffff;
-  color: #000000;
-  border: 1px solid var(--border-color-strong);
-  border-radius: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.etiqueta-previa-pdf {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  /* Fondo claro fijo, no un token de tema: detrás del PDF debe verse el color
+     del papel, o en modo oscuro la etiqueta parecería flotar sobre un vacío y
+     dejaría de anticipar el resultado impreso. */
+  background: #f1f3f5;
   overflow: hidden;
+  min-height: 12rem;
 }
 
-/* Fondo y texto fijos, no tokens de tema: la etiqueta se imprime en negro
-   sobre material blanco, así que la vista previa debe verse igual en modo
-   claro y oscuro o dejaría de anticipar el resultado real. */
-
-.etiqueta-previa__nombre {
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.etiqueta-previa-pdf object {
+  display: block;
+  width: 100%;
+  /* Proporción 2:1 de la etiqueta (50 × 25 mm), con holgura para la barra de
+     herramientas que el visor del navegador superpone. */
+  height: 16rem;
+  border: 0;
 }
 
-.etiqueta-previa__area {
-  font-size: 0.75rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.etiqueta-previa__barras {
-  flex: 1;
-  margin-top: 0.25rem;
-  background-image: repeating-linear-gradient(
-    to right,
-    #000000 0 2px,
-    transparent 2px 4px,
-    #000000 4px 5px,
-    transparent 5px 9px
-  );
-}
-
-.etiqueta-previa__codigo {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7rem;
-  text-align: center;
-  letter-spacing: 0.08em;
+.etiqueta-termica {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
 }
 
 .etiqueta-contenido {

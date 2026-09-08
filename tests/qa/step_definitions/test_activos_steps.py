@@ -268,9 +268,11 @@ def activo_con_codigo(admin, contexto):
     contexto["activo"] = _crear_activo(admin, contexto, serie="SN-QA-ETI")
 
 
-@when("se genera la etiqueta del activo")
+@when("se genera el trabajo de impresión térmica del activo")
 def generar_etiqueta(cliente, contexto):
-    contexto["respuesta"] = cliente.get(f"/api/v1/activos/{contexto['activo'].id}/etiqueta/")
+    contexto["respuesta"] = cliente.get(
+        f"/api/v1/activos/{contexto['activo'].id}/etiqueta/?formato=zpl"
+    )
 
 
 @then("el contenido incluye el código de barras en simbología Code 128")
@@ -295,3 +297,34 @@ def etiqueta_con_nombre_y_area(contexto):
 @then(parsers.parse("la solicitud es rechazada"))
 def solicitud_rechazada(contexto):
     assert contexto["respuesta"].status_code == 400
+
+
+# =========================================================================
+# RF-08: la etiqueta en PDF
+# =========================================================================
+
+
+@scenario(f"{FEATURES}/etiquetas-termicas.feature", "La etiqueta se descarga en PDF")
+def test_descarga_en_pdf():
+    pass
+
+
+@when("se descarga la etiqueta del activo")
+def descargar_etiqueta(cliente, contexto):
+    contexto["respuesta"] = cliente.get(
+        f"/api/v1/activos/{contexto['activo'].id}/etiqueta/?descargar=true"
+    )
+
+
+@then("se obtiene un documento PDF")
+def es_un_pdf(contexto):
+    respuesta = contexto["respuesta"]
+    assert respuesta["Content-Type"] == "application/pdf"
+    assert respuesta.content.startswith(b"%PDF-")
+
+
+@then("el archivo se nombra con el código de barras del activo")
+def nombre_del_archivo(contexto):
+    disposicion = contexto["respuesta"]["Content-Disposition"]
+    assert disposicion.startswith("attachment")
+    assert f"etiqueta-{contexto['activo'].codigo_barras}.pdf" in disposicion
