@@ -1,0 +1,7 @@
+.permissions-page {
+  max-width: 60rem;
+}
+
+.permissions-page__module code {
+  font-size: 0.8em;
+}

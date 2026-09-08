@@ -1,0 +1,37 @@
+.colores-tab__preview {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-primary);
+}
+
+.colores-tab__preview-menu {
+  background: var(--color-menu);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+}
+
+.colores-tab__preview-body {
+  padding: 1.5rem;
+}
+
+.colores-tab__preview-body h3 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+.colores-tab__preview-body a {
+  color: var(--color-links);
+}
+
+.app-button--primary {
+  background-color: var(--color-buttons);
+  border-color: var(--color-buttons);
+  color: #fff;
+}
+
+.app-button--secondary {
+  background-color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: #fff;
+}

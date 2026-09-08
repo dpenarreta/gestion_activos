@@ -1,0 +1,25 @@
+/*
+ * Variables de tema, centralizadas — ningún componente debe incrustar un
+ * color/fuente/radio fijo que en realidad sea parte de la marca del
+ * portal.
+ *
+ * Los valores de abajo son el arranque en frío (antes de que responda la
+ * API): los mismos por defecto documentados en
+ * backend/apps/branding/catalog.py::DEFAULT_THEME. En cuanto carga
+ * `ThemeContext` (ver src/context/ThemeContext.jsx), se sobreescriben con
+ * los valores reales configurados en base de datos.
+ */
+:root {
+  --color-primary: #0d6efd;
+  --color-secondary: #000000;
+  --color-background: #ffffff;
+  --color-headings: #000000;
+  --color-text: #000000;
+  --color-links: #0d6efd;
+  --color-buttons: #0d6efd;
+  --color-menu: #000000;
+  --font-primary: system-ui, -apple-system, sans-serif;
+  --font-secondary: system-ui, -apple-system, sans-serif;
+  --font-size-base: 16px;
+  --border-radius: 0.5rem;
+}

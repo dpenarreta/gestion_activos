@@ -1,0 +1,29 @@
+.app-button {
+  min-width: 8rem;
+  border-radius: var(--border-radius, 0.5rem);
+  border: none;
+}
+
+.app-button--primary {
+  background-color: var(--color-buttons);
+  color: var(--brand-text-on-primary);
+}
+
+.app-button--primary:hover,
+.app-button--primary:focus {
+  background-color: var(--color-buttons);
+  filter: brightness(0.9);
+  color: var(--brand-text-on-primary);
+}
+
+.app-button--secondary {
+  background-color: var(--color-secondary);
+  color: var(--brand-text-on-dark);
+}
+
+.app-button--secondary:hover,
+.app-button--secondary:focus {
+  background-color: var(--color-secondary);
+  filter: brightness(0.9);
+  color: var(--brand-text-on-dark);
+}

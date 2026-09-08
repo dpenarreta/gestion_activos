@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Activos</title>
+    <script>
+      (function () {
+        try {
+          var STORAGE_KEY = "admin.appearance.mode";
+          var mode = window.localStorage.getItem(STORAGE_KEY);
+          if (["light", "dark", "system"].indexOf(mode) === -1) mode = "system";
+          var resolved =
+            mode === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : mode;
+          document.documentElement.setAttribute("data-theme", resolved);
+          document.documentElement.setAttribute("data-bs-theme", resolved);
+        } catch (error) {
+          // Sin localStorage/matchMedia disponible: se mantiene el modo
+          // claro por defecto (sin atributo), sin bloquear la carga.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

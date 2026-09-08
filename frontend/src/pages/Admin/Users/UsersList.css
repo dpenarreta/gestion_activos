@@ -1,0 +1,11 @@
+.users-list-status--active {
+  background-color: var(--state-success);
+}
+
+.users-list-status--disabled {
+  background-color: var(--text-muted);
+}
+
+.users-list-status--blocked {
+  background-color: var(--state-danger);
+}

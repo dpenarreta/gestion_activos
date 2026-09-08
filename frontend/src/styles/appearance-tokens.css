@@ -1,0 +1,63 @@
+/*
+ * Tokens de apariencia (claro/oscuro) — independientes de la marca
+ * (variables.css/brand.css). Se activan con el atributo `data-theme` en
+ * <html>, fijado por el script anti-flash de index.html y mantenido en
+ * vivo por `AppearanceContext.jsx`.
+ */
+:root {
+  --surface: #ffffff;
+  --surface-alt: #f8f9fa;
+  --surface-muted: rgba(248, 249, 250, 0.65);
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+  --surface-tint: rgba(0, 0, 0, 0.03);
+
+  --border-color: #dee2e6;
+  --border-color-strong: #ced4da;
+
+  --text-primary: #212529;
+  --text-muted: #6c757d;
+  --text-inverse: #ffffff;
+
+  --state-info: #0d6efd;
+  --state-info-rgb: 13, 110, 253;
+  --state-danger: #dc3545;
+  --state-success: #198754;
+  --state-warning: #997404;
+
+  --shadow-color: rgba(0, 0, 0, 0.15);
+}
+
+:root[data-theme="dark"] {
+  --surface: #1a1d20;
+  --surface-alt: #212529;
+  --surface-muted: rgba(33, 37, 41, 0.65);
+  --surface-overlay: rgba(0, 0, 0, 0.7);
+  --surface-tint: rgba(255, 255, 255, 0.06);
+
+  --border-color: #495057;
+  --border-color-strong: #6c757d;
+
+  --text-primary: #dee2e6;
+  --text-muted: #adb5bd;
+  --text-inverse: #212529;
+
+  --state-info: #6ea8fe;
+  --state-info-rgb: 110, 168, 254;
+  --state-danger: #ea868f;
+  --state-success: #75b798;
+  --state-warning: #ffda6a;
+
+  --shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    --appearance-transition-duration: 0.15s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --appearance-transition-duration: 0s;
+  }
+}

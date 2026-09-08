@@ -1,0 +1,24 @@
+/*
+ * Tokens de layout para el panel administrativo (sidebar + contenido).
+ * Separados de variables.css porque esos son tokens de MARCA (sobreescritos
+ * en runtime por ThemeContext); estos son tokens de LAYOUT, fijos en build.
+ *
+ * Breakpoints estándar de Bootstrap 5, sin duplicarlos con valores
+ * arbitrarios:
+ *   xs: < 576px       (sin @media, estilo base "mobile-first")
+ *   sm: >= 576px       @media (min-width: 576px)
+ *   md: >= 768px       @media (min-width: 768px)
+ *   lg: >= 992px       @media (min-width: 992px)
+ *   xl: >= 1200px      @media (min-width: 1200px)
+ *   xxl: >= 1400px     @media (min-width: 1400px)
+ */
+:root {
+  --bp-tablet: 768px;
+  --bp-desktop: 992px;
+  --sidebar-width-expanded: 240px;
+  --sidebar-width-collapsed: 64px;
+  --z-sidebar-backdrop: 1030;
+  --z-sidebar-mobile: 1040;
+  --z-modal-backdrop: 1060;
+  --z-modal: 1070;
+}

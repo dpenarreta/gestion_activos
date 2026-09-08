@@ -1,0 +1,62 @@
+# Stack completo de producción. El docker-compose.yml de la raíz (sin
+# sufijo) sigue siendo solo SQL Server para desarrollo local — este archivo
+# es aparte, uso explícito: `docker compose -f docker-compose.prod.yml up
+# -d --build` (ver docs/DEPLOYMENT.md más abajo y el README).
+#
+# `backend` lee su configuración de su propio .env (`env_file:`, la misma
+# fuente de verdad que en desarrollo), pero las variables de conexión a la
+# base se pisan explícitamente abajo: dentro de la red de Compose los
+# contenedores se alcanzan por nombre de servicio (`mssql`, `backend`),
+# nunca por `localhost`.
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?la variable DB_PASSWORD es obligatoria}
+      MSSQL_PID: Developer
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: mssql
+      DB_PORT: 1433
+      DB_NAME: ${DB_NAME:-gestion_activos}
+      DB_USER: sa
+      DB_PASSWORD: ${DB_PASSWORD:?la variable DB_PASSWORD es obligatoria}
+    depends_on:
+      mssql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_APP_NAME: ${VITE_APP_NAME:-Gestión de Activos}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  mssql_data:

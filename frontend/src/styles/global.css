@@ -1,0 +1,108 @@
+/* Reglas globales que consumen las variables de tema centralizadas
+ * (src/styles/variables.css) — nunca colores/fuentes fijos aquí. */
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+a {
+  color: var(--color-links);
+}
+
+/*
+ * El CONTENIDO del panel administrativo (`.admin-layout__content`) es
+ * chrome de la herramienta, no contenido publicado — su texto/encabezados/
+ * enlaces siguen el modo claro/oscuro elegido en Configuración > Apariencia,
+ * nunca los colores de marca del sitio público.
+ */
+.admin-layout__content h1,
+.admin-layout__content h2,
+.admin-layout__content h3,
+.admin-layout__content h4,
+.admin-layout__content h5,
+.admin-layout__content h6 {
+  color: var(--text-primary);
+}
+
+/* :not(.btn) es deliberado: sin esto, esta regla (0,1,1) le gana por
+   especificidad a `.btn { color: var(--bs-btn-color) }` (0,1,0) de
+   Bootstrap, y cualquier Link estilizado como botón (ej. "Nuevo usuario")
+   heredaría el color de enlace en vez de `--bs-btn-color` — invisible
+   cuando ambos coinciden (ver docs/architecture.md). */
+.admin-layout__content a:not(.btn) {
+  color: var(--bs-link-color, var(--text-primary));
+}
+
+.navbar-brand {
+  font-weight: 600;
+}
+
+.btn-primary {
+  --bs-btn-color: var(--brand-text-on-primary);
+  --bs-btn-bg: var(--color-buttons);
+  --bs-btn-border-color: var(--color-buttons);
+  --bs-btn-hover-color: var(--brand-text-on-primary);
+  --bs-btn-hover-bg: var(--color-buttons);
+  --bs-btn-hover-border-color: var(--color-buttons);
+  --bs-btn-active-color: var(--brand-text-on-primary);
+  --bs-btn-active-bg: var(--color-buttons);
+  --bs-btn-active-border-color: var(--color-buttons);
+  --bs-btn-disabled-color: var(--brand-text-on-primary);
+  --bs-btn-disabled-bg: var(--color-buttons);
+  --bs-btn-disabled-border-color: var(--color-buttons);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  filter: brightness(0.92);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--brand-focus-color);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.form-check-input:focus {
+  border-color: var(--brand-focus-color);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.table thead {
+  background-color: var(--brand-background-dark);
+  color: var(--brand-text-on-dark);
+}
+
+.table thead th {
+  border-color: var(--brand-background-dark);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--surface-alt);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .admin-layout,
+  .card,
+  .modal-content,
+  .table {
+    transition:
+      background-color var(--appearance-transition-duration, 0.15s) ease,
+      color var(--appearance-transition-duration, 0.15s) ease,
+      border-color var(--appearance-transition-duration, 0.15s) ease;
+  }
+}

@@ -1,0 +1,12 @@
+.font-preview-option {
+  margin-top: 0.5rem;
+}
+
+.font-preview-option__label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.font-preview-option__demo {
+  font-size: 1rem;
+}

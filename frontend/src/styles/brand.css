@@ -1,0 +1,25 @@
+/*
+ * Identidad visual corporativa base del skeleton — constantes fijas, NO
+ * sobreescritas por ThemeContext (a diferencia de las --color-* de
+ * variables.css, que sí son editables en runtime vía Administración >
+ * Configuración > Colores y tipografía).
+ *
+ * Es el valor al que "Restaurar valores por defecto" devuelve las
+ * --color-* editables (ver backend/apps/branding/catalog.py::DEFAULT_THEME).
+ */
+:root {
+  --brand-primary: #0d6efd;
+  --brand-black: #000000;
+  --brand-gray-light: #e1e1e1;
+
+  --brand-text-on-primary: #ffffff;
+  --brand-text-on-dark: #ffffff;
+  --brand-text-default: #000000;
+
+  --brand-background-primary: #ffffff;
+  --brand-background-dark: #000000;
+  --brand-background-muted: #e1e1e1;
+
+  --brand-border-color: #e1e1e1;
+  --brand-focus-color: #0d6efd;
+}

@@ -1,0 +1,28 @@
+# SQL Server para desarrollo local. El stack completo (backend + frontend)
+# vive en docker-compose.prod.yml — uso explícito: `docker compose -f
+# docker-compose.prod.yml up -d --build` (ver docs/DEPLOYMENT.md más abajo
+# y el README).
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?la variable DB_PASSWORD es obligatoria}
+      MSSQL_PID: Developer
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mssql_data:

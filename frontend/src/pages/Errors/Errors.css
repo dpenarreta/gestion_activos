@@ -1,0 +1,9 @@
+.error-page {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.error-page h1 {
+  font-size: 4rem;
+  font-weight: 700;
+}
