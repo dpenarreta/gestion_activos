@@ -12,6 +12,13 @@
  */
 export const ADMIN_MENU = [
   {
+    id: "panel",
+    name: "Panel principal",
+    icon: "speedometer2",
+    path: "/admin/dashboard",
+    permission: "activos.ver",
+  },
+  {
     id: "activos",
     name: "Activos",
     icon: "pc-display",

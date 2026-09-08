@@ -63,6 +63,7 @@ PERMISSION_CATALOG = {
             "activos.asignar": "Asignar, trasladar y devolver activos entre custodios y áreas",
             "activos.dar_baja": "Dar de baja activos del inventario",
             "activos.imprimir_etiqueta": "Generar e imprimir etiquetas de código de barras",
+            "activos.exportar": "Exportar el inventario a Excel",
         },
     },
     "organizacion": {
@@ -81,6 +82,7 @@ PERMISSION_CATALOG = {
             "mantenimientos.registrar": "Registrar nuevas intervenciones",
             "mantenimientos.editar": "Corregir o eliminar intervenciones registradas",
             "mantenimientos.componentes": "Administrar el catálogo de componentes y repuestos",
+            "mantenimientos.exportar": "Exportar la bitácora de mantenimientos a Excel",
         },
     },
     "politicas": {

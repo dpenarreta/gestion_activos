@@ -12,12 +12,14 @@ from apps.core.request_meta import get_request_context
 from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
 
+from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
-from . import etiquetas_pdf, importacion, plantilla_importacion
+from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
 from .models import Activo, TipoDispositivo
 from .permissions import (
     ActivosPermission,
     EtiquetasPermission,
+    ExportacionActivosPermission,
     ImportacionPermission,
     TiposDispositivoPermission,
 )
@@ -227,6 +229,44 @@ class ActivoViewSet(viewsets.ModelViewSet):
             **serializer.validated_data,
         )
         return Response(ActivoDetailSerializer(activo).data)
+
+    @action(detail=False, methods=["get"], url_path="dashboard")
+    def dashboard(self, request):
+        """Indicadores del panel principal (§15 del documento funcional)."""
+        return Response(dashboard_mod.construir_indicadores())
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="exportar",
+        permission_classes=[IsAuthenticated, ExportacionActivosPermission],
+    )
+    def exportar(self, request):
+        """Inventario en .xlsx, con los mismos filtros que el listado.
+
+        Usa `filter_queryset` para que el archivo contenga exactamente lo que
+        el usuario está viendo: exportar siempre el inventario completo lo
+        obligaría a volver a filtrar en Excel.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        contenido = exportacion.exportar_activos(queryset)
+
+        record_audit_event(
+            actor=request.user,
+            action="activo.exportado",
+            target_type="activo",
+            target_id="listado",
+            module=MODULO,
+            new_values={"filas": queryset.count(), "filtros": dict(request.query_params)},
+            context=get_request_context(request),
+        )
+
+        respuesta = HttpResponse(
+            contenido,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        respuesta["Content-Disposition"] = 'attachment; filename="inventario-activos.xlsx"'
+        return respuesta
 
     @action(
         detail=False,

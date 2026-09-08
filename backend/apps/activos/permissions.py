@@ -54,3 +54,13 @@ class ColumnasPlantillaPermission(HasModulePermission):
 
     view_permission = "activos.ver"
     write_permission = "activos.editar"
+
+
+class ExportacionActivosPermission(HasActionPermission):
+    """Exportar va aparte de ver, siguiendo el criterio ya establecido para la
+    auditoría (`auditoria.exportar`): quien consulta el inventario en pantalla
+    no necesariamente debe poder sacarlo completo en un archivo que sale del
+    sistema."""
+
+    def get_required_permission(self, request, view) -> str:
+        return "activos.exportar"

@@ -11,6 +11,7 @@ import { ChangePasswordRequired } from "../pages/PasswordReset/ChangePasswordReq
 import { ForgotPassword } from "../pages/PasswordReset/ForgotPassword";
 import { ResetPassword } from "../pages/PasswordReset/ResetPassword";
 import { ActivoDetalle } from "../pages/Admin/Activos/ActivoDetalle";
+import { DashboardPage } from "../pages/Admin/Dashboard/DashboardPage";
 import { ActivoForm } from "../pages/Admin/Activos/ActivoForm";
 import { ActivosList } from "../pages/Admin/Activos/ActivosList";
 import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
@@ -66,7 +67,7 @@ export function AppRoutes() {
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/activos" replace />} />
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route
           path="users"
           element={
@@ -127,6 +128,14 @@ export function AppRoutes() {
         {/* Las rutas fijas van antes que "activos/:id": si no, React Router
             resolvería "/admin/activos/escaner" como una ficha con id
             "escaner". */}
+        <Route
+          path="dashboard"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <DashboardPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="activos"
           element={

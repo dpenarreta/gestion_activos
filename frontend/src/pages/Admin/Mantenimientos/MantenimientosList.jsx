@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { exportacionService } from "../../../api/activosService";
 import { mantenimientosService } from "../../../api/mantenimientosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
@@ -8,6 +9,7 @@ import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
+import { descargarBlob } from "../../../utils/descargas";
 import { formatearFecha, formatearMoneda } from "../../../utils/formato";
 import "./Mantenimientos.css";
 
@@ -17,6 +19,8 @@ const FILTROS_INICIALES = { q: "", tipo: "", desde: "", hasta: "" };
 export function MantenimientosList() {
   const puedeRegistrar = usePermission("mantenimientos.registrar");
   const puedeEditar = usePermission("mantenimientos.editar");
+  const puedeExportar = usePermission("mantenimientos.exportar");
+  const [isExportando, setIsExportando] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [aEliminar, setAEliminar] = useState(null);
   const [errorAccion, setErrorAccion] = useState(null);
@@ -27,6 +31,24 @@ export function MantenimientosList() {
     FILTROS_INICIALES,
     "No se pudo cargar la bitácora de mantenimientos."
   );
+
+  async function handleExportar() {
+    setIsExportando(true);
+    setErrorAccion(null);
+    try {
+      const filtros = Object.fromEntries(
+        Object.entries(listado.filtros).filter(([, valor]) => valor !== "")
+      );
+      descargarBlob(
+        await exportacionService.mantenimientos(filtros),
+        "bitacora-mantenimientos.xlsx"
+      );
+    } catch (err) {
+      setErrorAccion(mensajeDeError(err, "No se pudo exportar la bitácora."));
+    } finally {
+      setIsExportando(false);
+    }
+  }
 
   async function confirmarEliminacion() {
     try {
@@ -49,6 +71,18 @@ export function MantenimientosList() {
           <Link to="/admin/mantenimientos/componentes" className="btn btn-outline-secondary btn-sm">
             Catálogo de componentes
           </Link>
+          {puedeExportar && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleExportar}
+              disabled={isExportando || listado.total === 0}
+              title="Exporta las intervenciones que coinciden con los filtros actuales"
+            >
+              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+              {isExportando ? "Exportando…" : `Exportar (${listado.total})`}
+            </button>
+          )}
           {puedeRegistrar && (
             <Link to="/admin/mantenimientos/new" className="btn btn-primary btn-sm">
               Registrar mantenimiento

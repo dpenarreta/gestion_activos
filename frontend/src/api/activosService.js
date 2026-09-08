@@ -111,6 +111,26 @@ export const importacionActivosService = {
   },
 };
 
+export const dashboardService = {
+  indicadores() {
+    return apiClient.get(`${ACTIVOS}dashboard/`).then((res) => res.data);
+  },
+};
+
+export const exportacionService = {
+  /** Inventario en .xlsx con los filtros que reciba (los mismos del listado). */
+  activos(params = {}) {
+    return apiClient
+      .get(`${ACTIVOS}exportar/`, { params, responseType: "blob" })
+      .then((res) => res.data);
+  },
+  mantenimientos(params = {}) {
+    return apiClient
+      .get("/mantenimientos/exportar/", { params, responseType: "blob" })
+      .then((res) => res.data);
+  },
+};
+
 export const columnasPlantillaService = {
   list() {
     return apiClient.get(`${ACTIVOS}columnas-plantilla/`).then((res) => res.data);

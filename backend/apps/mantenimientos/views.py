@@ -1,14 +1,21 @@
 from django.db.models import Q
+from django.http import HttpResponse
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.activos.exportacion import exportar_mantenimientos
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
 from .models import CatalogoComponente, Mantenimiento
-from .permissions import CatalogoComponentesPermission, MantenimientosPermission
+from .permissions import (
+    CatalogoComponentesPermission,
+    ExportacionMantenimientosPermission,
+    MantenimientosPermission,
+)
 from .serializers import (
     CatalogoComponenteSerializer,
     MantenimientoSerializer,
@@ -153,6 +160,34 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="exportar",
+        permission_classes=[IsAuthenticated, ExportacionMantenimientosPermission],
+    )
+    def exportar(self, request):
+        """Bitácora en .xlsx, con los mismos filtros que el listado."""
+        queryset = self.filter_queryset(self.get_queryset())
+        contenido = exportar_mantenimientos(queryset)
+
+        record_audit_event(
+            actor=request.user,
+            action="mantenimiento.exportado",
+            target_type="mantenimiento",
+            target_id="listado",
+            module=MODULO,
+            new_values={"filas": queryset.count(), "filtros": dict(request.query_params)},
+            context=get_request_context(request),
+        )
+
+        respuesta = HttpResponse(
+            contenido,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        respuesta["Content-Disposition"] = 'attachment; filename="bitacora-mantenimientos.xlsx"'
+        return respuesta
 
     def destroy(self, request, *args, **kwargs):
         MantenimientoService.eliminar(

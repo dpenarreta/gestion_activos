@@ -189,7 +189,8 @@ relaciones entre usuarios, roles y permisos.
 
 | Ruta | Qué hace |
 | --- | --- |
-| `/admin/activos` | Inventario con filtros por tipo, área, estado y sugerencia de renovación |
+| `/admin/dashboard` | Panel principal con los indicadores del parque (§15) |
+| `/admin/activos` | Inventario con filtros y exportación a Excel |
 | `/admin/activos/:id` | Ficha completa: datos, custodia, indicadores, bitácora, historial de movimientos, etiqueta |
 | `/admin/activos/escaner` | Consulta de campo por lectora de código de barras (RF-03) |
 | `/admin/activos/importar` | Carga masiva desde Excel, con plantilla descargable y validación previa |

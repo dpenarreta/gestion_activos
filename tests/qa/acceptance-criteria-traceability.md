@@ -62,6 +62,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ESC-002 | Resuelve también por número de serie | escaner-activos.feature | El escáner también resuelve por número de serie | **Sí (pytest-bdd)** |
 | AC-ESC-003 | Código inexistente informa con claridad | escaner-activos.feature | Un código inexistente informa con claridad | Sí (pytest) |
 
+## Panel principal y exportación (§15, §16)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-DSH-001 | Resumen por estado | dashboard-y-reportes.feature | El panel resume el inventario por estado | Sí (pytest) |
+| AC-DSH-002 | Indicadores enlazados al listado | dashboard-y-reportes.feature | Cada indicador lleva al listado correspondiente | No (verificado en navegador) |
+| AC-DSH-003 | Costos de mantenimiento | dashboard-y-reportes.feature | El panel informa el costo de mantenimiento | Sí (pytest) |
+| AC-DSH-004 | Ranking sin activos de baja | dashboard-y-reportes.feature | El ranking señala los equipos problemáticos | Sí (pytest) |
+| AC-DSH-005 | Indicadores ausentes declarados | dashboard-y-reportes.feature | Los indicadores que no se pueden calcular se declaran | Sí (pytest) |
+| AC-EXP-001 | Exportación del inventario | dashboard-y-reportes.feature | El inventario se exporta a Excel | Sí (pytest) |
+| AC-EXP-002 | La exportación respeta filtros | dashboard-y-reportes.feature | La exportación respeta los filtros de la pantalla | Sí (pytest) |
+| AC-EXP-003 | Exportación de la bitácora | dashboard-y-reportes.feature | La bitácora de mantenimientos se exporta a Excel | Sí (pytest) |
+| AC-EXP-004 | Permiso propio de exportación | dashboard-y-reportes.feature | Exportar exige un permiso propio | Sí (pytest) |
+| AC-EXP-005 | Exportación auditada | dashboard-y-reportes.feature | Cada exportación queda auditada | Sí (pytest) |
+
 ## Mantenimientos (RF-04, RF-05)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

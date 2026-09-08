@@ -19,3 +19,11 @@ class MantenimientosPermission(HasActionPermission):
 class CatalogoComponentesPermission(HasModulePermission):
     view_permission = "mantenimientos.ver"
     write_permission = "mantenimientos.componentes"
+
+
+class ExportacionMantenimientosPermission(HasActionPermission):
+    """Mismo criterio que en activos: sacar la bitácora completa en un archivo
+    es una acción distinta de consultarla en pantalla."""
+
+    def get_required_permission(self, request, view) -> str:
+        return "mantenimientos.exportar"

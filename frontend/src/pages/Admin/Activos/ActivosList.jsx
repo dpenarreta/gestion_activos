@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { activosService, tiposDispositivoService } from "../../../api/activosService";
+import {
+  activosService,
+  exportacionService,
+  tiposDispositivoService,
+} from "../../../api/activosService";
 import { departamentosService } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
@@ -9,6 +13,8 @@ import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerIn
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
+import { descargarBlob } from "../../../utils/descargas";
+import { mensajeDeError } from "../../../utils/errores";
 import "./Activos.css";
 
 const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Activos" }];
@@ -22,6 +28,9 @@ const ESTADOS = [
 
 export function ActivosList() {
   const puedeCrear = usePermission("activos.crear");
+  const puedeExportar = usePermission("activos.exportar");
+  const [errorExportacion, setErrorExportacion] = useState(null);
+  const [isExportando, setIsExportando] = useState(false);
   const [searchParams] = useSearchParams();
   const [busqueda, setBusqueda] = useState("");
   const [tipos, setTipos] = useState([]);
@@ -58,6 +67,22 @@ export function ActivosList() {
     listado.actualizarFiltros({ q: busqueda });
   }
 
+  async function handleExportar() {
+    setIsExportando(true);
+    setErrorExportacion(null);
+    try {
+      // Se envían los filtros vigentes: el archivo trae lo que se está viendo.
+      const activos = Object.fromEntries(
+        Object.entries(listado.filtros).filter(([, valor]) => valor !== "")
+      );
+      descargarBlob(await exportacionService.activos(activos), "inventario-activos.xlsx");
+    } catch (err) {
+      setErrorExportacion(mensajeDeError(err, "No se pudo exportar el inventario."));
+    } finally {
+      setIsExportando(false);
+    }
+  }
+
   return (
     <div className="activos-page">
       <Breadcrumbs items={BREADCRUMB_ITEMS} />
@@ -68,6 +93,18 @@ export function ActivosList() {
             <i className="bi bi-upc-scan me-1" aria-hidden="true" />
             Escanear
           </Link>
+          {puedeExportar && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleExportar}
+              disabled={isExportando || listado.total === 0}
+              title="Exporta los activos que coinciden con los filtros actuales"
+            >
+              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+              {isExportando ? "Exportando…" : `Exportar (${listado.total})`}
+            </button>
+          )}
           {puedeCrear && (
             <Link to="/admin/activos/importar" className="btn btn-outline-primary btn-sm">
               <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
@@ -155,6 +192,7 @@ export function ActivosList() {
       </form>
 
       {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {errorExportacion && <div className="alert alert-danger">{errorExportacion}</div>}
 
       <div className="table-responsive">
         <table className="table table-sm table-striped align-middle">
