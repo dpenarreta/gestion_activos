@@ -64,6 +64,67 @@ propósito (baja lógica vía `disable`/`block`, ver AC-DP-006).
 Solo lectura: el catálogo es código versionado, no un recurso editable en
 runtime (ver `docs/roles-and-permissions.md`).
 
+## Inventario de activos (RF-01, RF-02, RF-03, RF-08)
+
+Base: `/api/v1/activos/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `requiere_renovacion` |
+| POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02) |
+| GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
+| PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
+| GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |
+| GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
+| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` devuelve a bodega |
+| POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. La baja exige `motivo` |
+| GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=zpl\|tspl`, `?descargar=true` |
+| POST | `/activos/etiquetas/` | `activos.imprimir_etiqueta` | Lote de etiquetas en un solo trabajo (`{"ids": [...]}`, máx. 200) |
+| GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
+
+`DELETE` no existe en este recurso: un activo se da de baja, nunca se borra.
+
+## Organización
+
+Base: `/api/v1/organizacion/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET/POST/PATCH | `/organizacion/departamentos/` | `organizacion.ver` / `organizacion.editar` | Áreas. Filtros: `q`, `activo` |
+| GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
+
+Desactivar un empleado que aún custodia activos devuelve `400`
+(`empleado_con_activos`).
+
+## Mantenimientos (RF-04, RF-05)
+
+Base: `/api/v1/mantenimientos/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/mantenimientos/` | `mantenimientos.ver` | Filtros: `activo`, `codigo_barras`, `tipo`, `q`, `desde`, `hasta` |
+| POST | `/mantenimientos/` | `mantenimientos.registrar` | Registra la intervención con su lista `componentes` |
+| PATCH | `/mantenimientos/{id}/` | `mantenimientos.editar` | Corrige. Enviar `componentes` reemplaza el desglose completo |
+| DELETE | `/mantenimientos/{id}/` | `mantenimientos.editar` | Elimina una captura errónea y recalcula los contadores |
+| GET/POST/PATCH | `/mantenimientos/componentes/` | `mantenimientos.ver` / `mantenimientos.componentes` | Catálogo de repuestos. `es_critico` alimenta el umbral de RF-06 |
+
+Registrar o corregir una intervención recalcula, en la misma transacción, el
+contador de RF-05 y la sugerencia de RF-07 del activo.
+
+## Políticas de renovación (RF-06, RF-07)
+
+Base: `/api/v1/politicas/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET/POST/PATCH/DELETE | `/politicas/` | `politicas.ver` / `politicas.editar` | Umbrales por tipo de dispositivo, o global si `tipo_dispositivo` va vacío |
+| GET | `/politicas/sugerencias/` | `politicas.ver` | **RF-07.** Activos que hoy exceden algún umbral, con el motivo de cada criterio |
+| POST | `/politicas/reevaluar/` | `politicas.editar` | Fuerza el recálculo de la caché de todos los activos |
+
+Guardar una política reevalúa de inmediato los activos que rige. El criterio
+de longevidad se cumple por el paso del tiempo, así que conviene programar
+`manage.py recalcular_indicadores` a diario.
+
 ## Auditoría (`admin/audit-logs/`)
 
 | Método | Ruta | Permiso |

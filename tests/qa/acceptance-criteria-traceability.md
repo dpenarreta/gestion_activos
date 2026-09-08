@@ -18,6 +18,73 @@ Convención de la columna **Automatizado**:
 No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 `test-execution-report.md` para el resultado real de cada ejecución.
 
+## Inventario de activos (RF-01, RF-02)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-ACT-001 | Expediente con ficha, responsable y área | inventario-activos.feature | El expediente captura ficha técnica, responsable y área | Sí (pytest) |
+| AC-ACT-002 | Código de barras único automático | inventario-activos.feature | El alta genera un código de barras único automáticamente | **Sí (pytest-bdd)** |
+| AC-ACT-003 | Correlativo independiente por tipo | inventario-activos.feature | La numeración es correlativa e independiente por tipo de dispositivo | Sí (pytest) |
+| AC-ACT-004 | Número de serie no duplicable | inventario-activos.feature | El número de serie no se puede duplicar | Sí (pytest) |
+| AC-ACT-005 | Asignación deja traza | inventario-activos.feature | Asignar un custodio deja traza en el historial | Sí (pytest) |
+| AC-ACT-006 | Devolución conserva el custodio anterior | inventario-activos.feature | Devolver un equipo conserva el rastro de quién lo tenía | Sí (pytest) |
+| AC-ACT-007 | Baja lógica, nunca eliminación | inventario-activos.feature | Un activo se da de baja, nunca se elimina | Sí (pytest) |
+| AC-ACT-008 | La baja exige motivo | inventario-activos.feature | Dar de baja exige un motivo | Sí (pytest) |
+| AC-ACT-009 | La edición no cambia al custodio | inventario-activos.feature | La edición de la ficha no puede cambiar al responsable | Sí (pytest) |
+| AC-ACT-010 | Empleado con activos no se desactiva | inventario-activos.feature | No se puede desactivar a un empleado que aún custodia equipos | Sí (pytest) |
+
+## Captura por escáner (RF-03)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-ESC-001 | Escaneo devuelve ficha, custodio e historial | escaner-activos.feature | Escanear un código muestra ficha, responsable e historial completo | Sí (pytest) |
+| AC-ESC-002 | Resuelve también por número de serie | escaner-activos.feature | El escáner también resuelve por número de serie | **Sí (pytest-bdd)** |
+| AC-ESC-003 | Código inexistente informa con claridad | escaner-activos.feature | Un código inexistente informa con claridad | Sí (pytest) |
+
+## Mantenimientos (RF-04, RF-05)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-MNT-001 | Bitácora con desglose de componentes | mantenimientos.feature | Registrar una intervención con todos sus datos | Sí (pytest) |
+| AC-MNT-002 | Contador automático de intervenciones | mantenimientos.feature | El contador de intervenciones se incrementa automáticamente | **Sí (pytest-bdd)** |
+| AC-MNT-003 | Solo las piezas críticas cuentan como tales | mantenimientos.feature | Solo las piezas marcadas como críticas alimentan el conteo de críticas | Sí (pytest) |
+| AC-MNT-004 | Corregir el historial ajusta los contadores | mantenimientos.feature | Corregir el historial deja los contadores consistentes | Sí (pytest) |
+| AC-MNT-005 | El catálogo no reescribe el pasado | mantenimientos.feature | Cambiar la criticidad del catálogo no reescribe el historial | Sí (pytest) |
+| AC-MNT-006 | Sin intervenciones futuras | mantenimientos.feature | No se registran intervenciones futuras | Sí (pytest) |
+| AC-MNT-007 | Sin intervenciones previas a la compra | mantenimientos.feature | No se registran intervenciones anteriores a la compra del equipo | Sí (pytest) |
+| AC-MNT-008 | Sin mantenimientos sobre activos de baja | mantenimientos.feature | No se registran mantenimientos sobre un activo dado de baja | Sí (pytest) |
+| AC-MNT-009 | Costo acumulado de sostenimiento | mantenimientos.feature | El sistema informa cuánto se ha invertido en sostener un equipo | Sí (pytest) |
+
+## Políticas de renovación (RF-06, RF-07)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-POL-001 | Umbrales configurables sin tocar código | politicas-renovacion.feature | Los umbrales se configuran sin tocar el código fuente | Sí (pytest) |
+| AC-POL-002 | Política específica gana sobre la global | politicas-renovacion.feature | Cada tipo de dispositivo puede tener sus propios límites | Sí (pytest) |
+| AC-POL-003 | Sin política propia, rige la global | politicas-renovacion.feature | Un tipo sin política propia se rige por la global | Sí (pytest) |
+| AC-POL-004 | Política desactivada no cae en la global | politicas-renovacion.feature | Una política desactivada no cae de vuelta en la global | Sí (pytest) |
+| AC-POL-005 | Exceso de mantenimientos alerta | politicas-renovacion.feature | Exceder el límite de mantenimientos sugiere la renovación | Sí (pytest) |
+| AC-POL-006 | El límite exacto no alerta | politicas-renovacion.feature | Estar justo en el límite todavía no dispara la alerta | Sí (pytest) |
+| AC-POL-007 | Exceso de piezas críticas alerta | politicas-renovacion.feature | Exceder el límite de piezas críticas sugiere la renovación | Sí (pytest) |
+| AC-POL-008 | Longevidad alerta sin intervenciones | politicas-renovacion.feature | Cumplir la vida útil sugiere la renovación sin ninguna intervención | Sí (pytest) |
+| AC-POL-009 | Umbral vacío desactiva el criterio | politicas-renovacion.feature | Un umbral vacío desactiva ese criterio, no lo pone en cero | Sí (pytest) |
+| AC-POL-010 | Un motivo por criterio superado | politicas-renovacion.feature | Los tres criterios se informan por separado | **Sí (pytest-bdd)** |
+| AC-POL-011 | Reconfigurar reevalúa los activos | politicas-renovacion.feature | Ajustar un umbral reevalúa los activos alcanzados | Sí (pytest) |
+| AC-POL-012 | Un activo de baja no sugiere renovación | politicas-renovacion.feature | Un activo dado de baja deja de sugerir renovación | Sí (pytest) |
+| AC-POL-013 | Política sin umbrales rechazada | politicas-renovacion.feature | Una política sin ningún umbral es rechazada | Sí (pytest) |
+
+## Etiquetas térmicas (RF-08)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-ETI-001 | Etiqueta con código, nombre y área | etiquetas-termicas.feature | La etiqueta contiene código de barras, nombre del activo y área | **Sí (pytest-bdd)** |
+| AC-ETI-002 | ZPL y TSPL soportados | etiquetas-termicas.feature | Se admiten los dos lenguajes de impresión térmica directa | Sí (pytest) |
+| AC-ETI-003 | Formato desconocido rechazado | etiquetas-termicas.feature | Un lenguaje no soportado se rechaza con un mensaje claro | Sí (pytest) |
+| AC-ETI-004 | Sin inyección de comandos | etiquetas-termicas.feature | Los datos del activo no pueden inyectar comandos de impresión | Sí (pytest) |
+| AC-ETI-005 | Impresión por lotes | etiquetas-termicas.feature | Se pueden imprimir etiquetas de varios activos en un solo trabajo | Sí (pytest) |
+| AC-ETI-006 | Descarga para la cola de impresión | etiquetas-termicas.feature | La etiqueta se puede descargar como archivo para la cola de impresión | Sí (pytest) |
+| AC-ETI-007 | Permiso propio de impresión | etiquetas-termicas.feature | Imprimir etiquetas exige su propio permiso | Sí (pytest) |
+
 ## Arquitectura
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

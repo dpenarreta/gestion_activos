@@ -15,12 +15,13 @@ Los controles de seguridad descritos en `docs/security-review.md` son el
 Backend Django (patrón Modelo-Vista-Template) + API REST, frontend React, y
 SQL Server como base de datos.
 
-**Estado actual:** la infraestructura transversal está completa y validada;
-el dominio propio del sistema (activos, ubicaciones, asignaciones,
-mantenimientos) todavía no está implementado — es la siguiente capa a
-construir. Todo módulo de negocio nuevo debe respetar los controles
-descritos en `docs/security-review.md` y sumar sus permisos al catálogo
-cerrado (`backend/apps/permissions/catalog.py`).
+**Estado actual:** infraestructura transversal y **backend completo de los
+ocho requerimientos funcionales** (RF-01 a RF-08): inventario de activos con
+código de barras automático, consulta por escáner, bitácora de
+mantenimientos, motor de sugerencia de renovación e impresión de etiquetas
+térmicas. La interfaz de estos módulos en el frontend está pendiente; el
+panel administrativo heredado (usuarios, roles, permisos, configuración) sí
+funciona.
 
 ## 2. Tecnologías principales
 
@@ -168,6 +169,22 @@ relaciones entre usuarios, roles y permisos.
 - **Auditoría** (`apps.core`) — bitácora append-only de toda operación
   administrativa relevante.
 
+### Dominio de negocio
+
+- **Inventario** (`apps.activos`) — RF-01/RF-02/RF-03: expediente de cada
+  dispositivo, código de barras único automático (`GA-<TIPO>-<SECUENCIA>`,
+  Code 128), historial de movimientos de custodia y consulta por escáner.
+- **Organización** (`apps.organizacion`) — departamentos y catálogo propio de
+  empleados custodios, con vínculo opcional a una cuenta del sistema.
+- **Mantenimientos** (`apps.mantenimientos`) — RF-04/RF-05: bitácora de
+  intervenciones con desglose de repuestos, costos y contador automático de
+  intervenciones y de piezas críticas sustituidas.
+- **Políticas de renovación** (`apps.politicas`) — RF-06/RF-07: umbrales de
+  obsolescencia por tipo de dispositivo (mantenimientos, piezas críticas,
+  vida útil) y motor que evalúa cada activo y explica cada criterio superado.
+- **Etiquetas térmicas** (`apps.activos.etiquetas`) — RF-08: generación de
+  trabajos de impresión ZPL (Zebra) y TSPL (TSC/Godex).
+
 ## 10. APIs, rutas o interfaces internas
 
 Ver `docs/api-reference.md` para el listado completo de endpoints,
@@ -190,8 +207,8 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 83 pruebas `pytest` (ver `backend/apps/*/tests/`).
-- Integración: 13 escenarios Gherkin conectados vía `pytest-bdd` (ver
+- Backend: 144 pruebas `pytest` (ver `backend/apps/*/tests/`).
+- Integración: 18 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
 - Frontend: 10 pruebas `Vitest` (ver `frontend/tests/`).
 - Todos los criterios de aceptación están documentados como escenarios

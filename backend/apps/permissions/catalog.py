@@ -53,6 +53,44 @@ PERMISSION_CATALOG = {
             "configuracion.editar": "Editar configuración del sistema",
         },
     },
+    "activos": {
+        "label": "Activos",
+        "description": "Inventario de dispositivos electrónicos de la compañía.",
+        "permissions": {
+            "activos.ver": "Ver el inventario y la ficha de cada activo",
+            "activos.crear": "Registrar nuevos activos en el inventario",
+            "activos.editar": "Editar la ficha técnica de un activo",
+            "activos.asignar": "Asignar, trasladar y devolver activos entre custodios y áreas",
+            "activos.dar_baja": "Dar de baja activos del inventario",
+            "activos.imprimir_etiqueta": "Generar e imprimir etiquetas de código de barras",
+        },
+    },
+    "organizacion": {
+        "label": "Organización",
+        "description": "Catálogos de departamentos y empleados custodios de activos.",
+        "permissions": {
+            "organizacion.ver": "Ver departamentos y empleados",
+            "organizacion.editar": "Crear y editar departamentos y empleados",
+        },
+    },
+    "mantenimientos": {
+        "label": "Mantenimientos",
+        "description": "Bitácora de intervenciones preventivas y correctivas.",
+        "permissions": {
+            "mantenimientos.ver": "Ver el historial de mantenimientos y sus costos",
+            "mantenimientos.registrar": "Registrar nuevas intervenciones",
+            "mantenimientos.editar": "Corregir o eliminar intervenciones registradas",
+            "mantenimientos.componentes": "Administrar el catálogo de componentes y repuestos",
+        },
+    },
+    "politicas": {
+        "label": "Políticas de renovación",
+        "description": "Umbrales de obsolescencia que disparan la sugerencia de cambio.",
+        "permissions": {
+            "politicas.ver": "Ver las políticas de renovación configuradas",
+            "politicas.editar": "Configurar los umbrales de obsolescencia",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",

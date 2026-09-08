@@ -85,6 +85,10 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.roles",
     "apps.branding",
+    "apps.organizacion",
+    "apps.activos",
+    "apps.mantenimientos",
+    "apps.politicas",
 ]
 
 MIDDLEWARE = [

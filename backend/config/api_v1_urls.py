@@ -24,6 +24,14 @@ urlpatterns = [
     path("admin/permissions/", include("apps.permissions.urls")),
     # --- Auditoría (solo lectura) ---
     path("admin/audit-logs/", include("apps.core.audit_urls")),
+    # --- Inventario de activos (RF-01, RF-02, RF-03, RF-08) ---
+    path("activos/", include("apps.activos.urls")),
+    # --- Catálogos organizacionales: departamentos y empleados ---
+    path("organizacion/", include("apps.organizacion.urls")),
+    # --- Bitácora de mantenimientos (RF-04, RF-05) ---
+    path("mantenimientos/", include("apps.mantenimientos.urls")),
+    # --- Políticas de renovación y motor de sugerencias (RF-06, RF-07) ---
+    path("politicas/", include("apps.politicas.urls")),
     # --- Identidad institucional / tema ---
     path("admin/theme/", include("apps.branding.urls")),
     path("theme/current/", CurrentThemeView.as_view(), name="current-theme"),
