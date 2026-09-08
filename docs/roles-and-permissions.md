@@ -32,6 +32,11 @@ módulos y permisos.
 | `roles` | `ver`, `editar` |
 | `permisos` | `ver` |
 | `configuracion` | `ver`, `editar` |
+| `activos` | `ver`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
+| `organizacion` | `ver`, `editar` |
+| `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
+| `politicas` | `ver`, `editar` |
+| `alertas` | `ver`, `configurar` |
 | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
 
 ## Resolución de autorización

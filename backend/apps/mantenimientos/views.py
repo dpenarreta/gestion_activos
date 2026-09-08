@@ -120,6 +120,13 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
         if hasta:
             queryset = queryset.filter(fecha_intervencion__lte=hasta)
 
+        # Sin fecha de salida el equipo sigue fuera de operación. Es lo que
+        # hace accionable la alerta de reparaciones sin cerrar (§19): en la
+        # bitácora ordenada por fecha, las abiertas quedan mezcladas.
+        pendientes = params.get("pendientes")
+        if pendientes in {"true", "false"}:
+            queryset = queryset.filter(fecha_salida__isnull=pendientes == "true")
+
         return queryset
 
     def get_serializer_class(self):

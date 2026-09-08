@@ -155,6 +155,27 @@ solo sube, y un equipo que falló mucho hace seis años queda marcado para
 siempre. El conteo se resuelve con una consulta agregada por ventana
 configurada, no una por activo.
 
+## Centro de alertas (§19)
+
+Base: `/api/v1/alertas/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/alertas/` | `alertas.ver` | Las siete alertas del §19 con su total, severidad y una muestra de equipos |
+| GET/PATCH | `/alertas/configuracion/` | `alertas.ver` / `alertas.configurar` | Umbrales en días y qué alertas están encendidas |
+
+Las alertas se calculan en cada consulta; no hay tabla de «alertas
+generadas». Guardarlas obligaría a un proceso que también las retirara cuando
+la situación se resuelve, y la alerta que nadie retira envejece hasta que el
+usuario deja de mirar la pantalla entera.
+
+Cada alerta trae `total` y una `muestra` de hasta cinco equipos, más un
+`destino`: la ruta del listado ya filtrado donde se trabaja con todos. Las que
+están en cero también se devuelven —«revisado, nada pendiente» es
+información—; las apagadas no aparecen. Los filtros que hacen accionables esos
+enlaces son `activos/?custodio_inactivo=true`,
+`activos/?sin_actualizar_dias=N` y `mantenimientos/?pendientes=true`.
+
 ## Auditoría (`admin/audit-logs/`)
 
 | Método | Ruta | Permiso |

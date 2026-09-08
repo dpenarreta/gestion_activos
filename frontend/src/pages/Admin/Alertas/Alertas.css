@@ -1,0 +1,75 @@
+/* Centro de alertas del parque (§19). */
+
+.alertas-page h2 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+.alertas-grid {
+  display: grid;
+  /* Tarjetas y no una tabla: cada alerta trae un total, una explicación y una
+     muestra de equipos, y eso en una fila obliga a apilar texto en una celda. */
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 1rem;
+}
+
+.alerta-card {
+  background: var(--surface);
+  border-left-width: 4px;
+}
+
+/* El color es redundante con el icono y con el orden de las tarjetas: quien
+   no distinga los tonos sigue viendo primero las graves, y cada una lleva su
+   icono propio. */
+.alerta-card--alta {
+  border-left-color: var(--state-danger);
+}
+
+.alerta-card--media {
+  border-left-color: var(--state-warning);
+}
+
+.alerta-card--baja {
+  border-left-color: var(--state-info);
+}
+
+.alerta-card__total {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-headings);
+}
+
+.alerta-card__muestra {
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+
+.alerta-card__muestra li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.alerta-card__muestra li:last-child {
+  border-bottom: none;
+}
+
+.alerta-card__muestra a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.alerta-card__nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alertas-resueltas li {
+  padding: 0.3rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

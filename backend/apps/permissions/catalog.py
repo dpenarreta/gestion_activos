@@ -93,6 +93,14 @@ PERMISSION_CATALOG = {
             "politicas.editar": "Configurar los umbrales de obsolescencia",
         },
     },
+    "alertas": {
+        "label": "Alertas",
+        "description": "Avisos sobre el estado del parque y sus umbrales.",
+        "permissions": {
+            "alertas.ver": "Ver el centro de alertas del parque",
+            "alertas.configurar": "Configurar los umbrales y qué alertas están activas",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",

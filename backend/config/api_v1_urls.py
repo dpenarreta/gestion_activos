@@ -32,6 +32,8 @@ urlpatterns = [
     path("mantenimientos/", include("apps.mantenimientos.urls")),
     # --- Políticas de renovación y motor de sugerencias (RF-06, RF-07) ---
     path("politicas/", include("apps.politicas.urls")),
+    # --- Centro de alertas del parque (§19) ---
+    path("alertas/", include("apps.alertas.urls")),
     # --- Identidad institucional / tema ---
     path("admin/theme/", include("apps.branding.urls")),
     path("theme/current/", CurrentThemeView.as_view(), name="current-theme"),

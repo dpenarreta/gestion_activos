@@ -21,6 +21,7 @@ import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPag
 import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
 import { MantenimientoForm } from "../pages/Admin/Mantenimientos/MantenimientoForm";
 import { MantenimientosList } from "../pages/Admin/Mantenimientos/MantenimientosList";
+import { AlertasPage } from "../pages/Admin/Alertas/AlertasPage";
 import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
@@ -40,6 +41,7 @@ const CONFIGURACION_VER = "configuracion.ver";
 const ORGANIZACION_VER = "organizacion.ver";
 const ACTIVOS_VER = "activos.ver";
 const MANTENIMIENTOS_VER = "mantenimientos.ver";
+const ALERTAS_VER = "alertas.ver";
 const POLITICAS_VER = "politicas.ver";
 const CHANGE_PASSWORD_REQUIRED_PATH = "/change-password-required";
 
@@ -238,6 +240,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={POLITICAS_VER}>
               <PoliticasList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="alertas"
+          element={
+            <RequirePermission permission={ALERTAS_VER}>
+              <AlertasPage />
             </RequirePermission>
           }
         />

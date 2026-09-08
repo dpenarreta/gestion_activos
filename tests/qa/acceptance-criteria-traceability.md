@@ -141,6 +141,35 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-POL-024 | Ventana resuelta en una consulta | politicas-renovacion.feature | La ventana se resuelve en una sola consulta agregada | Sí (pytest) |
 | AC-POL-025 | Panel e inventario por nivel | politicas-renovacion.feature | El inventario y el panel distinguen los dos niveles | Sí (pytest) |
 
+## Centro de alertas (§19)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-ALE-001 | Alertas calculadas al vuelo | alertas.feature | Las alertas se calculan al consultarlas, no se almacenan | Sí (pytest) |
+| AC-ALE-002 | Funciona sin configurar | alertas.feature | El centro responde aunque nadie lo haya configurado | Sí (pytest) |
+| AC-ALE-003 | Umbrales únicos para la empresa | alertas.feature | Los umbrales son una decisión de la empresa, no de cada usuario | Sí (pytest) |
+| AC-ALE-004 | Garantías por vencer | alertas.feature | Avisa de las garantías próximas a vencer | Sí (pytest) |
+| AC-ALE-005 | Vencida no es «por vencer» | alertas.feature | Una garantía ya vencida no es un aviso con plazo | Sí (pytest) |
+| AC-ALE-006 | Reparaciones sin cerrar | alertas.feature | Avisa de las reparaciones que llevan demasiado sin cerrar | Sí (pytest) |
+| AC-ALE-007 | Custodio inactivo | alertas.feature | Avisa de los equipos cuyo responsable ya no está activo | Sí (pytest) |
+| AC-ALE-008 | Activos parados en bodega | alertas.feature | Avisa de los activos parados en bodega | Sí (pytest) |
+| AC-ALE-009 | Fichas sin actualizar | alertas.feature | Avisa de las fichas que nadie ha tocado en mucho tiempo | Sí (pytest) |
+| AC-ALE-010 | Próximos a reemplazo por nivel | alertas.feature | Avisa de los equipos próximos a reemplazo, separando los niveles | Sí (pytest) |
+| AC-ALE-011 | Demasiadas reparaciones aparte | alertas.feature | Avisa aparte de los equipos que se reparan demasiado | Sí (pytest) |
+| AC-ALE-012 | Los de baja no alertan | alertas.feature | Un activo dado de baja no genera alertas | Sí (pytest) |
+| AC-ALE-013 | Umbrales configurables | alertas.feature | Los umbrales son configurables | Sí (pytest) |
+| AC-ALE-014 | Umbral en cero rechazado | alertas.feature | Un umbral en cero es rechazado | Sí (pytest) |
+| AC-ALE-015 | Cada alerta se puede apagar | alertas.feature | Cada alerta se puede apagar | Sí (pytest) |
+| AC-ALE-016 | Alerta en cero se reporta | alertas.feature | Una alerta sin pendientes se reporta igual | Sí (pytest) |
+| AC-ALE-017 | Orden por gravedad | alertas.feature | Las alertas se ordenan por gravedad | Sí (pytest) |
+| AC-ALE-018 | Muestra, no listado completo | alertas.feature | El resumen trae una muestra, no el listado completo | Sí (pytest) |
+| AC-ALE-019 | Muestra sin repetidos | alertas.feature | La muestra no repite el mismo equipo | Sí (pytest) |
+| AC-ALE-020 | Dos reparaciones, dos filas | alertas.feature | Dos reparaciones abiertas del mismo equipo son dos filas | Sí (pytest) |
+| AC-ALE-021 | Enlaces al listado filtrado | alertas.feature | Los enlaces de cada alerta llevan al listado filtrado | No (verificado en navegador) |
+| AC-ALE-022 | Ver exige permiso | alertas.feature | Ver las alertas exige permiso | Sí (pytest) |
+| AC-ALE-023 | Configurar exige otro permiso | alertas.feature | Configurar exige un permiso distinto de ver | Sí (pytest) |
+| AC-ALE-024 | Configuración auditada | alertas.feature | Cambiar la configuración queda auditado | Sí (pytest) |
+
 ## Etiquetas de activos (RF-08)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

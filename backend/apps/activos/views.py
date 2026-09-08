@@ -125,6 +125,22 @@ class ActivoViewSet(viewsets.ModelViewSet):
         if nivel in {"ninguno", "evaluar", "recomendado"}:
             queryset = queryset.filter(nivel_renovacion=nivel)
 
+        # Un equipo cuyo responsable ya no está activo no tiene, en la
+        # práctica, responsable: si se pierde, nadie responde por él.
+        if params.get("custodio_inactivo") == "true":
+            queryset = queryset.filter(custodio__isnull=False, custodio__activo=False)
+
+        # «Sin actualizar» no dice que el dato esté mal, dice que nadie lo ha
+        # confirmado desde hace tanto: es el disparador del inventario físico.
+        sin_actualizar = params.get("sin_actualizar_dias")
+        if sin_actualizar and sin_actualizar.isdigit():
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            limite = timezone.now() - timedelta(days=int(sin_actualizar))
+            queryset = queryset.filter(updated_at__lt=limite)
+
         queryset = self._filtrar_por_garantia(queryset, params.get("garantia"))
 
         return queryset

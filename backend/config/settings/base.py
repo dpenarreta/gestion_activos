@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     "apps.activos",
     "apps.mantenimientos",
     "apps.politicas",
+    "apps.alertas",
 ]
 
 MIDDLEWARE = [

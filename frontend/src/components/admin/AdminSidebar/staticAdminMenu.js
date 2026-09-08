@@ -19,6 +19,15 @@ export const ADMIN_MENU = [
     permission: "activos.ver",
   },
   {
+    // Va justo después del panel: es la pantalla desde la que se decide qué
+    // hacer hoy, y esconderla dentro de un submenú la volvería opcional.
+    id: "alertas",
+    name: "Alertas",
+    icon: "bell",
+    path: "/admin/alertas",
+    permission: "alertas.ver",
+  },
+  {
     id: "activos",
     name: "Activos",
     icon: "pc-display",

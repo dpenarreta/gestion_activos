@@ -37,13 +37,13 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 10 | Cálculo de tiempos | ⚠️ Parcial | Antigüedad y tiempo en reparación; falta tiempo de asignación por custodio |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ❌ | Solo hay tipo de dispositivo |
-| 13 | Usuarios y roles | ✅ | Roles configurables, 28 permisos |
+| 13 | Usuarios y roles | ✅ | Roles configurables, 32 permisos |
 | 14 | Buscador y filtros | ⚠️ Parcial | Filtro de garantía disponible; faltan ubicación y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ⚠️ Parcial | Exportación a Excel del inventario y la bitácora; faltan los 13 reportes y CSV/PDF |
 | 17 | Auditoría | ✅ | `AuditLog`, append-only |
 | 18 | Adjuntos y evidencias | ❌ | — |
-| 19 | Notificaciones y alertas | ❌ | — |
+| 19 | Notificaciones y alertas | ⚠️ Parcial | Las siete alertas están en el sistema; falta el envío por correo |
 | 20 | Integraciones | ❌ | Fase 3 del propio documento |
 | 21 | No funcionales | ⚠️ | Ver «Rendimiento» |
 
@@ -55,9 +55,9 @@ impresión de estar resueltos.
 **Estados del activo.** Hay 4 (en uso, en bodega, en mantenimiento, dado de
 baja); el documento pide 9, sumando en garantía, en tránsito, perdido y robado.
 
-**Alertas de garantía.** El sistema muestra las garantías por vencer en el
-panel y permite filtrarlas, pero nadie recibe un aviso sin entrar a mirar: la
-notificación proactiva del §19 sigue pendiente.
+**Notificación proactiva.** Las siete alertas del §19 se calculan y se
+muestran en su propia pantalla, pero nadie recibe nada sin entrar a mirarla: el
+envío por correo sigue pendiente y necesita un servidor SMTP configurado.
 
 ## Rendimiento
 
@@ -83,6 +83,15 @@ dashboard y la exportación a Excel.
 garantías vencidas y por vencer, desde que se incorporó la fecha de fin de
 garantía. El panel distingue «sin garantía registrada» de «vencida»: mezclarlas
 haría que un inventario a medio capturar pareciera un parque sin cobertura.
+
+### Fase 2 — centro de alertas (§19, §22.2)
+
+- Las siete alertas del documento, calculadas al vuelo: próximos a reemplazo,
+  garantías por vencer, demasiadas reparaciones, sin asignar, reparaciones sin
+  cerrar, custodios inactivos y fichas sin actualizar.
+- Umbrales en días configurables y cada alerta se puede apagar.
+- Cada tarjeta enlaza al listado ya filtrado; para ello se sumaron los filtros
+  de custodio inactivo, días sin actualizar y reparaciones pendientes.
 
 ### Fase 2 — reglas automáticas de reemplazo (§22.2)
 
