@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (tiempos del §10).
+estado del sistema. Actualizado el 2026-09-09 (legibilidad de las etiquetas).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -30,7 +30,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 4.1 | Datos generales del activo | ✅ | Completo: los nueve estados, fecha de ingreso y ubicación física de catálogo |
 | 4.2 | Características técnicas | ✅ | Campo `especificaciones`, libre por tipo de equipo |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
-| 5 | Código QR opcional | ❌ | Solo Code 128 |
+| 5 | Código QR opcional | ⛔ Descartado | Decisión del 2026-09-09: el inventario se hace con pistola láser, no con cámara. Se refuerza el Code 128 (ver `docs/codigos-de-barras.md`) |
 | 6 | Asignación y devolución | ✅ | Con acta de entrega y devolución en PDF |
 | 7 | Histórico de asignaciones | ✅ | `MovimientoActivo`, append-only |
 | 8 | Registro de reparaciones | ✅ | Causa, solución, estado final, garantía usada e ingreso/salida |

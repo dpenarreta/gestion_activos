@@ -191,7 +191,9 @@ relaciones entre usuarios, roles y permisos.
   vida útil) y motor que evalúa cada activo y explica cada criterio superado.
 - **Etiquetas** (`apps.activos.etiquetas_pdf`, `apps.activos.etiquetas`) —
   RF-08: PDF a tamaño físico real (50 × 25 mm) con Code 128 escaneable, y
-  trabajos de impresión térmica directa ZPL (Zebra) y TSPL (TSC/Godex).
+  trabajos de impresión térmica directa ZPL (Zebra) y TSPL (TSC/Godex). La
+  geometría del símbolo —módulo, zona muda y altura— está dimensionada y
+  verificada para pistolas láser; ver `docs/codigos-de-barras.md`.
 - **Adjuntos y actas** (`apps.adjuntos`) — §18/§6: los nueve tipos de
   documento del documento funcional, con validación de tamaño, extensión y
   firma del contenido; descarga con permiso y auditada, nunca como estático.
@@ -246,7 +248,7 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 453 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+- Backend: 473 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
   de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).

@@ -79,6 +79,7 @@ Base: `/api/v1/activos/`
 | POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` devuelve a bodega |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. Las tres salidas (baja, perdido, robado) exigen `motivo`; desde una baja no se vuelve |
 | GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=pdf` (por defecto, devuelve el documento) o `zpl\|tspl` (trabajo térmico). `?descargar=false` entrega el PDF inline para previsualizar |
+| GET | `/activos/{id}/etiqueta/medicion/` | `activos.imprimir_etiqueta` | Geometría del símbolo impreso: módulo, zona muda y altura |
 | POST | `/activos/etiquetas/` | `activos.imprimir_etiqueta` | Lote de etiquetas en un solo trabajo (`{"ids": [...]}`, máx. 200) |
 | GET | `/activos/plantilla-importacion/` | `activos.crear` | Plantilla .xlsx de carga masiva, con los catálogos vigentes |
 | POST | `/activos/importar/` | `activos.crear` | Multipart con `archivo` (.xlsx, máx. 5 MB) y `confirmar`. Sin confirmar solo valida y devuelve el reporte; con `confirmar=true` importa (todo o nada) |

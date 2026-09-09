@@ -25,19 +25,39 @@ export const activosService = {
    * peticiones por escaneo sería peor sobre una conexión móvil.
    */
   porCodigo(codigo) {
-    return apiClient.get(`${ACTIVOS}por-codigo/${encodeURIComponent(codigo)}/`).then((res) => res.data);
+    return apiClient
+      .get(`${ACTIVOS}por-codigo/${encodeURIComponent(codigo)}/`)
+      .then((res) => res.data);
   },
   historial(id) {
     return apiClient.get(`${ACTIVOS}${id}/historial/`).then((res) => res.data);
   },
   asignar(id, payload) {
-    return apiClient.post(`${ACTIVOS}${id}/asignar/`, payload).then((res) => res.data);
+    return apiClient
+      .post(`${ACTIVOS}${id}/asignar/`, payload)
+      .then((res) => res.data);
   },
   cambiarEstado(id, payload) {
-    return apiClient.post(`${ACTIVOS}${id}/cambiar-estado/`, payload).then((res) => res.data);
+    return apiClient
+      .post(`${ACTIVOS}${id}/cambiar-estado/`, payload)
+      .then((res) => res.data);
   },
   etiqueta(id, formato = "zpl") {
-    return apiClient.get(`${ACTIVOS}${id}/etiqueta/`, { params: { formato } }).then((res) => res.data);
+    return apiClient
+      .get(`${ACTIVOS}${id}/etiqueta/`, { params: { formato } })
+      .then((res) => res.data);
+  },
+  /**
+   * Geometría del código tal como saldrá impreso.
+   *
+   * Lo que decide si una pistola lee la etiqueta no es el formato del archivo
+   * sino tres medidas físicas: el ancho de la barra más fina, la zona muda a
+   * los lados y la altura. Se consultan antes de mandar a imprimir un lote.
+   */
+  medicionEtiqueta(id) {
+    return apiClient
+      .get(`${ACTIVOS}${id}/etiqueta/medicion/`)
+      .then((res) => res.data);
   },
   etiquetasLote(ids, formato = "zpl") {
     return apiClient
@@ -76,7 +96,11 @@ export const activosService = {
 
   descargarEtiquetasLote(ids, formato = "pdf") {
     return apiClient
-      .post(`${ACTIVOS}etiquetas/`, { ids }, { params: { formato }, responseType: "blob" })
+      .post(
+        `${ACTIVOS}etiquetas/`,
+        { ids },
+        { params: { formato }, responseType: "blob" },
+      )
       .then((res) => res.data);
   },
 };
@@ -133,10 +157,14 @@ export const exportacionService = {
 
 export const columnasPlantillaService = {
   list() {
-    return apiClient.get(`${ACTIVOS}columnas-plantilla/`).then((res) => res.data);
+    return apiClient
+      .get(`${ACTIVOS}columnas-plantilla/`)
+      .then((res) => res.data);
   },
   create(payload) {
-    return apiClient.post(`${ACTIVOS}columnas-plantilla/`, payload).then((res) => res.data);
+    return apiClient
+      .post(`${ACTIVOS}columnas-plantilla/`, payload)
+      .then((res) => res.data);
   },
   update(id, payload) {
     return apiClient
@@ -144,7 +172,9 @@ export const columnasPlantillaService = {
       .then((res) => res.data);
   },
   remove(id) {
-    return apiClient.delete(`${ACTIVOS}columnas-plantilla/${id}/`).then((res) => res.data);
+    return apiClient
+      .delete(`${ACTIVOS}columnas-plantilla/${id}/`)
+      .then((res) => res.data);
   },
   camposDisponibles() {
     return apiClient

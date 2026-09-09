@@ -298,6 +298,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-NOT-023 | Avisa si el correo no sale | notificaciones-correo.feature | El sistema avisa cuando el correo no sale | Sí (pytest + Vitest) |
 | AC-NOT-024 | El cron corre a diario | notificaciones-correo.feature | La tarea corre a diario y la configuración decide | Sí (pytest) |
 
+## Legibilidad de los códigos (RF-08, §5)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-COD-001 | Code 128, no QR | legibilidad-etiquetas.feature | El identificador es un código de barras 1D, no un QR | Sí (pytest) |
+| AC-COD-002 | Módulo mínimo legible | legibilidad-etiquetas.feature | La barra más fina no baja del mínimo legible | Sí (pytest) |
+| AC-COD-003 | Módulo múltiplo del punto | legibilidad-etiquetas.feature | El ancho de módulo es múltiplo del punto de impresora | Sí (pytest) |
+| AC-COD-004 | Zona muda | legibilidad-etiquetas.feature | El símbolo lleva zona muda a los lados | Sí (pytest) |
+| AC-COD-005 | El código cabe | legibilidad-etiquetas.feature | El código del sistema cabe en la etiqueta que se usa | Sí (pytest) |
+| AC-COD-006 | Aviso si no cabe | legibilidad-etiquetas.feature | Un código más largo avisa antes de imprimir el lote | Sí (pytest) |
+| AC-COD-007 | PDF a tamaño real | legibilidad-etiquetas.feature | El PDF se emite a tamaño físico real | Sí (pytest) |
+| AC-COD-008 | Texto bajo las barras | legibilidad-etiquetas.feature | El valor va también en texto bajo las barras | Sí (pytest, ver etiquetas-térmicas) |
+| AC-COD-009 | Lectura con pistola HID | legibilidad-etiquetas.feature | La lectura funciona con cualquier pistola de teclado | No (verificado con lector real) |
+| AC-COD-010 | Búsqueda por serie | legibilidad-etiquetas.feature | También se puede buscar por número de serie | Sí (pytest) |
+
 ## Etiquetas de activos (RF-08)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

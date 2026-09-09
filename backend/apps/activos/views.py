@@ -522,6 +522,31 @@ class ActivoViewSet(viewsets.ModelViewSet):
         return self._responder_etiquetas(request, [self.get_object()])
 
     @action(
+        detail=True,
+        methods=["get"],
+        url_path="etiqueta/medicion",
+        permission_classes=[IsAuthenticated, EtiquetasPermission],
+    )
+    def medicion_etiqueta(self, request, pk=None):
+        """Geometría del código tal como saldrá impreso (RF-08).
+
+        Lo que decide si una pistola lee una etiqueta no es el formato del
+        archivo sino tres medidas físicas: el ancho de la barra más fina, la
+        zona muda a los lados y la altura. Este endpoint las expone para poder
+        comprobarlas antes de imprimir un lote de doscientas etiquetas, en vez
+        de descubrir el problema con el lector en la mano.
+        """
+        activo = self.get_object()
+        return Response(
+            {
+                "codigo": activo.codigo_barras,
+                "simbologia": "Code 128",
+                **etiquetas_pdf.medir_simbolo(activo.codigo_barras),
+                "minimo_recomendado_mm": etiquetas_pdf.X_MINIMA_MM,
+            }
+        )
+
+    @action(
         detail=False,
         methods=["post"],
         url_path="etiquetas",
