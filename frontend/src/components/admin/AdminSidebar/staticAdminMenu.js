@@ -12,6 +12,16 @@
  */
 export const ADMIN_MENU = [
   {
+    // Primera, y para el «usuario final» del §13 la única: su rol lleva un
+    // solo permiso y el resto del menú desaparece. Ponerla arriba evita que
+    // esa persona entre a un panel vacío antes de encontrar lo suyo.
+    id: "mis-equipos",
+    name: "Mis equipos",
+    icon: "laptop",
+    path: "/admin/mis-equipos",
+    permission: "activos.ver_asignados",
+  },
+  {
     id: "panel",
     name: "Panel principal",
     icon: "speedometer2",

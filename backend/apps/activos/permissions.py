@@ -10,6 +10,11 @@ class ActivosPermission(HasActionPermission):
     contable."""
 
     PERMISO_POR_ACCION = {
+        # Ver los equipos propios es un permiso aparte de ver el inventario: es
+        # justo lo que separa al «usuario final» del §13 de todos los demás
+        # roles. Con `activos.ver` a secas vería el parque entero, que es lo
+        # contrario de lo que el documento le concede.
+        "mis_equipos": "activos.ver_asignados",
         "create": "activos.crear",
         "update": "activos.editar",
         "partial_update": "activos.editar",
@@ -18,6 +23,9 @@ class ActivosPermission(HasActionPermission):
     }
 
     def get_required_permission(self, request, view) -> str | None:
+        accion = getattr(view, "action", None)
+        if accion in self.PERMISO_POR_ACCION and request.method in SAFE_METHODS:
+            return self.PERMISO_POR_ACCION[accion]
         if request.method in SAFE_METHODS:
             return "activos.ver"
         return self.PERMISO_POR_ACCION.get(getattr(view, "action", None), "activos.editar")

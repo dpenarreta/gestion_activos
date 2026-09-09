@@ -27,6 +27,7 @@ import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { MisEquiposPage } from "../pages/Admin/MisEquipos/MisEquiposPage";
 import { ProveedorForm } from "../pages/Admin/Organizacion/ProveedorForm";
 import { ProveedoresList } from "../pages/Admin/Organizacion/ProveedoresList";
 import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
@@ -141,6 +142,16 @@ export function AppRoutes() {
         {/* Las rutas fijas van antes que "activos/:id": si no, React Router
             resolvería "/admin/activos/escaner" como una ficha con id
             "escaner". */}
+        {/* Su permiso es `activos.ver_asignados`, no `activos.ver`: es lo que
+            separa al usuario final de quien opera el inventario. */}
+        <Route
+          path="mis-equipos"
+          element={
+            <RequirePermission permission="activos.ver_asignados">
+              <MisEquiposPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="dashboard"
           element={

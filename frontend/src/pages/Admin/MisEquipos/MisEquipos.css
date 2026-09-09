@@ -1,0 +1,86 @@
+.mis-equipos-page {
+  max-width: 60rem;
+}
+
+/*
+ * Tarjetas y no una tabla.
+ *
+ * Una tabla sirve para comparar filas entre sí; aquí no hay nada que comparar
+ * —son los dos o tres equipos de una persona— y sí un dato que hay que poder
+ * leer en voz alta al llamar a soporte. La tarjeta le da al código el tamaño
+ * que la celda de una tabla no le daría.
+ */
+.mis-equipos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.equipo-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  background-color: var(--surface-alt);
+  padding: 1rem;
+}
+
+.equipo-card__cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.equipo-card__nombre {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.equipo-card__tipo {
+  margin: 0.1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.equipo-card__datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.equipo-card__datos dt {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.equipo-card__datos dd {
+  margin: 0;
+}
+
+/* El código y la serie son lo que se dicta por teléfono: monoespaciada para
+   que no se confundan el cero y la O. */
+.equipo-card__datos code {
+  font-size: 0.95rem;
+}
+
+.equipo-card__especificaciones {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 36em) {
+  .equipo-card__datos {
+    grid-template-columns: 1fr;
+    gap: 0 0;
+  }
+
+  .equipo-card__datos dd {
+    margin-bottom: 0.4rem;
+  }
+}

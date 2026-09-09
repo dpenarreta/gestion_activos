@@ -30,10 +30,16 @@ Volver a ejecutarlo no pisa lo que se haya cambiado (`--actualizar` sí).
 | **Soporte TI** | Registra activos, asigna, repara, adjunta | **No da de baja** (el §13 pone la aprobación en el supervisor) ni **borra adjuntos** (son evidencia) |
 | **Supervisor TI** | Aprueba bajas, define reglas de reemplazo, exporta reportes | **No crea ni edita fichas**: la separación es lo que hace que la aprobación signifique algo |
 | **Consulta / Auditoría** | Ve y exporta todo el histórico | **No modifica nada** ni ve la ubicación de la auditoría, que es un dato personal y se concede aparte |
+| **Usuario final** | Consulta los equipos que tiene a su cargo | **No ve el inventario**: ni el parque, ni los custodios de los demás, ni los costos |
 
-El quinto rol del §13, «Usuario final» (consulta los equipos asignados a sí
-mismo), **no se crea**: necesitaría una pantalla que muestre solo lo propio, y
-esa vista no existe. Darle `activos.ver` le mostraría el parque entero.
+El quinto rol, **«Usuario final»**, lleva un único permiso
+—`activos.ver_asignados`— y ahí está todo su sentido: abre *Mis equipos*, que
+muestra los equipos de quien pregunta, y nada más. Con `activos.ver`, que es el
+permiso que parece el equivalente, vería el parque entero.
+
+Para que sirva, **cada cuenta debe estar enlazada a su ficha de empleado**
+desde *Organización → Empleados*: es ese vínculo el que dice qué equipos son
+suyos. Sin él, la pantalla lo dice en vez de mostrarse vacía.
 
 Después: cree una cuenta por persona con su rol y **deje el superusuario solo
 para emergencias**.
