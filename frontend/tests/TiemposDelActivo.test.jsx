@@ -50,6 +50,16 @@ describe("Tiempos del activo (§10)", () => {
     ).toBeInTheDocument();
   });
 
+  it("usa la rejilla compacta de la ficha, no columnas de Bootstrap", () => {
+    /* Con `col-sm-5`/`col-sm-7` el valor quedaba a media pantalla de su
+       etiqueta en un monitor ancho, y la tarjeta se estiraba hasta desbordar
+       sobre la bitácora. */
+    const { container } = render(<TiemposDelActivo tiempos={TIEMPOS} />);
+
+    expect(container.querySelector(".activo-datos")).toBeInTheDocument();
+    expect(container.querySelector(".row")).not.toBeInTheDocument();
+  });
+
   it("no inventa un cero cuando el dato no existe", () => {
     /* Un equipo nunca asignado no lleva «0 días» con su custodio: no tiene. */
     render(

@@ -116,14 +116,14 @@ export function ActivoDetalle() {
 
       <AlertaRenovacion renovacion={activo.renovacion} />
 
-      <div className="row g-3">
-        <div className="col-lg-7">
+      <div className="activo-paneles">
+        <div className="activo-paneles__columna">
           <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">
                 Ficha técnica
               </h3>
-              <dl className="row mb-0">
+              <dl className="activo-datos">
                 <Dato etiqueta="Tipo" valor={activo.tipo_nombre} />
                 <Dato etiqueta="Marca" valor={activo.marca} />
                 <Dato etiqueta="Modelo" valor={activo.modelo} />
@@ -182,7 +182,7 @@ export function ActivoDetalle() {
                   <h3 className="h6 text-uppercase text-muted mt-4 mb-3">
                     Especificaciones
                   </h3>
-                  <dl className="row mb-0">
+                  <dl className="activo-datos">
                     {Object.entries(activo.especificaciones).map(
                       ([clave, valor]) => (
                         <Dato
@@ -208,11 +208,11 @@ export function ActivoDetalle() {
           </section>
         </div>
 
-        <div className="col-lg-5">
-          <section className="card activo-card mb-3">
+        <div className="activo-paneles__columna">
+          <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Custodia</h3>
-              <dl className="row mb-0">
+              <dl className="activo-datos">
                 <Dato
                   etiqueta="Responsable"
                   valor={
@@ -240,7 +240,7 @@ export function ActivoDetalle() {
           <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Indicadores</h3>
-              <div className="row text-center g-2">
+              <div className="indicadores-grid">
                 <Indicador
                   valor={activo.total_mantenimientos}
                   etiqueta="Mantenimientos"
@@ -256,7 +256,7 @@ export function ActivoDetalle() {
                 <Indicador
                   valor={formatearMoneda(costos.costo_total)}
                   etiqueta="Invertido"
-                  ancho="col-12"
+                  anchoCompleto
                 />
               </div>
               {puedeVerMantenimientos && (
@@ -356,10 +356,10 @@ export function TiemposDelActivo({ tiempos }) {
   ];
 
   return (
-    <section className="card activo-card mt-3">
+    <section className="card activo-card">
       <div className="card-body">
         <h3 className="h6 text-uppercase text-muted mb-3">Tiempos</h3>
-        <dl className="row mb-0">
+        <dl className="activo-datos">
           {filas.map(([etiqueta, valor]) => (
             <Dato
               key={etiqueta}
@@ -396,22 +396,28 @@ export function TiemposDelActivo({ tiempos }) {
   );
 }
 
+/**
+ * Una fila «etiqueta: valor» de la ficha.
+ *
+ * El ancho de la etiqueta lo fija la rejilla `.activo-datos`, no una clase de
+ * columna: con `col-sm-5` el valor quedaba a media pantalla de su etiqueta en
+ * monitores anchos, y leer la ficha obligaba a recorrer el ojo por un hueco
+ * vacío.
+ */
 function Dato({ etiqueta, valor }) {
   return (
     <>
-      <dt className="col-sm-5 text-muted fw-normal">{etiqueta}</dt>
-      <dd className="col-sm-7">{valor || "—"}</dd>
+      <dt>{etiqueta}</dt>
+      <dd>{valor || "—"}</dd>
     </>
   );
 }
 
-function Indicador({ valor, etiqueta, ancho = "col-6" }) {
+function Indicador({ valor, etiqueta, anchoCompleto = false }) {
   return (
-    <div className={ancho}>
-      <div className="indicador">
-        <div className="indicador-valor">{valor}</div>
-        <div className="indicador-etiqueta">{etiqueta}</div>
-      </div>
+    <div className={`indicador${anchoCompleto ? " indicador--ancho" : ""}`}>
+      <div className="indicador-valor">{valor}</div>
+      <div className="indicador-etiqueta">{etiqueta}</div>
     </div>
   );
 }
