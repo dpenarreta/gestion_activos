@@ -90,12 +90,13 @@ def _custodio(activo) -> str:
     return activo.custodio.nombre_completo if activo.custodio_id else "Sin asignar"
 
 
-def _ubicacion(activo) -> str:
-    return activo.ubicacion.nombre_completo if activo.ubicacion_id else ""
-
-
 def _sede(activo) -> str:
-    return activo.ubicacion.sede.nombre if activo.ubicacion_id else ""
+    return activo.sede.nombre if activo.sede_id else ""
+
+
+def _ciudad(activo) -> str:
+    """Dónde está, dicho como lo diría una persona: «en Quito»."""
+    return activo.sede.donde if activo.sede_id else ""
 
 
 def _tramo_antiguedad(activo) -> str:
@@ -124,7 +125,7 @@ COLUMNAS_ACTIVO_CONTEXTO = (
     Columna("departamento", "Área", lambda a: a.departamento.nombre, 20),
     Columna("custodio", "Custodio", _custodio, 26),
     Columna("sede", "Sede", _sede, 18),
-    Columna("ubicacion", "Ubicación", _ubicacion, 24),
+    Columna("ciudad", "Ciudad", _ciudad, 16),
     Columna("criticidad", "Criticidad", lambda a: a.get_criticidad_display(), 12),
     Columna("uso", "Uso", lambda a: a.get_uso_display(), 18),
 )
@@ -194,7 +195,7 @@ COLUMNAS_MOVIMIENTO = (
 
 # --- Los trece reportes del §16 ---------------------------------------------
 
-PARAMETROS_ACTIVOS = ("departamento", "ubicacion", "tipo", "criticidad", "uso")
+PARAMETROS_ACTIVOS = ("departamento", "sede", "tipo", "criticidad", "uso")
 
 CATALOGO = (
     Reporte(
@@ -230,7 +231,7 @@ CATALOGO = (
         + COLUMNAS_ACTIVO_BASE
         + (
             Columna("departamento", "Área", lambda a: a.departamento.nombre, 20),
-            Columna("ubicacion", "Ubicación", _ubicacion, 24),
+            Columna("ciudad", "Ciudad", _ciudad, 16),
         ),
         # Sin custodio no hay a quién reclamarle: el listado de lo no asignado
         # es otro reporte («Activos disponibles»), con otra acción detrás.
@@ -240,19 +241,19 @@ CATALOGO = (
         columnas_pdf=("custodio", "codigo_barras", "nombre", "tipo", "estado"),
     ),
     Reporte(
-        clave="activos-por-ubicacion",
-        nombre="Activos por ubicación",
+        clave="activos-por-sede",
+        nombre="Activos por sede",
         descripcion="Dónde está cada equipo. Es la hoja de ruta del inventario físico.",
         fuente=Fuente.ACTIVOS,
         columnas=(
             Columna("sede", "Sede", _sede, 20),
-            Columna("ubicacion", "Ubicación", _ubicacion, 24),
+            Columna("ciudad", "Ciudad", _ciudad, 16),
         )
         + COLUMNAS_ACTIVO_BASE
         + (Columna("custodio", "Custodio", _custodio, 26),),
         parametros=PARAMETROS_ACTIVOS,
-        orden=("ubicacion__sede__nombre", "ubicacion__nombre", "codigo_barras"),
-        columnas_pdf=("sede", "ubicacion", "codigo_barras", "nombre", "estado", "custodio"),
+        orden=("sede__nombre", "codigo_barras"),
+        columnas_pdf=("sede", "ciudad", "codigo_barras", "nombre", "estado", "custodio"),
     ),
     Reporte(
         clave="activos-disponibles",
@@ -262,13 +263,13 @@ CATALOGO = (
         columnas=COLUMNAS_ACTIVO_BASE
         + (
             Columna("sede", "Sede", _sede, 18),
-            Columna("ubicacion", "Ubicación", _ubicacion, 24),
+            Columna("ciudad", "Ciudad", _ciudad, 16),
             Columna("antiguedad", "Antigüedad (meses)", lambda a: a.antiguedad_meses, 16),
         ),
         filtros={"estado__in": tuple(ESTADOS_EN_ALMACEN)},
         parametros=PARAMETROS_ACTIVOS,
         orden=("estado", "codigo_barras"),
-        columnas_pdf=("codigo_barras", "nombre", "tipo", "estado", "ubicacion", "antiguedad"),
+        columnas_pdf=("codigo_barras", "nombre", "tipo", "estado", "ciudad", "antiguedad"),
     ),
     Reporte(
         clave="activos-en-reparacion",

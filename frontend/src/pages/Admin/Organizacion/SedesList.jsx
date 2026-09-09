@@ -12,13 +12,14 @@ const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Sedes" }];
 const FILTROS_INICIALES = { q: "", activa: "" };
 
 /**
- * Catálogo de edificios, locales o ciudades.
+ * Catálogo de edificios, locales o ciudades: dónde está cada equipo.
  *
- * Está separado de las ubicaciones porque son dos preguntas distintas: la sede
- * dice a qué ciudad hay que viajar, la ubicación dice a qué puerta llamar
- * dentro de ella. Una mudanza cambia la dirección de una sede sin tocar sus
- * bodegas, y renombrarla —un cambio de razón social— es una edición y no una
- * búsqueda y reemplazo por todas las ubicaciones.
+ * Es un catálogo y no un texto dentro de cada activo porque «Sede Quito
+ * Norte», «sede quito norte» y «Quito Norte» son el mismo edificio para una
+ * persona y tres para una consulta: con texto libre, filtrar el inventario por
+ * sede devuelve un tercio de los equipos que están ahí y nadie nota lo que
+ * falta. Renombrar una sede —una mudanza, un cambio de razón social— es aquí
+ * una edición, no una búsqueda y reemplazo por todo el parque.
  */
 export function SedesList() {
   const puedeEditar = usePermission("organizacion.editar");
@@ -87,7 +88,6 @@ export function SedesList() {
               <th>Nombre</th>
               <th>Ciudad</th>
               <th>Dirección</th>
-              <th className="text-end">Ubicaciones</th>
               <th className="text-end">Activos</th>
               <th>Estado</th>
               <th>Acciones</th>
@@ -99,7 +99,6 @@ export function SedesList() {
                 <td>{sede.nombre}</td>
                 <td>{sede.ciudad || "—"}</td>
                 <td className="text-muted">{sede.direccion || "—"}</td>
-                <td className="text-end">{sede.total_ubicaciones}</td>
                 <td className="text-end">{sede.total_activos}</td>
                 <td>
                   <span
@@ -120,7 +119,7 @@ export function SedesList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted">
+                <td colSpan={6} className="text-center text-muted">
                   Sin sedes registradas
                 </td>
               </tr>

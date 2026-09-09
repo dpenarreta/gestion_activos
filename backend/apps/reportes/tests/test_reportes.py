@@ -32,7 +32,7 @@ CLAVES_DEL_DOCUMENTO = [
     "inventario-general",
     "activos-por-area",
     "activos-por-usuario",
-    "activos-por-ubicacion",
+    "activos-por-sede",
     "activos-disponibles",
     "activos-en-reparacion",
     "activos-fuera-de-inventario",

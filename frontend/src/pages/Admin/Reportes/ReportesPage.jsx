@@ -4,7 +4,7 @@ import { tiposDispositivoService } from "../../../api/activosService";
 import {
   departamentosService,
   empleadosService,
-  ubicacionesService,
+  sedesService,
 } from "../../../api/organizacionService";
 import { reportesService } from "../../../api/reportesService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
@@ -63,7 +63,7 @@ export function ReportesPage() {
 
   const [opciones, setOpciones] = useState({
     departamento: [],
-    ubicacion: [],
+    sede: [],
     tipo: [],
     custodio: [],
   });
@@ -81,20 +81,17 @@ export function ReportesPage() {
     // cada vez que se cambia de reporte haría cuatro llamadas por clic.
     Promise.all([
       departamentosService.list({ activo: "true", page_size: 100 }),
-      ubicacionesService.list({ activa: "true", page_size: 100 }),
+      sedesService.list({ activa: "true", page_size: 100 }),
       tiposDispositivoService.list({ page_size: 100 }),
       empleadosService.list({ activo: "true", page_size: 200 }),
     ])
-      .then(([departamentos, ubicaciones, tipos, empleados]) =>
+      .then(([departamentos, sedes, tipos, empleados]) =>
         setOpciones({
           departamento: (departamentos.results ?? departamentos).map((d) => [
             d.id,
             d.nombre,
           ]),
-          ubicacion: (ubicaciones.results ?? ubicaciones).map((u) => [
-            u.id,
-            u.nombre_completo,
-          ]),
+          sede: (sedes.results ?? sedes).map((s) => [s.id, s.nombre]),
           tipo: (tipos.results ?? tipos).map((t) => [t.id, t.nombre]),
           custodio: (empleados.results ?? empleados).map((e) => [
             e.id,
@@ -368,7 +365,7 @@ function FiltrosReporte({
     hasta: "Hasta",
     dias: "Días de anticipación",
     departamento: "Área",
-    ubicacion: "Ubicación",
+    sede: "Sede",
     tipo: "Tipo de dispositivo",
     custodio: "Custodio",
     criticidad: "Criticidad",

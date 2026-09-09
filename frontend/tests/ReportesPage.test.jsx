@@ -10,7 +10,7 @@ const CATALOGO = {
       nombre: "Inventario general",
       descripcion: "Todos los activos registrados, con su ficha resumida.",
       fuente: "activos",
-      parametros: ["departamento", "ubicacion", "tipo", "criticidad", "uso"],
+      parametros: ["departamento", "sede", "tipo", "criticidad", "uso"],
       columnas: [
         { clave: "codigo_barras", etiqueta: "Código" },
         { clave: "nombre", etiqueta: "Nombre" },
@@ -59,7 +59,7 @@ vi.mock("../src/api/reportesService", () => ({
 vi.mock("../src/api/organizacionService", () => ({
   departamentosService: { list: vi.fn(() => Promise.resolve({ results: [] })) },
   empleadosService: { list: vi.fn(() => Promise.resolve({ results: [] })) },
-  ubicacionesService: { list: vi.fn(() => Promise.resolve({ results: [] })) },
+  sedesService: { list: vi.fn(() => Promise.resolve({ results: [] })) },
 }));
 
 vi.mock("../src/api/activosService", () => ({

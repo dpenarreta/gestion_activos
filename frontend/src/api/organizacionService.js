@@ -2,7 +2,6 @@ import { apiClient } from "./client";
 
 const DEPARTAMENTOS = "/organizacion/departamentos/";
 const EMPLEADOS = "/organizacion/empleados/";
-const UBICACIONES = "/organizacion/ubicaciones/";
 const SEDES = "/organizacion/sedes/";
 
 export const departamentosService = {
@@ -60,30 +59,5 @@ export const sedesService = {
   },
   update(id, payload) {
     return apiClient.patch(`${SEDES}${id}/`, payload).then((res) => res.data);
-  },
-};
-
-/**
- * Catálogo de lugares físicos (§4.1).
- *
- * Es un catálogo y no texto libre porque «Bodega TI», «bodega de TI» y
- * «Bodega  TI» son el mismo sitio para una persona y tres para una consulta:
- * con texto libre, filtrar el inventario por ubicación devuelve un tercio de
- * los equipos que están ahí y nadie nota lo que falta.
- */
-export const ubicacionesService = {
-  list(params = {}) {
-    return apiClient.get(UBICACIONES, { params }).then((res) => res.data);
-  },
-  get(id) {
-    return apiClient.get(`${UBICACIONES}${id}/`).then((res) => res.data);
-  },
-  create(payload) {
-    return apiClient.post(UBICACIONES, payload).then((res) => res.data);
-  },
-  update(id, payload) {
-    return apiClient
-      .patch(`${UBICACIONES}${id}/`, payload)
-      .then((res) => res.data);
   },
 };

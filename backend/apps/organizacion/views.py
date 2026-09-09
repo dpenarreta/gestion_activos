@@ -7,14 +7,9 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import Departamento, Empleado, Sede, Ubicacion
+from .models import Departamento, Empleado, Sede
 from .permissions import OrganizacionPermission
-from .serializers import (
-    DepartamentoSerializer,
-    EmpleadoSerializer,
-    SedeSerializer,
-    UbicacionSerializer,
-)
+from .serializers import DepartamentoSerializer, EmpleadoSerializer, SedeSerializer
 
 MODULO = "organizacion"
 
@@ -102,8 +97,7 @@ class SedeViewSet(_CatalogoOrganizacionalViewSet):
 
     def get_queryset(self):
         queryset = Sede.objects.annotate(
-            total_ubicaciones=Count("ubicaciones", distinct=True),
-            total_activos=Count("ubicaciones__activos", distinct=True),
+            total_activos=Count("activos", distinct=True),
         ).order_by("nombre")
         params = self.request.query_params
         busqueda = params.get("q")
@@ -119,73 +113,11 @@ class SedeViewSet(_CatalogoOrganizacionalViewSet):
         return queryset
 
     def update(self, request, *args, **kwargs):
-        """Impide cerrar una sede que todavía tiene ubicaciones abiertas.
+        """Impide cerrar una sede que todavía tiene equipos dentro.
 
-        Cerrarla las dejaría colgando de un sitio que ya no se ofrece: los
-        equipos seguirían ahí y nadie podría moverlos ni corregirlos.
-        """
-        instancia = self.get_object()
-        pide_desactivar = request.data.get("activa") in {False, "false"}
-        if pide_desactivar and instancia.activa:
-            abiertas = instancia.ubicaciones.filter(activa=True).count()
-            if abiertas:
-                return Response(
-                    {
-                        "error": {
-                            "code": "sede_con_ubicaciones",
-                            "message": (
-                                f"No se puede cerrar «{instancia.nombre}»: todavía tiene "
-                                f"{abiertas} ubicacion(es) abierta(s). Ciérrelas primero."
-                            ),
-                        }
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        return super().update(request, *args, **kwargs)
-
-
-class UbicacionViewSet(_CatalogoOrganizacionalViewSet):
-    """Catálogo de lugares físicos (§4.1).
-
-    Tampoco admite `DELETE`: los activos apuntan aquí con `PROTECT`, y una
-    ubicación que se cierra —una bodega que se muda— sigue siendo la que
-    aparece en el historial de los equipos que estuvieron ahí. Se desactiva.
-    """
-
-    serializer_class = UbicacionSerializer
-    accion_auditoria = "ubicacion"
-
-    def get_queryset(self):
-        queryset = (
-            Ubicacion.objects.select_related("sede")
-            .annotate(total_activos=Count("activos", distinct=True))
-            .order_by("sede__nombre", "nombre")
-        )
-        params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda)
-                | Q(sede__nombre__icontains=busqueda)
-                | Q(detalle__icontains=busqueda)
-            )
-        sede = params.get("sede")
-        if sede and sede.isdigit():
-            queryset = queryset.filter(sede_id=int(sede))
-        tipo = params.get("tipo")
-        if tipo in dict(Ubicacion.Tipo.choices):
-            queryset = queryset.filter(tipo=tipo)
-        estado = params.get("activa")
-        if estado in {"true", "false"}:
-            queryset = queryset.filter(activa=estado == "true")
-        return queryset
-
-    def update(self, request, *args, **kwargs):
-        """Impide cerrar una ubicación que todavía tiene equipos dentro.
-
-        Desactivarla los dejaría en un sitio que el formulario ya no ofrece:
-        seguirían apareciendo ahí, pero nadie podría volver a poner un equipo
-        en ese lugar ni corregir el de los que quedaron.
+        Cerrarla los dejaría en un sitio que el formulario ya no ofrece:
+        seguirían apareciendo ahí, pero nadie podría moverlos ni corregir el
+        sitio de los que quedaron.
         """
         instancia = self.get_object()
         pide_desactivar = request.data.get("activa") in {False, "false"}
@@ -195,10 +127,10 @@ class UbicacionViewSet(_CatalogoOrganizacionalViewSet):
                 return Response(
                     {
                         "error": {
-                            "code": "ubicacion_con_activos",
+                            "code": "sede_con_activos",
                             "message": (
-                                f"No se puede desactivar «{instancia.nombre_completo}»: "
-                                f"todavía hay {pendientes} activo(s) ahí. Muévalos primero."
+                                f"No se puede cerrar «{instancia.nombre}»: todavía hay "
+                                f"{pendientes} activo(s) ahí. Muévalos primero."
                             ),
                         }
                     },

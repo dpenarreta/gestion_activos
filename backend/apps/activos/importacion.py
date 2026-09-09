@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from apps.core.audit import record_audit_event
-from apps.organizacion.models import Departamento, Empleado, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede
 
 from .models import Activo, TipoDispositivo
 from .services import ActivoService
@@ -225,19 +225,21 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         departamentos[departamento.codigo.lower()] = departamento
         departamentos[departamento.nombre.lower()] = departamento
     empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
-    # La ubicación admite «Bodega TI» a secas cuando ese nombre es único, y
-    # exige «Matriz Quito / Bodega TI» cuando dos sedes tienen una bodega con
-    # el mismo nombre: resolver la ambigüedad en silencio dejaría los equipos
-    # repartidos en el edificio equivocado.
-    ubicaciones: dict[str, object] = {}
+    # La sede se acepta por su nombre o por su ciudad: quien llena la plantilla
+    # escribe lo que tiene en la cabeza, y «Quito» y «Sede Quito Norte» son la
+    # misma respuesta a la pregunta de dónde está el equipo. Si dos sedes
+    # comparten ciudad, esa ciudad deja de servir como respuesta única.
+    sedes: dict[str, object] = {}
     ambiguas: set[str] = set()
-    for ubicacion in Ubicacion.objects.filter(activa=True).select_related("sede"):
-        ubicaciones[f"{ubicacion.sede.nombre}/{ubicacion.nombre}".lower()] = ubicacion
-        simple = ubicacion.nombre.lower()
-        if simple in ubicaciones:
-            ambiguas.add(simple)
+    for sede in Sede.objects.filter(activa=True):
+        sedes[sede.nombre.lower()] = sede
+        ciudad = (sede.ciudad or "").strip().lower()
+        if not ciudad or ciudad == sede.nombre.lower():
+            continue
+        if ciudad in sedes:
+            ambiguas.add(ciudad)
         else:
-            ubicaciones[simple] = ubicacion
+            sedes[ciudad] = sede
 
     series_existentes = set(Activo.objects.values_list("numero_serie", flat=True))
     series_en_archivo: dict[str, int] = {}
@@ -381,32 +383,31 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 )
         datos["costo_adquisicion"] = costo
 
-        texto_ubicacion = _texto(celda("ubicacion"))
-        ubicacion = None
-        if texto_ubicacion:
-            clave = texto_ubicacion.replace("·", "/").replace("|", "/")
-            clave = "/".join(parte.strip() for parte in clave.split("/")).lower()
+        texto_sede = _texto(celda("sede"))
+        sede = None
+        if texto_sede:
+            clave = texto_sede.strip().lower()
             if clave in ambiguas:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
-                        etiqueta_de.get("ubicacion", "Ubicación"),
-                        f"Hay más de una ubicación llamada {texto_ubicacion!r}: "
-                        "escríbala como «Sede / Nombre».",
+                        etiqueta_de.get("sede", "Sede"),
+                        f"Hay más de una sede en {texto_sede!r}: escriba el nombre de la "
+                        "sede, no la ciudad.",
                     )
                 )
             else:
-                ubicacion = ubicaciones.get(clave)
-                if not ubicacion:
+                sede = sedes.get(clave)
+                if not sede:
                     errores_fila.append(
                         ErrorFila(
                             numero_fila,
-                            etiqueta_de.get("ubicacion", "Ubicación"),
-                            f"No existe una ubicación activa {texto_ubicacion!r}. "
-                            "Créela primero en el catálogo (hoja «Ubicaciones»).",
+                            etiqueta_de.get("sede", "Sede"),
+                            f"No existe una sede abierta {texto_sede!r}. "
+                            "Créela primero en el catálogo (hoja «Sedes»).",
                         )
                     )
-        datos["ubicacion"] = ubicacion
+        datos["sede"] = sede
 
         # Criticidad y nivel de uso se aceptan por su etiqueta («Alta») o por
         # su valor interno («alta»): quien llena la plantilla lee la primera.

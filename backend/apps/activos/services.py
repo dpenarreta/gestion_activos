@@ -125,7 +125,7 @@ class ActivoService:
         activo: Activo,
         custodio=None,
         departamento=None,
-        ubicacion=SIN_CAMBIO,
+        sede=SIN_CAMBIO,
         motivo="",
         context=None,
     ) -> Activo:
@@ -135,10 +135,10 @@ class ActivoService:
         llamador que no quiere tocar el custodio simplemente no invoca este
         método.
 
-        `ubicacion`, en cambio, sí distingue las dos cosas con un centinela:
-        un traslado puede querer **quitar** la ubicación (`None`) y una
-        reasignación normal no debe tocarla. Con un solo valor para ambos
-        casos, cada entrega de equipo borraría en silencio dónde está.
+        `sede`, en cambio, sí distingue las dos cosas con un centinela: un
+        traslado puede querer **quitar** la sede (`None`) y una reasignación
+        normal no debe tocarla. Con un solo valor para ambos casos, cada
+        entrega de equipo borraría en silencio dónde está.
         """
         if not activo.esta_operativo:
             # Antes esto se colaba: el método no tocaba el estado de un equipo
@@ -157,14 +157,14 @@ class ActivoService:
 
         custodio_anterior = activo.custodio
         departamento_anterior = activo.departamento
-        ubicacion_anterior = activo.ubicacion
+        sede_anterior = activo.sede
         estado_anterior = activo.estado
 
         activo.custodio = custodio
         if departamento is not None:
             activo.departamento = departamento
-        if ubicacion is not SIN_CAMBIO:
-            activo.ubicacion = ubicacion
+        if sede is not SIN_CAMBIO:
+            activo.sede = sede
 
         # Un equipo con responsable está en uso; sin responsable, vuelve a
         # bodega. No se toca el estado si está en mantenimiento, en garantía o
@@ -177,16 +177,14 @@ class ActivoService:
             # todavía no lo están.
             activo.estado = Activo.Estado.EN_USO if custodio else Activo.Estado.EN_BODEGA
 
-        activo.save(update_fields=["custodio", "departamento", "ubicacion", "estado", "updated_at"])
+        activo.save(update_fields=["custodio", "departamento", "sede", "estado", "updated_at"])
 
         # El tipo lo decide el cambio que se ve desde fuera. Un traslado libera
         # al responsable —el equipo pasa a una bodega, y una bodega no responde
         # por nada—, pero eso no lo convierte en una devolucion: lo que hay que
         # poder rastrear despues es donde acabo el equipo, no que alguien lo
         # soltara. La devolucion sin movimiento fisico sigue siendo devolucion.
-        hubo_traslado = activo.ubicacion_id != (
-            ubicacion_anterior.id if ubicacion_anterior else None
-        )
+        hubo_traslado = activo.sede_id != (sede_anterior.id if sede_anterior else None)
         if custodio is not None:
             tipo_movimiento = MovimientoActivo.Tipo.ASIGNACION
         elif hubo_traslado:
@@ -205,8 +203,8 @@ class ActivoService:
             custodio_nuevo=custodio,
             departamento_anterior=departamento_anterior,
             departamento_nuevo=activo.departamento,
-            ubicacion_anterior=ubicacion_anterior,
-            ubicacion_nueva=activo.ubicacion,
+            sede_anterior=sede_anterior,
+            sede_nueva=activo.sede,
             estado_anterior=estado_anterior,
             estado_nuevo=activo.estado,
         )
@@ -218,12 +216,12 @@ class ActivoService:
             previous_values={
                 "custodio_id": custodio_anterior.id if custodio_anterior else None,
                 "departamento_id": departamento_anterior.id,
-                "ubicacion_id": ubicacion_anterior.id if ubicacion_anterior else None,
+                "sede_id": sede_anterior.id if sede_anterior else None,
             },
             new_values={
                 "custodio_id": custodio.id if custodio else None,
                 "departamento_id": activo.departamento_id,
-                "ubicacion_id": activo.ubicacion_id,
+                "sede_id": activo.sede_id,
                 "motivo": motivo,
             },
             context=context,

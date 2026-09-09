@@ -70,7 +70,7 @@ def _fila(**overrides):
         "departamento": "TI",
         "fecha_adquisicion": "2024-01-15",
         "custodio": "",
-        "ubicacion": "",
+        "sede": "",
         "costo_adquisicion": "",
         "especificaciones": "",
         "observaciones": "",

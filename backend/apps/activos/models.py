@@ -163,13 +163,13 @@ class Activo(BaseModel):
         on_delete=models.PROTECT,
         related_name="activos",
     )
-    ubicacion = models.ForeignKey(
-        "organizacion.Ubicacion",
+    sede = models.ForeignKey(
+        "organizacion.Sede",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="activos",
-        help_text="Dónde está físicamente el equipo. Vacío mientras no se ha inventariado.",
+        help_text="Dónde está el equipo. Vacío mientras no se ha inventariado.",
     )
 
     # --- Clasificación (§12) ---
@@ -233,7 +233,7 @@ class Activo(BaseModel):
             models.Index(fields=["marca", "modelo"]),
             models.Index(fields=["estado"]),
             models.Index(fields=["requiere_renovacion"]),
-            models.Index(fields=["ubicacion"]),
+            models.Index(fields=["sede"]),
             models.Index(fields=["fecha_adquisicion"]),
         ]
 
@@ -335,10 +335,27 @@ class MovimientoActivo(BaseModel):
         blank=True,
         related_name="movimientos_como_departamento_nuevo",
     )
-    # La ubicación física también se mueve, y hasta ahora no quedaba en el
-    # historial: un equipo cambiaba de bodega y la ficha lo reflejaba, pero
-    # nadie podía reconstruir cuándo ni por qué. Para un inventario repartido
-    # en varias sedes, eso es justo lo que hay que poder auditar.
+    # El sitio también se mueve, y hasta hace poco no quedaba en el historial:
+    # un equipo cambiaba de sede y la ficha lo reflejaba, pero nadie podía
+    # reconstruir cuándo ni por qué. Para un inventario repartido en varias
+    # ciudades, eso es justo lo que hay que poder auditar.
+    sede_anterior = models.ForeignKey(
+        "organizacion.Sede",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="movimientos_como_origen",
+    )
+    sede_nueva = models.ForeignKey(
+        "organizacion.Sede",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="movimientos_como_destino",
+    )
+    # Los dos campos de abajo son historia congelada: los traslados anteriores
+    # al cambio se registraron entre bodegas, no entre sedes. Ya nadie los
+    # escribe, pero borrarlos reescribiría movimientos que alguien firmó.
     ubicacion_anterior = models.ForeignKey(
         "organizacion.Ubicacion",
         on_delete=models.SET_NULL,

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.organizacion.models import Departamento, Empleado, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede
 from apps.politicas.services import evaluar_activo
 
 from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
@@ -55,11 +55,13 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
     departamento_nuevo_nombre = serializers.CharField(
         source="departamento_nuevo.nombre", read_only=True, default=None
     )
-    ubicacion_anterior_nombre = serializers.CharField(
-        source="ubicacion_anterior.nombre_completo", read_only=True, default=None
+    # Lo que se muestra es la ciudad —«pasó de Quito a Guayaquil»—, con el
+    # nombre de la sede como respaldo cuando la ciudad está sin rellenar.
+    sede_anterior_nombre = serializers.CharField(
+        source="sede_anterior.donde", read_only=True, default=None
     )
-    ubicacion_nueva_nombre = serializers.CharField(
-        source="ubicacion_nueva.nombre_completo", read_only=True, default=None
+    sede_nueva_nombre = serializers.CharField(
+        source="sede_nueva.donde", read_only=True, default=None
     )
     registrado_por_nombre = serializers.CharField(
         source="registrado_por.username", read_only=True, default=None
@@ -75,8 +77,8 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
             "custodio_nuevo_nombre",
             "departamento_anterior_nombre",
             "departamento_nuevo_nombre",
-            "ubicacion_anterior_nombre",
-            "ubicacion_nueva_nombre",
+            "sede_anterior_nombre",
+            "sede_nueva_nombre",
             "estado_anterior",
             "estado_nuevo",
             "motivo",
@@ -96,9 +98,8 @@ class ActivoListSerializer(serializers.ModelSerializer):
     )
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
-    ubicacion_nombre = serializers.CharField(
-        source="ubicacion.nombre_completo", read_only=True, default=None
-    )
+    sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
+    ciudad = serializers.CharField(source="sede.donde", read_only=True, default=None)
     criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
     uso_display = serializers.CharField(source="get_uso_display", read_only=True)
 
@@ -117,8 +118,9 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "custodio_nombre",
             "departamento",
             "departamento_nombre",
-            "ubicacion",
-            "ubicacion_nombre",
+            "sede",
+            "sede_nombre",
+            "ciudad",
             "criticidad",
             "criticidad_display",
             "uso",
@@ -153,9 +155,8 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     )
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
-    ubicacion_nombre = serializers.CharField(
-        source="ubicacion.nombre_completo", read_only=True, default=None
-    )
+    sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
+    ciudad = serializers.CharField(source="sede.donde", read_only=True, default=None)
     criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
     uso_display = serializers.CharField(source="get_uso_display", read_only=True)
     esta_operativo = serializers.BooleanField(read_only=True)
@@ -184,8 +185,9 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "custodio_nombre",
             "departamento",
             "departamento_nombre",
-            "ubicacion",
-            "ubicacion_nombre",
+            "sede",
+            "sede_nombre",
+            "ciudad",
             "criticidad",
             "criticidad_display",
             "uso",
@@ -272,7 +274,7 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "observaciones",
             "custodio",
             "departamento",
-            "ubicacion",
+            "sede",
             "criticidad",
             "uso",
             "fecha_adquisicion",
@@ -282,10 +284,10 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "fecha_fin_garantia",
         ]
 
-    # Solo ubicaciones vigentes: poner un equipo en una bodega cerrada lo
-    # deja registrado en un sitio donde nadie va a buscarlo.
-    ubicacion = serializers.PrimaryKeyRelatedField(
-        queryset=Ubicacion.objects.filter(activa=True),
+    # Solo sedes abiertas: dejar un equipo registrado en una sede cerrada lo
+    # pone en un sitio donde nadie va a buscarlo.
+    sede = serializers.PrimaryKeyRelatedField(
+        queryset=Sede.objects.filter(activa=True),
         required=False,
         allow_null=True,
     )
@@ -357,9 +359,9 @@ class AsignacionSerializer(serializers.Serializer):
         default=None,
     )
     # Sin `default`: que el campo no venga significa «no muevas el equipo de
-    # sitio», y es distinto de mandarlo vacío para dejarlo sin ubicación.
-    ubicacion = serializers.PrimaryKeyRelatedField(
-        queryset=Ubicacion.objects.filter(activa=True),
+    # sitio», y es distinto de mandarlo vacío para dejarlo sin sede.
+    sede = serializers.PrimaryKeyRelatedField(
+        queryset=Sede.objects.filter(activa=True),
         required=False,
         allow_null=True,
     )

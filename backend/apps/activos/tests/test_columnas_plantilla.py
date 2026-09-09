@@ -94,7 +94,7 @@ def test_las_columnas_estructurales_se_marcan_como_tales(cliente, db):
     por_clave = {c["clave"]: c for c in respuesta.json()}
     assert por_clave["tipo"]["es_estructural"] is True
     assert por_clave["numero_serie"]["es_estructural"] is True
-    assert por_clave["ubicacion"]["es_estructural"] is False
+    assert por_clave["sede"]["es_estructural"] is False
 
 
 # --- Qué se puede configurar ----------------------------------------------
@@ -126,13 +126,13 @@ def test_una_columna_desactivada_deja_de_leerse_al_importar(cliente, catalogos):
 
 
 def test_volver_obligatoria_una_columna_opcional_la_exige(cliente, catalogos):
-    ubicacion = ColumnaPlantillaActivos.objects.get(clave="ubicacion")
+    columna = ColumnaPlantillaActivos.objects.get(clave="sede")
 
-    cliente.patch(f"{RUTA}{ubicacion.id}/", {"obligatoria": True}, format="json")
+    cliente.patch(f"{RUTA}{columna.id}/", {"obligatoria": True}, format="json")
     respuesta = _subir(cliente, _archivo_desde_columnas(BASE))
 
     errores = respuesta.json()["errores"]
-    assert any(e["columna"] == "Ubicación" for e in errores)
+    assert any(e["columna"] == "Sede" for e in errores)
 
 
 def test_renombrar_una_columna_cambia_el_encabezado_y_el_lector(cliente, catalogos):
@@ -267,9 +267,9 @@ def test_una_columna_opcional_si_se_puede_eliminar(cliente, db):
 
 
 def test_la_clave_no_se_puede_cambiar_al_editar(cliente, db):
-    ubicacion = ColumnaPlantillaActivos.objects.get(clave="ubicacion")
+    columna = ColumnaPlantillaActivos.objects.get(clave="sede")
 
-    respuesta = cliente.patch(f"{RUTA}{ubicacion.id}/", {"clave": "observaciones"}, format="json")
+    respuesta = cliente.patch(f"{RUTA}{columna.id}/", {"clave": "observaciones"}, format="json")
 
     assert respuesta.status_code == 400
 
@@ -277,7 +277,7 @@ def test_la_clave_no_se_puede_cambiar_al_editar(cliente, db):
 def test_dos_columnas_no_pueden_pedir_el_mismo_campo(cliente, db):
     """La segunda pisaría a la primera al leer el archivo."""
     respuesta = cliente.post(
-        RUTA, {"clave": "ubicacion", "etiqueta": "Otra ubicación", "orden": 70}, format="json"
+        RUTA, {"clave": "sede", "etiqueta": "Otra sede", "orden": 70}, format="json"
     )
 
     assert respuesta.status_code == 400
@@ -290,7 +290,7 @@ def test_el_catalogo_de_campos_indica_cuales_ya_tienen_columna(cliente, db):
     respuesta = cliente.get(f"{RUTA}campos-disponibles/")
 
     por_clave = {c["clave"]: c for c in respuesta.json()}
-    assert por_clave["ubicacion"]["en_uso"] is True
+    assert por_clave["sede"]["en_uso"] is True
     assert por_clave["tipo"]["es_estructural"] is True
 
 
@@ -315,20 +315,18 @@ def test_configurar_la_plantilla_exige_permiso_de_edicion(db):
     client = APIClient()
     client.force_authenticate(user=usuario)
 
-    ubicacion = ColumnaPlantillaActivos.objects.get(clave="ubicacion")
+    columna = ColumnaPlantillaActivos.objects.get(clave="sede")
 
     # Puede consultarlas (necesita saber qué llenar) pero no cambiarlas.
     assert client.get(RUTA).status_code == 200
-    assert (
-        client.patch(f"{RUTA}{ubicacion.id}/", {"activa": False}, format="json").status_code == 403
-    )
+    assert client.patch(f"{RUTA}{columna.id}/", {"activa": False}, format="json").status_code == 403
 
 
 def test_configurar_la_plantilla_queda_auditado(cliente, db):
     from apps.core.models import AuditLog
 
-    ubicacion = ColumnaPlantillaActivos.objects.get(clave="ubicacion")
-    cliente.patch(f"{RUTA}{ubicacion.id}/", {"obligatoria": True}, format="json")
+    columna = ColumnaPlantillaActivos.objects.get(clave="sede")
+    cliente.patch(f"{RUTA}{columna.id}/", {"obligatoria": True}, format="json")
 
     evento = AuditLog.objects.filter(action="columna_plantilla.updated").get()
     assert evento.new_values["obligatoria"] is True

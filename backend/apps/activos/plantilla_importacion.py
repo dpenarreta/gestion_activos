@@ -20,7 +20,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from apps.organizacion.models import Departamento, Empleado, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede
 
 from .importacion import MAX_FILAS, NOMBRE_HOJA_DATOS, columnas_configuradas
 from .models import TipoDispositivo
@@ -38,7 +38,7 @@ ANCHOS = {
     "departamento": 22,
     "fecha_adquisicion": 20,
     "custodio": 24,
-    "ubicacion": 26,
+    "sede": 26,
     "criticidad": 14,
     "uso": 18,
     "fecha_ingreso": 18,
@@ -60,7 +60,7 @@ EJEMPLOS = [
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
         "custodio": "EMP-0001",
-        "ubicacion": "Matriz Quito / Oficina 204",
+        "sede": "Matriz Quito",
         "criticidad": "Alta",
         "uso": "Administrativo",
         "fecha_ingreso": "2024-03-20",
@@ -79,7 +79,7 @@ EJEMPLOS = [
         "departamento": "CTB",
         "fecha_adquisicion": "2023-11-02",
         "custodio": "",
-        "ubicacion": "Recepción",
+        "sede": "Sucursal Guayaquil",
         "criticidad": "Baja",
         "uso": "Atención al cliente",
         "fecha_ingreso": "",
@@ -188,9 +188,9 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
             False,
         ),
         (
-            "6. La ubicación debe existir en el catálogo: copie el valor de la hoja "
-            "«Ubicaciones». Si el nombre se repite en dos sedes, escríbalo como "
-            "«Sede / Nombre».",
+            "6. La sede debe existir en el catálogo: copie el nombre exacto de la hoja "
+            "«Sedes». Si la deja vacía, el activo queda registrado sin sitio hasta que "
+            "alguien lo ubique.",
             False,
         ),
         (
@@ -271,18 +271,11 @@ def construir_plantilla() -> bytes:
     )
     _hoja_catalogo(
         libro,
-        "Ubicaciones",
-        ["Sede", "Nombre", "Escriba en la plantilla"],
+        "Sedes",
+        ["Nombre", "Ciudad"],
         [
-            # La tercera columna es el valor exacto que hay que copiar: el
-            # nombre solo basta cuando es único, y quien llena el archivo no
-            # tiene forma de saber si lo es.
-            [
-                ubicacion.sede.nombre,
-                ubicacion.nombre,
-                f"{ubicacion.sede.nombre} / {ubicacion.nombre}",
-            ]
-            for ubicacion in Ubicacion.objects.filter(activa=True).select_related("sede").order_by("sede__nombre", "nombre")
+            [sede.nombre, sede.ciudad]
+            for sede in Sede.objects.filter(activa=True).order_by("nombre")
         ],
     )
     _hoja_catalogo(

@@ -290,22 +290,14 @@ def sede(db):
     return Sede.objects.create(nombre="Sede Quito Norte", ciudad="Quito")
 
 
-def test_la_sede_es_un_catalogo_y_no_texto_dentro_de_la_ubicacion(cliente, sede):
-    """Era el problema que no se veía hasta que el inventario crecía: la sede
-    escrita a mano en cada ubicación se convierte en tantas sedes como formas
-    de escribirla haya, y el desplegable del traslado queda partido en listas
-    incompletas sin que nadie pueda notarlo desde la pantalla."""
-    from apps.organizacion.models import Ubicacion
+def test_la_sede_dice_donde_esta_un_equipo_con_su_ciudad(cliente, sede):
+    """La pregunta que se hace de un equipo es «¿dónde está?», y se responde
+    con la ciudad, no con el nombre interno de la sede."""
+    respuesta = cliente.get(f"/api/v1/organizacion/sedes/{sede.id}/")
 
-    respuesta = cliente.post(
-        "/api/v1/organizacion/ubicaciones/",
-        {"sede": sede.id, "nombre": "Bodega TI", "tipo": Ubicacion.Tipo.BODEGA},
-        format="json",
-    )
-
-    assert respuesta.status_code == 201
-    assert respuesta.data["sede_nombre"] == "Sede Quito Norte"
-    assert respuesta.data["nombre_completo"] == "Sede Quito Norte · Bodega TI"
+    assert respuesta.status_code == 200
+    assert respuesta.data["nombre"] == "Sede Quito Norte"
+    assert respuesta.data["ciudad"] == "Quito"
 
 
 def test_no_se_crean_dos_sedes_que_solo_difieren_en_mayusculas(cliente, sede):
@@ -318,35 +310,29 @@ def test_no_se_crean_dos_sedes_que_solo_difieren_en_mayusculas(cliente, sede):
     assert respuesta.status_code == 400
 
 
-def test_no_se_cierra_una_sede_con_ubicaciones_abiertas(cliente, sede):
-    """Cerrarla las dejaría colgando de un sitio que ya no se ofrece: los
-    equipos seguirían ahí y nadie podría moverlos."""
-    from apps.organizacion.models import Ubicacion
+def test_no_se_cierra_una_sede_que_todavia_tiene_equipos(cliente, sede):
+    """Cerrarla los dejaría en un sitio que el formulario ya no ofrece: nadie
+    podría moverlos ni corregirlos."""
+    from apps.activos.models import Activo, TipoDispositivo
+    from apps.organizacion.models import Departamento
 
-    Ubicacion.objects.create(sede=sede, nombre="Bodega TI")
+    Activo.objects.create(
+        tipo=TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP"),
+        nombre="Laptop",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-SEDE-1",
+        departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
+        sede=sede,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
 
     respuesta = cliente.patch(
         f"/api/v1/organizacion/sedes/{sede.id}/", {"activa": False}, format="json"
     )
 
     assert respuesta.status_code == 400
-    assert respuesta.data["error"]["code"] == "sede_con_ubicaciones"
-
-
-def test_una_sede_cerrada_no_admite_ubicaciones_nuevas(cliente, sede):
-    """Se cerró porque ya no se usa; colgarle una bodega la devolvería al
-    inventario por la puerta de atrás."""
-    sede.activa = False
-    sede.save(update_fields=["activa"])
-
-    respuesta = cliente.post(
-        "/api/v1/organizacion/ubicaciones/",
-        {"sede": sede.id, "nombre": "Bodega nueva"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-    assert "sede" in respuesta.data["error"]["details"]
+    assert respuesta.data["error"]["code"] == "sede_con_activos"
 
 
 def test_la_sede_no_se_borra_aunque_ya_no_se_use(cliente, sede):
@@ -355,40 +341,3 @@ def test_la_sede_no_se_borra_aunque_ya_no_se_use(cliente, sede):
     respuesta = cliente.delete(f"/api/v1/organizacion/sedes/{sede.id}/")
 
     assert respuesta.status_code == 405
-
-
-# --- El tipo de ubicación es un dato, no una convención de nombre -----------
-
-
-def test_una_bodega_llamada_almacen_sigue_siendo_una_bodega(cliente, sede):
-    """Antes el sistema lo deducía del nombre: quien nombrara sus bodegas a su
-    manera las veía clasificadas como otra cosa y no tenía dónde corregirlo."""
-    from apps.organizacion.models import Ubicacion
-
-    respuesta = cliente.post(
-        "/api/v1/organizacion/ubicaciones/",
-        {"sede": sede.id, "nombre": "Almacén de sistemas", "tipo": Ubicacion.Tipo.BODEGA},
-        format="json",
-    )
-
-    assert respuesta.status_code == 201
-    assert respuesta.data["tipo"] == "bodega"
-    assert respuesta.data["tipo_display"] == "Bodega"
-
-
-def test_se_filtran_las_ubicaciones_por_sede_y_por_tipo(cliente, sede):
-    """Es lo que consume el desplegable del traslado: primero la sede, después
-    el lugar."""
-    from apps.organizacion.models import Sede, Ubicacion
-
-    otra = Sede.objects.create(nombre="Sede Guayaquil")
-    Ubicacion.objects.create(sede=sede, nombre="Bodega TI", tipo=Ubicacion.Tipo.BODEGA)
-    Ubicacion.objects.create(sede=sede, nombre="Oficina 302", tipo=Ubicacion.Tipo.OFICINA)
-    Ubicacion.objects.create(sede=otra, nombre="Bodega TI", tipo=Ubicacion.Tipo.BODEGA)
-
-    de_la_sede = cliente.get(f"/api/v1/organizacion/ubicaciones/?sede={sede.id}").data
-    bodegas = cliente.get(f"/api/v1/organizacion/ubicaciones/?sede={sede.id}&tipo=bodega").data
-
-    assert de_la_sede["count"] == 2
-    assert bodegas["count"] == 1
-    assert bodegas["results"][0]["nombre"] == "Bodega TI"

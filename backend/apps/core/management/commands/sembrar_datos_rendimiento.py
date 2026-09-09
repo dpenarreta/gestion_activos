@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from apps.activos.models import Activo, MovimientoActivo, TipoDispositivo
 from apps.mantenimientos.models import Mantenimiento
-from apps.organizacion.models import Departamento, Empleado, Sede, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede
 from apps.politicas.models import PoliticaObsolescencia
 
 TIPOS = [
@@ -104,11 +104,6 @@ class Command(BaseCommand):
             for nombre, codigo in TIPOS
         ]
         sedes = [Sede.objects.get_or_create(nombre=nombre)[0] for nombre in SEDES]
-        ubicaciones = [
-            Ubicacion.objects.get_or_create(sede=sede, nombre=lugar)[0]
-            for sede in sedes
-            for lugar in LUGARES
-        ]
 
         # Un custodio cada veinte equipos: repartir uno por activo daría una
         # tabla de empleados irreal y escondería el coste de los JOIN.
@@ -178,7 +173,7 @@ class Command(BaseCommand):
                     numero_serie=f"SN-PERF-{indice:06d}",
                     departamento=random.choice(departamentos),
                     custodio=random.choice(empleados) if tiene_custodio else None,
-                    ubicacion=random.choice(ubicaciones),
+                    sede=random.choice(sedes),
                     estado=estado,
                     criticidad=random.choice([c.value for c in Activo.Criticidad]),
                     uso=random.choice([u.value for u in Activo.Uso]),

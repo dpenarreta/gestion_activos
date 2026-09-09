@@ -8,7 +8,7 @@ import {
 } from "../../../api/activosService";
 import {
   departamentosService,
-  ubicacionesService,
+  sedesService,
 } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
@@ -75,7 +75,7 @@ export function ActivosList() {
   const [busqueda, setBusqueda] = useState("");
   const [tipos, setTipos] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
+  const [sedes, setSedes] = useState([]);
 
   // El listado se puede abrir preseleccionado desde otras pantallas (p. ej.
   // "activos a cargo" de un empleado, o "requieren renovación" del panel de
@@ -86,7 +86,7 @@ export function ActivosList() {
     departamento: searchParams.get("departamento") || "",
     custodio: searchParams.get("custodio") || "",
     estado: searchParams.get("estado") || "",
-    ubicacion: searchParams.get("ubicacion") || "",
+    sede: searchParams.get("sede") || "",
     criticidad: searchParams.get("criticidad") || "",
     uso: searchParams.get("uso") || "",
     antiguedad_min_meses: searchParams.get("antiguedad_min_meses") || "",
@@ -115,10 +115,10 @@ export function ActivosList() {
       .catch(() => setDepartamentos([]));
     // Solo las abiertas: filtrar por una bodega cerrada no devuelve nada útil
     // y alarga un desplegable que se consulta a diario.
-    ubicacionesService
+    sedesService
       .list({ activa: "true", page_size: 100 })
-      .then((datos) => setUbicaciones(datos.results ?? datos))
-      .catch(() => setUbicaciones([]));
+      .then((datos) => setSedes(datos.results ?? datos))
+      .catch(() => setSedes([]));
   }, []);
 
   function handleBuscar(event) {
@@ -255,15 +255,15 @@ export function ActivosList() {
         <select
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por ubicación"
-          value={listado.filtros.ubicacion}
+          value={listado.filtros.sede}
           onChange={(event) =>
-            listado.actualizarFiltros({ ubicacion: event.target.value })
+            listado.actualizarFiltros({ sede: event.target.value })
           }
         >
-          <option value="">Todas las ubicaciones</option>
-          {ubicaciones.map((ubicacion) => (
-            <option key={ubicacion.id} value={ubicacion.id}>
-              {ubicacion.nombre_completo}
+          <option value="">Todas las sedes</option>
+          {sedes.map((sede) => (
+            <option key={sede.id} value={sede.id}>
+              {sede.nombre}
             </option>
           ))}
         </select>

@@ -16,7 +16,7 @@ export function SedeForm() {
   const puedeEditar = usePermission("organizacion.editar");
 
   const [valores, setValores] = useState(VACIO);
-  const [totalUbicaciones, setTotalUbicaciones] = useState(0);
+  const [totalActivos, setTotalActivos] = useState(0);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -31,7 +31,7 @@ export function SedeForm() {
           direccion: datos.direccion || "",
           activa: datos.activa,
         });
-        setTotalUbicaciones(datos.total_ubicaciones ?? 0);
+        setTotalActivos(datos.total_activos ?? 0);
       })
       .catch(() => setError("No se pudo cargar la sede."));
   }, [id, esEdicion]);
@@ -100,12 +100,19 @@ export function SedeForm() {
             <input
               id="ciudad"
               className="form-control"
+              required
               maxLength={120}
               placeholder="Quito"
               value={valores.ciudad}
               disabled={!puedeEditar}
               onChange={(event) => actualizar("ciudad", event.target.value)}
             />
+            <div className="form-text">
+              {/* Es lo que se lee al preguntar dónde está un equipo: «está en
+                  Quito». El nombre interno de la sede no le dice nada a quien
+                  tiene que ir a buscarlo. */}
+              Es lo que se muestra al decir dónde está un equipo.
+            </div>
           </div>
           <div className="col-12">
             <label className="form-label" htmlFor="direccion">
@@ -138,12 +145,12 @@ export function SedeForm() {
                 Sede abierta
               </label>
             </div>
-            {/* Cerrarla dejaría sus ubicaciones colgando de un sitio que el
-                formulario ya no ofrece: el backend lo impide, y avisarlo aquí
-                evita el intento. */}
-            {esEdicion && totalUbicaciones > 0 && (
+            {/* Cerrarla dejaría esos equipos en un sitio que el formulario ya
+                no ofrece: el backend lo impide, y avisarlo aquí evita el
+                intento. */}
+            {esEdicion && totalActivos > 0 && (
               <div className="form-text">
-                Tiene {totalUbicaciones} ubicación(es): para cerrarla, ciérrelas
+                Hay {totalActivos} activo(s) aquí: para cerrarla, muévalos
                 primero.
               </div>
             )}

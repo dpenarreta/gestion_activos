@@ -8,7 +8,7 @@ import {
 import {
   departamentosService,
   empleadosService,
-  ubicacionesService,
+  sedesService,
 } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { EspecificacionesEditor } from "../../../components/activos/EspecificacionesEditor/EspecificacionesEditor";
@@ -25,7 +25,7 @@ const VACIO = {
   observaciones: "",
   custodio: "",
   departamento: "",
-  ubicacion: "",
+  sede: "",
   criticidad: "media",
   uso: "administrativo",
   fecha_adquisicion: "",
@@ -44,7 +44,7 @@ export function ActivoForm() {
   const [tipos, setTipos] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [empleados, setEmpleados] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
+  const [sedes, setSedes] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -63,12 +63,12 @@ export function ActivoForm() {
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setEmpleados(datos.results ?? datos))
       .catch(() => setEmpleados([]));
-    // Solo ubicaciones abiertas: poner un equipo en una bodega cerrada lo deja
+    // Solo sedes abiertas: dejar un equipo en una sede cerrada lo deja
     // registrado en un sitio donde nadie va a buscarlo.
-    ubicacionesService
+    sedesService
       .list({ activa: "true", page_size: 100 })
-      .then((datos) => setUbicaciones(datos.results ?? datos))
-      .catch(() => setUbicaciones([]));
+      .then((datos) => setSedes(datos.results ?? datos))
+      .catch(() => setSedes([]));
   }, []);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function ActivoForm() {
           observaciones: datos.observaciones || "",
           custodio: datos.custodio || "",
           departamento: datos.departamento,
-          ubicacion: datos.ubicacion || "",
+          sede: datos.sede || "",
           criticidad: datos.criticidad || "media",
           uso: datos.uso || "administrativo",
           fecha_ingreso: datos.fecha_ingreso || "",
@@ -116,7 +116,7 @@ export function ActivoForm() {
         numero_serie: valores.numero_serie,
         especificaciones: valores.especificaciones,
         observaciones: valores.observaciones,
-        ubicacion: valores.ubicacion || null,
+        sede: valores.sede || null,
         criticidad: valores.criticidad,
         uso: valores.uso,
         fecha_adquisicion: valores.fecha_adquisicion,
@@ -322,29 +322,28 @@ export function ActivoForm() {
               </div>
             )}
             <div className="col-md-6">
-              <label className="form-label" htmlFor="ubicacion">
-                Ubicación física
+              <label className="form-label" htmlFor="sede">
+                Sede
               </label>
               <select
-                id="ubicacion"
+                id="sede"
                 className="form-select"
-                value={valores.ubicacion}
-                onChange={(event) =>
-                  actualizar("ubicacion", event.target.value)
-                }
+                value={valores.sede}
+                onChange={(event) => actualizar("sede", event.target.value)}
               >
-                <option value="">Sin ubicación registrada</option>
-                {ubicaciones.map((ubicacion) => (
-                  <option key={ubicacion.id} value={ubicacion.id}>
-                    {ubicacion.nombre_completo}
+                <option value="">Sin sede registrada</option>
+                {sedes.map((sede) => (
+                  <option key={sede.id} value={sede.id}>
+                    {sede.nombre}
+                    {sede.ciudad ? ` — ${sede.ciudad}` : ""}
                   </option>
                 ))}
               </select>
               <div className="form-text">
-                {/* El catálogo es lo que hace que el filtro por ubicación
-                    devuelva todos los equipos que están ahí y no solo los que
-                    alguien escribió igual. */}
-                Se administra en Organización → Ubicaciones.
+                {/* El catálogo es lo que hace que el filtro por sede devuelva
+                    todos los equipos que están ahí y no solo los que alguien
+                    escribió igual. */}
+                Se administra en Organización → Sedes.
               </div>
             </div>
             <div className="col-md-3">

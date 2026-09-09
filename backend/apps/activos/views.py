@@ -93,7 +93,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Activo.objects.select_related(
-            "tipo", "custodio", "departamento", "ubicacion"
+            "tipo", "custodio", "departamento", "sede"
         ).order_by("-created_at")
 
         if self.action == "retrieve":
@@ -121,17 +121,18 @@ class ActivoViewSet(viewsets.ModelViewSet):
             ("tipo", "tipo_id"),
             ("departamento", "departamento_id"),
             ("custodio", "custodio_id"),
-            ("ubicacion", "ubicacion_id"),
+            ("sede", "sede_id"),
         ):
             valor = params.get(parametro)
             if valor and valor.isdigit():
                 queryset = queryset.filter(**{campo: int(valor)})
 
-        # La sede agrupa varias ubicaciones: «todo lo que hay en la matriz» es
-        # la pregunta de quien va a hacer el inventario físico de un edificio.
-        sede = params.get("sede")
-        if sede:
-            queryset = queryset.filter(ubicacion__sede__nombre__iexact=sede.strip())
+        # Por nombre además de por id: «todo lo que hay en la matriz» es la
+        # pregunta de quien va a hacer el inventario físico de un edificio, y
+        # la escribe, no la elige de una lista.
+        nombre_de_sede = params.get("sede_nombre")
+        if nombre_de_sede:
+            queryset = queryset.filter(sede__nombre__iexact=nombre_de_sede.strip())
 
         estado = params.get("estado")
         if estado:

@@ -120,17 +120,17 @@ arrancar) y el frontend servido por nginx. Antes:
 Es el **riesgo número uno** del §26 del documento funcional, y el que decide si
 el sistema se usa o se abandona.
 
-1. Cree los catálogos, **en este orden**, desde *Organización*: sedes →
-   ubicaciones → departamentos → empleados. El orden importa en el primer
-   tramo: una ubicación no se crea sin decir en qué sede está.
+1. Cree los catálogos desde *Organización*: sedes, departamentos y
+   empleados.
 
-   Al dar de alta cada ubicación, marque su **tipo** (bodega, oficina, área
-   operativa, taller). No es decorativo: el desplegable de destino al trasladar
-   un equipo se agrupa por ahí, y una bodega marcada como «otro» aparece fuera
-   del grupo donde se la busca.
+   Rellene la **ciudad** de cada sede. No es un dato de adorno: es lo que se
+   lee al preguntar dónde está un equipo —«está en Quito»— y lo que aparece en
+   la ficha, en el traslado y en los reportes. Una sede sin ciudad responde con
+   su nombre interno, que a quien tiene que ir a buscar el equipo no le dice
+   nada.
 2. Descargue la plantilla desde *Activos → Carga masiva* y complétela. La
-   plantilla trae los catálogos vigentes en hojas aparte, incluidas las
-   ubicaciones con el valor exacto que hay que copiar.
+   plantilla trae los catálogos vigentes en hojas aparte, incluidas las sedes
+   con el nombre exacto que hay que copiar.
 3. Suba el archivo: el sistema **valida todo antes de guardar nada** y muestra
    los errores fila por fila.
 4. Imprima y pegue las etiquetas. Es el riesgo número siete del documento: sin

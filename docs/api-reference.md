@@ -70,13 +70,13 @@ Base: `/api/v1/activos/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `ubicacion`, `sede`, `criticidad`, `uso`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
 | POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02) |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
 | GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |
 | GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
-| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `ubicacion` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
+| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `sede` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. Las tres salidas (baja, perdido, robado) exigen `motivo`; desde una baja no se vuelve |
 | GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=pdf` (por defecto, devuelve el documento) o `zpl\|tspl` (trabajo térmico). `?descargar=false` entrega el PDF inline para previsualizar |
 | GET | `/activos/{id}/etiqueta/medicion/` | `activos.imprimir_etiqueta` | Geometría del símbolo impreso: módulo, zona muda y altura |
@@ -167,32 +167,33 @@ Base: `/api/v1/organizacion/`
 | --- | --- | --- | --- |
 | GET/POST/PATCH | `/organizacion/departamentos/` | `organizacion.ver` / `organizacion.editar` | Áreas. Filtros: `q`, `activo` |
 | GET/POST/PATCH | `/organizacion/sedes/` | `organizacion.ver` / `organizacion.editar` | Edificios, locales o ciudades. Filtros: `q`, `activa` |
-| GET/POST/PATCH | `/organizacion/ubicaciones/` | `organizacion.ver` / `organizacion.editar` | Lugares físicos dentro de una sede. Filtros: `q`, `sede`, `tipo`, `activa` |
 | GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
 
 Desactivar un empleado que aún custodia activos devuelve `400`
-(`empleado_con_activos`); cerrar una ubicación que todavía tiene equipos
-dentro devuelve `400` (`ubicacion_con_activos`) — quedarían en un sitio que el
-formulario ya no ofrece. Cerrar una sede con ubicaciones abiertas devuelve
-`400` (`sede_con_ubicaciones`), por lo mismo un nivel más arriba.
+(`empleado_con_activos`); cerrar una sede que todavía tiene equipos dentro
+devuelve `400` (`sede_con_activos`) — quedarían en un sitio que el formulario
+ya no ofrece.
 
-La **sede** es un catálogo propio y no un texto dentro de cada ubicación: «Sede
-Quito Norte», «sede quito norte» y «Quito Norte» son el mismo edificio para una
-persona y tres para una consulta, y como el traslado se elige primero por sede,
-esas tres entradas parten el desplegable en listas incompletas. El nombre se
-rechaza duplicado sin distinguir mayúsculas.
+La **sede** es un catálogo y no un texto dentro de cada activo: «Sede Quito
+Norte», «sede quito norte» y «Quito Norte» son el mismo edificio para una
+persona y tres para una consulta, y con texto libre el filtro por sede del §14
+devolvía un tercio de los equipos que están ahí sin que nadie notara lo que
+faltaba. El nombre se rechaza duplicado sin distinguir mayúsculas.
 
-El **tipo** de ubicación (`bodega`, `oficina`, `area`, `taller`, `otro`) se
-guarda en vez de deducirlo del nombre: «Bodega TI» y «Almacén de sistemas» son
-lo mismo y solo uno empieza por «bodega». Es lo que agrupa el desplegable de
-destino al trasladar un equipo.
+Dónde está un equipo se responde con la **ciudad** de su sede —«está en
+Quito»—, que es lo que el activo expone en `ciudad`: el nombre interno de la
+sede no le dice nada a quien tiene que ir a buscarlo. Una sede sin ciudad
+rellenada responde con su nombre, porque un hueco se lee como «no se sabe dónde
+está» cuando sí se sabe.
 
-La ubicación es un catálogo (`sede` + `nombre`, únicos juntos) y no el texto
-libre que había antes: «Bodega TI», «bodega de TI» y «Bodega  TI» son el mismo
-sitio para una persona y tres para una consulta, y con texto libre el filtro
-por ubicación del §14 devolvía un tercio de los equipos que están ahí sin que
-nadie notara lo que faltaba. Se separa del departamento porque el área dice de
-quién es el presupuesto del equipo y la ubicación dónde ir a buscarlo.
+La sede se separa del departamento porque el área dice de quién es el
+presupuesto del equipo y la sede dónde ir a buscarlo.
+
+Hubo un segundo nivel —la bodega u oficina dentro de la sede— que se retiró:
+obligaba a elegir dos veces en cada traslado y a inventar una bodega para cada
+sitio donde hubiera un equipo. El modelo `Ubicacion` sobrevive sin API ni
+pantalla porque los movimientos anteriores al cambio se registraron entre
+bodegas.
 
 ## Mantenimientos (RF-04, RF-05)
 

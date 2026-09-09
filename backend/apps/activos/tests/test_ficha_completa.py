@@ -18,7 +18,7 @@ from apps.activos.services import ActivoService
 from apps.alertas.models import ConfiguracionAlertas
 from apps.alertas.reglas import construir_alertas
 from apps.mantenimientos.models import Mantenimiento
-from apps.organizacion.models import Departamento, Empleado, Sede, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede
 from apps.politicas.models import PoliticaObsolescencia
 from apps.politicas.services import evaluar_activo
 from apps.users.models import User
@@ -62,12 +62,7 @@ def tipo(db):
 
 @pytest.fixture
 def sede(db):
-    return Sede.objects.create(nombre="Matriz Quito")
-
-
-@pytest.fixture
-def ubicacion(sede):
-    return Ubicacion.objects.create(sede=sede, nombre="Bodega TI")
+    return Sede.objects.create(nombre="Matriz Quito", ciudad="Quito")
 
 
 @pytest.fixture
@@ -274,57 +269,35 @@ def test_el_panel_separa_las_perdidas_de_las_bajas(cliente, admin, crear_activo)
     assert datos["operativos"] == 0
 
 
-# --- Ubicación estructurada (§4.1) ------------------------------------------
+# --- El sitio del equipo (§4.1) ---------------------------------------------
 
 
-def test_la_ubicacion_es_un_catalogo_y_no_texto_libre(cliente, crear_activo, ubicacion):
-    activo = crear_activo(ubicacion=ubicacion)
+def test_la_ficha_dice_la_sede_y_la_ciudad(cliente, crear_activo, sede):
+    """La pregunta que se hace de un equipo es «¿dónde está?», y se responde
+    con la ciudad: la sede es el registro, la ciudad es la respuesta."""
+    activo = crear_activo(sede=sede)
 
     datos = cliente.get(f"/api/v1/activos/{activo.id}/").data
 
-    assert datos["ubicacion"] == ubicacion.id
-    assert datos["ubicacion_nombre"] == "Matriz Quito · Bodega TI"
+    assert datos["sede"] == sede.id
+    assert datos["sede_nombre"] == "Matriz Quito"
+    assert datos["ciudad"] == "Quito"
 
 
-def test_no_se_repite_una_ubicacion_dentro_de_la_misma_sede(cliente, ubicacion):
-    """Dos «Bodega TI» en la matriz serían indistinguibles en el desplegable."""
-    respuesta = cliente.post(
-        "/api/v1/organizacion/ubicaciones/",
-        {"sede": ubicacion.sede_id, "nombre": "Bodega TI"},
-        format="json",
-    )
+def test_una_sede_sin_ciudad_responde_con_su_nombre(cliente, crear_activo):
+    """Un hueco se lee como «no se sabe dónde está» cuando sí se sabe."""
+    sede = Sede.objects.create(nombre="Sucursal Cuenca")
+    activo = crear_activo(sede=sede)
 
-    assert respuesta.status_code == 400
+    datos = cliente.get(f"/api/v1/activos/{activo.id}/").data
 
-
-def test_el_mismo_nombre_en_otra_sede_si_es_valido(cliente, ubicacion):
-    otra = Sede.objects.create(nombre="Sucursal Guayaquil")
-
-    respuesta = cliente.post(
-        "/api/v1/organizacion/ubicaciones/",
-        {"sede": otra.id, "nombre": "Bodega TI"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 201
+    assert datos["ciudad"] == "Sucursal Cuenca"
 
 
-def test_no_se_cierra_una_ubicacion_que_todavia_tiene_equipos(cliente, crear_activo, ubicacion):
-    """Desactivarla dejaría a esos equipos en un sitio que el formulario ya no
-    ofrece: nadie podría corregirlos ni volver a usar el lugar."""
-    crear_activo(ubicacion=ubicacion)
-
-    respuesta = cliente.patch(
-        f"/api/v1/organizacion/ubicaciones/{ubicacion.id}/", {"activa": False}, format="json"
-    )
-
-    assert respuesta.status_code == 400
-    assert "ubicacion_con_activos" == respuesta.data["error"]["code"]
-
-
-def test_no_se_pone_un_equipo_en_una_ubicacion_cerrada(cliente, tipo, departamento, ubicacion):
-    ubicacion.activa = False
-    ubicacion.save()
+def test_no_se_pone_un_equipo_en_una_sede_cerrada(cliente, tipo, departamento, sede):
+    """Dejarlo registrado ahí lo pone en un sitio donde nadie va a buscarlo."""
+    sede.activa = False
+    sede.save(update_fields=["activa"])
 
     respuesta = cliente.post(
         "/api/v1/activos/",
@@ -336,13 +309,13 @@ def test_no_se_pone_un_equipo_en_una_ubicacion_cerrada(cliente, tipo, departamen
             "numero_serie": "SN-CERRADA-1",
             "departamento": departamento.id,
             "fecha_adquisicion": "2025-01-10",
-            "ubicacion": ubicacion.id,
+            "sede": sede.id,
         },
         format="json",
     )
 
     assert respuesta.status_code == 400
-    assert "ubicacion" in respuesta.data["error"]["details"]
+    assert "sede" in respuesta.data["error"]["details"]
 
 
 # --- Clasificación (§12) y fecha de ingreso ---------------------------------
@@ -396,19 +369,19 @@ def test_el_ingreso_no_puede_ser_anterior_a_la_compra(cliente, tipo, departament
 # --- Filtros del §14 --------------------------------------------------------
 
 
-def test_filtra_por_ubicacion_y_por_sede(cliente, crear_activo, ubicacion):
-    otra = Ubicacion.objects.create(
-        sede=Sede.objects.create(nombre="Sucursal Guayaquil"), nombre="Oficina 1"
-    )
-    crear_activo(ubicacion=ubicacion)
-    crear_activo(ubicacion=otra)
+def test_filtra_por_sede_por_id_y_por_nombre(cliente, crear_activo, sede):
+    """Por id lo usa el desplegable; por nombre, quien va a hacer el inventario
+    físico de un edificio y lo escribe."""
+    otra = Sede.objects.create(nombre="Sucursal Guayaquil", ciudad="Guayaquil")
+    crear_activo(sede=sede)
+    crear_activo(sede=otra)
     crear_activo()
 
-    por_ubicacion = cliente.get(f"/api/v1/activos/?ubicacion={ubicacion.id}").data
-    por_sede = cliente.get("/api/v1/activos/?sede=Sucursal Guayaquil").data
+    por_id = cliente.get(f"/api/v1/activos/?sede={sede.id}").data
+    por_nombre = cliente.get("/api/v1/activos/?sede_nombre=Sucursal Guayaquil").data
 
-    assert por_ubicacion["count"] == 1
-    assert por_sede["count"] == 1
+    assert por_id["count"] == 1
+    assert por_nombre["count"] == 1
 
 
 def test_filtra_por_antiguedad_en_meses(cliente, crear_activo):
@@ -495,56 +468,50 @@ def test_el_listado_puede_separar_lo_operativo_de_lo_que_salio(cliente, admin, c
     assert fuera["results"][0]["estado"] == "perdido"
 
 
-# --- Traslado de ubicación (RF-01) ---
+# --- Traslado de sede (RF-01) ---
 
 
-def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(
-    admin, crear_activo, ubicacion
-):
-    """Un equipo cambia de bodega y antes solo se veía dónde está ahora: nadie
+def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(admin, crear_activo, sede):
+    """Un equipo cambia de sede y antes solo se veía dónde está ahora: nadie
     podía reconstruir cuándo se movió ni por qué. En un inventario repartido en
-    varias sedes, eso es justo lo que hay que poder auditar."""
-    destino = Ubicacion.objects.create(
-        sede=Sede.objects.create(nombre="Sucursal Guayaquil"), nombre="Bodega TI"
-    )
-    activo = crear_activo(ubicacion=ubicacion)
+    varias ciudades, eso es justo lo que hay que poder auditar."""
+    destino = Sede.objects.create(nombre="Sucursal Guayaquil", ciudad="Guayaquil")
+    activo = crear_activo(sede=sede)
 
     ActivoService.asignar_custodio(
-        actor=admin, activo=activo, ubicacion=destino, motivo="Traslado a la sucursal"
+        actor=admin, activo=activo, sede=destino, motivo="Traslado a la sucursal"
     )
 
     movimiento = activo.movimientos.exclude(tipo=MovimientoActivo.Tipo.ALTA).first()
-    assert movimiento.ubicacion_anterior_id == ubicacion.id
-    assert movimiento.ubicacion_nueva_id == destino.id
+    assert movimiento.sede_anterior_id == sede.id
+    assert movimiento.sede_nueva_id == destino.id
     assert movimiento.motivo == "Traslado a la sucursal"
     activo.refresh_from_db()
-    assert activo.ubicacion_id == destino.id
+    assert activo.sede_id == destino.id
 
 
 def test_el_traslado_libera_al_responsable_y_sigue_siendo_un_traslado(
-    admin, crear_activo, ubicacion, empleado
+    admin, crear_activo, sede, empleado
 ):
-    """Mover un equipo es sacárselo a quien lo tenía: pasa a una bodega, y una
-    bodega no responde por nada. Dejarlo asignado produciría una ficha que dice
-    a la vez «Bodega Guayaquil» y «Ana Pérez», y nadie sabría a quién reclamarle
-    el equipo.
+    """Mover un equipo es sacárselo a quien lo tenía: pasa a una sede, y una
+    sede no responde por nada. Dejarlo asignado produciría una ficha que dice a
+    la vez «Guayaquil» y «Ana Pérez», y nadie sabría a quién reclamarle el
+    equipo.
 
     El movimiento se registra como **traslado**, no como devolución: lo que hay
     que poder rastrear después es dónde acabó el equipo, no que alguien lo
     soltara."""
-    destino = Ubicacion.objects.create(
-        sede=Sede.objects.create(nombre="Sucursal Machala"), nombre="Bodega TI"
-    )
-    activo = crear_activo(ubicacion=ubicacion)
+    destino = Sede.objects.create(nombre="Sucursal Machala", ciudad="Machala")
+    activo = crear_activo(sede=sede)
     ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
 
     ActivoService.asignar_custodio(
-        actor=admin, activo=activo, custodio=None, ubicacion=destino, motivo="Cierre de oficina"
+        actor=admin, activo=activo, custodio=None, sede=destino, motivo="Cierre de oficina"
     )
 
     activo.refresh_from_db()
     assert activo.custodio is None
-    assert activo.ubicacion_id == destino.id
+    assert activo.sede_id == destino.id
     assert activo.estado == Activo.Estado.EN_BODEGA
 
     movimiento = activo.movimientos.first()
@@ -552,15 +519,15 @@ def test_el_traslado_libera_al_responsable_y_sigue_siendo_un_traslado(
     # Quién lo tenía sobrevive al traslado: es lo que permite deslindar
     # responsabilidades sobre el equipo.
     assert movimiento.custodio_anterior == empleado
-    assert movimiento.ubicacion_nueva_id == destino.id
+    assert movimiento.sede_nueva_id == destino.id
 
 
 def test_devolver_sin_moverlo_de_sitio_sigue_siendo_una_devolucion(
-    admin, crear_activo, ubicacion, empleado
+    admin, crear_activo, sede, empleado
 ):
     """El tipo lo decide el cambio que se ve desde fuera: sin movimiento
     físico, lo que pasó es que alguien entregó el equipo."""
-    activo = crear_activo(ubicacion=ubicacion)
+    activo = crear_activo(sede=sede)
     ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
 
     ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None, motivo="Renuncia")
@@ -568,43 +535,42 @@ def test_devolver_sin_moverlo_de_sitio_sigue_siendo_una_devolucion(
     assert activo.movimientos.first().tipo == MovimientoActivo.Tipo.DEVOLUCION
 
 
-def test_asignar_sin_tocar_la_ubicacion_no_la_borra(admin, crear_activo, ubicacion, empleado):
+def test_asignar_sin_tocar_la_sede_no_la_borra(admin, crear_activo, sede, empleado):
     """Es el defecto que evita el centinela: con un solo valor para «no la
     toques» y «déjala vacía», cada entrega de equipo borraría en silencio dónde
     está."""
-    activo = crear_activo(ubicacion=ubicacion)
+    activo = crear_activo(sede=sede)
 
     ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
 
     activo.refresh_from_db()
-    assert activo.ubicacion_id == ubicacion.id
+    assert activo.sede_id == sede.id
 
 
-def test_se_puede_dejar_un_equipo_sin_ubicacion_explicitamente(admin, crear_activo, ubicacion):
-    activo = crear_activo(ubicacion=ubicacion)
+def test_se_puede_dejar_un_equipo_sin_sede_explicitamente(admin, crear_activo, sede):
+    activo = crear_activo(sede=sede)
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, ubicacion=None, motivo="Sin sitio")
+    ActivoService.asignar_custodio(actor=admin, activo=activo, sede=None, motivo="Sin sitio")
 
     activo.refresh_from_db()
-    assert activo.ubicacion_id is None
+    assert activo.sede_id is None
 
 
-def test_la_api_traslada_y_lo_cuenta_en_el_historial(cliente, crear_activo, ubicacion):
-    destino = Ubicacion.objects.create(
-        sede=Sede.objects.create(nombre="Sucursal Cuenca"), nombre="Oficina 2"
-    )
-    activo = crear_activo(ubicacion=ubicacion)
+def test_la_api_traslada_y_lo_cuenta_en_el_historial(cliente, crear_activo, sede):
+    destino = Sede.objects.create(nombre="Sucursal Cuenca", ciudad="Cuenca")
+    activo = crear_activo(sede=sede)
 
     respuesta = cliente.post(
         f"/api/v1/activos/{activo.id}/asignar/",
-        {"ubicacion": destino.id, "motivo": "Cambio de sede"},
+        {"sede": destino.id, "motivo": "Cambio de sede"},
         format="json",
     )
 
     assert respuesta.status_code == 200
-    assert respuesta.data["ubicacion"] == destino.id
+    assert respuesta.data["sede"] == destino.id
 
     historial = cliente.get(f"/api/v1/activos/{activo.id}/historial/").data
     traslado = historial["movimientos"][0]
-    assert traslado["ubicacion_anterior_nombre"] == ubicacion.nombre_completo
-    assert traslado["ubicacion_nueva_nombre"] == destino.nombre_completo
+    # El historial se lee en ciudades: «pasó de Quito a Cuenca».
+    assert traslado["sede_anterior_nombre"] == "Quito"
+    assert traslado["sede_nueva_nombre"] == "Cuenca"

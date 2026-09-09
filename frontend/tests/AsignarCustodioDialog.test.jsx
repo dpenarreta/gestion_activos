@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AsignarCustodioDialog } from "../src/components/activos/AsignarCustodioDialog/AsignarCustodioDialog";
@@ -17,8 +11,9 @@ const ACTIVO = {
   custodio_nombre: "María Salazar",
   departamento: 2,
   departamento_nombre: "Contabilidad",
-  ubicacion: 5,
-  ubicacion_nombre: "Sede Guayaquil · Bodega TI",
+  sede: 1,
+  sede_nombre: "Sede Quito Norte",
+  ciudad: "Quito",
 };
 
 const EMPLEADOS = [
@@ -37,44 +32,10 @@ const EMPLEADOS = [
 ];
 
 const SEDES = [
-  { id: 1, nombre: "Sede Guayaquil" },
-  { id: 2, nombre: "Sede Quito Norte" },
-];
-
-const UBICACIONES = [
-  {
-    id: 5,
-    sede: 1,
-    sede_nombre: "Sede Guayaquil",
-    nombre: "Bodega TI",
-    tipo: "bodega",
-    tipo_display: "Bodega",
-    detalle: "",
-    nombre_completo: "Sede Guayaquil · Bodega TI",
-  },
-  {
-    id: 9,
-    sede: 2,
-    sede_nombre: "Sede Quito Norte",
-    // Una bodega que no se llama «bodega»: cuando el sistema lo deducía del
-    // nombre, esta acababa clasificada como otra cosa y no había dónde
-    // corregirlo.
-    nombre: "Almacén de Operaciones",
-    tipo: "bodega",
-    tipo_display: "Bodega",
-    detalle: "",
-    nombre_completo: "Sede Quito Norte · Almacén de Operaciones",
-  },
-  {
-    id: 12,
-    sede: 2,
-    sede_nombre: "Sede Quito Norte",
-    nombre: "Oficina 302",
-    tipo: "oficina",
-    tipo_display: "Oficina",
-    detalle: "Piso 3",
-    nombre_completo: "Sede Quito Norte · Oficina 302",
-  },
+  { id: 1, nombre: "Sede Quito Norte", ciudad: "Quito" },
+  { id: 2, nombre: "Sede Guayaquil", ciudad: "Guayaquil" },
+  // Sin ciudad rellenada: responde con su nombre en vez de dejar un hueco.
+  { id: 3, nombre: "Sucursal Machala", ciudad: "" },
 ];
 
 vi.mock("../src/api/activosService", () => ({
@@ -96,9 +57,6 @@ vi.mock("../src/api/organizacionService", () => ({
     ),
   },
   sedesService: { list: vi.fn(() => Promise.resolve({ results: SEDES })) },
-  ubicacionesService: {
-    list: vi.fn(() => Promise.resolve({ results: UBICACIONES })),
-  },
 }));
 
 const { activosService } = await import("../src/api/activosService");
@@ -116,20 +74,13 @@ function abrir(activo = ACTIVO) {
 /** Entra al modo traslado y devuelve el desplegable de destino. */
 async function trasladar() {
   fireEvent.click(screen.getByLabelText("Trasladar de ubicación"));
-  return screen.findByLabelText("Bodega o área de destino");
-}
-
-/** Elige la sede por id, como hace el desplegable real. */
-function elegirSede(id) {
-  fireEvent.change(screen.getByLabelText("Sede de destino"), {
-    target: { value: String(id) },
-  });
+  return screen.findByLabelText("Sede de destino");
 }
 
 describe("Asignar o trasladar un activo", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("muestra de entrada quién lo tiene, de qué área y dónde está", async () => {
+  it("muestra de entrada quién lo tiene, de qué área y en qué ciudad está", async () => {
     /* Es lo primero que se comprueba antes de mover un equipo, y el registro
        que queda en el historial es «de esto a esto». */
     abrir();
@@ -137,20 +88,21 @@ describe("Asignar o trasladar un activo", () => {
     expect(await screen.findByText("Situación actual")).toBeInTheDocument();
     expect(screen.getAllByText("María Salazar").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Contabilidad").length).toBeGreaterThan(0);
-    expect(screen.getByText("Sede Guayaquil · Bodega TI")).toBeInTheDocument();
+    expect(screen.getByText("Quito")).toBeInTheDocument();
   });
 
-  it("dice «sin asignar» y «sin ubicación» cuando el equipo no los tiene", async () => {
+  it("dice «sin asignar» y «sin sede» cuando el equipo no los tiene", async () => {
     abrir({
       ...ACTIVO,
       custodio: null,
       custodio_nombre: null,
-      ubicacion: null,
-      ubicacion_nombre: null,
+      sede: null,
+      sede_nombre: null,
+      ciudad: null,
     });
 
     expect(await screen.findByText("Sin asignar")).toBeInTheDocument();
-    expect(screen.getByText("Sin ubicación registrada")).toBeInTheDocument();
+    expect(screen.getByText("Sin sede registrada")).toBeInTheDocument();
   });
 
   it("al elegir a una persona propone su área", async () => {
@@ -171,7 +123,7 @@ describe("Asignar o trasladar un activo", () => {
     );
   });
 
-  it("la entrega no toca la ubicación", async () => {
+  it("la entrega no toca la sede", async () => {
     abrir();
     await screen.findByText("Situación actual");
 
@@ -182,7 +134,7 @@ describe("Asignar o trasladar un activo", () => {
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
     const [, datos] = activosService.asignar.mock.calls[0];
-    expect(datos).not.toHaveProperty("ubicacion");
+    expect(datos).not.toHaveProperty("sede");
     expect(datos.custodio).toBe("7");
   });
 
@@ -194,12 +146,12 @@ describe("Asignar o trasladar un activo", () => {
   });
 });
 
-describe("Traslado de ubicación", () => {
+describe("Traslado de sede", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("no habla de personas: el destino de un traslado es un lugar", async () => {
-    /* El equipo pasa a una bodega o a un área, no a alguien. Preguntar por el
-       responsable aquí sugeriría que el traslado se lo cambia. */
+    /* El equipo pasa a una sede, no a alguien. Preguntar por el responsable
+       aquí sugeriría que el traslado se lo cambia. */
     abrir();
     await screen.findByText("Situación actual");
     await trasladar();
@@ -233,101 +185,55 @@ describe("Traslado de ubicación", () => {
   });
 
   it("arranca en la sede donde está el equipo", async () => {
-    /* Casi todos los traslados son dentro del mismo edificio; empezar con el
-       desplegable vacío obliga a recordar dónde estaba. */
+    /* Empezar con el desplegable vacío obliga a recordar dónde estaba. */
     abrir();
     await screen.findByText("Situación actual");
-    await trasladar();
+    const destino = await trasladar();
 
-    expect(screen.getByLabelText("Sede de destino")).toHaveValue("1");
+    expect(destino).toHaveValue("1");
   });
 
-  it("solo ofrece los lugares de la sede elegida", async () => {
-    /* Con varias sedes, «Bodega TI» aparece tantas veces como edificios haya y
-       las dos opciones se leen igual: elegir la de la ciudad equivocada manda
-       el equipo a buscar a 400 km. */
+  it("cuenta el traslado en ciudades: «de Quito a Guayaquil»", async () => {
+    /* El nombre interno de la sede no le dice nada a quien tiene que ir a
+       buscar el equipo. */
     abrir();
     await screen.findByText("Situación actual");
-    const lugar = await trasladar();
+    const destino = await trasladar();
 
-    expect(
-      within(lugar).getByRole("option", { name: /Bodega TI/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(lugar).queryByRole("option", { name: /Oficina 302/ }),
-    ).not.toBeInTheDocument();
+    fireEvent.change(destino, { target: { value: "2" } });
 
-    elegirSede(2);
-
-    expect(
-      within(lugar).getByRole("option", { name: /Almacén de Operaciones/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(lugar).queryByRole("option", { name: /Bodega TI/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("agrupa los lugares por lo que son, no por cómo se llaman", async () => {
-    /* «Almacén de Operaciones» es una bodega aunque no empiece por «bodega»:
-       el grupo sale del catálogo, que es donde se puede corregir. */
-    abrir();
-    await screen.findByText("Situación actual");
-    const lugar = await trasladar();
-
-    elegirSede(2);
-
-    const grupos = [...lugar.querySelectorAll("optgroup")];
-    expect(grupos.map((grupo) => grupo.label)).toEqual(["Bodega", "Oficina"]);
-    expect(grupos[0].textContent).toContain("Almacén de Operaciones");
-  });
-
-  it("cambiar de sede descarta el lugar que ya no pertenece a ella", async () => {
-    /* Si no, el formulario diría «Sede Quito Norte» y enviaría una bodega de
-       Guayaquil. */
-    abrir();
-    await screen.findByText("Situación actual");
-    const lugar = await trasladar();
-    fireEvent.change(lugar, { target: { value: "5" } });
-
-    elegirSede(2);
-
-    expect(lugar).toHaveValue("");
-  });
-
-  it("muestra el origen y el destino completos", async () => {
-    abrir();
-    await screen.findByText("Situación actual");
-    const lugar = await trasladar();
-
-    elegirSede(2);
-    fireEvent.change(lugar, { target: { value: "9" } });
-
-    // Sobre la línea del cambio y no sobre el texto suelto: el destino también
-    // aparece en el desplegable, y lo que se comprueba aquí es que se vea «de
-    // dónde a dónde».
     const cambio = document.querySelector(".situacion-actual__cambio");
-    expect(cambio).toHaveTextContent("Sede Guayaquil · Bodega TI");
-    expect(cambio).toHaveTextContent(
-      "Sede Quito Norte · Almacén de Operaciones",
-    );
+    expect(cambio).toHaveTextContent("Quito");
+    expect(cambio).toHaveTextContent("Guayaquil");
+  });
+
+  it("una sede sin ciudad se cuenta con su nombre, no con un hueco", async () => {
+    abrir();
+    await screen.findByText("Situación actual");
+    const destino = await trasladar();
+
+    fireEvent.change(destino, { target: { value: "3" } });
+
+    expect(
+      document.querySelector(".situacion-actual__cambio"),
+    ).toHaveTextContent("Sucursal Machala");
   });
 
   it("libera al responsable: el equipo pasa al lugar, no a alguien", async () => {
     /* Mover un equipo es sacárselo a quien lo tenía. Dejarlo asignado
-       produciría una ficha que dice a la vez «Almacén de Operaciones» y
-       «María Salazar», y nadie sabría a quién reclamarle el equipo. */
+       produciría una ficha que dice a la vez «Guayaquil» y «María Salazar», y
+       nadie sabría a quién reclamarle el equipo. */
     abrir();
     await screen.findByText("Situación actual");
-    const lugar = await trasladar();
+    const destino = await trasladar();
 
-    elegirSede(2);
-    fireEvent.change(lugar, { target: { value: "9" } });
+    fireEvent.change(destino, { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Registrar traslado" }));
 
     await waitFor(() =>
       expect(activosService.asignar).toHaveBeenCalledWith(1, {
         custodio: null,
-        ubicacion: "9",
+        sede: "2",
         motivo: "",
       }),
     );
@@ -336,10 +242,9 @@ describe("Traslado de ubicación", () => {
   it("el área no se toca: dice de quién es el presupuesto, no quién lo custodia", async () => {
     abrir();
     await screen.findByText("Situación actual");
-    const lugar = await trasladar();
+    const destino = await trasladar();
 
-    elegirSede(2);
-    fireEvent.change(lugar, { target: { value: "9" } });
+    fireEvent.change(destino, { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Registrar traslado" }));
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());

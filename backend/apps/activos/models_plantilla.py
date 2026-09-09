@@ -28,7 +28,7 @@ CAMPOS_DISPONIBLES = {
     "departamento": "Departamento",
     "fecha_adquisicion": "Fecha de adquisición",
     "custodio": "Código del custodio",
-    "ubicacion": "Ubicación",
+    "sede": "Sede",
     "criticidad": "Criticidad",
     "uso": "Uso",
     "fecha_ingreso": "Fecha de ingreso",

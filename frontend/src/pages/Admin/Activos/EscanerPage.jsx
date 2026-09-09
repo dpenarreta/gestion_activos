@@ -159,8 +159,8 @@ function ResultadoEscaneo({ ficha }) {
               </dd>
               <dt className="col-5 text-muted fw-normal">Área</dt>
               <dd className="col-7">{activo.departamento_nombre}</dd>
-              <dt className="col-5 text-muted fw-normal">Ubicación</dt>
-              <dd className="col-7">{activo.ubicacion || "—"}</dd>
+              <dt className="col-5 text-muted fw-normal">Ciudad</dt>
+              <dd className="col-7">{activo.ciudad || "—"}</dd>
             </dl>
           </div>
           <div className="col-md-6">

@@ -5,7 +5,6 @@ import {
   departamentosService,
   empleadosService,
   sedesService,
-  ubicacionesService,
 } from "../../../api/organizacionService";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
@@ -16,15 +15,11 @@ const MODOS = {
   TRASLADAR: "trasladar",
 };
 
-/**
- * Orden de los grupos del desplegable de destino.
- *
- * Las bodegas primero porque son el destino habitual de un traslado: un equipo
- * que se mueve casi siempre va a guardarse. El grupo se lee del catálogo, no
- * del nombre del sitio: «Bodega TI» y «Almacén de sistemas» son lo mismo y
- * solo uno empieza por «bodega».
- */
-const ORDEN_DE_TIPOS = ["bodega", "taller", "oficina", "area", "otro"];
+/** Dónde está una sede, dicho como lo diría una persona: «en Quito». */
+function donde(sede) {
+  if (!sede) return "";
+  return (sede.ciudad || "").trim() || sede.nombre;
+}
 
 /**
  * Entrega, devolución y traslado de un activo (RF-01).
@@ -33,24 +28,22 @@ const ORDEN_DE_TIPOS = ["bodega", "taller", "oficina", "area", "otro"];
  * distintas: **entregar** cambia de quién responde por el equipo, **trasladar**
  * cambia dónde está. Mezclarlas en un solo formulario obligaba a rellenar
  * campos que no venían al caso y, peor, dejaba dudas sobre qué se iba a
- * modificar: cambiar de bodega no debería tocar al custodio, ni al revés.
+ * modificar.
  *
- * Arriba va siempre la situación actual —quién lo tiene, de qué área y dónde
- * está—, porque es lo primero que se comprueba antes de mover un equipo y
- * porque el registro que queda en el historial es «de esto a esto»: sin ver el
- * punto de partida, el destino solo es la mitad del dato.
+ * Arriba va siempre la situación actual —quién lo tiene, de qué área y en qué
+ * ciudad está—, porque es lo primero que se comprueba antes de mover un equipo
+ * y porque el registro que queda en el historial es «de esto a esto»: sin ver
+ * el punto de partida, el destino solo es la mitad del dato.
  */
 export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [empleados, setEmpleados] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [sedes, setSedes] = useState([]);
-  const [ubicaciones, setUbicaciones] = useState([]);
 
   const [modo, setModo] = useState(MODOS.ASIGNAR);
   const [custodio, setCustodio] = useState(activo.custodio || "");
   const [departamento, setDepartamento] = useState(activo.departamento || "");
-  const [sede, setSede] = useState("");
-  const [ubicacion, setUbicacion] = useState(activo.ubicacion || "");
+  const [sede, setSede] = useState(activo.sede || "");
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,76 +61,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       .list({ activa: "true", page_size: 200 })
       .then((datos) => setSedes(datos.results ?? datos))
       .catch(() => setSedes([]));
-    ubicacionesService
-      .list({ activa: "true", page_size: 200 })
-      .then((datos) => {
-        const lista = datos.results ?? datos;
-        setUbicaciones(lista);
-        // El traslado arranca en la sede donde está el equipo: casi siempre se
-        // mueve dentro del mismo edificio, y empezar con el desplegable vacío
-        // obliga a recordar dónde estaba.
-        const actual = lista.find(
-          (u) => String(u.id) === String(activo.ubicacion),
-        );
-        if (actual) {
-          setSede(String(actual.sede));
-        }
-      })
-      .catch(() => setUbicaciones([]));
-  }, [activo.ubicacion]);
+  }, []);
 
   const empleadoElegido = useMemo(
     () => empleados.find((e) => String(e.id) === String(custodio)),
     [empleados, custodio],
   );
-  const ubicacionElegida = useMemo(
-    () => ubicaciones.find((u) => String(u.id) === String(ubicacion)),
-    [ubicaciones, ubicacion],
+  const sedeElegida = useMemo(
+    () => sedes.find((s) => String(s.id) === String(sede)),
+    [sedes, sede],
   );
-
-  /**
-   * El destino se elige en dos pasos —primero la sede, después el lugar— y no
-   * en una lista única. Con varias sedes, «Bodega TI» aparece tantas veces
-   * como edificios haya y las dos opciones se leen igual: elegir la de la
-   * ciudad equivocada manda el equipo a buscar a 400 km.
-   */
-  const lugaresDeLaSede = useMemo(
-    () => ubicaciones.filter((u) => String(u.sede) === String(sede)),
-    [ubicaciones, sede],
-  );
-
-  /** Los lugares de la sede, agrupados por lo que son. */
-  const grupos = useMemo(() => {
-    const porTipo = new Map();
-    for (const lugar of lugaresDeLaSede) {
-      const clave = lugar.tipo || "otro";
-      if (!porTipo.has(clave)) {
-        porTipo.set(clave, {
-          etiqueta: lugar.tipo_display || "Otros",
-          lugares: [],
-        });
-      }
-      porTipo.get(clave).lugares.push(lugar);
-    }
-    return [...porTipo.entries()]
-      .sort(
-        (a, b) => ORDEN_DE_TIPOS.indexOf(a[0]) - ORDEN_DE_TIPOS.indexOf(b[0]),
-      )
-      .map(([clave, grupo]) => ({ clave, ...grupo }));
-  }, [lugaresDeLaSede]);
-
-  function elegirSede(valor) {
-    setSede(valor);
-    // Un lugar de la sede anterior dejaría el formulario diciendo una cosa y
-    // enviando otra.
-    const sigueValiendo = ubicaciones.some(
-      (u) =>
-        String(u.id) === String(ubicacion) && String(u.sede) === String(valor),
-    );
-    if (!sigueValiendo) {
-      setUbicacion("");
-    }
-  }
 
   /**
    * Al elegir a una persona, el área se propone sola: un equipo entregado a
@@ -159,17 +92,13 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     setError(null);
     try {
       // Cada modo manda solo lo suyo. El traslado manda `custodio: null`
-      // porque mover un equipo es sacárselo a quien lo tenía: pasa a la bodega
-      // o al área de destino, y un lugar no responde por nada. El área sí se
-      // conserva —dice de quién es el presupuesto del equipo, no quién lo
-      // custodia—, así que no se envía.
+      // porque mover un equipo es sacárselo a quien lo tenía: pasa a la sede
+      // de destino, y una sede no responde por nada. El área sí se conserva
+      // —dice de quién es el presupuesto del equipo, no quién lo custodia—,
+      // así que no se envía.
       const datos =
         modo === MODOS.TRASLADAR
-          ? {
-              custodio: null,
-              ubicacion: ubicacion || null,
-              motivo,
-            }
+          ? { custodio: null, sede: sede || null, motivo }
           : {
               custodio: custodio || null,
               departamento: departamento || null,
@@ -188,7 +117,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     modo === MODOS.ASIGNAR && !custodio && Boolean(activo.custodio);
   const hayCambio =
     modo === MODOS.TRASLADAR
-      ? String(ubicacion || "") !== String(activo.ubicacion || "")
+      ? String(sede || "") !== String(activo.sede || "")
       : String(custodio || "") !== String(activo.custodio || "") ||
         String(departamento || "") !== String(activo.departamento || "");
 
@@ -217,10 +146,10 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           </dd>
           <dt>Área</dt>
           <dd>{activo.departamento_nombre || "—"}</dd>
-          <dt>Ubicación</dt>
+          <dt>Ciudad</dt>
           <dd>
-            {activo.ubicacion_nombre || (
-              <span className="text-muted">Sin ubicación registrada</span>
+            {activo.ciudad || (
+              <span className="text-muted">Sin sede registrada</span>
             )}
           </dd>
         </dl>
@@ -307,9 +236,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               ))}
             </select>
             <div className="form-text">
-              {/* La ubicación no se toca en este modo: entregar un equipo no lo
+              {/* La sede no se toca en este modo: entregar un equipo no lo
                   cambia de sitio. */}
-              La ubicación física no cambia con la entrega.
+              El equipo no cambia de sitio con la entrega.
             </div>
           </div>
         </>
@@ -332,51 +261,23 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               id="sede"
               className="form-select"
               value={sede}
-              onChange={(event) => elegirSede(event.target.value)}
+              onChange={(event) => setSede(event.target.value)}
             >
-              <option value="">Elija una sede…</option>
+              <option value="">Sin sede registrada</option>
               {sedes.map((unaSede) => (
                 <option key={unaSede.id} value={unaSede.id}>
                   {unaSede.nombre}
+                  {unaSede.ciudad ? ` — ${unaSede.ciudad}` : ""}
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label" htmlFor="ubicacion">
-              Bodega o área de destino
-            </label>
-            <select
-              id="ubicacion"
-              className="form-select"
-              value={ubicacion}
-              onChange={(event) => setUbicacion(event.target.value)}
-              disabled={!sede}
-            >
-              <option value="">
-                {sede ? "Elija el lugar…" : "Elija primero la sede"}
-              </option>
-              {/* Agrupados porque no son lo mismo: en una bodega el equipo
-                  está guardado, en un área está en uso. */}
-              {grupos.map((grupo) => (
-                <optgroup key={grupo.clave} label={grupo.etiqueta}>
-                  {grupo.lugares.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre}
-                      {u.detalle ? ` (${u.detalle})` : ""}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
             {hayCambio && (
+              // En ciudades, que es como se cuenta un traslado: «pasó de Quito
+              // a Guayaquil». El nombre interno de la sede no le dice nada a
+              // quien tiene que ir a buscar el equipo.
               <p className="situacion-actual__cambio">
-                {activo.ubicacion_nombre || "Sin ubicación"}{" "}
-                <span aria-hidden="true">→</span>{" "}
-                <strong>
-                  {ubicacionElegida?.nombre_completo || "Sin ubicación"}
-                </strong>
+                {activo.ciudad || "Sin sede"} <span aria-hidden="true">→</span>{" "}
+                <strong>{donde(sedeElegida) || "Sin sede"}</strong>
               </p>
             )}
             <div className="form-text">
@@ -396,7 +297,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           rows={2}
           placeholder={
             modo === MODOS.TRASLADAR
-              ? "Cambio de sede, reubicación de bodega, envío a sucursal…"
+              ? "Cambio de sede, envío a sucursal, cierre de oficina…"
               : "Ingreso de personal, cambio de área, devolución por renuncia…"
           }
           value={motivo}

@@ -232,11 +232,11 @@ export function ActivoDetalle() {
                   valor={activo.departamento_nombre}
                 />
                 {/* El área dice de quién es el presupuesto del equipo; la
-                    ubicación, dónde ir a buscarlo. */}
-                <Dato
-                  etiqueta="Ubicación"
-                  valor={activo.ubicacion_nombre || "—"}
-                />
+                    sede, dónde ir a buscarlo. La ciudad va aparte porque es la
+                    respuesta a «¿dónde está?»: el nombre interno de la sede no
+                    le dice nada a quien tiene que viajar. */}
+                <Dato etiqueta="Sede" valor={activo.sede_nombre || "—"} />
+                <Dato etiqueta="Ciudad" valor={activo.ciudad || "—"} />
                 <Dato etiqueta="Criticidad" valor={activo.criticidad_display} />
                 <Dato etiqueta="Uso" valor={activo.uso_display} />
               </dl>
@@ -528,7 +528,7 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
             <th>Movimiento</th>
             <th>Custodio</th>
             <th>Área</th>
-            <th>Ubicación</th>
+            <th>Ciudad</th>
             <th>Motivo</th>
             <th>Registró</th>
             <th>Acta</th>
@@ -555,8 +555,8 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
                 {/* El traslado físico también queda en el historial: antes se
                     veía dónde está el equipo, pero no cuándo se movió. */}
                 <Transicion
-                  anterior={movimiento.ubicacion_anterior_nombre}
-                  nuevo={movimiento.ubicacion_nueva_nombre}
+                  anterior={movimiento.sede_anterior_nombre}
+                  nuevo={movimiento.sede_nueva_nombre}
                 />
               </td>
               <td>{movimiento.motivo || "—"}</td>

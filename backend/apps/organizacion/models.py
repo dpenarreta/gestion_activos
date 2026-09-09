@@ -90,7 +90,11 @@ class Sede(BaseModel):
         unique=True,
         help_text="Cómo se la nombra internamente. Ej.: «Sede Quito Norte».",
     )
-    ciudad = models.CharField(max_length=120, blank=True)
+    ciudad = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Es lo que se muestra al decir dónde está un equipo. Ej.: «Quito».",
+    )
     direccion = models.CharField(max_length=200, blank=True)
     activa = models.BooleanField(default=True)
 
@@ -102,9 +106,33 @@ class Sede(BaseModel):
     def __str__(self) -> str:
         return self.nombre
 
+    @property
+    def donde(self) -> str:
+        """Dónde está, para quien pregunta por un equipo.
+
+        La ciudad, que es la respuesta útil —«está en Quito»—, con el nombre de
+        la sede como respaldo: una sede sin ciudad rellenada dejaría el dato en
+        blanco, y un hueco se lee como «no se sabe dónde está» cuando sí se
+        sabe.
+        """
+        return self.ciudad.strip() or self.nombre
+
 
 class Ubicacion(BaseModel):
-    """Lugar físico donde está el equipo (§4.1 del documento funcional).
+    """Historia congelada: el nivel de bodega dentro de una sede, ya retirado.
+
+    Un equipo se ubica ahora por **sede**, y dónde está se responde con su
+    ciudad. Este segundo nivel obligaba a elegir dos veces en cada traslado y a
+    inventar una bodega para cada sitio donde hubiera un equipo, con lo que el
+    catálogo se llenaba de entradas como «Piso 1» que no dicen nada.
+
+    El modelo se conserva porque los movimientos anteriores al cambio se
+    registraron entre bodegas: borrarlo dejaría sin nombre traslados que
+    alguien firmó. No se crea ni se edita desde ninguna pantalla.
+
+    ---
+
+    Lo que sigue es la razón por la que existió (§4.1 del documento funcional).
 
     Es un catálogo y no el texto libre que había antes porque «Bodega TI»,
     «bodega de TI» y «Bodega  TI» son el mismo sitio para una persona y tres
