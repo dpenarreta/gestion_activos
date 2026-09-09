@@ -128,7 +128,7 @@ export function TiposDispositivoList() {
                   {puedeEditar && (
                     <button
                       type="button"
-                      className="btn btn-accion btn-sm"
+                      className="btn btn-outline-primary btn-sm"
                       onClick={() => setEnEdicion(tipo)}
                     >
                       Editar

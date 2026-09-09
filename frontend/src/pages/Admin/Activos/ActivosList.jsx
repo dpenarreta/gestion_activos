@@ -412,7 +412,7 @@ export function ActivosList() {
                 <td>
                   <Link
                     to={`/admin/activos/${activo.id}`}
-                    className="btn btn-accion btn-sm"
+                    className="btn btn-outline-primary btn-sm"
                   >
                     Ver ficha
                   </Link>

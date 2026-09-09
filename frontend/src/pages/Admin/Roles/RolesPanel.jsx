@@ -80,7 +80,7 @@ export function RolesPanel() {
                   <div className="d-flex gap-2">
                     <Link
                       to={`/admin/roles/${role.id}`}
-                      className="btn btn-accion btn-sm"
+                      className="btn btn-outline-primary btn-sm"
                     >
                       {puedeEditar ? "Editar" : "Ver"}
                     </Link>

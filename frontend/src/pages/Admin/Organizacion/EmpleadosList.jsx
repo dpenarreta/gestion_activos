@@ -138,7 +138,7 @@ export function EmpleadosList() {
                 <td>
                   <Link
                     to={`/admin/organizacion/empleados/${empleado.id}`}
-                    className="btn btn-accion btn-sm"
+                    className="btn btn-outline-primary btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>

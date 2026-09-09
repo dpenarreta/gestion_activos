@@ -128,7 +128,7 @@ export function UsersList() {
                   <div className="d-flex gap-2 flex-wrap">
                     <Link
                       to={`/admin/users/${user.id}`}
-                      className="btn btn-accion btn-sm"
+                      className="btn btn-outline-primary btn-sm"
                     >
                       Editar
                     </Link>

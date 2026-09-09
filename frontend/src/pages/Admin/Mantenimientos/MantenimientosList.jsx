@@ -257,7 +257,7 @@ export function MantenimientosList() {
                       <>
                         <Link
                           to={`/admin/mantenimientos/${mantenimiento.id}`}
-                          className="btn btn-accion btn-sm"
+                          className="btn btn-outline-primary btn-sm"
                         >
                           Editar
                         </Link>

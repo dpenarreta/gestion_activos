@@ -119,68 +119,50 @@ a {
 }
 
 /*
- * Acción de una fila: azul sólido, no gris con borde.
+ * Contorno azul: el tono del tema, no el plano de Bootstrap.
  *
- * «Ver ficha» y «Editar» son *la* acción de cada fila —lo que se viene a
- * hacer a un listado— y estaban dibujados con el gris de menor jerarquía que
- * usan «Cancelar» y «Volver». Aun con el contraste corregido seguían leyéndose
- * como el botón apagado de la fila: había que buscarlos.
+ * `btn-outline-primary` pinta el texto con el azul de marca, pensado para
+ * fondo claro: sobre el oscuro da 3,3:1 —por debajo del 4,5:1 de WCAG AA— y
+ * «Escanear» o «Carga masiva» quedan a medio camino entre legible y apagado.
+ * `--state-info` es ese mismo azul aclarado en modo oscuro, donde sube a
+ * 7,0:1; en claro no cambia.
  *
- * Se usa `btn-primary` a través de esta clase, y no el contorno azul, porque
- * sobre el fondo oscuro el azul del tema como *texto* da 3,3:1 —peor que el
- * gris que venía— mientras que como *fondo*, con texto blanco encima, pasa el
- * 4,5:1 de WCAG AA. El color sale del tema, así que sigue a la marca.
+ * Es también el dibujo de la acción de cada fila («Ver ficha», «Editar»), que
+ * antes iba con el gris de menor jerarquía de «Cancelar» y «Volver» y se leía
+ * como el botón apagado de la fila.
  */
-.btn-accion {
-  --bs-btn-color: #fff;
-  --bs-btn-bg: var(--color-buttons, #0d6efd);
-  --bs-btn-border-color: var(--color-buttons, #0d6efd);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: color-mix(
-    in srgb,
-    var(--color-buttons, #0d6efd) 85%,
-    #000
-  );
-  --bs-btn-hover-border-color: color-mix(
-    in srgb,
-    var(--color-buttons, #0d6efd) 85%,
-    #000
-  );
-  --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: color-mix(
-    in srgb,
-    var(--color-buttons, #0d6efd) 75%,
-    #000
-  );
-  --bs-btn-active-border-color: color-mix(
-    in srgb,
-    var(--color-buttons, #0d6efd) 75%,
-    #000
-  );
+.btn-outline-primary {
+  --bs-btn-color: var(--state-info);
+  --bs-btn-border-color: var(--state-info);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-info);
+  --bs-btn-hover-border-color: var(--state-info);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-info);
+  --bs-btn-active-border-color: var(--state-info);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
 }
 
 /*
- * Exportar tiene color propio: naranja.
+ * Exportar: mismo dibujo de contorno, en naranja.
  *
  * No es una acción más de la barra —saca datos del sistema a un archivo que
- * luego circula por correo— y conviene que se distinga de un vistazo de las
- * que se quedan dentro. El naranja va de fondo con texto oscuro (6,6:1), no de
- * texto sobre el fondo oscuro, donde no llegaría al 4,5:1.
- *
- * Es un color semántico, no de marca: por eso no sale del tema configurable.
+ * después circula por correo— y conviene que se distinga de un vistazo de las
+ * que se quedan dentro. El icono va del mismo color que el texto, que es lo
+ * que hace que se lea como un botón y no como un icono pegado a una etiqueta.
  */
 .btn-exportar {
-  --bs-btn-color: #1a1d20;
-  --bs-btn-bg: #fd7e14;
-  --bs-btn-border-color: #fd7e14;
-  --bs-btn-hover-color: #1a1d20;
-  --bs-btn-hover-bg: #ff8f33;
-  --bs-btn-hover-border-color: #ff8f33;
-  --bs-btn-active-color: #1a1d20;
-  --bs-btn-active-bg: #e06f0c;
-  --bs-btn-active-border-color: #e06f0c;
+  --bs-btn-color: var(--state-export);
+  --bs-btn-border-color: var(--state-export);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-export);
+  --bs-btn-hover-border-color: var(--state-export);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-export);
+  --bs-btn-active-border-color: var(--state-export);
   --bs-btn-disabled-color: var(--border-color);
-  --bs-btn-disabled-bg: transparent;
   --bs-btn-disabled-border-color: var(--border-color);
 }
 

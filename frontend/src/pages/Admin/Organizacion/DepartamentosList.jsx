@@ -107,7 +107,7 @@ export function DepartamentosList() {
                 <td>
                   <Link
                     to={`/admin/organizacion/departamentos/${departamento.id}`}
-                    className="btn btn-accion btn-sm"
+                    className="btn btn-outline-primary btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>
