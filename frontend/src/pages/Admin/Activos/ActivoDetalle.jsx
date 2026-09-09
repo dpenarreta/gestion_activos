@@ -528,6 +528,7 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
             <th>Movimiento</th>
             <th>Custodio</th>
             <th>Área</th>
+            <th>Ubicación</th>
             <th>Motivo</th>
             <th>Registró</th>
             <th>Acta</th>
@@ -548,6 +549,14 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
                 <Transicion
                   anterior={movimiento.departamento_anterior_nombre}
                   nuevo={movimiento.departamento_nuevo_nombre}
+                />
+              </td>
+              <td>
+                {/* El traslado físico también queda en el historial: antes se
+                    veía dónde está el equipo, pero no cuándo se movió. */}
+                <Transicion
+                  anterior={movimiento.ubicacion_anterior_nombre}
+                  nuevo={movimiento.ubicacion_nueva_nombre}
                 />
               </td>
               <td>{movimiento.motivo || "—"}</td>

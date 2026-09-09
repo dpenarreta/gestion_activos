@@ -484,3 +484,67 @@ def test_el_listado_puede_separar_lo_operativo_de_lo_que_salio(cliente, admin, c
     assert operativos["count"] == 1
     assert fuera["count"] == 1
     assert fuera["results"][0]["estado"] == "perdido"
+
+
+# --- Traslado de ubicación (RF-01) ---
+
+
+def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(
+    admin, crear_activo, ubicacion
+):
+    """Un equipo cambia de bodega y antes solo se veía dónde está ahora: nadie
+    podía reconstruir cuándo se movió ni por qué. En un inventario repartido en
+    varias sedes, eso es justo lo que hay que poder auditar."""
+    destino = Ubicacion.objects.create(sede="Sucursal Guayaquil", nombre="Bodega TI")
+    activo = crear_activo(ubicacion=ubicacion)
+
+    ActivoService.asignar_custodio(
+        actor=admin, activo=activo, ubicacion=destino, motivo="Traslado a la sucursal"
+    )
+
+    movimiento = activo.movimientos.exclude(tipo=MovimientoActivo.Tipo.ALTA).first()
+    assert movimiento.ubicacion_anterior_id == ubicacion.id
+    assert movimiento.ubicacion_nueva_id == destino.id
+    assert movimiento.motivo == "Traslado a la sucursal"
+    activo.refresh_from_db()
+    assert activo.ubicacion_id == destino.id
+
+
+def test_asignar_sin_tocar_la_ubicacion_no_la_borra(admin, crear_activo, ubicacion, empleado):
+    """Es el defecto que evita el centinela: con un solo valor para «no la
+    toques» y «déjala vacía», cada entrega de equipo borraría en silencio dónde
+    está."""
+    activo = crear_activo(ubicacion=ubicacion)
+
+    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+
+    activo.refresh_from_db()
+    assert activo.ubicacion_id == ubicacion.id
+
+
+def test_se_puede_dejar_un_equipo_sin_ubicacion_explicitamente(admin, crear_activo, ubicacion):
+    activo = crear_activo(ubicacion=ubicacion)
+
+    ActivoService.asignar_custodio(actor=admin, activo=activo, ubicacion=None, motivo="Sin sitio")
+
+    activo.refresh_from_db()
+    assert activo.ubicacion_id is None
+
+
+def test_la_api_traslada_y_lo_cuenta_en_el_historial(cliente, crear_activo, ubicacion):
+    destino = Ubicacion.objects.create(sede="Sucursal Cuenca", nombre="Oficina 2")
+    activo = crear_activo(ubicacion=ubicacion)
+
+    respuesta = cliente.post(
+        f"/api/v1/activos/{activo.id}/asignar/",
+        {"ubicacion": destino.id, "motivo": "Cambio de sede"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["ubicacion"] == destino.id
+
+    historial = cliente.get(f"/api/v1/activos/{activo.id}/historial/").data
+    traslado = historial["movimientos"][0]
+    assert traslado["ubicacion_anterior_nombre"] == ubicacion.nombre_completo
+    assert traslado["ubicacion_nueva_nombre"] == destino.nombre_completo

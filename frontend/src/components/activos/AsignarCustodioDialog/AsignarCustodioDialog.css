@@ -1,0 +1,60 @@
+/*
+ * Bloque de «situación actual» del diálogo de asignación y traslado.
+ *
+ * Va antes de los campos y con fondo propio para que se lea como contexto y no
+ * como algo que se puede editar: es de dónde parte el movimiento, y el
+ * historial guarda «de esto a esto».
+ */
+.situacion-actual {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.situacion-actual__titulo {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.situacion-actual__datos {
+  display: grid;
+  grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr);
+  gap: 0.3rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.situacion-actual__datos dt {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.situacion-actual__datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* El «de → a» del traslado: es la frase que resume lo que se va a registrar. */
+.situacion-actual__cambio {
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-alt);
+  border-radius: var(--border-radius, 0.5rem);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 36em) {
+  .situacion-actual__datos {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .situacion-actual__datos dd {
+    margin-bottom: 0.5rem;
+  }
+}

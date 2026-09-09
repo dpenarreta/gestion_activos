@@ -16,6 +16,10 @@ from .barcode import generar_codigo_barras
 from .models import ESTADOS_ASIGNABLES, ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo
 
 MODULO = "activos"
+
+#: Distingue «no toques la ubicación» de «déjala vacía». Sin él, una
+#: reasignación normal borraría en silencio dónde está el equipo.
+SIN_CAMBIO = object()
 MAX_REINTENTOS_CODIGO = 5
 
 
@@ -116,13 +120,25 @@ class ActivoService:
     @staticmethod
     @transaction.atomic
     def asignar_custodio(
-        *, actor, activo: Activo, custodio=None, departamento=None, motivo="", context=None
+        *,
+        actor,
+        activo: Activo,
+        custodio=None,
+        departamento=None,
+        ubicacion=SIN_CAMBIO,
+        motivo="",
+        context=None,
     ) -> Activo:
-        """Cambia el responsable y/o el área, dejando la traza de RF-03.
+        """Cambia el responsable, el área y/o la ubicación, con la traza de RF-03.
 
         `custodio=None` es una devolución a bodega, no "sin cambios": el
         llamador que no quiere tocar el custodio simplemente no invoca este
         método.
+
+        `ubicacion`, en cambio, sí distingue las dos cosas con un centinela:
+        un traslado puede querer **quitar** la ubicación (`None`) y una
+        reasignación normal no debe tocarla. Con un solo valor para ambos
+        casos, cada entrega de equipo borraría en silencio dónde está.
         """
         if not activo.esta_operativo:
             # Antes esto se colaba: el método no tocaba el estado de un equipo
@@ -141,11 +157,14 @@ class ActivoService:
 
         custodio_anterior = activo.custodio
         departamento_anterior = activo.departamento
+        ubicacion_anterior = activo.ubicacion
         estado_anterior = activo.estado
 
         activo.custodio = custodio
         if departamento is not None:
             activo.departamento = departamento
+        if ubicacion is not SIN_CAMBIO:
+            activo.ubicacion = ubicacion
 
         # Un equipo con responsable está en uso; sin responsable, vuelve a
         # bodega. No se toca el estado si está en mantenimiento, en garantía o
@@ -158,7 +177,9 @@ class ActivoService:
             # todavía no lo están.
             activo.estado = Activo.Estado.EN_USO if custodio else Activo.Estado.EN_BODEGA
 
-        activo.save(update_fields=["custodio", "departamento", "estado", "updated_at"])
+        activo.save(
+            update_fields=["custodio", "departamento", "ubicacion", "estado", "updated_at"]
+        )
 
         if custodio is not None:
             tipo_movimiento = MovimientoActivo.Tipo.ASIGNACION
@@ -176,6 +197,8 @@ class ActivoService:
             custodio_nuevo=custodio,
             departamento_anterior=departamento_anterior,
             departamento_nuevo=activo.departamento,
+            ubicacion_anterior=ubicacion_anterior,
+            ubicacion_nueva=activo.ubicacion,
             estado_anterior=estado_anterior,
             estado_nuevo=activo.estado,
         )
@@ -187,10 +210,12 @@ class ActivoService:
             previous_values={
                 "custodio_id": custodio_anterior.id if custodio_anterior else None,
                 "departamento_id": departamento_anterior.id,
+                "ubicacion_id": ubicacion_anterior.id if ubicacion_anterior else None,
             },
             new_values={
                 "custodio_id": custodio.id if custodio else None,
                 "departamento_id": activo.departamento_id,
+                "ubicacion_id": activo.ubicacion_id,
                 "motivo": motivo,
             },
             context=context,

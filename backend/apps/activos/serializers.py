@@ -55,6 +55,12 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
     departamento_nuevo_nombre = serializers.CharField(
         source="departamento_nuevo.nombre", read_only=True, default=None
     )
+    ubicacion_anterior_nombre = serializers.CharField(
+        source="ubicacion_anterior.nombre_completo", read_only=True, default=None
+    )
+    ubicacion_nueva_nombre = serializers.CharField(
+        source="ubicacion_nueva.nombre_completo", read_only=True, default=None
+    )
     registrado_por_nombre = serializers.CharField(
         source="registrado_por.username", read_only=True, default=None
     )
@@ -69,6 +75,8 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
             "custodio_nuevo_nombre",
             "departamento_anterior_nombre",
             "departamento_nuevo_nombre",
+            "ubicacion_anterior_nombre",
+            "ubicacion_nueva_nombre",
             "estado_anterior",
             "estado_nuevo",
             "motivo",
@@ -347,6 +355,13 @@ class AsignacionSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         default=None,
+    )
+    # Sin `default`: que el campo no venga significa «no muevas el equipo de
+    # sitio», y es distinto de mandarlo vacío para dejarlo sin ubicación.
+    ubicacion = serializers.PrimaryKeyRelatedField(
+        queryset=Ubicacion.objects.filter(activa=True),
+        required=False,
+        allow_null=True,
     )
     motivo = serializers.CharField(required=False, allow_blank=True, default="")
 

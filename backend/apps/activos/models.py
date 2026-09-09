@@ -335,6 +335,24 @@ class MovimientoActivo(BaseModel):
         blank=True,
         related_name="movimientos_como_departamento_nuevo",
     )
+    # La ubicación física también se mueve, y hasta ahora no quedaba en el
+    # historial: un equipo cambiaba de bodega y la ficha lo reflejaba, pero
+    # nadie podía reconstruir cuándo ni por qué. Para un inventario repartido
+    # en varias sedes, eso es justo lo que hay que poder auditar.
+    ubicacion_anterior = models.ForeignKey(
+        "organizacion.Ubicacion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="movimientos_como_origen",
+    )
+    ubicacion_nueva = models.ForeignKey(
+        "organizacion.Ubicacion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="movimientos_como_destino",
+    )
     estado_anterior = models.CharField(max_length=20, blank=True)
     estado_nuevo = models.CharField(max_length=20, blank=True)
     motivo = models.TextField(blank=True)
