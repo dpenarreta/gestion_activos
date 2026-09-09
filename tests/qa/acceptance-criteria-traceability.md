@@ -374,6 +374,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-025 | Sin credenciales reales versionadas | repository-hygiene.feature | No existen credenciales reales versionadas | No |
 | AC-026 | `.env.example` seguro existe | repository-hygiene.feature | Existen archivos .env.example seguros | No |
 
+## Puesta en marcha (§13, §21)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-PUE-001 | Los cuatro roles del §13 | puesta-en-marcha.feature | El sistema trae los cuatro roles del documento | Sí (pytest) |
+| AC-PUE-002 | Soporte no da de baja | puesta-en-marcha.feature | Soporte no puede dar de baja un activo | Sí (pytest) |
+| AC-PUE-003 | Soporte no borra evidencia | puesta-en-marcha.feature | Soporte no puede borrar evidencia | Sí (pytest) |
+| AC-PUE-004 | El supervisor no opera | puesta-en-marcha.feature | El supervisor aprueba pero no opera | Sí (pytest) |
+| AC-PUE-005 | Consulta es de solo lectura | puesta-en-marcha.feature | El rol de consulta no modifica nada | Sí (pytest) |
+| AC-PUE-006 | Plantilla, no imposición | puesta-en-marcha.feature | Los roles son una plantilla, no una imposición | Sí (pytest) |
+| AC-PUE-007 | Detecta DEBUG | puesta-en-marcha.feature | La revisión previa detecta DEBUG encendido | Sí (pytest) |
+| AC-PUE-008 | Detecta el correo falso | puesta-en-marcha.feature | La revisión avisa de que el correo no sale de verdad | Sí (pytest) |
+| AC-PUE-009 | Detecta cron caído | puesta-en-marcha.feature | La revisión detecta tareas programadas que no corren | No (verificado a mano) |
+| AC-PUE-010 | Recuerda el inventario | puesta-en-marcha.feature | La revisión recuerda el inventario inicial | Sí (pytest) |
+
 ## Usuarios, roles y permisos
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (legibilidad de las etiquetas).
+estado del sistema. Actualizado el 2026-09-09 (puesta en marcha).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -38,7 +38,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 10 | Cálculo de tiempos | ✅ | Los siete del documento, reconstruidos desde el historial (`apps.activos.tiempos`) |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ✅ | Criticidad de cuatro niveles y uso por función, además del tipo |
-| 13 | Usuarios y roles | ✅ | Roles configurables, 35 permisos |
+| 13 | Usuarios y roles | ✅ | Roles configurables, 37 permisos, y los cuatro roles del documento listos para crear (`crear_roles_iniciales`) |
 | 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, ubicación, sede, criticidad, uso y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ✅ | Los trece reportes, cada uno en Excel, CSV y PDF (`apps.reportes`) |

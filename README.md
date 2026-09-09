@@ -145,6 +145,8 @@ los detalles de conexión.
 | `python manage.py sembrar_datos_rendimiento` | `backend/` | Parque sintético para medir (solo en una base `*_perf`) |
 | `python manage.py medir_rendimiento` | `backend/` | Tiempo y consultas de las pantallas críticas |
 | `python manage.py prueba_de_carga` | `backend/` | Peticiones concurrentes contra un servidor en marcha |
+| `python manage.py crear_roles_iniciales` | `backend/` | Crea los cuatro roles del §13 con sus permisos |
+| `python manage.py verificar_despliegue` | `backend/` | Revisa qué falta para producción (falla si hay algo crítico) |
 | `pytest` | `backend/` | Suite de pruebas del backend |
 | `ruff check .` / `black .` / `isort .` | `backend/` | Lint y formato |
 | `npm run dev` | `frontend/` | Servidor de desarrollo (Vite) |
@@ -248,7 +250,7 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 473 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+- Backend: 486 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
   de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
@@ -261,6 +263,10 @@ el frontend React.
   completa en `docs/qa-strategy.md`.
 
 ## 14. Despliegue
+
+**Antes de desplegar, lea `docs/puesta-en-marcha.md`**: roles, correo, tareas
+programadas, copias de seguridad y carga del inventario real. Lo verificable se
+comprueba con `python manage.py verificar_despliegue`.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
