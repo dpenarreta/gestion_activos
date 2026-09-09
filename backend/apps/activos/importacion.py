@@ -12,7 +12,7 @@ porque nadie sabe cuál de los dos casos está mirando.
 
 Las referencias a catálogos (tipo, departamento, custodio) se resuelven por
 código, no por id: quien llena la plantilla trabaja con los códigos que ve en
-el sistema —"LAP", "TI", "EMP-0001"— y no con los identificadores internos de
+el sistema —"LAP", "TI", "TI-0001"— y no con los identificadores internos de
 la base de datos.
 """
 
@@ -63,21 +63,34 @@ class ErrorFila:
 
 @dataclass
 class ResultadoValidacion:
-    """Reporte de lo que se encontró en el archivo."""
+    """Reporte de lo que se encontró en el archivo.
+
+    Los hallazgos van en dos listas y no en una: `errores` impide importar,
+    `advertencias` no. Mezclarlos obligaría a elegir entre bloquear cargas
+    legítimas —dos equipos pueden llamarse igual— o callar cosas que quien
+    carga el archivo querría mirar antes de confirmar.
+    """
 
     filas_validas: list[dict] = field(default_factory=list)
     errores: list[ErrorFila] = field(default_factory=list)
+    advertencias: list[ErrorFila] = field(default_factory=list)
     total_filas: int = 0
 
     @property
     def es_importable(self) -> bool:
         return not self.errores and bool(self.filas_validas)
 
+    @property
+    def filas_con_error(self) -> int:
+        return len({e.fila for e in self.errores})
+
     def as_dict(self) -> dict:
         return {
             "total_filas": self.total_filas,
             "filas_validas": len(self.filas_validas),
             "errores": [e.as_dict() for e in self.errores],
+            "advertencias": [a.as_dict() for a in self.advertencias],
+            "filas_con_error": self.filas_con_error,
             "es_importable": self.es_importable,
             # Muestra de lo que se importará, para que el usuario reconozca su
             # propio archivo antes de confirmar.
@@ -95,6 +108,25 @@ class ResultadoValidacion:
                 for f in self.filas_validas[:10]
             ],
         }
+
+
+def _sin_repetidos(hallazgos: list[ErrorFila]) -> list[ErrorFila]:
+    """Quita las líneas idénticas conservando el orden.
+
+    Un campo obligatorio que además no existe en el catálogo lo señalan dos
+    comprobaciones distintas —la de obligatoriedad y la que lo resuelve—, y el
+    reporte mostraba «Departamento: Es obligatorio.» dos veces en la misma
+    fila. Leído desde fuera parece que hay dos problemas donde hay uno.
+    """
+    vistos = set()
+    unicos = []
+    for hallazgo in hallazgos:
+        clave = (hallazgo.fila, hallazgo.columna, hallazgo.mensaje)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicos.append(hallazgo)
+    return unicos
 
 
 def _texto(valor) -> str:
@@ -243,6 +275,15 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
     series_existentes = set(Activo.objects.values_list("numero_serie", flat=True))
     series_en_archivo: dict[str, int] = {}
+    # El nombre no es un identificador: dos equipos pueden llamarse «Laptop
+    # Ventas» sin que nada esté mal. Repetirlo sí hace que el inventario no se
+    # pueda leer de un vistazo —dos filas idénticas salvo la serie—, así que se
+    # avisa y se deja pasar. La serie, en cambio, sí identifica y bloquea.
+    nombres_existentes = {
+        nombre.strip().lower(): codigo
+        for nombre, codigo in Activo.objects.values_list("nombre", "codigo_barras")
+    }
+    nombres_en_archivo: dict[str, int] = {}
 
     for numero_fila, fila in enumerate(filas, start=2):
         if numero_fila - 1 > MAX_FILAS:
@@ -265,6 +306,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         resultado.total_filas += 1
         errores_fila: list[ErrorFila] = []
+        advertencias_fila: list[ErrorFila] = []
 
         datos = {"_fila": numero_fila}
 
@@ -277,6 +319,34 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         for clave in ("nombre", "marca", "modelo", "numero_serie"):
             datos[clave] = _texto(celda(clave))
+
+        nombre = datos.get("nombre", "")
+        if nombre:
+            clave_nombre = nombre.lower()
+            if clave_nombre in nombres_en_archivo:
+                advertencias_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("nombre", "Nombre del activo"),
+                        f"El nombre {nombre!r} ya está en la fila "
+                        f"{nombres_en_archivo[clave_nombre]} de este mismo archivo. "
+                        "Se importará igual: revise que no sea la misma fila dos veces.",
+                    )
+                )
+            elif clave_nombre in nombres_existentes:
+                advertencias_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("nombre", "Nombre del activo"),
+                        f"Ya hay un activo llamado {nombre!r} "
+                        f"({nombres_existentes[clave_nombre]}). Se importará igual.",
+                    )
+                )
+            # Se registra siempre, aunque el nombre ya existiera en el
+            # inventario: si no, la segunda fila del archivo con ese nombre
+            # volvería a señalar al activo de la base y no a la fila de al
+            # lado, que es la que hay que mirar.
+            nombres_en_archivo.setdefault(clave_nombre, numero_fila)
 
         serie = datos.get("numero_serie", "")
         if serie:
@@ -484,9 +554,12 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         datos["especificaciones"] = especificaciones
 
         if errores_fila:
-            resultado.errores.extend(errores_fila)
+            # Las advertencias de una fila que no va a entrar sobran: lo que
+            # hay que mirar es por qué no entra.
+            resultado.errores.extend(_sin_repetidos(errores_fila))
         else:
             resultado.filas_validas.append(datos)
+            resultado.advertencias.extend(advertencias_fila)
 
     libro.close()
     return resultado

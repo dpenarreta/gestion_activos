@@ -4,6 +4,13 @@ from .models import Departamento, Empleado, Sede
 
 
 class DepartamentoSerializer(serializers.ModelSerializer):
+    # Sin los validadores automáticos de unicidad: se disparan antes que
+    # `validate_<campo>` y contestan «Ya existe … con este nombre», sin decir
+    # con cuál se choca ni distinguir mayúsculas de forma predecible. Los
+    # métodos de abajo hacen la comprobación completa y con un mensaje que
+    # lleva a corregirlo.
+    nombre = serializers.CharField(max_length=120, validators=[])
+    codigo = serializers.CharField(max_length=20, validators=[])
     responsable_nombre = serializers.CharField(source="responsable.nombre_completo", read_only=True)
     total_activos = serializers.IntegerField(read_only=True)
     total_empleados = serializers.IntegerField(read_only=True)
@@ -25,8 +32,38 @@ class DepartamentoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def validate_nombre(self, value):
+        """Rechaza el duplicado sin distinguir mayúsculas y diciendo con quién
+        choca.
+
+        La restricción única de la base sí distingue: «Contabilidad» y
+        «CONTABILIDAD» pasarían las dos y quedarían dos áreas indistinguibles
+        en el desplegable, con los activos repartidos entre ambas.
+        """
+        nombre = (value or "").strip()
+        existente = Departamento.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"Ya existe un área llamada «{choque.nombre}» (código {choque.codigo})."
+            )
+        return nombre
+
     def validate_codigo(self, value):
-        return value.strip().upper()
+        """El código identifica al área en la plantilla de carga y en el código
+        del empleado: repetido, deja de identificar nada."""
+        codigo = (value or "").strip().upper()
+        existente = Departamento.objects.filter(codigo__iexact=codigo)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"El código «{codigo}» ya lo usa el área «{choque.nombre}»."
+            )
+        return codigo
 
 
 class SedeSerializer(serializers.ModelSerializer):

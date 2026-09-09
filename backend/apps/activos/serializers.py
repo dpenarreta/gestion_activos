@@ -8,6 +8,13 @@ from .tiempos import calcular as calcular_tiempos
 
 
 class TipoDispositivoSerializer(serializers.ModelSerializer):
+    # Sin los validadores automáticos de unicidad: se disparan antes que
+    # `validate_<campo>` y contestan «Ya existe … con este nombre», sin decir
+    # con cuál se choca ni distinguir mayúsculas de forma predecible. Los
+    # métodos de abajo hacen la comprobación completa y con un mensaje que
+    # lleva a corregirlo.
+    nombre = serializers.CharField(max_length=120, validators=[])
+    codigo = serializers.CharField(max_length=10, validators=[])
     total_activos = serializers.IntegerField(read_only=True)
     tiene_politica = serializers.SerializerMethodField()
 
@@ -29,14 +36,46 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
     def get_tiene_politica(self, obj) -> bool:
         return hasattr(obj, "politica")
 
+    def validate_nombre(self, value):
+        """Rechaza el duplicado sin distinguir mayúsculas y diciendo con cuál
+        choca.
+
+        La restricción única de la base sí distingue: «Laptop» y «LAPTOP»
+        pasarían las dos y quedarían dos tipos indistinguibles en el
+        desplegable, cada uno con su política de renovación y sus activos.
+        """
+        nombre = (value or "").strip()
+        existente = TipoDispositivo.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"Ya existe un tipo llamado «{choque.nombre}» (código {choque.codigo})."
+            )
+        return nombre
+
     def validate_codigo(self, value):
         """El código va dentro del código de barras, que se lee con lectores
         1D: se normaliza a mayúsculas y se restringe a alfanuméricos para que
-        quepa en el subconjunto B de Code 128 sin escapes."""
+        quepa en el subconjunto B de Code 128 sin escapes.
+
+        Repetido sería peor que un duplicado más: es lo que numera las
+        etiquetas (`GA-LAP-000007`), así que dos tipos con el mismo código
+        producirían códigos de barras que no distinguen de qué equipo son.
+        """
         limpio = value.strip().upper()
         if not limpio.isalnum():
             raise serializers.ValidationError(
                 "El código solo admite letras y dígitos (va codificado en la etiqueta)."
+            )
+        existente = TipoDispositivo.objects.filter(codigo__iexact=limpio)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"El código «{limpio}» ya lo usa el tipo «{choque.nombre}»."
             )
         return limpio
 

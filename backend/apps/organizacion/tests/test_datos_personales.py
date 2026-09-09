@@ -70,15 +70,43 @@ def test_el_codigo_se_genera_solo_si_no_se_indica(cliente, departamento):
     )
 
     assert respuesta.status_code == 201
-    assert respuesta.json()["codigo_empleado"] == "EMP-0001"
+    assert respuesta.json()["codigo_empleado"] == f"{departamento.codigo}-0001"
 
 
-def test_los_codigos_generados_son_correlativos(db, departamento):
+def test_el_codigo_lleva_delante_el_area_de_la_persona(db, departamento):
+    """Antes era un correlativo global —«EMP-0007»— que no decía nada de la
+    persona: para saber de qué área era había que abrir su ficha. El código
+    aparece en actas de entrega y en la plantilla de carga, donde ubicar de un
+    vistazo a quien responde por un equipo es justamente lo que se necesita."""
     primero = Empleado.objects.create(nombres="Ana", apellidos="Pérez", departamento=departamento)
     segundo = Empleado.objects.create(nombres="Luis", apellidos="Torres", departamento=departamento)
 
-    assert primero.codigo_empleado == "EMP-0001"
-    assert segundo.codigo_empleado == "EMP-0002"
+    assert primero.codigo_empleado == f"{departamento.codigo}-0001"
+    assert segundo.codigo_empleado == f"{departamento.codigo}-0002"
+
+
+def test_cada_area_numera_por_su_cuenta(db, departamento):
+    """El número dice cuántas personas lleva registradas esa área, no cuántas
+    lleva la empresa: dos áreas creciendo a la vez no se pisan el correlativo."""
+    otra = Departamento.objects.create(nombre="Contabilidad", codigo="CONT")
+
+    Empleado.objects.create(nombres="Ana", apellidos="Pérez", departamento=departamento)
+    de_otra_area = Empleado.objects.create(nombres="Rosa", apellidos="Díaz", departamento=otra)
+
+    assert de_otra_area.codigo_empleado == "CONT-0001"
+
+
+def test_el_correlativo_no_se_rompe_al_pasar_de_nueve(db, departamento):
+    """Tomar el máximo por orden alfabético devolvería el número equivocado:
+    «TI-0010» ordena antes que «TI-0009»."""
+    for numero in range(1, 11):
+        Empleado.objects.create(
+            nombres=f"Persona {numero}", apellidos="Prueba", departamento=departamento
+        )
+
+    ultimo = Empleado.objects.create(nombres="Once", apellidos="Prueba", departamento=departamento)
+
+    assert ultimo.codigo_empleado == f"{departamento.codigo}-0011"
 
 
 # --- Auditoría -------------------------------------------------------------

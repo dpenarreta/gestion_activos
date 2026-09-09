@@ -59,7 +59,7 @@ EJEMPLOS = [
         "numero_serie": "DL5440-00002",
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
-        "custodio": "EMP-0001",
+        "custodio": "TI-0001",
         "sede": "Matriz Quito",
         "criticidad": "Alta",
         "uso": "Administrativo",

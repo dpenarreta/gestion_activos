@@ -82,7 +82,7 @@ Base: `/api/v1/activos/`
 | GET | `/activos/{id}/etiqueta/medicion/` | `activos.imprimir_etiqueta` | Geometría del símbolo impreso: módulo, zona muda y altura |
 | POST | `/activos/etiquetas/` | `activos.imprimir_etiqueta` | Lote de etiquetas en un solo trabajo (`{"ids": [...]}`, máx. 200) |
 | GET | `/activos/plantilla-importacion/` | `activos.crear` | Plantilla .xlsx de carga masiva, con los catálogos vigentes |
-| POST | `/activos/importar/` | `activos.crear` | Multipart con `archivo` (.xlsx, máx. 5 MB) y `confirmar`. Sin confirmar solo valida y devuelve el reporte; con `confirmar=true` importa (todo o nada) |
+| POST | `/activos/importar/` | `activos.crear` | Multipart con `archivo` (.xlsx, máx. 5 MB) y `confirmar`. Sin confirmar solo valida y devuelve el reporte —`errores` (bloquean), `advertencias` (no bloquean) y `filas_con_error`, todos con fila y columna—; con `confirmar=true` importa (todo o nada) |
 | GET | `/activos/columnas-plantilla/` | `activos.ver` | Columnas configuradas de la plantilla |
 | POST/PATCH/DELETE | `/activos/columnas-plantilla/` | `activos.editar` | Configura qué se pide. Clave: un campo del activo o `espec:<Nombre>` para una característica propia. Las estructurales (tipo, nombre, serie, departamento, fecha) no se desactivan ni se eliminan |
 | GET | `/activos/columnas-plantilla/campos-disponibles/` | `activos.ver` | Campos que una columna puede llenar, con cuáles ya están en uso |
@@ -169,6 +169,18 @@ Base: `/api/v1/organizacion/`
 | GET/POST/PATCH | `/organizacion/sedes/` | `organizacion.ver` / `organizacion.editar` | Edificios, locales o ciudades. Filtros: `q`, `activa` |
 | GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
 
+El **código del empleado** se genera con el código de su área delante y el
+número que ocupa dentro de ella: `TI-0001`, `CONT-0002`. Antes era un
+correlativo global —`EMP-0007`— que no decía nada de la persona; el código
+aparece en actas de entrega y en la plantilla de carga, donde ubicar de un
+vistazo a quien responde por un equipo es justamente lo que se necesita. Se
+puede escribir uno propio: solo se genera si el campo llega vacío.
+
+Los duplicados de **nombre y código** —de áreas y de tipos de dispositivo— se
+rechazan sin distinguir mayúsculas y diciendo con cuál se choca: la restricción
+única de la base sí distingue, así que «Laptop» y «LAPTOP» pasarían las dos y
+quedarían dos entradas indistinguibles en el desplegable.
+
 Desactivar un empleado que aún custodia activos devuelve `400`
 (`empleado_con_activos`); cerrar una sede que todavía tiene equipos dentro
 devuelve `400` (`sede_con_activos`) — quedarían en un sitio que el formulario
@@ -194,6 +206,17 @@ obligaba a elegir dos veces en cada traslado y a inventar una bodega para cada
 sitio donde hubiera un equipo. El modelo `Ubicacion` sobrevive sin API ni
 pantalla porque los movimientos anteriores al cambio se registraron entre
 bodegas.
+
+El reporte de validación separa lo que **bloquea** de lo que solo hay que
+mirar. La serie repetida es un error: identifica al equipo físico, y dos
+activos con la misma hacen que escanearla devuelva el equivocado. El nombre
+repetido es una advertencia: no identifica —dos equipos pueden llamarse
+«Laptop Ventas» sin que nada esté mal— pero delata la fila pegada dos veces,
+que es el accidente habitual al armar la plantilla. Mezclarlos obligaría a
+elegir entre frenar cargas legítimas o callar algo que conviene revisar.
+
+Las advertencias solo se emiten para filas que van a entrar: las de una fila
+que además falla sobran, porque lo que hay que mirar es por qué no entra.
 
 ## Mantenimientos (RF-04, RF-05)
 

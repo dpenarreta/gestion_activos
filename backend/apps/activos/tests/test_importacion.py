@@ -419,3 +419,115 @@ def test_importar_exige_el_permiso_de_crear_activos(db, catalogos, columnas):
 
     assert client.get("/api/v1/activos/plantilla-importacion/").status_code == 403
     assert _importar(client, _archivo(columnas, [_fila()])).status_code == 403
+
+
+# --- Nombres repetidos: se avisan, no bloquean ------------------------------
+
+
+def test_el_nombre_repetido_dentro_del_archivo_avisa_sin_bloquear(cliente, catalogos, columnas):
+    """El nombre no identifica: dos equipos pueden llamarse «Laptop 01» sin que
+    nada esté mal. Repetirlo sí deja un inventario que no se lee de un vistazo
+    —dos filas idénticas salvo la serie—, y sobre todo delata la fila pegada
+    dos veces, que es el accidente habitual al armar la plantilla."""
+    archivo = _archivo(
+        columnas,
+        [_fila(numero_serie="SN-DUP-1"), _fila(numero_serie="SN-DUP-2")],
+    )
+
+    reporte = _importar(cliente, archivo).json()
+
+    assert reporte["errores"] == []
+    assert reporte["es_importable"] is True
+    assert len(reporte["advertencias"]) == 1
+    aviso = reporte["advertencias"][0]
+    assert aviso["fila"] == 3
+    assert "fila 2" in aviso["mensaje"]
+
+
+def test_el_nombre_que_ya_existe_en_el_inventario_tambien_avisa(
+    cliente, catalogos, columnas, admin
+):
+    ActivoService.crear_activo(
+        actor=admin,
+        tipo=catalogos["tipo"],
+        nombre="Laptop 01",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-YA-EXISTE",
+        departamento=catalogos["departamento"],
+        fecha_adquisicion=datetime.date(2024, 1, 15),
+    )
+
+    reporte = _importar(cliente, _archivo(columnas, [_fila(numero_serie="SN-NUEVA")])).json()
+
+    assert reporte["es_importable"] is True
+    assert len(reporte["advertencias"]) == 1
+    assert "Ya hay un activo llamado" in reporte["advertencias"][0]["mensaje"]
+
+
+def test_la_serie_repetida_si_bloquea(cliente, catalogos, columnas):
+    """La diferencia con el nombre: la serie identifica al equipo físico, y dos
+    activos con la misma serie hacen que escanearla devuelva el equivocado."""
+    archivo = _archivo(columnas, [_fila(), _fila(nombre="Laptop 02")])
+
+    reporte = _importar(cliente, archivo).json()
+
+    assert reporte["es_importable"] is False
+    assert reporte["filas_con_error"] == 1
+    assert "repetida en la fila 2" in reporte["errores"][0]["mensaje"]
+
+
+def test_no_se_avisa_de_una_fila_que_ademas_no_entra(cliente, catalogos, columnas):
+    """Las advertencias de una fila que no va a importarse sobran: lo que hay
+    que mirar es por qué no entra."""
+    archivo = _archivo(
+        columnas,
+        [
+            _fila(numero_serie="SN-OK"),
+            _fila(numero_serie="SN-MALA", tipo="NO-EXISTE"),
+        ],
+    )
+
+    reporte = _importar(cliente, archivo).json()
+
+    assert reporte["errores"] != []
+    assert reporte["advertencias"] == []
+
+
+def test_un_mismo_problema_no_se_reporta_dos_veces(cliente, catalogos, columnas):
+    """Un campo obligatorio que además no está en el catálogo lo señalan dos
+    comprobaciones distintas. Repetido en el reporte parece que hay dos
+    problemas donde hay uno."""
+    archivo = _archivo(columnas, [_fila(departamento="")])
+
+    reporte = _importar(cliente, archivo).json()
+
+    del_departamento = [e for e in reporte["errores"] if e["columna"] == "Departamento"]
+    assert len(del_departamento) == 1
+
+
+def test_el_aviso_senala_la_fila_del_archivo_y_no_el_activo_de_la_base(
+    cliente, catalogos, columnas, admin
+):
+    """Si el nombre ya existía en el inventario, la segunda fila del archivo
+    volvía a señalar al activo de la base y no a la fila de al lado, que es la
+    que hay que mirar."""
+    ActivoService.crear_activo(
+        actor=admin,
+        tipo=catalogos["tipo"],
+        nombre="Laptop 01",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-BASE",
+        departamento=catalogos["departamento"],
+        fecha_adquisicion=datetime.date(2024, 1, 15),
+    )
+    archivo = _archivo(
+        columnas,
+        [_fila(numero_serie="SN-A"), _fila(numero_serie="SN-B")],
+    )
+
+    avisos = _importar(cliente, archivo).json()["advertencias"]
+
+    assert "Ya hay un activo llamado" in avisos[0]["mensaje"]
+    assert "fila 2 de este mismo archivo" in avisos[1]["mensaje"]

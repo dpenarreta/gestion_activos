@@ -16,30 +16,46 @@ from django.db import models
 
 from apps.core.models import BaseModel
 
+#: Prefijo de reserva: solo se usa si el área no tiene código, que la base no
+#: permite pero un dato heredado sí podría traer.
 PREFIJO_EMPLEADO = "EMP"
-_PATRON_CODIGO = re.compile(rf"^{PREFIJO_EMPLEADO}-(\d+)$")
 
 
-def generar_codigo_empleado() -> str:
-    """Siguiente código correlativo (EMP-0001, EMP-0002…).
+def _correlativo(prefijo: str) -> int:
+    """Siguiente número libre dentro de un prefijo.
 
-    Se calcula leyendo el máximo existente, lo que no es atómico: dos altas
+    Se calcula leyendo los códigos existentes, lo que no es atómico: dos altas
     simultáneas pueden proponer el mismo número. La restricción única de la
     base es la que lo garantiza de verdad; aquí solo se propone un valor
     razonable, y quien lo necesite puede escribir el suyo.
+
+    Se recorren todos los del prefijo en vez de tomar el mayor por orden
+    alfabético: «SIS-10» ordena antes que «SIS-9», así que el máximo de texto
+    devolvería el número equivocado en cuanto el área pasara de nueve personas.
     """
-    ultimo = (
-        Empleado.objects.filter(codigo_empleado__startswith=f"{PREFIJO_EMPLEADO}-")
-        .order_by("-codigo_empleado")
-        .values_list("codigo_empleado", flat=True)
-        .first()
-    )
-    siguiente = 1
-    if ultimo:
-        coincidencia = _PATRON_CODIGO.match(ultimo)
-        if coincidencia:
-            siguiente = int(coincidencia.group(1)) + 1
-    return f"{PREFIJO_EMPLEADO}-{siguiente:04d}"
+    patron = re.compile(rf"^{re.escape(prefijo)}-(\d+)$")
+    numeros = [
+        int(coincidencia.group(1))
+        for codigo in Empleado.objects.filter(
+            codigo_empleado__startswith=f"{prefijo}-"
+        ).values_list("codigo_empleado", flat=True)
+        if (coincidencia := patron.match(codigo))
+    ]
+    return max(numeros, default=0) + 1
+
+
+def generar_codigo_empleado(departamento=None) -> str:
+    """Código con el área delante: `SIS-0001`, `CONT-0002`.
+
+    Antes era un correlativo global —`EMP-0007`— que no decía nada de la
+    persona: para saber de qué área era había que abrir su ficha. Con el código
+    del área delante, el número que aparece en un acta de entrega, en una
+    etiqueta o en la plantilla de carga ya ubica a quien responde por el
+    equipo, y la numeración de cada área es independiente de las demás.
+    """
+    codigo_area = (getattr(departamento, "codigo", "") or "").strip().upper()
+    prefijo = codigo_area or PREFIJO_EMPLEADO
+    return f"{prefijo}-{_correlativo(prefijo):04d}"
 
 
 class Departamento(BaseModel):
@@ -225,7 +241,10 @@ class Empleado(BaseModel):
     codigo_empleado = models.CharField(
         max_length=30,
         unique=True,
-        help_text="Identificador interno del empleado (ej. EMP-0001). Se genera solo si se deja vacío.",
+        help_text=(
+            "Identificador interno del empleado (ej. TI-0001: código del área y "
+            "número dentro de ella). Se genera solo si se deja vacío."
+        ),
     )
     correo = models.EmailField(blank=True)
     telefono = models.CharField(max_length=30, blank=True)
@@ -256,7 +275,7 @@ class Empleado(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.codigo_empleado:
-            self.codigo_empleado = generar_codigo_empleado()
+            self.codigo_empleado = generar_codigo_empleado(self.departamento)
         return super().save(*args, **kwargs)
 
     @property

@@ -341,3 +341,43 @@ def test_la_sede_no_se_borra_aunque_ya_no_se_use(cliente, sede):
     respuesta = cliente.delete(f"/api/v1/organizacion/sedes/{sede.id}/")
 
     assert respuesta.status_code == 405
+
+
+# --- Duplicados en el catálogo de áreas -------------------------------------
+
+
+def test_no_se_crean_dos_areas_que_solo_difieren_en_mayusculas(cliente, departamento):
+    """La restricción única de la base sí distingue: «Finanzas» y «FINANZAS»
+    pasarían las dos y quedarían dos áreas indistinguibles en el desplegable,
+    con los activos repartidos entre ambas."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/departamentos/",
+        {"nombre": "FINANZAS", "codigo": "FIN2"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "Finanzas" in str(respuesta.data["error"]["details"]["nombre"])
+
+
+def test_el_codigo_de_area_repetido_dice_quien_lo_usa(cliente, departamento):
+    """«Ya existe» no basta: hay que poder ir a corregirlo, y para eso hace
+    falta saber cuál es el otro."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/departamentos/",
+        {"nombre": "Compras", "codigo": "fin"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "Finanzas" in str(respuesta.data["error"]["details"]["codigo"])
+
+
+def test_editar_un_area_sin_cambiarle_el_nombre_no_choca_consigo_misma(cliente, departamento):
+    respuesta = cliente.patch(
+        f"/api/v1/organizacion/departamentos/{departamento.id}/",
+        {"nombre": "Finanzas", "descripcion": "Área contable"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
