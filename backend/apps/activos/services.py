@@ -177,12 +177,20 @@ class ActivoService:
             # todavía no lo están.
             activo.estado = Activo.Estado.EN_USO if custodio else Activo.Estado.EN_BODEGA
 
-        activo.save(
-            update_fields=["custodio", "departamento", "ubicacion", "estado", "updated_at"]
-        )
+        activo.save(update_fields=["custodio", "departamento", "ubicacion", "estado", "updated_at"])
 
+        # El tipo lo decide el cambio que se ve desde fuera. Un traslado libera
+        # al responsable —el equipo pasa a una bodega, y una bodega no responde
+        # por nada—, pero eso no lo convierte en una devolucion: lo que hay que
+        # poder rastrear despues es donde acabo el equipo, no que alguien lo
+        # soltara. La devolucion sin movimiento fisico sigue siendo devolucion.
+        hubo_traslado = activo.ubicacion_id != (
+            ubicacion_anterior.id if ubicacion_anterior else None
+        )
         if custodio is not None:
             tipo_movimiento = MovimientoActivo.Tipo.ASIGNACION
+        elif hubo_traslado:
+            tipo_movimiento = MovimientoActivo.Tipo.TRASLADO
         elif custodio_anterior is not None:
             tipo_movimiento = MovimientoActivo.Tipo.DEVOLUCION
         else:

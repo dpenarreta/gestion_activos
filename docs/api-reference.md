@@ -76,7 +76,7 @@ Base: `/api/v1/activos/`
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
 | GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |
 | GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
-| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` devuelve a bodega |
+| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `ubicacion` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. Las tres salidas (baja, perdido, robado) exigen `motivo`; desde una baja no se vuelve |
 | GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=pdf` (por defecto, devuelve el documento) o `zpl\|tspl` (trabajo térmico). `?descargar=false` entrega el PDF inline para previsualizar |
 | GET | `/activos/{id}/etiqueta/medicion/` | `activos.imprimir_etiqueta` | Geometría del símbolo impreso: módulo, zona muda y altura |

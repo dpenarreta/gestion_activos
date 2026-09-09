@@ -263,9 +263,10 @@ describe("Traslado de ubicación", () => {
     expect(cambio).toHaveTextContent("Sede Quito Norte · Bodega Operaciones");
   });
 
-  it("no toca al custodio ni al área", async () => {
-    /* Mover un equipo de bodega no debería cambiarle el responsable por
-       descuido: cada modo manda solo lo suyo. */
+  it("libera al responsable: el equipo pasa al lugar, no a alguien", async () => {
+    /* Mover un equipo es sacárselo a quien lo tenía. Dejarlo asignado
+       produciría una ficha que dice a la vez «Bodega Operaciones» y «María
+       Salazar», y nadie sabría a quién reclamarle el equipo. */
     abrir();
     await screen.findByText("Situación actual");
     const lugar = await trasladar();
@@ -278,10 +279,46 @@ describe("Traslado de ubicación", () => {
 
     await waitFor(() =>
       expect(activosService.asignar).toHaveBeenCalledWith(1, {
-        custodio: 3,
+        custodio: null,
         ubicacion: "9",
         motivo: "",
       }),
+    );
+  });
+
+  it("avisa de que el equipo quedará sin responsable", async () => {
+    /* Es una consecuencia del traslado, no una decisión aparte: descubrirla
+       después en la ficha es peor que leerla antes de confirmar. */
+    abrir();
+    await screen.findByText("Situación actual");
+    await trasladar();
+
+    expect(screen.getByText(/quedará/)).toHaveTextContent("sin responsable");
+  });
+
+  it("no avisa de nada si el equipo ya estaba sin responsable", async () => {
+    abrir({ ...ACTIVO, custodio: null, custodio_nombre: null });
+    await screen.findByText("Situación actual");
+    await trasladar();
+
+    expect(screen.queryByText(/quedará/)).not.toBeInTheDocument();
+    expect(screen.getByText(/ya está sin responsable/)).toBeInTheDocument();
+  });
+
+  it("el área no se toca: dice de quién es el presupuesto, no quién lo custodia", async () => {
+    abrir();
+    await screen.findByText("Situación actual");
+    const lugar = await trasladar();
+
+    fireEvent.change(screen.getByLabelText("Sede de destino"), {
+      target: { value: "Sede Quito Norte" },
+    });
+    fireEvent.change(lugar, { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar traslado" }));
+
+    await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
+    expect(activosService.asignar.mock.calls[0][1]).not.toHaveProperty(
+      "departamento",
     );
   });
 });

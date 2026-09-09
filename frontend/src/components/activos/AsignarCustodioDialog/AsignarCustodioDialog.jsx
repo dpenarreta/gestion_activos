@@ -136,13 +136,15 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     setIsSaving(true);
     setError(null);
     try {
-      // Cada modo manda solo lo suyo: en un traslado no se envían custodio ni
-      // área, así que el backend no los toca. Es lo que garantiza que mover un
-      // equipo de bodega no le cambie el responsable por descuido.
+      // Cada modo manda solo lo suyo. El traslado manda `custodio: null`
+      // porque mover un equipo es sacárselo a quien lo tenía: pasa a la bodega
+      // o al área de destino, y un lugar no responde por nada. El área sí se
+      // conserva —dice de quién es el presupuesto del equipo, no quién lo
+      // custodia—, así que no se envía.
       const datos =
         modo === MODOS.TRASLADAR
           ? {
-              custodio: activo.custodio || null,
+              custodio: null,
               ubicacion: ubicacion || null,
               motivo,
             }
@@ -356,11 +358,21 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 </strong>
               </p>
             )}
-            <div className="form-text">
-              {/* Nada de personas en este modo: el destino de un traslado es un
-                  lugar, no alguien. La entrega vive en el otro modo. */}
-              El traslado solo cambia dónde está el equipo.
-            </div>
+            {activo.custodio ? (
+              <div className="form-text">
+                {/* Nada de elegir persona en este modo, pero sí decir lo que
+                    pasa con la que había: es una consecuencia del traslado, no
+                    una decisión aparte, y descubrirla después en la ficha es
+                    peor que leerla aquí. */}
+                El equipo quedará <strong>sin responsable</strong>: pasa a la
+                ubicación de destino. Quien lo tenía seguirá en el historial.
+              </div>
+            ) : (
+              <div className="form-text">
+                El equipo ya está sin responsable: el traslado solo cambia dónde
+                está.
+              </div>
+            )}
           </div>
         </>
       )}

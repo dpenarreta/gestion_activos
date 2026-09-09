@@ -510,6 +510,51 @@ def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(
     assert activo.ubicacion_id == destino.id
 
 
+def test_el_traslado_libera_al_responsable_y_sigue_siendo_un_traslado(
+    admin, crear_activo, ubicacion, empleado
+):
+    """Mover un equipo es sacárselo a quien lo tenía: pasa a una bodega, y una
+    bodega no responde por nada. Dejarlo asignado produciría una ficha que dice
+    a la vez «Bodega Guayaquil» y «Ana Pérez», y nadie sabría a quién reclamarle
+    el equipo.
+
+    El movimiento se registra como **traslado**, no como devolución: lo que hay
+    que poder rastrear después es dónde acabó el equipo, no que alguien lo
+    soltara."""
+    destino = Ubicacion.objects.create(sede="Sucursal Machala", nombre="Bodega TI")
+    activo = crear_activo(ubicacion=ubicacion)
+    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+
+    ActivoService.asignar_custodio(
+        actor=admin, activo=activo, custodio=None, ubicacion=destino, motivo="Cierre de oficina"
+    )
+
+    activo.refresh_from_db()
+    assert activo.custodio is None
+    assert activo.ubicacion_id == destino.id
+    assert activo.estado == Activo.Estado.EN_BODEGA
+
+    movimiento = activo.movimientos.first()
+    assert movimiento.tipo == MovimientoActivo.Tipo.TRASLADO
+    # Quién lo tenía sobrevive al traslado: es lo que permite deslindar
+    # responsabilidades sobre el equipo.
+    assert movimiento.custodio_anterior == empleado
+    assert movimiento.ubicacion_nueva_id == destino.id
+
+
+def test_devolver_sin_moverlo_de_sitio_sigue_siendo_una_devolucion(
+    admin, crear_activo, ubicacion, empleado
+):
+    """El tipo lo decide el cambio que se ve desde fuera: sin movimiento
+    físico, lo que pasó es que alguien entregó el equipo."""
+    activo = crear_activo(ubicacion=ubicacion)
+    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+
+    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None, motivo="Renuncia")
+
+    assert activo.movimientos.first().tipo == MovimientoActivo.Tipo.DEVOLUCION
+
+
 def test_asignar_sin_tocar_la_ubicacion_no_la_borra(admin, crear_activo, ubicacion, empleado):
     """Es el defecto que evita el centinela: con un solo valor para «no la
     toques» y «déjala vacía», cada entrega de equipo borraría en silencio dónde
