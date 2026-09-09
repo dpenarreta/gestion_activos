@@ -184,3 +184,43 @@ def test_la_revision_no_avisa_con_un_respaldo_reciente(capsys, tmp_path, monkeyp
     salida = capsys.readouterr().out
     assert "No consta ningun respaldo" not in salida
     assert "Respaldo del" in salida
+
+
+# --- Textos con la codificación rota ---
+
+
+@pytest.mark.parametrize(
+    ("roto", "esperado"),
+    [
+        ("ReinstalaciÃ³n del sistema", "Reinstalación del sistema"),
+        ("Formateo y restauraciÃ³n", "Formateo y restauración"),
+        ("MÃ¡quina de la gerencia", "Máquina de la gerencia"),
+    ],
+)
+def test_repara_el_texto_mal_codificado(roto, esperado):
+    """«Ã³» son los dos bytes de «ó» en UTF-8 leídos como Latin-1: volver a
+    codificar y decodificar devuelve el original."""
+    from apps.core.management.commands.reparar_codificacion import reparar
+
+    assert reparar(roto) == esperado
+
+
+@pytest.mark.parametrize(
+    "correcto",
+    ["Reinstalación del sistema", "Cambio de disco", "", "Máquina — con raya"],
+)
+def test_no_toca_el_texto_que_ya_esta_bien(correcto):
+    """Solo se repara lo que lleva la marca del problema: aplicar la conversión
+    a un texto sano lo rompería."""
+    from apps.core.management.commands.reparar_codificacion import reparar
+
+    assert reparar(correcto) is None
+
+
+def test_la_reparacion_no_se_ejecuta_sin_pedirlo(capsys):
+    """Reescribir campos de la base no es algo que deba pasar por ejecutar un
+    comando de diagnóstico."""
+    call_command("reparar_codificacion")
+
+    salida = capsys.readouterr().out
+    assert "Simulacion" in salida or "No hay textos" in salida

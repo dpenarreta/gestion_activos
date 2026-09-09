@@ -94,6 +94,30 @@ a {
   background-color: var(--surface-alt);
 }
 
+/*
+ * Botón secundario: toma el gris del tema, no el fijo de Bootstrap.
+ *
+ * `btn-outline-secondary` trae `#6c757d` cableado, que sobre el fondo oscuro
+ * da 3,61:1 de contraste —por debajo del 4,5:1 de WCAG AA— y, sobre todo, se
+ * lee como un botón deshabilitado: «Editar» y «Ver ficha» parecían inactivos
+ * cuando no lo estaban. Con el token del tema son 7,6:1 en oscuro y 4,7:1 en
+ * claro.
+ */
+.btn-outline-secondary {
+  --bs-btn-color: var(--text-muted);
+  --bs-btn-border-color: var(--border-color);
+  --bs-btn-hover-color: var(--text-primary);
+  --bs-btn-hover-bg: var(--surface-alt);
+  --bs-btn-hover-border-color: var(--text-muted);
+  --bs-btn-active-color: var(--text-primary);
+  --bs-btn-active-bg: var(--surface-alt);
+  --bs-btn-active-border-color: var(--text-muted);
+  /* El deshabilitado sí debe verse apagado: es la única forma de
+     distinguirlo ahora que el normal tiene contraste. */
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   body,
   .admin-layout,

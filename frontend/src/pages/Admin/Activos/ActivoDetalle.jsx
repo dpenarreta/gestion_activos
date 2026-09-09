@@ -206,6 +206,12 @@ export function ActivoDetalle() {
               )}
             </div>
           </section>
+
+          {/* Los tiempos van bajo la ficha técnica —son datos del propio
+              equipo— y de paso equilibran las dos columnas: con las cuatro
+              tarjetas repartidas 1 y 3, la izquierda quedaba con medio metro
+              de hueco debajo. */}
+          {activo.tiempos && <TiemposDelActivo tiempos={activo.tiempos} />}
         </div>
 
         <div className="activo-paneles__columna">
@@ -240,7 +246,7 @@ export function ActivoDetalle() {
           <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Indicadores</h3>
-              <div className="indicadores-grid">
+              <div className="activo-indicadores">
                 <Indicador
                   valor={activo.total_mantenimientos}
                   etiqueta="Mantenimientos"
@@ -267,8 +273,6 @@ export function ActivoDetalle() {
               )}
             </div>
           </section>
-
-          {activo.tiempos && <TiemposDelActivo tiempos={activo.tiempos} />}
         </div>
       </div>
 

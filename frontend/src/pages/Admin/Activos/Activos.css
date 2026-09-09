@@ -96,10 +96,14 @@
 }
 
 /*
- * Indicadores: tantas columnas como quepan. Con `col-6` fijo quedaban huecos
- * en la fila impar y la tarjeta crecía sin necesidad.
+ * Indicadores de la ficha: tantas columnas como quepan. Con `col-6` fijo
+ * quedaban huecos en la fila impar y la tarjeta crecía sin necesidad.
+ *
+ * El nombre lleva el prefijo del módulo porque las hojas de estilo del
+ * proyecto son globales: `indicadores-grid` a secas ya existía en el panel
+ * principal, y las dos reglas se pisaban según el orden de carga.
  */
-.indicadores-grid {
+.activo-indicadores {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
   gap: 0.5rem;
