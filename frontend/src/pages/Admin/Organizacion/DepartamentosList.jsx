@@ -8,7 +8,10 @@ import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Departamentos" }];
+const BREADCRUMB_ITEMS = [
+  { label: "Administración" },
+  { label: "Departamentos" },
+];
 const FILTROS_INICIALES = { q: "", activo: "" };
 
 export function DepartamentosList() {
@@ -18,7 +21,7 @@ export function DepartamentosList() {
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
-    "No se pudo cargar el listado de departamentos."
+    "No se pudo cargar el listado de departamentos.",
   );
 
   function handleBuscar(event) {
@@ -32,7 +35,10 @@ export function DepartamentosList() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Departamentos</h2>
         {puedeEditar && (
-          <Link to="/admin/organizacion/departamentos/new" className="btn btn-primary btn-sm">
+          <Link
+            to="/admin/organizacion/departamentos/new"
+            className="btn btn-primary btn-sm"
+          >
             Nuevo departamento
           </Link>
         )}
@@ -51,7 +57,9 @@ export function DepartamentosList() {
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por estado"
           value={listado.filtros.activo}
-          onChange={(event) => listado.actualizarFiltros({ activo: event.target.value })}
+          onChange={(event) =>
+            listado.actualizarFiltros({ activo: event.target.value })
+          }
         >
           <option value="">Todos</option>
           <option value="true">Activos</option>
@@ -62,7 +70,9 @@ export function DepartamentosList() {
         </button>
       </form>
 
-      {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {listado.error && (
+        <div className="alert alert-danger">{listado.error}</div>
+      )}
 
       <div className="table-responsive">
         <table className="table table-sm table-striped align-middle">
@@ -97,7 +107,7 @@ export function DepartamentosList() {
                 <td>
                   <Link
                     to={`/admin/organizacion/departamentos/${departamento.id}`}
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-accion btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>

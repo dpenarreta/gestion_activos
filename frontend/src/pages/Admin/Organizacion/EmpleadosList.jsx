@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { departamentosService, empleadosService } from "../../../api/organizacionService";
+import {
+  departamentosService,
+  empleadosService,
+} from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -19,7 +22,7 @@ export function EmpleadosList() {
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
-    "No se pudo cargar el listado de empleados."
+    "No se pudo cargar el listado de empleados.",
   );
 
   useEffect(() => {
@@ -40,7 +43,10 @@ export function EmpleadosList() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Empleados</h2>
         {puedeEditar && (
-          <Link to="/admin/organizacion/empleados/new" className="btn btn-primary btn-sm">
+          <Link
+            to="/admin/organizacion/empleados/new"
+            className="btn btn-primary btn-sm"
+          >
             Nuevo empleado
           </Link>
         )}
@@ -59,7 +65,9 @@ export function EmpleadosList() {
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por departamento"
           value={listado.filtros.departamento}
-          onChange={(event) => listado.actualizarFiltros({ departamento: event.target.value })}
+          onChange={(event) =>
+            listado.actualizarFiltros({ departamento: event.target.value })
+          }
         >
           <option value="">Todos los departamentos</option>
           {departamentos.map((departamento) => (
@@ -72,7 +80,9 @@ export function EmpleadosList() {
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por estado"
           value={listado.filtros.activo}
-          onChange={(event) => listado.actualizarFiltros({ activo: event.target.value })}
+          onChange={(event) =>
+            listado.actualizarFiltros({ activo: event.target.value })
+          }
         >
           <option value="">Todos</option>
           <option value="true">Activos</option>
@@ -83,7 +93,9 @@ export function EmpleadosList() {
         </button>
       </form>
 
-      {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {listado.error && (
+        <div className="alert alert-danger">{listado.error}</div>
+      )}
 
       <div className="table-responsive">
         <table className="table table-sm table-striped align-middle">
@@ -109,7 +121,9 @@ export function EmpleadosList() {
                 <td>{empleado.departamento_nombre}</td>
                 <td className="text-end">
                   {empleado.total_activos > 0 ? (
-                    <Link to={`/admin/activos?custodio=${empleado.id}`}>{empleado.total_activos}</Link>
+                    <Link to={`/admin/activos?custodio=${empleado.id}`}>
+                      {empleado.total_activos}
+                    </Link>
                   ) : (
                     0
                   )}
@@ -124,7 +138,7 @@ export function EmpleadosList() {
                 <td>
                   <Link
                     to={`/admin/organizacion/empleados/${empleado.id}`}
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-accion btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>

@@ -15,7 +15,13 @@ const BREADCRUMB_ITEMS = [
   { label: "Componentes" },
 ];
 const FILTROS_INICIALES = { q: "", es_critico: "" };
-const VACIO = { nombre: "", codigo: "", descripcion: "", es_critico: false, activo: true };
+const VACIO = {
+  nombre: "",
+  codigo: "",
+  descripcion: "",
+  es_critico: false,
+  activo: true,
+};
 
 /**
  * Catálogo de repuestos.
@@ -32,7 +38,7 @@ export function ComponentesList() {
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
-    "No se pudo cargar el catálogo de componentes."
+    "No se pudo cargar el catálogo de componentes.",
   );
 
   return (
@@ -41,15 +47,19 @@ export function ComponentesList() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Catálogo de componentes</h2>
         {puedeEditar && (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setEnEdicion(VACIO)}>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setEnEdicion(VACIO)}
+          >
             Nuevo componente
           </button>
         )}
       </div>
 
       <p className="text-muted">
-        Las piezas marcadas como <strong>críticas</strong> son las que cuentan contra el umbral de
-        sustituciones de la política de renovación.
+        Las piezas marcadas como <strong>críticas</strong> son las que cuentan
+        contra el umbral de sustituciones de la política de renovación.
       </p>
 
       <form
@@ -71,7 +81,9 @@ export function ComponentesList() {
           className="form-select form-select-sm w-auto"
           aria-label="Filtrar por criticidad"
           value={listado.filtros.es_critico}
-          onChange={(event) => listado.actualizarFiltros({ es_critico: event.target.value })}
+          onChange={(event) =>
+            listado.actualizarFiltros({ es_critico: event.target.value })
+          }
         >
           <option value="">Todas las piezas</option>
           <option value="true">Solo críticas</option>
@@ -82,7 +94,9 @@ export function ComponentesList() {
         </button>
       </form>
 
-      {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {listado.error && (
+        <div className="alert alert-danger">{listado.error}</div>
+      )}
 
       <div className="table-responsive">
         <table className="table table-sm table-striped align-middle">
@@ -103,7 +117,9 @@ export function ComponentesList() {
                   <code className="codigo-barras">{componente.codigo}</code>
                 </td>
                 <td>{componente.nombre}</td>
-                <td className="text-muted small">{componente.descripcion || "—"}</td>
+                <td className="text-muted small">
+                  {componente.descripcion || "—"}
+                </td>
                 <td>
                   {componente.es_critico ? (
                     <span className="badge text-bg-danger">Crítica</span>
@@ -122,7 +138,7 @@ export function ComponentesList() {
                   {puedeEditar && (
                     <button
                       type="button"
-                      className="btn btn-outline-secondary btn-sm"
+                      className="btn btn-accion btn-sm"
                       onClick={() => setEnEdicion(componente)}
                     >
                       Editar
@@ -177,7 +193,8 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const cambiaCriticidad = esEdicion && valores.es_critico !== componente.es_critico;
+  const cambiaCriticidad =
+    esEdicion && valores.es_critico !== componente.es_critico;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -217,7 +234,9 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
             maxLength={150}
             placeholder="Disco duro SSD, tarjeta madre…"
             value={valores.nombre}
-            onChange={(event) => setValores({ ...valores, nombre: event.target.value })}
+            onChange={(event) =>
+              setValores({ ...valores, nombre: event.target.value })
+            }
           />
         </div>
         <div className="col-4">
@@ -230,7 +249,9 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
             required
             maxLength={30}
             value={valores.codigo}
-            onChange={(event) => setValores({ ...valores, codigo: event.target.value })}
+            onChange={(event) =>
+              setValores({ ...valores, codigo: event.target.value })
+            }
           />
         </div>
         <div className="col-12">
@@ -242,7 +263,9 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
             className="form-control"
             rows={2}
             value={valores.descripcion}
-            onChange={(event) => setValores({ ...valores, descripcion: event.target.value })}
+            onChange={(event) =>
+              setValores({ ...valores, descripcion: event.target.value })
+            }
           />
         </div>
         <div className="col-12">
@@ -252,15 +275,18 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
               type="checkbox"
               className="form-check-input"
               checked={valores.es_critico}
-              onChange={(event) => setValores({ ...valores, es_critico: event.target.checked })}
+              onChange={(event) =>
+                setValores({ ...valores, es_critico: event.target.checked })
+              }
             />
             <label className="form-check-label" htmlFor="comp-critico">
               Pieza crítica
             </label>
           </div>
           <div className="form-text">
-            Su reemplazo contará contra el umbral de sustituciones de la política de renovación
-            (tarjeta madre, disco duro, fuente de poder…).
+            Su reemplazo contará contra el umbral de sustituciones de la
+            política de renovación (tarjeta madre, disco duro, fuente de
+            poder…).
           </div>
         </div>
         <div className="col-12">
@@ -270,7 +296,9 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
               type="checkbox"
               className="form-check-input"
               checked={valores.activo}
-              onChange={(event) => setValores({ ...valores, activo: event.target.checked })}
+              onChange={(event) =>
+                setValores({ ...valores, activo: event.target.checked })
+              }
             />
             <label className="form-check-label" htmlFor="comp-activo">
               Disponible para registrar en intervenciones
@@ -281,9 +309,9 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
 
       {cambiaCriticidad && (
         <div className="alert alert-info mt-3 mb-0">
-          El cambio rige de aquí en adelante. Las intervenciones ya registradas conservan la
-          criticidad que la pieza tenía cuando se consumió, así que los contadores actuales de los
-          equipos no se alteran.
+          El cambio rige de aquí en adelante. Las intervenciones ya registradas
+          conservan la criticidad que la pieza tenía cuando se consumió, así que
+          los contadores actuales de los equipos no se alteran.
         </div>
       )}
     </ModalDialog>

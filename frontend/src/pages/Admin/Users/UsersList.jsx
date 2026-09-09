@@ -6,7 +6,11 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
 import "./UsersList.css";
 
-const STATUS_LABELS = { active: "Activo", disabled: "Deshabilitado", blocked: "Bloqueado" };
+const STATUS_LABELS = {
+  active: "Activo",
+  disabled: "Deshabilitado",
+  blocked: "Bloqueado",
+};
 
 const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Usuarios" }];
 
@@ -38,7 +42,9 @@ export function UsersList() {
       await adminUsersService[action](user.id);
       refresh();
     } catch (err) {
-      setActionError(err.response?.data?.error?.message || "No se pudo ejecutar la acción.");
+      setActionError(
+        err.response?.data?.error?.message || "No se pudo ejecutar la acción.",
+      );
     }
   }
 
@@ -52,7 +58,10 @@ export function UsersList() {
         </Link>
       </div>
 
-      <form onSubmit={handleSearchSubmit} className="row g-2 mb-3 users-list-filters">
+      <form
+        onSubmit={handleSearchSubmit}
+        className="row g-2 mb-3 users-list-filters"
+      >
         <div className="col-auto">
           <input
             className="form-control form-control-sm"
@@ -80,7 +89,9 @@ export function UsersList() {
         </div>
       </form>
 
-      {(error || actionError) && <div className="alert alert-danger">{error || actionError}</div>}
+      {(error || actionError) && (
+        <div className="alert alert-danger">{error || actionError}</div>
+      )}
 
       <div className="table-responsive">
         <table className="table table-sm table-striped align-middle">
@@ -99,11 +110,15 @@ export function UsersList() {
               <tr key={user.id}>
                 <td>
                   {user.username}
-                  {user.is_superuser && <span className="badge bg-dark ms-2">Administrador</span>}
+                  {user.is_superuser && (
+                    <span className="badge bg-dark ms-2">Administrador</span>
+                  )}
                 </td>
                 <td>{user.email}</td>
                 <td>
-                  <span className={`badge users-list-status users-list-status--${user.status}`}>
+                  <span
+                    className={`badge users-list-status users-list-status--${user.status}`}
+                  >
                     {STATUS_LABELS[user.status] || user.status}
                   </span>
                 </td>
@@ -111,7 +126,10 @@ export function UsersList() {
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
                 <td>
                   <div className="d-flex gap-2 flex-wrap">
-                    <Link to={`/admin/users/${user.id}`} className="btn btn-outline-secondary btn-sm">
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="btn btn-accion btn-sm"
+                    >
                       Editar
                     </Link>
                     {user.status === "active" ? (

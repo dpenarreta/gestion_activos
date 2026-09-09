@@ -110,7 +110,7 @@ export function SedesList() {
                 <td>
                   <Link
                     to={`/admin/organizacion/sedes/${sede.id}`}
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-accion btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>

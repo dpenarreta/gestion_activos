@@ -163,7 +163,7 @@ export function ActivosList() {
           {puedeExportar && (
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-exportar btn-sm"
               onClick={handleExportar}
               disabled={isExportando || listado.total === 0}
               title="Exporta los activos que coinciden con los filtros actuales"
@@ -412,7 +412,7 @@ export function ActivosList() {
                 <td>
                   <Link
                     to={`/admin/activos/${activo.id}`}
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-accion btn-sm"
                   >
                     Ver ficha
                   </Link>

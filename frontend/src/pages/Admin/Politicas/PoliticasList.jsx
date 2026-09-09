@@ -10,7 +10,10 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Politicas.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Políticas de renovación" }];
+const BREADCRUMB_ITEMS = [
+  { label: "Administración" },
+  { label: "Políticas de renovación" },
+];
 const VACIO = {
   nombre: "",
   tipo_dispositivo: "",
@@ -57,7 +60,11 @@ export function PoliticasList() {
   const [errorAccion, setErrorAccion] = useState(null);
 
   const cargar = useCallback((params) => politicasService.list(params), []);
-  const listado = useListadoPaginado(cargar, {}, "No se pudo cargar el listado de políticas.");
+  const listado = useListadoPaginado(
+    cargar,
+    {},
+    "No se pudo cargar el listado de políticas.",
+  );
 
   useEffect(() => {
     tiposDispositivoService
@@ -73,11 +80,13 @@ export function PoliticasList() {
       const { recomendado = 0, evaluar = 0 } = resultado.por_nivel ?? {};
       setAviso(
         `${resultado.activos_evaluados} activo(s) evaluados; ${resultado.con_sugerencia} con ` +
-          `sugerencia (${recomendado} con reemplazo recomendado, ${evaluar} a evaluar).`
+          `sugerencia (${recomendado} con reemplazo recomendado, ${evaluar} a evaluar).`,
       );
       listado.refresh();
     } catch (err) {
-      setErrorAccion(mensajeDeError(err, "No se pudo reevaluar el inventario."));
+      setErrorAccion(
+        mensajeDeError(err, "No se pudo reevaluar el inventario."),
+      );
     }
   }
 
@@ -101,12 +110,20 @@ export function PoliticasList() {
         <h2>Políticas de renovación</h2>
         <div className="d-flex gap-2">
           {puedeEditar && (
-            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleReevaluar}>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleReevaluar}
+            >
               Reevaluar inventario
             </button>
           )}
           {puedeEditar && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setEnEdicion(VACIO)}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEnEdicion(VACIO)}
+            >
               Nueva política
             </button>
           )}
@@ -114,23 +131,30 @@ export function PoliticasList() {
       </div>
 
       <p className="text-muted">
-        Definen cuándo el sistema sugiere reemplazar un equipo. La política de un tipo de
-        dispositivo tiene prioridad sobre la global; los tipos sin política propia se rigen por
-        ella.
+        Definen cuándo el sistema sugiere reemplazar un equipo. La política de
+        un tipo de dispositivo tiene prioridad sobre la global; los tipos sin
+        política propia se rigen por ella.
       </p>
 
       {aviso && (
         <div className="alert alert-info alert-dismissible">
           {aviso}
-          <button type="button" className="btn-close" aria-label="Cerrar" onClick={() => setAviso(null)} />
+          <button
+            type="button"
+            className="btn-close"
+            aria-label="Cerrar"
+            onClick={() => setAviso(null)}
+          />
         </div>
       )}
-      {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {listado.error && (
+        <div className="alert alert-danger">{listado.error}</div>
+      )}
       {errorAccion && <div className="alert alert-danger">{errorAccion}</div>}
       {!listado.isLoading && !hayGlobal && listado.resultados.length > 0 && (
         <div className="alert alert-warning">
-          No hay una política global. Los tipos de dispositivo sin política propia no se evalúan y
-          nunca mostrarán una sugerencia de renovación.
+          No hay una política global. Los tipos de dispositivo sin política
+          propia no se evalúan y nunca mostrarán una sugerencia de renovación.
         </div>
       )}
 
@@ -169,9 +193,14 @@ export function PoliticasList() {
                 />
                 <Umbral valor={politica.max_componentes_criticos} />
                 <Umbral valor={politica.vida_util_meses} sufijo=" meses" />
-                <Umbral valor={politica.vida_util_critica_meses} sufijo=" meses" />
+                <Umbral
+                  valor={politica.vida_util_critica_meses}
+                  sufijo=" meses"
+                />
                 <td className="ps-4">
-                  <span className={`badge ${politica.activa ? "text-bg-success" : "text-bg-secondary"}`}>
+                  <span
+                    className={`badge ${politica.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                  >
                     {politica.activa ? "Activa" : "Inactiva"}
                   </span>
                 </td>
@@ -180,7 +209,7 @@ export function PoliticasList() {
                     <div className="d-flex gap-2">
                       <button
                         type="button"
-                        className="btn btn-outline-secondary btn-sm"
+                        className="btn btn-accion btn-sm"
                         onClick={() => setEnEdicion(politica)}
                       >
                         Editar
@@ -200,7 +229,8 @@ export function PoliticasList() {
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center text-muted">
-                  Sin políticas configuradas. Ningún equipo mostrará sugerencias de renovación.
+                  Sin políticas configuradas. Ningún equipo mostrará sugerencias
+                  de renovación.
                 </td>
               </tr>
             )}
@@ -285,7 +315,8 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
     valores.vida_util_critica_meses !== "" &&
     Number(valores.vida_util_critica_meses) <= Number(valores.vida_util_meses);
   const ventanaSinMaximo =
-    valores.ventana_mantenimientos_meses !== "" && valores.max_mantenimientos === "";
+    valores.ventana_mantenimientos_meses !== "" &&
+    valores.max_mantenimientos === "";
 
   // Solo puede existir una política global; ofrecer la opción cuando ya hay
   // otra produciría un error de restricción al guardar.
@@ -301,16 +332,26 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         tipo_dispositivo: valores.tipo_dispositivo || null,
         // Cadena vacía significa "no evaluar este criterio": se envía null,
         // que es lo que el backend interpreta como umbral desactivado.
-        max_mantenimientos: valores.max_mantenimientos === "" ? null : Number(valores.max_mantenimientos),
+        max_mantenimientos:
+          valores.max_mantenimientos === ""
+            ? null
+            : Number(valores.max_mantenimientos),
         ventana_mantenimientos_meses:
           valores.ventana_mantenimientos_meses === ""
             ? null
             : Number(valores.ventana_mantenimientos_meses),
         max_componentes_criticos:
-          valores.max_componentes_criticos === "" ? null : Number(valores.max_componentes_criticos),
-        vida_util_meses: valores.vida_util_meses === "" ? null : Number(valores.vida_util_meses),
+          valores.max_componentes_criticos === ""
+            ? null
+            : Number(valores.max_componentes_criticos),
+        vida_util_meses:
+          valores.vida_util_meses === ""
+            ? null
+            : Number(valores.vida_util_meses),
         vida_util_critica_meses:
-          valores.vida_util_critica_meses === "" ? null : Number(valores.vida_util_critica_meses),
+          valores.vida_util_critica_meses === ""
+            ? null
+            : Number(valores.vida_util_critica_meses),
         activa: valores.activa,
       };
       if (esEdicion) {
@@ -331,7 +372,9 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
       onCerrar={onCerrar}
       onSubmit={handleSubmit}
       isSaving={isSaving}
-      puedeConfirmar={!sinUmbrales && !segundoNivelInvertido && !ventanaSinMaximo}
+      puedeConfirmar={
+        !sinUmbrales && !segundoNivelInvertido && !ventanaSinMaximo
+      }
     >
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -346,7 +389,9 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
           maxLength={120}
           placeholder="Laptops corporativas"
           value={valores.nombre}
-          onChange={(event) => setValores({ ...valores, nombre: event.target.value })}
+          onChange={(event) =>
+            setValores({ ...valores, nombre: event.target.value })
+          }
         />
       </div>
 
@@ -358,7 +403,9 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
           id="pol-tipo"
           className="form-select"
           value={valores.tipo_dispositivo}
-          onChange={(event) => setValores({ ...valores, tipo_dispositivo: event.target.value })}
+          onChange={(event) =>
+            setValores({ ...valores, tipo_dispositivo: event.target.value })
+          }
         >
           <option value="" disabled={!puedeSerGlobal}>
             Todos los tipos (política global)
@@ -378,8 +425,9 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
       <fieldset className="mb-3">
         <legend className="form-label">Umbrales</legend>
         <div className="alert alert-info small">
-          Dejar un umbral <strong>vacío</strong> desactiva ese criterio. Ponerlo en{" "}
-          <strong>cero</strong> es distinto: haría que la alerta se dispare siempre.
+          Dejar un umbral <strong>vacío</strong> desactiva ese criterio. Ponerlo
+          en <strong>cero</strong> es distinto: haría que la alerta se dispare
+          siempre.
         </div>
 
         <div className="row g-3">
@@ -394,9 +442,13 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               className="form-control"
               placeholder="Sin límite"
               value={valores.vida_util_meses}
-              onChange={(event) => setValores({ ...valores, vida_util_meses: event.target.value })}
+              onChange={(event) =>
+                setValores({ ...valores, vida_util_meses: event.target.value })
+              }
             />
-            <div className="form-text">Primer aviso: conviene empezar a mirarlo.</div>
+            <div className="form-text">
+              Primer aviso: conviene empezar a mirarlo.
+            </div>
           </div>
           <div className="col-md-6">
             <label className="form-label" htmlFor="pol-vida-critica">
@@ -410,10 +462,15 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               placeholder="Sin segundo nivel"
               value={valores.vida_util_critica_meses}
               onChange={(event) =>
-                setValores({ ...valores, vida_util_critica_meses: event.target.value })
+                setValores({
+                  ...valores,
+                  vida_util_critica_meses: event.target.value,
+                })
               }
             />
-            <div className="form-text">Segundo aviso: ya toca presupuestarlo.</div>
+            <div className="form-text">
+              Segundo aviso: ya toca presupuestarlo.
+            </div>
           </div>
           <div className="col-md-4">
             <label className="form-label" htmlFor="pol-mant">
@@ -427,7 +484,10 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               placeholder="Sin límite"
               value={valores.max_mantenimientos}
               onChange={(event) =>
-                setValores({ ...valores, max_mantenimientos: event.target.value })
+                setValores({
+                  ...valores,
+                  max_mantenimientos: event.target.value,
+                })
               }
             />
           </div>
@@ -443,7 +503,10 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               placeholder="Todo el historial"
               value={valores.ventana_mantenimientos_meses}
               onChange={(event) =>
-                setValores({ ...valores, ventana_mantenimientos_meses: event.target.value })
+                setValores({
+                  ...valores,
+                  ventana_mantenimientos_meses: event.target.value,
+                })
               }
             />
             <div className="form-text">
@@ -464,7 +527,10 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               placeholder="Sin límite"
               value={valores.max_componentes_criticos}
               onChange={(event) =>
-                setValores({ ...valores, max_componentes_criticos: event.target.value })
+                setValores({
+                  ...valores,
+                  max_componentes_criticos: event.target.value,
+                })
               }
             />
           </div>
@@ -476,19 +542,22 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
             className="btn btn-link btn-sm px-0 mt-2"
             onClick={() => setValores({ ...valores, ...UMBRALES_SUGERIDOS })}
           >
-            Usar los umbrales del documento funcional (48 / 60 meses, 3 reparaciones en 12 meses)
+            Usar los umbrales del documento funcional (48 / 60 meses, 3
+            reparaciones en 12 meses)
           </button>
         )}
 
         {sinUmbrales && (
           <div className="alert alert-warning mt-3 mb-0 small">
-            Defina al menos un umbral: una política sin ninguno no evaluaría nada.
+            Defina al menos un umbral: una política sin ninguno no evaluaría
+            nada.
           </div>
         )}
         {segundoNivelInvertido && (
           <div className="alert alert-warning mt-3 mb-0 small">
-            El segundo nivel debe ser posterior al primero. Al revés, «recomendar» absorbería a
-            «evaluar» y el primer aviso no llegaría nunca.
+            El segundo nivel debe ser posterior al primero. Al revés,
+            «recomendar» absorbería a «evaluar» y el primer aviso no llegaría
+            nunca.
           </div>
         )}
         {ventanaSinMaximo && (
@@ -504,14 +573,16 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
           type="checkbox"
           className="form-check-input"
           checked={valores.activa}
-          onChange={(event) => setValores({ ...valores, activa: event.target.checked })}
+          onChange={(event) =>
+            setValores({ ...valores, activa: event.target.checked })
+          }
         />
         <label className="form-check-label" htmlFor="pol-activa">
           Política activa
         </label>
         <div className="form-text">
-          Desactivar una política de tipo significa «este tipo no se evalúa»; no hace que caiga en
-          la global.
+          Desactivar una política de tipo significa «este tipo no se evalúa»; no
+          hace que caiga en la global.
         </div>
       </div>
     </ModalDialog>

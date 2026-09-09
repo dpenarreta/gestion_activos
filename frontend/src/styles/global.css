@@ -118,6 +118,72 @@ a {
   --bs-btn-disabled-border-color: var(--border-color);
 }
 
+/*
+ * Acción de una fila: azul sólido, no gris con borde.
+ *
+ * «Ver ficha» y «Editar» son *la* acción de cada fila —lo que se viene a
+ * hacer a un listado— y estaban dibujados con el gris de menor jerarquía que
+ * usan «Cancelar» y «Volver». Aun con el contraste corregido seguían leyéndose
+ * como el botón apagado de la fila: había que buscarlos.
+ *
+ * Se usa `btn-primary` a través de esta clase, y no el contorno azul, porque
+ * sobre el fondo oscuro el azul del tema como *texto* da 3,3:1 —peor que el
+ * gris que venía— mientras que como *fondo*, con texto blanco encima, pasa el
+ * 4,5:1 de WCAG AA. El color sale del tema, así que sigue a la marca.
+ */
+.btn-accion {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--color-buttons, #0d6efd);
+  --bs-btn-border-color: var(--color-buttons, #0d6efd);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: color-mix(
+    in srgb,
+    var(--color-buttons, #0d6efd) 85%,
+    #000
+  );
+  --bs-btn-hover-border-color: color-mix(
+    in srgb,
+    var(--color-buttons, #0d6efd) 85%,
+    #000
+  );
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: color-mix(
+    in srgb,
+    var(--color-buttons, #0d6efd) 75%,
+    #000
+  );
+  --bs-btn-active-border-color: color-mix(
+    in srgb,
+    var(--color-buttons, #0d6efd) 75%,
+    #000
+  );
+}
+
+/*
+ * Exportar tiene color propio: naranja.
+ *
+ * No es una acción más de la barra —saca datos del sistema a un archivo que
+ * luego circula por correo— y conviene que se distinga de un vistazo de las
+ * que se quedan dentro. El naranja va de fondo con texto oscuro (6,6:1), no de
+ * texto sobre el fondo oscuro, donde no llegaría al 4,5:1.
+ *
+ * Es un color semántico, no de marca: por eso no sale del tema configurable.
+ */
+.btn-exportar {
+  --bs-btn-color: #1a1d20;
+  --bs-btn-bg: #fd7e14;
+  --bs-btn-border-color: #fd7e14;
+  --bs-btn-hover-color: #1a1d20;
+  --bs-btn-hover-bg: #ff8f33;
+  --bs-btn-hover-border-color: #ff8f33;
+  --bs-btn-active-color: #1a1d20;
+  --bs-btn-active-bg: #e06f0c;
+  --bs-btn-active-border-color: #e06f0c;
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   body,
   .admin-layout,
