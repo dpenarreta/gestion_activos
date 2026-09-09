@@ -145,6 +145,34 @@ a {
 }
 
 /*
+ * Cancelar: contorno rojo.
+ *
+ * Es la salida de un formulario o de un diálogo, y lo que se pierde al
+ * pulsarla —lo escrito y no guardado— no se recupera. Dibujada con el gris de
+ * las acciones menores se confundía con «Volver» o con un botón inactivo, que
+ * es la peor confusión posible para el único botón de la pantalla que
+ * descarta trabajo.
+ *
+ * Sigue siendo contorno y no rojo sólido: no es la acción a la que se viene, y
+ * un bloque rojo junto a «Guardar» compite con ella. El tono sale de
+ * `--state-danger`, que cada tema ajusta a su fondo (4,5:1 en claro, 6,7:1 en
+ * oscuro).
+ */
+.btn-cancelar {
+  --bs-btn-color: var(--state-danger);
+  --bs-btn-border-color: var(--state-danger);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-danger);
+  --bs-btn-hover-border-color: var(--state-danger);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-danger);
+  --bs-btn-active-border-color: var(--state-danger);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
  * Exportar: mismo dibujo de contorno, en naranja.
  *
  * No es una acción más de la barra —saca datos del sistema a un archivo que

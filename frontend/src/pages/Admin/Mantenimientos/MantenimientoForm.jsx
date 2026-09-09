@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
-import { componentesService, mantenimientosService } from "../../../api/mantenimientosService";
+import {
+  componentesService,
+  mantenimientosService,
+} from "../../../api/mantenimientosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
 import { mensajeDeError } from "../../../utils/errores";
@@ -77,12 +80,18 @@ export function MantenimientoForm() {
     activosService
       .list({ page_size: 300 })
       .then((datos) =>
-        setActivos((datos.results ?? datos).filter((activo) => activo.estado !== "dado_de_baja"))
+        setActivos(
+          (datos.results ?? datos).filter(
+            (activo) => activo.estado !== "dado_de_baja",
+          ),
+        ),
       )
       .catch(() => setActivos([]));
     componentesService
       .list({ page_size: 200 })
-      .then((datos) => setComponentes((datos.results ?? datos).filter((c) => c.activo)))
+      .then((datos) =>
+        setComponentes((datos.results ?? datos).filter((c) => c.activo)),
+      )
       .catch(() => setComponentes([]));
   }, []);
 
@@ -112,7 +121,7 @@ export function MantenimientoForm() {
             cantidad: componente.cantidad,
             costo_unitario: componente.costo_unitario || "",
             numero_serie_nuevo: componente.numero_serie_nuevo || "",
-          }))
+          })),
         );
       })
       .catch(() => setError("No se pudo cargar la intervención."));
@@ -125,7 +134,9 @@ export function MantenimientoForm() {
       setActivoSeleccionado(null);
       return;
     }
-    const encontrado = activos.find((activo) => String(activo.id) === String(valores.activo));
+    const encontrado = activos.find(
+      (activo) => String(activo.id) === String(valores.activo),
+    );
     setActivoSeleccionado(encontrado || null);
   }, [valores.activo, activos]);
 
@@ -159,7 +170,11 @@ export function MantenimientoForm() {
       }
       // Volver a la ficha del activo cuando se entró desde ella: es donde el
       // usuario quiere ver reflejado el contador que acaba de mover.
-      navigate(valores.activo ? `/admin/activos/${valores.activo}` : "/admin/mantenimientos");
+      navigate(
+        valores.activo
+          ? `/admin/activos/${valores.activo}`
+          : "/admin/mantenimientos",
+      );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar la intervención."));
     } finally {
@@ -205,8 +220,8 @@ export function MantenimientoForm() {
               </select>
               {esEdicion && (
                 <div className="form-text">
-                  Una intervención no cambia de activo. Si se capturó sobre el equipo equivocado,
-                  elimínela y regístrela de nuevo.
+                  Una intervención no cambia de activo. Si se capturó sobre el
+                  equipo equivocado, elimínela y regístrela de nuevo.
                 </div>
               )}
             </div>
@@ -236,11 +251,14 @@ export function MantenimientoForm() {
                 max={hoy()}
                 min={activoSeleccionado?.fecha_adquisicion}
                 value={valores.fecha_intervencion}
-                onChange={(event) => actualizar("fecha_intervencion", event.target.value)}
+                onChange={(event) =>
+                  actualizar("fecha_intervencion", event.target.value)
+                }
               />
               {activoSeleccionado && (
                 <div className="form-text">
-                  El equipo se adquirió el {activoSeleccionado.fecha_adquisicion}.
+                  El equipo se adquirió el{" "}
+                  {activoSeleccionado.fecha_adquisicion}.
                 </div>
               )}
             </div>
@@ -255,7 +273,9 @@ export function MantenimientoForm() {
                 max={hoy()}
                 min={valores.fecha_intervencion || undefined}
                 value={valores.fecha_salida}
-                onChange={(event) => actualizar("fecha_salida", event.target.value)}
+                onChange={(event) =>
+                  actualizar("fecha_salida", event.target.value)
+                }
               />
               <div className="form-text">
                 {valores.fecha_salida
@@ -271,7 +291,9 @@ export function MantenimientoForm() {
                 id="tipo_responsable"
                 className="form-select"
                 value={valores.tipo_responsable}
-                onChange={(event) => actualizar("tipo_responsable", event.target.value)}
+                onChange={(event) =>
+                  actualizar("tipo_responsable", event.target.value)
+                }
               >
                 <option value="tecnico_interno">Técnico interno</option>
                 <option value="proveedor_externo">Proveedor externo</option>
@@ -287,7 +309,9 @@ export function MantenimientoForm() {
                 required
                 maxLength={150}
                 value={valores.responsable}
-                onChange={(event) => actualizar("responsable", event.target.value)}
+                onChange={(event) =>
+                  actualizar("responsable", event.target.value)
+                }
               />
             </div>
             <div className="col-md-6">
@@ -319,7 +343,9 @@ export function MantenimientoForm() {
                 id="estado_final"
                 className="form-select"
                 value={valores.estado_final}
-                onChange={(event) => actualizar("estado_final", event.target.value)}
+                onChange={(event) =>
+                  actualizar("estado_final", event.target.value)
+                }
               >
                 {ESTADOS_FINALES.map((opcion) => (
                   <option key={opcion.valor} value={opcion.valor}>
@@ -335,7 +361,9 @@ export function MantenimientoForm() {
                   type="checkbox"
                   className="form-check-input"
                   checked={valores.garantia_usada}
-                  onChange={(event) => actualizar("garantia_usada", event.target.checked)}
+                  onChange={(event) =>
+                    actualizar("garantia_usada", event.target.checked)
+                  }
                 />
                 <label className="form-check-label" htmlFor="garantia_usada">
                   Cubierto por garantía
@@ -352,7 +380,9 @@ export function MantenimientoForm() {
                 rows={2}
                 required
                 value={valores.descripcion}
-                onChange={(event) => actualizar("descripcion", event.target.value)}
+                onChange={(event) =>
+                  actualizar("descripcion", event.target.value)
+                }
               />
             </div>
             <div className="col-12">
@@ -364,7 +394,9 @@ export function MantenimientoForm() {
                 className="form-control"
                 rows={2}
                 value={valores.diagnostico}
-                onChange={(event) => actualizar("diagnostico", event.target.value)}
+                onChange={(event) =>
+                  actualizar("diagnostico", event.target.value)
+                }
               />
             </div>
             <div className="col-12">
@@ -390,14 +422,18 @@ export function MantenimientoForm() {
                 min="0"
                 className="form-control"
                 value={valores.costo_mano_obra}
-                onChange={(event) => actualizar("costo_mano_obra", event.target.value)}
+                onChange={(event) =>
+                  actualizar("costo_mano_obra", event.target.value)
+                }
               />
             </div>
           </div>
         </fieldset>
 
         <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Componentes y repuestos utilizados</legend>
+          <legend className="h6 text-uppercase text-muted">
+            Componentes y repuestos utilizados
+          </legend>
           <LineasComponentes
             lineas={lineas}
             componentes={componentes}
@@ -408,11 +444,15 @@ export function MantenimientoForm() {
 
         <div className="d-flex gap-2">
           <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? "Guardando…" : esEdicion ? "Guardar cambios" : "Registrar intervención"}
+            {isSaving
+              ? "Guardando…"
+              : esEdicion
+                ? "Guardar cambios"
+                : "Registrar intervención"}
           </button>
           <button
             type="button"
-            className="btn btn-outline-secondary"
+            className="btn btn-cancelar"
             onClick={() => navigate("/admin/mantenimientos")}
           >
             Cancelar

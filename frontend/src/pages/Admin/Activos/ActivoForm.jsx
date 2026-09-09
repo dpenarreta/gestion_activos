@@ -509,7 +509,7 @@ export function ActivoForm() {
           </button>
           <button
             type="button"
-            className="btn btn-outline-secondary"
+            className="btn btn-cancelar"
             onClick={() =>
               navigate(esEdicion ? `/admin/activos/${id}` : "/admin/activos")
             }
