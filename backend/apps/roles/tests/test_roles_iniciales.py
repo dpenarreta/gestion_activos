@@ -74,14 +74,10 @@ def test_consulta_no_puede_modificar_nada():
     call_command("crear_roles_iniciales", verbosity=0)
     permisos = _permisos_de("Consulta / Auditoría")
 
-    # Todo lo que no sea leer o exportar cuenta como escritura. La lista es de
-    # sufijos y no de nombres completos para que un permiso nuevo entre solo:
-    # si alguien añade `activos.eliminar` y se lo da a este rol, la prueba lo
-    # ve sin que nadie se acuerde de actualizarla.
     escrituras = {
         codename
         for codename in permisos
-        if not codename.endswith((".ver", ".ver_detalle", ".ver_asignados", ".exportar"))
+        if not codename.endswith((".ver", ".ver_detalle", ".exportar"))
     }
     assert not escrituras, f"el rol de solo lectura tiene permisos de escritura: {escrituras}"
 

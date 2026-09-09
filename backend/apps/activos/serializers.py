@@ -296,47 +296,6 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
         )
 
 
-class MiEquipoSerializer(serializers.ModelSerializer):
-    """Lo que ve una persona de un equipo **suyo** (§13, rol «Usuario final»).
-
-    Deliberadamente corto. Fuera quedan el costo, el proveedor, el veredicto de
-    renovación y el historial de custodios: son datos del inventario, no del
-    equipo que uno usa. El veredicto además es una decisión de planificación
-    —«este equipo se reemplaza el año que viene»— que no se comunica por una
-    pantalla, y el historial dice quién más tuvo el equipo, que no es asunto de
-    quien lo tiene ahora.
-
-    Lo que queda es lo que sirve para responder «¿qué tengo yo?» y para
-    identificar el aparato al pedir soporte: el código de la etiqueta, qué es,
-    su serie, en qué estado está y desde cuándo lo tiene.
-    """
-
-    tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
-    estado_display = serializers.CharField(source="get_estado_display", read_only=True)
-    ciudad = serializers.CharField(source="sede.donde", read_only=True, default=None)
-    departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
-    desde = serializers.DateTimeField(read_only=True, default=None)
-
-    class Meta:
-        model = Activo
-        fields = [
-            "id",
-            "codigo_barras",
-            "nombre",
-            "tipo_nombre",
-            "marca",
-            "modelo",
-            "numero_serie",
-            "especificaciones",
-            "estado",
-            "estado_display",
-            "ciudad",
-            "departamento_nombre",
-            "desde",
-        ]
-        read_only_fields = fields
-
-
 class ActivoWriteSerializer(serializers.ModelSerializer):
     """Alta y edición de la ficha técnica.
 

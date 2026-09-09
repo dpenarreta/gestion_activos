@@ -13,10 +13,10 @@ entorno y los impondría al arrancar—: se ejecuta una vez y a partir de ahí s
 editan desde el panel. Volver a ejecutarlo no pisa lo que se haya cambiado,
 salvo que se pida con `--actualizar`.
 
-El quinto rol, «Usuario final», lleva un único permiso —`activos.ver_asignados`—
-y ahí está todo su sentido: muestra los equipos de quien pregunta, no el
-inventario. Con `activos.ver`, que es el permiso que parece el equivalente,
-vería el parque entero, los custodios de todos y los costos.
+El quinto rol del documento, «Usuario final» (consulta los equipos asignados a
+sí mismo), no se crea: necesitaría una pantalla que muestre solo lo propio, y
+esa vista no existe. Darle `activos.ver` le mostraría el parque entero, que es
+justo lo contrario de lo que el documento describe.
 """
 
 from django.contrib.auth.models import Group, Permission
@@ -42,7 +42,6 @@ ROLES = {
         "descripcion": "Registra activos, asignaciones y reparaciones. El trabajo diario.",
         "permisos": [
             "activos.ver",
-            "activos.ver_asignados",
             "activos.crear",
             "activos.editar",
             "activos.asignar",
@@ -70,7 +69,6 @@ ROLES = {
         "descripcion": "Consulta reportes, aprueba bajas y define las reglas de reemplazo.",
         "permisos": [
             "activos.ver",
-            "activos.ver_asignados",
             "activos.dar_baja",
             "activos.exportar",
             # Sin crear ni editar fichas: eso es trabajo de soporte. La
@@ -92,7 +90,6 @@ ROLES = {
         "descripcion": "Visualiza información histórica sin modificar datos.",
         "permisos": [
             "activos.ver",
-            "activos.ver_asignados",
             "organizacion.ver",
             "mantenimientos.ver",
             "politicas.ver",
@@ -108,19 +105,11 @@ ROLES = {
             # (ver docs/data-protection-review.md).
         ],
     },
-    "Usuario final": {
-        "descripcion": "Consulta los equipos que tiene a su cargo. Nada más.",
-        # Un solo permiso, y ahí está el punto: `activos.ver_asignados` muestra
-        # los equipos de quien pregunta, no el inventario. Con `activos.ver`
-        # —el que parece el equivalente— vería el parque entero, los custodios
-        # de todos y los costos, que es lo contrario de lo que el §13 concede.
-        "permisos": ["activos.ver_asignados"],
-    },
 }
 
 
 class Command(BaseCommand):
-    help = "Crea los cinco roles del §13 del documento funcional con sus permisos."
+    help = "Crea los cuatro roles del §13 del documento funcional con sus permisos."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -174,7 +163,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             "\nLos roles son una plantilla: ajustelos desde Usuarios y roles > Roles.\n"
-            "Para que 'Usuario final' sirva, cada cuenta debe estar enlazada a su "
-            "ficha de empleado desde Organizacion > Empleados: es ese vinculo el que "
-            "dice que equipos son suyos."
+            "El rol 'Usuario final' del documento no se crea: necesitaria una pantalla "
+            "que muestre solo los equipos propios, y esa vista todavia no existe."
         )
