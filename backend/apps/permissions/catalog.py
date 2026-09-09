@@ -112,6 +112,17 @@ PERMISSION_CATALOG = {
             "alertas.configurar": "Configurar los umbrales y qué alertas están activas",
         },
     },
+    "reportes": {
+        "label": "Reportes",
+        "description": "Los trece reportes del documento funcional y su exportación.",
+        "permissions": {
+            "reportes.ver": "Ver el catálogo de reportes y su vista previa",
+            # Descargar es un permiso aparte porque el archivo sale del
+            # sistema: circula por correo y se archiva en equipos donde no
+            # rigen los permisos que protegen la pantalla.
+            "reportes.exportar": "Descargar reportes en Excel, CSV o PDF",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",

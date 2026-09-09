@@ -100,6 +100,15 @@ export const ADMIN_MENU = [
     ],
   },
   {
+    // Los reportes son transversales: cruzan activos, custodia y
+    // mantenimientos, así que no cuelgan de ninguno de los tres.
+    id: "reportes",
+    name: "Reportes",
+    icon: "file-earmark-bar-graph",
+    path: "/admin/reportes",
+    permission: "reportes.ver",
+  },
+  {
     id: "organizacion",
     name: "Organización",
     icon: "diagram-3",
@@ -110,6 +119,12 @@ export const ADMIN_MENU = [
         name: "Departamentos",
         icon: "building",
         path: "/admin/organizacion/departamentos",
+      },
+      {
+        id: "organizacion-ubicaciones",
+        name: "Ubicaciones",
+        icon: "geo-alt",
+        path: "/admin/organizacion/ubicaciones",
       },
       {
         id: "organizacion-empleados",
@@ -175,7 +190,9 @@ export const ADMIN_MENU = [
 function filterByPermission(items, permissions) {
   return items
     .filter((item) => !item.permission || permissions.includes(item.permission))
-    .map((item) => (item.children ? { ...item, children: item.children } : item));
+    .map((item) =>
+      item.children ? { ...item, children: item.children } : item,
+    );
 }
 
 /** Filtra el árbol completo por los permisos del usuario autenticado. */

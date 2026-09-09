@@ -26,6 +26,9 @@ import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
+import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { UbicacionForm } from "../pages/Admin/Organizacion/UbicacionForm";
+import { UbicacionesList } from "../pages/Admin/Organizacion/UbicacionesList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
 import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
 import { Register } from "../pages/Register/Register";
@@ -54,7 +57,10 @@ export function AppRoutes() {
   // contraseña obligatorio pendiente, cualquier otra ruta redirige aquí. El
   // backend ya lo exige de verdad (SessionAuthentication.authenticate) —
   // esto es solo para que la navegación no quede varada en un 403.
-  if (user?.must_change_password && location.pathname !== CHANGE_PASSWORD_REQUIRED_PATH) {
+  if (
+    user?.must_change_password &&
+    location.pathname !== CHANGE_PASSWORD_REQUIRED_PATH
+  ) {
     return <Navigate to={CHANGE_PASSWORD_REQUIRED_PATH} replace />;
   }
 
@@ -65,7 +71,10 @@ export function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path={CHANGE_PASSWORD_REQUIRED_PATH} element={<ChangePasswordRequired />} />
+      <Route
+        path={CHANGE_PASSWORD_REQUIRED_PATH}
+        element={<ChangePasswordRequired />}
+      />
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/admin" element={<AdminLayout />}>
@@ -284,6 +293,38 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="reportes"
+          element={
+            <RequirePermission permission="reportes.ver">
+              <ReportesPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/ubicaciones"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <UbicacionesList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/ubicaciones/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <UbicacionForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/ubicaciones/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <UbicacionForm />
+            </RequirePermission>
+          }
+        />
+        <Route
           path="organizacion/empleados"
           element={
             <RequirePermission permission={ORGANIZACION_VER}>
@@ -310,8 +351,14 @@ export function AppRoutes() {
         {/* La sección de permisos dejó de ser independiente: ahora es una
             pestaña dentro de Roles. Se conserva la ruta anterior redirigiendo,
             para no romper enlaces guardados o marcados por los usuarios. */}
-        <Route path="permissions" element={<Navigate to="/admin/roles/permisos" replace />} />
-        <Route path="configuracion" element={<Navigate to="/admin/configuracion/identidad" replace />} />
+        <Route
+          path="permissions"
+          element={<Navigate to="/admin/roles/permisos" replace />}
+        />
+        <Route
+          path="configuracion"
+          element={<Navigate to="/admin/configuracion/identidad" replace />}
+        />
         <Route
           path="configuracion/identidad"
           element={

@@ -1,0 +1,32 @@
+/* La lista de reportes es larga (trece): se le da altura propia y scroll para
+   que el reporte seleccionado y su vista previa queden a la vista a la vez. */
+.reportes-lista {
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+.reportes-lista .list-group-item {
+  border-radius: 0;
+}
+
+/* Las tablas de reporte tienen hasta dieciocho columnas: sin un alto máximo,
+   la vista previa empuja los botones de descarga fuera de la pantalla. */
+.reportes-tabla {
+  max-height: 26rem;
+  overflow: auto;
+}
+
+.reportes-tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--bs-body-bg, #fff);
+  white-space: nowrap;
+}
+
+.reportes-tabla td {
+  white-space: nowrap;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

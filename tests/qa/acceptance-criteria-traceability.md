@@ -33,6 +33,42 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ACT-009 | La edición no cambia al custodio | inventario-activos.feature | La edición de la ficha no puede cambiar al responsable | Sí (pytest) |
 | AC-ACT-010 | Empleado con activos no se desactiva | inventario-activos.feature | No se puede desactivar a un empleado que aún custodia equipos | Sí (pytest) |
 
+## Ficha completa del activo (§4.1, §12, §14)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-EST-001 | Los nueve estados | ficha-completa-activo.feature | El activo tiene los nueve estados del documento | Sí (pytest) |
+| AC-EST-002 | Disponible ≠ en bodega | ficha-completa-activo.feature | Disponible y en bodega son estados distintos | Sí (pytest) |
+| AC-EST-003 | Salida exige motivo | ficha-completa-activo.feature | Sacar un equipo del inventario exige decir por qué | Sí (pytest + Vitest) |
+| AC-EST-004 | La salida libera al custodio | ficha-completa-activo.feature | Un equipo que sale del inventario deja de estar a nombre de nadie | Sí (pytest) |
+| AC-EST-005 | Reingreso de lo perdido | ficha-completa-activo.feature | Un equipo perdido que aparece vuelve al inventario | Sí (pytest) |
+| AC-EST-006 | La baja es definitiva | ficha-completa-activo.feature | Un equipo dado de baja no vuelve | Sí (pytest + Vitest) |
+| AC-EST-007 | No se asigna lo que salió | ficha-completa-activo.feature | No se asigna un equipo que ya no está | Sí (pytest) |
+| AC-EST-008 | Tránsito y garantía son parque | ficha-completa-activo.feature | En tránsito y en reclamación de garantía siguen siendo parque | Sí (pytest) |
+| AC-EST-009 | Lo que salió no alerta | ficha-completa-activo.feature | Lo que salió del parque deja de generar alertas | Sí (pytest) |
+| AC-EST-010 | Lo que salió no se renueva | ficha-completa-activo.feature | Lo que salió del parque no se sugiere renovar | Sí (pytest) |
+| AC-EST-011 | Lo que salió no se repara | ficha-completa-activo.feature | No se registran reparaciones sobre un equipo que no está | Sí (pytest) |
+| AC-EST-012 | Pérdidas separadas de bajas | ficha-completa-activo.feature | El panel separa las pérdidas de las bajas | Sí (pytest) |
+| AC-EST-013 | El expediente se conserva | ficha-completa-activo.feature | El expediente de lo que salió sigue siendo consultable | Sí (pytest) |
+| AC-UBI-001 | Ubicación de catálogo | ficha-completa-activo.feature | La ubicación es un catálogo, no un texto escrito a mano | Sí (pytest) |
+| AC-UBI-002 | Ubicación ≠ departamento | ficha-completa-activo.feature | La ubicación se separa del departamento | Sí (pytest) |
+| AC-UBI-003 | Sin duplicados por sede | ficha-completa-activo.feature | No se repite una ubicación dentro de la misma sede | Sí (pytest) |
+| AC-UBI-004 | Mismo nombre en otra sede | ficha-completa-activo.feature | El mismo nombre en otra sede sí es válido | Sí (pytest) |
+| AC-UBI-005 | No se cierra con equipos | ficha-completa-activo.feature | No se cierra una ubicación que todavía tiene equipos | Sí (pytest) |
+| AC-UBI-006 | No se usa una cerrada | ficha-completa-activo.feature | No se pone un equipo en una ubicación cerrada | Sí (pytest) |
+| AC-UBI-007 | Migración sin pérdida | ficha-completa-activo.feature | Las ubicaciones escritas antes no se pierden | No (verificado al migrar la base real) |
+| AC-UBI-008 | Carga masiva contra catálogo | ficha-completa-activo.feature | La carga masiva exige una ubicación que exista | Sí (pytest) |
+| AC-UBI-009 | Nombre ambiguo entre sedes | ficha-completa-activo.feature | Un nombre de ubicación repetido en dos sedes se debe desambiguar | Sí (pytest) |
+| AC-CLA-001 | Cuatro niveles de criticidad | ficha-completa-activo.feature | La criticidad tiene los cuatro niveles del documento | Sí (pytest) |
+| AC-CLA-002 | El uso es la función | ficha-completa-activo.feature | El uso describe la función del equipo, no cuánto se usa | Sí (pytest) |
+| AC-CLA-003 | Valor por defecto neutro | ficha-completa-activo.feature | La clasificación arranca en el valor más neutro | Sí (pytest) |
+| AC-CLA-004 | Ingreso ≠ compra | ficha-completa-activo.feature | La fecha de ingreso se separa de la de compra | Sí (pytest) |
+| AC-CLA-005 | Ingreso posterior a la compra | ficha-completa-activo.feature | El ingreso no puede ser anterior a la compra | Sí (pytest) |
+| AC-FIL-001 | Filtro por ubicación y sede | ficha-completa-activo.feature | Se filtra el inventario por ubicación y por sede | Sí (pytest) |
+| AC-FIL-002 | Filtro por antigüedad | ficha-completa-activo.feature | Se filtra el inventario por antigüedad | Sí (pytest) |
+| AC-FIL-003 | Filtro por criticidad y uso | ficha-completa-activo.feature | Se filtra por criticidad y por uso | Sí (pytest) |
+| AC-FIL-004 | Exportación completa | ficha-completa-activo.feature | La exportación arrastra los campos nuevos | Sí (pytest) |
+
 ## Carga masiva de activos
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
@@ -78,6 +114,27 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-EXP-003 | Exportación de la bitácora | dashboard-y-reportes.feature | La bitácora de mantenimientos se exporta a Excel | Sí (pytest) |
 | AC-EXP-004 | Permiso propio de exportación | dashboard-y-reportes.feature | Exportar exige un permiso propio | Sí (pytest) |
 | AC-EXP-005 | Exportación auditada | dashboard-y-reportes.feature | Cada exportación queda auditada | Sí (pytest) |
+
+## Reportes y exportación (§16)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-REP-001 | Los trece reportes | reportes.feature | Están los trece reportes del documento | Sí (pytest) |
+| AC-REP-002 | Excel, CSV y PDF | reportes.feature | Cada reporte se puede sacar en los tres formatos | Sí (pytest, los 39 cruces) |
+| AC-REP-003 | Catálogo autodescriptivo | reportes.feature | El catálogo dice qué se puede filtrar en cada reporte | Sí (pytest + Vitest) |
+| AC-REP-004 | Lo que salió no ensucia | reportes.feature | Lo que salió del parque no ensucia los reportes operativos | Sí (pytest) |
+| AC-REP-005 | El censo sí lo incluye | reportes.feature | El inventario general sí es el censo completo | Sí (pytest) |
+| AC-REP-006 | Las tres salidas juntas | reportes.feature | El reporte de bajas reúne las tres salidas | Sí (pytest) |
+| AC-REP-007 | Por usuario, solo asignados | reportes.feature | El reporte por usuario excluye lo que no está asignado | Sí (pytest) |
+| AC-REP-008 | Período respetado | reportes.feature | Los reportes de período respetan las fechas pedidas | Sí (pytest) |
+| AC-REP-009 | Parámetro ilegible tolerado | reportes.feature | Un parámetro ilegible no rompe el reporte | Sí (pytest) |
+| AC-REP-010 | Totales al pie | reportes.feature | El reporte de costos trae el total del período | Sí (pytest) |
+| AC-REP-011 | Contexto en el archivo | reportes.feature | Cada archivo dice de qué período es y con qué filtros se sacó | Sí (pytest) |
+| AC-REP-012 | El corte se avisa | reportes.feature | Un reporte demasiado largo avisa de que se cortó | Sí (pytest) |
+| AC-REP-013 | PDF con menos columnas | reportes.feature | El PDF lleva menos columnas que el Excel | Sí (pytest) |
+| AC-REP-014 | Descargar exige permiso propio | reportes.feature | Ver un reporte no habilita a descargarlo | Sí (pytest + Vitest) |
+| AC-REP-015 | Descarga auditada | reportes.feature | Cada descarga queda auditada | Sí (pytest) |
+| AC-REP-016 | CSV con BOM | reportes.feature | El CSV se abre sin destrozar los acentos | Sí (pytest) |
 
 ## Mantenimientos (RF-04, RF-05)
 
@@ -195,6 +252,35 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ALE-022 | Ver exige permiso | alertas.feature | Ver las alertas exige permiso | Sí (pytest) |
 | AC-ALE-023 | Configurar exige otro permiso | alertas.feature | Configurar exige un permiso distinto de ver | Sí (pytest) |
 | AC-ALE-024 | Configuración auditada | alertas.feature | Cambiar la configuración queda auditado | Sí (pytest) |
+
+## Notificaciones por correo (§19)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-NOT-001 | Envío apagado de fábrica | notificaciones-correo.feature | El envío llega apagado de fábrica | Sí (pytest) |
+| AC-NOT-002 | Envía a los destinatarios | notificaciones-correo.feature | Envía el resumen a los destinatarios elegidos | Sí (pytest) |
+| AC-NOT-003 | No duplica el mismo día | notificaciones-correo.feature | Dos pasadas el mismo día no duplican el correo | Sí (pytest) |
+| AC-NOT-004 | Frecuencia semanal | notificaciones-correo.feature | La frecuencia semanal solo envía su día | Sí (pytest) |
+| AC-NOT-005 | Día tranquilo sin correo | notificaciones-correo.feature | Un día sin nada pendiente no genera correo | Sí (pytest) |
+| AC-NOT-006 | «Nada pendiente» opcional | notificaciones-correo.feature | Se puede pedir el correo aunque no haya pendientes | Sí (pytest) |
+| AC-NOT-007 | Permiso revocado deja de recibir | notificaciones-correo.feature | Deja de recibir quien pierde el permiso de ver las alertas | Sí (pytest) |
+| AC-NOT-008 | Cuenta de baja deja de recibir | notificaciones-correo.feature | Deja de recibir una cuenta dada de baja | Sí (pytest) |
+| AC-NOT-009 | Sin datos de equipos ni personas | notificaciones-correo.feature | El correo no lleva datos de los equipos ni de las personas | Sí (pytest) |
+| AC-NOT-010 | Direcciones en copia oculta | notificaciones-correo.feature | Las direcciones viajan en copia oculta | Sí (pytest) |
+| AC-NOT-011 | Versión en texto plano | notificaciones-correo.feature | El correo tiene versión en texto plano | Sí (pytest) |
+| AC-NOT-012 | Fallo registrado, se reintenta | notificaciones-correo.feature | Un envío fallido queda registrado y se reintenta mañana | Sí (pytest) |
+| AC-NOT-013 | Cada pasada deja constancia | notificaciones-correo.feature | Cada pasada de la tarea deja constancia | Sí (pytest) |
+| AC-NOT-014 | Prueba solo a quien la pide | notificaciones-correo.feature | El correo de prueba va solo a quien lo pide | Sí (pytest) |
+| AC-NOT-015 | La prueba no sustituye el envío | notificaciones-correo.feature | La prueba no sustituye al envío del día | Sí (pytest) |
+| AC-NOT-016 | Enviar exige configurar | notificaciones-correo.feature | Enviar correo exige el permiso de configurar | Sí (pytest) |
+| AC-NOT-017 | No se activa sin destinatarios | notificaciones-correo.feature | No se activa el envío sin destinatarios | Sí (pytest) |
+| AC-NOT-018 | Destinatario debe ver alertas | notificaciones-correo.feature | No se puede elegir como destinatario a quien no ve las alertas | Sí (pytest) |
+| AC-NOT-019 | Último envío no editable | notificaciones-correo.feature | La fecha del último envío no se edita | Sí (pytest) |
+| AC-NOT-020 | Candidatos con correo enmascarado | notificaciones-correo.feature | Los posibles destinatarios llegan con el correo enmascarado | Sí (pytest + Vitest) |
+| AC-NOT-021 | Historial con omitidos y fallidos | notificaciones-correo.feature | El historial muestra también lo que no se envió | Sí (pytest + Vitest) |
+| AC-NOT-022 | Prueba auditada | notificaciones-correo.feature | El envío de prueba queda auditado | Sí (pytest) |
+| AC-NOT-023 | Avisa si el correo no sale | notificaciones-correo.feature | El sistema avisa cuando el correo no sale | Sí (pytest + Vitest) |
+| AC-NOT-024 | El cron corre a diario | notificaciones-correo.feature | La tarea corre a diario y la configuración decide | Sí (pytest) |
 
 ## Etiquetas de activos (RF-08)
 

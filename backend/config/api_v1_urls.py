@@ -34,6 +34,7 @@ urlpatterns = [
     path("politicas/", include("apps.politicas.urls")),
     # --- Centro de alertas del parque (§19) ---
     path("alertas/", include("apps.alertas.urls")),
+    path("reportes/", include("apps.reportes.urls")),
     # --- Adjuntos y evidencias (§18) ---
     path("adjuntos/", include("apps.adjuntos.urls")),
     # --- Identidad institucional / tema ---

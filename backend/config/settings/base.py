@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "apps.politicas",
     "apps.alertas",
     "apps.adjuntos",
+    "apps.reportes",
 ]
 
 MIDDLEWARE = [
