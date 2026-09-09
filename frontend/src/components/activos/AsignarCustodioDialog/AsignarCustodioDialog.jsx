@@ -15,6 +15,11 @@ const MODOS = {
   TRASLADAR: "trasladar",
 };
 
+/** Las bodegas van agrupadas aparte en el desplegable de destino. */
+function esBodega(ubicacion) {
+  return /^bodega\b/i.test((ubicacion.nombre || "").trim());
+}
+
 /**
  * Entrega, devolución y traslado de un activo (RF-01).
  *
@@ -37,6 +42,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [modo, setModo] = useState(MODOS.ASIGNAR);
   const [custodio, setCustodio] = useState(activo.custodio || "");
   const [departamento, setDepartamento] = useState(activo.departamento || "");
+  const [sede, setSede] = useState("");
   const [ubicacion, setUbicacion] = useState(activo.ubicacion || "");
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState(null);
@@ -53,9 +59,21 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       .catch(() => setDepartamentos([]));
     ubicacionesService
       .list({ activa: "true", page_size: 100 })
-      .then((datos) => setUbicaciones(datos.results ?? datos))
+      .then((datos) => {
+        const lista = datos.results ?? datos;
+        setUbicaciones(lista);
+        // El traslado arranca en la sede donde está el equipo: casi siempre se
+        // mueve dentro del mismo edificio, y empezar con el desplegable vacío
+        // obliga a recordar dónde estaba.
+        const actual = lista.find(
+          (u) => String(u.id) === String(activo.ubicacion),
+        );
+        if (actual) {
+          setSede(actual.sede);
+        }
+      })
       .catch(() => setUbicaciones([]));
-  }, []);
+  }, [activo.ubicacion]);
 
   const empleadoElegido = useMemo(
     () => empleados.find((e) => String(e.id) === String(custodio)),
@@ -65,6 +83,39 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     () => ubicaciones.find((u) => String(u.id) === String(ubicacion)),
     [ubicaciones, ubicacion],
   );
+
+  const sedes = useMemo(
+    () =>
+      [...new Set(ubicaciones.map((u) => u.sede).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "es"),
+      ),
+    [ubicaciones],
+  );
+
+  /**
+   * El destino se elige en dos pasos —primero la sede, después el lugar— y no
+   * en una lista única. Con varias sedes, «Bodega TI» aparece tantas veces
+   * como edificios haya y las dos opciones se leen igual: elegir la de la
+   * ciudad equivocada manda el equipo a buscar a 400 km.
+   */
+  const lugaresDeLaSede = useMemo(
+    () => ubicaciones.filter((u) => u.sede === sede),
+    [ubicaciones, sede],
+  );
+  const bodegas = lugaresDeLaSede.filter(esBodega);
+  const otrosLugares = lugaresDeLaSede.filter((u) => !esBodega(u));
+
+  function elegirSede(valor) {
+    setSede(valor);
+    // Un lugar de la sede anterior dejaría el formulario diciendo una cosa y
+    // enviando otra.
+    const sigueValiendo = ubicaciones.some(
+      (u) => String(u.id) === String(ubicacion) && u.sede === valor,
+    );
+    if (!sigueValiendo) {
+      setUbicacion("");
+    }
+  }
 
   /**
    * Al elegir a una persona, el área se propone sola: un equipo entregado a
@@ -239,37 +290,79 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           </div>
         </>
       ) : (
-        <div className="mb-3">
-          <label className="form-label" htmlFor="ubicacion">
-            Nueva ubicación
-          </label>
-          <select
-            id="ubicacion"
-            className="form-select"
-            value={ubicacion}
-            onChange={(event) => setUbicacion(event.target.value)}
-          >
-            <option value="">Sin ubicación registrada</option>
-            {ubicaciones.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre_completo}
-              </option>
-            ))}
-          </select>
-          {hayCambio && (
-            <p className="situacion-actual__cambio">
-              {activo.ubicacion_nombre || "Sin ubicación"}{" "}
-              <span aria-hidden="true">→</span>{" "}
-              <strong>
-                {ubicacionElegida?.nombre_completo || "Sin ubicación"}
-              </strong>
-            </p>
-          )}
-          <div className="form-text">
-            El responsable no cambia: sigue siendo{" "}
-            {activo.custodio_nombre || "nadie (equipo sin asignar)"}.
+        <>
+          <div className="mb-3">
+            <label className="form-label" htmlFor="sede">
+              Sede de destino
+            </label>
+            <select
+              id="sede"
+              className="form-select"
+              value={sede}
+              onChange={(event) => elegirSede(event.target.value)}
+            >
+              <option value="">Elija una sede…</option>
+              {sedes.map((nombreSede) => (
+                <option key={nombreSede} value={nombreSede}>
+                  {nombreSede}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+
+          <div className="mb-3">
+            <label className="form-label" htmlFor="ubicacion">
+              Bodega o área de destino
+            </label>
+            <select
+              id="ubicacion"
+              className="form-select"
+              value={ubicacion}
+              onChange={(event) => setUbicacion(event.target.value)}
+              disabled={!sede}
+            >
+              <option value="">
+                {sede ? "Elija el lugar…" : "Elija primero la sede"}
+              </option>
+              {/* Separadas porque no son lo mismo: en una bodega el equipo
+                  está guardado, en un área está en uso. */}
+              {bodegas.length > 0 && (
+                <optgroup label="Bodegas">
+                  {bodegas.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre}
+                      {u.detalle ? ` (${u.detalle})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {otrosLugares.length > 0 && (
+                <optgroup label="Otras áreas">
+                  {otrosLugares.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre}
+                      {u.detalle ? ` (${u.detalle})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            {hayCambio && (
+              <p className="situacion-actual__cambio">
+                {activo.ubicacion_nombre || "Sin ubicación"}{" "}
+                <span aria-hidden="true">→</span>{" "}
+                <strong>
+                  {ubicacionElegida?.nombre_completo || "Sin ubicación"}
+                </strong>
+              </p>
+            )}
+            <div className="form-text">
+              {/* Nada de personas en este modo: el destino de un traslado es un
+                  lugar, no alguien. La entrega vive en el otro modo. */}
+              El traslado solo cambia dónde está el equipo.
+            </div>
+          </div>
+        </>
       )}
 
       <div className="mb-0">
