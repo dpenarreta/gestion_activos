@@ -155,6 +155,22 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-MNT-013 | Causa, solución y desenlace | mantenimientos.feature | La bitácora registra causa, solución y desenlace | Sí (pytest) |
 | AC-MNT-014 | Tiempo fuera acumulado del parque | mantenimientos.feature | El panel acumula el tiempo fuera de operación del parque | Sí (pytest) |
 
+## Cálculo de tiempos (§10)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-TIE-001 | Los siete tiempos | tiempos-del-activo.feature | El sistema calcula los siete tiempos del documento | Sí (pytest + Vitest) |
+| AC-TIE-002 | Compra e ingreso por separado | tiempos-del-activo.feature | El tiempo desde la compra y desde el ingreso se cuentan por separado | Sí (pytest) |
+| AC-TIE-003 | Se declara la base del cálculo | tiempos-del-activo.feature | Sin fecha de ingreso, el cálculo se mide desde la compra y lo declara | Sí (pytest + Vitest) |
+| AC-TIE-004 | Custodio actual sin períodos ajenos | tiempos-del-activo.feature | El tiempo con el custodio actual no incluye los períodos ajenos | Sí (pytest) |
+| AC-TIE-005 | Sin custodio, sin tiempo | tiempos-del-activo.feature | Un equipo sin custodio no tiene tiempo con el custodio actual | Sí (pytest + Vitest) |
+| AC-TIE-006 | Reparación abierta aparte | tiempos-del-activo.feature | La reparación abierta se informa aparte de la acumulada | Sí (pytest + Vitest) |
+| AC-TIE-007 | Tiempo guardado sin uso | tiempos-del-activo.feature | El tiempo sin uso suma lo que el equipo estuvo guardado | Sí (pytest) |
+| AC-TIE-008 | Lo que salió deja de contar | tiempos-del-activo.feature | Un equipo que salió del inventario deja de acumular tiempo | Sí (pytest) |
+| AC-TIE-009 | Tiempo activo real | tiempos-del-activo.feature | El tiempo activo real descuenta lo guardado y lo reparado | Sí (pytest) |
+| AC-TIE-010 | Nunca negativo | tiempos-del-activo.feature | El tiempo activo real nunca es negativo | Sí (pytest) |
+| AC-TIE-011 | Sin multiplicar consultas | tiempos-del-activo.feature | Calcular los tiempos no multiplica las consultas | Sí (pytest) |
+
 ## Garantías (§4.1)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

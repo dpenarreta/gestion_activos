@@ -246,11 +246,11 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 441 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+- Backend: 453 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
   de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
-- Frontend: 26 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
+- Frontend: 30 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
   dominio se verificaron manualmente en navegador contra la API real.
 - Todos los criterios de aceptación están documentados como escenarios
   Gherkin en `tests/qa/features/`, con trazabilidad completa en

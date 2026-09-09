@@ -267,6 +267,8 @@ export function ActivoDetalle() {
               )}
             </div>
           </section>
+
+          {activo.tiempos && <TiemposDelActivo tiempos={activo.tiempos} />}
         </div>
       </div>
 
@@ -332,6 +334,65 @@ export function ActivoDetalle() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Los siete tiempos del §10 del documento funcional.
+ *
+ * Se muestran en días y no en meses porque cuatro de ellos —lo que lleva con
+ * su custodio, lo que estuvo guardado, lo que lleva en el taller— se consultan
+ * para tomar una decisión esta semana, y «11 meses» redondea justo la
+ * diferencia que importa.
+ */
+export function TiemposDelActivo({ tiempos }) {
+  const filas = [
+    ["Desde la compra", tiempos.desde_compra_dias],
+    ["Desde el ingreso", tiempos.desde_ingreso_dias],
+    ["Desde la primera asignación", tiempos.desde_primera_asignacion_dias],
+    ["Con el custodio actual", tiempos.con_custodio_actual_dias],
+    ["Acumulado en reparación", tiempos.en_reparacion_dias],
+    ["Guardado sin uso", tiempos.sin_uso_dias],
+  ];
+
+  return (
+    <section className="card activo-card mt-3">
+      <div className="card-body">
+        <h3 className="h6 text-uppercase text-muted mb-3">Tiempos</h3>
+        <dl className="row mb-0">
+          {filas.map(([etiqueta, valor]) => (
+            <Dato
+              key={etiqueta}
+              etiqueta={etiqueta}
+              valor={
+                valor === null || valor === undefined ? "—" : `${valor} día(s)`
+              }
+            />
+          ))}
+        </dl>
+
+        {tiempos.en_reparacion_ahora_dias > 0 && (
+          /* Se informa aparte del acumulado: sumarlos escondería que el equipo
+             sigue fuera de operación ahora mismo. */
+          <div className="alert alert-info py-2 small mt-3 mb-0">
+            Lleva {tiempos.en_reparacion_ahora_dias} día(s) en reparación sin
+            cerrar.
+          </div>
+        )}
+
+        <p className="form-text mb-0 mt-3">
+          <strong>
+            Tiempo activo real: {tiempos.activo_real_dias ?? "—"} día(s)
+          </strong>{" "}
+          — lo que estuvo trabajando, descontando lo que pasó guardado y en el
+          taller. Medido desde{" "}
+          {tiempos.medido_desde === "ingreso"
+            ? "el ingreso al inventario"
+            : "la compra"}
+          .
+        </p>
+      </div>
+    </section>
   );
 }
 

@@ -97,6 +97,39 @@ propiedad en Python. Lo mismo vale para `antiguedad_min_meses` /
 hace 36 meses, así que los operadores quedan invertidos respecto de lo que se
 lee — es el error fácil de cometer al tocar ese filtro.
 
+### Los siete tiempos del §10
+
+La ficha (`GET /activos/{id}/`) incluye un bloque `tiempos` con los siete que
+pide el documento, todos en días: desde la compra, desde el ingreso, desde la
+primera asignación, con el custodio actual, acumulado en reparación, guardado
+sin uso y activo real. Se acompaña de `medido_desde` (`ingreso` o `compra`),
+porque dos «tiempos activos reales» medidos desde bases distintas no son
+comparables entre equipos.
+
+Cuatro de ellos no salen de la ficha sino del **historial**: el sistema nunca
+guardó «cuánto lleva este equipo con su custodio», guardó cada movimiento con
+su fecha y de ahí se reconstruye. Esa es una de las razones de que el historial
+sea append-only.
+
+Detalles que cambian el número:
+
+- El tiempo con el custodio actual cuenta **desde la última entrega a esa
+  persona**, no desde la primera: un equipo devuelto y reentregado al mismo
+  empleado no debe sumar el tiempo en que no lo tuvo.
+- Un equipo que salió del inventario (baja, perdido, robado) **deja de
+  acumular** tiempo sin uso. Si siguiera contando, un equipo robado hace seis
+  meses aparecería como el más ocioso del parque.
+- La reparación en curso se informa aparte del acumulado
+  (`en_reparacion_ahora_dias`): sumarlas escondería que el equipo sigue fuera
+  de operación ahora mismo.
+- `activo_real_dias` nunca es negativo: con fechas mal capturadas los
+  descuentos pueden pasarse, y un número negativo en la ficha solo confunde.
+
+Estos tiempos **solo aparecen en el detalle**, no en el listado: exigen
+recorrer los movimientos de cada equipo, y hacerlo para veinte filas por página
+multiplicaría las consultas (ver `docs/rendimiento.md`). La ficha precarga
+historial y bitácora para calcularlos sin consultas extra.
+
 ### Los nueve estados y la frontera del parque
 
 Los estados del §12 son `disponible`, `en_uso` (asignado), `en_bodega`,

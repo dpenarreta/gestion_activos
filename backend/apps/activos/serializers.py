@@ -4,6 +4,7 @@ from apps.organizacion.models import Departamento, Empleado, Ubicacion
 from apps.politicas.services import evaluar_activo
 
 from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
+from .tiempos import calcular as calcular_tiempos
 
 
 class TipoDispositivoSerializer(serializers.ModelSerializer):
@@ -155,6 +156,7 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     estado_garantia_display = serializers.SerializerMethodField()
     dias_para_fin_de_garantia = serializers.IntegerField(read_only=True)
     dias_en_reparacion = serializers.SerializerMethodField()
+    tiempos = serializers.SerializerMethodField()
     renovacion = serializers.SerializerMethodField()
 
     class Meta:
@@ -195,6 +197,7 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "motivo_baja",
             "antiguedad_meses",
             "dias_en_reparacion",
+            "tiempos",
             "total_mantenimientos",
             "total_componentes_criticos",
             "renovacion",
@@ -218,6 +221,14 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
 
     def get_estado_garantia_display(self, obj) -> str:
         return Activo.Garantia(obj.estado_garantia).label
+
+    def get_tiempos(self, obj) -> dict:
+        """Los siete tiempos del §10, reconstruidos desde el historial.
+
+        Solo en la ficha: en el listado obligarían a recorrer los movimientos
+        de cada equipo de la página (ver `apps.activos.tiempos`).
+        """
+        return calcular_tiempos(obj)
 
     def get_dias_en_reparacion(self, obj) -> int:
         """Tiempo acumulado fuera de operación (§10 del documento funcional).

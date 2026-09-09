@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (reportes del §16).
+estado del sistema. Actualizado el 2026-09-09 (tiempos del §10).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -35,7 +35,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 7 | Histórico de asignaciones | ✅ | `MovimientoActivo`, append-only |
 | 8 | Registro de reparaciones | ✅ | Causa, solución, estado final, garantía usada e ingreso/salida |
 | 9 | Histórico de reparaciones | ✅ | Días fuera de operación por intervención y acumulados |
-| 10 | Cálculo de tiempos | ⚠️ Parcial | Antigüedad y tiempo en reparación; falta tiempo de asignación por custodio |
+| 10 | Cálculo de tiempos | ✅ | Los siete del documento, reconstruidos desde el historial (`apps.activos.tiempos`) |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ✅ | Criticidad de cuatro niveles y uso por función, además del tipo |
 | 13 | Usuarios y roles | ✅ | Roles configurables, 35 permisos |
@@ -168,6 +168,19 @@ dice sin que nadie entre a mirarlo.
   envió. Un envío que falla en silencio hace creer que alguien fue advertido.
 - Botón de prueba en la pantalla de configuración: escribe solo a quien lo
   pide, y avisa si el servidor de correo rechaza el envío.
+
+### Fase 5 — los siete tiempos del activo (§10)
+
+- Los siete que pide el documento, cuatro de ellos reconstruidos desde el
+  historial de movimientos en vez de guardarse como contadores: mantenerlos al
+  día en cada operación los desincronizaría justo en los equipos que más se
+  mueven.
+- El tiempo con el custodio actual cuenta desde la última entrega a esa
+  persona, no desde la primera.
+- Un equipo que salió del inventario deja de acumular tiempo: si no, un equipo
+  robado hace seis meses aparecería como el más ocioso del parque.
+- Solo se calculan en la ficha, con el historial precargado; en el listado
+  multiplicarían las consultas por el número de filas.
 
 ### Fase 4 — los trece reportes (§16)
 

@@ -94,6 +94,13 @@ class ActivoViewSet(viewsets.ModelViewSet):
         queryset = Activo.objects.select_related(
             "tipo", "custodio", "departamento", "ubicacion"
         ).order_by("-created_at")
+
+        if self.action == "retrieve":
+            # La ficha calcula los siete tiempos del §10 recorriendo el
+            # historial y la bitácora: sin precargarlos, cada cálculo se
+            # llevaría su propia consulta. En el listado no se precargan
+            # porque allí esos tiempos no se muestran.
+            queryset = queryset.prefetch_related("movimientos", "mantenimientos")
         params = self.request.query_params
 
         busqueda = params.get("q")
