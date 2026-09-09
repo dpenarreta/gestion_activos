@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (puesta en marcha).
+estado del sistema. Actualizado el 2026-09-09 (copias de seguridad).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -46,7 +46,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 18 | Adjuntos y evidencias | ✅ | `apps.adjuntos`, con los nueve tipos del documento |
 | 19 | Notificaciones y alertas | ✅ | Las siete alertas, más el envío del resumen por correo con frecuencia configurable |
 | 20 | Integraciones | ❌ | Fase 3 del propio documento |
-| 21 | No funcionales | ⚠️ | Ver «Rendimiento» |
+| 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada (`docs/rendimiento.md`, `docs/respaldos.md`) |
 
 ## Vacíos en lo que parece cubierto
 
@@ -168,6 +168,18 @@ dice sin que nadie entre a mirarlo.
   envió. Un envío que falla en silencio hace creer que alguien fue advertido.
 - Botón de prueba en la pantalla de configuración: escribe solo a quien lo
   pide, y avisa si el servidor de correo rechaza el envío.
+
+### Fase 6 — copias de seguridad (§21)
+
+- `manage.py respaldar`: base de datos **y adjuntos**, que viven en el sistema
+  de archivos y no se regeneran.
+- El respaldo se **verifica** antes de darse por bueno. El defecto que lo hizo
+  necesario: con la ruta como parámetro, SQL Server no escribía nada y no
+  lanzaba error — el comando informaba de un respaldo que no existía.
+- Cada respaldo lleva un manifiesto con los conteos, para comparar después de
+  restaurar. Restauración **probada de extremo a extremo** el 2026-09-09.
+- `verificar_despliegue` avisa si no consta ningún respaldo o si el último
+  tiene más de una semana.
 
 ### Fase 5 — los siete tiempos del activo (§10)
 

@@ -147,6 +147,7 @@ los detalles de conexión.
 | `python manage.py prueba_de_carga` | `backend/` | Peticiones concurrentes contra un servidor en marcha |
 | `python manage.py crear_roles_iniciales` | `backend/` | Crea los cuatro roles del §13 con sus permisos |
 | `python manage.py verificar_despliegue` | `backend/` | Revisa qué falta para producción (falla si hay algo crítico) |
+| `python manage.py respaldar` | `backend/` | Copia de seguridad de la base y los adjuntos, verificada |
 | `pytest` | `backend/` | Suite de pruebas del backend |
 | `ruff check .` / `black .` / `isort .` | `backend/` | Lint y formato |
 | `npm run dev` | `frontend/` | Servidor de desarrollo (Vite) |
@@ -250,7 +251,7 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 497 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+- Backend: 509 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
   de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).

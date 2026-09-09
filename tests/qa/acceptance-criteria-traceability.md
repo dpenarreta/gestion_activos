@@ -377,6 +377,19 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-025 | Sin credenciales reales versionadas | repository-hygiene.feature | No existen credenciales reales versionadas | No |
 | AC-026 | `.env.example` seguro existe | repository-hygiene.feature | Existen archivos .env.example seguros | No |
 
+## Copias de seguridad (§21)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-BAK-001 | Respalda también los adjuntos | respaldos.feature | El respaldo incluye los adjuntos, no solo la base | Sí (pytest) |
+| AC-BAK-002 | No informa lo que no se escribió | respaldos.feature | Un respaldo que no se escribió no se informa como correcto | Sí (pytest) |
+| AC-BAK-003 | Verificación de integridad | respaldos.feature | El respaldo se verifica antes de darlo por bueno | Sí (verificado contra SQL Server real) |
+| AC-BAK-004 | Manifiesto del contenido | respaldos.feature | Cada respaldo lleva un manifiesto de lo que contenía | Sí (pytest) |
+| AC-BAK-005 | Detecta restauración incompleta | respaldos.feature | La comparación detecta una restauración incompleta | Sí (pytest) |
+| AC-BAK-006 | Ruta validada | respaldos.feature | La ruta del respaldo se valida antes de usarla | Sí (pytest) |
+| AC-BAK-007 | Avisa si no hay respaldos | respaldos.feature | La revisión de despliegue avisa si no hay respaldos | Sí (pytest) |
+| AC-BAK-008 | Manifiesto corrupto tolerado | respaldos.feature | Un manifiesto corrupto no rompe la revisión | Sí (pytest) |
+
 ## Puesta en marcha (§13, §21)
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

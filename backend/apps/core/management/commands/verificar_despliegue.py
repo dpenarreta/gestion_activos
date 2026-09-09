@@ -40,6 +40,7 @@ class Command(BaseCommand):
         hallazgos += self._revisar_correo()
         hallazgos += self._revisar_tareas_programadas()
         hallazgos += self._revisar_datos_minimos()
+        hallazgos += self._revisar_respaldos()
 
         criticos = [h for h in hallazgos if h[0] == Resultado.CRITICO]
         avisos = [h for h in hallazgos if h[0] == Resultado.AVISO]
@@ -275,3 +276,32 @@ class Command(BaseCommand):
             hallazgos.append((Resultado.OK, f"{total_activos} activos en el inventario", ""))
 
         return hallazgos
+
+    # --- Copias de seguridad ---
+
+    def _revisar_respaldos(self):
+        """Un sistema sin respaldo reciente no falla: simplemente no tiene de
+        dónde volver."""
+        from apps.core.management.commands.respaldar import fecha_del_ultimo_respaldo
+
+        ultimo = fecha_del_ultimo_respaldo()
+        if ultimo is None:
+            return [
+                (
+                    Resultado.AVISO,
+                    "No consta ningun respaldo",
+                    "La base y los adjuntos —facturas y actas firmadas— no se regeneran. "
+                    "Ejecute `manage.py respaldar` y programelo (ver docs/respaldos.md).",
+                )
+            ]
+
+        dias = (timezone.localtime() - ultimo).days
+        if dias > 7:
+            return [
+                (
+                    Resultado.AVISO,
+                    f"El ultimo respaldo es de hace {dias} dias",
+                    "Lo que se pierda desde entonces no se recupera.",
+                )
+            ]
+        return [(Resultado.OK, f"Respaldo del {ultimo:%Y-%m-%d}", "")]

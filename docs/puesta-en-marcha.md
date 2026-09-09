@@ -87,14 +87,16 @@ En Windows, Programador de tareas: una tarea diaria por comando, apuntando a
 
 ## 4. Copias de seguridad
 
-**No implementadas.** Es el punto de «Disponibilidad» del §21 que sigue
-abierto, y el único de esta lista que el sistema no puede verificar por sí
-mismo.
+```cron
+0 2 * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --destino /respaldos
+```
 
-Lo que hay que respaldar es la base de datos completa y el directorio de
-adjuntos (`MEDIA_ROOT`): las facturas y actas firmadas están ahí y no se
-regeneran. Un respaldo que nunca se ha restaurado no es un respaldo — conviene
-probar la restauración en una base aparte antes de confiar en él.
+Respalda la base **y los adjuntos** —las facturas y actas firmadas no se
+regeneran—, verifica que el archivo se escribió y deja un manifiesto con los
+conteos para comparar después de restaurar.
+
+Un respaldo que nunca se ha restaurado no es un respaldo: el procedimiento de
+restauración, probado, está en `docs/respaldos.md`. Léalo antes de necesitarlo.
 
 ## 5. Despliegue
 
@@ -135,7 +137,6 @@ descubren con el lector en la mano, no en la pantalla.
 
 ## Lo que sigue sin estar
 
-- **Copias de seguridad** (§21), arriba.
 - **Integraciones** del §20 (Active Directory, RRHH, tickets, ERP). El §25 las
   clasifica como prioridad baja.
 - **Rol «Usuario final»**, que necesita una pantalla de «mis equipos».
