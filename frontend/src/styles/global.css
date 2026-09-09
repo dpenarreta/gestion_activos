@@ -194,6 +194,45 @@ a {
   --bs-btn-disabled-border-color: var(--border-color);
 }
 
+/*
+ * En una fila de varios campos, las etiquetas ocupan lo mismo.
+ *
+ * Una etiqueta larga se parte en dos líneas y empuja su campo hacia abajo:
+ * en «Umbrales» de las políticas, «Recomendar reemplazo a los (meses)» dejaba
+ * su casilla un renglón por debajo de la de al lado, y con ella el texto de
+ * ayuda. La fila se leía torcida y costaba emparejar cada casilla con su
+ * rótulo.
+ *
+ * Se reserva el alto de dos renglones y el texto se apoya abajo: una etiqueta
+ * de una línea queda a la misma altura que la segunda línea de la de al lado,
+ * así que las casillas arrancan alineadas sin depender de cuánto mida cada
+ * rótulo.
+ *
+ * Solo en filas de dos o más campos —de ahí el `:has`—: en una fila de un solo
+ * campo no hay con qué alinearse y el hueco extra sería espacio muerto.
+ */
+form
+  .row:has(> [class*="col"] + [class*="col"])
+  > [class*="col"]
+  > .form-label {
+  min-height: calc(2 * 1.5em);
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+/* Apilados, cada campo ocupa el ancho entero y vuelve a no haber con qué
+   alinearse. */
+@media (max-width: 767.98px) {
+  form
+    .row:has(> [class*="col"] + [class*="col"])
+    > [class*="col"]
+    > .form-label {
+    min-height: 0;
+    display: block;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   body,
   .admin-layout,
