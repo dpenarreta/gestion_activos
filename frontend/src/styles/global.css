@@ -268,6 +268,63 @@ form
   }
 }
 
+/* Compartido por las dos cargas masivas —activos y catálogos—: el reporte
+   es el mismo y vive aquí para no duplicarlo en dos hojas. */
+/*
+ * Los hallazgos de la validación, agrupados por fila.
+ *
+ * Una lista plana repite el número de fila en cada línea y obliga a
+ * reconstruir a ojo cuántos problemas tiene cada una. Al corregir se trabaja
+ * fila por fila, así que el reporte se ordena igual: el número manda y debajo
+ * cuelga todo lo suyo.
+ */
+.hallazgos {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.hallazgos__fila {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--state-danger);
+  border-radius: var(--border-radius, 0.5rem);
+  background-color: var(--surface-alt);
+}
+
+.hallazgos--aviso .hallazgos__fila {
+  border-left-color: var(--state-warning);
+}
+
+.hallazgos__numero {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hallazgos__detalle {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-primary);
+}
+
+/* Apilado en pantallas estrechas: con dos columnas, el mensaje queda en una
+   tira de tres palabras por línea. */
+@media (max-width: 36em) {
+  .hallazgos__fila {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   body,
   .admin-layout,

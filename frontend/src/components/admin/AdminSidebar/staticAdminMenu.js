@@ -138,6 +138,14 @@ export const ADMIN_MENU = [
         icon: "person-badge",
         path: "/admin/organizacion/empleados",
       },
+      {
+        // Al final del grupo: se usa una vez al arrancar y de vez en cuando,
+        // no todos los días como los catálogos de arriba.
+        id: "organizacion-carga",
+        name: "Carga de catálogos",
+        icon: "file-earmark-arrow-up",
+        path: "/admin/catalogos/carga",
+      },
     ],
   },
   {

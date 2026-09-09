@@ -84,6 +84,14 @@ bitácora. Tampoco se recolecta domicilio, datos financieros ni de salud.
   eliminación física completa (a diferencia de la desactivación) debe
   implementar ese flujo explícitamente, evaluando el impacto en la
   integridad del historial de auditoría.
+- **Plantilla de empleados**: el archivo de carga baja con lo que ya está
+  registrado —para poder añadir filas debajo sin duplicar nada— pero las
+  columnas de **correo y teléfono salen vacías**. Existen para llenarlas al dar
+  de alta, no para llevarse las de la nómina entera: el .xlsx se descarga y
+  circula por correo o USB, fuera del alcance de los permisos del sistema. Lo
+  que sí lleva —código, nombre y área— es lo mínimo para reconocer una fila que
+  ya está.
+
 - **Ubicación aproximada**: el campo `AuditLog.location` existe pero no se
   resuelve automáticamente (no se integra ningún proveedor de geo-IP ni un
   flujo de consentimiento) — queda para que un proyecto concreto lo

@@ -121,7 +121,9 @@ Es el **riesgo número uno** del §26 del documento funcional, y el que decide s
 el sistema se usa o se abandona.
 
 1. Cree los catálogos desde *Organización*: sedes, departamentos, proveedores
-   y empleados.
+   y empleados. Si son muchos, use *Organización → Carga de catálogos*: cada
+   uno tiene su propio archivo, que se descarga con lo que ya está registrado
+   dentro y se sube con las filas nuevas añadidas debajo.
 
    Rellene la **ciudad** de cada sede. No es un dato de adorno: es lo que se
    lee al preguntar dónde está un equipo —«está en Quito»— y lo que aparece en

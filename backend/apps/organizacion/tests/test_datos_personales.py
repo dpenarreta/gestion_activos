@@ -184,7 +184,11 @@ def test_el_comando_de_purga_enmascara_lo_ya_escrito(db, departamento):
 
 def test_la_plantilla_de_carga_no_lleva_datos_de_contacto(cliente, departamento):
     """El .xlsx se descarga y circula por correo o USB: debe llevar lo mínimo
-    para identificar al custodio, no la ficha del empleado."""
+    para identificar al custodio, no la ficha del empleado.
+
+    Importa más desde que el archivo de empleados baja lleno para poder añadir
+    filas debajo: sin esta regla, descargar la plantilla sería exportar los
+    teléfonos y correos de toda la nómina."""
     TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP")
     Empleado.objects.create(
         nombres="Ana",
@@ -195,12 +199,16 @@ def test_la_plantilla_de_carga_no_lleva_datos_de_contacto(cliente, departamento)
         departamento=departamento,
     )
 
-    contenido = cliente.get("/api/v1/activos/plantilla-importacion/").content
+    contenido = cliente.get("/api/v1/catalogos/empleados/plantilla/").content
     hoja = load_workbook(BytesIO(contenido))["Empleados"]
     filas = [list(fila) for fila in hoja.iter_rows(values_only=True)]
     texto = str(filas)
 
-    assert filas[0] == ["Código", "Nombre", "Departamento"]
+    # Las columnas existen —hay que poder llenarlas al dar de alta— pero lo ya
+    # registrado no se lleva: identifica la fila, no exporta la ficha.
+    assert "Correo" in filas[0]
+    assert "Teléfono" in filas[0]
     assert "EMP-0001" in texto
+    assert "Ana" in texto
     assert "ana.perez@empresa.com" not in texto
     assert "0991234567" not in texto

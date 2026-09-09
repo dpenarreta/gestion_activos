@@ -24,6 +24,7 @@ import { MantenimientosList } from "../pages/Admin/Mantenimientos/Mantenimientos
 import { AlertasPage } from "../pages/Admin/Alertas/AlertasPage";
 import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
+import { CargaCatalogosPage } from "../pages/Admin/CargaCatalogos/CargaCatalogosPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
@@ -267,6 +268,17 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={POLITICAS_VER}>
               <SugerenciasPage />
+            </RequirePermission>
+          }
+        />
+        {/* El permiso real lo comprueba cada catálogo por su lado —cargar
+            tipos es editar el inventario, cargar empleados es editar la
+            organización—; aquí basta con poder ver la sección. */}
+        <Route
+          path="catalogos/carga"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <CargaCatalogosPage />
             </RequirePermission>
           }
         />

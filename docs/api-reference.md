@@ -159,6 +159,37 @@ almacenados, pero solo el primero se puede entregar hoy. Una devolución deja
 el equipo en bodega —hay que revisarlo antes de volver a prometerlo—, y
 `almacenados=true` agrupa ambos para quien busca qué hay guardado.
 
+## Carga masiva de catálogos
+
+Base: `/api/v1/catalogos/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/catalogos/` | autenticado | Qué se puede cargar y con qué permiso. La pantalla se dibuja desde aquí: un catálogo nuevo aparece sin tocar el frontend |
+| GET | `/catalogos/{clave}/plantilla/` | el del catálogo | .xlsx del catálogo, **con lo que ya existe dentro** |
+| POST | `/catalogos/{clave}/importar/` | el del catálogo | Multipart con `archivo` y `confirmar`, como la carga de activos: sin confirmar solo valida |
+
+Claves: `sedes`, `departamentos`, `proveedores`, `tipos`, `empleados`.
+
+**Un archivo por catálogo.** La plantilla de activos llegó a traer ocho hojas
+en un solo libro, cinco de ellas solo de consulta, y ninguno de esos catálogos
+se podía cargar: para dar de alta cincuenta empleados había que teclearlos uno
+a uno mientras el archivo ya los listaba. Ahora la de activos trae solo lo
+suyo —instrucciones, captura y ejemplo— y cada catálogo tiene el suyo.
+
+**El archivo baja lleno**, y eso hace dos trabajos con uno: sirve de referencia
+al llenar la plantilla de activos y de plantilla para escribir filas nuevas
+debajo. Por eso una fila que ya existe se reconoce y se **omite con una
+advertencia** en vez de bloquear: bajar el archivo, añadir tres filas y volver
+a subirlo entero es lo que la gente hace en cuanto descubre que se puede
+reutilizar. Repetida **dentro del mismo archivo** sí es un error: eso es un
+descuido de quien lo armó.
+
+**El permiso lo pone cada catálogo**, no la operación: cargar tipos de
+dispositivo es `activos.editar`, cargar empleados es `organizacion.editar`. Un
+permiso único de «carga masiva» daría acceso a los dos a quien solo necesita
+uno.
+
 ## Organización
 
 Base: `/api/v1/organizacion/`

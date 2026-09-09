@@ -26,6 +26,8 @@ urlpatterns = [
     path("admin/audit-logs/", include("apps.core.audit_urls")),
     # --- Inventario de activos (RF-01, RF-02, RF-03, RF-08) ---
     path("activos/", include("apps.activos.urls")),
+    # --- Carga masiva de los catálogos, un archivo por catálogo ---
+    path("catalogos/", include("apps.core.catalogos_urls")),
     # --- Catálogos organizacionales: departamentos y empleados ---
     path("organizacion/", include("apps.organizacion.urls")),
     # --- Bitácora de mantenimientos (RF-04, RF-05) ---

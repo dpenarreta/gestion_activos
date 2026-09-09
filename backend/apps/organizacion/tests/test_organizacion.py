@@ -450,8 +450,8 @@ def test_la_pieza_de_repuesto_registra_a_quien_se_le_compro(db, proveedor):
     """El proveedor del equipo no tiene por qué ser el del repuesto: sin este
     dato, una pieza que falla a los dos meses deja el costo registrado y
     ninguna forma de saber a quién reclamarle."""
-    from apps.mantenimientos.models import CatalogoComponente, ComponenteUtilizado, Mantenimiento
     from apps.activos.models import Activo, TipoDispositivo
+    from apps.mantenimientos.models import CatalogoComponente, ComponenteUtilizado, Mantenimiento
     from apps.organizacion.models import Departamento
 
     activo = Activo.objects.create(

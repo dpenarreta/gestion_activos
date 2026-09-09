@@ -113,18 +113,25 @@ def test_la_plantilla_se_descarga_como_xlsx(cliente, catalogos):
     assert "plantilla-carga-activos.xlsx" in respuesta["Content-Disposition"]
 
 
-def test_la_plantilla_trae_los_catalogos_vigentes(cliente, catalogos):
-    """Los códigos válidos van en el archivo: sin ellos habría que adivinarlos."""
+def test_la_plantilla_trae_solo_lo_de_activos(cliente, catalogos):
+    """Llegó a tener ocho hojas, cinco de ellas solo de consulta: mezclaba
+    material de referencia con material de trabajo, y ninguno de esos catálogos
+    se podía cargar. Cada uno tiene ahora su propio archivo."""
     respuesta = cliente.get("/api/v1/activos/plantilla-importacion/")
     libro = load_workbook(BytesIO(respuesta.content))
 
-    assert {"Instrucciones", "Activos", "Ejemplo", "Tipos", "Departamentos", "Empleados"} <= set(
-        libro.sheetnames
-    )
-    codigos_tipos = [fila[0] for fila in libro["Tipos"].iter_rows(min_row=2, values_only=True)]
-    assert "LAP" in codigos_tipos
-    codigos = [fila[0] for fila in libro["Empleados"].iter_rows(min_row=2, values_only=True)]
-    assert "EMP-0001" in codigos
+    assert libro.sheetnames == ["Instrucciones", "Activos", "Ejemplo"]
+
+
+def test_las_instrucciones_dicen_donde_estan_los_valores_validos(cliente, catalogos):
+    """Quitar las hojas de catálogo sin decir a dónde fueron dejaría al usuario
+    adivinando qué escribir en «Tipo de dispositivo»."""
+    respuesta = cliente.get("/api/v1/activos/plantilla-importacion/")
+    hoja = load_workbook(BytesIO(respuesta.content))["Instrucciones"]
+    texto = " ".join(str(fila[0].value or "") for fila in hoja.iter_rows())
+
+    assert "Carga masiva" in texto
+    assert "plantillas" in texto
 
 
 def test_la_hoja_de_captura_queda_vacia_bajo_los_encabezados(cliente, catalogos, columnas):
