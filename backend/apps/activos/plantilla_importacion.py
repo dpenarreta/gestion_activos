@@ -20,7 +20,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from apps.organizacion.models import Departamento, Empleado, Sede
+from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 
 from .importacion import MAX_FILAS, NOMBRE_HOJA_DATOS, columnas_configuradas
 from .models import TipoDispositivo
@@ -276,6 +276,15 @@ def construir_plantilla() -> bytes:
         [
             [sede.nombre, sede.ciudad]
             for sede in Sede.objects.filter(activa=True).order_by("nombre")
+        ],
+    )
+    _hoja_catalogo(
+        libro,
+        "Proveedores",
+        ["Nombre", "Identificación"],
+        [
+            [proveedor.nombre, proveedor.identificacion]
+            for proveedor in Proveedor.objects.filter(activo=True).order_by("nombre")
         ],
     )
     _hoja_catalogo(

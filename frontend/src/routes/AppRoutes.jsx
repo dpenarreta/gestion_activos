@@ -27,6 +27,8 @@ import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { ProveedorForm } from "../pages/Admin/Organizacion/ProveedorForm";
+import { ProveedoresList } from "../pages/Admin/Organizacion/ProveedoresList";
 import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
 import { SedesList } from "../pages/Admin/Organizacion/SedesList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
@@ -321,6 +323,30 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ORGANIZACION_VER}>
               <SedeForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedoresList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedorForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedorForm />
             </RequirePermission>
           }
         />

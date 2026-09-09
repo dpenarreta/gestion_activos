@@ -24,6 +24,9 @@ class CatalogoComponenteSerializer(serializers.ModelSerializer):
 
 class ComponenteUtilizadoSerializer(serializers.ModelSerializer):
     componente_nombre = serializers.CharField(source="componente.nombre", read_only=True)
+    proveedor_nombre = serializers.CharField(
+        source="proveedor.nombre", read_only=True, default=None
+    )
     costo_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
@@ -32,6 +35,8 @@ class ComponenteUtilizadoSerializer(serializers.ModelSerializer):
             "id",
             "componente",
             "componente_nombre",
+            "proveedor",
+            "proveedor_nombre",
             "cantidad",
             "costo_unitario",
             "costo_total",

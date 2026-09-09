@@ -135,7 +135,7 @@ COLUMNAS_ACTIVO_ECONOMICO = (
     Columna("fecha_ingreso", "Ingreso", lambda a: a.fecha_ingreso, 14),
     Columna("antiguedad", "Antigüedad (meses)", lambda a: a.antiguedad_meses, 16),
     Columna("costo", "Costo de compra", lambda a: a.costo_adquisicion, 16),
-    Columna("proveedor", "Proveedor", lambda a: a.proveedor, 20),
+    Columna("proveedor", "Proveedor", lambda a: a.proveedor.nombre if a.proveedor_id else "", 20),
 )
 
 

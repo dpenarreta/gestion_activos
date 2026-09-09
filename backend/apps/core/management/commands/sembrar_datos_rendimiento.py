@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from apps.activos.models import Activo, MovimientoActivo, TipoDispositivo
 from apps.mantenimientos.models import Mantenimiento
-from apps.organizacion.models import Departamento, Empleado, Sede
+from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 from apps.politicas.models import PoliticaObsolescencia
 
 TIPOS = [
@@ -104,6 +104,10 @@ class Command(BaseCommand):
             for nombre, codigo in TIPOS
         ]
         sedes = [Sede.objects.get_or_create(nombre=nombre)[0] for nombre in SEDES]
+        proveedores = [
+            Proveedor.objects.get_or_create(nombre=nombre)[0]
+            for nombre in ("Tecnomega", "Comptronix", "Siglo21")
+        ]
 
         # Un custodio cada veinte equipos: repartir uno por activo daría una
         # tabla de empleados irreal y escondería el coste de los JOIN.
@@ -180,7 +184,7 @@ class Command(BaseCommand):
                     fecha_adquisicion=adquisicion,
                     fecha_ingreso=adquisicion + datetime.timedelta(days=random.randint(0, 60)),
                     costo_adquisicion=random.randint(200, 3000),
-                    proveedor=random.choice(["Tecnomega", "Comptronix", "Siglo21", ""]),
+                    proveedor=random.choice([*proveedores, None]),
                     # Un tercio sin garantía registrada: el panel distingue
                     # «sin registrar» de «vencida», y esa rama hay que medirla.
                     fecha_fin_garantia=(

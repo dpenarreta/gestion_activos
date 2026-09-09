@@ -6,6 +6,7 @@ import {
   componentesService,
   mantenimientosService,
 } from "../../../api/mantenimientosService";
+import { proveedoresService } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
 import { mensajeDeError } from "../../../utils/errores";
@@ -70,6 +71,7 @@ export function MantenimientoForm() {
   const [lineas, setLineas] = useState([]);
   const [activos, setActivos] = useState([]);
   const [componentes, setComponentes] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [activoSeleccionado, setActivoSeleccionado] = useState(null);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -93,6 +95,12 @@ export function MantenimientoForm() {
         setComponentes((datos.results ?? datos).filter((c) => c.activo)),
       )
       .catch(() => setComponentes([]));
+    // Para decir de quién se compró cada repuesto: el proveedor del equipo no
+    // tiene por qué ser el de la pieza.
+    proveedoresService
+      .list({ activo: "true", page_size: 200 })
+      .then((datos) => setProveedores(datos.results ?? datos))
+      .catch(() => setProveedores([]));
   }, []);
 
   useEffect(() => {
@@ -118,6 +126,7 @@ export function MantenimientoForm() {
         setLineas(
           datos.componentes.map((componente) => ({
             componente: componente.componente,
+            proveedor: componente.proveedor || "",
             cantidad: componente.cantidad,
             costo_unitario: componente.costo_unitario || "",
             numero_serie_nuevo: componente.numero_serie_nuevo || "",
@@ -158,6 +167,7 @@ export function MantenimientoForm() {
           .filter((linea) => linea.componente)
           .map((linea) => ({
             componente: linea.componente,
+            proveedor: linea.proveedor || null,
             cantidad: Number(linea.cantidad) || 1,
             costo_unitario: linea.costo_unitario || null,
             numero_serie_nuevo: linea.numero_serie_nuevo || "",
@@ -437,6 +447,7 @@ export function MantenimientoForm() {
           <LineasComponentes
             lineas={lineas}
             componentes={componentes}
+            proveedores={proveedores}
             onChange={setLineas}
             esEdicion={esEdicion}
           />

@@ -8,6 +8,7 @@ import {
 import {
   departamentosService,
   empleadosService,
+  proveedoresService,
   sedesService,
 } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
@@ -45,6 +46,7 @@ export function ActivoForm() {
   const [departamentos, setDepartamentos] = useState([]);
   const [empleados, setEmpleados] = useState([]);
   const [sedes, setSedes] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -65,6 +67,12 @@ export function ActivoForm() {
       .catch(() => setEmpleados([]));
     // Solo sedes abiertas: dejar un equipo en una sede cerrada lo deja
     // registrado en un sitio donde nadie va a buscarlo.
+    // Solo proveedores activos: uno dado de baja ya no vende ni atiende un
+    // reclamo, así que registrarle una compra nueva no significa nada.
+    proveedoresService
+      .list({ activo: "true", page_size: 200 })
+      .then((datos) => setProveedores(datos.results ?? datos))
+      .catch(() => setProveedores([]));
     sedesService
       .list({ activa: "true", page_size: 100 })
       .then((datos) => setSedes(datos.results ?? datos))
@@ -122,7 +130,7 @@ export function ActivoForm() {
         fecha_adquisicion: valores.fecha_adquisicion,
         fecha_ingreso: valores.fecha_ingreso || null,
         costo_adquisicion: valores.costo_adquisicion || null,
-        proveedor: valores.proveedor,
+        proveedor: valores.proveedor || null,
         fecha_fin_garantia: valores.fecha_fin_garantia || null,
       };
 
@@ -454,15 +462,26 @@ export function ActivoForm() {
               <label className="form-label" htmlFor="proveedor">
                 Proveedor
               </label>
-              <input
+              <select
                 id="proveedor"
-                className="form-control"
-                maxLength={150}
+                className="form-select"
                 value={valores.proveedor}
                 onChange={(event) =>
                   actualizar("proveedor", event.target.value)
                 }
-              />
+              >
+                <option value="">Sin proveedor registrado</option>
+                {proveedores.map((proveedor) => (
+                  <option key={proveedor.id} value={proveedor.id}>
+                    {proveedor.nombre}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                {/* Escrito a mano, «Tecnomega» y «TECNOMEGA» serían dos
+                    proveedores y las compras quedarían repartidas. */}
+                Se administra en Organización → Proveedores.
+              </div>
             </div>
             <div className="col-md-4">
               <label className="form-label" htmlFor="fecha_fin_garantia">

@@ -1,6 +1,12 @@
 import { formatearMoneda } from "../../../utils/formato";
 
-const LINEA_VACIA = { componente: "", cantidad: 1, costo_unitario: "", numero_serie_nuevo: "" };
+const LINEA_VACIA = {
+  componente: "",
+  proveedor: "",
+  cantidad: 1,
+  costo_unitario: "",
+  numero_serie_nuevo: "",
+};
 
 /**
  * Desglose de repuestos consumidos en una intervención (RF-04).
@@ -14,9 +20,19 @@ const LINEA_VACIA = { componente: "", cantidad: 1, costo_unitario: "", numero_se
  * Se advierte en la interfaz para que nadie asuma que está agregando líneas a
  * las ya existentes.
  */
-export function LineasComponentes({ lineas, componentes, onChange, esEdicion = false }) {
+export function LineasComponentes({
+  lineas,
+  componentes,
+  proveedores = [],
+  onChange,
+  esEdicion = false,
+}) {
   function actualizarLinea(indice, campo, valor) {
-    onChange(lineas.map((linea, i) => (i === indice ? { ...linea, [campo]: valor } : linea)));
+    onChange(
+      lineas.map((linea, i) =>
+        i === indice ? { ...linea, [campo]: valor } : linea,
+      ),
+    );
   }
 
   function agregar() {
@@ -34,7 +50,9 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
   }, 0);
 
   const criticas = lineas.reduce((suma, linea) => {
-    const componente = componentes.find((c) => String(c.id) === String(linea.componente));
+    const componente = componentes.find(
+      (c) => String(c.id) === String(linea.componente),
+    );
     return componente?.es_critico ? suma + (Number(linea.cantidad) || 0) : suma;
   }, 0);
 
@@ -42,24 +60,30 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
     <div className="componentes-lineas">
       {esEdicion && lineas.length > 0 && (
         <p className="small text-muted">
-          Al guardar, esta lista reemplaza por completo el desglose anterior de la intervención.
+          Al guardar, esta lista reemplaza por completo el desglose anterior de
+          la intervención.
         </p>
       )}
 
       {lineas.length === 0 && (
         <p className="text-muted mb-3">
-          Sin repuestos. Una intervención puede no consumir ninguno (por ejemplo, una limpieza
-          preventiva).
+          Sin repuestos. Una intervención puede no consumir ninguno (por
+          ejemplo, una limpieza preventiva).
         </p>
       )}
 
       {lineas.map((linea, indice) => {
-        const componente = componentes.find((c) => String(c.id) === String(linea.componente));
+        const componente = componentes.find(
+          (c) => String(c.id) === String(linea.componente),
+        );
         return (
           <div className="row g-2 align-items-end mb-2" key={indice}>
-            <div className="col-md-4">
+            <div className="col-md-3">
               {indice === 0 && (
-                <label className="form-label small mb-1" htmlFor={`comp-${indice}`}>
+                <label
+                  className="form-label small mb-1"
+                  htmlFor={`comp-${indice}`}
+                >
                   Componente
                 </label>
               )}
@@ -67,7 +91,9 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
                 id={`comp-${indice}`}
                 className="form-select form-select-sm"
                 value={linea.componente}
-                onChange={(event) => actualizarLinea(indice, "componente", event.target.value)}
+                onChange={(event) =>
+                  actualizarLinea(indice, "componente", event.target.value)
+                }
               >
                 <option value="">Seleccione un componente</option>
                 {componentes.map((opcion) => (
@@ -78,9 +104,41 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
                 ))}
               </select>
             </div>
-            <div className="col-md-2">
+            <div className="col-md-3">
               {indice === 0 && (
-                <label className="form-label small mb-1" htmlFor={`cant-${indice}`}>
+                <label
+                  className="form-label small mb-1"
+                  htmlFor={`prov-${indice}`}
+                >
+                  Proveedor
+                </label>
+              )}
+              {/* A quién se le compró la pieza. El proveedor del equipo no
+                  tiene por qué ser el del repuesto, y una pieza que falla a los
+                  dos meses deja el costo registrado y ninguna forma de saber a
+                  quién reclamarle. */}
+              <select
+                id={`prov-${indice}`}
+                className="form-select form-select-sm"
+                value={linea.proveedor || ""}
+                onChange={(event) =>
+                  actualizarLinea(indice, "proveedor", event.target.value)
+                }
+              >
+                <option value="">Sin registrar</option>
+                {proveedores.map((opcion) => (
+                  <option key={opcion.id} value={opcion.id}>
+                    {opcion.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-1">
+              {indice === 0 && (
+                <label
+                  className="form-label small mb-1"
+                  htmlFor={`cant-${indice}`}
+                >
                   Cantidad
                 </label>
               )}
@@ -90,12 +148,17 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
                 min="1"
                 className="form-control form-control-sm"
                 value={linea.cantidad}
-                onChange={(event) => actualizarLinea(indice, "cantidad", event.target.value)}
+                onChange={(event) =>
+                  actualizarLinea(indice, "cantidad", event.target.value)
+                }
               />
             </div>
             <div className="col-md-2">
               {indice === 0 && (
-                <label className="form-label small mb-1" htmlFor={`costo-${indice}`}>
+                <label
+                  className="form-label small mb-1"
+                  htmlFor={`costo-${indice}`}
+                >
                   Costo unitario
                 </label>
               )}
@@ -106,13 +169,18 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
                 min="0"
                 className="form-control form-control-sm"
                 value={linea.costo_unitario}
-                onChange={(event) => actualizarLinea(indice, "costo_unitario", event.target.value)}
+                onChange={(event) =>
+                  actualizarLinea(indice, "costo_unitario", event.target.value)
+                }
               />
             </div>
-            <div className="col-md-3">
+            <div className="col-md-2">
               {indice === 0 && (
-                <label className="form-label small mb-1" htmlFor={`serie-${indice}`}>
-                  Serie de la pieza nueva
+                <label
+                  className="form-label small mb-1"
+                  htmlFor={`serie-${indice}`}
+                >
+                  Serie de la pieza
                 </label>
               )}
               <input
@@ -121,7 +189,11 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
                 placeholder="Opcional"
                 value={linea.numero_serie_nuevo}
                 onChange={(event) =>
-                  actualizarLinea(indice, "numero_serie_nuevo", event.target.value)
+                  actualizarLinea(
+                    indice,
+                    "numero_serie_nuevo",
+                    event.target.value,
+                  )
                 }
               />
             </div>
@@ -138,8 +210,12 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
             {componente?.es_critico && (
               <div className="col-12">
                 <small className="text-warning">
-                  <i className="bi bi-exclamation-triangle me-1" aria-hidden="true" />
-                  Pieza crítica: su reemplazo cuenta contra el umbral de renovación del equipo.
+                  <i
+                    className="bi bi-exclamation-triangle me-1"
+                    aria-hidden="true"
+                  />
+                  Pieza crítica: su reemplazo cuenta contra el umbral de
+                  renovación del equipo.
                 </small>
               </div>
             )}
@@ -148,12 +224,18 @@ export function LineasComponentes({ lineas, componentes, onChange, esEdicion = f
       })}
 
       <div className="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-        <button type="button" className="btn btn-outline-primary btn-sm" onClick={agregar}>
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-sm"
+          onClick={agregar}
+        >
           <i className="bi bi-plus-lg me-1" aria-hidden="true" />
           Agregar componente
         </button>
         <div className="small text-muted">
-          {criticas > 0 && <span className="me-3">Piezas críticas: {criticas}</span>}
+          {criticas > 0 && (
+            <span className="me-3">Piezas críticas: {criticas}</span>
+          )}
           Repuestos: <strong>{formatearMoneda(total)}</strong>
         </div>
       </div>

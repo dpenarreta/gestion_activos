@@ -159,6 +159,16 @@ class ComponenteUtilizado(BaseModel):
     )
     cantidad = models.PositiveIntegerField(default=1)
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # De quién se compró la pieza. Sin esto, una pieza que falla a los dos
+    # meses deja el costo registrado y ninguna forma de saber a quién
+    # reclamarle: el proveedor del equipo no tiene por qué ser el del repuesto.
+    proveedor = models.ForeignKey(
+        "organizacion.Proveedor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="repuestos_vendidos",
+    )
     numero_serie_nuevo = models.CharField(
         max_length=120, blank=True, help_text="Serie de la pieza instalada, si aplica."
     )

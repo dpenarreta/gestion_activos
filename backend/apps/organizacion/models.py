@@ -221,6 +221,44 @@ class Ubicacion(BaseModel):
         return self.tipo == Ubicacion.Tipo.BODEGA
 
 
+class Proveedor(BaseModel):
+    """A quién se le compra: equipos y piezas de repuesto.
+
+    Era un texto dentro de cada activo y no existía para los repuestos. Como
+    texto libre, «Tecnomega», «TECNOMEGA» y «Tecno Mega» son la misma empresa
+    para una persona y tres para una consulta: preguntar cuánto se le lleva
+    comprado a un proveedor —o a quién reclamarle una pieza que falló a los dos
+    meses— devuelve un tercio de lo que hay y nadie nota lo que falta.
+
+    Lleva datos de contacto porque el momento en que se necesita el proveedor
+    es justo cuando algo falló: sin un teléfono a mano, el dato de que la
+    compra fue suya no sirve de nada. Es contacto comercial de la empresa
+    —quién atiende la cuenta—, no información de un particular.
+    """
+
+    nombre = models.CharField(max_length=150, unique=True)
+    identificacion = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="RUC o identificación tributaria de la empresa.",
+    )
+    contacto = models.CharField(
+        max_length=120, blank=True, help_text="Persona que atiende la cuenta."
+    )
+    telefono = models.CharField(max_length=30, blank=True)
+    correo = models.EmailField(blank=True)
+    observaciones = models.TextField(blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "proveedor"
+        verbose_name_plural = "proveedores"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
 class Empleado(BaseModel):
     """Persona que puede tener activos bajo su custodia.
 

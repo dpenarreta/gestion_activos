@@ -168,6 +168,15 @@ Base: `/api/v1/organizacion/`
 | GET/POST/PATCH | `/organizacion/departamentos/` | `organizacion.ver` / `organizacion.editar` | Áreas. Filtros: `q`, `activo` |
 | GET/POST/PATCH | `/organizacion/sedes/` | `organizacion.ver` / `organizacion.editar` | Edificios, locales o ciudades. Filtros: `q`, `activa` |
 | GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
+| GET/POST/PATCH | `/organizacion/proveedores/` | `organizacion.ver` / `organizacion.editar` | A quién se le compra. Filtros: `q`, `activo` |
+
+El **proveedor** es un catálogo y no un texto dentro de cada activo, por lo
+mismo que la sede: «Tecnomega», «TECNOMEGA» y «Tecno Mega» son la misma empresa
+para una persona y tres para una consulta. Lo apuntan el activo —a quién se le
+compró— y cada línea de repuesto de un mantenimiento: el proveedor del equipo
+no tiene por qué ser el de la pieza, y sin ese dato una pieza que falla a los
+dos meses deja el costo registrado y ninguna forma de saber a quién reclamarle.
+Darlo de baja con equipos en uso devuelve `400` (`proveedor_con_activos`).
 
 El **código del empleado** se genera con el código de su área delante y el
 número que ocupa dentro de ella: `TI-0001`, `CONT-0002`. Antes era un

@@ -199,7 +199,14 @@ class Activo(BaseModel):
         ),
     )
     costo_adquisicion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    proveedor = models.CharField(max_length=150, blank=True)
+    proveedor = models.ForeignKey(
+        "organizacion.Proveedor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activos",
+        help_text="A quién se le compró. Se elige del catálogo de proveedores.",
+    )
     fecha_fin_garantia = models.DateField(
         null=True,
         blank=True,

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Departamento, Empleado, Sede
+from .models import Departamento, Empleado, Proveedor, Sede
 
 
 class DepartamentoSerializer(serializers.ModelSerializer):
@@ -96,6 +96,48 @@ class SedeSerializer(serializers.ModelSerializer):
             existente = existente.exclude(pk=self.instance.pk)
         if existente.exists():
             raise serializers.ValidationError(f"Ya existe una sede llamada «{nombre}».")
+        return nombre
+
+
+class ProveedorSerializer(serializers.ModelSerializer):
+    total_activos = serializers.IntegerField(read_only=True)
+    total_repuestos = serializers.IntegerField(read_only=True)
+
+    # Sin el validador automático de unicidad: contesta «Ya existe … con este
+    # nombre» sin decir con cuál se choca. Ver `validate_nombre`.
+    nombre = serializers.CharField(max_length=150, validators=[])
+
+    class Meta:
+        model = Proveedor
+        fields = [
+            "id",
+            "nombre",
+            "identificacion",
+            "contacto",
+            "telefono",
+            "correo",
+            "observaciones",
+            "activo",
+            "total_activos",
+            "total_repuestos",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_nombre(self, value):
+        """Rechaza el duplicado sin distinguir mayúsculas y diciendo con cuál
+        choca: «Tecnomega» y «TECNOMEGA» pasarían las dos y quedarían dos
+        fichas de la misma empresa, con las compras repartidas entre ambas."""
+        nombre = (value or "").strip()
+        existente = Proveedor.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        # Se nombra al que ya está, no al que se acaba de escribir: es la
+        # grafía que hay que reutilizar para no partir el histórico en dos.
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(f"Ya existe un proveedor llamado «{choque.nombre}».")
         return nombre
 
 

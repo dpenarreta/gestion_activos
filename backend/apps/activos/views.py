@@ -93,7 +93,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Activo.objects.select_related(
-            "tipo", "custodio", "departamento", "sede"
+            "tipo", "custodio", "departamento", "sede", "proveedor"
         ).order_by("-created_at")
 
         if self.action == "retrieve":

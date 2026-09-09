@@ -7,9 +7,14 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import Departamento, Empleado, Sede
+from .models import Departamento, Empleado, Proveedor, Sede
 from .permissions import OrganizacionPermission
-from .serializers import DepartamentoSerializer, EmpleadoSerializer, SedeSerializer
+from .serializers import (
+    DepartamentoSerializer,
+    EmpleadoSerializer,
+    ProveedorSerializer,
+    SedeSerializer,
+)
 
 MODULO = "organizacion"
 
@@ -131,6 +136,63 @@ class SedeViewSet(_CatalogoOrganizacionalViewSet):
                             "message": (
                                 f"No se puede cerrar «{instancia.nombre}»: todavía hay "
                                 f"{pendientes} activo(s) ahí. Muévalos primero."
+                            ),
+                        }
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return super().update(request, *args, **kwargs)
+
+
+class ProveedorViewSet(_CatalogoOrganizacionalViewSet):
+    """A quién se le compra: equipos y piezas de repuesto.
+
+    Sin `DELETE`, como el resto: los activos y los repuestos usados apuntan
+    aquí con `PROTECT`, y un proveedor con el que se dejó de trabajar sigue
+    siendo el que vendió lo que hay en el inventario. Se desactiva.
+    """
+
+    serializer_class = ProveedorSerializer
+    accion_auditoria = "proveedor"
+
+    def get_queryset(self):
+        queryset = Proveedor.objects.annotate(
+            total_activos=Count("activos", distinct=True),
+            total_repuestos=Count("repuestos_vendidos", distinct=True),
+        ).order_by("nombre")
+        params = self.request.query_params
+        busqueda = params.get("q")
+        if busqueda:
+            queryset = queryset.filter(
+                Q(nombre__icontains=busqueda)
+                | Q(identificacion__icontains=busqueda)
+                | Q(contacto__icontains=busqueda)
+            )
+        estado = params.get("activo")
+        if estado in {"true", "false"}:
+            queryset = queryset.filter(activo=estado == "true")
+        return queryset
+
+    def update(self, request, *args, **kwargs):
+        """Impide desactivar a un proveedor con equipos comprados vigentes.
+
+        Desactivarlo dejaría esos activos apuntando a alguien que el formulario
+        ya no ofrece: no se podría corregir la compra ni volver a registrarle
+        una, y es justo a quien hay que llamar cuando el equipo falla.
+        """
+        instancia = self.get_object()
+        pide_desactivar = request.data.get("activo") in {False, "false"}
+        if pide_desactivar and instancia.activo:
+            pendientes = instancia.activos.operativos().count()
+            if pendientes:
+                return Response(
+                    {
+                        "error": {
+                            "code": "proveedor_con_activos",
+                            "message": (
+                                f"No se puede desactivar «{instancia.nombre}»: {pendientes} "
+                                "activo(s) en uso se le compraron. Cámbieles el proveedor "
+                                "primero."
                             ),
                         }
                     },

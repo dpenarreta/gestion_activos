@@ -127,6 +127,12 @@ export const ADMIN_MENU = [
         path: "/admin/organizacion/sedes",
       },
       {
+        id: "organizacion-proveedores",
+        name: "Proveedores",
+        icon: "truck",
+        path: "/admin/organizacion/proveedores",
+      },
+      {
         id: "organizacion-empleados",
         name: "Empleados",
         icon: "person-badge",

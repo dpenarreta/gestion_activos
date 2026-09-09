@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.organizacion.models import Departamento, Empleado, Sede
+from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 from apps.politicas.services import evaluar_activo
 
 from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
@@ -196,6 +196,9 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
     sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
     ciudad = serializers.CharField(source="sede.donde", read_only=True, default=None)
+    proveedor_nombre = serializers.CharField(
+        source="proveedor.nombre", read_only=True, default=None
+    )
     criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
     uso_display = serializers.CharField(source="get_uso_display", read_only=True)
     esta_operativo = serializers.BooleanField(read_only=True)
@@ -238,6 +241,7 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "fecha_ingreso",
             "costo_adquisicion",
             "proveedor",
+            "proveedor_nombre",
             "fecha_fin_garantia",
             "estado_garantia",
             "estado_garantia_display",
@@ -327,6 +331,13 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     # pone en un sitio donde nadie va a buscarlo.
     sede = serializers.PrimaryKeyRelatedField(
         queryset=Sede.objects.filter(activa=True),
+        required=False,
+        allow_null=True,
+    )
+    # Igual con el proveedor: uno dado de baja ya no vende ni atiende un
+    # reclamo, así que registrarle una compra nueva no significa nada.
+    proveedor = serializers.PrimaryKeyRelatedField(
+        queryset=Proveedor.objects.filter(activo=True),
         required=False,
         allow_null=True,
     )

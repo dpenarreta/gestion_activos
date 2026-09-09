@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from apps.core.audit import record_audit_event
-from apps.organizacion.models import Departamento, Empleado, Sede
+from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 
 from .models import Activo, TipoDispositivo
 from .services import ActivoService
@@ -257,6 +257,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         departamentos[departamento.codigo.lower()] = departamento
         departamentos[departamento.nombre.lower()] = departamento
     empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
+    proveedores = {p.nombre.strip().lower(): p for p in Proveedor.objects.filter(activo=True)}
     # La sede se acepta por su nombre o por su ciudad: quien llena la plantilla
     # escribe lo que tiene en la cabeza, y «Quito» y «Sede Quito Norte» son la
     # misma respuesta a la pregunta de dónde está el equipo. Si dos sedes
@@ -528,7 +529,24 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         datos["fecha_ingreso"] = fecha_ingreso
 
         datos["observaciones"] = _texto(celda("observaciones"))
-        datos["proveedor"] = _texto(celda("proveedor"))
+
+        # El proveedor es opcional —hay equipos heredados de los que nadie sabe
+        # a quién se le compraron—, pero si viene escrito tiene que existir:
+        # aceptarlo a ciegas devolvería el texto libre que el catálogo elimina.
+        texto_proveedor = _texto(celda("proveedor"))
+        proveedor = None
+        if texto_proveedor:
+            proveedor = proveedores.get(texto_proveedor.lower())
+            if not proveedor:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("proveedor", "Proveedor"),
+                        f"No existe un proveedor activo llamado {texto_proveedor!r}. "
+                        "Créelo primero en el catálogo (hoja «Proveedores»).",
+                    )
+                )
+        datos["proveedor"] = proveedor
 
         # La garantía es opcional: solo se valida el formato si viene algo. Un
         # equipo sin fecha es «sin garantía registrada», no un error.

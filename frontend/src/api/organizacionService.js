@@ -3,6 +3,7 @@ import { apiClient } from "./client";
 const DEPARTAMENTOS = "/organizacion/departamentos/";
 const EMPLEADOS = "/organizacion/empleados/";
 const SEDES = "/organizacion/sedes/";
+const PROVEEDORES = "/organizacion/proveedores/";
 
 export const departamentosService = {
   list(params = {}) {
@@ -17,6 +18,32 @@ export const departamentosService = {
   update(id, payload) {
     return apiClient
       .patch(`${DEPARTAMENTOS}${id}/`, payload)
+      .then((res) => res.data);
+  },
+};
+
+/**
+ * A quién se le compra: equipos y piezas de repuesto.
+ *
+ * Era un texto dentro de cada activo y no existía para los repuestos. Como
+ * texto libre, «Tecnomega», «TECNOMEGA» y «Tecno Mega» son la misma empresa
+ * para una persona y tres para una consulta: preguntar cuánto se le lleva
+ * comprado —o a quién reclamarle una pieza que falló— devuelve un tercio de lo
+ * que hay y nadie nota lo que falta.
+ */
+export const proveedoresService = {
+  list(params = {}) {
+    return apiClient.get(PROVEEDORES, { params }).then((res) => res.data);
+  },
+  get(id) {
+    return apiClient.get(`${PROVEEDORES}${id}/`).then((res) => res.data);
+  },
+  create(payload) {
+    return apiClient.post(PROVEEDORES, payload).then((res) => res.data);
+  },
+  update(id, payload) {
+    return apiClient
+      .patch(`${PROVEEDORES}${id}/`, payload)
       .then((res) => res.data);
   },
 };

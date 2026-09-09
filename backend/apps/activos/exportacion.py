@@ -105,7 +105,7 @@ def exportar_activos(queryset) -> bytes:
     libro = Workbook(write_only=True)
     hoja = _hoja_con_formato(libro, "Inventario", COLUMNAS_ACTIVOS)
 
-    consulta = queryset.select_related("tipo", "custodio", "departamento", "sede")
+    consulta = queryset.select_related("tipo", "custodio", "departamento", "sede", "proveedor")
     for activo in consulta.iterator(chunk_size=500):
         hoja.append(
             [
@@ -126,7 +126,7 @@ def exportar_activos(queryset) -> bytes:
                 activo.fecha_ingreso,
                 activo.antiguedad_meses,
                 activo.costo_adquisicion,
-                activo.proveedor,
+                activo.proveedor.nombre if activo.proveedor_id else "",
                 activo.fecha_fin_garantia,
                 Activo.Garantia(activo.estado_garantia).label,
                 activo.total_mantenimientos,
