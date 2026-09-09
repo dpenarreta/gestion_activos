@@ -19,7 +19,7 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.mantenimientos.models import ComponenteUtilizado, Mantenimiento
-from apps.politicas.services import evaluar_lote
+from apps.politicas.services import candidatos_a_renovacion, evaluar_lote
 
 from .models import (
     DIAS_AVISO_GARANTIA,
@@ -121,8 +121,11 @@ def _sugerencias_de_renovacion() -> dict:
             "tipo",
         )
     )
+    # Se prefiltra en SQL: traer el parque entero para descartar el 95 % es lo
+    # que hacía que este panel tardara dos segundos con 10.000 activos.
+    candidatos, politicas = candidatos_a_renovacion(activos)
     conteo = {"total": 0, "evaluar": 0, "recomendado": 0}
-    for _activo, resultado in evaluar_lote(activos):
+    for _activo, resultado in evaluar_lote(candidatos, politicas):
         if not resultado.requiere_renovacion:
             continue
         conteo["total"] += 1

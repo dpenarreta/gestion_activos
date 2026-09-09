@@ -91,10 +91,17 @@ puede entregar hoy.
 
 ## Rendimiento
 
-El documento dimensiona entre 5.000 y 10.000 activos. Hay índices en las
-columnas por las que se filtra, pero **no se ha probado con ese volumen**:
-antes de darlo por válido conviene cargar 10.000 registros y medir el listado
-con filtros combinados.
+**Medido el 2026-09-09 con 10.000 activos** (ver `docs/rendimiento.md`). El
+inventario nunca fue el problema: con filtros combinados responde en 18 ms y
+dos consultas. Lo que estaba mal eran las tres pantallas que agregan el parque
+entero —panel, alertas y sugerencias— que tardaban entre 55 y 61 segundos por
+un defecto que solo se ve con volumen: el motor de renovación hacía una
+consulta de política **por activo**. Corregido, quedan en 365 ms, 741 ms y
+1.081 ms, y las dos primeras se cachean.
+
+Queda pendiente repetir la medición de **concurrencia** contra el stack de
+producción (Gunicorn): las cifras actuales se tomaron con el servidor de
+desarrollo, que es monoproceso.
 
 ## Diferencia de nomenclatura
 

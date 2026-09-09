@@ -297,6 +297,17 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ETI-009 | PDF a tamaño físico real | etiquetas-termicas.feature | El PDF conserva el tamaño físico de la etiqueta | Sí (pytest) |
 | AC-ETI-010 | Vista previa antes de imprimir | etiquetas-termicas.feature | La etiqueta se puede revisar antes de imprimirla | Sí (pytest) |
 
+## Rendimiento (§21)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-PERF-001 | Inventario rápido con filtros | rendimiento.feature | El inventario responde rápido con filtros combinados | Medido (`manage.py medir_rendimiento`) |
+| AC-PERF-002 | Sin consulta por activo | rendimiento.feature | Evaluar el parque no cuesta una consulta por activo | Sí (pytest) |
+| AC-PERF-003 | Políticas en dos consultas | rendimiento.feature | Las políticas de todos los tipos se resuelven juntas | Sí (pytest) |
+| AC-PERF-004 | El prefiltro no esconde nada | rendimiento.feature | El prefiltro no esconde equipos que sí hay que renovar | Sí (pytest) |
+| AC-PERF-005 | Resumen cacheado | rendimiento.feature | El resumen del parque se cachea | Sí (pytest) |
+| AC-PERF-006 | Configuración inmediata | rendimiento.feature | Cambiar la configuración se ve de inmediato | Sí (pytest) |
+
 ## Arquitectura
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

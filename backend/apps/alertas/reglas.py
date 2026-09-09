@@ -15,7 +15,7 @@ from django.utils import timezone
 from apps.activos.models import DIAS_AVISO_GARANTIA, ESTADOS_EN_ALMACEN, Activo
 from apps.mantenimientos.models import Mantenimiento
 from apps.politicas.models import NivelRenovacion
-from apps.politicas.services import evaluar_lote
+from apps.politicas.services import candidatos_a_renovacion, evaluar_lote
 
 #: Cuántos elementos acompañan a cada alerta. Suficientes para reconocer de
 #: qué se trata sin abrir el listado, pocos para no convertir el resumen en
@@ -295,9 +295,15 @@ def construir_alertas(configuracion) -> list[Alerta]:
     necesita_veredictos = (
         configuracion.avisar_proximos_a_reemplazo or configuracion.avisar_demasiadas_reparaciones
     )
-    veredictos = (
-        evaluar_lote(_activos_operativos().select_related("tipo")) if necesita_veredictos else []
-    )
+    veredictos = []
+    if necesita_veredictos:
+        # Prefiltro en SQL antes de evaluar: las dos reglas que dependen de
+        # las políticas solo miran a los que superan algún umbral, y traer el
+        # parque completo para descartar el 95 % costaba más de un segundo.
+        candidatos, politicas = candidatos_a_renovacion(
+            _activos_operativos().select_related("tipo")
+        )
+        veredictos = evaluar_lote(candidatos, politicas)
 
     if configuracion.avisar_proximos_a_reemplazo:
         alertas.append(proximos_a_reemplazo(veredictos))

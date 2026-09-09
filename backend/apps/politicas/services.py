@@ -103,6 +103,15 @@ def _mantenimientos_a_evaluar(activo, politica) -> tuple[int, str]:
     return precalculado, f"en los últimos {meses} meses"
 
 
+#: Centinela para distinguir «no me pasaron política» de «este tipo no tiene».
+#: Sin él, `evaluar_activo(activo, politica=None)` no puede saber si el
+#: llamador ya resolvió la política —y el resultado fue «ninguna»— o si no la
+#: resolvió: al asumir lo segundo, volvía a consultarla por cada activo, y
+#: recorrer 10.000 equipos costaba 10.000 consultas. Medido: el panel tardaba
+#: 55 segundos con 9.000 consultas (ver docs/rendimiento.md).
+SIN_RESOLVER = object()
+
+
 def resolver_politica(tipo_dispositivo) -> PoliticaObsolescencia | None:
     """Política vigente para un tipo de dispositivo.
 
@@ -116,13 +125,14 @@ def resolver_politica(tipo_dispositivo) -> PoliticaObsolescencia | None:
     return PoliticaObsolescencia.objects.filter(tipo_dispositivo__isnull=True, activa=True).first()
 
 
-def evaluar_activo(activo, politica: PoliticaObsolescencia | None = None) -> ResultadoEvaluacion:
+def evaluar_activo(activo, politica=SIN_RESOLVER) -> ResultadoEvaluacion:
     """Compara un activo contra su política y devuelve el veredicto.
 
-    Pasar `politica` explícita evita una consulta por activo al evaluar lotes
-    (ver `recalcular_indicadores`).
+    Pasar `politica` explícita —incluido `None`, que significa «este tipo no
+    tiene política»— evita una consulta por activo al evaluar lotes (ver
+    `evaluar_lote` y `recalcular_indicadores`).
     """
-    if politica is None:
+    if politica is SIN_RESOLVER:
         politica = resolver_politica(activo.tipo)
 
     resultado = ResultadoEvaluacion()
@@ -210,7 +220,7 @@ def evaluar_activo(activo, politica: PoliticaObsolescencia | None = None) -> Res
 
 def refrescar_indicadores_renovacion(
     activo,
-    politica: PoliticaObsolescencia | None = None,
+    politica=SIN_RESOLVER,
     resultado: "ResultadoEvaluacion | None" = None,
 ):
     """Escribe el veredicto en la caché del activo y lo devuelve.
@@ -237,6 +247,40 @@ def refrescar_indicadores_renovacion(
     return resultado
 
 
+def resolver_politicas_de(tipo_ids) -> dict:
+    """Política vigente de cada tipo, en dos consultas para todos.
+
+    `resolver_politica` cuesta dos consultas por tipo; con ocho tipos eran
+    dieciséis viajes a la base para una tabla que cabe entera en memoria.
+    """
+    tipo_ids = set(tipo_ids)
+    if not tipo_ids:
+        return {}
+
+    especificas = {
+        politica.tipo_dispositivo_id: politica
+        for politica in PoliticaObsolescencia.objects.filter(tipo_dispositivo_id__in=tipo_ids)
+    }
+    # La global solo se consulta si algún tipo se quedó sin la suya: cuando
+    # todos tienen política propia, esa consulta no se usaría para nada.
+    global_ = None
+    if tipo_ids - set(especificas):
+        global_ = PoliticaObsolescencia.objects.filter(
+            tipo_dispositivo__isnull=True, activa=True
+        ).first()
+
+    resueltas = {}
+    for tipo_id in tipo_ids:
+        especifica = especificas.get(tipo_id)
+        if especifica is not None:
+            # Una política inactiva no cae de vuelta a la global: desactivarla
+            # significa «este tipo no se evalúa».
+            resueltas[tipo_id] = especifica if especifica.activa else None
+        else:
+            resueltas[tipo_id] = global_
+    return resueltas
+
+
 def evaluar_lote(activos, politicas_por_tipo=None):
     """Evalúa varios activos resolviendo la ventana móvil en pocas consultas.
 
@@ -260,9 +304,7 @@ def precalcular_ventanas(activos, politicas_por_tipo=None):
     """
     activos = list(activos)
     politicas = politicas_por_tipo if politicas_por_tipo is not None else {}
-    for activo in activos:
-        if activo.tipo_id not in politicas:
-            politicas[activo.tipo_id] = resolver_politica(activo.tipo)
+    politicas.update(resolver_politicas_de({activo.tipo_id for activo in activos} - set(politicas)))
 
     por_ventana: dict[int, list[int]] = {}
     for activo in activos:
@@ -281,3 +323,52 @@ def precalcular_ventanas(activos, politicas_por_tipo=None):
             ventana = politica.ventana_mantenimientos_meses
             activo.mantenimientos_en_ventana = conteos.get(ventana, {}).get(activo.id, 0)
     return activos, politicas
+
+
+def candidatos_a_renovacion(activos, politicas_por_tipo=None):
+    """Reduce en SQL el parque a los que *podrían* requerir renovación.
+
+    Evaluar el veredicto exige Python —los motivos se redactan uno a uno— pero
+    traer diez mil activos para descartar nueve mil quinientos cuesta casi dos
+    segundos en las pantallas que más se consultan. Este prefiltro deja pasar
+    solo a los que superan algún umbral, y la evaluación real se hace sobre
+    ellos. Devuelve `(queryset, politicas_por_tipo)` para que el llamador se
+    ahorre resolver las políticas otra vez.
+
+    Es deliberadamente **más ancho que el criterio final**: usa el total
+    histórico de mantenimientos aunque la política cuente una ventana móvil.
+    El total siempre es mayor o igual que el de la ventana, así que ningún
+    candidato se pierde; a lo sumo entran algunos que la evaluación después
+    descarta, que es el error que se puede permitir. Al revés —un filtro más
+    estrecho que el criterio— escondería equipos que sí hay que reemplazar.
+
+    No lo usan los endpoints de reevaluación: esos recorren el parque entero
+    porque además de encender la marca deben apagarla en los que dejaron de
+    calificar.
+    """
+    from django.db.models import Q
+    from django.utils import timezone
+
+    politicas = dict(politicas_por_tipo or {})
+    if not politicas:
+        # Los tipos presentes se preguntan con un DISTINCT, no trayendo los
+        # activos: materializarlos aquí anularía el ahorro que busca el
+        # prefiltro.
+        politicas = resolver_politicas_de(activos.values_list("tipo_id", flat=True).distinct())
+
+    hoy = timezone.localdate()
+    condicion = Q(pk__in=[])
+    for tipo_id, politica in politicas.items():
+        if politica is None:
+            continue
+        criterios = Q(pk__in=[])
+        umbral_vida = politica.vida_util_meses or politica.vida_util_critica_meses
+        if umbral_vida:
+            criterios |= Q(fecha_adquisicion__lte=restar_meses(hoy, umbral_vida))
+        if politica.max_mantenimientos is not None:
+            criterios |= Q(total_mantenimientos__gt=politica.max_mantenimientos)
+        if politica.max_componentes_criticos is not None:
+            criterios |= Q(total_componentes_criticos__gt=politica.max_componentes_criticos)
+        condicion |= Q(tipo_id=tipo_id) & criterios
+
+    return activos.filter(condicion), politicas

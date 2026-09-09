@@ -142,6 +142,9 @@ los detalles de conexión.
 | `python manage.py runserver` | `backend/` | Servidor de desarrollo |
 | `python manage.py recalcular_indicadores` | `backend/` | Recalcula contadores y sugerencias de renovación (cron diario) |
 | `python manage.py enviar_alertas` | `backend/` | Envía el resumen de alertas por correo (cron diario; la frecuencia real la decide la configuración) |
+| `python manage.py sembrar_datos_rendimiento` | `backend/` | Parque sintético para medir (solo en una base `*_perf`) |
+| `python manage.py medir_rendimiento` | `backend/` | Tiempo y consultas de las pantallas críticas |
+| `python manage.py prueba_de_carga` | `backend/` | Peticiones concurrentes contra un servidor en marcha |
 | `pytest` | `backend/` | Suite de pruebas del backend |
 | `ruff check .` / `black .` / `isort .` | `backend/` | Lint y formato |
 | `npm run dev` | `frontend/` | Servidor de desarrollo (Vite) |
@@ -243,7 +246,8 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 435 pruebas `pytest` (ver `backend/apps/*/tests/`).
+- Backend: 441 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+  de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
 - Frontend: 26 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
@@ -268,7 +272,8 @@ arrancar) y el frontend (build estático servido por nginx). Ver
 
 Ver `docs/security-review.md` para el checklist completo de controles de
 seguridad implementados y sus limitaciones conocidas (documentadas, no
-ocultas).
+ocultas). El comportamiento con el parque completo (10.000 activos) está
+medido en `docs/rendimiento.md`.
 
 ## 16. Protección de datos personales según normativa de Ecuador
 

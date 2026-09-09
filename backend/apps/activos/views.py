@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.cache import recordar
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.mantenimientos.serializers import MantenimientoSerializer
@@ -36,6 +37,9 @@ from .serializers import (
 from .services import ActivoService
 
 MODULO = "activos"
+
+#: Clave del resumen del panel en la caché.
+CLAVE_CACHE_PANEL = "activos:dashboard"
 MAX_ETIQUETAS_POR_LOTE = 200
 
 # PDF es el formato por defecto: lo abre cualquiera y permite revisar la
@@ -347,8 +351,13 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="dashboard")
     def dashboard(self, request):
-        """Indicadores del panel principal (§15 del documento funcional)."""
-        return Response(dashboard_mod.construir_indicadores())
+        """Indicadores del panel principal (§15 del documento funcional).
+
+        La respuesta se cachea unos minutos: recorrer el parque para agregarlo
+        cuesta cientos de milisegundos con 10.000 activos, y son cifras que no
+        cambian de un segundo a otro (ver `apps.core.cache`).
+        """
+        return Response(recordar(CLAVE_CACHE_PANEL, dashboard_mod.construir_indicadores))
 
     @action(
         detail=False,

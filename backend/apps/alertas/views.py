@@ -7,6 +7,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
+from apps.core.cache import invalidar, recordar
 from apps.core.request_meta import get_request_context
 
 from .models import ConfiguracionAlertas, EnvioAlertas
@@ -15,6 +16,9 @@ from .reglas import Severidad, construir_alertas
 from .services import destinatarios_elegibles, enviar_prueba
 
 MODULO = "alertas"
+
+#: Clave del resumen de alertas en la caché.
+CLAVE_CACHE_ALERTAS = "alertas:resumen"
 
 #: Peso de cada severidad al resumir. Se ordena de más grave a menos para que
 #: la primera tarjeta sea siempre la que hay que atender antes.
@@ -104,25 +108,27 @@ class AlertasView(APIView):
 
     def get(self, request):
         configuracion = ConfiguracionAlertas.cargar()
+        return Response(recordar(CLAVE_CACHE_ALERTAS, lambda: self._resumen(configuracion)))
+
+    @staticmethod
+    def _resumen(configuracion) -> dict:
         alertas = construir_alertas(configuracion)
         alertas.sort(key=lambda alerta: (ORDEN_SEVERIDAD[alerta.severidad], -alerta.total))
 
         con_pendientes = [alerta for alerta in alertas if alerta.total > 0]
-        return Response(
-            {
-                "total_alertas": len(con_pendientes),
-                "total_elementos": sum(alerta.total for alerta in con_pendientes),
-                "por_severidad": {
-                    severidad: sum(1 for a in con_pendientes if a.severidad == severidad)
-                    for severidad in (Severidad.ALTA, Severidad.MEDIA, Severidad.BAJA)
-                },
-                # Se devuelven también las que están en cero: «revisado, nada
-                # pendiente» es información, y es distinto de una alerta
-                # apagada, que sencillamente no aparece.
-                "alertas": [alerta.as_dict() for alerta in alertas],
-                "configuracion": ConfiguracionAlertasSerializer(configuracion).data,
-            }
-        )
+        return {
+            "total_alertas": len(con_pendientes),
+            "total_elementos": sum(alerta.total for alerta in con_pendientes),
+            "por_severidad": {
+                severidad: sum(1 for a in con_pendientes if a.severidad == severidad)
+                for severidad in (Severidad.ALTA, Severidad.MEDIA, Severidad.BAJA)
+            },
+            # Se devuelven también las que están en cero: «revisado, nada
+            # pendiente» es información, y es distinto de una alerta
+            # apagada, que sencillamente no aparece.
+            "alertas": [alerta.as_dict() for alerta in alertas],
+            "configuracion": ConfiguracionAlertasSerializer(configuracion).data,
+        }
 
 
 class ConfiguracionAlertasView(APIView):
@@ -156,6 +162,10 @@ class ConfiguracionAlertasView(APIView):
                 new_values=cambios,
                 context=get_request_context(request),
             )
+        # Un cambio de umbral o de encendido tiene que verse en la siguiente
+        # consulta: esperar a que expire la caché haría parecer que no se
+        # guardó.
+        invalidar(CLAVE_CACHE_ALERTAS)
         return Response(serializer.data)
 
 
