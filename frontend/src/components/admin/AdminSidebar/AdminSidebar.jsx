@@ -43,7 +43,13 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
     if (!path) {
       return;
     }
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
       return;
     }
     event.preventDefault();
@@ -52,7 +58,10 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
   }
 
   function handleLogout() {
-    if (isDirty && !window.confirm("Hay cambios sin guardar. ¿Desea continuar sin guardar?")) {
+    if (
+      isDirty &&
+      !window.confirm("Hay cambios sin guardar. ¿Desea continuar sin guardar?")
+    ) {
       return;
     }
     setIsDirty(false);
@@ -77,7 +86,11 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
       </button>
 
       {isMobileOpen && (
-        <div className="admin-sidebar__backdrop" onClick={handleBackdropClick} aria-hidden="true" />
+        <div
+          className="admin-sidebar__backdrop"
+          onClick={handleBackdropClick}
+          aria-hidden="true"
+        />
       )}
 
       <aside
@@ -92,9 +105,17 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
         tabIndex={-1}
       >
         <div className="admin-sidebar__header">
-          <Link to="/" className="admin-sidebar__brand" aria-label={`${siteName} — Ir al inicio`}>
+          <Link
+            to="/"
+            className="admin-sidebar__brand"
+            aria-label={`${siteName} — Ir al inicio`}
+          >
             {theme?.logo_url ? (
-              <img src={theme.logo_url} alt="" className="admin-sidebar__logo" />
+              <img
+                src={theme.logo_url}
+                alt=""
+                className="admin-sidebar__logo"
+              />
             ) : null}
             {isCollapsed ? siteName.slice(0, 2).toUpperCase() : siteName}
           </Link>
@@ -129,7 +150,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
                   currentPath={location.pathname}
                   onNavigate={handleNavigate}
                 />
-              )
+              ),
             )}
           </ul>
         </nav>
@@ -137,17 +158,30 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
         <div className="admin-sidebar__footer">
           <button
             type="button"
-            className="admin-sidebar__toggle-collapse"
-            onClick={onToggleCollapse}
-            aria-pressed={isCollapsed}
+            className="admin-sidebar__logout"
+            onClick={handleLogout}
           >
-            <span aria-hidden="true">{isCollapsed ? "»" : "«"}</span>
-            {!isCollapsed && <span>Contraer</span>}
-          </button>
-          <button type="button" className="admin-sidebar__logout" onClick={handleLogout}>
             {isCollapsed ? "⏻" : "Cerrar sesión"}
           </button>
         </div>
+
+        {/* Fuera de la lista y anclado al borde, a media altura: contraer no
+            es un sitio al que se navega, y como último elemento del menú se
+            perdía debajo de «Cerrar sesión» —y quedaba fuera de la pantalla
+            en cuanto el menú era más largo que el alto disponible. */}
+        <button
+          type="button"
+          className="admin-sidebar__toggle-collapse"
+          onClick={onToggleCollapse}
+          aria-pressed={isCollapsed}
+          aria-label={isCollapsed ? "Expandir menú" : "Contraer menú"}
+          title={isCollapsed ? "Expandir menú" : "Contraer menú"}
+        >
+          <i
+            className={`bi ${isCollapsed ? "bi-chevron-right" : "bi-chevron-left"}`}
+            aria-hidden="true"
+          />
+        </button>
       </aside>
     </>
   );
