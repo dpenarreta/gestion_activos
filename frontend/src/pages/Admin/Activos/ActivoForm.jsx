@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { activosService, tiposDispositivoService } from "../../../api/activosService";
-import { departamentosService, empleadosService } from "../../../api/organizacionService";
+import {
+  activosService,
+  tiposDispositivoService,
+} from "../../../api/activosService";
+import {
+  departamentosService,
+  empleadosService,
+  ubicacionesService,
+} from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { EspecificacionesEditor } from "../../../components/activos/EspecificacionesEditor/EspecificacionesEditor";
 import { mensajeDeError } from "../../../utils/errores";
@@ -19,7 +26,10 @@ const VACIO = {
   custodio: "",
   departamento: "",
   ubicacion: "",
+  criticidad: "media",
+  uso: "administrativo",
   fecha_adquisicion: "",
+  fecha_ingreso: "",
   costo_adquisicion: "",
   proveedor: "",
   fecha_fin_garantia: "",
@@ -34,13 +44,16 @@ export function ActivoForm() {
   const [tipos, setTipos] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [empleados, setEmpleados] = useState([]);
+  const [ubicaciones, setUbicaciones] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     tiposDispositivoService
       .list({ page_size: 100 })
-      .then((datos) => setTipos((datos.results ?? datos).filter((tipo) => tipo.activo)))
+      .then((datos) =>
+        setTipos((datos.results ?? datos).filter((tipo) => tipo.activo)),
+      )
       .catch(() => setTipos([]));
     departamentosService
       .list({ activo: "true", page_size: 100 })
@@ -50,6 +63,12 @@ export function ActivoForm() {
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setEmpleados(datos.results ?? datos))
       .catch(() => setEmpleados([]));
+    // Solo ubicaciones abiertas: poner un equipo en una bodega cerrada lo deja
+    // registrado en un sitio donde nadie va a buscarlo.
+    ubicacionesService
+      .list({ activa: "true", page_size: 100 })
+      .then((datos) => setUbicaciones(datos.results ?? datos))
+      .catch(() => setUbicaciones([]));
   }, []);
 
   useEffect(() => {
@@ -68,11 +87,14 @@ export function ActivoForm() {
           custodio: datos.custodio || "",
           departamento: datos.departamento,
           ubicacion: datos.ubicacion || "",
+          criticidad: datos.criticidad || "media",
+          uso: datos.uso || "administrativo",
+          fecha_ingreso: datos.fecha_ingreso || "",
           fecha_adquisicion: datos.fecha_adquisicion,
           costo_adquisicion: datos.costo_adquisicion || "",
           proveedor: datos.proveedor || "",
           fecha_fin_garantia: datos.fecha_fin_garantia || "",
-        })
+        }),
       )
       .catch(() => setError("No se pudo cargar el activo."));
   }, [id, esEdicion]);
@@ -94,8 +116,11 @@ export function ActivoForm() {
         numero_serie: valores.numero_serie,
         especificaciones: valores.especificaciones,
         observaciones: valores.observaciones,
-        ubicacion: valores.ubicacion,
+        ubicacion: valores.ubicacion || null,
+        criticidad: valores.criticidad,
+        uso: valores.uso,
         fecha_adquisicion: valores.fecha_adquisicion,
+        fecha_ingreso: valores.fecha_ingreso || null,
         costo_adquisicion: valores.costo_adquisicion || null,
         proveedor: valores.proveedor,
         fecha_fin_garantia: valores.fecha_fin_garantia || null,
@@ -135,7 +160,8 @@ export function ActivoForm() {
 
       {!esEdicion && (
         <p className="text-muted">
-          El código de barras se genera automáticamente al guardar, a partir del tipo de dispositivo.
+          El código de barras se genera automáticamente al guardar, a partir del
+          tipo de dispositivo.
         </p>
       )}
 
@@ -143,7 +169,9 @@ export function ActivoForm() {
 
       <form onSubmit={handleSubmit} className="activo-form">
         <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Identificación</legend>
+          <legend className="h6 text-uppercase text-muted">
+            Identificación
+          </legend>
           <div className="row g-3">
             <div className="col-md-4">
               <label className="form-label" htmlFor="tipo">
@@ -177,7 +205,9 @@ export function ActivoForm() {
                 value={valores.nombre}
                 onChange={(event) => actualizar("nombre", event.target.value)}
               />
-              <div className="form-text">Se imprime en la etiqueta, junto al código de barras.</div>
+              <div className="form-text">
+                Se imprime en la etiqueta, junto al código de barras.
+              </div>
             </div>
             <div className="col-md-4">
               <label className="form-label" htmlFor="marca">
@@ -215,7 +245,9 @@ export function ActivoForm() {
                 required
                 maxLength={120}
                 value={valores.numero_serie}
-                onChange={(event) => actualizar("numero_serie", event.target.value)}
+                onChange={(event) =>
+                  actualizar("numero_serie", event.target.value)
+                }
               />
               <div className="form-text">Único en todo el inventario.</div>
             </div>
@@ -223,15 +255,21 @@ export function ActivoForm() {
         </fieldset>
 
         <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Especificaciones del hardware</legend>
+          <legend className="h6 text-uppercase text-muted">
+            Especificaciones del hardware
+          </legend>
           <EspecificacionesEditor
             valor={valores.especificaciones}
-            onChange={(especificaciones) => actualizar("especificaciones", especificaciones)}
+            onChange={(especificaciones) =>
+              actualizar("especificaciones", especificaciones)
+            }
           />
         </fieldset>
 
         <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Custodia y ubicación</legend>
+          <legend className="h6 text-uppercase text-muted">
+            Custodia y ubicación
+          </legend>
           <div className="row g-3">
             <div className="col-md-6">
               <label className="form-label" htmlFor="departamento">
@@ -243,7 +281,9 @@ export function ActivoForm() {
                 required={!esEdicion}
                 disabled={esEdicion}
                 value={valores.departamento}
-                onChange={(event) => actualizar("departamento", event.target.value)}
+                onChange={(event) =>
+                  actualizar("departamento", event.target.value)
+                }
               >
                 <option value="">Seleccione un departamento</option>
                 {departamentos.map((departamento) => (
@@ -275,8 +315,9 @@ export function ActivoForm() {
             {esEdicion && (
               <div className="col-12">
                 <div className="form-text">
-                  El custodio y el departamento se cambian desde la ficha, con la acción
-                  «Asignar / trasladar»: así el cambio queda registrado en el historial.
+                  El custodio y el departamento se cambian desde la ficha, con
+                  la acción «Asignar / trasladar»: así el cambio queda
+                  registrado en el historial.
                 </div>
               </div>
             )}
@@ -284,14 +325,71 @@ export function ActivoForm() {
               <label className="form-label" htmlFor="ubicacion">
                 Ubicación física
               </label>
-              <input
+              <select
                 id="ubicacion"
-                className="form-control"
-                maxLength={150}
-                placeholder="Piso 3, oficina 302"
+                className="form-select"
                 value={valores.ubicacion}
-                onChange={(event) => actualizar("ubicacion", event.target.value)}
-              />
+                onChange={(event) =>
+                  actualizar("ubicacion", event.target.value)
+                }
+              >
+                <option value="">Sin ubicación registrada</option>
+                {ubicaciones.map((ubicacion) => (
+                  <option key={ubicacion.id} value={ubicacion.id}>
+                    {ubicacion.nombre_completo}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                {/* El catálogo es lo que hace que el filtro por ubicación
+                    devuelva todos los equipos que están ahí y no solo los que
+                    alguien escribió igual. */}
+                Se administra en Organización → Ubicaciones.
+              </div>
+            </div>
+            <div className="col-md-3">
+              <label className="form-label" htmlFor="criticidad">
+                Criticidad
+              </label>
+              <select
+                id="criticidad"
+                className="form-select"
+                value={valores.criticidad}
+                onChange={(event) =>
+                  actualizar("criticidad", event.target.value)
+                }
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+              <div className="form-text">
+                Qué tan urgente es reponerlo si falla.
+              </div>
+            </div>
+            <div className="col-md-3">
+              <label className="form-label" htmlFor="uso">
+                Uso
+              </label>
+              <select
+                id="uso"
+                className="form-select"
+                value={valores.uso}
+                onChange={(event) => actualizar("uso", event.target.value)}
+              >
+                <option value="administrativo">Administrativo</option>
+                <option value="operativo">Operativo</option>
+                <option value="desarrollo">Desarrollo</option>
+                <option value="diseno">Diseño</option>
+                <option value="gerencial">Gerencial</option>
+                <option value="atencion_cliente">Atención al cliente</option>
+                <option value="bodega">Bodega</option>
+                <option value="infraestructura">Infraestructura</option>
+              </select>
+              <div className="form-text">
+                La función que cumple, no cuánto se usa.
+              </div>
             </div>
           </div>
         </fieldset>
@@ -309,9 +407,33 @@ export function ActivoForm() {
                 className="form-control"
                 required
                 value={valores.fecha_adquisicion}
-                onChange={(event) => actualizar("fecha_adquisicion", event.target.value)}
+                onChange={(event) =>
+                  actualizar("fecha_adquisicion", event.target.value)
+                }
               />
-              <div className="form-text">Base del cálculo de vida útil del equipo.</div>
+              <div className="form-text">
+                Base del cálculo de vida útil del equipo.
+              </div>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label" htmlFor="fecha_ingreso">
+                Fecha de ingreso
+              </label>
+              <input
+                id="fecha_ingreso"
+                type="date"
+                className="form-control"
+                value={valores.fecha_ingreso}
+                onChange={(event) =>
+                  actualizar("fecha_ingreso", event.target.value)
+                }
+              />
+              <div className="form-text">
+                {/* La garantía corre desde la compra y la custodia desde el
+                    ingreso: un equipo comprado en diciembre puede entrar en
+                    marzo. */}
+                Cuándo entró al inventario, si es distinta de la compra.
+              </div>
             </div>
             <div className="col-md-4">
               <label className="form-label" htmlFor="costo_adquisicion">
@@ -324,7 +446,9 @@ export function ActivoForm() {
                 min="0"
                 className="form-control"
                 value={valores.costo_adquisicion}
-                onChange={(event) => actualizar("costo_adquisicion", event.target.value)}
+                onChange={(event) =>
+                  actualizar("costo_adquisicion", event.target.value)
+                }
               />
             </div>
             <div className="col-md-4">
@@ -336,7 +460,9 @@ export function ActivoForm() {
                 className="form-control"
                 maxLength={150}
                 value={valores.proveedor}
-                onChange={(event) => actualizar("proveedor", event.target.value)}
+                onChange={(event) =>
+                  actualizar("proveedor", event.target.value)
+                }
               />
             </div>
             <div className="col-md-4">
@@ -349,7 +475,9 @@ export function ActivoForm() {
                 className="form-control"
                 min={valores.fecha_adquisicion || undefined}
                 value={valores.fecha_fin_garantia}
-                onChange={(event) => actualizar("fecha_fin_garantia", event.target.value)}
+                onChange={(event) =>
+                  actualizar("fecha_fin_garantia", event.target.value)
+                }
               />
               <div className="form-text">
                 Déjelo vacío si el equipo no tiene garantía registrada.
@@ -364,7 +492,9 @@ export function ActivoForm() {
                 className="form-control"
                 rows={2}
                 value={valores.observaciones}
-                onChange={(event) => actualizar("observaciones", event.target.value)}
+                onChange={(event) =>
+                  actualizar("observaciones", event.target.value)
+                }
               />
             </div>
           </div>
@@ -372,12 +502,18 @@ export function ActivoForm() {
 
         <div className="d-flex gap-2">
           <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? "Guardando…" : esEdicion ? "Guardar cambios" : "Registrar activo"}
+            {isSaving
+              ? "Guardando…"
+              : esEdicion
+                ? "Guardar cambios"
+                : "Registrar activo"}
           </button>
           <button
             type="button"
             className="btn btn-outline-secondary"
-            onClick={() => navigate(esEdicion ? `/admin/activos/${id}` : "/admin/activos")}
+            onClick={() =>
+              navigate(esEdicion ? `/admin/activos/${id}` : "/admin/activos")
+            }
           >
             Cancelar
           </button>

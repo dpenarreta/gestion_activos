@@ -24,6 +24,32 @@ from .models_plantilla import ColumnaPlantillaActivos  # noqa: F401
 # proveedor; con una semana ya no da tiempo a nada.
 DIAS_AVISO_GARANTIA = 30
 
+#: Estados en los que el equipo ya no forma parte del parque: no se le puede
+#: hacer mantenimiento, no se le asigna custodio y no cuenta en los
+#: indicadores ni en las alertas. Están juntos en una sola constante porque el
+#: criterio se consultaba antes como `exclude(estado=DADO_DE_BAJA)` repetido
+#: en nueve archivos, y al aparecer «perdido» y «robado» esa duplicación se
+#: convertía en nueve sitios donde olvidar uno de los tres.
+ESTADOS_FUERA_DE_INVENTARIO = frozenset({"dado_de_baja", "perdido", "robado"})
+
+#: Estados desde los que una asignación cambia el estado del equipo. Los demás
+#: —en reparación, en garantía, en tránsito— describen dónde está, y eso manda
+#: sobre quién responde por él: entregarlo no lo saca del taller.
+ESTADOS_ASIGNABLES = frozenset({"disponible", "en_uso", "en_bodega"})
+
+#: Equipos almacenados esperando destino. Son dos estados y no uno porque el
+#: documento distingue lo que está guardado de lo que ya se puede entregar.
+ESTADOS_EN_ALMACEN = frozenset({"disponible", "en_bodega"})
+
+
+class ActivoQuerySet(models.QuerySet):
+    def operativos(self):
+        """Parque vivo: lo que todavía está en la empresa y responde a alguien."""
+        return self.exclude(estado__in=ESTADOS_FUERA_DE_INVENTARIO)
+
+    def fuera_de_inventario(self):
+        return self.filter(estado__in=ESTADOS_FUERA_DE_INVENTARIO)
+
 
 class TipoDispositivo(BaseModel):
     """Clase de equipo (laptop, servidor, impresora...).
@@ -61,10 +87,46 @@ class Activo(BaseModel):
         VENCIDA = "vencida", "Garantía vencida"
 
     class Estado(models.TextChoices):
-        EN_USO = "en_uso", "En uso"
+        # El documento distingue «disponible» de «en bodega»: los dos están
+        # almacenados, pero solo el primero se puede entregar hoy. Un equipo
+        # recién devuelto está en bodega y todavía no es entregable —hay que
+        # revisarlo y formatearlo—, y contarlo como disponible haría prometer
+        # equipos que no lo están.
+        DISPONIBLE = "disponible", "Disponible"
+        EN_USO = "en_uso", "Asignado"
         EN_BODEGA = "en_bodega", "En bodega"
-        EN_MANTENIMIENTO = "en_mantenimiento", "En mantenimiento"
+        EN_MANTENIMIENTO = "en_mantenimiento", "En reparación"
+        # «En reclamación de garantía» y no «en garantía» a secas: describe
+        # que el equipo está en manos del proveedor por un reclamo, que es un
+        # hecho operativo. Que la cobertura esté vigente o no es otra cosa, se
+        # deduce de la fecha y se llama `estado_garantia`.
+        EN_GARANTIA = "en_garantia", "En reclamación de garantía"
+        EN_TRANSITO = "en_transito", "En tránsito"
         DADO_DE_BAJA = "dado_de_baja", "Dado de baja"
+        PERDIDO = "perdido", "Perdido"
+        ROBADO = "robado", "Robado"
+
+    class Criticidad(models.TextChoices):
+        BAJA = "baja", "Baja"
+        MEDIA = "media", "Media"
+        ALTA = "alta", "Alta"
+        CRITICA = "critica", "Crítica"
+
+    class Uso(models.TextChoices):
+        """Función que cumple el equipo, no cuánto se usa.
+
+        Dos laptops idénticas pueden ser una de gerencia y otra de bodega, y
+        eso cambia con qué urgencia se repone cada una.
+        """
+
+        ADMINISTRATIVO = "administrativo", "Administrativo"
+        OPERATIVO = "operativo", "Operativo"
+        DESARROLLO = "desarrollo", "Desarrollo"
+        DISENO = "diseno", "Diseño"
+        GERENCIAL = "gerencial", "Gerencial"
+        ATENCION_CLIENTE = "atencion_cliente", "Atención al cliente"
+        BODEGA = "bodega", "Bodega"
+        INFRAESTRUCTURA = "infraestructura", "Infraestructura"
 
     # --- Identificación (RF-02) ---
     codigo_barras = models.CharField(
@@ -101,12 +163,40 @@ class Activo(BaseModel):
         on_delete=models.PROTECT,
         related_name="activos",
     )
-    ubicacion = models.CharField(max_length=150, blank=True)
+    ubicacion = models.ForeignKey(
+        "organizacion.Ubicacion",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activos",
+        help_text="Dónde está físicamente el equipo. Vacío mientras no se ha inventariado.",
+    )
+
+    # --- Clasificación (§12) ---
+    # Criticidad y nivel de uso no se derivan del tipo de equipo: dos laptops
+    # idénticas pueden ser una la del servidor de facturación y otra la de un
+    # puesto de rotación, y esa diferencia es justamente la que decide a cuál
+    # se atiende primero cuando ambas fallan el mismo día.
+    criticidad = models.CharField(
+        max_length=10, choices=Criticidad.choices, default=Criticidad.MEDIA, db_index=True
+    )
+    uso = models.CharField(
+        max_length=20, choices=Uso.choices, default=Uso.ADMINISTRATIVO, db_index=True
+    )
 
     # --- Ciclo de vida (insumo de RF-06 / RF-07) ---
     estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.EN_BODEGA)
     fecha_adquisicion = models.DateField(
         help_text="Base del cálculo de longevidad de la política de renovación."
+    )
+    fecha_ingreso = models.DateField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Fecha en que el equipo entró al inventario. Se separa de la de "
+            "adquisición porque un equipo comprado en diciembre puede entrar en "
+            "marzo, y la garantía corre desde una y la custodia desde la otra."
+        ),
     )
     costo_adquisicion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     proveedor = models.CharField(max_length=150, blank=True)
@@ -133,6 +223,8 @@ class Activo(BaseModel):
     motivos_renovacion = models.JSONField(default=list, blank=True, editable=False)
     renovacion_evaluada_en = models.DateTimeField(null=True, blank=True, editable=False)
 
+    objects = ActivoQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "activo"
@@ -141,10 +233,17 @@ class Activo(BaseModel):
             models.Index(fields=["marca", "modelo"]),
             models.Index(fields=["estado"]),
             models.Index(fields=["requiere_renovacion"]),
+            models.Index(fields=["ubicacion"]),
+            models.Index(fields=["fecha_adquisicion"]),
         ]
 
     def __str__(self) -> str:
         return f"{self.codigo_barras} - {self.nombre}"
+
+    @property
+    def esta_operativo(self) -> bool:
+        """Si el equipo sigue formando parte del parque."""
+        return self.estado not in ESTADOS_FUERA_DE_INVENTARIO
 
     @property
     def estado_garantia(self) -> str:

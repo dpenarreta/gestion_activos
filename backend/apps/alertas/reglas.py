@@ -12,7 +12,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.activos.models import DIAS_AVISO_GARANTIA, Activo
+from apps.activos.models import DIAS_AVISO_GARANTIA, ESTADOS_EN_ALMACEN, Activo
 from apps.mantenimientos.models import Mantenimiento
 from apps.politicas.models import NivelRenovacion
 from apps.politicas.services import evaluar_lote
@@ -68,8 +68,10 @@ def _fila_activo(activo, dato: str, clave: str | None = None) -> dict:
 
 
 def _activos_operativos():
-    """Parque vivo. Un equipo dado de baja no genera alertas: ya salió."""
-    return Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+    """Parque vivo. Un equipo que salió del inventario —de baja, perdido o
+    robado— no genera alertas: no hay nada que nadie pueda resolver sobre él,
+    y aparecería cada día en la pantalla como pendiente eterno."""
+    return Activo.objects.operativos()
 
 
 # --- Reglas ----------------------------------------------------------------
@@ -172,9 +174,9 @@ def garantias_por_vencer() -> Alerta:
 def sin_asignar(dias: int) -> Alerta:
     """Equipos parados en bodega. Capital inmovilizado, no una urgencia."""
     limite = timezone.now() - timedelta(days=dias)
-    consulta = Activo.objects.filter(
-        estado=Activo.Estado.EN_BODEGA, updated_at__lt=limite
-    ).order_by("updated_at")
+    consulta = Activo.objects.filter(estado__in=ESTADOS_EN_ALMACEN, updated_at__lt=limite).order_by(
+        "updated_at"
+    )
     total = consulta.count()
     muestra = [_fila_activo(activo, "en bodega") for activo in consulta[:TAMANO_MUESTRA]]
 
@@ -184,7 +186,7 @@ def sin_asignar(dias: int) -> Alerta:
         severidad=Severidad.BAJA,
         total=total,
         detalle=f"Llevan más de {dias} días en bodega sin asignarse.",
-        destino="/admin/activos?estado=en_bodega",
+        destino="/admin/activos?almacenados=true",
         muestra=muestra,
     )
 

@@ -20,7 +20,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento, Empleado, Ubicacion
 
 from .importacion import MAX_FILAS, NOMBRE_HOJA_DATOS, columnas_configuradas
 from .models import TipoDispositivo
@@ -39,6 +39,9 @@ ANCHOS = {
     "fecha_adquisicion": 20,
     "custodio": 24,
     "ubicacion": 26,
+    "criticidad": 14,
+    "uso": 18,
+    "fecha_ingreso": 18,
     "costo_adquisicion": 16,
     "proveedor": 24,
     "fecha_fin_garantia": 18,
@@ -57,7 +60,10 @@ EJEMPLOS = [
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
         "custodio": "EMP-0001",
-        "ubicacion": "Piso 2, oficina 204",
+        "ubicacion": "Matriz Quito / Oficina 204",
+        "criticidad": "Alta",
+        "uso": "Administrativo",
+        "fecha_ingreso": "2024-03-20",
         "costo_adquisicion": "1150.00",
         "proveedor": "Tecnomega",
         "fecha_fin_garantia": "2027-03-15",
@@ -74,6 +80,9 @@ EJEMPLOS = [
         "fecha_adquisicion": "2023-11-02",
         "custodio": "",
         "ubicacion": "Recepción",
+        "criticidad": "Baja",
+        "uso": "Atención al cliente",
+        "fecha_ingreso": "",
         "costo_adquisicion": "320",
         "proveedor": "Comptronix",
         "fecha_fin_garantia": "",
@@ -179,7 +188,13 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
             False,
         ),
         (
-            "6. El código de barras NO se llena: lo genera el sistema al importar, con el "
+            "6. La ubicación debe existir en el catálogo: copie el valor de la hoja "
+            "«Ubicaciones». Si el nombre se repite en dos sedes, escríbalo como "
+            "«Sede / Nombre».",
+            False,
+        ),
+        (
+            "7. El código de barras NO se llena: lo genera el sistema al importar, con el "
             "formato GA-<TIPO>-<SECUENCIA>.",
             False,
         ),
@@ -252,6 +267,18 @@ def construir_plantilla() -> bytes:
         [
             [departamento.codigo, departamento.nombre]
             for departamento in Departamento.objects.filter(activo=True).order_by("nombre")
+        ],
+    )
+    _hoja_catalogo(
+        libro,
+        "Ubicaciones",
+        ["Sede", "Nombre", "Escriba en la plantilla"],
+        [
+            # La tercera columna es el valor exacto que hay que copiar: el
+            # nombre solo basta cuando es único, y quien llena el archivo no
+            # tiene forma de saber si lo es.
+            [ubicacion.sede, ubicacion.nombre, f"{ubicacion.sede} / {ubicacion.nombre}"]
+            for ubicacion in Ubicacion.objects.filter(activa=True).order_by("sede", "nombre")
         ],
     )
     _hoja_catalogo(

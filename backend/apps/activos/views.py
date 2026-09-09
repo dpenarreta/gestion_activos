@@ -1,5 +1,6 @@
 from django.db.models import Count, Q
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
@@ -15,7 +16,7 @@ from apps.mantenimientos.services import resumen_costos
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
-from .models import Activo, TipoDispositivo
+from .models import ESTADOS_EN_ALMACEN, Activo, TipoDispositivo
 from .permissions import (
     ActivosPermission,
     EtiquetasPermission,
@@ -86,9 +87,9 @@ class ActivoViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def get_queryset(self):
-        queryset = Activo.objects.select_related("tipo", "custodio", "departamento").order_by(
-            "-created_at"
-        )
+        queryset = Activo.objects.select_related(
+            "tipo", "custodio", "departamento", "ubicacion"
+        ).order_by("-created_at")
         params = self.request.query_params
 
         busqueda = params.get("q")
@@ -108,14 +109,46 @@ class ActivoViewSet(viewsets.ModelViewSet):
             ("tipo", "tipo_id"),
             ("departamento", "departamento_id"),
             ("custodio", "custodio_id"),
+            ("ubicacion", "ubicacion_id"),
         ):
             valor = params.get(parametro)
             if valor and valor.isdigit():
                 queryset = queryset.filter(**{campo: int(valor)})
 
+        # La sede agrupa varias ubicaciones: «todo lo que hay en la matriz» es
+        # la pregunta de quien va a hacer el inventario físico de un edificio.
+        sede = params.get("sede")
+        if sede:
+            queryset = queryset.filter(ubicacion__sede__iexact=sede.strip())
+
         estado = params.get("estado")
         if estado:
             queryset = queryset.filter(estado=estado)
+
+        # «Operativos» es la vista por defecto de quien trabaja con el parque;
+        # los perdidos, robados y dados de baja siguen consultables porque su
+        # expediente es el respaldo de qué pasó con ellos.
+        operativos = params.get("operativos")
+        if operativos == "true":
+            queryset = queryset.operativos()
+        elif operativos == "false":
+            queryset = queryset.fuera_de_inventario()
+
+        for parametro, validos in (
+            ("criticidad", {c.value for c in Activo.Criticidad}),
+            ("uso", {u.value for u in Activo.Uso}),
+        ):
+            valor = params.get(parametro)
+            if valor in validos:
+                queryset = queryset.filter(**{parametro: valor})
+
+        # «Almacenados» agrupa disponible y en bodega: la pregunta de quien
+        # busca un equipo para entregar es «qué hay guardado», y el matiz
+        # entre ambos estados lo resuelve mirando la ficha.
+        if params.get("almacenados") == "true":
+            queryset = queryset.filter(estado__in=ESTADOS_EN_ALMACEN)
+
+        queryset = self._filtrar_por_antiguedad(queryset, params)
 
         renovacion = params.get("requiere_renovacion")
         if renovacion in {"true", "false"}:
@@ -142,6 +175,33 @@ class ActivoViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(updated_at__lt=limite)
 
         queryset = self._filtrar_por_garantia(queryset, params.get("garantia"))
+
+        return queryset
+
+    @staticmethod
+    def _filtrar_por_antiguedad(queryset, params):
+        """Filtra por meses cumplidos desde la adquisición (§14).
+
+        Se traduce a fechas límite en la consulta en vez de evaluar la
+        propiedad `antiguedad_meses` del modelo: en Python habría que traerse
+        el inventario entero para descartar la mayoría, y el documento
+        dimensiona entre 5.000 y 10.000 activos.
+
+        Un equipo «de al menos 36 meses» se adquirió *antes* de hace 36
+        meses: los operadores quedan invertidos respecto de lo que se lee, y
+        es el error fácil de cometer aquí.
+        """
+        from apps.politicas.services import restar_meses
+
+        hoy = timezone.localdate()
+
+        minimo = params.get("antiguedad_min_meses")
+        if minimo and minimo.isdigit():
+            queryset = queryset.filter(fecha_adquisicion__lte=restar_meses(hoy, int(minimo)))
+
+        maximo = params.get("antiguedad_max_meses")
+        if maximo and maximo.isdigit():
+            queryset = queryset.filter(fecha_adquisicion__gte=restar_meses(hoy, int(maximo)))
 
         return queryset
 

@@ -1,9 +1,9 @@
 from rest_framework import serializers
 
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento, Empleado, Ubicacion
 from apps.politicas.services import evaluar_activo
 
-from .models import Activo, MovimientoActivo, TipoDispositivo
+from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
 
 
 class TipoDispositivoSerializer(serializers.ModelSerializer):
@@ -87,6 +87,11 @@ class ActivoListSerializer(serializers.ModelSerializer):
     )
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
+    ubicacion_nombre = serializers.CharField(
+        source="ubicacion.nombre_completo", read_only=True, default=None
+    )
+    criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
+    uso_display = serializers.CharField(source="get_uso_display", read_only=True)
 
     class Meta:
         model = Activo
@@ -104,9 +109,15 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "departamento",
             "departamento_nombre",
             "ubicacion",
+            "ubicacion_nombre",
+            "criticidad",
+            "criticidad_display",
+            "uso",
+            "uso_display",
             "estado",
             "estado_display",
             "fecha_adquisicion",
+            "fecha_ingreso",
             "estado_garantia",
             "fecha_fin_garantia",
             "total_mantenimientos",
@@ -133,6 +144,12 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     )
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
+    ubicacion_nombre = serializers.CharField(
+        source="ubicacion.nombre_completo", read_only=True, default=None
+    )
+    criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
+    uso_display = serializers.CharField(source="get_uso_display", read_only=True)
+    esta_operativo = serializers.BooleanField(read_only=True)
     antiguedad_meses = serializers.IntegerField(read_only=True)
     estado_garantia = serializers.CharField(read_only=True)
     estado_garantia_display = serializers.SerializerMethodField()
@@ -158,9 +175,16 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "departamento",
             "departamento_nombre",
             "ubicacion",
+            "ubicacion_nombre",
+            "criticidad",
+            "criticidad_display",
+            "uso",
+            "uso_display",
             "estado",
             "estado_display",
+            "esta_operativo",
             "fecha_adquisicion",
+            "fecha_ingreso",
             "costo_adquisicion",
             "proveedor",
             "fecha_fin_garantia",
@@ -230,11 +254,22 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "custodio",
             "departamento",
             "ubicacion",
+            "criticidad",
+            "uso",
             "fecha_adquisicion",
+            "fecha_ingreso",
             "costo_adquisicion",
             "proveedor",
             "fecha_fin_garantia",
         ]
+
+    # Solo ubicaciones vigentes: poner un equipo en una bodega cerrada lo
+    # deja registrado en un sitio donde nadie va a buscarlo.
+    ubicacion = serializers.PrimaryKeyRelatedField(
+        queryset=Ubicacion.objects.filter(activa=True),
+        required=False,
+        allow_null=True,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -244,6 +279,28 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
 
     def validate_numero_serie(self, value):
         return value.strip()
+
+    def validate(self, attrs):
+        """La fecha de ingreso no puede ser anterior a la de adquisición.
+
+        Se separan porque un equipo comprado en diciembre puede entrar al
+        inventario en marzo; al revés no ocurre, y cuando aparece es que una
+        de las dos se digitó mal.
+        """
+        adquisicion = attrs.get(
+            "fecha_adquisicion", getattr(self.instance, "fecha_adquisicion", None)
+        )
+        ingreso = attrs.get("fecha_ingreso", getattr(self.instance, "fecha_ingreso", None))
+        if adquisicion and ingreso and ingreso < adquisicion:
+            raise serializers.ValidationError(
+                {
+                    "fecha_ingreso": (
+                        f"El ingreso al inventario ({ingreso}) no puede ser anterior a la "
+                        f"adquisición ({adquisicion})."
+                    )
+                }
+            )
+        return attrs
 
     def validate_especificaciones(self, value):
         """Solo pares clave/valor planos: la ficha se renderiza como tabla y
@@ -288,8 +345,17 @@ class CambioEstadoSerializer(serializers.Serializer):
     motivo = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate(self, attrs):
-        if attrs["estado"] == Activo.Estado.DADO_DE_BAJA and not attrs.get("motivo"):
+        """Sacar un equipo del inventario exige decir por qué.
+
+        Vale para los tres estados de salida, no solo para la baja: «perdido»
+        y «robado» sin explicación dejan un equipo desaparecido del inventario
+        y ninguna constancia de qué pasó, que es justamente lo que habría que
+        poder consultar meses después —y en el caso del robo, lo que respalda
+        la denuncia.
+        """
+        if attrs["estado"] in ESTADOS_FUERA_DE_INVENTARIO and not attrs.get("motivo"):
+            etiqueta = Activo.Estado(attrs["estado"]).label.lower()
             raise serializers.ValidationError(
-                {"motivo": "Dar de baja un activo exige indicar el motivo."}
+                {"motivo": f"Registrar un activo como {etiqueta} exige indicar el motivo."}
             )
         return attrs

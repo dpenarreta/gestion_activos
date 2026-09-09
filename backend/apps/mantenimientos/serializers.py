@@ -163,8 +163,8 @@ class MantenimientoWriteSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_activo(self, value):
-        if value.estado == value.Estado.DADO_DE_BAJA:
+        if not value.esta_operativo:
             raise serializers.ValidationError(
-                "No se registran mantenimientos sobre un activo dado de baja."
+                f"No se registran mantenimientos sobre un activo {value.get_estado_display().lower()}."
             )
         return value

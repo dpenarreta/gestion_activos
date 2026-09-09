@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from apps.core.audit import record_audit_event
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento, Empleado, Ubicacion
 
 from .models import Activo, TipoDispositivo
 from .services import ActivoService
@@ -225,6 +225,19 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         departamentos[departamento.codigo.lower()] = departamento
         departamentos[departamento.nombre.lower()] = departamento
     empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
+    # La ubicación admite «Bodega TI» a secas cuando ese nombre es único, y
+    # exige «Matriz Quito / Bodega TI» cuando dos sedes tienen una bodega con
+    # el mismo nombre: resolver la ambigüedad en silencio dejaría los equipos
+    # repartidos en el edificio equivocado.
+    ubicaciones: dict[str, object] = {}
+    ambiguas: set[str] = set()
+    for ubicacion in Ubicacion.objects.filter(activa=True):
+        ubicaciones[f"{ubicacion.sede}/{ubicacion.nombre}".lower()] = ubicacion
+        simple = ubicacion.nombre.lower()
+        if simple in ubicaciones:
+            ambiguas.add(simple)
+        else:
+            ubicaciones[simple] = ubicacion
 
     series_existentes = set(Activo.objects.values_list("numero_serie", flat=True))
     series_en_archivo: dict[str, int] = {}
@@ -368,7 +381,81 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 )
         datos["costo_adquisicion"] = costo
 
-        datos["ubicacion"] = _texto(celda("ubicacion"))
+        texto_ubicacion = _texto(celda("ubicacion"))
+        ubicacion = None
+        if texto_ubicacion:
+            clave = texto_ubicacion.replace("·", "/").replace("|", "/")
+            clave = "/".join(parte.strip() for parte in clave.split("/")).lower()
+            if clave in ambiguas:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("ubicacion", "Ubicación"),
+                        f"Hay más de una ubicación llamada {texto_ubicacion!r}: "
+                        "escríbala como «Sede / Nombre».",
+                    )
+                )
+            else:
+                ubicacion = ubicaciones.get(clave)
+                if not ubicacion:
+                    errores_fila.append(
+                        ErrorFila(
+                            numero_fila,
+                            etiqueta_de.get("ubicacion", "Ubicación"),
+                            f"No existe una ubicación activa {texto_ubicacion!r}. "
+                            "Créela primero en el catálogo (hoja «Ubicaciones»).",
+                        )
+                    )
+        datos["ubicacion"] = ubicacion
+
+        # Criticidad y nivel de uso se aceptan por su etiqueta («Alta») o por
+        # su valor interno («alta»): quien llena la plantilla lee la primera.
+        for clave_campo, opciones, etiqueta_defecto in (
+            ("criticidad", Activo.Criticidad, "Criticidad"),
+            ("uso", Activo.Uso, "Uso"),
+        ):
+            texto = _texto(celda(clave_campo))
+            if not texto:
+                continue
+            equivalencias = {opcion.value: opcion.value for opcion in opciones}
+            equivalencias.update({opcion.label.lower(): opcion.value for opcion in opciones})
+            valor = equivalencias.get(texto.lower())
+            if valor is None:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get(clave_campo, etiqueta_defecto),
+                        f"{texto!r} no es válido. Use: "
+                        f"{', '.join(opcion.label for opcion in opciones)}.",
+                    )
+                )
+            else:
+                datos[clave_campo] = valor
+
+        texto_ingreso = _texto(celda("fecha_ingreso"))
+        fecha_ingreso = _parsear_fecha(celda("fecha_ingreso"))
+        if texto_ingreso and fecha_ingreso is None:
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_ingreso", "Fecha de ingreso"),
+                    "No se entiende la fecha: use el formato AAAA-MM-DD.",
+                )
+            )
+        elif (
+            fecha_ingreso
+            and datos.get("fecha_adquisicion")
+            and fecha_ingreso < datos["fecha_adquisicion"]
+        ):
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_ingreso", "Fecha de ingreso"),
+                    "No puede ser anterior a la fecha de adquisición.",
+                )
+            )
+        datos["fecha_ingreso"] = fecha_ingreso
+
         datos["observaciones"] = _texto(celda("observaciones"))
         datos["proveedor"] = _texto(celda("proveedor"))
 

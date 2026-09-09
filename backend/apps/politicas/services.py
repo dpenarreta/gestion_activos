@@ -131,8 +131,11 @@ def evaluar_activo(activo, politica: PoliticaObsolescencia | None = None) -> Res
 
     resultado.politica_aplicada = politica.nombre
 
-    # Un equipo ya dado de baja no se "sugiere renovar": ya salió del parque.
-    if activo.estado == activo.Estado.DADO_DE_BAJA:
+    # Un equipo que ya salió del parque —de baja, perdido o robado— no se
+    # "sugiere renovar": lo que hay que hacer con él no es comprar su
+    # reemplazo por obsolescencia, y aparecería compitiendo por el
+    # presupuesto con equipos que sí están en uso.
+    if not activo.esta_operativo:
         return resultado
 
     if politica.max_mantenimientos is not None:

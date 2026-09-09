@@ -6,11 +6,24 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { formatearMoneda } from "../../../utils/formato";
 import "./Dashboard.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Panel principal" }];
+const BREADCRUMB_ITEMS = [
+  { label: "Administración" },
+  { label: "Panel principal" },
+];
 
 const MESES = [
-  "ene", "feb", "mar", "abr", "may", "jun",
-  "jul", "ago", "sep", "oct", "nov", "dic",
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
 ];
 
 /**
@@ -66,9 +79,9 @@ export function DashboardPage() {
           variante="ok"
         />
         <Indicador
-          valor={activos.en_bodega}
-          etiqueta="Disponibles"
-          destino="/admin/activos?estado=en_bodega"
+          valor={activos.disponibles + activos.en_bodega}
+          etiqueta="En almacén"
+          destino="/admin/activos?almacenados=true"
           icono="box-seam"
         />
         <Indicador
@@ -113,14 +126,27 @@ export function DashboardPage() {
           icono="archive"
           variante="apagado"
         />
+        {/* Perdidos y robados van juntos y aparte de la baja: los tres equipos
+            ya no están, pero una baja es una decisión de la empresa y estas dos
+            son pérdidas que alguien tiene que investigar. La tarjeta solo
+            aparece si hay alguno; en un parque sano sería un cero permanente. */}
+        {activos.perdidos + activos.robados > 0 && (
+          <Indicador
+            valor={activos.perdidos + activos.robados}
+            etiqueta="Perdidos o robados"
+            destino="/admin/activos?operativos=false"
+            icono="exclamation-diamond"
+            variante="alerta"
+          />
+        )}
       </section>
 
       {garantias.sin_registrar > 0 && (
         <div className="alert alert-secondary py-2 small">
           {/* Se distingue de «vencida» a propósito: mezclarlas haría que un
               inventario a medio capturar pareciera un parque sin cobertura. */}
-          {garantias.sin_registrar} activo(s) no tienen fecha de garantía registrada, así que no
-          entran en los conteos de arriba.{" "}
+          {garantias.sin_registrar} activo(s) no tienen fecha de garantía
+          registrada, así que no entran en los conteos de arriba.{" "}
           <Link to="/admin/activos?garantia=sin_registrar">Completarlos</Link>.
         </div>
       )}
@@ -130,7 +156,9 @@ export function DashboardPage() {
           <section className="card tarjeta-panel">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-baseline mb-3">
-                <h3 className="h6 text-uppercase text-muted mb-0">Mantenimientos</h3>
+                <h3 className="h6 text-uppercase text-muted mb-0">
+                  Mantenimientos
+                </h3>
                 <Link to="/admin/mantenimientos" className="small">
                   Ver bitácora
                 </Link>
@@ -138,7 +166,10 @@ export function DashboardPage() {
 
               <div className="row text-center g-2 mb-3">
                 <Cifra valor={mantenimientos.del_mes} etiqueta="Este mes" />
-                <Cifra valor={mantenimientos.total_historico} etiqueta="Histórico" />
+                <Cifra
+                  valor={mantenimientos.total_historico}
+                  etiqueta="Histórico"
+                />
                 <Cifra
                   valor={formatearMoneda(mantenimientos.costo_del_mes)}
                   etiqueta="Costo del mes"
@@ -150,8 +181,9 @@ export function DashboardPage() {
               </div>
 
               <p className="text-muted small mb-3">
-                {fueraDeOperacion.total_dias} día(s) acumulados fuera de operación en{" "}
-                {fueraDeOperacion.intervenciones_cerradas} intervención(es) cerradas
+                {fueraDeOperacion.total_dias} día(s) acumulados fuera de
+                operación en {fueraDeOperacion.intervenciones_cerradas}{" "}
+                intervención(es) cerradas
                 {fueraDeOperacion.intervenciones_abiertas > 0 &&
                   ` · ${fueraDeOperacion.intervenciones_abiertas} equipo(s) aún en reparación`}
                 .
@@ -165,21 +197,30 @@ export function DashboardPage() {
         <div className="col-lg-5">
           <section className="card tarjeta-panel">
             <div className="card-body">
-              <h3 className="h6 text-uppercase text-muted mb-3">Equipos más reparados</h3>
+              <h3 className="h6 text-uppercase text-muted mb-3">
+                Equipos más reparados
+              </h3>
               {ranking.length === 0 ? (
-                <p className="text-muted mb-0">Sin intervenciones registradas.</p>
+                <p className="text-muted mb-0">
+                  Sin intervenciones registradas.
+                </p>
               ) : (
                 <ul className="list-unstyled mb-0 ranking">
                   {ranking.map((equipo) => (
                     <li key={equipo.id}>
-                      <Link to={`/admin/activos/${equipo.id}`} className="ranking__enlace">
+                      <Link
+                        to={`/admin/activos/${equipo.id}`}
+                        className="ranking__enlace"
+                      >
                         <span className="ranking__nombre">
                           {equipo.nombre}
                           <small className="d-block text-muted">
                             {equipo.tipo} · {equipo.departamento}
                           </small>
                         </span>
-                        <span className="ranking__valor">{equipo.total_mantenimientos}</span>
+                        <span className="ranking__valor">
+                          {equipo.total_mantenimientos}
+                        </span>
                       </Link>
                     </li>
                   ))}
@@ -214,8 +255,8 @@ export function DashboardPage() {
       {activos.sin_asignar_mas_de_90_dias > 0 && (
         <div className="alert alert-info mt-3">
           <i className="bi bi-info-circle me-1" aria-hidden="true" />
-          {activos.sin_asignar_mas_de_90_dias} activo(s) llevan más de 90 días en bodega sin
-          asignarse.{" "}
+          {activos.sin_asignar_mas_de_90_dias} activo(s) llevan más de 90 días
+          en bodega sin asignarse.{" "}
           <Link to="/admin/activos?estado=en_bodega">Revisarlos</Link>.
         </div>
       )}
@@ -234,8 +275,14 @@ export function DashboardPage() {
 
 function Indicador({ valor, etiqueta, destino, icono, variante }) {
   return (
-    <Link to={destino} className={`indicador-panel ${variante ? `indicador-panel--${variante}` : ""}`}>
-      <i className={`bi bi-${icono} indicador-panel__icono`} aria-hidden="true" />
+    <Link
+      to={destino}
+      className={`indicador-panel ${variante ? `indicador-panel--${variante}` : ""}`}
+    >
+      <i
+        className={`bi bi-${icono} indicador-panel__icono`}
+        aria-hidden="true"
+      />
       <span className="indicador-panel__valor">{valor}</span>
       <span className="indicador-panel__etiqueta">{etiqueta}</span>
     </Link>
@@ -262,12 +309,20 @@ function Cifra({ valor, etiqueta }) {
  */
 function GraficoMensual({ series }) {
   if (!series || series.length === 0) {
-    return <p className="text-muted small mb-0">Sin intervenciones en los últimos meses.</p>;
+    return (
+      <p className="text-muted small mb-0">
+        Sin intervenciones en los últimos meses.
+      </p>
+    );
   }
   const maximo = Math.max(...series.map((s) => s.total), 1);
 
   return (
-    <div className="grafico-mensual" role="img" aria-label="Reparaciones por mes">
+    <div
+      className="grafico-mensual"
+      role="img"
+      aria-label="Reparaciones por mes"
+    >
       {series.map((punto) => {
         const fecha = new Date(`${punto.mes}T00:00:00`);
         const etiqueta = `${MESES[fecha.getMonth()]} ${String(fecha.getFullYear()).slice(2)}`;
@@ -303,12 +358,18 @@ function TablaDistribucion({ titulo, filas }) {
                 <div className="distribucion__fila">
                   <span>{fila.nombre}</span>
                   <span className="distribucion__total">
-                    {fila.detalle && <small className="text-muted me-2">{fila.detalle}</small>}
+                    {fila.detalle && (
+                      <small className="text-muted me-2">{fila.detalle}</small>
+                    )}
                     {fila.total}
                   </span>
                 </div>
                 <div className="distribucion__barra">
-                  <div style={{ width: `${total ? (fila.total / total) * 100 : 0}%` }} />
+                  <div
+                    style={{
+                      width: `${total ? (fila.total / total) * 100 : 0}%`,
+                    }}
+                  />
                 </div>
               </li>
             ))}

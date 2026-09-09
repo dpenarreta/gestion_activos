@@ -164,7 +164,7 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _reevaluar_queryset(queryset):
-        activos = queryset.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        activos = queryset.select_related("tipo").operativos()
         # Se evalúa en lote para resolver la ventana móvil con una consulta
         # agregada, y luego se persiste el veredicto ya calculado.
         for activo, resultado in evaluar_lote(activos):
@@ -181,7 +181,7 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         nivel_pedido = request.query_params.get("nivel")
         activos = (
             Activo.objects.select_related("tipo", "custodio", "departamento")
-            .exclude(estado=Activo.Estado.DADO_DE_BAJA)
+            .operativos()
             .order_by("-total_mantenimientos", "fecha_adquisicion")
         )
         sugerencias = []
@@ -225,7 +225,7 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="reevaluar")
     def reevaluar(self, request):
         """Fuerza el recálculo de la caché de todos los activos."""
-        activos = Activo.objects.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        activos = Activo.objects.select_related("tipo").operativos()
         total = 0
         con_alerta = 0
         por_nivel = {NivelRenovacion.EVALUAR: 0, NivelRenovacion.RECOMENDADO: 0}

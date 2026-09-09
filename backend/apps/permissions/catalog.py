@@ -68,10 +68,12 @@ PERMISSION_CATALOG = {
     },
     "organizacion": {
         "label": "Organización",
-        "description": "Catálogos de departamentos y empleados custodios de activos.",
+        "description": (
+            "Catálogos de departamentos, ubicaciones físicas y empleados custodios."
+        ),
         "permissions": {
-            "organizacion.ver": "Ver departamentos y empleados",
-            "organizacion.editar": "Crear y editar departamentos y empleados",
+            "organizacion.ver": "Ver departamentos, ubicaciones y empleados",
+            "organizacion.editar": "Crear y editar departamentos, ubicaciones y empleados",
         },
     },
     "mantenimientos": {

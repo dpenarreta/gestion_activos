@@ -70,6 +70,53 @@ class Departamento(BaseModel):
         return self.nombre
 
 
+class Ubicacion(BaseModel):
+    """Lugar físico donde está el equipo (§4.1 del documento funcional).
+
+    Es un catálogo y no el texto libre que había antes porque «Bodega TI»,
+    «bodega de TI» y «Bodega  TI» son el mismo sitio para una persona y tres
+    para una consulta: con texto libre, filtrar el inventario por ubicación
+    —que es lo que pide el §14— devuelve un tercio de los equipos que están
+    ahí, y nadie nota lo que falta.
+
+    Se separa del departamento a propósito: el área dice de quién es el
+    presupuesto del equipo, la ubicación dice dónde ir a buscarlo. Un equipo
+    de Contabilidad puede estar en la bodega de TI esperando reasignación.
+    """
+
+    sede = models.CharField(
+        max_length=120,
+        help_text="Edificio, local o ciudad. Ej.: «Matriz Quito».",
+    )
+    nombre = models.CharField(
+        max_length=120,
+        help_text="Lugar dentro de la sede. Ej.: «Bodega TI», «Oficina 302».",
+    )
+    detalle = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Precisión opcional: piso, ala, número de rack.",
+    )
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sede", "nombre"]
+        verbose_name = "ubicación"
+        verbose_name_plural = "ubicaciones"
+        # Dos ubicaciones con el mismo nombre en la misma sede serían
+        # indistinguibles en el desplegable del formulario.
+        constraints = [
+            models.UniqueConstraint(fields=["sede", "nombre"], name="ubicacion_unica_por_sede")
+        ]
+
+    def __str__(self) -> str:
+        return self.nombre_completo
+
+    @property
+    def nombre_completo(self) -> str:
+        return f"{self.sede} · {self.nombre}" if self.sede else self.nombre
+
+
 class Empleado(BaseModel):
     """Persona que puede tener activos bajo su custodia.
 

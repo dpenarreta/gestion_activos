@@ -7,9 +7,9 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import Departamento, Empleado
+from .models import Departamento, Empleado, Ubicacion
 from .permissions import OrganizacionPermission
-from .serializers import DepartamentoSerializer, EmpleadoSerializer
+from .serializers import DepartamentoSerializer, EmpleadoSerializer, UbicacionSerializer
 
 MODULO = "organizacion"
 
@@ -84,6 +84,61 @@ class DepartamentoViewSet(_CatalogoOrganizacionalViewSet):
         return queryset
 
 
+class UbicacionViewSet(_CatalogoOrganizacionalViewSet):
+    """Catálogo de lugares físicos (§4.1).
+
+    Tampoco admite `DELETE`: los activos apuntan aquí con `PROTECT`, y una
+    ubicación que se cierra —una bodega que se muda— sigue siendo la que
+    aparece en el historial de los equipos que estuvieron ahí. Se desactiva.
+    """
+
+    serializer_class = UbicacionSerializer
+    accion_auditoria = "ubicacion"
+
+    def get_queryset(self):
+        queryset = Ubicacion.objects.annotate(
+            total_activos=Count("activos", distinct=True)
+        ).order_by("sede", "nombre")
+        params = self.request.query_params
+        busqueda = params.get("q")
+        if busqueda:
+            queryset = queryset.filter(
+                Q(nombre__icontains=busqueda)
+                | Q(sede__icontains=busqueda)
+                | Q(detalle__icontains=busqueda)
+            )
+        estado = params.get("activa")
+        if estado in {"true", "false"}:
+            queryset = queryset.filter(activa=estado == "true")
+        return queryset
+
+    def update(self, request, *args, **kwargs):
+        """Impide cerrar una ubicación que todavía tiene equipos dentro.
+
+        Desactivarla los dejaría en un sitio que el formulario ya no ofrece:
+        seguirían apareciendo ahí, pero nadie podría volver a poner un equipo
+        en ese lugar ni corregir el de los que quedaron.
+        """
+        instancia = self.get_object()
+        pide_desactivar = request.data.get("activa") in {False, "false"}
+        if pide_desactivar and instancia.activa:
+            pendientes = instancia.activos.operativos().count()
+            if pendientes:
+                return Response(
+                    {
+                        "error": {
+                            "code": "ubicacion_con_activos",
+                            "message": (
+                                f"No se puede desactivar «{instancia.nombre_completo}»: "
+                                f"todavía hay {pendientes} activo(s) ahí. Muévalos primero."
+                            ),
+                        }
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return super().update(request, *args, **kwargs)
+
+
 class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
     serializer_class = EmpleadoSerializer
     accion_auditoria = "empleado"
@@ -121,7 +176,7 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
         instancia = self.get_object()
         pide_desactivar = request.data.get("activo") in {False, "false"}
         if pide_desactivar and instancia.activo:
-            pendientes = instancia.activos_asignados.exclude(estado="dado_de_baja").count()
+            pendientes = instancia.activos_asignados.operativos().count()
             if pendientes:
                 return Response(
                     {
