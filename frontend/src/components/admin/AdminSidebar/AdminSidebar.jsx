@@ -8,6 +8,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useMenuAccordion } from "../../../hooks/useMenuAccordion";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
+import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
 import { AdminMenuItem } from "./AdminMenuItem";
 import "./AdminSidebar.css";
@@ -156,12 +157,20 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
         </nav>
 
         <div className="admin-sidebar__footer">
+          {/* Con ícono, como el resto del menú: contraído era el único
+              elemento dibujado con un carácter suelto en vez de un ícono, y se
+              leía como un error tipográfico más que como un botón. */}
           <button
             type="button"
             className="admin-sidebar__logout"
             onClick={handleLogout}
+            title={isCollapsed ? "Cerrar sesión" : undefined}
+            aria-label={isCollapsed ? "Cerrar sesión" : undefined}
           >
-            {isCollapsed ? "⏻" : "Cerrar sesión"}
+            <Icon name="box-arrow-right" className="admin-sidebar__icon" />
+            {!isCollapsed && (
+              <span className="admin-sidebar__label">Cerrar sesión</span>
+            )}
           </button>
         </div>
 

@@ -146,7 +146,9 @@
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* La misma separación que los ítems del menú: con el relleno del pie
+     sumado, el ícono cae en la misma columna que los de arriba. */
+  gap: 0.75rem;
 }
 
 .admin-sidebar__logout:hover {
