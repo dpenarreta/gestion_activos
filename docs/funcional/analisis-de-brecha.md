@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (copias de seguridad).
+estado del sistema. Actualizado el 2026-09-09 (catálogo de proveedores).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -21,13 +21,15 @@ dashboard y reportes que no estaban en el alcance inicial.
 | Garantías | Implementado |
 | Adjuntos y actas | Implementado |
 | Notificaciones por correo | Implementado |
+| Catálogos (sedes, áreas, proveedores, empleados) | Implementado, administrables desde la aplicación |
+| Integraciones (§20) | Solo las de hardware: lector y etiquetadora |
 
 ## Sección por sección
 
 | § | Requerimiento | Estado | Dónde |
 | --- | --- | --- | --- |
 | 3 | Tipos de activos configurables | ✅ | `apps.activos.TipoDispositivo` |
-| 4.1 | Datos generales del activo | ✅ | Completo: los nueve estados, fecha de ingreso y ubicación física de catálogo |
+| 4.1 | Datos generales del activo | ✅ | Los nueve estados, fecha de ingreso, sede de catálogo y proveedor de catálogo |
 | 4.2 | Características técnicas | ✅ | Campo `especificaciones`, libre por tipo de equipo |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
 | 5 | Código QR opcional | ⛔ Descartado | Decisión del 2026-09-09: el inventario se hace con pistola láser, no con cámara. Se refuerza el Code 128 (ver `docs/codigos-de-barras.md`) |
@@ -39,14 +41,59 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ✅ | Criticidad de cuatro niveles y uso por función, además del tipo |
 | 13 | Usuarios y roles | ✅ | Roles configurables, 37 permisos, y los cuatro roles del documento listos para crear (`crear_roles_iniciales`) |
-| 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, ubicación, sede, criticidad, uso y antigüedad |
+| 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, sede, criticidad, uso y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ✅ | Los trece reportes, cada uno en Excel, CSV y PDF (`apps.reportes`) |
 | 17 | Auditoría | ✅ | `AuditLog`, append-only |
 | 18 | Adjuntos y evidencias | ✅ | `apps.adjuntos`, con los nueve tipos del documento |
 | 19 | Notificaciones y alertas | ✅ | Las siete alertas, más el envío del resumen por correo con frecuencia configurable |
-| 20 | Integraciones | ❌ | Fase 3 del propio documento |
+| 20 | Integraciones | Parcial | Las dos de hardware —lector de código de barras y etiquetadora— están; las de software (AD, Microsoft 365, Zoho, Jira, ERP, RRHH) no. §25 las prioriza como bajas |
 | 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada (`docs/rendimiento.md`, `docs/respaldos.md`) |
+
+## Lo que falta
+
+Tres cosas, y solo una es funcionalidad de negocio.
+
+**Rol «Usuario final» (§13).** Se crean cuatro de los cinco roles del
+documento. Falta el que consulta *sus propios* equipos, y no se crea porque
+necesita una pantalla de «mis equipos»: darle `activos.ver` a secas le
+mostraría el parque entero, que es lo contrario de lo que pide el documento. Es
+el hueco funcional más concreto que queda.
+
+**Gestión de depreciación (§22.3).** No hay nada. Es lo único de la Fase 3 que
+es funcionalidad propia y no una integración con otro sistema.
+
+**Integraciones de software (§20, §22.3).** Active Directory / Azure AD,
+Microsoft 365, Zoho, Jira Service Management, ERP y el sistema de RRHH. El
+documento las prioriza como **bajas** en el §25 y las deja para la Fase 3.
+También cae aquí la **aplicación móvil o PWA**.
+
+De la Fase 3 sí están hechas la **predicción de reemplazo por cantidad de
+fallas** —umbral de mantenimientos con ventana móvil—, los **costos acumulados
+por activo** y el lado de **proveedores** de «integración con compras o
+proveedores»: existe el catálogo, no el enlace con un sistema de compras.
+
+Pendiente de medición, no de código: repetir la **concurrencia** contra el
+stack de producción (Gunicorn); las cifras actuales se tomaron con el servidor
+de desarrollo, que es monoproceso.
+
+## Diferencias por decisión, no por omisión
+
+- **Código QR (§5).** Descartado el 2026-09-09: el inventario se hace con
+  pistola láser, no con cámara. Se reforzó el Code 128 en su lugar (ver
+  `docs/codigos-de-barras.md`).
+- **Ubicación física (§4.1).** El documento pide ubicación; el sistema la
+  resuelve con **sede + ciudad**. Hubo un segundo nivel —la bodega u oficina
+  dentro de la sede— y se retiró el 2026-09-09: obligaba a elegir dos veces en
+  cada traslado y a inventar una bodega para cada sitio donde hubiera un
+  equipo, con lo que el catálogo se llenaba de entradas como «Piso 1» que no
+  dicen nada. La pregunta que se hace de un equipo es «¿dónde está?», y se
+  responde con la ciudad.
+- **Nomenclatura del código.** El documento propone `LAP-000458`; el sistema
+  genera `GA-LAP-000001`, con un prefijo de empresa por delante. Se alinea
+  cambiando `PREFIJO` en `apps/activos/barcode.py`, pero renumeraría solo los
+  activos nuevos: los ya etiquetados conservan su código, porque las etiquetas
+  están pegadas en equipos físicos.
 
 ## Vacíos en lo que parece cubierto
 
@@ -102,14 +149,6 @@ consulta de política **por activo**. Corregido, quedan en 365 ms, 741 ms y
 Queda pendiente repetir la medición de **concurrencia** contra el stack de
 producción (Gunicorn): las cifras actuales se tomaron con el servidor de
 desarrollo, que es monoproceso.
-
-## Diferencia de nomenclatura
-
-El documento propone el código interno como `LAP-000458`; el sistema genera
-`GA-LAP-000001`, con un prefijo de empresa por delante. Es una diferencia
-cosmética y se puede alinear cambiando `PREFIJO` en `apps/activos/barcode.py`,
-pero renumeraría solo los activos nuevos: los ya etiquetados conservan su
-código, porque las etiquetas están pegadas en equipos físicos.
 
 ## Estado del MVP (§22.1)
 
@@ -212,19 +251,46 @@ dice sin que nadie entre a mirarlo.
 - **Los nueve estados**, con los tres de salida (baja, perdido, robado)
   tratados como una frontera única del parque en vez de una comparación contra
   «dado de baja» repetida en nueve archivos.
-- **Ubicación física de catálogo** (sede + lugar), migrando sin pérdida el
-  texto libre que ya estaba cargado. Cerrar una ubicación con equipos dentro
-  se rechaza.
+- **Sede de catálogo**, migrando sin pérdida el texto libre que ya estaba
+  cargado. Cerrar una sede con equipos dentro se rechaza. Dónde está un equipo
+  se responde con la **ciudad** de su sede: el nombre interno no le dice nada a
+  quien tiene que ir a buscarlo.
 - **Criticidad de cuatro niveles y uso por función**, más la **fecha de
   ingreso** separada de la de compra.
-- **Filtros del §14** completos: ubicación, sede, criticidad, uso y antigüedad
-  en meses, todos resueltos en SQL.
+- **Filtros del §14** completos: sede, criticidad, uso y antigüedad en meses,
+  todos resueltos en SQL.
 - La carga masiva y la exportación a Excel arrastran los campos nuevos; la
-  plantilla trae la hoja «Ubicaciones» con los valores válidos.
+  plantilla trae las hojas «Sedes» y «Proveedores» con los valores válidos.
+
+### Fase 7 — catálogos administrables y control de duplicados (2026-09-09)
+
+Cierra el §3 y el §13 por el lado de los datos maestros: todo lo que alimenta
+una asignación se administra desde la aplicación y se defiende de sí mismo.
+
+- **Catálogo de proveedores**, para equipos **y para piezas de repuesto**. Lo
+  segundo no existía: el proveedor del equipo no tiene por qué ser el de la
+  pieza, así que una pieza que fallaba a los dos meses dejaba el costo
+  registrado y ninguna forma de saber a quién reclamarle.
+- **Catálogo de sedes** con su ciudad, sustituyendo el texto libre.
+- **Duplicados rechazados sin distinguir mayúsculas** en tipos, áreas y
+  proveedores, nombrando con cuál se choca. La restricción única de la base sí
+  distingue: «Laptop» y «LAPTOP» pasaban las dos y quedaban dos entradas
+  indistinguibles en el desplegable, con los activos repartidos entre ambas.
+- **El código del empleado lleva delante su área** —`TI-0001`, `CONT-0002`—
+  en vez de un correlativo global que no decía nada de la persona. Aparece en
+  actas de entrega y en la plantilla de carga.
+- **Reporte de validación de la carga masiva** separado en errores (bloquean) y
+  advertencias (no bloquean), agrupado por fila. La serie repetida bloquea
+  —identifica al equipo físico—; el nombre repetido avisa, porque dos equipos
+  pueden llamarse igual pero también delata la fila pegada dos veces.
+- Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
+  interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
+  decía qué corregir.
 
 ### Cerrado el 2026-09-08 (garantías y reparación)
 
-- Proveedor y fecha de fin de garantía en la ficha, con estado derivado
+- Proveedor —entonces texto libre, hoy de catálogo— y fecha de fin de garantía
+  en la ficha, con estado derivado
   (vigente / por vencer a 30 días / vencida / sin registrar) y filtro en el
   inventario resuelto en SQL.
 - Fecha de salida de la reparación, con los días fuera de operación por
