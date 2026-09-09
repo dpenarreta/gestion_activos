@@ -27,6 +27,8 @@ import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
+import { SedesList } from "../pages/Admin/Organizacion/SedesList";
 import { UbicacionForm } from "../pages/Admin/Organizacion/UbicacionForm";
 import { UbicacionesList } from "../pages/Admin/Organizacion/UbicacionesList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
@@ -297,6 +299,30 @@ export function AppRoutes() {
           element={
             <RequirePermission permission="reportes.ver">
               <ReportesPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedesList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedeForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedeForm />
             </RequirePermission>
           }
         />

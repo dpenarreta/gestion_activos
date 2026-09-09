@@ -1,35 +1,33 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { ubicacionesService } from "../../../api/organizacionService";
+import { sedesService } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Ubicaciones" },
-];
+const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Sedes" }];
 const FILTROS_INICIALES = { q: "", activa: "" };
 
 /**
- * Catálogo de lugares físicos (§4.1 del documento funcional).
+ * Catálogo de edificios, locales o ciudades.
  *
- * La ubicación se separa del departamento a propósito: el área dice de quién
- * es el presupuesto del equipo, la ubicación dice dónde ir a buscarlo. Un
- * equipo de Contabilidad puede estar en la bodega de TI esperando
- * reasignación.
+ * Está separado de las ubicaciones porque son dos preguntas distintas: la sede
+ * dice a qué ciudad hay que viajar, la ubicación dice a qué puerta llamar
+ * dentro de ella. Una mudanza cambia la dirección de una sede sin tocar sus
+ * bodegas, y renombrarla —un cambio de razón social— es una edición y no una
+ * búsqueda y reemplazo por todas las ubicaciones.
  */
-export function UbicacionesList() {
+export function SedesList() {
   const puedeEditar = usePermission("organizacion.editar");
   const [busqueda, setBusqueda] = useState("");
-  const cargar = useCallback((params) => ubicacionesService.list(params), []);
+  const cargar = useCallback((params) => sedesService.list(params), []);
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
-    "No se pudo cargar el listado de ubicaciones.",
+    "No se pudo cargar el listado de sedes.",
   );
 
   function handleBuscar(event) {
@@ -41,13 +39,13 @@ export function UbicacionesList() {
     <div className="organizacion-page">
       <Breadcrumbs items={BREADCRUMB_ITEMS} />
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Ubicaciones</h2>
+        <h2>Sedes</h2>
         {puedeEditar && (
           <Link
-            to="/admin/organizacion/ubicaciones/new"
+            to="/admin/organizacion/sedes/new"
             className="btn btn-primary btn-sm"
           >
-            Nueva ubicación
+            Nueva sede
           </Link>
         )}
       </div>
@@ -56,8 +54,8 @@ export function UbicacionesList() {
         <input
           type="search"
           className="form-control form-control-sm w-auto"
-          placeholder="Buscar por sede o nombre"
-          aria-label="Buscar ubicaciones"
+          placeholder="Buscar por nombre o ciudad"
+          aria-label="Buscar sedes"
           value={busqueda}
           onChange={(event) => setBusqueda(event.target.value)}
         />
@@ -70,7 +68,7 @@ export function UbicacionesList() {
           }
         >
           <option value="">Todas</option>
-          <option value="true">Activas</option>
+          <option value="true">Abiertas</option>
           <option value="false">Cerradas</option>
         </select>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
@@ -86,33 +84,33 @@ export function UbicacionesList() {
         <table className="table table-sm table-striped align-middle">
           <thead>
             <tr>
-              <th>Sede</th>
               <th>Nombre</th>
-              <th>Tipo</th>
-              <th>Detalle</th>
+              <th>Ciudad</th>
+              <th>Dirección</th>
+              <th className="text-end">Ubicaciones</th>
               <th className="text-end">Activos</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((ubicacion) => (
-              <tr key={ubicacion.id}>
-                <td>{ubicacion.sede_nombre}</td>
-                <td>{ubicacion.nombre}</td>
-                <td>{ubicacion.tipo_display}</td>
-                <td className="text-muted">{ubicacion.detalle || "—"}</td>
-                <td className="text-end">{ubicacion.total_activos}</td>
+            {listado.resultados.map((sede) => (
+              <tr key={sede.id}>
+                <td>{sede.nombre}</td>
+                <td>{sede.ciudad || "—"}</td>
+                <td className="text-muted">{sede.direccion || "—"}</td>
+                <td className="text-end">{sede.total_ubicaciones}</td>
+                <td className="text-end">{sede.total_activos}</td>
                 <td>
                   <span
-                    className={`badge ${ubicacion.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`badge ${sede.activa ? "text-bg-success" : "text-bg-secondary"}`}
                   >
-                    {ubicacion.activa ? "Activa" : "Cerrada"}
+                    {sede.activa ? "Abierta" : "Cerrada"}
                   </span>
                 </td>
                 <td>
                   <Link
-                    to={`/admin/organizacion/ubicaciones/${ubicacion.id}`}
+                    to={`/admin/organizacion/sedes/${sede.id}`}
                     className="btn btn-outline-secondary btn-sm"
                   >
                     {puedeEditar ? "Editar" : "Ver"}
@@ -123,7 +121,7 @@ export function UbicacionesList() {
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center text-muted">
-                  Sin ubicaciones registradas
+                  Sin sedes registradas
                 </td>
               </tr>
             )}
@@ -137,7 +135,7 @@ export function UbicacionesList() {
         hasNext={listado.hasNext}
         hasPrevious={listado.hasPrevious}
         onCambiarPagina={listado.setPagina}
-        etiqueta="ubicaciones"
+        etiqueta="sedes"
       />
     </div>
   );

@@ -95,7 +95,7 @@ def _ubicacion(activo) -> str:
 
 
 def _sede(activo) -> str:
-    return activo.ubicacion.sede if activo.ubicacion_id else ""
+    return activo.ubicacion.sede.nombre if activo.ubicacion_id else ""
 
 
 def _tramo_antiguedad(activo) -> str:
@@ -251,7 +251,7 @@ CATALOGO = (
         + COLUMNAS_ACTIVO_BASE
         + (Columna("custodio", "Custodio", _custodio, 26),),
         parametros=PARAMETROS_ACTIVOS,
-        orden=("ubicacion__sede", "ubicacion__nombre", "codigo_barras"),
+        orden=("ubicacion__sede__nombre", "ubicacion__nombre", "codigo_barras"),
         columnas_pdf=("sede", "ubicacion", "codigo_barras", "nombre", "estado", "custodio"),
     ),
     Reporte(

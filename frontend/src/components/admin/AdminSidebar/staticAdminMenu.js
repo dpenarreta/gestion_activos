@@ -121,6 +121,14 @@ export const ADMIN_MENU = [
         path: "/admin/organizacion/departamentos",
       },
       {
+        // Antes de las ubicaciones: no se puede crear una bodega sin decir en
+        // qué sede está, así que el orden del menú es el orden del trabajo.
+        id: "organizacion-sedes",
+        name: "Sedes",
+        icon: "buildings",
+        path: "/admin/organizacion/sedes",
+      },
+      {
         id: "organizacion-ubicaciones",
         name: "Ubicaciones",
         icon: "geo-alt",

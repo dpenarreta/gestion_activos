@@ -131,7 +131,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
         # la pregunta de quien va a hacer el inventario físico de un edificio.
         sede = params.get("sede")
         if sede:
-            queryset = queryset.filter(ubicacion__sede__iexact=sede.strip())
+            queryset = queryset.filter(ubicacion__sede__nombre__iexact=sede.strip())
 
         estado = params.get("estado")
         if estado:

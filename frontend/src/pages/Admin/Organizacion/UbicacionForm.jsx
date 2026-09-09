@@ -1,13 +1,31 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { ubicacionesService } from "../../../api/organizacionService";
+import {
+  sedesService,
+  ubicacionesService,
+} from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Organizacion.css";
 
-const VACIO = { sede: "", nombre: "", detalle: "", activa: true };
+const VACIO = {
+  sede: "",
+  nombre: "",
+  tipo: "bodega",
+  detalle: "",
+  activa: true,
+};
+
+/** Se declara aquí y no se deduce del nombre: ver el modelo `Ubicacion`. */
+const TIPOS = [
+  ["bodega", "Bodega"],
+  ["oficina", "Oficina"],
+  ["area", "Área operativa"],
+  ["taller", "Taller o laboratorio"],
+  ["otro", "Otro"],
+];
 
 export function UbicacionForm() {
   const { id } = useParams();
@@ -16,9 +34,19 @@ export function UbicacionForm() {
   const puedeEditar = usePermission("organizacion.editar");
 
   const [valores, setValores] = useState(VACIO);
+  const [sedes, setSedes] = useState([]);
   const [totalActivos, setTotalActivos] = useState(0);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    // Solo las abiertas: una sede cerrada no admite ubicaciones nuevas, y
+    // ofrecerla llevaría a un error después de haber rellenado el formulario.
+    sedesService
+      .list({ activa: "true", page_size: 200 })
+      .then((datos) => setSedes(datos.results ?? datos))
+      .catch(() => setSedes([]));
+  }, []);
 
   useEffect(() => {
     if (!esEdicion) return;
@@ -26,8 +54,9 @@ export function UbicacionForm() {
       .get(id)
       .then((datos) => {
         setValores({
-          sede: datos.sede,
+          sede: String(datos.sede),
           nombre: datos.nombre,
+          tipo: datos.tipo,
           detalle: datos.detalle || "",
           activa: datos.activa,
         });
@@ -77,17 +106,24 @@ export function UbicacionForm() {
             <label className="form-label" htmlFor="sede">
               Sede
             </label>
-            <input
+            <select
               id="sede"
-              className="form-control"
+              className="form-select"
               required
-              maxLength={120}
-              placeholder="Matriz Quito"
               value={valores.sede}
               disabled={!puedeEditar}
               onChange={(event) => actualizar("sede", event.target.value)}
-            />
-            <div className="form-text">Edificio, local o ciudad.</div>
+            >
+              <option value="">Elija una sede…</option>
+              {sedes.map((sede) => (
+                <option key={sede.id} value={sede.id}>
+                  {sede.nombre}
+                </option>
+              ))}
+            </select>
+            <div className="form-text">
+              Edificio, local o ciudad. Se administra en Organización → Sedes.
+            </div>
           </div>
           <div className="col-md-7">
             <label className="form-label" htmlFor="nombre">
@@ -108,7 +144,32 @@ export function UbicacionForm() {
               sede.
             </div>
           </div>
-          <div className="col-12">
+          <div className="col-md-5">
+            <label className="form-label" htmlFor="tipo">
+              Tipo de lugar
+            </label>
+            <select
+              id="tipo"
+              className="form-select"
+              value={valores.tipo}
+              disabled={!puedeEditar}
+              onChange={(event) => actualizar("tipo", event.target.value)}
+            >
+              {TIPOS.map(([valor, etiqueta]) => (
+                <option key={valor} value={valor}>
+                  {etiqueta}
+                </option>
+              ))}
+            </select>
+            <div className="form-text">
+              {/* Se guarda en vez de deducirlo del nombre: «Bodega TI» y
+                  «Almacén de sistemas» son lo mismo y solo uno empieza por
+                  «bodega». */}
+              En una bodega el equipo está guardado; en un área, en uso. El
+              traslado agrupa el desplegable por esto.
+            </div>
+          </div>
+          <div className="col-md-7">
             <label className="form-label" htmlFor="detalle">
               Detalle
             </label>

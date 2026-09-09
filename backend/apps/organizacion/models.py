@@ -70,6 +70,39 @@ class Departamento(BaseModel):
         return self.nombre
 
 
+class Sede(BaseModel):
+    """Edificio, local o ciudad donde la empresa tiene presencia.
+
+    Era un texto dentro de cada ubicación, y ahí el problema no se veía hasta
+    que el inventario crecía: «Sede Quito Norte», «sede quito norte» y «Quito
+    Norte» son el mismo edificio para una persona y tres para una consulta.
+    Como el traslado de un equipo se elige primero por sede, esas tres entradas
+    parten el desplegable en tres listas incompletas y no hay forma de darse
+    cuenta desde la pantalla.
+
+    Con un catálogo propio, cambiar el nombre de una sede —una mudanza, un
+    cambio de razón social— es una edición y no una búsqueda y reemplazo por
+    todas las ubicaciones.
+    """
+
+    nombre = models.CharField(
+        max_length=120,
+        unique=True,
+        help_text="Cómo se la nombra internamente. Ej.: «Sede Quito Norte».",
+    )
+    ciudad = models.CharField(max_length=120, blank=True)
+    direccion = models.CharField(max_length=200, blank=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "sede"
+        verbose_name_plural = "sedes"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
 class Ubicacion(BaseModel):
     """Lugar físico donde está el equipo (§4.1 del documento funcional).
 
@@ -84,13 +117,36 @@ class Ubicacion(BaseModel):
     de Contabilidad puede estar en la bodega de TI esperando reasignación.
     """
 
-    sede = models.CharField(
-        max_length=120,
-        help_text="Edificio, local o ciudad. Ej.: «Matriz Quito».",
+    class Tipo(models.TextChoices):
+        """Qué es el sitio, no cómo se llama.
+
+        Se guarda en vez de deducirlo del nombre porque «Bodega TI» y «Almacén
+        de sistemas» son lo mismo y solo uno empieza por «bodega»: con la
+        adivinanza, quien nombre sus bodegas a su manera las ve clasificadas
+        como otra cosa y no tiene dónde corregirlo.
+        """
+
+        BODEGA = "bodega", "Bodega"
+        OFICINA = "oficina", "Oficina"
+        AREA = "area", "Área operativa"
+        TALLER = "taller", "Taller o laboratorio"
+        OTRO = "otro", "Otro"
+
+    sede = models.ForeignKey(
+        "organizacion.Sede",
+        on_delete=models.PROTECT,
+        related_name="ubicaciones",
+        help_text="Edificio, local o ciudad. Se elige del catálogo de sedes.",
     )
     nombre = models.CharField(
         max_length=120,
         help_text="Lugar dentro de la sede. Ej.: «Bodega TI», «Oficina 302».",
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=Tipo.choices,
+        default=Tipo.BODEGA,
+        help_text="En una bodega el equipo está guardado; en un área, en uso.",
     )
     detalle = models.CharField(
         max_length=150,
@@ -100,7 +156,7 @@ class Ubicacion(BaseModel):
     activa = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ["sede", "nombre"]
+        ordering = ["sede__nombre", "nombre"]
         verbose_name = "ubicación"
         verbose_name_plural = "ubicaciones"
         # Dos ubicaciones con el mismo nombre en la misma sede serían
@@ -114,7 +170,11 @@ class Ubicacion(BaseModel):
 
     @property
     def nombre_completo(self) -> str:
-        return f"{self.sede} · {self.nombre}" if self.sede else self.nombre
+        return f"{self.sede.nombre} · {self.nombre}" if self.sede_id else self.nombre
+
+    @property
+    def es_bodega(self) -> bool:
+        return self.tipo == Ubicacion.Tipo.BODEGA
 
 
 class Empleado(BaseModel):

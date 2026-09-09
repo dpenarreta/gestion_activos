@@ -166,13 +166,26 @@ Base: `/api/v1/organizacion/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET/POST/PATCH | `/organizacion/departamentos/` | `organizacion.ver` / `organizacion.editar` | Áreas. Filtros: `q`, `activo` |
-| GET/POST/PATCH | `/organizacion/ubicaciones/` | `organizacion.ver` / `organizacion.editar` | Lugares físicos. Filtros: `q`, `activa` |
+| GET/POST/PATCH | `/organizacion/sedes/` | `organizacion.ver` / `organizacion.editar` | Edificios, locales o ciudades. Filtros: `q`, `activa` |
+| GET/POST/PATCH | `/organizacion/ubicaciones/` | `organizacion.ver` / `organizacion.editar` | Lugares físicos dentro de una sede. Filtros: `q`, `sede`, `tipo`, `activa` |
 | GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
 
 Desactivar un empleado que aún custodia activos devuelve `400`
 (`empleado_con_activos`); cerrar una ubicación que todavía tiene equipos
 dentro devuelve `400` (`ubicacion_con_activos`) — quedarían en un sitio que el
-formulario ya no ofrece.
+formulario ya no ofrece. Cerrar una sede con ubicaciones abiertas devuelve
+`400` (`sede_con_ubicaciones`), por lo mismo un nivel más arriba.
+
+La **sede** es un catálogo propio y no un texto dentro de cada ubicación: «Sede
+Quito Norte», «sede quito norte» y «Quito Norte» son el mismo edificio para una
+persona y tres para una consulta, y como el traslado se elige primero por sede,
+esas tres entradas parten el desplegable en listas incompletas. El nombre se
+rechaza duplicado sin distinguir mayúsculas.
+
+El **tipo** de ubicación (`bodega`, `oficina`, `area`, `taller`, `otro`) se
+guarda en vez de deducirlo del nombre: «Bodega TI» y «Almacén de sistemas» son
+lo mismo y solo uno empieza por «bodega». Es lo que agrupa el desplegable de
+destino al trasladar un equipo.
 
 La ubicación es un catálogo (`sede` + `nombre`, únicos juntos) y no el texto
 libre que había antes: «Bodega TI», «bodega de TI» y «Bodega  TI» son el mismo

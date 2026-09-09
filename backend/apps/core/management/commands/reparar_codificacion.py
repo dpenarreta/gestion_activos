@@ -34,7 +34,8 @@ CAMPOS = {
     "activos.MovimientoActivo": ["motivo"],
     "organizacion.Empleado": ["nombres", "apellidos", "cargo"],
     "organizacion.Departamento": ["nombre", "descripcion"],
-    "organizacion.Ubicacion": ["sede", "nombre", "detalle"],
+    "organizacion.Sede": ["nombre", "ciudad", "direccion"],
+    "organizacion.Ubicacion": ["nombre", "detalle"],
     "adjuntos.Adjunto": ["descripcion", "nombre_original"],
 }
 

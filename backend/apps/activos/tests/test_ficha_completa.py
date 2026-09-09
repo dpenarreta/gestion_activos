@@ -18,7 +18,7 @@ from apps.activos.services import ActivoService
 from apps.alertas.models import ConfiguracionAlertas
 from apps.alertas.reglas import construir_alertas
 from apps.mantenimientos.models import Mantenimiento
-from apps.organizacion.models import Departamento, Empleado, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede, Ubicacion
 from apps.politicas.models import PoliticaObsolescencia
 from apps.politicas.services import evaluar_activo
 from apps.users.models import User
@@ -61,8 +61,13 @@ def tipo(db):
 
 
 @pytest.fixture
-def ubicacion(db):
-    return Ubicacion.objects.create(sede="Matriz Quito", nombre="Bodega TI")
+def sede(db):
+    return Sede.objects.create(nombre="Matriz Quito")
+
+
+@pytest.fixture
+def ubicacion(sede):
+    return Ubicacion.objects.create(sede=sede, nombre="Bodega TI")
 
 
 @pytest.fixture
@@ -285,7 +290,7 @@ def test_no_se_repite_una_ubicacion_dentro_de_la_misma_sede(cliente, ubicacion):
     """Dos «Bodega TI» en la matriz serían indistinguibles en el desplegable."""
     respuesta = cliente.post(
         "/api/v1/organizacion/ubicaciones/",
-        {"sede": "Matriz Quito", "nombre": "Bodega TI"},
+        {"sede": ubicacion.sede_id, "nombre": "Bodega TI"},
         format="json",
     )
 
@@ -293,9 +298,11 @@ def test_no_se_repite_una_ubicacion_dentro_de_la_misma_sede(cliente, ubicacion):
 
 
 def test_el_mismo_nombre_en_otra_sede_si_es_valido(cliente, ubicacion):
+    otra = Sede.objects.create(nombre="Sucursal Guayaquil")
+
     respuesta = cliente.post(
         "/api/v1/organizacion/ubicaciones/",
-        {"sede": "Sucursal Guayaquil", "nombre": "Bodega TI"},
+        {"sede": otra.id, "nombre": "Bodega TI"},
         format="json",
     )
 
@@ -390,7 +397,9 @@ def test_el_ingreso_no_puede_ser_anterior_a_la_compra(cliente, tipo, departament
 
 
 def test_filtra_por_ubicacion_y_por_sede(cliente, crear_activo, ubicacion):
-    otra = Ubicacion.objects.create(sede="Sucursal Guayaquil", nombre="Oficina 1")
+    otra = Ubicacion.objects.create(
+        sede=Sede.objects.create(nombre="Sucursal Guayaquil"), nombre="Oficina 1"
+    )
     crear_activo(ubicacion=ubicacion)
     crear_activo(ubicacion=otra)
     crear_activo()
@@ -495,7 +504,9 @@ def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(
     """Un equipo cambia de bodega y antes solo se veía dónde está ahora: nadie
     podía reconstruir cuándo se movió ni por qué. En un inventario repartido en
     varias sedes, eso es justo lo que hay que poder auditar."""
-    destino = Ubicacion.objects.create(sede="Sucursal Guayaquil", nombre="Bodega TI")
+    destino = Ubicacion.objects.create(
+        sede=Sede.objects.create(nombre="Sucursal Guayaquil"), nombre="Bodega TI"
+    )
     activo = crear_activo(ubicacion=ubicacion)
 
     ActivoService.asignar_custodio(
@@ -521,7 +532,9 @@ def test_el_traslado_libera_al_responsable_y_sigue_siendo_un_traslado(
     El movimiento se registra como **traslado**, no como devolución: lo que hay
     que poder rastrear después es dónde acabó el equipo, no que alguien lo
     soltara."""
-    destino = Ubicacion.objects.create(sede="Sucursal Machala", nombre="Bodega TI")
+    destino = Ubicacion.objects.create(
+        sede=Sede.objects.create(nombre="Sucursal Machala"), nombre="Bodega TI"
+    )
     activo = crear_activo(ubicacion=ubicacion)
     ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
 
@@ -577,7 +590,9 @@ def test_se_puede_dejar_un_equipo_sin_ubicacion_explicitamente(admin, crear_acti
 
 
 def test_la_api_traslada_y_lo_cuenta_en_el_historial(cliente, crear_activo, ubicacion):
-    destino = Ubicacion.objects.create(sede="Sucursal Cuenca", nombre="Oficina 2")
+    destino = Ubicacion.objects.create(
+        sede=Sede.objects.create(nombre="Sucursal Cuenca"), nombre="Oficina 2"
+    )
     activo = crear_activo(ubicacion=ubicacion)
 
     respuesta = cliente.post(

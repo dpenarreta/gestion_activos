@@ -4,6 +4,7 @@ import { activosService } from "../../../api/activosService";
 import {
   departamentosService,
   empleadosService,
+  sedesService,
   ubicacionesService,
 } from "../../../api/organizacionService";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
@@ -15,10 +16,15 @@ const MODOS = {
   TRASLADAR: "trasladar",
 };
 
-/** Las bodegas van agrupadas aparte en el desplegable de destino. */
-function esBodega(ubicacion) {
-  return /^bodega\b/i.test((ubicacion.nombre || "").trim());
-}
+/**
+ * Orden de los grupos del desplegable de destino.
+ *
+ * Las bodegas primero porque son el destino habitual de un traslado: un equipo
+ * que se mueve casi siempre va a guardarse. El grupo se lee del catálogo, no
+ * del nombre del sitio: «Bodega TI» y «Almacén de sistemas» son lo mismo y
+ * solo uno empieza por «bodega».
+ */
+const ORDEN_DE_TIPOS = ["bodega", "taller", "oficina", "area", "otro"];
 
 /**
  * Entrega, devolución y traslado de un activo (RF-01).
@@ -37,6 +43,7 @@ function esBodega(ubicacion) {
 export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [empleados, setEmpleados] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
+  const [sedes, setSedes] = useState([]);
   const [ubicaciones, setUbicaciones] = useState([]);
 
   const [modo, setModo] = useState(MODOS.ASIGNAR);
@@ -57,8 +64,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       .list({ activo: "true", page_size: 100 })
       .then((datos) => setDepartamentos(datos.results ?? datos))
       .catch(() => setDepartamentos([]));
+    sedesService
+      .list({ activa: "true", page_size: 200 })
+      .then((datos) => setSedes(datos.results ?? datos))
+      .catch(() => setSedes([]));
     ubicacionesService
-      .list({ activa: "true", page_size: 100 })
+      .list({ activa: "true", page_size: 200 })
       .then((datos) => {
         const lista = datos.results ?? datos;
         setUbicaciones(lista);
@@ -69,7 +80,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           (u) => String(u.id) === String(activo.ubicacion),
         );
         if (actual) {
-          setSede(actual.sede);
+          setSede(String(actual.sede));
         }
       })
       .catch(() => setUbicaciones([]));
@@ -84,14 +95,6 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     [ubicaciones, ubicacion],
   );
 
-  const sedes = useMemo(
-    () =>
-      [...new Set(ubicaciones.map((u) => u.sede).filter(Boolean))].sort(
-        (a, b) => a.localeCompare(b, "es"),
-      ),
-    [ubicaciones],
-  );
-
   /**
    * El destino se elige en dos pasos —primero la sede, después el lugar— y no
    * en una lista única. Con varias sedes, «Bodega TI» aparece tantas veces
@@ -99,18 +102,37 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
    * ciudad equivocada manda el equipo a buscar a 400 km.
    */
   const lugaresDeLaSede = useMemo(
-    () => ubicaciones.filter((u) => u.sede === sede),
+    () => ubicaciones.filter((u) => String(u.sede) === String(sede)),
     [ubicaciones, sede],
   );
-  const bodegas = lugaresDeLaSede.filter(esBodega);
-  const otrosLugares = lugaresDeLaSede.filter((u) => !esBodega(u));
+
+  /** Los lugares de la sede, agrupados por lo que son. */
+  const grupos = useMemo(() => {
+    const porTipo = new Map();
+    for (const lugar of lugaresDeLaSede) {
+      const clave = lugar.tipo || "otro";
+      if (!porTipo.has(clave)) {
+        porTipo.set(clave, {
+          etiqueta: lugar.tipo_display || "Otros",
+          lugares: [],
+        });
+      }
+      porTipo.get(clave).lugares.push(lugar);
+    }
+    return [...porTipo.entries()]
+      .sort(
+        (a, b) => ORDEN_DE_TIPOS.indexOf(a[0]) - ORDEN_DE_TIPOS.indexOf(b[0]),
+      )
+      .map(([clave, grupo]) => ({ clave, ...grupo }));
+  }, [lugaresDeLaSede]);
 
   function elegirSede(valor) {
     setSede(valor);
     // Un lugar de la sede anterior dejaría el formulario diciendo una cosa y
     // enviando otra.
     const sigueValiendo = ubicaciones.some(
-      (u) => String(u.id) === String(ubicacion) && u.sede === valor,
+      (u) =>
+        String(u.id) === String(ubicacion) && String(u.sede) === String(valor),
     );
     if (!sigueValiendo) {
       setUbicacion("");
@@ -313,9 +335,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               onChange={(event) => elegirSede(event.target.value)}
             >
               <option value="">Elija una sede…</option>
-              {sedes.map((nombreSede) => (
-                <option key={nombreSede} value={nombreSede}>
-                  {nombreSede}
+              {sedes.map((unaSede) => (
+                <option key={unaSede.id} value={unaSede.id}>
+                  {unaSede.nombre}
                 </option>
               ))}
             </select>
@@ -335,28 +357,18 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               <option value="">
                 {sede ? "Elija el lugar…" : "Elija primero la sede"}
               </option>
-              {/* Separadas porque no son lo mismo: en una bodega el equipo
+              {/* Agrupados porque no son lo mismo: en una bodega el equipo
                   está guardado, en un área está en uso. */}
-              {bodegas.length > 0 && (
-                <optgroup label="Bodegas">
-                  {bodegas.map((u) => (
+              {grupos.map((grupo) => (
+                <optgroup key={grupo.clave} label={grupo.etiqueta}>
+                  {grupo.lugares.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.nombre}
                       {u.detalle ? ` (${u.detalle})` : ""}
                     </option>
                   ))}
                 </optgroup>
-              )}
-              {otrosLugares.length > 0 && (
-                <optgroup label="Otras áreas">
-                  {otrosLugares.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre}
-                      {u.detalle ? ` (${u.detalle})` : ""}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              ))}
             </select>
             {hayCambio && (
               <p className="situacion-actual__cambio">

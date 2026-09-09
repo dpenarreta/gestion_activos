@@ -231,8 +231,8 @@ def validar_archivo(archivo) -> ResultadoValidacion:
     # repartidos en el edificio equivocado.
     ubicaciones: dict[str, object] = {}
     ambiguas: set[str] = set()
-    for ubicacion in Ubicacion.objects.filter(activa=True):
-        ubicaciones[f"{ubicacion.sede}/{ubicacion.nombre}".lower()] = ubicacion
+    for ubicacion in Ubicacion.objects.filter(activa=True).select_related("sede"):
+        ubicaciones[f"{ubicacion.sede.nombre}/{ubicacion.nombre}".lower()] = ubicacion
         simple = ubicacion.nombre.lower()
         if simple in ubicaciones:
             ambiguas.add(simple)

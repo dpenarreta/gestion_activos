@@ -277,8 +277,12 @@ def construir_plantilla() -> bytes:
             # La tercera columna es el valor exacto que hay que copiar: el
             # nombre solo basta cuando es único, y quien llena el archivo no
             # tiene forma de saber si lo es.
-            [ubicacion.sede, ubicacion.nombre, f"{ubicacion.sede} / {ubicacion.nombre}"]
-            for ubicacion in Ubicacion.objects.filter(activa=True).order_by("sede", "nombre")
+            [
+                ubicacion.sede.nombre,
+                ubicacion.nombre,
+                f"{ubicacion.sede.nombre} / {ubicacion.nombre}",
+            ]
+            for ubicacion in Ubicacion.objects.filter(activa=True).select_related("sede").order_by("sede__nombre", "nombre")
         ],
     )
     _hoja_catalogo(

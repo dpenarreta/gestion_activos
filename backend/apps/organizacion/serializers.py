@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Departamento, Empleado, Ubicacion
+from .models import Departamento, Empleado, Sede, Ubicacion
 
 
 class DepartamentoSerializer(serializers.ModelSerializer):
@@ -29,8 +29,45 @@ class DepartamentoSerializer(serializers.ModelSerializer):
         return value.strip().upper()
 
 
+class SedeSerializer(serializers.ModelSerializer):
+    total_ubicaciones = serializers.IntegerField(read_only=True)
+    total_activos = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Sede
+        fields = [
+            "id",
+            "nombre",
+            "ciudad",
+            "direccion",
+            "activa",
+            "total_ubicaciones",
+            "total_activos",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_nombre(self, value):
+        """El duplicado se rechaza sin distinguir mayúsculas.
+
+        «Sede Quito Norte» y «SEDE QUITO NORTE» pasarían la restricción única
+        de la base y saldrían como dos sedes en el desplegable del traslado,
+        que es justo el problema que este catálogo viene a resolver.
+        """
+        nombre = (value or "").strip()
+        existente = Sede.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        if existente.exists():
+            raise serializers.ValidationError(f"Ya existe una sede llamada «{nombre}».")
+        return nombre
+
+
 class UbicacionSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.CharField(read_only=True)
+    sede_nombre = serializers.CharField(source="sede.nombre", read_only=True)
+    tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
     total_activos = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -38,8 +75,11 @@ class UbicacionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "sede",
+            "sede_nombre",
             "nombre",
             "nombre_completo",
+            "tipo",
+            "tipo_display",
             "detalle",
             "activa",
             "total_activos",
@@ -48,19 +88,27 @@ class UbicacionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def validate_sede(self, value):
+        """Una sede cerrada no admite lugares nuevos: se cerró porque ya no se
+        usa, y colgarle una bodega la devuelve al inventario por la puerta de
+        atrás."""
+        if value is not None and not value.activa:
+            raise serializers.ValidationError(f"La sede «{value.nombre}» está cerrada.")
+        return value
+
     def validate(self, attrs):
         """Rechaza el duplicado con un mensaje, en vez de dejar que reviente
         la restricción única de la base con un error de integridad."""
-        sede = (attrs.get("sede", getattr(self.instance, "sede", "")) or "").strip()
+        sede = attrs.get("sede", getattr(self.instance, "sede", None))
         nombre = (attrs.get("nombre", getattr(self.instance, "nombre", "")) or "").strip()
-        existente = Ubicacion.objects.filter(sede__iexact=sede, nombre__iexact=nombre)
+        existente = Ubicacion.objects.filter(sede=sede, nombre__iexact=nombre)
         if self.instance is not None:
             existente = existente.exclude(pk=self.instance.pk)
         if existente.exists():
             raise serializers.ValidationError(
-                {"nombre": f"«{nombre}» ya existe en la sede «{sede}»."}
+                {"nombre": f"«{nombre}» ya existe en la sede «{sede.nombre}»."}
             )
-        attrs["sede"], attrs["nombre"] = sede, nombre
+        attrs["nombre"] = nombre
         return attrs
 
 

@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from apps.activos.models import Activo, MovimientoActivo, TipoDispositivo
 from apps.mantenimientos.models import Mantenimiento
-from apps.organizacion.models import Departamento, Empleado, Ubicacion
+from apps.organizacion.models import Departamento, Empleado, Sede, Ubicacion
 from apps.politicas.models import PoliticaObsolescencia
 
 TIPOS = [
@@ -103,9 +103,10 @@ class Command(BaseCommand):
             TipoDispositivo.objects.get_or_create(codigo=codigo, defaults={"nombre": nombre})[0]
             for nombre, codigo in TIPOS
         ]
+        sedes = [Sede.objects.get_or_create(nombre=nombre)[0] for nombre in SEDES]
         ubicaciones = [
             Ubicacion.objects.get_or_create(sede=sede, nombre=lugar)[0]
-            for sede in SEDES
+            for sede in sedes
             for lugar in LUGARES
         ]
 

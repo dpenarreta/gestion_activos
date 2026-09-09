@@ -120,7 +120,14 @@ arrancar) y el frontend servido por nginx. Antes:
 Es el **riesgo número uno** del §26 del documento funcional, y el que decide si
 el sistema se usa o se abandona.
 
-1. Cree departamentos, ubicaciones y empleados (o cárguelos y luego corrija).
+1. Cree los catálogos, **en este orden**, desde *Organización*: sedes →
+   ubicaciones → departamentos → empleados. El orden importa en el primer
+   tramo: una ubicación no se crea sin decir en qué sede está.
+
+   Al dar de alta cada ubicación, marque su **tipo** (bodega, oficina, área
+   operativa, taller). No es decorativo: el desplegable de destino al trasladar
+   un equipo se agrupa por ahí, y una bodega marcada como «otro» aparece fuera
+   del grupo donde se la busca.
 2. Descargue la plantilla desde *Activos → Carga masiva* y complétela. La
    plantilla trae los catálogos vigentes en hojas aparte, incluidas las
    ubicaciones con el valor exacto que hay que copiar.
