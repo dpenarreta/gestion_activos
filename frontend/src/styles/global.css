@@ -173,6 +173,41 @@ a {
 }
 
 /*
+ * Los otros contornos de color, por el mismo motivo que el azul.
+ *
+ * «Eliminar» y «Deshabilitar» comparten la fila con «Editar» y traían el rojo
+ * y el ámbar planos de Bootstrap, pensados para fondo claro: como texto sobre
+ * el oscuro se quedaban por debajo del 4,5:1 de WCAG AA, y en una fila de tres
+ * botones eso se ve como si dos estuvieran a medio apagar. Los tonos del tema
+ * suben a 6,7:1 y 12,4:1.
+ */
+.btn-outline-danger {
+  --bs-btn-color: var(--state-danger);
+  --bs-btn-border-color: var(--state-danger);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-danger);
+  --bs-btn-hover-border-color: var(--state-danger);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-danger);
+  --bs-btn-active-border-color: var(--state-danger);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--state-warning);
+  --bs-btn-border-color: var(--state-warning);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-warning);
+  --bs-btn-hover-border-color: var(--state-warning);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-warning);
+  --bs-btn-active-border-color: var(--state-warning);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
  * Exportar: mismo dibujo de contorno, en naranja.
  *
  * No es una acción más de la barra —saca datos del sistema a un archivo que

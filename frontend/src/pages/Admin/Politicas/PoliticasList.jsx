@@ -112,7 +112,7 @@ export function PoliticasList() {
           {puedeEditar && (
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-outline-primary btn-sm"
               onClick={handleReevaluar}
             >
               Reevaluar inventario

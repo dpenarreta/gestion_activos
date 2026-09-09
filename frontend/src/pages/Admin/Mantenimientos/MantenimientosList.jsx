@@ -78,7 +78,7 @@ export function MantenimientosList() {
         <div className="d-flex gap-2">
           <Link
             to="/admin/mantenimientos/componentes"
-            className="btn btn-outline-secondary btn-sm"
+            className="btn btn-outline-primary btn-sm"
           >
             Catálogo de componentes
           </Link>
