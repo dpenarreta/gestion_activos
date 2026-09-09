@@ -69,6 +69,38 @@ Las pistolas USB y Bluetooth se comportan como un **teclado HID**: «teclean» e
 código carácter por carácter. Por eso el campo de captura del sistema es un
 input común, y funciona con cualquier lector sin instalar nada.
 
+### La distribución de teclado: el fallo más confuso
+
+**Síntoma:** se escanea `GA-LAP-000006` y el sistema recibe `GA'LAP'000006`.
+Los guiones llegan como apóstrofes, y el equipo «no aparece».
+
+**Causa:** la pistola no envía texto, envía *pulsaciones de teclas*, y quien las
+traduce a caracteres es Windows con su propia distribución. La tecla que en un
+teclado **US** produce `-` está, en el **español**, en la posición del `'`. La
+pistola cree haber enviado el guion y el sistema recibe otra cosa. Ni el código
+de barras ni el lector están mal: los dos funcionan.
+
+Pasa lo mismo con otras distribuciones: en francés AZERTY esa tecla da `)`, y
+en alemán QWERTZ, `ß`.
+
+**Solución, en la pistola** (una de las dos):
+
+- Configurarla con la distribución **Español** o **Latinoamericano**, escaneando
+  el código de programación correspondiente del manual del fabricante. En las
+  Zebra suele estar en la sección «Keyboard Country» / «País del teclado».
+- O ponerla en **modo de emulación numérica** («Emulate Keypad» / «Send
+  Characters as ALT sequences»), que envía cada carácter por su código y no
+  depende de la distribución.
+
+**Mientras tanto**, el sistema lo repara: si el código no aparece, reintenta
+sustituyendo esos caracteres por el guion —solo cuando el resultado tiene la
+forma exacta de un código del sistema, para no tocar números de serie donde un
+apóstrofe puede ser legítimo— y **avisa en pantalla**. El aviso no sobra:
+arreglarlo en silencio dejaría la pistola mal configurada, y el mismo problema
+reaparecería en la carga masiva y en el buscador, donde no hay quien lo repare.
+
+### Los dos ajustes básicos
+
 Dos ajustes en el lector, ambos de fábrica en las Zebra:
 
 1. **Sufijo Enter (CR)** al final de la lectura. Es lo que hace que el sistema

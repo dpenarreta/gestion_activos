@@ -29,6 +29,7 @@ export function EscanerPage() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [recientes, setRecientes] = useState([]);
+  const [avisoLector, setAvisoLector] = useState(null);
 
   async function handleEscanear(codigo) {
     setIsLoading(true);
@@ -36,8 +37,15 @@ export function EscanerPage() {
     try {
       const datos = await activosService.porCodigo(codigo);
       setFicha(datos);
+      // El backend avisa cuando ha tenido que reparar el código: la pistola
+      // está enviando otra distribución de teclado y el guion llega como
+      // apóstrofe. Se muestra aunque la búsqueda haya funcionado, porque el
+      // mismo problema reaparecerá en la carga masiva y en el buscador.
+      setAvisoLector(datos.advertencia_lector ?? null);
       setRecientes((actuales) => {
-        const sinRepetir = actuales.filter((item) => item.id !== datos.activo.id);
+        const sinRepetir = actuales.filter(
+          (item) => item.id !== datos.activo.id,
+        );
         return [
           {
             id: datos.activo.id,
@@ -49,10 +57,13 @@ export function EscanerPage() {
       });
     } catch (err) {
       setFicha(null);
+      setAvisoLector(null);
+      const mensajeDelServidor = err.response?.data?.error?.message;
       setError(
         err.response?.status === 404
-          ? `Ningún activo corresponde a "${codigo}". Verifique la etiqueta o busque por número de serie.`
-          : "No se pudo consultar el activo."
+          ? mensajeDelServidor ||
+              `Ningún activo corresponde a "${codigo}". Verifique la etiqueta o busque por número de serie.`
+          : "No se pudo consultar el activo.",
       );
     } finally {
       setIsLoading(false);
@@ -64,8 +75,8 @@ export function EscanerPage() {
       <Breadcrumbs items={BREADCRUMB_ITEMS} />
       <h2>Consulta por escáner</h2>
       <p className="text-muted">
-        Dispare la lectora sobre la etiqueta del equipo. También funciona escribiendo el código o el
-        número de serie del fabricante.
+        Dispare la lectora sobre la etiqueta del equipo. También funciona
+        escribiendo el código o el número de serie del fabricante.
       </p>
 
       <EscanerInput
@@ -79,6 +90,13 @@ export function EscanerPage() {
 
       {error && <div className="alert alert-warning">{error}</div>}
 
+      {avisoLector && (
+        <div className="alert alert-info">
+          <strong>Revise la configuración del lector.</strong>{" "}
+          {avisoLector.mensaje}
+        </div>
+      )}
+
       {ficha && <ResultadoEscaneo ficha={ficha} />}
 
       {recientes.length > 1 && (
@@ -87,7 +105,10 @@ export function EscanerPage() {
           <ul className="list-unstyled d-flex flex-wrap gap-2 mb-0">
             {recientes.map((item) => (
               <li key={item.id}>
-                <Link to={`/admin/activos/${item.id}`} className="btn btn-outline-secondary btn-sm">
+                <Link
+                  to={`/admin/activos/${item.id}`}
+                  className="btn btn-outline-secondary btn-sm"
+                >
                   <code>{item.codigo_barras}</code> · {item.nombre}
                 </Link>
               </li>
@@ -111,10 +132,16 @@ function ResultadoEscaneo({ ficha }) {
             <h3 className="h4 mb-1">{activo.nombre}</h3>
             <div className="d-flex align-items-center gap-2 flex-wrap">
               <code className="codigo-barras">{activo.codigo_barras}</code>
-              <EstadoActivo estado={activo.estado} etiqueta={activo.estado_display} />
+              <EstadoActivo
+                estado={activo.estado}
+                etiqueta={activo.estado_display}
+              />
             </div>
           </div>
-          <Link to={`/admin/activos/${activo.id}`} className="btn btn-primary btn-sm">
+          <Link
+            to={`/admin/activos/${activo.id}`}
+            className="btn btn-primary btn-sm"
+          >
             Abrir ficha completa
           </Link>
         </div>
@@ -126,7 +153,9 @@ function ResultadoEscaneo({ ficha }) {
             <dl className="row mb-0">
               <dt className="col-5 text-muted fw-normal">Responsable</dt>
               <dd className="col-7">
-                {activo.custodio_nombre || <span className="text-muted">Sin asignar</span>}
+                {activo.custodio_nombre || (
+                  <span className="text-muted">Sin asignar</span>
+                )}
               </dd>
               <dt className="col-5 text-muted fw-normal">Área</dt>
               <dd className="col-7">{activo.departamento_nombre}</dd>
@@ -155,19 +184,25 @@ function ResultadoEscaneo({ ficha }) {
         <div className="row text-center g-2">
           <div className="col-4">
             <div className="indicador">
-              <div className="indicador-valor">{activo.total_mantenimientos}</div>
+              <div className="indicador-valor">
+                {activo.total_mantenimientos}
+              </div>
               <div className="indicador-etiqueta">Mantenimientos</div>
             </div>
           </div>
           <div className="col-4">
             <div className="indicador">
-              <div className="indicador-valor">{activo.total_componentes_criticos}</div>
+              <div className="indicador-valor">
+                {activo.total_componentes_criticos}
+              </div>
               <div className="indicador-etiqueta">Piezas críticas</div>
             </div>
           </div>
           <div className="col-4">
             <div className="indicador">
-              <div className="indicador-valor">{formatearMoneda(costos.costo_total)}</div>
+              <div className="indicador-valor">
+                {formatearMoneda(costos.costo_total)}
+              </div>
               <div className="indicador-etiqueta">Invertido</div>
             </div>
           </div>
@@ -175,8 +210,10 @@ function ResultadoEscaneo({ ficha }) {
 
         {ultimoMantenimiento && (
           <p className="text-muted small mb-0 mt-3">
-            Última intervención: {formatearFecha(ultimoMantenimiento.fecha_intervencion)} —{" "}
-            {ultimoMantenimiento.tipo_display}, {ultimoMantenimiento.descripcion}
+            Última intervención:{" "}
+            {formatearFecha(ultimoMantenimiento.fecha_intervencion)} —{" "}
+            {ultimoMantenimiento.tipo_display},{" "}
+            {ultimoMantenimiento.descripcion}
           </p>
         )}
         <p className="text-muted small mb-0 mt-1">

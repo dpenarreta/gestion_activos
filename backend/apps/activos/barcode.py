@@ -65,3 +65,43 @@ def es_codigo_valido(codigo: str) -> bool:
     de un número de serie tecleado, sin consultar la base de datos.
     """
     return bool(_PATRON.match(codigo.strip().upper()))
+
+
+#: Caracteres que aparecen en lugar del guion cuando la pistola y el sistema
+#: operativo no comparten distribución de teclado.
+#:
+#: Una pistola USB no envía texto: simula pulsaciones de teclas, y quien las
+#: traduce a caracteres es Windows con su propia distribución. La tecla que en
+#: un teclado US produce `-` está, en el español, en la posición del `'`; en el
+#: francés da `)`, y en el alemán, `ß`. El lector cree haber enviado
+#: `GA-LAP-000006` y el sistema recibe `GA'LAP'000006`.
+#:
+#: No es un problema del código de barras ni del lector: los dos funcionan. Es
+#: configuración, y se arregla en la pistola (ver docs/codigos-de-barras.md).
+SUSTITUTOS_DEL_GUION = "'´`)ß-–—"
+
+
+def normalizar_escaneo(valor: str) -> tuple[str, bool]:
+    """Repara un código escaneado con la distribución de teclado equivocada.
+
+    Devuelve `(valor, hubo_correccion)`. La corrección **solo** se aplica si el
+    resultado tiene la forma exacta de un código emitido por el sistema: así no
+    se toca la búsqueda por número de serie, donde un apóstrofe o un guion
+    largo podrían ser legítimos y sustituirlos encontraría el equipo
+    equivocado.
+
+    Que devuelva si hubo corrección no es un detalle: arreglarlo en silencio
+    dejaría la pistola mal configurada, y el mismo problema volvería a aparecer
+    en la carga masiva, en el buscador y en cualquier campo donde se escanee.
+    """
+    original = (valor or "").strip()
+    if not original or es_codigo_valido(original):
+        return original, False
+
+    # Se traduce antes de pasar a mayúsculas: `"ß".upper()` es `"SS"`, y para
+    # entonces el carácter que había que reparar ya no está.
+    traduccion = str.maketrans({caracter: "-" for caracter in SUSTITUTOS_DEL_GUION})
+    reparado = original.translate(traduccion).upper()
+    if reparado != original.upper() and es_codigo_valido(reparado):
+        return reparado, True
+    return original, False

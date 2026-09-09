@@ -312,6 +312,9 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-COD-008 | Texto bajo las barras | legibilidad-etiquetas.feature | El valor va también en texto bajo las barras | Sí (pytest, ver etiquetas-térmicas) |
 | AC-COD-009 | Lectura con pistola HID | legibilidad-etiquetas.feature | La lectura funciona con cualquier pistola de teclado | No (verificado con lector real) |
 | AC-COD-010 | Búsqueda por serie | legibilidad-etiquetas.feature | También se puede buscar por número de serie | Sí (pytest) |
+| AC-COD-011 | Repara la distribución de teclado | legibilidad-etiquetas.feature | Un código escaneado con otra distribución de teclado se resuelve igual | Sí (pytest) |
+| AC-COD-012 | Avisa de la mala configuración | legibilidad-etiquetas.feature | Y avisa de que la pistola está mal configurada | Sí (pytest) |
+| AC-COD-013 | No toca los números de serie | legibilidad-etiquetas.feature | La reparación no toca los números de serie | Sí (pytest) |
 
 ## Etiquetas de activos (RF-08)
 

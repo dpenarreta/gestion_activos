@@ -17,6 +17,7 @@ from apps.mantenimientos.services import resumen_costos
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
+from .barcode import normalizar_escaneo
 from .models import ESTADOS_EN_ALMACEN, Activo, TipoDispositivo
 from .permissions import (
     ActivosPermission,
@@ -295,22 +296,58 @@ class ActivoViewSet(viewsets.ModelViewSet):
         el viaje adicional que haría el frontend tras cada escaneo.
         """
         termino = (codigo or "").strip()
-        activo = (
+        activo = self._buscar_por_termino(termino)
+
+        # Si no aparece, puede que la pistola esté enviando los caracteres con
+        # otra distribución de teclado: el guion del código llega como
+        # apóstrofe y el término deja de coincidir. Se reintenta con el valor
+        # reparado (ver `apps.activos.barcode.normalizar_escaneo`).
+        reparado, corregido = normalizar_escaneo(termino)
+        if activo is None and corregido:
+            activo = self._buscar_por_termino(reparado)
+
+        if activo is None:
+            respuesta = {
+                "error": {
+                    "code": "activo_no_encontrado",
+                    "message": f"Ningún activo corresponde a {termino!r}.",
+                }
+            }
+            if corregido:
+                respuesta["error"]["message"] += (
+                    f" Se intentó también con {reparado!r}: el lector parece estar "
+                    "enviando otra distribución de teclado."
+                )
+            return Response(respuesta, status=status.HTTP_404_NOT_FOUND)
+
+        ficha = self._ficha_completa(activo)
+        if corregido:
+            # Se avisa aunque la búsqueda haya funcionado: arreglarlo en
+            # silencio dejaría la pistola mal configurada, y el mismo problema
+            # reaparecería en la carga masiva y en cualquier otro campo.
+            ficha["advertencia_lector"] = {
+                "codigo": "distribucion_de_teclado",
+                "recibido": termino,
+                "interpretado": reparado,
+                "mensaje": (
+                    "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
+                    "La pistola está configurada con una distribución de teclado distinta "
+                    "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
+                    "de emulación numérica, para que el guion llegue correctamente."
+                ).format(recibido=termino, interpretado=reparado),
+            }
+        return Response(ficha)
+
+    @staticmethod
+    def _buscar_por_termino(termino: str):
+        """Un activo por su código de barras o por su número de serie."""
+        if not termino:
+            return None
+        return (
             Activo.objects.select_related("tipo", "custodio", "departamento")
             .filter(Q(codigo_barras__iexact=termino) | Q(numero_serie__iexact=termino))
             .first()
         )
-        if activo is None:
-            return Response(
-                {
-                    "error": {
-                        "code": "activo_no_encontrado",
-                        "message": f"Ningún activo corresponde a {termino!r}.",
-                    }
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        return Response(self._ficha_completa(activo))
 
     @action(detail=True, methods=["get"])
     def historial(self, request, pk=None):

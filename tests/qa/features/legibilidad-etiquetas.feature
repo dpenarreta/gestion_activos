@@ -71,3 +71,25 @@ Feature: Etiquetas legibles con pistola (RF-08 y §5 del documento funcional)
     Given un equipo cuya etiqueta se arrancó
     When se teclea el número de serie del fabricante
     Then el sistema devuelve la misma ficha
+
+  @AC-COD-011
+  Scenario: Un código escaneado con otra distribución de teclado se resuelve igual
+    Given una pistola configurada con distribución US sobre un sistema en español
+    When se escanea la etiqueta y el guion llega como apóstrofe
+    Then el sistema encuentra el equipo de todos modos
+    # La pistola no envía texto, envía pulsaciones: quien las traduce es el
+    # sistema operativo con su propia distribución.
+
+  @AC-COD-012
+  Scenario: Y avisa de que la pistola está mal configurada
+    When se resuelve un código que hubo que reparar
+    Then la pantalla explica cómo configurar el lector
+    # Arreglarlo en silencio dejaría el mismo problema latente en la carga
+    # masiva y en el buscador, donde no hay quien lo repare.
+
+  @AC-COD-013
+  Scenario: La reparación no toca los números de serie
+    When se busca un número de serie del fabricante que contiene apóstrofes
+    Then se busca tal cual, sin sustituir nada
+    # Ahí un apóstrofe puede ser legítimo, y sustituirlo encontraría el equipo
+    # equivocado.
