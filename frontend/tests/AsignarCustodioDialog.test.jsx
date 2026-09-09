@@ -287,22 +287,23 @@ describe("Traslado de ubicación", () => {
   });
 
   it("avisa de que el equipo quedará sin responsable", async () => {
-    /* Es una consecuencia del traslado, no una decisión aparte: descubrirla
-       después en la ficha es peor que leerla antes de confirmar. */
+    /* Es la consecuencia menos evidente del traslado —el equipo cambia de
+       sitio *y* deja de tener responsable—: descubrirla después en la ficha es
+       peor que leerla antes de confirmar. */
     abrir();
     await screen.findByText("Situación actual");
     await trasladar();
 
-    expect(screen.getByText(/quedará/)).toHaveTextContent("sin responsable");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Aviso: El equipo quedará sin responsable y se asignará únicamente a la nueva ubicación",
+    );
   });
 
-  it("no avisa de nada si el equipo ya estaba sin responsable", async () => {
-    abrir({ ...ACTIVO, custodio: null, custodio_nombre: null });
+  it("el aviso no aparece al entregar, que no cambia de sitio el equipo", async () => {
+    abrir();
     await screen.findByText("Situación actual");
-    await trasladar();
 
-    expect(screen.queryByText(/quedará/)).not.toBeInTheDocument();
-    expect(screen.getByText(/ya está sin responsable/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("el área no se toca: dice de quién es el presupuesto, no quién lo custodia", async () => {

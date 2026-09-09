@@ -293,6 +293,15 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         </>
       ) : (
         <>
+          {/* Arriba y como alerta, no como nota al pie de un campo: es la
+              consecuencia menos evidente del traslado —el equipo cambia de
+              sitio *y* deja de tener responsable— y hay que leerla antes de
+              elegir el destino, no después. */}
+          <div className="alert alert-warning" role="alert">
+            <strong>Aviso:</strong> El equipo quedará sin responsable y se
+            asignará únicamente a la nueva ubicación
+          </div>
+
           <div className="mb-3">
             <label className="form-label" htmlFor="sede">
               Sede de destino
@@ -358,21 +367,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 </strong>
               </p>
             )}
-            {activo.custodio ? (
-              <div className="form-text">
-                {/* Nada de elegir persona en este modo, pero sí decir lo que
-                    pasa con la que había: es una consecuencia del traslado, no
-                    una decisión aparte, y descubrirla después en la ficha es
-                    peor que leerla aquí. */}
-                El equipo quedará <strong>sin responsable</strong>: pasa a la
-                ubicación de destino. Quien lo tenía seguirá en el historial.
-              </div>
-            ) : (
-              <div className="form-text">
-                El equipo ya está sin responsable: el traslado solo cambia dónde
-                está.
-              </div>
-            )}
+            <div className="form-text">
+              Quien lo tuviera seguirá figurando en el historial del equipo.
+            </div>
           </div>
         </>
       )}
