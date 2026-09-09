@@ -17,6 +17,24 @@ export const alertasService = {
     return apiClient.get(`${ALERTAS}configuracion/`).then((res) => res.data);
   },
   guardarConfiguracion(payload) {
-    return apiClient.patch(`${ALERTAS}configuracion/`, payload).then((res) => res.data);
+    return apiClient
+      .patch(`${ALERTAS}configuracion/`, payload)
+      .then((res) => res.data);
+  },
+  /**
+   * Usuarios que pueden recibir el resumen por correo: activos, con correo y
+   * con permiso para ver las alertas. El backend devuelve la dirección
+   * enmascarada — sirve para reconocer a la persona, no para copiarla.
+   */
+  destinatariosDisponibles() {
+    return apiClient.get(`${ALERTAS}destinatarios/`).then((res) => res.data);
+  },
+  /** Últimos envíos, incluidos los omitidos y los fallidos. */
+  historialEnvios() {
+    return apiClient.get(`${ALERTAS}envios/`).then((res) => res.data);
+  },
+  /** Envía el resumen de hoy al correo de quien lo solicita, y a nadie más. */
+  enviarPrueba() {
+    return apiClient.post(`${ALERTAS}envios/prueba/`).then((res) => res.data);
   },
 };

@@ -53,6 +53,23 @@ cero: `roles/0001_initial` daba por existente el `ContentType` de
 fallaba; ahora materializa el ContentType y los permisos desde el catálogo
 de forma idempotente.
 
+## Correo saliente (§19, 2026-09-09)
+
+El aviso por correo del centro de alertas es la única funcionalidad que hace
+que el sistema escriba fuera de sí mismo. Los controles que la acotan:
+
+- **Contenido mínimo**: recuentos y enlaces; ni equipos ni nombres de
+  personas. Un buzón no aplica los permisos que protegen la pantalla.
+- **Destinatarios cerrados**: solo usuarios activos, con correo y con
+  `alertas.ver`, verificado **en el momento del envío**. No se pueden
+  escribir direcciones libres: un campo de texto libre convertiría el
+  sistema en un remitente hacia cualquier buzón.
+- **El envío de prueba escribe solo a quien lo pide**, con su propio límite
+  de frecuencia (`ALERTAS_PRUEBA_THROTTLE_RATE`), y queda auditado.
+- **Bitácora de envíos** append-only con el resultado y el motivo, también
+  cuando no se envió: un envío que falla en silencio hace creer que alguien
+  fue advertido.
+
 ## Limitaciones conocidas (no ocultas)
 
 - La búsqueda de secretos fue un `grep` manual de patrones obvios
@@ -60,9 +77,10 @@ de forma idempotente.
   `gitleaks`/`truffleHog`.
 - `pip-audit` y `npm audit` solo detectan vulnerabilidades **publicadas**:
   hay que volver a ejecutarlos antes de cada release, no una sola vez.
-- El módulo de negocio del sistema (activos) todavía no existe, así que
-  ningún control de esta lista ha sido probado contra datos de dominio
-  reales.
+- La entrega del correo depende de un servidor SMTP externo. Con el backend
+  de consola que trae la configuración por defecto, el envío se da por
+  exitoso sin que nadie reciba nada: la bitácora de `/alertas/envios/` dice
+  que salió porque, para el sistema, salió.
 
 ## Recomendaciones para un despliegue productivo real
 
@@ -72,6 +90,10 @@ de forma idempotente.
    filtración, y forzar `logout-all` de todos los usuarios (revocar todas
    las `Session`).
 3. Configurar un proveedor de correo real (`EMAIL_BACKEND`) — por defecto
-   usa el backend de consola, adecuado solo para desarrollo.
+   usa el backend de consola, adecuado solo para desarrollo — y fijar
+   `DEFAULT_FROM_EMAIL` a una dirección del dominio de la empresa: la
+   derivada del nombre del sistema es un `.local` inexistente, y un
+   remitente que no resuelve termina en la carpeta de correo no deseado,
+   donde un aviso no avisa a nadie.
 4. Configurar `CSRF_TRUSTED_ORIGINS` si el admin de Django se sirve detrás
    de un dominio/proxy distinto al de origen.

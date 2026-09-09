@@ -246,6 +246,9 @@ REST_FRAMEWORK = {
         "user": env.str("DEFAULT_THROTTLE_RATE_USER", default="1000/hour"),
         "login": env.str("LOGIN_THROTTLE_RATE", default="10/min"),
         "password_reset": env.str("PASSWORD_RESET_THROTTLE_RATE", default="5/hour"),
+        # El correo de prueba de alertas dispara un envío real: se limita
+        # aparte para que no sirva como generador de correo saliente.
+        "alertas_prueba": env.str("ALERTAS_PRUEBA_THROTTLE_RATE", default="10/hour"),
     },
 }
 
