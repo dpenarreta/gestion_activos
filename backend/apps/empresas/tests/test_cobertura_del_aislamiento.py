@@ -209,3 +209,106 @@ def test_el_gestor_acotado_no_devuelve_lo_de_otra_empresa(db):
         # Salir del ámbito sigue siendo posible, pero hay que pedirlo por su
         # nombre, que es lo que lo hace visible en una revisión.
         assert Activo.objects.todas().filter(pk=ajeno.pk).exists()
+
+
+# --- La otra forma de perder el filtro: congelarlo al importar ---------------
+
+
+def _vistas_enrutadas():
+    """Las clases de vista que el enrutador expone, no las que existen.
+
+    Lo que importa es lo alcanzable: una vista sin URL es código muerto, y una
+    ruta olvidada es una puerta.
+    """
+    from django.urls import get_resolver
+
+    def recorrer(patrones):
+        for patron in patrones:
+            if hasattr(patron, "url_patterns"):
+                yield from recorrer(patron.url_patterns)
+                continue
+            destino = patron.callback
+            clase = getattr(destino, "cls", None) or getattr(destino, "view_class", None)
+            if clase is not None:
+                yield clase
+
+    return sorted(set(recorrer(get_resolver().url_patterns)), key=lambda c: c.__name__)
+
+
+VISTAS = [pytest.param(vista, id=vista.__name__) for vista in _vistas_enrutadas()]
+
+
+def _acotado_por_empresa(modelo) -> bool:
+    return bool(getattr(type(modelo._default_manager), ATRIBUTO_RUTA, None))
+
+
+@pytest.mark.parametrize("vista", VISTAS)
+def test_ninguna_vista_congela_su_consulta_al_importar(vista):
+    """`queryset = Modelo.objects...` en el cuerpo de la clase pierde el filtro.
+
+    Se evalúa **al importar el módulo**, y el gestor por empresa filtra en ese
+    momento: la primera petición que cargue las URLs decide el filtro para todo
+    el proceso. Si esa primera es anónima —el sondeo de salud de un balanceador
+    es exactamente eso— el gestor devuelve «ninguna empresa» y el endpoint queda
+    vacío hasta que alguien reinicie el servidor.
+
+    Ya ocurrió con las columnas de la plantilla de carga masiva, y se descubrió
+    de rebote: doce pruebas fallaban solo si se ejecutaba antes una que hiciera
+    una petición anónima. Parecía un problema del banco de pruebas y era un
+    defecto de producción.
+
+    Los modelos globales —usuarios, roles, empresas, auditoría— sí pueden
+    declararlo: no hay filtro que congelar.
+    """
+    consulta = getattr(vista, "queryset", None)
+    if consulta is None:
+        return
+
+    assert not _acotado_por_empresa(consulta.model), (
+        f"{vista.__name__} declara `queryset` en el cuerpo de la clase sobre "
+        f"{consulta.model.__name__}, que se acota por empresa. Muévalo a "
+        f"`get_queryset()`: como atributo, el filtro se congela al importar el "
+        f"módulo y lo decide la primera petición del proceso."
+    )
+
+
+@pytest.mark.parametrize("vista", VISTAS)
+def test_ningun_serializador_congela_su_desplegable(vista):
+    """Lo mismo, en los campos de relación de los formularios.
+
+    `PrimaryKeyRelatedField(queryset=Modelo.objects.filter(...))` congela el
+    filtro igual que el de la vista, y el desplegable queda con el de aquel
+    momento. Para eso está `RelacionDeEmpresa`, que resuelve la consulta en cada
+    uso.
+
+    Un **gestor** no cuenta: los campos que DRF construye solo a partir del
+    modelo guardan el gestor, no una consulta, y DRF le pide `.all()` al validar
+    —o sea, dentro de la petición—, así que el filtro se aplica cuando toca. Lo
+    que se busca es la consulta ya construida.
+    """
+    from django.db.models import QuerySet
+
+    from apps.empresas.campos import RelacionDeEmpresa
+
+    serializador = getattr(vista, "serializer_class", None)
+    if serializador is None:
+        return
+
+    try:
+        campos = serializador().fields
+    except Exception:  # pragma: no cover - serializadores que exigen contexto
+        pytest.skip("El serializador necesita contexto de petición")
+
+    culpables = [
+        nombre
+        for nombre, campo in campos.items()
+        if isinstance(getattr(campo, "queryset", None), QuerySet)
+        and not isinstance(campo, RelacionDeEmpresa)
+        and _acotado_por_empresa(campo.queryset.model)
+    ]
+
+    assert not culpables, (
+        f"{serializador.__name__} declara {culpables} con un `queryset` fijo "
+        f"sobre un modelo acotado por empresa. Use `RelacionDeEmpresa`, que "
+        f"resuelve la consulta en cada petición."
+    )

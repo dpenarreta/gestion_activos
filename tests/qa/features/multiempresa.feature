@@ -231,3 +231,18 @@ Feature: Separación de la información por empresa
     When un modelo de la lista deja de existir
     Then la prueba lo señala para que se quite
     # Una excepción viva que nadie revisa es permiso permanente sin dueño.
+
+  @AC-EMP-030
+  Scenario: Ninguna vista congela su consulta al importar
+    When una vista declara `queryset` en el cuerpo de la clase
+    And ese modelo se acota por empresa
+    Then la prueba lo señala para moverlo a `get_queryset()`
+    # El atributo se evalúa al importar el módulo, así que la primera petición
+    # del proceso decide el filtro. Si esa primera es anónima —el sondeo de
+    # salud de un balanceador lo es— el endpoint queda vacío hasta reiniciar.
+
+  @AC-EMP-031
+  Scenario: Ningún desplegable de formulario congela el suyo
+    When un campo de relación lleva una consulta ya construida
+    Then se exige `RelacionDeEmpresa`, que la resuelve en cada uso
+    But un gestor sí vale: DRF le pide `.all()` dentro de la petición

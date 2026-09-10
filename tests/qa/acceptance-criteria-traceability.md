@@ -643,3 +643,5 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-CLI-006 | Un fallo de red no cierra la sesión | authentication.feature | Un fallo de red no cierra la sesión | Sí (Vitest: `un error de red no toca la sesión`) |
 | AC-CLI-007 | El cambio obligatorio lleva a su pantalla | authentication.feature | El cambio de contraseña obligatorio lleva a su pantalla | Sí (Vitest: `el cambio de contraseña obligatorio lleva a su pantalla, no al login`) |
 | AC-CLI-008 | Sin almacenamiento la aplicación abre | authentication.feature | Sin almacenamiento la aplicación sigue abriendo | Sí (Vitest: `leer la empresa activa no revienta`) |
+| AC-EMP-030 | Ninguna vista congela su consulta | multiempresa.feature | Ninguna vista congela su consulta al importar | Sí (pytest: `test_ninguna_vista_congela_su_consulta_al_importar`, sobre cada vista enrutada) |
+| AC-EMP-031 | Ningún desplegable congela el suyo | multiempresa.feature | Ningún desplegable de formulario congela el suyo | Sí (pytest: `test_ningun_serializador_congela_su_desplegable`) |
