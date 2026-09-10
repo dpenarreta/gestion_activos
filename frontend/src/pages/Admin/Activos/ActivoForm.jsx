@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import {
   activosService,
+  caracteristicasService,
   tiposDispositivoService,
 } from "../../../api/activosService";
 import {
@@ -12,6 +13,7 @@ import {
   sedesService,
 } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { EspecificacionesDelTipo } from "../../../components/activos/EspecificacionesDelTipo/EspecificacionesDelTipo";
 import { EspecificacionesEditor } from "../../../components/activos/EspecificacionesEditor/EspecificacionesEditor";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Activos.css";
@@ -43,12 +45,29 @@ export function ActivoForm() {
 
   const [valores, setValores] = useState(VACIO);
   const [tipos, setTipos] = useState([]);
+  // Lo que el tipo elegido declara. Se recarga al cambiar de tipo porque el
+  // formulario tiene que ofrecer lo de ese tipo, no lo del anterior.
+  const [caracteristicas, setCaracteristicas] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [empleados, setEmpleados] = useState([]);
   const [sedes, setSedes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Las características del tipo elegido. Se piden al backend y no se deducen
+  // de lo ya guardado: un equipo puede no tener todavía ninguna, y aun así el
+  // formulario debe pedir las que su tipo declara.
+  useEffect(() => {
+    if (!valores.tipo) {
+      setCaracteristicas([]);
+      return;
+    }
+    caracteristicasService
+      .delTipo(valores.tipo)
+      .then(setCaracteristicas)
+      .catch(() => setCaracteristicas([]));
+  }, [valores.tipo]);
 
   useEffect(() => {
     tiposDispositivoService
@@ -264,14 +283,32 @@ export function ActivoForm() {
 
         <fieldset className="mb-4">
           <legend className="h6 text-uppercase text-muted">
-            Especificaciones del hardware
+            {caracteristicas.length > 0
+              ? "Características del equipo"
+              : "Especificaciones del hardware"}
           </legend>
-          <EspecificacionesEditor
-            valor={valores.especificaciones}
-            onChange={(especificaciones) =>
-              actualizar("especificaciones", especificaciones)
-            }
-          />
+          {/* Con características declaradas se piden esas y no otras; sin
+              ellas, el tipo todavía no se describió y siguen valiendo los pares
+              libres de antes. */}
+          {caracteristicas.length > 0 ? (
+            <EspecificacionesDelTipo
+              caracteristicas={caracteristicas}
+              valor={valores.especificaciones}
+              heredadas={Object.entries(valores.especificaciones || {}).filter(
+                ([nombre]) => !caracteristicas.some((c) => c.nombre === nombre),
+              )}
+              onChange={(especificaciones) =>
+                actualizar("especificaciones", especificaciones)
+              }
+            />
+          ) : (
+            <EspecificacionesEditor
+              valor={valores.especificaciones}
+              onChange={(especificaciones) =>
+                actualizar("especificaciones", especificaciones)
+              }
+            />
+          )}
         </fieldset>
 
         <fieldset className="mb-4">

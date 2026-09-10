@@ -613,3 +613,20 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-EMP-027 | Todo modelo declara cómo se acota | multiempresa.feature | Todo modelo de negocio declara cómo se acota | Sí (pytest: `test_todo_modelo_de_negocio_se_acota_por_empresa`, parametrizado sobre cada modelo) |
 | AC-EMP-028 | La ruta llega hasta la empresa | multiempresa.feature | La ruta declarada llega de verdad hasta la empresa | Sí (pytest: `test_la_ruta_declarada_llega_de_verdad_hasta_la_empresa`) |
 | AC-EMP-029 | La lista de excepciones no envejece | multiempresa.feature | La lista de excepciones no envejece | Sí (pytest: `test_la_lista_de_excepciones_no_envejece`, `test_cada_excepcion_dice_por_que`) |
+
+## Características por tipo de dispositivo (AC-CAR-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-CAR-001 | Cada tipo declara las suyas | ficha-completa-activo.feature | Cada tipo declara lo que se describe de sus equipos | Sí (pytest: `test_cada_tipo_declara_las_suyas`) |
+| AC-CAR-002 | Sin repetidas dentro del tipo | ficha-completa-activo.feature | No se repite una característica dentro del mismo tipo | Sí (pytest: `test_no_se_repite_una_caracteristica_dentro_del_mismo_tipo`) |
+| AC-CAR-003 | El mismo nombre vale en dos tipos | ficha-completa-activo.feature | El mismo nombre vale en dos tipos distintos | Sí (pytest: `test_el_mismo_nombre_si_vale_en_dos_tipos`) |
+| AC-CAR-004 | Cada dato se pide como lo que es | ficha-completa-activo.feature | Cada dato se pide como lo que es | Sí (pytest: `test_el_valor_se_normaliza_al_tipo_declarado`, `test_el_si_o_no_acepta_como_lo_escribe_la_gente`; Vitest: `EspecificacionesDelTipo`) |
+| AC-CAR-005 | Una lista necesita opciones | ficha-completa-activo.feature | Una lista de opciones necesita opciones | Sí (pytest: `test_una_lista_de_opciones_necesita_opciones`) |
+| AC-CAR-006 | Las opciones se limpian | ficha-completa-activo.feature | Las opciones se limpian al guardarlas | Sí (pytest: `test_las_opciones_se_limpian_al_guardarlas`) |
+| AC-CAR-007 | Renombrar arrastra lo guardado | ficha-completa-activo.feature | Renombrar una característica arrastra lo ya guardado | Sí (pytest: `test_renombrarla_arrastra_lo_ya_guardado`) |
+| AC-CAR-008 | Sin características, pares libres | ficha-completa-activo.feature | Un tipo sin características admite pares libres | Sí (pytest: `test_un_tipo_sin_caracteristicas_admite_pares_libres`) |
+| AC-CAR-009 | Lo no declarado se rechaza | ficha-completa-activo.feature | Lo que el tipo no describe se rechaza | Sí (pytest: `test_lo_que_el_tipo_no_describe_se_rechaza`) |
+| AC-CAR-010 | La obligatoria se exige, con el mensaje útil | ficha-completa-activo.feature | Una característica obligatoria se exige | Sí (pytest: `test_la_caracteristica_obligatoria_se_exige`, `test_un_valor_invalido_en_una_obligatoria_dice_qué_tiene_de_malo`) |
+| AC-CAR-011 | Desactivarla no borra lo capturado | ficha-completa-activo.feature | Una característica que se deja de pedir no borra lo capturado | Sí (pytest: `test_una_caracteristica_desactivada_deja_de_pedirse`) |
+| AC-CAR-012 | El equipo antiguo conserva lo suyo | ficha-completa-activo.feature | Un equipo antiguo conserva lo que traía | Sí (pytest: `test_el_equipo_antiguo_conserva_lo_que_ya_tenia`; Vitest: `muestra aparte lo que el equipo traía de antes`) |

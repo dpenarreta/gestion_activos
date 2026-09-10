@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { tiposDispositivoService } from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { CaracteristicasDelTipo } from "../../../components/activos/CaracteristicasDelTipo/CaracteristicasDelTipo";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -281,6 +282,15 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
           Disponible para registrar activos nuevos
         </label>
       </div>
+
+      {/* Solo al editar: una característica cuelga del tipo, así que el tipo
+          tiene que existir antes de poder describirlo. */}
+      {tipo?.id && (
+        <>
+          <h6 className="mt-4 mb-0">Características de este tipo</h6>
+          <CaracteristicasDelTipo tipo={tipo} puedeEditar />
+        </>
+      )}
     </ModalDialog>
   );
 }

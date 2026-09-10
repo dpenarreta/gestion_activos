@@ -20,6 +20,7 @@ from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
 from .barcode import normalizar_escaneo
 from .models import ESTADOS_EN_ALMACEN, Activo, TipoDispositivo
+from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
     ActivosPermission,
     EtiquetasPermission,
@@ -36,6 +37,7 @@ from .serializers import (
     MovimientoActivoSerializer,
     TipoDispositivoSerializer,
 )
+from .serializers_caracteristicas import CaracteristicaTipoSerializer
 from .services import ActivoService
 
 MODULO = "activos"
@@ -56,6 +58,81 @@ FORMATO_POR_DEFECTO = "pdf"
 # no es lo que dice ser.
 MAX_TAMANO_IMPORTACION = 5 * 1024 * 1024
 FORMATOS_SOPORTADOS = {"pdf", *etiquetas_mod.CONSTRUCTORES}
+
+
+class CaracteristicaTipoViewSet(viewsets.ModelViewSet):
+    """Qué se describe de cada tipo de equipo.
+
+    Se administran aparte del tipo y no como una lista anidada dentro de él
+    porque se editan de a una —añadir «Resolución» a las cámaras no debería
+    obligar a reenviar las otras cinco— y porque así el borrado de una tiene su
+    propia respuesta en vez de deducirse de una lista más corta.
+
+    Sí admite `DELETE`: una característica mal creada no deja historial que
+    preservar, y el valor que algún equipo ya tuviera bajo ese nombre se
+    conserva en su JSON. Para dejar de pedirla sin perder lo capturado está
+    `activa = False`, que es lo que se recomienda en el texto del campo.
+    """
+
+    permission_classes = [IsAuthenticated, TiposDispositivoPermission]
+    serializer_class = CaracteristicaTipoSerializer
+    pagination_class = DefaultPagination
+
+    def get_queryset(self):
+        queryset = CaracteristicaTipo.objects.select_related("tipo").order_by(
+            "tipo__nombre", "orden", "nombre"
+        )
+        tipo = self.request.query_params.get("tipo")
+        if tipo and tipo.isdigit():
+            queryset = queryset.filter(tipo_id=int(tipo))
+        activa = self.request.query_params.get("activa")
+        if activa in {"true", "false"}:
+            queryset = queryset.filter(activa=activa == "true")
+        return queryset
+
+    def perform_create(self, serializer):
+        caracteristica = serializer.save()
+        self._auditar("caracteristica_tipo.created", caracteristica, serializer.data)
+
+    def perform_update(self, serializer):
+        anteriores = self.get_serializer(serializer.instance).data
+        caracteristica = serializer.save()
+        cambios = {
+            campo: valor
+            for campo, valor in serializer.data.items()
+            if anteriores.get(campo) != valor
+        }
+        if cambios:
+            self._auditar(
+                "caracteristica_tipo.updated",
+                caracteristica,
+                cambios,
+                previos={campo: anteriores.get(campo) for campo in cambios},
+            )
+
+    def perform_destroy(self, instance):
+        datos = {"tipo": instance.tipo.nombre, "nombre": instance.nombre}
+        record_audit_event(
+            actor=self.request.user,
+            action="caracteristica_tipo.deleted",
+            target_type="caracteristicatipo",
+            target_id=instance.pk,
+            module=MODULO,
+            previous_values=datos,
+            context=get_request_context(self.request),
+        )
+        instance.delete()
+
+    def _auditar(self, accion, caracteristica, nuevos, previos=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=accion,
+            target=caracteristica,
+            module=MODULO,
+            previous_values=previos,
+            new_values=nuevos,
+            context=get_request_context(self.request),
+        )
 
 
 class TipoDispositivoViewSet(viewsets.ModelViewSet):

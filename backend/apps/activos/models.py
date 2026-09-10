@@ -23,6 +23,7 @@ from apps.empresas.models import ModeloDeEmpresa
 
 # Reexportado para que Django lo descubra: la configuración de la plantilla de
 # carga masiva vive en su propio módulo por tamaño, no por ser otra app.
+from .models_caracteristicas import CaracteristicaTipo  # noqa: F401
 from .models_plantilla import ColumnaPlantillaActivos  # noqa: F401
 
 # Antelación con la que una garantía se considera «por vencer». 30 días es el

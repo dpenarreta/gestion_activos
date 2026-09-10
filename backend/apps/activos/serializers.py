@@ -364,6 +364,19 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
                     )
                 }
             )
+
+        # Las especificaciones se comprueban aquí y no en `validate_especificaciones`
+        # porque hace falta el tipo, y en una edición parcial puede venir en el
+        # cuerpo o estar ya guardado.
+        tipo = attrs.get("tipo") or getattr(self.instance, "tipo", None)
+        if tipo is not None and (
+            "especificaciones" in attrs or "tipo" in attrs or self.instance is None
+        ):
+            especificaciones = attrs.get(
+                "especificaciones", getattr(self.instance, "especificaciones", None) or {}
+            )
+            attrs["especificaciones"] = self._validar_contra_el_tipo(tipo, especificaciones)
+
         return attrs
 
     def validate_especificaciones(self, value):
@@ -379,6 +392,72 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
                     f"El valor de {clave!r} debe ser un dato simple, no una estructura anidada."
                 )
         return value
+
+    def _validar_contra_el_tipo(self, tipo, especificaciones):
+        """Comprueba las características que el tipo declara.
+
+        **Solo se exige cuando el tipo declara alguna.** Un tipo sin
+        características sigue admitiendo pares libres, como antes: obligar a
+        configurarlos todos antes de poder registrar un equipo convertiría una
+        mejora en un bloqueo, y la mitad del inventario se cargó cuando esto no
+        existía.
+
+        Las claves que no declara el tipo se rechazan —es lo que impide que
+        vuelva la dispersión de «RAM», «Ram» y «Memoria RAM»— salvo las que el
+        equipo ya tenía guardadas: al describir un tipo por primera vez, sus
+        equipos antiguos arrastran características que nadie declaró, y hacer
+        que su ficha deje de poder guardarse castigaría precisamente a quien
+        cargó el inventario primero.
+        """
+        from django.core.exceptions import ValidationError as ErrorDeModelo
+
+        from .models_caracteristicas import CaracteristicaTipo
+
+        declaradas = list(
+            CaracteristicaTipo.objects.filter(tipo=tipo, activa=True).order_by("orden", "nombre")
+        )
+        if not declaradas:
+            return especificaciones
+
+        por_nombre = {c.nombre: c for c in declaradas}
+        heredadas = set(getattr(self.instance, "especificaciones", None) or {})
+        errores = {}
+        limpias = {}
+
+        for clave, valor in (especificaciones or {}).items():
+            caracteristica = por_nombre.get(clave)
+            if caracteristica is None:
+                if clave in heredadas:
+                    limpias[clave] = valor
+                else:
+                    errores[clave] = (
+                        f"«{tipo.nombre}» no describe «{clave}». Añádala a las "
+                        f"características del tipo si hace falta."
+                    )
+                continue
+            try:
+                normalizado = caracteristica.normalizar(valor)
+            except ErrorDeModelo as error:
+                errores[clave] = error.messages[0]
+                continue
+            if normalizado is not None:
+                limpias[clave] = normalizado
+
+        for caracteristica in declaradas:
+            # Si el valor ya falló por otra razón —una opción que no está en la
+            # lista, un texto donde iba un número— ese mensaje dice qué corregir
+            # y este lo taparía con un genérico «es obligatoria».
+            if caracteristica.nombre in errores:
+                continue
+            if caracteristica.obligatoria and limpias.get(caracteristica.nombre) in (None, ""):
+                errores[caracteristica.nombre] = (
+                    f"«{caracteristica.nombre}» es obligatoria para un equipo de "
+                    f"tipo {tipo.nombre}."
+                )
+
+        if errores:
+            raise serializers.ValidationError({"especificaciones": errores})
+        return limpias
 
 
 class AsignacionSerializer(serializers.Serializer):

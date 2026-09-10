@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 
 const ACTIVOS = "/activos/";
 const TIPOS = "/activos/tipos/";
+const CARACTERISTICAS = "/activos/caracteristicas/";
 
 export const activosService = {
   list(params = {}) {
@@ -195,5 +196,38 @@ export const tiposDispositivoService = {
   },
   update(id, payload) {
     return apiClient.patch(`${TIPOS}${id}/`, payload).then((res) => res.data);
+  },
+};
+
+/**
+ * Qué se describe de cada tipo de equipo.
+ *
+ * Las especificaciones se guardan en un JSON sin columnas nuevas, pero el
+ * formulario ya no ofrece pares libres: ofrece lo que el tipo declara. Es lo
+ * que impide que la misma característica termine escrita como «RAM», «Ram» y
+ * «Memoria RAM» en tres equipos del mismo modelo.
+ */
+export const caracteristicasService = {
+  list(params = {}) {
+    return apiClient.get(CARACTERISTICAS, { params }).then((res) => res.data);
+  },
+  /** Las de un tipo, ya ordenadas y sin las que se dejaron de pedir. */
+  delTipo(tipoId) {
+    return apiClient
+      .get(CARACTERISTICAS, {
+        params: { tipo: tipoId, activa: "true", page_size: 100 },
+      })
+      .then((res) => res.data.results ?? []);
+  },
+  create(payload) {
+    return apiClient.post(CARACTERISTICAS, payload).then((res) => res.data);
+  },
+  update(id, payload) {
+    return apiClient
+      .patch(`${CARACTERISTICAS}${id}/`, payload)
+      .then((res) => res.data);
+  },
+  remove(id) {
+    return apiClient.delete(`${CARACTERISTICAS}${id}/`).then((res) => res.data);
   },
 };

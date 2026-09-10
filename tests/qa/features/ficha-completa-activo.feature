@@ -219,3 +219,85 @@ Feature: Ficha completa del activo (§4.1, §12 y §14 del documento funcional)
   Scenario: La exportación arrastra los campos nuevos
     When se exporta el inventario a Excel
     Then el archivo incluye sede, ubicación, criticidad, uso y fecha de ingreso
+
+  # --- Características por tipo de dispositivo -----------------------------
+
+  @AC-CAR-001
+  Scenario: Cada tipo declara lo que se describe de sus equipos
+    Given un tipo «Laptop» y un tipo «Cámara»
+    When se describe cada uno con sus características
+    Then el formulario de un equipo ofrece las de su tipo y no las del otro
+    # Una laptop tiene procesador, RAM y disco; una cámara, resolución y lente.
+    # Con pares libres nadie recordaba qué había que llenar para una cámara.
+
+  @AC-CAR-002
+  Scenario: No se repite una característica dentro del mismo tipo
+    When se añade «ram» a un tipo que ya describe «RAM»
+    Then el sistema lo rechaza diciendo con cuál choca
+    # Las dos guardarían su valor en el mismo sitio.
+
+  @AC-CAR-003
+  Scenario: El mismo nombre vale en dos tipos distintos
+    When dos tipos declaran «Marca del sensor»
+    Then ambos la conservan
+
+  @AC-CAR-004
+  Scenario: Cada dato se pide como lo que es
+    When una característica se declara como número, lista o sí/no
+    Then el formulario la pide con el control que le corresponde
+    And el valor guardado tiene ese tipo, no texto
+    # Es lo que evita que «8», «8 GB» y «ocho» convivan en el mismo campo.
+
+  @AC-CAR-005
+  Scenario: Una lista de opciones necesita opciones
+    When se declara una característica de lista sin ninguna opción
+    Then el sistema la rechaza
+
+  @AC-CAR-006
+  Scenario: Las opciones se limpian al guardarlas
+    When se escriben con espacios sobrantes o repetidas
+    Then se guardan una sola vez y sin espacios
+    # Se escriben una por línea; sin limpiar, «Windows 11 » sería otra opción.
+
+  @AC-CAR-007
+  Scenario: Renombrar una característica arrastra lo ya guardado
+    Given equipos con un valor guardado bajo «Ram»
+    When se corrige el nombre a «RAM»
+    Then esos equipos conservan su valor bajo el nombre nuevo
+    # Corregir una errata no puede hacer perder el inventario de esa
+    # característica.
+
+  @AC-CAR-008
+  Scenario: Un tipo sin características admite pares libres
+    Given un tipo que todavía no declara ninguna
+    When se registra un equipo con características cualquiera
+    Then el sistema las acepta
+    # La mitad del inventario se cargó cuando esto no existía; obligar a
+    # configurarlo todo antes convertiría una mejora en un bloqueo.
+
+  @AC-CAR-009
+  Scenario: Lo que el tipo no describe se rechaza
+    Given un tipo que declara «RAM»
+    When se registra un equipo con «Memoria RAM»
+    Then el sistema lo rechaza y dice que el tipo no la describe
+    # Es lo que impide que vuelva la dispersión de tres nombres para lo mismo.
+
+  @AC-CAR-010
+  Scenario: Una característica obligatoria se exige
+    When falta una característica declarada como obligatoria
+    Then el equipo no se registra
+    But si el valor está mal escrito, el mensaje dice qué tiene de malo
+    And no lo tapa con un genérico «es obligatoria»
+
+  @AC-CAR-011
+  Scenario: Una característica que se deja de pedir no borra lo capturado
+    When una característica se desactiva
+    Then deja de pedirse en el formulario
+    But los equipos que ya la tenían conservan su valor
+
+  @AC-CAR-012
+  Scenario: Un equipo antiguo conserva lo que traía
+    Given un equipo cargado antes de que su tipo declarara características
+    When se edita su ficha
+    Then sus características anteriores se conservan y se muestran aparte
+    # Rechazarlas castigaría a quien cargó el inventario primero.

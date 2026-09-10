@@ -208,6 +208,19 @@ una a la que no se pertenece no devuelve un error sino **nada**: es una pestaña
 vieja o algo peor, y devolver otra empresa haría creer que se está viendo lo
 pedido. Ver `docs/multiempresa.md`.
 
+### Características por tipo de dispositivo
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/activos/caracteristicas/` | `activos.ver` | Lo que describe cada tipo. Filtra por `tipo` y por `activa` |
+| POST/PATCH/DELETE | `/activos/caracteristicas/` | `activos.editar` | Declarar, corregir o quitar una característica |
+
+Lo que un tipo declara es lo que se pide al registrar un equipo de ese tipo, y
+el valor se guarda en `Activo.especificaciones` con el nombre declarado como
+clave. **Mientras el tipo no declare ninguna, el activo sigue admitiendo pares
+libres**; en cuanto declara una, lo que no esté declarado se rechaza — salvo lo
+que el equipo ya tuviera guardado, que se conserva.
+
 ## Organización
 
 Base: `/api/v1/organizacion/`
