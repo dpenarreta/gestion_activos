@@ -192,6 +192,21 @@ cuando todavía no hay petición ni empresa activa, y se quedan con ese filtro
 políticas. Los primeros usan ahora `RelacionDeEmpresa`, que pide la consulta en
 cada uso; el segundo pasó a `get_queryset()`.
 
+Quedó uno sin ver, y su forma de manifestarse merece contarse: las columnas de
+la plantilla de carga masiva. El módulo se importa cuando se cargan las URLs, y
+eso ocurre en la **primera petición del proceso**. Si esa primera es anónima —el
+sondeo de salud de un balanceador es exactamente eso— el gestor resuelve
+«ninguna empresa» y el endpoint devuelve vacío **hasta que alguien reinicie el
+servidor**. Se descubrió de rebote: doce pruebas fallaban solo si antes se
+ejecutaba una que hiciera una petición sin autenticar, y parecía un problema del
+banco de pruebas. Ahora una prueba estructural recorre todas las vistas
+enrutadas y todos los campos de relación de sus formularios.
+
+Un matiz que costó ver al escribirla: un **gestor** guardado en un campo no es
+lo mismo que una consulta ya construida. DRF le pide `.all()` al validar —dentro
+de la petición—, así que ahí el filtro sí se aplica cuando toca; lo que congela
+es la consulta.
+
 **La caché no sabe de empresas.** El panel y el centro de alertas se cachean
 unos minutos, y con una clave global el resumen que calculó una empresa se le
 habría servido a la siguiente que preguntara. Las claves llevan ahora la empresa
