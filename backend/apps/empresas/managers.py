@@ -37,3 +37,39 @@ class GestorPorEmpresa(models.Manager.from_queryset(ConsultaPorEmpresa)):
     def todas(self):
         """Sin acotar. Para migraciones, respaldos y consultas del sistema."""
         return super().get_queryset()
+
+
+def gestor_de_lo_que_cuelga(ruta: str):
+    """Gestor para lo que pertenece a una empresa **a través de otro modelo**.
+
+    Un mantenimiento no lleva la empresa encima: la hereda del activo que
+    reparó, y un movimiento la hereda del activo que movió. Guardarles una
+    columna propia sería duplicar un dato que ya existe y abrir la puerta a que
+    los dos digan cosas distintas.
+
+    Pero sin filtrar, `Mantenimiento.objects.all()` devuelve los de todas las
+    empresas: la bitácora de una se leería desde la otra. Así que se filtra por
+    la ruta hasta la empresa del padre —`"activo__empresa"`— y se hace en el
+    gestor por defecto, por lo mismo que en los modelos raíz: si hubiera que
+    acordarse en cada consulta, alguna se olvidaría.
+
+    `todas()` sale del ámbito, y se lee al revisar el código.
+    """
+
+    class _Consulta(models.QuerySet):
+        def de_la_empresa_activa(self):
+            empresa = empresa_actual()
+            if empresa is None:
+                return self
+            if empresa is SIN_EMPRESA:
+                return self.none()
+            return self.filter(**{ruta: empresa})
+
+    class _Gestor(models.Manager.from_queryset(_Consulta)):
+        def get_queryset(self):
+            return super().get_queryset().de_la_empresa_activa()
+
+        def todas(self):
+            return super().get_queryset()
+
+    return _Gestor()

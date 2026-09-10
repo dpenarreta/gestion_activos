@@ -18,6 +18,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import gestor_de_lo_que_cuelga
 
 #: Extensiones aceptadas. Lista cerrada, no una lista de prohibidas: lo
 #: segundo obliga a acertar con todo lo que podría ejecutarse en el futuro.
@@ -95,6 +96,9 @@ class Adjunto(BaseModel):
         blank=True,
         related_name="adjuntos_subidos",
     )
+
+    #: La empresa la pone el activo del que es evidencia.
+    objects = gestor_de_lo_que_cuelga("activo__empresa")
 
     class Meta:
         ordering = ["-created_at"]

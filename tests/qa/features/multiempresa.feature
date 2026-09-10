@@ -198,3 +198,12 @@ Feature: Separación de la información por empresa
     Then el sistema le niega la operación y no crea la cuenta
     # Dar de alta a alguien y decidir qué información va a ver son dos poderes
     # distintos.
+
+  @AC-EMP-026
+  Scenario: Lo que cuelga de un activo tampoco cruza empresas
+    Given dos empresas con equipos y mantenimientos registrados
+    When se consulta la bitácora desde una de ellas
+    Then no aparece ninguna intervención de la otra
+    # El mantenimiento no lleva la empresa encima: la hereda del activo que
+    # reparó, y sin filtrar por esa ruta la bitácora de una se leería desde la
+    # otra. Lo mismo vale para movimientos, repuestos consumidos y adjuntos.

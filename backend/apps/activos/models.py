@@ -14,7 +14,11 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
-from apps.empresas.managers import ConsultaPorEmpresa, GestorPorEmpresa
+from apps.empresas.managers import (
+    ConsultaPorEmpresa,
+    GestorPorEmpresa,
+    gestor_de_lo_que_cuelga,
+)
 from apps.empresas.models import ModeloDeEmpresa
 
 # Reexportado para que Django lo descubra: la configuración de la plantilla de
@@ -414,6 +418,10 @@ class MovimientoActivo(BaseModel):
         blank=True,
         related_name="movimientos_registrados",
     )
+
+    #: La empresa la pone el activo movido: el historial de una no se lee
+    #: desde la otra.
+    objects = gestor_de_lo_que_cuelga("activo__empresa")
 
     class Meta:
         ordering = ["-created_at"]

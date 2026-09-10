@@ -150,6 +150,19 @@ un número de serie repetido entre inventarios que nunca se cruzan.
 El **correlativo del código de barras** también es por empresa: el primer equipo
 de la segunda empresa es `GA-LAP-000001` y no el número que dejó la primera.
 
+## Lo que no lleva la empresa encima
+
+Un mantenimiento no tiene columna de empresa: la hereda del activo que reparó, y
+un movimiento del activo que movió. Darles columna propia duplicaría un dato que
+ya existe y abriría la puerta a que los dos digan cosas distintas.
+
+Pero sin filtrar, `Mantenimiento.objects.all()` devuelve los de todas las
+empresas y la bitácora de una se lee desde la otra. Por eso `Mantenimiento`,
+`ComponenteUtilizado`, `MovimientoActivo` y `Adjunto` usan
+`gestor_de_lo_que_cuelga("activo__empresa")`: el mismo principio que los modelos
+raíz —el filtro en el gestor por defecto— pero recorriendo la ruta hasta la
+empresa del padre.
+
 ## Dos trampas que costó encontrar
 
 **Los `queryset` en el cuerpo de una clase se construyen al importar el módulo**,

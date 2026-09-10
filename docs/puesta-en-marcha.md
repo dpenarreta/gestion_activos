@@ -30,6 +30,34 @@ dos, quien no tenga ninguna asignada deja de ver información. Repase los
 usuarios en el mismo momento en que cree la segunda, no después. Ver
 `docs/multiempresa.md`.
 
+## 0 bis. Parque de demostración (retirar antes de producción)
+
+Mientras se revisa el sistema conviene tener datos dentro: una pantalla vacía no
+deja ver si un listado ordena bien, si un filtro combina o si el panel cuenta lo
+que debe.
+
+```bash
+python manage.py sembrar_datos_demo
+```
+
+Siembra en **las dos empresas** —10 equipos, 8 mantenimientos, 6 personas y sus
+catálogos en LaarCourier; 5 equipos y 3 mantenimientos en LaarSeguridad— y crea
+las cuentas con su empresa y su rol. Todo pasa por los servicios de negocio, así
+que los equipos quedan con su código de barras, su movimiento de alta y sus
+contadores de renovación calculados. Volver a correrlo no duplica nada.
+
+**Antes de pasar a producción hay que retirarlo:**
+
+```bash
+python manage.py sembrar_datos_demo --eliminar
+```
+
+Retira equipos, mantenimientos, repuestos consumidos, movimientos, adjuntos,
+empleados y cuentas de demostración. Los catálogos —áreas, sedes, proveedores,
+tipos— solo se van si nadie los usa: si mientras tanto se cargó un equipo real
+en «Tecnología», el área ya dejó de ser de demostración. Las empresas nunca se
+tocan: son configuración.
+
 ## 1. Roles (§13)
 
 ```bash

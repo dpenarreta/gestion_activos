@@ -13,6 +13,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import gestor_de_lo_que_cuelga
 from apps.empresas.models import ModeloDeEmpresa
 
 
@@ -117,6 +118,9 @@ class Mantenimiento(BaseModel):
         related_name="mantenimientos_registrados",
     )
 
+    #: La empresa la pone el activo reparado, no una columna propia.
+    objects = gestor_de_lo_que_cuelga("activo__empresa")
+
     class Meta:
         ordering = ["-fecha_intervencion", "-created_at"]
         verbose_name = "mantenimiento"
@@ -184,6 +188,8 @@ class ComponenteUtilizado(BaseModel):
     # Snapshot deliberado: ver el docstring del módulo.
     era_critico = models.BooleanField(default=False, editable=False)
     observaciones = models.TextField(blank=True)
+
+    objects = gestor_de_lo_que_cuelga("mantenimiento__activo__empresa")
 
     class Meta:
         ordering = ["id"]

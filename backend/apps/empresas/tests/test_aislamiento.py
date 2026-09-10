@@ -309,3 +309,52 @@ def test_el_servicio_de_alta_hereda_la_empresa(courier):
         )
 
     assert activo.empresa == courier
+
+
+# --- Lo que cuelga de un activo --------------------------------------------
+
+
+def _reparar(empresa, activo, responsable):
+    """Una intervención sobre un activo, dentro de su empresa."""
+    from apps.mantenimientos.models import Mantenimiento
+
+    with usando_empresa(empresa):
+        return Mantenimiento.objects.create(
+            activo=activo,
+            tipo=Mantenimiento.Tipo.CORRECTIVO,
+            fecha_intervencion=datetime.date(2026, 1, 15),
+            tipo_responsable=Mantenimiento.TipoResponsable.TECNICO_INTERNO,
+            responsable=responsable,
+            descripcion=f"Cambio de disco en {responsable}",
+        )
+
+
+def test_la_bitacora_de_mantenimientos_no_cruza_empresas(courier, seguridad):
+    """El mantenimiento no lleva empresa encima: la hereda del activo reparado.
+
+    Sin filtrar por esa ruta, `Mantenimiento.objects.all()` devolvería los de
+    todas, y la bitácora de una empresa se leería desde la otra.
+    """
+    _reparar(courier, _sembrar(courier, "Courier"), "Técnico Courier")
+    _reparar(seguridad, _sembrar(seguridad, "Seguridad"), "Técnico Seguridad")
+    usuario = _cuenta("ana", courier, seguridad)
+
+    en_courier = _cliente(usuario, courier).get("/api/v1/mantenimientos/").data
+
+    assert [m["responsable"] for m in en_courier["results"]] == ["Técnico Courier"]
+
+
+def test_el_historial_de_movimientos_no_cruza_empresas(courier, seguridad):
+    from apps.activos.models import MovimientoActivo
+
+    ajeno = _sembrar(seguridad, "Seguridad")
+    with usando_empresa(seguridad):
+        MovimientoActivo.objects.create(
+            activo=ajeno, tipo=MovimientoActivo.Tipo.ALTA, motivo="Alta en Seguridad"
+        )
+
+    with usando_empresa(courier):
+        # El movimiento hereda la empresa del activo movido: desde LaarCourier
+        # no existe, y hay que pedir `todas()` para verlo.
+        assert not MovimientoActivo.objects.filter(activo=ajeno).exists()
+        assert MovimientoActivo.objects.todas().filter(activo=ajeno).exists()
