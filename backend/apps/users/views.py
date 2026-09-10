@@ -1,5 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -7,6 +8,8 @@ from apps.authentication.models import Session
 from apps.authentication.serializers import AdminPasswordResetSerializer, SessionSerializer
 from apps.authentication.services import PasswordResetService
 from apps.core.request_meta import get_request_context
+from apps.empresas.permissions import EmpresasAsignarPermission
+from apps.empresas.servicios import asignar_empresas
 
 from .filters import filter_users
 from .models import User
@@ -18,6 +21,7 @@ from .permissions import (
     UsuariosRestablecerPasswordPermission,
 )
 from .serializers import (
+    EmpresaAssignmentSerializer,
     PermissionAssignmentSerializer,
     RoleAssignmentSerializer,
     UserAdminCreateSerializer,
@@ -41,10 +45,15 @@ class UserAdminViewSet(viewsets.ModelViewSet):
 
     http_method_names = ["get", "post", "patch", "head", "options"]
     pagination_class = UserAdminPagination
-    queryset = User.objects.all().order_by("-created_at")
+    # `membresias__empresa` se precarga porque el listado pinta en qué
+    # empresas trabaja cada cuenta: sin esto son dos consultas por fila.
+    queryset = User.objects.all().prefetch_related("membresias__empresa").order_by("-created_at")
 
     ACTION_PERMISSION_CLASSES = {
         "create": [IsAuthenticated, UsuariosCreatePermission],
+        # Repartir empresas es dar acceso a información, no editar un
+        # perfil: lo gobierna el catálogo de empresas, no el de usuarios.
+        "empresas": [IsAuthenticated, EmpresasAsignarPermission],
         "enable": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "disable": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "block": [IsAuthenticated, UsuariosDeshabilitarPermission],
@@ -168,3 +177,24 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
         )
         return Response(UserAdminDetailSerializer(user).data)
+
+    @action(detail=True, methods=["post"])
+    def empresas(self, request, pk=None):
+        serializer = EmpresaAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = asignar_empresas(
+                actor=request.user,
+                usuario=self.get_object(),
+                empresa_ids=serializer.validated_data["empresa_ids"],
+                predeterminada=serializer.validated_data.get("empresa_predeterminada"),
+                context=get_request_context(request),
+            )
+        except PermissionError as error:
+            raise ValidationError({"empresa_ids": [str(error)]}) from error
+        except ValueError as error:
+            raise ValidationError({"empresa_ids": [str(error)]}) from error
+        # Se relee: el usuario se cargó con las membresías precargadas, así que
+        # el objeto en memoria sigue teniendo las de antes del cambio.
+        actualizado = User.objects.prefetch_related("membresias__empresa").get(pk=user.pk)
+        return Response(UserAdminDetailSerializer(actualizado).data)

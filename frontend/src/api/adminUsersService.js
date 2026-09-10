@@ -11,37 +11,61 @@ export const adminUsersService = {
     return apiClient.post("/admin/users/", payload).then((res) => res.data);
   },
   update(id, payload) {
-    return apiClient.patch(`/admin/users/${id}/`, payload).then((res) => res.data);
+    return apiClient
+      .patch(`/admin/users/${id}/`, payload)
+      .then((res) => res.data);
   },
   enable(id) {
     return apiClient.post(`/admin/users/${id}/enable/`).then((res) => res.data);
   },
   disable(id) {
-    return apiClient.post(`/admin/users/${id}/disable/`).then((res) => res.data);
+    return apiClient
+      .post(`/admin/users/${id}/disable/`)
+      .then((res) => res.data);
   },
   block(id) {
     return apiClient.post(`/admin/users/${id}/block/`).then((res) => res.data);
   },
   unblock(id) {
-    return apiClient.post(`/admin/users/${id}/unblock/`).then((res) => res.data);
+    return apiClient
+      .post(`/admin/users/${id}/unblock/`)
+      .then((res) => res.data);
   },
   sessions(id) {
-    return apiClient.get(`/admin/users/${id}/sessions/`).then((res) => res.data);
+    return apiClient
+      .get(`/admin/users/${id}/sessions/`)
+      .then((res) => res.data);
   },
   revokeSessions(id) {
-    return apiClient.post(`/admin/users/${id}/sessions/revoke/`).then((res) => res.data);
+    return apiClient
+      .post(`/admin/users/${id}/sessions/revoke/`)
+      .then((res) => res.data);
   },
   assignRoles(id, roleIds) {
     return apiClient
       .post(`/admin/users/${id}/roles/`, { role_ids: roleIds })
       .then((res) => res.data);
   },
+  // Reemplaza la lista completa de empresas del usuario: quien revisa accesos
+  // piensa en "esta persona ve estas", no en sumar y restar sobre lo anterior.
+  assignEmpresas(id, empresaIds, empresaPredeterminada = null) {
+    return apiClient
+      .post(`/admin/users/${id}/empresas/`, {
+        empresa_ids: empresaIds,
+        empresa_predeterminada: empresaPredeterminada,
+      })
+      .then((res) => res.data);
+  },
   assignPermissions(id, permissionCodenames) {
     return apiClient
-      .post(`/admin/users/${id}/permissions/`, { permission_codenames: permissionCodenames })
+      .post(`/admin/users/${id}/permissions/`, {
+        permission_codenames: permissionCodenames,
+      })
       .then((res) => res.data);
   },
   resetPassword(id, options) {
-    return apiClient.post(`/admin/users/${id}/password-reset/`, options).then((res) => res.data);
+    return apiClient
+      .post(`/admin/users/${id}/password-reset/`, options)
+      .then((res) => res.data);
   },
 };

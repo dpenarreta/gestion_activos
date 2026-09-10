@@ -149,6 +149,16 @@ export const ADMIN_MENU = [
     ],
   },
   {
+    // Entrada propia y no un hijo de «Usuarios y roles»: ese grupo se filtra
+    // por `usuarios.ver`, y quien administra las empresas del grupo no tiene
+    // por qué administrar cuentas —son dos permisos y dos oficios distintos—.
+    id: "empresas",
+    name: "Empresas",
+    icon: "buildings",
+    path: "/admin/empresas",
+    permission: "empresas.ver",
+  },
+  {
     // Usuarios y roles son un mismo asunto —quién entra y qué puede hacer—,
     // y se consultan juntos: al revisar por qué alguien no ve una pantalla,
     // se salta de su ficha al rol y viceversa. El catálogo de permisos no es

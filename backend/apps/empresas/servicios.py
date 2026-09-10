@@ -59,3 +59,85 @@ def empresa_para(usuario, solicitada):
         return elegida or SIN_EMPRESA
 
     return empresa_predeterminada(usuario) or SIN_EMPRESA
+
+
+AUTOEXCLUSION = (
+    "No es posible quitarse a uno mismo todas las empresas: perdería el acceso "
+    "a la información en cuanto se guardara el cambio."
+)
+
+
+def asignar_empresas(*, actor, usuario, empresa_ids, predeterminada=None, context=None):
+    """Define en qué empresas trabaja una cuenta.
+
+    Reemplaza la lista completa en vez de sumar y restar: quien administra
+    accesos piensa en «esta persona ve estas dos», no en «añade una y quita
+    otra», y una operación incremental deja el estado final dependiendo de cuál
+    era el anterior, que es justo lo que no se quiere al revisar accesos.
+
+    Se prohíbe dejarse a uno mismo sin ninguna. No es paternalismo: con dos
+    empresas o más, la cuenta que se queda sin membresías deja de ver todo y ya
+    no puede ni devolverse el acceso —tendría que pedírselo a otro
+    administrador, o al superusuario si queda alguno—.
+    """
+    from django.db import transaction
+
+    from apps.core.audit import record_audit_event
+
+    empresas = list(Empresa.objects.filter(id__in=empresa_ids))
+    if len(empresas) != len(set(empresa_ids)):
+        faltantes = sorted(set(empresa_ids) - {empresa.id for empresa in empresas})
+        raise ValueError(f"Empresas inexistentes: {faltantes}.")
+
+    if (
+        actor is not None
+        and actor.pk == usuario.pk
+        and not empresas
+        and Empresa.objects.filter(activa=True).count() > 1
+    ):
+        raise PermissionError(AUTOEXCLUSION)
+
+    if predeterminada is not None and predeterminada not in {empresa.id for empresa in empresas}:
+        raise ValueError("La empresa predeterminada tiene que estar entre las asignadas.")
+    if predeterminada is None and empresas:
+        # Sin una elegida se toma la primera por nombre: entrar cada día en una
+        # empresa distinta según cómo ordenara la consulta es peor que entrar
+        # siempre en la misma aunque no sea la que uno habría elegido.
+        predeterminada = min(empresas, key=lambda empresa: empresa.nombre).id
+
+    anteriores = list(MembresiaEmpresa.objects.filter(usuario=usuario).select_related("empresa"))
+
+    with transaction.atomic():
+        MembresiaEmpresa.objects.filter(usuario=usuario).delete()
+        MembresiaEmpresa.objects.bulk_create(
+            [
+                MembresiaEmpresa(
+                    usuario=usuario,
+                    empresa=empresa,
+                    es_predeterminada=empresa.id == predeterminada,
+                )
+                for empresa in empresas
+            ]
+        )
+
+    record_audit_event(
+        actor=actor,
+        action="user.empresas_assigned",
+        target=usuario,
+        module="empresas",
+        previous_values={
+            "empresa_ids": [m.empresa_id for m in anteriores],
+            "empresas": [m.empresa.nombre for m in anteriores],
+        },
+        new_values={
+            "empresa_ids": [empresa.id for empresa in empresas],
+            "empresas": [empresa.nombre for empresa in empresas],
+            "predeterminada": predeterminada,
+        },
+        context=context,
+    )
+    return usuario
+
+
+def membresias_de(usuario):
+    return MembresiaEmpresa.objects.filter(usuario=usuario).select_related("empresa")

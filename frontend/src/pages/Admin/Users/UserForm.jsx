@@ -5,9 +5,16 @@ import { adminUsersService } from "../../../api/adminUsersService";
 import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
+import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import "./UserForm.css";
 
-const EMPTY_FORM = { username: "", email: "", password: "", first_name: "", last_name: "" };
+const EMPTY_FORM = {
+  username: "",
+  email: "",
+  password: "",
+  first_name: "",
+  last_name: "",
+};
 const EMPTY_RESET_OPTIONS = {
   send_link: false,
   force_change_on_next_login: false,
@@ -42,7 +49,7 @@ export function UserForm() {
           password: "",
           first_name: data.first_name,
           last_name: data.last_name,
-        })
+        }),
       )
       .catch(() => setError("No se pudo cargar el usuario."))
       .finally(() => setIsLoading(false));
@@ -58,7 +65,12 @@ export function UserForm() {
     setIsLoading(true);
     try {
       if (isEditing) {
-        const { username, email, first_name: firstName, last_name: lastName } = form;
+        const {
+          username,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+        } = form;
         await adminUsersService.update(id, {
           username,
           email,
@@ -73,7 +85,9 @@ export function UserForm() {
         navigate(`/admin/users/${created.id}`, { replace: true });
       }
     } catch (err) {
-      setError(err.response?.data?.error?.message || "No se pudo guardar el usuario.");
+      setError(
+        err.response?.data?.error?.message || "No se pudo guardar el usuario.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +106,8 @@ export function UserForm() {
       setResetOptions(EMPTY_RESET_OPTIONS);
     } catch (err) {
       setResetError(
-        err.response?.data?.error?.message || "No se pudo ejecutar la acción de restablecimiento."
+        err.response?.data?.error?.message ||
+          "No se pudo ejecutar la acción de restablecimiento.",
       );
     } finally {
       setIsResetting(false);
@@ -183,10 +198,14 @@ export function UserForm() {
         </Button>
       </form>
 
+      {isEditing && <AsignacionEmpresas usuarioId={id} />}
+
       {isEditing && canResetPassword && (
         <div className="col-12 col-md-5 mt-4">
           <h5>Restablecer contraseña</h5>
-          {resetMessage && <div className="alert alert-success">{resetMessage}</div>}
+          {resetMessage && (
+            <div className="alert alert-success">{resetMessage}</div>
+          )}
           {resetError && <div className="alert alert-danger">{resetError}</div>}
           <div className="form-check">
             <input
@@ -208,7 +227,10 @@ export function UserForm() {
               checked={resetOptions.force_change_on_next_login}
               onChange={() => toggleResetOption("force_change_on_next_login")}
             />
-            <label className="form-check-label" htmlFor="force_change_on_next_login">
+            <label
+              className="form-check-label"
+              htmlFor="force_change_on_next_login"
+            >
               Forzar cambio de contraseña en el próximo inicio de sesión
             </label>
           </div>

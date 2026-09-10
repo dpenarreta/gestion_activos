@@ -18,6 +18,8 @@ import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
 import { ImportarActivosPage } from "../pages/Admin/Activos/ImportarActivosPage";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
+import { EmpresaForm } from "../pages/Admin/Empresas/EmpresaForm";
+import { EmpresasList } from "../pages/Admin/Empresas/EmpresasList";
 import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
 import { MantenimientoForm } from "../pages/Admin/Mantenimientos/MantenimientoForm";
 import { MantenimientosList } from "../pages/Admin/Mantenimientos/MantenimientosList";
@@ -44,6 +46,7 @@ const USUARIOS_VER = "usuarios.ver";
 const ROLES_VER = "roles.ver";
 const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
+const EMPRESAS_VER = "empresas.ver";
 const ORGANIZACION_VER = "organizacion.ver";
 const ACTIVOS_VER = "activos.ver";
 const MANTENIMIENTOS_VER = "mantenimientos.ver";
@@ -103,6 +106,31 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={USUARIOS_VER}>
               <UserForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="empresas"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresasList />
+            </RequirePermission>
+          }
+        />
+        {/* Antes que "empresas/:id", o esa ruta capturaría "new" como id. */}
+        <Route
+          path="empresas/new"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresaForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="empresas/:id"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresaForm />
             </RequirePermission>
           }
         />

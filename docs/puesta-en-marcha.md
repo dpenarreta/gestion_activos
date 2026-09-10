@@ -20,10 +20,15 @@ Todo lo que se registra pertenece a una empresa. La migración creó la primera
 con el nombre del sistema y le asignó lo que ya había, así que un despliegue de
 una sola empresa funciona sin tocar nada.
 
-Para atender a varias, cree las demás y asigne a cada cuenta las suyas
-(`MembresiaEmpresa`). **En cuanto exista la segunda, la membresía es
-obligatoria**: mientras hay una sola, todas las cuentas trabajan en ella; con
-dos, quien no tenga membresía no ve nada. Ver `docs/multiempresa.md`.
+Para atender a varias, créelas en **Empresas** (`/admin/empresas`, permiso
+`empresas.editar`) y asigne a cada cuenta las suyas desde la ficha del usuario
+(permiso `empresas.asignar`).
+
+**En cuanto exista la segunda empresa, la asignación es obligatoria**: mientras
+hay una sola, todas las cuentas trabajan en ella sin que nadie marque nada; con
+dos, quien no tenga ninguna asignada deja de ver información. Repase los
+usuarios en el mismo momento en que cree la segunda, no después. Ver
+`docs/multiempresa.md`.
 
 ## 1. Roles (§13)
 

@@ -45,6 +45,20 @@ PERMISSION_CATALOG = {
             "permisos.ver": "Ver el catálogo de permisos y a qué módulo pertenece cada uno",
         },
     },
+    "empresas": {
+        "label": "Empresas",
+        "description": (
+            "Las empresas del grupo y en cuáles trabaja cada cuenta. Quien no "
+            "tiene membresía en una empresa no ve nada de ella, así que asignar "
+            "usuarios es dar acceso a información: por eso es un permiso aparte "
+            "de editar los datos de la empresa."
+        ),
+        "permissions": {
+            "empresas.ver": "Ver las empresas del sistema y en cuáles trabaja cada usuario",
+            "empresas.editar": "Crear y editar empresas",
+            "empresas.asignar": ("Asignar usuarios a empresas y elegir en cuál entran por defecto"),
+        },
+    },
     "configuracion": {
         "label": "Configuración",
         "description": "Identidad institucional y apariencia visual del sistema.",

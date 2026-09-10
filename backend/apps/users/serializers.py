@@ -3,6 +3,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
+from apps.empresas.models import Empresa
+from apps.empresas.serializers import MembresiaSerializer
 from apps.permissions.authorization import get_user_permission_codenames
 from apps.permissions.catalog import all_codenames
 from apps.permissions.models import ModulePermission
@@ -46,6 +48,10 @@ class UserAdminListSerializer(serializers.ModelSerializer):
     """Representación de usuario para el listado administrativo."""
 
     roles = serializers.SerializerMethodField()
+    #: En qué empresas trabaja. Va en el listado y no solo en el detalle
+    #: porque revisar accesos es justamente recorrer la lista buscando a quién
+    #: le sobra una empresa, y abrir ficha por ficha lo vuelve impracticable.
+    empresas = MembresiaSerializer(source="membresias", many=True, read_only=True)
     created_by = _UserRefSerializer(read_only=True)
     updated_by = _UserRefSerializer(read_only=True)
 
@@ -65,6 +71,7 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             "updated_at",
             "last_login",
             "roles",
+            "empresas",
             "created_by",
             "updated_by",
         ]
@@ -168,3 +175,22 @@ class PermissionAssignmentSerializer(serializers.Serializer):
                 content_type=_module_permission_content_type(), codename__in=value
             )
         )
+
+
+class EmpresaAssignmentSerializer(serializers.Serializer):
+    """Reemplaza la lista completa de empresas de un usuario.
+
+    `empresa_predeterminada` es opcional: si no se indica, el servicio toma la
+    primera por nombre. Lo que no se admite es una predeterminada fuera de la
+    lista —sería entrar cada día en una empresa que no se puede ver—.
+    """
+
+    empresa_ids = serializers.ListField(child=serializers.IntegerField())
+    empresa_predeterminada = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_empresa_ids(self, value):
+        encontradas = set(Empresa.objects.filter(id__in=value).values_list("id", flat=True))
+        faltantes = set(value) - encontradas
+        if faltantes:
+            raise serializers.ValidationError(f"Empresas inexistentes: {sorted(faltantes)}.")
+        return list(dict.fromkeys(value))

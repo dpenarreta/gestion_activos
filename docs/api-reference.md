@@ -197,6 +197,10 @@ Base: `/api/v1/empresas/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET | `/empresas/mias/` | autenticado | Las empresas que la cuenta puede ver y en cuál está trabajando |
+| GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas |
+| POST | `/empresas/` | `empresas.editar` | Crear una empresa |
+| GET/PATCH | `/empresas/{id}/` | `empresas.ver` / `empresas.editar` | Ficha de la empresa (sin `DELETE`: se desactiva) |
+| POST | `/admin/users/{id}/empresas/` | `empresas.asignar` | Reemplaza en qué empresas trabaja la cuenta (`empresa_ids`, `empresa_predeterminada`) |
 
 **Toda la API responde dentro de una empresa.** El cliente manda la cabecera
 `X-Empresa` con el id; sin ella se usa la predeterminada de la cuenta. Pedir

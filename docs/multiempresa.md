@@ -63,6 +63,38 @@ Dos reglas:
   dos pasos con la cuenta sin ver nada entre uno y otro. **En cuanto se crea la
   segunda, la membresía pasa a ser obligatoria** y quien no la tenga no ve nada.
 
+## Quién administra y quién reparte
+
+Son dos permisos del catálogo y no uno:
+
+| Permiso | Qué habilita |
+| --- | --- |
+| `empresas.ver` | Ver el listado de empresas y en cuáles trabaja cada usuario |
+| `empresas.editar` | Crear empresas y corregir su ficha |
+| `empresas.asignar` | Cambiar en qué empresas trabaja una cuenta |
+
+Corregir el RUC de una empresa es mantenimiento de una ficha; asignarle un
+usuario es **darle acceso a todo su inventario**. Juntarlos obligaría a
+conceder lo segundo para permitir lo primero, y por eso `empresas.asignar` no
+está incluido en `usuarios.editar`: quien administra cuentas puede corregir un
+apellido sin poder abrirle a nadie la información de otra empresa.
+
+Las empresas se administran en **Empresas** (`/admin/empresas`) y el reparto se
+hace en la ficha de cada usuario, con su propio botón de guardado. La
+asignación **reemplaza la lista completa** en vez de sumar y restar: quien
+revisa accesos piensa en «esta persona ve estas dos», y una operación
+incremental deja el resultado dependiendo de un estado anterior que nadie
+recuerda.
+
+Dos reglas del reparto: la empresa predeterminada tiene que estar entre las
+asignadas —si no, se entraría cada día en una que no se puede ver— y **nadie
+puede quitarse a sí mismo todas las empresas**, porque dejaría de ver todo sin
+poder devolverse el acceso.
+
+Una empresa **no se elimina**: es la dueña de todo lo registrado y las
+relaciones son `PROTECT`, así que borrarla o falla o deja el inventario
+huérfano. Se desactiva, lo que la saca del selector y deja su historial en pie.
+
 ## Lo que cambió de unicidad
 
 Lo que era único en toda la base pasó a serlo **dentro de cada empresa**: dos
@@ -107,3 +139,5 @@ delante.
   es en todas las empresas a las que pertenece. Roles distintos por empresa
   serían otra fase.
 - **La auditoría es global**: registra quién hizo qué, sin acotarse por empresa.
+  Los cambios de empresa sí quedan registrados (`empresa.created`,
+  `empresa.updated`, `user.empresas_assigned`).

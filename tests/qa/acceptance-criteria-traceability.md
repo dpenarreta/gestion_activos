@@ -538,3 +538,25 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-DP-004 | Detalle de auditoría requiere permiso adicional | personal-data-protection.feature | Acceso a auditoría con datos personales requiere permiso adicional | Sí (pytest: `test_detail_diff_hidden_without_ver_detalle_permission`) |
 | AC-DP-005 | Usuario consulta sus propios datos | personal-data-protection.feature | Un usuario puede consultar cuáles son sus propios permisos y datos | Sí (pytest) |
 | AC-DP-006 | Baja lógica conserva historial | personal-data-protection.feature | Deshabilitar una cuenta no elimina físicamente sus datos | Sí (pytest, por diseño: `UserAdminViewSet` sin `destroy`) |
+
+## Separación por empresas (AC-EMP-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-EMP-001 | Una empresa no ve el inventario de otra | multiempresa.feature | Una empresa no ve el inventario de otra | Sí (pytest: `test_aislamiento.py`) |
+| AC-EMP-002 | Los catálogos también están separados | multiempresa.feature | Los catálogos también están separados | Sí (pytest: `test_aislamiento.py`) |
+| AC-EMP-003 | Lo registrado nace en la empresa activa | multiempresa.feature | Lo que se registra nace en la empresa activa | Sí (pytest: `test_aislamiento.py`) |
+| AC-EMP-004 | Pedir una empresa ajena no muestra nada | multiempresa.feature | Pedir una empresa ajena no muestra nada | Sí (pytest: `test_aislamiento.py`) |
+| AC-EMP-005 | Unicidad dentro de cada empresa | multiempresa.feature | Los identificadores únicos lo son dentro de cada empresa | Sí (pytest: `test_aislamiento.py`) |
+| AC-EMP-006 | Ver empresas exige permiso | multiempresa.feature | Ver las empresas exige un permiso del catálogo | Sí (pytest: `test_sin_permiso_no_se_listan_las_empresas`) |
+| AC-EMP-007 | Ver no alcanza para crear | multiempresa.feature | Ver no alcanza para crear | Sí (pytest: `test_ver_no_alcanza_para_crear`) |
+| AC-EMP-008 | El alta queda auditada | multiempresa.feature | El alta de una empresa queda auditada | Sí (pytest: `test_se_crea_la_empresa_y_queda_auditada`) |
+| AC-EMP-009 | La empresa se desactiva, no se elimina | multiempresa.feature | Una empresa no se elimina, se desactiva | Sí (pytest: `test_la_empresa_no_se_puede_eliminar`, `test_desactivar_la_saca_del_selector_sin_borrar_nada`) |
+| AC-EMP-010 | Asignar empresas es un permiso aparte | multiempresa.feature | Asignar empresas no es administrar usuarios | Sí (pytest: `test_administrar_usuarios_no_alcanza_para_asignar_empresas`) |
+| AC-EMP-011 | La asignación reemplaza la lista | multiempresa.feature | La asignación reemplaza la lista completa | Sí (pytest: `test_la_asignacion_reemplaza_la_lista_entera`) |
+| AC-EMP-012 | La predeterminada está entre las asignadas | multiempresa.feature | La empresa predeterminada tiene que estar entre las asignadas | Sí (pytest: `test_la_predeterminada_tiene_que_estar_entre_las_asignadas`) |
+| AC-EMP-013 | Nadie se deja a sí mismo sin empresas | multiempresa.feature | Nadie puede dejarse a sí mismo sin empresas | Sí (pytest: `test_nadie_puede_dejarse_a_si_mismo_sin_empresas`) |
+| AC-EMP-014 | El reparto de accesos queda auditado | multiempresa.feature | El reparto de accesos queda auditado | Sí (pytest: `test_se_asignan_las_dos_empresas_y_queda_auditado`) |
+| AC-EMP-015 | El selector no exige permisos | multiempresa.feature | Saber en qué empresa se está no exige permisos | Sí (pytest: `test_el_selector_no_exige_permisos_del_catalogo`) |
+| AC-EMP-016 | Con una sola empresa no hay desplegable | multiempresa.feature | Con una sola empresa el selector no estorba | Sí (Vitest: `SelectorEmpresa`) |
+| AC-EMP-017 | Membresía obligatoria desde la segunda empresa | multiempresa.feature | Mientras hay una sola empresa la membresía no es obligatoria | Sí (pytest: `test_aislamiento.py`, `test_a_otro_si_se_le_pueden_quitar_todas`) |
