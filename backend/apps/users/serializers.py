@@ -44,6 +44,14 @@ class _UserRefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AsignacionEmpresaSerializer(serializers.Serializer):
+    """Una empresa de la asignación, con los roles que se ejercen en ella."""
+
+    empresa_id = serializers.IntegerField()
+    roles = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    es_predeterminada = serializers.BooleanField(required=False, default=False)
+
+
 class UserAdminListSerializer(serializers.ModelSerializer):
     """Representación de usuario para el listado administrativo."""
 
@@ -111,7 +119,14 @@ class UserAdminCreateSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    #: Roles que valen en todas las empresas. Se conserva para el alta por API;
+    #: la pantalla usa `empresas`, que es lo normal en un despliegue con varias.
     role_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
+    #: A qué empresas entra y con qué rol en cada una, con la misma forma que
+    #: la asignación posterior. Va en el alta porque una cuenta sin empresa ni
+    #: rol no puede hacer nada: obligar a un segundo paso para dejarla usable
+    #: garantiza que alguna se quede a medias.
+    empresas = AsignacionEmpresaSerializer(many=True, required=False)
 
     def validate_username(self, value):
         return validate_unique_username(value)
@@ -175,14 +190,6 @@ class PermissionAssignmentSerializer(serializers.Serializer):
                 content_type=_module_permission_content_type(), codename__in=value
             )
         )
-
-
-class AsignacionEmpresaSerializer(serializers.Serializer):
-    """Una empresa de la asignación, con los roles que se ejercen en ella."""
-
-    empresa_id = serializers.IntegerField()
-    roles = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
-    es_predeterminada = serializers.BooleanField(required=False, default=False)
 
 
 class EmpresaAssignmentSerializer(serializers.Serializer):

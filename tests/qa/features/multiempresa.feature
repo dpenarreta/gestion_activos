@@ -181,3 +181,20 @@ Feature: Separación de la información por empresa
     Then la auditoría registra los nombres del rol y de la empresa
     # Dentro de un año, "desapareció el rol 4 de la empresa 3" no le dice nada
     # a quien revisa.
+
+  @AC-EMP-024
+  Scenario: El alta pregunta con qué empresa y qué rol entra la cuenta
+    Given un administrador que puede crear usuarios y asignar empresas
+    When da de alta una cuenta
+    Then elige su empresa y su rol en el mismo formulario
+    And la cuenta queda usable desde el primer inicio de sesión
+    # Dejarlo para un segundo paso garantiza que alguna se quede a medias el
+    # día que a quien la crea lo interrumpan entre uno y otro.
+
+  @AC-EMP-025
+  Scenario: Crear usuarios no alcanza para darles empresa
+    Given un administrador que puede crear usuarios pero no asignar empresas
+    When intenta dar de alta una cuenta indicando su empresa
+    Then el sistema le niega la operación y no crea la cuenta
+    # Dar de alta a alguien y decidir qué información va a ver son dos poderes
+    # distintos.

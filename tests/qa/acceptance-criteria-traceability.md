@@ -566,3 +566,5 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-EMP-021 | Quitar la empresa se lleva sus roles | multiempresa.feature | Quitar la empresa se lleva sus roles | Sí (pytest: `test_quitar_la_empresa_se_lleva_sus_roles`) |
 | AC-EMP-022 | Empresa sin rol no da acceso | multiempresa.feature | Una empresa asignada sin rol no da acceso a nada | Sí (pytest: `test_un_rol_vale_solo_en_la_empresa_donde_se_dio`; Vitest: `avisa si una empresa queda asignada sin ningún rol`) |
 | AC-EMP-023 | El historial nombra rol y empresa | multiempresa.feature | El historial dice qué rol se quitó y en qué empresa | Sí (pytest: `test_la_auditoria_registra_el_rol_y_la_empresa`) |
+| AC-EMP-024 | El alta pide empresa y rol | multiempresa.feature | El alta pregunta con qué empresa y qué rol entra la cuenta | Sí (pytest: `test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol`; Vitest: `UserFormAlta`) |
+| AC-EMP-025 | Crear no alcanza para dar empresa | multiempresa.feature | Crear usuarios no alcanza para darles empresa | Sí (pytest: `test_crear_usuarios_no_alcanza_para_darles_empresa`; Vitest: `sin el permiso de asignar no se pregunta empresa ni rol`) |

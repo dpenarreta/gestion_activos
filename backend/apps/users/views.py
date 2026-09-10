@@ -1,6 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -10,6 +10,7 @@ from apps.authentication.services import PasswordResetService
 from apps.core.request_meta import get_request_context
 from apps.empresas.permissions import EmpresasAsignarPermission
 from apps.empresas.servicios import asignar_empresas
+from apps.permissions.authorization import user_has_permission
 
 from .filters import filter_users
 from .models import User
@@ -87,9 +88,18 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = UserAdminService.create_user(
-            actor=request.user, context=get_request_context(request), **serializer.validated_data
-        )
+        datos = serializer.validated_data
+        # Crear una cuenta y darle acceso a una empresa son dos poderes
+        # distintos: quien solo tiene el primero puede dar de alta a alguien,
+        # pero no decidir qué información va a ver.
+        if datos.get("empresas") and not user_has_permission(request.user, "empresas.asignar"):
+            raise PermissionDenied("No tiene el permiso requerido: empresas.asignar.")
+        try:
+            user = UserAdminService.create_user(
+                actor=request.user, context=get_request_context(request), **datos
+            )
+        except (PermissionError, ValueError) as error:
+            raise ValidationError({"empresas": [str(error)]}) from error
         return Response(UserAdminDetailSerializer(user).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):

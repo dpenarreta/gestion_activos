@@ -199,3 +199,68 @@ def test_la_auditoria_registra_el_rol_y_la_empresa(courier, seguridad, jefa):
     assert evento.previous_values["empresas"][0]["roles"] == ["Soporte TI"]
     assert evento.previous_values["empresas"][0]["nombre"] == "LaarCourier"
     assert evento.new_values["empresas"][0]["roles"] == []
+
+
+# --- El alta deja la cuenta usable ------------------------------------------
+
+
+def _crear(jefa, nombre, cuerpo):
+    return _cliente(jefa).post(
+        "/api/v1/admin/users/",
+        {
+            "username": nombre,
+            "email": f"{nombre}@example.com",
+            "password": "Sup3r-Secr3t!",
+            **cuerpo,
+        },
+        format="json",
+    )
+
+
+def test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol(courier, seguridad):
+    """Una cuenta sin empresa ni rol no puede hacer nada: se crea usable."""
+    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear", "empresas.ver", "empresas.asignar")
+    soporte = _rol("Soporte TI", "activos.ver")
+
+    respuesta = _crear(
+        jefa,
+        "nueva",
+        {"empresas": [{"empresa_id": courier.id, "roles": [soporte.id], "es_predeterminada": True}]},
+    )
+
+    assert respuesta.status_code == 201
+    creada = User.objects.get(username="nueva")
+    assert [fila["nombre"] for fila in respuesta.data["empresas"]] == ["LaarCourier"]
+    assert _cliente(creada, courier).get("/api/v1/activos/").status_code == 200
+    # Y solo ahí: no se le dio la otra empresa.
+    assert _cliente(creada, seguridad).get("/api/v1/activos/").status_code in {403, 404}
+
+
+def test_crear_usuarios_no_alcanza_para_darles_empresa(courier):
+    """Dar de alta a alguien y decidir qué información ve son dos poderes."""
+    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear")
+
+    respuesta = _crear(jefa, "nueva", {"empresas": [{"empresa_id": courier.id}]})
+
+    assert respuesta.status_code == 403
+    assert not User.objects.filter(username="nueva").exists()
+
+
+def test_el_alta_sin_empresa_sigue_funcionando(courier):
+    """Por API se puede crear la cuenta y repartir el acceso después."""
+    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear")
+
+    respuesta = _crear(jefa, "nueva", {})
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["empresas"] == []
+
+
+def test_un_rol_inexistente_en_el_alta_no_crea_la_cuenta(courier):
+    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear", "empresas.ver", "empresas.asignar")
+
+    respuesta = _crear(
+        jefa, "nueva", {"empresas": [{"empresa_id": courier.id, "roles": [9999]}]}
+    )
+
+    assert respuesta.status_code == 400

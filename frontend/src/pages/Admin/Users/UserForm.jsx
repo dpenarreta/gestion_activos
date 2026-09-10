@@ -5,7 +5,9 @@ import { adminUsersService } from "../../../api/adminUsersService";
 import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
+import { mensajeDeError } from "../../../utils/errores";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
+import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import "./UserForm.css";
 
 const EMPTY_FORM = {
@@ -26,6 +28,10 @@ export function UserForm() {
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
+  const puedeAsignarEmpresas = usePermission("empresas.asignar");
+  // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
+  // la ficha ya está el bloque completo, con todas sus empresas.
+  const [alta, setAlta] = useState({ empresaId: null, rolId: null });
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,13 +87,26 @@ export function UserForm() {
         // Al crear, se pasa a la URL de edición del usuario recién creado
         // (`replace` para que "atrás" no vuelva al formulario de alta ya
         // resuelto) — nunca se sale hacia el listado.
-        const created = await adminUsersService.create(form);
+        const created = await adminUsersService.create({
+          ...form,
+          ...(puedeAsignarEmpresas && alta.empresaId && alta.rolId
+            ? {
+                empresas: [
+                  {
+                    empresa_id: alta.empresaId,
+                    roles: [alta.rolId],
+                    es_predeterminada: true,
+                  },
+                ],
+              }
+            : {}),
+        });
         navigate(`/admin/users/${created.id}`, { replace: true });
       }
     } catch (err) {
-      setError(
-        err.response?.data?.error?.message || "No se pudo guardar el usuario.",
-      );
+      // `mensajeDeError` antepone el detalle de validación al mensaje genérico:
+      // «Roles inexistentes» dice qué corregir, «No se pudo guardar» no.
+      setError(mensajeDeError(err, "No se pudo guardar el usuario."));
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +184,14 @@ export function UserForm() {
               required
             />
           </div>
+        )}
+
+        {!isEditing && puedeAsignarEmpresas && (
+          <SeleccionEmpresaYRol
+            empresaId={alta.empresaId}
+            rolId={alta.rolId}
+            onChange={setAlta}
+          />
         )}
 
         <div className="mb-3">

@@ -37,8 +37,17 @@ class UserAdminService:
         first_name: str = "",
         last_name: str = "",
         role_ids: list[int] | None = None,
+        empresas: list[dict] | None = None,
         context: dict | None = None,
     ) -> User:
+        """Crea la cuenta y, si se indica, la deja ya dentro de sus empresas.
+
+        La empresa y el rol van en el alta y no en un segundo paso porque una
+        cuenta sin ninguna de las dos no puede hacer nada: quien entrara así
+        vería un sistema vacío y llamaría a soporte. Separarlos garantiza que
+        alguna se quede a medias el día que a alguien lo interrumpan entre un
+        paso y el otro.
+        """
         user = AuthenticationService.register_user(
             username=username,
             email=email,
@@ -61,6 +70,14 @@ class UserAdminService:
             new_values={"username": username, "email": email, "role_ids": role_ids or []},
             context=context,
         )
+
+        # Después del alta y con su propio evento de auditoría: son dos hechos
+        # distintos —se creó la cuenta, se le dio acceso a estas empresas— y
+        # quien revise el historial busca cada uno por su lado.
+        if empresas:
+            from apps.empresas.servicios import asignar_empresas
+
+            asignar_empresas(actor=actor, usuario=user, asignaciones=empresas, context=context)
         return user
 
     @staticmethod

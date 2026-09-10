@@ -108,6 +108,14 @@ administrador del grupo tiene que poder entrar a cualquiera, incluidas las que
 se creen mañana; si solo hubiera roles por empresa, quedaría fuera de la
 siguiente que alguien diera de alta.
 
+El **alta de una cuenta** ya pregunta con qué empresa y qué rol entra: una
+cuenta sin ninguna de las dos no puede hacer nada, y quien entrara así vería un
+sistema vacío. Se pide un solo rol —el alta responde a «esta persona entra como
+qué»— y las combinaciones se arman después en la ficha, donde se ve el conjunto.
+Indicar la empresa en el alta exige `empresas.asignar` además de
+`usuarios.crear`: dar de alta a alguien y decidir qué información va a ver son
+dos poderes distintos.
+
 Una empresa asignada **sin ningún rol** aparece en el selector pero no abre
 nada dentro. Es un estado legítimo —dar el acceso hoy y el rol mañana— y la
 pantalla lo advierte antes de guardar, en vez de dejar que se descubra como un
