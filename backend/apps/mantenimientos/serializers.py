@@ -101,9 +101,7 @@ class MantenimientoSerializer(serializers.ModelSerializer):
 class ComponenteLineaSerializer(serializers.Serializer):
     """Una línea del desglose de repuestos al registrar un mantenimiento."""
 
-    componente = RelacionDeEmpresa(
-        CatalogoComponente, {"activo": True}
-    )
+    componente = RelacionDeEmpresa(CatalogoComponente, {"activo": True})
     cantidad = serializers.IntegerField(min_value=1, default=1)
     costo_unitario = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True

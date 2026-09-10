@@ -405,9 +405,9 @@ class ActivoViewSet(viewsets.ModelViewSet):
         cuesta cientos de milisegundos con 10.000 activos, y son cifras que no
         cambian de un segundo a otro (ver `apps.core.cache`).
         """
-        return Response(recordar(
-                clave_por_empresa(CLAVE_CACHE_PANEL), dashboard_mod.construir_indicadores
-            ))
+        return Response(
+            recordar(clave_por_empresa(CLAVE_CACHE_PANEL), dashboard_mod.construir_indicadores)
+        )
 
     @action(
         detail=False,

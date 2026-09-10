@@ -35,7 +35,9 @@ def _fecha(valor) -> datetime.date | None:
 
 
 def _base_activos(reporte: Reporte):
-    queryset = Activo.objects.select_related("tipo", "custodio", "departamento", "sede", "proveedor")
+    queryset = Activo.objects.select_related(
+        "tipo", "custodio", "departamento", "sede", "proveedor"
+    )
     if reporte.solo_operativos:
         queryset = queryset.operativos()
     return queryset

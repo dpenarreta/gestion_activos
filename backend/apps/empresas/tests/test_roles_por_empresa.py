@@ -235,7 +235,11 @@ def test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol(courier, seguri
     respuesta = _crear(
         jefa,
         "nueva",
-        {"empresas": [{"empresa_id": courier.id, "roles": [soporte.id], "es_predeterminada": True}]},
+        {
+            "empresas": [
+                {"empresa_id": courier.id, "roles": [soporte.id], "es_predeterminada": True}
+            ]
+        },
     )
 
     assert respuesta.status_code == 201
@@ -269,8 +273,6 @@ def test_el_alta_sin_empresa_sigue_funcionando(courier):
 def test_un_rol_inexistente_en_el_alta_no_crea_la_cuenta(courier):
     jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear", "empresas.ver", "empresas.asignar")
 
-    respuesta = _crear(
-        jefa, "nueva", {"empresas": [{"empresa_id": courier.id, "roles": [9999]}]}
-    )
+    respuesta = _crear(jefa, "nueva", {"empresas": [{"empresa_id": courier.id, "roles": [9999]}]})
 
     assert respuesta.status_code == 400

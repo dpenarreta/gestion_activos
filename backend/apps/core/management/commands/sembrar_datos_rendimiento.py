@@ -252,9 +252,11 @@ class Command(BaseCommand):
                         responsable="Soporte TI",
                         causa=random.choice(["No enciende", "Lentitud", "Pantalla", "Teclado"]),
                         descripcion="Intervención de prueba de rendimiento.",
-                        estado_final=Mantenimiento.EstadoFinal.REPARADO
-                        if cerrado
-                        else Mantenimiento.EstadoFinal.PENDIENTE,
+                        estado_final=(
+                            Mantenimiento.EstadoFinal.REPARADO
+                            if cerrado
+                            else Mantenimiento.EstadoFinal.PENDIENTE
+                        ),
                         costo_mano_obra=random.randint(10, 200),
                     )
                 )

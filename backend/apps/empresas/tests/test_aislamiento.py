@@ -407,9 +407,7 @@ def test_la_auditoria_no_muestra_lo_de_la_otra_empresa(courier, seguridad):
     # contexto, que es lo que hay que comprobar.
     for empresa, activo in ((seguridad, ajeno), (courier, propio)):
         with usando_empresa(empresa):
-            record_audit_event(
-                actor=None, action="activo.created", target=activo, module="activos"
-            )
+            record_audit_event(actor=None, action="activo.created", target=activo, module="activos")
     usuario = _cuenta("ana", courier, seguridad)
 
     datos = _cliente(usuario, courier).get("/api/v1/admin/audit-logs/").data

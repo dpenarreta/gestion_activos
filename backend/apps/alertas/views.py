@@ -109,9 +109,9 @@ class AlertasView(APIView):
 
     def get(self, request):
         configuracion = ConfiguracionAlertas.cargar()
-        return Response(recordar(
-                clave_por_empresa(CLAVE_CACHE_ALERTAS), lambda: self._resumen(configuracion)
-            ))
+        return Response(
+            recordar(clave_por_empresa(CLAVE_CACHE_ALERTAS), lambda: self._resumen(configuracion))
+        )
 
     @staticmethod
     def _resumen(configuracion) -> dict:
