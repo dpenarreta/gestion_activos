@@ -205,12 +205,14 @@ def test_la_auditoria_registra_el_rol_y_la_empresa(courier, seguridad, jefa):
 
 
 def _crear(jefa, nombre, cuerpo):
+    """El alta no recibe el nombre de usuario: sale del nombre de la persona."""
     return _cliente(jefa).post(
         "/api/v1/admin/users/",
         {
-            "username": nombre,
             "email": f"{nombre}@example.com",
             "password": "Sup3r-Secr3t!",
+            "first_name": "Nueva",
+            "last_name": nombre.capitalize(),
             **cuerpo,
         },
         format="json",
@@ -229,7 +231,7 @@ def test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol(courier, seguri
     )
 
     assert respuesta.status_code == 201
-    creada = User.objects.get(username="nueva")
+    creada = User.objects.get(username="nnueva")
     assert [fila["nombre"] for fila in respuesta.data["empresas"]] == ["LaarCourier"]
     assert _cliente(creada, courier).get("/api/v1/activos/").status_code == 200
     # Y solo ahí: no se le dio la otra empresa.
@@ -243,7 +245,7 @@ def test_crear_usuarios_no_alcanza_para_darles_empresa(courier):
     respuesta = _crear(jefa, "nueva", {"empresas": [{"empresa_id": courier.id}]})
 
     assert respuesta.status_code == 403
-    assert not User.objects.filter(username="nueva").exists()
+    assert not User.objects.filter(email="nueva@example.com").exists()
 
 
 def test_el_alta_sin_empresa_sigue_funcionando(courier):

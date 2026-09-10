@@ -112,13 +112,20 @@ class UserAdminDetailSerializer(UserAdminListSerializer):
 
 class UserAdminCreateSerializer(serializers.Serializer):
     """Valida la creación administrativa de un usuario (sin autenticarlo ni
-    emitir tokens — a diferencia del registro público)."""
+    emitir tokens — a diferencia del registro público).
 
-    username = serializers.CharField(max_length=150)
+    No recibe `username`: se deriva del nombre (ver `apps.users.nomenclatura`).
+    Aceptarlo aquí dejaría entrar por API las cuentas que la pantalla ya no deja
+    crear, y la convención valdría solo mientras nadie usara la API.
+
+    Por eso nombres y apellidos son obligatorios: son de dónde sale el nombre
+    con el que la persona va a entrar.
+    """
+
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
     #: Roles que valen en todas las empresas. Se conserva para el alta por API;
     #: la pantalla usa `empresas`, que es lo normal en un despliegue con varias.
     role_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
@@ -127,9 +134,6 @@ class UserAdminCreateSerializer(serializers.Serializer):
     #: rol no puede hacer nada: obligar a un segundo paso para dejarla usable
     #: garantiza que alguna se quede a medias.
     empresas = AsignacionEmpresaSerializer(many=True, required=False)
-
-    def validate_username(self, value):
-        return validate_unique_username(value)
 
     def validate_email(self, value):
         return validate_unique_email(value)

@@ -497,6 +497,10 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | --- | --- | --- | --- | --- |
 | AC-USR-001 | Acceso sin permiso no persiste cambios | users.feature | Acceso sin permiso no persiste cambios | Sí (pytest) |
 | AC-USR-002 | Búsqueda y paginación | users.feature | Búsqueda y paginación del listado de usuarios | Sí (pytest) |
+| AC-USR-010 | El usuario sale del nombre | users.feature | El nombre de usuario se compone del nombre de la persona | Sí (pytest: `test_la_base_sale_del_nombre_sin_tildes_ni_enies`, `test_admin_creates_user_successfully`) |
+| AC-USR-011 | Sin tildes ni eñes | users.feature | Sin tildes ni eñes | Sí (pytest: `test_la_base_sale_del_nombre_sin_tildes_ni_enies`) |
+| AC-USR-012 | El repetido lleva número | users.feature | El segundo con el mismo nombre lleva número | Sí (pytest: `test_el_segundo_con_el_mismo_nombre_lleva_numero`) |
+| AC-USR-013 | El usuario no se escribe | users.feature | El nombre de usuario no se escribe | Sí (Vitest: `muestra el nombre de usuario que le va a tocar`, `no manda el nombre de usuario`; por diseño en `UserAdminCreateSerializer`, sin campo `username`) |
 
 ## Roles — criterios adicionales (AC-ROL-xxx)
 

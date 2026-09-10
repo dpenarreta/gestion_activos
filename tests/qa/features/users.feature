@@ -86,3 +86,30 @@ Feature: Administración de usuarios
     When el administrador busca por un fragmento de nombre de usuario
     Then el listado devuelto solo contiene coincidencias
     And la paginación indica el total de resultados
+
+  @AC-USR-010
+  Scenario: El nombre de usuario se compone del nombre de la persona
+    When se da de alta a "Diego Peñarreta"
+    Then su nombre de usuario es "dpenarreta"
+    # Escrito a mano conviven «dpenarreta», «d.penarreta», «diegop» y
+    # «DPenarreta»: cuatro formas de nombrar a la misma persona, ninguna
+    # deducible desde la otra.
+
+  @AC-USR-011
+  Scenario: Sin tildes ni eñes
+    When el apellido lleva tildes, eñes o diéresis
+    Then el nombre de usuario las pierde
+    # Es lo que se teclea en la casilla de inicio de sesión.
+
+  @AC-USR-012
+  Scenario: El segundo con el mismo nombre lleva número
+    Given una cuenta llamada "dperez"
+    When se da de alta a otra persona cuyo nombre daría "dperez"
+    Then su nombre de usuario es "dperez2"
+
+  @AC-USR-013
+  Scenario: El nombre de usuario no se escribe
+    When se abre el formulario de alta
+    Then el nombre de usuario aparece calculado y no se puede teclear
+    And la API rechaza un nombre de usuario enviado a mano
+    # Si la API lo aceptara, la convención valdría solo mientras nadie la usara.

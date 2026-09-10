@@ -200,7 +200,7 @@ Base: `/api/v1/empresas/`
 | GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas |
 | POST | `/empresas/` | `empresas.editar` | Crear una empresa |
 | GET/PATCH | `/empresas/{id}/` | `empresas.ver` / `empresas.editar` | Ficha de la empresa (sin `DELETE`: se desactiva) |
-| POST | `/admin/users/` | `usuarios.crear` (+ `empresas.asignar` si lleva `empresas`) | El alta acepta `empresas` con la misma forma, para que la cuenta nazca usable |
+| POST | `/admin/users/` | `usuarios.crear` (+ `empresas.asignar` si lleva `empresas`) | No recibe `username`: se compone de `first_name` y `last_name` (ver `docs/roles-and-permissions.md`). Acepta `empresas` con la misma forma, para que la cuenta nazca usable |
 | POST | `/admin/users/{id}/empresas/` | `empresas.asignar` | Reemplaza en qué empresas trabaja la cuenta y con qué rol en cada una: `{"empresas": [{"empresa_id", "roles": [id], "es_predeterminada"}]}` |
 
 **Toda la API responde dentro de una empresa.** El cliente manda la cabecera

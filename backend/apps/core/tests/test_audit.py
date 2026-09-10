@@ -92,7 +92,12 @@ def test_failed_validation_is_audited_without_sensitive_data(full_audit_client):
 
     response = client.post(
         "/api/v1/admin/users/",
-        {"username": "nuevo", "email": "invalido", "password": "una-contrasena-secreta"},
+        {
+            "email": "invalido",
+            "password": "una-contrasena-secreta",
+            "first_name": "Nueva",
+            "last_name": "Persona",
+        },
         format="json",
     )
     assert response.status_code == 400

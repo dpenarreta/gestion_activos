@@ -53,8 +53,11 @@ function pintar() {
 }
 
 function rellenarDatosMinimos() {
-  fireEvent.change(screen.getByLabelText("Nombre de usuario"), {
-    target: { value: "nueva" },
+  fireEvent.change(screen.getByLabelText("Nombres"), {
+    target: { value: "Nueva" },
+  });
+  fireEvent.change(screen.getByLabelText("Apellidos"), {
+    target: { value: "Peñarreta" },
   });
   fireEvent.change(screen.getByLabelText("Correo"), {
     target: { value: "nueva@example.com" },
@@ -106,7 +109,8 @@ describe("Alta de usuario", () => {
     await waitFor(() =>
       expect(crear).toHaveBeenCalledWith(
         expect.objectContaining({
-          username: "nueva",
+          first_name: "Nueva",
+          last_name: "Peñarreta",
           empresas: [{ empresa_id: 3, roles: [10], es_predeterminada: true }],
         }),
       ),
@@ -133,5 +137,34 @@ describe("Alta de usuario", () => {
     await waitFor(() => expect(crear).toHaveBeenCalled());
     expect(crear.mock.calls[0][0].empresas).toBeUndefined();
     expect(listarEmpresas).not.toHaveBeenCalled();
+  });
+
+  // El nombre de usuario ya no se escribe: sale del nombre de la persona.
+  it("muestra el nombre de usuario que le va a tocar, sin tildes ni eñes", async () => {
+    pintar();
+
+    fireEvent.change(await screen.findByLabelText("Nombres"), {
+      target: { value: "Diego" },
+    });
+    fireEvent.change(screen.getByLabelText("Apellidos"), {
+      target: { value: "Peñarreta" },
+    });
+
+    const usuario = screen.getByLabelText("Nombre de usuario");
+    expect(usuario).toHaveValue("dpenarreta");
+    expect(usuario).toHaveAttribute("readonly");
+  });
+
+  it("no manda el nombre de usuario: lo compone el backend", async () => {
+    pintar();
+
+    fireEvent.change(await screen.findByLabelText("Rol"), {
+      target: { value: "10" },
+    });
+    rellenarDatosMinimos();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].username).toBeUndefined();
   });
 });

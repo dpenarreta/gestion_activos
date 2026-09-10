@@ -6,6 +6,7 @@ import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
+import { baseDeUsername } from "../../../utils/nomenclatura";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import "./UserForm.css";
@@ -33,6 +34,9 @@ export function UserForm() {
   // la ficha ya está el bloque completo, con todas sus empresas.
   const [alta, setAlta] = useState({ empresaId: null, rolId: null });
   const [form, setForm] = useState(EMPTY_FORM);
+  // Con qué nombre entrará: se enseña mientras se escribe, para que no haya
+  // que descubrirlo después de guardar.
+  const usernamePropuesto = baseDeUsername(form.first_name, form.last_name);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resetOptions, setResetOptions] = useState(EMPTY_RESET_OPTIONS);
@@ -87,8 +91,12 @@ export function UserForm() {
         // Al crear, se pasa a la URL de edición del usuario recién creado
         // (`replace` para que "atrás" no vuelva al formulario de alta ya
         // resuelto) — nunca se sale hacia el listado.
+        // Sin `username`: lo compone el backend a partir del nombre.
         const created = await adminUsersService.create({
-          ...form,
+          email: form.email,
+          password: form.password,
+          first_name: form.first_name,
+          last_name: form.last_name,
           ...(puedeAsignarEmpresas && alta.empresaId && alta.rolId
             ? {
                 empresas: [
@@ -141,6 +149,34 @@ export function UserForm() {
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="mb-3">
+          <label className="form-label" htmlFor="first_name">
+            Nombres
+          </label>
+          <input
+            id="first_name"
+            name="first_name"
+            className="form-control"
+            value={form.first_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="last_name">
+            Apellidos
+          </label>
+          <input
+            id="last_name"
+            name="last_name"
+            className="form-control"
+            value={form.last_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
           <label className="form-label" htmlFor="username">
             Nombre de usuario
           </label>
@@ -148,10 +184,15 @@ export function UserForm() {
             id="username"
             name="username"
             className="form-control"
-            value={form.username}
-            onChange={handleChange}
-            required
+            value={isEditing ? form.username : usernamePropuesto}
+            readOnly
+            aria-describedby="username-ayuda"
           />
+          <div className="form-text" id="username-ayuda">
+            {isEditing
+              ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
+              : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."}
+          </div>
         </div>
 
         <div className="mb-3">
@@ -193,32 +234,6 @@ export function UserForm() {
             onChange={setAlta}
           />
         )}
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="first_name">
-            Nombres
-          </label>
-          <input
-            id="first_name"
-            name="first_name"
-            className="form-control"
-            value={form.first_name}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="last_name">
-            Apellidos
-          </label>
-          <input
-            id="last_name"
-            name="last_name"
-            className="form-control"
-            value={form.last_name}
-            onChange={handleChange}
-          />
-        </div>
 
         <Button type="submit" isLoading={isLoading}>
           Guardar

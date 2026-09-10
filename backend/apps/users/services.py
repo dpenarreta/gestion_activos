@@ -11,6 +11,7 @@ from apps.authentication.services import AuthenticationService, SessionService
 from apps.core.audit import record_audit_event
 
 from .models import User
+from .nomenclatura import generar_username
 
 # AC-038: el sistema nunca debe quedar sin al menos un administrador activo
 # (definido como `is_superuser=True` — el único bypass real de autorización,
@@ -31,7 +32,6 @@ class UserAdminService:
     def create_user(
         *,
         actor: User,
-        username: str,
         email: str,
         password: str,
         first_name: str = "",
@@ -47,7 +47,11 @@ class UserAdminService:
         vería un sistema vacío y llamaría a soporte. Separarlos garantiza que
         alguna se quede a medias el día que a alguien lo interrumpan entre un
         paso y el otro.
+
+        El nombre de usuario no se recibe: se deriva del nombre de la persona
+        (ver `apps.users.nomenclatura`).
         """
+        username = generar_username(first_name, last_name)
         user = AuthenticationService.register_user(
             username=username,
             email=email,
