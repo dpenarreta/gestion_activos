@@ -46,14 +46,13 @@ export const adminUsersService = {
       .post(`/admin/users/${id}/roles/`, { role_ids: roleIds })
       .then((res) => res.data);
   },
-  // Reemplaza la lista completa de empresas del usuario: quien revisa accesos
-  // piensa en "esta persona ve estas", no en sumar y restar sobre lo anterior.
-  assignEmpresas(id, empresaIds, empresaPredeterminada = null) {
+  // Reemplaza de una vez las empresas del usuario y sus roles en cada una:
+  // quien revisa accesos piensa en "esta persona ve estas y hace esto en cada
+  // una", no en sumar y restar sobre un estado anterior que ya no recuerda.
+  // `empresas`: [{ empresa_id, roles: [id], es_predeterminada }].
+  assignEmpresas(id, empresas) {
     return apiClient
-      .post(`/admin/users/${id}/empresas/`, {
-        empresa_ids: empresaIds,
-        empresa_predeterminada: empresaPredeterminada,
-      })
+      .post(`/admin/users/${id}/empresas/`, { empresas })
       .then((res) => res.data);
   },
   assignPermissions(id, permissionCodenames) {

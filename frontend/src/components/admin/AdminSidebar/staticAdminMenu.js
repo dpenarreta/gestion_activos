@@ -149,16 +149,6 @@ export const ADMIN_MENU = [
     ],
   },
   {
-    // Entrada propia y no un hijo de «Usuarios y roles»: ese grupo se filtra
-    // por `usuarios.ver`, y quien administra las empresas del grupo no tiene
-    // por qué administrar cuentas —son dos permisos y dos oficios distintos—.
-    id: "empresas",
-    name: "Empresas",
-    icon: "buildings",
-    path: "/admin/empresas",
-    permission: "empresas.ver",
-  },
-  {
     // Usuarios y roles son un mismo asunto —quién entra y qué puede hacer—,
     // y se consultan juntos: al revisar por qué alguien no ve una pantalla,
     // se salta de su ficha al rol y viceversa. El catálogo de permisos no es
@@ -190,6 +180,15 @@ export const ADMIN_MENU = [
     permission: "configuracion.ver",
     children: [
       {
+        // Primero de la lista: es lo que hay que crear antes que nada en un
+        // despliegue nuevo, porque todo lo demás cuelga de una empresa.
+        id: "configuracion-empresas",
+        name: "Empresas",
+        icon: "buildings",
+        path: "/admin/empresas",
+        permission: "empresas.ver",
+      },
+      {
         id: "configuracion-identidad",
         name: "Identidad",
         icon: "image",
@@ -211,12 +210,29 @@ export const ADMIN_MENU = [
   },
 ];
 
+function esVisible(permission, permissions) {
+  return !permission || permissions.includes(permission);
+}
+
+/**
+ * Un hijo sin `permission` propio hereda el del grupo —así funcionaban todas
+ * las entradas hasta ahora—, y el que lo declara se filtra por el suyo. El
+ * grupo se muestra si le queda algún hijo visible: «Configuración» tiene que
+ * aparecer para quien solo administra empresas, aunque no pueda tocar la
+ * identidad institucional.
+ */
 function filterByPermission(items, permissions) {
   return items
-    .filter((item) => !item.permission || permissions.includes(item.permission))
-    .map((item) =>
-      item.children ? { ...item, children: item.children } : item,
-    );
+    .map((item) => {
+      if (!item.children) {
+        return esVisible(item.permission, permissions) ? item : null;
+      }
+      const children = item.children.filter((child) =>
+        esVisible(child.permission ?? item.permission, permissions),
+      );
+      return children.length > 0 ? { ...item, children } : null;
+    })
+    .filter(Boolean);
 }
 
 /** Filtra el árbol completo por los permisos del usuario autenticado. */

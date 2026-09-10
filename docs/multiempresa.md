@@ -91,6 +91,32 @@ asignadas —si no, se entraría cada día en una que no se puede ver— y **nad
 puede quitarse a sí mismo todas las empresas**, porque dejaría de ver todo sin
 poder devolverse el acceso.
 
+### Los roles son por empresa
+
+La misma persona no hace lo mismo en todas: administra el inventario de
+LaarCourier y solo consulta el de LaarSeguridad. Por eso los roles cuelgan de la
+**membresía** y no del usuario. Con roles en el usuario, darle acceso a una
+segunda empresa le entregaría de paso todos los permisos que tenía en la
+primera, que es el error que nadie detecta hasta que alguien da de baja un
+equipo que no era suyo.
+
+Los permisos efectivos de una petición son la unión de tres cosas: los
+asignados directamente a la cuenta, los de sus **roles globales**
+(`user.groups`, que valen en cualquier empresa) y los de los roles de la
+membresía **en la empresa activa**. Los globales existen porque el
+administrador del grupo tiene que poder entrar a cualquiera, incluidas las que
+se creen mañana; si solo hubiera roles por empresa, quedaría fuera de la
+siguiente que alguien diera de alta.
+
+Una empresa asignada **sin ningún rol** aparece en el selector pero no abre
+nada dentro. Es un estado legítimo —dar el acceso hoy y el rol mañana— y la
+pantalla lo advierte antes de guardar, en vez de dejar que se descubra como un
+error de permisos.
+
+Quitarle a alguien una empresa se lleva sus roles allí: un rol huérfano
+volvería a valer en cuanto alguien le devolviera el acceso, sin que nadie lo
+hubiera decidido.
+
 Una empresa **no se elimina**: es la dueña de todo lo registrado y las
 relaciones son `PROTECT`, así que borrarla o falla o deja el inventario
 huérfano. Se desactiva, lo que la saca del selector y deja su historial en pie.
@@ -132,12 +158,16 @@ delante.
 
 ## Qué falta por decidir
 
+- **Las cuentas son globales**: el usuario existe una vez para todo el
+  despliegue, y lo que cambia por empresa es a cuáles entra y con qué rol. Un
+  mismo nombre de usuario no puede pertenecer a dos personas distintas en dos
+  empresas.
+- **El catálogo de roles es global**: «Soporte TI» es un único rol con unos
+  permisos, y lo que se decide por empresa es a quién se le da. Roles con
+  distinto contenido según la empresa serían otra fase.
 - **La identidad visual es global**: el logo, el nombre y los colores son los
   mismos para todas. Si cada empresa debe tener el suyo, el tema pasa a ser por
   empresa.
-- **Los usuarios y los roles son globales**: una cuenta con rol «Soporte TI» lo
-  es en todas las empresas a las que pertenece. Roles distintos por empresa
-  serían otra fase.
 - **La auditoría es global**: registra quién hizo qué, sin acotarse por empresa.
   Los cambios de empresa sí quedan registrados (`empresa.created`,
   `empresa.updated`, `user.empresas_assigned`).

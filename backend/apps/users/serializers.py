@@ -177,20 +177,33 @@ class PermissionAssignmentSerializer(serializers.Serializer):
         )
 
 
-class EmpresaAssignmentSerializer(serializers.Serializer):
-    """Reemplaza la lista completa de empresas de un usuario.
+class AsignacionEmpresaSerializer(serializers.Serializer):
+    """Una empresa de la asignación, con los roles que se ejercen en ella."""
 
-    `empresa_predeterminada` es opcional: si no se indica, el servicio toma la
-    primera por nombre. Lo que no se admite es una predeterminada fuera de la
-    lista —sería entrar cada día en una empresa que no se puede ver—.
+    empresa_id = serializers.IntegerField()
+    roles = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    es_predeterminada = serializers.BooleanField(required=False, default=False)
+
+
+class EmpresaAssignmentSerializer(serializers.Serializer):
+    """Reemplaza de una vez las empresas de un usuario y sus roles en cada una.
+
+    Van juntas porque son una sola decisión: dar acceso a una empresa sin decir
+    a qué, o decir a qué sin dar el acceso, son estados a medias que alguien
+    tendría que acordarse de completar.
+
+    `es_predeterminada` es opcional: si nadie la marca, el servicio toma la
+    primera por nombre. Lo que no se admite es marcar dos.
     """
 
-    empresa_ids = serializers.ListField(child=serializers.IntegerField())
-    empresa_predeterminada = serializers.IntegerField(required=False, allow_null=True)
+    empresas = AsignacionEmpresaSerializer(many=True)
 
-    def validate_empresa_ids(self, value):
-        encontradas = set(Empresa.objects.filter(id__in=value).values_list("id", flat=True))
-        faltantes = set(value) - encontradas
+    def validate_empresas(self, value):
+        identificadores = [entrada["empresa_id"] for entrada in value]
+        encontradas = set(
+            Empresa.objects.filter(id__in=identificadores).values_list("id", flat=True)
+        )
+        faltantes = set(identificadores) - encontradas
         if faltantes:
             raise serializers.ValidationError(f"Empresas inexistentes: {sorted(faltantes)}.")
-        return list(dict.fromkeys(value))
+        return value

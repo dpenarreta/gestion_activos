@@ -1,15 +1,57 @@
 """Resolución de permisos efectivos de un usuario contra el catálogo."""
 
 
+def _permisos_de_la_empresa_activa(user) -> set[str]:
+    """Los que la cuenta tiene por los roles que ejerce **en esta empresa**.
+
+    La misma persona no hace lo mismo en todas: administra el inventario de una
+    y solo consulta el de otra. Por eso los roles cuelgan de la membresía, y
+    resolverlos exige saber en qué empresa se está trabajando ahora mismo.
+
+    Fuera de una petición no hay empresa activa y esto no aporta nada: un
+    comando o una migración trabajan sobre el sistema entero y no pasan por
+    aquí. La importación es local para no acoplar el arranque de este módulo
+    —que es el núcleo de autorización— al de la app de empresas.
+    """
+    from django.contrib.auth.models import Permission
+
+    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+    empresa = empresa_actual()
+    if empresa is None or empresa is SIN_EMPRESA:
+        return set()
+
+    # Se memoriza en el objeto en memoria, no en caché compartida: cada
+    # petición autenticada construye un `User` nuevo (ver
+    # `apps.authentication.authentication.SessionAuthentication.get_user`), así
+    # que quitar un rol surte efecto en la siguiente petición, pero dentro de
+    # una misma no se repite la consulta por cada permiso que se comprueba.
+    memoria = getattr(user, "_permisos_por_empresa", None)
+    if memoria is None:
+        memoria = user._permisos_por_empresa = {}
+    if empresa.pk not in memoria:
+        memoria[empresa.pk] = set(
+            Permission.objects.filter(
+                group__membresias__usuario=user, group__membresias__empresa=empresa
+            ).values_list("codename", flat=True)
+        )
+    return memoria[empresa.pk]
+
+
 def get_user_permission_codenames(user) -> set[str]:
     """Codenames (`"usuarios.ver"`, sin prefijo de app) que el usuario tiene,
-    vía grupos (roles) o asignación directa. Este código no cachea nada
-    propio: `user.get_all_permissions()` sí cachea en el atributo
-    `_perm_cache` del objeto `User` en memoria, pero cada request
-    autenticado obtiene una instancia nueva (ver
+    vía roles —globales o de la empresa activa— o asignación directa. Este
+    código no cachea nada propio más allá del objeto en memoria:
+    `user.get_all_permissions()` cachea en el atributo `_perm_cache` del
+    `User`, pero cada request autenticado obtiene una instancia nueva (ver
     `apps.authentication.authentication.SessionAuthentication.get_user`),
     así que revocar un permiso surte efecto en la siguiente petición, sin
     requerir relogin.
+
+    Los roles del usuario (`user.groups`) valen en todas las empresas y los de
+    la membresía solo en la suya. Los dos suman: el administrador del grupo
+    necesita entrar a cualquiera, y quien solo trabaja en una no debería
+    arrastrar a la siguiente los permisos que tenía en la primera.
 
     No hace ningún bypass propio para `is_superuser` — pero Django's
     `ModelBackend` sí lo hace de forma transparente (`get_all_permissions()`
@@ -18,7 +60,8 @@ def get_user_permission_codenames(user) -> set[str]:
     igual, sin que este módulo tenga que duplicar esa lógica."""
     if user is None or not user.is_authenticated:
         return set()
-    return {perm.partition(".")[2] for perm in user.get_all_permissions()}
+    globales = {perm.partition(".")[2] for perm in user.get_all_permissions()}
+    return globales | _permisos_de_la_empresa_activa(user)
 
 
 def user_has_permission(user, codename: str) -> bool:

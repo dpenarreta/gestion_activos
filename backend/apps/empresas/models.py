@@ -59,6 +59,24 @@ class MembresiaEmpresa(BaseModel):
     #: La que se abre al entrar. Sin esto, quien pertenece a tres empresas
     #: empezaría cada día en una distinta según cómo ordenara la consulta.
     es_predeterminada = models.BooleanField(default=False)
+    #: Lo que la cuenta puede hacer **en esta empresa**.
+    #:
+    #: Cuelgan de la membresía y no del usuario porque la misma persona no
+    #: hace lo mismo en todas: quien administra el inventario de LaarCourier
+    #: puede ser solo consulta en LaarSeguridad. Con roles en el usuario, darle
+    #: acceso a la segunda empresa le entregaría de paso todos los permisos que
+    #: tenía en la primera, que es exactamente el error que nadie detecta hasta
+    #: que alguien da de baja un equipo que no era suyo.
+    #:
+    #: Los roles globales del usuario (`user.groups`) siguen valiendo en todas
+    #: las empresas: son los del administrador del grupo, que tiene que poder
+    #: entrar a cualquiera.
+    roles = models.ManyToManyField(
+        "auth.Group",
+        blank=True,
+        related_name="membresias",
+        verbose_name="roles en esta empresa",
+    )
 
     class Meta:
         ordering = ["empresa__nombre"]

@@ -100,7 +100,11 @@ export function UsersList() {
               <th>Usuario</th>
               <th>Correo</th>
               <th>Estado</th>
-              <th>Roles</th>
+              <th>Empresas</th>
+              {/* «Globales» porque los de cada empresa ya van en la columna
+                  anterior: sin el adjetivo, un guion aquí se lee como que la
+                  cuenta no tiene ningún rol en ninguna parte. */}
+              <th>Roles globales</th>
               <th>Creado</th>
               <th>Acciones</th>
             </tr>
@@ -121,6 +125,28 @@ export function UsersList() {
                   >
                     {STATUS_LABELS[user.status] || user.status}
                   </span>
+                </td>
+                <td>
+                  {/* A qué organización pertenece y qué hace en cada una: es
+                      la primera pregunta al revisar por qué alguien no ve una
+                      pantalla, y abrir ficha por ficha la vuelve impracticable. */}
+                  {(user.empresas ?? []).length === 0 && (
+                    <span className="text-muted">—</span>
+                  )}
+                  {(user.empresas ?? []).map((empresa) => (
+                    <div key={empresa.id} className="users-list-empresa">
+                      <span className="fw-semibold">{empresa.nombre}</span>
+                      {empresa.es_predeterminada && (
+                        <span className="badge text-bg-light ms-1">
+                          Predeterminada
+                        </span>
+                      )}
+                      <div className="text-muted">
+                        {empresa.roles.map((rol) => rol.name).join(", ") ||
+                          "Sin rol"}
+                      </div>
+                    </div>
+                  ))}
                 </td>
                 <td>{user.roles.map((role) => role.name).join(", ") || "—"}</td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
@@ -155,7 +181,7 @@ export function UsersList() {
             ))}
             {!isLoading && users.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center text-muted">
+                <td colSpan={7} className="text-center text-muted">
                   Sin resultados
                 </td>
               </tr>

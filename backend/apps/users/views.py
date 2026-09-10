@@ -47,7 +47,11 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     pagination_class = UserAdminPagination
     # `membresias__empresa` se precarga porque el listado pinta en qué
     # empresas trabaja cada cuenta: sin esto son dos consultas por fila.
-    queryset = User.objects.all().prefetch_related("membresias__empresa").order_by("-created_at")
+    queryset = (
+        User.objects.all()
+        .prefetch_related("membresias__empresa", "membresias__roles")
+        .order_by("-created_at")
+    )
 
     ACTION_PERMISSION_CLASSES = {
         "create": [IsAuthenticated, UsuariosCreatePermission],
@@ -186,15 +190,16 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             user = asignar_empresas(
                 actor=request.user,
                 usuario=self.get_object(),
-                empresa_ids=serializer.validated_data["empresa_ids"],
-                predeterminada=serializer.validated_data.get("empresa_predeterminada"),
+                asignaciones=serializer.validated_data["empresas"],
                 context=get_request_context(request),
             )
         except PermissionError as error:
-            raise ValidationError({"empresa_ids": [str(error)]}) from error
+            raise ValidationError({"empresas": [str(error)]}) from error
         except ValueError as error:
-            raise ValidationError({"empresa_ids": [str(error)]}) from error
+            raise ValidationError({"empresas": [str(error)]}) from error
         # Se relee: el usuario se cargó con las membresías precargadas, así que
         # el objeto en memoria sigue teniendo las de antes del cambio.
-        actualizado = User.objects.prefetch_related("membresias__empresa").get(pk=user.pk)
+        actualizado = User.objects.prefetch_related("membresias__empresa", "membresias__roles").get(
+            pk=user.pk
+        )
         return Response(UserAdminDetailSerializer(actualizado).data)

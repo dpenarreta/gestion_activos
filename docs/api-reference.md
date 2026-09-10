@@ -200,7 +200,7 @@ Base: `/api/v1/empresas/`
 | GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas |
 | POST | `/empresas/` | `empresas.editar` | Crear una empresa |
 | GET/PATCH | `/empresas/{id}/` | `empresas.ver` / `empresas.editar` | Ficha de la empresa (sin `DELETE`: se desactiva) |
-| POST | `/admin/users/{id}/empresas/` | `empresas.asignar` | Reemplaza en qué empresas trabaja la cuenta (`empresa_ids`, `empresa_predeterminada`) |
+| POST | `/admin/users/{id}/empresas/` | `empresas.asignar` | Reemplaza en qué empresas trabaja la cuenta y con qué rol en cada una: `{"empresas": [{"empresa_id", "roles": [id], "es_predeterminada"}]}` |
 
 **Toda la API responde dentro de una empresa.** El cliente manda la cabecera
 `X-Empresa` con el id; sin ella se usa la predeterminada de la cuenta. Pedir

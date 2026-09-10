@@ -129,7 +129,7 @@ def test_administrar_usuarios_no_alcanza_para_asignar_empresas(courier, segurida
 
     respuesta = _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [courier.id, seguridad.id]},
+        {"empresas": [{"empresa_id": courier.id}, {"empresa_id": seguridad.id}]},
         format="json",
     )
 
@@ -143,7 +143,12 @@ def test_se_asignan_las_dos_empresas_y_queda_auditado(courier, seguridad):
 
     respuesta = _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [courier.id, seguridad.id], "empresa_predeterminada": seguridad.id},
+        {
+            "empresas": [
+                {"empresa_id": courier.id},
+                {"empresa_id": seguridad.id, "es_predeterminada": True},
+            ]
+        },
         format="json",
     )
 
@@ -165,7 +170,7 @@ def test_la_asignacion_reemplaza_la_lista_entera(courier, seguridad):
 
     _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [courier.id]},
+        {"empresas": [{"empresa_id": courier.id}]},
         format="json",
     )
 
@@ -180,20 +185,40 @@ def test_sin_predeterminada_se_toma_la_primera_por_nombre(courier, seguridad):
 
     _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [seguridad.id, courier.id]},
+        {"empresas": [{"empresa_id": seguridad.id}, {"empresa_id": courier.id}]},
         format="json",
     )
 
     assert MembresiaEmpresa.objects.get(usuario=otra, es_predeterminada=True).empresa == courier
 
 
-def test_la_predeterminada_tiene_que_estar_entre_las_asignadas(courier, seguridad):
+def test_solo_una_empresa_puede_ser_la_predeterminada(courier, seguridad):
+    """Es la que se abre al entrar: con dos marcadas no hay cuál elegir."""
     jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [courier.id], "empresa_predeterminada": seguridad.id},
+        {
+            "empresas": [
+                {"empresa_id": courier.id, "es_predeterminada": True},
+                {"empresa_id": seguridad.id, "es_predeterminada": True},
+            ]
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert not MembresiaEmpresa.objects.filter(usuario=otra).exists()
+
+
+def test_una_empresa_repetida_en_la_asignacion_se_rechaza(courier):
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    otra = _cuenta("otra")
+
+    respuesta = _cliente(jefa).post(
+        f"/api/v1/admin/users/{otra.id}/empresas/",
+        {"empresas": [{"empresa_id": courier.id}, {"empresa_id": courier.id}]},
         format="json",
     )
 
@@ -207,7 +232,7 @@ def test_una_empresa_inexistente_no_asigna_nada(courier):
 
     respuesta = _cliente(jefa).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
-        {"empresa_ids": [courier.id, 9999]},
+        {"empresas": [{"empresa_id": courier.id}, {"empresa_id": 9999}]},
         format="json",
     )
 
@@ -221,7 +246,7 @@ def test_nadie_puede_dejarse_a_si_mismo_sin_empresas(courier, seguridad):
     MembresiaEmpresa.objects.create(usuario=jefa, empresa=courier, es_predeterminada=True)
 
     respuesta = _cliente(jefa).post(
-        f"/api/v1/admin/users/{jefa.id}/empresas/", {"empresa_ids": []}, format="json"
+        f"/api/v1/admin/users/{jefa.id}/empresas/", {"empresas": []}, format="json"
     )
 
     assert respuesta.status_code == 400
@@ -234,7 +259,7 @@ def test_a_otro_si_se_le_pueden_quitar_todas(courier, seguridad):
     MembresiaEmpresa.objects.create(usuario=otra, empresa=courier, es_predeterminada=True)
 
     respuesta = _cliente(jefa).post(
-        f"/api/v1/admin/users/{otra.id}/empresas/", {"empresa_ids": []}, format="json"
+        f"/api/v1/admin/users/{otra.id}/empresas/", {"empresas": []}, format="json"
     )
 
     assert respuesta.status_code == 200

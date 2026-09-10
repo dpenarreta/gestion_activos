@@ -26,9 +26,17 @@
 
 /* Bloque de asignación dentro de la ficha del usuario. */
 .empresas-asignacion {
-  max-width: 40rem;
+  max-width: 60rem;
 }
 
 .empresas-asignacion .form-check {
   padding-block: 0.15rem;
+}
+
+/* Los roles de una empresa se leen como un bloque, no como una frase larga:
+   con cinco o seis, en línea, dejan de distinguirse unos de otros. */
+.empresas-asignacion__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
 }

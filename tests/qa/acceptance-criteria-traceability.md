@@ -554,9 +554,15 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-EMP-009 | La empresa se desactiva, no se elimina | multiempresa.feature | Una empresa no se elimina, se desactiva | Sí (pytest: `test_la_empresa_no_se_puede_eliminar`, `test_desactivar_la_saca_del_selector_sin_borrar_nada`) |
 | AC-EMP-010 | Asignar empresas es un permiso aparte | multiempresa.feature | Asignar empresas no es administrar usuarios | Sí (pytest: `test_administrar_usuarios_no_alcanza_para_asignar_empresas`) |
 | AC-EMP-011 | La asignación reemplaza la lista | multiempresa.feature | La asignación reemplaza la lista completa | Sí (pytest: `test_la_asignacion_reemplaza_la_lista_entera`) |
-| AC-EMP-012 | La predeterminada está entre las asignadas | multiempresa.feature | La empresa predeterminada tiene que estar entre las asignadas | Sí (pytest: `test_la_predeterminada_tiene_que_estar_entre_las_asignadas`) |
+| AC-EMP-012 | Solo una empresa predeterminada | multiempresa.feature | Solo una empresa puede ser la predeterminada | Sí (pytest: `test_solo_una_empresa_puede_ser_la_predeterminada`, `test_una_empresa_repetida_en_la_asignacion_se_rechaza`) |
 | AC-EMP-013 | Nadie se deja a sí mismo sin empresas | multiempresa.feature | Nadie puede dejarse a sí mismo sin empresas | Sí (pytest: `test_nadie_puede_dejarse_a_si_mismo_sin_empresas`) |
 | AC-EMP-014 | El reparto de accesos queda auditado | multiempresa.feature | El reparto de accesos queda auditado | Sí (pytest: `test_se_asignan_las_dos_empresas_y_queda_auditado`) |
 | AC-EMP-015 | El selector no exige permisos | multiempresa.feature | Saber en qué empresa se está no exige permisos | Sí (pytest: `test_el_selector_no_exige_permisos_del_catalogo`) |
 | AC-EMP-016 | Con una sola empresa no hay desplegable | multiempresa.feature | Con una sola empresa el selector no estorba | Sí (Vitest: `SelectorEmpresa`) |
 | AC-EMP-017 | Membresía obligatoria desde la segunda empresa | multiempresa.feature | Mientras hay una sola empresa la membresía no es obligatoria | Sí (pytest: `test_aislamiento.py`, `test_a_otro_si_se_le_pueden_quitar_todas`) |
+| AC-EMP-018 | Un rol vale solo en su empresa | multiempresa.feature | Un rol vale solo en la empresa donde se dio | Sí (pytest: `test_un_rol_vale_solo_en_la_empresa_donde_se_dio`) |
+| AC-EMP-019 | Cada empresa con su propio rol | multiempresa.feature | Cada empresa puede tener su propio rol | Sí (pytest: `test_cada_empresa_puede_tener_su_propio_rol`; Vitest: `AsignacionEmpresas`) |
+| AC-EMP-020 | Los roles globales valen en todas | multiempresa.feature | Los roles globales valen en todas las empresas | Sí (pytest: `test_los_roles_globales_valen_en_todas_las_empresas`) |
+| AC-EMP-021 | Quitar la empresa se lleva sus roles | multiempresa.feature | Quitar la empresa se lleva sus roles | Sí (pytest: `test_quitar_la_empresa_se_lleva_sus_roles`) |
+| AC-EMP-022 | Empresa sin rol no da acceso | multiempresa.feature | Una empresa asignada sin rol no da acceso a nada | Sí (pytest: `test_un_rol_vale_solo_en_la_empresa_donde_se_dio`; Vitest: `avisa si una empresa queda asignada sin ningún rol`) |
+| AC-EMP-023 | El historial nombra rol y empresa | multiempresa.feature | El historial dice qué rol se quitó y en qué empresa | Sí (pytest: `test_la_auditoria_registra_el_rol_y_la_empresa`) |

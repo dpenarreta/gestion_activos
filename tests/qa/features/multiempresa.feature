@@ -91,10 +91,10 @@ Feature: Separación de la información por empresa
     # restar sobre un estado anterior que ya no recuerda.
 
   @AC-EMP-012
-  Scenario: La empresa predeterminada tiene que estar entre las asignadas
-    When se indica como predeterminada una empresa fuera de la lista asignada
+  Scenario: Solo una empresa puede ser la predeterminada
+    When se marcan dos empresas como predeterminadas
     Then el sistema rechaza la operación y no asigna nada
-    # Entraría cada día en una empresa que no puede ver.
+    # Es la que se abre al entrar: con dos marcadas no hay cuál elegir.
 
   @AC-EMP-013
   Scenario: Nadie puede dejarse a sí mismo sin empresas
@@ -133,3 +133,51 @@ Feature: Separación de la información por empresa
     But en cuanto se crea la segunda empresa la membresía pasa a ser obligatoria
     # En un despliegue de una empresa no hay de quién aislarse; exigir el
     # trámite dejaría cada cuenta nueva sin ver nada hasta un segundo paso.
+
+  # --- Qué puede hacer cada uno en cada empresa ----------------------------
+
+  @AC-EMP-018
+  Scenario: Un rol vale solo en la empresa donde se dio
+    Given un usuario asignado a dos empresas
+    And con un rol que administra el inventario solo en la primera
+    When intenta administrar el inventario de la segunda
+    Then el sistema le niega la acción
+    # Con roles en el usuario, darle acceso a la segunda empresa le entregaría
+    # de paso todos los permisos que tenía en la primera.
+
+  @AC-EMP-019
+  Scenario: Cada empresa puede tener su propio rol
+    Given un usuario que administra el inventario de una empresa
+    And solo consulta el de otra
+    When trabaja en cada una
+    Then puede registrar activos en la primera y solo verlos en la segunda
+
+  @AC-EMP-020
+  Scenario: Los roles globales valen en todas las empresas
+    Given un usuario con un rol asignado fuera de toda empresa
+    When trabaja en cualquiera de las suyas
+    Then ese rol se le aplica
+    # El administrador del grupo tiene que poder entrar a cualquiera, incluidas
+    # las que se creen mañana.
+
+  @AC-EMP-021
+  Scenario: Quitar la empresa se lleva sus roles
+    Given un usuario con un rol en una empresa
+    When se le quita esa empresa
+    Then deja de tener ese rol allí
+    # Un rol huérfano volvería a valer en cuanto alguien le devolviera el
+    # acceso, sin que nadie lo hubiera decidido.
+
+  @AC-EMP-022
+  Scenario: Una empresa asignada sin rol no da acceso a nada
+    Given un usuario asignado a una empresa sin ningún rol en ella
+    When entra a esa empresa
+    Then la ve en el selector pero no puede abrir su información
+    And la pantalla de asignación lo advierte antes de guardar
+
+  @AC-EMP-023
+  Scenario: El historial dice qué rol se quitó y en qué empresa
+    When se cambian los roles de un usuario en una empresa
+    Then la auditoría registra los nombres del rol y de la empresa
+    # Dentro de un año, "desapareció el rol 4 de la empresa 3" no le dice nada
+    # a quien revisa.

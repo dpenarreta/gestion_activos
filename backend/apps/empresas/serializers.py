@@ -39,13 +39,17 @@ class EmpresaAdminSerializer(serializers.ModelSerializer):
 
 
 class MembresiaSerializer(serializers.ModelSerializer):
-    """En qué empresa trabaja una cuenta, para pintarlo junto al usuario."""
+    """En qué empresa trabaja una cuenta y con qué rol, junto al usuario."""
 
     id = serializers.IntegerField(source="empresa_id", read_only=True)
     nombre = serializers.CharField(source="empresa.nombre", read_only=True)
     codigo = serializers.CharField(source="empresa.codigo", read_only=True)
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = MembresiaEmpresa
-        fields = ["id", "nombre", "codigo", "es_predeterminada"]
+        fields = ["id", "nombre", "codigo", "es_predeterminada", "roles"]
         read_only_fields = fields
+
+    def get_roles(self, obj: MembresiaEmpresa) -> list[dict]:
+        return [{"id": rol.id, "name": rol.name} for rol in obj.roles.all()]

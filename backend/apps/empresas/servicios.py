@@ -67,8 +67,13 @@ AUTOEXCLUSION = (
 )
 
 
-def asignar_empresas(*, actor, usuario, empresa_ids, predeterminada=None, context=None):
-    """Define en qué empresas trabaja una cuenta.
+def asignar_empresas(*, actor, usuario, asignaciones, context=None):
+    """Define en qué empresas trabaja una cuenta y con qué rol en cada una.
+
+    `asignaciones` es una lista de `{"empresa_id", "roles", "es_predeterminada"}`.
+    Las dos cosas se guardan juntas porque son una sola decisión: dar acceso a
+    una empresa sin decir a qué, o decir a qué sin dar el acceso, son estados a
+    medias que alguien tendría que recordar completar.
 
     Reemplaza la lista completa en vez de sumar y restar: quien administra
     accesos piensa en «esta persona ve estas dos», no en «añade una y quita
@@ -80,64 +85,96 @@ def asignar_empresas(*, actor, usuario, empresa_ids, predeterminada=None, contex
     no puede ni devolverse el acceso —tendría que pedírselo a otro
     administrador, o al superusuario si queda alguno—.
     """
+    from django.contrib.auth.models import Group
     from django.db import transaction
 
     from apps.core.audit import record_audit_event
 
-    empresas = list(Empresa.objects.filter(id__in=empresa_ids))
-    if len(empresas) != len(set(empresa_ids)):
-        faltantes = sorted(set(empresa_ids) - {empresa.id for empresa in empresas})
+    pedidas = [entrada["empresa_id"] for entrada in asignaciones]
+    if len(pedidas) != len(set(pedidas)):
+        raise ValueError("Una empresa no puede aparecer dos veces en la asignación.")
+
+    empresas = {empresa.id: empresa for empresa in Empresa.objects.filter(id__in=pedidas)}
+    faltantes = sorted(set(pedidas) - set(empresas))
+    if faltantes:
         raise ValueError(f"Empresas inexistentes: {faltantes}.")
+
+    roles_pedidos = {rol for entrada in asignaciones for rol in entrada.get("roles", [])}
+    roles = {rol.id: rol for rol in Group.objects.filter(id__in=roles_pedidos)}
+    faltantes = sorted(roles_pedidos - set(roles))
+    if faltantes:
+        raise ValueError(f"Roles inexistentes: {faltantes}.")
 
     if (
         actor is not None
         and actor.pk == usuario.pk
-        and not empresas
+        and not asignaciones
         and Empresa.objects.filter(activa=True).count() > 1
     ):
         raise PermissionError(AUTOEXCLUSION)
 
-    if predeterminada is not None and predeterminada not in {empresa.id for empresa in empresas}:
-        raise ValueError("La empresa predeterminada tiene que estar entre las asignadas.")
-    if predeterminada is None and empresas:
+    predeterminadas = [
+        entrada["empresa_id"] for entrada in asignaciones if entrada.get("es_predeterminada")
+    ]
+    if len(predeterminadas) > 1:
+        raise ValueError("Solo una empresa puede ser la predeterminada.")
+    if predeterminadas:
+        predeterminada = predeterminadas[0]
+    elif asignaciones:
         # Sin una elegida se toma la primera por nombre: entrar cada día en una
         # empresa distinta según cómo ordenara la consulta es peor que entrar
         # siempre en la misma aunque no sea la que uno habría elegido.
-        predeterminada = min(empresas, key=lambda empresa: empresa.nombre).id
+        predeterminada = min(empresas.values(), key=lambda empresa: empresa.nombre).id
+    else:
+        predeterminada = None
 
-    anteriores = list(MembresiaEmpresa.objects.filter(usuario=usuario).select_related("empresa"))
+    anteriores = _retrato(usuario)
 
     with transaction.atomic():
         MembresiaEmpresa.objects.filter(usuario=usuario).delete()
-        MembresiaEmpresa.objects.bulk_create(
-            [
-                MembresiaEmpresa(
-                    usuario=usuario,
-                    empresa=empresa,
-                    es_predeterminada=empresa.id == predeterminada,
-                )
-                for empresa in empresas
-            ]
-        )
+        for entrada in asignaciones:
+            membresia = MembresiaEmpresa.objects.create(
+                usuario=usuario,
+                empresa=empresas[entrada["empresa_id"]],
+                es_predeterminada=entrada["empresa_id"] == predeterminada,
+            )
+            membresia.roles.set([roles[rol] for rol in entrada.get("roles", [])])
 
     record_audit_event(
         actor=actor,
         action="user.empresas_assigned",
         target=usuario,
         module="empresas",
-        previous_values={
-            "empresa_ids": [m.empresa_id for m in anteriores],
-            "empresas": [m.empresa.nombre for m in anteriores],
-        },
-        new_values={
-            "empresa_ids": [empresa.id for empresa in empresas],
-            "empresas": [empresa.nombre for empresa in empresas],
-            "predeterminada": predeterminada,
-        },
+        previous_values=anteriores,
+        new_values=_retrato(usuario),
         context=context,
     )
     return usuario
 
 
+def _retrato(usuario):
+    """Qué ve la cuenta y con qué rol, como se guarda en la auditoría.
+
+    Se registran los nombres además de los identificadores: quien lea el
+    historial dentro de un año querrá saber que se le quitó «Soporte TI» en
+    LaarSeguridad, no que desapareció el rol 4 de la empresa 3.
+    """
+    return {
+        "empresas": [
+            {
+                "id": membresia.empresa_id,
+                "nombre": membresia.empresa.nombre,
+                "predeterminada": membresia.es_predeterminada,
+                "roles": sorted(rol.name for rol in membresia.roles.all()),
+            }
+            for membresia in membresias_de(usuario)
+        ]
+    }
+
+
 def membresias_de(usuario):
-    return MembresiaEmpresa.objects.filter(usuario=usuario).select_related("empresa")
+    return (
+        MembresiaEmpresa.objects.filter(usuario=usuario)
+        .select_related("empresa")
+        .prefetch_related("roles")
+    )
