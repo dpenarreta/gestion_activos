@@ -107,9 +107,14 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, PoliticasPermission]
     serializer_class = PoliticaObsolescenciaSerializer
     pagination_class = DefaultPagination
-    queryset = PoliticaObsolescencia.objects.select_related("tipo_dispositivo").order_by(
-        "tipo_dispositivo__nombre", "nombre"
-    )
+
+    def get_queryset(self):
+        """En un método y no como atributo de clase: un `queryset` en el cuerpo
+        se construye al importar el módulo, cuando todavía no hay petición ni
+        empresa activa, y se quedaría con ese filtro para siempre."""
+        return PoliticaObsolescencia.objects.select_related("tipo_dispositivo").order_by(
+            "tipo_dispositivo__nombre", "nombre"
+        )
 
     def perform_create(self, serializer):
         politica = serializer.save()

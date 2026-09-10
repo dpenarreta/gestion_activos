@@ -22,6 +22,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.core.models import BaseModel
+from apps.empresas.models import ModeloDeEmpresa
 
 
 class Frecuencia(models.TextChoices):
@@ -42,7 +43,7 @@ DIAS_SEMANA = [
 ]
 
 
-class ConfiguracionAlertas(BaseModel):
+class ConfiguracionAlertas(ModeloDeEmpresa):
     """Parámetros del centro de alertas. Fila única.
 
     Es un singleton porque los umbrales son una decisión de la empresa, no de

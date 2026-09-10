@@ -13,17 +13,18 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.models import ModeloDeEmpresa
 
 
-class CatalogoComponente(BaseModel):
+class CatalogoComponente(ModeloDeEmpresa):
     """Pieza o repuesto que puede consumirse en un mantenimiento.
 
     `es_critico` es lo que hace que un reemplazo cuente contra el umbral de
     "piezas críticas sustituidas" de la política de renovación (RF-06).
     """
 
-    nombre = models.CharField(max_length=150, unique=True)
-    codigo = models.CharField(max_length=30, unique=True)
+    nombre = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=30)
     descripcion = models.TextField(blank=True)
     es_critico = models.BooleanField(
         default=False,
@@ -36,6 +37,14 @@ class CatalogoComponente(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="componente_nombre_unico_por_empresa"
+            ),
+            models.UniqueConstraint(
+                fields=["empresa", "codigo"], name="componente_codigo_unico_por_empresa"
+            ),
+        ]
         verbose_name = "componente del catálogo"
         verbose_name_plural = "catálogo de componentes"
 

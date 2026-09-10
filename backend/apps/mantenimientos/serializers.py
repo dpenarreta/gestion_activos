@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.empresas.campos import RelacionDeEmpresa
+
 from .models import CatalogoComponente, ComponenteUtilizado, Mantenimiento
 
 
@@ -99,8 +101,8 @@ class MantenimientoSerializer(serializers.ModelSerializer):
 class ComponenteLineaSerializer(serializers.Serializer):
     """Una línea del desglose de repuestos al registrar un mantenimiento."""
 
-    componente = serializers.PrimaryKeyRelatedField(
-        queryset=CatalogoComponente.objects.filter(activo=True)
+    componente = RelacionDeEmpresa(
+        CatalogoComponente, {"activo": True}
     )
     cantidad = serializers.IntegerField(min_value=1, default=1)
     costo_unitario = serializers.DecimalField(

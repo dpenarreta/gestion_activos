@@ -10,6 +10,7 @@ import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
+import { SelectorEmpresa } from "./SelectorEmpresa";
 import { AdminMenuItem } from "./AdminMenuItem";
 import "./AdminSidebar.css";
 
@@ -129,6 +130,11 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
             <span aria-hidden="true">×</span>
           </button>
         </div>
+
+        {/* Debajo del logo y encima del menú: es el ámbito de todo lo que
+            viene después, y verlo antes de navegar evita el error de mirar el
+            inventario equivocado durante un rato. */}
+        <SelectorEmpresa isCollapsed={isCollapsed} />
 
         <nav className="admin-sidebar__nav">
           <ul className="admin-sidebar__list">

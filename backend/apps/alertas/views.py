@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from apps.core.audit import record_audit_event
 from apps.core.cache import invalidar, recordar
 from apps.core.request_meta import get_request_context
+from apps.empresas.contexto import clave_por_empresa
 
 from .models import ConfiguracionAlertas, EnvioAlertas
 from .permissions import AlertasPermission, ConfiguracionAlertasPermission
@@ -108,7 +109,9 @@ class AlertasView(APIView):
 
     def get(self, request):
         configuracion = ConfiguracionAlertas.cargar()
-        return Response(recordar(CLAVE_CACHE_ALERTAS, lambda: self._resumen(configuracion)))
+        return Response(recordar(
+                clave_por_empresa(CLAVE_CACHE_ALERTAS), lambda: self._resumen(configuracion)
+            ))
 
     @staticmethod
     def _resumen(configuracion) -> dict:
@@ -165,7 +168,7 @@ class ConfiguracionAlertasView(APIView):
         # Un cambio de umbral o de encendido tiene que verse en la siguiente
         # consulta: esperar a que expire la caché haría parecer que no se
         # guardó.
-        invalidar(CLAVE_CACHE_ALERTAS)
+        invalidar(clave_por_empresa(CLAVE_CACHE_ALERTAS))
         return Response(serializer.data)
 
 

@@ -17,7 +17,7 @@ la pantalla de alertas que nadie puede atender todas a la vez.
 
 from django.db import models
 
-from apps.core.models import BaseModel
+from apps.empresas.models import ModeloDeEmpresa
 
 #: Ventana móvil por defecto para contar reparaciones (§11: "más de 3
 #: reparaciones en 12 meses").
@@ -51,7 +51,7 @@ def mas_severo(*niveles: str) -> str:
     )
 
 
-class PoliticaObsolescencia(BaseModel):
+class PoliticaObsolescencia(ModeloDeEmpresa):
     """Umbrales que disparan la sugerencia de renovación de RF-07."""
 
     nombre = models.CharField(max_length=120)
@@ -104,7 +104,7 @@ class PoliticaObsolescencia(BaseModel):
             # Una sola política global: si hubiera dos, "la global" dejaría de
             # ser una referencia unívoca y la resolución sería arbitraria.
             models.UniqueConstraint(
-                fields=["tipo_dispositivo"],
+                fields=["empresa", "tipo_dispositivo"],
                 condition=models.Q(tipo_dispositivo__isnull=True),
                 name="unica_politica_global",
             )

@@ -15,6 +15,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.models import ModeloDeEmpresa
 
 #: Prefijo de reserva: solo se usa si el área no tiene código, que la base no
 #: permite pero un dato heredado sí podría traer.
@@ -58,13 +59,12 @@ def generar_codigo_empleado(departamento=None) -> str:
     return f"{prefijo}-{_correlativo(prefijo):04d}"
 
 
-class Departamento(BaseModel):
+class Departamento(ModeloDeEmpresa):
     """Área organizacional a la que se adscriben activos y empleados."""
 
-    nombre = models.CharField(max_length=120, unique=True)
+    nombre = models.CharField(max_length=120)
     codigo = models.CharField(
         max_length=20,
-        unique=True,
         help_text="Identificador corto del área, usado en las etiquetas impresas.",
     )
     descripcion = models.TextField(blank=True)
@@ -79,6 +79,14 @@ class Departamento(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="departamento_nombre_unico_por_empresa"
+            ),
+            models.UniqueConstraint(
+                fields=["empresa", "codigo"], name="departamento_codigo_unico_por_empresa"
+            ),
+        ]
         verbose_name = "departamento"
         verbose_name_plural = "departamentos"
 
@@ -86,7 +94,7 @@ class Departamento(BaseModel):
         return self.nombre
 
 
-class Sede(BaseModel):
+class Sede(ModeloDeEmpresa):
     """Edificio, local o ciudad donde la empresa tiene presencia.
 
     Era un texto dentro de cada ubicación, y ahí el problema no se veía hasta
@@ -103,7 +111,6 @@ class Sede(BaseModel):
 
     nombre = models.CharField(
         max_length=120,
-        unique=True,
         help_text="Cómo se la nombra internamente. Ej.: «Sede Quito Norte».",
     )
     ciudad = models.CharField(
@@ -116,6 +123,11 @@ class Sede(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="sede_unica_por_empresa"
+            )
+        ]
         verbose_name = "sede"
         verbose_name_plural = "sedes"
 
@@ -221,7 +233,7 @@ class Ubicacion(BaseModel):
         return self.tipo == Ubicacion.Tipo.BODEGA
 
 
-class Proveedor(BaseModel):
+class Proveedor(ModeloDeEmpresa):
     """A quién se le compra: equipos y piezas de repuesto.
 
     Era un texto dentro de cada activo y no existía para los repuestos. Como
@@ -236,7 +248,7 @@ class Proveedor(BaseModel):
     —quién atiende la cuenta—, no información de un particular.
     """
 
-    nombre = models.CharField(max_length=150, unique=True)
+    nombre = models.CharField(max_length=150)
     identificacion = models.CharField(
         max_length=20,
         blank=True,
@@ -252,6 +264,11 @@ class Proveedor(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="proveedor_unico_por_empresa"
+            )
+        ]
         verbose_name = "proveedor"
         verbose_name_plural = "proveedores"
 
@@ -259,7 +276,7 @@ class Proveedor(BaseModel):
         return self.nombre
 
 
-class Empleado(BaseModel):
+class Empleado(ModeloDeEmpresa):
     """Persona que puede tener activos bajo su custodia.
 
     No se elimina físicamente (`activo = False` en su lugar): un empleado que
@@ -278,7 +295,6 @@ class Empleado(BaseModel):
     apellidos = models.CharField(max_length=120)
     codigo_empleado = models.CharField(
         max_length=30,
-        unique=True,
         help_text=(
             "Identificador interno del empleado (ej. TI-0001: código del área y "
             "número dentro de ella). Se genera solo si se deja vacío."
@@ -304,6 +320,11 @@ class Empleado(BaseModel):
 
     class Meta:
         ordering = ["apellidos", "nombres"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "codigo_empleado"], name="empleado_codigo_unico_por_empresa"
+            )
+        ]
         verbose_name = "empleado"
         verbose_name_plural = "empleados"
         indexes = [models.Index(fields=["apellidos", "nombres"])]

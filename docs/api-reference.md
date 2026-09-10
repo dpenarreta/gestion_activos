@@ -190,6 +190,20 @@ dispositivo es `activos.editar`, cargar empleados es `organizacion.editar`. Un
 permiso único de «carga masiva» daría acceso a los dos a quien solo necesita
 uno.
 
+## Empresas
+
+Base: `/api/v1/empresas/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/empresas/mias/` | autenticado | Las empresas que la cuenta puede ver y en cuál está trabajando |
+
+**Toda la API responde dentro de una empresa.** El cliente manda la cabecera
+`X-Empresa` con el id; sin ella se usa la predeterminada de la cuenta. Pedir
+una a la que no se pertenece no devuelve un error sino **nada**: es una pestaña
+vieja o algo peor, y devolver otra empresa haría creer que se está viendo lo
+pedido. Ver `docs/multiempresa.md`.
+
 ## Organización
 
 Base: `/api/v1/organizacion/`

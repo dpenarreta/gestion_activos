@@ -14,6 +14,7 @@ from apps.activos.models import Activo, MovimientoActivo
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
+from apps.empresas.campos import RelacionDeEmpresa
 from apps.mantenimientos.models import Mantenimiento
 
 from .actas import ActaNoAplicable, generar_acta, nombre_de_archivo
@@ -51,7 +52,9 @@ class AdjuntoSerializer(serializers.ModelSerializer):
 
 
 class AdjuntoCreateSerializer(serializers.Serializer):
-    activo = serializers.PrimaryKeyRelatedField(queryset=Activo.objects.all())
+    activo = RelacionDeEmpresa(Activo)
+    # El mantenimiento no lleva empresa propia: la hereda de su activo, y ese
+    # sí está acotado.
     mantenimiento = serializers.PrimaryKeyRelatedField(
         queryset=Mantenimiento.objects.all(), required=False, allow_null=True
     )

@@ -16,7 +16,7 @@ que siempre falla.
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.models import BaseModel
+from apps.empresas.models import ModeloDeEmpresa
 
 # Campos del activo que la plantilla puede pedir. La clave es la del modelo.
 CAMPOS_DISPONIBLES = {
@@ -47,7 +47,7 @@ CAMPOS_ESTRUCTURALES = frozenset(
 PREFIJO_ESPECIFICACION = "espec:"
 
 
-class ColumnaPlantillaActivos(BaseModel):
+class ColumnaPlantillaActivos(ModeloDeEmpresa):
     """Una columna de la plantilla de carga masiva.
 
     `clave` identifica qué se llena con esa columna: un campo del activo
@@ -59,7 +59,6 @@ class ColumnaPlantillaActivos(BaseModel):
 
     clave = models.CharField(
         max_length=80,
-        unique=True,
         help_text=(
             "Campo del activo, o 'espec:<Nombre>' para una característica que "
             "se guarda en las especificaciones."
@@ -79,6 +78,14 @@ class ColumnaPlantillaActivos(BaseModel):
 
     class Meta:
         ordering = ["orden", "id"]
+        constraints = [
+            # Por empresa: cada una configura su plantilla, y dos columnas
+            # pidiendo el mismo campo dentro de la misma harían que la segunda
+            # pisara a la primera al importar.
+            models.UniqueConstraint(
+                fields=["empresa", "clave"], name="columna_clave_unica_por_empresa"
+            )
+        ]
         verbose_name = "columna de la plantilla de activos"
         verbose_name_plural = "columnas de la plantilla de activos"
 

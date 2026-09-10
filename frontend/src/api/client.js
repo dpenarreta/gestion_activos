@@ -7,7 +7,11 @@ const REFRESH_TOKEN_KEY = "gestion_activos_refresh_token";
 
 // Endpoints que nunca deben disparar un intento de refresh ni una
 // redirección automática (evita bucles de reintento).
-const AUTH_ENDPOINTS = ["/auth/login/", "/auth/register/", "/auth/token/refresh/"];
+const AUTH_ENDPOINTS = [
+  "/auth/login/",
+  "/auth/register/",
+  "/auth/token/refresh/",
+];
 
 function isAuthEndpoint(url) {
   return Boolean(url) && AUTH_ENDPOINTS.some((path) => url.includes(path));
@@ -18,10 +22,38 @@ export const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+const EMPRESA_KEY = "gestion_activos_empresa";
+
+/** En qué empresa está trabajando esta pestaña. */
+export function getEmpresaActiva() {
+  try {
+    return localStorage.getItem(EMPRESA_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setEmpresaActiva(id) {
+  try {
+    if (id) localStorage.setItem(EMPRESA_KEY, String(id));
+    else localStorage.removeItem(EMPRESA_KEY);
+  } catch {
+    // Sin almacenamiento se trabaja en la empresa predeterminada: el backend
+    // resuelve una cuando la cabecera no viene.
+  }
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // En qué empresa se pregunta. Va en cada llamada y no en la sesión del
+  // servidor a propósito: así dos pestañas abiertas en empresas distintas no
+  // se pisan, que es exactamente lo que hace quien compara dos inventarios.
+  const empresa = getEmpresaActiva();
+  if (empresa) {
+    config.headers["X-Empresa"] = empresa;
   }
   return config;
 });
@@ -39,7 +71,10 @@ function redirectToLogin() {
 // ya abierta cuyo `user` en memoria quedó desactualizado (ej. un admin
 // activó "forzar cambio de contraseña" desde otra sesión).
 function redirectToForcedPasswordChange() {
-  if (typeof window !== "undefined" && window.location.pathname !== "/change-password-required") {
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname !== "/change-password-required"
+  ) {
     window.location.assign("/change-password-required");
   }
 }
@@ -64,12 +99,20 @@ apiClient.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
 
-    if (response?.status === 403 && response.data?.error?.code === "password_change_required") {
+    if (
+      response?.status === 403 &&
+      response.data?.error?.code === "password_change_required"
+    ) {
       redirectToForcedPasswordChange();
       return Promise.reject(error);
     }
 
-    if (!response || response.status !== 401 || !config || isAuthEndpoint(config.url)) {
+    if (
+      !response ||
+      response.status !== 401 ||
+      !config ||
+      isAuthEndpoint(config.url)
+    ) {
       return Promise.reject(error);
     }
 
@@ -90,7 +133,7 @@ apiClient.interceptors.response.use(
       redirectToLogin();
       return Promise.reject(refreshError);
     }
-  }
+  },
 );
 
 export function setTokens(access, refresh) {

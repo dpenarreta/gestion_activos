@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
     "apps.core",
+    "apps.empresas",
     "apps.permissions",
     "apps.authentication",
     "apps.users",
@@ -103,6 +104,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Después de la autenticación: necesita saber quién pregunta para
+    # resolver a qué empresa pertenece.
+    "apps.empresas.middleware.EmpresaActivaMiddleware",
     "apps.core.middleware.RequestIDMiddleware",
     "apps.core.middleware.AccessLogMiddleware",
 ]
@@ -299,6 +303,21 @@ DEFAULT_PAGE_SIZE = env.int("DEFAULT_PAGE_SIZE", default=20)
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[FRONTEND_URL])
+
+# `X-Empresa` dice en qué empresa se está trabajando. Sin declararla, el
+# navegador la descarta en la comprobación previa y todas las peticiones
+# llegarían a la empresa predeterminada: el selector cambiaría de nombre en
+# pantalla y no cambiaría los datos, que es la peor forma de fallar.
+CORS_ALLOW_HEADERS = (
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-empresa",
+)
 
 # --- Caché de los agregados del parque ---
 # El panel y el centro de alertas recorren el inventario entero para resumirlo,

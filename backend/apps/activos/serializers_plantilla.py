@@ -55,7 +55,25 @@ class ColumnaPlantillaSerializer(serializers.ModelSerializer):
                 f"{limpia!r} no es un campo del activo. Para pedir un dato propio use "
                 f"'espec:<Nombre>', que se guarda en las especificaciones del equipo."
             )
-        return limpia
+        return self._sin_repetir(limpia)
+
+    def _sin_repetir(self, clave):
+        """Dos columnas pidiendo el mismo campo: la segunda pisaría a la
+        primera al leer el archivo.
+
+        La comprobación se hace aquí y ya no la hereda del modelo: la clave dejó
+        de ser única en toda la base para serlo **dentro de cada empresa**, y
+        `ColumnaPlantillaActivos.objects` ya viene acotado a la activa.
+        """
+        existente = ColumnaPlantillaActivos.objects.filter(clave=clave)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"«{choque.etiqueta}» ya pide ese campo. Edítela o desactívela."
+            )
+        return clave
 
     def validate(self, attrs):
         clave = attrs.get("clave") or getattr(self.instance, "clave", "")

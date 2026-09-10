@@ -14,6 +14,8 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import ConsultaPorEmpresa, GestorPorEmpresa
+from apps.empresas.models import ModeloDeEmpresa
 
 # Reexportado para que Django lo descubra: la configuración de la plantilla de
 # carga masiva vive en su propio módulo por tamaño, no por ser otra app.
@@ -42,7 +44,15 @@ ESTADOS_ASIGNABLES = frozenset({"disponible", "en_uso", "en_bodega"})
 ESTADOS_EN_ALMACEN = frozenset({"disponible", "en_bodega"})
 
 
-class ActivoQuerySet(models.QuerySet):
+class ActivoQuerySet(ConsultaPorEmpresa):
+    """Las consultas propias del inventario, sobre la base que ya filtra.
+
+    Hereda de `ConsultaPorEmpresa` y no de `QuerySet` a propósito: si fuera un
+    gestor aparte, `Activo.objects` dejaría de acotar por empresa y el
+    inventario entero —la tabla más grande y la que más se consulta— sería el
+    único sitio sin aislamiento.
+    """
+
     def operativos(self):
         """Parque vivo: lo que todavía está en la empresa y responde a alguien."""
         return self.exclude(estado__in=ESTADOS_FUERA_DE_INVENTARIO)
@@ -51,7 +61,7 @@ class ActivoQuerySet(models.QuerySet):
         return self.filter(estado__in=ESTADOS_FUERA_DE_INVENTARIO)
 
 
-class TipoDispositivo(BaseModel):
+class TipoDispositivo(ModeloDeEmpresa):
     """Clase de equipo (laptop, servidor, impresora...).
 
     Es la unidad sobre la que se parametrizan las políticas de obsolescencia
@@ -59,10 +69,9 @@ class TipoDispositivo(BaseModel):
     intervenciones ni tienen la misma vida útil.
     """
 
-    nombre = models.CharField(max_length=120, unique=True)
+    nombre = models.CharField(max_length=120)
     codigo = models.CharField(
         max_length=10,
-        unique=True,
         help_text="Prefijo del código de barras de los activos de este tipo (ej. LAP).",
     )
     descripcion = models.TextField(blank=True)
@@ -70,6 +79,14 @@ class TipoDispositivo(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="tipo_nombre_unico_por_empresa"
+            ),
+            models.UniqueConstraint(
+                fields=["empresa", "codigo"], name="tipo_codigo_unico_por_empresa"
+            ),
+        ]
         verbose_name = "tipo de dispositivo"
         verbose_name_plural = "tipos de dispositivo"
 
@@ -77,7 +94,7 @@ class TipoDispositivo(BaseModel):
         return self.nombre
 
 
-class Activo(BaseModel):
+class Activo(ModeloDeEmpresa):
     """Expediente de un dispositivo electrónico."""
 
     class Garantia(models.TextChoices):
@@ -131,7 +148,6 @@ class Activo(BaseModel):
     # --- Identificación (RF-02) ---
     codigo_barras = models.CharField(
         max_length=40,
-        unique=True,
         editable=False,
         db_index=True,
         help_text="Generado por el sistema. Es el valor codificado en Code 128.",
@@ -142,7 +158,7 @@ class Activo(BaseModel):
     nombre = models.CharField(max_length=150, help_text="Nombre corto para listados y etiquetas.")
     marca = models.CharField(max_length=80)
     modelo = models.CharField(max_length=120)
-    numero_serie = models.CharField(max_length=120, unique=True)
+    numero_serie = models.CharField(max_length=120)
     # Pares clave/valor libres (procesador, RAM, disco...): cada tipo de equipo
     # describe cosas distintas y un esquema fijo obligaría a migrar la tabla
     # cada vez que aparece una característica nueva.
@@ -230,12 +246,23 @@ class Activo(BaseModel):
     motivos_renovacion = models.JSONField(default=list, blank=True, editable=False)
     renovacion_evaluada_en = models.DateTimeField(null=True, blank=True, editable=False)
 
-    objects = ActivoQuerySet.as_manager()
+    objects = GestorPorEmpresa.from_queryset(ActivoQuerySet)()
 
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "activo"
         verbose_name_plural = "activos"
+        constraints = [
+            # Por empresa y no globales: dos empresas del grupo numeran sus
+            # equipos por su cuenta, y la serie de fábrica de una laptop puede
+            # repetirse entre inventarios que nunca se cruzan.
+            models.UniqueConstraint(
+                fields=["empresa", "codigo_barras"], name="activo_codigo_unico_por_empresa"
+            ),
+            models.UniqueConstraint(
+                fields=["empresa", "numero_serie"], name="activo_serie_unica_por_empresa"
+            ),
+        ]
         indexes = [
             models.Index(fields=["marca", "modelo"]),
             models.Index(fields=["estado"]),

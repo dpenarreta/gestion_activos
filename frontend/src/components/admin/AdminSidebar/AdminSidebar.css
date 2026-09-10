@@ -248,3 +248,46 @@
     display: none;
   }
 }
+
+/*
+ * El selector de empresa, entre el logo y el menú.
+ *
+ * Ahí y no en una pantalla de configuración porque no es un ajuste: es el
+ * ámbito de todo lo que se ve debajo, y tenerlo a la vista evita el error de
+ * revisar el inventario equivocado durante un rato sin notarlo.
+ */
+.selector-empresa {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.selector-empresa--unica,
+.selector-empresa--contraido {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.875rem;
+}
+
+.selector-empresa--contraido {
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.selector-empresa__icono {
+  opacity: 0.8;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

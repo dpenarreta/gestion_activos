@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.empresas.campos import RelacionDeEmpresa
 from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 from apps.politicas.services import evaluar_activo
 
@@ -329,18 +330,10 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
 
     # Solo sedes abiertas: dejar un equipo registrado en una sede cerrada lo
     # pone en un sitio donde nadie va a buscarlo.
-    sede = serializers.PrimaryKeyRelatedField(
-        queryset=Sede.objects.filter(activa=True),
-        required=False,
-        allow_null=True,
-    )
+    sede = RelacionDeEmpresa(Sede, {"activa": True}, required=False, allow_null=True)
     # Igual con el proveedor: uno dado de baja ya no vende ni atiende un
     # reclamo, así que registrarle una compra nueva no significa nada.
-    proveedor = serializers.PrimaryKeyRelatedField(
-        queryset=Proveedor.objects.filter(activo=True),
-        required=False,
-        allow_null=True,
-    )
+    proveedor = RelacionDeEmpresa(Proveedor, {"activo": True}, required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -396,25 +389,15 @@ class AsignacionSerializer(serializers.Serializer):
     de custodia sin dueño que RF-01 busca resolver.
     """
 
-    custodio = serializers.PrimaryKeyRelatedField(
-        queryset=Empleado.objects.filter(activo=True),
-        allow_null=True,
-        required=False,
-        default=None,
+    custodio = RelacionDeEmpresa(
+        Empleado, {"activo": True}, allow_null=True, required=False, default=None
     )
-    departamento = serializers.PrimaryKeyRelatedField(
-        queryset=Departamento.objects.filter(activo=True),
-        required=False,
-        allow_null=True,
-        default=None,
+    departamento = RelacionDeEmpresa(
+        Departamento, {"activo": True}, required=False, allow_null=True, default=None
     )
     # Sin `default`: que el campo no venga significa «no muevas el equipo de
     # sitio», y es distinto de mandarlo vacío para dejarlo sin sede.
-    sede = serializers.PrimaryKeyRelatedField(
-        queryset=Sede.objects.filter(activa=True),
-        required=False,
-        allow_null=True,
-    )
+    sede = RelacionDeEmpresa(Sede, {"activa": True}, required=False, allow_null=True)
     motivo = serializers.CharField(required=False, allow_blank=True, default="")
 
 

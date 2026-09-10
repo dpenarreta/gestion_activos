@@ -11,6 +11,7 @@ from apps.core.audit import record_audit_event
 from apps.core.cache import recordar
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
+from apps.empresas.contexto import clave_por_empresa
 from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
 
@@ -40,6 +41,8 @@ from .services import ActivoService
 MODULO = "activos"
 
 #: Clave del resumen del panel en la caché.
+#: Se prefija con la empresa al usarla: la caché no sabe de empresas, y
+#: una cifra guardada es tan visible como una consulta.
 CLAVE_CACHE_PANEL = "activos:dashboard"
 MAX_ETIQUETAS_POR_LOTE = 200
 
@@ -402,7 +405,9 @@ class ActivoViewSet(viewsets.ModelViewSet):
         cuesta cientos de milisegundos con 10.000 activos, y son cifras que no
         cambian de un segundo a otro (ver `apps.core.cache`).
         """
-        return Response(recordar(CLAVE_CACHE_PANEL, dashboard_mod.construir_indicadores))
+        return Response(recordar(
+                clave_por_empresa(CLAVE_CACHE_PANEL), dashboard_mod.construir_indicadores
+            ))
 
     @action(
         detail=False,
