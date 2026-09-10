@@ -15,7 +15,6 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RefreshSerializer,
-    RegisterSerializer,
     SessionSerializer,
 )
 from .services import (
@@ -25,23 +24,12 @@ from .services import (
     SessionService,
 )
 
-
-class RegisterView(APIView):
-    """Controlador: valida entrada (serializer) y delega a services."""
-
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = AuthenticationService.register_user(**serializer.validated_data)
-        tokens = AuthenticationService.issue_tokens_for(
-            user, ip_address=get_client_ip(request), user_agent=get_user_agent(request)
-        )
-        return Response(
-            {"user": UserPublicSerializer(user).data, "tokens": tokens},
-            status=status.HTTP_201_CREATED,
-        )
+# El registro público se retiró (revisión de seguridad, H-03): este es el
+# inventario interno de un grupo empresarial y no hay ningún caso en que alguien
+# se dé de alta a sí mismo. El endpoint además emitía tokens en el acto, así que
+# un desconocido obtenía sesión válida contra la API, y eludía la nomenclatura de
+# nombre de usuario que el alta administrativa sí impone. Las cuentas se crean
+# desde Usuarios, con su empresa y su rol (`apps.users.views.UserAdminViewSet`).
 
 
 class LoginView(APIView):

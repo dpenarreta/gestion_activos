@@ -41,6 +41,7 @@ class Command(BaseCommand):
         hallazgos += self._revisar_tareas_programadas()
         hallazgos += self._revisar_datos_minimos()
         hallazgos += self._revisar_respaldos()
+        hallazgos += self._revisar_datos_de_demostracion()
 
         criticos = [h for h in hallazgos if h[0] == Resultado.CRITICO]
         avisos = [h for h in hallazgos if h[0] == Resultado.AVISO]
@@ -107,6 +108,36 @@ class Command(BaseCommand):
             hallazgos.append((Resultado.OK, "SECRET_KEY propia", ""))
 
         return hallazgos
+
+    # --- Datos de demostración ---
+
+    def _revisar_datos_de_demostracion(self):
+        """Que ninguna cuenta de demostración haya sobrevivido al camino.
+
+        Se crearon para recorrer el sistema antes de producción y su clave se
+        imprimió en una consola. Si llegan al despliegue real son cuentas
+        conocidas —dos de ellas administran una empresa— y nadie se acuerda de
+        borrarlas el día que hay prisa. Por eso se comprueba aquí y no en un
+        recordatorio del manual.
+        """
+        from apps.core.management.commands.sembrar_datos_demo import usuarios_demo
+        from apps.users.models import User
+
+        presentes = list(
+            User.objects.filter(username__in=usuarios_demo()).values_list("username", flat=True)
+        )
+        if presentes:
+            return [
+                (
+                    Resultado.CRITICO,
+                    f"Quedan {len(presentes)} cuenta(s) de demostracion",
+                    "Su clave se imprimio en una consola y algunas administran una "
+                    "empresa: "
+                    + ", ".join(sorted(presentes)[:5])
+                    + ". Retirelas con: python manage.py sembrar_datos_demo --eliminar",
+                )
+            ]
+        return [(Resultado.OK, "Sin cuentas de demostracion", "")]
 
     # --- Correo ---
 

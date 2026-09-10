@@ -59,8 +59,16 @@ def seguridad():
 
 
 @pytest.fixture
-def jefa():
-    return _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+def jefa(courier):
+    """Quien administra pertenece a la empresa que administra.
+
+    No es un detalle del montaje: una cuenta sin ninguna empresa no ve nada —ni
+    siquiera a los usuarios— desde que existe la segunda, y administrar accesos
+    desde fuera de toda empresa sería exactamente lo que la separación impide.
+    """
+    usuario = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    MembresiaEmpresa.objects.create(usuario=usuario, empresa=courier, es_predeterminada=True)
+    return usuario
 
 
 def _asignar(jefa, usuario, entradas):

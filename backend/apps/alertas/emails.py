@@ -88,15 +88,22 @@ def enviar_resumen(*, alertas, direcciones: list[str], es_prueba: bool = False) 
     intento fallido en la bitácora de envíos, y una excepción que sube dejaría
     ese registro sin escribir —el fallo desaparecería justo cuando importa.
     """
+    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
     contexto = construir_contexto(alertas, es_prueba=es_prueba)
     prefijo = "[PRUEBA] " if es_prueba else ""
+    # El asunto nombra la empresa porque quien trabaja en dos recibe dos correos
+    # el mismo día, y sin distinguirlos el segundo parece un duplicado.
+    empresa = empresa_actual()
+    firma = (
+        f"{empresa.nombre} · {settings.SYSTEM_NAME}"
+        if empresa is not None and empresa is not SIN_EMPRESA
+        else settings.SYSTEM_NAME
+    )
     if contexto["total_alertas"]:
-        asunto = (
-            f"{prefijo}{contexto['total_alertas']} alerta(s) del parque "
-            f"— {settings.SYSTEM_NAME}"
-        )
+        asunto = f"{prefijo}{contexto['total_alertas']} alerta(s) del parque — {firma}"
     else:
-        asunto = f"{prefijo}Sin alertas pendientes — {settings.SYSTEM_NAME}"
+        asunto = f"{prefijo}Sin alertas pendientes — {firma}"
 
     try:
         mensaje = EmailMultiAlternatives(

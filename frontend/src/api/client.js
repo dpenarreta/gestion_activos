@@ -7,11 +7,7 @@ const REFRESH_TOKEN_KEY = "gestion_activos_refresh_token";
 
 // Endpoints que nunca deben disparar un intento de refresh ni una
 // redirección automática (evita bucles de reintento).
-const AUTH_ENDPOINTS = [
-  "/auth/login/",
-  "/auth/register/",
-  "/auth/token/refresh/",
-];
+const AUTH_ENDPOINTS = ["/auth/login/", "/auth/token/refresh/"];
 
 function isAuthEndpoint(url) {
   return Boolean(url) && AUTH_ENDPOINTS.some((path) => url.includes(path));

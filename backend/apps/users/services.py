@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from apps.authentication.services import AuthenticationService, SessionService
 from apps.core.audit import record_audit_event
+from apps.permissions.authorization import permisos_que_no_tiene
 
 from .models import User
 from .nomenclatura import generar_username
@@ -223,6 +224,20 @@ class UserAdminService:
     def assign_permissions(
         *, actor: User, user: User, permissions: list[Permission], context: dict | None = None
     ) -> User:
+        # Misma regla que en los roles: nadie reparte lo que no tiene. Sin esto,
+        # `usuarios.editar` bastaría para darse a uno mismo el catálogo entero
+        # por la puerta de al lado.
+        faltantes = permisos_que_no_tiene(actor, [p.codename for p in permissions])
+        if faltantes:
+            raise serializers.ValidationError(
+                {
+                    "permission_codenames": [
+                        "No puede conceder permisos que usted no tiene: "
+                        + ", ".join(faltantes)
+                        + "."
+                    ]
+                }
+            )
         previous_permissions = list(user.user_permissions.all())
         user.user_permissions.set(permissions)
         user.updated_by = actor

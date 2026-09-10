@@ -55,8 +55,28 @@ def _registrar(resultado, *, motivo="", destinatarios=None, alertas=None, origen
     )
 
 
+def ejecutar_envio_en_todas_las_empresas(*, hoy=None, forzar: bool = False) -> list:
+    """Un resumen por empresa, cada uno con sus datos y sus destinatarios.
+
+    El cron corre fuera de toda petición, donde no hay empresa activa y los
+    gestores por empresa **no filtran nada**: sin este recorrido, el resumen se
+    calculaba sobre el parque completo y salía un correo con los equipos de una
+    empresa hacia el personal de la otra. Además, los destinatarios cuyo permiso
+    `alertas.ver` viene de un rol de empresa no calificaban —sin empresa activa
+    no tienen permisos— y el aviso dejaba de llegarle a quien debía recibirlo.
+    """
+    from apps.empresas.contexto import usando_empresa
+    from apps.empresas.models import Empresa
+
+    envios = []
+    for empresa in Empresa.objects.filter(activa=True).order_by("nombre"):
+        with usando_empresa(empresa):
+            envios.append(ejecutar_envio_programado(hoy=hoy, forzar=forzar))
+    return envios
+
+
 def ejecutar_envio_programado(*, hoy=None, forzar: bool = False) -> EnvioAlertas:
-    """Evalúa y, si corresponde, envía el resumen del día.
+    """Evalúa y, si corresponde, envía el resumen del día **de una empresa**.
 
     Devuelve siempre un registro de la bitácora, incluso cuando no se envía
     nada: el cron corre a diario y necesita dejar constancia de que pasó por
@@ -108,7 +128,7 @@ def ejecutar_envio_programado(*, hoy=None, forzar: bool = False) -> EnvioAlertas
             alertas=alertas,
         )
 
-    ConfiguracionAlertas.objects.filter(pk=configuracion.pk).update(ultimo_envio=hoy)
+    ConfiguracionAlertas.objects.todas().filter(pk=configuracion.pk).update(ultimo_envio=hoy)
     return _registrar(EnvioAlertas.Resultado.ENVIADO, destinatarios=destinatarios, alertas=alertas)
 
 

@@ -42,7 +42,11 @@ python manage.py sembrar_datos_demo
 
 Siembra en **las dos empresas** —10 equipos, 8 mantenimientos, 6 personas y sus
 catálogos en LaarCourier; 5 equipos y 3 mantenimientos en LaarSeguridad— y crea
-las cuentas con su empresa y su rol. Todo pasa por los servicios de negocio, así
+las cuentas con su empresa y su rol.
+
+La contraseña se genera al azar y **se imprime una sola vez** al terminar; para
+fijar una conocida, `DEMO_PASSWORD=...`. Las cuentas nacen obligadas a cambiarla
+al entrar: la clave sale por una consola, y una consola se comparte. Todo pasa por los servicios de negocio, así
 que los equipos quedan con su código de barras, su movimiento de alta y sus
 contadores de renovación calculados. Volver a correrlo no duplica nada.
 
@@ -51,6 +55,10 @@ contadores de renovación calculados. Volver a correrlo no duplica nada.
 ```bash
 python manage.py sembrar_datos_demo --eliminar
 ```
+
+`verificar_despliegue` lo comprueba: mientras quede alguna de esas cuentas, el
+resultado es **crítico** y el despliegue no está listo. No depende de que nadie
+se acuerde.
 
 Retira equipos, mantenimientos, repuestos consumidos, movimientos, adjuntos,
 empleados y cuentas de demostración. Los catálogos —áreas, sedes, proveedores,

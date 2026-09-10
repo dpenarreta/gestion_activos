@@ -14,6 +14,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from apps.core.hojas_de_calculo import neutralizar
+
 RELLENO_CABECERA = PatternFill("solid", fgColor="D9E2F3")
 RELLENO_TOTALES = PatternFill("solid", fgColor="EDEDED")
 
@@ -55,7 +57,7 @@ def exportar(reporte, resultado, descripcion_filtros: str) -> bytes:
 
     for numero, fila in enumerate(resultado["filas"], start=FILA_ENCABEZADOS + 1):
         for indice, valor in enumerate(fila, start=1):
-            hoja.cell(row=numero, column=indice, value=valor)
+            hoja.cell(row=numero, column=indice, value=neutralizar(valor))
 
     if resultado["totales"]:
         fila_totales = FILA_ENCABEZADOS + len(resultado["filas"]) + 1

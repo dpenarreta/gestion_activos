@@ -21,7 +21,12 @@ from apps.users.models import User
 pytestmark = pytest.mark.django_db
 
 
-def _cuenta(nombre, *permisos):
+def _cuenta(nombre, *permisos, empresa=None):
+    """Una cuenta con permisos y, si se indica, membresía en una empresa.
+
+    Quien administra pertenece a la empresa que administra: desde que existe la
+    segunda, una cuenta sin ninguna no ve nada, ni siquiera a los usuarios.
+    """
     usuario = User.objects.create_user(
         username=nombre, email=f"{nombre}@example.com", password="Sup3r-Secr3t!"
     )
@@ -29,12 +34,16 @@ def _cuenta(nombre, *permisos):
     usuario.user_permissions.set(
         Permission.objects.filter(content_type=content_type, codename__in=permisos)
     )
+    if empresa is not None:
+        MembresiaEmpresa.objects.create(usuario=usuario, empresa=empresa, es_predeterminada=True)
     return usuario
 
 
-def _cliente(usuario):
+def _cliente(usuario, empresa=None):
     cliente = APIClient()
     cliente.force_authenticate(user=usuario)
+    if empresa is not None:
+        cliente.credentials(HTTP_X_EMPRESA=str(empresa.id))
     return cliente
 
 
@@ -124,7 +133,7 @@ def test_desactivar_la_saca_del_selector_sin_borrar_nada(courier, seguridad):
 
 def test_administrar_usuarios_no_alcanza_para_asignar_empresas(courier, seguridad):
     """El permiso de usuarios edita perfiles; el de empresas reparte acceso."""
-    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.editar", "usuarios.crear")
+    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.editar", "usuarios.crear", empresa=courier)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -138,7 +147,7 @@ def test_administrar_usuarios_no_alcanza_para_asignar_empresas(courier, segurida
 
 
 def test_se_asignan_las_dos_empresas_y_queda_auditado(courier, seguridad):
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -164,11 +173,16 @@ def test_se_asignan_las_dos_empresas_y_queda_auditado(courier, seguridad):
 
 def test_la_asignacion_reemplaza_la_lista_entera(courier, seguridad):
     """Quien revisa accesos piensa en «esta persona ve estas», no en sumar."""
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    # Administra las dos: para mover a alguien de una empresa a otra hay que
+    # poder verlo en la primera, y solo se ve a quien comparte empresa.
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
+    MembresiaEmpresa.objects.create(usuario=jefa, empresa=seguridad)
     otra = _cuenta("otra")
     MembresiaEmpresa.objects.create(usuario=otra, empresa=seguridad, es_predeterminada=True)
 
-    _cliente(jefa).post(
+    # Se administra desde la empresa donde hoy está la cuenta: solo se ve a
+    # quien comparte la empresa activa.
+    _cliente(jefa, seguridad).post(
         f"/api/v1/admin/users/{otra.id}/empresas/",
         {"empresas": [{"empresa_id": courier.id}]},
         format="json",
@@ -180,7 +194,7 @@ def test_la_asignacion_reemplaza_la_lista_entera(courier, seguridad):
 
 
 def test_sin_predeterminada_se_toma_la_primera_por_nombre(courier, seguridad):
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
 
     _cliente(jefa).post(
@@ -194,7 +208,7 @@ def test_sin_predeterminada_se_toma_la_primera_por_nombre(courier, seguridad):
 
 def test_solo_una_empresa_puede_ser_la_predeterminada(courier, seguridad):
     """Es la que se abre al entrar: con dos marcadas no hay cuál elegir."""
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -213,7 +227,7 @@ def test_solo_una_empresa_puede_ser_la_predeterminada(courier, seguridad):
 
 
 def test_una_empresa_repetida_en_la_asignacion_se_rechaza(courier):
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -227,7 +241,7 @@ def test_una_empresa_repetida_en_la_asignacion_se_rechaza(courier):
 
 
 def test_una_empresa_inexistente_no_asigna_nada(courier):
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -242,8 +256,7 @@ def test_una_empresa_inexistente_no_asigna_nada(courier):
 
 def test_nadie_puede_dejarse_a_si_mismo_sin_empresas(courier, seguridad):
     """Quien se queda sin membresías deja de ver todo y no puede devolvérselo."""
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
-    MembresiaEmpresa.objects.create(usuario=jefa, empresa=courier, es_predeterminada=True)
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
 
     respuesta = _cliente(jefa).post(
         f"/api/v1/admin/users/{jefa.id}/empresas/", {"empresas": []}, format="json"
@@ -254,7 +267,7 @@ def test_nadie_puede_dejarse_a_si_mismo_sin_empresas(courier, seguridad):
 
 
 def test_a_otro_si_se_le_pueden_quitar_todas(courier, seguridad):
-    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
     otra = _cuenta("otra")
     MembresiaEmpresa.objects.create(usuario=otra, empresa=courier, es_predeterminada=True)
 
@@ -284,7 +297,7 @@ def test_el_selector_no_exige_permisos_del_catalogo(courier, seguridad):
 
 
 def test_el_listado_de_usuarios_muestra_en_que_empresas_trabaja_cada_uno(courier, seguridad):
-    jefa = _cuenta("jefa", "usuarios.ver")
+    jefa = _cuenta("jefa", "usuarios.ver", empresa=courier)
     otra = _cuenta("otra")
     MembresiaEmpresa.objects.create(usuario=otra, empresa=courier, es_predeterminada=True)
 

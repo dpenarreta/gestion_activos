@@ -36,7 +36,6 @@ import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
 import { SedesList } from "../pages/Admin/Organizacion/SedesList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
 import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
-import { Register } from "../pages/Register/Register";
 import { RoleForm } from "../pages/Admin/Roles/RoleForm";
 import { RolesPage } from "../pages/Admin/Roles/RolesPage";
 import { UserForm } from "../pages/Admin/Users/UserForm";
@@ -74,7 +73,9 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* El registro público se retiró (revisión de seguridad, H-03):
+          las cuentas las crea un administrador desde Usuarios, con su
+          empresa y su rol. */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route

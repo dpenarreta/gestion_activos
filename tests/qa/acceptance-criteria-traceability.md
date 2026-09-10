@@ -577,3 +577,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-TMP-011 | Pasado el mes, en meses y días | tiempos-del-activo.feature | Pasado el mes, en meses y días | Sí (pytest: `test_duracion.py`; Vitest: `formatearDias`) |
 | AC-TMP-012 | Pasado el año, en años, meses y días | tiempos-del-activo.feature | Pasado el año, en años, meses y días | Sí (pytest: `test_duracion.py`; Vitest: `formatearDias`, `TiemposDelActivo`) |
 | AC-TMP-013 | La antigüedad sigue la misma regla | tiempos-del-activo.feature | La antigüedad sigue la misma regla | Sí (pytest: `test_la_antiguedad_se_dice_en_anios_pasado_el_ano`; Vitest: `formatearMeses`) |
+
+## Hallazgos de seguridad, 10 de septiembre de 2026 (AC-SEC-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-SEC-001 | La clave de demostración no está en el código | hallazgos-de-seguridad.feature | La clave de las cuentas de demostración no vive en el código | Sí (pytest: `test_sembrar_datos_demo.py`; por diseño en `clave_demo()`) |
+| AC-SEC-002 | Las cuentas de demostración cambian la clave al entrar | hallazgos-de-seguridad.feature | Las cuentas de demostración obligan a cambiar la contraseña | Sí (pytest: `test_sembrar_datos_demo.py`) |
+| AC-SEC-003 | El despliegue se detiene si quedan | hallazgos-de-seguridad.feature | El despliegue se detiene si quedan cuentas de demostración | Sí (pytest: `verificar_despliegue`, comprobado en la base real) |
+| AC-SEC-004 | Sin registro público | hallazgos-de-seguridad.feature | Nadie se da de alta a sí mismo | Sí (pytest: `test_el_registro_publico_ya_no_existe`) |
+| AC-SEC-005 | Alertas en todas las empresas | hallazgos-de-seguridad.feature | El centro de alertas responde en todas las empresas | Sí (pytest: `test_el_centro_de_alertas_responde_en_las_dos_empresas`) |
+| AC-SEC-006 | Un resumen por empresa | hallazgos-de-seguridad.feature | El resumen diario sale una vez por empresa | Sí (pytest: `test_el_resumen_diario_sale_una_vez_por_empresa`) |
+| AC-SEC-007 | La auditoría no cruza empresas | hallazgos-de-seguridad.feature | La auditoría no cruza empresas | Sí (pytest: `test_la_auditoria_no_muestra_lo_de_la_otra_empresa`) |
+| AC-SEC-008 | Los huérfanos no se cuelan | hallazgos-de-seguridad.feature | Un evento huérfano no se cuela por la puerta de atrás | Sí (pytest: `test_un_evento_huerfano_de_otro_modulo_no_se_cuela`) |
+| AC-SEC-009 | Usuarios acotados por empresa | hallazgos-de-seguridad.feature | El listado de usuarios no muestra al personal de la otra empresa | Sí (pytest: `test_el_listado_de_usuarios_no_muestra_los_de_la_otra_empresa`) |
+| AC-SEC-010 | Nadie concede lo que no tiene | hallazgos-de-seguridad.feature | Nadie concede un permiso que no tiene | Sí (pytest: `test_no_se_puede_conceder_un_permiso_que_no_se_tiene`, `test_el_superusuario_no_tiene_ese_tope`) |
+| AC-SEC-011 | Exportaciones sin fórmulas | hallazgos-de-seguridad.feature | Un valor del inventario no se vuelve fórmula al abrir el archivo | Sí (pytest: `test_hojas_de_calculo.py`, 11 casos) |
+| AC-SEC-012 | Content-Security-Policy en toda respuesta | hallazgos-de-seguridad.feature | Toda respuesta declara su política de contenido | Sí (pytest: `test_csp.py`) |
+| AC-SEC-013 | Ruta de respaldo por forma admitida | hallazgos-de-seguridad.feature | La ruta de respaldo se valida por forma admitida | Sí (pytest: `test_respaldos.py`) |

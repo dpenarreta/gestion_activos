@@ -25,6 +25,8 @@ de pasar a producción.
 """
 
 import datetime
+import os
+import secrets
 
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
@@ -41,9 +43,32 @@ from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 from apps.users.models import User
 from apps.users.nomenclatura import generar_username
 
-#: Una sola para todas las cuentas de demostración, y se imprime al terminar:
-#: son cuentas que hay que poder abrir para mirar las pantallas, no secretos.
-CLAVE_DEMO = "Demo.2026$Laar"
+
+def clave_demo() -> str:
+    """La contraseña de las cuentas de demostración, nunca escrita en el código.
+
+    Una clave fija aquí quedaría en el historial de Git para siempre, y estas
+    son cuentas reales: dos de ellas administran una empresa. Se toma de
+    `DEMO_PASSWORD` si el operador quiere una conocida, y si no se genera una al
+    azar que se imprime **una vez** al terminar.
+
+    Aun así nacen con cambio de contraseña obligatorio: quien entre por primera
+    vez la sustituye, así que ni siquiera la que se imprimió sirve dos veces.
+    """
+    return os.environ.get("DEMO_PASSWORD") or f"{secrets.token_urlsafe(12)}.aA1"
+
+
+#: Las cuentas que crea este comando, para que `verificar_despliegue` pueda
+#: comprobar que ninguna sobrevivió al paso a producción.
+def usuarios_demo() -> list[str]:
+    from apps.users.nomenclatura import base_de_username
+
+    return [
+        base_de_username(nombres, apellidos)
+        for plan in (COURIER, SEGURIDAD)
+        for nombres, apellidos, *_ in plan["personas"]
+    ]
+
 
 #: Marca los catálogos de demostración para poder retirarlos después sin tocar
 #: lo que se haya cargado de verdad mientras tanto. Va en campos de notas y no
@@ -204,6 +229,7 @@ class Command(BaseCommand):
             return
 
         actor = User.objects.filter(is_superuser=True).order_by("id").first()
+        self.clave = clave_demo()
         total = {}
         for plan in (COURIER, SEGURIDAD):
             empresa = Empresa.objects.filter(nombre=plan["empresa"]).first()
@@ -303,10 +329,15 @@ class Command(BaseCommand):
                     usuario = User.objects.create_user(
                         username=generar_username(nombres, apellidos),
                         email=f"{generar_username(nombres, apellidos)}@grupolaar.com",
-                        password=CLAVE_DEMO,
+                        password=self.clave,
                         first_name=nombres,
                         last_name=apellidos,
                     )
+                    # Nacen obligadas a cambiarla: la clave se imprime en una
+                    # consola, y una consola se comparte, se pega en un chat y
+                    # se queda en el historial de la terminal.
+                    usuario.must_change_password = True
+                    usuario.save(update_fields=["must_change_password"])
                 empleado = Empleado.objects.create(
                     nombres=nombres,
                     apellidos=apellidos,
@@ -487,7 +518,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {etiqueta:<15} {cantidad}")
         self.stdout.write(
             self.style.WARNING(
-                f"\nTodas las cuentas de demostración entran con la clave: {CLAVE_DEMO}"
+                f"\nClave de las cuentas nuevas (se pide cambiarla al entrar): {self.clave}"
+                "\nNo vuelve a mostrarse. Para fijar una conocida: DEMO_PASSWORD=...\n"
                 "\nPara retirarlo todo antes de producción: "
                 "python manage.py sembrar_datos_demo --eliminar"
             )

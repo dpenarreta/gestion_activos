@@ -1,29 +1,7 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from apps.users.validators import validate_unique_email, validate_unique_username
-
 from .models import Session
-
-
-class RegisterSerializer(serializers.Serializer):
-    """Valida los datos de entrada para el registro de un nuevo usuario."""
-
-    username = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-
-    def validate_username(self, value):
-        return validate_unique_username(value)
-
-    def validate_email(self, value):
-        return validate_unique_email(value)
-
-    def validate_password(self, value):
-        validate_password(value)
-        return value
 
 
 class LoginSerializer(serializers.Serializer):

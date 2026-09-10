@@ -224,3 +224,36 @@ def test_la_reparacion_no_se_ejecuta_sin_pedirlo(capsys):
 
     salida = capsys.readouterr().out
     assert "Simulacion" in salida or "No hay textos" in salida
+
+
+# --- AC-SEC-013: la ruta va literal dentro de la sentencia -------------------
+
+
+@pytest.mark.parametrize(
+    "ruta",
+    [
+        "respaldos/x.bak",  # relativa
+        "/var/../etc/x.bak",  # tramo relativo
+        "'; DROP DATABASE x --",  # comilla y comentario
+        "/var/opt/x.bak; DROP DATABASE y",  # punto y coma
+        "/var/opt/[x].bak",  # corchetes, que delimitan identificadores
+        "/var/opt/x\nDROP",  # salto de línea
+    ],
+)
+def test_la_ruta_de_respaldo_se_rechaza_si_no_tiene_forma_admitida(ruta):
+    from django.core.management.base import CommandError
+
+    from apps.core.management.commands.respaldar import _validar_ruta
+
+    with pytest.raises(CommandError):
+        _validar_ruta(ruta)
+
+
+@pytest.mark.parametrize(
+    "ruta",
+    ["/var/opt/mssql/backup/base-2026.bak", r"C:\\respaldos\\base 2026.bak"],
+)
+def test_una_ruta_absoluta_normal_se_acepta(ruta):
+    from apps.core.management.commands.respaldar import _validar_ruta
+
+    _validar_ruta(ruta)

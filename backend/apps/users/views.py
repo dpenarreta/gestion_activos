@@ -74,7 +74,45 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        return filter_users(super().get_queryset(), self.request.query_params)
+        return filter_users(
+            self._del_ambito_visible(super().get_queryset()), self.request.query_params
+        )
+
+    def _del_ambito_visible(self, queryset):
+        """Solo las cuentas que comparten empresa con quien consulta.
+
+        `User` es global —una persona es la misma en todas las empresas a las
+        que entra— pero eso no significa que un administrador de una deba ver
+        los nombres y correos del personal de la otra. El superusuario sí las ve
+        todas: es la cuenta de emergencia.
+
+        Las cuentas **sin ninguna empresa** también se ven, y eso no es una
+        excepción cómoda: quien no pertenece a ninguna no es de nadie, así que
+        mostrarla no cruza ningún límite, y esconderla la volvería
+        inadministrable —para asignarle una empresa hay que poder abrirla
+        primero—. Es además la que trabaja en la única empresa existente
+        mientras solo haya una, por la misma regla que aplica `empresas_de`.
+
+        Se acota el conjunto de trabajo entero y no solo el listado: si el
+        detalle no filtrara, bastaría con teclear un id para abrir la ficha de
+        alguien de la otra compañía.
+        """
+        from django.db.models import Q
+
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+        if self.request.user.is_superuser:
+            return queryset
+
+        empresa = empresa_actual()
+        if empresa is None:
+            return queryset
+        if empresa is SIN_EMPRESA:
+            return queryset.none()
+
+        return queryset.filter(
+            Q(membresias__empresa=empresa) | Q(membresias__isnull=True)
+        ).distinct()
 
     def get_serializer_class(self):
         if self.action == "list":

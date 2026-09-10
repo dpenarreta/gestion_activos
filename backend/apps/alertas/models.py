@@ -19,9 +19,7 @@ envío, porque genera confianza en que alguien fue advertido.
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils import timezone
 
-from apps.core.models import BaseModel
 from apps.empresas.models import ModeloDeEmpresa
 
 
@@ -110,26 +108,14 @@ class ConfiguracionAlertas(ModeloDeEmpresa):
     class Meta:
         verbose_name = "configuración de alertas"
         verbose_name_plural = "configuración de alertas"
+        constraints = [
+            # Una por empresa, no una en todo el sistema: cada una decide su
+            # frecuencia, sus umbrales y sus destinatarios.
+            models.UniqueConstraint(fields=["empresa"], name="config_alertas_unica_por_empresa")
+        ]
 
     def __str__(self) -> str:
         return "Configuración de alertas"
-
-    def save(self, *args, **kwargs):
-        # El id fijo es lo que hace imposible una segunda fila: sin él, dos
-        # peticiones concurrentes de «guardar» crearían dos configuraciones y
-        # `cargar()` devolvería la que llegara primero, sin forma de saber
-        # cuál rige.
-        self.pk = 1
-        if self.created_at is None:
-            # Fijar el id convierte el alta de una instancia nueva en un UPDATE
-            # de la fila existente, y en un UPDATE Django no rellena los campos
-            # `auto_now_add`: hay que conservar el valor que ya está guardado
-            # (o inventarlo si esta es la primera vez).
-            self.created_at = (
-                type(self).objects.filter(pk=1).values_list("created_at", flat=True).first()
-                or timezone.now()
-            )
-        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         raise ValidationError(
@@ -138,10 +124,23 @@ class ConfiguracionAlertas(ModeloDeEmpresa):
 
     @classmethod
     def cargar(cls) -> "ConfiguracionAlertas":
-        """Configuración vigente, creándola con los valores por defecto la
-        primera vez. Nunca devuelve `None`: el centro de alertas debe poder
-        responder aunque nadie haya entrado todavía a configurarlo."""
-        configuracion, _ = cls.objects.get_or_create(pk=1)
+        """La configuración de la empresa activa, creándola la primera vez.
+
+        Fue una fila única (`pk=1`) mientras hubo una sola empresa, y al pasar a
+        dos esa decisión se volvió un fallo: la fila pertenecía a la primera y
+        era invisible desde la segunda, así que el sistema intentaba crearla de
+        nuevo y chocaba con la clave primaria — el centro de alertas devolvía un
+        500 para media empresa.
+
+        Nunca devuelve `None`: el centro de alertas debe poder responder aunque
+        nadie haya entrado todavía a configurarlo. Fuera de una petición —un
+        comando— no hay empresa activa y el gestor no filtra, así que quien
+        necesite la de una empresa concreta debe envolver la llamada en
+        `usando_empresa(...)`; es lo que hace el envío programado.
+        """
+        configuracion = cls.objects.first()
+        if configuracion is None:
+            configuracion = cls.objects.create()
         return configuracion
 
     def toca_enviar_hoy(self, hoy) -> bool:
@@ -162,7 +161,7 @@ class ConfiguracionAlertas(ModeloDeEmpresa):
         return True
 
 
-class EnvioAlertas(BaseModel):
+class EnvioAlertas(ModeloDeEmpresa):
     """Bitácora de los resúmenes enviados. Append-only, como la auditoría.
 
     Registra también lo que *no* se envió y por qué. Un envío omitido y un

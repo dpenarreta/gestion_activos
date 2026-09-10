@@ -20,6 +20,7 @@ que está todo.
 
 import datetime
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -34,18 +35,37 @@ from django.utils import timezone
 RUTA_SERVIDOR_POR_DEFECTO = "/var/opt/mssql/backup"
 
 
+#: Caracteres que romperían la sentencia si llegaran a la ruta.
+_PROHIBIDOS = ("'", ";", "\n", "\r", "[", "]", "--")
+
+#: Forma admitida: una ruta absoluta POSIX (/var/opt/...) o de Windows
+#: (C:\respaldos\...), con letras, dígitos, punto, guion, espacio y separadores.
+_FORMA = re.compile(r"^(?:/|[A-Za-z]:[\\/])[\w .\\/-]+$")
+
+
 def _validar_ruta(ruta: str) -> None:
-    """Rechaza rutas que no puedan ir literales dentro de la sentencia.
+    """Comprueba que la ruta puede ir literal dentro de la sentencia.
 
     La escribe el operador que ejecuta el comando, no un usuario del sistema,
-    pero va embebida en SQL: una comilla o un salto de línea la convertirían en
-    otra cosa, y el respaldo es justo la operación donde no se quieren
-    sorpresas.
+    pero va embebida en SQL —SQL Server no admite parámetros en `TO DISK`— y el
+    respaldo es justo la operación donde no se quieren sorpresas.
+
+    Se valida por **forma admitida** y no solo por caracteres prohibidos: una
+    lista de lo que no puede aparecer envejece mal, porque obliga a acertar de
+    antemano con todo lo que alguien podría escribir. Una lista de lo que sí se
+    admite falla del lado seguro.
     """
-    if any(caracter in ruta for caracter in ("'", ";", "\n", "\r")):
+    if any(caracter in ruta for caracter in _PROHIBIDOS):
         raise CommandError(
             f"La ruta de respaldo {ruta!r} contiene caracteres no admitidos "
-            "(comillas, punto y coma o saltos de linea)."
+            "(comillas, punto y coma, corchetes, guiones dobles o saltos de linea)."
+        )
+    if ".." in ruta:
+        raise CommandError(f"La ruta de respaldo {ruta!r} no puede llevar tramos relativos (..).")
+    if not _FORMA.match(ruta):
+        raise CommandError(
+            f"La ruta de respaldo {ruta!r} no tiene forma de ruta absoluta. "
+            "Use algo como /var/opt/mssql/respaldos o C:\\respaldos."
         )
 
 

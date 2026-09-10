@@ -64,6 +64,25 @@ def get_user_permission_codenames(user) -> set[str]:
     return globales | _permisos_de_la_empresa_activa(user)
 
 
+def permisos_que_no_tiene(usuario, codenames) -> list[str]:
+    """De los pedidos, cuáles no posee quien está concediendo.
+
+    Es la base de una sola regla, escrita en un sitio: **nadie reparte un
+    permiso que no tiene**. Sin ella, `roles.editar` es en la práctica el
+    permiso máximo del sistema —quien lo tenga se añade a su propio rol
+    cualquier entrada del catálogo— aunque el catálogo lo presente como uno más,
+    y con administradores por empresa eso cruza además la separación: el rol es
+    compartido y el cambio le llega a la otra compañía.
+
+    El superusuario queda fuera: es la cuenta de emergencia y ya se salta toda
+    la autorización.
+    """
+    if usuario is not None and usuario.is_superuser:
+        return []
+    propios = get_user_permission_codenames(usuario)
+    return sorted(set(codenames) - propios)
+
+
 def user_has_permission(user, codename: str) -> bool:
     """Chequeo de autorización real. El bypass explícito de `is_superuser`
     es redundante con el que ya hace Django internamente (ver docstring de

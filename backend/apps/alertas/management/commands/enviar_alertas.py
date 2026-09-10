@@ -11,7 +11,7 @@ Es seguro repetirlo: dos pasadas el mismo día no producen dos correos.
 from django.core.management.base import BaseCommand
 
 from apps.alertas.models import EnvioAlertas
-from apps.alertas.services import ejecutar_envio_programado
+from apps.alertas.services import ejecutar_envio_en_todas_las_empresas
 
 
 class Command(BaseCommand):
@@ -28,18 +28,30 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        envio = ejecutar_envio_programado(forzar=options["forzar"])
+        # Un envío por empresa: cada una con su configuración, sus equipos y sus
+        # destinatarios. Un solo correo con el parque de todas cruzaría entre
+        # empresas justo lo que la separación promete no cruzar.
+        envios = ejecutar_envio_en_todas_las_empresas(forzar=options["forzar"])
+        fallos = 0
 
-        if envio.resultado == EnvioAlertas.Resultado.ENVIADO:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Resumen enviado a {len(envio.destinatarios)} destinatario(s): "
-                    f"{envio.total_alertas} alerta(s) con {envio.total_elementos} situación(es)."
+        for envio in envios:
+            empresa = envio.empresa.nombre if envio.empresa_id else "sin empresa"
+            if envio.resultado == EnvioAlertas.Resultado.ENVIADO:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"{empresa}: enviado a {len(envio.destinatarios)} destinatario(s), "
+                        f"{envio.total_alertas} alerta(s) con {envio.total_elementos} situación(es)."
+                    )
                 )
-            )
-        elif envio.resultado == EnvioAlertas.Resultado.OMITIDO:
-            self.stdout.write(f"No se envió: {envio.motivo}")
-        else:
-            # Salida de error para que el cron lo reporte: un envío fallido que
-            # solo queda en la bitácora del sistema no despierta a nadie.
-            self.stderr.write(self.style.ERROR(f"Falló el envío: {envio.motivo}"))
+            elif envio.resultado == EnvioAlertas.Resultado.OMITIDO:
+                self.stdout.write(f"{empresa}: no se envió — {envio.motivo}")
+            else:
+                fallos += 1
+                # Salida de error para que el cron lo reporte: un envío fallido
+                # que solo queda en la bitácora del sistema no despierta a nadie.
+                self.stderr.write(self.style.ERROR(f"{empresa}: falló — {envio.motivo}"))
+
+        if not envios:
+            self.stdout.write("No hay empresas activas a las que enviar.")
+        if fallos:
+            raise SystemExit(1)

@@ -21,23 +21,32 @@ def api_client():
     return APIClient()
 
 
-def test_register_endpoint_creates_user_and_returns_tokens(api_client):
-    response = api_client.post(
+def _cuenta(username="ada"):
+    """Las cuentas se crean por dentro: el registro público ya no existe."""
+    return User.objects.create_user(
+        username=username, email=f"{username}@example.com", password="Sup3r-Secr3t!"
+    )
+
+
+def test_el_registro_publico_ya_no_existe(api_client):
+    """H-03: nadie se da de alta a sí mismo en el inventario interno del grupo.
+
+    Se comprueba la ruta y no el código, porque lo que importa es que no haya
+    forma de llegar: una vista sin `urls` sigue siendo código muerto, pero una
+    ruta olvidada es una puerta.
+    """
+    respuesta = api_client.post(
         "/api/v1/auth/register/",
-        {"username": "ada", "email": "ada@example.com", "password": "Sup3r-Secr3t!"},
+        {"username": "intrusa", "email": "intrusa@example.com", "password": "Sup3r-Secr3t!"},
         format="json",
     )
-    assert response.status_code == 201
-    assert "tokens" in response.data
-    assert response.data["user"]["username"] == "ada"
+
+    assert respuesta.status_code == 404
+    assert not User.objects.filter(username="intrusa").exists()
 
 
 def test_login_endpoint_returns_tokens(api_client):
-    api_client.post(
-        "/api/v1/auth/register/",
-        {"username": "ada", "email": "ada@example.com", "password": "Sup3r-Secr3t!"},
-        format="json",
-    )
+    _cuenta()
     response = api_client.post(
         "/api/v1/auth/login/", {"identifier": "ada", "password": "Sup3r-Secr3t!"}, format="json"
     )
@@ -60,11 +69,7 @@ def test_me_endpoint_requires_authentication(api_client):
 
 
 def test_me_endpoint_returns_current_user(api_client):
-    api_client.post(
-        "/api/v1/auth/register/",
-        {"username": "ada", "email": "ada@example.com", "password": "Sup3r-Secr3t!"},
-        format="json",
-    )
+    _cuenta()
     login = api_client.post(
         "/api/v1/auth/login/", {"identifier": "ada", "password": "Sup3r-Secr3t!"}, format="json"
     )

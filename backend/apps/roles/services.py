@@ -6,11 +6,29 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
 from apps.core.audit import record_audit_event
+from apps.permissions.authorization import permisos_que_no_tiene
 from apps.permissions.models import ModulePermission
 from apps.users.models import User
 
 
 class RoleService:
+    @staticmethod
+    def _comprobar_alcance(actor: User, codenames: list[str]) -> None:
+        """Un rol no puede recibir permisos que quien lo edita no tenga."""
+        from rest_framework import serializers
+
+        faltantes = permisos_que_no_tiene(actor, codenames)
+        if faltantes:
+            raise serializers.ValidationError(
+                {
+                    "permission_codenames": [
+                        "No puede conceder permisos que usted no tiene: "
+                        + ", ".join(faltantes)
+                        + "."
+                    ]
+                }
+            )
+
     @staticmethod
     def _permissions_for(codenames: list[str]) -> list[Permission]:
         content_type = ContentType.objects.get_for_model(ModulePermission)
@@ -20,6 +38,7 @@ class RoleService:
     def create_role(
         *, actor: User, name: str, permission_codenames: list[str], context: dict | None = None
     ) -> Group:
+        RoleService._comprobar_alcance(actor, permission_codenames)
         role = Group.objects.create(name=name)
         role.permissions.set(RoleService._permissions_for(permission_codenames))
         record_audit_event(
@@ -49,6 +68,7 @@ class RoleService:
             role.name = name
             role.save(update_fields=["name"])
         if permission_codenames is not None:
+            RoleService._comprobar_alcance(actor, permission_codenames)
             previous_codenames = sorted(role.permissions.values_list("codename", flat=True))
             if previous_codenames != sorted(permission_codenames):
                 previous_values["permission_codenames"] = previous_codenames

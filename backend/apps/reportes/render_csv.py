@@ -17,6 +17,8 @@ import io
 from django.conf import settings
 from django.utils import timezone
 
+from apps.core.hojas_de_calculo import neutralizar
+
 BOM = "﻿"
 
 
@@ -44,7 +46,7 @@ def exportar(reporte, resultado, descripcion_filtros: str) -> bytes:
 
     escritor.writerow([columna.etiqueta for columna in resultado["columnas"]])
     for fila in resultado["filas"]:
-        escritor.writerow(["" if valor is None else valor for valor in fila])
+        escritor.writerow(["" if valor is None else neutralizar(valor) for valor in fila])
 
     if resultado["totales"]:
         fila_totales = ["" for _ in resultado["columnas"]]

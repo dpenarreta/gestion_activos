@@ -56,6 +56,21 @@ class AuditLog(BaseModel):
     # para que un proyecto concreto lo complete; ver docs/architecture.md.
     location = models.CharField(max_length=255, blank=True)
     correlation_id = models.CharField(max_length=64, blank=True, db_index=True)
+    #: En qué empresa ocurrió. Nula para lo que no pertenece a ninguna —iniciar
+    #: sesión, cambiar el tema, administrar las propias empresas—, que solo ve
+    #: el superusuario.
+    #:
+    #: Es columna propia y no una ruta hasta el objeto afectado porque el
+    #: registro sobrevive a lo que describe: un activo dado de baja y borrado
+    #: deja su evento, y entonces no habría por dónde preguntar de quién era.
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.PROTECT,
+        related_name="eventos_auditoria",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]

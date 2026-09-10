@@ -107,6 +107,7 @@ MIDDLEWARE = [
     # Después de la autenticación: necesita saber quién pregunta para
     # resolver a qué empresa pertenece.
     "apps.empresas.middleware.EmpresaActivaMiddleware",
+    "apps.core.csp.ContentSecurityPolicyMiddleware",
     "apps.core.middleware.RequestIDMiddleware",
     "apps.core.middleware.AccessLogMiddleware",
 ]
@@ -223,6 +224,9 @@ SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=1209600)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = env.str("X_FRAME_OPTIONS", default="DENY")
 SECURE_REFERRER_POLICY = env.str("SECURE_REFERRER_POLICY", default="same-origin")
+# Content-Security-Policy: se puede sobreescribir por entorno para el servidor
+# que sirva el frontend compilado, que tiene otros orígenes que declarar.
+CONTENT_SECURITY_POLICY = env.str("CONTENT_SECURITY_POLICY", default="")
 
 # --- CSRF ---
 # La API (todo bajo /api/) usa JWT Bearer sin cookies de sesión, así que CSRF

@@ -358,3 +358,88 @@ def test_el_historial_de_movimientos_no_cruza_empresas(courier, seguridad):
         # no existe, y hay que pedir `todas()` para verlo.
         assert not MovimientoActivo.objects.filter(activo=ajeno).exists()
         assert MovimientoActivo.objects.todas().filter(activo=ajeno).exists()
+
+
+# --- El resumen por correo ---------------------------------------------------
+
+
+def test_el_centro_de_alertas_responde_en_las_dos_empresas(courier, seguridad):
+    """H-02: la configuración era una fila única y la segunda empresa caía.
+
+    El 500 no era un fallo de datos sino de diseño: `pk=1` pertenecía a la
+    primera empresa y desde la segunda no existía, así que el sistema intentaba
+    crearla otra vez.
+    """
+    usuario = _cuenta("ana", courier, seguridad)
+
+    for empresa in (courier, seguridad):
+        respuesta = _cliente(usuario, empresa).get("/api/v1/alertas/")
+        assert respuesta.status_code == 200, empresa
+
+
+def test_el_resumen_diario_sale_una_vez_por_empresa(courier, seguridad):
+    """Y con los equipos de cada una, no con los de las dos juntas."""
+    from apps.alertas.services import ejecutar_envio_en_todas_las_empresas
+
+    _sembrar(courier, "Courier")
+    _sembrar(seguridad, "Seguridad")
+
+    envios = ejecutar_envio_en_todas_las_empresas(forzar=True)
+
+    por_empresa = [envio.empresa_id for envio in envios]
+    # Uno para cada una, y ninguna repetida: antes salía un único correo con el
+    # parque de todas.
+    assert por_empresa.count(courier.id) == 1
+    assert por_empresa.count(seguridad.id) == 1
+    assert len(por_empresa) == len(set(por_empresa))
+
+
+# --- La auditoría y el listado de usuarios -----------------------------------
+
+
+def test_la_auditoria_no_muestra_lo_de_la_otra_empresa(courier, seguridad):
+    """H-04: `auditoria.ver` en una empresa daba el historial del despliegue."""
+    from apps.core.audit import record_audit_event
+
+    ajeno = _sembrar(seguridad, "Seguridad")
+    propio = _sembrar(courier, "Courier")
+    # Por el camino real: la empresa la pone `record_audit_event` desde el
+    # contexto, que es lo que hay que comprobar.
+    for empresa, activo in ((seguridad, ajeno), (courier, propio)):
+        with usando_empresa(empresa):
+            record_audit_event(
+                actor=None, action="activo.created", target=activo, module="activos"
+            )
+    usuario = _cuenta("ana", courier, seguridad)
+
+    datos = _cliente(usuario, courier).get("/api/v1/admin/audit-logs/").data
+
+    identificadores = {fila["target_id"] for fila in datos["results"]}
+    assert str(propio.id) in identificadores
+    assert str(ajeno.id) not in identificadores
+
+
+def test_un_evento_huerfano_de_otro_modulo_no_se_cuela(courier, seguridad):
+    """El objeto que describía ya no existe, así que no se le puede atribuir dueño."""
+    from apps.core.models import AuditLog
+
+    AuditLog.objects.create(
+        action="activo.created", module="activos", target_type="activo", target_id="99999"
+    )
+    usuario = _cuenta("ana", courier)
+
+    datos = _cliente(usuario, courier).get("/api/v1/admin/audit-logs/").data
+
+    assert "99999" not in {fila["target_id"] for fila in datos["results"]}
+
+
+def test_el_listado_de_usuarios_no_muestra_los_de_la_otra_empresa(courier, seguridad):
+    """H-05: se veían las cuentas y correos de todo el grupo."""
+    _cuenta("de_seguridad", seguridad)
+    usuario = _cuenta("ana", courier)
+
+    datos = _cliente(usuario, courier).get("/api/v1/admin/users/").data
+
+    nombres = {fila["username"] for fila in datos["results"]}
+    assert "ana" in nombres
+    assert "de_seguridad" not in nombres

@@ -12,7 +12,6 @@ Todas las respuestas de error siguen el contrato:
 
 | Método | Ruta | Auth | Permiso |
 | --- | --- | --- | --- |
-| POST | `auth/register/` | Pública | — |
 | POST | `auth/login/` | Pública | — |
 | POST | `auth/token/refresh/` | Pública | — |
 | POST | `auth/logout/` | Requerida | — |

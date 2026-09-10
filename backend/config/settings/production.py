@@ -9,8 +9,12 @@ ENVIRONMENT_NAME = "production"
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)  # noqa: F405
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 60 * 60 * 24 * 7
+# Un año y con `preload`: por debajo de ese plazo los navegadores no aceptan la
+# inclusión en la lista precargada, y sin ella la primera visita de cada usuario
+# sigue viajando en claro hasta la redirección.
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 365)  # noqa: F405
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 # --- Estáticos servidos por el propio contenedor (sin nginx delante de
 # Django): solo sirven el admin y, potencialmente, el schema de Redoc/

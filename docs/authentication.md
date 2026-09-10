@@ -95,7 +95,6 @@ respuesta no delate si la cuenta existe.
 
 | Método | Ruta | Auth | Propósito |
 | --- | --- | --- | --- |
-| POST | `/api/v1/auth/register/` | Pública | Registro de un nuevo usuario |
 | POST | `/api/v1/auth/login/` | Pública | Inicio de sesión |
 | POST | `/api/v1/auth/token/refresh/` | Pública | Renovar tokens |
 | POST | `/api/v1/auth/logout/` | Requerida | Cerrar la sesión actual |
@@ -105,3 +104,10 @@ respuesta no delate si la cuenta existe.
 | POST | `/api/v1/auth/password-reset/request/` | Pública | Solicitar recuperación |
 | POST | `/api/v1/auth/password-reset/confirm/` | Pública | Confirmar recuperación con token |
 | POST | `/api/v1/auth/password/change/` | Requerida | Cambiar la propia contraseña |
+
+**No hay registro público.** Se retiró en la revisión de seguridad del 10 de
+septiembre de 2026: es el inventario interno de un grupo empresarial y no hay
+ningún caso en que alguien se dé de alta a sí mismo. El endpoint además emitía
+tokens en el acto —un desconocido obtenía sesión válida contra la API— y eludía
+la nomenclatura de nombre de usuario que el alta administrativa sí impone. Las
+cuentas las crea un administrador desde Usuarios, con su empresa y su rol.
