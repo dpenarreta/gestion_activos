@@ -630,3 +630,16 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-CAR-010 | La obligatoria se exige, con el mensaje útil | ficha-completa-activo.feature | Una característica obligatoria se exige | Sí (pytest: `test_la_caracteristica_obligatoria_se_exige`, `test_un_valor_invalido_en_una_obligatoria_dice_qué_tiene_de_malo`) |
 | AC-CAR-011 | Desactivarla no borra lo capturado | ficha-completa-activo.feature | Una característica que se deja de pedir no borra lo capturado | Sí (pytest: `test_una_caracteristica_desactivada_deja_de_pedirse`) |
 | AC-CAR-012 | El equipo antiguo conserva lo suyo | ficha-completa-activo.feature | Un equipo antiguo conserva lo que traía | Sí (pytest: `test_el_equipo_antiguo_conserva_lo_que_ya_tenia`; Vitest: `muestra aparte lo que el equipo traía de antes`) |
+
+## Cliente HTTP del navegador (AC-CLI-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-CLI-001 | Cada petición lleva sesión y empresa | authentication.feature | Cada petición dice quién pregunta y desde qué empresa | Sí (Vitest: `apiClient`, 4 casos) |
+| AC-CLI-002 | El token vencido se renueva y reintenta | authentication.feature | Un token vencido se renueva y la petición se reintenta | Sí (Vitest: `renueva y reintenta la petición con el token nuevo`) |
+| AC-CLI-003 | La renovación se intenta una sola vez | authentication.feature | La renovación se intenta una sola vez | Sí (Vitest: `solo lo intenta una vez`, con tope que hace fallar el bucle en vez de colgar) |
+| AC-CLI-004 | Una sola renovación para varias peticiones | authentication.feature | Varias peticiones que vencen a la vez comparten una renovación | Sí (Vitest: `dos peticiones que vencen a la vez comparten un solo refresco`) |
+| AC-CLI-005 | El login rechazado no renueva | authentication.feature | Un login rechazado no dispara una renovación | Sí (Vitest: `un login rechazado no intenta renovar ni redirige`) |
+| AC-CLI-006 | Un fallo de red no cierra la sesión | authentication.feature | Un fallo de red no cierra la sesión | Sí (Vitest: `un error de red no toca la sesión`) |
+| AC-CLI-007 | El cambio obligatorio lleva a su pantalla | authentication.feature | El cambio de contraseña obligatorio lleva a su pantalla | Sí (Vitest: `el cambio de contraseña obligatorio lleva a su pantalla, no al login`) |
+| AC-CLI-008 | Sin almacenamiento la aplicación abre | authentication.feature | Sin almacenamiento la aplicación sigue abriendo | Sí (Vitest: `leer la empresa activa no revienta`) |

@@ -69,3 +69,63 @@ Feature: Autenticación de usuarios
     Given que se registraron demasiados intentos fallidos para el mismo identificador
     When se reintenta iniciar sesión, incluso con la contraseña correcta
     Then el sistema rechaza el intento por bloqueo temporal
+
+  # --- El cliente HTTP del navegador ---------------------------------------
+
+  @AC-CLI-001
+  Scenario: Cada petición dice quién pregunta y desde qué empresa
+    Given una sesión abierta y una empresa elegida
+    When el navegador consulta cualquier recurso
+    Then la petición lleva la sesión y la empresa
+    But sin empresa elegida no manda la cabecera vacía
+    # El backend resuelve la predeterminada; una cabecera vacía haría que
+    # pidiera una empresa con id «».
+
+  @AC-CLI-002
+  Scenario: Un token vencido se renueva y la petición se reintenta
+    Given una petición que responde 401 por token vencido
+    When el cliente renueva la sesión
+    Then reintenta la misma petición con el token nuevo
+    And el usuario no se entera
+
+  @AC-CLI-003
+  Scenario: La renovación se intenta una sola vez
+    When el reintento vuelve a responder 401
+    Then se cierra la sesión y se va al login
+    And no se dispara otra renovación
+    # Sin el tope, cada 401 dispara otro refresco: un bucle que cuelga la
+    # pantalla en vez de decir que la sesión terminó.
+
+  @AC-CLI-004
+  Scenario: Varias peticiones que vencen a la vez comparten una renovación
+    Given una pantalla que pide cuatro recursos y todos responden 401
+    When el cliente los atiende
+    Then se renueva la sesión una sola vez
+    # El backend revoca la sesión al detectar la reutilización de un refresh ya
+    # rotado: cuatro renovaciones simultáneas dejarían al usuario fuera por
+    # haber abierto una pantalla completa.
+
+  @AC-CLI-005
+  Scenario: Un login rechazado no dispara una renovación
+    When las credenciales son incorrectas
+    Then el error se muestra tal cual
+    And no se intenta renovar ni se redirige
+    # Es el bucle clásico: el 401 del login pide un refresco, que falla, que
+    # redirige al login donde el usuario ya estaba.
+
+  @AC-CLI-006
+  Scenario: Un fallo de red no cierra la sesión
+    When la petición no llega a responder
+    Then el error se propaga y la sesión queda intacta
+
+  @AC-CLI-007
+  Scenario: El cambio de contraseña obligatorio lleva a su pantalla
+    Given un administrador que lo activó desde otra sesión
+    When la pestaña ya abierta hace cualquier petición
+    Then va a la pantalla de cambio, no al login
+
+  @AC-CLI-008
+  Scenario: Sin almacenamiento la aplicación sigue abriendo
+    Given un navegador que bloquea el almacenamiento del sitio
+    When se consulta o se cambia la empresa activa
+    Then no revienta y se trabaja en la predeterminada
