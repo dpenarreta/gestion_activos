@@ -573,3 +573,7 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-EMP-024 | El alta pide empresa y rol | multiempresa.feature | El alta pregunta con qué empresa y qué rol entra la cuenta | Sí (pytest: `test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol`; Vitest: `UserFormAlta`) |
 | AC-EMP-025 | Crear no alcanza para dar empresa | multiempresa.feature | Crear usuarios no alcanza para darles empresa | Sí (pytest: `test_crear_usuarios_no_alcanza_para_darles_empresa`; Vitest: `sin el permiso de asignar no se pregunta empresa ni rol`) |
 | AC-EMP-026 | Lo que cuelga de un activo tampoco cruza | multiempresa.feature | Lo que cuelga de un activo tampoco cruza empresas | Sí (pytest: `test_la_bitacora_de_mantenimientos_no_cruza_empresas`, `test_el_historial_de_movimientos_no_cruza_empresas`) |
+| AC-TMP-010 | Hasta un mes, en días | tiempos-del-activo.feature | Hasta un mes, la duración se dice en días | Sí (pytest: `test_duracion.py`; Vitest: `formatearDias`) |
+| AC-TMP-011 | Pasado el mes, en meses y días | tiempos-del-activo.feature | Pasado el mes, en meses y días | Sí (pytest: `test_duracion.py`; Vitest: `formatearDias`) |
+| AC-TMP-012 | Pasado el año, en años, meses y días | tiempos-del-activo.feature | Pasado el año, en años, meses y días | Sí (pytest: `test_duracion.py`; Vitest: `formatearDias`, `TiemposDelActivo`) |
+| AC-TMP-013 | La antigüedad sigue la misma regla | tiempos-del-activo.feature | La antigüedad sigue la misma regla | Sí (pytest: `test_la_antiguedad_se_dice_en_anios_pasado_el_ano`; Vitest: `formatearMeses`) |

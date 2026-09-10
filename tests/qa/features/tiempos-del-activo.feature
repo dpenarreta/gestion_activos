@@ -76,3 +76,28 @@ Feature: Cálculo de tiempos del activo (§10 del documento funcional)
     Then el historial y la bitácora se precargan en una sola consulta cada uno
     # Los tiempos se reconstruyen del historial; sin precargarlo, cada uno se
     # llevaría su propia consulta.
+
+  @AC-TMP-010
+  Scenario: Hasta un mes, la duración se dice en días
+    When un tiempo del equipo no pasa de 30 días
+    Then se muestra en días
+    # Es la unidad en la que se decide algo esta semana.
+
+  @AC-TMP-011
+  Scenario: Pasado el mes, en meses y días
+    When un tiempo pasa de 30 días
+    Then se muestra en meses y días
+    # «412 días» obliga a dividir mentalmente para saber si es mucho o poco.
+
+  @AC-TMP-012
+  Scenario: Pasado el año, en años, meses y días
+    When un tiempo pasa de doce meses
+    Then se muestra en años, meses y días
+    And no se pierden los días
+    # Redondear a «11 meses» borraría justo la diferencia que se busca al
+    # comparar dos equipos.
+
+  @AC-TMP-013
+  Scenario: La antigüedad sigue la misma regla
+    When un equipo lleva más de doce meses en el inventario
+    Then su antigüedad se muestra en años y meses

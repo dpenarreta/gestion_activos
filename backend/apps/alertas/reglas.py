@@ -13,6 +13,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from apps.activos.models import DIAS_AVISO_GARANTIA, ESTADOS_EN_ALMACEN, Activo
+from apps.core.duracion import formatear_dias, formatear_meses
 from apps.mantenimientos.models import Mantenimiento
 from apps.politicas.models import NivelRenovacion
 from apps.politicas.services import candidatos_a_renovacion, evaluar_lote
@@ -98,7 +99,9 @@ def proximos_a_reemplazo(veredictos) -> Alerta:
     # repetirlos: verlos dos veces haría dudar de si son dos equipos distintos.
     a_evaluar = [(a, r) for a, r in afectados if r.nivel != NivelRenovacion.RECOMENDADO]
     muestra = [
-        _fila_activo(activo, f"{activo.antiguedad_meses} meses · {resultado.nivel_display}")
+        _fila_activo(
+            activo, f"{formatear_meses(activo.antiguedad_meses)} · {resultado.nivel_display}"
+        )
         for activo, resultado in (recomendados + a_evaluar)[:TAMANO_MUESTRA]
     ]
 
@@ -156,7 +159,7 @@ def garantias_por_vencer() -> Alerta:
     )
     total = consulta.count()
     muestra = [
-        _fila_activo(activo, f"vence en {activo.dias_para_fin_de_garantia} día(s)")
+        _fila_activo(activo, f"vence en {formatear_dias(activo.dias_para_fin_de_garantia)}")
         for activo in consulta[:TAMANO_MUESTRA]
     ]
 
@@ -209,7 +212,7 @@ def reparaciones_pendientes(dias: int) -> Alerta:
     muestra = [
         _fila_activo(
             mantenimiento.activo,
-            f"{(hoy - mantenimiento.fecha_intervencion).days} día(s) en reparación",
+            f"{formatear_dias((hoy - mantenimiento.fecha_intervencion).days)} en reparación",
             clave=f"mantenimiento-{mantenimiento.id}",
         )
         for mantenimiento in consulta[:TAMANO_MUESTRA]

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { dashboardService } from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
-import { formatearMoneda } from "../../../utils/formato";
+import { formatearDias, formatearMoneda } from "../../../utils/formato";
 import "./Dashboard.css";
 
 const BREADCRUMB_ITEMS = [
@@ -181,7 +181,7 @@ export function DashboardPage() {
               </div>
 
               <p className="text-muted small mb-3">
-                {fueraDeOperacion.total_dias} día(s) acumulados fuera de
+                {formatearDias(fueraDeOperacion.total_dias)} acumulados fuera de
                 operación en {fueraDeOperacion.intervenciones_cerradas}{" "}
                 intervención(es) cerradas
                 {fueraDeOperacion.intervenciones_abiertas > 0 &&

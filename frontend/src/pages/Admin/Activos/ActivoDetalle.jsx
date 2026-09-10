@@ -13,7 +13,12 @@ import { AdjuntosPanel } from "../../../components/activos/AdjuntosPanel/Adjunto
 import { adjuntosService } from "../../../api/adjuntosService";
 import { descargarBlob } from "../../../utils/descargas";
 import { usePermission } from "../../../hooks/usePermission";
-import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import {
+  formatearDias,
+  formatearFecha,
+  formatearMeses,
+  formatearMoneda,
+} from "../../../utils/formato";
 import "./Activos.css";
 
 export function ActivoDetalle() {
@@ -145,7 +150,7 @@ export function ActivoDetalle() {
                 />
                 <Dato
                   etiqueta="Antigüedad"
-                  valor={`${activo.antiguedad_meses} meses`}
+                  valor={formatearMeses(activo.antiguedad_meses)}
                 />
                 <Dato
                   etiqueta="Costo de compra"
@@ -256,8 +261,8 @@ export function ActivoDetalle() {
                   etiqueta="Piezas críticas"
                 />
                 <Indicador
-                  valor={activo.dias_en_reparacion}
-                  etiqueta="Días fuera de operación"
+                  valor={formatearDias(activo.dias_en_reparacion)}
+                  etiqueta="Fuera de operación"
                 />
                 <Indicador
                   valor={formatearMoneda(costos.costo_total)}
@@ -344,10 +349,11 @@ export function ActivoDetalle() {
 /**
  * Los siete tiempos del §10 del documento funcional.
  *
- * Se muestran en días y no en meses porque cuatro de ellos —lo que lleva con
- * su custodio, lo que estuvo guardado, lo que lleva en el taller— se consultan
- * para tomar una decisión esta semana, y «11 meses» redondea justo la
- * diferencia que importa.
+ * En días mientras son pocos —cuatro de ellos se consultan para decidir algo
+ * esta semana— y en meses o años cuando pasan de ahí, sin perder el resto:
+ * «1 año, 1 mes y 22 días». Redondear a «11 meses» borraría justo la
+ * diferencia que se busca al comparar dos equipos; dejar «412 días» obliga a
+ * dividir mentalmente para saber si es mucho o poco.
  */
 export function TiemposDelActivo({ tiempos }) {
   const filas = [
@@ -368,9 +374,7 @@ export function TiemposDelActivo({ tiempos }) {
             <Dato
               key={etiqueta}
               etiqueta={etiqueta}
-              valor={
-                valor === null || valor === undefined ? "—" : `${valor} día(s)`
-              }
+              valor={formatearDias(valor)}
             />
           ))}
         </dl>
@@ -379,14 +383,14 @@ export function TiemposDelActivo({ tiempos }) {
           /* Se informa aparte del acumulado: sumarlos escondería que el equipo
              sigue fuera de operación ahora mismo. */
           <div className="alert alert-info py-2 small mt-3 mb-0">
-            Lleva {tiempos.en_reparacion_ahora_dias} día(s) en reparación sin
-            cerrar.
+            Lleva {formatearDias(tiempos.en_reparacion_ahora_dias)} en
+            reparación sin cerrar.
           </div>
         )}
 
         <p className="form-text mb-0 mt-3">
           <strong>
-            Tiempo activo real: {tiempos.activo_real_dias ?? "—"} día(s)
+            Tiempo activo real: {formatearDias(tiempos.activo_real_dias)}
           </strong>{" "}
           — lo que estuvo trabajando, descontando lo que pasó guardado y en el
           taller. Medido desde{" "}
@@ -438,7 +442,8 @@ function TablaMantenimientos({ mantenimientos }) {
         <thead>
           <tr>
             <th>Ingreso</th>
-            <th>Días fuera</th>
+            {/* Ya no son solo días: la columna lleva «1 mes y 15 días». */}
+            <th>Fuera de operación</th>
             <th>Tipo</th>
             <th>Responsable</th>
             <th>Trabajo</th>
@@ -454,7 +459,7 @@ function TablaMantenimientos({ mantenimientos }) {
                 {mantenimiento.sigue_fuera_de_operacion ? (
                   <span className="badge text-bg-warning">En reparación</span>
                 ) : (
-                  `${mantenimiento.dias_fuera_de_operacion} d`
+                  formatearDias(mantenimiento.dias_fuera_de_operacion)
                 )}
               </td>
               <td>

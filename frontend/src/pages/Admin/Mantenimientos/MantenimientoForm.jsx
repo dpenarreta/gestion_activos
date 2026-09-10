@@ -11,6 +11,7 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Mantenimientos.css";
+import { formatearDias } from "../../../utils/formato";
 
 const hoy = () => new Date().toISOString().slice(0, 10);
 
@@ -289,7 +290,7 @@ export function MantenimientoForm() {
               />
               <div className="form-text">
                 {valores.fecha_salida
-                  ? `${diasFuera(valores)} día(s) fuera de operación.`
+                  ? `${formatearDias(diasFuera(valores))} fuera de operación.`
                   : "Vacío mientras el equipo siga fuera de operación."}
               </div>
             </div>

@@ -6,7 +6,11 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
-import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import {
+  formatearFecha,
+  formatearMeses,
+  formatearMoneda,
+} from "../../../utils/formato";
 import "./Activos.css";
 
 const BREADCRUMB_ITEMS = [
@@ -174,7 +178,9 @@ function ResultadoEscaneo({ ficha }) {
                 <code>{activo.numero_serie}</code>
               </dd>
               <dt className="col-5 text-muted fw-normal">Antigüedad</dt>
-              <dd className="col-7">{activo.antiguedad_meses} meses</dd>
+              <dd className="col-7">
+                {formatearMeses(activo.antiguedad_meses)}
+              </dd>
             </dl>
           </div>
         </div>

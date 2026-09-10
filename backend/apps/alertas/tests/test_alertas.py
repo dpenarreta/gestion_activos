@@ -199,7 +199,8 @@ def test_avisa_de_las_reparaciones_sin_cerrar(admin, crear_activo, configuracion
     alerta = _alertas_por_tipo(configuracion)["reparaciones_pendientes"]
 
     assert alerta.total == 1
-    assert "40 día(s)" in alerta.muestra[0]["dato"]
+    # Lo que pasa de 30 días se dice en meses: «40 días» obliga a dividir.
+    assert "1 mes y 10 días en reparación" == alerta.muestra[0]["dato"]
     assert atascada.fecha_salida is None
 
 

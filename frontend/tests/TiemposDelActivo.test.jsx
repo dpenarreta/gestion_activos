@@ -23,8 +23,21 @@ describe("Tiempos del activo (§10)", () => {
     expect(screen.getByText("Con el custodio actual")).toBeInTheDocument();
     expect(screen.getByText("Guardado sin uso")).toBeInTheDocument();
     expect(
-      screen.getByText(/Tiempo activo real: 250 día\(s\)/),
+      screen.getByText(/Tiempo activo real: 8 meses y 10 días/),
     ).toBeInTheDocument();
+  });
+
+  // Más de 30 días dejan de decirse en días: «400 días» obliga a dividir
+  // mentalmente para saber si es mucho o poco.
+  it("cuenta los tiempos largos en años y meses, sin perder los días", () => {
+    render(<TiemposDelActivo tiempos={TIEMPOS} />);
+
+    expect(screen.getByText("1 año, 1 mes y 10 días")).toBeInTheDocument();
+    expect(screen.getByText("1 año y 5 días")).toBeInTheDocument();
+    expect(screen.getByText("10 meses")).toBeInTheDocument();
+    expect(screen.getByText("3 meses y 10 días")).toBeInTheDocument();
+    // Y los cortos siguen en días, que es la unidad en la que se decide.
+    expect(screen.getByText("15 días")).toBeInTheDocument();
   });
 
   it("dice desde dónde se midió el tiempo activo real", () => {
@@ -46,7 +59,7 @@ describe("Tiempos del activo (§10)", () => {
     );
 
     expect(
-      screen.getByText(/7 día\(s\) en reparación sin cerrar/),
+      screen.getByText(/Lleva 7 días en reparación sin cerrar/),
     ).toBeInTheDocument();
   });
 
