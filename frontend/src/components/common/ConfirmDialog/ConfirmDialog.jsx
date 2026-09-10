@@ -10,7 +10,14 @@ import "./ConfirmDialog.css";
  * autocontenida sobre `useModalA11y` (foco/Escape/backdrop/scroll-lock),
  * sin depender de un sistema de modal compuesto separado.
  */
-export function ConfirmDialog({ isOpen, title, message, isLoading, onConfirm, onCancel }) {
+export function ConfirmDialog({
+  isOpen,
+  title,
+  message,
+  isLoading,
+  onConfirm,
+  onCancel,
+}) {
   const triggerRef = useRef(null);
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
     isOpen,
@@ -47,7 +54,7 @@ export function ConfirmDialog({ isOpen, title, message, isLoading, onConfirm, on
         <div className="confirm-dialog__footer">
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            className="btn btn-cancelar btn-sm"
             onClick={() => requestClose()}
           >
             Cancelar

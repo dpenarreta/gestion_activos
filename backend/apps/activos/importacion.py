@@ -12,7 +12,7 @@ porque nadie sabe cuál de los dos casos está mirando.
 
 Las referencias a catálogos (tipo, departamento, custodio) se resuelven por
 código, no por id: quien llena la plantilla trabaja con los códigos que ve en
-el sistema —"LAP", "TI", "EMP-0001"— y no con los identificadores internos de
+el sistema —"LAP", "TI", "TI-0001"— y no con los identificadores internos de
 la base de datos.
 """
 
@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from apps.core.audit import record_audit_event
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
 
 from .models import Activo, TipoDispositivo
 from .services import ActivoService
@@ -63,21 +63,34 @@ class ErrorFila:
 
 @dataclass
 class ResultadoValidacion:
-    """Reporte de lo que se encontró en el archivo."""
+    """Reporte de lo que se encontró en el archivo.
+
+    Los hallazgos van en dos listas y no en una: `errores` impide importar,
+    `advertencias` no. Mezclarlos obligaría a elegir entre bloquear cargas
+    legítimas —dos equipos pueden llamarse igual— o callar cosas que quien
+    carga el archivo querría mirar antes de confirmar.
+    """
 
     filas_validas: list[dict] = field(default_factory=list)
     errores: list[ErrorFila] = field(default_factory=list)
+    advertencias: list[ErrorFila] = field(default_factory=list)
     total_filas: int = 0
 
     @property
     def es_importable(self) -> bool:
         return not self.errores and bool(self.filas_validas)
 
+    @property
+    def filas_con_error(self) -> int:
+        return len({e.fila for e in self.errores})
+
     def as_dict(self) -> dict:
         return {
             "total_filas": self.total_filas,
             "filas_validas": len(self.filas_validas),
             "errores": [e.as_dict() for e in self.errores],
+            "advertencias": [a.as_dict() for a in self.advertencias],
+            "filas_con_error": self.filas_con_error,
             "es_importable": self.es_importable,
             # Muestra de lo que se importará, para que el usuario reconozca su
             # propio archivo antes de confirmar.
@@ -95,6 +108,25 @@ class ResultadoValidacion:
                 for f in self.filas_validas[:10]
             ],
         }
+
+
+def _sin_repetidos(hallazgos: list[ErrorFila]) -> list[ErrorFila]:
+    """Quita las líneas idénticas conservando el orden.
+
+    Un campo obligatorio que además no existe en el catálogo lo señalan dos
+    comprobaciones distintas —la de obligatoriedad y la que lo resuelve—, y el
+    reporte mostraba «Departamento: Es obligatorio.» dos veces en la misma
+    fila. Leído desde fuera parece que hay dos problemas donde hay uno.
+    """
+    vistos = set()
+    unicos = []
+    for hallazgo in hallazgos:
+        clave = (hallazgo.fila, hallazgo.columna, hallazgo.mensaje)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicos.append(hallazgo)
+    return unicos
 
 
 def _texto(valor) -> str:
@@ -225,9 +257,34 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         departamentos[departamento.codigo.lower()] = departamento
         departamentos[departamento.nombre.lower()] = departamento
     empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
+    proveedores = {p.nombre.strip().lower(): p for p in Proveedor.objects.filter(activo=True)}
+    # La sede se acepta por su nombre o por su ciudad: quien llena la plantilla
+    # escribe lo que tiene en la cabeza, y «Quito» y «Sede Quito Norte» son la
+    # misma respuesta a la pregunta de dónde está el equipo. Si dos sedes
+    # comparten ciudad, esa ciudad deja de servir como respuesta única.
+    sedes: dict[str, object] = {}
+    ambiguas: set[str] = set()
+    for sede in Sede.objects.filter(activa=True):
+        sedes[sede.nombre.lower()] = sede
+        ciudad = (sede.ciudad or "").strip().lower()
+        if not ciudad or ciudad == sede.nombre.lower():
+            continue
+        if ciudad in sedes:
+            ambiguas.add(ciudad)
+        else:
+            sedes[ciudad] = sede
 
     series_existentes = set(Activo.objects.values_list("numero_serie", flat=True))
     series_en_archivo: dict[str, int] = {}
+    # El nombre no es un identificador: dos equipos pueden llamarse «Laptop
+    # Ventas» sin que nada esté mal. Repetirlo sí hace que el inventario no se
+    # pueda leer de un vistazo —dos filas idénticas salvo la serie—, así que se
+    # avisa y se deja pasar. La serie, en cambio, sí identifica y bloquea.
+    nombres_existentes = {
+        nombre.strip().lower(): codigo
+        for nombre, codigo in Activo.objects.values_list("nombre", "codigo_barras")
+    }
+    nombres_en_archivo: dict[str, int] = {}
 
     for numero_fila, fila in enumerate(filas, start=2):
         if numero_fila - 1 > MAX_FILAS:
@@ -250,6 +307,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         resultado.total_filas += 1
         errores_fila: list[ErrorFila] = []
+        advertencias_fila: list[ErrorFila] = []
 
         datos = {"_fila": numero_fila}
 
@@ -262,6 +320,34 @@ def validar_archivo(archivo) -> ResultadoValidacion:
 
         for clave in ("nombre", "marca", "modelo", "numero_serie"):
             datos[clave] = _texto(celda(clave))
+
+        nombre = datos.get("nombre", "")
+        if nombre:
+            clave_nombre = nombre.lower()
+            if clave_nombre in nombres_en_archivo:
+                advertencias_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("nombre", "Nombre del activo"),
+                        f"El nombre {nombre!r} ya está en la fila "
+                        f"{nombres_en_archivo[clave_nombre]} de este mismo archivo. "
+                        "Se importará igual: revise que no sea la misma fila dos veces.",
+                    )
+                )
+            elif clave_nombre in nombres_existentes:
+                advertencias_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("nombre", "Nombre del activo"),
+                        f"Ya hay un activo llamado {nombre!r} "
+                        f"({nombres_existentes[clave_nombre]}). Se importará igual.",
+                    )
+                )
+            # Se registra siempre, aunque el nombre ya existiera en el
+            # inventario: si no, la segunda fila del archivo con ese nombre
+            # volvería a señalar al activo de la base y no a la fila de al
+            # lado, que es la que hay que mirar.
+            nombres_en_archivo.setdefault(clave_nombre, numero_fila)
 
         serie = datos.get("numero_serie", "")
         if serie:
@@ -368,9 +454,99 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                 )
         datos["costo_adquisicion"] = costo
 
-        datos["ubicacion"] = _texto(celda("ubicacion"))
+        texto_sede = _texto(celda("sede"))
+        sede = None
+        if texto_sede:
+            clave = texto_sede.strip().lower()
+            if clave in ambiguas:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("sede", "Sede"),
+                        f"Hay más de una sede en {texto_sede!r}: escriba el nombre de la "
+                        "sede, no la ciudad.",
+                    )
+                )
+            else:
+                sede = sedes.get(clave)
+                if not sede:
+                    errores_fila.append(
+                        ErrorFila(
+                            numero_fila,
+                            etiqueta_de.get("sede", "Sede"),
+                            f"No existe una sede abierta {texto_sede!r}. "
+                            "Créela primero en el catálogo (hoja «Sedes»).",
+                        )
+                    )
+        datos["sede"] = sede
+
+        # Criticidad y nivel de uso se aceptan por su etiqueta («Alta») o por
+        # su valor interno («alta»): quien llena la plantilla lee la primera.
+        for clave_campo, opciones, etiqueta_defecto in (
+            ("criticidad", Activo.Criticidad, "Criticidad"),
+            ("uso", Activo.Uso, "Uso"),
+        ):
+            texto = _texto(celda(clave_campo))
+            if not texto:
+                continue
+            equivalencias = {opcion.value: opcion.value for opcion in opciones}
+            equivalencias.update({opcion.label.lower(): opcion.value for opcion in opciones})
+            valor = equivalencias.get(texto.lower())
+            if valor is None:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get(clave_campo, etiqueta_defecto),
+                        f"{texto!r} no es válido. Use: "
+                        f"{', '.join(opcion.label for opcion in opciones)}.",
+                    )
+                )
+            else:
+                datos[clave_campo] = valor
+
+        texto_ingreso = _texto(celda("fecha_ingreso"))
+        fecha_ingreso = _parsear_fecha(celda("fecha_ingreso"))
+        if texto_ingreso and fecha_ingreso is None:
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_ingreso", "Fecha de ingreso"),
+                    "No se entiende la fecha: use el formato AAAA-MM-DD.",
+                )
+            )
+        elif (
+            fecha_ingreso
+            and datos.get("fecha_adquisicion")
+            and fecha_ingreso < datos["fecha_adquisicion"]
+        ):
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("fecha_ingreso", "Fecha de ingreso"),
+                    "No puede ser anterior a la fecha de adquisición.",
+                )
+            )
+        datos["fecha_ingreso"] = fecha_ingreso
+
         datos["observaciones"] = _texto(celda("observaciones"))
-        datos["proveedor"] = _texto(celda("proveedor"))
+
+        # El proveedor es opcional —hay equipos heredados de los que nadie sabe
+        # a quién se le compraron—, pero si viene escrito tiene que existir:
+        # aceptarlo a ciegas devolvería el texto libre que el catálogo elimina.
+        texto_proveedor = _texto(celda("proveedor"))
+        proveedor = None
+        if texto_proveedor:
+            proveedor = proveedores.get(texto_proveedor.lower())
+            if not proveedor:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("proveedor", "Proveedor"),
+                        f"No existe un proveedor activo llamado {texto_proveedor!r}. "
+                        "Créelo primero en el catálogo (hoja «Proveedores»).",
+                    )
+                )
+        datos["proveedor"] = proveedor
 
         # La garantía es opcional: solo se valida el formato si viene algo. Un
         # equipo sin fecha es «sin garantía registrada», no un error.
@@ -396,9 +572,12 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         datos["especificaciones"] = especificaciones
 
         if errores_fila:
-            resultado.errores.extend(errores_fila)
+            # Las advertencias de una fila que no va a entrar sobran: lo que
+            # hay que mirar es por qué no entra.
+            resultado.errores.extend(_sin_repetidos(errores_fila))
         else:
             resultado.filas_validas.append(datos)
+            resultado.advertencias.extend(advertencias_fila)
 
     libro.close()
     return resultado

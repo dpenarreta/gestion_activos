@@ -1,0 +1,42 @@
+/*
+ * Empresas del grupo: listado y ficha.
+ *
+ * Misma estructura que los catálogos organizacionales —cabecera con acción
+ * primaria, filtro y tabla—, en hoja propia porque la pantalla vive en otro
+ * módulo del menú y las dos evolucionarán por su lado.
+ */
+
+.empresas-page h2 {
+  color: var(--color-headings);
+  font-family: var(--font-secondary);
+}
+
+.empresas-page code {
+  color: var(--text-muted);
+  font-size: 0.875em;
+}
+
+.empresas-form {
+  max-width: 60rem;
+}
+
+.empresas-form .form-text {
+  color: var(--text-muted);
+}
+
+/* Bloque de asignación dentro de la ficha del usuario. */
+.empresas-asignacion {
+  max-width: 60rem;
+}
+
+.empresas-asignacion .form-check {
+  padding-block: 0.15rem;
+}
+
+/* Los roles de una empresa se leen como un bloque, no como una frase larga:
+   con cinco o seis, en línea, dejan de distinguirse unos de otros. */
+.empresas-asignacion__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}

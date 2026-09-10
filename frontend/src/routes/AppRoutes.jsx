@@ -18,17 +18,24 @@ import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
 import { ImportarActivosPage } from "../pages/Admin/Activos/ImportarActivosPage";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
+import { EmpresaForm } from "../pages/Admin/Empresas/EmpresaForm";
+import { EmpresasList } from "../pages/Admin/Empresas/EmpresasList";
 import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
 import { MantenimientoForm } from "../pages/Admin/Mantenimientos/MantenimientoForm";
 import { MantenimientosList } from "../pages/Admin/Mantenimientos/MantenimientosList";
 import { AlertasPage } from "../pages/Admin/Alertas/AlertasPage";
 import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
+import { CargaCatalogosPage } from "../pages/Admin/CargaCatalogos/CargaCatalogosPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
+import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { ProveedorForm } from "../pages/Admin/Organizacion/ProveedorForm";
+import { ProveedoresList } from "../pages/Admin/Organizacion/ProveedoresList";
+import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
+import { SedesList } from "../pages/Admin/Organizacion/SedesList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
 import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
-import { Register } from "../pages/Register/Register";
 import { RoleForm } from "../pages/Admin/Roles/RoleForm";
 import { RolesPage } from "../pages/Admin/Roles/RolesPage";
 import { UserForm } from "../pages/Admin/Users/UserForm";
@@ -38,6 +45,7 @@ const USUARIOS_VER = "usuarios.ver";
 const ROLES_VER = "roles.ver";
 const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
+const EMPRESAS_VER = "empresas.ver";
 const ORGANIZACION_VER = "organizacion.ver";
 const ACTIVOS_VER = "activos.ver";
 const MANTENIMIENTOS_VER = "mantenimientos.ver";
@@ -54,7 +62,10 @@ export function AppRoutes() {
   // contraseña obligatorio pendiente, cualquier otra ruta redirige aquí. El
   // backend ya lo exige de verdad (SessionAuthentication.authenticate) —
   // esto es solo para que la navegación no quede varada en un 403.
-  if (user?.must_change_password && location.pathname !== CHANGE_PASSWORD_REQUIRED_PATH) {
+  if (
+    user?.must_change_password &&
+    location.pathname !== CHANGE_PASSWORD_REQUIRED_PATH
+  ) {
     return <Navigate to={CHANGE_PASSWORD_REQUIRED_PATH} replace />;
   }
 
@@ -62,10 +73,15 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* El registro público se retiró (revisión de seguridad, H-03):
+          las cuentas las crea un administrador desde Usuarios, con su
+          empresa y su rol. */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path={CHANGE_PASSWORD_REQUIRED_PATH} element={<ChangePasswordRequired />} />
+      <Route
+        path={CHANGE_PASSWORD_REQUIRED_PATH}
+        element={<ChangePasswordRequired />}
+      />
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/admin" element={<AdminLayout />}>
@@ -91,6 +107,31 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={USUARIOS_VER}>
               <UserForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="empresas"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresasList />
+            </RequirePermission>
+          }
+        />
+        {/* Antes que "empresas/:id", o esa ruta capturaría "new" como id. */}
+        <Route
+          path="empresas/new"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresaForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="empresas/:id"
+          element={
+            <RequirePermission permission={EMPRESAS_VER}>
+              <EmpresaForm />
             </RequirePermission>
           }
         />
@@ -259,6 +300,17 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
+        {/* El permiso real lo comprueba cada catálogo por su lado —cargar
+            tipos es editar el inventario, cargar empleados es editar la
+            organización—; aquí basta con poder ver la sección. */}
+        <Route
+          path="catalogos/carga"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <CargaCatalogosPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="organizacion/departamentos"
           element={
@@ -280,6 +332,62 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ORGANIZACION_VER}>
               <DepartamentoForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="reportes"
+          element={
+            <RequirePermission permission="reportes.ver">
+              <ReportesPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedesList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedeForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/sedes/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <SedeForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedoresList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedorForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/proveedores/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ProveedorForm />
             </RequirePermission>
           }
         />
@@ -310,8 +418,14 @@ export function AppRoutes() {
         {/* La sección de permisos dejó de ser independiente: ahora es una
             pestaña dentro de Roles. Se conserva la ruta anterior redirigiendo,
             para no romper enlaces guardados o marcados por los usuarios. */}
-        <Route path="permissions" element={<Navigate to="/admin/roles/permisos" replace />} />
-        <Route path="configuracion" element={<Navigate to="/admin/configuracion/identidad" replace />} />
+        <Route
+          path="permissions"
+          element={<Navigate to="/admin/roles/permisos" replace />}
+        />
+        <Route
+          path="configuracion"
+          element={<Navigate to="/admin/configuracion/identidad" replace />}
+        />
         <Route
           path="configuracion/identidad"
           element={

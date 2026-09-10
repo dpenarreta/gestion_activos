@@ -97,13 +97,38 @@ def test_la_configuracion_es_una_sola_fila(db):
     assert segunda.dias_sin_asignar == 45
 
 
-def test_guardar_una_segunda_configuracion_sobrescribe_la_unica(db):
-    ConfiguracionAlertas.cargar()
-    otra = ConfiguracionAlertas(dias_sin_asignar=10)
-    otra.save()
+def test_una_sola_configuracion_por_empresa(db):
+    """Una por empresa, no una en todo el sistema.
 
-    assert ConfiguracionAlertas.objects.count() == 1
-    assert ConfiguracionAlertas.cargar().dias_sin_asignar == 10
+    Fue una fila única mientras hubo una sola empresa; al pasar a dos, esa fila
+    pertenecía a la primera y era invisible desde la segunda, así que el centro
+    de alertas intentaba crearla de nuevo y devolvía un 500. Ahora cada empresa
+    tiene la suya y una segunda dentro de la misma es lo que se rechaza.
+    """
+    from django.db import IntegrityError
+
+    ConfiguracionAlertas.cargar()
+
+    with pytest.raises(IntegrityError):
+        ConfiguracionAlertas(dias_sin_asignar=10).save()
+
+
+def test_cada_empresa_configura_sus_alertas_por_su_cuenta(db):
+    from apps.empresas.contexto import usando_empresa
+    from apps.empresas.models import Empresa
+
+    otra = Empresa.objects.create(nombre="LaarSeguridad", codigo="LS")
+
+    propia = ConfiguracionAlertas.cargar()
+    propia.dias_sin_asignar = 45
+    propia.save()
+
+    with usando_empresa(otra):
+        # La de la otra empresa no existe todavía: se crea con sus valores por
+        # defecto en vez de chocar con la que ya está.
+        ajena = ConfiguracionAlertas.cargar()
+        assert ajena.pk != propia.pk
+        assert ajena.dias_sin_asignar != 45
 
 
 def test_la_configuracion_no_se_elimina(db):
@@ -199,7 +224,8 @@ def test_avisa_de_las_reparaciones_sin_cerrar(admin, crear_activo, configuracion
     alerta = _alertas_por_tipo(configuracion)["reparaciones_pendientes"]
 
     assert alerta.total == 1
-    assert "40 día(s)" in alerta.muestra[0]["dato"]
+    # Lo que pasa de 30 días se dice en meses: «40 días» obliga a dividir.
+    assert "1 mes y 10 días en reparación" == alerta.muestra[0]["dato"]
     assert atascada.fecha_salida is None
 
 

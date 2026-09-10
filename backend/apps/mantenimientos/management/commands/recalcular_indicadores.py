@@ -29,7 +29,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         activos = Activo.objects.select_related("tipo").order_by("id")
         if not options["incluir_bajas"]:
-            activos = activos.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+            activos = activos.operativos()
 
         # El conteo de la ventana móvil se resuelve antes del bucle, con una
         # consulta agregada por ventana configurada.

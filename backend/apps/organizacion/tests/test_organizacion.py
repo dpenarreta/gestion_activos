@@ -278,3 +278,206 @@ def test_un_acceso_denegado_queda_registrado_en_auditoria(db, departamento):
     assert evento.actor == usuario
     assert evento.new_values["required_permission"] == "activos.crear"
     assert evento.result == AuditLog.Result.FAILURE
+
+
+# --- Catálogo de sedes ------------------------------------------------------
+
+
+@pytest.fixture
+def sede(db):
+    from apps.organizacion.models import Sede
+
+    return Sede.objects.create(nombre="Sede Quito Norte", ciudad="Quito")
+
+
+def test_la_sede_dice_donde_esta_un_equipo_con_su_ciudad(cliente, sede):
+    """La pregunta que se hace de un equipo es «¿dónde está?», y se responde
+    con la ciudad, no con el nombre interno de la sede."""
+    respuesta = cliente.get(f"/api/v1/organizacion/sedes/{sede.id}/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["nombre"] == "Sede Quito Norte"
+    assert respuesta.data["ciudad"] == "Quito"
+
+
+def test_no_se_crean_dos_sedes_que_solo_difieren_en_mayusculas(cliente, sede):
+    """«SEDE QUITO NORTE» pasaría la restricción única de la base y saldrían
+    dos entradas en el desplegable: exactamente lo que el catálogo evita."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/sedes/", {"nombre": "sede quito norte"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+
+
+def test_no_se_cierra_una_sede_que_todavia_tiene_equipos(cliente, sede):
+    """Cerrarla los dejaría en un sitio que el formulario ya no ofrece: nadie
+    podría moverlos ni corregirlos."""
+    from apps.activos.models import Activo, TipoDispositivo
+    from apps.organizacion.models import Departamento
+
+    Activo.objects.create(
+        tipo=TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP"),
+        nombre="Laptop",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-SEDE-1",
+        departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
+        sede=sede,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+
+    respuesta = cliente.patch(
+        f"/api/v1/organizacion/sedes/{sede.id}/", {"activa": False}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert respuesta.data["error"]["code"] == "sede_con_activos"
+
+
+def test_la_sede_no_se_borra_aunque_ya_no_se_use(cliente, sede):
+    """Sigue siendo la que aparece en el historial de los equipos que
+    estuvieron ahí."""
+    respuesta = cliente.delete(f"/api/v1/organizacion/sedes/{sede.id}/")
+
+    assert respuesta.status_code == 405
+
+
+# --- Duplicados en el catálogo de áreas -------------------------------------
+
+
+def test_no_se_crean_dos_areas_que_solo_difieren_en_mayusculas(cliente, departamento):
+    """La restricción única de la base sí distingue: «Finanzas» y «FINANZAS»
+    pasarían las dos y quedarían dos áreas indistinguibles en el desplegable,
+    con los activos repartidos entre ambas."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/departamentos/",
+        {"nombre": "FINANZAS", "codigo": "FIN2"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "Finanzas" in str(respuesta.data["error"]["details"]["nombre"])
+
+
+def test_el_codigo_de_area_repetido_dice_quien_lo_usa(cliente, departamento):
+    """«Ya existe» no basta: hay que poder ir a corregirlo, y para eso hace
+    falta saber cuál es el otro."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/departamentos/",
+        {"nombre": "Compras", "codigo": "fin"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "Finanzas" in str(respuesta.data["error"]["details"]["codigo"])
+
+
+def test_editar_un_area_sin_cambiarle_el_nombre_no_choca_consigo_misma(cliente, departamento):
+    respuesta = cliente.patch(
+        f"/api/v1/organizacion/departamentos/{departamento.id}/",
+        {"nombre": "Finanzas", "descripcion": "Área contable"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+
+
+# --- Catálogo de proveedores ------------------------------------------------
+
+
+@pytest.fixture
+def proveedor(db):
+    from apps.organizacion.models import Proveedor
+
+    return Proveedor.objects.create(nombre="Tecnomega", identificacion="0991234567001")
+
+
+def test_el_proveedor_es_un_catalogo_y_no_texto_dentro_del_activo(cliente, proveedor):
+    """Como texto libre, «Tecnomega», «TECNOMEGA» y «Tecno Mega» son la misma
+    empresa para una persona y tres para una consulta: preguntar cuánto se le
+    lleva comprado devuelve un tercio de lo que hay."""
+    respuesta = cliente.get(f"/api/v1/organizacion/proveedores/{proveedor.id}/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["nombre"] == "Tecnomega"
+    assert respuesta.data["total_activos"] == 0
+    assert respuesta.data["total_repuestos"] == 0
+
+
+def test_no_se_crean_dos_proveedores_que_solo_difieren_en_mayusculas(cliente, proveedor):
+    respuesta = cliente.post(
+        "/api/v1/organizacion/proveedores/", {"nombre": "TECNOMEGA"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "Tecnomega" in str(respuesta.data["error"]["details"]["nombre"])
+
+
+def test_no_se_da_de_baja_a_un_proveedor_con_equipos_en_uso(cliente, proveedor):
+    """Es justo a quien hay que llamar cuando el equipo falla: darlo de baja
+    dejaría esos activos apuntando a alguien que el formulario ya no ofrece."""
+    from apps.activos.models import Activo, TipoDispositivo
+    from apps.organizacion.models import Departamento
+
+    Activo.objects.create(
+        tipo=TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP"),
+        nombre="Laptop",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-PROV-1",
+        departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
+        proveedor=proveedor,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+
+    respuesta = cliente.patch(
+        f"/api/v1/organizacion/proveedores/{proveedor.id}/", {"activo": False}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert respuesta.data["error"]["code"] == "proveedor_con_activos"
+
+
+def test_el_proveedor_no_se_borra_aunque_ya_no_se_le_compre(cliente, proveedor):
+    """Sigue siendo quien vendió lo que hay en el inventario."""
+    respuesta = cliente.delete(f"/api/v1/organizacion/proveedores/{proveedor.id}/")
+
+    assert respuesta.status_code == 405
+
+
+def test_la_pieza_de_repuesto_registra_a_quien_se_le_compro(db, proveedor):
+    """El proveedor del equipo no tiene por qué ser el del repuesto: sin este
+    dato, una pieza que falla a los dos meses deja el costo registrado y
+    ninguna forma de saber a quién reclamarle."""
+    from apps.activos.models import Activo, TipoDispositivo
+    from apps.mantenimientos.models import CatalogoComponente, ComponenteUtilizado, Mantenimiento
+    from apps.organizacion.models import Departamento
+
+    activo = Activo.objects.create(
+        tipo=TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP"),
+        nombre="Laptop",
+        marca="Dell",
+        modelo="Latitude",
+        numero_serie="SN-REP-1",
+        departamento=Departamento.objects.create(nombre="Sistemas", codigo="SIS"),
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+    mantenimiento = Mantenimiento.objects.create(
+        activo=activo,
+        tipo=Mantenimiento.Tipo.CORRECTIVO,
+        fecha_intervencion=datetime.date(2026, 2, 1),
+        tipo_responsable=Mantenimiento.TipoResponsable.TECNICO_INTERNO,
+        responsable="Luis Torres",
+        descripcion="Cambio de disco",
+    )
+    linea = ComponenteUtilizado.objects.create(
+        mantenimiento=mantenimiento,
+        componente=CatalogoComponente.objects.create(nombre="Disco SSD", codigo="SSD"),
+        proveedor=proveedor,
+        cantidad=1,
+        costo_unitario=120,
+    )
+
+    assert linea.proveedor == proveedor
+    assert proveedor.repuestos_vendidos.count() == 1

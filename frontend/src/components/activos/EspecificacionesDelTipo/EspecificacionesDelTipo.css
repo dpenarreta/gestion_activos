@@ -1,0 +1,33 @@
+/*
+ * Campos de las características declaradas por el tipo de equipo.
+ *
+ * Sin tarjeta ni borde: viven dentro de un `fieldset` del formulario del
+ * activo, y otra caja dentro de la caja solo añadiría ruido a una pantalla que
+ * ya tiene cinco secciones.
+ */
+
+.especificaciones-tipo__obligatoria {
+  color: var(--state-danger, #b02a37);
+}
+
+.especificaciones-tipo__heredadas {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.especificaciones-tipo__heredadas > div {
+  display: contents;
+}
+
+.especificaciones-tipo__heredadas dt {
+  font-weight: 600;
+}
+
+.especificaciones-tipo__heredadas dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

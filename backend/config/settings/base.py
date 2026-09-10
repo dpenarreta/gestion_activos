@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
     "apps.core",
+    "apps.empresas",
     "apps.permissions",
     "apps.authentication",
     "apps.users",
@@ -91,6 +92,7 @@ INSTALLED_APPS = [
     "apps.politicas",
     "apps.alertas",
     "apps.adjuntos",
+    "apps.reportes",
 ]
 
 MIDDLEWARE = [
@@ -102,6 +104,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Después de la autenticación: necesita saber quién pregunta para
+    # resolver a qué empresa pertenece.
+    "apps.empresas.middleware.EmpresaActivaMiddleware",
+    "apps.core.csp.ContentSecurityPolicyMiddleware",
     "apps.core.middleware.RequestIDMiddleware",
     "apps.core.middleware.AccessLogMiddleware",
 ]
@@ -218,6 +224,9 @@ SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=1209600)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = env.str("X_FRAME_OPTIONS", default="DENY")
 SECURE_REFERRER_POLICY = env.str("SECURE_REFERRER_POLICY", default="same-origin")
+# Content-Security-Policy: se puede sobreescribir por entorno para el servidor
+# que sirva el frontend compilado, que tiene otros orígenes que declarar.
+CONTENT_SECURITY_POLICY = env.str("CONTENT_SECURITY_POLICY", default="")
 
 # --- CSRF ---
 # La API (todo bajo /api/) usa JWT Bearer sin cookies de sesión, así que CSRF
@@ -246,6 +255,9 @@ REST_FRAMEWORK = {
         "user": env.str("DEFAULT_THROTTLE_RATE_USER", default="1000/hour"),
         "login": env.str("LOGIN_THROTTLE_RATE", default="10/min"),
         "password_reset": env.str("PASSWORD_RESET_THROTTLE_RATE", default="5/hour"),
+        # El correo de prueba de alertas dispara un envío real: se limita
+        # aparte para que no sirva como generador de correo saliente.
+        "alertas_prueba": env.str("ALERTAS_PRUEBA_THROTTLE_RATE", default="10/hour"),
     },
 }
 
@@ -295,6 +307,42 @@ DEFAULT_PAGE_SIZE = env.int("DEFAULT_PAGE_SIZE", default=20)
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[FRONTEND_URL])
+
+# `X-Empresa` dice en qué empresa se está trabajando. Sin declararla, el
+# navegador la descarta en la comprobación previa y todas las peticiones
+# llegarían a la empresa predeterminada: el selector cambiaría de nombre en
+# pantalla y no cambiaría los datos, que es la peor forma de fallar.
+CORS_ALLOW_HEADERS = (
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-empresa",
+)
+
+# --- Caché de los agregados del parque ---
+# El panel y el centro de alertas recorren el inventario entero para resumirlo,
+# y ese trabajo es CPU de Python: medido con 10.000 activos, cada llamada
+# cuesta cientos de milisegundos y con cinco usuarios simultáneos se acumula
+# hasta varios segundos (ver docs/rendimiento.md). Son cifras agregadas que no
+# cambian de un segundo a otro, así que se cachean unos minutos.
+#
+# `LocMemCache` es por proceso: con varios workers cada uno tendrá el suyo, lo
+# que multiplica el trabajo por el número de workers pero no rompe nada. Un
+# despliegue con Redis solo tiene que cambiar este bloque.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "gestion-activos",
+    }
+}
+
+#: Segundos que se conserva el resumen del parque. En cero, se recalcula
+#: siempre: útil en desarrollo, caro en producción.
+CACHE_AGREGADOS_SEGUNDOS = env.int("CACHE_AGREGADOS_SEGUNDOS", default=120)
 
 # --- Correo ---
 EMAIL_BACKEND = env.str("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

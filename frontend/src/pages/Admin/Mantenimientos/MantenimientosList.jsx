@@ -13,7 +13,10 @@ import { descargarBlob } from "../../../utils/descargas";
 import { formatearFecha, formatearMoneda } from "../../../utils/formato";
 import "./Mantenimientos.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Mantenimientos" }];
+const BREADCRUMB_ITEMS = [
+  { label: "Administración" },
+  { label: "Mantenimientos" },
+];
 const FILTROS_INICIALES = { q: "", tipo: "", desde: "", hasta: "" };
 
 export function MantenimientosList() {
@@ -25,11 +28,14 @@ export function MantenimientosList() {
   const [aEliminar, setAEliminar] = useState(null);
   const [errorAccion, setErrorAccion] = useState(null);
 
-  const cargar = useCallback((params) => mantenimientosService.list(params), []);
+  const cargar = useCallback(
+    (params) => mantenimientosService.list(params),
+    [],
+  );
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
-    "No se pudo cargar la bitácora de mantenimientos."
+    "No se pudo cargar la bitácora de mantenimientos.",
   );
 
   async function handleExportar() {
@@ -37,11 +43,11 @@ export function MantenimientosList() {
     setErrorAccion(null);
     try {
       const filtros = Object.fromEntries(
-        Object.entries(listado.filtros).filter(([, valor]) => valor !== "")
+        Object.entries(listado.filtros).filter(([, valor]) => valor !== ""),
       );
       descargarBlob(
         await exportacionService.mantenimientos(filtros),
-        "bitacora-mantenimientos.xlsx"
+        "bitacora-mantenimientos.xlsx",
       );
     } catch (err) {
       setErrorAccion(mensajeDeError(err, "No se pudo exportar la bitácora."));
@@ -57,7 +63,9 @@ export function MantenimientosList() {
       setErrorAccion(null);
       listado.refresh();
     } catch (err) {
-      setErrorAccion(mensajeDeError(err, "No se pudo eliminar la intervención."));
+      setErrorAccion(
+        mensajeDeError(err, "No se pudo eliminar la intervención."),
+      );
       setAEliminar(null);
     }
   }
@@ -68,13 +76,16 @@ export function MantenimientosList() {
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2>Bitácora de mantenimientos</h2>
         <div className="d-flex gap-2">
-          <Link to="/admin/mantenimientos/componentes" className="btn btn-outline-secondary btn-sm">
+          <Link
+            to="/admin/mantenimientos/componentes"
+            className="btn btn-outline-primary btn-sm"
+          >
             Catálogo de componentes
           </Link>
           {puedeExportar && (
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-exportar btn-sm"
               onClick={handleExportar}
               disabled={isExportando || listado.total === 0}
               title="Exporta las intervenciones que coinciden con los filtros actuales"
@@ -84,7 +95,10 @@ export function MantenimientosList() {
             </button>
           )}
           {puedeRegistrar && (
-            <Link to="/admin/mantenimientos/new" className="btn btn-primary btn-sm">
+            <Link
+              to="/admin/mantenimientos/new"
+              className="btn btn-primary btn-sm"
+            >
               Registrar mantenimiento
             </Link>
           )}
@@ -119,7 +133,9 @@ export function MantenimientosList() {
             id="mant-tipo"
             className="form-select form-select-sm"
             value={listado.filtros.tipo}
-            onChange={(event) => listado.actualizarFiltros({ tipo: event.target.value })}
+            onChange={(event) =>
+              listado.actualizarFiltros({ tipo: event.target.value })
+            }
           >
             <option value="">Todos</option>
             <option value="preventivo">Preventivo</option>
@@ -135,7 +151,9 @@ export function MantenimientosList() {
             type="date"
             className="form-control form-control-sm"
             value={listado.filtros.desde}
-            onChange={(event) => listado.actualizarFiltros({ desde: event.target.value })}
+            onChange={(event) =>
+              listado.actualizarFiltros({ desde: event.target.value })
+            }
           />
         </div>
         <div>
@@ -147,7 +165,9 @@ export function MantenimientosList() {
             type="date"
             className="form-control form-control-sm"
             value={listado.filtros.hasta}
-            onChange={(event) => listado.actualizarFiltros({ hasta: event.target.value })}
+            onChange={(event) =>
+              listado.actualizarFiltros({ hasta: event.target.value })
+            }
           />
         </div>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
@@ -155,7 +175,9 @@ export function MantenimientosList() {
         </button>
       </form>
 
-      {listado.error && <div className="alert alert-danger">{listado.error}</div>}
+      {listado.error && (
+        <div className="alert alert-danger">{listado.error}</div>
+      )}
       {errorAccion && <div className="alert alert-danger">{errorAccion}</div>}
 
       <div className="table-responsive">
@@ -175,17 +197,25 @@ export function MantenimientosList() {
           <tbody>
             {listado.resultados.map((mantenimiento) => (
               <tr key={mantenimiento.id}>
-                <td className="text-nowrap">{formatearFecha(mantenimiento.fecha_intervencion)}</td>
+                <td className="text-nowrap">
+                  {formatearFecha(mantenimiento.fecha_intervencion)}
+                </td>
                 <td>
                   <Link to={`/admin/activos/${mantenimiento.activo}`}>
-                    <code className="codigo-barras">{mantenimiento.activo_codigo}</code>
+                    <code className="codigo-barras">
+                      {mantenimiento.activo_codigo}
+                    </code>
                   </Link>
-                  <div className="small text-muted">{mantenimiento.activo_nombre}</div>
+                  <div className="small text-muted">
+                    {mantenimiento.activo_nombre}
+                  </div>
                 </td>
                 <td>
                   <span
                     className={`badge ${
-                      mantenimiento.tipo === "correctivo" ? "text-bg-warning" : "text-bg-info"
+                      mantenimiento.tipo === "correctivo"
+                        ? "text-bg-warning"
+                        : "text-bg-info"
                     }`}
                   >
                     {mantenimiento.tipo_display}
@@ -193,9 +223,13 @@ export function MantenimientosList() {
                 </td>
                 <td>
                   {mantenimiento.responsable}
-                  <div className="small text-muted">{mantenimiento.tipo_responsable_display}</div>
+                  <div className="small text-muted">
+                    {mantenimiento.tipo_responsable_display}
+                  </div>
                 </td>
-                <td className="celda-descripcion">{mantenimiento.descripcion}</td>
+                <td className="celda-descripcion">
+                  {mantenimiento.descripcion}
+                </td>
                 <td>
                   {mantenimiento.componentes.length === 0 ? (
                     <span className="text-muted">—</span>
@@ -205,21 +239,25 @@ export function MantenimientosList() {
                         <li key={componente.id}>
                           {componente.componente_nombre} ×{componente.cantidad}
                           {componente.era_critico && (
-                            <span className="badge text-bg-danger ms-1">crítica</span>
+                            <span className="badge text-bg-danger ms-1">
+                              crítica
+                            </span>
                           )}
                         </li>
                       ))}
                     </ul>
                   )}
                 </td>
-                <td className="text-end text-nowrap">{formatearMoneda(mantenimiento.costo_total)}</td>
+                <td className="text-end text-nowrap">
+                  {formatearMoneda(mantenimiento.costo_total)}
+                </td>
                 <td>
                   <div className="d-flex gap-2">
                     {puedeEditar && (
                       <>
                         <Link
                           to={`/admin/mantenimientos/${mantenimiento.id}`}
-                          className="btn btn-outline-secondary btn-sm"
+                          className="btn btn-outline-primary btn-sm"
                         >
                           Editar
                         </Link>
@@ -262,7 +300,7 @@ export function MantenimientosList() {
         message={
           aEliminar
             ? `Se eliminará la intervención del ${formatearFecha(
-                aEliminar.fecha_intervencion
+                aEliminar.fecha_intervencion,
               )} sobre ${aEliminar.activo_codigo}. El contador de mantenimientos del activo y su sugerencia de renovación se recalcularán. El evento queda en la bitácora de auditoría.`
             : ""
         }

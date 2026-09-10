@@ -1,0 +1,22 @@
+/*
+ * Características declaradas por un tipo de equipo.
+ *
+ * Vive dentro del diálogo de edición del tipo, así que no repite tarjeta ni
+ * borde: lo que la separa del resto del formulario es el espacio y el título,
+ * no otra caja dentro de la caja.
+ */
+
+.caracteristicas-tipo {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color, #dee2e6);
+}
+
+.caracteristicas-tipo .form-text {
+  color: var(--text-muted);
+}
+
+/* Las opciones de una lista se leen como una enumeración, no como un párrafo. */
+.caracteristicas-tipo tbody .form-text {
+  font-size: 0.8em;
+}

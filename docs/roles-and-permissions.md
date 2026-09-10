@@ -67,6 +67,40 @@ seguros) y `write_permission` (el resto). Cualquier denegación a un usuario
 autenticado se audita automáticamente
 (`action="access_denied"`, con el permiso exigido, método y ruta).
 
+## El nombre de usuario
+
+Se compone del nombre de la persona: **inicial del primer nombre y apellido
+completo, sin tildes ni eñes**. «Diego Peñarreta» entra como `dpenarreta`.
+
+Se escribía a mano, y así convivían en la misma lista `dpenarreta`,
+`d.penarreta`, `diegop` y `DPenarreta`: cuatro formas de nombrar a la misma
+persona, ninguna deducible desde la otra. Quien busca a alguien en el registro
+de auditoría tenía que adivinar cuál le tocó.
+
+Detalles que se decidieron y conviene no revertir sin motivo:
+
+- **Los apellidos van completos y pegados** —«Peñarreta Vaca» es
+  `penarretavaca`—: cortar por el primero convertiría en la misma cuenta a dos
+  hermanos que trabajen aquí.
+- **Del nombre solo la inicial**, aunque sean dos: «Juan Carlos Pérez» es
+  `jperez`.
+- **El repetido lleva número**: `dperez`, `dperez2`. Se numera en vez de usar la
+  segunda inicial del nombre porque no todo el mundo tiene dos, y una regla que
+  a veces no aplica es peor que un número que siempre se entiende.
+- **El alta por API tampoco lo recibe** (`UserAdminCreateSerializer` no tiene
+  campo `username`): si lo aceptara, la convención valdría solo mientras nadie
+  usara la API.
+- **No cambia al corregir el nombre.** Es con lo que la persona entra y con lo
+  que aparece en la auditoría; regenerarlo dejaría fuera a quien ya lo usaba y
+  partiría su historial en dos. La edición sí admite `username` por API, como
+  vía de reparación para una cuenta mal creada.
+- **El registro público mantiene su propio campo `username`**
+  (`apps/authentication`): es otro flujo, con otra pantalla, y no se tocó.
+
+La vista previa del formulario (`frontend/src/utils/nomenclatura.js`) repite el
+cálculo para enseñarlo mientras se escribe; la fuente de verdad —y el desempate,
+que el navegador no puede conocer— es `apps/users/nomenclatura.py`.
+
 ## AC-038: protección del último administrador activo
 
 Este criterio **no existía en el proyecto original** — se construyó

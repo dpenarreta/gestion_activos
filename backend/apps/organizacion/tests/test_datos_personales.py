@@ -70,15 +70,43 @@ def test_el_codigo_se_genera_solo_si_no_se_indica(cliente, departamento):
     )
 
     assert respuesta.status_code == 201
-    assert respuesta.json()["codigo_empleado"] == "EMP-0001"
+    assert respuesta.json()["codigo_empleado"] == f"{departamento.codigo}-0001"
 
 
-def test_los_codigos_generados_son_correlativos(db, departamento):
+def test_el_codigo_lleva_delante_el_area_de_la_persona(db, departamento):
+    """Antes era un correlativo global —«EMP-0007»— que no decía nada de la
+    persona: para saber de qué área era había que abrir su ficha. El código
+    aparece en actas de entrega y en la plantilla de carga, donde ubicar de un
+    vistazo a quien responde por un equipo es justamente lo que se necesita."""
     primero = Empleado.objects.create(nombres="Ana", apellidos="Pérez", departamento=departamento)
     segundo = Empleado.objects.create(nombres="Luis", apellidos="Torres", departamento=departamento)
 
-    assert primero.codigo_empleado == "EMP-0001"
-    assert segundo.codigo_empleado == "EMP-0002"
+    assert primero.codigo_empleado == f"{departamento.codigo}-0001"
+    assert segundo.codigo_empleado == f"{departamento.codigo}-0002"
+
+
+def test_cada_area_numera_por_su_cuenta(db, departamento):
+    """El número dice cuántas personas lleva registradas esa área, no cuántas
+    lleva la empresa: dos áreas creciendo a la vez no se pisan el correlativo."""
+    otra = Departamento.objects.create(nombre="Contabilidad", codigo="CONT")
+
+    Empleado.objects.create(nombres="Ana", apellidos="Pérez", departamento=departamento)
+    de_otra_area = Empleado.objects.create(nombres="Rosa", apellidos="Díaz", departamento=otra)
+
+    assert de_otra_area.codigo_empleado == "CONT-0001"
+
+
+def test_el_correlativo_no_se_rompe_al_pasar_de_nueve(db, departamento):
+    """Tomar el máximo por orden alfabético devolvería el número equivocado:
+    «TI-0010» ordena antes que «TI-0009»."""
+    for numero in range(1, 11):
+        Empleado.objects.create(
+            nombres=f"Persona {numero}", apellidos="Prueba", departamento=departamento
+        )
+
+    ultimo = Empleado.objects.create(nombres="Once", apellidos="Prueba", departamento=departamento)
+
+    assert ultimo.codigo_empleado == f"{departamento.codigo}-0011"
 
 
 # --- Auditoría -------------------------------------------------------------
@@ -156,7 +184,11 @@ def test_el_comando_de_purga_enmascara_lo_ya_escrito(db, departamento):
 
 def test_la_plantilla_de_carga_no_lleva_datos_de_contacto(cliente, departamento):
     """El .xlsx se descarga y circula por correo o USB: debe llevar lo mínimo
-    para identificar al custodio, no la ficha del empleado."""
+    para identificar al custodio, no la ficha del empleado.
+
+    Importa más desde que el archivo de empleados baja lleno para poder añadir
+    filas debajo: sin esta regla, descargar la plantilla sería exportar los
+    teléfonos y correos de toda la nómina."""
     TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP")
     Empleado.objects.create(
         nombres="Ana",
@@ -167,12 +199,16 @@ def test_la_plantilla_de_carga_no_lleva_datos_de_contacto(cliente, departamento)
         departamento=departamento,
     )
 
-    contenido = cliente.get("/api/v1/activos/plantilla-importacion/").content
+    contenido = cliente.get("/api/v1/catalogos/empleados/plantilla/").content
     hoja = load_workbook(BytesIO(contenido))["Empleados"]
     filas = [list(fila) for fila in hoja.iter_rows(values_only=True)]
     texto = str(filas)
 
-    assert filas[0] == ["Código", "Nombre", "Departamento"]
+    # Las columnas existen —hay que poder llenarlas al dar de alta— pero lo ya
+    # registrado no se lleva: identifica la fila, no exporta la ficha.
+    assert "Correo" in filas[0]
+    assert "Teléfono" in filas[0]
     assert "EMP-0001" in texto
+    assert "Ana" in texto
     assert "ana.perez@empresa.com" not in texto
     assert "0991234567" not in texto

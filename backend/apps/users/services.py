@@ -9,8 +9,10 @@ from rest_framework import serializers
 
 from apps.authentication.services import AuthenticationService, SessionService
 from apps.core.audit import record_audit_event
+from apps.permissions.authorization import permisos_que_no_tiene
 
 from .models import User
+from .nomenclatura import generar_username
 
 # AC-038: el sistema nunca debe quedar sin al menos un administrador activo
 # (definido como `is_superuser=True` — el único bypass real de autorización,
@@ -31,14 +33,26 @@ class UserAdminService:
     def create_user(
         *,
         actor: User,
-        username: str,
         email: str,
         password: str,
         first_name: str = "",
         last_name: str = "",
         role_ids: list[int] | None = None,
+        empresas: list[dict] | None = None,
         context: dict | None = None,
     ) -> User:
+        """Crea la cuenta y, si se indica, la deja ya dentro de sus empresas.
+
+        La empresa y el rol van en el alta y no en un segundo paso porque una
+        cuenta sin ninguna de las dos no puede hacer nada: quien entrara así
+        vería un sistema vacío y llamaría a soporte. Separarlos garantiza que
+        alguna se quede a medias el día que a alguien lo interrumpan entre un
+        paso y el otro.
+
+        El nombre de usuario no se recibe: se deriva del nombre de la persona
+        (ver `apps.users.nomenclatura`).
+        """
+        username = generar_username(first_name, last_name)
         user = AuthenticationService.register_user(
             username=username,
             email=email,
@@ -61,6 +75,14 @@ class UserAdminService:
             new_values={"username": username, "email": email, "role_ids": role_ids or []},
             context=context,
         )
+
+        # Después del alta y con su propio evento de auditoría: son dos hechos
+        # distintos —se creó la cuenta, se le dio acceso a estas empresas— y
+        # quien revise el historial busca cada uno por su lado.
+        if empresas:
+            from apps.empresas.servicios import asignar_empresas
+
+            asignar_empresas(actor=actor, usuario=user, asignaciones=empresas, context=context)
         return user
 
     @staticmethod
@@ -202,6 +224,20 @@ class UserAdminService:
     def assign_permissions(
         *, actor: User, user: User, permissions: list[Permission], context: dict | None = None
     ) -> User:
+        # Misma regla que en los roles: nadie reparte lo que no tiene. Sin esto,
+        # `usuarios.editar` bastaría para darse a uno mismo el catálogo entero
+        # por la puerta de al lado.
+        faltantes = permisos_que_no_tiene(actor, [p.codename for p in permissions])
+        if faltantes:
+            raise serializers.ValidationError(
+                {
+                    "permission_codenames": [
+                        "No puede conceder permisos que usted no tiene: "
+                        + ", ".join(faltantes)
+                        + "."
+                    ]
+                }
+            )
         previous_permissions = list(user.user_permissions.all())
         user.user_permissions.set(permissions)
         user.updated_by = actor

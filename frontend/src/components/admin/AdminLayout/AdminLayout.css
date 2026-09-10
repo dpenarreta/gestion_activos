@@ -1,6 +1,9 @@
 .admin-layout {
   display: flex;
   min-height: 100vh;
+  /* `stretch` es el valor por defecto y estiraría el menú hasta el alto del
+     contenido, que es justo lo que se evita. */
+  align-items: flex-start;
 }
 
 .admin-layout__content {

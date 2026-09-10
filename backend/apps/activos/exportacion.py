@@ -16,6 +16,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from apps.core.hojas_de_calculo import neutralizar_fila
+
 from .models import Activo
 
 RELLENO_CABECERA = PatternFill("solid", fgColor="D9E2F3")
@@ -39,8 +41,12 @@ COLUMNAS_ACTIVOS = [
     ("Estado", 18),
     ("Custodio", 26),
     ("Departamento", 20),
-    ("Ubicación", 24),
+    ("Sede", 20),
+    ("Ciudad", 16),
+    ("Criticidad", 12),
+    ("Uso", 18),
     ("Fecha de adquisición", 18),
+    ("Fecha de ingreso", 18),
     ("Antigüedad (meses)", 16),
     ("Costo de compra", 16),
     ("Proveedor", 24),
@@ -101,32 +107,38 @@ def exportar_activos(queryset) -> bytes:
     libro = Workbook(write_only=True)
     hoja = _hoja_con_formato(libro, "Inventario", COLUMNAS_ACTIVOS)
 
-    consulta = queryset.select_related("tipo", "custodio", "departamento")
+    consulta = queryset.select_related("tipo", "custodio", "departamento", "sede", "proveedor")
     for activo in consulta.iterator(chunk_size=500):
         hoja.append(
-            [
-                activo.codigo_barras,
-                activo.nombre,
-                activo.tipo.nombre,
-                activo.marca,
-                activo.modelo,
-                activo.numero_serie,
-                activo.get_estado_display(),
-                activo.custodio.nombre_completo if activo.custodio_id else "",
-                activo.departamento.nombre,
-                activo.ubicacion,
-                activo.fecha_adquisicion,
-                activo.antiguedad_meses,
-                activo.costo_adquisicion,
-                activo.proveedor,
-                activo.fecha_fin_garantia,
-                Activo.Garantia(activo.estado_garantia).label,
-                activo.total_mantenimientos,
-                activo.total_componentes_criticos,
-                NIVELES_RENOVACION.get(activo.nivel_renovacion, "No"),
-                _especificaciones_a_texto(activo.especificaciones),
-                activo.observaciones,
-            ]
+            neutralizar_fila(
+                [
+                    activo.codigo_barras,
+                    activo.nombre,
+                    activo.tipo.nombre,
+                    activo.marca,
+                    activo.modelo,
+                    activo.numero_serie,
+                    activo.get_estado_display(),
+                    activo.custodio.nombre_completo if activo.custodio_id else "",
+                    activo.departamento.nombre,
+                    activo.sede.nombre if activo.sede_id else "",
+                    activo.sede.donde if activo.sede_id else "",
+                    activo.get_criticidad_display(),
+                    activo.get_uso_display(),
+                    activo.fecha_adquisicion,
+                    activo.fecha_ingreso,
+                    activo.antiguedad_meses,
+                    activo.costo_adquisicion,
+                    activo.proveedor.nombre if activo.proveedor_id else "",
+                    activo.fecha_fin_garantia,
+                    Activo.Garantia(activo.estado_garantia).label,
+                    activo.total_mantenimientos,
+                    activo.total_componentes_criticos,
+                    NIVELES_RENOVACION.get(activo.nivel_renovacion, "No"),
+                    _especificaciones_a_texto(activo.especificaciones),
+                    activo.observaciones,
+                ]
+            )
         )
 
     buffer = BytesIO()
@@ -150,29 +162,32 @@ def exportar_mantenimientos(queryset) -> bytes:
         mano_obra = mantenimiento.costo_mano_obra or Decimal("0")
 
         hoja.append(
-            [
-                mantenimiento.fecha_intervencion,
-                mantenimiento.fecha_salida,
-                mantenimiento.dias_fuera_de_operacion,
-                mantenimiento.activo.codigo_barras,
-                mantenimiento.activo.nombre,
-                mantenimiento.get_tipo_display(),
-                mantenimiento.responsable,
-                mantenimiento.get_tipo_responsable_display(),
-                mantenimiento.causa,
-                mantenimiento.descripcion,
-                mantenimiento.diagnostico,
-                mantenimiento.solucion,
-                mantenimiento.get_estado_final_display(),
-                "Sí" if mantenimiento.garantia_usada else "No",
-                "; ".join(
-                    f"{c.componente.nombre} x{c.cantidad}" + (" (crítica)" if c.era_critico else "")
-                    for c in componentes
-                ),
-                mano_obra,
-                repuestos,
-                mano_obra + repuestos,
-            ]
+            neutralizar_fila(
+                [
+                    mantenimiento.fecha_intervencion,
+                    mantenimiento.fecha_salida,
+                    mantenimiento.dias_fuera_de_operacion,
+                    mantenimiento.activo.codigo_barras,
+                    mantenimiento.activo.nombre,
+                    mantenimiento.get_tipo_display(),
+                    mantenimiento.responsable,
+                    mantenimiento.get_tipo_responsable_display(),
+                    mantenimiento.causa,
+                    mantenimiento.descripcion,
+                    mantenimiento.diagnostico,
+                    mantenimiento.solucion,
+                    mantenimiento.get_estado_final_display(),
+                    "Sí" if mantenimiento.garantia_usada else "No",
+                    "; ".join(
+                        f"{c.componente.nombre} x{c.cantidad}"
+                        + (" (crítica)" if c.era_critico else "")
+                        for c in componentes
+                    ),
+                    mano_obra,
+                    repuestos,
+                    mano_obra + repuestos,
+                ]
+            )
         )
 
     buffer = BytesIO()

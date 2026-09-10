@@ -67,6 +67,10 @@
   border-color: var(--state-danger);
 }
 
+.resumen-caja--aviso {
+  border-color: var(--state-warning);
+}
+
 .resumen-valor {
   font-size: 1.5rem;
   font-weight: 600;

@@ -1,4 +1,4 @@
-import { formatearFecha } from "../../../utils/formato";
+import { formatearDias, formatearFecha } from "../../../utils/formato";
 
 /**
  * Situación de la garantía de un equipo.
@@ -15,23 +15,38 @@ const VARIANTES = {
   sin_registrar: { clase: "text-bg-light border", etiqueta: "Sin registrar" },
 };
 
-export function EstadoGarantia({ estado, etiqueta, fecha, dias, compacto = false }) {
+export function EstadoGarantia({
+  estado,
+  etiqueta,
+  fecha,
+  dias,
+  compacto = false,
+}) {
   const variante = VARIANTES[estado] || VARIANTES.sin_registrar;
 
   if (compacto) {
-    return <span className={`badge ${variante.clase}`}>{variante.etiqueta}</span>;
+    return (
+      <span className={`badge ${variante.clase}`}>{variante.etiqueta}</span>
+    );
   }
 
   return (
     <span className="d-inline-flex align-items-center gap-2 flex-wrap">
-      <span className={`badge ${variante.clase}`}>{etiqueta || variante.etiqueta}</span>
+      <span className={`badge ${variante.clase}`}>
+        {etiqueta || variante.etiqueta}
+      </span>
       {fecha && (
         <span className="text-muted small">
           hasta {formatearFecha(fecha)}
           {/* Los días restantes solo aportan cuando la fecha está cerca; a un
               año vista el número es ruido y la fecha ya lo dice todo. */}
-          {typeof dias === "number" && dias >= 0 && dias <= 60 && ` · ${dias} día(s)`}
-          {typeof dias === "number" && dias < 0 && ` · venció hace ${Math.abs(dias)} día(s)`}
+          {typeof dias === "number" &&
+            dias >= 0 &&
+            dias <= 60 &&
+            ` · ${formatearDias(dias)}`}
+          {typeof dias === "number" &&
+            dias < 0 &&
+            ` · venció hace ${formatearDias(dias)}`}
         </span>
       )}
     </span>

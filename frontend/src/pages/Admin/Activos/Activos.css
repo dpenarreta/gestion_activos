@@ -25,13 +25,101 @@
 .activo-card {
   background: var(--surface);
   border-color: var(--border-color);
-  height: 100%;
+  /* Sin `height: 100%`. Con él, cada tarjeta se estiraba hasta la altura de su
+     columna: la ficha técnica quedaba con un hueco enorme debajo, y las tres
+     tarjetas apiladas de la derecha pedían el 100 % cada una —el triple de la
+     columna— y se desbordaban sobre la bitácora. La rejilla de abajo las
+     alinea arriba y cada una ocupa lo que necesita. */
+}
+
+/*
+ * Paneles de la ficha: dos columnas en escritorio, una en pantallas
+ * estrechas. `align-items: start` es lo que impide que una tarjeta corta se
+ * estire para igualar a la larga de al lado.
+ */
+.activo-paneles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.activo-paneles__columna {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  /* `minmax(0, …)` evita que una tabla o un texto largo dentro de la tarjeta
+     ensanche la columna por encima del espacio disponible. */
+  min-width: 0;
+}
+
+@media (min-width: 62em) {
+  .activo-paneles {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+}
+
+/*
+ * Listas «etiqueta: valor». La etiqueta ocupa lo justo y el valor va pegado:
+ * con las columnas de Bootstrap (`col-sm-5`/`col-sm-7`) quedaban separados
+ * media pantalla en un monitor ancho, y leer la ficha era recorrer un hueco.
+ */
+.activo-datos {
+  display: grid;
+  grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr);
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+.activo-datos dt {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.activo-datos dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* En móvil el valor va debajo de su etiqueta: a dos columnas, un nombre de
+   equipo largo rompería el renglón en cada palabra. */
+@media (max-width: 36em) {
+  .activo-datos {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .activo-datos dd {
+    margin-bottom: 0.6rem;
+  }
+}
+
+/*
+ * Indicadores de la ficha: tantas columnas como quepan. Con `col-6` fijo
+ * quedaban huecos en la fila impar y la tarjeta crecía sin necesidad.
+ *
+ * El nombre lleva el prefijo del módulo porque las hojas de estilo del
+ * proyecto son globales: `indicadores-grid` a secas ya existía en el panel
+ * principal, y las dos reglas se pisaban según el orden de carga.
+ */
+.activo-indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+  text-align: center;
 }
 
 .indicador {
   background: var(--surface-alt);
   border-radius: var(--border-radius, 0.5rem);
   padding: 0.75rem 0.5rem;
+}
+
+/* El importe invertido ocupa la fila entera: es la cifra que se busca primero
+   y compartir renglón con un contador la hace parecer una más. */
+.indicador--ancho {
+  grid-column: 1 / -1;
 }
 
 .indicador-valor {

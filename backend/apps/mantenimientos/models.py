@@ -13,17 +13,19 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import gestor_de_lo_que_cuelga
+from apps.empresas.models import ModeloDeEmpresa
 
 
-class CatalogoComponente(BaseModel):
+class CatalogoComponente(ModeloDeEmpresa):
     """Pieza o repuesto que puede consumirse en un mantenimiento.
 
     `es_critico` es lo que hace que un reemplazo cuente contra el umbral de
     "piezas críticas sustituidas" de la política de renovación (RF-06).
     """
 
-    nombre = models.CharField(max_length=150, unique=True)
-    codigo = models.CharField(max_length=30, unique=True)
+    nombre = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=30)
     descripcion = models.TextField(blank=True)
     es_critico = models.BooleanField(
         default=False,
@@ -36,6 +38,14 @@ class CatalogoComponente(BaseModel):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="componente_nombre_unico_por_empresa"
+            ),
+            models.UniqueConstraint(
+                fields=["empresa", "codigo"], name="componente_codigo_unico_por_empresa"
+            ),
+        ]
         verbose_name = "componente del catálogo"
         verbose_name_plural = "catálogo de componentes"
 
@@ -108,6 +118,9 @@ class Mantenimiento(BaseModel):
         related_name="mantenimientos_registrados",
     )
 
+    #: La empresa la pone el activo reparado, no una columna propia.
+    objects = gestor_de_lo_que_cuelga("activo__empresa")
+
     class Meta:
         ordering = ["-fecha_intervencion", "-created_at"]
         verbose_name = "mantenimiento"
@@ -159,12 +172,24 @@ class ComponenteUtilizado(BaseModel):
     )
     cantidad = models.PositiveIntegerField(default=1)
     costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # De quién se compró la pieza. Sin esto, una pieza que falla a los dos
+    # meses deja el costo registrado y ninguna forma de saber a quién
+    # reclamarle: el proveedor del equipo no tiene por qué ser el del repuesto.
+    proveedor = models.ForeignKey(
+        "organizacion.Proveedor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="repuestos_vendidos",
+    )
     numero_serie_nuevo = models.CharField(
         max_length=120, blank=True, help_text="Serie de la pieza instalada, si aplica."
     )
     # Snapshot deliberado: ver el docstring del módulo.
     era_critico = models.BooleanField(default=False, editable=False)
     observaciones = models.TextField(blank=True)
+
+    objects = gestor_de_lo_que_cuelga("mantenimiento__activo__empresa")
 
     class Meta:
         ordering = ["id"]

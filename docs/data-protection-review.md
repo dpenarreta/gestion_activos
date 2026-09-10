@@ -84,6 +84,14 @@ bitácora. Tampoco se recolecta domicilio, datos financieros ni de salud.
   eliminación física completa (a diferencia de la desactivación) debe
   implementar ese flujo explícitamente, evaluando el impacto en la
   integridad del historial de auditoría.
+- **Plantilla de empleados**: el archivo de carga baja con lo que ya está
+  registrado —para poder añadir filas debajo sin duplicar nada— pero las
+  columnas de **correo y teléfono salen vacías**. Existen para llenarlas al dar
+  de alta, no para llevarse las de la nómina entera: el .xlsx se descarga y
+  circula por correo o USB, fuera del alcance de los permisos del sistema. Lo
+  que sí lleva —código, nombre y área— es lo mínimo para reconocer una fila que
+  ya está.
+
 - **Ubicación aproximada**: el campo `AuditLog.location` existe pero no se
   resuelve automáticamente (no se integra ningún proveedor de geo-IP ni un
   flujo de consentimiento) — queda para que un proyecto concreto lo
@@ -95,6 +103,38 @@ bitácora. Tampoco se recolecta domicilio, datos financieros ni de salud.
 - **Retención**: no hay una política de retención/purga automática de
   `AuditLog`/`LoginAttempt` implementada — es una decisión operativa que
   cada proyecto concreto debe tomar según su propia política.
+
+## Salida de datos por correo (§19)
+
+El aviso por correo del centro de alertas es el único punto en que el sistema
+envía información del parque **fuera de su perímetro**, a buzones que no
+controla: se reenvían, se archivan y se sincronizan con teléfonos, y allí no
+rigen los permisos que protegen la pantalla. Los controles que lo acotan:
+
+- **Minimización del contenido**: el correo lleva el recuento de cada alerta,
+  su severidad y el enlace al listado. No lleva ningún equipo ni el nombre de
+  ningún custodio, aunque la respuesta de la API sí incluya una muestra. Para
+  saber que hay que actuar basta el número; el detalle está detrás del login.
+  Verificado en `AC-NOT-009`.
+- **Destinatarios limitados a quien ya puede ver esa información**: solo
+  usuarios activos, con correo y con el permiso `alertas.ver`. El filtro se
+  aplica **al enviar**, no al elegir, de modo que revocar el permiso o
+  deshabilitar la cuenta basta para que alguien deje de recibir, sin que nadie
+  tenga que acordarse de editar la lista (`AC-NOT-007`, `AC-NOT-008`).
+- **Copia oculta**: las direcciones van en BCC. Quién más recibe los avisos del
+  parque no es un dato que cada destinatario necesite (`AC-NOT-010`).
+- **Correos enmascarados en la interfaz**: `GET /alertas/destinatarios/`
+  devuelve `d****@empresa.com`. Quien configura las alertas necesita reconocer
+  a la persona, no llevarse el directorio de correos del personal; por eso el
+  endpoint exige `alertas.configurar` y no expone la dirección completa
+  (`AC-NOT-020`).
+- **Bitácora sin direcciones**: `EnvioAlertas` guarda identificadores de
+  usuario, no correos. Es un registro append-only que no se purga, y una
+  dirección escrita ahí quedaría fuera del alcance de un derecho de supresión
+  —el mismo criterio por el que se retiró la cédula del empleado.
+- **El envío de prueba escribe solo a quien lo pide**, con su propio límite de
+  frecuencia: un endpoint que dispara correos a terceros es un remitente
+  disponible para quien consiga una sesión (`AC-NOT-014`, `AC-NOT-016`).
 
 ## Escenarios Gherkin relacionados
 

@@ -452,3 +452,39 @@ def test_los_formatos_termicos_siguen_disponibles(cliente, admin, datos_activo):
 
     assert zpl.json()["contenido"].startswith("^XA")
     assert "SIZE" in tspl.json()["contenido"]
+
+
+# --- Duplicados en el catálogo de tipos -------------------------------------
+
+
+def test_no_se_crean_dos_tipos_que_solo_difieren_en_mayusculas(cliente, tipo_laptop):
+    """Dos «Laptop» indistinguibles en el desplegable, cada uno con su política
+    de renovación y sus activos: el parque queda partido en dos y los informes
+    por tipo dejan de cuadrar."""
+    respuesta = cliente.post(
+        "/api/v1/activos/tipos/", {"nombre": "LAPTOP", "codigo": "LAP2"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "Laptop" in str(respuesta.data["error"]["details"]["nombre"])
+
+
+def test_el_codigo_de_tipo_repetido_dice_quien_lo_usa(cliente, tipo_laptop):
+    """El código numera las etiquetas («GA-LAP-000007»): repetido, dos tipos
+    producirían códigos de barras que no distinguen de qué equipo son."""
+    respuesta = cliente.post(
+        "/api/v1/activos/tipos/", {"nombre": "Laptop gamer", "codigo": "lap"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "Laptop" in str(respuesta.data["error"]["details"]["codigo"])
+
+
+def test_editar_un_tipo_sin_cambiarle_el_nombre_no_choca_consigo_mismo(cliente, tipo_laptop):
+    respuesta = cliente.patch(
+        f"/api/v1/activos/tipos/{tipo_laptop.id}/",
+        {"nombre": "Laptop", "descripcion": "Equipos portátiles"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200

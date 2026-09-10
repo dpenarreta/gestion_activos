@@ -10,8 +10,16 @@ import "./Alertas.css";
 const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Alertas" }];
 
 const SEVERIDADES = {
-  alta: { clase: "alta", etiqueta: "Atender ya", icono: "exclamation-octagon-fill" },
-  media: { clase: "media", etiqueta: "Revisar", icono: "exclamation-triangle-fill" },
+  alta: {
+    clase: "alta",
+    etiqueta: "Atender ya",
+    icono: "exclamation-octagon-fill",
+  },
+  media: {
+    clase: "media",
+    etiqueta: "Revisar",
+    icono: "exclamation-triangle-fill",
+  },
   baja: { clase: "baja", etiqueta: "Informativa", icono: "info-circle-fill" },
 };
 
@@ -46,7 +54,8 @@ export function AlertasPage() {
     cargar();
   }, [cargar]);
 
-  const conPendientes = datos?.alertas.filter((alerta) => alerta.total > 0) ?? [];
+  const conPendientes =
+    datos?.alertas.filter((alerta) => alerta.total > 0) ?? [];
   const resueltas = datos?.alertas.filter((alerta) => alerta.total === 0) ?? [];
 
   return (
@@ -57,10 +66,10 @@ export function AlertasPage() {
         {puedeConfigurar && (
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            className="btn btn-outline-primary btn-sm"
             onClick={() => setConfigurando((abierto) => !abierto)}
           >
-            {configurando ? "Ocultar configuración" : "Configurar umbrales"}
+            {configurando ? "Ocultar configuración" : "Configurar alertas"}
           </button>
         )}
       </div>
@@ -87,8 +96,9 @@ export function AlertasPage() {
 
       {datos && conPendientes.length > 0 && (
         <p className="text-muted">
-          {datos.total_alertas} alerta(s) con {datos.total_elementos} situación(es) por atender. Un
-          mismo equipo puede aparecer en varias: cada una se resuelve de una forma distinta.
+          {datos.total_alertas} alerta(s) con {datos.total_elementos}{" "}
+          situación(es) por atender. Un mismo equipo puede aparecer en varias:
+          cada una se resuelve de una forma distinta.
         </p>
       )}
 
@@ -125,12 +135,18 @@ function TarjetaAlerta({ alerta }) {
         <div className="d-flex justify-content-between align-items-start gap-2">
           <div>
             <h3 className="h6 mb-1">
-              <i className={`bi bi-${severidad.icono} me-2`} aria-hidden="true" />
+              <i
+                className={`bi bi-${severidad.icono} me-2`}
+                aria-hidden="true"
+              />
               {alerta.titulo}
             </h3>
             <p className="small text-muted mb-0">{alerta.detalle}</p>
           </div>
-          <span className="alerta-card__total" aria-label={`${alerta.total} equipos`}>
+          <span
+            className="alerta-card__total"
+            aria-label={`${alerta.total} equipos`}
+          >
             {alerta.total}
           </span>
         </div>
@@ -181,11 +197,26 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
   ];
 
   const interruptores = [
-    { campo: "avisar_proximos_a_reemplazo", etiqueta: "Equipos próximos a reemplazo" },
-    { campo: "avisar_garantias_por_vencer", etiqueta: "Garantías próximas a vencer" },
-    { campo: "avisar_demasiadas_reparaciones", etiqueta: "Equipos con demasiadas reparaciones" },
-    { campo: "avisar_reparaciones_pendientes", etiqueta: "Reparaciones sin cerrar" },
-    { campo: "avisar_custodios_inactivos", etiqueta: "Equipos con custodio inactivo" },
+    {
+      campo: "avisar_proximos_a_reemplazo",
+      etiqueta: "Equipos próximos a reemplazo",
+    },
+    {
+      campo: "avisar_garantias_por_vencer",
+      etiqueta: "Garantías próximas a vencer",
+    },
+    {
+      campo: "avisar_demasiadas_reparaciones",
+      etiqueta: "Equipos con demasiadas reparaciones",
+    },
+    {
+      campo: "avisar_reparaciones_pendientes",
+      etiqueta: "Reparaciones sin cerrar",
+    },
+    {
+      campo: "avisar_custodios_inactivos",
+      etiqueta: "Equipos con custodio inactivo",
+    },
     { campo: "avisar_sin_asignar", etiqueta: "Activos sin asignar" },
     { campo: "avisar_sin_actualizacion", etiqueta: "Fichas sin actualizar" },
   ];
@@ -222,7 +253,10 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
                 className="form-control"
                 value={valores[campo]}
                 onChange={(event) =>
-                  setValores({ ...valores, [campo]: Number(event.target.value) })
+                  setValores({
+                    ...valores,
+                    [campo]: Number(event.target.value),
+                  })
                 }
               />
               <div className="form-text">{ayuda}</div>
@@ -257,10 +291,265 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
           Una alerta apagada deja de calcularse y no aparece en esta pantalla.
         </p>
 
-        <button type="submit" className="btn btn-primary btn-sm" disabled={isSaving}>
+        <hr className="my-4" />
+        <NotificacionesPanel valores={valores} setValores={setValores} />
+
+        <button
+          type="submit"
+          className="btn btn-primary btn-sm"
+          disabled={isSaving}
+        >
           {isSaving ? "Guardando…" : "Guardar configuración"}
         </button>
       </div>
     </form>
+  );
+}
+
+const DIAS_SEMANA = [
+  [0, "Lunes"],
+  [1, "Martes"],
+  [2, "Miércoles"],
+  [3, "Jueves"],
+  [4, "Viernes"],
+  [5, "Sábado"],
+  [6, "Domingo"],
+];
+
+/**
+ * Envío del resumen por correo (§19).
+ *
+ * Solo aparecen como posibles destinatarios los usuarios que ya pueden abrir
+ * esta pantalla: el correo enlaza a los listados del parque, y avisar a
+ * alguien de algo que no puede consultar es filtrarle información. Sus
+ * direcciones llegan enmascaradas desde el backend — aquí hace falta
+ * reconocer a la persona, no copiar su correo.
+ */
+function NotificacionesPanel({ valores, setValores }) {
+  const [candidatos, setCandidatos] = useState([]);
+  const [envios, setEnvios] = useState([]);
+  const [prueba, setPrueba] = useState(null);
+  const [enviandoPrueba, setEnviandoPrueba] = useState(false);
+
+  useEffect(() => {
+    alertasService
+      .destinatariosDisponibles()
+      .then(setCandidatos)
+      .catch(() => setCandidatos([]));
+    alertasService
+      .historialEnvios()
+      .then(setEnvios)
+      .catch(() => setEnvios([]));
+  }, []);
+
+  const seleccionados = valores.destinatarios ?? [];
+
+  function alternarDestinatario(id) {
+    setValores({
+      ...valores,
+      destinatarios: seleccionados.includes(id)
+        ? seleccionados.filter((elegido) => elegido !== id)
+        : [...seleccionados, id],
+    });
+  }
+
+  async function handlePrueba() {
+    setEnviandoPrueba(true);
+    setPrueba(null);
+    try {
+      const respuesta = await alertasService.enviarPrueba();
+      setPrueba({ ok: true, texto: respuesta.detail });
+    } catch (err) {
+      setPrueba({
+        ok: false,
+        texto: mensajeDeError(err, "No se pudo enviar el correo de prueba."),
+      });
+    } finally {
+      setEnviandoPrueba(false);
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="h6 text-uppercase text-muted mb-3">
+        Notificaciones por correo
+      </h3>
+
+      <div className="form-check form-switch mb-3">
+        <input
+          id="alerta-notificaciones_activas"
+          type="checkbox"
+          className="form-check-input"
+          checked={valores.notificaciones_activas}
+          onChange={(event) =>
+            setValores({
+              ...valores,
+              notificaciones_activas: event.target.checked,
+            })
+          }
+        />
+        <label
+          className="form-check-label"
+          htmlFor="alerta-notificaciones_activas"
+        >
+          Enviar el resumen de alertas por correo
+        </label>
+      </div>
+
+      <div className="row g-3 mb-3">
+        <div className="col-md-4">
+          <label className="form-label" htmlFor="alerta-frecuencia">
+            Frecuencia
+          </label>
+          <select
+            id="alerta-frecuencia"
+            className="form-select"
+            value={valores.frecuencia}
+            onChange={(event) =>
+              setValores({ ...valores, frecuencia: event.target.value })
+            }
+          >
+            <option value="diaria">Diaria</option>
+            <option value="semanal">Semanal</option>
+          </select>
+        </div>
+
+        {valores.frecuencia === "semanal" && (
+          <div className="col-md-4">
+            <label className="form-label" htmlFor="alerta-dia_envio_semanal">
+              Día del envío
+            </label>
+            <select
+              id="alerta-dia_envio_semanal"
+              className="form-select"
+              value={valores.dia_envio_semanal}
+              onChange={(event) =>
+                setValores({
+                  ...valores,
+                  dia_envio_semanal: Number(event.target.value),
+                })
+              }
+            >
+              {DIAS_SEMANA.map(([numero, nombre]) => (
+                <option key={numero} value={numero}>
+                  {nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="form-check mb-3">
+        <input
+          id="alerta-omitir_si_no_hay_pendientes"
+          type="checkbox"
+          className="form-check-input"
+          checked={valores.omitir_si_no_hay_pendientes}
+          onChange={(event) =>
+            setValores({
+              ...valores,
+              omitir_si_no_hay_pendientes: event.target.checked,
+            })
+          }
+        />
+        <label
+          className="form-check-label"
+          htmlFor="alerta-omitir_si_no_hay_pendientes"
+        >
+          No enviar los días sin nada pendiente
+        </label>
+        <div className="form-text">
+          {/* El correo que llega todos los días diciendo lo mismo deja de
+              leerse, y arrastra consigo al que sí traía algo. */}
+          Apagado, llega también el correo que dice «revisado, nada pendiente».
+        </div>
+      </div>
+
+      <fieldset className="mb-3">
+        <legend className="form-label">Destinatarios</legend>
+        {candidatos.length === 0 ? (
+          <p className="form-text mb-0">
+            Ningún usuario puede recibir el resumen todavía: hace falta que
+            tenga el permiso «Ver el centro de alertas» y un correo registrado.
+          </p>
+        ) : (
+          <div className="row g-2">
+            {candidatos.map((candidato) => (
+              <div className="col-md-6" key={candidato.id}>
+                <div className="form-check">
+                  <input
+                    id={`destinatario-${candidato.id}`}
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={seleccionados.includes(candidato.id)}
+                    onChange={() => alternarDestinatario(candidato.id)}
+                  />
+                  <label
+                    className="form-check-label"
+                    htmlFor={`destinatario-${candidato.id}`}
+                  >
+                    {candidato.nombre}{" "}
+                    <small className="text-muted">{candidato.correo}</small>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="form-text">
+          Solo aparecen quienes pueden ver las alertas: el correo enlaza a los
+          listados del parque. Las direcciones van en copia oculta.
+        </div>
+      </fieldset>
+
+      <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={handlePrueba}
+          disabled={enviandoPrueba}
+        >
+          {enviandoPrueba ? "Enviando…" : "Enviar una prueba a mi correo"}
+        </button>
+        {valores.ultimo_envio && (
+          <small className="text-muted">
+            Último resumen enviado el {valores.ultimo_envio}.
+          </small>
+        )}
+      </div>
+
+      {prueba && (
+        <div
+          className={`alert ${prueba.ok ? "alert-success" : "alert-danger"} py-2`}
+        >
+          {prueba.texto}
+        </div>
+      )}
+
+      {envios.length > 0 && (
+        <details className="mt-2">
+          <summary className="small text-muted">Últimos envíos</summary>
+          <ul className="list-unstyled small mt-2 mb-0">
+            {envios.map((envio) => (
+              <li key={envio.id} className="mb-1">
+                <span className="text-muted">
+                  {new Date(envio.created_at).toLocaleString()}
+                </span>{" "}
+                — {envio.resultado_display}
+                {envio.resultado === "enviado"
+                  ? ` a ${envio.total_destinatarios} destinatario(s)`
+                  : ""}
+                {/* El motivo es lo que distingue un día tranquilo de un envío
+                    que falló: sin él, ambos se ven igual desde fuera. */}
+                {envio.motivo && (
+                  <span className="text-muted"> · {envio.motivo}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   );
 }

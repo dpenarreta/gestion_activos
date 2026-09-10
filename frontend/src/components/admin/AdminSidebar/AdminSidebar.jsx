@@ -8,7 +8,9 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useMenuAccordion } from "../../../hooks/useMenuAccordion";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
+import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
+import { SelectorEmpresa } from "./SelectorEmpresa";
 import { AdminMenuItem } from "./AdminMenuItem";
 import "./AdminSidebar.css";
 
@@ -43,7 +45,13 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
     if (!path) {
       return;
     }
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
       return;
     }
     event.preventDefault();
@@ -52,7 +60,10 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
   }
 
   function handleLogout() {
-    if (isDirty && !window.confirm("Hay cambios sin guardar. ¿Desea continuar sin guardar?")) {
+    if (
+      isDirty &&
+      !window.confirm("Hay cambios sin guardar. ¿Desea continuar sin guardar?")
+    ) {
       return;
     }
     setIsDirty(false);
@@ -77,7 +88,11 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
       </button>
 
       {isMobileOpen && (
-        <div className="admin-sidebar__backdrop" onClick={handleBackdropClick} aria-hidden="true" />
+        <div
+          className="admin-sidebar__backdrop"
+          onClick={handleBackdropClick}
+          aria-hidden="true"
+        />
       )}
 
       <aside
@@ -92,9 +107,17 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
         tabIndex={-1}
       >
         <div className="admin-sidebar__header">
-          <Link to="/" className="admin-sidebar__brand" aria-label={`${siteName} — Ir al inicio`}>
+          <Link
+            to="/"
+            className="admin-sidebar__brand"
+            aria-label={`${siteName} — Ir al inicio`}
+          >
             {theme?.logo_url ? (
-              <img src={theme.logo_url} alt="" className="admin-sidebar__logo" />
+              <img
+                src={theme.logo_url}
+                alt=""
+                className="admin-sidebar__logo"
+              />
             ) : null}
             {isCollapsed ? siteName.slice(0, 2).toUpperCase() : siteName}
           </Link>
@@ -107,6 +130,11 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
             <span aria-hidden="true">×</span>
           </button>
         </div>
+
+        {/* Debajo del logo y encima del menú: es el ámbito de todo lo que
+            viene después, y verlo antes de navegar evita el error de mirar el
+            inventario equivocado durante un rato. */}
+        <SelectorEmpresa isCollapsed={isCollapsed} />
 
         <nav className="admin-sidebar__nav">
           <ul className="admin-sidebar__list">
@@ -129,25 +157,46 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
                   currentPath={location.pathname}
                   onNavigate={handleNavigate}
                 />
-              )
+              ),
             )}
           </ul>
         </nav>
 
         <div className="admin-sidebar__footer">
+          {/* Con ícono, como el resto del menú: contraído era el único
+              elemento dibujado con un carácter suelto en vez de un ícono, y se
+              leía como un error tipográfico más que como un botón. */}
           <button
             type="button"
-            className="admin-sidebar__toggle-collapse"
-            onClick={onToggleCollapse}
-            aria-pressed={isCollapsed}
+            className="admin-sidebar__logout"
+            onClick={handleLogout}
+            title={isCollapsed ? "Cerrar sesión" : undefined}
+            aria-label={isCollapsed ? "Cerrar sesión" : undefined}
           >
-            <span aria-hidden="true">{isCollapsed ? "»" : "«"}</span>
-            {!isCollapsed && <span>Contraer</span>}
-          </button>
-          <button type="button" className="admin-sidebar__logout" onClick={handleLogout}>
-            {isCollapsed ? "⏻" : "Cerrar sesión"}
+            <Icon name="box-arrow-right" className="admin-sidebar__icon" />
+            {!isCollapsed && (
+              <span className="admin-sidebar__label">Cerrar sesión</span>
+            )}
           </button>
         </div>
+
+        {/* Fuera de la lista y anclado al borde, a media altura: contraer no
+            es un sitio al que se navega, y como último elemento del menú se
+            perdía debajo de «Cerrar sesión» —y quedaba fuera de la pantalla
+            en cuanto el menú era más largo que el alto disponible. */}
+        <button
+          type="button"
+          className="admin-sidebar__toggle-collapse"
+          onClick={onToggleCollapse}
+          aria-pressed={isCollapsed}
+          aria-label={isCollapsed ? "Expandir menú" : "Contraer menú"}
+          title={isCollapsed ? "Expandir menú" : "Contraer menú"}
+        >
+          <i
+            className={`bi ${isCollapsed ? "bi-chevron-right" : "bi-chevron-left"}`}
+            aria-hidden="true"
+          />
+        </button>
       </aside>
     </>
   );

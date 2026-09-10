@@ -20,10 +20,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from apps.organizacion.models import Departamento, Empleado
-
 from .importacion import MAX_FILAS, NOMBRE_HOJA_DATOS, columnas_configuradas
-from .models import TipoDispositivo
 
 RELLENO_OBLIGATORIA = PatternFill("solid", fgColor="D9E2F3")
 RELLENO_OPCIONAL = PatternFill("solid", fgColor="EDEDED")
@@ -38,7 +35,10 @@ ANCHOS = {
     "departamento": 22,
     "fecha_adquisicion": 20,
     "custodio": 24,
-    "ubicacion": 26,
+    "sede": 26,
+    "criticidad": 14,
+    "uso": 18,
+    "fecha_ingreso": 18,
     "costo_adquisicion": 16,
     "proveedor": 24,
     "fecha_fin_garantia": 18,
@@ -56,8 +56,11 @@ EJEMPLOS = [
         "numero_serie": "DL5440-00002",
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
-        "custodio": "EMP-0001",
-        "ubicacion": "Piso 2, oficina 204",
+        "custodio": "TI-0001",
+        "sede": "Matriz Quito",
+        "criticidad": "Alta",
+        "uso": "Administrativo",
+        "fecha_ingreso": "2024-03-20",
         "costo_adquisicion": "1150.00",
         "proveedor": "Tecnomega",
         "fecha_fin_garantia": "2027-03-15",
@@ -73,7 +76,10 @@ EJEMPLOS = [
         "departamento": "CTB",
         "fecha_adquisicion": "2023-11-02",
         "custodio": "",
-        "ubicacion": "Recepción",
+        "sede": "Sucursal Guayaquil",
+        "criticidad": "Baja",
+        "uso": "Atención al cliente",
+        "fecha_ingreso": "",
         "costo_adquisicion": "320",
         "proveedor": "Comptronix",
         "fecha_fin_garantia": "",
@@ -169,17 +175,25 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
             False,
         ),
         (
-            "4. En «Tipo de dispositivo» y «Departamento» escriba el código o el nombre exacto: "
-            "los valores válidos están en las hojas «Tipos» y «Departamentos».",
+            "4. En «Tipo de dispositivo» y «Departamento» escriba el código o el nombre exacto. "
+            "Los valores válidos están en sus propias plantillas, que se descargan desde "
+            "Carga masiva: cada una baja con lo que ya está registrado.",
             False,
         ),
         (
-            "5. En «Código del custodio» use el código interno del empleado (hoja «Empleados»). "
+            "5. En «Código del custodio» use el código interno del empleado (plantilla de "
+            "«Empleados»). "
             "Si lo deja vacío, el activo queda en bodega, sin responsable asignado.",
             False,
         ),
         (
-            "6. El código de barras NO se llena: lo genera el sistema al importar, con el "
+            "6. La sede y el proveedor deben existir en su catálogo: copie el nombre exacto "
+            "de sus plantillas. Si los deja vacíos, el activo queda registrado sin sitio y "
+            "sin proveedor hasta que alguien lo complete.",
+            False,
+        ),
+        (
+            "7. El código de barras NO se llena: lo genera el sistema al importar, con el "
             "formato GA-<TIPO>-<SECUENCIA>.",
             False,
         ),
@@ -226,45 +240,21 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
 
 
 def construir_plantilla() -> bytes:
-    """Genera el .xlsx con la hoja de captura, las instrucciones y los catálogos.
+    """Genera el .xlsx de activos: instrucciones, hoja de captura y ejemplo.
 
     Las columnas salen de la configuración vigente, de modo que la plantilla
     refleja siempre lo que el importador va a leer.
+
+    Ya no trae los catálogos dentro. Llegó a tener ocho hojas —cinco de ellas
+    solo de consulta— y mezclaba material de referencia con material de
+    trabajo, sin que ninguno de esos catálogos se pudiera cargar. Cada uno
+    tiene ahora su propio archivo, que se descarga con lo que ya existe dentro
+    y sirve para las dos cosas.
     """
     columnas = columnas_configuradas()
     libro = Workbook()
     _hoja_datos(libro, columnas)
     _hoja_ejemplo(libro, columnas)
-
-    _hoja_catalogo(
-        libro,
-        "Tipos",
-        ["Código", "Nombre"],
-        [
-            [tipo.codigo, tipo.nombre]
-            for tipo in TipoDispositivo.objects.filter(activo=True).order_by("nombre")
-        ],
-    )
-    _hoja_catalogo(
-        libro,
-        "Departamentos",
-        ["Código", "Nombre"],
-        [
-            [departamento.codigo, departamento.nombre]
-            for departamento in Departamento.objects.filter(activo=True).order_by("nombre")
-        ],
-    )
-    _hoja_catalogo(
-        libro,
-        "Empleados",
-        ["Código", "Nombre", "Departamento"],
-        [
-            [empleado.codigo_empleado, empleado.nombre_completo, empleado.departamento.nombre]
-            for empleado in Empleado.objects.filter(activo=True)
-            .select_related("departamento")
-            .order_by("apellidos", "nombres")
-        ],
-    )
 
     _hoja_instrucciones(libro, columnas)
     # Se abre en Instrucciones: es lo primero que conviene leer.

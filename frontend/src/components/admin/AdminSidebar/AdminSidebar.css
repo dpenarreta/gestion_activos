@@ -1,3 +1,16 @@
+/*
+ * El menú tiene el alto de la pantalla, no el del contenido.
+ *
+ * Como elemento flex se estiraba hasta el final de la página: en una ficha
+ * larga el menú medía dos pantallas, con un vacío negro enorme debajo del
+ * último ítem y el pie —donde vivían «Contraer» y «Cerrar sesión»— a un
+ * scroll de distancia.
+ *
+ * `sticky` + `align-self: flex-start` es lo que lo despega de esa altura: sin
+ * el `align-self`, el estiramiento por defecto de flex gana y el `sticky` no
+ * tiene margen donde pegarse. Lo que sobra de menú se desplaza dentro de
+ * `__nav`, que ya tiene su propio scroll.
+ */
 .admin-sidebar {
   width: var(--sidebar-width-expanded);
   flex-shrink: 0;
@@ -6,6 +19,13 @@
   display: flex;
   flex-direction: column;
   transition: width 0.15s ease;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  /* En móvil, 100vh se mide contra la barra del navegador y deja el pie por
+     debajo del borde visible; `dvh` sigue a la barra cuando se retrae. */
+  height: 100dvh;
 }
 
 .admin-layout--collapsed .admin-sidebar {
@@ -118,7 +138,6 @@
   gap: 0.25rem;
 }
 
-.admin-sidebar__toggle-collapse,
 .admin-sidebar__logout {
   background: none;
   border: none;
@@ -127,12 +146,56 @@
   text-align: left;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* La misma separación que los ítems del menú: con el relleno del pie
+     sumado, el ícono cae en la misma columna que los de arriba. */
+  gap: 0.75rem;
+}
+
+.admin-sidebar__logout:hover {
+  color: #fff;
+}
+
+/*
+ * Contraer es un tirador del borde, no un ítem del menú.
+ *
+ * Como último elemento de la lista competía con los sitios a los que sí se
+ * navega y, en cuanto el menú pasaba del alto de la pantalla, había que bajar
+ * hasta el final para encontrarlo. A media altura del borde derecho está
+ * siempre a la vista y siempre en el mismo punto, esté el menú abierto o
+ * cerrado.
+ *
+ * Va montado sobre el borde (la mitad dentro, la mitad fuera) para que se lea
+ * como el asa del panel y no como algo del contenido.
+ */
+.admin-sidebar__toggle-collapse {
+  position: absolute;
+  top: 50%;
+  right: -0.875rem;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background-color: var(--color-menu, #000);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .admin-sidebar__toggle-collapse:hover,
-.admin-sidebar__logout:hover {
-  color: #fff;
+.admin-sidebar__toggle-collapse:focus-visible {
+  background-color: var(--state-info);
+  border-color: var(--state-info);
+  color: var(--text-inverse);
 }
 
 .admin-sidebar__mobile-trigger {
@@ -178,4 +241,53 @@
   .admin-sidebar__close-mobile {
     display: block;
   }
+
+  /* En móvil el menú se abre y se cierra con la hamburguesa y la ✕: contraerlo
+     a la tira de iconos no significa nada cuando está superpuesto. */
+  .admin-sidebar__toggle-collapse {
+    display: none;
+  }
+}
+
+/*
+ * El selector de empresa, entre el logo y el menú.
+ *
+ * Ahí y no en una pantalla de configuración porque no es un ajuste: es el
+ * ámbito de todo lo que se ve debajo, y tenerlo a la vista evita el error de
+ * revisar el inventario equivocado durante un rato sin notarlo.
+ */
+.selector-empresa {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.selector-empresa--unica,
+.selector-empresa--contraido {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.875rem;
+}
+
+.selector-empresa--contraido {
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.selector-empresa__icono {
+  opacity: 0.8;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

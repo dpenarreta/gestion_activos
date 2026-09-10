@@ -12,10 +12,11 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.activos.models import DIAS_AVISO_GARANTIA, Activo
+from apps.activos.models import DIAS_AVISO_GARANTIA, ESTADOS_EN_ALMACEN, Activo
+from apps.core.duracion import formatear_dias, formatear_meses
 from apps.mantenimientos.models import Mantenimiento
 from apps.politicas.models import NivelRenovacion
-from apps.politicas.services import evaluar_lote
+from apps.politicas.services import candidatos_a_renovacion, evaluar_lote
 
 #: Cuántos elementos acompañan a cada alerta. Suficientes para reconocer de
 #: qué se trata sin abrir el listado, pocos para no convertir el resumen en
@@ -68,8 +69,10 @@ def _fila_activo(activo, dato: str, clave: str | None = None) -> dict:
 
 
 def _activos_operativos():
-    """Parque vivo. Un equipo dado de baja no genera alertas: ya salió."""
-    return Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+    """Parque vivo. Un equipo que salió del inventario —de baja, perdido o
+    robado— no genera alertas: no hay nada que nadie pueda resolver sobre él,
+    y aparecería cada día en la pantalla como pendiente eterno."""
+    return Activo.objects.operativos()
 
 
 # --- Reglas ----------------------------------------------------------------
@@ -96,7 +99,9 @@ def proximos_a_reemplazo(veredictos) -> Alerta:
     # repetirlos: verlos dos veces haría dudar de si son dos equipos distintos.
     a_evaluar = [(a, r) for a, r in afectados if r.nivel != NivelRenovacion.RECOMENDADO]
     muestra = [
-        _fila_activo(activo, f"{activo.antiguedad_meses} meses · {resultado.nivel_display}")
+        _fila_activo(
+            activo, f"{formatear_meses(activo.antiguedad_meses)} · {resultado.nivel_display}"
+        )
         for activo, resultado in (recomendados + a_evaluar)[:TAMANO_MUESTRA]
     ]
 
@@ -154,7 +159,7 @@ def garantias_por_vencer() -> Alerta:
     )
     total = consulta.count()
     muestra = [
-        _fila_activo(activo, f"vence en {activo.dias_para_fin_de_garantia} día(s)")
+        _fila_activo(activo, f"vence en {formatear_dias(activo.dias_para_fin_de_garantia)}")
         for activo in consulta[:TAMANO_MUESTRA]
     ]
 
@@ -172,9 +177,9 @@ def garantias_por_vencer() -> Alerta:
 def sin_asignar(dias: int) -> Alerta:
     """Equipos parados en bodega. Capital inmovilizado, no una urgencia."""
     limite = timezone.now() - timedelta(days=dias)
-    consulta = Activo.objects.filter(
-        estado=Activo.Estado.EN_BODEGA, updated_at__lt=limite
-    ).order_by("updated_at")
+    consulta = Activo.objects.filter(estado__in=ESTADOS_EN_ALMACEN, updated_at__lt=limite).order_by(
+        "updated_at"
+    )
     total = consulta.count()
     muestra = [_fila_activo(activo, "en bodega") for activo in consulta[:TAMANO_MUESTRA]]
 
@@ -184,7 +189,7 @@ def sin_asignar(dias: int) -> Alerta:
         severidad=Severidad.BAJA,
         total=total,
         detalle=f"Llevan más de {dias} días en bodega sin asignarse.",
-        destino="/admin/activos?estado=en_bodega",
+        destino="/admin/activos?almacenados=true",
         muestra=muestra,
     )
 
@@ -207,7 +212,7 @@ def reparaciones_pendientes(dias: int) -> Alerta:
     muestra = [
         _fila_activo(
             mantenimiento.activo,
-            f"{(hoy - mantenimiento.fecha_intervencion).days} día(s) en reparación",
+            f"{formatear_dias((hoy - mantenimiento.fecha_intervencion).days)} en reparación",
             clave=f"mantenimiento-{mantenimiento.id}",
         )
         for mantenimiento in consulta[:TAMANO_MUESTRA]
@@ -293,9 +298,15 @@ def construir_alertas(configuracion) -> list[Alerta]:
     necesita_veredictos = (
         configuracion.avisar_proximos_a_reemplazo or configuracion.avisar_demasiadas_reparaciones
     )
-    veredictos = (
-        evaluar_lote(_activos_operativos().select_related("tipo")) if necesita_veredictos else []
-    )
+    veredictos = []
+    if necesita_veredictos:
+        # Prefiltro en SQL antes de evaluar: las dos reglas que dependen de
+        # las políticas solo miran a los que superan algún umbral, y traer el
+        # parque completo para descartar el 95 % costaba más de un segundo.
+        candidatos, politicas = candidatos_a_renovacion(
+            _activos_operativos().select_related("tipo")
+        )
+        veredictos = evaluar_lote(candidatos, politicas)
 
     if configuracion.avisar_proximos_a_reemplazo:
         alertas.append(proximos_a_reemplazo(veredictos))

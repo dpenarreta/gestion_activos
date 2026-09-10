@@ -10,7 +10,11 @@ from apps.core.request_meta import get_request_context
 
 from .models import VENTANA_MANTENIMIENTOS_MESES, NivelRenovacion, PoliticaObsolescencia
 from .permissions import PoliticasPermission
-from .services import evaluar_lote, refrescar_indicadores_renovacion
+from .services import candidatos_a_renovacion, evaluar_lote, refrescar_indicadores_renovacion
+
+#: Sugerencias que viajan en la respuesta. El recuento sigue siendo el
+#: total; para llevárselas todas está el reporte del §16.
+TOPE_SUGERENCIAS = 200
 
 MODULO = "politicas"
 
@@ -103,9 +107,14 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, PoliticasPermission]
     serializer_class = PoliticaObsolescenciaSerializer
     pagination_class = DefaultPagination
-    queryset = PoliticaObsolescencia.objects.select_related("tipo_dispositivo").order_by(
-        "tipo_dispositivo__nombre", "nombre"
-    )
+
+    def get_queryset(self):
+        """En un método y no como atributo de clase: un `queryset` en el cuerpo
+        se construye al importar el módulo, cuando todavía no hay petición ni
+        empresa activa, y se quedaría con ese filtro para siempre."""
+        return PoliticaObsolescencia.objects.select_related("tipo_dispositivo").order_by(
+            "tipo_dispositivo__nombre", "nombre"
+        )
 
     def perform_create(self, serializer):
         politica = serializer.save()
@@ -164,7 +173,7 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _reevaluar_queryset(queryset):
-        activos = queryset.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        activos = queryset.select_related("tipo").operativos()
         # Se evalúa en lote para resolver la ventana móvil con una consulta
         # agregada, y luego se persiste el veredicto ya calculado.
         for activo, resultado in evaluar_lote(activos):
@@ -181,11 +190,16 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         nivel_pedido = request.query_params.get("nivel")
         activos = (
             Activo.objects.select_related("tipo", "custodio", "departamento")
-            .exclude(estado=Activo.Estado.DADO_DE_BAJA)
+            .operativos()
             .order_by("-total_mantenimientos", "fecha_adquisicion")
         )
+        # El prefiltro deja en SQL a los que no superan ningún umbral. Los dos
+        # endpoints de reevaluación de más abajo no lo usan: ellos sí tienen
+        # que recorrer el parque entero, porque además de encender la marca
+        # deben apagarla en los que dejaron de calificar.
+        candidatos, politicas = candidatos_a_renovacion(activos)
         sugerencias = []
-        for activo, resultado in evaluar_lote(activos):
+        for activo, resultado in evaluar_lote(candidatos, politicas):
             if not resultado.requiere_renovacion:
                 continue
             if nivel_pedido and resultado.nivel != nivel_pedido:
@@ -210,22 +224,30 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         # Lo recomendado primero: es lo que hay que presupuestar, y una lista
         # ordenada solo por antigüedad lo escondería entre los «evaluar».
         sugerencias.sort(key=lambda fila: fila["nivel_renovacion"] != NivelRenovacion.RECOMENDADO)
+        # El recuento se calcula sobre todas, pero solo viajan las primeras: en
+        # un parque de 10.000 equipos con la mitad pasada de vida útil, esta
+        # respuesta llegaba a miles de filas que nadie recorre en pantalla.
+        # Para llevárselas todas está el reporte «Activos próximos a
+        # reemplazo», que además exporta a Excel.
+        mostradas = sugerencias[:TOPE_SUGERENCIAS]
         return Response(
             {
                 "total": len(sugerencias),
+                "mostradas": len(mostradas),
+                "truncado": len(sugerencias) > len(mostradas),
                 "por_nivel": {
                     nivel.value: sum(1 for fila in sugerencias if fila["nivel_renovacion"] == nivel)
                     for nivel in (NivelRenovacion.RECOMENDADO, NivelRenovacion.EVALUAR)
                 },
                 "ventana_por_defecto_meses": VENTANA_MANTENIMIENTOS_MESES,
-                "resultados": sugerencias,
+                "resultados": mostradas,
             }
         )
 
     @action(detail=False, methods=["post"], url_path="reevaluar")
     def reevaluar(self, request):
         """Fuerza el recálculo de la caché de todos los activos."""
-        activos = Activo.objects.select_related("tipo").exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        activos = Activo.objects.select_related("tipo").operativos()
         total = 0
         con_alerta = 0
         por_nivel = {NivelRenovacion.EVALUAR: 0, NivelRenovacion.RECOMENDADO: 0}

@@ -9,3 +9,13 @@
 .users-list-status--blocked {
   background-color: var(--state-danger);
 }
+
+/* Cada empresa del usuario con sus roles debajo: en una sola línea, tres
+   empresas con dos roles cada una se leen como una cadena sin cortes. */
+.users-list-empresa + .users-list-empresa {
+  margin-top: 0.35rem;
+}
+
+.users-list-empresa .text-muted {
+  font-size: 0.85em;
+}

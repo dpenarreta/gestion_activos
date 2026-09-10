@@ -32,7 +32,11 @@ export function ModalDialog({
   });
 
   return (
-    <div className="modal-dialog-custom__backdrop" onClick={handleBackdropClick} role="presentation">
+    <div
+      className="modal-dialog-custom__backdrop"
+      onClick={handleBackdropClick}
+      role="presentation"
+    >
       <div
         className="modal-dialog-custom__panel"
         style={anchoMaximo ? { maxWidth: anchoMaximo } : undefined}
@@ -47,13 +51,19 @@ export function ModalDialog({
             <h2 className="h5 mb-0" id="modal-dialog-titulo">
               {titulo}
             </h2>
-            {subtitulo && <p className="text-muted small mb-0 mt-1">{subtitulo}</p>}
+            {subtitulo && (
+              <p className="text-muted small mb-0 mt-1">{subtitulo}</p>
+            )}
           </div>
 
           <div className="modal-dialog-custom__body">{children}</div>
 
           <div className="modal-dialog-custom__footer">
-            <button type="button" className="btn btn-outline-secondary" onClick={onCerrar}>
+            <button
+              type="button"
+              className="btn btn-cancelar"
+              onClick={onCerrar}
+            >
               Cancelar
             </button>
             {onSubmit && (

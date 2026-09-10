@@ -94,6 +94,237 @@ a {
   background-color: var(--surface-alt);
 }
 
+/*
+ * Botón secundario: toma el gris del tema, no el fijo de Bootstrap.
+ *
+ * `btn-outline-secondary` trae `#6c757d` cableado, que sobre el fondo oscuro
+ * da 3,61:1 de contraste —por debajo del 4,5:1 de WCAG AA— y, sobre todo, se
+ * lee como un botón deshabilitado: «Editar» y «Ver ficha» parecían inactivos
+ * cuando no lo estaban. Con el token del tema son 7,6:1 en oscuro y 4,7:1 en
+ * claro.
+ */
+.btn-outline-secondary {
+  --bs-btn-color: var(--text-muted);
+  --bs-btn-border-color: var(--border-color);
+  --bs-btn-hover-color: var(--text-primary);
+  --bs-btn-hover-bg: var(--surface-alt);
+  --bs-btn-hover-border-color: var(--text-muted);
+  --bs-btn-active-color: var(--text-primary);
+  --bs-btn-active-bg: var(--surface-alt);
+  --bs-btn-active-border-color: var(--text-muted);
+  /* El deshabilitado sí debe verse apagado: es la única forma de
+     distinguirlo ahora que el normal tiene contraste. */
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
+ * Contorno azul: el tono del tema, no el plano de Bootstrap.
+ *
+ * `btn-outline-primary` pinta el texto con el azul de marca, pensado para
+ * fondo claro: sobre el oscuro da 3,3:1 —por debajo del 4,5:1 de WCAG AA— y
+ * «Escanear» o «Carga masiva» quedan a medio camino entre legible y apagado.
+ * `--state-info` es ese mismo azul aclarado en modo oscuro, donde sube a
+ * 7,0:1; en claro no cambia.
+ *
+ * Es también el dibujo de la acción de cada fila («Ver ficha», «Editar»), que
+ * antes iba con el gris de menor jerarquía de «Cancelar» y «Volver» y se leía
+ * como el botón apagado de la fila.
+ */
+.btn-outline-primary {
+  --bs-btn-color: var(--state-info);
+  --bs-btn-border-color: var(--state-info);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-info);
+  --bs-btn-hover-border-color: var(--state-info);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-info);
+  --bs-btn-active-border-color: var(--state-info);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
+ * Cancelar: contorno rojo.
+ *
+ * Es la salida de un formulario o de un diálogo, y lo que se pierde al
+ * pulsarla —lo escrito y no guardado— no se recupera. Dibujada con el gris de
+ * las acciones menores se confundía con «Volver» o con un botón inactivo, que
+ * es la peor confusión posible para el único botón de la pantalla que
+ * descarta trabajo.
+ *
+ * Sigue siendo contorno y no rojo sólido: no es la acción a la que se viene, y
+ * un bloque rojo junto a «Guardar» compite con ella. El tono sale de
+ * `--state-danger`, que cada tema ajusta a su fondo (4,5:1 en claro, 6,7:1 en
+ * oscuro).
+ */
+.btn-cancelar {
+  --bs-btn-color: var(--state-danger);
+  --bs-btn-border-color: var(--state-danger);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-danger);
+  --bs-btn-hover-border-color: var(--state-danger);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-danger);
+  --bs-btn-active-border-color: var(--state-danger);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
+ * Los otros contornos de color, por el mismo motivo que el azul.
+ *
+ * «Eliminar» y «Deshabilitar» comparten la fila con «Editar» y traían el rojo
+ * y el ámbar planos de Bootstrap, pensados para fondo claro: como texto sobre
+ * el oscuro se quedaban por debajo del 4,5:1 de WCAG AA, y en una fila de tres
+ * botones eso se ve como si dos estuvieran a medio apagar. Los tonos del tema
+ * suben a 6,7:1 y 12,4:1.
+ */
+.btn-outline-danger {
+  --bs-btn-color: var(--state-danger);
+  --bs-btn-border-color: var(--state-danger);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-danger);
+  --bs-btn-hover-border-color: var(--state-danger);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-danger);
+  --bs-btn-active-border-color: var(--state-danger);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--state-warning);
+  --bs-btn-border-color: var(--state-warning);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-warning);
+  --bs-btn-hover-border-color: var(--state-warning);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-warning);
+  --bs-btn-active-border-color: var(--state-warning);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
+ * Exportar: mismo dibujo de contorno, en naranja.
+ *
+ * No es una acción más de la barra —saca datos del sistema a un archivo que
+ * después circula por correo— y conviene que se distinga de un vistazo de las
+ * que se quedan dentro. El icono va del mismo color que el texto, que es lo
+ * que hace que se lea como un botón y no como un icono pegado a una etiqueta.
+ */
+.btn-exportar {
+  --bs-btn-color: var(--state-export);
+  --bs-btn-border-color: var(--state-export);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--state-export);
+  --bs-btn-hover-border-color: var(--state-export);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--state-export);
+  --bs-btn-active-border-color: var(--state-export);
+  --bs-btn-disabled-color: var(--border-color);
+  --bs-btn-disabled-border-color: var(--border-color);
+}
+
+/*
+ * En una fila de varios campos, las etiquetas ocupan lo mismo.
+ *
+ * Una etiqueta larga se parte en dos líneas y empuja su campo hacia abajo:
+ * en «Umbrales» de las políticas, «Recomendar reemplazo a los (meses)» dejaba
+ * su casilla un renglón por debajo de la de al lado, y con ella el texto de
+ * ayuda. La fila se leía torcida y costaba emparejar cada casilla con su
+ * rótulo.
+ *
+ * Se reserva el alto de dos renglones y el texto se apoya abajo: una etiqueta
+ * de una línea queda a la misma altura que la segunda línea de la de al lado,
+ * así que las casillas arrancan alineadas sin depender de cuánto mida cada
+ * rótulo.
+ *
+ * Solo en filas de dos o más campos —de ahí el `:has`—: en una fila de un solo
+ * campo no hay con qué alinearse y el hueco extra sería espacio muerto.
+ */
+form
+  .row:has(> [class*="col"] + [class*="col"])
+  > [class*="col"]
+  > .form-label {
+  min-height: calc(2 * 1.5em);
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+/* Apilados, cada campo ocupa el ancho entero y vuelve a no haber con qué
+   alinearse. */
+@media (max-width: 767.98px) {
+  form
+    .row:has(> [class*="col"] + [class*="col"])
+    > [class*="col"]
+    > .form-label {
+    min-height: 0;
+    display: block;
+  }
+}
+
+/* Compartido por las dos cargas masivas —activos y catálogos—: el reporte
+   es el mismo y vive aquí para no duplicarlo en dos hojas. */
+/*
+ * Los hallazgos de la validación, agrupados por fila.
+ *
+ * Una lista plana repite el número de fila en cada línea y obliga a
+ * reconstruir a ojo cuántos problemas tiene cada una. Al corregir se trabaja
+ * fila por fila, así que el reporte se ordena igual: el número manda y debajo
+ * cuelga todo lo suyo.
+ */
+.hallazgos {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.hallazgos__fila {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--state-danger);
+  border-radius: var(--border-radius, 0.5rem);
+  background-color: var(--surface-alt);
+}
+
+.hallazgos--aviso .hallazgos__fila {
+  border-left-color: var(--state-warning);
+}
+
+.hallazgos__numero {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hallazgos__detalle {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-primary);
+}
+
+/* Apilado en pantallas estrechas: con dos columnas, el mensaje queda en una
+   tira de tres palabras por línea. */
+@media (max-width: 36em) {
+  .hallazgos__fila {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   body,
   .admin-layout,

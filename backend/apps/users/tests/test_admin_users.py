@@ -57,7 +57,6 @@ def test_admin_creates_user_successfully(admin_client, admin_user):
     response = admin_client.post(
         "/api/v1/admin/users/",
         {
-            "username": "nuevo",
             "email": "nuevo@example.com",
             "password": "Sup3r-Secr3t!",
             "first_name": "Nueva",
@@ -67,7 +66,8 @@ def test_admin_creates_user_successfully(admin_client, admin_user):
     )
 
     assert response.status_code == 201
-    created = User.objects.get(username="nuevo")
+    # El nombre de usuario sale del nombre: no se pide ni se elige.
+    created = User.objects.get(username="npersona")
     assert created.check_password("Sup3r-Secr3t!")
     assert created.password != "Sup3r-Secr3t!"
     assert created.created_by_id == admin_user.id
@@ -80,7 +80,12 @@ def test_admin_creates_user_successfully(admin_client, admin_user):
 def test_admin_cannot_create_user_with_duplicate_email(admin_client, plain_user):
     response = admin_client.post(
         "/api/v1/admin/users/",
-        {"username": "otro", "email": plain_user.email, "password": "Sup3r-Secr3t!"},
+        {
+            "email": plain_user.email,
+            "password": "Sup3r-Secr3t!",
+            "first_name": "Otra",
+            "last_name": "Persona",
+        },
         format="json",
     )
 

@@ -1,0 +1,51 @@
+.carga-catalogos-page {
+  max-width: 62rem;
+}
+
+/*
+ * Un botón por catálogo, no un desplegable: son cinco y se ven todos a la vez,
+ * que es lo que hace evidente que cada uno se carga por su cuenta —justo lo
+ * que el libro de ocho hojas escondía—.
+ */
+.carga-catalogos__selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.carga-catalogos__panel {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1rem;
+  background-color: var(--surface-alt);
+}
+
+.carga-catalogos__pasos {
+  display: grid;
+  gap: 1rem;
+}
+
+.paso {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.paso__numero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background-color: var(--color-buttons, #0d6efd);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.paso p {
+  font-size: 0.9rem;
+}

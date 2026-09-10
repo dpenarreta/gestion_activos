@@ -19,9 +19,14 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.mantenimientos.models import ComponenteUtilizado, Mantenimiento
-from apps.politicas.services import evaluar_lote
+from apps.politicas.services import candidatos_a_renovacion, evaluar_lote
 
-from .models import DIAS_AVISO_GARANTIA, Activo
+from .models import (
+    DIAS_AVISO_GARANTIA,
+    ESTADOS_EN_ALMACEN,
+    ESTADOS_FUERA_DE_INVENTARIO,
+    Activo,
+)
 
 MESES_TENDENCIA = 6
 TOP_EQUIPOS_REPARADOS = 5
@@ -56,7 +61,7 @@ def _equipos_mas_reparados() -> list[dict]:
     """
     activos = (
         Activo.objects.filter(total_mantenimientos__gt=0)
-        .exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        .operativos()
         .select_related("tipo", "departamento")
         .order_by("-total_mantenimientos", "codigo_barras")[:TOP_EQUIPOS_REPARADOS]
     )
@@ -105,7 +110,7 @@ def _sugerencias_de_renovacion() -> dict:
     `apps.politicas.services`).
     """
     activos = (
-        Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+        Activo.objects.operativos()
         .select_related("tipo")
         .only(
             "id",
@@ -116,8 +121,11 @@ def _sugerencias_de_renovacion() -> dict:
             "tipo",
         )
     )
+    # Se prefiltra en SQL: traer el parque entero para descartar el 95 % es lo
+    # que hacía que este panel tardara dos segundos con 10.000 activos.
+    candidatos, politicas = candidatos_a_renovacion(activos)
     conteo = {"total": 0, "evaluar": 0, "recomendado": 0}
-    for _activo, resultado in evaluar_lote(activos):
+    for _activo, resultado in evaluar_lote(candidatos, politicas):
         if not resultado.requiere_renovacion:
             continue
         conteo["total"] += 1
@@ -135,7 +143,7 @@ def _garantias() -> dict:
     """
     hoy = timezone.localdate()
     limite_aviso = hoy + timedelta(days=DIAS_AVISO_GARANTIA)
-    operativos = Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+    operativos = Activo.objects.operativos()
 
     return {
         "vencidas": operativos.filter(fecha_fin_garantia__lt=hoy).count(),
@@ -175,7 +183,7 @@ def construir_indicadores() -> dict:
     reparaciones_del_mes = Mantenimiento.objects.filter(fecha_intervencion__gte=inicio_mes).count()
 
     sin_asignar_hace_tiempo = Activo.objects.filter(
-        estado=Activo.Estado.EN_BODEGA, updated_at__lt=timezone.now() - timedelta(days=90)
+        estado__in=ESTADOS_EN_ALMACEN, updated_at__lt=timezone.now() - timedelta(days=90)
     ).count()
 
     renovacion = _sugerencias_de_renovacion()
@@ -184,9 +192,23 @@ def construir_indicadores() -> dict:
         "activos": {
             "total": sum(por_estado.values()),
             "en_uso": por_estado.get(Activo.Estado.EN_USO, 0),
+            "disponibles": por_estado.get(Activo.Estado.DISPONIBLE, 0),
             "en_bodega": por_estado.get(Activo.Estado.EN_BODEGA, 0),
             "en_mantenimiento": por_estado.get(Activo.Estado.EN_MANTENIMIENTO, 0),
+            "en_garantia": por_estado.get(Activo.Estado.EN_GARANTIA, 0),
+            "en_transito": por_estado.get(Activo.Estado.EN_TRANSITO, 0),
             "dados_de_baja": por_estado.get(Activo.Estado.DADO_DE_BAJA, 0),
+            # Perdidos y robados van juntos y aparte de la baja: los tres
+            # equipos ya no están, pero una baja es una decisión de la empresa
+            # y las otras dos son pérdidas que alguien tiene que investigar.
+            # Sumarlos a «dados de baja» escondería exactamente eso.
+            "perdidos": por_estado.get(Activo.Estado.PERDIDO, 0),
+            "robados": por_estado.get(Activo.Estado.ROBADO, 0),
+            "operativos": sum(
+                total
+                for estado, total in por_estado.items()
+                if estado not in ESTADOS_FUERA_DE_INVENTARIO
+            ),
             "requieren_renovacion": renovacion["total"],
             "evaluar_reemplazo": renovacion["evaluar"],
             "reemplazo_recomendado": renovacion["recomendado"],
@@ -208,13 +230,13 @@ def construir_indicadores() -> dict:
         "fuera_de_operacion": _dias_fuera_de_operacion(),
         "equipos_mas_reparados": _equipos_mas_reparados(),
         "por_tipo_dispositivo": list(
-            Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+            Activo.objects.operativos()
             .values(nombre_tipo=F("tipo__nombre"))
             .annotate(total=Count("id"))
             .order_by("-total")
         ),
         "por_departamento": list(
-            Activo.objects.exclude(estado=Activo.Estado.DADO_DE_BAJA)
+            Activo.objects.operativos()
             .values(nombre_departamento=F("departamento__nombre"))
             .annotate(
                 total=Count("id"),

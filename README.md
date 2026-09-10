@@ -16,11 +16,13 @@ Backend Django (patrón Modelo-Vista-Template) + API REST, frontend React, y
 SQL Server como base de datos.
 
 **Estado actual:** los ocho requerimientos funcionales (RF-01 a RF-08) están
-implementados de extremo a extremo — backend e interfaz. El panel
-administrativo cubre inventario, escáner, tipos de dispositivo,
-departamentos, empleados, bitácora de mantenimientos, catálogo de
-componentes, políticas de renovación y panel de sugerencias, además de los
-módulos transversales heredados (usuarios, roles, permisos, configuración).
+implementados de extremo a extremo — backend e interfaz — y con ellos las dos
+fases del documento funcional (§22): garantías, adjuntos y actas, centro de
+alertas y aviso por correo. El panel administrativo cubre inventario, escáner,
+tipos de dispositivo, departamentos, empleados, bitácora de mantenimientos,
+catálogo de componentes, políticas de renovación, panel de sugerencias y
+centro de alertas, además de los módulos transversales heredados (usuarios,
+roles, permisos, configuración).
 
 ## 2. Tecnologías principales
 
@@ -138,6 +140,14 @@ los detalles de conexión.
 | Comando | Dónde | Qué hace |
 | --- | --- | --- |
 | `python manage.py runserver` | `backend/` | Servidor de desarrollo |
+| `python manage.py recalcular_indicadores` | `backend/` | Recalcula contadores y sugerencias de renovación (cron diario) |
+| `python manage.py enviar_alertas` | `backend/` | Envía el resumen de alertas por correo (cron diario; la frecuencia real la decide la configuración) |
+| `python manage.py sembrar_datos_rendimiento` | `backend/` | Parque sintético para medir (solo en una base `*_perf`) |
+| `python manage.py medir_rendimiento` | `backend/` | Tiempo y consultas de las pantallas críticas |
+| `python manage.py prueba_de_carga` | `backend/` | Peticiones concurrentes contra un servidor en marcha |
+| `python manage.py crear_roles_iniciales` | `backend/` | Crea los cuatro roles del §13 con sus permisos |
+| `python manage.py verificar_despliegue` | `backend/` | Revisa qué falta para producción (falla si hay algo crítico) |
+| `python manage.py respaldar` | `backend/` | Copia de seguridad de la base y los adjuntos, verificada |
 | `pytest` | `backend/` | Suite de pruebas del backend |
 | `ruff check .` / `black .` / `isort .` | `backend/` | Lint y formato |
 | `npm run dev` | `frontend/` | Servidor de desarrollo (Vite) |
@@ -173,8 +183,9 @@ relaciones entre usuarios, roles y permisos.
 - **Inventario** (`apps.activos`) — RF-01/RF-02/RF-03: expediente de cada
   dispositivo, código de barras único automático (`GA-<TIPO>-<SECUENCIA>`,
   Code 128), historial de movimientos de custodia y consulta por escáner.
-- **Organización** (`apps.organizacion`) — departamentos y catálogo propio de
-  empleados custodios, con vínculo opcional a una cuenta del sistema.
+- **Organización** (`apps.organizacion`) — departamentos, ubicaciones físicas
+  (sede + lugar) y catálogo propio de empleados custodios, con vínculo
+  opcional a una cuenta del sistema.
 - **Mantenimientos** (`apps.mantenimientos`) — RF-04/RF-05: bitácora de
   intervenciones con desglose de repuestos, costos y contador automático de
   intervenciones y de piezas críticas sustituidas.
@@ -183,7 +194,19 @@ relaciones entre usuarios, roles y permisos.
   vida útil) y motor que evalúa cada activo y explica cada criterio superado.
 - **Etiquetas** (`apps.activos.etiquetas_pdf`, `apps.activos.etiquetas`) —
   RF-08: PDF a tamaño físico real (50 × 25 mm) con Code 128 escaneable, y
-  trabajos de impresión térmica directa ZPL (Zebra) y TSPL (TSC/Godex).
+  trabajos de impresión térmica directa ZPL (Zebra) y TSPL (TSC/Godex). La
+  geometría del símbolo —módulo, zona muda y altura— está dimensionada y
+  verificada para pistolas láser; ver `docs/codigos-de-barras.md`.
+- **Adjuntos y actas** (`apps.adjuntos`) — §18/§6: los nueve tipos de
+  documento del documento funcional, con validación de tamaño, extensión y
+  firma del contenido; descarga con permiso y auditada, nunca como estático.
+  Actas de entrega y devolución en PDF generadas desde el movimiento.
+- **Alertas** (`apps.alertas`) — §19: las siete alertas del parque calculadas
+  al vuelo, con umbrales configurables, y el aviso por correo del resumen a
+  los usuarios que pueden verlas (`manage.py enviar_alertas`).
+- **Reportes** (`apps.reportes`) — §16: los trece reportes del documento, en
+  Excel, CSV y PDF. Se definen como datos en un catálogo, así que agregar uno
+  no toca vistas ni frontend.
 
 ### Pantallas del panel administrativo
 
@@ -200,7 +223,9 @@ relaciones entre usuarios, roles y permisos.
 | `/admin/mantenimientos/componentes` | Catálogo de repuestos, con la marca de pieza crítica |
 | `/admin/renovacion/sugerencias` | Equipos que exceden sus umbrales, con las cifras de respaldo (RF-07) |
 | `/admin/politicas` | Configuración de umbrales por tipo de dispositivo (RF-06) |
-| `/admin/organizacion/departamentos` · `/empleados` | Catálogos organizacionales |
+| `/admin/alertas` | Centro de alertas del parque, sus umbrales y el aviso por correo (§19) |
+| `/admin/reportes` | Los trece reportes del §16, con vista previa y descarga en Excel, CSV y PDF |
+| `/admin/organizacion/departamentos` · `/ubicaciones` · `/empleados` | Catálogos organizacionales |
 | `/admin/users` | Cuentas de usuario del sistema |
 | `/admin/roles` · `/admin/roles/permisos` | Roles y, como pestaña, el catálogo de permisos |
 
@@ -226,10 +251,11 @@ el frontend React.
 
 ## 13. Pruebas y calidad
 
-- Backend: 326 pruebas `pytest` (ver `backend/apps/*/tests/`).
+- Backend: 509 pruebas `pytest` (ver `backend/apps/*/tests/`), incluidas las
+  de regresión de rendimiento (número de consultas, no tiempos).
 - Integración: 19 escenarios Gherkin conectados vía `pytest-bdd` (ver
   `tests/qa/step_definitions/`).
-- Frontend: 12 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
+- Frontend: 30 pruebas `Vitest` (ver `frontend/tests/`). Las pantallas del
   dominio se verificaron manualmente en navegador contra la API real.
 - Todos los criterios de aceptación están documentados como escenarios
   Gherkin en `tests/qa/features/`, con trazabilidad completa en
@@ -238,6 +264,10 @@ el frontend React.
   completa en `docs/qa-strategy.md`.
 
 ## 14. Despliegue
+
+**Antes de desplegar, lea `docs/puesta-en-marcha.md`**: roles, correo, tareas
+programadas, copias de seguridad y carga del inventario real. Lo verificable se
+comprueba con `python manage.py verificar_despliegue`.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -251,7 +281,8 @@ arrancar) y el frontend (build estático servido por nginx). Ver
 
 Ver `docs/security-review.md` para el checklist completo de controles de
 seguridad implementados y sus limitaciones conocidas (documentadas, no
-ocultas).
+ocultas). El comportamiento con el parque completo (10.000 activos) está
+medido en `docs/rendimiento.md`.
 
 ## 16. Protección de datos personales según normativa de Ecuador
 
@@ -280,9 +311,14 @@ limpio, build de producción exitoso, backend y frontend arrancando, login
 real vía API (JWT + Argon2), control de acceso (401 sin token), throttle de
 fuerza bruta activo y `pip-audit`/`npm audit` sin hallazgos.
 
-**Dominio de negocio: no iniciado.** El sistema todavía no tiene modelo de
-activos, ubicaciones, asignaciones ni mantenimientos. Esa es la siguiente
-capa; ver `docs/architecture.md`, sección "Qué no incluye todavía".
+**Dominio de negocio: completo hasta la Fase 4 (2026-09-09).** Inventario,
+custodia, mantenimientos, políticas de renovación, garantías, adjuntos y
+actas, centro de alertas con aviso por correo, la ficha completa del activo
+—los nueve estados del §12, ubicación física de catálogo, criticidad y uso, y
+los filtros del §14— y los trece reportes del §16 en Excel, CSV y PDF. Lo que
+queda abierto está inventariado en `docs/funcional/analisis-de-brecha.md`: el
+código QR del §5, las integraciones del §20 y la prueba de rendimiento con
+10.000 registros.
 
 Detalle de la verificación heredada en `tests/qa/test-execution-report.md`.
 

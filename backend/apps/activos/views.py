@@ -1,5 +1,6 @@
 from django.db.models import Count, Q
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
@@ -7,15 +8,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.cache import recordar
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
+from apps.empresas.contexto import clave_por_empresa
 from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
 
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
-from .models import Activo, TipoDispositivo
+from .barcode import normalizar_escaneo
+from .models import ESTADOS_EN_ALMACEN, Activo, TipoDispositivo
+from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
     ActivosPermission,
     EtiquetasPermission,
@@ -32,9 +37,15 @@ from .serializers import (
     MovimientoActivoSerializer,
     TipoDispositivoSerializer,
 )
+from .serializers_caracteristicas import CaracteristicaTipoSerializer
 from .services import ActivoService
 
 MODULO = "activos"
+
+#: Clave del resumen del panel en la caché.
+#: Se prefija con la empresa al usarla: la caché no sabe de empresas, y
+#: una cifra guardada es tan visible como una consulta.
+CLAVE_CACHE_PANEL = "activos:dashboard"
 MAX_ETIQUETAS_POR_LOTE = 200
 
 # PDF es el formato por defecto: lo abre cualquiera y permite revisar la
@@ -47,6 +58,81 @@ FORMATO_POR_DEFECTO = "pdf"
 # no es lo que dice ser.
 MAX_TAMANO_IMPORTACION = 5 * 1024 * 1024
 FORMATOS_SOPORTADOS = {"pdf", *etiquetas_mod.CONSTRUCTORES}
+
+
+class CaracteristicaTipoViewSet(viewsets.ModelViewSet):
+    """Qué se describe de cada tipo de equipo.
+
+    Se administran aparte del tipo y no como una lista anidada dentro de él
+    porque se editan de a una —añadir «Resolución» a las cámaras no debería
+    obligar a reenviar las otras cinco— y porque así el borrado de una tiene su
+    propia respuesta en vez de deducirse de una lista más corta.
+
+    Sí admite `DELETE`: una característica mal creada no deja historial que
+    preservar, y el valor que algún equipo ya tuviera bajo ese nombre se
+    conserva en su JSON. Para dejar de pedirla sin perder lo capturado está
+    `activa = False`, que es lo que se recomienda en el texto del campo.
+    """
+
+    permission_classes = [IsAuthenticated, TiposDispositivoPermission]
+    serializer_class = CaracteristicaTipoSerializer
+    pagination_class = DefaultPagination
+
+    def get_queryset(self):
+        queryset = CaracteristicaTipo.objects.select_related("tipo").order_by(
+            "tipo__nombre", "orden", "nombre"
+        )
+        tipo = self.request.query_params.get("tipo")
+        if tipo and tipo.isdigit():
+            queryset = queryset.filter(tipo_id=int(tipo))
+        activa = self.request.query_params.get("activa")
+        if activa in {"true", "false"}:
+            queryset = queryset.filter(activa=activa == "true")
+        return queryset
+
+    def perform_create(self, serializer):
+        caracteristica = serializer.save()
+        self._auditar("caracteristica_tipo.created", caracteristica, serializer.data)
+
+    def perform_update(self, serializer):
+        anteriores = self.get_serializer(serializer.instance).data
+        caracteristica = serializer.save()
+        cambios = {
+            campo: valor
+            for campo, valor in serializer.data.items()
+            if anteriores.get(campo) != valor
+        }
+        if cambios:
+            self._auditar(
+                "caracteristica_tipo.updated",
+                caracteristica,
+                cambios,
+                previos={campo: anteriores.get(campo) for campo in cambios},
+            )
+
+    def perform_destroy(self, instance):
+        datos = {"tipo": instance.tipo.nombre, "nombre": instance.nombre}
+        record_audit_event(
+            actor=self.request.user,
+            action="caracteristica_tipo.deleted",
+            target_type="caracteristicatipo",
+            target_id=instance.pk,
+            module=MODULO,
+            previous_values=datos,
+            context=get_request_context(self.request),
+        )
+        instance.delete()
+
+    def _auditar(self, accion, caracteristica, nuevos, previos=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=accion,
+            target=caracteristica,
+            module=MODULO,
+            previous_values=previos,
+            new_values=nuevos,
+            context=get_request_context(self.request),
+        )
 
 
 class TipoDispositivoViewSet(viewsets.ModelViewSet):
@@ -86,9 +172,16 @@ class ActivoViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def get_queryset(self):
-        queryset = Activo.objects.select_related("tipo", "custodio", "departamento").order_by(
-            "-created_at"
-        )
+        queryset = Activo.objects.select_related(
+            "tipo", "custodio", "departamento", "sede", "proveedor"
+        ).order_by("-created_at")
+
+        if self.action == "retrieve":
+            # La ficha calcula los siete tiempos del §10 recorriendo el
+            # historial y la bitácora: sin precargarlos, cada cálculo se
+            # llevaría su propia consulta. En el listado no se precargan
+            # porque allí esos tiempos no se muestran.
+            queryset = queryset.prefetch_related("movimientos", "mantenimientos")
         params = self.request.query_params
 
         busqueda = params.get("q")
@@ -108,14 +201,47 @@ class ActivoViewSet(viewsets.ModelViewSet):
             ("tipo", "tipo_id"),
             ("departamento", "departamento_id"),
             ("custodio", "custodio_id"),
+            ("sede", "sede_id"),
         ):
             valor = params.get(parametro)
             if valor and valor.isdigit():
                 queryset = queryset.filter(**{campo: int(valor)})
 
+        # Por nombre además de por id: «todo lo que hay en la matriz» es la
+        # pregunta de quien va a hacer el inventario físico de un edificio, y
+        # la escribe, no la elige de una lista.
+        nombre_de_sede = params.get("sede_nombre")
+        if nombre_de_sede:
+            queryset = queryset.filter(sede__nombre__iexact=nombre_de_sede.strip())
+
         estado = params.get("estado")
         if estado:
             queryset = queryset.filter(estado=estado)
+
+        # «Operativos» es la vista por defecto de quien trabaja con el parque;
+        # los perdidos, robados y dados de baja siguen consultables porque su
+        # expediente es el respaldo de qué pasó con ellos.
+        operativos = params.get("operativos")
+        if operativos == "true":
+            queryset = queryset.operativos()
+        elif operativos == "false":
+            queryset = queryset.fuera_de_inventario()
+
+        for parametro, validos in (
+            ("criticidad", {c.value for c in Activo.Criticidad}),
+            ("uso", {u.value for u in Activo.Uso}),
+        ):
+            valor = params.get(parametro)
+            if valor in validos:
+                queryset = queryset.filter(**{parametro: valor})
+
+        # «Almacenados» agrupa disponible y en bodega: la pregunta de quien
+        # busca un equipo para entregar es «qué hay guardado», y el matiz
+        # entre ambos estados lo resuelve mirando la ficha.
+        if params.get("almacenados") == "true":
+            queryset = queryset.filter(estado__in=ESTADOS_EN_ALMACEN)
+
+        queryset = self._filtrar_por_antiguedad(queryset, params)
 
         renovacion = params.get("requiere_renovacion")
         if renovacion in {"true", "false"}:
@@ -142,6 +268,33 @@ class ActivoViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(updated_at__lt=limite)
 
         queryset = self._filtrar_por_garantia(queryset, params.get("garantia"))
+
+        return queryset
+
+    @staticmethod
+    def _filtrar_por_antiguedad(queryset, params):
+        """Filtra por meses cumplidos desde la adquisición (§14).
+
+        Se traduce a fechas límite en la consulta en vez de evaluar la
+        propiedad `antiguedad_meses` del modelo: en Python habría que traerse
+        el inventario entero para descartar la mayoría, y el documento
+        dimensiona entre 5.000 y 10.000 activos.
+
+        Un equipo «de al menos 36 meses» se adquirió *antes* de hace 36
+        meses: los operadores quedan invertidos respecto de lo que se lee, y
+        es el error fácil de cometer aquí.
+        """
+        from apps.politicas.services import restar_meses
+
+        hoy = timezone.localdate()
+
+        minimo = params.get("antiguedad_min_meses")
+        if minimo and minimo.isdigit():
+            queryset = queryset.filter(fecha_adquisicion__lte=restar_meses(hoy, int(minimo)))
+
+        maximo = params.get("antiguedad_max_meses")
+        if maximo and maximo.isdigit():
+            queryset = queryset.filter(fecha_adquisicion__gte=restar_meses(hoy, int(maximo)))
 
         return queryset
 
@@ -224,22 +377,58 @@ class ActivoViewSet(viewsets.ModelViewSet):
         el viaje adicional que haría el frontend tras cada escaneo.
         """
         termino = (codigo or "").strip()
-        activo = (
+        activo = self._buscar_por_termino(termino)
+
+        # Si no aparece, puede que la pistola esté enviando los caracteres con
+        # otra distribución de teclado: el guion del código llega como
+        # apóstrofe y el término deja de coincidir. Se reintenta con el valor
+        # reparado (ver `apps.activos.barcode.normalizar_escaneo`).
+        reparado, corregido = normalizar_escaneo(termino)
+        if activo is None and corregido:
+            activo = self._buscar_por_termino(reparado)
+
+        if activo is None:
+            respuesta = {
+                "error": {
+                    "code": "activo_no_encontrado",
+                    "message": f"Ningún activo corresponde a {termino!r}.",
+                }
+            }
+            if corregido:
+                respuesta["error"]["message"] += (
+                    f" Se intentó también con {reparado!r}: el lector parece estar "
+                    "enviando otra distribución de teclado."
+                )
+            return Response(respuesta, status=status.HTTP_404_NOT_FOUND)
+
+        ficha = self._ficha_completa(activo)
+        if corregido:
+            # Se avisa aunque la búsqueda haya funcionado: arreglarlo en
+            # silencio dejaría la pistola mal configurada, y el mismo problema
+            # reaparecería en la carga masiva y en cualquier otro campo.
+            ficha["advertencia_lector"] = {
+                "codigo": "distribucion_de_teclado",
+                "recibido": termino,
+                "interpretado": reparado,
+                "mensaje": (
+                    "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
+                    "La pistola está configurada con una distribución de teclado distinta "
+                    "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
+                    "de emulación numérica, para que el guion llegue correctamente."
+                ).format(recibido=termino, interpretado=reparado),
+            }
+        return Response(ficha)
+
+    @staticmethod
+    def _buscar_por_termino(termino: str):
+        """Un activo por su código de barras o por su número de serie."""
+        if not termino:
+            return None
+        return (
             Activo.objects.select_related("tipo", "custodio", "departamento")
             .filter(Q(codigo_barras__iexact=termino) | Q(numero_serie__iexact=termino))
             .first()
         )
-        if activo is None:
-            return Response(
-                {
-                    "error": {
-                        "code": "activo_no_encontrado",
-                        "message": f"Ningún activo corresponde a {termino!r}.",
-                    }
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        return Response(self._ficha_completa(activo))
 
     @action(detail=True, methods=["get"])
     def historial(self, request, pk=None):
@@ -287,8 +476,15 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="dashboard")
     def dashboard(self, request):
-        """Indicadores del panel principal (§15 del documento funcional)."""
-        return Response(dashboard_mod.construir_indicadores())
+        """Indicadores del panel principal (§15 del documento funcional).
+
+        La respuesta se cachea unos minutos: recorrer el parque para agregarlo
+        cuesta cientos de milisegundos con 10.000 activos, y son cifras que no
+        cambian de un segundo a otro (ver `apps.core.cache`).
+        """
+        return Response(
+            recordar(clave_por_empresa(CLAVE_CACHE_PANEL), dashboard_mod.construir_indicadores)
+        )
 
     @action(
         detail=False,
@@ -444,6 +640,31 @@ class ActivoViewSet(viewsets.ModelViewSet):
         térmica directa. `?descargar=true` fuerza la descarga como adjunto.
         """
         return self._responder_etiquetas(request, [self.get_object()])
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="etiqueta/medicion",
+        permission_classes=[IsAuthenticated, EtiquetasPermission],
+    )
+    def medicion_etiqueta(self, request, pk=None):
+        """Geometría del código tal como saldrá impreso (RF-08).
+
+        Lo que decide si una pistola lee una etiqueta no es el formato del
+        archivo sino tres medidas físicas: el ancho de la barra más fina, la
+        zona muda a los lados y la altura. Este endpoint las expone para poder
+        comprobarlas antes de imprimir un lote de doscientas etiquetas, en vez
+        de descubrir el problema con el lector en la mano.
+        """
+        activo = self.get_object()
+        return Response(
+            {
+                "codigo": activo.codigo_barras,
+                "simbologia": "Code 128",
+                **etiquetas_pdf.medir_simbolo(activo.codigo_barras),
+                "minimo_recomendado_mm": etiquetas_pdf.X_MINIMA_MM,
+            }
+        )
 
     @action(
         detail=False,

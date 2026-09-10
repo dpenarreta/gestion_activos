@@ -90,3 +90,75 @@ Feature: Bitácora de mantenimientos y contador de intervenciones (RF-04, RF-05)
     When se abre el panel principal
     Then se informan los días acumulados solo de las cerradas
     And se indica cuántos equipos siguen en reparación
+
+  # --- Corregir una intervención ya registrada -----------------------------
+
+  @AC-MNT-020
+  Scenario: Corregir un dato no toca los demás
+    Given una intervención registrada
+    When se corrige el responsable
+    Then el resto de la ficha queda como estaba
+    And su desglose de repuestos también
+
+  @AC-MNT-021
+  Scenario: Guardar sin cambiar nada no escribe en la bitácora
+    When se abre una intervención y se guarda sin tocar nada
+    Then no se registra ningún evento de auditoría
+    # El historial se lee para saber qué cambió; una fila por cada vez que
+    # alguien abrió el formulario lo vuelve ilegible.
+
+  @AC-MNT-022
+  Scenario: Una intervención no cambia de equipo
+    When se intenta mover una intervención a otro activo
+    Then sigue perteneciendo al primero
+    # Moverla falsearía los contadores de los dos equipos.
+
+  @AC-MNT-023
+  Scenario: Los repuestos enviados reemplazan el desglose entero
+    Given una intervención con un repuesto registrado
+    When se guarda con otros dos
+    Then quedan solo esos dos
+    # Si sumara, corregir una cantidad mal escrita duplicaría el repuesto y el
+    # costo de la intervención crecería en cada corrección.
+
+  @AC-MNT-024
+  Scenario: Corregir los repuestos recalcula el contador de piezas críticas
+    Given una intervención con una pieza crítica consumida
+    When se reemplaza por una que no lo es
+    Then el contador del equipo baja
+    But el de intervenciones no cambia
+    # Se corrigió el repuesto, no el hecho de que hubo una intervención.
+
+  @AC-MNT-025
+  Scenario: La línea nueva fotografía la criticidad vigente
+    Given un componente que dejó de considerarse crítico
+    When se lo registra al corregir una intervención
+    Then la línea guarda que no era crítico
+    But las intervenciones que no se tocaron conservan su valor anterior
+
+  @AC-MNT-026
+  Scenario: Cerrar la reparación al corregir calcula los días fuera
+    Given una intervención sin fecha de salida
+    When se le pone la fecha de devolución
+    Then el equipo deja de estar fuera de operación
+    And los días acumulados se calculan solos
+
+  @AC-MNT-027
+  Scenario: Las validaciones siguen valiendo al corregir
+    When se corrige una intervención con una fecha futura, anterior a la compra
+    o con salida previa al ingreso
+    Then el sistema la rechaza y no guarda nada
+
+  @AC-MNT-028
+  Scenario: Registrar no alcanza para corregir
+    Given un usuario que puede registrar intervenciones pero no editarlas
+    When intenta corregir una
+    Then el sistema le niega la acción
+    # Corregir altera el contador de renovación; registrar, no.
+
+  @AC-MNT-029
+  Scenario: Eliminar deja constancia de lo que había
+    When se elimina una intervención registrada por error
+    Then desaparece con sus repuestos
+    And la auditoría conserva quién era su responsable y de qué fecha
+    And los contadores del equipo vuelven a su valor real

@@ -3,6 +3,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
+from apps.empresas.models import Empresa
+from apps.empresas.serializers import MembresiaSerializer
 from apps.permissions.authorization import get_user_permission_codenames
 from apps.permissions.catalog import all_codenames
 from apps.permissions.models import ModulePermission
@@ -42,10 +44,22 @@ class _UserRefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AsignacionEmpresaSerializer(serializers.Serializer):
+    """Una empresa de la asignación, con los roles que se ejercen en ella."""
+
+    empresa_id = serializers.IntegerField()
+    roles = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
+    es_predeterminada = serializers.BooleanField(required=False, default=False)
+
+
 class UserAdminListSerializer(serializers.ModelSerializer):
     """Representación de usuario para el listado administrativo."""
 
     roles = serializers.SerializerMethodField()
+    #: En qué empresas trabaja. Va en el listado y no solo en el detalle
+    #: porque revisar accesos es justamente recorrer la lista buscando a quién
+    #: le sobra una empresa, y abrir ficha por ficha lo vuelve impracticable.
+    empresas = MembresiaSerializer(source="membresias", many=True, read_only=True)
     created_by = _UserRefSerializer(read_only=True)
     updated_by = _UserRefSerializer(read_only=True)
 
@@ -65,6 +79,7 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             "updated_at",
             "last_login",
             "roles",
+            "empresas",
             "created_by",
             "updated_by",
         ]
@@ -97,17 +112,28 @@ class UserAdminDetailSerializer(UserAdminListSerializer):
 
 class UserAdminCreateSerializer(serializers.Serializer):
     """Valida la creación administrativa de un usuario (sin autenticarlo ni
-    emitir tokens — a diferencia del registro público)."""
+    emitir tokens — a diferencia del registro público).
 
-    username = serializers.CharField(max_length=150)
+    No recibe `username`: se deriva del nombre (ver `apps.users.nomenclatura`).
+    Aceptarlo aquí dejaría entrar por API las cuentas que la pantalla ya no deja
+    crear, y la convención valdría solo mientras nadie usara la API.
+
+    Por eso nombres y apellidos son obligatorios: son de dónde sale el nombre
+    con el que la persona va a entrar.
+    """
+
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    #: Roles que valen en todas las empresas. Se conserva para el alta por API;
+    #: la pantalla usa `empresas`, que es lo normal en un despliegue con varias.
     role_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
-
-    def validate_username(self, value):
-        return validate_unique_username(value)
+    #: A qué empresas entra y con qué rol en cada una, con la misma forma que
+    #: la asignación posterior. Va en el alta porque una cuenta sin empresa ni
+    #: rol no puede hacer nada: obligar a un segundo paso para dejarla usable
+    #: garantiza que alguna se quede a medias.
+    empresas = AsignacionEmpresaSerializer(many=True, required=False)
 
     def validate_email(self, value):
         return validate_unique_email(value)
@@ -168,3 +194,27 @@ class PermissionAssignmentSerializer(serializers.Serializer):
                 content_type=_module_permission_content_type(), codename__in=value
             )
         )
+
+
+class EmpresaAssignmentSerializer(serializers.Serializer):
+    """Reemplaza de una vez las empresas de un usuario y sus roles en cada una.
+
+    Van juntas porque son una sola decisión: dar acceso a una empresa sin decir
+    a qué, o decir a qué sin dar el acceso, son estados a medias que alguien
+    tendría que acordarse de completar.
+
+    `es_predeterminada` es opcional: si nadie la marca, el servicio toma la
+    primera por nombre. Lo que no se admite es marcar dos.
+    """
+
+    empresas = AsignacionEmpresaSerializer(many=True)
+
+    def validate_empresas(self, value):
+        identificadores = [entrada["empresa_id"] for entrada in value]
+        encontradas = set(
+            Empresa.objects.filter(id__in=identificadores).values_list("id", flat=True)
+        )
+        faltantes = set(identificadores) - encontradas
+        if faltantes:
+            raise serializers.ValidationError(f"Empresas inexistentes: {sorted(faltantes)}.")
+        return value

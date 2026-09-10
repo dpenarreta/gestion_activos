@@ -12,14 +12,14 @@ from django.db import transaction
 from django.db.models import Count, Sum
 
 from apps.core.audit import record_audit_event
-from apps.politicas.services import refrescar_indicadores_renovacion
+from apps.politicas.services import SIN_RESOLVER, refrescar_indicadores_renovacion
 
 from .models import ComponenteUtilizado, Mantenimiento
 
 MODULO = "mantenimientos"
 
 
-def recalcular_indicadores(activo, politica=None):
+def recalcular_indicadores(activo, politica=SIN_RESOLVER):
     """Recuenta mantenimientos y piezas críticas del activo y reevalúa su
     sugerencia de renovación. Devuelve el resultado de la evaluación."""
     total_mantenimientos = activo.mantenimientos.count()

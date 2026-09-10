@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APIClient
 
 from apps.core.models import AuditLog
+from apps.permissions.catalog import all_codenames
 from apps.permissions.models import ModulePermission
 from apps.users.models import User
 
@@ -24,7 +25,11 @@ def roles_admin_client():
     user = User.objects.create_user(
         username="roles_admin", email="roles_admin@example.com", password="Sup3r-Secr3t!"
     )
-    _grant(user, "roles.ver", "roles.editar")
+    # Tiene el catálogo entero, no solo `roles.*`: nadie puede conceder un
+    # permiso que no tiene, así que un administrador de roles «pelado» no podría
+    # crear ninguno útil. Es el precio de cerrar la escalada, y las pruebas lo
+    # reflejan en vez de esquivarlo.
+    _grant(user, *sorted(all_codenames()))
     client = APIClient()
     client.force_authenticate(user=user)
     return client
@@ -155,3 +160,57 @@ def test_permissions_catalog_endpoint_returns_full_catalog(roles_admin_client):
     assert response.status_code == 200
     assert "usuarios" in response.data
     assert "roles" in response.data
+
+
+# --- Tope de escalada de privilegios ---------------------------------------
+
+
+def test_no_se_puede_conceder_un_permiso_que_no_se_tiene(plain_client):
+    """H-05: sin esta regla, `roles.editar` es el permiso máximo del sistema.
+
+    Quien administra roles se añadiría a su propio rol cualquier entrada del
+    catálogo, y con roles compartidos entre empresas el cambio le llegaría
+    además a la compañía de al lado.
+    """
+    cliente, usuario = plain_client
+    _grant(usuario, "roles.ver", "roles.editar")
+
+    respuesta = cliente.post(
+        "/api/v1/admin/roles/",
+        {"name": "Todo poderoso", "permission_codenames": ["activos.dar_baja"]},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "activos.dar_baja" in str(respuesta.data)
+    assert not Group.objects.filter(name="Todo poderoso").exists()
+
+
+def test_si_lo_tiene_si_puede_repartirlo(plain_client):
+    cliente, usuario = plain_client
+    _grant(usuario, "roles.ver", "roles.editar", "activos.dar_baja")
+
+    respuesta = cliente.post(
+        "/api/v1/admin/roles/",
+        {"name": "Puede dar de baja", "permission_codenames": ["activos.dar_baja"]},
+        format="json",
+    )
+
+    assert respuesta.status_code == 201
+
+
+def test_el_superusuario_no_tiene_ese_tope(db):
+    """Es la cuenta de emergencia: ya se salta toda la autorización."""
+    raiz = User.objects.create_superuser(
+        username="raiz", email="raiz@example.com", password="Sup3r-Secr3t!"
+    )
+    cliente = APIClient()
+    cliente.force_authenticate(user=raiz)
+
+    respuesta = cliente.post(
+        "/api/v1/admin/roles/",
+        {"name": "Desde la raíz", "permission_codenames": sorted(all_codenames())},
+        format="json",
+    )
+
+    assert respuesta.status_code == 201

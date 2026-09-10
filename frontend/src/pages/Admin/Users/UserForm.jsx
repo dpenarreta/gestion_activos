@@ -5,9 +5,19 @@ import { adminUsersService } from "../../../api/adminUsersService";
 import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { usePermission } from "../../../hooks/usePermission";
+import { mensajeDeError } from "../../../utils/errores";
+import { baseDeUsername } from "../../../utils/nomenclatura";
+import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
+import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import "./UserForm.css";
 
-const EMPTY_FORM = { username: "", email: "", password: "", first_name: "", last_name: "" };
+const EMPTY_FORM = {
+  username: "",
+  email: "",
+  password: "",
+  first_name: "",
+  last_name: "",
+};
 const EMPTY_RESET_OPTIONS = {
   send_link: false,
   force_change_on_next_login: false,
@@ -19,7 +29,14 @@ export function UserForm() {
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
+  const puedeAsignarEmpresas = usePermission("empresas.asignar");
+  // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
+  // la ficha ya está el bloque completo, con todas sus empresas.
+  const [alta, setAlta] = useState({ empresaId: null, rolId: null });
   const [form, setForm] = useState(EMPTY_FORM);
+  // Con qué nombre entrará: se enseña mientras se escribe, para que no haya
+  // que descubrirlo después de guardar.
+  const usernamePropuesto = baseDeUsername(form.first_name, form.last_name);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resetOptions, setResetOptions] = useState(EMPTY_RESET_OPTIONS);
@@ -42,7 +59,7 @@ export function UserForm() {
           password: "",
           first_name: data.first_name,
           last_name: data.last_name,
-        })
+        }),
       )
       .catch(() => setError("No se pudo cargar el usuario."))
       .finally(() => setIsLoading(false));
@@ -58,7 +75,12 @@ export function UserForm() {
     setIsLoading(true);
     try {
       if (isEditing) {
-        const { username, email, first_name: firstName, last_name: lastName } = form;
+        const {
+          username,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+        } = form;
         await adminUsersService.update(id, {
           username,
           email,
@@ -69,11 +91,30 @@ export function UserForm() {
         // Al crear, se pasa a la URL de edición del usuario recién creado
         // (`replace` para que "atrás" no vuelva al formulario de alta ya
         // resuelto) — nunca se sale hacia el listado.
-        const created = await adminUsersService.create(form);
+        // Sin `username`: lo compone el backend a partir del nombre.
+        const created = await adminUsersService.create({
+          email: form.email,
+          password: form.password,
+          first_name: form.first_name,
+          last_name: form.last_name,
+          ...(puedeAsignarEmpresas && alta.empresaId && alta.rolId
+            ? {
+                empresas: [
+                  {
+                    empresa_id: alta.empresaId,
+                    roles: [alta.rolId],
+                    es_predeterminada: true,
+                  },
+                ],
+              }
+            : {}),
+        });
         navigate(`/admin/users/${created.id}`, { replace: true });
       }
     } catch (err) {
-      setError(err.response?.data?.error?.message || "No se pudo guardar el usuario.");
+      // `mensajeDeError` antepone el detalle de validación al mensaje genérico:
+      // «Roles inexistentes» dice qué corregir, «No se pudo guardar» no.
+      setError(mensajeDeError(err, "No se pudo guardar el usuario."));
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +133,8 @@ export function UserForm() {
       setResetOptions(EMPTY_RESET_OPTIONS);
     } catch (err) {
       setResetError(
-        err.response?.data?.error?.message || "No se pudo ejecutar la acción de restablecimiento."
+        err.response?.data?.error?.message ||
+          "No se pudo ejecutar la acción de restablecimiento.",
       );
     } finally {
       setIsResetting(false);
@@ -107,6 +149,34 @@ export function UserForm() {
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="mb-3">
+          <label className="form-label" htmlFor="first_name">
+            Nombres
+          </label>
+          <input
+            id="first_name"
+            name="first_name"
+            className="form-control"
+            value={form.first_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label" htmlFor="last_name">
+            Apellidos
+          </label>
+          <input
+            id="last_name"
+            name="last_name"
+            className="form-control"
+            value={form.last_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
           <label className="form-label" htmlFor="username">
             Nombre de usuario
           </label>
@@ -114,10 +184,15 @@ export function UserForm() {
             id="username"
             name="username"
             className="form-control"
-            value={form.username}
-            onChange={handleChange}
-            required
+            value={isEditing ? form.username : usernamePropuesto}
+            readOnly
+            aria-describedby="username-ayuda"
           />
+          <div className="form-text" id="username-ayuda">
+            {isEditing
+              ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
+              : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."}
+          </div>
         </div>
 
         <div className="mb-3">
@@ -152,41 +227,27 @@ export function UserForm() {
           </div>
         )}
 
-        <div className="mb-3">
-          <label className="form-label" htmlFor="first_name">
-            Nombres
-          </label>
-          <input
-            id="first_name"
-            name="first_name"
-            className="form-control"
-            value={form.first_name}
-            onChange={handleChange}
+        {!isEditing && puedeAsignarEmpresas && (
+          <SeleccionEmpresaYRol
+            empresaId={alta.empresaId}
+            rolId={alta.rolId}
+            onChange={setAlta}
           />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="last_name">
-            Apellidos
-          </label>
-          <input
-            id="last_name"
-            name="last_name"
-            className="form-control"
-            value={form.last_name}
-            onChange={handleChange}
-          />
-        </div>
+        )}
 
         <Button type="submit" isLoading={isLoading}>
           Guardar
         </Button>
       </form>
 
+      {isEditing && <AsignacionEmpresas usuarioId={id} />}
+
       {isEditing && canResetPassword && (
         <div className="col-12 col-md-5 mt-4">
           <h5>Restablecer contraseña</h5>
-          {resetMessage && <div className="alert alert-success">{resetMessage}</div>}
+          {resetMessage && (
+            <div className="alert alert-success">{resetMessage}</div>
+          )}
           {resetError && <div className="alert alert-danger">{resetError}</div>}
           <div className="form-check">
             <input
@@ -208,7 +269,10 @@ export function UserForm() {
               checked={resetOptions.force_change_on_next_login}
               onChange={() => toggleResetOption("force_change_on_next_login")}
             />
-            <label className="form-check-label" htmlFor="force_change_on_next_login">
+            <label
+              className="form-check-label"
+              htmlFor="force_change_on_next_login"
+            >
               Forzar cambio de contraseña en el próximo inicio de sesión
             </label>
           </div>

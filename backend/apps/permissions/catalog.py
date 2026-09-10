@@ -45,6 +45,20 @@ PERMISSION_CATALOG = {
             "permisos.ver": "Ver el catálogo de permisos y a qué módulo pertenece cada uno",
         },
     },
+    "empresas": {
+        "label": "Empresas",
+        "description": (
+            "Las empresas del grupo y en cuáles trabaja cada cuenta. Quien no "
+            "tiene membresía en una empresa no ve nada de ella, así que asignar "
+            "usuarios es dar acceso a información: por eso es un permiso aparte "
+            "de editar los datos de la empresa."
+        ),
+        "permissions": {
+            "empresas.ver": "Ver las empresas del sistema y en cuáles trabaja cada usuario",
+            "empresas.editar": "Crear y editar empresas",
+            "empresas.asignar": ("Asignar usuarios a empresas y elegir en cuál entran por defecto"),
+        },
+    },
     "configuracion": {
         "label": "Configuración",
         "description": "Identidad institucional y apariencia visual del sistema.",
@@ -68,10 +82,10 @@ PERMISSION_CATALOG = {
     },
     "organizacion": {
         "label": "Organización",
-        "description": "Catálogos de departamentos y empleados custodios de activos.",
+        "description": ("Catálogos de sedes, departamentos y empleados custodios."),
         "permissions": {
-            "organizacion.ver": "Ver departamentos y empleados",
-            "organizacion.editar": "Crear y editar departamentos y empleados",
+            "organizacion.ver": "Ver sedes, departamentos y empleados",
+            "organizacion.editar": "Crear y editar sedes, departamentos y empleados",
         },
     },
     "mantenimientos": {
@@ -108,6 +122,17 @@ PERMISSION_CATALOG = {
         "permissions": {
             "alertas.ver": "Ver el centro de alertas del parque",
             "alertas.configurar": "Configurar los umbrales y qué alertas están activas",
+        },
+    },
+    "reportes": {
+        "label": "Reportes",
+        "description": "Los trece reportes del documento funcional y su exportación.",
+        "permissions": {
+            "reportes.ver": "Ver el catálogo de reportes y su vista previa",
+            # Descargar es un permiso aparte porque el archivo sale del
+            # sistema: circula por correo y se archiva en equipos donde no
+            # rigen los permisos que protegen la pantalla.
+            "reportes.exportar": "Descargar reportes en Excel, CSV o PDF",
         },
     },
     "auditoria": {

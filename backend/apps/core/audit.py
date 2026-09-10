@@ -34,7 +34,17 @@ def record_audit_event(
 
     context = context or {}
 
+    # La empresa se toma del contexto de la petición, no de quien llama: son
+    # más de treinta sitios los que registran eventos y bastaría con que uno se
+    # olvidara para que su rastro fuera legible desde la otra empresa.
+    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+    empresa = empresa_actual()
+    if empresa is SIN_EMPRESA:
+        empresa = None
+
     return AuditLog.objects.create(
+        empresa=empresa,
         actor=actor,
         action=action,
         module=module,

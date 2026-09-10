@@ -13,7 +13,12 @@ import { AdjuntosPanel } from "../../../components/activos/AdjuntosPanel/Adjunto
 import { adjuntosService } from "../../../api/adjuntosService";
 import { descargarBlob } from "../../../utils/descargas";
 import { usePermission } from "../../../hooks/usePermission";
-import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import {
+  formatearDias,
+  formatearFecha,
+  formatearMeses,
+  formatearMoneda,
+} from "../../../utils/formato";
 import "./Activos.css";
 
 export function ActivoDetalle() {
@@ -68,7 +73,10 @@ export function ActivoDetalle() {
           <h2 className="mb-1">{activo.nombre}</h2>
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <code className="codigo-barras fs-6">{activo.codigo_barras}</code>
-            <EstadoActivo estado={activo.estado} etiqueta={activo.estado_display} />
+            <EstadoActivo
+              estado={activo.estado}
+              etiqueta={activo.estado_display}
+            />
           </div>
         </div>
         <div className="d-flex gap-2 flex-wrap">
@@ -101,7 +109,10 @@ export function ActivoDetalle() {
             </button>
           )}
           {puedeEditar && !estaDadoDeBaja && (
-            <Link to={`/admin/activos/${activo.id}/editar`} className="btn btn-outline-secondary btn-sm">
+            <Link
+              to={`/admin/activos/${activo.id}/editar`}
+              className="btn btn-outline-secondary btn-sm"
+            >
               Editar ficha
             </Link>
           )}
@@ -110,19 +121,41 @@ export function ActivoDetalle() {
 
       <AlertaRenovacion renovacion={activo.renovacion} />
 
-      <div className="row g-3">
-        <div className="col-lg-7">
+      <div className="activo-paneles">
+        <div className="activo-paneles__columna">
           <section className="card activo-card">
             <div className="card-body">
-              <h3 className="h6 text-uppercase text-muted mb-3">Ficha técnica</h3>
-              <dl className="row mb-0">
+              <h3 className="h6 text-uppercase text-muted mb-3">
+                Ficha técnica
+              </h3>
+              <dl className="activo-datos">
                 <Dato etiqueta="Tipo" valor={activo.tipo_nombre} />
                 <Dato etiqueta="Marca" valor={activo.marca} />
                 <Dato etiqueta="Modelo" valor={activo.modelo} />
-                <Dato etiqueta="Número de serie" valor={<code>{activo.numero_serie}</code>} />
-                <Dato etiqueta="Adquirido" valor={formatearFecha(activo.fecha_adquisicion)} />
-                <Dato etiqueta="Antigüedad" valor={`${activo.antiguedad_meses} meses`} />
-                <Dato etiqueta="Costo de compra" valor={formatearMoneda(activo.costo_adquisicion)} />
+                <Dato
+                  etiqueta="Número de serie"
+                  valor={<code>{activo.numero_serie}</code>}
+                />
+                <Dato
+                  etiqueta="Adquirido"
+                  valor={formatearFecha(activo.fecha_adquisicion)}
+                />
+                <Dato
+                  etiqueta="Ingresó al inventario"
+                  valor={
+                    activo.fecha_ingreso
+                      ? formatearFecha(activo.fecha_ingreso)
+                      : "—"
+                  }
+                />
+                <Dato
+                  etiqueta="Antigüedad"
+                  valor={formatearMeses(activo.antiguedad_meses)}
+                />
+                <Dato
+                  etiqueta="Costo de compra"
+                  valor={formatearMoneda(activo.costo_adquisicion)}
+                />
                 <Dato etiqueta="Proveedor" valor={activo.proveedor} />
                 <Dato
                   etiqueta="Garantía"
@@ -137,44 +170,80 @@ export function ActivoDetalle() {
                 />
                 {estaDadoDeBaja && (
                   <>
-                    <Dato etiqueta="Fecha de baja" valor={formatearFecha(activo.fecha_baja)} />
-                    <Dato etiqueta="Motivo de baja" valor={activo.motivo_baja} />
+                    <Dato
+                      etiqueta="Fecha de baja"
+                      valor={formatearFecha(activo.fecha_baja)}
+                    />
+                    <Dato
+                      etiqueta="Motivo de baja"
+                      valor={activo.motivo_baja}
+                    />
                   </>
                 )}
               </dl>
 
               {Object.keys(activo.especificaciones || {}).length > 0 && (
                 <>
-                  <h3 className="h6 text-uppercase text-muted mt-4 mb-3">Especificaciones</h3>
-                  <dl className="row mb-0">
-                    {Object.entries(activo.especificaciones).map(([clave, valor]) => (
-                      <Dato key={clave} etiqueta={clave} valor={String(valor)} />
-                    ))}
+                  <h3 className="h6 text-uppercase text-muted mt-4 mb-3">
+                    Especificaciones
+                  </h3>
+                  <dl className="activo-datos">
+                    {Object.entries(activo.especificaciones).map(
+                      ([clave, valor]) => (
+                        <Dato
+                          key={clave}
+                          etiqueta={clave}
+                          valor={String(valor)}
+                        />
+                      ),
+                    )}
                   </dl>
                 </>
               )}
 
               {activo.observaciones && (
                 <>
-                  <h3 className="h6 text-uppercase text-muted mt-4 mb-2">Observaciones</h3>
+                  <h3 className="h6 text-uppercase text-muted mt-4 mb-2">
+                    Observaciones
+                  </h3>
                   <p className="mb-0">{activo.observaciones}</p>
                 </>
               )}
             </div>
           </section>
+
+          {/* Los tiempos van bajo la ficha técnica —son datos del propio
+              equipo— y de paso equilibran las dos columnas: con las cuatro
+              tarjetas repartidas 1 y 3, la izquierda quedaba con medio metro
+              de hueco debajo. */}
+          {activo.tiempos && <TiemposDelActivo tiempos={activo.tiempos} />}
         </div>
 
-        <div className="col-lg-5">
-          <section className="card activo-card mb-3">
+        <div className="activo-paneles__columna">
+          <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Custodia</h3>
-              <dl className="row mb-0">
+              <dl className="activo-datos">
                 <Dato
                   etiqueta="Responsable"
-                  valor={activo.custodio_nombre || <span className="text-muted">Sin asignar</span>}
+                  valor={
+                    activo.custodio_nombre || (
+                      <span className="text-muted">Sin asignar</span>
+                    )
+                  }
                 />
-                <Dato etiqueta="Departamento" valor={activo.departamento_nombre} />
-                <Dato etiqueta="Ubicación" valor={activo.ubicacion || "—"} />
+                <Dato
+                  etiqueta="Departamento"
+                  valor={activo.departamento_nombre}
+                />
+                {/* El área dice de quién es el presupuesto del equipo; la
+                    sede, dónde ir a buscarlo. La ciudad va aparte porque es la
+                    respuesta a «¿dónde está?»: el nombre interno de la sede no
+                    le dice nada a quien tiene que viajar. */}
+                <Dato etiqueta="Sede" valor={activo.sede_nombre || "—"} />
+                <Dato etiqueta="Ciudad" valor={activo.ciudad || "—"} />
+                <Dato etiqueta="Criticidad" valor={activo.criticidad_display} />
+                <Dato etiqueta="Uso" valor={activo.uso_display} />
               </dl>
             </div>
           </section>
@@ -182,20 +251,29 @@ export function ActivoDetalle() {
           <section className="card activo-card">
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Indicadores</h3>
-              <div className="row text-center g-2">
-                <Indicador valor={activo.total_mantenimientos} etiqueta="Mantenimientos" />
-                <Indicador valor={activo.total_componentes_criticos} etiqueta="Piezas críticas" />
-                <Indicador valor={activo.dias_en_reparacion} etiqueta="Días fuera de operación" />
+              <div className="activo-indicadores">
+                <Indicador
+                  valor={activo.total_mantenimientos}
+                  etiqueta="Mantenimientos"
+                />
+                <Indicador
+                  valor={activo.total_componentes_criticos}
+                  etiqueta="Piezas críticas"
+                />
+                <Indicador
+                  valor={formatearDias(activo.dias_en_reparacion)}
+                  etiqueta="Fuera de operación"
+                />
                 <Indicador
                   valor={formatearMoneda(costos.costo_total)}
                   etiqueta="Invertido"
-                  ancho="col-12"
+                  anchoCompleto
                 />
               </div>
               {puedeVerMantenimientos && (
                 <div className="small text-muted mt-3">
-                  Mano de obra {formatearMoneda(costos.costo_mano_obra)} · repuestos{" "}
-                  {formatearMoneda(costos.costo_repuestos)}
+                  Mano de obra {formatearMoneda(costos.costo_mano_obra)} ·
+                  repuestos {formatearMoneda(costos.costo_repuestos)}
                 </div>
               )}
             </div>
@@ -222,7 +300,10 @@ export function ActivoDetalle() {
 
       {puedeVerAdjuntos && (
         <section className="mt-4">
-          <AdjuntosPanel activoId={activo.id} recargarToken={adjuntosRecargados} />
+          <AdjuntosPanel
+            activoId={activo.id}
+            recargarToken={adjuntosRecargados}
+          />
         </section>
       )}
 
@@ -256,35 +337,104 @@ export function ActivoDetalle() {
         />
       )}
       {dialogoAbierto === "etiqueta" && (
-        <EtiquetaDialog activo={activo} onCerrar={() => setDialogoAbierto(null)} />
+        <EtiquetaDialog
+          activo={activo}
+          onCerrar={() => setDialogoAbierto(null)}
+        />
       )}
     </div>
   );
 }
 
+/**
+ * Los siete tiempos del §10 del documento funcional.
+ *
+ * En días mientras son pocos —cuatro de ellos se consultan para decidir algo
+ * esta semana— y en meses o años cuando pasan de ahí, sin perder el resto:
+ * «1 año, 1 mes y 22 días». Redondear a «11 meses» borraría justo la
+ * diferencia que se busca al comparar dos equipos; dejar «412 días» obliga a
+ * dividir mentalmente para saber si es mucho o poco.
+ */
+export function TiemposDelActivo({ tiempos }) {
+  const filas = [
+    ["Desde la compra", tiempos.desde_compra_dias],
+    ["Desde el ingreso", tiempos.desde_ingreso_dias],
+    ["Desde la primera asignación", tiempos.desde_primera_asignacion_dias],
+    ["Con el custodio actual", tiempos.con_custodio_actual_dias],
+    ["Acumulado en reparación", tiempos.en_reparacion_dias],
+    ["Guardado sin uso", tiempos.sin_uso_dias],
+  ];
+
+  return (
+    <section className="card activo-card">
+      <div className="card-body">
+        <h3 className="h6 text-uppercase text-muted mb-3">Tiempos</h3>
+        <dl className="activo-datos">
+          {filas.map(([etiqueta, valor]) => (
+            <Dato
+              key={etiqueta}
+              etiqueta={etiqueta}
+              valor={formatearDias(valor)}
+            />
+          ))}
+        </dl>
+
+        {tiempos.en_reparacion_ahora_dias > 0 && (
+          /* Se informa aparte del acumulado: sumarlos escondería que el equipo
+             sigue fuera de operación ahora mismo. */
+          <div className="alert alert-info py-2 small mt-3 mb-0">
+            Lleva {formatearDias(tiempos.en_reparacion_ahora_dias)} en
+            reparación sin cerrar.
+          </div>
+        )}
+
+        <p className="form-text mb-0 mt-3">
+          <strong>
+            Tiempo activo real: {formatearDias(tiempos.activo_real_dias)}
+          </strong>{" "}
+          — lo que estuvo trabajando, descontando lo que pasó guardado y en el
+          taller. Medido desde{" "}
+          {tiempos.medido_desde === "ingreso"
+            ? "el ingreso al inventario"
+            : "la compra"}
+          .
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Una fila «etiqueta: valor» de la ficha.
+ *
+ * El ancho de la etiqueta lo fija la rejilla `.activo-datos`, no una clase de
+ * columna: con `col-sm-5` el valor quedaba a media pantalla de su etiqueta en
+ * monitores anchos, y leer la ficha obligaba a recorrer el ojo por un hueco
+ * vacío.
+ */
 function Dato({ etiqueta, valor }) {
   return (
     <>
-      <dt className="col-sm-5 text-muted fw-normal">{etiqueta}</dt>
-      <dd className="col-sm-7">{valor || "—"}</dd>
+      <dt>{etiqueta}</dt>
+      <dd>{valor || "—"}</dd>
     </>
   );
 }
 
-function Indicador({ valor, etiqueta, ancho = "col-6" }) {
+function Indicador({ valor, etiqueta, anchoCompleto = false }) {
   return (
-    <div className={ancho}>
-      <div className="indicador">
-        <div className="indicador-valor">{valor}</div>
-        <div className="indicador-etiqueta">{etiqueta}</div>
-      </div>
+    <div className={`indicador${anchoCompleto ? " indicador--ancho" : ""}`}>
+      <div className="indicador-valor">{valor}</div>
+      <div className="indicador-etiqueta">{etiqueta}</div>
     </div>
   );
 }
 
 function TablaMantenimientos({ mantenimientos }) {
   if (mantenimientos.length === 0) {
-    return <p className="text-muted">Este activo no registra intervenciones.</p>;
+    return (
+      <p className="text-muted">Este activo no registra intervenciones.</p>
+    );
   }
   return (
     <div className="table-responsive">
@@ -292,7 +442,8 @@ function TablaMantenimientos({ mantenimientos }) {
         <thead>
           <tr>
             <th>Ingreso</th>
-            <th>Días fuera</th>
+            {/* Ya no son solo días: la columna lleva «1 mes y 15 días». */}
+            <th>Fuera de operación</th>
             <th>Tipo</th>
             <th>Responsable</th>
             <th>Trabajo</th>
@@ -308,13 +459,15 @@ function TablaMantenimientos({ mantenimientos }) {
                 {mantenimiento.sigue_fuera_de_operacion ? (
                   <span className="badge text-bg-warning">En reparación</span>
                 ) : (
-                  `${mantenimiento.dias_fuera_de_operacion} d`
+                  formatearDias(mantenimiento.dias_fuera_de_operacion)
                 )}
               </td>
               <td>
                 <span
                   className={`badge ${
-                    mantenimiento.tipo === "correctivo" ? "text-bg-warning" : "text-bg-info"
+                    mantenimiento.tipo === "correctivo"
+                      ? "text-bg-warning"
+                      : "text-bg-info"
                   }`}
                 >
                   {mantenimiento.tipo_display}
@@ -323,11 +476,15 @@ function TablaMantenimientos({ mantenimientos }) {
               <td>
                 {mantenimiento.responsable}
                 <br />
-                <small className="text-muted">{mantenimiento.tipo_responsable_display}</small>
+                <small className="text-muted">
+                  {mantenimiento.tipo_responsable_display}
+                </small>
               </td>
               <td>
                 {mantenimiento.causa && (
-                  <div className="small text-muted">Causa: {mantenimiento.causa}</div>
+                  <div className="small text-muted">
+                    Causa: {mantenimiento.causa}
+                  </div>
                 )}
                 {mantenimiento.descripcion}
                 {mantenimiento.garantia_usada && (
@@ -343,14 +500,18 @@ function TablaMantenimientos({ mantenimientos }) {
                       <li key={componente.id}>
                         {componente.componente_nombre} ×{componente.cantidad}
                         {componente.era_critico && (
-                          <span className="badge text-bg-danger ms-1">crítica</span>
+                          <span className="badge text-bg-danger ms-1">
+                            crítica
+                          </span>
                         )}
                       </li>
                     ))}
                   </ul>
                 )}
               </td>
-              <td className="text-end">{formatearMoneda(mantenimiento.costo_total)}</td>
+              <td className="text-end">
+                {formatearMoneda(mantenimiento.costo_total)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -372,6 +533,7 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
             <th>Movimiento</th>
             <th>Custodio</th>
             <th>Área</th>
+            <th>Ciudad</th>
             <th>Motivo</th>
             <th>Registró</th>
             <th>Acta</th>
@@ -392,6 +554,14 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
                 <Transicion
                   anterior={movimiento.departamento_anterior_nombre}
                   nuevo={movimiento.departamento_nuevo_nombre}
+                />
+              </td>
+              <td>
+                {/* El traslado físico también queda en el historial: antes se
+                    veía dónde está el equipo, pero no cuándo se movió. */}
+                <Transicion
+                  anterior={movimiento.sede_anterior_nombre}
+                  nuevo={movimiento.sede_nueva_nombre}
                 />
               </td>
               <td>{movimiento.motivo || "—"}</td>
@@ -483,7 +653,9 @@ function Transicion({ anterior, nuevo }) {
   if (anterior && nuevo && anterior !== nuevo) {
     return (
       <span>
-        <span className="text-muted text-decoration-line-through">{anterior}</span>{" "}
+        <span className="text-muted text-decoration-line-through">
+          {anterior}
+        </span>{" "}
         <i className="bi bi-arrow-right" aria-hidden="true" /> {nuevo}
       </span>
     );

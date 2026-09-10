@@ -8,13 +8,18 @@ alimenta el historial exigido por RF-03.
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from rest_framework import serializers
 
 from apps.core.audit import record_audit_event
 
 from .barcode import generar_codigo_barras
-from .models import Activo, MovimientoActivo
+from .models import ESTADOS_ASIGNABLES, ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo
 
 MODULO = "activos"
+
+#: Distingue «no toques la ubicación» de «déjala vacía». Sin él, una
+#: reasignación normal borraría en silencio dónde está el equipo.
+SIN_CAMBIO = object()
 MAX_REINTENTOS_CODIGO = 5
 
 
@@ -115,32 +120,75 @@ class ActivoService:
     @staticmethod
     @transaction.atomic
     def asignar_custodio(
-        *, actor, activo: Activo, custodio=None, departamento=None, motivo="", context=None
+        *,
+        actor,
+        activo: Activo,
+        custodio=None,
+        departamento=None,
+        sede=SIN_CAMBIO,
+        motivo="",
+        context=None,
     ) -> Activo:
-        """Cambia el responsable y/o el área, dejando la traza de RF-03.
+        """Cambia el responsable, el área y/o la ubicación, con la traza de RF-03.
 
         `custodio=None` es una devolución a bodega, no "sin cambios": el
         llamador que no quiere tocar el custodio simplemente no invoca este
         método.
+
+        `sede`, en cambio, sí distingue las dos cosas con un centinela: un
+        traslado puede querer **quitar** la sede (`None`) y una reasignación
+        normal no debe tocarla. Con un solo valor para ambos casos, cada
+        entrega de equipo borraría en silencio dónde está.
         """
+        if not activo.esta_operativo:
+            # Antes esto se colaba: el método no tocaba el estado de un equipo
+            # dado de baja, pero sí le cambiaba el custodio, y quedaba un
+            # responsable nuevo para un equipo que ya no existe. Con «perdido»
+            # y «robado» el absurdo es más visible: nadie recibe un equipo
+            # robado.
+            raise serializers.ValidationError(
+                {
+                    "estado": (
+                        f"El activo está {activo.get_estado_display().lower()}: no se puede "
+                        "asignar ni trasladar. Reingréselo al inventario primero."
+                    )
+                }
+            )
+
         custodio_anterior = activo.custodio
         departamento_anterior = activo.departamento
+        sede_anterior = activo.sede
         estado_anterior = activo.estado
 
         activo.custodio = custodio
         if departamento is not None:
             activo.departamento = departamento
+        if sede is not SIN_CAMBIO:
+            activo.sede = sede
 
         # Un equipo con responsable está en uso; sin responsable, vuelve a
-        # bodega. No se toca el estado si está en mantenimiento o dado de baja:
-        # esos mandan sobre la asignación.
-        if activo.estado in {Activo.Estado.EN_USO, Activo.Estado.EN_BODEGA}:
+        # bodega. No se toca el estado si está en mantenimiento, en garantía o
+        # en tránsito: esos describen dónde está el equipo, y eso manda sobre
+        # quién responde por él.
+        if activo.estado in ESTADOS_ASIGNABLES:
+            # La devolución deja el equipo «en bodega», no «disponible»: antes
+            # de volver a entregarlo hay que revisarlo y formatearlo, y
+            # marcarlo entregable de inmediato haría prometer equipos que
+            # todavía no lo están.
             activo.estado = Activo.Estado.EN_USO if custodio else Activo.Estado.EN_BODEGA
 
-        activo.save(update_fields=["custodio", "departamento", "estado", "updated_at"])
+        activo.save(update_fields=["custodio", "departamento", "sede", "estado", "updated_at"])
 
+        # El tipo lo decide el cambio que se ve desde fuera. Un traslado libera
+        # al responsable —el equipo pasa a una bodega, y una bodega no responde
+        # por nada—, pero eso no lo convierte en una devolucion: lo que hay que
+        # poder rastrear despues es donde acabo el equipo, no que alguien lo
+        # soltara. La devolucion sin movimiento fisico sigue siendo devolucion.
+        hubo_traslado = activo.sede_id != (sede_anterior.id if sede_anterior else None)
         if custodio is not None:
             tipo_movimiento = MovimientoActivo.Tipo.ASIGNACION
+        elif hubo_traslado:
+            tipo_movimiento = MovimientoActivo.Tipo.TRASLADO
         elif custodio_anterior is not None:
             tipo_movimiento = MovimientoActivo.Tipo.DEVOLUCION
         else:
@@ -155,6 +203,8 @@ class ActivoService:
             custodio_nuevo=custodio,
             departamento_anterior=departamento_anterior,
             departamento_nuevo=activo.departamento,
+            sede_anterior=sede_anterior,
+            sede_nueva=activo.sede,
             estado_anterior=estado_anterior,
             estado_nuevo=activo.estado,
         )
@@ -166,10 +216,12 @@ class ActivoService:
             previous_values={
                 "custodio_id": custodio_anterior.id if custodio_anterior else None,
                 "departamento_id": departamento_anterior.id,
+                "sede_id": sede_anterior.id if sede_anterior else None,
             },
             new_values={
                 "custodio_id": custodio.id if custodio else None,
                 "departamento_id": activo.departamento_id,
+                "sede_id": activo.sede_id,
                 "motivo": motivo,
             },
             context=context,
@@ -179,17 +231,48 @@ class ActivoService:
     @staticmethod
     @transaction.atomic
     def cambiar_estado(*, actor, activo: Activo, estado: str, motivo="", context=None) -> Activo:
-        """Cambia el estado operativo del activo."""
+        """Cambia el estado operativo del activo.
+
+        Los tres estados de salida —baja, perdido y robado— comparten el
+        registro de fecha y motivo: para el inventario los tres significan que
+        el equipo dejó de estar disponible, y la diferencia entre ellos es
+        justamente el motivo. La baja, en cambio, es definitiva: un equipo
+        desincorporado no vuelve, mientras que uno perdido puede aparecer.
+        """
         estado_anterior = activo.estado
         if estado_anterior == estado:
             return activo
 
+        if estado_anterior == Activo.Estado.DADO_DE_BAJA:
+            raise serializers.ValidationError(
+                {
+                    "estado": (
+                        "Un activo dado de baja no vuelve al inventario: su expediente se "
+                        "conserva como respaldo de la desincorporación. Registre el equipo "
+                        "como uno nuevo."
+                    )
+                }
+            )
+
         activo.estado = estado
         campos = ["estado", "updated_at"]
 
-        if estado == Activo.Estado.DADO_DE_BAJA:
+        if estado in ESTADOS_FUERA_DE_INVENTARIO:
             activo.fecha_baja = timezone.localdate()
             activo.motivo_baja = motivo
+            campos += ["fecha_baja", "motivo_baja"]
+            if activo.custodio_id is not None:
+                # El equipo ya no está: mantenerlo a nombre de alguien lo haría
+                # aparecer en su lista de responsabilidades y en las alertas de
+                # custodia, y el historial ya guarda quién lo tenía.
+                activo.custodio = None
+                campos.append("custodio")
+        elif estado_anterior in ESTADOS_FUERA_DE_INVENTARIO:
+            # Reingreso: un equipo dado por perdido que aparece. Se limpian la
+            # fecha y el motivo de salida porque ya no describen su situación,
+            # y el historial conserva que estuvo fuera y por qué.
+            activo.fecha_baja = None
+            activo.motivo_baja = ""
             campos += ["fecha_baja", "motivo_baja"]
 
         activo.save(update_fields=campos)
@@ -198,7 +281,7 @@ class ActivoService:
             activo=activo,
             tipo=(
                 MovimientoActivo.Tipo.BAJA
-                if estado == Activo.Estado.DADO_DE_BAJA
+                if estado in ESTADOS_FUERA_DE_INVENTARIO
                 else MovimientoActivo.Tipo.CAMBIO_ESTADO
             ),
             actor=actor,
@@ -210,7 +293,7 @@ class ActivoService:
             actor=actor,
             action=(
                 "activo.dado_de_baja"
-                if estado == Activo.Estado.DADO_DE_BAJA
+                if estado in ESTADOS_FUERA_DE_INVENTARIO
                 else "activo.estado_changed"
             ),
             target=activo,

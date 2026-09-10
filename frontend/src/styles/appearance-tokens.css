@@ -23,6 +23,11 @@
   --state-danger: #dc3545;
   --state-success: #198754;
   --state-warning: #997404;
+  /* Naranja de «exportar». Va aquí y no en la marca porque no es un color de
+     identidad: distingue la acción que saca datos del sistema. Cada tema lleva
+     el tono que se lee sobre su fondo (5,9:1 en claro, 8,0:1 en oscuro); el
+     naranja plano de Bootstrap se pierde sobre blanco. */
+  --state-export: #c2410c;
 
   --shadow-color: rgba(0, 0, 0, 0.15);
 }
@@ -58,6 +63,7 @@
   --state-danger: #ea868f;
   --state-success: #75b798;
   --state-warning: #ffda6a;
+  --state-export: #ffa94d;
 
   --shadow-color: rgba(0, 0, 0, 0.45);
 }

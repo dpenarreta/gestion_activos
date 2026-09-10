@@ -1,9 +1,6 @@
 import { apiClient } from "./client";
 
 export const authService = {
-  register(payload) {
-    return apiClient.post("/auth/register/", payload).then((res) => res.data);
-  },
   login(payload) {
     return apiClient.post("/auth/login/", payload).then((res) => res.data);
   },
@@ -25,9 +22,13 @@ export const authService = {
       .then((res) => res.data);
   },
   confirmPasswordReset(payload) {
-    return apiClient.post("/auth/password-reset/confirm/", payload).then((res) => res.data);
+    return apiClient
+      .post("/auth/password-reset/confirm/", payload)
+      .then((res) => res.data);
   },
   changePassword(payload) {
-    return apiClient.post("/auth/password/change/", payload).then((res) => res.data);
+    return apiClient
+      .post("/auth/password/change/", payload)
+      .then((res) => res.data);
   },
 };

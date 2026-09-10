@@ -1,5 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -7,6 +8,9 @@ from apps.authentication.models import Session
 from apps.authentication.serializers import AdminPasswordResetSerializer, SessionSerializer
 from apps.authentication.services import PasswordResetService
 from apps.core.request_meta import get_request_context
+from apps.empresas.permissions import EmpresasAsignarPermission
+from apps.empresas.servicios import asignar_empresas
+from apps.permissions.authorization import user_has_permission
 
 from .filters import filter_users
 from .models import User
@@ -18,6 +22,7 @@ from .permissions import (
     UsuariosRestablecerPasswordPermission,
 )
 from .serializers import (
+    EmpresaAssignmentSerializer,
     PermissionAssignmentSerializer,
     RoleAssignmentSerializer,
     UserAdminCreateSerializer,
@@ -41,10 +46,19 @@ class UserAdminViewSet(viewsets.ModelViewSet):
 
     http_method_names = ["get", "post", "patch", "head", "options"]
     pagination_class = UserAdminPagination
-    queryset = User.objects.all().order_by("-created_at")
+    # `membresias__empresa` se precarga porque el listado pinta en qué
+    # empresas trabaja cada cuenta: sin esto son dos consultas por fila.
+    queryset = (
+        User.objects.all()
+        .prefetch_related("membresias__empresa", "membresias__roles")
+        .order_by("-created_at")
+    )
 
     ACTION_PERMISSION_CLASSES = {
         "create": [IsAuthenticated, UsuariosCreatePermission],
+        # Repartir empresas es dar acceso a información, no editar un
+        # perfil: lo gobierna el catálogo de empresas, no el de usuarios.
+        "empresas": [IsAuthenticated, EmpresasAsignarPermission],
         "enable": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "disable": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "block": [IsAuthenticated, UsuariosDeshabilitarPermission],
@@ -60,7 +74,45 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        return filter_users(super().get_queryset(), self.request.query_params)
+        return filter_users(
+            self._del_ambito_visible(super().get_queryset()), self.request.query_params
+        )
+
+    def _del_ambito_visible(self, queryset):
+        """Solo las cuentas que comparten empresa con quien consulta.
+
+        `User` es global —una persona es la misma en todas las empresas a las
+        que entra— pero eso no significa que un administrador de una deba ver
+        los nombres y correos del personal de la otra. El superusuario sí las ve
+        todas: es la cuenta de emergencia.
+
+        Las cuentas **sin ninguna empresa** también se ven, y eso no es una
+        excepción cómoda: quien no pertenece a ninguna no es de nadie, así que
+        mostrarla no cruza ningún límite, y esconderla la volvería
+        inadministrable —para asignarle una empresa hay que poder abrirla
+        primero—. Es además la que trabaja en la única empresa existente
+        mientras solo haya una, por la misma regla que aplica `empresas_de`.
+
+        Se acota el conjunto de trabajo entero y no solo el listado: si el
+        detalle no filtrara, bastaría con teclear un id para abrir la ficha de
+        alguien de la otra compañía.
+        """
+        from django.db.models import Q
+
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+        if self.request.user.is_superuser:
+            return queryset
+
+        empresa = empresa_actual()
+        if empresa is None:
+            return queryset
+        if empresa is SIN_EMPRESA:
+            return queryset.none()
+
+        return queryset.filter(
+            Q(membresias__empresa=empresa) | Q(membresias__isnull=True)
+        ).distinct()
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -74,9 +126,18 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = UserAdminService.create_user(
-            actor=request.user, context=get_request_context(request), **serializer.validated_data
-        )
+        datos = serializer.validated_data
+        # Crear una cuenta y darle acceso a una empresa son dos poderes
+        # distintos: quien solo tiene el primero puede dar de alta a alguien,
+        # pero no decidir qué información va a ver.
+        if datos.get("empresas") and not user_has_permission(request.user, "empresas.asignar"):
+            raise PermissionDenied("No tiene el permiso requerido: empresas.asignar.")
+        try:
+            user = UserAdminService.create_user(
+                actor=request.user, context=get_request_context(request), **datos
+            )
+        except (PermissionError, ValueError) as error:
+            raise ValidationError({"empresas": [str(error)]}) from error
         return Response(UserAdminDetailSerializer(user).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
@@ -168,3 +229,25 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
         )
         return Response(UserAdminDetailSerializer(user).data)
+
+    @action(detail=True, methods=["post"])
+    def empresas(self, request, pk=None):
+        serializer = EmpresaAssignmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = asignar_empresas(
+                actor=request.user,
+                usuario=self.get_object(),
+                asignaciones=serializer.validated_data["empresas"],
+                context=get_request_context(request),
+            )
+        except PermissionError as error:
+            raise ValidationError({"empresas": [str(error)]}) from error
+        except ValueError as error:
+            raise ValidationError({"empresas": [str(error)]}) from error
+        # Se relee: el usuario se cargó con las membresías precargadas, así que
+        # el objeto en memoria sigue teniendo las de antes del cambio.
+        actualizado = User.objects.prefetch_related("membresias__empresa", "membresias__roles").get(
+            pk=user.pk
+        )
+        return Response(UserAdminDetailSerializer(actualizado).data)

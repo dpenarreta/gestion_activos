@@ -2,7 +2,7 @@
 
 ## Capas de prueba
 
-1. **Backend (pytest)** — `backend/apps/*/tests/`. 326 pruebas unitarias/de
+1. **Backend (pytest)** — `backend/apps/*/tests/`. 509 pruebas unitarias/de
    integración HTTP (vía `rest_framework.test.APIClient`), corriendo contra
    una base de datos real (SQL Server, no mocks de ORM).
 2. **Integración (pytest-bdd)** — `tests/qa/step_definitions/`. Un

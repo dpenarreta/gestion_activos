@@ -1,4 +1,10 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { authService } from "../api/authService";
 import { getAccessToken, setTokens } from "../api/client";
@@ -38,23 +44,9 @@ export function AuthProvider({ children }) {
       // Mensaje genérico definido por el backend: nunca revela si el
       // usuario existe, si la contraseña era incorrecta o si la cuenta
       // está deshabilitada.
-      setError(err.response?.data?.error?.message || "No se pudo iniciar sesión.");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const register = useCallback(async (payload) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await authService.register(payload);
-      setTokens(data.tokens.access, data.tokens.refresh);
-      setUser(data.user);
-      return data.user;
-    } catch (err) {
-      setError(err.response?.data?.error?.message || "No se pudo completar el registro.");
+      setError(
+        err.response?.data?.error?.message || "No se pudo iniciar sesión.",
+      );
       throw err;
     } finally {
       setIsLoading(false);
@@ -99,12 +91,20 @@ export function AuthProvider({ children }) {
       isInitializing,
       error,
       login,
-      register,
       logout,
       logoutAll,
       refreshUser,
     }),
-    [user, isLoading, isInitializing, error, login, register, logout, logoutAll, refreshUser]
+    [
+      user,
+      isLoading,
+      isInitializing,
+      error,
+      login,
+      logout,
+      logoutAll,
+      refreshUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

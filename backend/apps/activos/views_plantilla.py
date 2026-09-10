@@ -26,7 +26,18 @@ class ColumnaPlantillaViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, ColumnasPlantillaPermission]
     serializer_class = ColumnaPlantillaSerializer
-    queryset = ColumnaPlantillaActivos.objects.all().order_by("orden", "id")
+
+    def get_queryset(self):
+        """Se resuelve por petición, no en el cuerpo de la clase.
+
+        Un `queryset = Modelo.objects...` como atributo se evalúa **al importar
+        el módulo**, y el gestor por empresa filtra en ese momento: la primera
+        petición que cargue las URLs decide el filtro para todo el proceso. Si
+        esa primera es anónima —el sondeo de salud de un balanceador es
+        exactamente eso— el gestor devuelve «ninguna empresa» y este endpoint
+        queda vacío hasta que alguien reinicie el servidor.
+        """
+        return ColumnaPlantillaActivos.objects.all().order_by("orden", "id")
 
     def perform_create(self, serializer):
         columna = serializer.save()

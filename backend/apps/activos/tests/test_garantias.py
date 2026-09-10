@@ -164,15 +164,35 @@ def test_la_ficha_expone_el_estado_y_los_dias_restantes(cliente, crear_activo):
 
 
 def test_el_proveedor_y_la_garantia_se_guardan_desde_la_api(cliente, crear_activo):
+    from apps.organizacion.models import Proveedor
+
+    proveedor = Proveedor.objects.create(nombre="Tecnomega")
     activo = crear_activo(None)
 
     respuesta = cliente.patch(
         f"/api/v1/activos/{activo.id}/",
-        {"proveedor": "Tecnomega", "fecha_fin_garantia": "2027-05-30"},
+        {"proveedor": proveedor.id, "fecha_fin_garantia": "2027-05-30"},
         format="json",
     )
 
     assert respuesta.status_code == 200
+    assert respuesta.data["proveedor_nombre"] == "Tecnomega"
     activo.refresh_from_db()
-    assert activo.proveedor == "Tecnomega"
+    assert activo.proveedor_id == proveedor.id
     assert activo.fecha_fin_garantia == datetime.date(2027, 5, 30)
+
+
+def test_no_se_le_compra_a_un_proveedor_dado_de_baja(cliente, crear_activo):
+    """Uno dado de baja ya no vende ni atiende un reclamo: registrarle una
+    compra nueva no significa nada."""
+    from apps.organizacion.models import Proveedor
+
+    proveedor = Proveedor.objects.create(nombre="Cerrado S.A.", activo=False)
+    activo = crear_activo(None)
+
+    respuesta = cliente.patch(
+        f"/api/v1/activos/{activo.id}/", {"proveedor": proveedor.id}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "proveedor" in respuesta.data["error"]["details"]

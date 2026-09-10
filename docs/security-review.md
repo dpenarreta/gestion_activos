@@ -5,7 +5,9 @@ cada punto verificado en este repositorio. **Este documento es el criterio de se
 todo módulo de negocio nuevo debe cumplirlo, y cualquier control que se
 relaje debe quedar registrado aquí como limitación, no omitido.
 
-Última verificación: 2026-09-08.
+Última verificación: 2026-09-10 (revisión a fondo tras la separación por
+empresas: nueve hallazgos, todos corregidos — ver «Revisión del 10 de
+septiembre» más abajo).
 
 | Control | Estado | Detalle |
 | --- | --- | --- |
@@ -53,6 +55,60 @@ cero: `roles/0001_initial` daba por existente el `ContentType` de
 fallaba; ahora materializa el ContentType y los permisos desde el catálogo
 de forma idempotente.
 
+## Correo saliente (§19, 2026-09-09)
+
+El aviso por correo del centro de alertas es la única funcionalidad que hace
+que el sistema escriba fuera de sí mismo. Los controles que la acotan:
+
+- **Contenido mínimo**: recuentos y enlaces; ni equipos ni nombres de
+  personas. Un buzón no aplica los permisos que protegen la pantalla.
+- **Destinatarios cerrados**: solo usuarios activos, con correo y con
+  `alertas.ver`, verificado **en el momento del envío**. No se pueden
+  escribir direcciones libres: un campo de texto libre convertiría el
+  sistema en un remitente hacia cualquier buzón.
+- **El envío de prueba escribe solo a quien lo pide**, con su propio límite
+  de frecuencia (`ALERTAS_PRUEBA_THROTTLE_RATE`), y queda auditado.
+- **Bitácora de envíos** append-only con el resultado y el motivo, también
+  cuando no se envió: un envío que falla en silencio hace creer que alguien
+  fue advertido.
+
+## Revisión del 10 de septiembre de 2026
+
+Revisión de código y comprobación contra la API en ejecución, con las dos
+empresas cargadas. Nueve hallazgos —tres altos, cuatro medios, dos bajos—,
+todos corregidos en la misma tanda. El informe completo, con la evidencia de
+cada uno, se publicó como página aparte; esto es el resumen que queda en el
+repositorio.
+
+| # | Hallazgo | Severidad | Corrección |
+| --- | --- | --- | --- |
+| H-01 | Nueve cuentas de demostración con la contraseña escrita en el código versionado, dos de ellas administradoras | Alta | La clave se genera al azar o se toma de `DEMO_PASSWORD` y se imprime una sola vez; las cuentas nacen con cambio obligatorio; `verificar_despliegue` marca como **crítico** que alguna sobreviva |
+| H-02 | El centro de alertas devolvía 500 en la segunda empresa, y el envío por cron calculaba el resumen sobre el parque de todas | Alta | Una configuración por empresa (se retiró el singleton `pk=1`) y un envío por empresa dentro de `usando_empresa`; el asunto del correo nombra la empresa |
+| H-03 | Registro público abierto que además emitía tokens en el acto | Alta | Ruta, vista, serializador y pantalla retirados. Las cuentas las crea un administrador desde Usuarios |
+| H-04 | `auditoria.ver` en una empresa daba el historial de todo el despliegue | Media | `AuditLog` lleva empresa, poblada desde el contexto; el listado y la exportación filtran; una migración atribuyó los eventos anteriores y los huérfanos de módulos por empresa no se muestran |
+| H-05 | El listado de usuarios mostraba al personal de todas las empresas, y `roles.editar` permitía autoconcederse el catálogo entero | Media | El conjunto de trabajo se acota a quien comparte empresa (más las cuentas sin ninguna, que hay que poder asignar); nadie concede un permiso que no tiene, salvo el superusuario |
+| H-06 | Las cuatro exportaciones escribían los valores tal cual: un activo llamado `=HYPERLINK(...)` se ejecutaba al abrir el archivo | Media | `apps.core.hojas_de_calculo.neutralizar` antepone un apóstrofo a lo que la hoja tomaría por fórmula, en los cuatro exportadores |
+| H-07 | Sin `Content-Security-Policy`, con los tokens en `localStorage` | Media | Middleware propio con `default-src 'none'`; respeta la cabecera que ya venga puesta, para que un proxy imponga la suya |
+| H-08 | Tres vulnerabilidades conocidas en herramientas de desarrollo | Baja | `pytest` 9.0.3, `black` 26.3.1, `vitest` 5. `pip-audit` y `npm audit`: **cero** en ambos lados |
+| H-09 | HSTS de una semana sin `preload`; ruta de respaldo validada por lista negra | Baja | HSTS de un año con `preload`; la ruta se valida por forma admitida (absoluta, sin tramos relativos) en vez de por caracteres prohibidos |
+
+Trece criterios de aceptación nuevos (`AC-SEC-001` a `AC-SEC-013`) en
+`tests/qa/features/hallazgos-de-seguridad.feature`, todos automatizados.
+
+### Decisiones que conviene no revertir sin pensarlo
+
+- **Quien administra roles necesita los permisos que reparte.** Cerrar la
+  escalada tiene ese precio: un administrador de roles «pelado» no puede crear
+  ninguno útil. Es el mismo modelo que usan los proveedores de nube, y la
+  alternativa es que `roles.editar` sea en la práctica el permiso máximo.
+- **Las cuentas sin ninguna empresa se ven desde todas.** No pertenecen a nadie,
+  así que mostrarlas no cruza ningún límite, y esconderlas las volvería
+  inadministrables: para asignarles una empresa hay que poder abrirlas.
+- **Los eventos de auditoría sin empresa de un módulo por empresa no se
+  muestran.** Son huérfanos —el objeto que describían ya no existe— y no se les
+  puede atribuir dueño; mostrarlos sería exponer el rastro de la otra compañía
+  por la puerta de los registros sin dueño.
+
 ## Limitaciones conocidas (no ocultas)
 
 - La búsqueda de secretos fue un `grep` manual de patrones obvios
@@ -60,9 +116,16 @@ de forma idempotente.
   `gitleaks`/`truffleHog`.
 - `pip-audit` y `npm audit` solo detectan vulnerabilidades **publicadas**:
   hay que volver a ejecutarlos antes de cada release, no una sola vez.
-- El módulo de negocio del sistema (activos) todavía no existe, así que
-  ningún control de esta lista ha sido probado contra datos de dominio
-  reales.
+- La revisión del 10 de septiembre no incluyó pruebas de penetración activas,
+  infraestructura (servidor, red, TLS, permisos de archivos, configuración de
+  SQL Server) ni búsqueda de secretos sobre todo el historial de Git.
+- El token de sesión sigue en `localStorage`. La CSP lo cubre en profundidad,
+  pero mover el refresh a una cookie `HttpOnly` cambiaría el modelo de CSRF y es
+  una decisión pendiente, no un olvido.
+- La entrega del correo depende de un servidor SMTP externo. Con el backend
+  de consola que trae la configuración por defecto, el envío se da por
+  exitoso sin que nadie reciba nada: la bitácora de `/alertas/envios/` dice
+  que salió porque, para el sistema, salió.
 
 ## Recomendaciones para un despliegue productivo real
 
@@ -72,6 +135,10 @@ de forma idempotente.
    filtración, y forzar `logout-all` de todos los usuarios (revocar todas
    las `Session`).
 3. Configurar un proveedor de correo real (`EMAIL_BACKEND`) — por defecto
-   usa el backend de consola, adecuado solo para desarrollo.
+   usa el backend de consola, adecuado solo para desarrollo — y fijar
+   `DEFAULT_FROM_EMAIL` a una dirección del dominio de la empresa: la
+   derivada del nombre del sistema es un `.local` inexistente, y un
+   remitente que no resuelve termina en la carpeta de correo no deseado,
+   donde un aviso no avisa a nadie.
 4. Configurar `CSRF_TRUSTED_ORIGINS` si el admin de Django se sirve detrás
    de un dominio/proxy distinto al de origen.

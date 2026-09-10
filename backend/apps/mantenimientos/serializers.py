@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.empresas.campos import RelacionDeEmpresa
+
 from .models import CatalogoComponente, ComponenteUtilizado, Mantenimiento
 
 
@@ -24,6 +26,9 @@ class CatalogoComponenteSerializer(serializers.ModelSerializer):
 
 class ComponenteUtilizadoSerializer(serializers.ModelSerializer):
     componente_nombre = serializers.CharField(source="componente.nombre", read_only=True)
+    proveedor_nombre = serializers.CharField(
+        source="proveedor.nombre", read_only=True, default=None
+    )
     costo_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
@@ -32,6 +37,8 @@ class ComponenteUtilizadoSerializer(serializers.ModelSerializer):
             "id",
             "componente",
             "componente_nombre",
+            "proveedor",
+            "proveedor_nombre",
             "cantidad",
             "costo_unitario",
             "costo_total",
@@ -94,9 +101,7 @@ class MantenimientoSerializer(serializers.ModelSerializer):
 class ComponenteLineaSerializer(serializers.Serializer):
     """Una línea del desglose de repuestos al registrar un mantenimiento."""
 
-    componente = serializers.PrimaryKeyRelatedField(
-        queryset=CatalogoComponente.objects.filter(activo=True)
-    )
+    componente = RelacionDeEmpresa(CatalogoComponente, {"activo": True})
     cantidad = serializers.IntegerField(min_value=1, default=1)
     costo_unitario = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True
@@ -163,8 +168,8 @@ class MantenimientoWriteSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_activo(self, value):
-        if value.estado == value.Estado.DADO_DE_BAJA:
+        if not value.esta_operativo:
             raise serializers.ValidationError(
-                "No se registran mantenimientos sobre un activo dado de baja."
+                f"No se registran mantenimientos sobre un activo {value.get_estado_display().lower()}."
             )
         return value

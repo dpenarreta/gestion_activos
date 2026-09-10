@@ -15,6 +15,12 @@ extend-exclude = "migrations"
 [tool.isort]
 profile = "black"
 line_length = 100
+# Respeta la coma final como lo hace black: cuando un import va desplegado en
+# varias líneas y termina en coma, es una decisión de quien lo escribió —se lee
+# mejor y el diff del día que se añada uno más toca una línea, no cinco—. Sin
+# esto, isort lo colapsa a una sola línea y black lo vuelve a desplegar, así que
+# las dos herramientas se pisan y el archivo nunca queda "formateado".
+split_on_trailing_comma = true
 # ".venv" es necesario: a diferencia de ruff y black, isort no respeta
 # .gitignore y escanearía las dependencias instaladas, reportando errores
 # de terceros al correr el `isort .` que documenta el README.

@@ -11,6 +11,9 @@
      muestra de equipos, y eso en una fila obliga a apilar texto en una celda. */
   grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
   gap: 1rem;
+  /* Cada tarjeta ocupa lo que necesita: una alerta con un solo equipo no tiene
+     por qué estirarse hasta la altura de la que trae cinco. */
+  align-items: start;
 }
 
 .alerta-card {

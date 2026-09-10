@@ -100,6 +100,15 @@ export const ADMIN_MENU = [
     ],
   },
   {
+    // Los reportes son transversales: cruzan activos, custodia y
+    // mantenimientos, así que no cuelgan de ninguno de los tres.
+    id: "reportes",
+    name: "Reportes",
+    icon: "file-earmark-bar-graph",
+    path: "/admin/reportes",
+    permission: "reportes.ver",
+  },
+  {
     id: "organizacion",
     name: "Organización",
     icon: "diagram-3",
@@ -112,10 +121,30 @@ export const ADMIN_MENU = [
         path: "/admin/organizacion/departamentos",
       },
       {
+        id: "organizacion-sedes",
+        name: "Sedes",
+        icon: "buildings",
+        path: "/admin/organizacion/sedes",
+      },
+      {
+        id: "organizacion-proveedores",
+        name: "Proveedores",
+        icon: "truck",
+        path: "/admin/organizacion/proveedores",
+      },
+      {
         id: "organizacion-empleados",
         name: "Empleados",
         icon: "person-badge",
         path: "/admin/organizacion/empleados",
+      },
+      {
+        // Al final del grupo: se usa una vez al arrancar y de vez en cuando,
+        // no todos los días como los catálogos de arriba.
+        id: "organizacion-carga",
+        name: "Carga de catálogos",
+        icon: "file-earmark-arrow-up",
+        path: "/admin/catalogos/carga",
       },
     ],
   },
@@ -151,6 +180,15 @@ export const ADMIN_MENU = [
     permission: "configuracion.ver",
     children: [
       {
+        // Primero de la lista: es lo que hay que crear antes que nada en un
+        // despliegue nuevo, porque todo lo demás cuelga de una empresa.
+        id: "configuracion-empresas",
+        name: "Empresas",
+        icon: "buildings",
+        path: "/admin/empresas",
+        permission: "empresas.ver",
+      },
+      {
         id: "configuracion-identidad",
         name: "Identidad",
         icon: "image",
@@ -172,10 +210,29 @@ export const ADMIN_MENU = [
   },
 ];
 
+function esVisible(permission, permissions) {
+  return !permission || permissions.includes(permission);
+}
+
+/**
+ * Un hijo sin `permission` propio hereda el del grupo —así funcionaban todas
+ * las entradas hasta ahora—, y el que lo declara se filtra por el suyo. El
+ * grupo se muestra si le queda algún hijo visible: «Configuración» tiene que
+ * aparecer para quien solo administra empresas, aunque no pueda tocar la
+ * identidad institucional.
+ */
 function filterByPermission(items, permissions) {
   return items
-    .filter((item) => !item.permission || permissions.includes(item.permission))
-    .map((item) => (item.children ? { ...item, children: item.children } : item));
+    .map((item) => {
+      if (!item.children) {
+        return esVisible(item.permission, permissions) ? item : null;
+      }
+      const children = item.children.filter((child) =>
+        esVisible(child.permission ?? item.permission, permissions),
+      );
+      return children.length > 0 ? { ...item, children } : null;
+    })
+    .filter(Boolean);
 }
 
 /** Filtra el árbol completo por los permisos del usuario autenticado. */
