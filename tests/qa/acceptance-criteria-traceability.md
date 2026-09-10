@@ -595,3 +595,18 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-SEC-011 | Exportaciones sin fórmulas | hallazgos-de-seguridad.feature | Un valor del inventario no se vuelve fórmula al abrir el archivo | Sí (pytest: `test_hojas_de_calculo.py`, 11 casos) |
 | AC-SEC-012 | Content-Security-Policy en toda respuesta | hallazgos-de-seguridad.feature | Toda respuesta declara su política de contenido | Sí (pytest: `test_csp.py`) |
 | AC-SEC-013 | Ruta de respaldo por forma admitida | hallazgos-de-seguridad.feature | La ruta de respaldo se valida por forma admitida | Sí (pytest: `test_respaldos.py`) |
+
+## Corrección de intervenciones (AC-MNT-020 a AC-MNT-029)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-MNT-020 | Corregir un dato no toca los demás | mantenimientos.feature | Corregir un dato no toca los demás | Sí (pytest: `test_corregir_un_campo_deja_los_demas_intactos`) |
+| AC-MNT-021 | Guardar sin cambios no audita | mantenimientos.feature | Guardar sin cambiar nada no escribe en la bitácora | Sí (pytest: `test_guardar_sin_cambiar_nada_no_escribe_en_la_bitacora`) |
+| AC-MNT-022 | La intervención no cambia de equipo | mantenimientos.feature | Una intervención no cambia de equipo | Sí (pytest: `test_el_mantenimiento_no_cambia_de_activo`) |
+| AC-MNT-023 | Los repuestos reemplazan, no suman | mantenimientos.feature | Los repuestos enviados reemplazan el desglose entero | Sí (pytest: `test_enviar_componentes_reemplaza_el_desglose_entero`, `test_el_desglose_se_puede_vaciar`) |
+| AC-MNT-024 | Corregir repuestos recalcula el contador | mantenimientos.feature | Corregir los repuestos recalcula el contador de piezas críticas | Sí (pytest: `test_quitar_la_pieza_critica_baja_el_contador_del_activo`, `test_anadir_una_pieza_critica_sube_el_contador`) |
+| AC-MNT-025 | La línea nueva fotografía la criticidad vigente | mantenimientos.feature | La línea nueva fotografía la criticidad vigente | Sí (pytest: `test_la_linea_nueva_fotografia_la_criticidad_de_hoy`) |
+| AC-MNT-026 | Cerrar al corregir calcula los días fuera | mantenimientos.feature | Cerrar la reparación al corregir calcula los días fuera | Sí (pytest: `test_poner_la_fecha_de_salida_cierra_la_reparacion`) |
+| AC-MNT-027 | Las validaciones valen al corregir | mantenimientos.feature | Las validaciones siguen valiendo al corregir | Sí (pytest: tres casos de fecha más `test_un_componente_inexistente_no_borra_el_desglose`) |
+| AC-MNT-028 | Registrar no alcanza para corregir | mantenimientos.feature | Registrar no alcanza para corregir | Sí (pytest: `test_registrar_no_alcanza_para_corregir`, `test_con_el_permiso_de_editar_si_se_corrige`) |
+| AC-MNT-029 | Eliminar deja constancia | mantenimientos.feature | Eliminar deja constancia de lo que había | Sí (pytest: `test_eliminar_deja_constancia_de_lo_que_habia`, `test_al_eliminar_se_van_tambien_sus_repuestos`, `test_los_indicadores_del_activo_quedan_al_dia_en_la_misma_operacion`) |
