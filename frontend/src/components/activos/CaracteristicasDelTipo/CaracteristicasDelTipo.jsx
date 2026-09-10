@@ -62,6 +62,12 @@ export function CaracteristicasDelTipo({ tipo, puedeEditar }) {
 
   async function agregar(evento) {
     evento.preventDefault();
+    // Este formulario se dibuja dentro del diálogo del tipo, que también es un
+    // formulario. Sin cortar la propagación, añadir una característica
+    // dispararía además el guardado del tipo y el diálogo se cerraría en mitad
+    // del trabajo —justo cuando se están declarando varias seguidas—, sin
+    // llegar a mostrar el error si la característica se rechaza.
+    evento.stopPropagation();
     setError(null);
     try {
       const creada = await caracteristicasService.create({
