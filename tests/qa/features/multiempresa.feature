@@ -207,3 +207,27 @@ Feature: Separación de la información por empresa
     # El mantenimiento no lleva la empresa encima: la hereda del activo que
     # reparó, y sin filtrar por esa ruta la bitácora de una se leería desde la
     # otra. Lo mismo vale para movimientos, repuestos consumidos y adjuntos.
+
+  # --- Que la regla siga valiendo mañana -----------------------------------
+
+  @AC-EMP-027
+  Scenario: Todo modelo de negocio declara cómo se acota
+    When se añade un modelo a una app de negocio
+    Then debe llevar la empresa encima o heredarla de otro modelo
+    Or figurar en la lista de excepciones con la razón escrita
+    # Es lo que falla solo, sin que nadie escriba un caso, el día que alguien
+    # se olvide. Los cuatro modelos que cruzaban empresas se descubrieron por
+    # casualidad al sembrar datos, no por una prueba.
+
+  @AC-EMP-028
+  Scenario: La ruta declarada llega de verdad hasta la empresa
+    When un modelo hereda la empresa de otro
+    Then la ruta que declara existe y termina en la empresa
+    # Una ruta mal escrita revienta en producción; una que apunta a otro campo
+    # filtra por otra cosa sin dar ningún error.
+
+  @AC-EMP-029
+  Scenario: La lista de excepciones no envejece
+    When un modelo de la lista deja de existir
+    Then la prueba lo señala para que se quite
+    # Una excepción viva que nadie revisa es permiso permanente sin dueño.

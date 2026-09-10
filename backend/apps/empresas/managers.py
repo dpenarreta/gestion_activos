@@ -13,6 +13,14 @@ from django.db import models
 
 from .contexto import SIN_EMPRESA, empresa_actual
 
+#: Nombre del atributo que marca un gestor como acotado, y la ruta por la que
+#: lo hace. Lo lee la prueba estructural
+#: (`apps/empresas/tests/test_cobertura_del_aislamiento.py`), que recorre los
+#: modelos de negocio y exige que cada uno declare cómo se acota o figure en una
+#: lista de excepciones con su razón escrita. Sin esa marca, un modelo nuevo se
+#: colaría sin filtro y nadie lo notaría hasta que una empresa viera lo de otra.
+ATRIBUTO_RUTA = "ruta_de_empresa"
+
 
 class ConsultaPorEmpresa(models.QuerySet):
     def de_la_empresa_activa(self):
@@ -30,6 +38,9 @@ class ConsultaPorEmpresa(models.QuerySet):
 
 class GestorPorEmpresa(models.Manager.from_queryset(ConsultaPorEmpresa)):
     """Gestor por defecto: lo que devuelve ya viene acotado."""
+
+    #: La empresa la lleva el propio modelo.
+    ruta_de_empresa = "empresa"
 
     def get_queryset(self):
         return super().get_queryset().de_la_empresa_activa()
@@ -66,6 +77,8 @@ def gestor_de_lo_que_cuelga(ruta: str):
             return self.filter(**{ruta: empresa})
 
     class _Gestor(models.Manager.from_queryset(_Consulta)):
+        ruta_de_empresa = ruta
+
         def get_queryset(self):
             return super().get_queryset().de_la_empresa_activa()
 

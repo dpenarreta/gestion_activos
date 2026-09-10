@@ -15,6 +15,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import gestor_de_lo_que_cuelga
 from apps.empresas.models import ModeloDeEmpresa
 
 #: Prefijo de reserva: solo se usa si el área no tiene código, que la base no
@@ -124,9 +125,7 @@ class Sede(ModeloDeEmpresa):
     class Meta:
         ordering = ["nombre"]
         constraints = [
-            models.UniqueConstraint(
-                fields=["empresa", "nombre"], name="sede_unica_por_empresa"
-            )
+            models.UniqueConstraint(fields=["empresa", "nombre"], name="sede_unica_por_empresa")
         ]
         verbose_name = "sede"
         verbose_name_plural = "sedes"
@@ -148,6 +147,10 @@ class Sede(ModeloDeEmpresa):
 
 class Ubicacion(BaseModel):
     """Historia congelada: el nivel de bodega dentro de una sede, ya retirado.
+
+    Aunque no se cree ni se edite desde ninguna pantalla, sus filas se leen: los
+    movimientos anteriores al cambio las nombran. Por eso se acota igual que
+    todo lo demás, por la sede a la que pertenecen.
 
     Un equipo se ubica ahora por **sede**, y dónde está se responde con su
     ciudad. Este segundo nivel obligaba a elegir dos veces en cada traslado y a
@@ -210,6 +213,8 @@ class Ubicacion(BaseModel):
         help_text="Precisión opcional: piso, ala, número de rack.",
     )
     activa = models.BooleanField(default=True)
+
+    objects = gestor_de_lo_que_cuelga("sede__empresa")
 
     class Meta:
         ordering = ["sede__nombre", "nombre"]

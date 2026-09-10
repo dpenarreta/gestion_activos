@@ -163,6 +163,26 @@ empresas y la bitácora de una se lee desde la otra. Por eso `Mantenimiento`,
 raíz —el filtro en el gestor por defecto— pero recorriendo la ruta hasta la
 empresa del padre.
 
+## Qué impide que se rompa mañana
+
+Una prueba estructural recorre los modelos de las apps de negocio y exige que
+cada uno **declare cómo se acota**: o lleva la empresa encima (hereda de
+`ModeloDeEmpresa`) o la hereda de otro modelo
+(`gestor_de_lo_que_cuelga("activo__empresa")`). El que no declare nada tiene que
+figurar en una lista de excepciones **con la razón escrita al lado**, y esa
+frase es lo que se revisa.
+
+Comprueba además que la ruta declarada existe y termina en `empresa` —una mal
+escrita reventaría en producción, y una que apunte a otro campo filtraría por
+otra cosa sin dar ningún error— y que ninguna excepción apunte a un modelo que
+ya no existe.
+
+Es la única prueba que falla sola, sin que nadie escriba un caso, el día que
+alguien añada un modelo y se olvide. Los cuatro que cruzaban empresas
+—`Mantenimiento`, `MovimientoActivo`, `ComponenteUtilizado` y `Adjunto`— se
+descubrieron por casualidad al sembrar datos para una demostración, no por una
+prueba; `Ubicacion` estaba igual y apareció al escribir esta.
+
 ## Dos trampas que costó encontrar
 
 **Los `queryset` en el cuerpo de una clase se construyen al importar el módulo**,
