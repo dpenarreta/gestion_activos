@@ -6,7 +6,11 @@ import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
 import "./PasswordReset.css";
 
-const EMPTY_FORM = { current_password: "", new_password: "", new_password_confirm: "" };
+const EMPTY_FORM = {
+  current_password: "",
+  new_password: "",
+  new_password_confirm: "",
+};
 
 export function ChangePasswordRequired() {
   const { refreshUser } = useAuth();
@@ -26,7 +30,7 @@ export function ChangePasswordRequired() {
     try {
       await authService.changePassword(form);
       await refreshUser();
-      navigate("/");
+      navigate("/admin");
     } catch (err) {
       const details = err.response?.data?.error?.details;
       const message =
@@ -43,7 +47,8 @@ export function ChangePasswordRequired() {
     <div className="container password-reset-page">
       <h2>Debe cambiar su contraseña</h2>
       <p className="text-muted">
-        Un administrador solicitó que establezca una nueva contraseña antes de continuar.
+        Un administrador solicitó que establezca una nueva contraseña antes de
+        continuar.
       </p>
       <form onSubmit={handleSubmit} className="col-12 col-md-4">
         {error && <div className="alert alert-danger">{error}</div>}

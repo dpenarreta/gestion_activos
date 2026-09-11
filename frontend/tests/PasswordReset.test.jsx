@@ -286,7 +286,7 @@ describe("El cambio de contraseña obligatorio", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cambiar contraseña" }));
 
     await waitFor(() => expect(refreshUser).toHaveBeenCalled());
-    expect(await screen.findByText("Destino: /")).toBeInTheDocument();
+    expect(await screen.findByText("Destino: /admin")).toBeInTheDocument();
   });
 
   it("si la actual no es correcta, lo dice y no navega", async () => {

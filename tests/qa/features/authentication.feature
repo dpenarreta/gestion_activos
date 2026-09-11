@@ -129,3 +129,13 @@ Feature: Autenticación de usuarios
     Given un navegador que bloquea el almacenamiento del sitio
     When se consulta o se cambia la empresa activa
     Then no revienta y se trabaja en la predeterminada
+
+  @AC-E2E-009
+  Scenario: Entrar lleva a trabajar, no a una portada
+    Given una cuenta con acceso al panel
+    When inicia sesión
+    Then llega a la primera pantalla que puede abrir
+    # Antes se aterrizaba en una portada con un saludo y un botón para seguir
+    # hasta el panel: un clic de más cada día por una pantalla que no respondía
+    # ninguna pregunta. Vale para todas las puertas —el login, una dirección
+    # guardada, el logo del menú—, no solo para el formulario.

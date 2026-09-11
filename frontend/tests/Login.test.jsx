@@ -104,7 +104,9 @@ describe("Iniciar sesión", () => {
       password: "Contraseña.2026",
     });
     expect(setTokens).toHaveBeenCalledWith("acceso", "refresco");
-    expect(await screen.findByText("Destino: /")).toBeInTheDocument();
+    // Al panel y no a la portada: quien entra viene a trabajar, y la portada
+    // solo ofrecía un botón para seguir hasta aquí.
+    expect(await screen.findByText("Destino: /admin")).toBeInTheDocument();
   });
 
   it("con el correo también entra", async () => {

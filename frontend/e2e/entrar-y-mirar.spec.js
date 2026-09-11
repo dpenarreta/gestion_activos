@@ -1,4 +1,12 @@
 import { expect, test } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const AQUI = path.dirname(fileURLToPath(import.meta.url));
+const CREDENCIALES = JSON.parse(
+  fs.readFileSync(path.resolve(AQUI, ".auth/datos.json"), "utf8"),
+);
 
 /*
  * Entrar al sistema y llegar a lo que uno vino a ver.
@@ -62,8 +70,33 @@ test.describe("El panel principal", () => {
 });
 
 test.describe("La sesión", () => {
+  test("entrar deja al usuario trabajando, no en una portada", async ({
+    browser,
+  }) => {
+    /* Antes se aterrizaba en una portada con un saludo y un botón para seguir
+       hasta el panel: un clic de más cada día por una pantalla que no respondía
+       ninguna pregunta. */
+    const contexto = await browser.newContext({ storageState: undefined });
+    const pagina = await contexto.newPage();
+
+    await pagina.goto("/login");
+    await pagina.getByLabel("Usuario o correo").fill(CREDENCIALES.usuario);
+    await pagina.getByLabel("Contraseña").fill(CREDENCIALES.clave);
+    await pagina.getByRole("button", { name: "Entrar" }).click();
+
+    await expect(pagina).toHaveURL(/\/admin\//);
+    await expect(
+      pagina.getByRole("heading", { name: "Panel principal" }),
+    ).toBeVisible();
+    await expect(
+      pagina.getByRole("link", { name: "Ir al panel administrativo" }),
+    ).toHaveCount(0);
+
+    await contexto.close();
+  });
+
   test("sin sesión, el panel manda al login", async ({ browser }) => {
-    /* La única prueba que arranca con el navegador limpio: el resto hereda la
+    /* Una de las pocas que arrancan con el navegador limpio: el resto hereda la
        sesión guardada. */
     const contexto = await browser.newContext({ storageState: undefined });
     const pagina = await contexto.newPage();

@@ -18,7 +18,12 @@ export function Login() {
     event.preventDefault();
     try {
       const me = await login(form);
-      navigate(me.must_change_password ? "/change-password-required" : "/");
+      // Al panel, no a la portada: quien entra viene a trabajar, y la portada
+      // solo ofrecía un botón para seguir hasta aquí. `/admin` reparte a cada
+      // quien a la primera pantalla que puede abrir (ver `InicioDelPanel`).
+      navigate(
+        me.must_change_password ? "/change-password-required" : "/admin",
+      );
     } catch {
       // El mensaje de error ya se expone vía useAuth().error
     }

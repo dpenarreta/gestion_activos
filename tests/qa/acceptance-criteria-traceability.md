@@ -698,4 +698,5 @@ juntas.
 | AC-E2E-005 | Se entrega, se repara y se da de baja | ficha-completa-activo.feature | El ciclo completo del equipo | Sí (Playwright: `vida-de-un-equipo.spec.js`, cinco pasos en serie) |
 | AC-E2E-006 | Cambiar de empresa cambia los datos | multiempresa.feature | Un equipo de una empresa no existe en la otra | Sí (Playwright: `cambiar-de-empresa.spec.js`) |
 | AC-E2E-007 | La empresa elegida sobrevive a navegar | multiempresa.feature | La elección de empresa se conserva entre pantallas | Sí (Playwright: `la elección sobrevive a abrir otra pantalla`) |
+| AC-E2E-009 | Entrar deja al usuario en el panel | authentication.feature | Iniciar sesión lleva a la primera pantalla que se puede abrir | Sí (Playwright y Vitest: `entrar deja al usuario trabajando, no en una portada`, `con sesión abierta pasa de largo hacia el panel`) |
 | AC-E2E-008 | Un reporte se descarga con contenido | dashboard-y-reportes.feature | El archivo se descarga con su nombre y no llega vacío | Sí (Playwright: `descargar-un-reporte.spec.js`) |

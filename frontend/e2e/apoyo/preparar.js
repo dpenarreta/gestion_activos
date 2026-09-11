@@ -34,7 +34,14 @@ export default async function preparar(config) {
   const contexto = crearCuenta(clave);
 
   fs.mkdirSync(path.dirname(SESION), { recursive: true });
-  fs.writeFileSync(DATOS, JSON.stringify({ ...contexto, usuario: CUENTA }));
+  // La contraseña se guarda junto al resto para que una prueba pueda entrar por
+  // sí misma —comprobar a dónde lleva el login exige hacerlo de verdad—. Es
+  // segura de escribir: se genera en cada ejecución, vive en una carpeta que el
+  // repositorio ignora y se borra al terminar, junto con la cuenta.
+  fs.writeFileSync(
+    DATOS,
+    JSON.stringify({ ...contexto, usuario: CUENTA, clave }),
+  );
 
   const navegador = await chromium.launch();
   const pagina = await navegador.newPage({ baseURL });
