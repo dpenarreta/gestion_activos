@@ -131,6 +131,40 @@ test.describe("Consulta por escáner", () => {
       page.getByRole("heading", { name: `E2E-${SERIE}` }),
     ).toHaveCount(0);
   });
+
+  // --- La pistola con la distribución de teclado cambiada ---
+  //
+  // Caso real: la etiqueta dice `GA-LAP-000006` y el sistema recibe
+  // `GA'LAP'000006`. La pistola no manda texto, simula teclas, y la que en un
+  // teclado US da «-» está en el español en la del «'». El sistema lo repara
+  // —en las tres pantallas donde se dispara— y lo dice.
+
+  test("el inventario encuentra el equipo con el guion mal leído", async ({
+    page,
+  }) => {
+    await page.goto("/admin/activos");
+    const campo = page.getByLabel("Buscar activos");
+    await campo.fill(codigo.replaceAll("-", "'"));
+    await page.getByRole("button", { name: "Buscar" }).last().click();
+
+    await expect(page.locator("tbody tr", { hasText: codigo })).toHaveCount(1);
+    await expect(
+      page.getByText(/Revise la configuración del lector/),
+    ).toBeVisible();
+  });
+
+  test("y el «activo intervenido» del mantenimiento, también", async ({
+    page,
+  }) => {
+    await page.goto("/admin/mantenimientos/new");
+    const campo = page.getByLabel("Activo intervenido");
+    await campo.fill(codigo.replaceAll("-", "'"));
+    await campo.press("Enter");
+
+    await expect(
+      page.getByText(/Revise la configuración del lector/),
+    ).toBeVisible();
+  });
 });
 
 /** Dispara una lectura, como hace la pistola: teclear y cerrar con Enter. */

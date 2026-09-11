@@ -86,6 +86,10 @@ export function useListadoPaginado(
   return {
     resultados: datos.results,
     total: datos.count,
+    // Lo que el listado quiera decir además de las filas. Hoy es el aviso del
+    // lector mal configurado; se expone la respuesta entera y no ese campo
+    // suelto para no volver a tocar el hook con el siguiente.
+    respuesta: datos,
     hasNext: Boolean(datos.next),
     hasPrevious: Boolean(datos.previous),
     pagina,

@@ -194,8 +194,15 @@ class ActivoViewSet(viewsets.ModelViewSet):
         busqueda = params.get("q")
         if busqueda:
             termino = busqueda.strip()
+            # La misma reparación que hace la lectura por código: la pistola
+            # manda el guion con otra distribución de teclado y llega como
+            # apóstrofe. Vivía solo en `por-codigo`, así que el inventario y el
+            # buscador del mantenimiento —donde también se dispara la pistola—
+            # no encontraban nada y no decían por qué.
+            reparado, _ = normalizar_escaneo(termino)
             queryset = queryset.filter(
                 Q(codigo_barras__iexact=termino)
+                | Q(codigo_barras__iexact=reparado)
                 | Q(numero_serie__icontains=termino)
                 | Q(nombre__icontains=termino)
                 | Q(marca__icontains=termino)
@@ -393,6 +400,52 @@ class ActivoViewSet(viewsets.ModelViewSet):
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
+    def list(self, request, *args, **kwargs):
+        """El listado, con el aviso del lector si hubo que reparar la búsqueda.
+
+        Arreglarlo en silencio dejaría la pistola mal configurada, y el mismo
+        problema volvería a aparecer en la carga masiva y en cualquier otro
+        campo donde se escanee. Va en la respuesta del listado y no en un
+        recurso aparte porque es donde se nota: quien escanea en el inventario
+        está mirando esta pantalla.
+        """
+        respuesta = super().list(request, *args, **kwargs)
+        aviso = self._aviso_del_lector(request.query_params.get("q"))
+        if aviso and isinstance(respuesta.data, dict):
+            respuesta.data["advertencia_lector"] = aviso
+        return respuesta
+
+    @staticmethod
+    def _aviso_del_lector(termino: str | None) -> dict | None:
+        """Qué decirle a quien escaneó con la distribución de teclado cambiada.
+
+        Solo si la reparación es **lo que encontró el equipo**: que un texto se
+        pueda reparar no significa que haga falta. Una serie escrita
+        `SN'RARA'01` tiene la forma de un código nuestro una vez sustituidos
+        los apóstrofes, y avisar ahí mandaría a reconfigurar una pistola que
+        está bien —o que ni siquiera se usó—.
+        """
+        termino = (termino or "").strip()
+        if not termino:
+            return None
+        reparado, corregido = normalizar_escaneo(termino)
+        if not corregido:
+            return None
+        etiquetas = Activo.objects.filter(codigo_barras__iexact=reparado)
+        if not etiquetas.exists() or Activo.objects.filter(codigo_barras__iexact=termino).exists():
+            return None
+        return {
+            "codigo": "distribucion_de_teclado",
+            "recibido": termino,
+            "interpretado": reparado,
+            "mensaje": (
+                "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
+                "La pistola está configurada con una distribución de teclado distinta "
+                "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
+                "de emulación numérica, para que el guion llegue correctamente."
+            ).format(recibido=termino, interpretado=reparado),
+        }
+
     @action(detail=False, methods=["get"], url_path="por-codigo/(?P<codigo>[^/.]+)")
     def por_codigo(self, request, codigo=None):
         """Resuelve un activo desde lo que emitió el lector (RF-03).
@@ -429,21 +482,12 @@ class ActivoViewSet(viewsets.ModelViewSet):
             return Response(respuesta, status=status.HTTP_404_NOT_FOUND)
 
         ficha = self._ficha_completa(activo)
-        if corregido:
-            # Se avisa aunque la búsqueda haya funcionado: arreglarlo en
-            # silencio dejaría la pistola mal configurada, y el mismo problema
-            # reaparecería en la carga masiva y en cualquier otro campo.
-            ficha["advertencia_lector"] = {
-                "codigo": "distribucion_de_teclado",
-                "recibido": termino,
-                "interpretado": reparado,
-                "mensaje": (
-                    "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
-                    "La pistola está configurada con una distribución de teclado distinta "
-                    "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
-                    "de emulación numérica, para que el guion llegue correctamente."
-                ).format(recibido=termino, interpretado=reparado),
-            }
+        # Se avisa aunque la búsqueda haya funcionado: arreglarlo en silencio
+        # dejaría la pistola mal configurada, y el mismo problema reaparecería
+        # en la carga masiva y en cualquier otro campo.
+        aviso = self._aviso_del_lector(termino)
+        if aviso:
+            ficha["advertencia_lector"] = aviso
         return Response(ficha)
 
     @staticmethod

@@ -44,6 +44,11 @@ export function BuscadorDeActivo({
   const [elegido, setElegido] = useState(null);
   const [texto, setTexto] = useState("");
   const [resultados, setResultados] = useState([]);
+  //: El backend avisa cuando ha tenido que reparar el código: la pistola está
+  //: enviando otra distribución de teclado y el guion llega como apóstrofe. Se
+  //: enseña aunque la búsqueda haya funcionado, porque el mismo problema
+  //: reaparece en la carga masiva, donde no hay nadie que lo repare.
+  const [avisoLector, setAvisoLector] = useState(null);
   const [abierta, setAbierta] = useState(false);
   const [resaltado, setResaltado] = useState(0);
   const [buscando, setBuscando] = useState(false);
@@ -83,6 +88,7 @@ export function BuscadorDeActivo({
       });
       if (esta !== consulta.current) return [];
       const encontrados = datos.results ?? datos;
+      setAvisoLector(datos.advertencia_lector ?? null);
       setResultados(encontrados);
       setResaltado(0);
       return encontrados;
@@ -162,6 +168,16 @@ export function BuscadorDeActivo({
     }
   }
 
+  /* Se enseña en las dos vistas, y no solo bajo la lista de coincidencias: con
+     una etiqueta bien leída la lectura acierta de una, el campo se cierra
+     sobre el equipo elegido y esa es justamente la vista en la que hay que
+     poder leer que la pistola está mal configurada. */
+  const aviso = avisoLector ? (
+    <div className="form-text text-info-emphasis">
+      <strong>Revise la configuración del lector.</strong> {avisoLector.mensaje}
+    </div>
+  ) : null;
+
   if (elegido) {
     return (
       <div className="buscador-activo">
@@ -185,6 +201,7 @@ export function BuscadorDeActivo({
           )}
         </div>
         {ayuda && <div className="form-text">{ayuda}</div>}
+        {aviso}
       </div>
     );
   }
@@ -264,6 +281,8 @@ export function BuscadorDeActivo({
           ))}
         </ul>
       )}
+
+      {aviso}
 
       {abierta &&
         !buscando &&

@@ -130,3 +130,79 @@ def test_si_el_equipo_no_existe_el_error_explica_la_causa_probable(cliente, acti
 
     assert respuesta.status_code == 404
     assert "distribución de teclado" in respuesta.data["error"]["message"]
+
+
+# --- La búsqueda del listado, que es donde también se dispara la pistola ---
+#
+# Segundo aviso del mismo caso, 2026-09-11: la reparación existía pero vivía
+# solo en `por-codigo`. En el inventario y en el «Activo intervenido» del
+# mantenimiento —que buscan por `q`— la etiqueta no encontraba nada, y la
+# pantalla decía «ningún equipo coincide», que manda a revisar la etiqueta.
+
+
+def test_el_inventario_encuentra_el_equipo_con_el_codigo_mal_leido(cliente, activo):
+    respuesta = cliente.get("/api/v1/activos/?q=GA'LAP'000001")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["count"] == 1
+    assert respuesta.data["results"][0]["codigo_barras"] == activo.codigo_barras
+
+
+def test_y_lo_dice_en_vez_de_arreglarlo_en_silencio(cliente, activo):
+    """Es el mismo aviso de la lectura por código: si no se dice, la pistola se
+    queda mal configurada y el problema reaparece donde nadie lo repara."""
+    respuesta = cliente.get("/api/v1/activos/?q=GA'LAP'000001")
+
+    aviso = respuesta.data["advertencia_lector"]
+    assert aviso["codigo"] == "distribucion_de_teclado"
+    assert aviso["recibido"] == "GA'LAP'000001"
+    assert aviso["interpretado"] == "GA-LAP-000001"
+
+
+def test_una_busqueda_normal_no_lleva_advertencia(cliente, activo):
+    respuesta = cliente.get(f"/api/v1/activos/?q={activo.codigo_barras}")
+
+    assert respuesta.data["count"] == 1
+    assert "advertencia_lector" not in respuesta.data
+
+
+def test_el_buscador_del_mantenimiento_tambien_lo_encuentra(cliente, activo):
+    """Es el mismo filtro con `operativos=true`: el campo «Activo intervenido»
+    del formulario de mantenimiento."""
+    respuesta = cliente.get("/api/v1/activos/?q=GA'LAP'000001&operativos=true")
+
+    assert respuesta.data["count"] == 1
+
+
+def test_no_se_toca_una_serie_que_lleva_apostrofe_de_verdad(cliente, admin, activo):
+    """La reparación solo se aplica si el resultado tiene la forma exacta de un
+    código emitido por el sistema: sustituir a ciegas encontraría el equipo
+    equivocado, que es peor que no encontrar ninguno."""
+    otro = ActivoService.crear_activo(
+        actor=admin,
+        tipo=activo.tipo,
+        nombre="Equipo con serie rara",
+        marca="HP",
+        modelo="ProBook",
+        numero_serie="SN'RARA'01",
+        departamento=activo.departamento,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+
+    respuesta = cliente.get("/api/v1/activos/?q=SN'RARA'01")
+
+    assert respuesta.data["count"] == 1
+    assert respuesta.data["results"][0]["id"] == otro.id
+    assert "advertencia_lector" not in respuesta.data
+
+
+def test_no_avisa_de_una_pistola_que_no_se_uso(cliente, activo):
+    """Que un texto se pueda reparar no significa que haga falta repararlo.
+
+    `SN'RARA'01` tiene la forma de un código nuestro una vez sustituidos los
+    apóstrofes, pero si nadie escaneó nada, mandar a reconfigurar la pistola es
+    ruido — y del que se aprende a ignorar.
+    """
+    respuesta = cliente.get("/api/v1/activos/?q=CUALQUIERA'COSA'01")
+
+    assert "advertencia_lector" not in respuesta.data

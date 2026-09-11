@@ -40,3 +40,27 @@ Feature: Consulta por lectura de código de barras (RF-03)
     Then se puede ver su ficha, pero no registrar un mantenimiento
     # El backend rechaza la intervención, y el estado está junto al nombre para
     # que se vea por qué no se ofrece.
+
+  @AC-ESC-020
+  Scenario: La etiqueta mal leída se encuentra también desde el inventario
+    Given una pistola configurada con otra distribución de teclado
+    When se escanea una etiqueta en el buscador del inventario
+    Then aparece el equipo, y se avisa de que hay que reconfigurar el lector
+    # La reparación existía, pero solo en la lectura por código. En el
+    # inventario la etiqueta no encontraba nada y la pantalla decía «ningún
+    # equipo coincide», que manda a revisar la etiqueta —que está bien—.
+
+  @AC-ESC-021
+  Scenario: Y desde el «Activo intervenido» del mantenimiento
+    Given una pistola configurada con otra distribución de teclado
+    When se escanea una etiqueta en el campo del equipo intervenido
+    Then queda elegido el equipo, y se avisa de que hay que reconfigurar el lector
+
+  @AC-ESC-022
+  Scenario: No se avisa de una pistola que nadie usó
+    When se busca un texto que se podría reparar pero no corresponde a ninguna etiqueta
+    Then no se dice nada del lector
+    # Que un texto se pueda reparar no significa que haga falta: una serie
+    # escrita «SN'RARA'01» tiene la forma de un código nuestro una vez
+    # sustituidos los apóstrofes, y avisar ahí es ruido del que se aprende a
+    # ignorar.

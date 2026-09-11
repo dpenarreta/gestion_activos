@@ -97,7 +97,14 @@ sustituyendo esos caracteres por el guion —solo cuando el resultado tiene la
 forma exacta de un código del sistema, para no tocar números de serie donde un
 apóstrofe puede ser legítimo— y **avisa en pantalla**. El aviso no sobra:
 arreglarlo en silencio dejaría la pistola mal configurada, y el mismo problema
-reaparecería en la carga masiva y en el buscador, donde no hay quien lo repare.
+reaparecería en la carga masiva, donde no hay quien lo repare.
+
+Vale en las tres pantallas donde se dispara la pistola: la consulta por
+escáner, el buscador del inventario y el «Activo intervenido» del formulario de
+mantenimiento. Durante un tiempo solo valió en la primera, y las otras dos
+contestaban «ningún equipo coincide» —que manda a revisar la etiqueta, que está
+bien—. El aviso solo sale cuando la reparación es **lo que encontró el
+equipo**: que un texto se pueda reparar no significa que haga falta.
 
 ### Los dos ajustes básicos
 

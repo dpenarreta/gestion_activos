@@ -374,6 +374,16 @@ export function ActivosList() {
         </button>
       </form>
 
+      {/* El backend repara el código que llega con la distribución de teclado
+          cambiada —el guion como apóstrofe— y lo dice: arreglarlo en silencio
+          dejaría la pistola mal configurada, y el mismo problema reaparecería
+          en la carga masiva, donde no hay nadie que lo repare. */}
+      {listado.respuesta?.advertencia_lector && (
+        <div className="alert alert-info">
+          <strong>Revise la configuración del lector.</strong>{" "}
+          {listado.respuesta.advertencia_lector.mensaje}
+        </div>
+      )}
       {listado.error && (
         <div className="alert alert-danger">{listado.error}</div>
       )}

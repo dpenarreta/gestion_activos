@@ -406,3 +406,41 @@ describe("Las acciones dependen del permiso", () => {
     expect(screen.getByRole("button", { name: /Exportar/ })).toBeEnabled();
   });
 });
+
+// --- La pistola mal configurada ---------------------------------------------
+
+describe("Cuando el lector envía otra distribución de teclado", () => {
+  it("avisa de que hay que reconfigurar la pistola", async () => {
+    /* El backend repara el código y encuentra el equipo, pero lo dice:
+       callarlo dejaría la pistola mal configurada, y el mismo problema
+       reaparecería en la carga masiva, donde no hay nadie que lo repare. */
+    listarActivos.mockResolvedValue({
+      results: ACTIVOS,
+      count: 2,
+      next: null,
+      previous: null,
+      advertencia_lector: {
+        codigo: "distribucion_de_teclado",
+        recibido: "GA'LAP'000007",
+        interpretado: "GA-LAP-000007",
+        mensaje:
+          "El lector envió «GA'LAP'000007» y se interpretó como «GA-LAP-000007».",
+      },
+    });
+
+    pintar();
+
+    expect(
+      await screen.findByText(/Revise la configuración del lector/),
+    ).toBeInTheDocument();
+  });
+
+  it("un listado normal no dice nada del lector", async () => {
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(
+      screen.queryByText(/Revise la configuración del lector/),
+    ).not.toBeInTheDocument();
+  });
+});

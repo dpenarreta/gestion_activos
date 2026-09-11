@@ -254,3 +254,69 @@ describe("Cuando ya hay un equipo elegido", () => {
     ).toBeInTheDocument();
   });
 });
+
+// --- La pistola mal configurada ---------------------------------------------
+
+describe("Cuando el lector envía otra distribución de teclado", () => {
+  /* La pistola no manda texto: simula teclas, y quien las traduce es el
+     sistema operativo. La tecla que en un teclado US da «-» está en el español
+     en la del «'», así que llega `GA'LAP'000006`. El backend lo repara y lo
+     dice; aquí se comprueba que se dice. */
+  const AVISO = {
+    codigo: "distribucion_de_teclado",
+    recibido: "GA'LAP'000007",
+    interpretado: "GA-LAP-000007",
+    mensaje:
+      "El lector envió «GA'LAP'000007» y se interpretó como «GA-LAP-000007».",
+  };
+
+  it("el equipo aparece igual: el código se repara en el servidor", async () => {
+    listar.mockResolvedValue({ results: [LAPTOP], advertencia_lector: AVISO });
+
+    pintar();
+    teclear("GA'LAP'000007");
+
+    expect(await screen.findByText("Laptop Jefatura TI")).toBeInTheDocument();
+  });
+
+  it("y se avisa, en vez de arreglarlo en silencio", async () => {
+    /* Callarlo dejaría la pistola mal configurada, y el mismo problema
+       reaparecería en la carga masiva, donde no hay nadie que lo repare. */
+    listar.mockResolvedValue({ results: [LAPTOP], advertencia_lector: AVISO });
+
+    pintar();
+    teclear("GA'LAP'000007");
+
+    expect(
+      await screen.findByText(/Revise la configuración del lector/),
+    ).toBeInTheDocument();
+  });
+
+  it("una búsqueda normal no dice nada del lector", async () => {
+    pintar();
+    teclear("laptop");
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(
+      screen.queryByText(/Revise la configuración del lector/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("el aviso también se ve con el equipo ya elegido", async () => {
+    /* Con la etiqueta bien leída la pistola acierta de una y el campo se
+       cierra sobre el equipo: si el aviso viviera solo bajo la lista de
+       coincidencias, no se vería nunca en el caso que importa. */
+    listar.mockResolvedValue({ results: [LAPTOP], advertencia_lector: AVISO });
+
+    pintar();
+    teclear("GA'LAP'000007");
+    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+      key: "Enter",
+    });
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(
+      screen.getByText(/Revise la configuración del lector/),
+    ).toBeInTheDocument();
+  });
+});
