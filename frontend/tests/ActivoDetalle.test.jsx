@@ -58,7 +58,15 @@ const ACTIVO = {
   fecha_ingreso: "2025-07-15",
   antiguedad_meses: 14,
   costo_adquisicion: "1180.00",
-  proveedor: "Tecnomega C.A.",
+  // Como los devuelve la API: `proveedor` es el identificador y el nombre
+  // viaja aparte. La ficha se lee, así que enseña el nombre.
+  proveedor: 5,
+  proveedor_nombre: "Tecnomega C.A.",
+  propiedad: "propia",
+  propiedad_display: "De la empresa",
+  es_de_la_empresa: true,
+  concesionario: null,
+  concesionario_nombre: null,
   estado_garantia: "vigente",
   estado_garantia_display: "En garantía",
   fecha_fin_garantia: "2027-07-01",
@@ -422,5 +430,58 @@ describe("La condición al adquirirlo", () => {
 
     await screen.findByText("Laptop Jefatura TI");
     expect(valorDe("Condición al adquirirlo")).toBe("Sin especificar");
+  });
+});
+
+// --- De quién es el equipo --------------------------------------------------
+
+describe("Propiedad del equipo", () => {
+  it("lo normal es que sea de la empresa y no se pregunta por el dueño", async () => {
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Propiedad")).toBe("De la empresa");
+    expect(
+      screen.queryByText("Concesionario", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("en concesión dice de qué partner es", async () => {
+    /* Sin el dueño, «en concesión» no responde ni a qué hay que devolver ni a
+       quién, que es para lo único que sirve la distinción. */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        propiedad: "concesion",
+        propiedad_display: "En concesión",
+        es_de_la_empresa: false,
+        concesionario: 6,
+        concesionario_nombre: "Servientrega Andina",
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Propiedad")).toBe("En concesión");
+    expect(valorDe("Concesionario")).toBe("Servientrega Andina");
+  });
+
+  it("el proveedor sigue siendo otra cosa: a ese se le compró", async () => {
+    /* Un equipo en concesión puede llevar las dos respuestas: el partner lo
+       compró en tal sitio, y sigue siendo suyo. */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        propiedad: "concesion",
+        propiedad_display: "En concesión",
+        es_de_la_empresa: false,
+        concesionario_nombre: "Servientrega Andina",
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Proveedor")).toBe("Tecnomega C.A.");
+    expect(valorDe("Concesionario")).toBe("Servientrega Andina");
   });
 });

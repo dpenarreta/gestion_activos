@@ -216,6 +216,36 @@ describe("Los filtros", () => {
     await waitFor(() => expect(ultimaConsulta()).toMatchObject({ tipo: "2" }));
   });
 
+  it("se filtra por de quién es el equipo", async () => {
+    /* «Qué es nuestro» y «qué hay que devolverle al partner» son las dos
+       preguntas que se hacen al cerrar una concesión o al valorar el parque. */
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    fireEvent.change(screen.getByLabelText("Filtrar por propiedad"), {
+      target: { value: "concesion" },
+    });
+
+    await waitFor(() =>
+      expect(ultimaConsulta()).toMatchObject({ propiedad: "concesion" }),
+    );
+  });
+
+  it("volver a «toda» suelta también al partner elegido", async () => {
+    /* El partner solo acota dentro de lo suyo: dejarlo puesto daría una lista
+       siempre vacía y sin nada visible que lo explicara. */
+    pintar("/admin/activos?propiedad=concesion&concesionario=5");
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(ultimaConsulta()).toMatchObject({ concesionario: "5" });
+
+    fireEvent.change(screen.getByLabelText("Filtrar por propiedad"), {
+      target: { value: "" },
+    });
+
+    await waitFor(() => expect(ultimaConsulta().concesionario).toBeUndefined());
+  });
+
   it("la antigüedad se pide por tramos y viaja como dos límites en meses", async () => {
     /* El usuario pregunta «cuáles son viejos», no «cuáles tienen entre 36 y 60
        meses»; el tramo se traduce aquí. */

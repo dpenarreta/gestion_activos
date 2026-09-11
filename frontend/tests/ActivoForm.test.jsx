@@ -23,6 +23,7 @@ const listarDepartamentos = vi.fn();
 const listarEmpleados = vi.fn();
 const listarSedes = vi.fn();
 const listarProveedores = vi.fn();
+const listarConcesionarios = vi.fn();
 
 vi.mock("../src/api/activosService", () => ({
   activosService: {
@@ -41,6 +42,7 @@ vi.mock("../src/api/organizacionService", () => ({
   empleadosService: { list: (...args) => listarEmpleados(...args) },
   sedesService: { list: (...args) => listarSedes(...args) },
   proveedoresService: { list: (...args) => listarProveedores(...args) },
+  concesionariosService: { list: (...args) => listarConcesionarios(...args) },
 }));
 
 const { ActivoForm } = await import("../src/pages/Admin/Activos/ActivoForm");
@@ -132,6 +134,9 @@ beforeEach(() => {
   });
   listarProveedores.mockResolvedValue({
     results: [{ id: 5, nombre: "Tecnomega C.A." }],
+  });
+  listarConcesionarios.mockResolvedValue({
+    results: [{ id: 6, nombre: "Servientrega Andina" }],
   });
   crear.mockResolvedValue({ id: 42 });
   actualizar.mockResolvedValue({ id: 7 });
@@ -477,6 +482,109 @@ describe("La condición al adquirirlo", () => {
       expect(screen.getByLabelText("Condición al adquirirlo")).toHaveValue(
         "usado",
       ),
+    );
+  });
+});
+
+// --- De quién es el equipo --------------------------------------------------
+
+describe("Propio o puesto por un partner", () => {
+  it("por delante viene «de la empresa», que es lo normal", async () => {
+    /* Obligar a decirlo en cada alta no capturaría nada que no se supiera ya:
+       la inmensa mayoría del parque se compró. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(screen.getByLabelText("De quién es el equipo")).toHaveValue(
+      "propia",
+    );
+  });
+
+  it("no se pregunta por el partner mientras el equipo sea propio", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(screen.queryByLabelText("Concesionario")).not.toBeInTheDocument();
+  });
+
+  it("al marcarlo en concesión se pide de quién es", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
+      target: { value: "concesion" },
+    });
+
+    expect(
+      await screen.findByRole("option", { name: "Servientrega Andina" }),
+    ).toBeInTheDocument();
+  });
+
+  it("el partner elegido viaja al guardar", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
+      target: { value: "concesion" },
+    });
+    fireEvent.change(await screen.findByLabelText("Concesionario"), {
+      target: { value: "6" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0]).toMatchObject({
+      propiedad: "concesion",
+      concesionario: "6",
+    });
+  });
+
+  it("al volverlo propio, el partner deja de viajar", async () => {
+    /* Dejarlo puesto haría que el equipo se siguiera contando como ajeno en
+       cada reporte, aunque la empresa lo haya terminado comprando. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
+      target: { value: "concesion" },
+    });
+    fireEvent.change(await screen.findByLabelText("Concesionario"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
+      target: { value: "propia" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].concesionario).toBeNull();
+  });
+
+  it("solo ofrece partners vigentes", async () => {
+    /* Uno dado de baja ya no opera con nosotros: registrarle un equipo nuevo
+       no significa nada. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(listarConcesionarios).toHaveBeenCalledWith(
+      expect.objectContaining({ activo: "true" }),
+    );
+  });
+
+  it("al editar llega puesto lo que el equipo ya tenía", async () => {
+    obtener.mockResolvedValue({
+      ...ACTIVO,
+      propiedad: "concesion",
+      concesionario: 6,
+    });
+
+    pintar(7);
+
+    await screen.findByText("Editar ficha técnica");
+    await waitFor(() =>
+      expect(screen.getByLabelText("Concesionario")).toHaveValue("6"),
     );
   });
 });

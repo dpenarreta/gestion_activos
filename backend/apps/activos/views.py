@@ -175,7 +175,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Activo.objects.select_related(
-            "tipo", "custodio", "departamento", "sede", "proveedor"
+            "tipo", "custodio", "departamento", "sede", "proveedor", "concesionario"
         ).order_by("-created_at")
 
         if self.action == "retrieve":
@@ -212,6 +212,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
         # Por nombre además de por id: «todo lo que hay en la matriz» es la
         # pregunta de quien va a hacer el inventario físico de un edificio, y
         # la escribe, no la elige de una lista.
+        concesionario = params.get("concesionario")
+        if concesionario and concesionario.isdigit():
+            queryset = queryset.filter(concesionario_id=int(concesionario))
+
         nombre_de_sede = params.get("sede_nombre")
         if nombre_de_sede:
             queryset = queryset.filter(sede__nombre__iexact=nombre_de_sede.strip())
@@ -232,6 +236,11 @@ class ActivoViewSet(viewsets.ModelViewSet):
         for parametro, validos in (
             ("criticidad", {c.value for c in Activo.Criticidad}),
             ("uso", {u.value for u in Activo.Uso}),
+            # «Qué equipos son nuestros» y «qué hay que devolverle al partner»
+            # son las dos preguntas que se hacen al cerrar una concesión o al
+            # valorar el parque, y ninguna se podía responder desde el listado.
+            ("propiedad", {p.value for p in Activo.Propiedad}),
+            ("condicion", {c.value for c in Activo.Condicion}),
         ):
             valor = params.get(parametro)
             if valor in validos:

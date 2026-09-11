@@ -134,6 +134,22 @@ class Activo(ModeloDeEmpresa):
         ALTA = "alta", "Alta"
         CRITICA = "critica", "Crítica"
 
+    class Propiedad(models.TextChoices):
+        """De quién es el equipo, que no es lo mismo que a quién se le compró.
+
+        `proveedor` responde «a quién le compramos esto»; esto responde «de
+        quién es». Un equipo en concesión lo pone un partner para operar con
+        nosotros: la compra corre por su cuenta y el mantenimiento por la
+        nuestra, así que sus reparaciones sí son gasto propio y su valor en
+        libros no es de la empresa.
+
+        Por defecto, propio: es lo que ocurre con casi todo el parque, y la
+        concesión es la excepción que alguien conoce y declara.
+        """
+
+        PROPIA = "propia", "De la empresa"
+        CONCESION = "concesion", "En concesión"
+
     class Condicion(models.TextChoices):
         """Cómo llegó el equipo a la empresa: comprado nuevo o de segunda mano.
 
@@ -249,6 +265,24 @@ class Activo(ModeloDeEmpresa):
             "ya nadie recuerda, y dar «nuevo» por supuesto sería inventarla."
         ),
     )
+    propiedad = models.CharField(
+        max_length=10,
+        choices=Propiedad.choices,
+        default=Propiedad.PROPIA,
+        db_index=True,
+        help_text="Si el equipo es de la empresa o lo pone un partner en concesión.",
+    )
+    concesionario = models.ForeignKey(
+        "organizacion.Concesionario",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activos",
+        help_text=(
+            "De quién es el equipo cuando está en concesión. Distinto del proveedor: "
+            "ese dice a quién se le compró."
+        ),
+    )
     proveedor = models.ForeignKey(
         "organizacion.Proveedor",
         on_delete=models.PROTECT,
@@ -307,6 +341,17 @@ class Activo(ModeloDeEmpresa):
 
     def __str__(self) -> str:
         return f"{self.codigo_barras} - {self.nombre}"
+
+    @property
+    def es_de_la_empresa(self) -> bool:
+        """Si el equipo pertenece a la empresa.
+
+        Lo consultan la depreciación y el valor del parque: un equipo en
+        concesión se mantiene con dinero propio pero no se compró con él, así
+        que contarlo como patrimonio abultaría el balance con algo que es de
+        otro.
+        """
+        return self.propiedad == self.Propiedad.PROPIA
 
     @property
     def esta_operativo(self) -> bool:

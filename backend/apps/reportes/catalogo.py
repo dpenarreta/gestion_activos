@@ -135,6 +135,11 @@ COLUMNAS_ACTIVO_CONTEXTO = (
     Columna("uso", "Uso", lambda a: a.get_uso_display(), 18),
 )
 
+
+def _concesionario(activo) -> str:
+    return activo.concesionario.nombre if activo.concesionario_id else ""
+
+
 COLUMNAS_ACTIVO_ECONOMICO = (
     Columna("fecha_adquisicion", "Adquirido", lambda a: a.fecha_adquisicion, 14),
     Columna("fecha_ingreso", "Ingreso", lambda a: a.fecha_ingreso, 14),
@@ -145,6 +150,11 @@ COLUMNAS_ACTIVO_ECONOMICO = (
     # nadie comprobó.
     Columna("condicion", "Condición", lambda a: a.get_condicion_display(), 12),
     Columna("proveedor", "Proveedor", lambda a: a.proveedor.nombre if a.proveedor_id else "", 20),
+    # A quién se le compró y de quién es son dos preguntas distintas, y en un
+    # equipo en concesión tienen respuestas distintas: la compra fue del
+    # partner, así que la columna de proveedor va vacía y esta dice de quién es.
+    Columna("propiedad", "Propiedad", lambda a: a.get_propiedad_display(), 16),
+    Columna("concesionario", "Concesionario", _concesionario, 22),
 )
 
 
@@ -473,6 +483,11 @@ CATALOGO = (
         + (
             Columna("departamento", "Área", lambda a: a.departamento.nombre, 20),
             Columna("custodio", "Custodio", _custodio, 26),
+            # Un equipo en concesión no deprecia aquí —lo compró el partner—,
+            # y sin estas dos columnas su fila vacía parecería un dato que
+            # falta en vez de la respuesta que es.
+            Columna("propiedad", "Propiedad", lambda a: a.get_propiedad_display(), 16),
+            Columna("concesionario", "Concesionario", _concesionario, 22),
             Columna("en_servicio", "En servicio desde", _dep("desde"), 16),
             Columna("costo", "Costo", lambda a: a.costo_adquisicion, 14),
             Columna("vida_contable", "Vida contable (meses)", _dep("meses_vida_contable"), 18),

@@ -7,9 +7,10 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import Departamento, Empleado, Proveedor, Sede
+from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
 from .permissions import OrganizacionPermission
 from .serializers import (
+    ConcesionarioSerializer,
     DepartamentoSerializer,
     EmpleadoSerializer,
     ProveedorSerializer,
@@ -192,6 +193,63 @@ class ProveedorViewSet(_CatalogoOrganizacionalViewSet):
                             "message": (
                                 f"No se puede desactivar «{instancia.nombre}»: {pendientes} "
                                 "activo(s) en uso se le compraron. Cámbieles el proveedor "
+                                "primero."
+                            ),
+                        }
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return super().update(request, *args, **kwargs)
+
+
+class ConcesionarioViewSet(_CatalogoOrganizacionalViewSet):
+    """De quién son los equipos que no compramos nosotros.
+
+    Sin `DELETE`, como el resto: los activos en concesión apuntan aquí con
+    `PROTECT` y un partner con el que se dejó de operar sigue siendo el dueño
+    de los equipos que hay que devolverle. Se desactiva.
+    """
+
+    serializer_class = ConcesionarioSerializer
+    accion_auditoria = "concesionario"
+
+    def get_queryset(self):
+        queryset = Concesionario.objects.annotate(
+            total_activos=Count("activos", distinct=True),
+        ).order_by("nombre")
+        params = self.request.query_params
+        busqueda = params.get("q")
+        if busqueda:
+            queryset = queryset.filter(
+                Q(nombre__icontains=busqueda)
+                | Q(identificacion__icontains=busqueda)
+                | Q(contacto__icontains=busqueda)
+            )
+        estado = params.get("activo")
+        if estado in {"true", "false"}:
+            queryset = queryset.filter(activo=estado == "true")
+        return queryset
+
+    def update(self, request, *args, **kwargs):
+        """Impide desactivar a un partner que todavía tiene equipos aquí.
+
+        Desactivarlo dejaría esos activos apuntando a alguien que el formulario
+        ya no ofrece: no se podría corregir de quién son ni registrar otro
+        equipo suyo, y es a quien hay que devolvérselos cuando termine la
+        concesión.
+        """
+        instancia = self.get_object()
+        pide_desactivar = request.data.get("activo") in {False, "false"}
+        if pide_desactivar and instancia.activo:
+            pendientes = instancia.activos.operativos().count()
+            if pendientes:
+                return Response(
+                    {
+                        "error": {
+                            "code": "concesionario_con_activos",
+                            "message": (
+                                f"No se puede desactivar «{instancia.nombre}»: {pendientes} "
+                                "equipo(s) en uso son suyos. Cámbieles el concesionario "
                                 "primero."
                             ),
                         }

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Departamento, Empleado, Proveedor, Sede
+from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
 
 
 class DepartamentoSerializer(serializers.ModelSerializer):
@@ -138,6 +138,53 @@ class ProveedorSerializer(serializers.ModelSerializer):
         choque = existente.first()
         if choque:
             raise serializers.ValidationError(f"Ya existe un proveedor llamado «{choque.nombre}».")
+        return nombre
+
+
+class ConcesionarioSerializer(serializers.ModelSerializer):
+    """El partner dueño de los equipos en concesión.
+
+    Los mismos campos que el proveedor y a propósito: la pregunta de contacto
+    es la misma —a quién se llama cuando algo falló—. Lo que cambia es qué
+    responde cada catálogo, y por eso son dos. Ver `Concesionario`.
+    """
+
+    total_activos = serializers.IntegerField(read_only=True)
+
+    # Sin el validador automático de unicidad, por lo mismo que en proveedores.
+    nombre = serializers.CharField(max_length=150, validators=[])
+
+    class Meta:
+        model = Concesionario
+        fields = [
+            "id",
+            "nombre",
+            "identificacion",
+            "contacto",
+            "telefono",
+            "correo",
+            "observaciones",
+            "activo",
+            "total_activos",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_nombre(self, value):
+        """Rechaza el duplicado sin distinguir mayúsculas y diciendo con cuál
+        choca: dos fichas del mismo partner repartirían sus equipos entre las
+        dos, y entonces «qué equipos son de este partner» ya no tiene una sola
+        respuesta —que es la única razón por la que existe este catálogo—."""
+        nombre = (value or "").strip()
+        existente = Concesionario.objects.filter(nombre__iexact=nombre)
+        if self.instance is not None:
+            existente = existente.exclude(pk=self.instance.pk)
+        choque = existente.first()
+        if choque:
+            raise serializers.ValidationError(
+                f"Ya existe un concesionario llamado «{choque.nombre}»."
+            )
         return nombre
 
 

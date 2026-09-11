@@ -32,6 +32,8 @@ import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
 import { MisEquiposPage } from "../pages/Admin/MisEquipos/MisEquiposPage";
 import { InicioDelPanel } from "./InicioDelPanel";
+import { ConcesionarioForm } from "../pages/Admin/Organizacion/ConcesionarioForm";
+import { ConcesionariosList } from "../pages/Admin/Organizacion/ConcesionariosList";
 import { ProveedorForm } from "../pages/Admin/Organizacion/ProveedorForm";
 import { ProveedoresList } from "../pages/Admin/Organizacion/ProveedoresList";
 import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
@@ -410,6 +412,30 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ORGANIZACION_VER}>
               <ProveedorForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/concesionarios"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ConcesionariosList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/concesionarios/new"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ConcesionarioForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizacion/concesionarios/:id"
+          element={
+            <RequirePermission permission={ORGANIZACION_VER}>
+              <ConcesionarioForm />
             </RequirePermission>
           }
         />

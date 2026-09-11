@@ -90,3 +90,36 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     Then cambia su estado y conserva su condición
     # El nombre se parece, pero `estado` cambia cada vez que el equipo se
     # mueve y la condición es de la compra: ya no cambia.
+
+  @AC-ACT-033
+  Scenario: Se distingue lo que compró la empresa de lo que pone un partner
+    Given un concesionario registrado en el catálogo
+    When se da de alta un equipo marcándolo en concesión y eligiendo a ese partner
+    Then la ficha dice «En concesión» y de quién es
+    # No es lo mismo que tener proveedor: al proveedor se le compró el equipo,
+    # y entonces el equipo sí es de la empresa. El concesionario es su dueño;
+    # lo pone para operar con nosotros, la compra corre por su cuenta y el
+    # mantenimiento por la nuestra.
+
+  @AC-ACT-034
+  Scenario: «En concesión» sin decir de quién no se acepta
+    When se marca un equipo en concesión sin elegir al partner
+    Then el alta es rechazada pidiendo de qué partner es
+    # Sin el dueño, «en concesión» no responde ni a qué hay que devolver ni a
+    # quién, que es para lo único que sirve la distinción.
+
+  @AC-ACT-035
+  Scenario: Un equipo en concesión no deprecia contra el patrimonio propio
+    Given un equipo en concesión con costo y política de depreciación
+    When se consulta su valor en libros
+    Then no se calcula ninguno, porque la compra fue del partner
+    # Contarlo abultaría el valor del parque con algo que es de otro. Sus
+    # reparaciones sí son gasto propio y se siguen contando donde toca.
+
+  @AC-ACT-036
+  Scenario: El inventario responde qué hay que devolverle a cada partner
+    Given equipos propios y equipos de un concesionario
+    When se filtra el inventario por propiedad «en concesión»
+    Then solo aparecen los del partner
+    # Es la pregunta que se hace al cerrar una concesión, y también la que
+    # separa lo que sí es patrimonio de la empresa.

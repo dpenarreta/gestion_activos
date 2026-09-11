@@ -34,6 +34,8 @@ CAMPOS_DISPONIBLES = {
     "fecha_ingreso": "Fecha de ingreso",
     "costo_adquisicion": "Costo de compra",
     "condicion": "Condición (nuevo/usado)",
+    "propiedad": "Propiedad (de la empresa / en concesión)",
+    "concesionario": "Concesionario",
     "proveedor": "Proveedor",
     "fecha_fin_garantia": "Fin de garantía",
     "especificaciones": "Especificaciones",

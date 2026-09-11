@@ -69,7 +69,7 @@ Base: `/api/v1/activos/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
 | POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02) |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
@@ -171,7 +171,8 @@ Base: `/api/v1/catalogos/`
 | GET | `/catalogos/{clave}/plantilla/` | el del catálogo | .xlsx del catálogo, **con lo que ya existe dentro** |
 | POST | `/catalogos/{clave}/importar/` | el del catálogo | Multipart con `archivo` y `confirmar`, como la carga de activos: sin confirmar solo valida |
 
-Claves: `sedes`, `departamentos`, `proveedores`, `tipos`, `empleados`.
+Claves: `sedes`, `departamentos`, `proveedores`, `concesionarios`, `tipos`,
+`empleados`.
 
 **Un archivo por catálogo.** La plantilla de activos llegó a traer ocho hojas
 en un solo libro, cinco de ellas solo de consulta, y ninguno de esos catálogos
@@ -234,6 +235,7 @@ Base: `/api/v1/organizacion/`
 | GET/POST/PATCH | `/organizacion/sedes/` | `organizacion.ver` / `organizacion.editar` | Edificios, locales o ciudades. Filtros: `q`, `activa` |
 | GET/POST/PATCH | `/organizacion/empleados/` | `organizacion.ver` / `organizacion.editar` | Custodios. Filtros: `q`, `departamento`, `activo` |
 | GET/POST/PATCH | `/organizacion/proveedores/` | `organizacion.ver` / `organizacion.editar` | A quién se le compra. Filtros: `q`, `activo` |
+| GET/POST/PATCH | `/organizacion/concesionarios/` | `organizacion.ver` / `organizacion.editar` | De quién son los equipos que no compramos. Filtros: `q`, `activo` |
 
 El **proveedor** es un catálogo y no un texto dentro de cada activo, por lo
 mismo que la sede: «Tecnomega», «TECNOMEGA» y «Tecno Mega» son la misma empresa
@@ -242,6 +244,19 @@ compró— y cada línea de repuesto de un mantenimiento: el proveedor del equip
 no tiene por qué ser el de la pieza, y sin ese dato una pieza que falla a los
 dos meses deja el costo registrado y ninguna forma de saber a quién reclamarle.
 Darlo de baja con equipos en uso devuelve `400` (`proveedor_con_activos`).
+
+El **concesionario** es un catálogo aparte, y la diferencia con el proveedor no
+es de matiz: al proveedor se le compró el equipo, y entonces el equipo es de la
+empresa; el concesionario es su dueño —lo pone para operar con nosotros, la
+compra corre por su cuenta y el mantenimiento por la nuestra—. Son dos
+preguntas distintas («a quién le compramos» y «de quién es esto») y un equipo
+en concesión puede llevar las dos respuestas. El activo lo apunta en
+`propiedad` (`propia` por defecto) y `concesionario`: marcarlo en concesión sin
+dueño devuelve `400`, y volverlo propio limpia el dueño. Un equipo en concesión
+**no deprecia**: contarlo abultaría el valor del parque con algo que es de
+otro, aunque sus reparaciones sí son gasto propio y se siguen contando. Dar de
+baja al partner con equipos suyos en uso devuelve `400`
+(`concesionario_con_activos`).
 
 El **código del empleado** se genera con el código de su área delante y el
 número que ocupa dentro de ella: `TI-0001`, `CONT-0002`. Antes era un

@@ -538,3 +538,93 @@ def test_el_aviso_senala_la_fila_del_archivo_y_no_el_activo_de_la_base(
 
     assert "Ya hay un activo llamado" in avisos[0]["mensaje"]
     assert "fila 2 de este mismo archivo" in avisos[1]["mensaje"]
+
+
+# --- De quién es el equipo, en la carga masiva ------------------------------
+
+
+@pytest.fixture
+def columnas_de_concesion(db, columnas):
+    """La plantilla con las dos columnas de propiedad habilitadas.
+
+    Vienen desactivadas, como el proveedor y la garantía: la inmensa mayoría
+    del parque es de la empresa, y añadir dos columnas que casi todos dejarían
+    vacías hace la plantilla más difícil de completar, no más completa.
+    """
+    from apps.activos.models_plantilla import ColumnaPlantillaActivos
+
+    ultimo = ColumnaPlantillaActivos.objects.order_by("-orden").first()
+    orden = (ultimo.orden if ultimo else 0) + 10
+    for indice, (clave, etiqueta) in enumerate(
+        (("propiedad", "Propiedad"), ("concesionario", "Concesionario"))
+    ):
+        ColumnaPlantillaActivos.objects.update_or_create(
+            clave=clave,
+            defaults={"etiqueta": etiqueta, "activa": True, "orden": orden + indice},
+        )
+    return columnas_configuradas()
+
+
+@pytest.fixture
+def partner(db):
+    from apps.organizacion.models import Concesionario
+
+    return Concesionario.objects.create(nombre="Servientrega Andina")
+
+
+def test_nombrar_al_dueno_basta_para_que_el_equipo_sea_suyo(
+    cliente, catalogos, columnas_de_concesion, partner
+):
+    """Pedir además la otra columna sería hacer escribir dos veces lo mismo."""
+    archivo = _archivo(columnas_de_concesion, [_fila(concesionario="Servientrega Andina")])
+
+    respuesta = _importar(cliente, archivo, confirmar=True)
+
+    assert respuesta.status_code == 201
+    activo = Activo.objects.get(numero_serie="SN-IMP-1")
+    assert activo.es_de_la_empresa is False
+    assert activo.concesionario == partner
+
+
+def test_un_partner_que_no_esta_en_el_catalogo_se_rechaza(
+    cliente, catalogos, columnas_de_concesion
+):
+    """Aceptarlo a ciegas devolvería el texto libre que el catálogo elimina."""
+    archivo = _archivo(columnas_de_concesion, [_fila(concesionario="Quien sea")])
+
+    errores = _importar(cliente, archivo).json()["errores"]
+
+    assert "No existe un concesionario activo" in errores[0]["mensaje"]
+
+
+def test_en_concesion_sin_dueno_se_rechaza(cliente, catalogos, columnas_de_concesion):
+    archivo = _archivo(columnas_de_concesion, [_fila(propiedad="En concesión")])
+
+    errores = _importar(cliente, archivo).json()["errores"]
+
+    assert "Diga de qué partner" in errores[0]["mensaje"]
+
+
+def test_decir_las_dos_cosas_a_la_vez_se_señala_en_vez_de_resolverlo_solo(
+    cliente, catalogos, columnas_de_concesion, partner
+):
+    """Aquí no se limpia en silencio, al contrario que en el formulario: las
+    dos columnas están a la vista y llenas a mano, así que lo que hay es una
+    contradicción, no un resto de un campo que se ocultó."""
+    archivo = _archivo(
+        columnas_de_concesion,
+        [_fila(propiedad="De la empresa", concesionario="Servientrega Andina")],
+    )
+
+    errores = _importar(cliente, archivo).json()["errores"]
+
+    assert "Deje una de las dos columnas" in errores[0]["mensaje"]
+
+
+def test_sin_decir_nada_el_equipo_es_de_la_empresa(cliente, catalogos, columnas_de_concesion):
+    archivo = _archivo(columnas_de_concesion, [_fila()])
+
+    respuesta = _importar(cliente, archivo, confirmar=True)
+
+    assert respuesta.status_code == 201
+    assert Activo.objects.get(numero_serie="SN-IMP-1").es_de_la_empresa is True

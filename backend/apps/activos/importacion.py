@@ -25,7 +25,13 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 
 from apps.core.audit import record_audit_event
-from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
+from apps.organizacion.models import (
+    Concesionario,
+    Departamento,
+    Empleado,
+    Proveedor,
+    Sede,
+)
 
 from .models import Activo, TipoDispositivo
 from .services import ActivoService
@@ -258,6 +264,9 @@ def validar_archivo(archivo) -> ResultadoValidacion:
         departamentos[departamento.nombre.lower()] = departamento
     empleados = {e.codigo_empleado.lower(): e for e in Empleado.objects.filter(activo=True)}
     proveedores = {p.nombre.strip().lower(): p for p in Proveedor.objects.filter(activo=True)}
+    concesionarios = {
+        c.nombre.strip().lower(): c for c in Concesionario.objects.filter(activo=True)
+    }
     # La sede se acepta por su nombre o por su ciudad: quien llena la plantilla
     # escribe lo que tiene en la cabeza, y «Quito» y «Sede Quito Norte» son la
     # misma respuesta a la pregunta de dónde está el equipo. Si dos sedes
@@ -487,6 +496,7 @@ def validar_archivo(archivo) -> ResultadoValidacion:
             ("criticidad", Activo.Criticidad, "Criticidad"),
             ("uso", Activo.Uso, "Uso"),
             ("condicion", Activo.Condicion, "Condición"),
+            ("propiedad", Activo.Propiedad, "Propiedad"),
         ):
             texto = _texto(celda(clave_campo))
             if not texto:
@@ -549,6 +559,51 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                     )
                 )
         datos["proveedor"] = proveedor
+
+        # De quién es el equipo. La columna se puede dejar vacía y entonces es
+        # de la empresa: es lo que ocurre con la inmensa mayoría del parque, y
+        # obligar a escribirlo en cada fila haría la plantilla más pesada sin
+        # capturar nada que no se supiera ya.
+        texto_concesionario = _texto(celda("concesionario"))
+        concesionario = None
+        if texto_concesionario:
+            concesionario = concesionarios.get(texto_concesionario.lower())
+            if not concesionario:
+                errores_fila.append(
+                    ErrorFila(
+                        numero_fila,
+                        etiqueta_de.get("concesionario", "Concesionario"),
+                        f"No existe un concesionario activo llamado {texto_concesionario!r}. "
+                        "Créelo primero con la plantilla de «Concesionarios».",
+                    )
+                )
+        propiedad = datos.get("propiedad")
+        if concesionario and not propiedad:
+            # Nombrar al dueño ya dice que el equipo es suyo; pedir además la
+            # otra columna sería hacer escribir dos veces lo mismo.
+            propiedad = datos["propiedad"] = Activo.Propiedad.CONCESION
+        if propiedad == Activo.Propiedad.CONCESION and not concesionario:
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("concesionario", "Concesionario"),
+                    "Diga de qué partner es el equipo en concesión: sin el dueño, "
+                    "«en concesión» no responde a qué hay que devolver ni a quién.",
+                )
+            )
+        elif propiedad == Activo.Propiedad.PROPIA and concesionario:
+            # Aquí no se limpia en silencio, al contrario que en el formulario:
+            # las dos columnas están a la vista y llenas a mano, así que lo que
+            # hay es una contradicción, no un resto de un campo que se ocultó.
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("propiedad", "Propiedad"),
+                    f"Dice que el equipo es de la empresa y a la vez que es de "
+                    f"{texto_concesionario!r}. Deje una de las dos columnas.",
+                )
+            )
+        datos["concesionario"] = concesionario
 
         # La garantía es opcional: solo se valida el formato si viene algo. Un
         # equipo sin fecha es «sin garantía registrada», no un error.

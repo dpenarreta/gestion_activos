@@ -172,7 +172,19 @@ export function ActivoDetalle() {
                     )
                   }
                 />
-                <Dato etiqueta="Proveedor" valor={activo.proveedor} />
+                {/* El nombre, no el identificador: la ficha se lee, y «14»
+                    no dice a quién llamar. */}
+                <Dato etiqueta="Proveedor" valor={activo.proveedor_nombre} />
+                {/* A quién se le compró y de quién es son dos preguntas
+                    distintas, y en un equipo en concesión las respuestas son
+                    distintas: la compra fue del partner. */}
+                <Dato etiqueta="Propiedad" valor={activo.propiedad_display} />
+                {!activo.es_de_la_empresa && (
+                  <Dato
+                    etiqueta="Concesionario"
+                    valor={activo.concesionario_nombre}
+                  />
+                )}
                 <Dato
                   etiqueta="Garantía"
                   valor={

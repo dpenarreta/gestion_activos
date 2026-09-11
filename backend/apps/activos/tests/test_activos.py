@@ -558,3 +558,122 @@ def test_no_se_mezcla_con_el_estado_del_equipo(admin, datos_activo):
 
     assert activo.estado == Activo.Estado.DADO_DE_BAJA
     assert activo.condicion == "usado"
+
+
+# --- De quién es el equipo: propio o en concesión ----------------------------
+#
+# Un equipo en concesión lo compró el partner y lo pone para operar con
+# nosotros: el mantenimiento corre por nuestra cuenta, pero el equipo no es
+# nuestro. No es lo mismo que tener un proveedor —a ese se le compró, y
+# entonces el equipo sí es de la empresa—.
+
+
+@pytest.fixture
+def concesionario(db):
+    from apps.organizacion.models import Concesionario
+
+    return Concesionario.objects.create(nombre="Servientrega Andina")
+
+
+def test_un_equipo_se_registra_como_puesto_por_un_partner(
+    cliente, tipo_laptop, departamento, concesionario
+):
+    respuesta = _alta(
+        cliente,
+        tipo_laptop,
+        departamento,
+        serie=10,
+        propiedad="concesion",
+        concesionario=concesionario.id,
+    )
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["propiedad_display"] == "En concesión"
+    assert respuesta.data["concesionario_nombre"] == "Servientrega Andina"
+    assert respuesta.data["es_de_la_empresa"] is False
+
+
+def test_lo_normal_es_que_el_equipo_sea_de_la_empresa(cliente, tipo_laptop, departamento):
+    """La inmensa mayoría del parque se compró, así que es lo que viene puesto:
+    obligar a decirlo en cada alta no capturaría nada que no se supiera ya."""
+    respuesta = _alta(cliente, tipo_laptop, departamento, serie=11)
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["propiedad"] == "propia"
+    assert respuesta.data["es_de_la_empresa"] is True
+
+
+def test_en_concesion_sin_decir_de_quien_no_se_acepta(cliente, tipo_laptop, departamento):
+    """«En concesión» sin dueño no responde ni a qué hay que devolver ni a
+    quién, que es para lo único que sirve la distinción."""
+    respuesta = _alta(cliente, tipo_laptop, departamento, serie=12, propiedad="concesion")
+
+    assert respuesta.status_code == 400
+    assert "concesionario" in respuesta.data["error"]["details"]
+
+
+def test_al_volverlo_propio_deja_de_tener_dueno_externo(
+    cliente, tipo_laptop, departamento, concesionario
+):
+    """Si la empresa termina comprando el equipo, dejar el concesionario puesto
+    haría que siguiera contándose como ajeno en cada reporte."""
+    creado = _alta(
+        cliente,
+        tipo_laptop,
+        departamento,
+        serie=13,
+        propiedad="concesion",
+        concesionario=concesionario.id,
+    )
+
+    respuesta = cliente.patch(
+        f"/api/v1/activos/{creado.data['id']}/", {"propiedad": "propia"}, format="json"
+    )
+
+    assert respuesta.status_code == 200
+    assert Activo.objects.get(pk=creado.data["id"]).concesionario_id is None
+
+
+def test_el_proveedor_no_dice_de_quien_es_el_equipo(
+    cliente, tipo_laptop, departamento, concesionario
+):
+    """Son dos preguntas distintas y un equipo en concesión puede llevar las
+    dos respuestas: el partner lo compró en tal sitio, y sigue siendo suyo."""
+    from apps.organizacion.models import Proveedor
+
+    proveedor = Proveedor.objects.create(nombre="Tecnomega")
+    respuesta = _alta(
+        cliente,
+        tipo_laptop,
+        departamento,
+        serie=14,
+        proveedor=proveedor.id,
+        propiedad="concesion",
+        concesionario=concesionario.id,
+    )
+
+    assert respuesta.status_code == 201
+    activo = Activo.objects.get(pk=respuesta.data["id"])
+    assert activo.proveedor_id == proveedor.id
+    assert activo.concesionario_id == concesionario.id
+    assert activo.es_de_la_empresa is False
+
+
+def test_el_inventario_se_filtra_por_de_quien_es(cliente, tipo_laptop, departamento, concesionario):
+    """Qué equipos son nuestros y qué hay que devolverle al partner son las dos
+    preguntas que se hacen al cerrar una concesión o al valorar el parque."""
+    _alta(cliente, tipo_laptop, departamento, serie=15)
+    _alta(
+        cliente,
+        tipo_laptop,
+        departamento,
+        serie=16,
+        propiedad="concesion",
+        concesionario=concesionario.id,
+    )
+
+    respuesta = cliente.get("/api/v1/activos/?propiedad=concesion")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["count"] == 1
+    assert respuesta.data["results"][0]["numero_serie"] == "SN-COND-16"

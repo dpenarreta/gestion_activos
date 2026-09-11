@@ -481,3 +481,93 @@ def test_la_pieza_de_repuesto_registra_a_quien_se_le_compro(db, proveedor):
 
     assert linea.proveedor == proveedor
     assert proveedor.repuestos_vendidos.count() == 1
+
+
+# --- Catálogo de concesionarios ---------------------------------------------
+#
+# No es el mismo catálogo que el de proveedores y la diferencia no es de
+# matiz: al proveedor se le compró el equipo, y el concesionario es su dueño
+# —lo pone para operar con nosotros, la compra corre por su cuenta y el
+# mantenimiento por la nuestra—.
+
+
+@pytest.fixture
+def concesionario(db):
+    from apps.organizacion.models import Concesionario
+
+    return Concesionario.objects.create(
+        nombre="Servientrega Andina", identificacion="0992222333001"
+    )
+
+
+def _equipo_de(concesionario, serie):
+    from apps.activos.models import Activo, TipoDispositivo
+    from apps.organizacion.models import Departamento
+
+    tipo, _ = TipoDispositivo.objects.get_or_create(nombre="Escáner", codigo="ESC")
+    area, _ = Departamento.objects.get_or_create(nombre="Operaciones", codigo="OPE")
+    return Activo.objects.create(
+        tipo=tipo,
+        nombre="Escáner de andén",
+        marca="Zebra",
+        modelo="DS2208",
+        numero_serie=serie,
+        departamento=area,
+        propiedad=Activo.Propiedad.CONCESION,
+        concesionario=concesionario,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+
+
+def test_el_concesionario_es_un_catalogo_aparte_del_de_proveedores(cliente, concesionario):
+    """«A quién le compramos» y «de quién es esto» son dos preguntas distintas.
+    Guardarlas en el mismo catálogo volvería imposible la segunda, que es la
+    que hay que responder al devolver el parque de un partner."""
+    respuesta = cliente.get(f"/api/v1/organizacion/concesionarios/{concesionario.id}/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["nombre"] == "Servientrega Andina"
+    assert respuesta.data["total_activos"] == 0
+    # Sin repuestos: a un concesionario no se le compra nada.
+    assert "total_repuestos" not in respuesta.data
+
+
+def test_cuenta_cuantos_equipos_del_parque_son_suyos(cliente, concesionario):
+    """Es la pregunta que se hace al cerrar una concesión: qué hay que
+    devolverle."""
+    _equipo_de(concesionario, "SN-CONC-1")
+
+    respuesta = cliente.get("/api/v1/organizacion/concesionarios/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["results"][0]["total_activos"] == 1
+
+
+def test_no_se_crean_dos_concesionarios_que_solo_difieren_en_mayusculas(cliente, concesionario):
+    """Dos fichas del mismo partner repartirían sus equipos entre las dos, y
+    entonces «qué equipos son suyos» deja de tener una sola respuesta."""
+    respuesta = cliente.post(
+        "/api/v1/organizacion/concesionarios/", {"nombre": "SERVIENTREGA ANDINA"}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "Servientrega Andina" in str(respuesta.data["error"]["details"]["nombre"])
+
+
+def test_no_se_da_de_baja_a_un_concesionario_con_equipos_suyos_en_uso(cliente, concesionario):
+    """Es a quien hay que devolvérselos cuando termine la concesión."""
+    _equipo_de(concesionario, "SN-CONC-2")
+
+    respuesta = cliente.patch(
+        f"/api/v1/organizacion/concesionarios/{concesionario.id}/", {"activo": False}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert respuesta.data["error"]["code"] == "concesionario_con_activos"
+
+
+def test_el_concesionario_no_se_borra(cliente, concesionario):
+    """Sigue siendo el dueño de los equipos que hay que devolverle."""
+    respuesta = cliente.delete(f"/api/v1/organizacion/concesionarios/{concesionario.id}/")
+
+    assert respuesta.status_code == 405

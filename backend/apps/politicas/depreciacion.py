@@ -68,6 +68,10 @@ SIN_COSTO = "El equipo no tiene costo de compra registrado, así que no hay de q
 SIN_POLITICA = (
     "El tipo de dispositivo no tiene política de depreciación ni hay una global configurada."
 )
+EN_CONCESION = (
+    "El equipo es de un concesionario: lo compró el partner, así que su valor en libros "
+    "no es de la empresa. Sus reparaciones sí son gasto propio."
+)
 
 
 def resolver_politica(tipo_dispositivo) -> PoliticaDepreciacion | None:
@@ -154,7 +158,14 @@ def calcular(costo, desde: date, politica: PoliticaDepreciacion, a_fecha: date |
 
 
 def calcular_de(activo, politica) -> Depreciacion | None:
-    """La depreciación de un activo, con su fecha de puesta en servicio."""
+    """La depreciación de un activo, con su fecha de puesta en servicio.
+
+    Un equipo en concesión no se deprecia aquí: la compra fue del partner, y
+    contarlo como patrimonio abultaría el valor del parque con algo que es de
+    otro. Su mantenimiento sí es gasto propio y sigue contándose donde toca.
+    """
+    if not activo.es_de_la_empresa:
+        return None
     return calcular(activo.costo_adquisicion, fecha_en_servicio(activo), politica)
 
 
@@ -170,6 +181,8 @@ def fecha_en_servicio(activo) -> date:
 
 def motivo_sin_depreciacion(activo, politica) -> str | None:
     """Por qué este equipo no muestra valor en libros, si es que no lo muestra."""
+    if not activo.es_de_la_empresa:
+        return EN_CONCESION
     if politica is None:
         return SIN_POLITICA
     if not activo.costo_adquisicion or Decimal(activo.costo_adquisicion) <= 0:

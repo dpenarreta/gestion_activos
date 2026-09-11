@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /*
  * Los formularios de los catálogos de la organización.
  *
- * Los cuatro siguen el mismo trato: se abren para consultar aunque no se pueda
+ * Los cinco siguen el mismo trato: se abren para consultar aunque no se pueda
  * editar (los campos quedan bloqueados y no hay botón de guardar), y al
  * guardar distinguen alta de edición. Encima de eso, dos de ellos adelantan
  * una regla que el backend impone —no se desactiva a quien todavía custodia
@@ -23,6 +23,7 @@ const servicio = {
   },
   empleados: { get: vi.fn(), create: vi.fn(), update: vi.fn(), list: vi.fn() },
   proveedores: { get: vi.fn(), create: vi.fn(), update: vi.fn() },
+  concesionarios: { get: vi.fn(), create: vi.fn(), update: vi.fn() },
 };
 
 vi.mock("../src/api/organizacionService", () => ({
@@ -30,6 +31,7 @@ vi.mock("../src/api/organizacionService", () => ({
   departamentosService: servicio.departamentos,
   empleadosService: servicio.empleados,
   proveedoresService: servicio.proveedores,
+  concesionariosService: servicio.concesionarios,
 }));
 
 const permisos = new Set();
@@ -44,6 +46,8 @@ const { EmpleadoForm } =
   await import("../src/pages/Admin/Organizacion/EmpleadoForm");
 const { ProveedorForm } =
   await import("../src/pages/Admin/Organizacion/ProveedorForm");
+const { ConcesionarioForm } =
+  await import("../src/pages/Admin/Organizacion/ConcesionarioForm");
 
 /** Deja ver a dónde vuelve el formulario tras guardar. */
 function Destino() {
@@ -62,7 +66,7 @@ function pintar(Pantalla, base, id = null) {
   );
 }
 
-/* Los cuatro formularios, con el mínimo que hace falta para guardarlos. */
+/* Los cinco formularios, con el mínimo que hace falta para guardarlos. */
 const FORMULARIOS = [
   {
     titulo: "Sede",
@@ -182,6 +186,34 @@ const FORMULARIOS = [
       });
     },
     esperado: { nombre: "Compumundo" },
+  },
+  {
+    titulo: "Concesionario",
+    Pantalla: ConcesionarioForm,
+    base: "/admin/organizacion/concesionarios",
+    servicio: "concesionarios",
+    tituloAlta: "Nuevo concesionario",
+    tituloEdicion: "Editar concesionario",
+    errorCarga: "No se pudo cargar el concesionario.",
+    errorGuardado: "No se pudo guardar el concesionario.",
+    registro: {
+      id: 5,
+      nombre: "Servientrega Andina",
+      identificacion: "0992222333001",
+      contacto: "Jorge Andrade",
+      telefono: "0988888888",
+      correo: "",
+      observaciones: "",
+      activo: true,
+      total_activos: 0,
+    },
+    campoPrincipal: "Nombre",
+    llenar: () => {
+      fireEvent.change(screen.getByLabelText("Nombre"), {
+        target: { value: "Laar Partners" },
+      });
+    },
+    esperado: { nombre: "Laar Partners" },
   },
 ];
 
@@ -437,6 +469,38 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/A quién llamar cuando un equipo o una pieza falla/),
+    ).toBeInTheDocument();
+  });
+
+  it("el concesionario avisa de los equipos suyos antes de darlo de baja", async () => {
+    /* Darlo de baja con equipos en uso los dejaría apuntando a alguien que el
+       formulario ya no ofrece: el backend lo impide, y avisarlo aquí evita el
+       intento. */
+    permisos.add("organizacion.editar");
+    servicio.concesionarios.get.mockResolvedValue({
+      id: 5,
+      nombre: "Servientrega Andina",
+      activo: true,
+      total_activos: 4,
+    });
+
+    pintar(ConcesionarioForm, "/admin/organizacion/concesionarios", 5);
+
+    expect(
+      await screen.findByText(/4 equipo\(s\) en uso son suyos/),
+    ).toBeInTheDocument();
+  });
+
+  it("las condiciones de la concesión son un campo propio", async () => {
+    /* Qué cubre cada parte y hasta cuándo es lo que se consulta al discutir
+       una reparación: no es una observación suelta. */
+    permisos.add("organizacion.editar");
+
+    pintar(ConcesionarioForm, "/admin/organizacion/concesionarios");
+
+    await screen.findByText("Nuevo concesionario");
+    expect(
+      screen.getByLabelText("Condiciones de la concesión"),
     ).toBeInTheDocument();
   });
 });

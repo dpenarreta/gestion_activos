@@ -144,6 +144,35 @@ CATALOGOS: tuple[CatalogoMasivo, ...] = (
         nota="El teléfono se necesita justo cuando algo falló: conviene llenarlo.",
     ),
     CatalogoMasivo(
+        clave="concesionarios",
+        nombre="Concesionarios",
+        plural="concesionarios",
+        modelo="organizacion.Concesionario",
+        permiso="organizacion.editar",
+        columnas=(
+            Columna("nombre", "Nombre", obligatoria=True, ayuda="Como aparece en el contrato."),
+            Columna("identificacion", "Identificación", ayuda="RUC o identificación tributaria."),
+            Columna("contacto", "Contacto"),
+            Columna("telefono", "Teléfono", ancho=18),
+            Columna("correo", "Correo"),
+            Columna(
+                "observaciones",
+                "Condiciones",
+                ancho=40,
+                ayuda="Qué cubre cada parte y hasta cuándo.",
+            ),
+        ),
+        identifica_por=("nombre",),
+        orden=("nombre",),
+        filtro_vigentes={"activo": True},
+        nota=(
+            "No es lo mismo que un proveedor: al proveedor se le compró el "
+            "equipo, y el concesionario es su dueño —lo pone para operar con "
+            "nosotros, la compra corre por su cuenta y el mantenimiento por la "
+            "nuestra—."
+        ),
+    ),
+    CatalogoMasivo(
         clave="tipos",
         nombre="Tipos de dispositivo",
         plural="tipos",

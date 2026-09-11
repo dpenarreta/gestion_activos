@@ -1,7 +1,13 @@
 from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
-from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
+from apps.organizacion.models import (
+    Concesionario,
+    Departamento,
+    Empleado,
+    Proveedor,
+    Sede,
+)
 from apps.politicas.depreciacion import calcular_de as calcular_depreciacion
 from apps.politicas.depreciacion import motivo_sin_depreciacion
 from apps.politicas.depreciacion import resolver_politica as resolver_politica_depreciacion
@@ -208,6 +214,11 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     # Vacío significa «no consta», así que no se traduce a «Nuevo» ni a nada:
     # se deja en blanco y la interfaz lo dice con sus palabras.
     condicion_display = serializers.CharField(source="get_condicion_display", read_only=True)
+    propiedad_display = serializers.CharField(source="get_propiedad_display", read_only=True)
+    concesionario_nombre = serializers.CharField(
+        source="concesionario.nombre", read_only=True, default=None
+    )
+    es_de_la_empresa = serializers.BooleanField(read_only=True)
     esta_operativo = serializers.BooleanField(read_only=True)
     antiguedad_meses = serializers.IntegerField(read_only=True)
     estado_garantia = serializers.CharField(read_only=True)
@@ -250,6 +261,11 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "costo_adquisicion",
             "condicion",
             "condicion_display",
+            "propiedad",
+            "propiedad_display",
+            "concesionario",
+            "concesionario_nombre",
+            "es_de_la_empresa",
             "proveedor",
             "proveedor_nombre",
             "fecha_fin_garantia",
@@ -405,6 +421,8 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "fecha_ingreso",
             "costo_adquisicion",
             "condicion",
+            "propiedad",
+            "concesionario",
             "proveedor",
             "fecha_fin_garantia",
         ]
@@ -415,6 +433,11 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     # Igual con el proveedor: uno dado de baja ya no vende ni atiende un
     # reclamo, así que registrarle una compra nueva no significa nada.
     proveedor = RelacionDeEmpresa(Proveedor, {"activo": True}, required=False, allow_null=True)
+    # Y con el concesionario: uno con el que ya no se opera no puede estar
+    # poniendo equipos nuevos.
+    concesionario = RelacionDeEmpresa(
+        Concesionario, {"activo": True}, required=False, allow_null=True
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -445,6 +468,22 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
                     )
                 }
             )
+
+        # Propiedad y concesionario se validan juntos: cada uno por separado
+        # admite cualquier cosa y es la pareja la que puede no tener sentido.
+        propiedad = attrs.get("propiedad", getattr(self.instance, "propiedad", None))
+        concesionario = attrs.get("concesionario", getattr(self.instance, "concesionario", None))
+        if propiedad == Activo.Propiedad.CONCESION and concesionario is None:
+            # «En concesión» sin decir de quién es media ficha: no se podría
+            # devolver el parque de un partner ni reclamarle nada.
+            raise serializers.ValidationError(
+                {"concesionario": "Diga de qué partner es el equipo en concesión."}
+            )
+        if propiedad == Activo.Propiedad.PROPIA and concesionario is not None:
+            # Se vacía en vez de rechazarse: cambiar un equipo a propio es
+            # justamente lo que pasa cuando la empresa se lo compra al partner,
+            # y sería absurdo exigir dos pasos para algo que ya está dicho.
+            attrs["concesionario"] = None
 
         # Las especificaciones se comprueban aquí y no en `validate_especificaciones`
         # porque hace falta el tipo, y en una edición parcial puede venir en el

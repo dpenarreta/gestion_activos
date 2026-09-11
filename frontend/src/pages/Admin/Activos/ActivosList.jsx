@@ -89,6 +89,8 @@ export function ActivosList() {
     sede: searchParams.get("sede") || "",
     criticidad: searchParams.get("criticidad") || "",
     uso: searchParams.get("uso") || "",
+    propiedad: searchParams.get("propiedad") || "",
+    concesionario: searchParams.get("concesionario") || "",
     antiguedad_min_meses: searchParams.get("antiguedad_min_meses") || "",
     antiguedad_max_meses: searchParams.get("antiguedad_max_meses") || "",
     almacenados: searchParams.get("almacenados") || "",
@@ -296,6 +298,29 @@ export function ActivosList() {
               {opcion.etiqueta}
             </option>
           ))}
+        </select>
+        <select
+          className="form-select form-select-sm w-auto"
+          aria-label="Filtrar por propiedad"
+          value={listado.filtros.propiedad}
+          onChange={(event) =>
+            listado.actualizarFiltros({
+              propiedad: event.target.value,
+              // El partner solo acota dentro de lo que es suyo: dejarlo puesto
+              // al volver a «de la empresa» daría una lista siempre vacía.
+              concesionario:
+                event.target.value === "concesion"
+                  ? listado.filtros.concesionario
+                  : "",
+            })
+          }
+        >
+          {/* Qué equipos son nuestros y qué hay que devolverle al partner son
+              las dos preguntas que se hacen al cerrar una concesión o al
+              valorar el parque. */}
+          <option value="">Propiedad: toda</option>
+          <option value="propia">De la empresa</option>
+          <option value="concesion">En concesión</option>
         </select>
         <select
           className="form-select form-select-sm w-auto"

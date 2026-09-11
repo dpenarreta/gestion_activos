@@ -117,17 +117,37 @@ def test_sin_politica_no_se_deprecia(db):
     assert dep.calcular(1800, ENERO, None) is None
 
 
-def test_los_dos_silencios_se_explican_distinto(tipo, politica):
-    """«No vale nada» y «nadie capturó lo que costó» se arreglan de formas
-    distintas: el segundo lo corrige quien tenga la factura."""
+def test_los_tres_silencios_se_explican_distinto(tipo, politica):
+    """«No vale nada», «nadie capturó lo que costó» y «no es nuestro» se
+    arreglan de formas distintas —el segundo lo corrige quien tenga la
+    factura, y el tercero no se arregla porque no es un fallo—."""
 
     class ActivoFalso:
         costo_adquisicion = None
+        es_de_la_empresa = True
 
     assert dep.motivo_sin_depreciacion(ActivoFalso(), politica) == dep.SIN_COSTO
     ActivoFalso.costo_adquisicion = Decimal("1800")
     assert dep.motivo_sin_depreciacion(ActivoFalso(), None) == dep.SIN_POLITICA
     assert dep.motivo_sin_depreciacion(ActivoFalso(), politica) is None
+    ActivoFalso.es_de_la_empresa = False
+    assert dep.motivo_sin_depreciacion(ActivoFalso(), politica) == dep.EN_CONCESION
+
+
+def test_un_equipo_en_concesion_no_deprecia_contra_nuestro_patrimonio(politica):
+    """Lo compró el partner: contarlo abultaría el valor del parque con algo
+    que es de otro. Su mantenimiento sí es gasto propio y sigue contándose."""
+
+    class ActivoFalso:
+        costo_adquisicion = Decimal("1800")
+        fecha_ingreso = ENERO
+        fecha_adquisicion = ENERO
+        es_de_la_empresa = False
+
+    assert dep.calcular_de(ActivoFalso(), politica) is None
+    # Y el mismo equipo, si la empresa termina comprándolo, sí deprecia.
+    ActivoFalso.es_de_la_empresa = True
+    assert dep.calcular_de(ActivoFalso(), politica) is not None
 
 
 # --- Qué política se aplica ------------------------------------------------

@@ -4,6 +4,7 @@ const DEPARTAMENTOS = "/organizacion/departamentos/";
 const EMPLEADOS = "/organizacion/empleados/";
 const SEDES = "/organizacion/sedes/";
 const PROVEEDORES = "/organizacion/proveedores/";
+const CONCESIONARIOS = "/organizacion/concesionarios/";
 
 export const departamentosService = {
   list(params = {}) {
@@ -44,6 +45,33 @@ export const proveedoresService = {
   update(id, payload) {
     return apiClient
       .patch(`${PROVEEDORES}${id}/`, payload)
+      .then((res) => res.data);
+  },
+};
+
+/**
+ * De quién son los equipos que no compramos nosotros.
+ *
+ * No es el catálogo de proveedores y la diferencia no es de matiz: al
+ * proveedor se le compró el equipo, y entonces el equipo es de la empresa. El
+ * concesionario es su dueño —lo pone para operar con nosotros, la compra corre
+ * por su cuenta y el mantenimiento por la nuestra—. Mezclarlos volvería
+ * imposible la pregunta que hay que responder al cerrar una concesión: qué
+ * equipos son suyos y hay que devolverle.
+ */
+export const concesionariosService = {
+  list(params = {}) {
+    return apiClient.get(CONCESIONARIOS, { params }).then((res) => res.data);
+  },
+  get(id) {
+    return apiClient.get(`${CONCESIONARIOS}${id}/`).then((res) => res.data);
+  },
+  create(payload) {
+    return apiClient.post(CONCESIONARIOS, payload).then((res) => res.data);
+  },
+  update(id, payload) {
+    return apiClient
+      .patch(`${CONCESIONARIOS}${id}/`, payload)
       .then((res) => res.data);
   },
 };

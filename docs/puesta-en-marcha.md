@@ -182,10 +182,15 @@ arrancar) y el frontend servido por nginx. Antes:
 Es el **riesgo número uno** del §26 del documento funcional, y el que decide si
 el sistema se usa o se abandona.
 
-1. Cree los catálogos desde *Organización*: sedes, departamentos, proveedores
-   y empleados. Si son muchos, use *Organización → Carga de catálogos*: cada
-   uno tiene su propio archivo, que se descarga con lo que ya está registrado
-   dentro y se sube con las filas nuevas añadidas debajo.
+1. Cree los catálogos desde *Organización*: sedes, departamentos, proveedores,
+   concesionarios y empleados. Si son muchos, use *Organización → Carga de
+   catálogos*: cada uno tiene su propio archivo, que se descarga con lo que ya
+   está registrado dentro y se sube con las filas nuevas añadidas debajo.
+
+   Los **concesionarios** solo hacen falta si algún partner pone equipos para
+   operar con ustedes. No es lo mismo que un proveedor: al proveedor se le
+   compró el equipo, y el concesionario es su dueño —la compra corre por su
+   cuenta y el mantenimiento por la de ustedes—.
 
    Rellene la **ciudad** de cada sede. No es un dato de adorno: es lo que se
    lee al preguntar dónde está un equipo —«está en Quito»— y lo que aparece en

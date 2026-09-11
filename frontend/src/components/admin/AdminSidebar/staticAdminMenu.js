@@ -144,6 +144,15 @@ export const ADMIN_MENU = [
         path: "/admin/organizacion/proveedores",
       },
       {
+        // Justo debajo de proveedores porque es la distinción que hay que ver
+        // al lado: al proveedor se le compró el equipo, y el concesionario es
+        // su dueño.
+        id: "organizacion-concesionarios",
+        name: "Concesionarios",
+        icon: "box-seam",
+        path: "/admin/organizacion/concesionarios",
+      },
+      {
         id: "organizacion-empleados",
         name: "Empleados",
         icon: "person-badge",

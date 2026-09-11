@@ -42,7 +42,7 @@ export async function elegirPrimeraOpcion(ambito, etiqueta) {
  */
 export async function registrarEquipo(
   page,
-  { nombre, serie, costo, condicion },
+  { nombre, serie, costo, condicion, concesionario },
 ) {
   await page.goto("/admin/activos/new");
   await elegirPrimeraOpcion(page, "Tipo de dispositivo");
@@ -57,6 +57,14 @@ export async function registrarEquipo(
   }
   if (condicion) {
     await page.getByLabel("Condición al adquirirlo").selectOption(condicion);
+  }
+  if (concesionario) {
+    // El desplegable del partner solo existe una vez marcado el equipo como
+    // ajeno: es la mitad de lo que hay que comprobar.
+    await page.getByLabel("De quién es el equipo").selectOption("concesion");
+    await page
+      .getByLabel("Concesionario")
+      .selectOption({ label: concesionario });
   }
 
   await page.getByRole("button", { name: "Registrar activo" }).click();

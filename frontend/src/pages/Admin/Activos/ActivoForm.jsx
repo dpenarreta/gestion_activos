@@ -9,6 +9,7 @@ import {
 import {
   departamentosService,
   empleadosService,
+  concesionariosService,
   proveedoresService,
   sedesService,
 } from "../../../api/organizacionService";
@@ -35,6 +36,8 @@ const VACIO = {
   fecha_ingreso: "",
   costo_adquisicion: "",
   condicion: "",
+  propiedad: "propia",
+  concesionario: "",
   proveedor: "",
   fecha_fin_garantia: "",
 };
@@ -53,6 +56,7 @@ export function ActivoForm() {
   const [empleados, setEmpleados] = useState([]);
   const [sedes, setSedes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  const [concesionarios, setConcesionarios] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -93,6 +97,10 @@ export function ActivoForm() {
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setProveedores(datos.results ?? datos))
       .catch(() => setProveedores([]));
+    concesionariosService
+      .list({ activo: "true", page_size: 200 })
+      .then((datos) => setConcesionarios(datos.results ?? datos))
+      .catch(() => setConcesionarios([]));
     sedesService
       .list({ activa: "true", page_size: 100 })
       .then((datos) => setSedes(datos.results ?? datos))
@@ -121,6 +129,8 @@ export function ActivoForm() {
           fecha_adquisicion: datos.fecha_adquisicion,
           costo_adquisicion: datos.costo_adquisicion || "",
           condicion: datos.condicion || "",
+          propiedad: datos.propiedad || "propia",
+          concesionario: datos.concesionario || "",
           proveedor: datos.proveedor || "",
           fecha_fin_garantia: datos.fecha_fin_garantia || "",
         }),
@@ -152,6 +162,14 @@ export function ActivoForm() {
         fecha_ingreso: valores.fecha_ingreso || null,
         costo_adquisicion: valores.costo_adquisicion || null,
         condicion: valores.condicion,
+        propiedad: valores.propiedad,
+        // Se manda null y no el resto del campo oculto: al volver el
+        // equipo a ser de la empresa, dejar puesto al partner lo seguiría
+        // contando como ajeno en cada reporte.
+        concesionario:
+          valores.propiedad === "concesion"
+            ? valores.concesionario || null
+            : null,
         proveedor: valores.proveedor || null,
         fecha_fin_garantia: valores.fecha_fin_garantia || null,
       };
@@ -549,6 +567,59 @@ export function ActivoForm() {
                 Se administra en Organización → Proveedores.
               </div>
             </div>
+            <div className="col-md-4">
+              <label className="form-label" htmlFor="propiedad">
+                De quién es el equipo
+              </label>
+              <select
+                id="propiedad"
+                className="form-select"
+                value={valores.propiedad}
+                onChange={(event) =>
+                  actualizar("propiedad", event.target.value)
+                }
+              >
+                {/* Lo normal es que se haya comprado, así que es lo que viene
+                    puesto: obligar a decirlo en cada alta no capturaría nada
+                    que no se supiera ya. */}
+                <option value="propia">De la empresa</option>
+                <option value="concesion">En concesión</option>
+              </select>
+              <div className="form-text">
+                {/* No es lo mismo que tener proveedor: al proveedor se le
+                    compró, y entonces el equipo sí es de la empresa. */}
+                «En concesión» es un equipo que pone un partner: lo compró él y
+                lo mantenemos nosotros.
+              </div>
+            </div>
+            {valores.propiedad === "concesion" && (
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="concesionario">
+                  Concesionario
+                </label>
+                <select
+                  id="concesionario"
+                  className="form-select"
+                  required
+                  value={valores.concesionario}
+                  onChange={(event) =>
+                    actualizar("concesionario", event.target.value)
+                  }
+                >
+                  <option value="">Elija el partner</option>
+                  {concesionarios.map((concesionario) => (
+                    <option key={concesionario.id} value={concesionario.id}>
+                      {concesionario.nombre}
+                    </option>
+                  ))}
+                </select>
+                <div className="form-text">
+                  {/* Sin el dueño, «en concesión» no responde ni a qué hay que
+                      devolver ni a quién. */}
+                  Se administra en Organización → Concesionarios.
+                </div>
+              </div>
+            )}
             <div className="col-md-4">
               <label className="form-label" htmlFor="fecha_fin_garantia">
                 Fin de garantía

@@ -3,8 +3,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
- * Los cuatro catálogos de la organización: sedes, departamentos, empleados y
- * proveedores.
+ * Los cinco catálogos de la organización: sedes, departamentos, empleados,
+ * proveedores y concesionarios.
  *
  * Comparten mecánica —buscar, filtrar por estado, paginar— y comparten la
  * regla que importa: quien no puede editar entra igual, pero en modo lectura.
@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  * Se prueban juntos y con una tabla de casos porque lo que se quiere sostener
  * es justamente que se comporten igual: si uno se desvía, la tabla lo dice sin
- * que haya que acordarse de replicar la prueba en los otros tres.
+ * que haya que acordarse de replicar la prueba en los otros cuatro.
  */
 
 const listar = {
@@ -20,6 +20,7 @@ const listar = {
   departamentos: vi.fn(),
   empleados: vi.fn(),
   proveedores: vi.fn(),
+  concesionarios: vi.fn(),
 };
 
 vi.mock("../src/api/organizacionService", () => ({
@@ -27,6 +28,7 @@ vi.mock("../src/api/organizacionService", () => ({
   departamentosService: { list: (...args) => listar.departamentos(...args) },
   empleadosService: { list: (...args) => listar.empleados(...args) },
   proveedoresService: { list: (...args) => listar.proveedores(...args) },
+  concesionariosService: { list: (...args) => listar.concesionarios(...args) },
 }));
 
 const permisos = new Set();
@@ -41,6 +43,8 @@ const { EmpleadosList } =
   await import("../src/pages/Admin/Organizacion/EmpleadosList");
 const { ProveedoresList } =
   await import("../src/pages/Admin/Organizacion/ProveedoresList");
+const { ConcesionariosList } =
+  await import("../src/pages/Admin/Organizacion/ConcesionariosList");
 
 const FILAS = {
   sedes: [
@@ -87,9 +91,20 @@ const FILAS = {
       activo: true,
     },
   ],
+  concesionarios: [
+    {
+      id: 5,
+      nombre: "Servientrega Andina",
+      identificacion: "0992222333001",
+      contacto: "Jorge Andrade",
+      telefono: "0988888888",
+      total_activos: 4,
+      activo: true,
+    },
+  ],
 };
 
-/* Los cuatro listados, con lo que distingue a cada uno. */
+/* Los cinco listados, con lo que distingue a cada uno. */
 const CATALOGOS = [
   {
     clave: "sedes",
@@ -134,6 +149,17 @@ const CATALOGOS = [
     error: "No se pudo cargar el listado de proveedores.",
     identifica: "Tecnomega C.A.",
     ruta: "/admin/organizacion/proveedores/4",
+  },
+  {
+    clave: "concesionarios",
+    Pantalla: ConcesionariosList,
+    titulo: "Concesionarios",
+    alta: "Nuevo concesionario",
+    buscar: "Buscar concesionarios",
+    vacio: "Sin concesionarios registrados",
+    error: "No se pudo cargar el listado de concesionarios.",
+    identifica: "Servientrega Andina",
+    ruta: "/admin/organizacion/concesionarios/5",
   },
 ];
 
@@ -328,5 +354,35 @@ describe("Lo que cada catálogo muestra de más", () => {
     pintar(ProveedoresList);
 
     expect(await screen.findByText("De baja")).toBeInTheDocument();
+  });
+});
+
+// --- Lo que distingue al concesionario del proveedor ------------------------
+
+describe("Concesionarios", () => {
+  it("cuenta los equipos que son del partner y lleva a verlos", async () => {
+    /* Es la pregunta que se hace al cerrar una concesión: qué hay que
+       devolverle. */
+    pintar(ConcesionariosList);
+
+    await screen.findByText("Servientrega Andina");
+    expect(screen.getByRole("link", { name: "4" })).toHaveAttribute(
+      "href",
+      "/activos?propiedad=concesion&concesionario=5",
+    );
+  });
+
+  it("no cuenta repuestos: a un concesionario no se le compra nada", async () => {
+    /* Es justo la diferencia con el proveedor, y la tabla no debe insinuar
+       que sea el mismo catálogo. */
+    pintar(ConcesionariosList);
+
+    await screen.findByText("Servientrega Andina");
+    expect(
+      screen.queryByRole("columnheader", { name: "Repuestos" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Equipos suyos" }),
+    ).toBeInTheDocument();
   });
 });

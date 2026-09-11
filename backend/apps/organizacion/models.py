@@ -281,6 +281,54 @@ class Proveedor(ModeloDeEmpresa):
         return self.nombre
 
 
+class Concesionario(ModeloDeEmpresa):
+    """El partner que pone equipos para operar con la empresa.
+
+    **No es un proveedor, y la diferencia no es de matiz.** Un proveedor es a
+    quien se le compró el equipo: la compra fue nuestra y el equipo es nuestro.
+    Un concesionario es el dueño del equipo; lo pone para operar con nosotros,
+    la compra corre por su cuenta y el mantenimiento por la nuestra. Guardarlos
+    en el mismo catálogo mezclaría dos preguntas que se hacen por separado —«a
+    quién le compramos» y «de quién es esto»— y volvería imposible la segunda,
+    que es justo la que hay que responder al devolver el parque de un partner o
+    al calcular cuánto vale lo que sí es de la empresa.
+
+    Lleva datos de contacto por lo mismo que el proveedor: se lo necesita
+    cuando algo falló, y un nombre sin teléfono no sirve para reclamar ni para
+    coordinar una devolución.
+    """
+
+    nombre = models.CharField(max_length=150)
+    identificacion = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="RUC o identificación tributaria del partner.",
+    )
+    contacto = models.CharField(
+        max_length=120, blank=True, help_text="Persona que atiende la relación."
+    )
+    telefono = models.CharField(max_length=30, blank=True)
+    correo = models.EmailField(blank=True)
+    observaciones = models.TextField(
+        blank=True,
+        help_text="Condiciones de la concesión: qué cubre cada parte, hasta cuándo.",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="concesionario_unico_por_empresa"
+            )
+        ]
+        verbose_name = "concesionario"
+        verbose_name_plural = "concesionarios"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
 class Empleado(ModeloDeEmpresa):
     """Persona que puede tener activos bajo su custodia.
 

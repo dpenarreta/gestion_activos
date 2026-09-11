@@ -268,7 +268,14 @@ def test_el_listado_dice_que_se_puede_cargar(cliente):
     datos = cliente.get(f"{BASE}/").data
 
     claves = {c["clave"] for c in datos["catalogos"]}
-    assert claves == {"sedes", "departamentos", "proveedores", "tipos", "empleados"}
+    assert claves == {
+        "sedes",
+        "departamentos",
+        "proveedores",
+        "concesionarios",
+        "tipos",
+        "empleados",
+    }
     assert all(c["puede"] for c in datos["catalogos"])
 
 

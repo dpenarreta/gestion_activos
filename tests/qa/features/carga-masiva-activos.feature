@@ -103,3 +103,18 @@ Feature: Carga masiva de activos desde hoja de cálculo
     When intenta cambiar una columna de la plantilla
     Then la operación es rechazada
     # Quien carga inventario no debería poder cambiar qué se le exige al resto.
+
+  @AC-IMP-017
+  Scenario: Nombrar al partner basta para que el equipo sea suyo
+    Given la plantilla con las columnas de propiedad habilitadas
+    When se carga una fila que nombra a un concesionario del catálogo
+    Then el equipo queda en concesión y a nombre de ese partner
+    # Pedir además la otra columna sería hacer escribir dos veces lo mismo.
+
+  @AC-IMP-018
+  Scenario: Decir las dos cosas a la vez se señala en vez de resolverse solo
+    When una fila dice que el equipo es de la empresa y a la vez nombra a un partner
+    Then la carga es rechazada señalando la contradicción
+    # En el formulario el campo se oculta y el resto se limpia en silencio;
+    # aquí las dos columnas están a la vista y llenas a mano, así que lo que
+    # hay es una contradicción, no un resto de un campo que se ocultó.

@@ -11,9 +11,9 @@ const AUTH = path.resolve(AQUI, "../.auth");
 /**
  * Retira lo que la ejecución dejó puesto.
  *
- * Se borran tres cosas y solo tres: la cuenta de pruebas, su grupo y los
- * equipos que estas pruebas crearon —reconocibles porque su nombre empieza por
- * `E2E-`, un prefijo que ningún equipo real lleva—. Lo demás se queda: un
+ * Se borra solo lo que estas pruebas crearon: la cuenta, su grupo, los equipos
+ * y los concesionarios —reconocibles porque su nombre empieza por `E2E-`, un
+ * prefijo que ningún registro real lleva—. Lo demás se queda: un
  * `teardown` que borra de más es peor que uno que borra de menos, porque la
  * base de desarrollo también es donde se está mirando la aplicación.
  *
@@ -26,6 +26,7 @@ export default function limpiar() {
 from django.contrib.auth.models import Group
 from apps.activos.models import Activo
 from apps.authentication.models import LoginAttempt
+from apps.organizacion.models import Concesionario
 from apps.users.models import User
 
 equipos = Activo.objects.todas().filter(nombre__startswith="E2E-")
@@ -34,6 +35,10 @@ for equipo in equipos:
     equipo.movimientos.all().delete()
     equipo.mantenimientos.all().delete()
     equipo.delete()
+
+# Después de los equipos: los activos apuntan al concesionario con PROTECT.
+partners = Concesionario.objects.todas().filter(nombre__startswith="E2E-")
+partners.delete()
 
 LoginAttempt.objects.filter(identifier__startswith="e2e_").delete()
 User.objects.filter(username__startswith="${CUENTA}").delete()
