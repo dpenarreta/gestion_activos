@@ -56,7 +56,13 @@ export function ActivoDetalle() {
   }
 
   const { activo, movimientos, mantenimientos, costos } = ficha;
-  const estaDadoDeBaja = activo.estado === "dado_de_baja";
+  /* «Salió del parque», no «está dado de baja»: son tres estados —baja,
+     perdido y robado— y el backend los trata igual. Preguntando solo por la
+     baja, la pantalla ofrecía asignar y registrar mantenimientos sobre un
+     equipo robado, y el servidor los rechazaba después de llenar el
+     formulario. Lo trae calculado la propia ficha, así que la regla vive en
+     un solo sitio. */
+  const salioDelParque = !activo.esta_operativo;
 
   return (
     <div className="activos-page activo-detalle">
@@ -90,7 +96,7 @@ export function ActivoDetalle() {
               Etiqueta
             </button>
           )}
-          {puedeAsignar && !estaDadoDeBaja && (
+          {puedeAsignar && !salioDelParque && (
             <button
               type="button"
               className="btn btn-outline-primary btn-sm"
@@ -108,7 +114,7 @@ export function ActivoDetalle() {
               Cambiar estado
             </button>
           )}
-          {puedeEditar && !estaDadoDeBaja && (
+          {puedeEditar && !salioDelParque && (
             <Link
               to={`/admin/activos/${activo.id}/editar`}
               className="btn btn-outline-secondary btn-sm"
@@ -196,14 +202,20 @@ export function ActivoDetalle() {
                     />
                   }
                 />
-                {estaDadoDeBaja && (
+                {/* El sistema guarda cuándo y por qué salió en los tres
+                    casos, pero la ficha solo lo enseñaba en la baja: de un
+                    equipo robado no decía ni la fecha ni el motivo, que es lo
+                    único que queda de él. Las etiquetas no dicen «baja»
+                    porque el estado ya está arriba, y «Fecha de baja» sobre un
+                    equipo robado nombra mal lo que pasó. */}
+                {salioDelParque && (
                   <>
                     <Dato
-                      etiqueta="Fecha de baja"
+                      etiqueta="Salió del inventario"
                       valor={formatearFecha(activo.fecha_baja)}
                     />
                     <Dato
-                      etiqueta="Motivo de baja"
+                      etiqueta="Motivo de la salida"
                       valor={activo.motivo_baja}
                     />
                   </>
@@ -313,7 +325,7 @@ export function ActivoDetalle() {
         <section className="mt-4">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h3 className="h5 mb-0">Bitácora de mantenimientos</h3>
-            {puedeRegistrarMantenimiento && !estaDadoDeBaja && (
+            {puedeRegistrarMantenimiento && !salioDelParque && (
               <Link
                 to={`/admin/mantenimientos/new?activo=${activo.id}`}
                 className="btn btn-primary btn-sm"

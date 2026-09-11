@@ -112,7 +112,7 @@ test.describe("Un equipo, de su alta a su baja", () => {
       .getByRole("button", { name: /Dar de baja|Confirmar/ })
       .click();
 
-    await expect(page.getByText("Motivo de baja")).toBeVisible();
+    await expect(page.getByText("Motivo de la salida")).toBeVisible();
 
     // Y deja de contarse entre los operativos: el inventario sin filtros ya no
     // lo muestra, que es lo que separa «dado de baja» de «apagado».

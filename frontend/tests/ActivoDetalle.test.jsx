@@ -50,6 +50,9 @@ const ACTIVO = {
   nombre: "Laptop Jefatura TI",
   estado: "en_uso",
   estado_display: "Asignado",
+  // Lo calcula el backend a partir del estado y la ficha se apoya en él
+  // para decidir qué se puede hacer con el equipo.
+  esta_operativo: true,
   tipo_nombre: "Laptop",
   marca: "Dell",
   modelo: "Latitude 5440",
@@ -293,58 +296,117 @@ describe("Las acciones dependen del permiso", () => {
 });
 
 // --- Un equipo que ya salió del inventario ----------------------------------
+//
+// Son tres estados, no uno: dado de baja, perdido y robado. El backend los
+// trata igual —no admite asignaciones ni mantenimientos sobre ninguno—, así
+// que la pantalla se prueba con la tabla de los tres. Preguntando solo por la
+// baja, un equipo robado ofrecía las dos acciones y el servidor las rechazaba
+// después de llenar el formulario.
 
-describe("Cuando el equipo está dado de baja", () => {
-  const DE_BAJA = {
+const FUERA_DEL_PARQUE = [
+  {
+    estado: "dado_de_baja",
+    estado_display: "Dado de baja",
+    motivo: "Daño irreparable en la placa",
+  },
+  {
+    estado: "perdido",
+    estado_display: "Perdido",
+    motivo: "No apareció en el inventario físico",
+  },
+  {
+    estado: "robado",
+    estado_display: "Robado",
+    motivo: "Sustracción en la sucursal norte",
+  },
+];
+
+function fichaFueraDelParque({ estado, estado_display, motivo }) {
+  return {
     ...FICHA,
     activo: {
       ...ACTIVO,
-      estado: "dado_de_baja",
-      estado_display: "Dado de baja",
+      estado,
+      estado_display,
+      esta_operativo: false,
       fecha_baja: "2026-08-01",
-      motivo_baja: "Daño irreparable en la placa",
+      motivo_baja: motivo,
     },
   };
+}
 
-  it("no se puede asignar ni editar: ya no está", async () => {
+describe.each(FUERA_DEL_PARQUE)(
+  "Cuando el equipo está $estado_display",
+  (caso) => {
+    it("no se puede asignar ni editar: ya no está", async () => {
+      permisos.add("activos.asignar");
+      permisos.add("activos.editar");
+      permisos.add("activos.dar_baja");
+
+      pintar(fichaFueraDelParque(caso));
+
+      await screen.findByText("Laptop Jefatura TI");
+      expect(
+        screen.queryByRole("button", { name: /Asignar \/ trasladar/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: /Editar ficha/ }),
+      ).not.toBeInTheDocument();
+      // Cambiar estado sí: una salida mal registrada tiene que poder corregirse,
+      // y un equipo dado por perdido puede aparecer.
+      expect(
+        screen.getByRole("button", { name: /Cambiar estado/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("dice cuándo y por qué salió", async () => {
+      /* El sistema lo guarda en los tres casos; de un equipo robado es lo único
+       que queda de él. */
+      pintar(fichaFueraDelParque(caso));
+
+      expect(
+        await screen.findByText("Motivo de la salida"),
+      ).toBeInTheDocument();
+      expect(screen.getByText(caso.motivo)).toBeInTheDocument();
+      expect(screen.getByText("Salió del inventario")).toBeInTheDocument();
+    });
+
+    it("tampoco se registran mantenimientos sobre él", async () => {
+      permisos.add("mantenimientos.ver");
+      permisos.add("mantenimientos.registrar");
+
+      pintar(fichaFueraDelParque(caso));
+
+      await screen.findByText("Bitácora de mantenimientos");
+      expect(
+        screen.queryByRole("link", { name: /Registrar mantenimiento/ }),
+      ).not.toBeInTheDocument();
+    });
+  },
+);
+
+describe("Un equipo que sigue en el parque", () => {
+  it("ofrece asignarlo, editarlo y registrarle una intervención", async () => {
+    /* La contraparte de la tabla de arriba: sin esta, un guardado demasiado
+       estricto escondería las acciones de todo el inventario sin que ninguna
+       prueba lo notara. */
     permisos.add("activos.asignar");
     permisos.add("activos.editar");
-    permisos.add("activos.dar_baja");
-
-    pintar(DE_BAJA);
-
-    await screen.findByText("Laptop Jefatura TI");
-    expect(
-      screen.queryByRole("button", { name: /Asignar \/ trasladar/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /Editar ficha/ }),
-    ).not.toBeInTheDocument();
-    // Cambiar estado sí: una baja mal registrada tiene que poder corregirse.
-    expect(
-      screen.getByRole("button", { name: /Cambiar estado/ }),
-    ).toBeInTheDocument();
-  });
-
-  it("dice cuándo y por qué salió", async () => {
-    pintar(DE_BAJA);
-
-    expect(await screen.findByText("Motivo de baja")).toBeInTheDocument();
-    expect(
-      screen.getByText("Daño irreparable en la placa"),
-    ).toBeInTheDocument();
-  });
-
-  it("tampoco se registran mantenimientos sobre él", async () => {
     permisos.add("mantenimientos.ver");
     permisos.add("mantenimientos.registrar");
 
-    pintar(DE_BAJA);
+    pintar();
 
-    await screen.findByText("Bitácora de mantenimientos");
+    await screen.findByText("Laptop Jefatura TI");
     expect(
-      screen.queryByRole("link", { name: /Registrar mantenimiento/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /Asignar \/ trasladar/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Editar ficha/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Registrar mantenimiento/ }),
+    ).toBeInTheDocument();
   });
 });
 

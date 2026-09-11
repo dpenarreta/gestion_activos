@@ -97,6 +97,27 @@ Feature: Ficha completa del activo (§4.1, §12 y §14 del documento funcional)
     Then aparecen los equipos perdidos, robados y dados de baja con su motivo
     # Su expediente es el respaldo de qué pasó con ellos.
 
+  @AC-EST-014
+  Scenario: La ficha no ofrece lo que el servidor va a rechazar
+    Given un equipo perdido, robado o dado de baja
+    When se abre su ficha
+    Then no se ofrece asignarlo, editarlo ni registrarle una reparación
+    And sí se ofrece cambiar su estado
+    # La ficha preguntaba solo por la baja, así que sobre un equipo robado
+    # ofrecía las dos primeras acciones y el servidor las rechazaba recién
+    # después de llenar el formulario. Cambiar el estado sigue estando: una
+    # salida mal registrada tiene que poder corregirse, y un equipo dado por
+    # perdido puede aparecer.
+
+  @AC-EST-015
+  Scenario: La ficha dice cuándo y por qué salió, sea cual sea la salida
+    Given un equipo robado
+    When se abre su ficha
+    Then muestra la fecha de la salida y su motivo
+    # El sistema los guarda en los tres casos, pero la ficha solo los enseñaba
+    # en la baja: de un equipo robado no decía ni cuándo ni por qué, que es lo
+    # único que queda de él.
+
   # --- Ubicación física (§4.1) ---
 
   @AC-UBI-001
