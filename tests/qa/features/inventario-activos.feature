@@ -123,3 +123,57 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     Then solo aparecen los del partner
     # Es la pregunta que se hace al cerrar una concesión, y también la que
     # separa lo que sí es patrimonio de la empresa.
+
+  @AC-ACT-040
+  Scenario: De un equipo de turno responde más de una persona
+    Given un equipo marcado como compartido
+    When se le asignan tres responsables
+    Then los tres responden por él, y ninguno figura por encima de los otros
+    # Un escáner de andén o una impresora de mostrador los usa el turno entero:
+    # no hay un titular con acompañantes.
+
+  @AC-ACT-041
+  Scenario: La responsabilidad de un equipo personal no se reparte
+    Given un equipo que no está marcado como compartido
+    When se intenta dejarle dos responsables
+    Then la operación es rechazada
+    # Repartir la responsabilidad de una laptop entre tres nombres es lo que
+    # hace que después nadie responda por ella: la marca es una decisión.
+
+  @AC-ACT-042
+  Scenario: Cada responsable firma su propia acta
+    Given un equipo compartido
+    When se suma a una persona al turno
+    Then queda un movimiento a su nombre, del que sale su acta
+    # De cada movimiento sale un acta, y en un equipo compartido no hay un
+    # titular que pueda firmar por los demás.
+
+  @AC-ACT-043
+  Scenario: Que se vaya uno del turno no devuelve el equipo a bodega
+    Given un equipo compartido con tres responsables
+    When se quita a uno
+    Then los otros dos siguen respondiendo y el equipo sigue en uso
+
+  @AC-ACT-044
+  Scenario: El equipo aparece en la pantalla de cada uno de sus responsables
+    Given un equipo compartido entre dos personas
+    When cada una consulta «mis equipos»
+    Then las dos lo ven, y cada una ve con quién más lo comparte
+    # Si solo apareciera en la pantalla de uno, los demás no sabrían que
+    # también responden por él.
+
+  @AC-ACT-045
+  Scenario: El informe por usuario lista el equipo bajo cada responsable
+    Given un equipo compartido entre dos personas
+    When se genera «Activos por usuario»
+    Then aparece en la sección de las dos
+    # Salir solo en la del primero por apellido dejaría el informe respondiendo
+    # a medias la única pregunta que tiene.
+
+  @AC-ACT-046
+  Scenario: La alerta de custodio inactivo nombra a quien se fue
+    Given un equipo compartido en el que uno de los responsables está dado de baja
+    When se consulta el centro de alertas
+    Then se nombra solo a esa persona
+    # El resto sigue respondiendo: lo que hay que arreglar es quitarlo de la
+    # lista, no reasignar el equipo entero.

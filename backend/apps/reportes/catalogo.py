@@ -19,6 +19,9 @@ reporte no la declara, el PDF usa las primeras columnas que caben.
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from django.db.models import Value
+from django.db.models.functions import Concat
+
 from apps.activos.models import ESTADOS_EN_ALMACEN, ESTADOS_FUERA_DE_INVENTARIO, Activo
 
 #: Tope de filas de un reporte. El documento dimensiona el parque entre 5.000 y
@@ -69,6 +72,11 @@ class Reporte:
     #: Columnas cuyo total se suma al pie. Solo tienen sentido en dinero y
     #: cantidades; un total de «antigüedad» no significaría nada.
     totalizar: tuple[str, ...] = ()
+    #: Anotaciones que el informe necesita en la propia consulta. Existen para
+    #: lo que no se puede colgar después: «activos por usuario» agrupa por una
+    #: relación de muchos a muchos, y es la anotación —resuelta en el mismo
+    #: `JOIN` que el orden— la que dice de qué persona es cada fila.
+    anotaciones: dict = field(default_factory=dict)
     #: Se ejecuta una vez sobre la página de filas, antes de extraer columnas.
     #: Existe para lo que no se puede resolver fila a fila sin volver a la base:
     #: la depreciación necesita la política de cada tipo, y resolverla por
@@ -92,7 +100,23 @@ def _texto(valor) -> str:
 
 
 def _custodio(activo) -> str:
-    return activo.custodio.nombre_completo if activo.custodio_id else "Sin asignar"
+    """Quién responde por el equipo, con todos los nombres si son varios.
+
+    La excepción es «Activos por usuario», donde cada fila es de una persona y
+    escribir a los tres compañeros al lado haría ilegible justo la columna por
+    la que el informe está agrupado. Allí se usa `_responsable_de_la_fila`.
+    """
+    return activo.resumen_de_responsables or "Sin asignar"
+
+
+def _responsable_de_la_fila(activo) -> str:
+    """La persona de **esta** fila, en un informe agrupado por responsable.
+
+    Un equipo compartido aparece una vez por cada quien responde por él: es lo
+    que hace que salga en la sección de los tres y no solo en la del primero
+    por apellido. La anotación dice de cuál de ellos es la fila.
+    """
+    return getattr(activo, "responsable_fila", "") or _custodio(activo)
 
 
 def _sede(activo) -> str:
@@ -273,19 +297,32 @@ CATALOGO = (
     Reporte(
         clave="activos-por-usuario",
         nombre="Activos por usuario",
-        descripcion="Qué tiene cada custodio a su cargo. Excluye lo que está sin asignar.",
+        descripcion=(
+            "Qué tiene cada persona a su cargo. Excluye lo que está sin asignar. "
+            "Un equipo compartido aparece bajo cada quien responde por él."
+        ),
         fuente=Fuente.ACTIVOS,
-        columnas=(Columna("custodio", "Custodio", _custodio, 26),)
+        columnas=(Columna("custodio", "Responsable", _responsable_de_la_fila, 26),)
         + COLUMNAS_ACTIVO_BASE
         + (
             Columna("departamento", "Área", lambda a: a.departamento.nombre, 20),
             Columna("ciudad", "Ciudad", _ciudad, 16),
         ),
-        # Sin custodio no hay a quién reclamarle: el listado de lo no asignado
-        # es otro reporte («Activos disponibles»), con otra acción detrás.
-        filtros={"custodio__isnull": False},
+        # Sin nadie a cargo no hay a quién reclamarle: el listado de lo no
+        # asignado es otro reporte («Activos disponibles»), con otra acción
+        # detrás.
+        filtros={"responsables__isnull": False},
         parametros=PARAMETROS_ACTIVOS,
-        orden=("custodio__apellidos", "custodio__nombres", "codigo_barras"),
+        # Agrupar por la relación repite el equipo una vez por responsable, que
+        # es exactamente lo que este informe tiene que hacer: un escáner del
+        # que responde el turno entero no puede salir solo en la sección del
+        # primero por apellido.
+        anotaciones={
+            "responsable_fila": Concat(
+                "responsables__nombres", Value(" "), "responsables__apellidos"
+            )
+        },
+        orden=("responsables__apellidos", "responsables__nombres", "codigo_barras"),
         columnas_pdf=("custodio", "codigo_barras", "nombre", "tipo", "estado"),
     ),
     Reporte(

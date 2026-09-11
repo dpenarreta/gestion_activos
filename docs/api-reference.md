@@ -69,7 +69,7 @@ Base: `/api/v1/activos/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `custodio`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `responsable` (id, alias `custodio`), `compartido`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
 | POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02) |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
@@ -78,7 +78,7 @@ Base: `/api/v1/activos/`
 | GET | `/activos/?q=&operativos=true` | `activos.ver` | La misma búsqueda que usa el inventario alimenta el campo de equipo del formulario de mantenimiento: se pregunta al servidor en vez de desplegar el parque |
 | — | — | — | La ficha incluye `depreciacion`: valor en libros, acumulada y porcentaje. Cuando no hay costo o política, `disponible: false` y el `motivo` — un cero significaría «ya no vale nada» |
 | GET | `/activos/mis-equipos/` | `activos.ver_asignados` | **§13.** Los equipos que quien pregunta tiene a su cargo. Sin costo, proveedor ni veredicto de renovación: son datos del inventario, no del equipo que uno usa |
-| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `sede` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
+| POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `responsables` es la lista completa que queda: vacía deja el equipo sin nadie; omitir `sede` no toca el sitio y `null` lo borra. Deja **un movimiento por persona** que entra o sale, y se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. Las tres salidas (baja, perdido, robado) exigen `motivo`; desde una baja no se vuelve |
 | GET | `/activos/{id}/etiqueta/` | `activos.imprimir_etiqueta` | **RF-08.** `?formato=pdf` (por defecto, devuelve el documento) o `zpl\|tspl` (trabajo térmico). `?descargar=false` entrega el PDF inline para previsualizar |
 | GET | `/activos/{id}/etiqueta/medicion/` | `activos.imprimir_etiqueta` | Geometría del símbolo impreso: módulo, zona muda y altura |
@@ -244,6 +244,16 @@ compró— y cada línea de repuesto de un mantenimiento: el proveedor del equip
 no tiene por qué ser el de la pieza, y sin ese dato una pieza que falla a los
 dos meses deja el costo registrado y ninguna forma de saber a quién reclamarle.
 Darlo de baja con equipos en uso devuelve `400` (`proveedor_con_activos`).
+
+De un equipo puede responder **más de una persona**. `responsables` es la lista
+completa de quienes responden, sin jerarquía: no hay un titular con
+acompañantes. Varios solo caben en un activo marcado como `compartido`; con la
+marca quitada, el segundo se rechaza con `400`, y no se le puede quitar la
+marca a uno que ya tiene varios. `POST /activos/{id}/asignar/` recibe la lista
+**completa** que queda después de la operación —vacía es una devolución a
+bodega—, y deja **un movimiento por cada persona** que entra o sale, porque de
+cada movimiento sale el acta que esa persona firma. El listado expone además
+`responsables_resumen`, los nombres ya unidos para escribirlos en una celda.
 
 El **concesionario** es un catálogo aparte, y la diferencia con el proveedor no
 es de matiz: al proveedor se le compró el equipo, y entonces el equipo es de la

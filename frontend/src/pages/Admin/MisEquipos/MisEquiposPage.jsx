@@ -116,6 +116,21 @@ export function MisEquiposPage() {
               </dd>
               <dt>Ciudad</dt>
               <dd>{equipo.ciudad || <span className="text-muted">—</span>}</dd>
+              {/* Es lo primero que se pregunta cuando algo falla en un aparato
+                  de turno: si responde más gente, hay a quién avisar antes de
+                  llevárselo. */}
+              {equipo.compartido && (
+                <>
+                  <dt>Responden también</dt>
+                  <dd>
+                    {equipo.con_quien_mas?.length ? (
+                      equipo.con_quien_mas.join(", ")
+                    ) : (
+                      <span className="text-muted">Solo usted, por ahora</span>
+                    )}
+                  </dd>
+                </>
+              )}
             </dl>
 
             {Object.keys(equipo.especificaciones ?? {}).length > 0 && (

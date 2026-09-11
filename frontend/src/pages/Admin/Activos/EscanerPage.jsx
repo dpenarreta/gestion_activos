@@ -179,7 +179,7 @@ function ResultadoEscaneo({ ficha }) {
             <dl className="row mb-0">
               <dt className="col-5 text-muted fw-normal">Responsable</dt>
               <dd className="col-7">
-                {activo.custodio_nombre || (
+                {activo.responsables_resumen || (
                   <span className="text-muted">Sin asignar</span>
                 )}
               </dd>

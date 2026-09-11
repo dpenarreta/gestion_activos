@@ -396,7 +396,7 @@ class Command(BaseCommand):
                     numero_serie=serie,
                     departamento=departamentos[area],
                     sede=sedes[sede],
-                    custodio=empleados[custodio] if custodio is not None else None,
+                    responsables=([empleados[custodio]] if custodio is not None else []),
                     estado=estado,
                     criticidad=criticidad,
                     uso=uso,

@@ -10,7 +10,7 @@ Por la misma razón la importación es atómica: o entran todas las filas o no
 entra ninguna. Un inventario parcialmente cargado es peor que uno vacío,
 porque nadie sabe cuál de los dos casos está mirando.
 
-Las referencias a catálogos (tipo, departamento, custodio) se resuelven por
+Las referencias a catálogos (tipo, departamento, responsables) se resuelven por
 código, no por id: quien llena la plantilla trabaja con los códigos que ve en
 el sistema —"LAP", "TI", "TI-0001"— y no con los identificadores internos de
 la base de datos.
@@ -109,7 +109,7 @@ class ResultadoValidacion:
                     "numero_serie": f["numero_serie"],
                     "tipo": f["tipo"].nombre,
                     "departamento": f["departamento"].nombre,
-                    "custodio": f["custodio"].nombre_completo if f["custodio"] else None,
+                    "custodio": ", ".join(e.nombre_completo for e in f["responsables"]) or None,
                 }
                 for f in self.filas_validas[:10]
             ],
@@ -160,6 +160,33 @@ def _parsear_fecha(valor) -> datetime.date | None:
             return datetime.datetime.strptime(texto, formato).date()
         except ValueError:
             continue
+    return None
+
+
+def _separar(texto: str) -> list[str]:
+    """Los códigos de una celda que admite varios, sin vacíos ni repetidos."""
+    vistos = []
+    for parte in (texto or "").split(";"):
+        codigo = parte.strip()
+        if codigo and codigo not in vistos:
+            vistos.append(codigo)
+    return vistos
+
+
+def _si_o_no(valor):
+    """Lee una casilla de sí/no, o `None` si la celda no dice nada.
+
+    Se distingue «no» de «vacío» a propósito: vacío significa que la columna no
+    se llenó y deja que el número de responsables hable, mientras que un «no»
+    escrito es una afirmación que puede contradecir a esa lista.
+    """
+    texto = _texto(valor).strip().lower()
+    if not texto:
+        return None
+    if texto in {"si", "sí", "s", "true", "verdadero", "x", "1"}:
+        return True
+    if texto in {"no", "n", "false", "falso", "0"}:
+        return False
     return None
 
 
@@ -432,19 +459,40 @@ def validar_archivo(archivo) -> ResultadoValidacion:
             )
         datos["fecha_adquisicion"] = fecha
 
-        codigo_custodio = _texto(celda("custodio"))
-        custodio = None
-        if codigo_custodio:
-            custodio = empleados.get(codigo_custodio.lower())
-            if not custodio:
+        # Uno o varios códigos separados por punto y coma, como las
+        # especificaciones: es el separador que la plantilla ya enseña, y una
+        # coma chocaría con los apellidos compuestos que la gente escribe igual
+        # aunque se pida el código.
+        responsables = []
+        for codigo in _separar(_texto(celda("custodio"))):
+            empleado = empleados.get(codigo.lower())
+            if empleado is None:
                 errores_fila.append(
                     ErrorFila(
                         numero_fila,
                         etiqueta_de.get("custodio", "Código del custodio"),
-                        f"No hay un empleado activo con el código {codigo_custodio!r}.",
+                        f"No hay un empleado activo con el código {codigo!r}.",
                     )
                 )
-        datos["custodio"] = custodio
+            elif empleado not in responsables:
+                responsables.append(empleado)
+
+        compartido = _si_o_no(celda("compartido"))
+        if compartido is None and len(responsables) > 1:
+            # Nombrar a varios ya dice que el equipo es de varios: pedir además
+            # la otra columna sería hacer escribir dos veces lo mismo.
+            compartido = True
+        if len(responsables) > 1 and not compartido:
+            errores_fila.append(
+                ErrorFila(
+                    numero_fila,
+                    etiqueta_de.get("compartido", "Compartido"),
+                    f"Hay {len(responsables)} responsables, pero la fila dice que el equipo "
+                    "no es compartido. Deje un solo código o marque la columna.",
+                )
+            )
+        datos["compartido"] = bool(compartido)
+        datos["responsables"] = responsables
 
         costo_texto = _texto(celda("costo_adquisicion")).replace(",", ".")
         costo = None

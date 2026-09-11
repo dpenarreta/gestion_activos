@@ -39,7 +39,7 @@ COLUMNAS_ACTIVOS = [
     ("Modelo", 20),
     ("Número de serie", 22),
     ("Estado", 18),
-    ("Custodio", 26),
+    ("Responsables", 30),
     ("Departamento", 20),
     ("Sede", 20),
     ("Ciudad", 16),
@@ -111,8 +111,8 @@ def exportar_activos(queryset) -> bytes:
     hoja = _hoja_con_formato(libro, "Inventario", COLUMNAS_ACTIVOS)
 
     consulta = queryset.select_related(
-        "tipo", "custodio", "departamento", "sede", "proveedor", "concesionario"
-    )
+        "tipo", "departamento", "sede", "proveedor", "concesionario"
+    ).prefetch_related("responsables")
     for activo in consulta.iterator(chunk_size=500):
         hoja.append(
             neutralizar_fila(
@@ -124,7 +124,7 @@ def exportar_activos(queryset) -> bytes:
                     activo.modelo,
                     activo.numero_serie,
                     activo.get_estado_display(),
-                    activo.custodio.nombre_completo if activo.custodio_id else "",
+                    activo.resumen_de_responsables,
                     activo.departamento.nombre,
                     activo.sede.nombre if activo.sede_id else "",
                     activo.sede.donde if activo.sede_id else "",

@@ -137,14 +137,29 @@ class MovimientoActivoSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ResponsableSerializer(serializers.Serializer):
+    """Quién responde por un equipo, con lo justo para nombrarlo y abrirlo.
+
+    El código va junto al nombre porque dos personas pueden llamarse igual y la
+    pantalla tiene que poder distinguirlas sin abrir otra ficha.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    nombre_completo = serializers.CharField(read_only=True)
+    codigo_empleado = serializers.CharField(read_only=True)
+    activo = serializers.BooleanField(read_only=True)
+
+
 class ActivoListSerializer(serializers.ModelSerializer):
     """Versión ligera para el listado: sin especificaciones ni historial."""
 
     estado_garantia = serializers.CharField(read_only=True)
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
-    custodio_nombre = serializers.CharField(
-        source="custodio.nombre_completo", read_only=True, default=None
-    )
+    # Los nombres ya resueltos, no un conteo: «3 responsables» obligaría a
+    # abrir la ficha para saber a quién llamar, que es lo que se pregunta al
+    # mirar la columna.
+    responsables_resumen = serializers.CharField(source="resumen_de_responsables", read_only=True)
+    responsables = ResponsableSerializer(many=True, read_only=True)
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
     sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
@@ -163,8 +178,9 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "marca",
             "modelo",
             "numero_serie",
-            "custodio",
-            "custodio_nombre",
+            "compartido",
+            "responsables",
+            "responsables_resumen",
             "departamento",
             "departamento_nombre",
             "sede",
@@ -199,9 +215,8 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     """
 
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
-    custodio_nombre = serializers.CharField(
-        source="custodio.nombre_completo", read_only=True, default=None
-    )
+    responsables = ResponsableSerializer(many=True, read_only=True)
+    responsables_resumen = serializers.CharField(source="resumen_de_responsables", read_only=True)
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
     sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
@@ -242,8 +257,9 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "numero_serie",
             "especificaciones",
             "observaciones",
-            "custodio",
-            "custodio_nombre",
+            "compartido",
+            "responsables",
+            "responsables_resumen",
             "departamento",
             "departamento_nombre",
             "sede",
@@ -356,7 +372,7 @@ class MiEquipoSerializer(serializers.ModelSerializer):
     """Lo que ve una persona de un equipo **suyo** (§13, rol «Usuario final»).
 
     Deliberadamente corto. Fuera quedan el costo, el proveedor, el veredicto de
-    renovación y el historial de custodios: son datos del inventario, no del
+    renovación y el historial de responsables: son datos del inventario, no del
     equipo que uno usa. El veredicto además es una decisión de planificación
     —«este equipo se reemplaza el año que viene»— que no se comunica por una
     pantalla, y el historial dice quién más tuvo el equipo, que no es asunto de
@@ -372,6 +388,19 @@ class MiEquipoSerializer(serializers.ModelSerializer):
     ciudad = serializers.CharField(source="sede.donde", read_only=True, default=None)
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     desde = serializers.DateTimeField(read_only=True, default=None)
+    #: Los demás que responden por el mismo equipo. Es lo primero que se
+    #: pregunta cuando algo falla en un aparato de turno —«¿quién más lo
+    #: usa?»—, y solo van los nombres: el correo y el teléfono de un compañero
+    #: no hacen falta para eso (ver `docs/data-protection-review.md`).
+    con_quien_mas = serializers.SerializerMethodField()
+
+    def get_con_quien_mas(self, obj) -> list:
+        yo = self.context.get("empleado")
+        return [
+            empleado.nombre_completo
+            for empleado in obj.responsables_ordenados
+            if yo is None or empleado.id != yo.id
+        ]
 
     class Meta:
         model = Activo
@@ -388,6 +417,8 @@ class MiEquipoSerializer(serializers.ModelSerializer):
             "estado_display",
             "ciudad",
             "departamento_nombre",
+            "compartido",
+            "con_quien_mas",
             "desde",
         ]
         read_only_fields = fields
@@ -396,10 +427,15 @@ class MiEquipoSerializer(serializers.ModelSerializer):
 class ActivoWriteSerializer(serializers.ModelSerializer):
     """Alta y edición de la ficha técnica.
 
-    No expone `estado`, `custodio` ni `departamento` en la edición: esos
+    No expone `estado`, `responsables` ni `departamento` en la edición: esos
     cambian por sus propias acciones (`asignar`, `cambiar-estado`), que dejan
     el movimiento correspondiente en el historial. Permitirlos aquí abriría una
     vía de cambiar de responsable sin dejar rastro.
+
+    `compartido` sí se edita aquí: no es una entrega, es una decisión sobre qué
+    clase de equipo es. Quitar la marca a un equipo que ya tiene varios
+    responsables se rechaza, porque dejaría una ficha que el propio sistema no
+    admitiría volver a guardar.
     """
 
     class Meta:
@@ -412,7 +448,8 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "numero_serie",
             "especificaciones",
             "observaciones",
-            "custodio",
+            "compartido",
+            "responsables",
             "departamento",
             "sede",
             "criticidad",
@@ -438,12 +475,34 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     concesionario = RelacionDeEmpresa(
         Concesionario, {"activo": True}, required=False, allow_null=True
     )
+    # Entregar un equipo a alguien dado de baja reintroduce el problema de
+    # custodia sin dueño que RF-01 busca resolver.
+    responsables = RelacionDeEmpresa(
+        Empleado, {"activo": True}, many=True, required=False, default=list
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance is not None:
-            for campo in ("custodio", "departamento"):
+            for campo in ("responsables", "departamento"):
                 self.fields.pop(campo, None)
+
+    def validate_compartido(self, value):
+        """No se le quita la marca a un equipo que ya tiene varios responsables.
+
+        Dejaría una ficha que el propio sistema no admitiría volver a guardar,
+        y la salida —repartir a quién quitar— no es del formulario de la ficha
+        técnica sino de la asignación, que deja el movimiento y el acta.
+        """
+        if value or self.instance is None:
+            return value
+        cuantos = self.instance.responsables.count()
+        if cuantos > 1:
+            raise serializers.ValidationError(
+                f"Responden por él {cuantos} personas. Deje una sola en «Asignar» "
+                "antes de quitarle la marca de compartido."
+            )
+        return value
 
     def validate_numero_serie(self, value):
         return value.strip()
@@ -588,8 +647,12 @@ class AsignacionSerializer(serializers.Serializer):
     de custodia sin dueño que RF-01 busca resolver.
     """
 
-    custodio = RelacionDeEmpresa(
-        Empleado, {"activo": True}, allow_null=True, required=False, default=None
+    # La lista completa de quienes responden **después** de la operación, no
+    # los que se suman: vacía es una devolución a bodega. Mandarla entera es lo
+    # que el formulario tiene delante, y evita que cada pantalla calcule la
+    # diferencia a su manera.
+    responsables = RelacionDeEmpresa(
+        Empleado, {"activo": True}, many=True, required=False, default=list
     )
     departamento = RelacionDeEmpresa(
         Departamento, {"activo": True}, required=False, allow_null=True, default=None

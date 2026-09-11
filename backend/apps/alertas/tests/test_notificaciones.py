@@ -87,7 +87,7 @@ def activo_con_custodio_inactivo(admin):
         modelo="Latitude",
         numero_serie="SN-NOTIF-1",
         departamento=departamento,
-        custodio=empleado,
+        responsables=[empleado],
         fecha_adquisicion=timezone.localdate() - timedelta(days=200),
     )
 

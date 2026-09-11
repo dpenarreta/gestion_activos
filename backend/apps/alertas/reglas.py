@@ -229,6 +229,14 @@ def reparaciones_pendientes(dias: int) -> Alerta:
     )
 
 
+def _inactivos_de(activo) -> str:
+    return ", ".join(
+        empleado.nombre_completo
+        for empleado in activo.responsables_ordenados
+        if not empleado.activo
+    )
+
+
 def custodios_inactivos() -> Alerta:
     """Equipos a cargo de alguien que ya no está activo.
 
@@ -238,13 +246,17 @@ def custodios_inactivos() -> Alerta:
     """
     consulta = (
         _activos_operativos()
-        .filter(custodio__isnull=False, custodio__activo=False)
-        .select_related("custodio")
-        .order_by("custodio__apellidos")
+        .filter(responsables__activo=False)
+        .prefetch_related("responsables")
+        .order_by("nombre")
+        .distinct()
     )
     total = consulta.count()
     muestra = [
-        _fila_activo(activo, f"a cargo de {activo.custodio.nombre_completo} (inactivo)")
+        # Se nombra **a quien está de baja**, no a todos los que responden: en
+        # un equipo compartido el resto sigue respondiendo, y lo que hay que
+        # arreglar es quitar de la lista a quien ya no está.
+        _fila_activo(activo, f"a cargo de {_inactivos_de(activo)} (inactivo)")
         for activo in consulta[:TAMANO_MUESTRA]
     ]
 

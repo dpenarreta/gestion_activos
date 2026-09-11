@@ -85,6 +85,7 @@ export function ActivosList() {
     tipo: searchParams.get("tipo") || "",
     departamento: searchParams.get("departamento") || "",
     custodio: searchParams.get("custodio") || "",
+    compartido: searchParams.get("compartido") || "",
     estado: searchParams.get("estado") || "",
     sede: searchParams.get("sede") || "",
     criticidad: searchParams.get("criticidad") || "",
@@ -193,7 +194,7 @@ export function ActivosList() {
 
       <EscanerInput
         className="mb-3"
-        placeholder="Escanee una etiqueta o escriba código, serie, marca o custodio"
+        placeholder="Escanee una etiqueta o escriba código, serie, marca o responsable"
         onEscanear={(valor) => {
           setBusqueda(valor);
           listado.actualizarFiltros({ q: valor });
@@ -412,7 +413,10 @@ export function ActivosList() {
                 </td>
                 <td>{activo.tipo_nombre}</td>
                 <td>
-                  {activo.custodio_nombre || (
+                  {/* Los nombres, no un conteo: «3 responsables» obligaría a
+                      abrir la ficha para saber a quién llamar, que es lo que
+                      se está preguntando al mirar la columna. */}
+                  {activo.responsables_resumen || (
                     <span className="text-muted">Sin asignar</span>
                   )}
                 </td>

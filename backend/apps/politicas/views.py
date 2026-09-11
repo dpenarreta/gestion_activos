@@ -228,7 +228,8 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
         """
         nivel_pedido = request.query_params.get("nivel")
         activos = (
-            Activo.objects.select_related("tipo", "custodio", "departamento")
+            Activo.objects.select_related("tipo", "departamento")
+            .prefetch_related("responsables")
             .operativos()
             .order_by("-total_mantenimientos", "fecha_adquisicion")
         )
@@ -252,7 +253,7 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
                     "marca": activo.marca,
                     "modelo": activo.modelo,
                     "departamento": activo.departamento.nombre,
-                    "custodio": activo.custodio.nombre_completo if activo.custodio_id else None,
+                    "custodio": activo.resumen_de_responsables or None,
                     "antiguedad_meses": activo.antiguedad_meses,
                     "total_mantenimientos": activo.total_mantenimientos,
                     "total_componentes_criticos": activo.total_componentes_criticos,

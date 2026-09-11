@@ -7,8 +7,11 @@ const ACTIVO = {
   id: 1,
   codigo_barras: "GA-LAP-000001",
   nombre: "Laptop Contabilidad 01",
-  custodio: 3,
-  custodio_nombre: "María Salazar",
+  compartido: false,
+  responsables: [
+    { id: 3, nombre_completo: "María Salazar", codigo_empleado: "CTB-0003" },
+  ],
+  responsables_resumen: "María Salazar",
   departamento: 2,
   departamento_nombre: "Contabilidad",
   sede: 1,
@@ -94,8 +97,8 @@ describe("Asignar o trasladar un activo", () => {
   it("dice «sin asignar» y «sin sede» cuando el equipo no los tiene", async () => {
     abrir({
       ...ACTIVO,
-      custodio: null,
-      custodio_nombre: null,
+      responsables: [],
+      responsables_resumen: "",
       sede: null,
       sede_nombre: null,
       ciudad: null,
@@ -135,7 +138,7 @@ describe("Asignar o trasladar un activo", () => {
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
     const [, datos] = activosService.asignar.mock.calls[0];
     expect(datos).not.toHaveProperty("sede");
-    expect(datos.custodio).toBe("7");
+    expect(datos.responsables).toEqual([7]);
   });
 
   it("no deja confirmar si no hay nada que cambiar", async () => {
@@ -232,7 +235,7 @@ describe("Traslado de sede", () => {
 
     await waitFor(() =>
       expect(activosService.asignar).toHaveBeenCalledWith(1, {
-        custodio: null,
+        responsables: [],
         sede: "2",
         motivo: "",
       }),
@@ -251,5 +254,108 @@ describe("Traslado de sede", () => {
     expect(activosService.asignar.mock.calls[0][1]).not.toHaveProperty(
       "departamento",
     );
+  });
+});
+
+// --- Un equipo del que responde más de uno ---------------------------------
+
+describe("Un equipo compartido", () => {
+  /* Del escáner del andén responde el turno entero y ninguno responde más que
+     otro: no hay un «nuevo responsable» que sustituya al anterior, hay una
+     lista de la que se suma y se quita. */
+  const COMPARTIDO = {
+    ...ACTIVO,
+    compartido: true,
+    responsables: [
+      { id: 3, nombre_completo: "María Salazar", codigo_empleado: "CTB-0003" },
+    ],
+    responsables_resumen: "María Salazar",
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("enseña la lista en vez del desplegable de reemplazo", async () => {
+    abrir(COMPARTIDO);
+
+    await screen.findByText("Situación actual");
+    expect(
+      screen.queryByLabelText("Nuevo responsable"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Sumar a alguien")).toBeInTheDocument();
+  });
+
+  it("sumar a alguien no quita a quien ya respondía", async () => {
+    abrir(COMPARTIDO);
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(await screen.findByLabelText("Sumar a alguien"), {
+      target: { value: "7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
+    const [, datos] = activosService.asignar.mock.calls[0];
+    expect(datos.responsables).toEqual([3, 7]);
+  });
+
+  it("a quien ya responde no se lo ofrece dos veces", async () => {
+    abrir(COMPARTIDO);
+    await screen.findByLabelText("Sumar a alguien");
+
+    const textos = [
+      ...screen.getByLabelText("Sumar a alguien").querySelectorAll("option"),
+    ].map((opcion) => opcion.textContent);
+
+    expect(textos.some((t) => t.includes("María Salazar"))).toBe(false);
+    expect(textos.some((t) => t.includes("Luis Torres"))).toBe(true);
+  });
+
+  it("se quita a una persona sin tocar a las demás", async () => {
+    abrir({
+      ...COMPARTIDO,
+      responsables: [
+        ...COMPARTIDO.responsables,
+        { id: 7, nombre_completo: "Luis Torres", codigo_empleado: "TI-0007" },
+      ],
+      responsables_resumen: "María Salazar, Luis Torres",
+    });
+    await screen.findByText("Situación actual");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Quitar a Luis Torres" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
+    const [, datos] = activosService.asignar.mock.calls[0];
+    expect(datos.responsables).toEqual([3]);
+  });
+
+  it("quitar a todos avisa de que el equipo vuelve a bodega", async () => {
+    abrir(COMPARTIDO);
+    await screen.findByText("Situación actual");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Quitar a María Salazar" }),
+    );
+
+    expect(screen.getByText("Nadie responde por él")).toBeInTheDocument();
+    expect(screen.getByText(/quedará en bodega/)).toBeInTheDocument();
+  });
+
+  it("no deja confirmar si la lista quedó igual", async () => {
+    /* Sumar y volver a quitar a la misma persona no es un movimiento: lo que
+       se registra en el historial es el cambio, y aquí no lo hubo. */
+    abrir(COMPARTIDO);
+    await screen.findByLabelText("Sumar a alguien");
+
+    fireEvent.change(screen.getByLabelText("Sumar a alguien"), {
+      target: { value: "7" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Quitar a Luis Torres" }),
+    );
+
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeDisabled();
   });
 });

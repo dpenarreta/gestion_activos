@@ -106,7 +106,7 @@ def test_no_se_puede_desactivar_a_un_empleado_que_aun_custodia_equipos(
         departamento=departamento,
         fecha_adquisicion=datetime.date(2024, 1, 1),
     )
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
     respuesta = cliente.patch(
         f"/api/v1/organizacion/empleados/{empleado.id}/", {"activo": False}, format="json"
@@ -136,8 +136,8 @@ def test_se_puede_desactivar_a_un_empleado_tras_reasignar_sus_equipos(cliente, a
         departamento=departamento,
         fecha_adquisicion=datetime.date(2024, 1, 1),
     )
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[])
 
     respuesta = cliente.patch(
         f"/api/v1/organizacion/empleados/{empleado.id}/", {"activo": False}, format="json"
@@ -167,7 +167,7 @@ def test_no_se_puede_asignar_un_activo_a_un_empleado_inactivo(cliente, admin, de
     )
 
     respuesta = cliente.post(
-        f"/api/v1/activos/{activo.id}/asignar/", {"custodio": empleado.id}, format="json"
+        f"/api/v1/activos/{activo.id}/asignar/", {"responsables": [empleado.id]}, format="json"
     )
 
     assert respuesta.status_code == 400

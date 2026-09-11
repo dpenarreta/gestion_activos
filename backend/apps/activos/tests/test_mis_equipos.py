@@ -97,8 +97,8 @@ def test_devuelve_solo_los_equipos_de_quien_pregunta(admin, crear_activo, depart
     mio = crear_activo(nombre="Mi laptop")
     ajeno = crear_activo(nombre="Laptop de Luis")
     crear_activo(nombre="Laptop en bodega")
-    ActivoService.asignar_custodio(actor=admin, activo=mio, custodio=yo)
-    ActivoService.asignar_custodio(actor=admin, activo=ajeno, custodio=otro)
+    ActivoService.asignar_responsables(actor=admin, activo=mio, responsables=[yo])
+    ActivoService.asignar_responsables(actor=admin, activo=ajeno, responsables=[otro])
 
     datos = _cliente(usuario).get(RUTA).data
 
@@ -142,7 +142,7 @@ def test_no_expone_costos_ni_proveedor_ni_el_veredicto_de_renovacion(
         nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
     )
     activo = crear_activo(costo_adquisicion=1500)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=yo)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[yo])
 
     equipo = _cliente(usuario).get(RUTA).data["equipos"][0]
 
@@ -165,9 +165,9 @@ def test_dice_desde_cuando_lo_tengo_yo(admin, crear_activo, departamento):
         nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
     )
     activo = crear_activo()
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=yo)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=yo)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[yo])
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[])
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[yo])
 
     equipo = _cliente(usuario).get(RUTA).data["equipos"][0]
     ultima = activo.movimientos.filter(custodio_nuevo=yo).order_by("-created_at").first()
@@ -184,7 +184,7 @@ def test_un_equipo_dado_de_baja_deja_de_aparecer(admin, crear_activo, departamen
         nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
     )
     activo = crear_activo()
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=yo)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[yo])
     ActivoService.cambiar_estado(
         actor=admin, activo=activo, estado=Activo.Estado.DADO_DE_BAJA, motivo="Fin de vida"
     )
@@ -277,9 +277,63 @@ def test_desde_su_empresa_si_ve_sus_equipos(admin, departamento):
             departamento=area,
             fecha_adquisicion=datetime.date(2025, 1, 10),
         )
-        ActivoService.asignar_custodio(actor=admin, activo=equipo, custodio=suyo)
+        ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[suyo])
 
         datos = _cliente(usuario).get(RUTA).data
 
     assert [e["nombre"] for e in datos["equipos"]] == ["Laptop de Seguridad"]
     assert datos["aviso"] is None
+
+
+# --- Un equipo del que responde más de uno ---------------------------------
+
+
+def test_un_equipo_compartido_aparece_en_la_lista_de_cada_uno(admin, crear_activo, departamento):
+    """Del escáner del andén responde el turno entero: si solo apareciera en la
+    pantalla de uno, los demás no sabrían que también responden por él."""
+    usuario = _usuario_final()
+    yo = Empleado.objects.create(
+        nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
+    )
+    companero = Empleado.objects.create(
+        nombres="Luis", apellidos="Torres", departamento=departamento
+    )
+    equipo = crear_activo(nombre="Escáner del andén", compartido=True)
+    ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[yo, companero])
+
+    datos = _cliente(usuario).get(RUTA).data
+
+    assert [e["nombre"] for e in datos["equipos"]] == ["Escáner del andén"]
+
+
+def test_dice_con_quien_mas_se_responde_por_el(admin, crear_activo, departamento):
+    """Es lo primero que se pregunta cuando algo falla en un aparato de turno."""
+    usuario = _usuario_final()
+    yo = Empleado.objects.create(
+        nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
+    )
+    companero = Empleado.objects.create(
+        nombres="Luis", apellidos="Torres", departamento=departamento
+    )
+    equipo = crear_activo(nombre="Escáner del andén", compartido=True)
+    ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[yo, companero])
+
+    equipo_visto = _cliente(usuario).get(RUTA).data["equipos"][0]
+
+    assert equipo_visto["compartido"] is True
+    # Uno mismo no sale en la lista de «con quién más»: ya se sabe que es suyo.
+    assert equipo_visto["con_quien_mas"] == ["Luis Torres"]
+
+
+def test_en_un_equipo_propio_no_hay_nadie_mas(admin, crear_activo, departamento):
+    usuario = _usuario_final()
+    yo = Empleado.objects.create(
+        nombres="Ana", apellidos="Pérez", departamento=departamento, usuario=usuario
+    )
+    equipo = crear_activo(nombre="Mi laptop")
+    ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[yo])
+
+    equipo_visto = _cliente(usuario).get(RUTA).data["equipos"][0]
+
+    assert equipo_visto["compartido"] is False
+    assert equipo_visto["con_quien_mas"] == []

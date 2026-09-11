@@ -56,7 +56,8 @@ const ACTIVO = {
   numero_serie: "DL5440-0011",
   especificaciones: { RAM: 16 },
   observaciones: "",
-  custodio: 3,
+  responsables: [{ id: 3, nombre_completo: "Luis Mora" }],
+  compartido: false,
   departamento: 2,
   sede: 4,
   criticidad: "alta",
@@ -283,7 +284,8 @@ describe("Registrar un activo", () => {
     expect(crear.mock.calls[0][0]).toMatchObject({
       tipo: "1",
       departamento: "2",
-      custodio: null,
+      // Sin nadie: es una lista vacía, no un nulo. El equipo queda en bodega.
+      responsables: [],
       sede: null,
       proveedor: null,
       costo_adquisicion: null,
@@ -353,7 +355,7 @@ describe("Editar la ficha", () => {
     expect(screen.getByLabelText("Número de serie")).toHaveValue("DL5440-0011");
   });
 
-  it("el custodio y el departamento no se cambian aquí, y explica dónde sí", async () => {
+  it("quién responde y el departamento no se cambian aquí, y explica dónde sí", async () => {
     /* Cambiarlos por la ficha deja el movimiento en el historial; hacerlo
        desde este formulario los movería sin dejar rastro de quién lo tenía. */
     pintar(7);
@@ -368,7 +370,7 @@ describe("Editar la ficha", () => {
     ).toBeInTheDocument();
   });
 
-  it("guardar no manda custodio ni departamento", async () => {
+  it("guardar no manda responsables ni departamento", async () => {
     pintar(7);
 
     await screen.findByText("Editar ficha técnica");
@@ -381,7 +383,7 @@ describe("Editar la ficha", () => {
 
     await waitFor(() => expect(actualizar).toHaveBeenCalled());
     const enviado = actualizar.mock.calls[0][1];
-    expect(enviado).not.toHaveProperty("custodio");
+    expect(enviado).not.toHaveProperty("responsables");
     expect(enviado).not.toHaveProperty("departamento");
     expect(crear).not.toHaveBeenCalled();
   });
@@ -585,6 +587,59 @@ describe("Propio o puesto por un partner", () => {
     await screen.findByText("Editar ficha técnica");
     await waitFor(() =>
       expect(screen.getByLabelText("Concesionario")).toHaveValue("6"),
+    );
+  });
+});
+
+// --- Un equipo del que responde más de uno ---------------------------------
+
+describe("Equipos compartidos", () => {
+  it("por delante viene un solo responsable, que es lo normal", async () => {
+    /* Repartir la responsabilidad de una laptop personal entre tres nombres es
+       lo que hace que después nadie responda por ella. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(
+      screen.getByLabelText("Varias personas responden por él"),
+    ).not.toBeChecked();
+  });
+
+  it("la marca viaja al guardar", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.click(screen.getByLabelText("Varias personas responden por él"));
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].compartido).toBe(true);
+  });
+
+  it("el alta entrega a una persona y dice dónde se suma al resto", async () => {
+    /* Cada entrega deja su movimiento y su acta, así que sumar al turno es
+       una entrega más y se hace desde la ficha. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    fireEvent.click(screen.getByLabelText("Varias personas responden por él"));
+
+    expect(
+      screen.getByText(/A los demás se los suma desde la ficha/),
+    ).toBeInTheDocument();
+  });
+
+  it("al editar llega puesta la marca del equipo", async () => {
+    obtener.mockResolvedValue({ ...ACTIVO, compartido: true });
+
+    pintar(7);
+
+    await screen.findByText("Editar ficha técnica");
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Varias personas responden por él"),
+      ).toBeChecked(),
     );
   });
 });

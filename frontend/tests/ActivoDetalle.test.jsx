@@ -76,7 +76,18 @@ const ACTIVO = {
   dias_para_fin_de_garantia: 300,
   especificaciones: { RAM: 16, Procesador: "Intel i7" },
   observaciones: "Equipo de la jefatura",
-  custodio_nombre: "María Fernanda Salazar Ruiz",
+  // Como los devuelve la API: la lista, y el resumen ya armado para
+  // quien solo necesita escribirlo en una celda.
+  compartido: false,
+  responsables: [
+    {
+      id: 3,
+      nombre_completo: "María Fernanda Salazar Ruiz",
+      codigo_empleado: "TI-0003",
+      activo: true,
+    },
+  ],
+  responsables_resumen: "María Fernanda Salazar Ruiz",
   departamento_nombre: "Tecnología",
   sede_nombre: "Matriz Quito",
   ciudad: "Quito",
@@ -176,7 +187,7 @@ describe("La ficha del activo", () => {
     // Y los tiempos del §10 siguen la misma regla, sin perder los días.
     expect(valorDe("Desde el ingreso")).toBe("1 año, 1 mes y 16 días");
     // En el umbral se sigue diciendo en días: 30 son 30, no «1 mes».
-    expect(valorDe("Con el custodio actual")).toBe("30 días");
+    expect(valorDe("Con quien responde por él")).toBe("30 días");
     expect(valorDe("Guardado sin uso")).toBe("5 días");
   });
 
@@ -545,5 +556,78 @@ describe("Propiedad del equipo", () => {
     await screen.findByText("Laptop Jefatura TI");
     expect(valorDe("Proveedor")).toBe("Tecnomega C.A.");
     expect(valorDe("Concesionario")).toBe("Servientrega Andina");
+  });
+});
+
+// --- Un equipo del que responde más de uno ---------------------------------
+
+describe("Responsables del equipo", () => {
+  const TURNO = [
+    {
+      id: 3,
+      nombre_completo: "Jorge Andrade",
+      codigo_empleado: "OPE-0001",
+      activo: true,
+    },
+    {
+      id: 4,
+      nombre_completo: "Luis Mora",
+      codigo_empleado: "OPE-0002",
+      activo: true,
+    },
+  ];
+
+  it("los enseña a todos, sin destacar a ninguno", async () => {
+    /* Poner a uno primero inventaría un titular donde se decidió que no lo
+       hubiera: responden en igualdad. */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        compartido: true,
+        responsables: TURNO,
+        responsables_resumen: "Jorge Andrade, Luis Mora",
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    const valor = valorDe("Responsables");
+    expect(valor).toContain("Jorge Andrade");
+    expect(valor).toContain("Luis Mora");
+  });
+
+  it("lleva el código de cada uno: dos personas pueden llamarse igual", async () => {
+    pintar({
+      ...FICHA,
+      activo: { ...ACTIVO, compartido: true, responsables: TURNO },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Responsables")).toContain("OPE-0002");
+  });
+
+  it("señala a quien ya está dado de baja", async () => {
+    /* Es lo que hay que arreglar —quitarlo de la lista—, y el resto sigue
+       respondiendo. */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        compartido: true,
+        responsables: [TURNO[0], { ...TURNO[1], activo: false }],
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(screen.getByText("Dado de baja")).toBeInTheDocument();
+  });
+
+  it("en singular cuando responde una sola persona", async () => {
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(
+      screen.getByText("Responsable", { selector: "dt" }),
+    ).toBeInTheDocument();
   });
 });

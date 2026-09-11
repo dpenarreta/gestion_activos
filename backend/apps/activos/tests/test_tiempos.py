@@ -104,8 +104,8 @@ def test_sin_fecha_de_ingreso_el_calculo_se_mide_desde_la_compra(admin, departam
 
 
 def test_cuenta_desde_la_primera_asignacion(admin, activo, empleados):
-    movimiento = ActivoService.asignar_custodio(
-        actor=admin, activo=activo, custodio=empleados[0]
+    movimiento = ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleados[0]]
     ).movimientos.first()
     _antedatar(movimiento, 200)
 
@@ -118,13 +118,17 @@ def test_el_tiempo_con_el_custodio_actual_no_incluye_los_periodos_ajenos(admin, 
     """Un equipo devuelto y reentregado a la misma persona no debe sumar el
     tiempo en que no lo tuvo: quien mira la ficha para saber desde cuándo lo
     custodia leería una fecha en la que estaba en otra mesa."""
-    primera = ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleados[0])
+    primera = ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleados[0]]
+    )
     _antedatar(primera.movimientos.first(), 300)
 
-    devolucion = ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None)
+    devolucion = ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[])
     _antedatar(devolucion.movimientos.first(), 200)
 
-    reentrega = ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleados[0])
+    reentrega = ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleados[0]]
+    )
     _antedatar(reentrega.movimientos.first(), 50)
 
     activo.refresh_from_db()
@@ -166,7 +170,9 @@ def test_la_reparacion_cerrada_y_la_que_sigue_abierta_se_informan_aparte(activo)
 
 def test_el_tiempo_sin_uso_suma_lo_que_estuvo_guardado(admin, activo, empleados):
     """El equipo nace en bodega; al entregarlo, ese tramo se cierra."""
-    entrega = ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleados[0])
+    entrega = ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleados[0]]
+    )
     _antedatar(activo.movimientos.filter(tipo=MovimientoActivo.Tipo.ALTA).first(), 300)
     _antedatar(entrega.movimientos.first(), 100)
 
@@ -193,7 +199,9 @@ def test_un_equipo_que_salio_del_inventario_deja_de_acumular_tiempo(admin, activ
 
 
 def test_el_tiempo_activo_real_descuenta_lo_guardado_y_lo_reparado(admin, activo, empleados):
-    entrega = ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleados[0])
+    entrega = ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleados[0]]
+    )
     _antedatar(activo.movimientos.filter(tipo=MovimientoActivo.Tipo.ALTA).first(), 365)
     _antedatar(entrega.movimientos.first(), 265)
     Mantenimiento.objects.create(

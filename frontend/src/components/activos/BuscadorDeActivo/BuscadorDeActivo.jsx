@@ -255,7 +255,9 @@ export function BuscadorDeActivo({
                 {activo.nombre}
                 <small className="d-block text-muted">
                   {activo.marca} {activo.modelo} · {activo.numero_serie}
-                  {activo.custodio_nombre ? ` · ${activo.custodio_nombre}` : ""}
+                  {activo.responsables_resumen
+                    ? ` · ${activo.responsables_resumen}`
+                    : ""}
                 </small>
               </button>
             </li>

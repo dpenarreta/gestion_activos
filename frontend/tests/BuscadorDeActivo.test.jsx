@@ -34,7 +34,7 @@ const LAPTOP = {
   marca: "Dell",
   modelo: "Latitude 5440",
   numero_serie: "DL5440-0011",
-  custodio_nombre: "María Salazar",
+  responsables_resumen: "María Salazar",
 };
 
 const IMPRESORA = {
@@ -44,7 +44,7 @@ const IMPRESORA = {
   marca: "HP",
   modelo: "M404",
   numero_serie: "HP404-0022",
-  custodio_nombre: null,
+  responsables_resumen: "",
 };
 
 const onChange = vi.fn();

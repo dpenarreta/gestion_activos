@@ -2,7 +2,7 @@
 
 Permite que cada empresa decida qué se pide al cargar el inventario: quitar
 las columnas que no lleva (costos, ubicación), volver obligatoria una que sí
-exige siempre (el custodio), reordenarlas, renombrarlas, y agregar columnas
+exige siempre (el responsable), reordenarlas, renombrarlas, y agregar columnas
 propias que se guardan como especificaciones del equipo.
 
 Hay un límite que no es configurable: cinco columnas son **estructurales**
@@ -28,6 +28,7 @@ CAMPOS_DISPONIBLES = {
     "departamento": "Departamento",
     "fecha_adquisicion": "Fecha de adquisición",
     "custodio": "Código del custodio",
+    "compartido": "Compartido (varios responsables)",
     "sede": "Sede",
     "criticidad": "Criticidad",
     "uso": "Uso",

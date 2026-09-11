@@ -58,3 +58,31 @@
     margin-bottom: 0.5rem;
   }
 }
+
+/* La lista de quienes responden por un equipo compartido. Todos con el mismo
+   trato y su botón de quitar al lado: ninguno manda sobre otro, así que
+   ninguno se destaca. */
+.responsables-elegidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.responsables-elegidos li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.responsables-elegidos .btn-close {
+  width: 0.6em;
+  height: 0.6em;
+  opacity: 0.55;
+}

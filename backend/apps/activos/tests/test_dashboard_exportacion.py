@@ -54,7 +54,7 @@ def escenario(db, admin):
         )
 
     en_uso = crear("SN-DASH-1")
-    ActivoService.asignar_custodio(actor=admin, activo=en_uso, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=en_uso, responsables=[empleado])
     en_bodega = crear("SN-DASH-2")
     de_baja = crear("SN-DASH-3")
     ActivoService.cambiar_estado(

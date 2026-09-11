@@ -115,14 +115,14 @@ def test_perder_un_equipo_exige_decir_que_pasó(cliente, crear_activo):
 def test_un_equipo_robado_deja_de_estar_a_nombre_de_nadie(admin, crear_activo, empleado):
     """El historial guarda quién lo tenía; mantenerlo asignado lo haría
     aparecer en la lista de responsabilidades de esa persona."""
-    activo = crear_activo(custodio=empleado)
+    activo = crear_activo(responsables=[empleado])
 
     ActivoService.cambiar_estado(
         actor=admin, activo=activo, estado=Activo.Estado.ROBADO, motivo="Denuncia 2026-114"
     )
 
     activo.refresh_from_db()
-    assert activo.custodio_id is None
+    assert activo.responsables.count() == 0
     assert activo.fecha_baja is not None
     assert activo.motivo_baja == "Denuncia 2026-114"
     assert activo.movimientos.filter(tipo=MovimientoActivo.Tipo.BAJA).exists()
@@ -171,12 +171,12 @@ def test_no_se_asigna_un_equipo_que_ya_no_esta(cliente, admin, crear_activo, emp
     )
 
     respuesta = cliente.post(
-        f"/api/v1/activos/{activo.id}/asignar/", {"custodio": empleado.id}, format="json"
+        f"/api/v1/activos/{activo.id}/asignar/", {"responsables": [empleado.id]}, format="json"
     )
 
     assert respuesta.status_code == 400
     activo.refresh_from_db()
-    assert activo.custodio_id is None
+    assert activo.responsables.count() == 0
 
 
 def test_en_transito_y_en_garantia_siguen_siendo_parque(admin, crear_activo):
@@ -197,7 +197,7 @@ def test_en_transito_y_en_garantia_siguen_siendo_parque(admin, crear_activo):
 def test_un_equipo_perdido_no_genera_alertas(admin, crear_activo, empleado):
     """Un pendiente que nadie puede resolver es un pendiente eterno en la
     pantalla que debería decir qué atender hoy."""
-    activo = crear_activo(custodio=empleado)
+    activo = crear_activo(responsables=[empleado])
     empleado.activo = False
     empleado.save()
 
@@ -436,7 +436,7 @@ def test_entregar_un_equipo_disponible_lo_pone_en_uso(admin, crear_activo, emple
         actor=admin, activo=activo, estado=Activo.Estado.DISPONIBLE, motivo="Revisado"
     )
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
     activo.refresh_from_db()
     assert activo.estado == Activo.Estado.EN_USO
@@ -444,8 +444,8 @@ def test_entregar_un_equipo_disponible_lo_pone_en_uso(admin, crear_activo, emple
 
 def test_la_devolucion_deja_el_equipo_en_bodega_no_disponible(admin, crear_activo, empleado):
     """Marcarlo entregable de inmediato haría prometer equipos sin revisar."""
-    activo = crear_activo(custodio=empleado)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None)
+    activo = crear_activo(responsables=[empleado])
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[])
 
     activo.refresh_from_db()
     assert activo.estado == Activo.Estado.EN_BODEGA
@@ -478,7 +478,7 @@ def test_trasladar_un_equipo_deja_el_origen_y_el_destino_en_el_historial(admin, 
     destino = Sede.objects.create(nombre="Sucursal Guayaquil", ciudad="Guayaquil")
     activo = crear_activo(sede=sede)
 
-    ActivoService.asignar_custodio(
+    ActivoService.asignar_responsables(
         actor=admin, activo=activo, sede=destino, motivo="Traslado a la sucursal"
     )
 
@@ -503,14 +503,14 @@ def test_el_traslado_libera_al_responsable_y_sigue_siendo_un_traslado(
     soltara."""
     destino = Sede.objects.create(nombre="Sucursal Machala", ciudad="Machala")
     activo = crear_activo(sede=sede)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
-    ActivoService.asignar_custodio(
-        actor=admin, activo=activo, custodio=None, sede=destino, motivo="Cierre de oficina"
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[], sede=destino, motivo="Cierre de oficina"
     )
 
     activo.refresh_from_db()
-    assert activo.custodio is None
+    assert activo.responsables.count() == 0
     assert activo.sede_id == destino.id
     assert activo.estado == Activo.Estado.EN_BODEGA
 
@@ -528,9 +528,11 @@ def test_devolver_sin_moverlo_de_sitio_sigue_siendo_una_devolucion(
     """El tipo lo decide el cambio que se ve desde fuera: sin movimiento
     físico, lo que pasó es que alguien entregó el equipo."""
     activo = crear_activo(sede=sede)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None, motivo="Renuncia")
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[], motivo="Renuncia"
+    )
 
     assert activo.movimientos.first().tipo == MovimientoActivo.Tipo.DEVOLUCION
 
@@ -541,7 +543,7 @@ def test_asignar_sin_tocar_la_sede_no_la_borra(admin, crear_activo, sede, emplea
     está."""
     activo = crear_activo(sede=sede)
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
     activo.refresh_from_db()
     assert activo.sede_id == sede.id
@@ -550,7 +552,7 @@ def test_asignar_sin_tocar_la_sede_no_la_borra(admin, crear_activo, sede, emplea
 def test_se_puede_dejar_un_equipo_sin_sede_explicitamente(admin, crear_activo, sede):
     activo = crear_activo(sede=sede)
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, sede=None, motivo="Sin sitio")
+    ActivoService.asignar_responsables(actor=admin, activo=activo, sede=None, motivo="Sin sitio")
 
     activo.refresh_from_db()
     assert activo.sede_id is None

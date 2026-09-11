@@ -116,8 +116,8 @@ def crear_activo(admin, tipo, departamento):
 @pytest.fixture
 def parque(crear_activo, admin, empleado):
     """Un parque pequeño con un equipo en cada situación relevante."""
-    asignado = crear_activo(custodio=empleado)
-    ActivoService.asignar_custodio(actor=admin, activo=asignado, custodio=empleado)
+    asignado = crear_activo(responsables=[empleado])
+    ActivoService.asignar_responsables(actor=admin, activo=asignado, responsables=[empleado])
 
     en_bodega = crear_activo()
 
@@ -458,6 +458,42 @@ def test_la_depreciacion_se_resuelve_de_una_vez_para_toda_la_pagina(
         activo.save()
 
     reporte = obtener("valor-y-depreciacion")
-    # El conteo, la página y las dos de la resolución en lote.
-    with django_assert_num_queries(4):
+    # El conteo, la página, la precarga de los responsables y las dos de la
+    # resolución en lote. Las cinco son por informe, no por renglón: es la
+    # diferencia que esta prueba existe para sostener.
+    with django_assert_num_queries(5):
         generar_filas(reporte, {})
+
+
+# --- Un equipo del que responde más de uno ---------------------------------
+
+
+def test_activos_por_usuario_lista_el_equipo_compartido_bajo_cada_uno(
+    crear_activo, admin, departamento
+):
+    """Un escáner del que responde el turno entero no puede salir solo en la
+    sección del primero por apellido: el informe existe para responder qué
+    tiene cada persona a su cargo, y a los otros dos les falta."""
+    from apps.organizacion.models import Empleado
+
+    uno = Empleado.objects.create(
+        nombres="Jorge",
+        apellidos="Andrade",
+        codigo_empleado="OPE-9001",
+        departamento=departamento,
+    )
+    otro = Empleado.objects.create(
+        nombres="Luis",
+        apellidos="Mora",
+        codigo_empleado="OPE-9002",
+        departamento=departamento,
+    )
+    compartido = crear_activo(nombre="Escáner del andén", compartido=True)
+    ActivoService.asignar_responsables(actor=admin, activo=compartido, responsables=[uno, otro])
+
+    resultado = generar_filas(obtener("activos-por-usuario"), {})
+
+    filas = [f for f in resultado["filas"] if "Escáner del andén" in f]
+    assert len(filas) == 2
+    responsables = {f[0] for f in filas}
+    assert responsables == {"Jorge Andrade", "Luis Mora"}

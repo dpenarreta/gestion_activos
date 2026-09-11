@@ -44,7 +44,7 @@ const FICHA = {
     nombre: "Laptop Jefatura TI",
     estado: "en_uso",
     estado_display: "Asignado",
-    custodio_nombre: "María Fernanda Salazar Ruiz",
+    responsables_resumen: "María Fernanda Salazar Ruiz",
     departamento_nombre: "Tecnología",
     ciudad: "Quito",
     marca: "Dell",

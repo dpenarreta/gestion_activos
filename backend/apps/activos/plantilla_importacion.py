@@ -35,6 +35,7 @@ ANCHOS = {
     "departamento": 22,
     "fecha_adquisicion": 20,
     "custodio": 24,
+    "compartido": 14,
     "sede": 26,
     "criticidad": 14,
     "uso": 18,
@@ -60,6 +61,7 @@ EJEMPLOS = [
         "departamento": "CTB",
         "fecha_adquisicion": "2024-03-15",
         "custodio": "TI-0001",
+        "compartido": "No",
         "sede": "Matriz Quito",
         "criticidad": "Alta",
         "uso": "Administrativo",
@@ -81,7 +83,8 @@ EJEMPLOS = [
         "numero_serie": "HPM404-77120",
         "departamento": "CTB",
         "fecha_adquisicion": "2023-11-02",
-        "custodio": "",
+        "custodio": "OPE-0004; OPE-0007",
+        "compartido": "Sí",
         "sede": "Sucursal Guayaquil",
         "criticidad": "Baja",
         "uso": "Atención al cliente",
@@ -93,7 +96,7 @@ EJEMPLOS = [
         "proveedor": "",
         "fecha_fin_garantia": "",
         "especificaciones": "Resolución=1200 dpi; Conectividad=Ethernet",
-        "observaciones": "Sin custodio: queda en bodega",
+        "observaciones": "Escáner del andén: responde el turno",
     },
 ]
 
@@ -192,7 +195,9 @@ def _hoja_instrucciones(libro: Workbook, columnas) -> None:
         (
             "5. En «Código del custodio» use el código interno del empleado (plantilla de "
             "«Empleados»). "
-            "Si lo deja vacío, el activo queda en bodega, sin responsable asignado.",
+            "Si lo deja vacío, el activo queda en bodega, sin responsable asignado. "
+            "Si del equipo responde más de una persona —un escáner de andén, una impresora "
+            "de mostrador—, escriba sus códigos separados por punto y coma.",
             False,
         ),
         (

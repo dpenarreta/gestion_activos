@@ -109,7 +109,7 @@ class Command(BaseCommand):
             for nombre in ("Tecnomega", "Comptronix", "Siglo21")
         ]
 
-        # Un custodio cada veinte equipos: repartir uno por activo daría una
+        # Un responsable cada veinte equipos: repartir uno por activo daría una
         # tabla de empleados irreal y escondería el coste de los JOIN.
         # Políticas: sin ellas el motor de renovación no evalúa nada y la
         # medición sale optimista, porque justo el trabajo caro no se hace.
@@ -166,7 +166,6 @@ class Command(BaseCommand):
             # que la medición signifique algo.
             dias = random.randint(30, 96 * 30)
             adquisicion = hoy - datetime.timedelta(days=dias)
-            tiene_custodio = estado == Activo.Estado.EN_USO
             activos.append(
                 Activo(
                     codigo_barras=f"GA-{tipo.codigo}-P{indice:06d}",
@@ -176,7 +175,6 @@ class Command(BaseCommand):
                     modelo=f"Modelo {random.randint(100, 999)}",
                     numero_serie=f"SN-PERF-{indice:06d}",
                     departamento=random.choice(departamentos),
-                    custodio=random.choice(empleados) if tiene_custodio else None,
                     sede=random.choice(sedes),
                     estado=estado,
                     criticidad=random.choice([c.value for c in Activo.Criticidad]),
@@ -199,33 +197,61 @@ class Command(BaseCommand):
         with transaction.atomic():
             Activo.objects.bulk_create(activos, batch_size=500)
         creados = list(Activo.objects.filter(numero_serie__startswith="SN-PERF-"))
+
+        # Los responsables van después del alta masiva: una relación de muchos
+        # a muchos no cabe en un `bulk_create`. Uno de cada diez equipos en uso
+        # es compartido, para que los informes que agrupan por persona midan
+        # también esa rama y no solo la del responsable único.
+        Relacion = Activo.responsables.through
+        relaciones = []
+        compartidos = []
+        for activo in creados:
+            if activo.estado != Activo.Estado.EN_USO:
+                continue
+            cuantos = 3 if random.random() < 0.1 else 1
+            if cuantos > 1:
+                compartidos.append(activo.id)
+            for empleado in random.sample(empleados, cuantos):
+                relaciones.append(Relacion(activo_id=activo.id, empleado_id=empleado.id))
+        Relacion.objects.bulk_create(relaciones, batch_size=500)
+        Activo.objects.filter(id__in=compartidos).update(compartido=True)
+        # Releídos con sus responsables ya puestos: el historial de abajo los
+        # nombra, y sin esto saldría vacío.
+        creados = list(
+            Activo.objects.filter(numero_serie__startswith="SN-PERF-").prefetch_related(
+                "responsables"
+            )
+        )
         self.stdout.write(f"  {len(creados)} activos creados.")
 
         # Historial: sin él, los reportes de movimientos y de reparaciones
         # medirían sobre tablas vacías, que es justo lo que no se quiere.
         movimientos = []
         for activo in creados:
-            movimientos.append(
-                MovimientoActivo(
-                    activo=activo,
-                    tipo=MovimientoActivo.Tipo.ALTA,
-                    estado_nuevo=activo.estado,
-                    departamento_nuevo=activo.departamento,
-                    custodio_nuevo=activo.custodio,
-                )
-            )
-            if activo.custodio_id and random.random() > 0.5:
+            responsables = list(activo.responsables.all())
+            for empleado in responsables or [None]:
                 movimientos.append(
                     MovimientoActivo(
                         activo=activo,
-                        tipo=MovimientoActivo.Tipo.ASIGNACION,
-                        estado_anterior=Activo.Estado.EN_BODEGA,
-                        estado_nuevo=Activo.Estado.EN_USO,
-                        custodio_nuevo=activo.custodio,
+                        tipo=MovimientoActivo.Tipo.ALTA,
+                        estado_nuevo=activo.estado,
                         departamento_nuevo=activo.departamento,
-                        motivo="Entrega inicial",
+                        custodio_nuevo=empleado,
                     )
                 )
+            if responsables and random.random() > 0.5:
+                for empleado in responsables:
+                    movimientos.append(
+                        MovimientoActivo(
+                            activo=activo,
+                            tipo=MovimientoActivo.Tipo.ASIGNACION,
+                            estado_anterior=Activo.Estado.EN_BODEGA,
+                            estado_nuevo=Activo.Estado.EN_USO,
+                            custodio_nuevo=empleado,
+                            departamento_nuevo=activo.departamento,
+                            motivo="Entrega inicial",
+                        )
+                    )
         MovimientoActivo.objects.bulk_create(movimientos, batch_size=500)
         self.stdout.write(f"  {len(movimientos)} movimientos creados.")
 

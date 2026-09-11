@@ -346,7 +346,7 @@ def test_un_activo_sin_custodio_queda_en_bodega(cliente, catalogos, columnas):
     _importar(cliente, _archivo(columnas, [_fila(custodio="")]), confirmar=True)
 
     activo = Activo.objects.get()
-    assert activo.custodio is None
+    assert activo.responsables.count() == 0
     assert activo.estado == Activo.Estado.EN_BODEGA
 
 
@@ -628,3 +628,82 @@ def test_sin_decir_nada_el_equipo_es_de_la_empresa(cliente, catalogos, columnas_
 
     assert respuesta.status_code == 201
     assert Activo.objects.get(numero_serie="SN-IMP-1").es_de_la_empresa is True
+
+
+# --- Un equipo del que responde más de uno ---------------------------------
+
+
+@pytest.fixture
+def columnas_con_compartido(db, columnas):
+    """La plantilla con la casilla de «compartido» habilitada.
+
+    Viene desactivada, como el proveedor: casi todo el parque tiene un solo
+    responsable, y una columna que la mayoría dejaría vacía hace la plantilla
+    más difícil de llenar, no más completa.
+    """
+    from apps.activos.models_plantilla import ColumnaPlantillaActivos
+
+    ultimo = ColumnaPlantillaActivos.objects.order_by("-orden").first()
+    ColumnaPlantillaActivos.objects.update_or_create(
+        clave="compartido",
+        defaults={
+            "etiqueta": "Compartido",
+            "activa": True,
+            "orden": (ultimo.orden if ultimo else 0) + 10,
+        },
+    )
+    return columnas_configuradas()
+
+
+@pytest.fixture
+def turno(catalogos):
+    """Dos personas más del mismo turno, además de la del catálogo base."""
+    return [
+        Empleado.objects.create(
+            nombres=nombres,
+            apellidos=apellidos,
+            codigo_empleado=codigo,
+            departamento=catalogos["departamento"],
+        )
+        for nombres, apellidos, codigo in (
+            ("Luis", "Mora", "EMP-0002"),
+            ("Paola", "Vaca", "EMP-0003"),
+        )
+    ]
+
+
+def test_varios_codigos_separados_por_punto_y_coma(cliente, catalogos, turno, columnas):
+    """Es el separador que la plantilla ya enseña en las especificaciones, y
+    una coma chocaría con los apellidos compuestos."""
+    archivo = _archivo(columnas, [_fila(custodio="EMP-0002; EMP-0003")])
+
+    respuesta = _importar(cliente, archivo, confirmar=True)
+
+    assert respuesta.status_code == 201
+    activo = Activo.objects.get(numero_serie="SN-IMP-1")
+    assert activo.responsables.count() == 2
+    # Nombrar a varios ya dice que el equipo es de varios: pedir además la otra
+    # columna sería hacer escribir dos veces lo mismo.
+    assert activo.compartido is True
+
+
+def test_decir_que_no_es_compartido_y_nombrar_a_dos_se_señala(
+    cliente, catalogos, turno, columnas_con_compartido
+):
+    archivo = _archivo(
+        columnas_con_compartido,
+        [_fila(custodio="EMP-0002; EMP-0003", compartido="No")],
+    )
+
+    errores = _importar(cliente, archivo).json()["errores"]
+
+    assert "no es compartido" in errores[0]["mensaje"]
+
+
+def test_un_codigo_repetido_en_la_misma_celda_no_cuenta_dos_veces(cliente, catalogos, columnas):
+    archivo = _archivo(columnas, [_fila(custodio="EMP-0001; EMP-0001")])
+
+    respuesta = _importar(cliente, archivo, confirmar=True)
+
+    assert respuesta.status_code == 201
+    assert Activo.objects.get(numero_serie="SN-IMP-1").responsables.count() == 1

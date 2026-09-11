@@ -122,17 +122,17 @@ def test_el_alta_deja_un_movimiento_de_tipo_alta(admin, datos_activo):
     assert movimiento.registrado_por == admin
 
 
-def test_asignar_custodio_registra_el_movimiento_y_pone_el_activo_en_uso(
+def test_asignar_responsables_registra_el_movimiento_y_pone_el_activo_en_uso(
     admin, datos_activo, empleado
 ):
     activo = ActivoService.crear_activo(actor=admin, **datos_activo)
 
-    ActivoService.asignar_custodio(
-        actor=admin, activo=activo, custodio=empleado, motivo="Entrega inicial"
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleado], motivo="Entrega inicial"
     )
 
     activo.refresh_from_db()
-    assert activo.custodio == empleado
+    assert list(activo.responsables.all()) == [empleado]
     assert activo.estado == Activo.Estado.EN_USO
     movimiento = activo.movimientos.first()
     assert movimiento.tipo == MovimientoActivo.Tipo.ASIGNACION
@@ -144,12 +144,14 @@ def test_devolver_a_bodega_conserva_al_custodio_anterior_en_el_historial(
     admin, datos_activo, empleado
 ):
     activo = ActivoService.crear_activo(actor=admin, **datos_activo)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None, motivo="Renuncia")
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[], motivo="Renuncia"
+    )
 
     activo.refresh_from_db()
-    assert activo.custodio is None
+    assert activo.responsables.count() == 0
     assert activo.estado == Activo.Estado.EN_BODEGA
     devolucion = activo.movimientos.first()
     assert devolucion.tipo == MovimientoActivo.Tipo.DEVOLUCION
@@ -192,20 +194,20 @@ def test_el_inventario_no_permite_eliminar_activos(cliente, admin, datos_activo)
     assert Activo.objects.filter(id=activo.id).exists()
 
 
-def test_editar_la_ficha_no_puede_cambiar_el_custodio(cliente, admin, datos_activo, empleado):
+def test_editar_la_ficha_no_puede_cambiar_los_responsables(cliente, admin, datos_activo, empleado):
     """Cambiar de responsable por PATCH saltaría el registro del movimiento."""
     activo = ActivoService.crear_activo(actor=admin, **datos_activo)
 
     respuesta = cliente.patch(
         f"/api/v1/activos/{activo.id}/",
-        {"nombre": "Laptop renombrada", "custodio": empleado.id},
+        {"nombre": "Laptop renombrada", "responsables": [empleado.id]},
         format="json",
     )
 
     assert respuesta.status_code == 200
     activo.refresh_from_db()
     assert activo.nombre == "Laptop renombrada"
-    assert activo.custodio is None
+    assert activo.responsables.count() == 0
 
 
 # --- RF-03: búsqueda por escáner -----------------------------------------
@@ -215,14 +217,14 @@ def test_buscar_por_codigo_escaneado_devuelve_ficha_historial_y_costos(
     cliente, admin, datos_activo, empleado
 ):
     activo = ActivoService.crear_activo(actor=admin, **datos_activo)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
 
     respuesta = cliente.get(f"/api/v1/activos/por-codigo/{activo.codigo_barras}/")
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["activo"]["codigo_barras"] == activo.codigo_barras
-    assert cuerpo["activo"]["custodio_nombre"] == "Ana Pérez"
+    assert cuerpo["activo"]["responsables_resumen"] == "Ana Pérez"
     assert len(cuerpo["movimientos"]) == 2
     assert cuerpo["mantenimientos"] == []
     assert "costos" in cuerpo

@@ -1,7 +1,7 @@
 """Los siete tiempos del §10 del documento funcional.
 
 Cuatro de ellos no salen de la ficha sino del **historial**: el sistema nunca
-guardó «cuánto tiempo lleva este equipo con su custodio», guardó cada
+guardó «cuánto tiempo lleva este equipo con quien responde por él», guardó cada
 movimiento con su fecha, y de ahí se reconstruye. Esa es la razón de que el
 historial sea append-only y de que cada cambio de estado deje su fila: sin eso
 estos números no existirían, y guardarlos como contadores obligaría a
@@ -73,16 +73,23 @@ def calcular(activo) -> dict:
     asignaciones = [m for m in movimientos if m.tipo == MovimientoActivo.Tipo.ASIGNACION]
     desde_primera_asignacion = _dias_desde(asignaciones[0].created_at) if asignaciones else None
 
+    # Con varios responsables se toma **el que lleva más tiempo**: la
+    # pregunta que este número responde es desde cuándo el equipo está en manos
+    # de quienes lo tienen hoy, y con el más reciente un equipo entregado hace
+    # dos años parecería recién asignado cada vez que se suma alguien al turno.
+    # Con un solo responsable da exactamente lo mismo que antes.
     con_custodio_actual = None
-    if activo.custodio_id:
-        # La última entrega **a este custodio** sin devolución posterior: si se
+    for empleado in activo.responsables.all():
+        # La última entrega **a esta persona** sin devolución posterior: si se
         # tomara la primera, un equipo devuelto y reentregado al mismo
         # empleado sumaría el tiempo en que no lo tuvo.
         for movimiento in reversed(movimientos):
-            if movimiento.custodio_nuevo_id == activo.custodio_id:
-                con_custodio_actual = _dias_desde(movimiento.created_at)
+            if movimiento.custodio_nuevo_id == empleado.id:
+                dias = _dias_desde(movimiento.created_at)
+                if dias is not None and (con_custodio_actual is None or dias > con_custodio_actual):
+                    con_custodio_actual = dias
                 break
-            if movimiento.custodio_anterior_id == activo.custodio_id:
+            if movimiento.custodio_anterior_id == empleado.id:
                 break
 
     # --- Reparación ---

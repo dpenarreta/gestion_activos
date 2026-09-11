@@ -204,12 +204,24 @@ class Activo(ModeloDeEmpresa):
     observaciones = models.TextField(blank=True)
 
     # --- Custodia y adscripción (RF-01) ---
-    custodio = models.ForeignKey(
+    #: Marca el equipo que varias personas usan y del que varias responden: un
+    #: escáner de andén, una impresora de mostrador, una laptop de turno. Es una
+    #: decisión explícita y no una consecuencia de sumar gente, porque repartir
+    #: la responsabilidad de una laptop personal entre tres nombres es
+    #: exactamente lo que hace que después nadie responda por ella.
+    compartido = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Varias personas responden por él, en igualdad. Ej.: un escáner de andén.",
+    )
+    #: Quiénes responden por el equipo. Son varios solo si está marcado como
+    #: compartido, y entonces **ninguno manda sobre otro**: no hay un titular
+    #: con acompañantes, hay tres personas que responden igual y cada una firma
+    #: su propia acta. Un equipo sin nadie está en bodega.
+    responsables = models.ManyToManyField(
         "organizacion.Empleado",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="activos_asignados",
+        blank=True,
         help_text="Vacío mientras el equipo está en bodega, sin responsable.",
     )
     departamento = models.ForeignKey(
@@ -352,6 +364,44 @@ class Activo(ModeloDeEmpresa):
         otro.
         """
         return self.propiedad == self.Propiedad.PROPIA
+
+    @property
+    def responsables_ordenados(self) -> list:
+        """Quiénes responden, en el orden en que se leen: por apellido.
+
+        Ordenarlos por cuándo se sumaron sugeriría una antigüedad que aquí no
+        significa nada —ninguno manda sobre otro—, y dejarlos en el orden que
+        devuelva la base haría que la misma ficha se leyera distinta en dos
+        pantallazos.
+        """
+        return sorted(self.responsables.all(), key=lambda e: (e.apellidos, e.nombres))
+
+    @property
+    def responsable_unico(self):
+        """El único responsable, o `None` si no hay ninguno o hay varios.
+
+        Existe para lo que **solo tiene sentido con uno**: el acta de un equipo
+        personal, la columna de una hoja de cálculo. Devuelve `None` con tres
+        responsables a propósito, en vez de elegir uno: elegir sería inventar
+        un titular donde se decidió que no lo hubiera.
+        """
+        responsables = self.responsables_ordenados
+        return responsables[0] if len(responsables) == 1 else None
+
+    @property
+    def resumen_de_responsables(self) -> str:
+        """Quién responde, para leerlo de un vistazo en una lista o una celda.
+
+        Con uno, su nombre. Con varios, todos separados por coma: un «3
+        responsables» obligaría a abrir la ficha para saber a quién llamar, que
+        es justo lo que se está preguntando al mirar la columna.
+        """
+        return ", ".join(e.nombre_completo for e in self.responsables_ordenados)
+
+    @property
+    def esta_asignado(self) -> bool:
+        """Si alguien responde hoy por el equipo."""
+        return bool(self.responsables_ordenados)
 
     @property
     def esta_operativo(self) -> bool:

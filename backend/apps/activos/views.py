@@ -174,9 +174,14 @@ class ActivoViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def get_queryset(self):
-        queryset = Activo.objects.select_related(
-            "tipo", "custodio", "departamento", "sede", "proveedor", "concesionario"
-        ).order_by("-created_at")
+        queryset = (
+            Activo.objects.select_related(
+                "tipo", "departamento", "sede", "proveedor", "concesionario"
+            )
+            # Los responsables son varios: sin precargarlos, cada fila del
+            # listado se llevaría su propia consulta para escribir un nombre.
+            .prefetch_related("responsables").order_by("-created_at")
+        )
 
         if self.action == "retrieve":
             # La ficha calcula los siete tiempos del §10 recorriendo el
@@ -195,14 +200,21 @@ class ActivoViewSet(viewsets.ModelViewSet):
                 | Q(nombre__icontains=termino)
                 | Q(marca__icontains=termino)
                 | Q(modelo__icontains=termino)
-                | Q(custodio__nombres__icontains=termino)
-                | Q(custodio__apellidos__icontains=termino)
-            )
+                | Q(responsables__nombres__icontains=termino)
+                | Q(responsables__apellidos__icontains=termino)
+                # Con varios responsables, un equipo casaría una vez por cada
+                # uno y saldría repetido en el listado.
+            ).distinct()
 
         for parametro, campo in (
             ("tipo", "tipo_id"),
             ("departamento", "departamento_id"),
-            ("custodio", "custodio_id"),
+            # Se sigue llamando `custodio` además de `responsable`: los
+            # enlaces de «equipos a cargo» y de las alertas ya circulan escritos
+            # así, y romperlos dejaría pantallas que llevan a un listado sin
+            # filtrar sin que nadie lo note.
+            ("responsable", "responsables"),
+            ("custodio", "responsables"),
             ("sede", "sede_id"),
         ):
             valor = params.get(parametro)
@@ -249,6 +261,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
         # «Almacenados» agrupa disponible y en bodega: la pregunta de quien
         # busca un equipo para entregar es «qué hay guardado», y el matiz
         # entre ambos estados lo resuelve mirando la ficha.
+        compartidos = params.get("compartido")
+        if compartidos in {"true", "false"}:
+            queryset = queryset.filter(compartido=compartidos == "true")
+
         if params.get("almacenados") == "true":
             queryset = queryset.filter(estado__in=ESTADOS_EN_ALMACEN)
 
@@ -265,7 +281,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
         # Un equipo cuyo responsable ya no está activo no tiene, en la
         # práctica, responsable: si se pierde, nadie responde por él.
         if params.get("custodio_inactivo") == "true":
-            queryset = queryset.filter(custodio__isnull=False, custodio__activo=False)
+            queryset = queryset.filter(responsables__activo=False).distinct()
 
         # «Sin actualizar» no dice que el dato esté mal, dice que nadie lo ha
         # confirmado desde hace tanto: es el disparador del inventario físico.
@@ -436,7 +452,8 @@ class ActivoViewSet(viewsets.ModelViewSet):
         if not termino:
             return None
         return (
-            Activo.objects.select_related("tipo", "custodio", "departamento")
+            Activo.objects.select_related("tipo", "departamento")
+            .prefetch_related("responsables")
             .filter(Q(codigo_barras__iexact=termino) | Q(numero_serie__iexact=termino))
             .first()
         )
@@ -465,7 +482,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
         """Asigna, traslada o devuelve un activo (RF-01)."""
         serializer = AsignacionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        activo = ActivoService.asignar_custodio(
+        activo = ActivoService.asignar_responsables(
             actor=request.user,
             activo=self.get_object(),
             context=get_request_context(request),
@@ -526,9 +543,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
             .values("created_at")[:1]
         )
         equipos = (
-            Activo.objects.filter(custodio=empleado)
+            Activo.objects.filter(responsables=empleado)
             .operativos()
             .select_related("tipo", "departamento", "sede")
+            .prefetch_related("responsables")
             .annotate(desde=Subquery(entregas))
             .order_by("nombre")
         )
@@ -539,7 +557,9 @@ class ActivoViewSet(viewsets.ModelViewSet):
                     "codigo": empleado.codigo_empleado,
                     "departamento": empleado.departamento.nombre,
                 },
-                "equipos": MiEquipoSerializer(equipos, many=True).data,
+                "equipos": MiEquipoSerializer(
+                    equipos, many=True, context={"empleado": empleado}
+                ).data,
                 "aviso": None,
             }
         )

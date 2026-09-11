@@ -34,6 +34,11 @@ function donde(sede) {
  * ciudad está—, porque es lo primero que se comprueba antes de mover un equipo
  * y porque el registro que queda en el historial es «de esto a esto»: sin ver
  * el punto de partida, el destino solo es la mitad del dato.
+ *
+ * De un equipo **compartido** responden varias personas en igualdad, así que
+ * allí no se elige a alguien: se mantiene una lista, de la que se suma y se
+ * quita. En un equipo normal sigue el desplegable de siempre, porque hacer que
+ * quien entrega una laptop pase por una lista de una sola fila sería peor.
  */
 export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [empleados, setEmpleados] = useState([]);
@@ -41,7 +46,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [sedes, setSedes] = useState([]);
 
   const [modo, setModo] = useState(MODOS.ASIGNAR);
-  const [custodio, setCustodio] = useState(activo.custodio || "");
+  // Siempre una lista, también cuando el equipo tiene un solo responsable: dos
+  // formas de guardar lo mismo es la manera segura de que un día digan cosas
+  // distintas.
+  const [responsables, setResponsables] = useState(() =>
+    (activo.responsables || []).map((persona) => String(persona.id)),
+  );
   const [departamento, setDepartamento] = useState(activo.departamento || "");
   const [sede, setSede] = useState(activo.sede || "");
   const [motivo, setMotivo] = useState("");
@@ -63,9 +73,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       .catch(() => setSedes([]));
   }, []);
 
-  const empleadoElegido = useMemo(
-    () => empleados.find((e) => String(e.id) === String(custodio)),
-    [empleados, custodio],
+  const elegidos = useMemo(
+    () =>
+      responsables
+        .map((id) => empleados.find((e) => String(e.id) === id))
+        .filter(Boolean),
+    [empleados, responsables],
+  );
+  const disponibles = useMemo(
+    () => empleados.filter((e) => !responsables.includes(String(e.id))),
+    [empleados, responsables],
   );
   const sedeElegida = useMemo(
     () => sedes.find((s) => String(s.id) === String(sede)),
@@ -78,12 +95,34 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
    * usuario lo seleccione dos veces invita a dejarlo descuadrado. Sigue siendo
    * editable, porque un préstamo entre áreas es un caso legítimo.
    */
-  function elegirCustodio(id) {
-    setCustodio(id);
+  function proponerAreaDe(id) {
     const persona = empleados.find((e) => String(e.id) === String(id));
     if (persona?.departamento) {
       setDepartamento(String(persona.departamento));
     }
+  }
+
+  /** Un equipo normal cambia de manos: el elegido sustituye al anterior. */
+  function elegirUnico(id) {
+    setResponsables(id ? [String(id)] : []);
+    proponerAreaDe(id);
+  }
+
+  /** Uno compartido suma: el turno crece y mengua sin que nadie sea el titular. */
+  function sumar(id) {
+    if (!id) return;
+    setResponsables((actuales) =>
+      actuales.includes(String(id)) ? actuales : [...actuales, String(id)],
+    );
+    // El área se propone solo con el primero: con el turno ya formado,
+    // reproponerla en cada alta pisaría lo que alguien acaba de elegir.
+    if (responsables.length === 0) proponerAreaDe(id);
+  }
+
+  function quitar(id) {
+    setResponsables((actuales) =>
+      actuales.filter((otro) => otro !== String(id)),
+    );
   }
 
   async function handleSubmit(event) {
@@ -91,16 +130,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     setIsSaving(true);
     setError(null);
     try {
-      // Cada modo manda solo lo suyo. El traslado manda `custodio: null`
+      // Cada modo manda solo lo suyo. El traslado manda la lista vacía
       // porque mover un equipo es sacárselo a quien lo tenía: pasa a la sede
       // de destino, y una sede no responde por nada. El área sí se conserva
       // —dice de quién es el presupuesto del equipo, no quién lo custodia—,
       // así que no se envía.
       const datos =
         modo === MODOS.TRASLADAR
-          ? { custodio: null, sede: sede || null, motivo }
+          ? { responsables: [], sede: sede || null, motivo }
           : {
-              custodio: custodio || null,
+              responsables: responsables.map(Number),
               departamento: departamento || null,
               motivo,
             };
@@ -113,12 +152,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     }
   }
 
+  const antes = activo.responsables || [];
   const esDevolucion =
-    modo === MODOS.ASIGNAR && !custodio && Boolean(activo.custodio);
+    modo === MODOS.ASIGNAR && responsables.length === 0 && antes.length > 0;
+  const mismosQueAntes =
+    responsables.length === antes.length &&
+    antes.every((persona) => responsables.includes(String(persona.id)));
   const hayCambio =
     modo === MODOS.TRASLADAR
       ? String(sede || "") !== String(activo.sede || "")
-      : String(custodio || "") !== String(activo.custodio || "") ||
+      : !mismosQueAntes ||
         String(departamento || "") !== String(activo.departamento || "");
 
   return (
@@ -138,9 +181,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       <section className="situacion-actual">
         <h3 className="situacion-actual__titulo">Situación actual</h3>
         <dl className="situacion-actual__datos">
-          <dt>Responsable</dt>
+          <dt>{activo.compartido ? "Responsables" : "Responsable"}</dt>
           <dd>
-            {activo.custodio_nombre || (
+            {activo.responsables_resumen || (
               <span className="text-muted">Sin asignar</span>
             )}
           </dd>
@@ -187,37 +230,89 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
 
       {modo === MODOS.ASIGNAR ? (
         <>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="custodio">
-              Nuevo responsable
-            </label>
-            <select
-              id="custodio"
-              className="form-select"
-              value={custodio}
-              onChange={(event) => elegirCustodio(event.target.value)}
-            >
-              <option value="">Sin custodio (devolver a bodega)</option>
-              {empleados.map((empleado) => (
-                <option key={empleado.id} value={empleado.id}>
-                  {empleado.nombre_completo} — {empleado.departamento_nombre}
-                </option>
-              ))}
-            </select>
-            {empleadoElegido && (
-              <div className="form-text">
-                {empleadoElegido.nombre_completo} pertenece a{" "}
-                <strong>{empleadoElegido.departamento_nombre}</strong>.
-              </div>
-            )}
-            {esDevolucion && (
-              <div className="form-text">
-                El activo quedará en bodega. {activo.custodio_nombre} dejará de
-                figurar como responsable, pero seguirá en el historial del
-                equipo.
-              </div>
-            )}
-          </div>
+          {activo.compartido ? (
+            <div className="mb-3">
+              <span className="form-label d-block" id="etiqueta-responsables">
+                Responsables
+              </span>
+              {/* Una lista de la que se suma y se quita, no un desplegable:
+                  ninguno manda sobre otro, así que no hay un «nuevo
+                  responsable» que sustituya al anterior. */}
+              <ul
+                className="responsables-elegidos"
+                aria-labelledby="etiqueta-responsables"
+              >
+                {elegidos.map((persona) => (
+                  <li key={persona.id}>
+                    <span>{persona.nombre_completo}</span>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      aria-label={`Quitar a ${persona.nombre_completo}`}
+                      onClick={() => quitar(persona.id)}
+                    />
+                  </li>
+                ))}
+                {elegidos.length === 0 && (
+                  <li className="text-muted">Nadie responde por él</li>
+                )}
+              </ul>
+              <label className="form-label mt-2" htmlFor="sumar-responsable">
+                Sumar a alguien
+              </label>
+              <select
+                id="sumar-responsable"
+                className="form-select"
+                value=""
+                onChange={(event) => sumar(event.target.value)}
+              >
+                <option value="">Elija a quién sumar</option>
+                {disponibles.map((empleado) => (
+                  <option key={empleado.id} value={empleado.id}>
+                    {empleado.nombre_completo} — {empleado.departamento_nombre}
+                  </option>
+                ))}
+              </select>
+              {esDevolucion && (
+                <div className="form-text">
+                  El activo quedará en bodega. Quienes respondían por él dejarán
+                  de figurar, pero seguirán en el historial del equipo.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mb-3">
+              <label className="form-label" htmlFor="custodio">
+                Nuevo responsable
+              </label>
+              <select
+                id="custodio"
+                className="form-select"
+                value={responsables[0] || ""}
+                onChange={(event) => elegirUnico(event.target.value)}
+              >
+                <option value="">Sin custodio (devolver a bodega)</option>
+                {empleados.map((empleado) => (
+                  <option key={empleado.id} value={empleado.id}>
+                    {empleado.nombre_completo} — {empleado.departamento_nombre}
+                  </option>
+                ))}
+              </select>
+              {elegidos[0] && (
+                <div className="form-text">
+                  {elegidos[0].nombre_completo} pertenece a{" "}
+                  <strong>{elegidos[0].departamento_nombre}</strong>.
+                </div>
+              )}
+              {esDevolucion && (
+                <div className="form-text">
+                  El activo quedará en bodega. {activo.responsables_resumen}{" "}
+                  dejará de figurar como responsable, pero seguirá en el
+                  historial del equipo.
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mb-3">
             <label className="form-label" htmlFor="departamento">

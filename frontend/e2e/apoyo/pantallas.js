@@ -42,7 +42,7 @@ export async function elegirPrimeraOpcion(ambito, etiqueta) {
  */
 export async function registrarEquipo(
   page,
-  { nombre, serie, costo, condicion, concesionario },
+  { nombre, serie, costo, condicion, concesionario, compartido },
 ) {
   await page.goto("/admin/activos/new");
   await elegirPrimeraOpcion(page, "Tipo de dispositivo");
@@ -52,6 +52,13 @@ export async function registrarEquipo(
   await page.getByLabel("Número de serie").fill(serie);
   await elegirPrimeraOpcion(page, "Departamento");
   await page.getByLabel("Fecha de adquisición").fill("2025-03-01");
+  if (compartido) {
+    // La marca decide qué clase de equipo es; el alta entrega igual a una sola
+    // persona, y al resto del turno se lo suma después desde la ficha. Se le
+    // pone una para que haya de dónde partir.
+    await page.getByLabel("Varias personas responden por él").check();
+    await elegirPrimeraOpcion(page, "Custodio");
+  }
   if (costo) {
     await page.getByLabel("Costo de compra").fill(costo);
   }

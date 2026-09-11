@@ -264,10 +264,31 @@ export function ActivoDetalle() {
             <div className="card-body">
               <h3 className="h6 text-uppercase text-muted mb-3">Custodia</h3>
               <dl className="activo-datos">
+                {/* Todos los nombres, sin destacar a ninguno: de un
+                    equipo compartido responden varias personas en igualdad, y
+                    poner a una primera inventaría un titular donde se decidió
+                    que no lo hubiera. */}
                 <Dato
-                  etiqueta="Responsable"
+                  etiqueta={activo.compartido ? "Responsables" : "Responsable"}
                   valor={
-                    activo.custodio_nombre || (
+                    activo.responsables?.length ? (
+                      <ul className="activo-responsables">
+                        {activo.responsables.map((persona) => (
+                          <li key={persona.id}>
+                            {persona.nombre_completo}
+                            <span className="text-muted">
+                              {" "}
+                              · {persona.codigo_empleado}
+                            </span>
+                            {!persona.activo && (
+                              <span className="badge text-bg-warning ms-2">
+                                Dado de baja
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
                       <span className="text-muted">Sin asignar</span>
                     )
                   }
@@ -400,7 +421,7 @@ export function TiemposDelActivo({ tiempos }) {
     ["Desde la compra", tiempos.desde_compra_dias],
     ["Desde el ingreso", tiempos.desde_ingreso_dias],
     ["Desde la primera asignación", tiempos.desde_primera_asignacion_dias],
-    ["Con el custodio actual", tiempos.con_custodio_actual_dias],
+    ["Con quien responde por él", tiempos.con_custodio_actual_dias],
     ["Acumulado en reparación", tiempos.en_reparacion_dias],
     ["Guardado sin uso", tiempos.sin_uso_dias],
   ];

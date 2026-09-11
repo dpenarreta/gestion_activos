@@ -273,3 +273,34 @@ describe("A dónde lleva /admin", () => {
     expect(screen.getByText("Destino: /403")).toBeInTheDocument();
   });
 });
+
+// --- Un equipo del que responde más de uno ---------------------------------
+
+describe("Un equipo de turno", () => {
+  it("dice con quién más se responde por él", async () => {
+    /* Es lo primero que se pregunta cuando algo falla en un aparato que usa
+       medio andén: hay a quién avisar antes de llevárselo. */
+    consultar.mockResolvedValue({
+      ...DATOS,
+      equipos: [
+        {
+          ...DATOS.equipos[0],
+          compartido: true,
+          con_quien_mas: ["Luis Mora", "Paola Vaca"],
+        },
+      ],
+    });
+
+    pintar();
+
+    expect(await screen.findByText("Responden también")).toBeInTheDocument();
+    expect(screen.getByText("Luis Mora, Paola Vaca")).toBeInTheDocument();
+  });
+
+  it("en un equipo propio no se pregunta por nadie más", async () => {
+    pintar();
+
+    await screen.findByText("Laptop Contabilidad 01");
+    expect(screen.queryByText("Responden también")).not.toBeInTheDocument();
+  });
+});

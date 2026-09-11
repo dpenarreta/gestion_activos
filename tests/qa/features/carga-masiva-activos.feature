@@ -118,3 +118,10 @@ Feature: Carga masiva de activos desde hoja de cálculo
     # En el formulario el campo se oculta y el resto se limpia en silencio;
     # aquí las dos columnas están a la vista y llenas a mano, así que lo que
     # hay es una contradicción, no un resto de un campo que se ocultó.
+
+  @AC-IMP-019
+  Scenario: Varios responsables en una celda, separados por punto y coma
+    When una fila lleva dos códigos de empleado en «Código del custodio»
+    Then el equipo queda compartido y a nombre de los dos
+    # Nombrar a varios ya dice que el equipo es de varios: pedir además la otra
+    # columna sería hacer escribir dos veces lo mismo.

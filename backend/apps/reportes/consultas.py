@@ -36,8 +36,8 @@ def _fecha(valor) -> datetime.date | None:
 
 def _base_activos(reporte: Reporte):
     queryset = Activo.objects.select_related(
-        "tipo", "custodio", "departamento", "sede", "proveedor", "concesionario"
-    )
+        "tipo", "departamento", "sede", "proveedor", "concesionario"
+    ).prefetch_related("responsables")
     if reporte.solo_operativos:
         queryset = queryset.operativos()
     return queryset
@@ -64,7 +64,7 @@ def _filtrar_activos(queryset, parametros: dict, reporte: Reporte):
         ("departamento", "departamento_id"),
         ("sede", "sede_id"),
         ("tipo", "tipo_id"),
-        ("custodio", "custodio_id"),
+        ("custodio", "responsables"),
     ):
         valor = _entero(parametros.get(clave))
         if valor is not None:
@@ -146,6 +146,8 @@ def construir_queryset(reporte: Reporte, parametros: dict):
 
     if reporte.filtros:
         queryset = queryset.filter(**reporte.filtros)
+    if reporte.anotaciones:
+        queryset = queryset.annotate(**reporte.anotaciones)
     if reporte.orden:
         queryset = queryset.order_by(*reporte.orden)
     return queryset

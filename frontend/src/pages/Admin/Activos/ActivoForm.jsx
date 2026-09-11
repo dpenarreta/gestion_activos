@@ -27,7 +27,8 @@ const VACIO = {
   numero_serie: "",
   especificaciones: {},
   observaciones: "",
-  custodio: "",
+  responsables: [],
+  compartido: false,
   departamento: "",
   sede: "",
   criticidad: "media",
@@ -120,7 +121,8 @@ export function ActivoForm() {
           numero_serie: datos.numero_serie,
           especificaciones: datos.especificaciones || {},
           observaciones: datos.observaciones || "",
-          custodio: datos.custodio || "",
+          responsables: (datos.responsables || []).map((p) => String(p.id)),
+          compartido: Boolean(datos.compartido),
           departamento: datos.departamento,
           sede: datos.sede || "",
           criticidad: datos.criticidad || "media",
@@ -172,18 +174,19 @@ export function ActivoForm() {
             : null,
         proveedor: valores.proveedor || null,
         fecha_fin_garantia: valores.fecha_fin_garantia || null,
+        compartido: valores.compartido,
       };
 
       if (esEdicion) {
-        // Custodio y departamento no se envían al editar: cambiarlos exige la
-        // acción de asignación, que deja el movimiento en el historial. El
-        // backend los ignora aquí de todos modos.
+        // Quién responde y el departamento no se envían al editar: cambiarlos
+        // exige la acción de asignación, que deja el movimiento en el
+        // historial. El backend los ignora aquí de todos modos.
         await activosService.update(id, payload);
         navigate(`/admin/activos/${id}`);
       } else {
         const creado = await activosService.create({
           ...payload,
-          custodio: valores.custodio || null,
+          responsables: valores.responsables.map(Number),
           departamento: valores.departamento,
         });
         navigate(`/admin/activos/${creado.id}`);
@@ -367,8 +370,13 @@ export function ActivoForm() {
                 id="custodio"
                 className="form-select"
                 disabled={esEdicion}
-                value={valores.custodio}
-                onChange={(event) => actualizar("custodio", event.target.value)}
+                value={valores.responsables[0] || ""}
+                onChange={(event) =>
+                  actualizar(
+                    "responsables",
+                    event.target.value ? [event.target.value] : [],
+                  )
+                }
               >
                 <option value="">Sin asignar (queda en bodega)</option>
                 {empleados.map((empleado) => (
@@ -377,12 +385,46 @@ export function ActivoForm() {
                   </option>
                 ))}
               </select>
+              {/* El alta entrega a una sola persona incluso en un equipo
+                  compartido: sumar al resto del turno es una entrega más, y
+                  cada una deja su movimiento y su acta. Se hace desde la ficha,
+                  con «Asignar / trasladar». */}
+              {valores.compartido && (
+                <div className="form-text">
+                  A los demás se los suma desde la ficha, con «Asignar /
+                  trasladar»: cada entrega deja su acta.
+                </div>
+              )}
+            </div>
+            <div className="col-12">
+              <div className="form-check">
+                <input
+                  id="compartido"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={valores.compartido}
+                  onChange={(event) =>
+                    actualizar("compartido", event.target.checked)
+                  }
+                />
+                <label className="form-check-label" htmlFor="compartido">
+                  Varias personas responden por él
+                </label>
+              </div>
+              <div className="form-text">
+                {/* Repartir la responsabilidad de una laptop personal entre
+                    tres nombres es lo que hace que después nadie responda por
+                    ella: la marca es una decisión, no un efecto lateral. */}
+                Márquelo solo si es un equipo de turno —un escáner de andén, una
+                impresora de mostrador—, del que varias personas responden en
+                igualdad.
+              </div>
             </div>
             {esEdicion && (
               <div className="col-12">
                 <div className="form-text">
-                  El custodio y el departamento se cambian desde la ficha, con
-                  la acción «Asignar / trasladar»: así el cambio queda
+                  Quién responde y el departamento se cambian desde la ficha,
+                  con la acción «Asignar / trasladar»: así el cambio queda
                   registrado en el historial.
                 </div>
               </div>

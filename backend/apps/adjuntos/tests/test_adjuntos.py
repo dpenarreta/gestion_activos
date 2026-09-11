@@ -376,8 +376,8 @@ def test_sin_permiso_no_se_ven_los_adjuntos(db, almacenamiento_temporal):
 
 @pytest.fixture
 def movimiento_de_entrega(admin, activo, empleado):
-    ActivoService.asignar_custodio(
-        actor=admin, activo=activo, custodio=empleado, motivo="Entrega por ingreso"
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleado], motivo="Entrega por ingreso"
     )
     return MovimientoActivo.objects.filter(tipo=MovimientoActivo.Tipo.ASIGNACION).latest("id")
 
@@ -401,7 +401,9 @@ def test_el_acta_se_construye_desde_el_movimiento_y_no_desde_la_ficha(
         codigo_empleado="EMP-0002",
         departamento=departamento,
     )
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=otro, motivo="Traslado")
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[otro], motivo="Traslado"
+    )
 
     contenido = generar_acta(movimiento_de_entrega)
 
@@ -458,8 +460,10 @@ def test_archivar_dos_veces_no_duplica_el_acta(cliente, movimiento_de_entrega):
 
 
 def test_la_devolucion_genera_un_acta_de_devolucion(cliente, admin, activo, empleado):
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=None, motivo="Devuelve")
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[], motivo="Devuelve"
+    )
     devolucion = MovimientoActivo.objects.filter(tipo=MovimientoActivo.Tipo.DEVOLUCION).latest("id")
 
     respuesta = cliente.post("/api/v1/adjuntos/acta/", {"movimiento": devolucion.id}, format="json")

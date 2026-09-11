@@ -284,7 +284,7 @@ def test_asignar_dentro_de_una_empresa_no_alcanza_al_personal_de_otra(courier, s
         ajeno = Empleado.objects.get(apellidos="Seguridad")
 
     respuesta = _cliente(usuario, courier).post(
-        f"/api/v1/activos/{activo.id}/asignar/", {"custodio": ajeno.id}, format="json"
+        f"/api/v1/activos/{activo.id}/asignar/", {"responsables": [ajeno.id]}, format="json"
     )
 
     assert respuesta.status_code == 400

@@ -254,7 +254,7 @@ def test_avisa_de_los_equipos_a_cargo_de_un_custodio_inactivo(
         nombres="Ana", apellidos="Pérez", codigo_empleado="EMP-9001", departamento=departamento
     )
     activo = crear_activo()
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
     empleado.activo = False
     empleado.save(update_fields=["activo"])
 
@@ -474,7 +474,7 @@ def test_el_inventario_filtra_por_custodio_inactivo(cliente, admin, crear_activo
         nombres="Ana", apellidos="Pérez", codigo_empleado="EMP-9002", departamento=departamento
     )
     activo = crear_activo()
-    ActivoService.asignar_custodio(actor=admin, activo=activo, custodio=empleado)
+    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
     empleado.activo = False
     empleado.save(update_fields=["activo"])
     crear_activo()
@@ -561,3 +561,32 @@ def test_dos_reparaciones_abiertas_del_mismo_equipo_son_dos_filas(
     claves = [fila["clave"] for fila in muestra]
     assert len(claves) == 2
     assert len(set(claves)) == 2
+
+
+# --- Un equipo del que responde más de uno ---------------------------------
+
+
+def test_la_alerta_nombra_a_quien_esta_de_baja_y_no_a_todo_el_turno(admin, crear_activo):
+    """En un equipo compartido el resto sigue respondiendo: lo que hay que
+    arreglar es quitar de la lista a quien ya no está, no reasignarlo entero."""
+    from apps.alertas.reglas import custodios_inactivos
+    from apps.organizacion.models import Departamento, Empleado
+
+    area = Departamento.objects.create(nombre="Andén", codigo="AND")
+    se_fue = Empleado.objects.create(
+        nombres="Paola", apellidos="Vaca", codigo_empleado="AND-0001", departamento=area
+    )
+    sigue = Empleado.objects.create(
+        nombres="Luis", apellidos="Mora", codigo_empleado="AND-0002", departamento=area
+    )
+    equipo = crear_activo(compartido=True)
+    ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[se_fue, sigue])
+    se_fue.activo = False
+    se_fue.save(update_fields=["activo"])
+
+    alerta = custodios_inactivos()
+
+    assert alerta.total == 1
+    detalle = str(alerta.muestra[0])
+    assert "Paola Vaca" in detalle
+    assert "Luis Mora" not in detalle

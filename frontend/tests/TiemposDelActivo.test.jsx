@@ -20,7 +20,7 @@ describe("Tiempos del activo (§10)", () => {
     render(<TiemposDelActivo tiempos={TIEMPOS} />);
 
     expect(screen.getByText("Desde la compra")).toBeInTheDocument();
-    expect(screen.getByText("Con el custodio actual")).toBeInTheDocument();
+    expect(screen.getByText("Con quien responde por él")).toBeInTheDocument();
     expect(screen.getByText("Guardado sin uso")).toBeInTheDocument();
     expect(
       screen.getByText(/Tiempo activo real: 8 meses y 10 días/),
