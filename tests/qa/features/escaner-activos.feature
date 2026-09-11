@@ -64,3 +64,21 @@ Feature: Consulta por lectura de código de barras (RF-03)
     # escrita «SN'RARA'01» tiene la forma de un código nuestro una vez
     # sustituidos los apóstrofes, y avisar ahí es ruido del que se aprende a
     # ignorar.
+
+  @AC-ESC-023
+  Scenario: El número de serie del fabricante también se acepta de las dos formas
+    Given una pistola configurada con otra distribución de teclado
+    When se escanea la etiqueta del fabricante, que lleva guiones
+    Then aparece el equipo igual que si el guion hubiera llegado bien
+    # La regla vieja solo reponía el guion cuando el resultado tenía la forma
+    # exacta de un código nuestro, así que una serie como `DL5440-0011` no se
+    # encontraba en ninguna pantalla.
+
+  @AC-ESC-024
+  Scenario: Lo recibido manda sobre lo reparado
+    Given dos equipos, uno con la serie «SN'RARA'01» y otro con «SN-RARA-01»
+    When se busca «SN'RARA'01»
+    Then se devuelve el primero
+    # Es lo que hace segura la búsqueda con las dos formas: reponer el guion
+    # solo puede encontrar un equipo donde no había ninguno, nunca otro
+    # distinto del que se pidió.

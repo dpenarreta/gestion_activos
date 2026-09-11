@@ -19,7 +19,7 @@ from apps.organizacion.models import Empleado
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
-from .barcode import normalizar_escaneo
+from .barcode import variantes_de_escaneo
 from .models import ESTADOS_EN_ALMACEN, Activo, MovimientoActivo, TipoDispositivo
 from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
@@ -194,16 +194,16 @@ class ActivoViewSet(viewsets.ModelViewSet):
         busqueda = params.get("q")
         if busqueda:
             termino = busqueda.strip()
-            # La misma reparación que hace la lectura por código: la pistola
-            # manda el guion con otra distribución de teclado y llega como
-            # apóstrofe. Vivía solo en `por-codigo`, así que el inventario y el
-            # buscador del mantenimiento —donde también se dispara la pistola—
-            # no encontraban nada y no decían por qué.
-            reparado, _ = normalizar_escaneo(termino)
+            # La pistola manda el guion con otra distribución de teclado y
+            # llega como apóstrofe. Se busca con las dos formas —la recibida y
+            # la del guion repuesto— y no con una en lugar de la otra: así la
+            # etiqueta se encuentra igual, y una serie que de verdad lleve un
+            # apóstrofe sigue encontrándose por sí misma.
+            etiqueta = Q()
+            for variante in variantes_de_escaneo(termino):
+                etiqueta |= Q(codigo_barras__iexact=variante) | Q(numero_serie__icontains=variante)
             queryset = queryset.filter(
-                Q(codigo_barras__iexact=termino)
-                | Q(codigo_barras__iexact=reparado)
-                | Q(numero_serie__icontains=termino)
+                etiqueta
                 | Q(nombre__icontains=termino)
                 | Q(marca__icontains=termino)
                 | Q(modelo__icontains=termino)
@@ -416,24 +416,29 @@ class ActivoViewSet(viewsets.ModelViewSet):
         return respuesta
 
     @staticmethod
-    def _aviso_del_lector(termino: str | None) -> dict | None:
+    def _existe_como_etiqueta(valor: str) -> bool:
+        """Si algún equipo lleva ese código de barras o ese número de serie."""
+        return Activo.objects.filter(
+            Q(codigo_barras__iexact=valor) | Q(numero_serie__iexact=valor)
+        ).exists()
+
+    @classmethod
+    def _aviso_del_lector(cls, termino: str | None) -> dict | None:
         """Qué decirle a quien escaneó con la distribución de teclado cambiada.
 
-        Solo si la reparación es **lo que encontró el equipo**: que un texto se
-        pueda reparar no significa que haga falta. Una serie escrita
-        `SN'RARA'01` tiene la forma de un código nuestro una vez sustituidos
-        los apóstrofes, y avisar ahí mandaría a reconfigurar una pistola que
-        está bien —o que ni siquiera se usó—.
+        Solo si reponer el guion es **lo que encontró el equipo**: que un texto
+        se pueda reparar no significa que haga falta. Una serie escrita
+        `SN'RARA'01` se convierte en `SN-RARA-01` sustituyendo apóstrofes, y
+        avisar ahí mandaría a reconfigurar una pistola que está bien —o que ni
+        siquiera se usó—.
         """
-        termino = (termino or "").strip()
-        if not termino:
+        variantes = variantes_de_escaneo(termino)
+        if len(variantes) < 2:
             return None
-        reparado, corregido = normalizar_escaneo(termino)
-        if not corregido:
+        recibido, reparado = variantes[0], variantes[1]
+        if cls._existe_como_etiqueta(recibido) or not cls._existe_como_etiqueta(reparado):
             return None
-        etiquetas = Activo.objects.filter(codigo_barras__iexact=reparado)
-        if not etiquetas.exists() or Activo.objects.filter(codigo_barras__iexact=termino).exists():
-            return None
+        termino = recibido
         return {
             "codigo": "distribucion_de_teclado",
             "recibido": termino,
@@ -457,15 +462,22 @@ class ActivoViewSet(viewsets.ModelViewSet):
         el viaje adicional que haría el frontend tras cada escaneo.
         """
         termino = (codigo or "").strip()
-        activo = self._buscar_por_termino(termino)
-
-        # Si no aparece, puede que la pistola esté enviando los caracteres con
-        # otra distribución de teclado: el guion del código llega como
-        # apóstrofe y el término deja de coincidir. Se reintenta con el valor
-        # reparado (ver `apps.activos.barcode.normalizar_escaneo`).
-        reparado, corregido = normalizar_escaneo(termino)
-        if activo is None and corregido:
-            activo = self._buscar_por_termino(reparado)
+        # Las dos formas, y en este orden: puede que la pistola esté enviando
+        # los caracteres con otra distribución de teclado y el guion llegue
+        # como apóstrofe. Lo recibido se prueba primero, así que reponer el
+        # guion solo puede encontrar un equipo donde no había ninguno, nunca
+        # otro distinto (ver `apps.activos.barcode.variantes_de_escaneo`).
+        variantes = variantes_de_escaneo(termino)
+        reparado = variantes[-1]
+        corregido = len(variantes) > 1
+        activo = next(
+            (
+                encontrado
+                for encontrado in (self._buscar_por_termino(v) for v in variantes)
+                if encontrado is not None
+            ),
+            None,
+        )
 
         if activo is None:
             respuesta = {

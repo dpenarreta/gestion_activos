@@ -49,6 +49,9 @@ export function BuscadorDeActivo({
   //: enseña aunque la búsqueda haya funcionado, porque el mismo problema
   //: reaparece en la carga masiva, donde no hay nadie que lo repare.
   const [avisoLector, setAvisoLector] = useState(null);
+  //: La búsqueda que el tecleo dejó preparada, para poder cancelarla cuando el
+  //: Enter de la pistola se adelanta.
+  const pendiente = useRef(null);
   const [abierta, setAbierta] = useState(false);
   const [resaltado, setResaltado] = useState(0);
   const [buscando, setBuscando] = useState(false);
@@ -109,8 +112,8 @@ export function BuscadorDeActivo({
     if (!abierta || texto.trim().length < 2) {
       return undefined;
     }
-    const temporizador = setTimeout(() => buscar(texto.trim()), ESPERA_MS);
-    return () => clearTimeout(temporizador);
+    pendiente.current = setTimeout(() => buscar(texto.trim()), ESPERA_MS);
+    return () => clearTimeout(pendiente.current);
   }, [texto, abierta]);
 
   function elegir(activo) {
@@ -136,6 +139,13 @@ export function BuscadorDeActivo({
 
     const termino = texto.trim();
     if (!termino) return;
+
+    // Se cancela la búsqueda que el temporizador tenía preparada. Sin esto
+    // salían dos: la del Enter y, 250 ms después, la del tecleo. La segunda
+    // invalidaba a la primera —es la guarda que evita que una respuesta vieja
+    // pise a la nueva— y el Enter se quedaba sin su propio resultado, así que
+    // la pistola leía la etiqueta y no elegía nada.
+    clearTimeout(pendiente.current);
 
     const encontrados =
       resultados.length > 0 ? resultados : await buscar(termino);

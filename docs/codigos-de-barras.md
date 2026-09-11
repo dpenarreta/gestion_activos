@@ -99,11 +99,16 @@ apóstrofe puede ser legítimo— y **avisa en pantalla**. El aviso no sobra:
 arreglarlo en silencio dejaría la pistola mal configurada, y el mismo problema
 reaparecería en la carga masiva, donde no hay quien lo repare.
 
-Vale en las tres pantallas donde se dispara la pistola: la consulta por
+Vale en las tres pantallas donde se dispara la pistola —la consulta por
 escáner, el buscador del inventario y el «Activo intervenido» del formulario de
-mantenimiento. Durante un tiempo solo valió en la primera, y las otras dos
-contestaban «ningún equipo coincide» —que manda a revisar la etiqueta, que está
-bien—. El aviso solo sale cuando la reparación es **lo que encontró el
+mantenimiento— y tanto para **nuestra etiqueta** como para el **número de serie
+del fabricante**, que casi siempre lleva guiones también (`DL5440-0011`).
+
+No se sustituye una forma por otra: se busca con las dos, y la recibida va
+primero. Por eso es seguro. Si existiera de verdad un equipo con la serie
+`SN'RARA'01`, escanearla lo devuelve a él y no al de `SN-RARA-01`; reponer el
+guion solo puede encontrar un equipo donde no había ninguno, nunca otro
+distinto. Y el aviso solo sale cuando reponerlo es **lo que encontró el
 equipo**: que un texto se pueda reparar no significa que haga falta.
 
 ### Los dos ajustes básicos

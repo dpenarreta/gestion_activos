@@ -81,6 +81,34 @@ def es_codigo_valido(codigo: str) -> bool:
 SUSTITUTOS_DEL_GUION = "'´`)ß-–—"
 
 
+def variantes_de_escaneo(valor: str) -> tuple[str, ...]:
+    """Las formas con las que hay que buscar lo que llegó del lector.
+
+    El texto tal cual y, si cambia en algo, el mismo con los sustitutos del
+    guion repuestos. **Son candidatos para buscar, no un reemplazo**, y esa es
+    toda la diferencia con `normalizar_escaneo`: el original se sigue buscando
+    y va primero, así que reponer el guion nunca puede llevar a un equipo
+    distinto del que se pidió —solo puede añadir el que la pistola quiso leer—.
+
+    Por eso aquí no se exige que el resultado tenga forma de código nuestro.
+    `normalizar_escaneo` sí lo exige porque responde a otra pregunta —«¿esto es
+    una etiqueta nuestra mal leída?»— y su respuesta sustituye al original. La
+    etiqueta del fabricante casi siempre lleva guiones (`DL5440-0011`), y con
+    la regla estricta un número de serie escaneado con la pistola mal
+    configurada no se encontraba en ninguna parte.
+    """
+    original = (valor or "").strip()
+    if not original:
+        return ()
+    # Se traduce sobre el texto original: `"ß".upper()` es `"SS"`, y para
+    # entonces el carácter que había que reponer ya no está.
+    traduccion = str.maketrans({caracter: "-" for caracter in SUSTITUTOS_DEL_GUION})
+    reparado = original.translate(traduccion)
+    if reparado == original:
+        return (original,)
+    return (original, reparado)
+
+
 def normalizar_escaneo(valor: str) -> tuple[str, bool]:
     """Repara un código escaneado con la distribución de teclado equivocada.
 

@@ -320,3 +320,37 @@ describe("Cuando el lector envía otra distribución de teclado", () => {
     ).toBeInTheDocument();
   });
 });
+
+// --- La carrera entre el Enter y el temporizador ----------------------------
+
+describe("El Enter de la pistola y la búsqueda que el tecleo dejó pendiente", () => {
+  it("no se queda sin resultado porque el temporizador llegue después", async () => {
+    /* Salían dos búsquedas: la del Enter y, 250 ms después, la del tecleo. Si
+       la segunda arrancaba mientras la primera todavía viajaba, la invalidaba
+       —es la guarda que evita que una respuesta vieja pise a la nueva— y el
+       Enter se quedaba sin su propio resultado: la pistola leía la etiqueta y
+       no elegía nada.
+
+       Para verlo hay que hacer que la respuesta tarde: con una que resuelve al
+       instante, elegir el equipo cierra el campo y limpia el temporizador
+       antes de que llegue a disparar. */
+    let resolver;
+    listar.mockReturnValueOnce(
+      new Promise((cumplir) => {
+        resolver = () => cumplir({ results: [LAPTOP] });
+      }),
+    );
+
+    pintar();
+    teclear("GA-LAP-000007");
+    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+      key: "Enter",
+    });
+
+    // El temporizador del tecleo vence con la búsqueda del Enter en el aire.
+    await new Promise((listo) => setTimeout(listo, 300));
+    resolver();
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("7", LAPTOP));
+  });
+});

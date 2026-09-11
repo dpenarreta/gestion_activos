@@ -206,3 +206,91 @@ def test_no_avisa_de_una_pistola_que_no_se_uso(cliente, activo):
     respuesta = cliente.get("/api/v1/activos/?q=CUALQUIERA'COSA'01")
 
     assert "advertencia_lector" not in respuesta.data
+
+
+# --- Las dos formas, siempre ------------------------------------------------
+#
+# Tercer aviso del mismo caso, 2026-09-11: el código de barras ya se aceptaba
+# escrito de las dos maneras, pero el **número de serie** no. La etiqueta del
+# fabricante casi siempre lleva guiones —`DL5440-0011`—, y escanearla con la
+# pistola mal configurada no encontraba nada en ninguna pantalla.
+#
+# La regla vieja solo reponía el guion cuando el resultado tenía la forma
+# exacta de un código nuestro, porque **sustituía** al original y sustituir a
+# ciegas podía llevar a otro equipo. Ahora no se sustituye: se busca con las
+# dos formas, el original primero, así que reponer el guion solo puede
+# encontrar donde no había nada.
+
+
+@pytest.fixture
+def con_serie_de_fabricante(admin, activo):
+    from apps.activos.models import Activo
+
+    activo.numero_serie = "DL5440-0011"
+    activo.save(update_fields=["numero_serie"])
+    return Activo.objects.get(pk=activo.pk)
+
+
+@pytest.mark.parametrize("como_llega", ["DL5440-0011", "DL5440'0011"])
+def test_la_serie_del_fabricante_se_encuentra_de_las_dos_formas(
+    cliente, con_serie_de_fabricante, como_llega
+):
+    respuesta = cliente.get(f"/api/v1/activos/?q={como_llega}")
+
+    assert respuesta.data["count"] == 1
+    assert respuesta.data["results"][0]["numero_serie"] == "DL5440-0011"
+
+
+@pytest.mark.parametrize("como_llega", ["DL5440-0011", "DL5440'0011"])
+def test_y_la_lectura_por_codigo_tambien_las_acepta(cliente, con_serie_de_fabricante, como_llega):
+    respuesta = cliente.get(f"/api/v1/activos/por-codigo/{como_llega}/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["activo"]["numero_serie"] == "DL5440-0011"
+
+
+def test_lo_recibido_manda_sobre_lo_reparado(cliente, admin, activo):
+    """Si existen las dos, gana la que se escaneó tal cual.
+
+    Es lo que hace que reponer el guion sea seguro: nunca puede devolver un
+    equipo distinto del que se pidió, solo uno donde no había ninguno.
+    """
+    activo.numero_serie = "SN-RARA-01"
+    activo.save(update_fields=["numero_serie"])
+    tal_cual = ActivoService.crear_activo(
+        actor=admin,
+        tipo=activo.tipo,
+        nombre="El que se escaneó",
+        marca="HP",
+        modelo="ProBook",
+        numero_serie="SN'RARA'01",
+        departamento=activo.departamento,
+        fecha_adquisicion=datetime.date(2025, 1, 10),
+    )
+
+    respuesta = cliente.get("/api/v1/activos/por-codigo/SN'RARA'01/")
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["activo"]["id"] == tal_cual.id
+    # Y no se avisa de nada: la pistola no tuvo nada que ver.
+    assert "advertencia_lector" not in respuesta.data
+
+
+def test_se_avisa_tambien_cuando_lo_mal_leido_fue_una_serie(cliente, con_serie_de_fabricante):
+    """El aviso no es del código de barras: es de la pistola."""
+    respuesta = cliente.get("/api/v1/activos/?q=DL5440'0011")
+
+    aviso = respuesta.data["advertencia_lector"]
+    assert aviso["recibido"] == "DL5440'0011"
+    assert aviso["interpretado"] == "DL5440-0011"
+
+
+def test_las_variantes_son_candidatas_y_no_un_reemplazo():
+    """La diferencia con `normalizar_escaneo`, que es la que hace segura la
+    búsqueda: lo recibido se conserva y va primero."""
+    from apps.activos.barcode import variantes_de_escaneo
+
+    assert variantes_de_escaneo("GA'LAP'000006") == ("GA'LAP'000006", "GA-LAP-000006")
+    # Sin nada que reponer, una sola forma: no se busca dos veces lo mismo.
+    assert variantes_de_escaneo("GA-LAP-000006") == ("GA-LAP-000006",)
+    assert variantes_de_escaneo("  ") == ()
