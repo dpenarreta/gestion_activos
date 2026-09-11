@@ -321,3 +321,30 @@ def test_la_ficha_del_activo_expone_el_veredicto_de_renovacion(
     renovacion = respuesta.json()["renovacion"]
     assert renovacion["requiere_renovacion"] is True
     assert renovacion["politica_aplicada"] == "Laptops"
+
+
+def test_una_segunda_politica_global_se_rechaza_con_un_error_util(cliente):
+    """La restricción vive en la base, pero llegar hasta ella devolvía un 500.
+    La interfaz deshabilita la opción cuando ya hay una; quien llame a la API
+    directamente —o tenga dos pestañas abiertas— merece el mismo «ya existe».
+    """
+    PoliticaObsolescencia.objects.create(nombre="Global", vida_util_meses=48)
+
+    respuesta = cliente.post(
+        "/api/v1/politicas/", {"nombre": "Otra global", "vida_util_meses": 36}, format="json"
+    )
+
+    assert respuesta.status_code == 400
+    assert "Ya existe una política global" in str(respuesta.data)
+
+
+def test_editar_la_global_que_ya_existe_no_choca_consigo_misma(cliente):
+    """La comprobación se excluye a sí misma: si no, la única global del
+    sistema dejaría de poder editarse."""
+    politica = PoliticaObsolescencia.objects.create(nombre="Global", vida_util_meses=48)
+
+    respuesta = cliente.patch(
+        f"/api/v1/politicas/{politica.id}/", {"vida_util_meses": 60}, format="json"
+    )
+
+    assert respuesta.status_code == 200

@@ -75,6 +75,7 @@ Base: `/api/v1/activos/`
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
 | GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |
 | GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
+| — | — | — | La ficha incluye `depreciacion`: valor en libros, acumulada y porcentaje. Cuando no hay costo o política, `disponible: false` y el `motivo` — un cero significaría «ya no vale nada» |
 | GET | `/activos/mis-equipos/` | `activos.ver_asignados` | **§13.** Los equipos que quien pregunta tiene a su cargo. Sin costo, proveedor ni veredicto de renovación: son datos del inventario, no del equipo que uno usa |
 | POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `sede` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
 | POST | `/activos/{id}/cambiar-estado/` | `activos.dar_baja` | Cambia el estado. Las tres salidas (baja, perdido, robado) exigen `motivo`; desde una baja no se vuelve |
@@ -320,6 +321,7 @@ Base: `/api/v1/politicas/`
 | GET/POST/PATCH/DELETE | `/politicas/` | `politicas.ver` / `politicas.editar` | Umbrales por tipo de dispositivo, o global si `tipo_dispositivo` va vacío |
 | GET | `/politicas/sugerencias/` | `politicas.ver` | **RF-07.** Activos que hoy exceden algún umbral, con el motivo de cada criterio. `?nivel=evaluar\|recomendado` filtra por severidad |
 | POST | `/politicas/reevaluar/` | `politicas.editar` | Fuerza el recálculo de la caché de todos los activos |
+| GET/POST/PATCH/DELETE | `/politicas/depreciacion/` | `politicas.ver` / `politicas.editar` | **§22.3.** Vida contable y valor residual por tipo, o global si `tipo_dispositivo` va vacío. Sin reevaluación: la depreciación se calcula al leer |
 
 Guardar una política reevalúa de inmediato los activos que rige. El criterio
 de longevidad se cumple por el paso del tiempo, así que conviene programar
@@ -426,18 +428,21 @@ Base: `/api/v1/reportes/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/reportes/` | `reportes.ver` | Catálogo: los trece reportes, con sus parámetros y columnas |
+| GET | `/reportes/` | `reportes.ver` | Catálogo: los trece del §16 más el de valor en libros (§22.3), con sus parámetros y columnas |
 | GET | `/reportes/{clave}/` | `reportes.ver` | Vista previa en JSON (primeras 50 filas) |
 | GET | `/reportes/{clave}/?formato=xlsx\|csv\|pdf` | `reportes.exportar` | Descarga el archivo |
 
-Los trece reportes se definen como **datos** en `apps/reportes/catalogo.py`:
+Los reportes se definen como **datos** en `apps/reportes/catalogo.py`:
 cada uno declara qué mira, con qué columnas, qué parámetros acepta y qué se
 totaliza. Un solo motor los ejecuta y tres renderizadores los escriben. Nueve
 de los trece son el mismo listado de activos con otro filtro y otro orden;
 escribirlos por separado daría treinta y nueve piezas que envejecen sueltas —el
 día que se agrega un campo a la ficha, doce reportes lo muestran y uno no—.
 **Agregar un reporte es agregar una entrada a ese archivo**, sin tocar vistas
-ni frontend: la pantalla se dibuja desde el catálogo.
+ni frontend: la pantalla se dibuja desde el catálogo. Lo que no se puede
+resolver fila a fila —la depreciación necesita la política de cada tipo— se
+precalcula en el gancho `preparar`, que corre una vez por página en vez de dos
+consultas por renglón.
 
 Detalles que conviene conocer:
 

@@ -2,6 +2,9 @@ from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
 from apps.organizacion.models import Departamento, Empleado, Proveedor, Sede
+from apps.politicas.depreciacion import calcular_de as calcular_depreciacion
+from apps.politicas.depreciacion import motivo_sin_depreciacion
+from apps.politicas.depreciacion import resolver_politica as resolver_politica_depreciacion
 from apps.politicas.services import evaluar_activo
 
 from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
@@ -210,6 +213,7 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     dias_en_reparacion = serializers.SerializerMethodField()
     tiempos = serializers.SerializerMethodField()
     renovacion = serializers.SerializerMethodField()
+    depreciacion = serializers.SerializerMethodField()
 
     class Meta:
         model = Activo
@@ -255,6 +259,7 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "total_mantenimientos",
             "total_componentes_criticos",
             "renovacion",
+            "depreciacion",
             "created_at",
             "updated_at",
         ]
@@ -272,6 +277,35 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
 
     def get_renovacion(self, obj) -> dict:
         return evaluar_activo(obj).as_dict()
+
+    def get_depreciacion(self, obj) -> dict:
+        """Qué vale hoy el equipo en libros (§22.3).
+
+        Cuando no hay con qué calcularla se dice por qué, en vez de devolver
+        ceros: un valor en libros de 0 significa «ya no vale nada», que es muy
+        distinto de «nadie capturó lo que costó».
+
+        Va en la ficha y no en el listado por lo mismo que los tiempos: obliga
+        a resolver la política de cada equipo de la página.
+        """
+        politica = resolver_politica_depreciacion(obj.tipo)
+        calculo = calcular_depreciacion(obj, politica)
+        if calculo is None:
+            return {"disponible": False, "motivo": motivo_sin_depreciacion(obj, politica)}
+        return {
+            "disponible": True,
+            "motivo": None,
+            "costo": calculo.costo,
+            "desde": calculo.desde,
+            "meses_vida_contable": calculo.meses_vida_contable,
+            "meses_transcurridos": calculo.meses_transcurridos,
+            "cuota_mensual": calculo.cuota_mensual,
+            "acumulada": calculo.acumulada,
+            "valor_en_libros": calculo.valor_en_libros,
+            "porcentaje_depreciado": calculo.porcentaje_depreciado,
+            "totalmente_depreciado": calculo.totalmente_depreciado,
+            "fin": calculo.fin,
+        }
 
     def get_estado_garantia_display(self, obj) -> str:
         return Activo.Garantia(obj.estado_garantia).label

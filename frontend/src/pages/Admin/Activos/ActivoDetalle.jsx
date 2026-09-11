@@ -156,6 +156,12 @@ export function ActivoDetalle() {
                   etiqueta="Costo de compra"
                   valor={formatearMoneda(activo.costo_adquisicion)}
                 />
+                {activo.depreciacion?.disponible && (
+                  <Dato
+                    etiqueta="Valor en libros"
+                    valor={<ValorEnLibros depreciacion={activo.depreciacion} />}
+                  />
+                )}
                 <Dato etiqueta="Proveedor" valor={activo.proveedor} />
                 <Dato
                   etiqueta="Garantía"
@@ -417,6 +423,33 @@ function Dato({ etiqueta, valor }) {
     <>
       <dt>{etiqueta}</dt>
       <dd>{valor || "—"}</dd>
+    </>
+  );
+}
+
+/**
+ * Lo que el equipo vale hoy en libros (§22.3).
+ *
+ * Al lado del costo y no en un bloque aparte: la pregunta es «costó tanto, ¿y
+ * ahora?», y separarlos obligaría a buscar la respuesta en otra parte de la
+ * pantalla.
+ *
+ * Un equipo totalmente depreciado se marca, porque es el dato que respalda una
+ * solicitud de compra —no un problema: depreciarse en tres años y reemplazarse
+ * a los cuatro o cinco es lo normal, y por eso el aviso es neutro y no una
+ * alerta—.
+ */
+function ValorEnLibros({ depreciacion }) {
+  return (
+    <>
+      {formatearMoneda(depreciacion.valor_en_libros)}
+      <small className="d-block text-muted">
+        {depreciacion.totalmente_depreciado
+          ? `Totalmente depreciado desde el ${formatearFecha(depreciacion.fin)}`
+          : `${depreciacion.porcentaje_depreciado} % depreciado · termina el ${formatearFecha(
+              depreciacion.fin,
+            )}`}
+      </small>
     </>
   );
 }

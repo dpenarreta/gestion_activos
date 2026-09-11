@@ -69,6 +69,11 @@ class Reporte:
     #: Columnas cuyo total se suma al pie. Solo tienen sentido en dinero y
     #: cantidades; un total de «antigüedad» no significaría nada.
     totalizar: tuple[str, ...] = ()
+    #: Se ejecuta una vez sobre la página de filas, antes de extraer columnas.
+    #: Existe para lo que no se puede resolver fila a fila sin volver a la base:
+    #: la depreciación necesita la política de cada tipo, y resolverla por
+    #: activo eran dos consultas por renglón del informe.
+    preparar: callable = None
 
     def columnas_para(self, formato: str) -> tuple[Columna, ...]:
         if formato != "pdf" or not self.columnas_pdf:
@@ -193,7 +198,36 @@ COLUMNAS_MOVIMIENTO = (
 )
 
 
-# --- Los trece reportes del §16 ---------------------------------------------
+# --- Valor en libros (§22.3) -------------------------------------------------
+# La depreciación necesita la política del tipo, y resolverla activo por activo
+# eran dos consultas por renglón: se resuelven todas de una vez sobre la página
+# y el resultado se cuelga del propio objeto.
+
+
+def _preparar_depreciacion(activos) -> None:
+    from apps.politicas import depreciacion as dep
+
+    politicas = dep.resolver_politicas_de({activo.tipo_id for activo in activos})
+    for activo in activos:
+        activo._depreciacion = dep.calcular_de(activo, politicas.get(activo.tipo_id))
+
+
+def _dep(atributo, por_defecto=None):
+    """Lee un dato del cálculo, o el valor por defecto si no hubo cálculo.
+
+    Un equipo sin costo capturado o sin política no tiene valor en libros, y la
+    celda se deja vacía en vez de escribir un cero: cero significa «ya no
+    vale», que es otra cosa.
+    """
+
+    def leer(activo):
+        calculo = getattr(activo, "_depreciacion", None)
+        return getattr(calculo, atributo) if calculo is not None else por_defecto
+
+    return leer
+
+
+# --- Los catorce reportes del §16 y del §22.3 --------------------------------
 
 PARAMETROS_ACTIVOS = ("departamento", "sede", "tipo", "criticidad", "uso")
 
@@ -422,6 +456,43 @@ CATALOGO = (
         parametros=("desde", "hasta", "activo", "departamento"),
         orden=("-fecha_intervencion",),
         totalizar=("mano_obra", "repuestos", "costo"),
+    ),
+    Reporte(
+        clave="valor-y-depreciacion",
+        nombre="Valor en libros y depreciación",
+        descripcion=(
+            "Lo que costó el parque, lo que ha perdido y lo que vale hoy (§22.3). "
+            "Depreciación lineal según la política de cada tipo."
+        ),
+        fuente=Fuente.ACTIVOS,
+        columnas=COLUMNAS_ACTIVO_BASE
+        + (
+            Columna("departamento", "Área", lambda a: a.departamento.nombre, 20),
+            Columna("custodio", "Custodio", _custodio, 26),
+            Columna("en_servicio", "En servicio desde", _dep("desde"), 16),
+            Columna("costo", "Costo", lambda a: a.costo_adquisicion, 14),
+            Columna("vida_contable", "Vida contable (meses)", _dep("meses_vida_contable"), 18),
+            Columna("meses", "Meses depreciados", _dep("meses_transcurridos"), 16),
+            Columna("cuota", "Cuota mensual", _dep("cuota_mensual"), 14),
+            Columna("acumulada", "Depreciación acumulada", _dep("acumulada"), 20),
+            Columna("valor_en_libros", "Valor en libros", _dep("valor_en_libros"), 16),
+            Columna("porcentaje", "% depreciado", _dep("porcentaje_depreciado"), 14),
+            Columna("fin", "Termina de depreciarse", _dep("fin"), 18),
+        ),
+        parametros=PARAMETROS_ACTIVOS,
+        orden=("codigo_barras",),
+        columnas_pdf=(
+            "codigo_barras",
+            "nombre",
+            "tipo",
+            "costo",
+            "acumulada",
+            "valor_en_libros",
+        ),
+        # El total es la pregunta del área financiera: cuánto costó el parque,
+        # cuánto se ha depreciado y cuánto queda en libros.
+        totalizar=("costo", "acumulada", "valor_en_libros"),
+        preparar=_preparar_depreciacion,
     ),
 )
 

@@ -47,15 +47,13 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 17 | Auditoría | ✅ | `AuditLog`, append-only |
 | 18 | Adjuntos y evidencias | ✅ | `apps.adjuntos`, con los nueve tipos del documento |
 | 19 | Notificaciones y alertas | ✅ | Las siete alertas, más el envío del resumen por correo con frecuencia configurable |
+| 22.3 | Gestión de depreciación | ✅ | Lineal, por tipo de dispositivo (`apps.politicas.depreciacion`). Valor en libros en la ficha y reporte del parque |
 | 20 | Integraciones | Parcial | Las dos de hardware —lector de código de barras y etiquetadora— están; las de software (AD, Microsoft 365, Zoho, Jira, ERP, RRHH) no. §25 las prioriza como bajas |
 | 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada (`docs/rendimiento.md`, `docs/respaldos.md`) |
 
 ## Lo que falta
 
-Dos cosas, y solo una es funcionalidad de negocio.
-
-**Gestión de depreciación (§22.3).** No hay nada. Es lo único de la Fase 3 que
-es funcionalidad propia y no una integración con otro sistema.
+Una cosa, y no es funcionalidad de negocio.
 
 **Integraciones de software (§20, §22.3).** Active Directory / Azure AD,
 Microsoft 365, Zoho, Jira Service Management, ERP y el sistema de RRHH. El
@@ -64,8 +62,9 @@ También cae aquí la **aplicación móvil o PWA**.
 
 De la Fase 3 sí están hechas la **predicción de reemplazo por cantidad de
 fallas** —umbral de mantenimientos con ventana móvil—, los **costos acumulados
-por activo** y el lado de **proveedores** de «integración con compras o
-proveedores»: existe el catálogo, no el enlace con un sistema de compras.
+por activo**, la **gestión de depreciación** y el lado de **proveedores** de
+«integración con compras o proveedores»: existe el catálogo, no el enlace con
+un sistema de compras.
 
 Pendiente de medición, no de código: repetir la **concurrencia** contra el
 stack de producción (Gunicorn); las cifras actuales se tomaron con el servidor
@@ -280,6 +279,31 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 9 — Valor en libros y depreciación (§22.3)
+
+Cierra lo único de la Fase 3 que era funcionalidad propia y no una integración.
+
+- Es depreciación **de gestión**, no contabilidad: responde «qué vale hoy el
+  parque» y «cuánto se pierde al dar de baja este equipo», que es lo que
+  respalda una solicitud de compra. Lo que se declara ante el SRI lo lleva el
+  ERP —el §20 se lo asigna— y el §25 deja la «depreciación contable avanzada»
+  en prioridad baja. Por eso hay un solo método, línea recta, y no una lista
+  de métodos entre los que elegir.
+- **La vida contable no es la vida útil de la política de renovación.** Son dos
+  números distintos a propósito: un equipo se deprecia en tres años —36 meses,
+  lo que fija el reglamento ecuatoriano para equipo de cómputo— y se reemplaza
+  a los cuatro o cinco. Un equipo totalmente depreciado que sigue funcionando
+  es lo normal, y confundir ambas cifras haría que la contabilidad decidiera
+  cuándo se compra. Las dos pantallas conviven en pestañas por eso mismo.
+- Se deprecia desde la **puesta en servicio**, no desde la factura: un equipo
+  comprado en diciembre y entregado en marzo empieza a perder valor en marzo.
+- Un equipo sin costo capturado o sin política **no muestra un cero**: cero
+  significa «ya no vale nada», que es muy distinto de «nadie capturó lo que
+  costó». El reporte deja esas celdas vacías para que no entren en el total.
+- De paso se corrigió un 500 que ya estaba en producción: crear una segunda
+  política **global** —de renovación o de depreciación— chocaba con la
+  restricción de la base en vez de responder un 400 con su motivo.
 
 ### Fase 8 — «Mis equipos» y el rol «Usuario final» (§13)
 

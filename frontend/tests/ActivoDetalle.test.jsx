@@ -339,3 +339,62 @@ describe("Cuando el equipo está dado de baja", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// --- Lo que vale hoy --------------------------------------------------------
+
+describe("El valor en libros", () => {
+  const DEPRECIADO = {
+    disponible: true,
+    motivo: null,
+    costo: "1180.00",
+    desde: "2025-07-15",
+    meses_vida_contable: 36,
+    meses_transcurridos: 14,
+    cuota_mensual: "32.78",
+    acumulada: "458.92",
+    valor_en_libros: "721.08",
+    porcentaje_depreciado: "38.89",
+    totalmente_depreciado: false,
+    fin: "2028-07-15",
+  };
+
+  it("va junto al costo: la pregunta es «costó tanto, ¿y ahora?»", async () => {
+    pintar({ ...FICHA, activo: { ...ACTIVO, depreciacion: DEPRECIADO } });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Valor en libros")).toContain("721,08");
+    expect(valorDe("Valor en libros")).toContain("38.89 % depreciado");
+  });
+
+  it("un equipo ya depreciado se marca, sin tratarlo como un problema", async () => {
+    /* Depreciarse en tres años y reemplazarse a los cuatro o cinco es lo
+       normal: el aviso es neutro, no una alerta. */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        depreciacion: { ...DEPRECIADO, totalmente_depreciado: true },
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Valor en libros")).toContain("Totalmente depreciado desde");
+  });
+
+  it("sin política ni costo no se inventa un cero", async () => {
+    /* Un valor en libros de 0 significa «ya no vale nada», que es muy distinto
+       de «nadie capturó lo que costó». */
+    pintar({
+      ...FICHA,
+      activo: {
+        ...ACTIVO,
+        depreciacion: { disponible: false, motivo: "Sin costo registrado." },
+      },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(
+      screen.queryByText("Valor en libros", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+  });
+});

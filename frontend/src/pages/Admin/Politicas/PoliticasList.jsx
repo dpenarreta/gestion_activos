@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { tiposDispositivoService } from "../../../api/activosService";
 import { politicasService } from "../../../api/politicasService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -10,10 +9,6 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Politicas.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Políticas de renovación" },
-];
 const VACIO = {
   nombre: "",
   tipo_dispositivo: "",
@@ -104,10 +99,9 @@ export function PoliticasList() {
   const hayGlobal = listado.resultados.some((politica) => politica.es_global);
 
   return (
-    <div className="politicas-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
+    <div className="politicas-panel">
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Políticas de renovación</h2>
+        <h3 className="h5 mb-0">Cuándo se sugiere reemplazar un equipo</h3>
         <div className="d-flex gap-2">
           {puedeEditar && (
             <button

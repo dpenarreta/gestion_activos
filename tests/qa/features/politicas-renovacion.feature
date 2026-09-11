@@ -183,3 +183,12 @@ Feature: Criterios de sustitución y sugerencia de renovación (RF-06, RF-07)
     When se abre el panel principal
     Then se cuentan por separado los de reemplazo recomendado y los de evaluar
     And el inventario se puede filtrar por cada nivel
+
+  @AC-POL-026
+  Scenario: Una segunda política global se rechaza con un error útil
+    Given una política global ya configurada
+    When se intenta crear otra desde la API
+    Then la solicitud es rechazada diciendo que ya existe una
+    # La restricción vive en la base, pero llegar hasta ella devolvía un 500.
+    # La interfaz deshabilita la opción; quien llame a la API directamente —o
+    # tenga dos pestañas abiertas— merece el mismo «ya existe».

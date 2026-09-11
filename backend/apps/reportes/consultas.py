@@ -165,6 +165,8 @@ def generar_filas(reporte: Reporte, parametros: dict, *, formato: str = "xlsx") 
     queryset = construir_queryset(reporte, parametros)
     total = queryset.count()
     objetos = list(queryset[:tope])
+    if reporte.preparar is not None:
+        reporte.preparar(objetos)
 
     filas = [[columna.valor(objeto) for columna in columnas] for objeto in objetos]
 

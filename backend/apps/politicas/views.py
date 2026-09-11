@@ -8,7 +8,12 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
-from .models import VENTANA_MANTENIMIENTOS_MESES, NivelRenovacion, PoliticaObsolescencia
+from .models import (
+    VENTANA_MANTENIMIENTOS_MESES,
+    NivelRenovacion,
+    PoliticaDepreciacion,
+    PoliticaObsolescencia,
+)
 from .permissions import PoliticasPermission
 from .services import candidatos_a_renovacion, evaluar_lote, refrescar_indicadores_renovacion
 
@@ -17,6 +22,38 @@ from .services import candidatos_a_renovacion, evaluar_lote, refrescar_indicador
 TOPE_SUGERENCIAS = 200
 
 MODULO = "politicas"
+
+
+def validar_alcance_unico(modelo, attrs, instancia):
+    """Solo puede haber una política global por empresa.
+
+    La restricción existe en la base, pero llegar hasta ella devuelve un 500:
+    la interfaz deshabilita la opción cuando ya hay una, y quien llame a la API
+    directamente —o tenga dos pestañas abiertas— merece el mismo «ya existe»
+    que cualquier otra validación, no un error del servidor.
+
+    Con dos políticas globales «la global» dejaría de ser una referencia
+    unívoca y cuál se aplica dependería del orden de la tabla.
+    """
+    if "tipo_dispositivo" in attrs:
+        tipo = attrs["tipo_dispositivo"]
+    else:
+        tipo = getattr(instancia, "tipo_dispositivo", None)
+    if tipo is not None:
+        return
+
+    otras = modelo.objects.filter(tipo_dispositivo__isnull=True)
+    if instancia is not None:
+        otras = otras.exclude(pk=instancia.pk)
+    if otras.exists():
+        raise serializers.ValidationError(
+            {
+                "tipo_dispositivo": (
+                    "Ya existe una política global. Edite la que hay o elija un tipo "
+                    "de dispositivo para esta."
+                )
+            }
+        )
 
 
 class PoliticaObsolescenciaSerializer(serializers.ModelSerializer):
@@ -47,6 +84,8 @@ class PoliticaObsolescenciaSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Una política sin ningún umbral no evalúa nada: aceptarla daría la
         falsa impresión de que el tipo está cubierto."""
+        validar_alcance_unico(PoliticaObsolescencia, attrs, self.instance)
+
         umbrales = (
             "max_mantenimientos",
             "max_componentes_criticos",
@@ -274,4 +313,108 @@ class PoliticaObsolescenciaViewSet(viewsets.ModelViewSet):
                 "por_nivel": {nivel.value: cuenta for nivel, cuenta in por_nivel.items()},
             },
             status=status.HTTP_200_OK,
+        )
+
+
+class PoliticaDepreciacionSerializer(serializers.ModelSerializer):
+    tipo_dispositivo_nombre = serializers.CharField(
+        source="tipo_dispositivo.nombre", read_only=True, default=None
+    )
+    es_global = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PoliticaDepreciacion
+        fields = [
+            "id",
+            "nombre",
+            "tipo_dispositivo",
+            "tipo_dispositivo_nombre",
+            "es_global",
+            "meses_vida_contable",
+            "porcentaje_residual",
+            "activa",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        validar_alcance_unico(PoliticaDepreciacion, attrs, self.instance)
+        return attrs
+
+    def validate_meses_vida_contable(self, valor):
+        if valor <= 0:
+            # Con cero meses la cuota mensual sería una división por cero, y con
+            # «vacío» el equipo no se depreciaría nunca: para eso está `activa`.
+            raise serializers.ValidationError(
+                "Debe ser al menos un mes. Para dejar de depreciar un tipo, desactive la política."
+            )
+        return valor
+
+    def validate_porcentaje_residual(self, valor):
+        if valor < 0 or valor >= 100:
+            raise serializers.ValidationError(
+                "Es el porcentaje del costo que el equipo conserva al final: entre 0 y 99,99."
+            )
+        return valor
+
+
+class PoliticaDepreciacionViewSet(viewsets.ModelViewSet):
+    """Cuánto vale en libros cada tipo de equipo (§22.3).
+
+    No hay reevaluación tras guardar, a diferencia de las políticas de
+    obsolescencia: la depreciación se calcula al leer y no se cachea en ninguna
+    columna, así que un cambio se ve en la siguiente consulta sin recorrer el
+    parque.
+    """
+
+    permission_classes = [IsAuthenticated, PoliticasPermission]
+    serializer_class = PoliticaDepreciacionSerializer
+    pagination_class = DefaultPagination
+
+    def get_queryset(self):
+        return PoliticaDepreciacion.objects.select_related("tipo_dispositivo").order_by(
+            "tipo_dispositivo__nombre", "nombre"
+        )
+
+    def perform_create(self, serializer):
+        politica = serializer.save()
+        self._auditar(politica, "politica_depreciacion.created", nuevos=serializer.data)
+
+    def perform_update(self, serializer):
+        anteriores = self.get_serializer(serializer.instance).data
+        politica = serializer.save()
+        cambios = {
+            campo: valor
+            for campo, valor in serializer.data.items()
+            if anteriores.get(campo) != valor
+        }
+        if cambios:
+            self._auditar(
+                politica,
+                "politica_depreciacion.updated",
+                previos={campo: anteriores.get(campo) for campo in cambios},
+                nuevos=cambios,
+            )
+
+    def perform_destroy(self, instance):
+        self._auditar(
+            instance,
+            "politica_depreciacion.deleted",
+            previos={
+                "nombre": instance.nombre,
+                "tipo_dispositivo": instance.tipo_dispositivo_id,
+            },
+        )
+        instance.delete()
+
+    def _auditar(self, politica, accion, previos=None, nuevos=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=accion,
+            target=politica,
+            module=MODULO,
+            previous_values=previos,
+            new_values=nuevos,
+            context=get_request_context(self.request),
         )

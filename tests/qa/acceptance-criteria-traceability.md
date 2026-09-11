@@ -660,3 +660,24 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-MIS-008 | La cuenta sin ficha lo dice | mis-equipos.feature | Una cuenta sin ficha de empleado lo dice | Sí (pytest y Vitest: `test_una_cuenta_sin_ficha_de_empleado_lo_dice`, `sin ficha de empleado es otra cosa`) |
 | AC-MIS-009 | Con la ficha en otra empresa, se dice cuál | mis-equipos.feature | Con la ficha en otra empresa, se dice en cuál | Sí (pytest y Vitest: `test_la_ficha_en_otra_empresa_se_dice_en_vez_de_devolver_nada`, `con la ficha en otra empresa, el aviso dice cuál`) |
 | AC-MIS-010 | El panel lleva a la primera pantalla abrible | mis-equipos.feature | Entrar al panel lleva a la primera pantalla que se puede abrir | Sí (Vitest: `a quien solo ve lo suyo lo deja en su pantalla, no en un 403`) |
+
+## Valor en libros y depreciación (AC-DEP-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-DEP-001 | El costo se reparte en partes iguales | depreciacion.feature | El costo se reparte en partes iguales entre los meses de vida contable | Sí (pytest: `test_reparte_el_costo_en_partes_iguales`) |
+| AC-DEP-002 | Meses de calendario, no de treinta días | depreciacion.feature | Los meses se cuentan por calendario | Sí (pytest: `test_cuenta_meses_de_calendario_y_no_de_treinta_dias`) |
+| AC-DEP-003 | Un equipo pasado de vida no vale negativo | depreciacion.feature | Un equipo pasado de vida no vale menos que cero | Sí (pytest: `test_un_equipo_pasado_de_vida_no_vale_negativo`) |
+| AC-DEP-004 | El valor residual es el piso | depreciacion.feature | El valor residual es el piso | Sí (pytest: `test_el_valor_residual_es_el_piso`) |
+| AC-DEP-005 | Se deprecia desde la puesta en servicio | depreciacion.feature | Se deprecia desde que entró en servicio, no desde la factura | Sí (pytest: `fecha_en_servicio`, cubierta en `test_el_reporte_de_valor_trae_la_cuenta_completa`) |
+| AC-DEP-006 | Sin costo no se inventa un valor | depreciacion.feature | Un equipo sin costo capturado no muestra un valor inventado | Sí (pytest y Vitest: `test_sin_costo_no_se_inventa_un_valor`, `sin política ni costo no se inventa un cero`) |
+| AC-DEP-007 | Sin política tampoco | depreciacion.feature | Sin política configurada tampoco | Sí (pytest: `test_sin_politica_no_se_deprecia`, `test_sin_politica_el_reporte_sigue_saliendo`) |
+| AC-DEP-008 | La del tipo gana sobre la global | depreciacion.feature | La política del tipo gana sobre la global | Sí (pytest: `test_la_del_tipo_gana_sobre_la_global`) |
+| AC-DEP-009 | Una desactivada no cae en la global | depreciacion.feature | Una política desactivada no cae de vuelta a la global | Sí (pytest: `test_una_politica_desactivada_no_cae_de_vuelta_a_la_global`) |
+| AC-DEP-010 | Solo una política global | depreciacion.feature | Solo puede haber una política global | Sí (pytest y Vitest: `test_solo_puede_haber_una_politica_global`, `no ofrece crear una segunda política global`) |
+| AC-DEP-011 | Vida contable de cero meses rechazada | depreciacion.feature | Una vida contable de cero meses se rechaza | Sí (pytest y Vitest: `test_una_vida_de_cero_meses_se_rechaza`, `una vida de cero meses no se puede guardar`) |
+| AC-DEP-012 | El valor en libros va junto al costo | depreciacion.feature | La ficha del activo muestra el valor en libros junto al costo | Sí (Vitest: `va junto al costo`) |
+| AC-DEP-013 | Totalmente depreciado no es una alerta | depreciacion.feature | Un equipo totalmente depreciado se marca sin tratarlo como un problema | Sí (Vitest: `un equipo ya depreciado se marca, sin tratarlo como un problema`) |
+| AC-DEP-014 | El reporte totaliza el parque | depreciacion.feature | El reporte totaliza el parque | Sí (pytest: `test_el_parque_se_totaliza_al_pie`) |
+| AC-DEP-015 | Vida contable ≠ vida útil de renovación | depreciacion.feature | La vida contable no es la vida útil de la política de renovación | Sí (pytest y Vitest: `test_la_vida_contable_no_es_la_vida_util_de_renovacion`, `advierte que la vida contable no es la de renovación`) |
+| AC-POL-026 | Una segunda política global responde 400, no 500 | politicas-renovacion.feature | Una segunda política global se rechaza con un error útil | Sí (pytest: `test_una_segunda_politica_global_se_rechaza_con_un_error_util`) |

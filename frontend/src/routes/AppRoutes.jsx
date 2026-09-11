@@ -24,7 +24,7 @@ import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
 import { MantenimientoForm } from "../pages/Admin/Mantenimientos/MantenimientoForm";
 import { MantenimientosList } from "../pages/Admin/Mantenimientos/MantenimientosList";
 import { AlertasPage } from "../pages/Admin/Alertas/AlertasPage";
-import { PoliticasList } from "../pages/Admin/Politicas/PoliticasList";
+import { PoliticasPage } from "../pages/Admin/Politicas/PoliticasPage";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { CargaCatalogosPage } from "../pages/Admin/CargaCatalogos/CargaCatalogosPage";
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
@@ -292,7 +292,17 @@ export function AppRoutes() {
           path="politicas"
           element={
             <RequirePermission permission={POLITICAS_VER}>
-              <PoliticasList />
+              <PoliticasPage />
+            </RequirePermission>
+          }
+        />
+        {/* Depreciación y renovación comparten pantalla y permiso: las dos son
+            reglas de cuánto dura un equipo, contadas con números distintos. */}
+        <Route
+          path="politicas/depreciacion"
+          element={
+            <RequirePermission permission={POLITICAS_VER}>
+              <PoliticasPage seccion="depreciacion" />
             </RequirePermission>
           }
         />

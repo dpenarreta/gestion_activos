@@ -44,6 +44,15 @@ CLAVES_DEL_DOCUMENTO = [
     "costos-mantenimiento",
 ]
 
+#: Los que no salen del §16. «Valor en libros» responde a la depreciación del
+#: §22.3, y se lista aparte para que la prueba de los trece siga diciendo lo
+#: que dice: que están los trece del documento, en su orden.
+CLAVES_ADICIONALES = [
+    "valor-y-depreciacion",
+]
+
+TODAS_LAS_CLAVES = CLAVES_DEL_DOCUMENTO + CLAVES_ADICIONALES
+
 
 def _conceder(usuario, *codenames):
     content_type = ContentType.objects.get_for_model(ModulePermission)
@@ -134,20 +143,28 @@ def parque(crear_activo, admin, empleado):
 
 
 def test_estan_los_trece_reportes_del_documento():
-    assert [reporte.clave for reporte in CATALOGO] == CLAVES_DEL_DOCUMENTO
+    claves = [reporte.clave for reporte in CATALOGO]
+
+    assert claves[: len(CLAVES_DEL_DOCUMENTO)] == CLAVES_DEL_DOCUMENTO
+
+
+def test_el_catalogo_no_tiene_reportes_sin_declarar():
+    """Lo que se añada al catálogo se declara aquí: un reporte que nadie listó
+    tampoco entra en la prueba de humo de los formatos."""
+    assert [reporte.clave for reporte in CATALOGO] == TODAS_LAS_CLAVES
 
 
 def test_el_catalogo_se_publica_con_sus_parametros(cliente):
     datos = cliente.get("/api/v1/reportes/").data
 
-    assert len(datos["reportes"]) == 13
+    assert len(datos["reportes"]) == len(TODAS_LAS_CLAVES)
     assert set(datos["formatos"]) == {"xlsx", "csv", "pdf"}
     inventario = next(r for r in datos["reportes"] if r["clave"] == "inventario-general")
     assert "departamento" in inventario["parametros"]
     assert inventario["columnas"], "el frontend dibuja la tabla desde el catálogo"
 
 
-@pytest.mark.parametrize("clave", CLAVES_DEL_DOCUMENTO)
+@pytest.mark.parametrize("clave", TODAS_LAS_CLAVES)
 @pytest.mark.parametrize("formato", ["xlsx", "csv", "pdf"])
 def test_cada_reporte_se_genera_en_cada_formato(cliente, parque, clave, formato):
     """Prueba de humo de los 39 cruces.
@@ -344,3 +361,103 @@ def test_la_vista_previa_acota_las_filas(cliente, parque):
     assert datos["total"] == 4
     assert datos["mostradas"] <= 50
     assert datos["columnas"][0]["etiqueta"] == "Código"
+
+
+# --- Valor en libros y depreciación (§22.3) ---------------------------------
+
+
+def _columna(resultado, clave):
+    """El valor de una columna en la primera fila, por su clave."""
+    posicion = next(i for i, c in enumerate(resultado["columnas"]) if c.clave == clave)
+    return resultado["filas"][0][posicion]
+
+
+def test_el_reporte_de_valor_trae_la_cuenta_completa(parque):
+    """Lo que el área financiera necesita para respaldar una compra: qué costó,
+    cuánto se ha depreciado y qué queda."""
+    from decimal import Decimal
+
+    from apps.politicas.models import PoliticaDepreciacion
+
+    PoliticaDepreciacion.objects.create(nombre="General", meses_vida_contable=36)
+    activo = parque["asignado"]
+    activo.costo_adquisicion = Decimal("1800.00")
+    activo.save()
+
+    resultado = generar_filas(obtener("valor-y-depreciacion"), {"activo": activo.id})
+
+    assert _columna(resultado, "costo") == Decimal("1800.00")
+    assert _columna(resultado, "vida_contable") == 36
+    assert _columna(resultado, "cuota") == Decimal("50.00")
+    # Costo y valor en libros suman con la acumulada: si no, el informe se
+    # contradice a sí mismo delante de quien lo firma.
+    assert _columna(resultado, "valor_en_libros") + _columna(resultado, "acumulada") == Decimal(
+        "1800.00"
+    )
+
+
+def test_el_parque_se_totaliza_al_pie(parque):
+    """Es la pregunta del área financiera: cuánto vale hoy todo esto."""
+    from decimal import Decimal
+
+    from apps.politicas.models import PoliticaDepreciacion
+
+    PoliticaDepreciacion.objects.create(nombre="General", meses_vida_contable=36)
+    for activo in parque.values():
+        activo.costo_adquisicion = Decimal("1200.00")
+        activo.save()
+
+    resultado = generar_filas(obtener("valor-y-depreciacion"), {})
+
+    assert len(resultado["totales"]) == 3, "costo, acumulada y valor en libros"
+
+
+def test_un_equipo_sin_costo_deja_la_celda_vacia_y_no_en_cero(parque):
+    """Cero significa «ya no vale nada»; vacío, «nadie capturó lo que costó».
+    Escribir un cero metería equipos sin capturar en el total del parque."""
+    from apps.politicas.models import PoliticaDepreciacion
+
+    PoliticaDepreciacion.objects.create(nombre="General", meses_vida_contable=36)
+    activo = parque["asignado"]
+    activo.costo_adquisicion = None
+    activo.save()
+
+    resultado = generar_filas(obtener("valor-y-depreciacion"), {"activo": activo.id})
+
+    assert _columna(resultado, "valor_en_libros") is None
+    assert _columna(resultado, "acumulada") is None
+
+
+def test_sin_politica_el_reporte_sigue_saliendo(parque):
+    """Un informe que reviente porque nadie configuró la depreciación no dice
+    qué falta: sale con las columnas de valor vacías."""
+    from decimal import Decimal
+
+    activo = parque["asignado"]
+    activo.costo_adquisicion = Decimal("1800.00")
+    activo.save()
+
+    resultado = generar_filas(obtener("valor-y-depreciacion"), {"activo": activo.id})
+
+    assert _columna(resultado, "costo") == Decimal("1800.00")
+    assert _columna(resultado, "valor_en_libros") is None
+
+
+def test_la_depreciacion_se_resuelve_de_una_vez_para_toda_la_pagina(
+    parque, django_assert_num_queries
+):
+    """Resolver la política activo por activo eran dos consultas por renglón:
+    con cien equipos el informe hacía doscientos viajes de más."""
+    from decimal import Decimal
+
+    from apps.politicas.models import PoliticaDepreciacion
+
+    PoliticaDepreciacion.objects.create(nombre="General", meses_vida_contable=36)
+    for activo in parque.values():
+        activo.costo_adquisicion = Decimal("1200.00")
+        activo.save()
+
+    reporte = obtener("valor-y-depreciacion")
+    # El conteo, la página y las dos de la resolución en lote.
+    with django_assert_num_queries(4):
+        generar_filas(reporte, {})
