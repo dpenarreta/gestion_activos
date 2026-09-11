@@ -40,7 +40,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 10 | Cálculo de tiempos | ✅ | Los siete del documento, reconstruidos desde el historial (`apps.activos.tiempos`) |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ✅ | Criticidad de cuatro niveles y uso por función, además del tipo |
-| 13 | Usuarios y roles | ✅ | Roles configurables, 37 permisos, y los cuatro roles del documento listos para crear (`crear_roles_iniciales`) |
+| 13 | Usuarios y roles | ✅ | Roles configurables, 41 permisos, y los **cinco** roles del documento listos para crear (`crear_roles_iniciales`), incluido «Usuario final» con su pantalla *Mis equipos* |
 | 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, sede, criticidad, uso y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ✅ | Los trece reportes, cada uno en Excel, CSV y PDF (`apps.reportes`) |
@@ -52,13 +52,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 
 ## Lo que falta
 
-Tres cosas, y solo una es funcionalidad de negocio.
-
-**Rol «Usuario final» (§13).** Se crean cuatro de los cinco roles del
-documento. Falta el que consulta *sus propios* equipos, y no se crea porque
-necesita una pantalla de «mis equipos»: darle `activos.ver` a secas le
-mostraría el parque entero, que es lo contrario de lo que pide el documento. Es
-el hueco funcional más concreto que queda.
+Dos cosas, y solo una es funcionalidad de negocio.
 
 **Gestión de depreciación (§22.3).** No hay nada. Es lo único de la Fase 3 que
 es funcionalidad propia y no una integración con otro sistema.
@@ -286,6 +280,34 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 8 — «Mis equipos» y el rol «Usuario final» (§13)
+
+Cierra el §13: los cinco roles del documento existen.
+
+- `activos.ver_asignados` es un permiso **distinto** de `activos.ver`, y en eso
+  consiste el rol: muestra los equipos de quien pregunta, no el inventario.
+- La pantalla no muestra costo, proveedor, veredicto de renovación ni quién
+  tuvo antes el equipo: son datos del inventario, no del aparato que uno usa, y
+  el veredicto es además una decisión de planificación.
+- La cuenta con la que se entra y la ficha de empleado que custodia equipos son
+  dos cosas distintas —la mayoría de quienes reciben un equipo nunca inician
+  sesión—, así que hay que enlazarlas. Cuando no lo están, la pantalla lo dice:
+  «no tienes equipos» y «tu cuenta no está enlazada» se arreglan de formas muy
+  distintas, y la segunda necesita a un administrador.
+- El «desde cuándo lo tengo» sale del historial, no de la ficha: un equipo que
+  fue y volvió tiene varias entregas, y la que responde es la última a esa
+  persona. Se muestra con la fecha y el tiempo transcurrido, porque lo que se
+  quiere saber es si el equipo lleva dos meses o cuatro años.
+- La ficha de empleado pertenece a **una** empresa y la cuenta puede trabajar
+  en varias, así que hay un tercer caso: mirando desde la otra, la pantalla
+  dice en cuál está la ficha. Una lista vacía se leería como «ya no tienes
+  nada», cuando lo que hay que hacer es cambiar de empresa en el menú —y eso lo
+  resuelve quien mira, sin pedirle nada a un administrador—.
+- Entrar a `/admin` dejó de llevar siempre al panel principal, que exige
+  `activos.ver`: ahora lleva a la primera pantalla que cada quien puede abrir.
+  Sin eso, el usuario final entraba al sistema y chocaba con un 403 teniendo su
+  pantalla a un clic (`frontend/src/routes/InicioDelPanel.jsx`).
 
 ### Cerrado el 2026-09-08 (garantías y reparación)
 

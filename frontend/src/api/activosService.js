@@ -136,6 +136,18 @@ export const importacionActivosService = {
   },
 };
 
+/**
+ * Los equipos que quien pregunta tiene a su cargo (§13, rol «Usuario final»).
+ *
+ * Endpoint aparte del listado y con su propio permiso: `activos.ver` abriría
+ * el parque entero, que es lo contrario de lo que este rol concede.
+ */
+export const misEquiposService = {
+  consultar() {
+    return apiClient.get(`${ACTIVOS}mis-equipos/`).then((res) => res.data);
+  },
+};
+
 export const dashboardService = {
   indicadores() {
     return apiClient.get(`${ACTIVOS}dashboard/`).then((res) => res.data);

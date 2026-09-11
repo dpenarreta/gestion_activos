@@ -72,6 +72,7 @@ PERMISSION_CATALOG = {
         "description": "Inventario de dispositivos electrónicos de la compañía.",
         "permissions": {
             "activos.ver": "Ver el inventario y la ficha de cada activo",
+            "activos.ver_asignados": "Ver únicamente los equipos que uno tiene a su cargo",
             "activos.crear": "Registrar nuevos activos en el inventario",
             "activos.editar": "Editar la ficha técnica de un activo",
             "activos.asignar": "Asignar, trasladar y devolver activos entre custodios y áreas",

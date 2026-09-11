@@ -103,7 +103,7 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
 | AC-DSH-001 | Resumen por estado | dashboard-y-reportes.feature | El panel resume el inventario por estado | Sí (pytest) |
-| AC-DSH-002 | Indicadores enlazados al listado | dashboard-y-reportes.feature | Cada indicador lleva al listado correspondiente | No (verificado en navegador) |
+| AC-DSH-002 | Indicadores enlazados al listado | dashboard-y-reportes.feature | Cada indicador lleva al listado correspondiente | Sí (Vitest: `cada indicador lleva al listado que lo explica`) |
 | AC-DSH-003 | Costos de mantenimiento | dashboard-y-reportes.feature | El panel informa el costo de mantenimiento | Sí (pytest) |
 | AC-DSH-004 | Ranking sin activos de baja | dashboard-y-reportes.feature | El ranking señala los equipos problemáticos | Sí (pytest) |
 | AC-DSH-005 | Indicadores ausentes declarados | dashboard-y-reportes.feature | Los indicadores que no se pueden calcular se declaran | Sí (pytest) |
@@ -645,3 +645,18 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-CLI-008 | Sin almacenamiento la aplicación abre | authentication.feature | Sin almacenamiento la aplicación sigue abriendo | Sí (Vitest: `leer la empresa activa no revienta`) |
 | AC-EMP-030 | Ninguna vista congela su consulta | multiempresa.feature | Ninguna vista congela su consulta al importar | Sí (pytest: `test_ninguna_vista_congela_su_consulta_al_importar`, sobre cada vista enrutada) |
 | AC-EMP-031 | Ningún desplegable congela el suyo | multiempresa.feature | Ningún desplegable de formulario congela el suyo | Sí (pytest: `test_ningun_serializador_congela_su_desplegable`) |
+
+## Mis equipos y el rol «Usuario final» (AC-MIS-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-MIS-001 | Ver lo propio no es ver el inventario | mis-equipos.feature | Ver lo propio no es ver el inventario | Sí (pytest: `test_devuelve_solo_los_equipos_de_quien_pregunta`) |
+| AC-MIS-002 | El rol no abre el inventario | mis-equipos.feature | El rol no abre el inventario | Sí (pytest: `test_el_usuario_final_no_puede_ver_el_inventario`) |
+| AC-MIS-003 | Sin el permiso no se ve ni lo propio | mis-equipos.feature | Sin el permiso no se ve ni lo propio | Sí (pytest: `test_sin_el_permiso_no_se_ve_ni_lo_propio`) |
+| AC-MIS-004 | Sin costo, proveedor ni veredicto de renovación | mis-equipos.feature | No se exponen costo, proveedor ni el veredicto de renovación | Sí (pytest y Vitest: `test_no_expone_costos_ni_proveedor_ni_el_veredicto_de_renovacion`, `ni costo, ni proveedor, ni el veredicto de renovación`) |
+| AC-MIS-005 | Desde cuándo lo tiene esta persona | mis-equipos.feature | Dice desde cuándo lo tiene esta persona | Sí (pytest: `test_dice_desde_cuando_lo_tengo_yo`) |
+| AC-MIS-006 | Un equipo dado de baja deja de aparecer | mis-equipos.feature | Un equipo dado de baja deja de aparecer | Sí (pytest: `test_un_equipo_dado_de_baja_deja_de_aparecer`) |
+| AC-MIS-007 | Sin equipos no se advierte nada | mis-equipos.feature | Sin equipos a cargo no se advierte nada | Sí (pytest: `test_sin_equipos_no_hay_aviso`) |
+| AC-MIS-008 | La cuenta sin ficha lo dice | mis-equipos.feature | Una cuenta sin ficha de empleado lo dice | Sí (pytest y Vitest: `test_una_cuenta_sin_ficha_de_empleado_lo_dice`, `sin ficha de empleado es otra cosa`) |
+| AC-MIS-009 | Con la ficha en otra empresa, se dice cuál | mis-equipos.feature | Con la ficha en otra empresa, se dice en cuál | Sí (pytest y Vitest: `test_la_ficha_en_otra_empresa_se_dice_en_vez_de_devolver_nada`, `con la ficha en otra empresa, el aviso dice cuál`) |
+| AC-MIS-010 | El panel lleva a la primera pantalla abrible | mis-equipos.feature | Entrar al panel lleva a la primera pantalla que se puede abrir | Sí (Vitest: `a quien solo ve lo suyo lo deja en su pantalla, no en un 403`) |

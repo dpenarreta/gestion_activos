@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -14,12 +14,13 @@ from apps.core.request_meta import get_request_context
 from apps.empresas.contexto import clave_por_empresa
 from apps.mantenimientos.serializers import MantenimientoSerializer
 from apps.mantenimientos.services import resumen_costos
+from apps.organizacion.models import Empleado
 
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
 from .barcode import normalizar_escaneo
-from .models import ESTADOS_EN_ALMACEN, Activo, TipoDispositivo
+from .models import ESTADOS_EN_ALMACEN, Activo, MovimientoActivo, TipoDispositivo
 from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
     ActivosPermission,
@@ -34,6 +35,7 @@ from .serializers import (
     ActivoWriteSerializer,
     AsignacionSerializer,
     CambioEstadoSerializer,
+    MiEquipoSerializer,
     MovimientoActivoSerializer,
     TipoDispositivoSerializer,
 )
@@ -473,6 +475,86 @@ class ActivoViewSet(viewsets.ModelViewSet):
             **serializer.validated_data,
         )
         return Response(ActivoDetailSerializer(activo).data)
+
+    @action(detail=False, methods=["get"], url_path="mis-equipos")
+    def mis_equipos(self, request):
+        """Los equipos que quien pregunta tiene a su cargo (§13, «Usuario final»).
+
+        La cuenta con la que se entra al sistema y la ficha de empleado que
+        custodia equipos son dos cosas distintas —la mayoría de las personas
+        que reciben un equipo nunca inician sesión—, así que aquí hay que
+        cruzarlas. Cuando la cuenta no está enlazada a ninguna ficha se dice,
+        en vez de devolver una lista vacía: «no tienes equipos» y «tu cuenta no
+        está enlazada» se arreglan de formas muy distintas, y la segunda
+        necesita a un administrador.
+
+        La ficha pertenece a una empresa y la cuenta puede trabajar en varias,
+        así que el tercer caso es tener ficha en otra: se busca por el gestor
+        acotado a la empresa activa y, si no aparece, se mira el catálogo
+        completo para poder decir en cuál está. Devolver una lista vacía haría
+        creer que los equipos se perdieron al cambiar de empresa.
+        """
+        empleado = Empleado.objects.filter(usuario=request.user).first()
+        if empleado is None:
+            return Response(
+                {
+                    "empleado": None,
+                    "equipos": [],
+                    "aviso": self._por_que_no_hay_ficha(request.user),
+                }
+            )
+
+        # El «desde cuándo» sale del historial y no de la ficha: la fecha de la
+        # última entrega a esta persona es la que responde «desde cuándo lo
+        # tengo yo», y un equipo que fue y volvió tiene varias.
+        entregas = (
+            MovimientoActivo.objects.filter(
+                activo=OuterRef("pk"),
+                custodio_nuevo=empleado,
+                tipo=MovimientoActivo.Tipo.ASIGNACION,
+            )
+            .order_by("-created_at")
+            .values("created_at")[:1]
+        )
+        equipos = (
+            Activo.objects.filter(custodio=empleado)
+            .operativos()
+            .select_related("tipo", "departamento", "sede")
+            .annotate(desde=Subquery(entregas))
+            .order_by("nombre")
+        )
+        return Response(
+            {
+                "empleado": {
+                    "nombre": empleado.nombre_completo,
+                    "codigo": empleado.codigo_empleado,
+                    "departamento": empleado.departamento.nombre,
+                },
+                "equipos": MiEquipoSerializer(equipos, many=True).data,
+                "aviso": None,
+            }
+        )
+
+    @staticmethod
+    def _por_que_no_hay_ficha(usuario) -> str:
+        """Por qué esta cuenta no tiene equipos que mostrar.
+
+        Son dos situaciones que se arreglan de formas distintas: enlazar la
+        ficha es trabajo de un administrador; estar en la empresa equivocada lo
+        resuelve quien mira, con el selector del menú. Un único mensaje para
+        las dos mandaría a la mitad de la gente a pedir ayuda que no necesita.
+        """
+        otra = Empleado.objects.todas().filter(usuario=usuario).select_related("empresa").first()
+        if otra is not None and otra.empresa is not None:
+            return (
+                f"Su ficha de empleado está en {otra.empresa.nombre}. Cambie de empresa "
+                "en el menú para ver los equipos que tiene a su cargo."
+            )
+        return (
+            "Su cuenta todavía no está enlazada a una ficha de empleado, "
+            "así que el sistema no sabe qué equipos son suyos. Pídale a un "
+            "administrador que la enlace desde Organización → Empleados."
+        )
 
     @action(detail=False, methods=["get"], url_path="dashboard")
     def dashboard(self, request):
