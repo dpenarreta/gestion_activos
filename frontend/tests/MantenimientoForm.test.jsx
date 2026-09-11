@@ -19,8 +19,13 @@ const obtener = vi.fn();
 const crear = vi.fn();
 const actualizar = vi.fn();
 
+const obtenerActivo = vi.fn();
+
 vi.mock("../src/api/activosService", () => ({
-  activosService: { list: (...args) => listarActivos(...args) },
+  activosService: {
+    list: (...args) => listarActivos(...args),
+    get: (...args) => obtenerActivo(...args),
+  },
 }));
 
 vi.mock("../src/api/mantenimientosService", () => ({
@@ -85,11 +90,19 @@ function pintar(ruta = "/admin/mantenimientos/new") {
   );
 }
 
+/**
+ * Elige un equipo como lo haría una pistola: teclear el código y cerrar con
+ * Enter. Con una sola coincidencia queda elegido.
+ */
+async function elegirEquipo(codigo = "GA-LAP-000007") {
+  const campo = screen.getByLabelText("Activo intervenido");
+  fireEvent.change(campo, { target: { value: codigo } });
+  fireEvent.keyDown(campo, { key: "Enter" });
+  await screen.findByRole("button", { name: "Cambiar" });
+}
+
 /** Llena los campos obligatorios que el formulario exige para guardar. */
 function llenarMinimo() {
-  fireEvent.change(screen.getByLabelText("Activo intervenido"), {
-    target: { value: "7" },
-  });
   fireEvent.change(screen.getByLabelText("Nombre del técnico o proveedor"), {
     target: { value: "Jorge Andrade" },
   });
@@ -100,7 +113,8 @@ function llenarMinimo() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  listarActivos.mockResolvedValue({ results: ACTIVOS });
+  listarActivos.mockResolvedValue({ results: [ACTIVOS[0]] });
+  obtenerActivo.mockResolvedValue(ACTIVOS[0]);
   listarComponentes.mockResolvedValue({ results: COMPONENTES });
   listarProveedores.mockResolvedValue({
     results: [{ id: 21, nombre: "Tecnomega C.A." }],
@@ -112,24 +126,29 @@ beforeEach(() => {
 // --- Qué se puede elegir ----------------------------------------------------
 
 describe("Registrar una intervención", () => {
-  it("no ofrece equipos dados de baja", async () => {
-    /* El backend las rechaza; ofrecerlos aquí solo produce un error después de
-       haber llenado el formulario entero. */
+  it("solo busca entre los equipos que siguen en el parque", async () => {
+    /* El backend rechaza una intervención sobre un equipo dado de baja,
+       perdido o robado; ofrecerlo aquí solo produce un error después de haber
+       llenado el formulario entero. */
     pintar();
 
-    expect(
-      await screen.findByRole("option", { name: /Laptop Jefatura TI/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("option", { name: /PC Recepción/ }),
-    ).not.toBeInTheDocument();
+    const campo = await screen.findByLabelText("Activo intervenido");
+    fireEvent.change(campo, { target: { value: "laptop" } });
+
+    await waitFor(() => expect(listarActivos).toHaveBeenCalled());
+    expect(listarActivos.mock.calls.at(-1)[0]).toMatchObject({
+      q: "laptop",
+      operativos: "true",
+    });
   });
 
   it("entra con el equipo puesto cuando se llega desde su ficha", async () => {
+    /* Por la URL solo viaja el número, así que se pide la ficha para poder
+       enseñar de qué equipo se trata. */
     pintar("/admin/mantenimientos/new?activo=7");
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
-    expect(screen.getByLabelText("Activo intervenido")).toHaveValue("7");
+    expect(await screen.findByText("GA-LAP-000007")).toBeInTheDocument();
+    expect(obtenerActivo).toHaveBeenCalledWith("7");
   });
 
   it("acota la fecha a partir de la compra del equipo, y dice cuál es", async () => {
@@ -151,7 +170,7 @@ describe("Registrar una intervención", () => {
        ofreciéndola reabre el uso de algo que se decidió descontinuar. */
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await screen.findByLabelText("Activo intervenido");
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
 
     expect(
@@ -179,7 +198,7 @@ describe("La fecha de salida", () => {
   it("con salida muestra el tiempo fuera de operación en meses", async () => {
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await screen.findByLabelText("Activo intervenido");
     fireEvent.change(screen.getByLabelText("Fecha de ingreso"), {
       target: { value: "2026-07-01" },
     });
@@ -195,7 +214,7 @@ describe("La fecha de salida", () => {
   it("no permite una salida anterior al ingreso", async () => {
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await screen.findByLabelText("Activo intervenido");
     fireEvent.change(screen.getByLabelText("Fecha de ingreso"), {
       target: { value: "2026-07-01" },
     });
@@ -215,7 +234,7 @@ describe("Al guardar", () => {
        nulo es lo que significa «todavía no salió». */
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await elegirEquipo();
     llenarMinimo();
     fireEvent.click(
       screen.getByRole("button", { name: "Registrar intervención" }),
@@ -235,7 +254,7 @@ describe("Al guardar", () => {
        y no la borra, no debe registrarse un consumo sin componente. */
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await elegirEquipo();
     llenarMinimo();
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
     fireEvent.click(
@@ -249,7 +268,7 @@ describe("Al guardar", () => {
   it("envía los repuestos con su proveedor y su costo", async () => {
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await elegirEquipo();
     llenarMinimo();
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
     fireEvent.change(screen.getByLabelText("Componente"), {
@@ -285,7 +304,7 @@ describe("Al guardar", () => {
        después de que el equipo apareció como «reemplazo recomendado». */
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await screen.findByLabelText("Activo intervenido");
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
     fireEvent.change(screen.getByLabelText("Componente"), {
       target: { value: "11" },
@@ -297,7 +316,7 @@ describe("Al guardar", () => {
   it("vuelve a la ficha del equipo, que es donde se ve el resultado", async () => {
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await elegirEquipo();
     llenarMinimo();
     fireEvent.click(
       screen.getByRole("button", { name: "Registrar intervención" }),
@@ -317,7 +336,7 @@ describe("Al guardar", () => {
 
     pintar();
 
-    await screen.findByRole("option", { name: /Laptop Jefatura TI/ });
+    await elegirEquipo();
     llenarMinimo();
     fireEvent.click(
       screen.getByRole("button", { name: "Registrar intervención" }),
@@ -384,7 +403,15 @@ describe("Editar una intervención", () => {
     pintar("/admin/mantenimientos/5");
 
     await screen.findByText("Editar intervención");
-    expect(screen.getByLabelText("Activo intervenido")).toBeDisabled();
+    // El equipo se enseña, no se elige: no hay campo que rellenar ni botón
+    // para cambiarlo.
+    expect(await screen.findByText("GA-LAP-000007")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Activo intervenido"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cambiar" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(/Una intervención no cambia de activo/),
     ).toBeInTheDocument();

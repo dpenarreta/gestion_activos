@@ -74,14 +74,43 @@ test.describe("Consulta por escáner", () => {
     await expect(
       page.getByRole("heading", { name: "Registrar mantenimiento" }),
     ).toBeVisible();
-    await expect(page.getByLabel("Activo intervenido")).toHaveValue(
-      new RegExp("^\\d+$"),
-    );
-    const elegido = await page
-      .getByLabel("Activo intervenido")
-      .locator("option:checked")
-      .innerText();
-    expect(elegido).toContain(codigo);
+    // El equipo llega puesto y se ve cuál es, no un número: por la URL solo
+    // viaja el identificador, así que el formulario pide su ficha.
+    await expect(page.getByText(codigo)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
+  });
+
+  test("en el formulario, el equipo también se elige con la pistola", async ({
+    page,
+  }) => {
+    /* El otro camino: se entra a registrar sin venir de una lectura y se
+       dispara sobre la etiqueta ahí mismo. El Enter del lector elige el equipo
+       y —esto es lo que había que asegurar— no envía la intervención con el
+       responsable y el trabajo realizado todavía vacíos. */
+    await page.goto("/admin/mantenimientos/new");
+
+    const campo = page.getByLabel("Activo intervenido");
+    await campo.fill(codigo);
+    await campo.press("Enter");
+
+    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
+    await expect(page.getByText(`E2E-${SERIE}`)).toBeVisible();
+    // Sigue en el formulario: el Enter no lo envió.
+    await expect(
+      page.getByRole("heading", { name: "Registrar mantenimiento" }),
+    ).toBeVisible();
+  });
+
+  test("y escribiendo unas letras se filtra la lista", async ({ page }) => {
+    /* Lo que sustituye al desplegable con el parque entero, que además venía
+       con un tope de trescientos equipos. */
+    await page.goto("/admin/mantenimientos/new");
+
+    await page.getByLabel("Activo intervenido").fill(SERIE.slice(0, 12));
+
+    await expect(
+      page.getByRole("option", { name: new RegExp(`E2E-${SERIE}`) }),
+    ).toBeVisible();
   });
 
   test("un código que no existe lo dice y no deja la lectura anterior", async ({

@@ -162,3 +162,26 @@ Feature: Bitácora de mantenimientos y contador de intervenciones (RF-04, RF-05)
     Then desaparece con sus repuestos
     And la auditoría conserva quién era su responsable y de qué fecha
     And los contadores del equipo vuelven a su valor real
+
+  @AC-MNT-030
+  Scenario: El equipo intervenido se elige disparando la pistola
+    Given el formulario de registrar mantenimiento
+    When se dispara la lectora sobre la etiqueta del equipo
+    Then el equipo queda elegido y el formulario no se envía
+    # El lector cierra la lectura con Enter, y ese Enter enviaría la
+    # intervención con el responsable y el trabajo realizado todavía vacíos.
+
+  @AC-MNT-031
+  Scenario: O escribiendo unas letras, que van filtrando
+    Given el formulario de registrar mantenimiento
+    When se escriben al menos dos caracteres del código, la serie o el nombre
+    Then se ofrecen los equipos operativos que coinciden
+
+  @AC-MNT-032
+  Scenario: Se busca contra el inventario completo, sin tope
+    Given un inventario con más equipos de los que cabían en el desplegable
+    When se busca uno que estaba fuera de los primeros trescientos
+    Then aparece igual
+    # Antes la lista se pedía con un tope de trescientos: en un inventario del
+    # tamaño que el documento dimensiona, el trescientos uno no se podía elegir
+    # y no había ningún aviso de que faltara.

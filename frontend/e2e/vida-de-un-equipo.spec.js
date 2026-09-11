@@ -76,11 +76,10 @@ test.describe("Un equipo, de su alta a su baja", () => {
     await abrirFicha(page, codigoDeBarras);
     await page.getByRole("link", { name: /Registrar mantenimiento/ }).click();
 
-    // El equipo llega preseleccionado desde la URL, pero la opción solo existe
-    // cuando el catálogo termina de cargar: enviar antes deja el campo vacío y
-    // la validación del navegador corta el envío sin que nada se vea en la
-    // pantalla.
-    await expect(page.getByLabel("Activo intervenido")).not.toHaveValue("");
+    // El equipo llega puesto desde la URL, pero su ficha se pide aparte:
+    // enviar antes de que llegue deja el campo vacío y la validación del
+    // navegador corta el envío sin que nada se vea en la pantalla.
+    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
 
     await page.getByLabel("Nombre del técnico o proveedor").fill("Taller E2E");
     await page.getByLabel("Trabajo realizado").fill("Cambio de disco");

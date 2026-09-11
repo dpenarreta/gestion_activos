@@ -8,6 +8,7 @@ import {
 } from "../../../api/mantenimientosService";
 import { proveedoresService } from "../../../api/organizacionService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { BuscadorDeActivo } from "../../../components/activos/BuscadorDeActivo/BuscadorDeActivo";
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Mantenimientos.css";
@@ -70,7 +71,6 @@ export function MantenimientoForm() {
     activo: searchParams.get("activo") || "",
   }));
   const [lineas, setLineas] = useState([]);
-  const [activos, setActivos] = useState([]);
   const [componentes, setComponentes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [activoSeleccionado, setActivoSeleccionado] = useState(null);
@@ -78,18 +78,6 @@ export function MantenimientoForm() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Solo activos vigentes: el backend rechaza intervenciones sobre equipos
-    // dados de baja, y ofrecerlos aquí solo produciría un error al guardar.
-    activosService
-      .list({ page_size: 300 })
-      .then((datos) =>
-        setActivos(
-          (datos.results ?? datos).filter(
-            (activo) => activo.estado !== "dado_de_baja",
-          ),
-        ),
-      )
-      .catch(() => setActivos([]));
     componentesService
       .list({ page_size: 200 })
       .then((datos) =>
@@ -139,16 +127,26 @@ export function MantenimientoForm() {
 
   // La fecha no puede ser anterior a la compra del equipo; conocerla permite
   // acotar el selector de fecha en vez de esperar al error del servidor.
+  //
+  // Normalmente lo entrega el propio buscador al elegir, pero cuando se llega
+  // con el equipo puesto —desde su ficha o desde el escáner— por la URL solo
+  // viaja el número y hay que pedir la ficha.
   useEffect(() => {
     if (!valores.activo) {
       setActivoSeleccionado(null);
       return;
     }
-    const encontrado = activos.find(
-      (activo) => String(activo.id) === String(valores.activo),
-    );
-    setActivoSeleccionado(encontrado || null);
-  }, [valores.activo, activos]);
+    let cancelado = false;
+    activosService
+      .get(valores.activo)
+      .then((activo) => {
+        if (!cancelado) setActivoSeleccionado(activo);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelado = true;
+    };
+  }, [valores.activo]);
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
@@ -211,30 +209,25 @@ export function MantenimientoForm() {
           <legend className="h6 text-uppercase text-muted">Intervención</legend>
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label" htmlFor="activo">
-                Activo intervenido
-              </label>
-              <select
-                id="activo"
-                className="form-select"
-                required
+              {/* Se busca contra el servidor en vez de desplegar el parque
+                  entero: con el equipo en la mano, disparar la pistola o
+                  teclear tres letras es más rápido que recorrer una lista, y
+                  la lista además se pedía con un tope de trescientos —en un
+                  inventario de verdad, el trescientos uno no se podía elegir—. */}
+              <BuscadorDeActivo
+                valor={valores.activo}
+                onChange={(id, activo) => {
+                  actualizar("activo", id);
+                  setActivoSeleccionado(activo);
+                }}
                 disabled={esEdicion}
-                value={valores.activo}
-                onChange={(event) => actualizar("activo", event.target.value)}
-              >
-                <option value="">Seleccione un activo</option>
-                {activos.map((activo) => (
-                  <option key={activo.id} value={activo.id}>
-                    {activo.codigo_barras} — {activo.nombre}
-                  </option>
-                ))}
-              </select>
-              {esEdicion && (
-                <div className="form-text">
-                  Una intervención no cambia de activo. Si se capturó sobre el
-                  equipo equivocado, elimínela y regístrela de nuevo.
-                </div>
-              )}
+                requerido
+                ayuda={
+                  esEdicion
+                    ? "Una intervención no cambia de activo. Si se capturó sobre el equipo equivocado, elimínela y regístrela de nuevo."
+                    : undefined
+                }
+              />
             </div>
             <div className="col-md-3">
               <label className="form-label" htmlFor="tipo">

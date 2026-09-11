@@ -75,6 +75,7 @@ Base: `/api/v1/activos/`
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
 | GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |
 | GET | `/activos/{id}/historial/` | `activos.ver` | Igual que el anterior, por id |
+| GET | `/activos/?q=&operativos=true` | `activos.ver` | La misma búsqueda que usa el inventario alimenta el campo de equipo del formulario de mantenimiento: se pregunta al servidor en vez de desplegar el parque |
 | — | — | — | La ficha incluye `depreciacion`: valor en libros, acumulada y porcentaje. Cuando no hay costo o política, `disponible: false` y el `motivo` — un cero significaría «ya no vale nada» |
 | GET | `/activos/mis-equipos/` | `activos.ver_asignados` | **§13.** Los equipos que quien pregunta tiene a su cargo. Sin costo, proveedor ni veredicto de renovación: son datos del inventario, no del equipo que uno usa |
 | POST | `/activos/{id}/asignar/` | `activos.asignar` | Asigna, traslada o devuelve. `custodio: null` deja el equipo sin responsable; omitir `sede` no toca el sitio y `null` lo borra. El movimiento se registra como **traslado** si el sitio cambió y como **devolución** si solo se soltó al responsable |
