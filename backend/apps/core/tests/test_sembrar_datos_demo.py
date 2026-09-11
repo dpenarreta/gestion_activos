@@ -161,3 +161,25 @@ def test_verificar_despliegue_las_detecta(empresas):
     call_command("sembrar_datos_demo", eliminar=True)
 
     assert not User.objects.filter(username__in=usuarios_demo()).exists()
+
+
+def test_la_revision_avisa_de_una_cuenta_de_pruebas_olvidada(capsys, db):
+    """Las de extremo a extremo se crean y se borran en cada ejecución, pero un
+    Ctrl+C a mitad deja la cuenta puesta —y lleva todos los permisos del
+    catálogo—."""
+    from django.test import override_settings
+
+    from apps.users.models import User
+
+    User.objects.create_user(
+        username="e2e_bot", email="e2e_bot@pruebas.local", password="Sup3r-Secr3t!"
+    )
+
+    # La revisión sale con error cuando hay algo crítico: es lo que hace que un
+    # despliegue automatizado se detenga en vez de seguir adelante.
+    with override_settings(DEBUG=False), pytest.raises(SystemExit):
+        call_command("verificar_despliegue")
+
+    salida = capsys.readouterr().out
+    assert "cuenta(s) de pruebas automatizadas" in salida
+    assert "e2e_bot" in salida

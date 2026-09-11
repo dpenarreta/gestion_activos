@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Listado paginado con filtros, genérico para los módulos de negocio.
@@ -12,16 +12,33 @@ import { useCallback, useEffect, useState } from "react";
  * `useAdminUsers` se deja como está: reescribirlo sobre este hook no
  * aportaría nada al usuario y tocaría código ya probado.
  */
-export function useListadoPaginado(cargar, filtrosIniciales = {}, mensajeError = "No se pudo cargar el listado.") {
+export function useListadoPaginado(
+  cargar,
+  filtrosIniciales = {},
+  mensajeError = "No se pudo cargar el listado.",
+) {
   const [filtros, setFiltros] = useState(filtrosIniciales);
   const [pagina, setPagina] = useState(1);
-  const [datos, setDatos] = useState({ results: [], count: 0, next: null, previous: null });
+  const [datos, setDatos] = useState({
+    results: [],
+    count: 0,
+    next: null,
+    previous: null,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Cuál es la consulta vigente. Dos peticiones pueden estar en vuelo a la vez
+  // —se escribe un filtro mientras la carga inicial todavía viaja— y no llegan
+  // necesariamente en el orden en que se pidieron: sin esto gana la última en
+  // llegar, y la pantalla termina mostrando el listado sin filtrar con el
+  // filtro escrito en la caja, que es mentir sobre lo que se está viendo.
+  const vigente = useRef(0);
 
   const consultar = useCallback(() => {
     setIsLoading(true);
     setError(null);
+    const esta = ++vigente.current;
     const params = { page: pagina };
     Object.entries(filtros).forEach(([clave, valor]) => {
       if (valor !== "" && valor !== null && valor !== undefined) {
@@ -30,16 +47,29 @@ export function useListadoPaginado(cargar, filtrosIniciales = {}, mensajeError =
     });
     return cargar(params)
       .then((respuesta) => {
+        if (esta !== vigente.current) return;
         // Un endpoint sin paginar devuelve una lista pelada; se normaliza para
         // que la vista no tenga que distinguir los dos casos.
         setDatos(
           Array.isArray(respuesta)
-            ? { results: respuesta, count: respuesta.length, next: null, previous: null }
-            : respuesta
+            ? {
+                results: respuesta,
+                count: respuesta.length,
+                next: null,
+                previous: null,
+              }
+            : respuesta,
         );
       })
-      .catch((err) => setError(err.response?.data?.error?.message || mensajeError))
-      .finally(() => setIsLoading(false));
+      .catch((err) => {
+        if (esta !== vigente.current) return;
+        setError(err.response?.data?.error?.message || mensajeError);
+      })
+      .finally(() => {
+        // El indicador de carga también es de la consulta vigente: apagarlo
+        // desde una vieja diría «ya está» con la nueva todavía en camino.
+        if (esta === vigente.current) setIsLoading(false);
+      });
   }, [cargar, filtros, pagina, mensajeError]);
 
   useEffect(() => {

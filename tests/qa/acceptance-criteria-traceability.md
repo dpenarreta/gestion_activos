@@ -681,3 +681,21 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-DEP-014 | El reporte totaliza el parque | depreciacion.feature | El reporte totaliza el parque | Sí (pytest: `test_el_parque_se_totaliza_al_pie`) |
 | AC-DEP-015 | Vida contable ≠ vida útil de renovación | depreciacion.feature | La vida contable no es la vida útil de la política de renovación | Sí (pytest y Vitest: `test_la_vida_contable_no_es_la_vida_util_de_renovacion`, `advierte que la vida contable no es la de renovación`) |
 | AC-POL-026 | Una segunda política global responde 400, no 500 | politicas-renovacion.feature | Una segunda política global se rechaza con un error útil | Sí (pytest: `test_una_segunda_politica_global_se_rechaza_con_un_error_util`) |
+
+## Recorridos de extremo a extremo (AC-E2E-xxx)
+
+Se ejecutan con `npm run e2e` desde `frontend/`, contra el navegador y el
+backend reales (ver `docs/qa-strategy.md`). No sustituyen a los criterios de
+arriba: comprueban que las piezas que cada uno prueba por separado funcionen
+juntas.
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-E2E-001 | Se entra y la sesión aguanta el recorrido | authentication.feature | Iniciar sesión y navegar por el panel | Sí (Playwright: `entrar-y-mirar.spec.js`) |
+| AC-E2E-002 | Sin sesión, el panel manda al login | authentication.feature | Una ruta protegida sin sesión lleva al login | Sí (Playwright: `sin sesión, el panel manda al login`) |
+| AC-E2E-003 | El login no delata qué cuentas existen | authentication.feature | Un intento fallido responde siempre lo mismo | Sí (Playwright: `una contraseña equivocada no dice si la cuenta existe`) |
+| AC-E2E-004 | Un equipo se registra y recibe su código | inventario-activos.feature | El alta genera un código de barras único automáticamente | Sí (Playwright: `vida-de-un-equipo.spec.js`) |
+| AC-E2E-005 | Se entrega, se repara y se da de baja | ficha-completa-activo.feature | El ciclo completo del equipo | Sí (Playwright: `vida-de-un-equipo.spec.js`, cinco pasos en serie) |
+| AC-E2E-006 | Cambiar de empresa cambia los datos | multiempresa.feature | Un equipo de una empresa no existe en la otra | Sí (Playwright: `cambiar-de-empresa.spec.js`) |
+| AC-E2E-007 | La empresa elegida sobrevive a navegar | multiempresa.feature | La elección de empresa se conserva entre pantallas | Sí (Playwright: `la elección sobrevive a abrir otra pantalla`) |
+| AC-E2E-008 | Un reporte se descarga con contenido | dashboard-y-reportes.feature | El archivo se descarga con su nombre y no llega vacío | Sí (Playwright: `descargar-un-reporte.spec.js`) |

@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
       environment: "jsdom",
       setupFiles: "./tests/setup.js",
       globals: true,
+      // Las de extremo a extremo son de Playwright y necesitan un navegador y
+      // los servidores levantados: se ejecutan con `npm run e2e`. Sin esta
+      // línea, Vitest las recoge y falla al no encontrar su propio arranque.
+      exclude: ["node_modules/**", "e2e/**"],
       coverage: {
         // Sin esto solo se cuentan los archivos que alguna prueba importa, y
         // una pantalla sin ninguna prueba no baja el porcentaje: el número

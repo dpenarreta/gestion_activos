@@ -40,3 +40,11 @@ Thumbs.db
 # --- Logs ---
 *.log
 logs/
+
+# --- Pruebas de extremo a extremo (Playwright) ---
+# La sesión guardada lleva el token de una cuenta real y la contraseña cambia
+# en cada ejecución: nada de esto se versiona.
+frontend/e2e/.auth/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

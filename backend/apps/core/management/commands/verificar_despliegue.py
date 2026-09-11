@@ -126,8 +126,9 @@ class Command(BaseCommand):
         presentes = list(
             User.objects.filter(username__in=usuarios_demo()).values_list("username", flat=True)
         )
+        hallazgos = []
         if presentes:
-            return [
+            hallazgos.append(
                 (
                     Resultado.CRITICO,
                     f"Quedan {len(presentes)} cuenta(s) de demostracion",
@@ -136,8 +137,28 @@ class Command(BaseCommand):
                     + ", ".join(sorted(presentes)[:5])
                     + ". Retirelas con: python manage.py sembrar_datos_demo --eliminar",
                 )
-            ]
-        return [(Resultado.OK, "Sin cuentas de demostracion", "")]
+            )
+
+        # Las de extremo a extremo se crean y se borran en cada ejecucion, pero
+        # un Ctrl+C a mitad deja la cuenta puesta —y lleva todos los permisos
+        # del catalogo—. Es barato comprobarlo aqui.
+        de_pruebas = list(
+            User.objects.filter(username__startswith="e2e_").values_list("username", flat=True)
+        )
+        if de_pruebas:
+            hallazgos.append(
+                (
+                    Resultado.CRITICO,
+                    f"Quedan {len(de_pruebas)} cuenta(s) de pruebas automatizadas",
+                    "Las crea la suite de extremo a extremo y llevan todos los permisos: "
+                    + ", ".join(sorted(de_pruebas)[:5])
+                    + ". Borrelas desde Usuarios.",
+                )
+            )
+
+        if hallazgos:
+            return hallazgos
+        return [(Resultado.OK, "Sin cuentas de demostracion ni de pruebas", "")]
 
     # --- Correo ---
 
