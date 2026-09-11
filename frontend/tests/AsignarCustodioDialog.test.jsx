@@ -105,12 +105,18 @@ describe("Asignar o trasladar un activo", () => {
     });
 
     expect(await screen.findByText("Sin asignar")).toBeInTheDocument();
-    expect(screen.getByText("Sin sede registrada")).toBeInTheDocument();
+    // Más de uno: el de la situación actual y la opción vacía del desplegable
+    // de sede, que desde que la entrega pregunta por el sitio también está.
+    expect(screen.getAllByText("Sin sede registrada").length).toBeGreaterThan(
+      0,
+    );
   });
 
-  it("al elegir a una persona propone su área", async () => {
-    /* Un equipo entregado a alguien de Tecnología normalmente pasa a
-       Tecnología; pedir el área dos veces invita a dejarla descuadrada. */
+  it("el área no se pregunta, pero se dice a cuál queda adscrito", async () => {
+    /* Es la de quien recibe el equipo, así que preguntarla sería pedir dos
+       veces el mismo dato. Cambiarla sin decirlo sería peor: un dato que
+       cambia sin que nadie lo vea es un dato que nadie corrige cuando está
+       mal. */
     abrir();
     await screen.findByText("Situación actual");
 
@@ -121,12 +127,15 @@ describe("Asignar o trasladar un activo", () => {
     expect(
       await screen.findByText(/Luis Torres pertenece a/),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Área a la que queda adscrito")).toHaveValue(
-      "4",
-    );
+    expect(
+      screen.getByText(/Quedará adscrito a Tecnología/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Área a la que queda adscrito"),
+    ).not.toBeInTheDocument();
   });
 
-  it("la entrega no toca la sede", async () => {
+  it("y el área sigue viajando al guardar, aunque no se pregunte", async () => {
     abrir();
     await screen.findByText("Situación actual");
 
@@ -137,8 +146,80 @@ describe("Asignar o trasladar un activo", () => {
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
     const [, datos] = activosService.asignar.mock.calls[0];
-    expect(datos).not.toHaveProperty("sede");
+    expect(datos.departamento).toBe("4");
+  });
+
+  it("la entrega lleva la sede: se entrega donde el equipo se queda", async () => {
+    /* Entregar un equipo suele ser ponerlo donde trabaja quien lo recibe, y
+       tener que registrar después un traslado aparte dejaba el sitio
+       desactualizado hasta que alguien se acordara. */
+    abrir();
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(screen.getByLabelText("Sede donde queda el equipo"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
+    const [, datos] = activosService.asignar.mock.calls[0];
+    expect(datos.sede).toBe("2");
     expect(datos.responsables).toEqual([7]);
+  });
+
+  it("sin tocarla, la entrega deja el equipo donde estaba", async () => {
+    abrir();
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
+      target: { value: "7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
+    const [, datos] = activosService.asignar.mock.calls[0];
+    expect(datos.sede).toBe(1);
+  });
+
+  it("cambiar solo la sede ya es un movimiento que registrar", async () => {
+    abrir();
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(screen.getByLabelText("Sede donde queda el equipo"), {
+      target: { value: "2" },
+    });
+
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeEnabled();
+  });
+
+  it("devolver a bodega avisa de que nadie responderá por él", async () => {
+    /* Quien devuelve un equipo lo sabe; quien quita a la última persona de un
+       turno, no siempre. Es la consecuencia que hay que leer antes de
+       confirmar, no descubrirla después en la ficha. */
+    abrir();
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
+      target: { value: "" },
+    });
+
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent(/sin responsable/);
+    expect(aviso).toHaveTextContent(/Nadie responderá por él/);
+  });
+
+  it("mientras tenga responsable no hay aviso que leer", async () => {
+    abrir();
+    await screen.findByText("Situación actual");
+
+    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
+      target: { value: "7" },
+    });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("no deja confirmar si no hay nada que cambiar", async () => {
@@ -340,7 +421,7 @@ describe("Un equipo compartido", () => {
     );
 
     expect(screen.getByText("Nadie responde por él")).toBeInTheDocument();
-    expect(screen.getByText(/quedará en bodega/)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/sin responsable/);
   });
 
   it("no deja confirmar si la lista quedó igual", async () => {

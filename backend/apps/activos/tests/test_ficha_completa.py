@@ -576,3 +576,42 @@ def test_la_api_traslada_y_lo_cuenta_en_el_historial(cliente, crear_activo, sede
     # El historial se lee en ciudades: «pasó de Quito a Cuenca».
     assert traslado["sede_anterior_nombre"] == "Quito"
     assert traslado["sede_nueva_nombre"] == "Cuenca"
+
+
+def test_la_entrega_tambien_deja_el_equipo_en_su_sitio(admin, crear_activo, empleado, sede):
+    """Entregar un equipo suele ser ponerlo donde trabaja quien lo recibe.
+
+    Registrar el traslado aparte dejaba la ubicación desactualizada hasta que
+    alguien se acordara, y el sitio es lo que se lee al preguntar dónde está.
+    Sigue siendo una asignación, no un traslado: lo que cambió de manos es el
+    equipo, y el sitio vino con él.
+    """
+    activo = crear_activo(sede=sede)
+    destino = Sede.objects.create(nombre="Sucursal Ambato", ciudad="Ambato")
+
+    ActivoService.asignar_responsables(
+        actor=admin, activo=activo, responsables=[empleado], sede=destino
+    )
+
+    activo.refresh_from_db()
+    assert activo.sede_id == destino.id
+    movimiento = activo.movimientos.order_by("-created_at").first()
+    assert movimiento.tipo == MovimientoActivo.Tipo.ASIGNACION
+    assert movimiento.sede_nueva_id == destino.id
+
+
+def test_la_entrega_desde_la_api_lleva_responsable_y_sede(cliente, crear_activo, empleado, sede):
+    """Es lo que manda el formulario de entrega: a quién y dónde, de una vez."""
+    activo = crear_activo(sede=sede)
+    destino = Sede.objects.create(nombre="Sucursal Loja", ciudad="Loja")
+
+    respuesta = cliente.post(
+        f"/api/v1/activos/{activo.id}/asignar/",
+        {"responsables": [empleado.id], "sede": destino.id, "motivo": "Ingreso"},
+        format="json",
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.data["ciudad"] == "Loja"
+    activo.refresh_from_db()
+    assert activo.sede_id == destino.id

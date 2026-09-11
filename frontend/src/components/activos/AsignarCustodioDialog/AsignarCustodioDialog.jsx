@@ -88,6 +88,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     () => sedes.find((s) => String(s.id) === String(sede)),
     [sedes, sede],
   );
+  //: A qué área quedará adscrito, si es que cambia. No se pregunta —es la de
+  //: quien recibe el equipo— pero sí se enseña: un dato que cambia sin que
+  //: nadie lo vea es un dato que nadie va a corregir cuando esté mal.
+  const areaDeDestino = useMemo(
+    () =>
+      String(departamento || "") !== String(activo.departamento || "")
+        ? departamentos.find((d) => String(d.id) === String(departamento))
+        : null,
+    [departamentos, departamento, activo.departamento],
+  );
 
   /**
    * Al elegir a una persona, el área se propone sola: un equipo entregado a
@@ -132,15 +142,20 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
     try {
       // Cada modo manda solo lo suyo. El traslado manda la lista vacía
       // porque mover un equipo es sacárselo a quien lo tenía: pasa a la sede
-      // de destino, y una sede no responde por nada. El área sí se conserva
-      // —dice de quién es el presupuesto del equipo, no quién lo custodia—,
-      // así que no se envía.
+      // de destino, y una sede no responde por nada.
+      //
+      // La entrega sí lleva la sede: entregar un equipo suele ser ponerlo
+      // donde trabaja quien lo recibe, y tener que registrar después un
+      // traslado aparte dejaba el sitio desactualizado hasta que alguien se
+      // acordara. El área va con ella, pero no se pregunta: es la de quien
+      // recibe el equipo, y se enseña debajo para que el cambio no sea mudo.
       const datos =
         modo === MODOS.TRASLADAR
           ? { responsables: [], sede: sede || null, motivo }
           : {
               responsables: responsables.map(Number),
               departamento: departamento || null,
+              sede: sede || null,
               motivo,
             };
 
@@ -158,10 +173,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const mismosQueAntes =
     responsables.length === antes.length &&
     antes.every((persona) => responsables.includes(String(persona.id)));
+  const cambioDeSede = String(sede || "") !== String(activo.sede || "");
   const hayCambio =
     modo === MODOS.TRASLADAR
-      ? String(sede || "") !== String(activo.sede || "")
+      ? cambioDeSede
       : !mismosQueAntes ||
+        cambioDeSede ||
         String(departamento || "") !== String(activo.departamento || "");
 
   return (
@@ -273,12 +290,6 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                   </option>
                 ))}
               </select>
-              {esDevolucion && (
-                <div className="form-text">
-                  El activo quedará en bodega. Quienes respondían por él dejarán
-                  de figurar, pero seguirán en el historial del equipo.
-                </div>
-              )}
             </div>
           ) : (
             <div className="mb-3">
@@ -304,36 +315,54 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                   <strong>{elegidos[0].departamento_nombre}</strong>.
                 </div>
               )}
-              {esDevolucion && (
-                <div className="form-text">
-                  El activo quedará en bodega. {activo.responsables_resumen}{" "}
-                  dejará de figurar como responsable, pero seguirá en el
-                  historial del equipo.
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* Como aviso y no como nota al pie: que el equipo se quede sin
+              nadie que responda por él es la consecuencia que hay que leer
+              antes de confirmar. Quien devuelve un equipo lo sabe; quien
+              quitaba a la última persona de un turno, no siempre. */}
+          {esDevolucion && (
+            <div className="alert alert-warning" role="alert">
+              <strong>Aviso:</strong> El equipo quedará{" "}
+              <strong>sin responsable</strong> y volverá a bodega. Nadie
+              responderá por él hasta que se lo entregue a alguien.{" "}
+              {activo.responsables_resumen} seguirá en su historial.
             </div>
           )}
 
           <div className="mb-3">
-            <label className="form-label" htmlFor="departamento">
-              Área a la que queda adscrito
+            <label className="form-label" htmlFor="sede-entrega">
+              Sede donde queda el equipo
             </label>
             <select
-              id="departamento"
+              id="sede-entrega"
               className="form-select"
-              value={departamento}
-              onChange={(event) => setDepartamento(event.target.value)}
+              value={sede}
+              onChange={(event) => setSede(event.target.value)}
             >
-              {departamentos.map((dep) => (
-                <option key={dep.id} value={dep.id}>
-                  {dep.nombre}
+              <option value="">Sin sede registrada</option>
+              {sedes.map((unaSede) => (
+                <option key={unaSede.id} value={unaSede.id}>
+                  {unaSede.nombre}
+                  {unaSede.ciudad ? ` — ${unaSede.ciudad}` : ""}
                 </option>
               ))}
             </select>
+            {cambioDeSede && (
+              // En ciudades, que es como se cuenta un movimiento de sitio:
+              // «pasó de Quito a Guayaquil».
+              <p className="situacion-actual__cambio">
+                {activo.ciudad || "Sin sede"} <span aria-hidden="true">→</span>{" "}
+                <strong>{donde(sedeElegida) || "Sin sede"}</strong>
+              </p>
+            )}
             <div className="form-text">
-              {/* La sede no se toca en este modo: entregar un equipo no lo
-                  cambia de sitio. */}
-              El equipo no cambia de sitio con la entrega.
+              {/* El área no se pregunta: es la de quien recibe el equipo. Pero
+                  tampoco se cambia en silencio, así que se dice aquí. */}
+              {areaDeDestino
+                ? `Quedará adscrito a ${areaDeDestino.nombre}, el área de quien lo recibe.`
+                : "El área a la que está adscrito no cambia."}
             </div>
           </div>
         </>

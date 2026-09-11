@@ -61,14 +61,25 @@ test.describe("Un equipo, de su alta a su baja", () => {
     await page.getByRole("button", { name: /Asignar \/ trasladar/ }).click();
     const dialogo = page.getByRole("dialog");
     await elegirPrimeraOpcion(dialogo, "Nuevo responsable");
+    // La entrega también deja el equipo en su sitio: entregarlo suele ser
+    // ponerlo donde trabaja quien lo recibe, y registrar el traslado aparte
+    // dejaba la ubicación desactualizada hasta que alguien se acordara.
+    await elegirPrimeraOpcion(dialogo, "Sede donde queda el equipo");
     await dialogo.getByRole("button", { name: "Confirmar" }).click();
 
     await expect(page.getByText("Asignación").first()).toBeVisible();
-    // El custodio queda en la ficha, y el movimiento en la bitácora: las dos
-    // cosas, porque una sin la otra deja al inventario sin poder explicar
+    // A que la ficha se haya releído, y no solo a que el movimiento aparezca:
+    // el listado de responsables es lo último que llega, y sin esperarlo se
+    // leen los datos de antes de la entrega.
+    await expect(page.locator(".activo-responsables li").first()).toBeVisible();
+
+    // El responsable queda en la ficha, y el movimiento en la bitácora: las
+    // dos cosas, porque una sin la otra deja al inventario sin poder explicar
     // desde cuándo lo tiene esa persona.
-    const responsable = await valorDe(page, "Responsable");
-    expect(responsable).not.toBe("—");
+    expect(await valorDe(page, "Responsable")).not.toBe("Sin asignar");
+    // Y el equipo queda donde se lo entregó: la entrega lleva la sede, para no
+    // tener que registrar después un traslado que nadie se acuerda de hacer.
+    expect(await valorDe(page, "Ciudad")).not.toBe("—");
   });
 
   test("la ficha recuerda que se compró usado", async ({ page }) => {

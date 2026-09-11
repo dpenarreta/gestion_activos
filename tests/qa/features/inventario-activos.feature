@@ -177,3 +177,29 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     Then se nombra solo a esa persona
     # El resto sigue respondiendo: lo que hay que arreglar es quitarlo de la
     # lista, no reasignar el equipo entero.
+
+  @AC-ACT-047
+  Scenario: La entrega deja el equipo donde se lo entregó
+    When se entrega un equipo indicando la sede
+    Then queda a nombre de quien lo recibe y en esa sede
+    # Entregar un equipo suele ser ponerlo donde trabaja quien lo recibe, y
+    # registrar el traslado aparte dejaba la ubicación desactualizada hasta que
+    # alguien se acordara. Sigue siendo una asignación: lo que cambió de manos
+    # es el equipo, y el sitio vino con él.
+
+  @AC-ACT-048
+  Scenario: Dejar el equipo sin responsable se avisa antes de confirmar
+    Given un equipo entregado
+    When se quita a quien responde por él
+    Then se avisa de que quedará sin responsable y volverá a bodega
+    # Quien devuelve un equipo lo sabe; quien quita a la última persona de un
+    # turno, no siempre. Descubrirlo después en la ficha es peor que leerlo
+    # antes de confirmar.
+
+  @AC-ACT-049
+  Scenario: El área no se pregunta en la entrega, pero se dice cuál será
+    When se elige a quien recibe el equipo
+    Then el formulario dice a qué área quedará adscrito, sin pedirla
+    # Es la de quien lo recibe, así que preguntarla sería pedir dos veces el
+    # mismo dato. Cambiarla sin decirlo sería peor: un dato que cambia sin que
+    # nadie lo vea es un dato que nadie corrige cuando está mal.
