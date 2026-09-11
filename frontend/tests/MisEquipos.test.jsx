@@ -32,6 +32,8 @@ vi.mock("../src/hooks/useAuth", () => ({
 const { MisEquiposPage } =
   await import("../src/pages/Admin/MisEquipos/MisEquiposPage");
 const { InicioDelPanel } = await import("../src/routes/InicioDelPanel");
+const { getVisibleAdminMenu } =
+  await import("../src/components/admin/AdminSidebar/staticAdminMenu");
 
 /** Una entrega de hace poco más de un año, para leer el «hace…». */
 function haceDias(dias) {
@@ -247,12 +249,30 @@ describe("A dónde lleva /admin", () => {
   it("a quien solo ve lo suyo lo deja en su pantalla, no en un 403", async () => {
     /* Antes se iba siempre al panel principal, que exige `activos.ver`: el
        usuario final entraba al sistema y chocaba con un 403 teniendo su
-       pantalla a un clic. */
+       pantalla a un clic.
+
+       Desde que «Mis equipos» no está en el menú, este destino ya no sale del
+       árbol sino del permiso, y por eso hay que sostenerlo aquí: quitar una
+       entrada de la barra lateral no debería dejar a un rol entero sin poder
+       entrar. */
     permisos.lista = ["activos.ver_asignados"];
 
     pintarInicio();
 
     expect(screen.getByText("Destino: /admin/mis-equipos")).toBeInTheDocument();
+  });
+
+  it("no está en el menú: es una vista personal, no una de operación", async () => {
+    /* Quien administra el parque tiene el permiso —lo tiene todo— y la barra
+       lateral no debe ofrecerle una pantalla que solo habla de sus propios
+       equipos. */
+    permisos.lista = ["activos.ver", "activos.ver_asignados"];
+
+    const rutas = getVisibleAdminMenu(permisos.lista)
+      .flatMap((item) => [item, ...(item.children ?? [])])
+      .map((item) => item.path);
+
+    expect(rutas).not.toContain("/admin/mis-equipos");
   });
 
   it("a quien opera el inventario lo deja en el panel principal", async () => {

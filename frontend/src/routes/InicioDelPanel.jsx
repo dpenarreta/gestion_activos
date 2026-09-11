@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 import { useAdminMenu } from "../hooks/useAdminMenu";
+import { usePermission } from "../hooks/usePermission";
 
 /**
  * A dónde entra cada quien al abrir `/admin`.
@@ -11,12 +12,23 @@ import { useAdminMenu } from "../hooks/useAdminMenu";
  * chocar con un 403 teniendo su pantalla a un clic de distancia.
  *
  * El menú ya sabe qué puede abrir cada persona, así que la respuesta sale de
- * ahí: la primera opción que le queda visible. Para la mayoría sigue siendo el
- * panel principal, porque es la primera del árbol para quien puede verlo.
+ * ahí: la primera opción que le queda visible. Para la mayoría es el panel
+ * principal, porque es la primera del árbol para quien puede verlo.
  */
 export function InicioDelPanel() {
   const menu = useAdminMenu();
+  const veLoSuyo = usePermission("activos.ver_asignados");
   const destino = primeraRuta(menu);
+
+  // «Mis equipos» se quitó del menú: es una vista personal y no una de
+  // operación, y en la barra de quien administra el parque solo estorbaba. La
+  // pantalla sigue existiendo, y para el usuario final sigue siendo la única
+  // que puede abrir, así que el menú ya no puede ser la única fuente de este
+  // destino: sin esta salida, su rol entraría al sistema y chocaría con el
+  // mismo 403 que este componente existe para evitar.
+  if (!destino && veLoSuyo) {
+    return <Navigate to="/admin/mis-equipos" replace />;
+  }
 
   // Sin ninguna opción visible no hay a dónde mandarlo, y el 403 es la verdad:
   // la cuenta existe pero todavía no tiene ningún permiso.

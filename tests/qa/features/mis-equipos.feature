@@ -83,6 +83,15 @@ Feature: Mis equipos y el rol «Usuario final» (§13 del documento funcional)
 
   # --- Por dónde entra al sistema ---
 
+  @AC-MIS-011
+  Scenario: La pantalla no ocupa sitio en el menú de quien administra
+    Given una cuenta que administra el inventario
+    When mira el menú lateral
+    Then no aparece «Mis equipos»
+    # Es una vista personal, no una de operación: en la barra de quien
+    # administra el parque solo estorbaba. La pantalla sigue ahí, y el usuario
+    # final entra directamente a ella.
+
   @AC-MIS-010
   Scenario: Entrar al panel lleva a la primera pantalla que se puede abrir
     Given una cuenta con el rol «Usuario final»

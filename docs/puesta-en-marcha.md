@@ -89,6 +89,11 @@ El quinto rol, **«Usuario final»**, lleva un único permiso
 muestra los equipos de quien pregunta, y nada más. Con `activos.ver`, que es el
 permiso que parece el equivalente, vería el parque entero.
 
+*Mis equipos* **no aparece en el menú lateral**: es una vista personal y no una
+de operación, y en la barra de quien administra el parque solo estorbaba. Quien
+tiene ese rol entra directamente a ella al abrir el sistema, y cualquiera puede
+llegar por `/admin/mis-equipos`.
+
 Para que sirva, **cada cuenta debe estar enlazada a su ficha de empleado**
 desde *Organización → Empleados*: es ese vínculo el que dice qué equipos son
 suyos. Sin él, la pantalla lo dice en vez de mostrarse vacía.

@@ -19,17 +19,6 @@ export const ADMIN_MENU = [
     permission: "activos.ver",
   },
   {
-    // Después del panel: es una vista personal, no una de operación. Para el
-    // «usuario final» del §13 es además la única —su rol lleva un solo
-    // permiso—, y como el panel le queda oculto, esta pasa a ser la primera
-    // que ve y a la que entra (ver `routes/InicioDelPanel.jsx`).
-    id: "mis-equipos",
-    name: "Mis equipos",
-    icon: "laptop",
-    path: "/admin/mis-equipos",
-    permission: "activos.ver_asignados",
-  },
-  {
     // Arriba, junto al panel: es la pantalla desde la que se decide qué hacer
     // hoy, y esconderla dentro de un submenú la volvería opcional.
     id: "alertas",
