@@ -134,6 +134,23 @@ class Activo(ModeloDeEmpresa):
         ALTA = "alta", "Alta"
         CRITICA = "critica", "Crítica"
 
+    class Condicion(models.TextChoices):
+        """Cómo llegó el equipo a la empresa: comprado nuevo o de segunda mano.
+
+        Es una propiedad de la **compra**, no del estado de hoy: un equipo
+        adquirido usado lo sigue habiendo sido tres años después, y por eso no
+        se mezcla con `estado`, que cambia cada vez que el equipo se mueve.
+
+        Importa al decidir: un equipo usado llega con parte de su vida ya
+        gastada, así que sus mismos cuarenta y ocho meses de antigüedad no
+        significan lo mismo que los de uno comprado nuevo. Aquí solo se
+        registra —no entra en ninguna regla automática— porque quien decide un
+        reemplazo necesita el dato, no que el sistema lo interprete por él.
+        """
+
+        NUEVO = "nuevo", "Nuevo"
+        USADO = "usado", "Usado"
+
     class Uso(models.TextChoices):
         """Función que cumple el equipo, no cuánto se usa.
 
@@ -220,6 +237,18 @@ class Activo(ModeloDeEmpresa):
         ),
     )
     costo_adquisicion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    condicion = models.CharField(
+        max_length=10,
+        choices=Condicion.choices,
+        blank=True,
+        db_index=True,
+        verbose_name="condición al adquirirlo",
+        help_text=(
+            "Si el equipo se compró nuevo o se adquirió de segunda mano. Vacío = no "
+            "consta: el inventario inicial se levanta con equipos cuya procedencia "
+            "ya nadie recuerda, y dar «nuevo» por supuesto sería inventarla."
+        ),
+    )
     proveedor = models.ForeignKey(
         "organizacion.Proveedor",
         on_delete=models.PROTECT,

@@ -140,6 +140,10 @@ COLUMNAS_ACTIVO_ECONOMICO = (
     Columna("fecha_ingreso", "Ingreso", lambda a: a.fecha_ingreso, 14),
     Columna("antiguedad", "Antigüedad (meses)", lambda a: a.antiguedad_meses, 16),
     Columna("costo", "Costo de compra", lambda a: a.costo_adquisicion, 16),
+    # Vacía cuando no consta, que es lo que pasa con casi todo lo que entró en
+    # el levantamiento inicial: escribir «Nuevo» ahí sería afirmar algo que
+    # nadie comprobó.
+    Columna("condicion", "Condición", lambda a: a.get_condicion_display(), 12),
     Columna("proveedor", "Proveedor", lambda a: a.proveedor.nombre if a.proveedor_id else "", 20),
 )
 

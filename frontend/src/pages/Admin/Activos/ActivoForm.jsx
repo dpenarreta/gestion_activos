@@ -34,6 +34,7 @@ const VACIO = {
   fecha_adquisicion: "",
   fecha_ingreso: "",
   costo_adquisicion: "",
+  condicion: "",
   proveedor: "",
   fecha_fin_garantia: "",
 };
@@ -119,6 +120,7 @@ export function ActivoForm() {
           fecha_ingreso: datos.fecha_ingreso || "",
           fecha_adquisicion: datos.fecha_adquisicion,
           costo_adquisicion: datos.costo_adquisicion || "",
+          condicion: datos.condicion || "",
           proveedor: datos.proveedor || "",
           fecha_fin_garantia: datos.fecha_fin_garantia || "",
         }),
@@ -149,6 +151,7 @@ export function ActivoForm() {
         fecha_adquisicion: valores.fecha_adquisicion,
         fecha_ingreso: valores.fecha_ingreso || null,
         costo_adquisicion: valores.costo_adquisicion || null,
+        condicion: valores.condicion,
         proveedor: valores.proveedor || null,
         fecha_fin_garantia: valores.fecha_fin_garantia || null,
       };
@@ -494,6 +497,32 @@ export function ActivoForm() {
                   actualizar("costo_adquisicion", event.target.value)
                 }
               />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label" htmlFor="condicion">
+                Condición al adquirirlo
+              </label>
+              <select
+                id="condicion"
+                className="form-select"
+                value={valores.condicion}
+                onChange={(event) =>
+                  actualizar("condicion", event.target.value)
+                }
+              >
+                {/* Se puede dejar sin decir, y esa es la opción que viene por
+                    delante: el levantamiento inicial se hace con equipos cuya
+                    procedencia ya nadie recuerda, y dar «nuevo» por supuesto
+                    sería inventarla. */}
+                <option value="">Sin especificar</option>
+                <option value="nuevo">Nuevo</option>
+                <option value="usado">Usado</option>
+              </select>
+              <div className="form-text">
+                {/* Un equipo usado llega con parte de su vida ya gastada: sus
+                    mismos meses de antigüedad no significan lo mismo. */}
+                Si se compró nuevo o se adquirió de segunda mano.
+              </div>
             </div>
             <div className="col-md-4">
               <label className="form-label" htmlFor="proveedor">

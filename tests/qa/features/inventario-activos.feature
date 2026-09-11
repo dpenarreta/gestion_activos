@@ -68,3 +68,25 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     Given que un empleado tiene activos bajo su custodia
     When se intenta desactivar a ese empleado
     Then la operación es rechazada indicando cuántos activos debe reasignar primero
+
+  @AC-ACT-030
+  Scenario: Se registra si el equipo se compró nuevo o usado
+    When se da de alta un equipo adquirido de segunda mano
+    Then queda registrado como usado, y así se lee en su ficha
+    # Un equipo usado llega con parte de su vida ya gastada: sus mismos meses
+    # de antigüedad no significan lo mismo que los de uno comprado nuevo.
+
+  @AC-ACT-031
+  Scenario: No decirlo es una respuesta válida
+    When se da de alta un equipo sin indicar su condición
+    Then se guarda sin ella y la ficha dice «sin especificar»
+    # El levantamiento inicial se hace con equipos cuya procedencia ya nadie
+    # recuerda, y dar «nuevo» por supuesto sería inventarla.
+
+  @AC-ACT-032
+  Scenario: La condición no se confunde con el estado
+    Given un equipo comprado usado
+    When se lo da de baja
+    Then cambia su estado y conserva su condición
+    # El nombre se parece, pero `estado` cambia cada vez que el equipo se
+    # mueve y la condición es de la compra: ya no cambia.

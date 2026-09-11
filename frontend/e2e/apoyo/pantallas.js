@@ -40,7 +40,10 @@ export async function elegirPrimeraOpcion(ambito, etiqueta) {
  * Se llena lo mínimo que el formulario exige; lo demás lo prueban las de
  * componentes, que no necesitan un navegador para hacerlo.
  */
-export async function registrarEquipo(page, { nombre, serie, costo }) {
+export async function registrarEquipo(
+  page,
+  { nombre, serie, costo, condicion },
+) {
   await page.goto("/admin/activos/new");
   await elegirPrimeraOpcion(page, "Tipo de dispositivo");
   await page.getByLabel("Nombre del activo").fill(nombre);
@@ -51,6 +54,9 @@ export async function registrarEquipo(page, { nombre, serie, costo }) {
   await page.getByLabel("Fecha de adquisición").fill("2025-03-01");
   if (costo) {
     await page.getByLabel("Costo de compra").fill(costo);
+  }
+  if (condicion) {
+    await page.getByLabel("Condición al adquirirlo").selectOption(condicion);
   }
 
   await page.getByRole("button", { name: "Registrar activo" }).click();

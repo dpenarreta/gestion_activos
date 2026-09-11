@@ -29,7 +29,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | § | Requerimiento | Estado | Dónde |
 | --- | --- | --- | --- |
 | 3 | Tipos de activos configurables | ✅ | `apps.activos.TipoDispositivo` |
-| 4.1 | Datos generales del activo | ✅ | Los nueve estados, fecha de ingreso, sede de catálogo y proveedor de catálogo |
+| 4.1 | Datos generales del activo | ✅ | Los nueve estados, fecha de ingreso, sede de catálogo, proveedor de catálogo y condición al adquirirlo (nuevo/usado) |
 | 4.2 | Características técnicas | ✅ | Campo `especificaciones`, libre por tipo de equipo |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
 | 5 | Código QR opcional | ⛔ Descartado | Decisión del 2026-09-09: el inventario se hace con pistola láser, no con cámara. Se refuerza el Code 128 (ver `docs/codigos-de-barras.md`) |

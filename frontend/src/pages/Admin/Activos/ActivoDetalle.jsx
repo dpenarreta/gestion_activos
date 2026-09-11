@@ -162,6 +162,16 @@ export function ActivoDetalle() {
                     valor={<ValorEnLibros depreciacion={activo.depreciacion} />}
                   />
                 )}
+                <Dato
+                  etiqueta="Condición al adquirirlo"
+                  valor={
+                    activo.condicion_display || (
+                      // Vacío no es «nuevo»: es que nadie lo anotó, y se dice
+                      // con esas palabras para que se pueda completar.
+                      <span className="text-muted">Sin especificar</span>
+                    )
+                  }
+                />
                 <Dato etiqueta="Proveedor" valor={activo.proveedor} />
                 <Dato
                   etiqueta="Garantía"

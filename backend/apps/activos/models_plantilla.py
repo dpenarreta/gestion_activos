@@ -33,6 +33,7 @@ CAMPOS_DISPONIBLES = {
     "uso": "Uso",
     "fecha_ingreso": "Fecha de ingreso",
     "costo_adquisicion": "Costo de compra",
+    "condicion": "Condición (nuevo/usado)",
     "proveedor": "Proveedor",
     "fecha_fin_garantia": "Fin de garantía",
     "especificaciones": "Especificaciones",

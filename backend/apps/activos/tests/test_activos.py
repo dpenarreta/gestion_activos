@@ -488,3 +488,73 @@ def test_editar_un_tipo_sin_cambiarle_el_nombre_no_choca_consigo_mismo(cliente, 
     )
 
     assert respuesta.status_code == 200
+
+
+# --- Nuevo o usado (condición al adquirirlo) --------------------------------
+
+
+def _alta(cliente, tipo_laptop, departamento, **extra):
+    cuerpo = {
+        "tipo": tipo_laptop.id,
+        "nombre": "Laptop de segunda mano",
+        "marca": "Dell",
+        "modelo": "Latitude 5440",
+        "numero_serie": f"SN-COND-{extra.pop('serie', 1)}",
+        "departamento": departamento.id,
+        "fecha_adquisicion": "2025-06-01",
+    }
+    cuerpo.update(extra)
+    return cliente.post("/api/v1/activos/", cuerpo, format="json")
+
+
+def test_se_registra_si_el_equipo_se_compro_nuevo_o_usado(cliente, tipo_laptop, departamento):
+    """Un equipo usado llega con parte de su vida ya gastada: sus mismos meses
+    de antigüedad no significan lo mismo que los de uno comprado nuevo."""
+    respuesta = _alta(cliente, tipo_laptop, departamento, condicion="usado")
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["condicion"] == "usado"
+    assert respuesta.data["condicion_display"] == "Usado"
+
+
+def test_no_decirlo_es_una_respuesta_valida(cliente, tipo_laptop, departamento):
+    """El levantamiento inicial se hace con equipos cuya procedencia ya nadie
+    recuerda: dar «nuevo» por supuesto sería inventarla."""
+    respuesta = _alta(cliente, tipo_laptop, departamento, serie=2)
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["condicion"] == ""
+    assert respuesta.data["condicion_display"] == ""
+
+
+def test_solo_admite_nuevo_o_usado(cliente, tipo_laptop, departamento):
+    respuesta = _alta(cliente, tipo_laptop, departamento, serie=3, condicion="reacondicionado")
+
+    assert respuesta.status_code == 400
+    assert "condicion" in respuesta.data["error"]["details"]
+
+
+def test_la_condicion_se_corrige_al_editar(cliente, tipo_laptop, departamento):
+    """Es un dato que a menudo se completa después, cuando aparece la factura."""
+    creado = _alta(cliente, tipo_laptop, departamento, serie=4)
+
+    respuesta = cliente.patch(
+        f"/api/v1/activos/{creado.data['id']}/", {"condicion": "nuevo"}, format="json"
+    )
+
+    assert respuesta.status_code == 200
+    assert Activo.objects.get(pk=creado.data["id"]).condicion == "nuevo"
+
+
+def test_no_se_mezcla_con_el_estado_del_equipo(admin, datos_activo):
+    """Son dos cosas distintas y el nombre se parece: `estado` cambia cada vez
+    que el equipo se mueve, y la condición es de la compra y ya no cambia."""
+    activo = ActivoService.crear_activo(actor=admin, condicion="usado", **datos_activo)
+
+    ActivoService.cambiar_estado(
+        actor=admin, activo=activo, estado=Activo.Estado.DADO_DE_BAJA, motivo="Fin de vida"
+    )
+    activo.refresh_from_db()
+
+    assert activo.estado == Activo.Estado.DADO_DE_BAJA
+    assert activo.condicion == "usado"

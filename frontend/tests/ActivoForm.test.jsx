@@ -425,3 +425,58 @@ describe("Editar la ficha", () => {
     ).toBeInTheDocument();
   });
 });
+
+// --- Nuevo o usado ----------------------------------------------------------
+
+describe("La condición al adquirirlo", () => {
+  it("se puede dejar sin decir, y es lo que viene por delante", async () => {
+    /* El levantamiento inicial se hace con equipos cuya procedencia ya nadie
+       recuerda: dar «nuevo» por supuesto sería inventarla. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(screen.getByLabelText("Condición al adquirirlo")).toHaveValue("");
+    expect(
+      screen.getByRole("option", { name: "Sin especificar" }),
+    ).toBeInTheDocument();
+  });
+
+  it("se elige nuevo o usado y viaja al guardar", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.change(screen.getByLabelText("Condición al adquirirlo"), {
+      target: { value: "usado" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].condicion).toBe("usado");
+  });
+
+  it("sin decirla, viaja vacía y no como «nuevo»", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].condicion).toBe("");
+  });
+
+  it("al editar llega la que tenía, para poder corregirla", async () => {
+    /* Es un dato que a menudo se completa después, cuando aparece la factura. */
+    obtener.mockResolvedValue({ ...ACTIVO, condicion: "usado" });
+
+    pintar(7);
+
+    await screen.findByText("Editar ficha técnica");
+    await waitFor(() =>
+      expect(screen.getByLabelText("Condición al adquirirlo")).toHaveValue(
+        "usado",
+      ),
+    );
+  });
+});

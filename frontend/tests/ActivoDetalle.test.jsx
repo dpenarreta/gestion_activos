@@ -398,3 +398,29 @@ describe("El valor en libros", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// --- Nuevo o usado ----------------------------------------------------------
+
+describe("La condición al adquirirlo", () => {
+  it("se muestra junto al resto de la compra", async () => {
+    pintar({
+      ...FICHA,
+      activo: { ...ACTIVO, condicion: "usado", condicion_display: "Usado" },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Condición al adquirirlo")).toBe("Usado");
+  });
+
+  it("sin anotar dice «sin especificar», que no es lo mismo que «nuevo»", async () => {
+    /* Vacío significa que nadie lo anotó, y decirlo con esas palabras es lo
+       que permite completarlo después. */
+    pintar({
+      ...FICHA,
+      activo: { ...ACTIVO, condicion: "", condicion_display: "" },
+    });
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(valorDe("Condición al adquirirlo")).toBe("Sin especificar");
+  });
+});

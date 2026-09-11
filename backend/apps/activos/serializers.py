@@ -205,6 +205,9 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     )
     criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
     uso_display = serializers.CharField(source="get_uso_display", read_only=True)
+    # Vacío significa «no consta», así que no se traduce a «Nuevo» ni a nada:
+    # se deja en blanco y la interfaz lo dice con sus palabras.
+    condicion_display = serializers.CharField(source="get_condicion_display", read_only=True)
     esta_operativo = serializers.BooleanField(read_only=True)
     antiguedad_meses = serializers.IntegerField(read_only=True)
     estado_garantia = serializers.CharField(read_only=True)
@@ -245,6 +248,8 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "fecha_adquisicion",
             "fecha_ingreso",
             "costo_adquisicion",
+            "condicion",
+            "condicion_display",
             "proveedor",
             "proveedor_nombre",
             "fecha_fin_garantia",
@@ -399,6 +404,7 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "fecha_adquisicion",
             "fecha_ingreso",
             "costo_adquisicion",
+            "condicion",
             "proveedor",
             "fecha_fin_garantia",
         ]

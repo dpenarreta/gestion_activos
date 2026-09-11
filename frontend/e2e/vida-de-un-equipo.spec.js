@@ -36,6 +36,7 @@ test.describe("Un equipo, de su alta a su baja", () => {
       nombre: MARCA,
       serie: SERIE,
       costo: "1800",
+      condicion: "usado",
     });
 
     expect(codigoDeBarras).toMatch(/^GA-[A-Z0-9]+-\d{6}$/);
@@ -68,6 +69,14 @@ test.describe("Un equipo, de su alta a su baja", () => {
     // desde cuándo lo tiene esa persona.
     const responsable = await valorDe(page, "Responsable");
     expect(responsable).not.toBe("—");
+  });
+
+  test("la ficha recuerda que se compró usado", async ({ page }) => {
+    /* Se capturó en el alta y se lee en la ficha: un dato que se escribe y no
+       se puede volver a mirar no sirve para decidir nada. */
+    await abrirFicha(page, codigoDeBarras);
+
+    expect(await valorDe(page, "Condición al adquirirlo")).toBe("Usado");
   });
 
   test("se le registra una reparación y le sube el contador", async ({

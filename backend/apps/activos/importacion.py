@@ -480,11 +480,13 @@ def validar_archivo(archivo) -> ResultadoValidacion:
                     )
         datos["sede"] = sede
 
-        # Criticidad y nivel de uso se aceptan por su etiqueta («Alta») o por
-        # su valor interno («alta»): quien llena la plantilla lee la primera.
+        # Criticidad, nivel de uso y condición se aceptan por su etiqueta
+        # («Alta») o por su valor interno («alta»): quien llena la plantilla lee
+        # la primera.
         for clave_campo, opciones, etiqueta_defecto in (
             ("criticidad", Activo.Criticidad, "Criticidad"),
             ("uso", Activo.Uso, "Uso"),
+            ("condicion", Activo.Condicion, "Condición"),
         ):
             texto = _texto(celda(clave_campo))
             if not texto:
