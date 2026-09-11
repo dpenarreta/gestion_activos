@@ -6,6 +6,7 @@ import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs"
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
+import { usePermission } from "../../../hooks/usePermission";
 import {
   formatearFecha,
   formatearMeses,
@@ -125,6 +126,7 @@ export function EscanerPage() {
 }
 
 function ResultadoEscaneo({ ficha }) {
+  const puedeRegistrarMantenimiento = usePermission("mantenimientos.registrar");
   const { activo, movimientos, mantenimientos, costos } = ficha;
   const ultimoMantenimiento = mantenimientos[0];
 
@@ -142,12 +144,32 @@ function ResultadoEscaneo({ ficha }) {
               />
             </div>
           </div>
-          <Link
-            to={`/admin/activos/${activo.id}`}
-            className="btn btn-primary btn-sm"
-          >
-            Abrir ficha completa
-          </Link>
+          {/* Las dos cosas que se hacen con un equipo en la mano: mirarlo o
+              anotar lo que le pasa. Ofrecer solo la ficha obligaba a entrar en
+              ella y buscar ahí dentro el botón de registrar, que es un rodeo
+              justo cuando el técnico tiene el equipo delante y una avería que
+              apuntar. */}
+          <div className="d-flex gap-2 flex-wrap">
+            <Link
+              to={`/admin/activos/${activo.id}`}
+              className="btn btn-outline-primary btn-sm"
+            >
+              <i className="bi bi-card-list me-1" aria-hidden="true" />
+              Ver ficha completa
+            </Link>
+            {/* No se ofrece sobre un equipo que ya salió del parque: el backend
+                rechaza la intervención, y el estado está ahí al lado para que
+                se vea por qué. */}
+            {puedeRegistrarMantenimiento && activo.esta_operativo && (
+              <Link
+                to={`/admin/mantenimientos/new?activo=${activo.id}`}
+                className="btn btn-primary btn-sm"
+              >
+                <i className="bi bi-tools me-1" aria-hidden="true" />
+                Registrar mantenimiento
+              </Link>
+            )}
+          </div>
         </div>
 
         <AlertaRenovacion renovacion={activo.renovacion} />

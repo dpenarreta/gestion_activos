@@ -22,3 +22,21 @@ Feature: Consulta por lectura de código de barras (RF-03)
   Scenario: Un código inexistente informa con claridad
     When se consulta un código que no corresponde a ningún activo
     Then la respuesta indica que ningún activo corresponde a ese código
+
+  @AC-E2E-010
+  Scenario: Una lectura ofrece las dos cosas que se hacen con el equipo en la mano
+    Given una etiqueta leída con la pistola
+    When aparece el equipo
+    Then se ofrece ver su ficha o registrar un mantenimiento sobre él
+    And el formulario de mantenimiento llega con el equipo ya elegido
+    # Entrar a la ficha para buscar ahí dentro el botón de registrar es un
+    # rodeo justo cuando el técnico tiene el aparato delante y una avería que
+    # apuntar.
+
+  @AC-E2E-011
+  Scenario: No se ofrece registrar sobre un equipo que salió del parque
+    Given un equipo dado de baja, perdido o robado
+    When se lee su etiqueta
+    Then se puede ver su ficha, pero no registrar un mantenimiento
+    # El backend rechaza la intervención, y el estado está junto al nombre para
+    # que se vea por qué no se ofrece.

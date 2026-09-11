@@ -53,6 +53,7 @@ const FICHA = {
     antiguedad_meses: 14,
     total_mantenimientos: 2,
     total_componentes_criticos: 1,
+    esta_operativo: true,
     renovacion: null,
   },
   movimientos: [{ id: 1 }, { id: 2 }],
@@ -166,14 +167,61 @@ describe("La consulta por escáner", () => {
     ).toBeInTheDocument();
   });
 
-  it("desde el resultado se abre la ficha completa", async () => {
+  it("ofrece las dos cosas que se hacen con el equipo en la mano", async () => {
+    /* Mirarlo o anotar lo que le pasa. Con solo la ficha había que entrar en
+       ella y buscar ahí dentro el botón de registrar, que es un rodeo justo
+       cuando el técnico tiene el equipo delante y una avería que apuntar. */
+    permisos.add("mantenimientos.registrar");
+
     pintar(EscanerPage);
 
     escanear("GA-LAP-000007");
 
     expect(
-      await screen.findByRole("link", { name: "Abrir ficha completa" }),
+      await screen.findByRole("link", { name: /Ver ficha completa/ }),
     ).toHaveAttribute("href", "/admin/activos/7");
+    expect(
+      screen.getByRole("link", { name: /Registrar mantenimiento/ }),
+    ).toHaveAttribute("href", "/admin/mantenimientos/new?activo=7");
+  });
+
+  it("sin el permiso de registrar, solo se ofrece la ficha", async () => {
+    pintar(EscanerPage);
+
+    escanear("GA-LAP-000007");
+
+    expect(
+      await screen.findByRole("link", { name: /Ver ficha completa/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Registrar mantenimiento/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sobre un equipo que ya salió del parque tampoco", async () => {
+    /* El backend rechaza la intervención; el estado está al lado del nombre
+       para que se vea por qué no se ofrece. */
+    permisos.add("mantenimientos.registrar");
+    porCodigo.mockResolvedValue({
+      ...FICHA,
+      activo: {
+        ...FICHA.activo,
+        estado: "robado",
+        estado_display: "Robado",
+        esta_operativo: false,
+      },
+    });
+
+    pintar(EscanerPage);
+
+    escanear("GA-LAP-000007");
+
+    expect(
+      await screen.findByRole("link", { name: /Ver ficha completa/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Registrar mantenimiento/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("un código que no existe no deja la ficha anterior en pantalla", async () => {
