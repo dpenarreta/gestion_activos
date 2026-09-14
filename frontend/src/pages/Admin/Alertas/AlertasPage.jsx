@@ -213,10 +213,6 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
       campo: "avisar_reparaciones_pendientes",
       etiqueta: "Reparaciones sin cerrar",
     },
-    {
-      campo: "avisar_custodios_inactivos",
-      etiqueta: "Equipos con custodio inactivo",
-    },
     { campo: "avisar_sin_asignar", etiqueta: "Activos sin asignar" },
     { campo: "avisar_sin_actualizacion", etiqueta: "Fichas sin actualizar" },
   ];

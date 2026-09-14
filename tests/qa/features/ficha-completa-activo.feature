@@ -64,9 +64,9 @@ Feature: Ficha completa del activo (§4.1, §12 y §14 del documento funcional)
 
   @AC-EST-009
   Scenario: Lo que salió del parque deja de generar alertas
-    Given un equipo con custodio inactivo que se registra como perdido
+    Given un equipo con la garantía por vencer que se registra como perdido
     When se consulta el centro de alertas
-    Then ya no aparece entre los equipos con custodio inactivo
+    Then ya no aparece entre las garantías por vencer
     # Un pendiente que nadie puede resolver es un pendiente eterno en la
     # pantalla que debería decir qué atender hoy.
 

@@ -170,14 +170,6 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     # Salir solo en la del primero por apellido dejaría el informe respondiendo
     # a medias la única pregunta que tiene.
 
-  @AC-ACT-046
-  Scenario: La alerta de custodio inactivo nombra a quien se fue
-    Given un equipo compartido en el que uno de los responsables está dado de baja
-    When se consulta el centro de alertas
-    Then se nombra solo a esa persona
-    # El resto sigue respondiendo: lo que hay que arreglar es quitarlo de la
-    # lista, no reasignar el equipo entero.
-
   @AC-ACT-047
   Scenario: La entrega deja el equipo donde se lo entregó
     When se entrega un equipo indicando la sede

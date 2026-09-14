@@ -287,9 +287,6 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
         # Un equipo cuyo responsable ya no está activo no tiene, en la
         # práctica, responsable: si se pierde, nadie responde por él.
-        if params.get("custodio_inactivo") == "true":
-            queryset = queryset.filter(responsables__activo=False).distinct()
-
         # «Sin actualizar» no dice que el dato esté mal, dice que nadie lo ha
         # confirmado desde hace tanto: es el disparador del inventario físico.
         sin_actualizar = params.get("sin_actualizar_dias")

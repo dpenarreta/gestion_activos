@@ -16,12 +16,12 @@ from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.activos.models import TipoDispositivo
+from apps.activos.models import Activo, TipoDispositivo
 from apps.activos.services import ActivoService
 from apps.alertas.models import ConfiguracionAlertas, EnvioAlertas, Frecuencia
 from apps.alertas.services import ejecutar_envio_programado, enviar_prueba
 from apps.core.models import AuditLog
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento
 from apps.permissions.models import ModulePermission
 from apps.users.models import User
 
@@ -69,17 +69,16 @@ def configuracion(receptor):
 
 
 @pytest.fixture
-def activo_con_custodio_inactivo(admin):
-    """Un equipo a cargo de alguien dado de baja: dispara una alerta alta."""
+def activo_que_dispara_una_alerta(admin):
+    """Un equipo parado en bodega desde hace mucho: dispara «sin asignar».
+
+    A estas pruebas les da igual **qué** alerta sea: lo que ejercitan es el
+    envío —la frecuencia, los destinatarios, el registro del intento—, y para
+    eso solo hace falta que haya algo que contar. Antes el vehículo era la
+    alerta de custodio inactivo, que se retiró.
+    """
     departamento = Departamento.objects.create(nombre="Tecnología", codigo="TI")
-    empleado = Empleado.objects.create(
-        nombres="Rosa",
-        apellidos="Villacis",
-        codigo_empleado="EMP-9001",
-        departamento=departamento,
-        activo=False,
-    )
-    return ActivoService.crear_activo(
+    activo = ActivoService.crear_activo(
         actor=admin,
         tipo=TipoDispositivo.objects.create(nombre="Laptop", codigo="LAP"),
         nombre="Laptop de direccion",
@@ -87,9 +86,12 @@ def activo_con_custodio_inactivo(admin):
         modelo="Latitude",
         numero_serie="SN-NOTIF-1",
         departamento=departamento,
-        responsables=[empleado],
         fecha_adquisicion=timezone.localdate() - timedelta(days=200),
     )
+    # El alta lo deja en bodega; se envejece la marca de tiempo para que cruce
+    # el umbral de días sin asignar.
+    Activo.objects.filter(pk=activo.pk).update(updated_at=timezone.now() - timedelta(days=200))
+    return activo
 
 
 # --- Envío programado -------------------------------------------------------
@@ -103,7 +105,7 @@ def test_no_envia_si_las_notificaciones_estan_desactivadas(receptor):
     assert mail.outbox == []
 
 
-def test_envia_el_resumen_a_los_destinatarios(configuracion, activo_con_custodio_inactivo):
+def test_envia_el_resumen_a_los_destinatarios(configuracion, activo_que_dispara_una_alerta):
     envio = ejecutar_envio_programado()
 
     assert envio.resultado == EnvioAlertas.Resultado.ENVIADO
@@ -114,7 +116,7 @@ def test_envia_el_resumen_a_los_destinatarios(configuracion, activo_con_custodio
 
 
 def test_dos_pasadas_el_mismo_dia_no_duplican_el_correo(
-    configuracion, activo_con_custodio_inactivo
+    configuracion, activo_que_dispara_una_alerta
 ):
     """El cron puede reintentarse; el destinatario no debe recibir dos veces lo
     mismo, o dejará de creerle a los dos correos."""
@@ -126,7 +128,7 @@ def test_dos_pasadas_el_mismo_dia_no_duplican_el_correo(
     assert len(mail.outbox) == 1
 
 
-def test_la_frecuencia_semanal_solo_envia_su_dia(configuracion, activo_con_custodio_inactivo):
+def test_la_frecuencia_semanal_solo_envia_su_dia(configuracion, activo_que_dispara_una_alerta):
     configuracion.frecuencia = Frecuencia.SEMANAL
     configuracion.dia_envio_semanal = 0  # lunes
     configuracion.save()
@@ -160,7 +162,7 @@ def test_se_puede_pedir_el_correo_aunque_no_haya_pendientes(configuracion):
     assert "Sin alertas pendientes" in mail.outbox[0].subject
 
 
-def test_no_envia_a_quien_perdio_el_permiso(configuracion, receptor, activo_con_custodio_inactivo):
+def test_no_envia_a_quien_perdio_el_permiso(configuracion, receptor, activo_que_dispara_una_alerta):
     """El filtro se aplica al enviar, no al elegir: entre ambos momentos pueden
     haberle revocado el acceso."""
     receptor.user_permissions.clear()
@@ -172,7 +174,7 @@ def test_no_envia_a_quien_perdio_el_permiso(configuracion, receptor, activo_con_
     assert mail.outbox == []
 
 
-def test_no_envia_a_una_cuenta_dada_de_baja(configuracion, receptor, activo_con_custodio_inactivo):
+def test_no_envia_a_una_cuenta_dada_de_baja(configuracion, receptor, activo_que_dispara_una_alerta):
     receptor.status = User.Status.DISABLED
     receptor.save()
 
@@ -183,7 +185,7 @@ def test_no_envia_a_una_cuenta_dada_de_baja(configuracion, receptor, activo_con_
 
 
 def test_un_fallo_de_envio_queda_registrado_y_no_marca_el_dia_como_enviado(
-    configuracion, activo_con_custodio_inactivo
+    configuracion, activo_que_dispara_una_alerta
 ):
     """Si falló, mañana hay que volver a intentarlo: darlo por enviado
     convierte un problema de correo en un aviso que nadie recibió nunca."""
@@ -210,7 +212,7 @@ def test_cada_pasada_del_cron_deja_constancia(configuracion):
 
 
 def test_el_correo_no_lleva_datos_de_equipos_ni_de_personas(
-    configuracion, activo_con_custodio_inactivo
+    configuracion, activo_que_dispara_una_alerta
 ):
     """Un correo sale del perímetro del sistema: se reenvía y se archiva en
     buzones donde no rigen los permisos. Viajan los recuentos, no el detalle."""
@@ -220,13 +222,13 @@ def test_el_correo_no_lleva_datos_de_equipos_ni_de_personas(
 
     for cuerpo in cuerpos:
         assert "Villacis" not in cuerpo
-        assert activo_con_custodio_inactivo.codigo_barras not in cuerpo
+        assert activo_que_dispara_una_alerta.codigo_barras not in cuerpo
         assert "Laptop de direccion" not in cuerpo
-    assert "Equipos con custodio inactivo" in mensaje.body
+    assert "Activos sin asignar" in mensaje.body
 
 
 def test_los_destinatarios_van_en_copia_oculta(
-    configuracion, receptor, activo_con_custodio_inactivo
+    configuracion, receptor, activo_que_dispara_una_alerta
 ):
     """Quién más recibe los avisos del parque no es asunto de cada destinatario."""
     otro = User.objects.create_user(
@@ -242,7 +244,7 @@ def test_los_destinatarios_van_en_copia_oculta(
     assert sorted(mensaje.bcc) == sorted([receptor.email, otro.email])
 
 
-def test_el_correo_tiene_version_en_texto_plano(configuracion, activo_con_custodio_inactivo):
+def test_el_correo_tiene_version_en_texto_plano(configuracion, activo_que_dispara_una_alerta):
     """Hay clientes corporativos que bloquean el HTML de remitentes
     automáticos, y un correo vacío no se distingue de uno que no llegó."""
     ejecutar_envio_programado()
@@ -266,7 +268,7 @@ def test_la_prueba_va_solo_a_quien_la_pide(configuracion, receptor, admin):
 
 
 def test_la_prueba_no_sustituye_al_envio_del_dia(
-    configuracion, activo_con_custodio_inactivo, admin
+    configuracion, activo_que_dispara_una_alerta, admin
 ):
     enviar_prueba(usuario=admin)
     configuracion.refresh_from_db()
@@ -366,13 +368,13 @@ def test_el_historial_muestra_tambien_lo_que_no_se_envio(cliente, configuracion)
 # --- Comando de management --------------------------------------------------
 
 
-def test_el_comando_respeta_la_configuracion(configuracion, activo_con_custodio_inactivo):
+def test_el_comando_respeta_la_configuracion(configuracion, activo_que_dispara_una_alerta):
     call_command("enviar_alertas")
 
     assert len(mail.outbox) == 1
 
 
-def test_el_comando_con_forzar_ignora_frecuencia_y_apagado(receptor, activo_con_custodio_inactivo):
+def test_el_comando_con_forzar_ignora_frecuencia_y_apagado(receptor, activo_que_dispara_una_alerta):
     """Sirve para verificar la configuración SMTP sin encender el envío
     programado en producción."""
     configuracion = ConfiguracionAlertas.cargar()

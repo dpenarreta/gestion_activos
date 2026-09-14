@@ -65,9 +65,9 @@ Feature: Aviso por correo de las alertas del parque (§19 del documento funciona
 
   @AC-NOT-009
   Scenario: El correo no lleva datos de los equipos ni de las personas
-    Given una alerta de equipos con custodio inactivo
+    Given una alerta de activos sin asignar
     When se envía el resumen
-    Then el correo trae el recuento y el enlace, no el equipo ni el nombre del custodio
+    Then el correo trae el recuento y el enlace, no el equipo ni el nombre de nadie
     # Un correo sale del perímetro del sistema hacia buzones que se reenvían y
     # se archivan, donde no rigen los permisos que protegen la pantalla.
 

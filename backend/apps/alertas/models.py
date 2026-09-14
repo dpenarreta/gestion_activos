@@ -67,7 +67,6 @@ class ConfiguracionAlertas(ModeloDeEmpresa):
     avisar_demasiadas_reparaciones = models.BooleanField(default=True)
     avisar_sin_asignar = models.BooleanField(default=True)
     avisar_reparaciones_pendientes = models.BooleanField(default=True)
-    avisar_custodios_inactivos = models.BooleanField(default=True)
     avisar_sin_actualizacion = models.BooleanField(default=True)
 
     # --- Envío por correo (§19) ---

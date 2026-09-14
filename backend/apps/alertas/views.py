@@ -38,7 +38,6 @@ class ConfiguracionAlertasSerializer(serializers.ModelSerializer):
             "avisar_demasiadas_reparaciones",
             "avisar_sin_asignar",
             "avisar_reparaciones_pendientes",
-            "avisar_custodios_inactivos",
             "avisar_sin_actualizacion",
             "notificaciones_activas",
             "frecuencia",

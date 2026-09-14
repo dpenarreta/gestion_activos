@@ -229,46 +229,13 @@ def reparaciones_pendientes(dias: int) -> Alerta:
     )
 
 
-def _inactivos_de(activo) -> str:
-    return ", ".join(
-        empleado.nombre_completo
-        for empleado in activo.responsables_ordenados
-        if not empleado.activo
-    )
-
-
-def custodios_inactivos() -> Alerta:
-    """Equipos a cargo de alguien que ya no está activo.
-
-    Es la alerta de mayor riesgo del conjunto: un equipo cuyo responsable dejó
-    la empresa no tiene, en la práctica, responsable. Si se pierde, nadie
-    responde por él.
-    """
-    consulta = (
-        _activos_operativos()
-        .filter(responsables__activo=False)
-        .prefetch_related("responsables")
-        .order_by("nombre")
-        .distinct()
-    )
-    total = consulta.count()
-    muestra = [
-        # Se nombra **a quien está de baja**, no a todos los que responden: en
-        # un equipo compartido el resto sigue respondiendo, y lo que hay que
-        # arreglar es quitar de la lista a quien ya no está.
-        _fila_activo(activo, f"a cargo de {_inactivos_de(activo)} (inactivo)")
-        for activo in consulta[:TAMANO_MUESTRA]
-    ]
-
-    return Alerta(
-        tipo="custodios_inactivos",
-        titulo="Equipos con custodio inactivo",
-        severidad=Severidad.ALTA if total else Severidad.BAJA,
-        total=total,
-        detalle="Su responsable figura como inactivo en la organización.",
-        destino="/admin/activos?custodio_inactivo=true",
-        muestra=muestra,
-    )
+# Hubo una alerta de «equipos con custodio inactivo». Se retiró el 2026-09-14:
+# se apoyaba en la casilla `activo` de la ficha de empleado, y esa casilla no la
+# mantiene ninguna integración —no hay enlace con RRHH ni con el directorio—.
+# Una alerta que se calcula sobre un dato que nadie actualiza no avisa de lo que
+# dice avisar: calla cuando alguien se fue y su ficha sigue activa, y señala a
+# quien sigue trabajando porque nadie revisó la suya. Las dos formas de
+# equivocarse enseñan a ignorarla, y una alerta ignorada estorba a las demás.
 
 
 def sin_actualizacion(dias: int) -> Alerta:
@@ -328,8 +295,6 @@ def construir_alertas(configuracion) -> list[Alerta]:
         alertas.append(garantias_por_vencer())
     if configuracion.avisar_reparaciones_pendientes:
         alertas.append(reparaciones_pendientes(configuracion.dias_reparacion_pendiente))
-    if configuracion.avisar_custodios_inactivos:
-        alertas.append(custodios_inactivos())
     if configuracion.avisar_sin_asignar:
         alertas.append(sin_asignar(configuracion.dias_sin_asignar))
     if configuracion.avisar_sin_actualizacion:

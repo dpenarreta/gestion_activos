@@ -11,6 +11,7 @@ se verifica sobre todo es que ningún módulo se quedó con el criterio viejo.
 import datetime
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.activos.models import Activo, MovimientoActivo, TipoDispositivo
@@ -194,23 +195,28 @@ def test_en_transito_y_en_garantia_siguen_siendo_parque(admin, crear_activo):
 # --- Lo que sale del parque deja de contar en todas partes -------------------
 
 
-def test_un_equipo_perdido_no_genera_alertas(admin, crear_activo, empleado):
+def test_un_equipo_perdido_no_genera_alertas(admin, crear_activo, tipo):
     """Un pendiente que nadie puede resolver es un pendiente eterno en la
-    pantalla que debería decir qué atender hoy."""
-    activo = crear_activo(responsables=[empleado])
-    empleado.activo = False
-    empleado.save()
+    pantalla que debería decir qué atender hoy.
+
+    El vehículo es la alerta de garantías por vencer —vale cualquiera que mire
+    el parque vivo—; hasta el 2026-09-14 era la de custodio inactivo, que se
+    retiró por apoyarse en un dato que nadie mantiene.
+    """
+    activo = crear_activo()
+    activo.fecha_fin_garantia = timezone.localdate() + datetime.timedelta(days=10)
+    activo.save(update_fields=["fecha_fin_garantia"])
 
     configuracion = ConfiguracionAlertas.cargar()
     antes = {a.tipo: a.total for a in construir_alertas(configuracion)}
-    assert antes["custodios_inactivos"] == 1
+    assert antes["garantias_por_vencer"] == 1
 
     ActivoService.cambiar_estado(
         actor=admin, activo=activo, estado=Activo.Estado.PERDIDO, motivo="No aparece"
     )
 
     despues = {a.tipo: a.total for a in construir_alertas(configuracion)}
-    assert despues["custodios_inactivos"] == 0
+    assert despues["garantias_por_vencer"] == 0
 
 
 def test_un_equipo_robado_no_se_sugiere_renovar(admin, crear_activo, tipo):

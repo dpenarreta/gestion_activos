@@ -13,7 +13,7 @@ from apps.alertas.models import ConfiguracionAlertas
 from apps.alertas.reglas import Severidad, construir_alertas
 from apps.mantenimientos.models import Mantenimiento
 from apps.mantenimientos.services import MantenimientoService
-from apps.organizacion.models import Departamento, Empleado
+from apps.organizacion.models import Departamento
 from apps.politicas.models import PoliticaObsolescencia
 from apps.politicas.services import restar_meses
 from apps.users.models import User
@@ -245,26 +245,6 @@ def test_una_reparacion_cerrada_no_genera_alerta(admin, crear_activo, configurac
     assert _alertas_por_tipo(configuracion)["reparaciones_pendientes"].total == 0
 
 
-def test_avisa_de_los_equipos_a_cargo_de_un_custodio_inactivo(
-    admin, crear_activo, departamento, configuracion
-):
-    """Un equipo cuyo responsable dejó la empresa no tiene, en la práctica,
-    responsable: si se pierde, nadie responde por él."""
-    empleado = Empleado.objects.create(
-        nombres="Ana", apellidos="Pérez", codigo_empleado="EMP-9001", departamento=departamento
-    )
-    activo = crear_activo()
-    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
-    empleado.activo = False
-    empleado.save(update_fields=["activo"])
-
-    alerta = _alertas_por_tipo(configuracion)["custodios_inactivos"]
-
-    assert alerta.total == 1
-    assert alerta.severidad == Severidad.ALTA
-    assert "inactivo" in alerta.muestra[0]["dato"]
-
-
 def test_avisa_de_las_fichas_sin_actualizar(crear_activo, configuracion):
     _envejecer(crear_activo(), dias=400)
     crear_activo()
@@ -469,22 +449,6 @@ def test_configurar_exige_un_permiso_distinto_de_ver(db):
 # --- Filtros que hacen accionables los enlaces -----------------------------
 
 
-def test_el_inventario_filtra_por_custodio_inactivo(cliente, admin, crear_activo, departamento):
-    empleado = Empleado.objects.create(
-        nombres="Ana", apellidos="Pérez", codigo_empleado="EMP-9002", departamento=departamento
-    )
-    activo = crear_activo()
-    ActivoService.asignar_responsables(actor=admin, activo=activo, responsables=[empleado])
-    empleado.activo = False
-    empleado.save(update_fields=["activo"])
-    crear_activo()
-
-    respuesta = cliente.get("/api/v1/activos/", {"custodio_inactivo": "true"})
-
-    codigos = [fila["codigo_barras"] for fila in respuesta.json()["results"]]
-    assert codigos == [activo.codigo_barras]
-
-
 def test_el_inventario_filtra_por_dias_sin_actualizar(cliente, crear_activo):
     viejo = _envejecer(crear_activo(), dias=400)
     crear_activo()
@@ -564,29 +528,3 @@ def test_dos_reparaciones_abiertas_del_mismo_equipo_son_dos_filas(
 
 
 # --- Un equipo del que responde más de uno ---------------------------------
-
-
-def test_la_alerta_nombra_a_quien_esta_de_baja_y_no_a_todo_el_turno(admin, crear_activo):
-    """En un equipo compartido el resto sigue respondiendo: lo que hay que
-    arreglar es quitar de la lista a quien ya no está, no reasignarlo entero."""
-    from apps.alertas.reglas import custodios_inactivos
-    from apps.organizacion.models import Departamento, Empleado
-
-    area = Departamento.objects.create(nombre="Andén", codigo="AND")
-    se_fue = Empleado.objects.create(
-        nombres="Paola", apellidos="Vaca", codigo_empleado="AND-0001", departamento=area
-    )
-    sigue = Empleado.objects.create(
-        nombres="Luis", apellidos="Mora", codigo_empleado="AND-0002", departamento=area
-    )
-    equipo = crear_activo(compartido=True)
-    ActivoService.asignar_responsables(actor=admin, activo=equipo, responsables=[se_fue, sigue])
-    se_fue.activo = False
-    se_fue.save(update_fields=["activo"])
-
-    alerta = custodios_inactivos()
-
-    assert alerta.total == 1
-    detalle = str(alerta.muestra[0])
-    assert "Paola Vaca" in detalle
-    assert "Luis Mora" not in detalle

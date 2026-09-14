@@ -425,8 +425,8 @@ Cada alerta trae `total` y una `muestra` de hasta cinco equipos, más un
 `destino`: la ruta del listado ya filtrado donde se trabaja con todos. Las que
 están en cero también se devuelven —«revisado, nada pendiente» es
 información—; las apagadas no aparecen. Los filtros que hacen accionables esos
-enlaces son `activos/?custodio_inactivo=true`,
-`activos/?sin_actualizar_dias=N` y `mantenimientos/?pendientes=true`.
+enlaces son `activos/?sin_actualizar_dias=N` y
+`mantenimientos/?pendientes=true`.
 
 ### Aviso por correo
 

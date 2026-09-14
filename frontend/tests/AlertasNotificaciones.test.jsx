@@ -13,7 +13,6 @@ const CONFIGURACION = {
   avisar_demasiadas_reparaciones: true,
   avisar_sin_asignar: true,
   avisar_reparaciones_pendientes: true,
-  avisar_custodios_inactivos: true,
   avisar_sin_actualizacion: true,
   notificaciones_activas: false,
   frecuencia: "diaria",

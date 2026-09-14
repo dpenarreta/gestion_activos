@@ -201,7 +201,7 @@ haría que un inventario a medio capturar pareciera un parque sin cobertura.
   cerrar, custodios inactivos y fichas sin actualizar.
 - Umbrales en días configurables y cada alerta se puede apagar.
 - Cada tarjeta enlaza al listado ya filtrado; para ello se sumaron los filtros
-  de custodio inactivo, días sin actualizar y reparaciones pendientes.
+  días sin actualizar y reparaciones pendientes.
 
 ### Fase 2 — reglas automáticas de reemplazo (§22.2)
 
