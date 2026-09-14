@@ -123,21 +123,34 @@ para emergencias**.
 Sin esto, el aviso de alertas se da por enviado y el mensaje se imprime en el
 log del servidor: la bitácora dirá que salió y nadie lo habrá recibido.
 
-En `backend/.env`:
+En `backend/.env`. Los valores de Laar, salvo la clave, que se pide a Sistemas
+y **no se escribe en ningún archivo versionado**:
 
 ```bash
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.empresa.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=avisos@empresa.com
-EMAIL_HOST_PASSWORD=...
+EMAIL_HOST=inboundlaarcouriernew.alphaside.com
+EMAIL_PORT=2524
+EMAIL_HOST_USER=notificacioneslce@laarcourierdocs.com
+EMAIL_HOST_PASSWORD=<clave-del-buzon>
 EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=avisos@empresa.com
+DEFAULT_FROM_EMAIL=notificacioneslce@laarcourierdocs.com
 ```
+
+**El puerto es el 2524**, que no es uno de submission habitual; el servidor
+anuncia `STARTTLS`, así que la conexión se abre en claro y se cifra antes de
+autenticar. Por eso `EMAIL_USE_TLS=True` y no SSL: SSL cifraría desde el primer
+byte y en ese puerto no hay nadie escuchando así.
 
 `DEFAULT_FROM_EMAIL` importa: el valor por defecto se deriva del nombre del
 sistema y es un dominio `.local` inexistente. Un remitente que no resuelve
 termina en la carpeta de correo no deseado, donde un aviso no avisa a nadie.
+
+Para comprobar el servidor sin enviar nada —útil si cambian el puerto o la
+clave— basta con conectar y autenticar:
+
+```bash
+python -c "import smtplib,ssl,os; s=smtplib.SMTP(os.environ['EMAIL_HOST'],int(os.environ['EMAIL_PORT']),timeout=20); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo(); s.login(os.environ['EMAIL_HOST_USER'],os.environ['EMAIL_HOST_PASSWORD']); print('autentica')"
+```
 
 Compruébelo antes de activarlo, desde *Alertas → Configurar alertas → Enviar
 una prueba a mi correo*: escribe solo a quien lo pide.
