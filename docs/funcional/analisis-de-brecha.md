@@ -58,7 +58,11 @@ Una cosa, y no es funcionalidad de negocio.
 **Integraciones de software (§20, §22.3).** Active Directory / Azure AD,
 Microsoft 365, Zoho, Jira Service Management, ERP y el sistema de RRHH. El
 documento las prioriza como **bajas** en el §25 y las deja para la Fase 3.
-También cae aquí la **aplicación móvil o PWA**.
+
+La **aplicación móvil** que acompañaba a ese punto ya no falta: se resolvió
+haciendo instalable la que hay (ver «Fase 10» más abajo), y no construyendo una
+aparte —serían dos bases de código que alguien tendría que mantener iguales, y
+lo que el inventario físico necesita del teléfono ya estaba hecho—.
 
 De la Fase 3 sí están hechas la **predicción de reemplazo por cantidad de
 fallas** —umbral de mantenimientos con ventana móvil—, los **costos acumulados
@@ -307,6 +311,32 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 10 — Aplicación instalable (§20, 2026-09-14)
+
+La misma aplicación, instalable en el teléfono: manifiesto, iconos, service
+worker y una página propia para cuando no hay red. Se abre desde la pantalla de
+inicio sin barra de direcciones, arranca en `/admin` y ofrece dos atajos —la
+consulta por escáner y «mis equipos»—, que son los dos usos que justifican
+llevarla en el bolsillo.
+
+**Lo que no hace, y es deliberado: no guarda ni una respuesta de la API.** Un
+inventario que enseña lo de ayer es peor que uno que dice «no hay conexión»,
+porque el segundo se nota y el primero no: alguien lee que el equipo está en
+Quito, viaja, y estaba en Guayaquil desde el martes. Se guarda el armazón —el
+HTML, el JavaScript, los estilos, los iconos— y nada más.
+
+**Trabajar sin conexión sigue pendiente**, y es otra cosa: capturar lecturas en
+una bodega sin señal y sincronizarlas después exige decidir antes qué pasa
+cuando dos personas inventarían el mismo equipo, cuánto tiempo puede vivir una
+lectura sin subir y qué se hace con una que llega tarde. Mientras eso no se
+decida, la aplicación instalada necesita red para consultar, igual que la web.
+
+Verificable con `npm run pwa:verificar`, que compila, abre un navegador de
+verdad y comprueba las cinco cosas —incluida, sin red, que la API falla en vez
+de responder—. Las pruebas de Vitest sostienen el manifiesto y el contenido del
+service worker; el registro solo ocurre sobre la compilación, así que esa parte
+no la cubre ni Vitest ni el resto de las pruebas de extremo a extremo.
 
 ### Fase 9 — Valor en libros y depreciación (§22.3)
 

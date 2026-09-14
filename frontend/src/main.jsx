@@ -11,11 +11,17 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import { env } from "./config/env";
+import { registrarServiceWorker } from "./pwa/registrarServiceWorker";
 
 document.title = env.appName;
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />
-  </StrictMode>
+  </StrictMode>,
 );
+
+// Después de montar: registrar el service worker compite por el hilo con el
+// primer dibujado, y lo que esto habilita —instalarla en el teléfono— no hace
+// falta en el primer segundo.
+registrarServiceWorker();

@@ -26,5 +26,21 @@ export default [
       "react/prop-types": "off",
     },
   },
+  {
+    // Los scripts de utilidad corren en Node y, dentro de `page.evaluate`,
+    // escriben código que corre en el navegador: conviven los dos mundos.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
+    // El service worker no es ni navegador ni Node: tiene su propio ámbito,
+    // con `self`, `caches` y `clients`.
+    files: ["public/sw.js"],
+    languageOptions: {
+      globals: { ...globals.serviceworker },
+    },
+  },
   prettier,
 ];

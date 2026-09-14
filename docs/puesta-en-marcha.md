@@ -223,3 +223,35 @@ descubren con el lector en la mano, no en la pantalla.
 - **Rol «Usuario final»**, que necesita una pantalla de «mis equipos».
 - **Concurrencia medida contra producción**, no contra el servidor de
   desarrollo.
+
+## Instalarla en el teléfono
+
+La aplicación es instalable: quien hace el inventario físico se la lleva en el
+bolsillo, con el escáner en la mano y sin un escritorio cerca.
+
+**Hace falta HTTPS.** Es un requisito del navegador, no de este sistema: sobre
+`http://` no ofrece instalarla y el service worker ni siquiera se registra. En
+`localhost` sí funciona, que es como se prueba.
+
+Desde el teléfono, con el sistema abierto: en Android, el menú del navegador
+ofrece *Instalar aplicación* o *Añadir a la pantalla de inicio*; en iPhone,
+*Compartir → Añadir a pantalla de inicio*. Queda con su icono, abre sin barra de
+direcciones y entra directamente al panel. Manteniendo pulsado el icono
+aparecen dos atajos: la consulta por escáner y «mis equipos».
+
+**Sigue necesitando red para consultar.** Se guarda el armazón de la aplicación
+—para que arranque y para poder decir qué pasa cuando no hay señal—, pero
+**ningún dato del inventario**: enseñar el de ayer sería peor que no enseñar
+nada, porque un dato viejo no se nota y un error sí. Trabajar sin conexión
+—capturar lecturas en una bodega sin señal y subirlas después— es una decisión
+pendiente, no un olvido: exige acordar antes qué pasa cuando dos personas
+inventarían el mismo equipo.
+
+Para comprobar que todo eso quedó bien tras un despliegue:
+
+```bash
+cd frontend
+npm run build
+npm run preview -- --port 4179 --strictPort   # en otra terminal
+npm run pwa:verificar
+```
