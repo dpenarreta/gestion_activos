@@ -155,6 +155,19 @@ python -c "import smtplib,ssl,os; s=smtplib.SMTP(os.environ['EMAIL_HOST'],int(os
 Compruébelo antes de activarlo, desde *Alertas → Configurar alertas → Enviar
 una prueba a mi correo*: escribe solo a quien lo pide.
 
+Para revisar **cómo se ven** los avisos de mantenimiento al llegar —los
+clientes de correo corporativos descartan hojas de estilo y tratan las tablas a
+su manera, así que lo que se ve bien en el navegador puede llegar ilegible—:
+
+```bash
+python manage.py enviar_avisos_de_muestra --a alguien@empresa.com
+```
+
+Manda una muestra de cada situación que el sistema puede avisar, marcada como
+tal en el asunto. No toca la base: arma los equipos en memoria y los pasa por
+la misma plantilla que usa el envío real, así que revisar un texto no ensucia
+el inventario con equipos de prueba.
+
 ## 3. Tareas programadas
 
 Dos, ambas **diarias**. Sin ellas el sistema no falla: deja de avisar en

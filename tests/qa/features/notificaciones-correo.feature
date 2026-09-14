@@ -241,3 +241,11 @@ Feature: Aviso por correo de las alertas del parque (§19 del documento funciona
     When se corrige su solución
     Then no sale ningún aviso nuevo
     # Arreglar una falta de ortografía no es que el equipo haya vuelto otra vez.
+
+  @AC-AVI-009
+  Scenario: Se puede ver cómo se ve cada aviso sin tocar el inventario
+    When se pide una muestra de los avisos a un buzón
+    Then llega uno por cada situación, marcado como muestra
+    And no queda ningún equipo ni ninguna intervención de prueba en la base
+    # Cómo se ve un correo al llegar a Outlook no lo contesta ninguna prueba
+    # automatizada; revisar un texto tampoco debería ensuciar el inventario.

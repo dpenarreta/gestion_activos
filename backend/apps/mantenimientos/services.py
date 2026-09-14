@@ -11,11 +11,21 @@ sobre un historial que rara vez pasa de unas decenas de filas por activo.
 from django.db import transaction
 from django.db.models import Count, Sum
 
+from apps.activos.models import Activo
+from apps.activos.services import ActivoService
 from apps.core.audit import record_audit_event
 from apps.politicas.services import SIN_RESOLVER, refrescar_indicadores_renovacion
 
 from . import notificaciones
 from .models import ComponenteUtilizado, Mantenimiento
+
+#: Reparaciones que no devuelven el equipo a operación. El equipo se queda «en
+#: reparación» hasta que alguien decida qué hacer con él: darlo de baja es una
+#: decisión con motivo, no la consecuencia automática de un diagnóstico.
+_FINALES_SIN_VUELTA = (
+    Mantenimiento.EstadoFinal.NO_REPARABLE,
+    Mantenimiento.EstadoFinal.DADO_DE_BAJA,
+)
 
 MODULO = "mantenimientos"
 
@@ -63,6 +73,12 @@ class MantenimientoService:
                 # Snapshot del catálogo al momento del consumo.
                 era_critico=componente.es_critico,
             )
+
+        # El equipo está donde dice la intervención: si queda abierta, está en
+        # el taller. Antes había que acordarse de cambiarlo a mano, y mientras
+        # nadie se acordaba la ficha decía «Asignado» sobre un equipo que no
+        # estaba en el escritorio de nadie.
+        MantenimientoService._llevar_al_taller(mantenimiento, actor, context)
 
         evaluacion = recalcular_indicadores(activo)
 
@@ -154,7 +170,12 @@ class MantenimientoService:
         # cruce: corregir la solución de una reparación ya cerrada no vuelve a
         # avisar de que el equipo volvió.
         if estaba_fuera and not mantenimiento.sigue_fuera_de_operacion:
+            MantenimientoService._devolver_del_taller(mantenimiento, actor, context)
             mantenimiento.aviso = notificaciones.al_salir_del_taller(mantenimiento, actor)
+        elif not estaba_fuera and mantenimiento.sigue_fuera_de_operacion:
+            # Se le quitó la fecha de salida: la reparación se reabre y el
+            # equipo vuelve al taller.
+            MantenimientoService._llevar_al_taller(mantenimiento, actor, context)
 
         record_audit_event(
             actor=actor,
@@ -166,6 +187,64 @@ class MantenimientoService:
             context=context,
         )
         return mantenimiento
+
+    @staticmethod
+    def _llevar_al_taller(mantenimiento, actor, context) -> None:
+        """Pone el equipo «en reparación» mientras la intervención siga abierta.
+
+        No toca los estados de salida —un equipo robado que aparece en una
+        orden de reparación es un error de captura, no un traslado al taller— ni
+        el de un equipo que ya estaba allí por otra intervención.
+        """
+        activo = mantenimiento.activo
+        if not mantenimiento.sigue_fuera_de_operacion:
+            # Una intervención que nace cerrada no movió el equipo a ninguna
+            # parte: se arregló en el sitio, o se registra después de hecha.
+            return
+        if not activo.esta_operativo or activo.estado == Activo.Estado.EN_MANTENIMIENTO:
+            return
+
+        Mantenimiento.objects.filter(pk=mantenimiento.pk).update(
+            estado_previo_del_activo=activo.estado
+        )
+        mantenimiento.estado_previo_del_activo = activo.estado
+        ActivoService.cambiar_estado(
+            actor=actor,
+            activo=activo,
+            estado=Activo.Estado.EN_MANTENIMIENTO,
+            motivo=f"Ingresa a reparación: {mantenimiento.causa or mantenimiento.descripcion}"[
+                :255
+            ],
+            context=context,
+        )
+
+    @staticmethod
+    def _devolver_del_taller(mantenimiento, actor, context) -> None:
+        """Devuelve el equipo al estado en que entró, si la reparación terminó bien.
+
+        Con «no reparable» o «dado de baja» no se devuelve nada: el equipo no
+        vuelve a operar, y ponerlo otra vez «Asignado» lo haría contar entre lo
+        que funciona. Sacarlo del parque es una decisión con motivo, y se toma
+        desde la ficha.
+        """
+        activo = mantenimiento.activo
+        if mantenimiento.estado_final in _FINALES_SIN_VUELTA:
+            return
+        if activo.estado != Activo.Estado.EN_MANTENIMIENTO:
+            # Alguien lo movió mientras estaba en el taller: se respeta lo que
+            # haya decidido, que es información más fresca que la nuestra.
+            return
+
+        destino = mantenimiento.estado_previo_del_activo or (
+            Activo.Estado.EN_USO if activo.esta_asignado else Activo.Estado.EN_BODEGA
+        )
+        ActivoService.cambiar_estado(
+            actor=actor,
+            activo=activo,
+            estado=destino,
+            motivo=f"Vuelve de reparación: {mantenimiento.get_estado_final_display()}",
+            context=context,
+        )
 
     @staticmethod
     @transaction.atomic

@@ -103,6 +103,12 @@ class Mantenimiento(BaseModel):
     descripcion = models.TextField(help_text="Trabajo realizado, en detalle.")
     diagnostico = models.TextField(blank=True, help_text="Resultado del análisis técnico.")
     solucion = models.TextField(blank=True, help_text="Acción aplicada para resolver el problema.")
+    #: En qué estado estaba el equipo cuando entró al taller, para devolverlo
+    #: ahí al salir. Se guarda en vez de deducirse: entre la entrada y la
+    #: salida alguien pudo moverlo —una reasignación, un traslado—, y
+    #: reconstruirlo desde el historial daría el estado de ahora, no el de
+    #: antes de la reparación.
+    estado_previo_del_activo = models.CharField(max_length=20, blank=True, editable=False)
     estado_final = models.CharField(
         max_length=15, choices=EstadoFinal.choices, default=EstadoFinal.REPARADO
     )

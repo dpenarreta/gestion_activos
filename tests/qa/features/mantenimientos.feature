@@ -185,3 +185,41 @@ Feature: Bitácora de mantenimientos y contador de intervenciones (RF-04, RF-05)
     # Antes la lista se pedía con un tope de trescientos: en un inventario del
     # tamaño que el documento dimensiona, el trescientos uno no se podía elegir
     # y no había ningún aviso de que faltara.
+
+  # --- El estado del equipo sigue a la intervención ---
+
+  @AC-MNT-040
+  Scenario: Registrar una reparación abierta pone el equipo en reparación
+    When se registra una intervención sin fecha de salida
+    Then el equipo pasa a «En reparación», con su movimiento en el historial
+    # Antes había que acordarse de cambiarlo a mano, y mientras nadie se
+    # acordaba la ficha decía «Asignado» sobre un equipo que no estaba en el
+    # escritorio de nadie.
+
+  @AC-MNT-041
+  Scenario: Al cerrarla, el equipo vuelve al estado en que entró
+    Given un equipo en bodega que entró a reparación
+    When se cierra la intervención como reparada
+    Then vuelve a bodega, y no a «Asignado»
+    # El estado de entrada se guarda en vez de deducirse: entre la entrada y la
+    # salida alguien pudo moverlo, y reconstruirlo daría el de ahora.
+
+  @AC-MNT-042
+  Scenario: Una reparación que se registra ya cerrada no mueve el estado
+    When se registra una intervención con fecha de salida
+    Then el equipo se queda como estaba
+    # Se arregló en el sitio: no fue a ninguna parte.
+
+  @AC-MNT-043
+  Scenario: Una reparación sin arreglo deja el equipo en el taller
+    When se cierra una intervención como «no reparable»
+    Then el equipo sigue «En reparación» y no vuelve a operación
+    # Devolverlo a «Asignado» lo haría contar entre lo que funciona. Sacarlo
+    # del parque es una decisión con motivo, y se toma desde la ficha.
+
+  @AC-MNT-044
+  Scenario: Lo que alguien decidió mientras estaba fuera no se pisa
+    Given un equipo en reparación que alguien marcó como perdido
+    When se cierra la intervención
+    Then sigue perdido
+    # Es información más fresca que la nuestra.

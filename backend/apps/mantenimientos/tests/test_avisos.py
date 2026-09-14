@@ -18,7 +18,7 @@ import pytest
 from django.core import mail
 from rest_framework.test import APIClient
 
-from apps.activos.models import TipoDispositivo
+from apps.activos.models import Activo, TipoDispositivo
 from apps.activos.services import ActivoService
 from apps.mantenimientos.models import Mantenimiento
 from apps.mantenimientos.services import MantenimientoService
@@ -373,3 +373,152 @@ def test_el_equipo_sigue_saliendo_en_la_ficha_aunque_no_haya_correo(
     activo.refresh_from_db()
 
     assert activo.total_mantenimientos == 1
+
+
+# --- El estado del equipo sigue a la intervención ---------------------------
+#
+# Antes había que acordarse de cambiarlo a mano, y mientras nadie se acordaba la
+# ficha decía «Asignado» sobre un equipo que no estaba en el escritorio de
+# nadie: el aviso contaba una cosa y el inventario otra.
+
+
+def test_registrar_una_reparacion_abierta_lo_pone_en_reparacion(
+    registrar, tecnico, crear_activo, con_correo
+):
+    activo = crear_activo(responsables=[con_correo])
+    # El alta deja el equipo en bodega aunque ya tenga responsable; se entrega
+    # con la acción de asignación, que es la que deja el acta.
+    ActivoService.asignar_responsables(actor=tecnico, activo=activo, responsables=[con_correo])
+    assert activo.estado == Activo.Estado.EN_USO
+
+    registrar(activo)
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.EN_MANTENIMIENTO
+
+
+def test_al_cerrarla_vuelve_al_estado_en_que_entro(
+    registrar, tecnico, al_confirmar, crear_activo, con_correo
+):
+    activo = crear_activo(responsables=[con_correo])
+    ActivoService.asignar_responsables(actor=tecnico, activo=activo, responsables=[con_correo])
+    mantenimiento = registrar(activo)
+
+    with al_confirmar():
+        MantenimientoService.actualizar(
+            actor=tecnico,
+            mantenimiento=mantenimiento,
+            fecha_salida=datetime.date(2026, 9, 16),
+            estado_final=Mantenimiento.EstadoFinal.REPARADO,
+        )
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.EN_USO
+
+
+def test_un_equipo_de_bodega_vuelve_a_bodega(registrar, tecnico, al_confirmar, crear_activo):
+    """Se guarda el estado de entrada en vez de deducirlo: un equipo que estaba
+    en bodega no debe volver «Asignado» por haber pasado por el taller."""
+    activo = crear_activo()
+    ActivoService.cambiar_estado(
+        actor=tecnico, activo=activo, estado=Activo.Estado.EN_BODEGA, motivo="A bodega"
+    )
+    mantenimiento = registrar(activo)
+
+    with al_confirmar():
+        MantenimientoService.actualizar(
+            actor=tecnico,
+            mantenimiento=mantenimiento,
+            fecha_salida=datetime.date(2026, 9, 16),
+            estado_final=Mantenimiento.EstadoFinal.REPARADO,
+        )
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.EN_BODEGA
+
+
+def test_una_reparacion_registrada_ya_cerrada_no_mueve_el_estado(
+    registrar, tecnico, crear_activo, con_correo
+):
+    """Se arregló en el sitio: el equipo no fue a ninguna parte."""
+    activo = crear_activo(responsables=[con_correo])
+    ActivoService.asignar_responsables(actor=tecnico, activo=activo, responsables=[con_correo])
+
+    registrar(activo, fecha_salida=datetime.date(2026, 9, 14))
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.EN_USO
+
+
+def test_no_reparable_deja_el_equipo_en_el_taller(
+    registrar, tecnico, al_confirmar, crear_activo, con_correo
+):
+    """Devolverlo a «Asignado» lo haría contar entre lo que funciona. Sacarlo
+    del parque es una decisión con motivo, y se toma desde la ficha."""
+    activo = crear_activo(responsables=[con_correo])
+    mantenimiento = registrar(activo)
+
+    with al_confirmar():
+        MantenimientoService.actualizar(
+            actor=tecnico,
+            mantenimiento=mantenimiento,
+            fecha_salida=datetime.date(2026, 9, 16),
+            estado_final=Mantenimiento.EstadoFinal.NO_REPARABLE,
+        )
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.EN_MANTENIMIENTO
+
+
+def test_si_alguien_lo_movio_mientras_estaba_fuera_no_se_le_pisa(
+    registrar, tecnico, al_confirmar, crear_activo, con_correo
+):
+    """Lo que alguien haya decidido entretanto es información más fresca que la
+    nuestra."""
+    activo = crear_activo(responsables=[con_correo])
+    mantenimiento = registrar(activo)
+    ActivoService.cambiar_estado(
+        actor=tecnico, activo=activo, estado=Activo.Estado.PERDIDO, motivo="No aparece"
+    )
+
+    with al_confirmar():
+        MantenimientoService.actualizar(
+            actor=tecnico,
+            mantenimiento=mantenimiento,
+            fecha_salida=datetime.date(2026, 9, 16),
+            estado_final=Mantenimiento.EstadoFinal.REPARADO,
+        )
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.PERDIDO
+
+
+def test_no_se_lleva_al_taller_lo_que_ya_salio_del_parque(registrar, tecnico, crear_activo):
+    """Una orden de reparación sobre un equipo robado es un error de captura,
+    no un traslado al taller. El backend ya la rechaza; esto fija que el estado
+    tampoco se toque si llegara por otra vía."""
+    activo = crear_activo()
+    ActivoService.cambiar_estado(
+        actor=tecnico, activo=activo, estado=Activo.Estado.ROBADO, motivo="Denuncia"
+    )
+
+    MantenimientoService._llevar_al_taller(
+        Mantenimiento(activo=activo, fecha_intervencion=datetime.date(2026, 9, 14)),
+        tecnico,
+        None,
+    )
+
+    activo.refresh_from_db()
+    assert activo.estado == Activo.Estado.ROBADO
+
+
+def test_el_cambio_de_estado_queda_en_el_historial(registrar, crear_activo, con_correo):
+    """El equipo no aparece en el taller por arte de magia: queda el movimiento
+    con su motivo, como cualquier otro cambio de estado."""
+    activo = crear_activo(responsables=[con_correo])
+
+    registrar(activo)
+
+    movimiento = activo.movimientos.order_by("-created_at").first()
+    assert movimiento.estado_nuevo == Activo.Estado.EN_MANTENIMIENTO
+    assert "Ingresa a reparación" in movimiento.motivo
