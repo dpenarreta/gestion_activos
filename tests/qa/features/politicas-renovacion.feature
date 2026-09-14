@@ -192,3 +192,39 @@ Feature: Criterios de sustitución y sugerencia de renovación (RF-06, RF-07)
     # La restricción vive en la base, pero llegar hasta ella devolvía un 500.
     # La interfaz deshabilita la opción; quien llame a la API directamente —o
     # tenga dos pestañas abiertas— merece el mismo «ya existe».
+
+  # --- El recálculo diario (RF-07) ---
+
+  @AC-POL-030
+  Scenario: La sugerencia se enciende sola cuando pasa el tiempo
+    Given un equipo que cruza su vida útil sin que nadie lo toque
+    When corre el recálculo diario
+    Then queda marcado con su nivel de sugerencia en el listado
+    # Es el único criterio que ningún evento del sistema dispara: se cumple por
+    # el paso del tiempo. Sin esa pasada, el equipo no sale al filtrar por
+    # «requiere renovación» aunque su ficha lo calcule bien en vivo.
+
+  @AC-POL-031
+  Scenario: Y se apaga cuando deja de corresponder
+    Given un equipo marcado y una política que se alarga
+    When corre el recálculo diario
+    Then el equipo vuelve a la normalidad
+    # Un recálculo que solo enciende convierte la sugerencia en una marca
+    # permanente.
+
+  @AC-POL-032
+  Scenario: El recálculo recorre todas las empresas
+    Given equipos de dos empresas que cruzaron su vida útil
+    When corre el recálculo diario, fuera de cualquier petición
+    Then los dos quedan marcados
+    # Fuera de una petición no hay empresa activa y los gestores no filtran. Un
+    # cron que se quedara con una sola dejaría a las demás congeladas para
+    # siempre, y nada lo diría.
+
+  @AC-POL-033
+  Scenario: El recálculo no ensucia la ficha ni el historial
+    When corre el recálculo diario
+    Then no cambia la fecha de actualización de los equipos ni añade movimientos
+    # Es mantenimiento de una caché, no una edición. Si moviera la fecha, el
+    # panel contaría el parque entero como «actualizado hoy» todas las mañanas
+    # y el aviso de equipos sin tocar en noventa días no se encendería nunca.

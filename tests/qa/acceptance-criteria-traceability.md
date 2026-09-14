@@ -346,14 +346,14 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
-| AC-008 | Backend y frontend separados | acceptance-criteria.feature | Backend y frontend están separados | No |
-| AC-009 | Backend usa Python y Django | acceptance-criteria.feature | El backend usa Python y Django | No |
+| AC-008 | Backend y frontend separados | acceptance-criteria.feature | Backend y frontend están separados | Sí (pytest: `test_backend_y_frontend_son_proyectos_independientes`, `test_el_backend_no_sirve_la_interfaz`) |
+| AC-009 | Backend usa Python y Django | acceptance-criteria.feature | El backend usa Python y Django | Sí (pytest: `test_el_backend_usa_django`) |
 | AC-010 | Usa SQL Server | acceptance-criteria.feature | El proyecto usa SQL Server | Sí (pytest, ver AC-040) |
-| AC-011 | Patrón MVT | acceptance-criteria.feature | El backend mantiene el patrón Modelo Vista Template | No |
-| AC-012 | Frontend usa React | acceptance-criteria.feature | El frontend usa React | No |
-| AC-013 | Node.js gestiona deps frontend | acceptance-criteria.feature | Node.js administra las dependencias del frontend | No |
-| AC-014 | Bootstrap framework visual | acceptance-criteria.feature | Bootstrap es el framework visual principal | No |
-| AC-015 | Templates y estilos separados | acceptance-criteria.feature | Templates y estilos están separados | No |
+| AC-011 | Patrón MVT | acceptance-criteria.feature | El backend mantiene el patrón Modelo Vista Template | Sí (pytest: `test_cada_app_separa_el_modelo_de_la_vista`, `test_las_reglas_de_negocio_viven_en_su_capa`, `test_las_vistas_no_escriben_en_la_base_directamente`) |
+| AC-012 | Frontend usa React | acceptance-criteria.feature | El frontend usa React | Sí (pytest: `test_el_frontend_usa_react`) |
+| AC-013 | Node.js gestiona deps frontend | acceptance-criteria.feature | Node.js administra las dependencias del frontend | Sí (pytest: `test_node_administra_las_dependencias`) |
+| AC-014 | Bootstrap framework visual | acceptance-criteria.feature | Bootstrap es el framework visual principal | Sí (pytest: `test_bootstrap_es_el_framework_visual`) |
+| AC-015 | Templates y estilos separados | acceptance-criteria.feature | Templates y estilos están separados | Sí (pytest: `test_ningun_componente_lleva_estilos_embebidos_extensos`, `test_no_hay_hojas_de_estilo_dentro_del_jsx`, `test_los_componentes_con_estilos_los_tienen_al_lado`) |
 
 ## Autenticación y seguridad
 
@@ -374,8 +374,8 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-022 | Operaciones protegidas rechazan sin permiso | authorization.feature | Un usuario sin el permiso requerido recibe 403 y queda auditado | **Sí (pytest-bdd)** |
 | AC-023 | Tokens completos no en logs | jwt-security.feature | El registro de auditoría nunca contiene tokens completos | Sí (pytest) |
 | AC-024 | Contraseñas no en logs | password-security.feature | Un fallo de validación con datos de contraseña no filtra el valor | Sí (pytest) |
-| AC-025 | Sin credenciales reales versionadas | repository-hygiene.feature | No existen credenciales reales versionadas | No |
-| AC-026 | `.env.example` seguro existe | repository-hygiene.feature | Existen archivos .env.example seguros | No |
+| AC-025 | Sin credenciales reales versionadas | repository-hygiene.feature | No existen credenciales reales versionadas | Sí (pytest: `test_ningun_archivo_versionado_lleva_un_secreto_real`, `test_los_env_estan_excluidos_del_control_de_versiones`) |
+| AC-026 | `.env.example` seguro existe | repository-hygiene.feature | Existen archivos .env.example seguros | Sí (pytest: `test_existe_el_ejemplo_de_entorno`, `test_el_ejemplo_solo_lleva_marcadores`) |
 
 ## Copias de seguridad (§21)
 
@@ -442,7 +442,7 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-040 | Migraciones funcionan con SQL Server | acceptance-criteria.feature | Las migraciones funcionan con SQL Server | Sí (ejecución real, ver test-execution-report.md) |
 | AC-041 | Relaciones válidas usuarios/roles/permisos | acceptance-criteria.feature | Existen relaciones válidas entre usuarios, roles y permisos | Sí (implícito: toda la suite pytest usa estas relaciones) |
 | AC-042 | Restricciones de unicidad | acceptance-criteria.feature | Se aplican restricciones de unicidad | Sí (pytest: `test_admin_cannot_create_user_with_duplicate_email`) |
-| AC-043 | Sin datos productivos en el repo | acceptance-criteria.feature | No existen datos productivos dentro del repositorio | No |
+| AC-043 | Sin datos productivos en el repo | acceptance-criteria.feature | No existen datos productivos dentro del repositorio | Sí (pytest: `test_ninguna_migracion_siembra_personas_ni_equipos`, `test_ninguna_migracion_fija_una_contrasena`) |
 | AC-044 | Admin sin contraseña fija | acceptance-criteria.feature | La creación del administrador no usa una contraseña fija | No (verificación de proceso, ver test-execution-report.md) |
 
 ## Calidad y documentación
@@ -709,6 +709,10 @@ juntas.
 | AC-ACT-044 | En «mis equipos» de cada uno | inventario-activos.feature | El equipo aparece en la pantalla de cada uno de sus responsables | Sí (pytest y Vitest: `test_un_equipo_compartido_aparece_en_la_lista_de_cada_uno`, `dice con quién más se responde por él`) |
 | AC-ACT-045 | En el informe, bajo cada uno | inventario-activos.feature | El informe por usuario lista el equipo bajo cada responsable | Sí (pytest: `test_activos_por_usuario_lista_el_equipo_compartido_bajo_cada_uno`) |
 | AC-ACT-046 | La alerta nombra a quien se fue | inventario-activos.feature | La alerta de custodio inactivo nombra a quien se fue | Sí (pytest: `test_la_alerta_nombra_a_quien_esta_de_baja_y_no_a_todo_el_turno`) |
+| AC-POL-030 | La sugerencia se enciende sola | politicas-renovacion.feature | La sugerencia se enciende sola cuando pasa el tiempo | Sí (pytest: `test_enciende_la_sugerencia_que_el_tiempo_encendio_solo`) |
+| AC-POL-031 | Y se apaga | politicas-renovacion.feature | Y se apaga cuando deja de corresponder | Sí (pytest: `test_tambien_la_apaga_cuando_deja_de_corresponder`) |
+| AC-POL-032 | El cron recorre todas las empresas | politicas-renovacion.feature | El recálculo recorre todas las empresas | Sí (pytest: `test_recorre_el_sistema_entero_y_no_una_sola_empresa`) |
+| AC-POL-033 | El cron no ensucia la ficha | politicas-renovacion.feature | El recálculo no ensucia la ficha ni el historial | Sí (pytest: `test_la_fecha_de_la_ficha_no_se_toca`, `test_no_deja_rastro_en_la_bitacora`) |
 | AC-ESC-020 | La etiqueta mal leída, desde el inventario | escaner-activos.feature | La etiqueta mal leída se encuentra también desde el inventario | Sí (pytest, Vitest y Playwright: `test_el_inventario_encuentra_el_equipo_con_el_codigo_mal_leido`, `avisa de que hay que reconfigurar la pistola`, `el inventario encuentra el equipo con el guion mal leído`) |
 | AC-ESC-021 | Y desde el activo intervenido | escaner-activos.feature | Y desde el «Activo intervenido» del mantenimiento | Sí (pytest, Vitest y Playwright: `test_el_buscador_del_mantenimiento_tambien_lo_encuentra`, `el aviso también se ve con el equipo ya elegido`, `y el «activo intervenido» del mantenimiento, también`) |
 | AC-ESC-022 | Sin falsos avisos | escaner-activos.feature | No se avisa de una pistola que nadie usó | Sí (pytest: `test_no_avisa_de_una_pistola_que_no_se_uso`, `test_no_se_toca_una_serie_que_lleva_apostrofe_de_verdad`) |

@@ -70,6 +70,34 @@ Pendiente de medición, no de código: repetir la **concurrencia** contra el
 stack de producción (Gunicorn); las cifras actuales se tomaron con el servidor
 de desarrollo, que es monoproceso.
 
+### Deuda de calidad cerrada (2026-09-14)
+
+La matriz de trazabilidad ya no tiene ningún criterio marcado «No» sin
+explicación. Los diez que lo estaban se automatizaron:
+
+- **Los siete de arquitectura** (AC-008, 009, 011, 012, 013, 014, 015) parecían
+  verdades obvias —«el backend usa Django»—, que es justo por lo que nadie los
+  volvía a comprobar. Ahora son pruebas sobre la estructura del repositorio, y
+  lo que sostienen no es el presente sino los límites: que el backend no empiece
+  a servir la interfaz, que los estilos no se muden al JSX, que las vistas no
+  escriban en la base saltándose la capa de servicios.
+- **Los tres de higiene** (AC-025, 026, 043) se resolvieron leyendo el índice de
+  git: ningún secreto real versionado, los tres `.env.example` con marcadores, y
+  ninguna migración que siembre personas o equipos. Son de los que fallan por
+  acumulación —el día que alguien copia su `.env` para reproducir un fallo—, así
+  que conviene que los vigile una máquina.
+
+También se cubrió **`recalcular_indicadores`**, el comando que corre por cron y
+mantiene vivas las sugerencias de renovación. Importaba porque **falla en
+silencio**: nadie ve una pantalla que diga «el recálculo de anoche no corrió»,
+solo un listado que contesta lo mismo que ayer. Dieciséis pruebas, incluida la
+de que recorre todas las empresas —fuera de una petición no hay empresa activa,
+y un cron acotado a una dejaría a las demás congeladas sin decirlo—.
+
+Siguen sin prueba `medir_rendimiento`, `prueba_de_carga` y
+`sembrar_datos_rendimiento`: son herramientas de medición, no piezas del
+sistema, y su salida se lee a ojo cada vez que se usan.
+
 ## Diferencias por decisión, no por omisión
 
 - **Código QR (§5).** Descartado el 2026-09-09: el inventario se hace con
