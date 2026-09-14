@@ -380,7 +380,18 @@ class ActivoViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
             **serializer.validated_data,
         )
-        return Response(ActivoDetailSerializer(activo).data, status=status.HTTP_201_CREATED)
+        datos = ActivoDetailSerializer(activo).data
+        aviso = getattr(activo, "aviso", None)
+        if aviso is not None:
+            # Solo cuando alguien pidió el equipo. Un alta normal no avisa y no
+            # hay nada que contar, que es distinto de «no se pudo avisar»: ahí
+            # ni siquiera había a quién (ver `apps.activos.notificaciones`).
+            datos["aviso"] = {
+                "enviados": len(aviso.direcciones),
+                "sin_correo": aviso.sin_correo,
+                "a_quien_registro": aviso.por_defecto,
+            }
+        return Response(datos, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instancia = self.get_object()

@@ -308,6 +308,14 @@ export function ActivoDetalle() {
                   etiqueta="Departamento"
                   valor={activo.departamento_nombre}
                 />
+                {/* Solo si alguien lo pidió: la mayoría de las altas son
+                    reposición y no las pide nadie en particular. */}
+                {activo.solicitado_por_nombre && (
+                  <Dato
+                    etiqueta="Lo pidió"
+                    valor={activo.solicitado_por_nombre}
+                  />
+                )}
                 {/* El área dice de quién es el presupuesto del equipo; la
                     sede, dónde ir a buscarlo. La ciudad va aparte porque es la
                     respuesta a «¿dónde está?»: el nombre interno de la sede no

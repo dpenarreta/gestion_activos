@@ -643,3 +643,69 @@ describe("Equipos compartidos", () => {
     );
   });
 });
+
+// --- Quién pidió el equipo --------------------------------------------------
+
+describe("El equipo que alguien pidió", () => {
+  it("por delante viene «nadie», que es lo normal", async () => {
+    /* Una compra de reposición no la pide nadie en particular, y un correo por
+       cada equipo que entra al inventario es ruido del que se aprende a
+       ignorar. */
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(screen.getByLabelText("Lo pidió")).toHaveValue("");
+    expect(
+      screen.getByRole("option", {
+        name: /Nadie: es una compra de reposición/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("al elegir a alguien dice que se le avisará", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    fireEvent.change(screen.getByLabelText("Lo pidió"), {
+      target: { value: "3" },
+    });
+
+    expect(
+      screen.getByText(/Se le avisará por correo de que el equipo ya llegó/),
+    ).toBeInTheDocument();
+  });
+
+  it("viaja al guardar", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.change(screen.getByLabelText("Lo pidió"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].solicitado_por).toBe("3");
+  });
+
+  it("sin nadie, viaja como nulo y no como cadena vacía", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].solicitado_por).toBeNull();
+  });
+
+  it("al editar no se puede cambiar: es un hecho del alta", async () => {
+    /* Cambiarlo después reescribiría la historia de una compra que ya
+       ocurrió. */
+    pintar(7);
+
+    await screen.findByText("Editar ficha técnica");
+    expect(screen.getByLabelText("Lo pidió")).toBeDisabled();
+  });
+});

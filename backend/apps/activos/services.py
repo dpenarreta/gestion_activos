@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 from apps.core.audit import record_audit_event
 
+from . import notificaciones
 from .barcode import generar_codigo_barras
 from .models import ESTADOS_ASIGNABLES, ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo
 
@@ -91,6 +92,9 @@ class ActivoService:
                 departamento_nuevo=activo.departamento,
                 estado_nuevo=activo.estado,
             )
+        # Solo si alguien lo pidió: un alta de reposición no avisa a nadie.
+        activo.aviso = notificaciones.al_llegar_lo_solicitado(activo, actor)
+
         record_audit_event(
             actor=actor,
             action="activo.created",

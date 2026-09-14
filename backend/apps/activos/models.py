@@ -229,6 +229,25 @@ class Activo(ModeloDeEmpresa):
         on_delete=models.PROTECT,
         related_name="activos",
     )
+    #: Quién pidió el equipo, si es que alguien lo pidió. Vacío es lo normal
+    #: —una compra de reposición no la pide nadie en particular— y entonces el
+    #: alta no avisa a nadie: un correo por cada equipo que entra al inventario
+    #: es ruido, y del que se aprende a ignorar.
+    #:
+    #: Es una persona aunque el pedido venga de un área, porque a un área no se
+    #: le manda un correo. Cuando pide Contabilidad se anota a quien lo pidió
+    #: en su nombre —normalmente su responsable—, y el área viene con ella.
+    solicitado_por = models.ForeignKey(
+        "organizacion.Empleado",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activos_solicitados",
+        help_text=(
+            "Quién pidió el equipo. Si el pedido vino de un área, la persona "
+            "que lo pidió en su nombre. Vacío si no lo pidió nadie."
+        ),
+    )
     sede = models.ForeignKey(
         "organizacion.Sede",
         on_delete=models.PROTECT,

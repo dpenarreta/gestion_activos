@@ -249,3 +249,34 @@ Feature: Aviso por correo de las alertas del parque (§19 del documento funciona
     And no queda ningún equipo ni ninguna intervención de prueba en la base
     # Cómo se ve un correo al llegar a Outlook no lo contesta ninguna prueba
     # automatizada; revisar un texto tampoco debería ensuciar el inventario.
+
+  @AC-AVI-010
+  Scenario: Un equipo que nadie pidió no avisa a nadie
+    When se da de alta un equipo sin decir quién lo pidió
+    Then no sale ningún correo
+    # Una compra de reposición no la pide nadie en particular. Un aviso por
+    # cada equipo que entra al inventario es ruido, y del que se aprende a
+    # ignorar: entonces tampoco se lee el que sí importaba.
+
+  @AC-AVI-011
+  Scenario: Si lo pidió alguien, se le avisa de que llegó
+    Given un equipo que pidió una persona con correo en su ficha
+    When se registra el alta
+    Then le llega un aviso con el equipo, su código y el área
+    And se le dice que todavía no está entregado
+    # Que llegue no es que ya sea suyo: la entrega es otra acción y deja su acta.
+
+  @AC-AVI-012
+  Scenario: Un pedido de un área se anota a nombre de quien lo pidió
+    Given un pedido que viene de un área
+    When se registra el alta
+    Then se anota a la persona que lo pidió en su nombre, y a ella se le avisa
+    # A un área no se le manda un correo. El área viene con la persona, por su
+    # ficha de empleado.
+
+  @AC-AVI-013
+  Scenario: Quien pidió el equipo no se cambia al editar la ficha
+    When se intenta cambiar quién lo pidió después del alta
+    Then no se modifica
+    # Es un hecho del alta: cambiarlo reescribiría la historia de una compra
+    # que ya ocurrió.

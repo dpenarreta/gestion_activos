@@ -29,6 +29,7 @@ const VACIO = {
   observaciones: "",
   responsables: [],
   compartido: false,
+  solicitado_por: "",
   departamento: "",
   sede: "",
   criticidad: "media",
@@ -123,6 +124,7 @@ export function ActivoForm() {
           observaciones: datos.observaciones || "",
           responsables: (datos.responsables || []).map((p) => String(p.id)),
           compartido: Boolean(datos.compartido),
+          solicitado_por: datos.solicitado_por || "",
           departamento: datos.departamento,
           sede: datos.sede || "",
           criticidad: datos.criticidad || "media",
@@ -188,6 +190,9 @@ export function ActivoForm() {
           ...payload,
           responsables: valores.responsables.map(Number),
           departamento: valores.departamento,
+          // Vacío es lo normal: una compra de reposición no la pide nadie en
+          // particular, y entonces el alta no avisa a nadie.
+          solicitado_por: valores.solicitado_por || null,
         });
         navigate(`/admin/activos/${creado.id}`);
       }
@@ -395,6 +400,34 @@ export function ActivoForm() {
                   trasladar»: cada entrega deja su acta.
                 </div>
               )}
+            </div>
+            <div className="col-md-6">
+              <label className="form-label" htmlFor="solicitado_por">
+                Lo pidió
+              </label>
+              <select
+                id="solicitado_por"
+                className="form-select"
+                disabled={esEdicion}
+                value={valores.solicitado_por}
+                onChange={(event) =>
+                  actualizar("solicitado_por", event.target.value)
+                }
+              >
+                <option value="">Nadie: es una compra de reposición</option>
+                {empleados.map((empleado) => (
+                  <option key={empleado.id} value={empleado.id}>
+                    {empleado.nombre_completo}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                {/* Un correo por cada equipo que entra al inventario es ruido,
+                    y del que se aprende a ignorar. */}
+                {valores.solicitado_por
+                  ? "Se le avisará por correo de que el equipo ya llegó."
+                  : "Si el equipo vino por pedido de alguien, dígalo aquí y se le avisará al registrarlo. Si el pedido fue de un área, anote a quien lo pidió en su nombre."}
+              </div>
             </div>
             <div className="col-12">
               <div className="form-check">

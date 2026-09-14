@@ -226,6 +226,9 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
     responsables = ResponsableSerializer(many=True, read_only=True)
     responsables_resumen = serializers.CharField(source="resumen_de_responsables", read_only=True)
+    solicitado_por_nombre = serializers.CharField(
+        source="solicitado_por.nombre_completo", read_only=True, default=None
+    )
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     estado_display = serializers.CharField(source="get_estado_display", read_only=True)
     sede_nombre = serializers.CharField(source="sede.nombre", read_only=True, default=None)
@@ -269,6 +272,8 @@ class ActivoDetailSerializer(serializers.ModelSerializer):
             "compartido",
             "responsables",
             "responsables_resumen",
+            "solicitado_por",
+            "solicitado_por_nombre",
             "departamento",
             "departamento_nombre",
             "sede",
@@ -459,6 +464,7 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
             "observaciones",
             "compartido",
             "responsables",
+            "solicitado_por",
             "departamento",
             "sede",
             "criticidad",
@@ -489,11 +495,17 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     responsables = RelacionDeEmpresa(
         Empleado, {"activo": True}, many=True, required=False, default=list
     )
+    # Quien pidió el equipo. Solo activos: avisar a alguien que ya no está en
+    # la empresa de que llegó lo que pidió no le sirve a nadie.
+    solicitado_por = RelacionDeEmpresa(Empleado, {"activo": True}, required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance is not None:
-            for campo in ("responsables", "departamento"):
+            # `solicitado_por` tampoco se edita: es un hecho del alta —quién
+            # pidió este equipo— y cambiarlo después reescribiría la historia
+            # de una compra que ya ocurrió.
+            for campo in ("responsables", "departamento", "solicitado_por"):
                 self.fields.pop(campo, None)
 
     def validate_compartido(self, value):

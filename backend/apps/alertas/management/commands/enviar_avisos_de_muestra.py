@@ -60,6 +60,13 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
     """
     return [
         (
+            "Llegó el equipo que pidió",
+            "emails/activo_solicitado.html",
+            _intervencion(),
+            "Alguien pidió el equipo y ya está registrado. Un alta que nadie "
+            "pidió no avisa a nadie.",
+        ),
+        (
             "Entra al taller",
             "emails/mantenimiento_entrada.html",
             _intervencion(),
