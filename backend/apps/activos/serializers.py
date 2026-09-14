@@ -148,6 +148,15 @@ class ResponsableSerializer(serializers.Serializer):
     nombre_completo = serializers.CharField(read_only=True)
     codigo_empleado = serializers.CharField(read_only=True)
     activo = serializers.BooleanField(read_only=True)
+    #: Si tiene correo en su ficha y por tanto le llegarán los avisos de
+    #: entrada y salida del taller. Va el sí o no, **no la dirección**: la
+    #: pantalla necesita poder decir «a esta persona no se le avisará», y para
+    #: eso no hace falta repartir el correo de nadie por cada listado de
+    #: activos (ver `docs/data-protection-review.md`).
+    recibe_avisos = serializers.SerializerMethodField()
+
+    def get_recibe_avisos(self, obj) -> bool:
+        return bool((getattr(obj, "correo", "") or "").strip())
 
 
 class ActivoListSerializer(serializers.ModelSerializer):

@@ -145,7 +145,7 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
             **datos,
         )
-        return Response(MantenimientoSerializer(mantenimiento).data, status=status.HTTP_201_CREATED)
+        return Response(self._con_el_aviso(mantenimiento), status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instancia = self.get_object()
@@ -162,7 +162,27 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
             context=get_request_context(request),
             **datos,
         )
-        return Response(MantenimientoSerializer(mantenimiento).data)
+        return Response(self._con_el_aviso(mantenimiento))
+
+    @staticmethod
+    def _con_el_aviso(mantenimiento) -> dict:
+        """La intervención, y a quién se avisó por correo.
+
+        Va en la respuesta y no en un recurso aparte porque la pantalla lo dice
+        justo después de guardar: quien acaba de registrar la entrada de un
+        equipo tiene que enterarse ahí mismo de que a su responsable no se le
+        avisó por no tener correo en la ficha. Un aviso que no llega y nadie
+        sabe que no llegó es peor que no tener avisos.
+        """
+        datos = MantenimientoSerializer(mantenimiento).data
+        aviso = getattr(mantenimiento, "aviso", None)
+        if aviso is not None:
+            datos["aviso"] = {
+                "enviados": len(aviso.direcciones),
+                "sin_correo": aviso.sin_correo,
+                "a_quien_registro": aviso.por_defecto,
+            }
+        return datos
 
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True

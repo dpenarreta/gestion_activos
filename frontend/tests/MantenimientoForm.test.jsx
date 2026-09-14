@@ -450,3 +450,72 @@ describe("Editar una intervención", () => {
     ).toBeInTheDocument();
   });
 });
+
+// --- A quién se avisará por correo ------------------------------------------
+
+describe("El aviso de quién será notificado", () => {
+  /* Se dice **antes** de guardar: quien registra la entrada puede ir a poner
+     el correo que falta, o avisar por otro medio. El mismo texto después del
+     hecho solo sirve para enterarse de que alguien no se enteró. */
+
+  function equipoCon(responsables) {
+    return {
+      id: 7,
+      codigo_barras: "GA-LAP-000007",
+      nombre: "Laptop Jefatura TI",
+      marca: "Dell",
+      modelo: "Latitude 5440",
+      numero_serie: "DL5440-0011",
+      responsables,
+    };
+  }
+
+  it("dice a quién se le avisará", async () => {
+    obtenerActivo.mockResolvedValue(
+      equipoCon([{ id: 3, nombre_completo: "Ana Pérez", recibe_avisos: true }]),
+    );
+
+    pintar("/admin/mantenimientos/new?activo=7");
+
+    expect(
+      await screen.findByText(/Se avisará por correo a Ana Pérez/),
+    ).toBeInTheDocument();
+  });
+
+  it("y a quién no, porque no tiene correo en su ficha", async () => {
+    obtenerActivo.mockResolvedValue(
+      equipoCon([
+        { id: 4, nombre_completo: "Luis Mora", recibe_avisos: false },
+      ]),
+    );
+
+    pintar("/admin/mantenimientos/new?activo=7");
+
+    expect(
+      await screen.findByText(/Luis Mora no tiene correo en su ficha/),
+    ).toBeInTheDocument();
+  });
+
+  it("si no responde nadie, el aviso llega a quien lo registra", async () => {
+    obtenerActivo.mockResolvedValue(equipoCon([]));
+
+    pintar("/admin/mantenimientos/new?activo=7");
+
+    expect(
+      await screen.findByText(/el aviso le llegará a usted/),
+    ).toBeInTheDocument();
+  });
+
+  it("no enseña la dirección de nadie", async () => {
+    /* Para saber que a alguien no le va a llegar basta su nombre; el correo de
+       cada empleado no tiene por qué repartirse por las pantallas. */
+    obtenerActivo.mockResolvedValue(
+      equipoCon([{ id: 3, nombre_completo: "Ana Pérez", recibe_avisos: true }]),
+    );
+
+    pintar("/admin/mantenimientos/new?activo=7");
+
+    await screen.findByText(/Se avisará por correo a Ana Pérez/);
+    expect(document.body.textContent).not.toMatch(/@/);
+  });
+});

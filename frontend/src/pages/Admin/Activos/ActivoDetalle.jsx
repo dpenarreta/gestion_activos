@@ -285,6 +285,17 @@ export function ActivoDetalle() {
                                 Dado de baja
                               </span>
                             )}
+                            {/* Sin correo en su ficha no le llegan los avisos
+                                de entrada y salida del taller. Se dice aquí
+                                porque es donde se puede ir a corregirlo. */}
+                            {persona.recibe_avisos === false && (
+                              <span
+                                className="badge text-bg-secondary ms-2"
+                                title="Sin correo en su ficha: no recibirá los avisos de mantenimiento"
+                              >
+                                Sin avisos
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>

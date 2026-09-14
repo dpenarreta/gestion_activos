@@ -329,6 +329,16 @@ Base: `/api/v1/mantenimientos/`
 | DELETE | `/mantenimientos/{id}/` | `mantenimientos.editar` | Elimina una captura errónea y recalcula los contadores |
 | GET/POST/PATCH | `/mantenimientos/componentes/` | `mantenimientos.ver` / `mantenimientos.componentes` | Catálogo de repuestos. `es_critico` alimenta el umbral de RF-06 |
 
+Registrar una intervención abierta avisa por correo a **quien responde por el
+equipo**; ponerle fecha de salida avisa de que volvió. No tienen frecuencia: o
+salen al ocurrir el hecho o ya no sirven. El correo del empleado es opcional, y
+quien no lo tiene no recibe nada: la respuesta de `POST` y `PATCH` trae un
+bloque `aviso` con `enviados`, `sin_correo` (los nombres de quienes se quedaron
+fuera) y `a_quien_registro` (si hubo que recurrir a quien hizo la acción por no
+haber podido avisar a nadie). El envío ocurre al confirmarse la transacción y
+un fallo no impide registrar la reparación.
+
+
 Registrar o corregir una intervención recalcula, en la misma transacción, el
 contador de RF-05 y la sugerencia de RF-07 del activo.
 

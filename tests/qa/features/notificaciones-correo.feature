@@ -175,3 +175,69 @@ Feature: Aviso por correo de las alertas del parque (§19 del documento funciona
     Given la tarea programada todos los días
     When la frecuencia configurada dice que hoy no toca
     Then la tarea termina sin enviar, sin necesidad de tocar el cron
+
+  # --- Avisos por hecho, sin frecuencia ---
+  #
+  # Distintos del resumen del §19: no tienen periodicidad. O salen cuando
+  # ocurre el hecho, o ya no sirven — quien responde por un equipo se entera de
+  # que se lo llevaron al taller en el momento, no mañana, cuando ya lo notó
+  # por el hueco en su escritorio.
+
+  @AC-AVI-001
+  Scenario: Un equipo que entra al taller avisa a quien responde por él
+    Given un equipo con responsable y correo en su ficha
+    When se registra una reparación abierta
+    Then le llega un aviso con el equipo, la causa y quién lo atiende
+
+  @AC-AVI-002
+  Scenario: Y otro cuando vuelve
+    Given una reparación abierta
+    When se le pone fecha de salida
+    Then le llega un aviso con los días que estuvo fuera y el resultado
+
+  @AC-AVI-003
+  Scenario: Sin correo en la ficha, el aviso va a quien registró la acción
+    Given un equipo cuyo responsable no tiene correo
+    When se registra una reparación
+    Then el aviso le llega al técnico que la registró
+    And se dice en pantalla que a ese responsable no se le avisará
+    # Un aviso que no llega y nadie sabe que no llegó es peor que no tener
+    # avisos. La cuenta de quien actúa siempre tiene correo, así que ese camino
+    # nunca se queda sin destinatario.
+
+  @AC-AVI-004
+  Scenario: Con uno sin correo y otro con él, no se suma al técnico
+    Given un equipo compartido entre alguien con correo y alguien sin él
+    When se registra una reparación
+    Then el aviso llega solo a quien tiene correo, y el otro se reporta
+    # El respaldo es para cuando no se avisó a nadie: sumar al técnico a cada
+    # aviso convertiría su buzón en una copia del registro del sistema.
+
+  @AC-AVI-005
+  Scenario: Se dice antes de guardar, no después
+    Given un equipo cuyo responsable no tiene correo
+    When se elige ese equipo en el formulario de mantenimiento
+    Then el formulario avisa de que no se le notificará, antes de registrar nada
+    # Así se puede ir a poner el correo que falta. El mismo texto después del
+    # hecho solo sirve para enterarse de que alguien no se enteró.
+
+  @AC-AVI-006
+  Scenario: La pantalla no reparte direcciones de correo
+    When se consulta quién recibirá los avisos
+    Then se dice si cada persona los recibe o no, sin mostrar su dirección
+    # Para saber que a alguien no le va a llegar basta su nombre.
+
+  @AC-AVI-007
+  Scenario: Un servidor de correo caído no impide registrar la reparación
+    Given el servidor de correo fuera de servicio
+    When se registra una reparación
+    Then queda registrada, y el fallo del envío va al registro del sistema
+    # El correo no es parte del taller. Y el envío ocurre al confirmarse la
+    # transacción, así que uno lento tampoco retrasa el guardado.
+
+  @AC-AVI-008
+  Scenario: Corregir una reparación ya cerrada no vuelve a avisar
+    Given una reparación con fecha de salida
+    When se corrige su solución
+    Then no sale ningún aviso nuevo
+    # Arreglar una falta de ortografía no es que el equipo haya vuelto otra vez.

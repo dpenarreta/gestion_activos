@@ -1,0 +1,57 @@
+{% comment %}
+Armazón de los avisos sueltos (entrada y salida del taller, y lo que venga).
+
+Estilos en línea y una tabla como estructura, por lo mismo que el resumen de
+alertas: los clientes de correo corporativos descartan las hojas de estilo y
+buena parte de flexbox.
+
+A diferencia del resumen del §19, aquí **sí** va el equipo: el aviso es sobre
+un equipo concreto y sin decir cuál no sirve de nada. Lo que sigue sin salir
+del sistema es quién responde por él —eso está detrás del login—, salvo para
+decirle a quien recibe el correo que es suyo.
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block titulo %}Aviso{% endblock %}</title>
+  </head>
+  <body style="margin: 0; padding: 24px; background-color: #f5f6f8; font-family: Arial, Helvetica, sans-serif; color: #212529;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #dee2e6;">
+      <tr>
+        <td style="padding: 24px;">
+          <h1 style="margin: 0 0 4px; font-size: 18px;">{% block encabezado %}{% endblock %}</h1>
+          <p style="margin: 0 0 20px; font-size: 13px; color: #6c757d;">{{ system_name }}</p>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 6px 0; color: #6c757d; width: 40%;">Equipo</td>
+              <td style="padding: 6px 0;"><strong>{{ activo.nombre }}</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6c757d;">Código</td>
+              <td style="padding: 6px 0; font-family: monospace;">{{ activo.codigo_barras }}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6c757d;">Serie</td>
+              <td style="padding: 6px 0; font-family: monospace;">{{ activo.numero_serie }}</td>
+            </tr>
+            {% block filas %}{% endblock %}
+          </table>
+
+          {% block cuerpo %}{% endblock %}
+
+          <p style="margin: 24px 0 0;">
+            <a href="{{ url }}" style="display: inline-block; padding: 10px 18px; background-color: #0d6efd; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px;">Ver la ficha del equipo</a>
+          </p>
+
+          <p style="margin: 20px 0 0; font-size: 12px; color: #6c757d;">
+            Este aviso se envía al ocurrir el hecho, no en un resumen. Llega a
+            quien responde por el equipo; si usted no es esa persona, avise a
+            Sistemas para corregir la ficha.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -14,6 +14,7 @@ from django.db.models import Count, Sum
 from apps.core.audit import record_audit_event
 from apps.politicas.services import SIN_RESOLVER, refrescar_indicadores_renovacion
 
+from . import notificaciones
 from .models import ComponenteUtilizado, Mantenimiento
 
 MODULO = "mantenimientos"
@@ -65,6 +66,16 @@ class MantenimientoService:
 
         evaluacion = recalcular_indicadores(activo)
 
+        # Un mantenimiento que nace ya cerrado —se arregló en el sitio, en diez
+        # minutos— manda un solo aviso, el de salida: contar que entró y salió
+        # en dos correos seguidos es contar dos veces lo mismo.
+        aviso = (
+            notificaciones.al_entrar_al_taller(mantenimiento, actor)
+            if mantenimiento.sigue_fuera_de_operacion
+            else notificaciones.al_salir_del_taller(mantenimiento, actor)
+        )
+        mantenimiento.aviso = aviso
+
         record_audit_event(
             actor=actor,
             action="mantenimiento.created",
@@ -100,6 +111,7 @@ class MantenimientoService:
         una edición parcial de líneas obligaría al cliente a llevar los ids de
         cada una, y el formulario real siempre reenvía la lista completa.
         """
+        estaba_fuera = mantenimiento.sigue_fuera_de_operacion
         anteriores, nuevos = {}, {}
         for campo, valor in datos.items():
             actual = getattr(mantenimiento, campo)
@@ -137,6 +149,13 @@ class MantenimientoService:
             return mantenimiento
 
         recalcular_indicadores(mantenimiento.activo)
+
+        # Ponerle fecha de salida es sacar el equipo del taller. Solo en ese
+        # cruce: corregir la solución de una reparación ya cerrada no vuelve a
+        # avisar de que el equipo volvió.
+        if estaba_fuera and not mantenimiento.sigue_fuera_de_operacion:
+            mantenimiento.aviso = notificaciones.al_salir_del_taller(mantenimiento, actor)
+
         record_audit_event(
             actor=actor,
             action="mantenimiento.updated",

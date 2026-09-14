@@ -228,6 +228,7 @@ export function MantenimientoForm() {
                     : undefined
                 }
               />
+              <AvisoDeNotificacion activo={activoSeleccionado} />
             </div>
             <div className="col-md-3">
               <label className="form-label" htmlFor="tipo">
@@ -464,6 +465,57 @@ export function MantenimientoForm() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * A quién se le va a avisar por correo cuando se guarde, y a quién no.
+ *
+ * Se dice **antes** de guardar y no después: quien registra la entrada de un
+ * equipo puede ir a poner el correo que falta, o avisar por otro medio. El
+ * mismo texto después del hecho solo sirve para enterarse de que alguien no se
+ * enteró.
+ *
+ * Nunca se enseña la dirección: para saber que a alguien no le va a llegar el
+ * aviso basta con su nombre, y el correo de cada empleado no tiene por qué
+ * repartirse por las pantallas (ver `docs/data-protection-review.md`).
+ */
+function AvisoDeNotificacion({ activo }) {
+  const responsables = activo?.responsables ?? [];
+  if (!activo) return null;
+
+  const sinCorreo = responsables.filter(
+    (persona) => persona.recibe_avisos === false,
+  );
+  const conCorreo = responsables.filter(
+    (persona) => persona.recibe_avisos !== false,
+  );
+
+  if (responsables.length === 0) {
+    return (
+      <div className="form-text">
+        Nadie responde por este equipo, así que el aviso le llegará a usted.
+      </div>
+    );
+  }
+
+  return (
+    <div className="form-text">
+      {conCorreo.length > 0 && (
+        <span>
+          Se avisará por correo a{" "}
+          {conCorreo.map((persona) => persona.nombre_completo).join(", ")}.{" "}
+        </span>
+      )}
+      {sinCorreo.length > 0 && (
+        <span className="text-warning-emphasis">
+          {sinCorreo.map((persona) => persona.nombre_completo).join(", ")}{" "}
+          {sinCorreo.length === 1 ? "no tiene" : "no tienen"} correo en su ficha
+          y no {sinCorreo.length === 1 ? "recibirá" : "recibirán"} el aviso
+          {conCorreo.length === 0 ? "; le llegará a usted." : "."}
+        </span>
+      )}
     </div>
   );
 }

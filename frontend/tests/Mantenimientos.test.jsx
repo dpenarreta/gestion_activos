@@ -488,3 +488,4 @@ describe("El catálogo de componentes", () => {
     ).toBeInTheDocument();
   });
 });
+
