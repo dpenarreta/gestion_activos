@@ -214,23 +214,52 @@ def test_un_alta_sin_solicitante_no_trae_bloque_de_aviso(cliente, area, tipo):
     assert "aviso" not in respuesta.data
 
 
-def test_no_se_puede_anotar_a_alguien_dado_de_baja(cliente, area, tipo):
-    """Avisar a quien ya no está en la empresa de que llegó lo que pidió no le
-    sirve a nadie."""
-    se_fue = Empleado.objects.create(
+def test_se_puede_anotar_a_alguien_marcado_como_inactivo(cliente, area, tipo):
+    """La marca de activo del empleado no la mantiene ninguna integración.
+
+    Sin enlace con RRHH ni con el directorio, esa casilla dice lo que alguien
+    puso el día que la puso. Filtrar por ella no protege de nada —quien de
+    verdad se fue puede seguir marcado como activo— y sí esconde a gente que sí
+    está, que es el fallo que se nota: no se puede registrar quién pidió el
+    equipo. Dejar constancia vale más.
+    """
+    quizas_se_fue = Empleado.objects.create(
         nombres="Paola",
         apellidos="Vaca",
         codigo_empleado="CTB-0009",
         departamento=area,
+        correo="paola.vaca@laarcourierdocs.com",
         activo=False,
     )
 
     respuesta = cliente.post(
-        "/api/v1/activos/", _cuerpo(area, tipo, solicitado_por=se_fue.id), format="json"
+        "/api/v1/activos/",
+        _cuerpo(area, tipo, solicitado_por=quizas_se_fue.id),
+        format="json",
     )
 
-    assert respuesta.status_code == 400
-    assert "solicitado_por" in respuesta.data["error"]["details"]
+    assert respuesta.status_code == 201
+    assert respuesta.data["solicitado_por_nombre"] == "Paola Vaca"
+
+
+def test_y_si_esa_ficha_no_tiene_correo_el_aviso_cae_en_el_respaldo(cliente, area, tipo):
+    """No hace falta una regla propia: la de siempre ya cubre el caso."""
+    sin_nada = Empleado.objects.create(
+        nombres="Jorge",
+        apellidos="Andrade",
+        codigo_empleado="CTB-0010",
+        departamento=area,
+        correo="",
+        activo=False,
+    )
+
+    respuesta = cliente.post(
+        "/api/v1/activos/", _cuerpo(area, tipo, solicitado_por=sin_nada.id), format="json"
+    )
+
+    assert respuesta.status_code == 201
+    assert respuesta.data["aviso"]["a_quien_registro"] is True
+    assert respuesta.data["aviso"]["sin_correo"] == ["Jorge Andrade"]
 
 
 def test_quien_lo_pidio_no_se_cambia_al_editar(cliente, area, tipo, quien_pidio):

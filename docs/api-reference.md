@@ -70,7 +70,7 @@ Base: `/api/v1/activos/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `responsable` (id, alias `custodio`), `compartido`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
-| POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02). `solicitado_por` (opcional) avisa por correo a quien pidió el equipo; sin él no se avisa a nadie, y la respuesta no trae bloque `aviso` |
+| POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02). `solicitado_por` (opcional) avisa por correo a quien pidió el equipo; sin él no se avisa a nadie, y la respuesta no trae bloque `aviso`. Acepta cualquier empleado, incluso uno marcado como inactivo: esa marca no la mantiene ninguna integración |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
 | GET | `/activos/por-codigo/{codigo}/` | `activos.ver` | **RF-03.** Resuelve por código de barras *o* número de serie; devuelve ficha, movimientos, mantenimientos y costos |

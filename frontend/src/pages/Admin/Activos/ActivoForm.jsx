@@ -87,8 +87,12 @@ export function ActivoForm() {
       .list({ activo: "true", page_size: 100 })
       .then((datos) => setDepartamentos(datos.results ?? datos))
       .catch(() => setDepartamentos([]));
+    // Sin filtrar por «activo»: esa marca no la mantiene ninguna integración,
+    // y el campo de quién pidió el equipo tiene que poder nombrar a cualquiera.
+    // El custodio sí se acota, más abajo, porque entregar un equipo a alguien
+    // que ya se fue sí es un error que conviene atajar.
     empleadosService
-      .list({ activo: "true", page_size: 200 })
+      .list({ page_size: 300 })
       .then((datos) => setEmpleados(datos.results ?? datos))
       .catch(() => setEmpleados([]));
     // Solo sedes abiertas: dejar un equipo en una sede cerrada lo deja
@@ -384,11 +388,13 @@ export function ActivoForm() {
                 }
               >
                 <option value="">Sin asignar (queda en bodega)</option>
-                {empleados.map((empleado) => (
-                  <option key={empleado.id} value={empleado.id}>
-                    {empleado.nombre_completo}
-                  </option>
-                ))}
+                {empleados
+                  .filter((empleado) => empleado.activo !== false)
+                  .map((empleado) => (
+                    <option key={empleado.id} value={empleado.id}>
+                      {empleado.nombre_completo}
+                    </option>
+                  ))}
               </select>
               {/* El alta entrega a una sola persona incluso en un equipo
                   compartido: sumar al resto del turno es una entrega más, y
@@ -415,6 +421,9 @@ export function ActivoForm() {
                 }
               >
                 <option value="">Nadie: es una compra de reposición</option>
+                {/* Todos, incluidos los marcados como inactivos: esa marca no
+                    la mantiene nada, y lo que importa aquí es dejar constancia
+                    de quién pidió el equipo. */}
                 {empleados.map((empleado) => (
                   <option key={empleado.id} value={empleado.id}>
                     {empleado.nombre_completo}

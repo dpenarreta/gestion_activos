@@ -172,9 +172,30 @@ describe("Los catálogos que ofrece el alta", () => {
     expect(listarProveedores).toHaveBeenCalledWith(
       expect.objectContaining({ activo: "true" }),
     );
-    expect(listarEmpleados).toHaveBeenCalledWith(
-      expect.objectContaining({ activo: "true" }),
-    );
+  });
+
+  it("los empleados llegan todos, y el custodio se acota en pantalla", async () => {
+    /* La marca de «activo» del empleado no la mantiene ninguna integración, así
+       que pedir solo los activos escondería a gente que sí está. El campo de
+       quién pidió el equipo tiene que poder nombrar a cualquiera; el de
+       custodio sí se filtra, porque entregar un equipo a alguien que ya se fue
+       sí es un error que conviene atajar. */
+    listarEmpleados.mockResolvedValue({
+      results: [
+        { id: 3, nombre_completo: "Luis Mora", activo: true },
+        { id: 8, nombre_completo: "Paola Vaca", activo: false },
+      ],
+    });
+
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    expect(listarEmpleados.mock.calls[0][0]).not.toHaveProperty("activo");
+
+    const custodio = screen.getByLabelText("Custodio");
+    const pidio = screen.getByLabelText("Lo pidió");
+    expect(custodio.textContent).not.toContain("Paola Vaca");
+    expect(pidio.textContent).toContain("Paola Vaca");
   });
 
   it("la sede se muestra con su ciudad: es lo que se lee al buscar el equipo", async () => {

@@ -237,6 +237,12 @@ class Activo(ModeloDeEmpresa):
     #: Es una persona aunque el pedido venga de un área, porque a un área no se
     #: le manda un correo. Cuando pide Contabilidad se anota a quien lo pidió
     #: en su nombre —normalmente su responsable—, y el área viene con ella.
+    #:
+    #: **No se filtra por si la persona sigue activa.** Esa marca no la
+    #: mantiene ninguna integración —no hay enlace con RRHH ni con el
+    #: directorio—, así que filtrar por ella no protegería de nada y sí
+    #: escondería a gente que sí está. Dejar constancia de quién pidió el
+    #: equipo vale más que protegerse de un dato que nadie actualiza.
     solicitado_por = models.ForeignKey(
         "organizacion.Empleado",
         on_delete=models.PROTECT,

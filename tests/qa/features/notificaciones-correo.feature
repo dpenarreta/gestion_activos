@@ -274,6 +274,18 @@ Feature: Aviso por correo de las alertas del parque (§19 del documento funciona
     # A un área no se le manda un correo. El área viene con la persona, por su
     # ficha de empleado.
 
+  @AC-AVI-014
+  Scenario: Se puede anotar a alguien marcado como inactivo
+    Given una ficha de empleado marcada como inactiva
+    When se registra un equipo pedido por esa persona
+    Then se acepta y queda constancia de quién lo pidió
+    # La marca de «activo» del empleado no la mantiene ninguna integración —no
+    # hay enlace con RRHH ni con el directorio—, así que dice lo que alguien
+    # puso el día que lo puso. Filtrar por ella no protege de nada: quien de
+    # verdad se fue puede seguir marcado como activo. Lo que sí hace es
+    # esconder a gente que está, y entonces no se puede registrar quién pidió
+    # el equipo.
+
   @AC-AVI-013
   Scenario: Quien pidió el equipo no se cambia al editar la ficha
     When se intenta cambiar quién lo pidió después del alta

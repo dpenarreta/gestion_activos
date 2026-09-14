@@ -495,9 +495,11 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     responsables = RelacionDeEmpresa(
         Empleado, {"activo": True}, many=True, required=False, default=list
     )
-    # Quien pidió el equipo. Solo activos: avisar a alguien que ya no está en
-    # la empresa de que llegó lo que pidió no le sirve a nadie.
-    solicitado_por = RelacionDeEmpresa(Empleado, {"activo": True}, required=False, allow_null=True)
+    # Quien pidió el equipo, **sin filtrar por si sigue activo**: esa marca no
+    # la mantiene ninguna integración, así que filtrar por ella no protegería
+    # de nada y sí escondería a gente que sí está. Si la ficha resulta estar
+    # desactualizada, el aviso cae en el respaldo de siempre.
+    solicitado_por = RelacionDeEmpresa(Empleado, required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
