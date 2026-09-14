@@ -14,6 +14,19 @@ Devuelve código 1 si encuentra algo crítico, así que puede encadenarse en un
 script de despliegue. Cada hallazgo dice **qué pasa si no se atiende**, no solo
 que está mal.
 
+**Revisa la configuración con la que se lo invoca.** En un portátil, con la de
+desarrollo, siempre saldrán al menos dos críticos —`DEBUG` encendido y las
+cuentas de demostración— y está bien que salgan: es lo que pasaría si *esa*
+configuración se desplegara. Para la puerta de verdad, contra la máquina que va
+a producción:
+
+```bash
+python manage.py verificar_despliegue --settings=config.settings.production
+```
+
+El comando lo avisa solo cuando no se está mirando producción, para que nadie
+aprenda a ignorar dos críticos que salen siempre.
+
 ## 0. Empresas
 
 Todo lo que se registra pertenece a una empresa. La migración creó la primera

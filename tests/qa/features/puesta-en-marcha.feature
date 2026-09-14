@@ -69,3 +69,24 @@ Feature: Puesta en marcha (§13 y §21 del documento funcional)
     When se ejecuta la verificación de despliegue
     Then se advierte que falta el levantamiento del inventario
     # Es el riesgo número uno del §26 del propio documento.
+
+  @AC-PUE-020
+  Scenario: El verificador dice qué configuración está midiendo
+    Given el verificador ejecutado fuera de producción
+    When se leen sus resultados
+    Then avisa de que revisa esa configuración y no la de producción
+    And dice con qué invocación se revisa la de verdad
+    # Con la de desarrollo siempre salen dos críticos —`DEBUG` y las cuentas de
+    # demostración— y tienen que salir: si esa configuración se desplegara,
+    # serían críticos de verdad. Lo que no puede pasar es que alguien aprenda a
+    # ignorarlos, porque entonces tampoco los mira el día que cuentan.
+
+  @AC-PUE-021
+  Scenario: La configuración de producción no se puede aflojar sin que salte
+    When se revisa el módulo de configuración de producción
+    Then DEBUG está apagado, escrito en el archivo y no leído del entorno
+    And las cookies solo viajan por HTTPS
+    And HSTS dura al menos un año, con subdominios y precarga
+    # El verificador es la puerta, pero corre el día del despliegue. Esto cubre
+    # la mitad que vive en el repositorio, que es la que se rompe en una
+    # revisión de código un viernes.

@@ -12,6 +12,13 @@ lista se pueda verificar en vez de leerse.
 
 Devuelve código de salida 1 si hay algo crítico, para poder encadenarlo en un
 script de despliegue.
+
+**Revisa la configuración con la que se lo invoca, no la de producción.** Con
+la de desarrollo siempre saldrán al menos dos críticos —`DEBUG` encendido y las
+cuentas de demostración—, y tienen que salir: si esa configuración se
+desplegara, serían críticos de verdad. Lo que no puede pasar es que alguien
+aprenda a ignorarlos, así que cuando se lo ejecuta fuera de producción lo dice
+antes que nada y explica cómo revisar la de verdad.
 """
 
 from datetime import timedelta
@@ -35,6 +42,7 @@ class Command(BaseCommand):
     help = "Revisa lo que el sistema necesita del entorno para funcionar de verdad."
 
     def handle(self, *args, **opciones):
+        self._avisar_si_no_es_produccion()
         hallazgos = []
         hallazgos += self._revisar_configuracion()
         hallazgos += self._revisar_correo()
@@ -62,6 +70,26 @@ class Command(BaseCommand):
         if criticos:
             self.stdout.write(self.style.ERROR("\nNo despliegue sin resolver lo critico."))
             raise SystemExit(1)
+
+    def _avisar_si_no_es_produccion(self):
+        """Dice qué se está midiendo, antes de que alguien lea los resultados.
+
+        Un verificador que enseña dos críticos cada vez que se lo ejecuta en el
+        portátil de alguien es un verificador que se deja de leer, y entonces
+        tampoco sirve el día que los críticos son de verdad.
+        """
+        entorno = getattr(settings, "ENVIRONMENT_NAME", "development")
+        if entorno == "production":
+            return
+        self.stdout.write(
+            self.style.WARNING(
+                f"Revisando la configuracion de «{entorno}», no la de produccion.\n"
+                "Lo que salga aqui es lo que pasaria si ESTA configuracion se desplegara.\n"
+                "Para la puerta de despliegue:\n"
+                "  python manage.py verificar_despliegue "
+                "--settings=config.settings.production\n"
+            )
+        )
 
     # --- Configuración del entorno ---
 
