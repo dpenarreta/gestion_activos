@@ -27,6 +27,12 @@ services:
       # la acepta igual y la sigue sin entregar.
     volumes:
       - mssql_data:/var/opt/mssql
+      # El `.bak` lo escribe SQL Server en **su** sistema de archivos, no el
+      # comando: sin este montaje queda dentro del contenedor, que es el mismo
+      # sitio que la base y no protege del caso que importa —perder la máquina—.
+      # Con él, el respaldo automático deja el archivo directamente en el disco
+      # del host, junto al manifiesto y los adjuntos.
+      - ./backend/respaldos/sql:/var/opt/mssql/backup
     healthcheck:
       test:
         [

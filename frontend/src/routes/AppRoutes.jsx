@@ -18,6 +18,7 @@ import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
 import { ImportarActivosPage } from "../pages/Admin/Activos/ImportarActivosPage";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
+import { RespaldosPage } from "../pages/Admin/Configuracion/RespaldosPage";
 import { EmpresaForm } from "../pages/Admin/Empresas/EmpresaForm";
 import { EmpresasList } from "../pages/Admin/Empresas/EmpresasList";
 import { ComponentesList } from "../pages/Admin/Mantenimientos/ComponentesList";
@@ -334,6 +335,14 @@ export function AppRoutes() {
         <Route
           path="solicitudes"
           element={<Navigate to="/admin/solicitudes/mias" replace />}
+        />
+        <Route
+          path="configuracion/respaldos"
+          element={
+            <RequirePermission permission={CONFIGURACION_VER}>
+              <RespaldosPage />
+            </RequirePermission>
+          }
         />
         <Route
           path="politicas"

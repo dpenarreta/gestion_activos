@@ -1,7 +1,8 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-16 (solicitudes de compra).
+estado del sistema. Actualizado el 2026-09-17 (solicitudes de compra y
+respaldo programado).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -50,7 +51,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 19 | Notificaciones y alertas | ✅ | Las siete alertas, más el envío del resumen por correo con frecuencia configurable |
 | 22.3 | Gestión de depreciación | ✅ | Lineal, por tipo de dispositivo (`apps.politicas.depreciacion`). Valor en libros en la ficha y reporte del parque |
 | 20 | Integraciones | Parcial | Las dos de hardware —lector de código de barras y etiquetadora— están; las de software (AD, Microsoft 365, Zoho, Jira, ERP, RRHH) no. §25 las prioriza como bajas |
-| 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada (`docs/rendimiento.md`, `docs/respaldos.md`) |
+| 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada y **programables desde la aplicación** (`docs/rendimiento.md`, `docs/respaldos.md`) |
 | 22.3 | Integración con compras o proveedores | Parcial | La compra se pide y se sigue **dentro** del sistema (`apps.solicitudes`) y el catálogo de proveedores existe; el enlace con un sistema de compras externo, no |
 
 ## Lo que falta
@@ -247,6 +248,8 @@ dice sin que nadie entre a mirarlo.
   restaurar. Restauración **probada de extremo a extremo** el 2026-09-09.
 - `verificar_despliegue` avisa si no consta ningún respaldo o si el último
   tiene más de una semana.
+- El **cuándo** se decidía en el programador de tareas del servidor; desde la
+  Fase 13 se configura desde la aplicación.
 
 ### Fase 5 — los siete tiempos del activo (§10)
 
@@ -314,6 +317,38 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 13 — El respaldo se programa desde la aplicación (§21, 2026-09-17)
+
+El §21 pide respaldos automáticos y el comando existe desde la Fase 6, pero el
+**cuándo** vivía en el programador de tareas del servidor. Eso lo dejaba fuera
+del alcance de quien decide cada cuánto hay que respaldar: cambiar «semanal» por
+«diaria» necesitaba un administrador de servidores, así que en la práctica no se
+cambiaba nunca.
+
+Ahora la política se configura en *Configuración → Respaldos* —encendido o
+apagado, diaria o semanal y qué día, a partir de qué hora, en qué carpeta y
+cuántos conservar— y la tarea del sistema corre **cada hora, siempre igual**:
+`respaldar --si-toca` es quien decide. Es el mismo reparto que el resumen de
+alertas, donde la frecuencia ya vivía en la aplicación.
+
+Que corra cada hora es lo que hace configurable la hora, y obliga a defenderse
+de repetir: la marca del último respaldo deja uno por día aunque la tarea pase
+veinticuatro veces, y un respaldo lanzado **a mano no cuenta** como el
+programado, para que probar el comando un martes no salte el del miércoles. La
+retención retira los más viejos al escribir uno nuevo, porque un disco lleno
+hace fallar el respaldo justo cuando más falta hace. La pantalla dice cuándo fue
+el último y cuándo será el próximo —o que está apagado, en vez de anunciar un
+próximo que no va a ocurrir— y cada cambio de la política queda auditado.
+
+Con la base en Docker, el `.bak` lo escribe SQL Server en **su** sistema de
+archivos. Sin el montaje que ahora añade el `docker-compose.yml`, el respaldo
+automático funcionaba y dejaba la mitad importante dentro del contenedor: el
+mismo sitio que la base, que no protege del caso que de verdad importa, perder
+la máquina. Y queda lo que tampoco es código: que esa carpeta se copie fuera de
+esta máquina (anotado en `docs/security-review.md`).
+
+Siete criterios (AC-BAK-009 a AC-BAK-015) en `respaldos.feature` y en la matriz.
 
 ### Fase 12 — Solicitudes de compra (§22.3, 2026-09-16)
 

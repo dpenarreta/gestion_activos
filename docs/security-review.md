@@ -181,6 +181,12 @@ producción no levanta ningún aviso de la familia `security.*`.
   el parque de demostración entero: los 21 activos, sus mantenimientos,
   adjuntos, movimientos y empleados. Por eso no se hizo mientras el sistema está
   en pruebas.
+- ~~**Programar el respaldo.**~~ Hecho el 17 de septiembre: la tarea
+  `GestionActivos-Respaldo` corre cada hora y respalda cuando lo dice la
+  política configurada en *Configuración → Respaldos*; el `.bak` ya sale del
+  contenedor al disco del host. **Queda lo que de verdad protege**: que esa
+  carpeta se copie fuera de esta máquina. Un respaldo que vive junto a lo que
+  protege no protege de perderla.
 
 ## Limitaciones conocidas (no ocultas)
 

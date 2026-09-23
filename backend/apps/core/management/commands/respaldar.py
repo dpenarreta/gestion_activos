@@ -91,8 +91,28 @@ class Command(BaseCommand):
             action="store_true",
             help="Omite la base de datos. Para cuando el .bak lo gestiona el DBA.",
         )
+        parser.add_argument(
+            "--si-toca",
+            action="store_true",
+            help=(
+                "Respalda solo si la politica configurada dice que corresponde "
+                "ahora. Es lo que ejecuta la tarea programada, cada hora: la "
+                "frecuencia se decide en la aplicacion, no en el programador."
+            ),
+        )
 
     def handle(self, *args, **opciones):
+        politica = None
+        if opciones["si_toca"]:
+            politica = self._politica_si_toca()
+            if politica is None:
+                return
+            # Lo configurado manda sobre el valor por defecto del argumento:
+            # quien programo la tarea no tiene por que saber donde quiere la
+            # carpeta quien administra el sistema.
+            if opciones["destino"] == "respaldos":
+                opciones["destino"] = politica.destino
+
         marca = timezone.localtime().strftime("%Y%m%d-%H%M")
         destino = Path(opciones["destino"]).resolve()
         destino.mkdir(parents=True, exist_ok=True)
@@ -113,6 +133,11 @@ class Command(BaseCommand):
             json.dumps(manifiesto, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
+        if politica is not None:
+            politica.ultimo_respaldo = timezone.localdate()
+            politica.save(update_fields=["ultimo_respaldo"])
+            self._retirar_los_viejos(destino, politica.conservar)
+
         self.stdout.write(self.style.SUCCESS(f"\nRespaldo {marca} completado."))
         self.stdout.write(f"  Manifiesto: {ruta_manifiesto}")
         self.stdout.write(
@@ -120,6 +145,53 @@ class Command(BaseCommand):
             "un respaldo que nunca se restauro no es un respaldo "
             "(ver docs/respaldos.md)."
         )
+
+    # --- Respaldo programado ---
+
+    def _politica_si_toca(self):
+        """La politica vigente si corresponde respaldar ahora; `None` si no.
+
+        Escribe por que no toca en vez de callar: la tarea corre cada hora y su
+        salida es lo unico que alguien mirara el dia que pregunte por que no hay
+        respaldos.
+        """
+        from apps.core.models import PoliticaDeRespaldo
+
+        politica = PoliticaDeRespaldo.vigente()
+        ahora = timezone.localtime()
+
+        if politica.toca_respaldar(ahora):
+            return politica
+
+        if not politica.activo:
+            self.stdout.write("El respaldo automatico esta apagado: no se hace nada.")
+        elif politica.ultimo_respaldo == ahora.date():
+            self.stdout.write(f"Ya hay respaldo de hoy ({politica.ultimo_respaldo}).")
+        elif ahora.time() < politica.hora:
+            self.stdout.write(f"Todavia no es la hora configurada ({politica.hora:%H:%M}).")
+        else:
+            self.stdout.write("Hoy no toca segun la frecuencia configurada.")
+        return None
+
+    def _retirar_los_viejos(self, destino: Path, conservar: int) -> None:
+        """Deja solo los ultimos `conservar` respaldos de la carpeta.
+
+        Sin esto el disco se llena, y el respaldo empieza a fallar justo cuando
+        mas falta hace. Se cuentan por manifiesto —uno por respaldo— y se
+        retiran sus archivos hermanos, los que comparten su marca de tiempo.
+
+        No toca el `.bak` que escribio SQL Server en su propio sistema de
+        archivos: ese no lo puso este comando, y borrar ahi desde aqui seria
+        adivinar que mas hay en esa carpeta.
+        """
+        manifiestos = sorted(destino.glob("manifiesto-*.json"))
+        sobran = manifiestos[:-conservar] if conservar else []
+        for manifiesto in sobran:
+            marca = manifiesto.stem.removeprefix("manifiesto-")
+            for archivo in destino.glob(f"*{marca}*"):
+                archivo.unlink(missing_ok=True)
+        if sobran:
+            self.stdout.write(f"  Retirados {len(sobran)} respaldo(s) antiguos.")
 
     # --- Base de datos ---
 

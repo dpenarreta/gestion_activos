@@ -63,9 +63,57 @@ directamente a `--destino`.
 
 ## Programarlo
 
-```cron
-0 2 * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --destino /respaldos
+**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*: si
+está encendido, cada cuánto (diario o semanal, y qué día), a partir de qué hora,
+en qué carpeta y cuántos conservar. La tarea del sistema corre **cada hora,
+siempre igual**, y el comando decide si toca.
+
+Está así por lo mismo que la frecuencia del resumen de alertas: el programador
+de tareas es infraestructura, y quien decide cada cuánto hay que respaldar no
+tiene acceso a él. Cambiar «semanal» por «diaria» no debería necesitar un
+administrador de servidores.
+
+```bash
+# Lo que ejecuta la tarea. Sin --si-toca respalda siempre, que es lo que se
+# quiere al lanzarlo a mano.
+python manage.py respaldar --si-toca
 ```
+
+En Windows la tarea se registra una vez, con repetición horaria:
+
+```powershell
+$py = 'C:\ruta\backend\.venv\Scripts\python.exe'
+$accion = New-ScheduledTaskAction -Execute $py -Argument 'manage.py respaldar --si-toca' -WorkingDirectory 'C:\ruta\backend'
+$disparo = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Hours 1)
+Register-ScheduledTask -TaskName 'GestionActivos-Respaldo' -Action $accion -Trigger $disparo -Force
+```
+
+En Linux, el equivalente es una línea de cron **horaria**, no diaria:
+
+```cron
+0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
+```
+
+Que corra cada hora y no una vez al día es lo que hace que la hora sea
+configurable desde la aplicación. Dos cosas la protegen de repetirse: la marca
+del último respaldo —uno por día, aunque la tarea pase veinticuatro veces— y que
+un respaldo lanzado **a mano** no cuenta como el programado, para que probar el
+comando un martes no salte el del miércoles.
+
+### Que el `.bak` salga del contenedor
+
+Con la base en Docker, SQL Server escribe el `.bak` dentro del contenedor. Para
+que el respaldo automático lo deje en el disco del host, el `docker-compose.yml`
+monta la carpeta:
+
+```yaml
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./backend/respaldos/sql:/var/opt/mssql/backup
+```
+
+Sin ese montaje el respaldo automático funciona, pero deja la mitad importante
+donde no protege: en el mismo sitio que la base.
 
 `verificar_despliegue` avisa si no consta ningún respaldo o si el último tiene
 más de una semana.

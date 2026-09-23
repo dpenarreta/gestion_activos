@@ -2,6 +2,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 from apps.branding.views import CurrentThemeView
+from apps.core.respaldos_views import PoliticaDeRespaldoView
 from apps.core.version_views import version_info
 
 urlpatterns = [
@@ -32,6 +33,8 @@ urlpatterns = [
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---
     path("catalogos/", include("apps.core.catalogos_urls")),
+    # --- Cuándo se respalda solo ---
+    path("configuracion/respaldos/", PoliticaDeRespaldoView.as_view(), name="respaldos-politica"),
     # --- Catálogos organizacionales: departamentos y empleados ---
     path("organizacion/", include("apps.organizacion.urls")),
     # --- Bitácora de mantenimientos (RF-04, RF-05) ---

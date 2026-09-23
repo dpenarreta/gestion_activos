@@ -1,4 +1,7 @@
+import datetime
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -81,3 +84,106 @@ class AuditLog(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.action} sobre {self.target_type}:{self.target_id}"
+
+
+class PoliticaDeRespaldo(models.Model):
+    """Cuándo se respalda solo, y dónde queda.
+
+    **La frecuencia vive aquí y no en el programador de tareas**, por lo mismo
+    que la del resumen de alertas: el programador es infraestructura —quien
+    decide cada cuánto hay que respaldar no tiene acceso a él, y cambiar
+    «semanal» por «diaria» no debería necesitar un administrador de servidores—.
+    La tarea del sistema corre cada hora, siempre igual, y esto decide si toca.
+
+    Es una sola fila para todo el despliegue, no una por empresa: lo que se
+    respalda es la base entera, y una base no se puede respaldar «solo la parte
+    de LaarCourier».
+    """
+
+    class Frecuencia(models.TextChoices):
+        DIARIA = "diaria", "Diaria"
+        SEMANAL = "semanal", "Semanal"
+
+    activo = models.BooleanField(
+        default=False,
+        help_text="Si el respaldo automático está encendido.",
+    )
+    frecuencia = models.CharField(
+        max_length=10, choices=Frecuencia.choices, default=Frecuencia.DIARIA
+    )
+    #: `weekday()` de Python: lunes es 0. El número y no el nombre, para no
+    #: depender del idioma con el que se configuró el sistema.
+    dia_semanal = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Día de la semana, cuando la frecuencia es semanal (0 = lunes).",
+    )
+    hora = models.TimeField(
+        default=datetime.time(2, 0),
+        help_text=(
+            "A partir de qué hora del día se respalda. De madrugada, mientras "
+            "nadie trabaja: un respaldo es lento y bloquea."
+        ),
+    )
+    destino = models.CharField(
+        max_length=255,
+        default="respaldos",
+        help_text=(
+            "Carpeta donde se guardan los adjuntos y el manifiesto. Conviene "
+            "que esté fuera de esta máquina: un respaldo que vive junto a lo "
+            "que protege no protege de perderla."
+        ),
+    )
+    conservar = models.PositiveSmallIntegerField(
+        default=14,
+        help_text=(
+            "Cuántos respaldos se guardan. Los más viejos se borran al hacer "
+            "uno nuevo: sin esto, el disco se llena y el respaldo empieza a "
+            "fallar justo cuando más falta hace."
+        ),
+    )
+    #: La fecha del último respaldo **automático**. Uno hecho a mano no cuenta
+    #: aquí: si contara, lanzar uno de prueba un martes saltaría el programado
+    #: del miércoles sin que nadie lo notara.
+    ultimo_respaldo = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "política de respaldo"
+        verbose_name_plural = "política de respaldo"
+
+    def __str__(self) -> str:
+        if not self.activo:
+            return "Respaldo automático apagado"
+        return f"Respaldo {self.get_frecuencia_display().lower()} a las {self.hora:%H:%M}"
+
+    @classmethod
+    def vigente(cls):
+        """La única fila, creándola con los valores por defecto si no existe."""
+        politica = cls.objects.first()
+        if politica is None:
+            politica = cls.objects.create()
+        return politica
+
+    def clean(self):
+        if self.conservar < 1:
+            raise ValidationError(
+                {"conservar": "Hay que conservar al menos uno: cero sería no respaldar."}
+            )
+        if not 0 <= self.dia_semanal <= 6:
+            raise ValidationError({"dia_semanal": "El día va de 0 (lunes) a 6 (domingo)."})
+
+    def toca_respaldar(self, ahora) -> bool:
+        """Si corresponde respaldar en este momento.
+
+        Tres condiciones, y las tres importan: que esté encendido, que hoy sea
+        el día y que ya haya pasado la hora. Lo que evita el respaldo repetido
+        no es el reloj sino `ultimo_respaldo`: la tarea corre cada hora, y sin
+        esa marca haría uno por hora desde las dos de la mañana.
+        """
+        if not self.activo:
+            return False
+        hoy = ahora.date()
+        if self.ultimo_respaldo == hoy:
+            return False
+        if self.frecuencia == self.Frecuencia.SEMANAL and hoy.weekday() != self.dia_semanal:
+            return False
+        return ahora.time() >= self.hora

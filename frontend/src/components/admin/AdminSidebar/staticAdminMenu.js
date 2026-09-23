@@ -198,6 +198,15 @@ export const ADMIN_MENU = [
         icon: "circle-half",
         path: "/admin/configuracion/apariencia",
       },
+      {
+        // Aquí y no en un grupo propio: es configuración del sistema, se toca
+        // una vez al montarlo y se vuelve cuando alguien pregunta de cuándo se
+        // puede volver.
+        id: "configuracion-respaldos",
+        name: "Respaldos",
+        icon: "shield-check",
+        path: "/admin/configuracion/respaldos",
+      },
       // Al final y como grupo propio, no disuelto entre los de arriba: sus seis
       // catálogos son lo que más se abre de esta sección, y sueltos dejarían
       // «Identidad» y «Apariencia» perdidas en una lista de diez. Los cuatro

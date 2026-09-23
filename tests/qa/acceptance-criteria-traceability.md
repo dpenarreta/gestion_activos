@@ -385,6 +385,13 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-BAK-002 | No informa lo que no se escribió | respaldos.feature | Un respaldo que no se escribió no se informa como correcto | Sí (pytest) |
 | AC-BAK-003 | Verificación de integridad | respaldos.feature | El respaldo se verifica antes de darlo por bueno | Sí (verificado contra SQL Server real) |
 | AC-BAK-004 | Manifiesto del contenido | respaldos.feature | Cada respaldo lleva un manifiesto de lo que contenía | Sí (pytest) |
+| AC-BAK-009 | El cuándo se configura en la aplicación | respaldos.feature | El cuándo se decide en la aplicación, no en el servidor | Sí (pytest: `test_la_politica_se_lee_y_se_corrige`, `test_semanal_solo_su_dia`; Vitest: `guarda la frecuencia, la hora y la carpeta`) |
+| AC-BAK-010 | Solo cuando toca | respaldos.feature | Solo respalda cuando toca | Sí (pytest: `test_diaria_toca_pasada_la_hora`, `test_no_se_repite_el_mismo_dia`, `test_si_toca_dice_por_que_no_toca`, `test_cuando_toca_respalda_y_lo_anota`) |
+| AC-BAK-011 | Apagado no respalda | respaldos.feature | Apagado no respalda nada | Sí (pytest: `test_apagado_no_toca_nunca`, `test_si_toca_no_hace_nada_con_el_respaldo_apagado`; Vitest: `apagado, lo dice en vez de anunciar un próximo que no ocurrirá`) |
+| AC-BAK-012 | Retención | respaldos.feature | Los respaldos viejos se retiran | Sí (pytest: `test_se_retiran_los_respaldos_viejos`) |
+| AC-BAK-013 | A mano no cuenta | respaldos.feature | Un respaldo a mano no cuenta como el programado | Sí (pytest: `test_a_mano_no_cuenta_como_el_programado`) |
+| AC-BAK-014 | Último y próximo a la vista | respaldos.feature | La pantalla dice cuándo fue el último y cuándo es el próximo | Sí (pytest: `test_la_pantalla_dice_cuando_sera_el_proximo`; Vitest: `muestra cuándo fue el último y cuándo toca el próximo`) |
+| AC-BAK-015 | La política queda auditada | respaldos.feature | Cambiar la política queda auditado | Sí (pytest: `test_el_cambio_queda_auditado`) |
 | AC-BAK-005 | Detecta restauración incompleta | respaldos.feature | La comparación detecta una restauración incompleta | Sí (pytest) |
 | AC-BAK-006 | Ruta validada | respaldos.feature | La ruta del respaldo se valida antes de usarla | Sí (pytest) |
 | AC-BAK-007 | Avisa si no hay respaldos | respaldos.feature | La revisión de despliegue avisa si no hay respaldos | Sí (pytest) |
