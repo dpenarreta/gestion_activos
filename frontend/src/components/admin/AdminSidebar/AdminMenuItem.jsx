@@ -15,7 +15,9 @@ export function AdminMenuItem({ item, isCollapsed, currentPath, onNavigate }) {
         title={isCollapsed ? item.name : undefined}
       >
         <Icon name={item.icon} className="admin-sidebar__icon" />
-        {!isCollapsed && <span className="admin-sidebar__label">{item.name}</span>}
+        {!isCollapsed && (
+          <span className="admin-sidebar__label">{item.name}</span>
+        )}
       </Link>
     </li>
   );

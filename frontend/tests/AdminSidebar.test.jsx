@@ -93,6 +93,60 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     expect(screen.queryByText("Reportes")).not.toBeInTheDocument();
   });
 
+  it("Organización cuelga de Configuración, con sus catálogos dentro", () => {
+    /* Tres niveles: Configuración → Organización → Sedes. El grupo no se
+       disuelve entre los otros cuatro, que se quedan donde estaban. */
+    permisos.lista = ["configuracion.ver", "organizacion.ver"];
+
+    pintar();
+
+    const configuracion = screen
+      .getByRole("button", { name: /Configuración/ })
+      .closest("li");
+    const organizacion = within(configuracion).getByRole("button", {
+      name: /Organización/,
+    });
+    expect(organizacion).toBeInTheDocument();
+    expect(
+      within(organizacion.closest("li")).getByText("Sedes"),
+    ).toBeInTheDocument();
+    // Y los que ya estaban siguen colgando de Configuración, no de dentro del
+    // grupo nuevo.
+    expect(within(configuracion).getByText("Identidad")).toBeInTheDocument();
+    expect(
+      within(organizacion.closest("li")).queryByText("Identidad"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("los catálogos se filtran por su permiso, no por el del abuelo", () => {
+    /* Antes el filtro solo miraba un nivel: los seis catálogos habrían
+       heredado `configuracion.ver` y se los habría visto quien solo cambia los
+       colores del sitio. */
+    permisos.lista = ["configuracion.ver"];
+
+    pintar();
+
+    expect(screen.getByText("Identidad")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Organización/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Sedes")).not.toBeInTheDocument();
+  });
+
+  it("quien solo administra catálogos entra por Configuración", () => {
+    permisos.lista = ["organizacion.ver"];
+
+    pintar();
+
+    const configuracion = screen
+      .getByRole("button", { name: /Configuración/ })
+      .closest("li");
+    expect(
+      within(configuracion).getByRole("button", { name: /Organización/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Identidad")).not.toBeInTheDocument();
+  });
+
   it("un hijo con su propio permiso se filtra aparte del grupo", () => {
     /* «Empresas» cuelga de Configuración pero exige `empresas.ver`: quien
        administra la marca del sitio no tiene por qué crear organizaciones. */
@@ -151,6 +205,21 @@ describe("El menú dice dónde se está", () => {
 
     fireEvent.click(grupo);
     expect(grupo).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("una pantalla de tercer nivel abre los dos grupos que la contienen", () => {
+    /* Llegar por un enlace a «Sedes» y encontrar el menú cerrado obliga a
+       adivinar de dónde cuelga lo que se está mirando. */
+    permisos.lista = ["configuracion.ver", "organizacion.ver"];
+
+    pintar({ ruta: "/admin/organizacion/sedes" });
+
+    expect(
+      screen.getByRole("button", { name: /Configuración/ }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("button", { name: /Organización/ }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   it("el grupo de la pantalla actual llega abierto", () => {

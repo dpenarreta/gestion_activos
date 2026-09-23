@@ -109,55 +109,6 @@ export const ADMIN_MENU = [
     permission: "reportes.ver",
   },
   {
-    id: "organizacion",
-    name: "Organización",
-    icon: "diagram-3",
-    permission: "organizacion.ver",
-    children: [
-      {
-        id: "organizacion-departamentos",
-        name: "Departamentos",
-        icon: "building",
-        path: "/admin/organizacion/departamentos",
-      },
-      {
-        id: "organizacion-sedes",
-        name: "Sedes",
-        icon: "buildings",
-        path: "/admin/organizacion/sedes",
-      },
-      {
-        id: "organizacion-proveedores",
-        name: "Proveedores",
-        icon: "truck",
-        path: "/admin/organizacion/proveedores",
-      },
-      {
-        // Justo debajo de proveedores porque es la distinción que hay que ver
-        // al lado: al proveedor se le compró el equipo, y el concesionario es
-        // su dueño.
-        id: "organizacion-concesionarios",
-        name: "Concesionarios",
-        icon: "box-seam",
-        path: "/admin/organizacion/concesionarios",
-      },
-      {
-        id: "organizacion-empleados",
-        name: "Empleados",
-        icon: "person-badge",
-        path: "/admin/organizacion/empleados",
-      },
-      {
-        // Al final del grupo: se usa una vez al arrancar y de vez en cuando,
-        // no todos los días como los catálogos de arriba.
-        id: "organizacion-carga",
-        name: "Carga de catálogos",
-        icon: "file-earmark-arrow-up",
-        path: "/admin/catalogos/carga",
-      },
-    ],
-  },
-  {
     // Usuarios y roles son un mismo asunto —quién entra y qué puede hacer—,
     // y se consultan juntos: al revisar por qué alguien no ve una pantalla,
     // se salta de su ficha al rol y viceversa. El catálogo de permisos no es
@@ -215,6 +166,59 @@ export const ADMIN_MENU = [
         icon: "circle-half",
         path: "/admin/configuracion/apariencia",
       },
+      // Al final y como grupo propio, no disuelto entre los de arriba: sus seis
+      // catálogos son lo que más se abre de esta sección, y sueltos dejarían
+      // «Identidad» y «Apariencia» perdidas en una lista de diez. Los cuatro
+      // que ya estaban se quedan donde estaban.
+      {
+        id: "organizacion",
+        name: "Organización",
+        icon: "diagram-3",
+        permission: "organizacion.ver",
+        children: [
+          {
+            id: "organizacion-departamentos",
+            name: "Departamentos",
+            icon: "building",
+            path: "/admin/organizacion/departamentos",
+          },
+          {
+            id: "organizacion-sedes",
+            name: "Sedes",
+            icon: "buildings",
+            path: "/admin/organizacion/sedes",
+          },
+          {
+            id: "organizacion-proveedores",
+            name: "Proveedores",
+            icon: "truck",
+            path: "/admin/organizacion/proveedores",
+          },
+          {
+            // Justo debajo de proveedores porque es la distinción que hay que ver
+            // al lado: al proveedor se le compró el equipo, y el concesionario es
+            // su dueño.
+            id: "organizacion-concesionarios",
+            name: "Concesionarios",
+            icon: "box-seam",
+            path: "/admin/organizacion/concesionarios",
+          },
+          {
+            id: "organizacion-empleados",
+            name: "Empleados",
+            icon: "person-badge",
+            path: "/admin/organizacion/empleados",
+          },
+          {
+            // Al final del grupo: se usa una vez al arrancar y de vez en cuando,
+            // no todos los días como los catálogos de arriba.
+            id: "organizacion-carga",
+            name: "Carga de catálogos",
+            icon: "file-earmark-arrow-up",
+            path: "/admin/catalogos/carga",
+          },
+        ],
+      },
     ],
   },
 ];
@@ -229,16 +233,20 @@ function esVisible(permission, permissions) {
  * grupo se muestra si le queda algún hijo visible: «Configuración» tiene que
  * aparecer para quien solo administra empresas, aunque no pueda tocar la
  * identidad institucional.
+ *
+ * Baja por todo el árbol y no solo un nivel: con «Organización» colgando de
+ * «Configuración», mirar únicamente a los hijos directos dejaría los seis
+ * catálogos sin filtrar —heredando el permiso del abuelo— y se los enseñaría a
+ * quien solo puede cambiar los colores del sitio.
  */
-function filterByPermission(items, permissions) {
+function filterByPermission(items, permissions, heredado = undefined) {
   return items
     .map((item) => {
+      const propio = item.permission ?? heredado;
       if (!item.children) {
-        return esVisible(item.permission, permissions) ? item : null;
+        return esVisible(propio, permissions) ? item : null;
       }
-      const children = item.children.filter((child) =>
-        esVisible(child.permission ?? item.permission, permissions),
-      );
+      const children = filterByPermission(item.children, permissions, propio);
       return children.length > 0 ? { ...item, children } : null;
     })
     .filter(Boolean);

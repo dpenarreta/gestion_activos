@@ -32,17 +32,34 @@ function findActivePathExpandIds(nodes, currentPath, pathSoFar = []) {
   return null;
 }
 
-function readStoredExpandedIds() {
+/**
+ * De lo guardado, la rama que de verdad puede estar abierta a la vez.
+ *
+ * En modo exclusivo lo que se abre es **un camino**, no un solo grupo: con tres
+ * niveles, «Configuración» y su «Organización» están abiertos los dos y eso es
+ * correcto. Lo que no puede volver son dos hermanos —una sesión antigua pudo
+ * guardarlos, porque el arranque los sumaba—, así que se conserva el primero de
+ * cada nivel y se sigue bajando por él.
+ */
+function soloUnaRama(nodos, guardados) {
+  for (const nodo of nodos) {
+    const hijos = nodo.children || [];
+    if (hijos.length === 0 || !guardados.includes(nodo.id)) {
+      continue;
+    }
+    return [nodo.id, ...soloUnaRama(hijos, guardados)];
+  }
+  return [];
+}
+
+function readStoredExpandedIds(tree) {
   try {
     const raw = sessionStorage.getItem(ACCORDION_SESSION_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) {
       return [];
     }
-    // En modo exclusivo solo puede haber uno abierto. Una sesión anterior pudo
-    // guardar varios —el arranque los sumaba—, y restaurarlos devolvería el
-    // menú con dos grupos desplegados sin que nadie los abriera.
-    return ACCORDION_MODE === "exclusive" ? parsed.slice(0, 1) : parsed;
+    return ACCORDION_MODE === "exclusive" ? soloUnaRama(tree, parsed) : parsed;
   } catch {
     return [];
   }
@@ -50,10 +67,10 @@ function readStoredExpandedIds() {
 
 /** Motor de expandir/colapsar del Menú Administrativo — reutilizado en
  * cualquier nivel del árbol. No vive en Context: la profundidad acotada
- * (2 niveles) del menú de esta base no lo justifica. */
+ * (3 niveles) del menú de esta base no lo justifica. */
 export function useMenuAccordion(tree, currentPath) {
   const [expandedIds, setExpandedIds] = useState(
-    () => new Set(readStoredExpandedIds()),
+    () => new Set(readStoredExpandedIds(tree)),
   );
   const previousActiveIdRef = useRef(null);
 

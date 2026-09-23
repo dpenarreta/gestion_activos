@@ -118,11 +118,24 @@
 }
 
 .admin-sidebar__sublist-wrapper--expanded {
-  max-height: 20rem;
+  /* Da para el grupo más largo con su subgrupo abierto —«Configuración» son
+     cuatro entradas más los seis catálogos de «Organización»—. Es un tope y no
+     una altura: `max-height` solo tiene que ser mayor que el contenido, porque
+     lo que recorta de más no se ve pero sí se pierde, y ahí desaparecerían las
+     últimas opciones sin ningún aviso. */
+  max-height: 40rem;
 }
 
-.admin-sidebar__sublist .admin-sidebar__link {
+.admin-sidebar__sublist .admin-sidebar__link,
+.admin-sidebar__sublist .admin-sidebar__group-label {
   padding-left: 2.5rem;
+}
+
+/* El tercer nivel se sangra otro escalón: sin esto, los seis catálogos de
+   «Organización» se leerían como hermanos de «Identidad» en vez de como lo que
+   son, y el grupo que los contiene no se distinguiría de una entrada más. */
+.admin-sidebar__sublist .admin-sidebar__sublist .admin-sidebar__link {
+  padding-left: 3.75rem;
 }
 
 .admin-layout--collapsed .admin-sidebar__label,
