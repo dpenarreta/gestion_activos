@@ -1,0 +1,82 @@
+/*
+ * Solicitudes de compra.
+ *
+ * Las tres pantallas —lo que pedí, lo que me toca y el formulario— comparten
+ * hoja: son el mismo objeto visto desde distintos lados, y que el estado se
+ * lea igual en las tres es justamente lo que evita tener que traducirlo.
+ */
+
+.solicitudes-page .estado {
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+/* Los colores dicen en qué punto está, no si es buena o mala noticia: la
+   entregada se apaga porque ya no hay nada que hacer con ella, y la pendiente
+   resalta porque espera a alguien. */
+.solicitudes-page .estado--pendiente {
+  background-color: var(--bs-warning, #ffc107);
+  color: #212529;
+}
+
+.solicitudes-page .estado--en_gestion {
+  background-color: var(--bs-info, #0dcaf0);
+  color: #212529;
+}
+
+.solicitudes-page .estado--comprada {
+  background-color: var(--bs-primary, #0d6efd);
+  color: #fff;
+}
+
+.solicitudes-page .estado--entregada {
+  background-color: var(--bs-success, #198754);
+  color: #fff;
+}
+
+.solicitudes-page .estado--rechazada {
+  background-color: var(--bs-danger, #dc3545);
+  color: #fff;
+}
+
+.solicitudes-page .estado--cancelada {
+  background-color: var(--bs-secondary, #6c757d);
+  color: #fff;
+}
+
+.solicitudes-page .prioridad--alta {
+  font-weight: 600;
+  color: var(--bs-danger, #dc3545);
+}
+
+/* El recorrido se lee de arriba abajo, como ocurrió. */
+.solicitudes-recorrido {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border-color, #dee2e6);
+}
+
+.solicitudes-recorrido li {
+  position: relative;
+  padding: 0 0 1rem 1.25rem;
+}
+
+.solicitudes-recorrido li::before {
+  content: "";
+  position: absolute;
+  left: -0.4rem;
+  top: 0.35rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background-color: var(--border-color, #dee2e6);
+}
+
+.solicitudes-recorrido li:last-child::before {
+  background-color: var(--bs-primary, #0d6efd);
+}
+
+.solicitudes-recorrido .nota {
+  white-space: pre-wrap;
+}

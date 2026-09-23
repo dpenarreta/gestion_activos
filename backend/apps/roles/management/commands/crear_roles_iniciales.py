@@ -64,6 +64,12 @@ ROLES = {
             "politicas.ver",
             "alertas.ver",
             "reportes.ver",
+            "solicitudes.ver",
+            "solicitudes.crear",
+            # Es a quien se le asignan las compras: sin esto, la bandeja de
+            # «Solicitudes recibidas» no la podría atender nadie salvo el
+            # administrador.
+            "solicitudes.gestionar",
         ],
     },
     "Supervisor TI": {
@@ -86,6 +92,11 @@ ROLES = {
             "reportes.ver",
             "reportes.exportar",
             "auditoria.ver",
+            "solicitudes.ver",
+            "solicitudes.crear",
+            # Ve y mueve las de todos, no solo las suyas: es quien tiene que
+            # notar que una lleva tres semanas parada en la bandeja de alguien.
+            "solicitudes.administrar",
         ],
     },
     "Consulta / Auditoría": {
@@ -110,11 +121,20 @@ ROLES = {
     },
     "Usuario final": {
         "descripcion": "Consulta los equipos que tiene a su cargo. Nada más.",
-        # Un solo permiso, y ahí está el punto: `activos.ver_asignados` muestra
-        # los equipos de quien pregunta, no el inventario. Con `activos.ver`
-        # —el que parece el equivalente— vería el parque entero, los custodios
-        # de todos y los costos, que es lo contrario de lo que el §13 concede.
-        "permisos": ["activos.ver_asignados"],
+        # `activos.ver_asignados` muestra los equipos de quien pregunta, no el
+        # inventario. Con `activos.ver` —el que parece el equivalente— vería el
+        # parque entero, los custodios de todos y los costos, que es lo
+        # contrario de lo que el §13 concede.
+        #
+        # Pedir sí es suyo: quien necesita una laptop es él, y dejar la
+        # solicitud solo en manos de soporte devolvería el pedido al correo,
+        # que es de donde este módulo lo saca. `solicitudes.ver` le enseña las
+        # propias y ninguna ajena.
+        "permisos": [
+            "activos.ver_asignados",
+            "solicitudes.ver",
+            "solicitudes.crear",
+        ],
     },
 }
 

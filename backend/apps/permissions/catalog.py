@@ -100,6 +100,27 @@ PERMISSION_CATALOG = {
             "mantenimientos.exportar": "Exportar la bitácora de mantenimientos a Excel",
         },
     },
+    "solicitudes": {
+        "label": "Solicitudes de compra",
+        "description": (
+            "Peticiones de dispositivos y componentes que todavía no existen. "
+            "Pedir y gestionar se separan a propósito: cualquiera que trabaje "
+            "con equipos debería poder pedir uno, y decidir si se compra es "
+            "otro oficio. Gestionar habilita a mover **las asignadas a uno**; "
+            "administrar, las de todos."
+        ),
+        "permissions": {
+            "solicitudes.ver": "Ver las solicitudes propias y las asignadas",
+            "solicitudes.crear": "Realizar solicitudes de compra",
+            "solicitudes.gestionar": (
+                "Gestionar las solicitudes asignadas a uno: tomarlas, comprarlas, "
+                "entregarlas o rechazarlas"
+            ),
+            "solicitudes.administrar": (
+                "Ver y gestionar las solicitudes de todos, no solo las propias"
+            ),
+        },
+    },
     "politicas": {
         "label": "Políticas de renovación",
         "description": "Umbrales de obsolescencia que disparan la sugerencia de cambio.",

@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-15 (características por tipo).
+estado del sistema. Actualizado el 2026-09-16 (solicitudes de compra).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -22,6 +22,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | Adjuntos y actas | Implementado |
 | Notificaciones por correo | Implementado |
 | Catálogos (sedes, áreas, proveedores, empleados) | Implementado, administrables desde la aplicación |
+| Solicitudes de compra | Implementado: se pide dentro del sistema, con bandeja y recorrido auditado |
 | Integraciones (§20) | Solo las de hardware: lector y etiquetadora |
 
 ## Sección por sección
@@ -50,6 +51,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 22.3 | Gestión de depreciación | ✅ | Lineal, por tipo de dispositivo (`apps.politicas.depreciacion`). Valor en libros en la ficha y reporte del parque |
 | 20 | Integraciones | Parcial | Las dos de hardware —lector de código de barras y etiquetadora— están; las de software (AD, Microsoft 365, Zoho, Jira, ERP, RRHH) no. §25 las prioriza como bajas |
 | 21 | No funcionales | ✅ | Rendimiento medido con 10.000 activos y respaldos con restauración verificada (`docs/rendimiento.md`, `docs/respaldos.md`) |
+| 22.3 | Integración con compras o proveedores | Parcial | La compra se pide y se sigue **dentro** del sistema (`apps.solicitudes`) y el catálogo de proveedores existe; el enlace con un sistema de compras externo, no |
 
 ## Lo que falta
 
@@ -66,9 +68,10 @@ lo que el inventario físico necesita del teléfono ya estaba hecho—.
 
 De la Fase 3 sí están hechas la **predicción de reemplazo por cantidad de
 fallas** —umbral de mantenimientos con ventana móvil—, los **costos acumulados
-por activo**, la **gestión de depreciación** y el lado de **proveedores** de
-«integración con compras o proveedores»: existe el catálogo, no el enlace con
-un sistema de compras.
+por activo** y la **gestión de depreciación**. De «integración con compras o
+proveedores» están las dos mitades internas —el catálogo de proveedores y, desde
+la Fase 12, las solicitudes de compra—: lo que no está es el enlace con un
+sistema de compras externo, que es lo que el punto pedía.
 
 Pendiente de medición, no de código: repetir la **concurrencia** contra el
 stack de producción (Gunicorn); las cifras actuales se tomaron con el servidor
@@ -311,6 +314,51 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 12 — Solicitudes de compra (§22.3, 2026-09-16)
+
+El inventario responde qué hay; faltaba dónde responder **qué falta**. Una
+laptop pedida por correo no está en ninguna parte hasta que llega: nadie podía
+decir cuántas se habían pedido, quién las pidió ni en qué punto estaban, y
+cuando alguien preguntaba, la respuesta salía de la memoria de quien compra.
+
+Una solicitud **nace con encargado** —quien pide elige a quién le llega—, y eso
+es lo que hace de «Solicitudes recibidas» una lista de tareas y no una bandeja
+común donde todos suponen que la está mirando otro. Las dos pantallas son la
+misma lista desde los dos lados: lo que pedí y lo que me toca gestionar.
+
+Lo que se pide sale del catálogo —un tipo de dispositivo o un componente— y,
+cuando el tipo declara características, **se pide con ellas**: «una laptop» y
+«una laptop con 32 GB y disco NVMe» son dos compras distintas, y la diferencia
+se perdía dentro de la justificación escrita a mano, donde no se puede filtrar
+ni comparar con lo que acabó comprándose. Se guardan bajo el nombre declarado,
+el mismo de la ficha del activo, así que lo pedido y lo entregado se leen con el
+mismo vocabulario. También se puede escribir lo que el catálogo no tiene:
+exigirlo obligaría a dar de alta un tipo para poder pedirlo, y lo que se pide
+suele ser justamente lo que todavía no existe.
+
+El recorrido —pendiente, en gestión, comprada, entregada, más rechazo y
+cancelación— es una tabla de transiciones y no una lista de estados: lo que no
+está en ella no pasa, así que una solicitud no vuelve de «entregada» a
+«pendiente» ni se salta la compra. Cada paso se escribe en un histórico
+append-only con quién lo dio y por qué, igual que la custodia de un equipo, y el
+rechazo **exige motivo**: es lo único que le llega como explicación a quien
+pidió. Nada se borra —lo que se abandona se cancela— y quien pidió puede retirar
+lo suyo, pero no aprobarlo.
+
+Pedir y decidir si se compra se separan en cuatro permisos (`solicitudes.ver`,
+`.crear`, `.gestionar`, `.administrar`): cualquiera que trabaje con equipos
+debería poder pedir uno, y gestionar habilita a mover **las asignadas a uno**
+—administrar, las de todos—. Por eso el rol «Usuario final» recibe ver y crear:
+dejar la solicitud solo en manos de soporte la devolvería al correo, que es de
+donde este módulo la saca. El correo se conserva, pero como aviso —al encargado
+cuando le asignan algo, a quien pidió en cada paso—, y si el destinatario no
+tiene correo se dice en el acto en vez de dar por enviado lo que no salió.
+
+Veinticuatro criterios (AC-SOL-001 a AC-SOL-024) en
+`solicitudes-de-compra.feature`, más los nueve de seguridad (AC-SEC-014 a
+AC-SEC-022) de la revisión que acompañó al módulo, en
+`hallazgos-de-seguridad.feature`.
 
 ### Fase 11 — El tipo se describe al crearlo (§3, §4.2, 2026-09-15)
 

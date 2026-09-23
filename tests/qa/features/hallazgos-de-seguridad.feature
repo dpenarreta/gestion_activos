@@ -109,3 +109,70 @@ Feature: Hallazgos de la revisión de seguridad del 10 de septiembre de 2026
     Then el respaldo no se ejecuta
     # Una lista de lo que no puede aparecer envejece mal; una de lo que sí se
     # admite falla del lado seguro.
+
+  # --- Revisión del 17 de septiembre de 2026: módulo de solicitudes ---------
+  #
+  # El módulo nuevo mueve dos cosas sensibles: datos de personas —quién pidió
+  # qué y para qué— y una bandeja de tareas ajena. Lo que sigue es lo que se
+  # intentó contra él, no lo que hace cuando se usa bien.
+
+  @AC-SEC-014
+  Scenario: Ningún endpoint de solicitudes responde sin sesión
+    When se piden el listado, la ficha, el catálogo o el cambio de estado sin autenticar
+    Then todos responden que no hay autorización
+
+  @AC-SEC-015
+  Scenario: Lo que no es de uno no existe
+    Given una solicitud de otra persona
+    When alguien sin relación con ella la pide por su identificador
+    Then el sistema responde que no existe, no que no puede
+    And su justificación y su recorrido no aparecen por ninguna parte
+    # Un «no puede» confirmaría que esa solicitud existe, y con ella que alguien
+    # pidió algo.
+
+  @AC-SEC-016
+  Scenario: Gestionar no es gestionar lo de cualquiera
+    When alguien con permiso de gestionar toca una solicitud que no tiene asignada
+    Then el sistema lo rechaza y la solicitud no se mueve
+
+  @AC-SEC-017
+  Scenario: Los campos que decide el servidor no viajan desde el cliente
+    When la petición manda el solicitante, el estado o la empresa
+    Then se ignoran: el solicitante es quien está autenticado, el estado empieza
+      en pendiente y la empresa es la activa
+    # Es la vía natural para pedir en nombre de otro, nacer ya aprobada o
+    # escribir en el ámbito de otra empresa.
+
+  @AC-SEC-018
+  Scenario: El aviso no se puede dirigir a cualquiera
+    When se asigna la solicitud a una cuenta que no puede gestionarlas
+    Then el sistema lo rechaza
+    # El destinatario del correo sale de esa elección: sin la comprobación en el
+    # servidor, el formulario serviría para mandar correo a cualquier cuenta.
+
+  @AC-SEC-019
+  Scenario: Lo de otra empresa no se ve ni se mueve desde la propia
+    Given la misma cuenta trabajando en dos empresas
+    When pide o intenta gestionar desde la otra
+    Then no encuentra nada y nada cambia
+
+  @AC-SEC-020
+  Scenario: Las entradas hostiles no rompen ni se ejecutan
+    When la búsqueda lleva comillas, comodines o una sentencia SQL
+    Then la consulta responde con normalidad y no se pierde nada
+    And un texto con etiquetas se guarda tal cual, para que se escape al pintarlo
+
+  @AC-SEC-021
+  Scenario: La lista de encargados no reparte correos
+    When se consulta a quién se le puede asignar una solicitud
+    Then se devuelve el nombre, no la dirección de correo
+    # El desplegable solo necesita el nombre; el correo repartía la dirección de
+    # todo el personal de compras a cualquiera que pueda ver solicitudes.
+
+  @AC-SEC-022
+  Scenario: Cada paso y cada intento quedan registrados
+    When se registra una solicitud o se mueve su estado
+    Then la auditoría recoge quién lo hizo
+    And un intento sin permiso queda registrado como acceso denegado
+    # Es lo que permite revisar después de un incidente, y notar que alguien
+    # está probando puertas.

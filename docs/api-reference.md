@@ -240,6 +240,56 @@ clave. **Mientras el tipo no declare ninguna, el activo sigue admitiendo pares
 libres**; en cuanto declara una, lo que no esté declarado se rechaza — salvo lo
 que el equipo ya tuviera guardado, que se conserva.
 
+## Solicitudes de compra
+
+Base: `/api/v1/solicitudes/`
+
+| Método | Ruta | Permiso | Descripción |
+| --- | --- | --- | --- |
+| GET | `/solicitudes/` | `solicitudes.ver` | Filtra por `ambito` (`mias` / `recibidas`), `estado`, `abiertas` y `q` |
+| POST | `/solicitudes/` | `solicitudes.crear` | Registra la petición. El solicitante **no viaja**: es quien está autenticado |
+| PATCH | `/solicitudes/{id}/` | `solicitudes.crear` | Corrige lo pedido. Solo el solicitante y solo mientras esté «pendiente» |
+| POST | `/solicitudes/{id}/cambiar-estado/` | `solicitudes.ver` | Un paso del recorrido: `{"estado", "nota"}`. Quién puede cada paso lo decide el servicio |
+| GET | `/solicitudes/catalogo/` | `solicitudes.ver` | Tipos de dispositivo —**con las características que declara cada uno**— y componentes, para el desplegable de «qué necesita» |
+| GET | `/solicitudes/encargados/` | `solicitudes.ver` | A quién se le puede asignar: solo quien puede gestionar compras en esta empresa |
+
+**Sin `DELETE`**: una solicitud que ya no hace falta se cancela, y queda escrito
+que se pidió y que se retiró. Borrarla haría desaparecer de los conteos lo que
+un área llegó a necesitar.
+
+El recorrido es **Pendiente → En gestión → Comprada → Entregada**, con
+**Rechazada** y **Cancelada** como salidas. Lo que no está en esa tabla no pasa:
+una entregada no vuelve a pendiente, y desde pendiente no se llega a comprada
+sin haberla tomado. Cada paso deja un movimiento append-only con quién lo dio y
+su nota; el rechazo **exige** nota, porque es lo único que le llega a quien pidió
+como explicación.
+
+Quién puede qué: **pedir** (`solicitudes.crear`) y **gestionar**
+(`solicitudes.gestionar`) son oficios distintos, y gestionar habilita a mover
+**las asignadas a uno**, no las ajenas. `solicitudes.administrar` ve y mueve las
+de todos. Cancelar lo propio no exige ninguno de los dos: quien pidió algo que
+ya no hace falta debe poder retirarlo.
+
+`/solicitudes/catalogo/` existe porque quien solo pide no tiene —ni debería
+tener— permiso para ver el parque: por los endpoints del inventario el
+desplegable le llegaría vacío por un 403 que nadie ve. Trae las características
+de cada tipo en la misma respuesta, porque se necesitan justo al cambiar el
+desplegable y una consulta por cada cambio dejaría el formulario parpadeando.
+
+El formulario de «Realizar solicitud» **solo pide del catálogo**: el campo de
+texto libre (`detalle`) sigue en la API y en lo ya registrado, pero la pantalla
+no lo ofrece, porque es lo que traía «laptop», «Laptop» y «portátil» para lo
+mismo y no traía las características con las que se describe el pedido.
+
+La solicitud lleva **`especificaciones`** con la misma forma que la ficha del
+activo —pares nombre/valor bajo el nombre declarado—, así que lo pedido y lo
+entregado se leen con el mismo vocabulario. Se comprueban contra las
+características del tipo con **las mismas exigencias que la ficha**: que existan,
+que el valor sea del dato declarado y que estén las marcadas obligatorias. Lo que
+no deba exigirse al pedir se desmarca en la característica, y entonces no se
+exige en ninguno de los dos sitios. Una solicitud escrita a mano, sin tipo del
+catálogo, no lleva características: no hay contra qué comprobarlas.
+
 ## Organización
 
 Base: `/api/v1/organizacion/`

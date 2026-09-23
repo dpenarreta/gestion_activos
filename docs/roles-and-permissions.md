@@ -35,10 +35,20 @@ módulos y permisos.
 | `activos` | `ver`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
 | `organizacion` | `ver`, `editar` |
 | `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
+| `solicitudes` | `ver`, `crear`, `gestionar`, `administrar` |
 | `politicas` | `ver`, `editar` |
 | `adjuntos` | `ver`, `subir`, `eliminar` |
 | `alertas` | `ver`, `configurar` |
 | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
+
+**`solicitudes`** separa pedir de gestionar a propósito: cualquiera que trabaje
+con equipos debería poder pedir uno (`crear`), y decidir si se compra es otro
+oficio (`gestionar`). `gestionar` habilita a mover **las solicitudes asignadas a
+uno**, no las ajenas —eso lo comprueba el servicio, que sabe de quién es cada
+una—, y `administrar` es el de quien ve y mueve las de todos. Por eso el rol
+«Usuario final», que solo consulta sus equipos, sí lleva `ver` y `crear`: quien
+necesita una laptop es él, y dejar la solicitud solo en manos de soporte
+devolvería el pedido al correo.
 
 ## Resolución de autorización
 

@@ -690,6 +690,49 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-DEP-015 | Vida contable ≠ vida útil de renovación | depreciacion.feature | La vida contable no es la vida útil de la política de renovación | Sí (pytest y Vitest: `test_la_vida_contable_no_es_la_vida_util_de_renovacion`, `advierte que la vida contable no es la de renovación`) |
 | AC-POL-026 | Una segunda política global responde 400, no 500 | politicas-renovacion.feature | Una segunda política global se rechaza con un error útil | Sí (pytest: `test_una_segunda_politica_global_se_rechaza_con_un_error_util`) |
 
+## Seguridad del módulo de solicitudes (AC-SEC-014 a 022)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-SEC-014 | Sin sesión no se entra | hallazgos-de-seguridad.feature | Ningún endpoint de solicitudes responde sin sesión | Sí (pytest: `test_sin_autenticar_no_se_ve_nada`, `test_sin_el_permiso_de_ver_no_se_entra`) |
+| AC-SEC-015 | Lo ajeno no existe | hallazgos-de-seguridad.feature | Lo que no es de uno no existe | Sí (pytest: `test_la_solicitud_ajena_responde_que_no_existe`, `test_el_listado_no_filtra_por_id_lo_ajeno`, `test_el_recorrido_ajeno_tampoco_se_lee`) |
+| AC-SEC-016 | Gestionar es lo propio | hallazgos-de-seguridad.feature | Gestionar no es gestionar lo de cualquiera | Sí (pytest: `test_no_se_mueve_una_solicitud_que_no_se_tiene_asignada`, `test_quien_pide_no_se_aprueba_lo_suyo`, `test_no_se_corrige_lo_que_pidio_otro`) |
+| AC-SEC-017 | Sin campos de servidor desde el cliente | hallazgos-de-seguridad.feature | Los campos que decide el servidor no viajan desde el cliente | Sí (pytest: `test_no_se_pide_en_nombre_de_otro`, `test_no_se_nace_ya_aprobada`, `test_no_se_elige_la_empresa_desde_el_cliente`) |
+| AC-SEC-018 | El aviso no se dirige a cualquiera | hallazgos-de-seguridad.feature | El aviso no se puede dirigir a cualquiera | Sí (pytest: `test_no_se_asigna_a_quien_no_puede_atenderla`) |
+| AC-SEC-019 | Aislamiento entre empresas | hallazgos-de-seguridad.feature | Lo de otra empresa no se ve ni se mueve desde la propia | Sí (pytest: `test_la_cabecera_de_otra_empresa_no_abre_nada`, `test_lo_de_otra_empresa_no_se_gestiona_desde_la_propia`) |
+| AC-SEC-020 | Entradas hostiles | hallazgos-de-seguridad.feature | Las entradas hostiles no rompen ni se ejecutan | Sí (pytest: `test_la_busqueda_no_se_rompe_con_caracteres_de_inyeccion`, `test_un_estado_inventado_no_pasa`, `test_el_texto_hostil_se_guarda_tal_cual_y_no_se_interpreta`) |
+| AC-SEC-021 | Sin correos en la lista de encargados | hallazgos-de-seguridad.feature | La lista de encargados no reparte correos | Sí (pytest: `test_la_lista_de_encargados_no_reparte_correos`) |
+| AC-SEC-022 | Rastro de lo hecho y lo intentado | hallazgos-de-seguridad.feature | Cada paso y cada intento quedan registrados | Sí (pytest: `test_cada_paso_deja_rastro_en_la_auditoria`, `test_el_intento_no_autorizado_queda_registrado`) |
+
+## Solicitudes de compra (AC-SOL-xxx)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-SOL-001 | Nace con encargado | solicitudes-de-compra.feature | Una solicitud nace con encargado | Sí (pytest: `test_se_pide_y_queda_asignada_a_quien_comprara`) |
+| AC-SOL-002 | El solicitante es quien entra | solicitudes-de-compra.feature | El solicitante es quien está autenticado | Sí (pytest: `test_el_solicitante_es_quien_esta_autenticado`) |
+| AC-SOL-003 | Se pide del catálogo | solicitudes-de-compra.feature | Lo que se pide se elige del catálogo | Sí (pytest: `test_se_puede_pedir_del_catalogo`, `test_se_puede_pedir_lo_que_el_catalogo_no_tiene` —la API conserva `detalle`—; Vitest: `lo que se pide se elige del catálogo, no se escribe`, `al cambiar a componente se ofrecen los del catálogo de repuestos`) |
+| AC-SOL-004 | Sin objeto se rechaza | solicitudes-de-compra.feature | Una solicitud sin objeto se rechaza | Sí (pytest: `test_una_solicitud_sin_objeto_se_rechaza`) |
+| AC-SOL-005 | Una cosa por solicitud | solicitudes-de-compra.feature | No se piden un dispositivo y un componente a la vez | Sí (pytest: `test_no_se_piden_un_dispositivo_y_un_componente_a_la_vez`) |
+| AC-SOL-006 | Solo a quien puede atenderla | solicitudes-de-compra.feature | Solo se asigna a quien puede atenderla | Sí (pytest: `test_solo_se_asigna_a_quien_puede_gestionarlas`, `test_los_encargados_posibles_son_los_que_pueden_atenderla`; Vitest: `solo ofrece como encargado a quien puede atenderla`) |
+| AC-SOL-007 | Pedir no exige ver el parque | solicitudes-de-compra.feature | El catálogo para pedir no exige ver el inventario | Sí (Vitest: `el catálogo sale de solicitudes, no del inventario`) |
+| AC-SOL-008 | Mis solicitudes | solicitudes-de-compra.feature | Mis solicitudes son las que yo pedí | Sí (pytest: `test_mis_solicitudes_son_las_que_yo_pedi`; Vitest: `pide lo que registré yo, y lo abierto primero`) |
+| AC-SOL-009 | Solicitudes recibidas | solicitudes-de-compra.feature | Las recibidas son las que me asignaron | Sí (pytest: `test_las_recibidas_son_las_que_me_asignaron`, `test_quien_administra_ve_las_de_todos`; Vitest: `pide lo que me asignaron y dice quién lo pidió`) |
+| AC-SOL-010 | La ajena no existe | solicitudes-de-compra.feature | La solicitud de otro no se ve ni existe | Sí (pytest: `test_la_solicitud_de_otro_no_se_ve_ni_existe`) |
+| AC-SOL-011 | Aislamiento por empresa | solicitudes-de-compra.feature | Las solicitudes no cruzan empresas | Sí (pytest: `test_las_solicitudes_no_cruzan_empresas`) |
+| AC-SOL-012 | El recorrido completo | solicitudes-de-compra.feature | El recorrido va de pendiente a entregada | Sí (pytest: `test_el_encargado_la_toma_la_compra_y_la_entrega`) |
+| AC-SOL-013 | Quién dio cada paso | solicitudes-de-compra.feature | Cada paso queda escrito con quién lo dio | Sí (pytest: `test_cada_paso_queda_escrito_con_quien_lo_dio`; Vitest: `muestra el recorrido con quién dio cada paso`) |
+| AC-SOL-014 | Gestionar es lo propio | solicitudes-de-compra.feature | Gestionar es gestionar lo propio | Sí (pytest: `test_una_solicitud_ajena_no_la_mueve_quien_no_la_tiene`) |
+| AC-SOL-015 | Pedir no es aprobar | solicitudes-de-compra.feature | Quien pide no aprueba lo suyo, pero sí lo retira | Sí (pytest: `test_quien_pide_no_aprueba_lo_suyo`, `test_quien_pide_si_cancela_lo_suyo`; Vitest: `quien la pidió no ve los pasos de quien la gestiona`, `pero sí puede retirarla`) |
+| AC-SOL-016 | El rechazo lleva motivo | solicitudes-de-compra.feature | Un rechazo lleva motivo | Sí (pytest: `test_un_rechazo_lleva_motivo`; Vitest: `rechazar sin motivo se ataja antes de enviarlo`) |
+| AC-SOL-017 | Ni se reabre ni se salta | solicitudes-de-compra.feature | Una solicitud cerrada no se reabre ni se salta pasos | Sí (pytest: `test_una_entregada_ya_no_se_mueve`, `test_no_se_salta_pasos`; Vitest: `una cerrada no ofrece nada y dice por qué`) |
+| AC-SOL-018 | Corregir mientras esté pendiente | solicitudes-de-compra.feature | Lo que se pidió se corrige mientras nadie la haya tomado | Sí (pytest: `test_se_corrige_mientras_nadie_la_haya_tomado`, `test_ya_tomada_no_se_cambia_lo_que_se_pide`, `test_la_solicitud_de_otro_no_se_corrige`) |
+| AC-SOL-019 | Aviso al encargado | solicitudes-de-compra.feature | Al encargado se le avisa de lo que le asignaron | Sí (pytest: `test_al_encargado_se_le_avisa_de_lo_que_le_asignaron`, `test_si_el_encargado_no_tiene_correo_se_dice_en_el_acto`; Vitest: `si al encargado no se le pudo avisar, se dice antes de salir`) |
+| AC-SOL-020 | Aviso al solicitante | solicitudes-de-compra.feature | A quien pidió se le avisa de cada paso | Sí (pytest: `test_a_quien_pidio_se_le_avisa_de_cada_paso`, `test_cancelar_lo_propio_no_se_avisa_a_uno_mismo`) |
+| AC-SOL-021 | No se borra, se cancela | solicitudes-de-compra.feature | Una solicitud no se borra | Sí (pytest: `test_una_solicitud_no_se_borra`) |
+| AC-SOL-022 | Se pide con las características del tipo | solicitudes-de-compra.feature | Se pide con las características que el tipo declara | Sí (pytest: `test_el_catalogo_trae_las_caracteristicas_de_cada_tipo`, `test_se_pide_con_las_caracteristicas_del_tipo`, `test_lo_pedido_se_corrige_como_el_resto`; Vitest: `elegir un tipo carga sus características, y no antes`, `las características viajan con la solicitud`, `enseña con qué características se pidió`) |
+| AC-SOL-023 | Al pedir se exige lo obligatorio | solicitudes-de-compra.feature | Lo que el tipo marca obligatorio se exige también al pedir | Sí (pytest: `test_pedir_exige_las_obligatorias_del_tipo`, `test_lo_que_no_es_obligatorio_se_puede_dejar_en_blanco`; Vitest: `las que el tipo marca obligatorias hay que llenarlas`) |
+| AC-SOL-024 | Lo pedido se comprueba | solicitudes-de-compra.feature | Lo pedido se comprueba contra lo declarado | Sí (pytest: `test_una_caracteristica_que_el_tipo_no_declara_se_rechaza`, `test_el_valor_se_comprueba_contra_el_dato_declarado`, `test_una_solicitud_escrita_a_mano_no_lleva_caracteristicas`; Vitest: `cambiar de tipo no arrastra las características del anterior`) |
+
 ## Recorridos de extremo a extremo (AC-E2E-xxx)
 
 Se ejecutan con `npm run e2e` desde `frontend/`, contra el navegador y el

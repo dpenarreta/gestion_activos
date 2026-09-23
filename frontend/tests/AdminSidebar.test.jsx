@@ -93,6 +93,27 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     expect(screen.queryByText("Reportes")).not.toBeInTheDocument();
   });
 
+  it("quien solo puede pedir ve Solicitudes y sus tres pantallas", () => {
+    permisos.lista = ["solicitudes.ver", "solicitudes.crear"];
+
+    pintar();
+
+    expect(screen.getByText("Solicitudes")).toBeInTheDocument();
+    expect(screen.getByText("Mis solicitudes")).toBeInTheDocument();
+    expect(screen.getByText("Solicitudes recibidas")).toBeInTheDocument();
+    expect(screen.getByText("Realizar solicitud")).toBeInTheDocument();
+  });
+
+  it("quien consulta solicitudes pero no las hace no ve el formulario", () => {
+    /* Ofrecérselo lo llevaría a un 403: el permiso de crear es aparte. */
+    permisos.lista = ["solicitudes.ver"];
+
+    pintar();
+
+    expect(screen.getByText("Mis solicitudes")).toBeInTheDocument();
+    expect(screen.queryByText("Realizar solicitud")).not.toBeInTheDocument();
+  });
+
   it("Organización cuelga de Configuración, con sus catálogos dentro", () => {
     /* Tres niveles: Configuración → Organización → Sedes. El grupo no se
        disuelve entre los otros cuatro, que se quedan donde estaban. */

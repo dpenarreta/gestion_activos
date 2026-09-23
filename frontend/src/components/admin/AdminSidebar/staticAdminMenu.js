@@ -80,6 +80,38 @@ export const ADMIN_MENU = [
     ],
   },
   {
+    // Debajo de mantenimientos y antes de renovación: el orden sigue el ciclo
+    // del equipo —se inventaría, se repara, se pide el reemplazo—, y una
+    // solicitud es casi siempre la consecuencia de lo de arriba.
+    id: "solicitudes",
+    name: "Solicitudes",
+    icon: "cart-plus",
+    permission: "solicitudes.ver",
+    children: [
+      {
+        id: "solicitudes-mias",
+        name: "Mis solicitudes",
+        icon: "person-lines-fill",
+        path: "/admin/solicitudes/mias",
+      },
+      {
+        id: "solicitudes-recibidas",
+        name: "Solicitudes recibidas",
+        icon: "inbox",
+        path: "/admin/solicitudes/recibidas",
+      },
+      {
+        // Con su propio permiso: hay cuentas que consultan solicitudes y no
+        // las hacen, y ofrecerles el formulario las llevaría a un 403.
+        id: "solicitudes-nueva",
+        name: "Realizar solicitud",
+        icon: "plus-circle",
+        path: "/admin/solicitudes/nueva",
+        permission: "solicitudes.crear",
+      },
+    ],
+  },
+  {
     id: "renovacion",
     name: "Renovación",
     icon: "arrow-repeat",

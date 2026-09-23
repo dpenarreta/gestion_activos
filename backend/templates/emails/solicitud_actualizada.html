@@ -1,0 +1,36 @@
+{% extends "emails/_aviso_base.html" %}
+
+{% block titulo %}Su solicitud cambió de estado{% endblock %}
+{% block encabezado %}Su solicitud está {{ solicitud.get_estado_display|lower }}{% endblock %}
+
+{% block identificacion %}
+<tr>
+  <td style="padding: 6px 0; color: #6c757d; width: 40%;">Solicitud</td>
+  <td style="padding: 6px 0;"><strong>#{{ solicitud.id }}</strong></td>
+</tr>
+<tr>
+  <td style="padding: 6px 0; color: #6c757d;">Qué se pidió</td>
+  <td style="padding: 6px 0;"><strong>{{ solicitud.lo_que_se_pide }}</strong></td>
+</tr>
+{% endblock %}
+
+{% block filas %}
+<tr>
+  <td style="padding: 6px 0; color: #6c757d;">Estado</td>
+  <td style="padding: 6px 0;">{{ solicitud.get_estado_display }}</td>
+</tr>
+{% if nota %}
+<tr>
+  {# En un rechazo esta nota es toda la explicación que recibe quien pidió. #}
+  <td style="padding: 6px 0; color: #6c757d;">Motivo</td>
+  <td style="padding: 6px 0;">{{ nota }}</td>
+</tr>
+{% endif %}
+{% endblock %}
+
+{% block boton %}Ver la solicitud{% endblock %}
+
+{% block pie %}
+Le llega porque usted registró esta solicitud. El recorrido completo, con quién
+dio cada paso, queda en la propia solicitud.
+{% endblock %}

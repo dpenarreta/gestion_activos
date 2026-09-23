@@ -30,6 +30,10 @@ import { CargaCatalogosPage } from "../pages/Admin/CargaCatalogos/CargaCatalogos
 import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
 import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
+import { MisSolicitudes } from "../pages/Admin/Solicitudes/MisSolicitudes";
+import { SolicitudDetalle } from "../pages/Admin/Solicitudes/SolicitudDetalle";
+import { SolicitudForm } from "../pages/Admin/Solicitudes/SolicitudForm";
+import { SolicitudesRecibidas } from "../pages/Admin/Solicitudes/SolicitudesRecibidas";
 import { MisEquiposPage } from "../pages/Admin/MisEquipos/MisEquiposPage";
 import { InicioDelPanel } from "./InicioDelPanel";
 import { ConcesionarioForm } from "../pages/Admin/Organizacion/ConcesionarioForm";
@@ -55,6 +59,8 @@ const ACTIVOS_VER = "activos.ver";
 const MANTENIMIENTOS_VER = "mantenimientos.ver";
 const ALERTAS_VER = "alertas.ver";
 const POLITICAS_VER = "politicas.ver";
+const SOLICITUDES_VER = "solicitudes.ver";
+const SOLICITUDES_CREAR = "solicitudes.crear";
 const CHANGE_PASSWORD_REQUIRED_PATH = "/change-password-required";
 
 export function AppRoutes() {
@@ -289,6 +295,45 @@ export function AppRoutes() {
               <MantenimientoForm />
             </RequirePermission>
           }
+        />
+        {/* Las fijas antes que ":id", como en activos y mantenimientos: sin
+            eso, «nueva» entraría por la ficha y pediría la solicitud número
+            «nueva». */}
+        <Route
+          path="solicitudes/mias"
+          element={
+            <RequirePermission permission={SOLICITUDES_VER}>
+              <MisSolicitudes />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="solicitudes/recibidas"
+          element={
+            <RequirePermission permission={SOLICITUDES_VER}>
+              <SolicitudesRecibidas />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="solicitudes/nueva"
+          element={
+            <RequirePermission permission={SOLICITUDES_CREAR}>
+              <SolicitudForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="solicitudes/:id"
+          element={
+            <RequirePermission permission={SOLICITUDES_VER}>
+              <SolicitudDetalle />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="solicitudes"
+          element={<Navigate to="/admin/solicitudes/mias" replace />}
         />
         <Route
           path="politicas"
