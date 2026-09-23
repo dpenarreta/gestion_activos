@@ -11,7 +11,20 @@ services:
       MSSQL_SA_PASSWORD: ${DB_PASSWORD:?la variable DB_PASSWORD es obligatoria}
       MSSQL_PID: Developer
     ports:
-      - "${DB_PORT:-1433}:1433"
+      # Atado a la interfaz local: sin el `127.0.0.1`, Docker publica el puerto
+      # en **todas** las interfaces y el motor queda expuesto a la red de la
+      # oficina y del wifi. Lo único que se conecta aquí es el backend de esta
+      # misma máquina, y la contraseña de `sa` está en un `.env` de desarrollo:
+      # dos cosas que no deberían quedar al alcance de un escaneo de puertos.
+      - "127.0.0.1:${DB_PORT:-1433}:1433"
+      #
+      # Solo IPv4, y por eso el backend debe conectar a `127.0.0.1` y no a
+      # `localhost`: en Windows, `localhost` resuelve primero a `::1`, y el
+      # proxy de Docker acepta ahí la conexión pero no la entrega al
+      # contenedor. El síntoma es «el equipo de destino denegó expresamente
+      # dicha conexión» con el puerto escuchando —parece un fallo de la base y
+      # es de resolución de nombres—. Publicar también `[::1]` no lo arregla:
+      # la acepta igual y la sigue sin entregar.
     volumes:
       - mssql_data:/var/opt/mssql
     healthcheck:

@@ -23,6 +23,12 @@ staticfiles/
 # producción viven en un volumen, no en el repositorio.
 media/
 
+# Respaldos: el comando `manage.py respaldar` escribe aquí por defecto, y lo
+# que deja es la base entera —datos reales de la empresa— más las facturas y
+# actas. Un `git add .` distraído los publicaría en el repositorio.
+respaldos/
+*.bak
+
 # --- Node / React ---
 node_modules/
 dist/

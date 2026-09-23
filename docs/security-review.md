@@ -109,6 +109,79 @@ Trece criterios de aceptación nuevos (`AC-SEC-001` a `AC-SEC-013`) en
   puede atribuir dueño; mostrarlos sería exponer el rastro de la otra compañía
   por la puerta de los registros sin dueño.
 
+## Revisión del 17 de septiembre de 2026 (módulo de solicitudes y entorno)
+
+Motivo: el módulo de solicitudes de compra es código nuevo que mueve datos de
+personas —quién pidió qué y para qué— y una bandeja de tareas ajena. Se revisó
+también lo que rodea al despliegue local.
+
+**Lo que se probó y aguanta.** 19 pruebas en
+`apps/solicitudes/tests/test_seguridad_solicitudes.py` (AC-SEC-014 a 022):
+acceso sin sesión, lectura y escritura de lo ajeno —responde 404, no 403—,
+escalada horizontal entre encargados, suplantación del solicitante, nacer ya
+aprobada, elegir empresa desde el cliente, dirigir el aviso a una cuenta
+cualquiera, cruce entre empresas, inyección en la búsqueda, estados inventados y
+texto con etiquetas. Además, `pip-audit` y `npm audit` no reportan
+vulnerabilidades conocidas, y `check --deploy` con la configuración de
+producción no levanta ningún aviso de la familia `security.*`.
+
+**Corregido en esta revisión.**
+
+- *La lista de encargados devolvía el correo de cada persona* a cualquiera con
+  `solicitudes.ver` —incluido el rol «Usuario final», que existe justamente para
+  no ver nada más que lo suyo—. El desplegable solo usa el nombre. Se retiró el
+  campo (`EncargadoSerializer`).
+- *El SQL Server de desarrollo se publicaba en todas las interfaces*
+  (`0.0.0.0:14331`), de modo que el motor quedaba al alcance de un escaneo de
+  puertos en la red de la oficina, con la contraseña de `sa` viviendo en un
+  `.env` de desarrollo. El `docker-compose.yml` ahora lo ata a `127.0.0.1`. El
+  compose de producción nunca publicó ese puerto: los contenedores se alcanzan
+  por la red interna de Compose.
+
+**Cerrado el 17 de septiembre, en la misma revisión.**
+
+- *El puerto de la base quedó atado al loopback* y se recreó el contenedor para
+  que surtiera efecto: `netstat` ya no lo muestra en `0.0.0.0`. Al aplicarlo
+  apareció algo que conviene dejar escrito, porque parece un fallo de la base y
+  no lo es: publicar solo en `127.0.0.1` **rompe la conexión si `DB_HOST` es
+  `localhost`**, porque en Windows eso resuelve primero a `::1` y el proxy de
+  Docker acepta ahí la conexión sin entregarla. `DB_HOST=127.0.0.1` en el `.env`
+  y el motivo escrito en `docker-compose.yml` y en `.env.example`.
+- *`RefreshView` tiene su propio cupo* (`refresh`, 60/min por IP). Es el otro
+  endpoint público que acepta un secreto y contesta distinto según acierte, así
+  que servía igual que el login para probar a ciegas; caía en el de anónimos,
+  que es compartido, de modo que gastarlo ahí dejaba sin margen al login de la
+  misma salida a internet.
+- *Primer respaldo hecho y verificado*, con los adjuntos y su manifiesto.
+- *`respaldos/` y `*.bak` entran en `.gitignore`.* El comando escribe ahí por
+  defecto y la carpeta no estaba ignorada: un `git add .` distraído habría
+  publicado la base entera —datos reales, facturas y actas— en el repositorio.
+  Es el hallazgo que apareció **por corregir otro**, y de los que no se ven
+  hasta que alguien ejecuta el comando sin `--destino`.
+
+**Pendiente, y depende de la infraestructura de despliegue.**
+
+- **Terminación TLS y cabecera de proxy.** Producción exige HTTPS
+  (`SECURE_SSL_REDIRECT`, cookies seguras, HSTS de un año con `preload`), pero no
+  define `SECURE_PROXY_SSL_HEADER`. Detrás de un proxy que termina TLS y reenvía
+  en HTTP, Django no sabrá que la petición original era segura: redirigirá en
+  bucle. Al configurarlo hay que asegurarse de que el proxy **borra** esa
+  cabecera si viene del cliente; si no, cualquiera puede afirmar que su petición
+  era HTTPS.
+- **El backend publica el 8000 al exterior** en `docker-compose.prod.yml`, además
+  del frontend en el 80. Si delante hay un proxy inverso, conviene dejar el
+  backend solo en la red interna (`expose`) para no mantener dos puertas donde
+  basta una.
+- **Cuentas de demostración.** El 17 de septiembre se les **rotó la
+  contraseña**: la que se imprimió en consola ya no vale y las nueve siguen
+  activas para probar roles. Es una mitigación, no el cierre: `verificar_despliegue`
+  las seguirá marcando como crítico, y con razón —siguen siendo cuentas
+  compartidas con una clave común—. Antes de abrir el sistema a nadie hay que
+  retirarlas con `manage.py sembrar_datos_demo --eliminar`, que se lleva también
+  el parque de demostración entero: los 21 activos, sus mantenimientos,
+  adjuntos, movimientos y empleados. Por eso no se hizo mientras el sistema está
+  en pruebas.
+
 ## Limitaciones conocidas (no ocultas)
 
 - La búsqueda de secretos fue un `grep` manual de patrones obvios

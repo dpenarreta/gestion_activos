@@ -50,9 +50,19 @@ class LoginView(APIView):
 
 class RefreshView(APIView):
     """Renueva el access token validando que la sesión siga activa y que el
-    refresh token presentado sea el vigente (no uno ya rotado)."""
+    refresh token presentado sea el vigente (no uno ya rotado).
+
+    Con su propio límite, como el login: es el otro endpoint público que acepta
+    un secreto y contesta distinto según acierte, así que sirve igual para
+    probar tokens a ciegas. El de anónimos lo cubría —100 por hora—, pero es un
+    cupo compartido con el resto de lo público: quien lo gastara aquí dejaría
+    sin margen al login de la misma IP, que es una oficina entera detrás de una
+    sola salida.
+    """
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "refresh"
 
     def post(self, request):
         serializer = RefreshSerializer(data=request.data)

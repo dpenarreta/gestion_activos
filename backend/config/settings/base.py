@@ -256,6 +256,10 @@ REST_FRAMEWORK = {
         "user": env.str("DEFAULT_THROTTLE_RATE_USER", default="1000/hour"),
         "login": env.str("LOGIN_THROTTLE_RATE", default="10/min"),
         "password_reset": env.str("PASSWORD_RESET_THROTTLE_RATE", default="5/hour"),
+        # Holgado a propósito: una sesión de trabajo renueva su token cada pocos
+        # minutos y varias pestañas lo hacen a la vez. Lo que corta no es el uso
+        # normal sino el goteo de quien prueba tokens.
+        "refresh": env.str("REFRESH_THROTTLE_RATE", default="60/min"),
         # El correo de prueba de alertas dispara un envío real: se limita
         # aparte para que no sirva como generador de correo saliente.
         "alertas_prueba": env.str("ALERTAS_PRUEBA_THROTTLE_RATE", default="10/hour"),

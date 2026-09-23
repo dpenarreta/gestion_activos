@@ -193,3 +193,35 @@ def test_password_is_never_stored_in_plain_text(user):
     assert user.password != "Sup3r-Secr3t!"
     assert user.password.startswith("argon2$")
     assert "$" in user.password  # separador de salt/parámetros propio del hash
+
+
+# --- Límite de renovaciones de sesión ---------------------------------------
+
+
+def test_el_refresco_tiene_su_propio_cupo(api_client):
+    """Es el otro endpoint público que acepta un secreto y contesta distinto
+    según acierte, así que sirve igual que el login para probar a ciegas.
+
+    Antes caía en el cupo de anónimos, compartido con el resto de lo público:
+    gastarlo aquí dejaba sin margen al login de la misma IP —una oficina entera
+    detrás de una sola salida—.
+
+    Se ejercita contra el límite **real**, leído de la configuración, en vez de
+    sobrescribirlo: el ajuste de DRF se cachea al arrancar y una prueba que lo
+    pisa pasa sola y falla acompañada, que es la peor clase de prueba —dice que
+    algo funciona según con quién se ejecute—.
+    """
+    from rest_framework.settings import api_settings
+
+    cupo = int(api_settings.DEFAULT_THROTTLE_RATES["refresh"].split("/")[0])
+
+    codigos = [
+        api_client.post(
+            "/api/v1/auth/token/refresh/", {"refresh": "no-vale"}, format="json"
+        ).status_code
+        for _ in range(cupo + 2)
+    ]
+
+    assert codigos[0] == 401, "las primeras se evalúan: el token no sirve"
+    assert codigos[-1] == 429, "pasado el cupo, se corta"
+    assert codigos.count(429) == 2, codigos
