@@ -178,6 +178,38 @@ describe("La bitácora de mantenimientos", () => {
     expect(fila).toHaveTextContent("—");
   });
 
+  it("avisa de la pistola mal configurada", async () => {
+    /* La misma pistola encontraba el equipo en el inventario y no encontraba
+       su bitácora. Ahora la encuentra, pero el aviso sigue haciendo falta: sin
+       él se arregla en silencio y el lector queda igual de mal configurado. */
+    listarMantenimientos.mockResolvedValue({
+      results: INTERVENCIONES,
+      count: 2,
+      advertencia_lector: {
+        codigo: "distribucion_de_teclado",
+        recibido: "GA'LAP'000007",
+        interpretado: "GA-LAP-000007",
+        mensaje:
+          "El lector envió «GA'LAP'000007» y se interpretó como «GA-LAP-000007».",
+      },
+    });
+
+    pintar(MantenimientosList);
+
+    expect(
+      await screen.findByText(/Revise la configuración del lector/),
+    ).toBeInTheDocument();
+  });
+
+  it("sin aviso del servidor no se molesta a nadie", async () => {
+    pintar(MantenimientosList);
+
+    await screen.findByText("GA-LAP-000007");
+    expect(
+      screen.queryByText(/Revise la configuración del lector/),
+    ).not.toBeInTheDocument();
+  });
+
   it("sin resultados lo dice", async () => {
     listarMantenimientos.mockResolvedValue({ results: [], count: 0 });
 
@@ -488,4 +520,3 @@ describe("El catálogo de componentes", () => {
     ).toBeInTheDocument();
   });
 });
-

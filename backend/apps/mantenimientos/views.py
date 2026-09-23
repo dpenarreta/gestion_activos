@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.activos.barcode import aviso_del_lector, variantes_de_escaneo
 from apps.activos.exportacion import exportar_mantenimientos
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
@@ -98,7 +99,12 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
         codigo = params.get("codigo_barras")
         if codigo:
-            queryset = queryset.filter(activo__codigo_barras__iexact=codigo.strip())
+            # Con las dos formas: la pistola puede estar enviando el guion con
+            # otra distribución de teclado (ver `variantes_de_escaneo`).
+            etiqueta = Q()
+            for variante in variantes_de_escaneo(codigo):
+                etiqueta |= Q(activo__codigo_barras__iexact=variante)
+            queryset = queryset.filter(etiqueta)
 
         tipo = params.get("tipo")
         if tipo:
@@ -106,11 +112,20 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
         busqueda = params.get("q")
         if busqueda:
+            termino = busqueda.strip()
+            # La etiqueta se busca con las dos formas —la recibida y la del
+            # guion repuesto— igual que en el inventario. Sin esto, la misma
+            # pistola encontraba el equipo en el inventario y no encontraba su
+            # bitácora, que es la conclusión más confusa posible: parece que el
+            # equipo no tiene mantenimientos, no que la lectura llegó mal.
+            etiqueta = Q()
+            for variante in variantes_de_escaneo(termino):
+                etiqueta |= Q(activo__codigo_barras__icontains=variante)
             queryset = queryset.filter(
-                Q(responsable__icontains=busqueda)
-                | Q(descripcion__icontains=busqueda)
-                | Q(diagnostico__icontains=busqueda)
-                | Q(activo__codigo_barras__icontains=busqueda)
+                etiqueta
+                | Q(responsable__icontains=termino)
+                | Q(descripcion__icontains=termino)
+                | Q(diagnostico__icontains=termino)
             )
 
         desde = params.get("desde")
@@ -128,6 +143,21 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(fecha_salida__isnull=pendientes == "true")
 
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        """La bitácora, con el aviso del lector si hubo que reparar la búsqueda.
+
+        El mismo que da el inventario, y por la misma razón: arreglarlo en
+        silencio deja la pistola mal configurada y el problema reaparece en la
+        siguiente pantalla. Aquí importa más todavía, porque lo que se busca es
+        el historial de un equipo concreto: sin aviso, una lectura mal traducida
+        se lee como «este equipo nunca entró al taller».
+        """
+        respuesta = super().list(request, *args, **kwargs)
+        aviso = aviso_del_lector(request.query_params.get("q"))
+        if aviso and isinstance(respuesta.data, dict):
+            respuesta.data["advertencia_lector"] = aviso
+        return respuesta
 
     def get_serializer_class(self):
         if self.action in {"create", "update", "partial_update"}:

@@ -82,3 +82,13 @@ Feature: Consulta por lectura de código de barras (RF-03)
     # Es lo que hace segura la búsqueda con las dos formas: reponer el guion
     # solo puede encontrar un equipo donde no había ninguno, nunca otro
     # distinto del que se pidió.
+
+  @AC-ESC-025
+  Scenario: La bitácora de mantenimientos también acepta la etiqueta mal leída
+    Given una pistola configurada con otra distribución de teclado
+    When se busca «GA'LAP'000006» en la bitácora de mantenimientos
+    Then aparecen las intervenciones de ese equipo
+    And se avisa de que hay que revisar la configuración del lector
+    # La misma pistola encontraba el equipo en el inventario y no encontraba su
+    # bitácora: parecía que el equipo nunca había entrado al taller, no que la
+    # lectura llegó mal.

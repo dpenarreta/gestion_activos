@@ -19,7 +19,7 @@ from apps.organizacion.models import Empleado
 from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
-from .barcode import variantes_de_escaneo
+from .barcode import aviso_del_lector, variantes_de_escaneo
 from .models import ESTADOS_EN_ALMACEN, Activo, MovimientoActivo, TipoDispositivo
 from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
@@ -437,46 +437,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
         está mirando esta pantalla.
         """
         respuesta = super().list(request, *args, **kwargs)
-        aviso = self._aviso_del_lector(request.query_params.get("q"))
+        aviso = aviso_del_lector(request.query_params.get("q"))
         if aviso and isinstance(respuesta.data, dict):
             respuesta.data["advertencia_lector"] = aviso
         return respuesta
-
-    @staticmethod
-    def _existe_como_etiqueta(valor: str) -> bool:
-        """Si algún equipo lleva ese código de barras o ese número de serie."""
-        return Activo.objects.filter(
-            Q(codigo_barras__iexact=valor) | Q(numero_serie__iexact=valor)
-        ).exists()
-
-    @classmethod
-    def _aviso_del_lector(cls, termino: str | None) -> dict | None:
-        """Qué decirle a quien escaneó con la distribución de teclado cambiada.
-
-        Solo si reponer el guion es **lo que encontró el equipo**: que un texto
-        se pueda reparar no significa que haga falta. Una serie escrita
-        `SN'RARA'01` se convierte en `SN-RARA-01` sustituyendo apóstrofes, y
-        avisar ahí mandaría a reconfigurar una pistola que está bien —o que ni
-        siquiera se usó—.
-        """
-        variantes = variantes_de_escaneo(termino)
-        if len(variantes) < 2:
-            return None
-        recibido, reparado = variantes[0], variantes[1]
-        if cls._existe_como_etiqueta(recibido) or not cls._existe_como_etiqueta(reparado):
-            return None
-        termino = recibido
-        return {
-            "codigo": "distribucion_de_teclado",
-            "recibido": termino,
-            "interpretado": reparado,
-            "mensaje": (
-                "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
-                "La pistola está configurada con una distribución de teclado distinta "
-                "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
-                "de emulación numérica, para que el guion llegue correctamente."
-            ).format(recibido=termino, interpretado=reparado),
-        }
 
     @action(detail=False, methods=["get"], url_path="por-codigo/(?P<codigo>[^/.]+)")
     def por_codigo(self, request, codigo=None):
@@ -524,7 +488,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
         # Se avisa aunque la búsqueda haya funcionado: arreglarlo en silencio
         # dejaría la pistola mal configurada, y el mismo problema reaparecería
         # en la carga masiva y en cualquier otro campo.
-        aviso = self._aviso_del_lector(termino)
+        aviso = aviso_del_lector(termino)
         if aviso:
             ficha["advertencia_lector"] = aviso
         return Response(ficha)

@@ -175,6 +175,17 @@ export function MantenimientosList() {
         </button>
       </form>
 
+      {/* El mismo aviso que da el inventario: el backend repara el código que
+          llega con la distribución de teclado cambiada —el guion como
+          apóstrofe— y lo dice. Aquí importa más todavía, porque lo que se busca
+          es el historial de un equipo concreto: sin aviso, una lectura mal
+          traducida se lee como «este equipo nunca entró al taller». */}
+      {listado.respuesta?.advertencia_lector && (
+        <div className="alert alert-info">
+          <strong>Revise la configuración del lector.</strong>{" "}
+          {listado.respuesta.advertencia_lector.mensaje}
+        </div>
+      )}
       {listado.error && (
         <div className="alert alert-danger">{listado.error}</div>
       )}

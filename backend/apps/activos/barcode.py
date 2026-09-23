@@ -133,3 +133,46 @@ def normalizar_escaneo(valor: str) -> tuple[str, bool]:
     if reparado != original.upper() and es_codigo_valido(reparado):
         return reparado, True
     return original, False
+
+
+def existe_como_etiqueta(valor: str) -> bool:
+    """Si algún equipo lleva ese código de barras o ese número de serie."""
+    from django.db.models import Q
+
+    from .models import Activo
+
+    return Activo.objects.filter(
+        Q(codigo_barras__iexact=valor) | Q(numero_serie__iexact=valor)
+    ).exists()
+
+
+def aviso_del_lector(termino: str | None) -> dict | None:
+    """Qué decirle a quien escaneó con la distribución de teclado cambiada.
+
+    Solo si reponer el guion es **lo que encontró el equipo**: que un texto se
+    pueda reparar no significa que haga falta. Una serie escrita `SN'RARA'01`
+    se convierte en `SN-RARA-01` sustituyendo apóstrofes, y avisar ahí mandaría
+    a reconfigurar una pistola que está bien —o que ni siquiera se usó—.
+
+    Vive aquí y no en el viewset del inventario porque se escanea en más de una
+    pantalla: la bitácora de mantenimientos busca por la misma etiqueta, y un
+    aviso que solo aparece en el inventario deja creer que la pistola falla
+    unas veces sí y otras no.
+    """
+    variantes = variantes_de_escaneo(termino)
+    if len(variantes) < 2:
+        return None
+    recibido, reparado = variantes[0], variantes[1]
+    if existe_como_etiqueta(recibido) or not existe_como_etiqueta(reparado):
+        return None
+    return {
+        "codigo": "distribucion_de_teclado",
+        "recibido": recibido,
+        "interpretado": reparado,
+        "mensaje": (
+            "El lector envió «{recibido}» y se interpretó como «{interpretado}». "
+            "La pistola está configurada con una distribución de teclado distinta "
+            "a la del sistema: configúrela como Español/Latinoamericano, o en modo "
+            "de emulación numérica, para que el guion llegue correctamente."
+        ).format(recibido=recibido, interpretado=reparado),
+    }

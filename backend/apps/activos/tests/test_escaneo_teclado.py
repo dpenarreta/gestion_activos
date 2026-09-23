@@ -294,3 +294,67 @@ def test_las_variantes_son_candidatas_y_no_un_reemplazo():
     # Sin nada que reponer, una sola forma: no se busca dos veces lo mismo.
     assert variantes_de_escaneo("GA-LAP-000006") == ("GA-LAP-000006",)
     assert variantes_de_escaneo("  ") == ()
+
+
+# --- La bitácora de mantenimientos ------------------------------------------
+
+
+@pytest.fixture
+def intervencion(admin, activo):
+    from apps.mantenimientos.models import Mantenimiento
+    from apps.mantenimientos.services import MantenimientoService
+
+    return MantenimientoService.registrar(
+        actor=admin,
+        activo=activo,
+        tipo=Mantenimiento.Tipo.CORRECTIVO,
+        fecha_intervencion=datetime.date(2025, 6, 1),
+        fecha_salida=datetime.date(2025, 6, 4),
+        tipo_responsable=Mantenimiento.TipoResponsable.TECNICO_INTERNO,
+        responsable="Luis Torres",
+        causa="No enciende",
+        descripcion="Reemplazo de disco",
+    )
+
+
+def test_la_bitacora_encuentra_el_equipo_con_la_etiqueta_mal_leida(cliente, intervencion):
+    """La misma pistola encontraba el equipo en el inventario y no encontraba
+    su bitácora.
+
+    Es la conclusión más confusa posible: parece que el equipo nunca entró al
+    taller, no que la lectura llegó mal.
+    """
+    respuesta = cliente.get("/api/v1/mantenimientos/?q=GA'LAP'000001")
+
+    assert respuesta.data["count"] == 1
+    assert respuesta.data["results"][0]["id"] == intervencion.id
+
+
+def test_la_bitacora_avisa_de_la_pistola_mal_configurada(cliente, intervencion):
+    respuesta = cliente.get("/api/v1/mantenimientos/?q=GA'LAP'000001")
+
+    aviso = respuesta.data["advertencia_lector"]
+    assert aviso["recibido"] == "GA'LAP'000001"
+    assert aviso["interpretado"] == "GA-LAP-000001"
+
+
+def test_la_bitacora_no_avisa_cuando_la_lectura_llego_bien(cliente, intervencion):
+    respuesta = cliente.get(f"/api/v1/mantenimientos/?q={intervencion.activo.codigo_barras}")
+
+    assert respuesta.data["count"] == 1
+    assert "advertencia_lector" not in respuesta.data
+
+
+def test_la_bitacora_por_codigo_de_barras_acepta_las_dos_formas(cliente, intervencion):
+    """El parámetro que usa la ficha del activo para traer solo su historial."""
+    respuesta = cliente.get("/api/v1/mantenimientos/?codigo_barras=GA'LAP'000001")
+
+    assert respuesta.data["count"] == 1
+
+
+def test_la_bitacora_sigue_buscando_por_texto(cliente, intervencion):
+    """Buscar por etiqueta no puede haberse comido la búsqueda por diagnóstico
+    o por responsable, que es con la que se usa el resto del tiempo."""
+    assert cliente.get("/api/v1/mantenimientos/?q=Luis").data["count"] == 1
+    assert cliente.get("/api/v1/mantenimientos/?q=disco").data["count"] == 1
+    assert cliente.get("/api/v1/mantenimientos/?q=nada de esto").data["count"] == 0

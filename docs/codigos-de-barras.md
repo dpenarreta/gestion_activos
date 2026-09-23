@@ -99,10 +99,16 @@ apóstrofe puede ser legítimo— y **avisa en pantalla**. El aviso no sobra:
 arreglarlo en silencio dejaría la pistola mal configurada, y el mismo problema
 reaparecería en la carga masiva, donde no hay quien lo repare.
 
-Vale en las tres pantallas donde se dispara la pistola —la consulta por
-escáner, el buscador del inventario y el «Activo intervenido» del formulario de
-mantenimiento— y tanto para **nuestra etiqueta** como para el **número de serie
-del fabricante**, que casi siempre lleva guiones también (`DL5440-0011`).
+Vale en las cuatro pantallas donde se dispara la pistola —la consulta por
+escáner, el buscador del inventario, el «Activo intervenido» del formulario de
+mantenimiento y el buscador de la bitácora de mantenimientos— y tanto para
+**nuestra etiqueta** como para el **número de serie del fabricante**, que casi
+siempre lleva guiones también (`DL5440-0011`).
+
+La bitácora se sumó el 2026-09-15, y su ausencia era de las que confunden más
+de lo que parece: la misma pistola encontraba el equipo en el inventario y no
+encontraba su historial de reparaciones, así que la lectura mal traducida se
+leía como «este equipo nunca entró al taller».
 
 No se sustituye una forma por otra: se busca con las dos, y la recibida va
 primero. Por eso es seguro. Si existiera de verdad un equipo con la serie
@@ -134,6 +140,9 @@ equipo.
 - **`/admin/activos/escaner`**: pantalla dedicada. Devuelve la ficha completa
   con historial y bitácora (RF-03).
 - **Buscador del inventario**: acepta el código como término de búsqueda.
+- **Buscador de la bitácora de mantenimientos**: el mismo código trae las
+  intervenciones de ese equipo (también por `codigo_barras`, que es como la
+  ficha del activo pide solo su historial).
 - La API resuelve por código **o por número de serie** en el mismo endpoint
   (`/activos/por-codigo/{valor}/`): quien tiene el equipo delante y la etiqueta
   arrancada puede teclear la serie del fabricante.
