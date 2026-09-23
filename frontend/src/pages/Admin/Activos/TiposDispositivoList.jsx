@@ -180,6 +180,11 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
     descripcion: tipo.descripcion || "",
     activo: tipo.activo ?? true,
   });
+  // Las características de un tipo que todavía no existe: no hay dónde
+  // colgarlas hasta que el tipo se guarde, así que se acumulan aquí y viajan
+  // con él en el mismo envío. El servidor crea las dos cosas en una
+  // transacción, así que un tipo nunca queda creado y descrito a medias.
+  const [caracteristicas, setCaracteristicas] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -191,7 +196,11 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
       if (esEdicion) {
         await tiposDispositivoService.update(tipo.id, valores);
       } else {
-        await tiposDispositivoService.create(valores);
+        await tiposDispositivoService.create(
+          caracteristicas.length > 0
+            ? { ...valores, caracteristicas }
+            : valores,
+        );
       }
       onGuardado();
     } catch (err) {
@@ -283,14 +292,18 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
         </label>
       </div>
 
-      {/* Solo al editar: una característica cuelga del tipo, así que el tipo
-          tiene que existir antes de poder describirlo. */}
-      {tipo?.id && (
-        <>
-          <h6 className="mt-4 mb-0">Características de este tipo</h6>
-          <CaracteristicasDelTipo tipo={tipo} puedeEditar />
-        </>
-      )}
+      {/* También al crear: un tipo que entra al catálogo sin declarar nada
+          admite características libres en sus primeros equipos, y esa es
+          justamente la dispersión que declararlas evita. Al dar de alta no hay
+          identificador todavía, así que se acumulan aquí y se envían con el
+          tipo. */}
+      <h6 className="mt-4 mb-0">Características de este tipo</h6>
+      <CaracteristicasDelTipo
+        tipo={esEdicion ? tipo : { nombre: valores.nombre }}
+        puedeEditar
+        borrador={caracteristicas}
+        onBorradorChange={setCaracteristicas}
+      />
     </ModalDialog>
   );
 }

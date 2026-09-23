@@ -97,3 +97,51 @@ class CaracteristicaTipoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(error.message_dict) from error
 
         return attrs
+
+
+class CaracteristicaDeTipoNuevoSerializer(CaracteristicaTipoSerializer):
+    """Una característica declarada en el mismo formulario que su tipo.
+
+    Es la de arriba sin `tipo`: cuando esto se valida el tipo todavía no
+    existe, y pedir su identificador obligaría a guardar el tipo primero y
+    describirlo después —que es justo lo que hacía que un tipo recién creado
+    entrara al catálogo sin declarar nada y los primeros equipos se cargaran
+    con características libres, la dispersión que este modelo evita—.
+
+    Tampoco comprueba el choque contra lo ya guardado, porque no hay nada
+    guardado bajo un tipo que aún no existe. Que dos del mismo lote no se
+    llamen igual lo revisa `TipoDispositivoSerializer`, que es quien ve el lote
+    entero.
+    """
+
+    tipo = None
+    tipo_nombre = None
+
+    class Meta(CaracteristicaTipoSerializer.Meta):
+        fields = [
+            "nombre",
+            "unidad",
+            "dato",
+            "opciones",
+            "obligatoria",
+            "orden",
+            "activa",
+        ]
+        read_only_fields = []
+
+    def validate(self, attrs):
+        attrs["nombre"] = attrs.get("nombre", "").strip()
+        if not attrs["nombre"]:
+            raise serializers.ValidationError({"nombre": "La característica necesita un nombre."})
+
+        instancia = CaracteristicaTipo(
+            nombre=attrs["nombre"],
+            dato=attrs.get("dato", CaracteristicaTipo.Dato.TEXTO),
+            opciones=attrs.get("opciones", []),
+        )
+        try:
+            instancia.clean()
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(error.message_dict) from error
+
+        return attrs

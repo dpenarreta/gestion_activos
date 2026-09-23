@@ -147,6 +147,13 @@ function Campo({ caracteristica, valor, onChange }) {
     );
   }
 
+  if (caracteristica.dato === "texto_ampliado") {
+    // El control decide lo que la gente escribe: en una casilla de una línea
+    // nadie redacta dos frases, las abrevia hasta que dejan de entenderse. El
+    // tope es el mismo que valida el servidor.
+    return <textarea {...comun} rows={3} maxLength={2000} />;
+  }
+
   if (caracteristica.dato === "fecha") {
     return <input {...comun} type="date" />;
   }

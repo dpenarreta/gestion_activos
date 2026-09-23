@@ -1,7 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-09 (catálogo de proveedores).
+estado del sistema. Actualizado el 2026-09-15 (características por tipo).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -30,7 +30,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | --- | --- | --- | --- |
 | 3 | Tipos de activos configurables | ✅ | `apps.activos.TipoDispositivo` |
 | 4.1 | Datos generales del activo | ✅ | Los nueve estados, fecha de ingreso, sede de catálogo, proveedor de catálogo y condición al adquirirlo (nuevo/usado) |
-| 4.2 | Características técnicas | ✅ | Campo `especificaciones`, libre por tipo de equipo |
+| 4.2 | Características técnicas | ✅ | Cada tipo declara las suyas (`CaracteristicaTipo`), con su clase de dato —texto, texto ampliado, número, entero, sí/no, lista de opciones, fecha—, unidad, obligatoriedad y orden. El valor se guarda en `especificaciones` bajo el nombre declarado |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
 | 5 | Código QR opcional | ⛔ Descartado | Decisión del 2026-09-09: el inventario se hace con pistola láser, no con cámara. Se refuerza el Code 128 (ver `docs/codigos-de-barras.md`) |
 | 6 | Asignación y devolución | ✅ | Con acta de entrega y devolución en PDF |
@@ -311,6 +311,31 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 11 — El tipo se describe al crearlo (§3, §4.2, 2026-09-15)
+
+Las características por tipo ya existían; faltaba poder declararlas **en el
+mismo formulario que crea el tipo**. Había que guardar el tipo, reabrirlo y
+describirlo después, y entre una cosa y otra el tipo ya estaba en el desplegable
+sin declarar nada: los primeros equipos que entraran por ahí se cargaban con
+características libres, que es justo la dispersión que declararlas evita.
+
+Ahora el `POST` de `/activos/tipos/` acepta la lista y crea las dos cosas en una
+transacción, así que un tipo **nunca queda creado y descrito a medias**: si una
+característica se rechaza, no se crea ninguna ni el tipo. Solo en el alta —
+describir un tipo que ya existe se sigue haciendo de a una, porque reenviar la
+lista entera obligaría a decidir qué pasa con las que no vengan y cualquiera de
+las dos respuestas pisa lo que otra persona acaba de añadir—.
+
+Se suma un séptimo tipo de dato, **texto ampliado**: varios renglones, hasta
+2000 caracteres, para lo que no cabe en una línea. Se separa del texto normal
+porque el control decide lo que la gente escribe —en una casilla de una línea
+nadie redacta dos frases, las abrevia hasta que dejan de entenderse— y el tope
+existe porque la ficha de un equipo no es el sitio para un manual: para eso
+están los adjuntos, que se descargan aparte en vez de viajar en cada listado.
+
+Seis criterios nuevos (AC-CAR-013 a AC-CAR-018) en `ficha-completa-activo.feature`
+y en la matriz.
 
 ### Fase 10 — Aplicación instalable (§20, 2026-09-14)
 

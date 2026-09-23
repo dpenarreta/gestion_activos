@@ -218,6 +218,21 @@ pedido. Ver `docs/multiempresa.md`.
 | --- | --- | --- | --- |
 | GET | `/activos/caracteristicas/` | `activos.ver` | Lo que describe cada tipo. Filtra por `tipo` y por `activa` |
 | POST/PATCH/DELETE | `/activos/caracteristicas/` | `activos.editar` | Declarar, corregir o quitar una característica |
+| POST | `/activos/tipos/` | `activos.editar` | Acepta `caracteristicas`: la lista con la que el tipo nace ya descrito |
+
+Cada característica declara de qué **clase es su valor** —`texto`,
+`texto_ampliado`, `numero`, `entero`, `booleano`, `lista` (con sus `opciones`) o
+`fecha`—, su `unidad`, si es `obligatoria` y en qué `orden` aparece. No es
+decoración del formulario: es lo que permite que «8» y «ocho» no convivan en el
+mismo campo. El `texto_ampliado` admite hasta **2000 caracteres** y conserva los
+saltos de línea; lo que no cabe ahí son adjuntos, no características.
+
+Un tipo puede **nacer ya descrito**: el `POST` de `/activos/tipos/` acepta
+`caracteristicas` y crea las dos cosas en una transacción, así que un tipo nunca
+queda creado y descrito a medias. Solo en el alta: describir un tipo que ya
+existe se hace de a una por su propio endpoint, porque reenviar la lista entera
+obligaría a decidir qué pasa con las que no vengan y cualquiera de las dos
+respuestas pisa lo que otra persona acaba de añadir.
 
 Lo que un tipo declara es lo que se pide al registrar un equipo de ese tipo, y
 el valor se guarda en `Activo.especificaciones` con el nombre declarado como

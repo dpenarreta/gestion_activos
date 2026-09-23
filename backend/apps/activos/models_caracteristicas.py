@@ -28,6 +28,12 @@ from apps.empresas.managers import gestor_de_lo_que_cuelga
 class CaracteristicaTipo(BaseModel):
     """Una característica que se describe en todos los equipos de un tipo."""
 
+    #: Tope de un texto ampliado. No es una restricción de la base —el valor
+    #: vive dentro del JSON de especificaciones—, es lo que impide que la ficha
+    #: de un equipo termine cargando un manual entero: para eso están los
+    #: adjuntos, que se descargan aparte en vez de viajar en cada listado.
+    LIMITE_TEXTO_AMPLIADO = 2000
+
     class Dato(models.TextChoices):
         """De qué clase es el valor, para poder validarlo y ofrecerlo bien.
 
@@ -37,6 +43,12 @@ class CaracteristicaTipo(BaseModel):
         """
 
         TEXTO = "texto", "Texto"
+        #: Para lo que no cabe en una línea —una observación, la configuración
+        #: con la que vino el equipo—. Se separa de `TEXTO` porque el control
+        #: que se ofrece decide lo que la gente escribe: en una casilla de una
+        #: línea nadie redacta dos frases, las abrevia hasta que dejan de
+        #: entenderse.
+        TEXTO_AMPLIADO = "texto_ampliado", "Texto ampliado"
         NUMERO = "numero", "Número"
         ENTERO = "entero", "Número entero"
         BOOLEANO = "booleano", "Sí / No"
@@ -59,7 +71,7 @@ class CaracteristicaTipo(BaseModel):
         blank=True,
         help_text="Ej.: «GB», «pulgadas». Se muestra junto al valor, no se guarda con él.",
     )
-    dato = models.CharField(max_length=10, choices=Dato.choices, default=Dato.TEXTO)
+    dato = models.CharField(max_length=20, choices=Dato.choices, default=Dato.TEXTO)
     opciones = models.JSONField(
         default=list,
         blank=True,
@@ -172,6 +184,17 @@ class CaracteristicaTipo(BaseModel):
             if texto not in self.opciones:
                 admitidos = ", ".join(str(opcion) for opcion in self.opciones)
                 raise ValidationError(f"«{self.nombre}» admite: {admitidos}.")
+            return texto
+
+        if self.dato == self.Dato.TEXTO_AMPLIADO:
+            # `strip()` y no una limpieza mayor: los saltos de línea de dentro
+            # son justamente lo que este dato viene a permitir.
+            texto = str(valor).strip()
+            if len(texto) > self.LIMITE_TEXTO_AMPLIADO:
+                raise ValidationError(
+                    f"«{self.nombre}» admite hasta {self.LIMITE_TEXTO_AMPLIADO} "
+                    f"caracteres y llegaron {len(texto)}."
+                )
             return texto
 
         if self.dato == self.Dato.FECHA:

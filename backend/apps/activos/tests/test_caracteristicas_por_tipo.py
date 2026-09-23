@@ -1,7 +1,7 @@
 """Las características que describe cada tipo de equipo.
 
 Cobertura de tests/qa/features/ficha-completa-activo.feature (AC-CAR-001 a
-AC-CAR-012).
+AC-CAR-018).
 
 Las especificaciones eran pares clave/valor libres. La libertad tenía un precio:
 «RAM», «Ram» y «Memoria RAM» convivían en equipos del mismo modelo, y nadie
@@ -26,6 +26,7 @@ pytestmark = pytest.mark.django_db
 
 RUTA = "/api/v1/activos/caracteristicas/"
 ACTIVOS = "/api/v1/activos/"
+TIPOS = "/api/v1/activos/tipos/"
 
 
 @pytest.fixture
@@ -319,3 +320,172 @@ def test_las_caracteristicas_no_cruzan_empresas(cliente, laptop):
     with usando_empresa(otra):
         assert not CaracteristicaTipo.objects.filter(tipo=laptop).exists()
     assert CaracteristicaTipo.objects.todas().filter(tipo=laptop).exists()
+
+
+# --- Describir el tipo en el mismo momento de crearlo ------------------------
+
+
+def test_el_tipo_se_crea_ya_descrito(cliente):
+    """Declarar el tipo y lo que se describe de él es un solo acto.
+
+    Guardar el tipo primero y describirlo después dejaba una ventana en la que
+    el tipo ya estaba en el desplegable sin declarar nada: los equipos que
+    entraran por ahí se cargaban con características libres, que es la
+    dispersión que este modelo evita.
+    """
+    respuesta = cliente.post(
+        TIPOS,
+        {
+            "nombre": "Impresora",
+            "codigo": "IMP",
+            "caracteristicas": [
+                {"nombre": "Tecnología", "dato": "lista", "opciones": ["Láser", "Tinta"]},
+                {"nombre": "PPM", "dato": "entero", "unidad": "ppm", "orden": 1},
+                {"nombre": "Observaciones", "dato": "texto_ampliado", "orden": 2},
+            ],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 201, respuesta.data
+    tipo = TipoDispositivo.objects.get(codigo="IMP")
+    declaradas = list(tipo.caracteristicas.order_by("orden", "nombre"))
+    assert [c.nombre for c in declaradas] == ["Tecnología", "PPM", "Observaciones"]
+    assert declaradas[0].opciones == ["Láser", "Tinta"]
+    assert declaradas[1].unidad == "ppm"
+    assert declaradas[2].dato == CaracteristicaTipo.Dato.TEXTO_AMPLIADO
+
+
+def test_las_declaradas_en_el_alta_dejan_el_mismo_rastro(cliente):
+    """Quien revise quién declaró «PPM» no tiene por qué saber por dónde entró.
+
+    Si el rastro dependiera del camino, la auditoría quedaría ciega justo en el
+    que van a usar casi todos.
+    """
+    from apps.core.models import AuditLog
+
+    cliente.post(
+        TIPOS,
+        {
+            "nombre": "Escáner",
+            "codigo": "ESC",
+            "caracteristicas": [{"nombre": "PPM", "dato": "entero"}],
+        },
+        format="json",
+    )
+
+    evento = AuditLog.objects.filter(action="caracteristica_tipo.created").get()
+    assert evento.new_values["nombre"] == "PPM"
+
+
+def test_una_caracteristica_rechazada_no_deja_el_tipo_a_medias(cliente):
+    """O entran los dos o no entra ninguno.
+
+    Un tipo creado y descrito a medias es peor que ninguno: quien reintentara
+    chocaría con «ya existe un tipo llamado así» sin ver que el suyo está ahí,
+    incompleto.
+    """
+    respuesta = cliente.post(
+        TIPOS,
+        {
+            "nombre": "Proyector",
+            "codigo": "PRO",
+            "caracteristicas": [
+                {"nombre": "Lúmenes", "dato": "entero"},
+                {"nombre": "Conexión", "dato": "lista", "opciones": []},
+            ],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert not TipoDispositivo.objects.filter(codigo="PRO").exists()
+    assert not CaracteristicaTipo.objects.filter(nombre="Lúmenes").exists()
+
+
+def test_dos_del_mismo_lote_no_pueden_llamarse_igual(cliente):
+    """La restricción de la base distingue mayúsculas; el formulario no debería.
+
+    «RAM» y «ram» pasarían las dos y el formulario del activo pediría dos veces
+    lo mismo para guardarlo en sitios distintos.
+    """
+    respuesta = cliente.post(
+        TIPOS,
+        {
+            "nombre": "Servidor",
+            "codigo": "SRV",
+            "caracteristicas": [
+                {"nombre": "RAM", "dato": "entero", "unidad": "GB"},
+                {"nombre": "ram", "dato": "texto"},
+            ],
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "repite" in str(respuesta.data)
+    assert not TipoDispositivo.objects.filter(codigo="SRV").exists()
+
+
+def test_describir_un_tipo_que_ya_existe_se_hace_de_a_una(cliente, laptop):
+    """Reenviar la lista entera al editar destruiría trabajo ajeno.
+
+    Habría que decidir qué pasa con las que no vengan —¿se borran, se dejan?— y
+    cualquiera de las dos respuestas pisa lo que otra persona acaba de añadir.
+    """
+    respuesta = cliente.patch(
+        f"{TIPOS}{laptop.id}/",
+        {"caracteristicas": [{"nombre": "RAM", "dato": "entero"}]},
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "una a una" in str(respuesta.data)
+    assert not laptop.caracteristicas.exists()
+
+
+def test_un_tipo_se_puede_seguir_creando_sin_describir(cliente):
+    """Quien solo quiere el tipo no tiene que declarar nada todavía."""
+    respuesta = cliente.post(TIPOS, {"nombre": "Monitor", "codigo": "MON"}, format="json")
+
+    assert respuesta.status_code == 201
+    assert TipoDispositivo.objects.get(codigo="MON").caracteristicas.count() == 0
+
+
+# --- Texto ampliado ----------------------------------------------------------
+
+
+def test_el_texto_ampliado_conserva_los_renglones(cliente, laptop, area):
+    """Es lo que distingue este dato del texto de una línea.
+
+    Una observación escrita en tres renglones que se guarda en uno deja de
+    leerse, y quien la escribió deja de usar el campo.
+    """
+    CaracteristicaTipo.objects.create(
+        tipo=laptop, nombre="Observaciones", dato=CaracteristicaTipo.Dato.TEXTO_AMPLIADO
+    )
+    nota = "Llegó con el teclado en inglés.\nSe pidió el cambio el 12/03.\nPendiente."
+
+    respuesta = cliente.post(ACTIVOS, _alta(laptop, area, {"Observaciones": nota}), format="json")
+
+    assert respuesta.status_code == 201, respuesta.data
+    assert Activo.objects.get(numero_serie="SN-CARAC-1").especificaciones["Observaciones"] == nota
+
+
+def test_el_texto_ampliado_tiene_un_tope_y_lo_dice(cliente, laptop, area):
+    """La ficha de un equipo no es el sitio para un manual: para eso hay adjuntos.
+
+    Sin tope, el valor viaja entero en cada listado que incluya especificaciones.
+    """
+    CaracteristicaTipo.objects.create(
+        tipo=laptop, nombre="Observaciones", dato=CaracteristicaTipo.Dato.TEXTO_AMPLIADO
+    )
+
+    respuesta = cliente.post(
+        ACTIVOS,
+        _alta(laptop, area, {"Observaciones": "x" * 2001}),
+        format="json",
+    )
+
+    assert respuesta.status_code == 400
+    assert "2000" in str(respuesta.data) and "2001" in str(respuesta.data)

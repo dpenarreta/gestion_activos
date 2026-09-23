@@ -36,6 +36,14 @@ const CARACTERISTICAS = [
     obligatoria: false,
     opciones: [],
   },
+  {
+    id: 5,
+    nombre: "Observaciones",
+    dato: "texto_ampliado",
+    unidad: "",
+    obligatoria: false,
+    opciones: [],
+  },
 ];
 
 function pintar(props = {}) {
@@ -65,6 +73,25 @@ describe("Características declaradas por el tipo", () => {
     expect(
       screen.getByRole("option", { name: "Ubuntu 22.04" }),
     ).toBeInTheDocument();
+  });
+
+  it("el texto ampliado se escribe en varios renglones", () => {
+    /* El control decide lo que la gente escribe: en una casilla de una línea
+       nadie redacta dos frases, las abrevia hasta que dejan de entenderse. */
+    const onChange = pintar();
+    const campo = screen.getByLabelText(/Observaciones/);
+
+    expect(campo.tagName).toBe("TEXTAREA");
+    // El mismo tope que valida el servidor: la ficha de un equipo no es sitio
+    // para un manual, para eso están los adjuntos.
+    expect(campo).toHaveAttribute("maxlength", "2000");
+
+    fireEvent.change(campo, {
+      target: { value: "Vino con teclado\nen inglés" },
+    });
+    expect(onChange).toHaveBeenCalledWith({
+      Observaciones: "Vino con teclado\nen inglés",
+    });
   });
 
   it("marca las obligatorias", () => {

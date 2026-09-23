@@ -159,6 +159,25 @@ class TipoDispositivoViewSet(viewsets.ModelViewSet):
             )
         return queryset
 
+    def perform_create(self, serializer):
+        """Las características declaradas en el alta dejan el mismo rastro.
+
+        Se auditan una a una y con la misma acción que si se hubieran añadido
+        después por su propio endpoint: quien revise quién declaró «RAM» en las
+        laptops no tendría por qué saber si se hizo en el alta del tipo o al
+        día siguiente.
+        """
+        serializer.save()
+        for caracteristica in getattr(serializer, "caracteristicas_creadas", []):
+            record_audit_event(
+                actor=self.request.user,
+                action="caracteristica_tipo.created",
+                target=caracteristica,
+                module=MODULO,
+                new_values=CaracteristicaTipoSerializer(caracteristica).data,
+                context=get_request_context(self.request),
+            )
+
 
 class ActivoViewSet(viewsets.ModelViewSet):
     """Inventario de activos (RF-01).

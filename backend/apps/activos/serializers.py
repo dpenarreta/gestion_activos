@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
@@ -13,7 +14,10 @@ from apps.politicas.depreciacion import motivo_sin_depreciacion
 from apps.politicas.depreciacion import resolver_politica as resolver_politica_depreciacion
 from apps.politicas.services import evaluar_activo
 
+from .especificaciones import validar as validar_especificaciones
 from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
+from .models_caracteristicas import CaracteristicaTipo
+from .serializers_caracteristicas import CaracteristicaDeTipoNuevoSerializer
 from .tiempos import calcular as calcular_tiempos
 
 
@@ -27,6 +31,13 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
     codigo = serializers.CharField(max_length=10, validators=[])
     total_activos = serializers.IntegerField(read_only=True)
     tiene_politica = serializers.SerializerMethodField()
+    #: Lo que se describe de los equipos de este tipo, declarado en la misma
+    #: alta. Solo de escritura: el listado del catálogo pagina tipos, y
+    #: arrastrar las características de cada uno lo convertiría en una consulta
+    #: por fila para un dato que la pantalla pide aparte cuando lo necesita.
+    caracteristicas = CaracteristicaDeTipoNuevoSerializer(
+        many=True, required=False, write_only=True
+    )
 
     class Meta:
         model = TipoDispositivo
@@ -38,6 +49,7 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
             "activo",
             "total_activos",
             "tiene_politica",
+            "caracteristicas",
             "created_at",
             "updated_at",
         ]
@@ -45,6 +57,73 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
 
     def get_tiene_politica(self, obj) -> bool:
         return hasattr(obj, "politica")
+
+    def validate_caracteristicas(self, value):
+        """Que dos del mismo lote no se llamen igual.
+
+        La restricción de la base distingue mayúsculas, así que «RAM» y «ram»
+        pasarían las dos y el formulario del activo pediría dos veces lo mismo
+        para guardarlo en sitios distintos. Se comprueba aquí y no en cada
+        característica porque es lo único que solo se ve mirando el lote
+        entero.
+        """
+        vistos = {}
+        for posicion, caracteristica in enumerate(value):
+            nombre = caracteristica["nombre"]
+            anterior = vistos.get(nombre.lower())
+            if anterior is not None:
+                raise serializers.ValidationError(
+                    {
+                        posicion: {
+                            "nombre": (
+                                f"«{nombre}» repite a «{anterior}». Dos características "
+                                "con el mismo nombre guardarían su valor en el mismo sitio."
+                            )
+                        }
+                    }
+                )
+            vistos[nombre.lower()] = nombre
+        return value
+
+    def validate(self, attrs):
+        """Describir un tipo que ya existe se hace de a una, no reenviando todas.
+
+        Aceptarlas aquí en una edición obligaría a decidir qué pasa con las que
+        no vengan en la lista —¿se borran, se dejan?—, y cualquiera de las dos
+        respuestas destruye trabajo ajeno el día que dos personas editan el
+        mismo tipo. El endpoint de características cambia una sin tocar las
+        otras y deja su propio rastro en la auditoría.
+        """
+        if self.instance is not None and "caracteristicas" in attrs:
+            raise serializers.ValidationError(
+                {
+                    "caracteristicas": (
+                        "Las características de un tipo ya creado se administran una a "
+                        "una en /activos/caracteristicas/."
+                    )
+                }
+            )
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """El tipo y lo que describe entran juntos o no entra ninguno.
+
+        Sin la transacción, una característica rechazada a mitad del lote
+        dejaría el tipo creado y descrito a medias: quien reintentara chocaría
+        con «ya existe un tipo llamado así» sin ver que el suyo está ahí,
+        incompleto.
+        """
+        caracteristicas = validated_data.pop("caracteristicas", [])
+        tipo = super().create(validated_data)
+        #: El viewset las audita una a una, igual que si se hubieran creado por
+        #: su propio endpoint: que el rastro dependa de por dónde entraron
+        #: dejaría sin registrar justo el camino por el que van a entrar casi
+        #: todas.
+        self.caracteristicas_creadas = [
+            CaracteristicaTipo.objects.create(tipo=tipo, **datos) for datos in caracteristicas
+        ]
+        return tipo
 
     def validate_nombre(self, value):
         """Rechaza el duplicado sin distinguir mayúsculas y diciendo con cuál
@@ -598,65 +677,15 @@ class ActivoWriteSerializer(serializers.ModelSerializer):
     def _validar_contra_el_tipo(self, tipo, especificaciones):
         """Comprueba las características que el tipo declara.
 
-        **Solo se exige cuando el tipo declara alguna.** Un tipo sin
-        características sigue admitiendo pares libres, como antes: obligar a
-        configurarlos todos antes de poder registrar un equipo convertiría una
-        mejora en un bloqueo, y la mitad del inventario se cargó cuando esto no
-        existía.
-
-        Las claves que no declara el tipo se rechazan —es lo que impide que
-        vuelva la dispersión de «RAM», «Ram» y «Memoria RAM»— salvo las que el
-        equipo ya tenía guardadas: al describir un tipo por primera vez, sus
-        equipos antiguos arrastran características que nadie declaró, y hacer
-        que su ficha deje de poder guardarse castigaría precisamente a quien
-        cargó el inventario primero.
+        La comprobación vive en `apps.activos.especificaciones` porque ya no la
+        usa solo la ficha: una solicitud de compra describe lo que se pide con
+        las mismas características y con las mismas exigencias.
         """
-        from django.core.exceptions import ValidationError as ErrorDeModelo
-
-        from .models_caracteristicas import CaracteristicaTipo
-
-        declaradas = list(
-            CaracteristicaTipo.objects.filter(tipo=tipo, activa=True).order_by("orden", "nombre")
+        limpias, errores = validar_especificaciones(
+            tipo,
+            especificaciones,
+            heredadas=getattr(self.instance, "especificaciones", None) or {},
         )
-        if not declaradas:
-            return especificaciones
-
-        por_nombre = {c.nombre: c for c in declaradas}
-        heredadas = set(getattr(self.instance, "especificaciones", None) or {})
-        errores = {}
-        limpias = {}
-
-        for clave, valor in (especificaciones or {}).items():
-            caracteristica = por_nombre.get(clave)
-            if caracteristica is None:
-                if clave in heredadas:
-                    limpias[clave] = valor
-                else:
-                    errores[clave] = (
-                        f"«{tipo.nombre}» no describe «{clave}». Añádala a las "
-                        f"características del tipo si hace falta."
-                    )
-                continue
-            try:
-                normalizado = caracteristica.normalizar(valor)
-            except ErrorDeModelo as error:
-                errores[clave] = error.messages[0]
-                continue
-            if normalizado is not None:
-                limpias[clave] = normalizado
-
-        for caracteristica in declaradas:
-            # Si el valor ya falló por otra razón —una opción que no está en la
-            # lista, un texto donde iba un número— ese mensaje dice qué corregir
-            # y este lo taparía con un genérico «es obligatoria».
-            if caracteristica.nombre in errores:
-                continue
-            if caracteristica.obligatoria and limpias.get(caracteristica.nombre) in (None, ""):
-                errores[caracteristica.nombre] = (
-                    f"«{caracteristica.nombre}» es obligatoria para un equipo de "
-                    f"tipo {tipo.nombre}."
-                )
-
         if errores:
             raise serializers.ValidationError({"especificaciones": errores})
         return limpias

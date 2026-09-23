@@ -246,18 +246,155 @@ describe("Crear o editar un tipo", () => {
     );
   });
 
-  it("un tipo nuevo todavía no puede describirse", async () => {
-    /* Una característica cuelga del tipo: hasta que el tipo exista no hay de
-       qué colgarla. */
+  it("un tipo nuevo se describe en el mismo formulario", async () => {
+    /* Hasta que el tipo exista no hay de qué colgar una característica, pero
+       esperar a guardarlo dejaba el tipo en el desplegable sin declarar nada:
+       los primeros equipos entraban con características libres. Se acumulan en
+       el diálogo y viajan con el tipo. */
     pintar();
 
     fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
 
-    await screen.findByRole("dialog");
+    const dialogo = await screen.findByRole("dialog");
     expect(
-      screen.queryByText("Características de este tipo"),
-    ).not.toBeInTheDocument();
+      within(dialogo).getByText("Características de este tipo"),
+    ).toBeInTheDocument();
+    // No hay tipo al que preguntarle las suyas: la lista empieza vacía.
     expect(listarCaracteristicas).not.toHaveBeenCalled();
+  });
+
+  it("las características declaradas en el alta viajan con el tipo", async () => {
+    pintar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
+    const dialogo = await screen.findByRole("dialog");
+
+    fireEvent.change(within(dialogo).getByLabelText("Nombre"), {
+      target: { value: "Impresora" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Código"), {
+      target: { value: "IMP" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Característica"), {
+      target: { value: "Observaciones" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Dato"), {
+      target: { value: "texto_ampliado" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
+
+    // Se declara, pero todavía no se envía: no hay tipo al que colgarla.
+    expect(crearCaracteristica).not.toHaveBeenCalled();
+    // Por el nombre y no por «Texto ampliado»: eso también es una opción del
+    // desplegable, y encontrarla no probaría que la fila se añadió.
+    expect(
+      await within(dialogo).findByText("Observaciones"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].caracteristicas).toEqual([
+      expect.objectContaining({
+        nombre: "Observaciones",
+        dato: "texto_ampliado",
+      }),
+    ]);
+  });
+
+  it("añadir una característica en el alta no guarda el tipo", async () => {
+    /* El formulario de la característica vive dentro del formulario del tipo:
+       sin cortar la propagación, declarar la primera cerraría el diálogo. */
+    pintar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
+    const dialogo = await screen.findByRole("dialog");
+
+    fireEvent.change(within(dialogo).getByLabelText("Característica"), {
+      target: { value: "RAM" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
+
+    await within(dialogo).findByText("RAM");
+    expect(crear).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("dos declaradas con el mismo nombre se avisan al momento", async () => {
+    /* Descubrirlo al guardar obligaría a rehacer el resto del formulario. */
+    pintar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
+    const dialogo = await screen.findByRole("dialog");
+    const nombre = within(dialogo).getByLabelText("Característica");
+    const añadir = within(dialogo).getByRole("button", { name: "Añadir" });
+
+    fireEvent.change(nombre, { target: { value: "RAM" } });
+    fireEvent.click(añadir);
+    await within(dialogo).findByText("RAM");
+    fireEvent.change(nombre, { target: { value: "ram" } });
+    fireEvent.click(añadir);
+
+    expect(
+      await within(dialogo).findByText(/«ram» repite a «RAM»/),
+    ).toBeInTheDocument();
+  });
+
+  it("una declarada en el alta también se corrige antes de guardar", async () => {
+    pintar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
+    const dialogo = await screen.findByRole("dialog");
+
+    fireEvent.change(within(dialogo).getByLabelText("Nombre"), {
+      target: { value: "Impresora" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Código"), {
+      target: { value: "IMP" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Característica"), {
+      target: { value: "PPM" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
+
+    const fila = (await within(dialogo).findByText("PPM")).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Editar" }));
+    fireEvent.change(within(dialogo).getAllByLabelText("Característica")[0], {
+      target: { value: "Páginas por minuto" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Guardar" }));
+
+    await within(dialogo).findByText("Páginas por minuto");
+    // No hay a quién pedirle el cambio: el tipo todavía no existe.
+    expect(actualizarCaracteristica).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(crear).toHaveBeenCalled());
+    expect(crear.mock.calls[0][0].caracteristicas).toEqual([
+      expect.objectContaining({ nombre: "Páginas por minuto" }),
+    ]);
+  });
+
+  it("una declarada de más se quita antes de guardar", async () => {
+    pintar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Nuevo tipo" }));
+    const dialogo = await screen.findByRole("dialog");
+
+    fireEvent.change(within(dialogo).getByLabelText("Característica"), {
+      target: { value: "RAM" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
+    await within(dialogo).findByText("RAM");
+
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Quitar" }));
+
+    await waitFor(() =>
+      expect(within(dialogo).queryByText("RAM")).not.toBeInTheDocument(),
+    );
+    // Nada que borrar en el servidor: nunca llegó a existir.
+    expect(quitarCaracteristica).not.toHaveBeenCalled();
   });
 
   it("si el servidor lo rechaza, el diálogo conserva lo escrito", async () => {
@@ -451,7 +588,9 @@ describe("Las características del tipo", () => {
   it("si el servidor rechaza la nueva, lo dice", async () => {
     crearCaracteristica.mockRejectedValue({
       response: {
-        data: { error: { message: "Ya existe «RAM» en este tipo." } },
+        data: {
+          error: { message: "El tipo ya no admite más características." },
+        },
       },
     });
 
@@ -460,12 +599,78 @@ describe("Las características del tipo", () => {
 
     await within(dialogo).findByText("RAM");
     fireEvent.change(within(dialogo).getByLabelText("Característica"), {
-      target: { value: "RAM" },
+      target: { value: "Disco" },
     });
     fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
 
     expect(
-      await screen.findByText("Ya existe «RAM» en este tipo."),
+      await screen.findByText("El tipo ya no admite más características."),
     ).toBeInTheDocument();
+  });
+
+  it("repetir una que el tipo ya declara se avisa sin ir al servidor", async () => {
+    /* La lista está cargada: esperar el rechazo del servidor para decir algo
+       que ya se sabe es un viaje de ida y vuelta por nada. */
+    pintar();
+    const dialogo = await abrirEdicion();
+
+    await within(dialogo).findByText("RAM");
+    fireEvent.change(within(dialogo).getByLabelText("Característica"), {
+      target: { value: "ram" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Añadir" }));
+
+    expect(
+      await within(dialogo).findByText(/«ram» repite a «RAM»/),
+    ).toBeInTheDocument();
+    expect(crearCaracteristica).not.toHaveBeenCalled();
+  });
+
+  it("una característica ya creada se corrige en su sitio", async () => {
+    /* Sin esto, arreglar una errata o cambiar el dato obligaba a quitarla y
+       volver a declararla, y quitarla es lo único que no arrastra lo que los
+       equipos ya tenían guardado. */
+    actualizarCaracteristica.mockResolvedValue({
+      ...CARACTERISTICAS[0],
+      nombre: "Memoria RAM",
+      unidad: "GB",
+    });
+
+    pintar();
+    const dialogo = await abrirEdicion();
+
+    const fila = (await within(dialogo).findByText("RAM")).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Editar" }));
+
+    // Los campos llegan con lo que ya estaba declarado, no en blanco.
+    const nombre = within(dialogo).getAllByLabelText("Característica")[0];
+    expect(nombre).toHaveValue("RAM");
+    fireEvent.change(nombre, { target: { value: "Memoria RAM" } });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(actualizarCaracteristica).toHaveBeenCalled());
+    expect(actualizarCaracteristica.mock.calls[0][0]).toBe(11);
+    expect(actualizarCaracteristica.mock.calls[0][1]).toMatchObject({
+      nombre: "Memoria RAM",
+      dato: "entero",
+      unidad: "GB",
+      obligatoria: true,
+    });
+    expect(await within(dialogo).findByText("Memoria RAM")).toBeInTheDocument();
+  });
+
+  it("cancelar la corrección deja la característica como estaba", async () => {
+    pintar();
+    const dialogo = await abrirEdicion();
+
+    const fila = (await within(dialogo).findByText("RAM")).closest("tr");
+    fireEvent.click(within(fila).getByRole("button", { name: "Editar" }));
+    fireEvent.change(within(dialogo).getAllByLabelText("Característica")[0], {
+      target: { value: "Otra cosa" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Descartar" }));
+
+    expect(actualizarCaracteristica).not.toHaveBeenCalled();
+    expect(await within(dialogo).findByText("RAM")).toBeInTheDocument();
   });
 });

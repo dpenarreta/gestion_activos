@@ -322,3 +322,65 @@ Feature: Ficha completa del activo (§4.1, §12 y §14 del documento funcional)
     When se edita su ficha
     Then sus características anteriores se conservan y se muestran aparte
     # Rechazarlas castigaría a quien cargó el inventario primero.
+
+  @AC-CAR-013
+  Scenario: El tipo se crea ya descrito
+    When se da de alta un tipo de dispositivo
+    Then el mismo formulario permite declarar sus características
+    And se crean junto con el tipo, sin volver a abrirlo
+    # Guardar el tipo y describirlo después dejaba una ventana en la que el
+    # tipo ya estaba en el desplegable sin declarar nada: los equipos que
+    # entraran por ahí se cargaban con características libres.
+
+  @AC-CAR-014
+  Scenario: El tipo y lo que describe entran juntos o no entra ninguno
+    When una de las características declaradas en el alta se rechaza
+    Then no se crea el tipo ni ninguna de las otras
+    # Un tipo creado a medias haría chocar el reintento con «ya existe un tipo
+    # llamado así» sin que nadie vea que el suyo está ahí, incompleto.
+
+  @AC-CAR-015
+  Scenario: Dos características del mismo formulario no pueden llamarse igual
+    When se declaran «RAM» y «ram» en el alta de un tipo
+    Then el sistema lo rechaza diciendo con cuál choca
+    And se avisa al declararla, no al guardar el tipo
+    # Descubrirlo al final obligaría a rehacer el resto del formulario.
+
+  @AC-CAR-016
+  Scenario: Describir un tipo que ya existe se hace de a una
+    When se reenvía la lista entera de características de un tipo ya creado
+    Then el sistema la rechaza y remite al endpoint de características
+    # Habría que decidir qué pasa con las que no vengan en la lista, y
+    # cualquiera de las dos respuestas pisa lo que otra persona acaba de añadir.
+
+  @AC-CAR-017
+  Scenario: Una característica puede pedirse como texto ampliado
+    When una característica se declara como texto ampliado
+    Then el formulario la pide en varios renglones y los conserva al guardar
+    # En una casilla de una línea nadie redacta dos frases: las abrevia hasta
+    # que dejan de entenderse.
+
+  @AC-CAR-018
+  Scenario: El texto ampliado tiene un tope y lo dice
+    When se escriben más caracteres de los que admite
+    Then el sistema lo rechaza diciendo cuántos caben y cuántos llegaron
+    # La ficha de un equipo no es el sitio para un manual: para eso están los
+    # adjuntos, que se descargan aparte en vez de viajar en cada listado.
+
+  @AC-CAR-019
+  Scenario: Una característica ya creada se corrige sin volver a declararla
+    Given un tipo que ya declara «RAM»
+    When se corrige su nombre, su dato, su unidad o su orden
+    Then el cambio se guarda sin quitarla ni declararla de nuevo
+    And los equipos conservan lo que tenían guardado bajo el nombre anterior
+    # Quitarla y volver a declararla es lo único que no arrastra lo capturado:
+    # obligar a eso para arreglar una errata hace perder el inventario de esa
+    # característica.
+
+  @AC-CAR-020
+  Scenario: Repetir una que el tipo ya declara se avisa sin ir al servidor
+    Given un tipo que ya declara «RAM»
+    When se intenta añadir «ram»
+    Then se avisa en el momento y no se envía nada
+    # La lista está cargada: esperar el rechazo del servidor para decir algo
+    # que ya se sabe es un viaje de ida y vuelta por nada.

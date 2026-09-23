@@ -630,6 +630,14 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-CAR-010 | La obligatoria se exige, con el mensaje útil | ficha-completa-activo.feature | Una característica obligatoria se exige | Sí (pytest: `test_la_caracteristica_obligatoria_se_exige`, `test_un_valor_invalido_en_una_obligatoria_dice_qué_tiene_de_malo`) |
 | AC-CAR-011 | Desactivarla no borra lo capturado | ficha-completa-activo.feature | Una característica que se deja de pedir no borra lo capturado | Sí (pytest: `test_una_caracteristica_desactivada_deja_de_pedirse`) |
 | AC-CAR-012 | El equipo antiguo conserva lo suyo | ficha-completa-activo.feature | Un equipo antiguo conserva lo que traía | Sí (pytest: `test_el_equipo_antiguo_conserva_lo_que_ya_tenia`; Vitest: `muestra aparte lo que el equipo traía de antes`) |
+| AC-CAR-013 | El tipo se crea ya descrito | ficha-completa-activo.feature | El tipo se crea ya descrito | Sí (pytest: `test_el_tipo_se_crea_ya_descrito`, `test_las_declaradas_en_el_alta_dejan_el_mismo_rastro`; Vitest: `un tipo nuevo se describe en el mismo formulario`, `las características declaradas en el alta viajan con el tipo`) |
+| AC-CAR-014 | El alta es atómica | ficha-completa-activo.feature | El tipo y lo que describe entran juntos o no entra ninguno | Sí (pytest: `test_una_caracteristica_rechazada_no_deja_el_tipo_a_medias`) |
+| AC-CAR-015 | Sin repetidas en el mismo formulario | ficha-completa-activo.feature | Dos características del mismo formulario no pueden llamarse igual | Sí (pytest: `test_dos_del_mismo_lote_no_pueden_llamarse_igual`; Vitest: `dos declaradas con el mismo nombre se avisan al momento`) |
+| AC-CAR-016 | Un tipo existente se describe de a una | ficha-completa-activo.feature | Describir un tipo que ya existe se hace de a una | Sí (pytest: `test_describir_un_tipo_que_ya_existe_se_hace_de_a_una`) |
+| AC-CAR-017 | Texto ampliado | ficha-completa-activo.feature | Una característica puede pedirse como texto ampliado | Sí (pytest: `test_el_texto_ampliado_conserva_los_renglones`; Vitest: `el texto ampliado se escribe en varios renglones`) |
+| AC-CAR-018 | El texto ampliado tiene tope | ficha-completa-activo.feature | El texto ampliado tiene un tope y lo dice | Sí (pytest: `test_el_texto_ampliado_tiene_un_tope_y_lo_dice`) |
+| AC-CAR-019 | Corregir una ya creada | ficha-completa-activo.feature | Una característica ya creada se corrige sin volver a declararla | Sí (Vitest: `una característica ya creada se corrige en su sitio`, `cancelar la corrección deja la característica como estaba`, `una declarada en el alta también se corrige antes de guardar`; pytest: `test_renombrarla_arrastra_lo_ya_guardado`) |
+| AC-CAR-020 | El duplicado se avisa en el acto | ficha-completa-activo.feature | Repetir una que el tipo ya declara se avisa sin ir al servidor | Sí (Vitest: `repetir una que el tipo ya declara se avisa sin ir al servidor`) |
 
 ## Cliente HTTP del navegador (AC-CLI-xxx)
 
