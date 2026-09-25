@@ -10,6 +10,14 @@ def filter_audit_logs(queryset: QuerySet, params) -> QuerySet:
     if actor:
         queryset = queryset.filter(actor_id=actor)
 
+    # Por nombre y no solo por id: quien revisa un incidente sabe a quién
+    # busca, no su número de usuario, y obligarle a pasar antes por el listado
+    # de cuentas a copiarlo pide además el permiso de ver usuarios, que no
+    # todo auditor tiene.
+    actor_username = params.get("actor_username")
+    if actor_username:
+        queryset = queryset.filter(actor__username__icontains=actor_username)
+
     action = params.get("action")
     if action:
         queryset = queryset.filter(action__icontains=action)

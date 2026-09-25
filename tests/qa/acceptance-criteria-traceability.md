@@ -442,6 +442,22 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-038 | Evita quedar sin administrador activo | users.feature | Un usuario sin privilegios de administrador se puede deshabilitar libremente | Sí (pytest) |
 | AC-039 | Sin hashes/tokens/secretos en interfaces | users.feature | El listado de usuarios nunca expone hashes ni tokens | Sí (pytest, por inspección de serializers) |
 
+## Registro de auditoría (AC-AUD-xxx)
+
+Leerlo desde el panel. Que cada operación quede registrada y no se pueda
+alterar se cubre en la sección de autorización.
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-AUD-001 | El registro se lee desde el panel | auditoria.feature | El registro se lee desde el panel | Sí (Vitest: `lista qué se hizo, quién lo hizo y con qué resultado`) |
+| AC-AUD-002 | Se busca por la persona | auditoria.feature | Se busca por la persona, no por su número | Sí (pytest: `test_se_filtra_por_el_nombre_de_quien_lo_hizo`, `test_el_nombre_parcial_basta`, `test_sin_el_filtro_salen_todos`; Vitest: `los filtros se envían al confirmar, no en cada tecla`) |
+| AC-AUD-003 | Sin autor es el sistema | auditoria.feature | Un evento sin autor se atribuye al sistema | Sí (Vitest: `un evento sin autor se atribuye al sistema, no se deja en blanco`) |
+| AC-AUD-004 | El detalle enseña el cambio | auditoria.feature | El detalle enseña el antes y el después | Sí (Vitest: `el detalle enseña el antes y el después del cambio`) |
+| AC-AUD-005 | Sin permiso de detalle no se ofrece | auditoria.feature | Sin permiso de detalle no se ofrece abrirlo | Sí (Vitest: `sin permiso de detalle no se ofrece abrirlo`; en el servidor, `AuditLogSerializer` ya retira esos campos) |
+| AC-AUD-006 | Sin permiso de exportar no se ofrece | auditoria.feature | Sin permiso de exportar no se ofrece exportar | Sí (Vitest: `sin permiso de exportar no se ofrece el botón`) |
+| AC-AUD-007 | Lo exportado es lo que se ve | auditoria.feature | Lo exportado es lo que se está viendo | Sí (Vitest: `lo que se exporta es lo que se está viendo`) |
+| AC-AUD-008 | El auditor llega a la pantalla | auditoria.feature | Un auditor sin acceso a usuarios llega igual a la pantalla | Sí (Vitest: `un auditor sin acceso a usuarios igual llega a Auditoría`, `quien administra usuarios pero no audita no ve Auditoría`) |
+
 ## Base de datos
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |

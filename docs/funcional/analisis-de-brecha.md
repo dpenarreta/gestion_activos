@@ -1,8 +1,7 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-17 (solicitudes de compra y
-respaldo programado).
+estado del sistema. Actualizado el 2026-09-25 (pantalla de auditoría).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -46,7 +45,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, sede, criticidad, uso y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ✅ | Los trece reportes, cada uno en Excel, CSV y PDF (`apps.reportes`) |
-| 17 | Auditoría | ✅ | `AuditLog`, append-only |
+| 17 | Auditoría | ✅ | `AuditLog`, append-only, y su pantalla en *Usuarios y roles → Auditoría*: filtros por persona, acción, resultado y fechas, detalle con el antes y el después, y exportación de lo filtrado |
 | 18 | Adjuntos y evidencias | ✅ | `apps.adjuntos`, con los nueve tipos del documento |
 | 19 | Notificaciones y alertas | ✅ | Las siete alertas, más el envío del resumen por correo con frecuencia configurable |
 | 22.3 | Gestión de depreciación | ✅ | Lineal, por tipo de dispositivo (`apps.politicas.depreciacion`). Valor en libros en la ficha y reporte del parque |
@@ -317,6 +316,33 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 14 — La auditoría se lee desde el panel (§17, 2026-09-25)
+
+El registro existía completo desde el principio —cada operación
+administrativa, con su antes y su después, quién, desde dónde y con qué
+resultado— pero **solo se podía leer consultando la API**. En la práctica eso
+es no tenerlo: quien necesita saber quién dio de baja un equipo no abre una
+terminal, pregunta por el pasillo.
+
+La pantalla filtra por persona, por acción, por resultado y por rango de
+fechas. El filtro por persona se añadió al servidor para esto: aceptaba el
+`id` del actor y no su nombre, y averiguarlo obliga a pasar por el listado de
+cuentas, que exige un permiso —`usuarios.ver`— que un auditor no tiene por qué
+tener.
+
+Los tres permisos que ya existían se respetan en la pantalla y no solo en la
+API: sin `auditoria.ver_detalle` no se ofrece abrir el antes/después —un botón
+que abriera dos columnas vacías haría pensar que el evento no cambió nada— y
+sin `auditoria.exportar` no aparece el botón. La entrada del menú cuelga de
+«Usuarios y roles» con permiso propio, para que quien solo audita llegue a
+ella sin poder ver las cuentas.
+
+Lo que se exporta es lo que se está viendo, con los mismos filtros: un botón
+que bajara el registro entero obligaría a repetir fuera el trabajo de acotarlo.
+
+Ocho criterios nuevos (AC-AUD-001 a AC-AUD-008) en `auditoria.feature` y en la
+matriz.
 
 ### Fase 13 — El respaldo se programa desde la aplicación (§21, 2026-09-17)
 

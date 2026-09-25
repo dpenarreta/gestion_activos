@@ -43,6 +43,7 @@ import { ProveedorForm } from "../pages/Admin/Organizacion/ProveedorForm";
 import { ProveedoresList } from "../pages/Admin/Organizacion/ProveedoresList";
 import { SedeForm } from "../pages/Admin/Organizacion/SedeForm";
 import { SedesList } from "../pages/Admin/Organizacion/SedesList";
+import { AuditoriaList } from "../pages/Admin/Auditoria/AuditoriaList";
 import { EmpleadoForm } from "../pages/Admin/Organizacion/EmpleadoForm";
 import { EmpleadosList } from "../pages/Admin/Organizacion/EmpleadosList";
 import { RoleForm } from "../pages/Admin/Roles/RoleForm";
@@ -51,6 +52,7 @@ import { UserForm } from "../pages/Admin/Users/UserForm";
 import { UsersList } from "../pages/Admin/Users/UsersList";
 
 const USUARIOS_VER = "usuarios.ver";
+const AUDITORIA_VER = "auditoria.ver";
 const ROLES_VER = "roles.ver";
 const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
@@ -143,6 +145,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={EMPRESAS_VER}>
               <EmpresaForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="auditoria"
+          element={
+            <RequirePermission permission={AUDITORIA_VER}>
+              <AuditoriaList />
             </RequirePermission>
           }
         />

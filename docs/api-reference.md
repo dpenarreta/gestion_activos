@@ -583,6 +583,17 @@ Detalles que conviene conocer:
 Solo lectura: no existe endpoint de escritura (el registro se crea
 internamente vía `apps.core.audit.record_audit_event`).
 
+Filtros del listado y de la exportación —los mismos, para que el archivo traiga
+lo que se está viendo—: `actor` (id), `actor_username` (parcial, sin distinguir
+mayúsculas), `action` (parcial), `module`, `target_type`, `target_id`,
+`result` y el rango `created_from` / `created_to`.
+
+`actor_username` existe porque quien revisa un incidente sabe a quién busca y
+no su número de cuenta, y averiguarlo le exigiría el permiso de ver usuarios,
+que un auditor no tiene por qué tener.
+
+La pantalla que consume esto es *Usuarios y roles → Auditoría*.
+
 ## Identidad institucional / tema (`admin/theme/`, `theme/current/`)
 
 | Método | Ruta | Auth | Permiso |

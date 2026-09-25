@@ -163,6 +163,18 @@ export const ADMIN_MENU = [
         icon: "shield-lock",
         path: "/admin/roles",
       },
+      {
+        // Aquí y no en Configuración: quien abre la auditoría viene de una
+        // pregunta sobre una persona —quién cambió esto, qué tocó fulano— y
+        // ese hilo empieza en su ficha o en su rol, que están al lado. Lleva
+        // permiso propio para que un auditor sin `usuarios.ver` siga viendo
+        // el grupo, con esta entrada sola dentro.
+        id: "accesos-auditoria",
+        name: "Auditoría",
+        icon: "clipboard-data",
+        path: "/admin/auditoria",
+        permission: "auditoria.ver",
+      },
     ],
   },
   {

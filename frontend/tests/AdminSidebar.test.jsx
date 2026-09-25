@@ -104,6 +104,29 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     expect(screen.getByText("Realizar solicitud")).toBeInTheDocument();
   });
 
+  it("un auditor sin acceso a usuarios igual llega a Auditoría", () => {
+    /* La entrada cuelga de «Usuarios y roles», que pide `usuarios.ver`. Con
+       permiso propio, el grupo se abre solo con esta dentro; sin él, quien
+       audita no encontraría la pantalla por ningún lado del menú. */
+    permisos.lista = ["auditoria.ver"];
+
+    pintar();
+
+    expect(screen.getByText("Usuarios y roles")).toBeInTheDocument();
+    expect(screen.getByText("Auditoría")).toBeInTheDocument();
+    expect(screen.queryByText("Usuarios")).not.toBeInTheDocument();
+    expect(screen.queryByText("Roles y permisos")).not.toBeInTheDocument();
+  });
+
+  it("quien administra usuarios pero no audita no ve Auditoría", () => {
+    permisos.lista = ["usuarios.ver"];
+
+    pintar();
+
+    expect(screen.getByText("Usuarios")).toBeInTheDocument();
+    expect(screen.queryByText("Auditoría")).not.toBeInTheDocument();
+  });
+
   it("quien consulta solicitudes pero no las hace no ve el formulario", () => {
     /* Ofrecérselo lo llevaría a un 403: el permiso de crear es aparte. */
     permisos.lista = ["solicitudes.ver"];

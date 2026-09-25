@@ -262,3 +262,49 @@ def test_auditar_un_cuerpo_con_archivos_no_rompe_la_peticion(tmp_path):
     evento = AuditLog.objects.filter(action__endswith=".validation_failed").latest("id")
     # `request.data` es un QueryDict: cada clave llega como lista.
     assert "<archivo factura.pdf" in str(evento.new_values["archivo"])
+
+
+# --- Filtro por quién lo hizo -------------------------------------------------
+
+
+def test_se_filtra_por_el_nombre_de_quien_lo_hizo(full_audit_client):
+    """Quien revisa un incidente sabe a quién busca, no su número de usuario.
+
+    Y pedirle que lo averigüe en el listado de cuentas le exigiría además el
+    permiso de ver usuarios, que un auditor no tiene por qué tener.
+    """
+    client, actor = full_audit_client
+    otra = User.objects.create_user(
+        username="otra_persona", email="otra@example.com", password="Sup3r-Secr3t!"
+    )
+    AuditLog.objects.create(actor=actor, action="algo.created", target_type="Cosa", target_id="1")
+    AuditLog.objects.create(actor=otra, action="algo.created", target_type="Cosa", target_id="2")
+
+    response = client.get("/api/v1/admin/audit-logs/", {"actor_username": "otra"})
+
+    assert response.status_code == 200
+    assert [fila["actor_username"] for fila in response.data["results"]] == ["otra_persona"]
+
+
+def test_el_nombre_parcial_basta(full_audit_client):
+    client, actor = full_audit_client
+    AuditLog.objects.create(actor=actor, action="algo.created", target_type="Cosa", target_id="1")
+
+    response = client.get("/api/v1/admin/audit-logs/", {"actor_username": "AUDIT_ADM"})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+
+
+def test_sin_el_filtro_salen_todos(full_audit_client):
+    client, actor = full_audit_client
+    otra = User.objects.create_user(
+        username="otra_persona", email="otra@example.com", password="Sup3r-Secr3t!"
+    )
+    AuditLog.objects.create(actor=actor, action="algo.created", target_type="Cosa", target_id="1")
+    AuditLog.objects.create(actor=otra, action="algo.created", target_type="Cosa", target_id="2")
+
+    response = client.get("/api/v1/admin/audit-logs/")
+
+    assert response.status_code == 200
+    assert response.data["count"] >= 2
