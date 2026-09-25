@@ -165,7 +165,7 @@ def administrador(db):
     usuario.user_permissions.set(
         Permission.objects.filter(
             content_type=ContentType.objects.get_for_model(ModulePermission),
-            codename__in=["configuracion.ver", "configuracion.editar"],
+            codename__in=["configuracion.ver", "configuracion.respaldos"],
         )
     )
     return usuario
@@ -228,3 +228,55 @@ def test_el_cambio_queda_auditado(cliente):
     evento = AuditLog.objects.filter(action="respaldo.politica_changed").first()
     assert evento is not None
     assert evento.new_values["activo"] is True
+
+
+# --- Quién puede cambiarla ---------------------------------------------------
+
+
+@pytest.fixture
+def solo_apariencia(db):
+    """Puede configurar el sistema, pero no el respaldo.
+
+    Es el caso que motivó separar el permiso: cambiar el logo y los colores no
+    debería decidir de cuándo se puede volver si algo se pierde.
+    """
+    usuario = User.objects.create_user(
+        username="marca", email="marca@example.com", password="Sup3r-Secr3t!"
+    )
+    usuario.user_permissions.set(
+        Permission.objects.filter(
+            content_type=ContentType.objects.get_for_model(ModulePermission),
+            codename__in=["configuracion.ver", "configuracion.editar"],
+        )
+    )
+    api = APIClient()
+    api.force_authenticate(user=usuario)
+    return api
+
+
+def test_configurar_la_apariencia_no_habilita_a_cambiar_el_respaldo(solo_apariencia):
+    politica = PoliticaDeRespaldo.vigente()
+    politica.activo = True
+    politica.save(update_fields=["activo"])
+
+    respuesta = solo_apariencia.patch(RUTA, {"activo": False}, format="json")
+
+    assert respuesta.status_code == 403
+    # Y el rechazo no deja nada a medias: el respaldo sigue encendido.
+    assert PoliticaDeRespaldo.vigente().activo is True
+
+
+def test_pero_sí_a_leerla(solo_apariencia):
+    """Ver de cuándo se puede volver es parte de ver la configuración: el dato
+    no es sensible y esconderlo solo haría que se preguntara por correo."""
+    respuesta = solo_apariencia.get(RUTA)
+
+    assert respuesta.status_code == 200
+    assert "frecuencia" in respuesta.data
+
+
+def test_con_el_permiso_propio_se_cambia(cliente):
+    respuesta = cliente.patch(RUTA, {"activo": True, "hora": "04:30"}, format="json")
+
+    assert respuesta.status_code == 200
+    assert PoliticaDeRespaldo.vigente().hora.strftime("%H:%M") == "04:30"

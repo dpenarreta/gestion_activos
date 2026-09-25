@@ -1,6 +1,6 @@
-"""Crea los cuatro roles del §13 con sus permisos.
+"""Crea los cinco roles del §13 con sus permisos.
 
-El sistema tiene un catálogo de 37 permisos y un modelo de roles configurable,
+El sistema tiene un catálogo de 46 permisos y un modelo de roles configurable,
 pero una instalación recién migrada llega sin ningún rol: el primer
 administrador acaba trabajando como superusuario y, cuando entra el resto del
 equipo, o se les da superusuario también o alguien tiene que deducir a mano qué
@@ -27,7 +27,7 @@ from django.db import transaction
 from apps.permissions.catalog import all_codenames
 from apps.permissions.models import ModulePermission
 
-#: Los cuatro roles del §13, traducidos al catálogo de permisos.
+#: Los cinco roles del §13, traducidos al catálogo de permisos.
 #:
 #: Las exclusiones son la parte que importa, porque son las que separan un rol
 #: de otro; cada una lleva su motivo al lado.

@@ -32,7 +32,9 @@ const DIAS = [
  * igual, y lo que se configura en esta pantalla decide si toca.
  */
 export function RespaldosPage() {
-  const puedeEditar = usePermission("configuracion.editar");
+  // Su propio permiso, separado de la apariencia del sistema: apagar el
+  // respaldo automático decide de cuándo se puede volver si algo se pierde.
+  const puedeEditar = usePermission("configuracion.respaldos");
   const [politica, setPolitica] = useState(null);
   const [error, setError] = useState(null);
   const [guardado, setGuardado] = useState(false);

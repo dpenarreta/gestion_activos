@@ -61,10 +61,24 @@ PERMISSION_CATALOG = {
     },
     "configuracion": {
         "label": "Configuración",
-        "description": "Identidad institucional y apariencia visual del sistema.",
+        "description": (
+            "Ajustes del sistema: identidad institucional, apariencia y la "
+            "política de respaldo automático."
+        ),
         "permissions": {
             "configuracion.ver": "Ver configuración del sistema",
             "configuracion.editar": "Editar configuración del sistema",
+            # Aparte de `configuracion.editar` porque no es la misma
+            # responsabilidad: cambiar el logo y los colores lo hace quien
+            # cuida la imagen del sistema, y apagar el respaldo automático o
+            # mover su carpeta decide de cuándo se puede volver si algo se
+            # pierde. Quien tenía `configuracion.editar` lo conserva —la
+            # migración se lo concede—, pero a partir de ahora se pueden
+            # separar.
+            "configuracion.respaldos": (
+                "Configurar el respaldo automático: si está encendido, cada "
+                "cuánto, a qué hora, en qué carpeta y cuántos conservar"
+            ),
         },
     },
     "activos": {

@@ -26,9 +26,8 @@ vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codename) => permisos.has(codename),
 }));
 
-const { RespaldosPage } = await import(
-  "../src/pages/Admin/Configuracion/RespaldosPage"
-);
+const { RespaldosPage } =
+  await import("../src/pages/Admin/Configuracion/RespaldosPage");
 
 const POLITICA = {
   activo: true,
@@ -54,12 +53,24 @@ function pintar() {
 beforeEach(() => {
   vi.clearAllMocks();
   permisos.clear();
-  permisos.add("configuracion.editar");
+  permisos.add("configuracion.respaldos");
   leer.mockResolvedValue(POLITICA);
   guardar.mockResolvedValue({ ...POLITICA, frecuencia: "semanal" });
 });
 
 describe("La configuración de respaldos", () => {
+  it("configurar la apariencia ya no habilita a cambiar el respaldo", async () => {
+    /* Eran el mismo permiso y son responsabilidades distintas: cambiar el logo
+       no debería decidir de cuándo se puede volver si algo se pierde. */
+    permisos.clear();
+    permisos.add("configuracion.editar");
+    permisos.add("configuracion.ver");
+    pintar();
+
+    await screen.findByText("2026-09-18 02:00");
+    expect(screen.getByLabelText("Cada cuánto")).toBeDisabled();
+  });
+
   it("muestra cuándo fue el último y cuándo toca el próximo", async () => {
     /* Es la pregunta que trae a esta pantalla: de cuándo se puede volver. */
     pintar();

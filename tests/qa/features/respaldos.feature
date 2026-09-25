@@ -117,3 +117,14 @@ Feature: Copias de seguridad y recuperación (§21 del documento funcional)
     Then el cambio queda registrado con quién lo hizo
     # Quién dejó de respaldar, y cuándo, es lo primero que se pregunta el día
     # que hace falta volver a algún sitio.
+
+  @AC-BAK-016
+  Scenario: Configurar el respaldo es su propio permiso
+    Given un usuario que puede editar la configuración del sistema
+    When intenta cambiar la política de respaldo sin el permiso de respaldos
+    Then el sistema lo rechaza y la política queda como estaba
+    And leer cuándo fue el último respaldo le sigue bastando con ver la configuración
+    # Cambiar el logo y los colores no debería decidir de cuándo se puede
+    # volver si algo se pierde. Quien ya tenía `configuracion.editar` conserva
+    # los dos permisos: la migración se lo concede, para que nadie pierda de
+    # un día para otro algo que venía haciendo.

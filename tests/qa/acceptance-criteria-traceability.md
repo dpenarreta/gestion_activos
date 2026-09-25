@@ -392,6 +392,7 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-BAK-013 | A mano no cuenta | respaldos.feature | Un respaldo a mano no cuenta como el programado | Sí (pytest: `test_a_mano_no_cuenta_como_el_programado`) |
 | AC-BAK-014 | Último y próximo a la vista | respaldos.feature | La pantalla dice cuándo fue el último y cuándo es el próximo | Sí (pytest: `test_la_pantalla_dice_cuando_sera_el_proximo`; Vitest: `muestra cuándo fue el último y cuándo toca el próximo`) |
 | AC-BAK-015 | La política queda auditada | respaldos.feature | Cambiar la política queda auditado | Sí (pytest: `test_el_cambio_queda_auditado`) |
+| AC-BAK-016 | Configurar el respaldo es su propio permiso | respaldos.feature | Configurar el respaldo es su propio permiso | Sí (pytest: `test_configurar_la_apariencia_no_habilita_a_cambiar_el_respaldo`, `test_pero_sí_a_leerla`, `test_con_el_permiso_propio_se_cambia`; Vitest: `configurar la apariencia ya no habilita a cambiar el respaldo`) |
 | AC-BAK-005 | Detecta restauración incompleta | respaldos.feature | La comparación detecta una restauración incompleta | Sí (pytest) |
 | AC-BAK-006 | Ruta validada | respaldos.feature | La ruta del respaldo se valida antes de usarla | Sí (pytest) |
 | AC-BAK-007 | Avisa si no hay respaldos | respaldos.feature | La revisión de despliegue avisa si no hay respaldos | Sí (pytest) |

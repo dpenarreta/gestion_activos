@@ -85,7 +85,7 @@ tocan: son configuración.
 python manage.py crear_roles_iniciales
 ```
 
-Crea los cuatro roles del documento con sus permisos. Es una **plantilla**: se
+Crea los cinco roles del documento con sus permisos. Es una **plantilla**: se
 ejecuta una vez y a partir de ahí se ajustan desde *Usuarios y roles → Roles*.
 Volver a ejecutarlo no pisa lo que se haya cambiado (`--actualizar` sí).
 

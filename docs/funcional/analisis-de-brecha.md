@@ -41,7 +41,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 10 | Cálculo de tiempos | ✅ | Los siete del documento, reconstruidos desde el historial (`apps.activos.tiempos`) |
 | 11 | Reglas de reemplazo | ✅ | Dos niveles (evaluar / recomendado) y ventana móvil configurable |
 | 12 | Categorización (criticidad, uso) | ✅ | Criticidad de cuatro niveles y uso por función, además del tipo |
-| 13 | Usuarios y roles | ✅ | Roles configurables, 41 permisos, y los **cinco** roles del documento listos para crear (`crear_roles_iniciales`), incluido «Usuario final» con su pantalla *Mis equipos* |
+| 13 | Usuarios y roles | ✅ | Roles configurables, 46 permisos, y los **cinco** roles del documento listos para crear (`crear_roles_iniciales`), incluido «Usuario final» con su pantalla *Mis equipos* |
 | 14 | Buscador y filtros | ✅ | Tipo, área, custodio, estado, garantía, sede, criticidad, uso y antigüedad |
 | 15 | Dashboard | ✅ | `apps/activos/dashboard.py`, `/admin/dashboard` |
 | 16 | Reportes y exportación | ✅ | Los trece reportes, cada uno en Excel, CSV y PDF (`apps.reportes`) |

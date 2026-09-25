@@ -13,11 +13,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.branding.permissions import ConfiguracionPermission
 from apps.core.audit import record_audit_event
 from apps.core.management.commands.respaldar import fecha_del_ultimo_respaldo
 from apps.core.models import PoliticaDeRespaldo
 from apps.core.request_meta import get_request_context
+from apps.permissions.permissions import HasModulePermission
 
 MODULO = "core"
 
@@ -58,10 +58,24 @@ class PoliticaDeRespaldoSerializer(serializers.ModelSerializer):
         return limpio
 
 
+class RespaldosPermission(HasModulePermission):
+    """Leer la política es parte de ver la configuración; cambiarla, no.
+
+    Se separa de `configuracion.editar` porque no es la misma
+    responsabilidad: quien cuida la imagen del sistema cambia el logo y los
+    colores, y quien toca esto decide de cuándo se puede volver si algo se
+    pierde —apagar el respaldo automático no se nota hasta el día que hace
+    falta—.
+    """
+
+    view_permission = "configuracion.ver"
+    write_permission = "configuracion.respaldos"
+
+
 class PoliticaDeRespaldoView(APIView):
     """Lee y corrige cuándo se respalda."""
 
-    permission_classes = [IsAuthenticated, ConfiguracionPermission]
+    permission_classes = [IsAuthenticated, RespaldosPermission]
 
     def get(self, request):
         politica = PoliticaDeRespaldo.vigente()

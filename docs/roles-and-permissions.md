@@ -31,14 +31,16 @@ módulos y permisos.
 | `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password` |
 | `roles` | `ver`, `editar` |
 | `permisos` | `ver` |
-| `configuracion` | `ver`, `editar` |
-| `activos` | `ver`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
+| `configuracion` | `ver`, `editar`, `respaldos` |
+| `activos` | `ver`, `ver_asignados`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
 | `organizacion` | `ver`, `editar` |
 | `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
 | `solicitudes` | `ver`, `crear`, `gestionar`, `administrar` |
 | `politicas` | `ver`, `editar` |
 | `adjuntos` | `ver`, `subir`, `eliminar` |
 | `alertas` | `ver`, `configurar` |
+| `empresas` | `ver`, `editar`, `asignar` |
+| `reportes` | `ver`, `exportar` |
 | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
 
 **`solicitudes`** separa pedir de gestionar a propósito: cualquiera que trabaje
@@ -49,6 +51,14 @@ una—, y `administrar` es el de quien ve y mueve las de todos. Por eso el rol
 «Usuario final», que solo consulta sus equipos, sí lleva `ver` y `crear`: quien
 necesita una laptop es él, y dejar la solicitud solo en manos de soporte
 devolvería el pedido al correo.
+
+**`configuracion`** separa `editar` de `respaldos`: lo primero es la identidad
+del sistema —logo, colores, nombre—, y lo segundo decide de cuándo se puede
+volver si algo se pierde. Eran el mismo permiso hasta el 2026-09-25; quien lo
+tenía conserva los dos, pero a partir de ahí se pueden repartir por separado.
+Leer la política sigue bastando con `configuracion.ver`: saber cuándo fue el
+último respaldo no es sensible, y esconderlo solo haría que se preguntara por
+correo.
 
 ## Resolución de autorización
 
