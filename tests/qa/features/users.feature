@@ -113,3 +113,29 @@ Feature: Administración de usuarios
     Then el nombre de usuario aparece calculado y no se puede teclear
     And la API rechaza un nombre de usuario enviado a mano
     # Si la API lo aceptara, la convención valdría solo mientras nadie la usara.
+
+  @AC-USR-014
+  Scenario: El listado dice cuándo entró cada cuenta
+    Given una cuenta que inició sesión esta mañana
+    When se abre el listado de usuarios
+    Then su última conexión aparece con fecha y hora
+    # Con la hora, porque la pregunta que trae aquí a alguien suele ser de
+    # hoy: quién entró antes de que pasara lo que sea que pasó.
+
+  @AC-USR-015
+  Scenario: La cuenta que nunca entró lo dice
+    Given una cuenta creada que nunca inició sesión
+    When se abre el listado de usuarios
+    Then su última conexión dice "Nunca"
+    # Y no un guion ni la fecha de creación: un guion se lee como un dato que
+    # falta por cargar, y la fecha de creación haría que una cuenta recién
+    # dada de alta y otra abandonada hace un año se vieran igual.
+
+  @AC-USR-016
+  Scenario: Renovar la sesión no cuenta como volver a entrar
+    Given una cuenta con la sesión abierta desde ayer
+    When su token se renueva solo
+    Then su última conexión sigue siendo la de ayer
+    # La renovación reutiliza la sesión que ya existe. Si contara, una
+    # pestaña olvidada abierta parecería alguien trabajando toda la noche, y
+    # la columna dejaría de servir para encontrar cuentas sin uso.

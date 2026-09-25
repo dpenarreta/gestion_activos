@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { adminUsersService } from "../../../api/adminUsersService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
+import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
 
 const STATUS_LABELS = {
@@ -106,6 +107,10 @@ export function UsersList() {
                   cuenta no tiene ningún rol en ninguna parte. */}
               <th>Roles globales</th>
               <th>Creado</th>
+              {/* Junto a «Creado» porque la pregunta es la misma mirada
+                  desde los dos extremos: desde cuándo existe la cuenta y
+                  desde cuándo no la usa nadie. */}
+              <th>Última conexión</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -151,6 +156,17 @@ export function UsersList() {
                 <td>{user.roles.map((role) => role.name).join(", ") || "—"}</td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
                 <td>
+                  {/* «Nunca» y no un guion: el guion se lee como un dato
+                      que falta por cargar, y aquí no falta nada —esa
+                      cuenta existe y no ha entrado jamás, que es
+                      exactamente lo que hay que ver—. */}
+                  {user.last_login ? (
+                    formatearFecha(user.last_login, true)
+                  ) : (
+                    <span className="text-muted">Nunca</span>
+                  )}
+                </td>
+                <td>
                   <div className="d-flex gap-2 flex-wrap">
                     <Link
                       to={`/admin/users/${user.id}`}
@@ -181,7 +197,7 @@ export function UsersList() {
             ))}
             {!isLoading && users.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted">
+                <td colSpan={8} className="text-center text-muted">
                   Sin resultados
                 </td>
               </tr>

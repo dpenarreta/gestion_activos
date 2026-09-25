@@ -224,3 +224,28 @@ def test_can_disable_a_superuser_when_another_active_superuser_remains(admin_cli
 def test_can_disable_a_non_admin_user_freely(admin_client, plain_user):
     response = admin_client.post(f"/api/v1/admin/users/{plain_user.id}/disable/")
     assert response.status_code == 200
+
+
+def test_el_listado_dice_cuando_entro_cada_cuenta(admin_client, plain_user):
+    """La columna «última conexión» del listado se sirve de aquí."""
+    AuthenticationService.authenticate_and_issue_tokens(
+        identifier=plain_user.username, password="Sup3r-Secr3t!"
+    )
+
+    response = admin_client.get("/api/v1/admin/users/")
+
+    assert response.status_code == 200
+    cuentas = {fila["username"]: fila for fila in response.data["results"]}
+    assert cuentas[plain_user.username]["last_login"] is not None
+
+
+def test_la_cuenta_que_nunca_entro_lo_dice_con_un_nulo(admin_client, plain_user):
+    """Y no con la fecha de creación, que es la confusión que haría inútil la
+    columna: una cuenta recién creada y una que lleva un año sin usarse se
+    verían igual de recientes."""
+    response = admin_client.get("/api/v1/admin/users/")
+
+    assert response.status_code == 200
+    cuentas = {fila["username"]: fila for fila in response.data["results"]}
+    assert cuentas[plain_user.username]["last_login"] is None
+    assert cuentas[plain_user.username]["created_at"] is not None

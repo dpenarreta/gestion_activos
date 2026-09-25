@@ -43,6 +43,12 @@ Todas las respuestas de error siguen el contrato:
 Sin `DELETE`: la eliminación física de usuarios está deshabilitada a
 propósito (baja lógica vía `disable`/`block`, ver AC-DP-006).
 
+El listado incluye `last_login`: la última vez que esa cuenta **inició
+sesión**, no la última vez que se la usó. Renovar el token no lo mueve, porque
+reutiliza la sesión ya abierta. Es `null` en la cuenta que nunca entró, que no
+es lo mismo que una recién creada sin usar todavía: para eso está
+`created_at`.
+
 ## Roles (`admin/roles/`)
 
 | Método | Ruta | Permiso (lectura / escritura) |

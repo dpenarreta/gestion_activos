@@ -508,6 +508,9 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-USR-011 | Sin tildes ni eñes | users.feature | Sin tildes ni eñes | Sí (pytest: `test_la_base_sale_del_nombre_sin_tildes_ni_enies`) |
 | AC-USR-012 | El repetido lleva número | users.feature | El segundo con el mismo nombre lleva número | Sí (pytest: `test_el_segundo_con_el_mismo_nombre_lleva_numero`) |
 | AC-USR-013 | El usuario no se escribe | users.feature | El nombre de usuario no se escribe | Sí (Vitest: `muestra el nombre de usuario que le va a tocar`, `no manda el nombre de usuario`; por diseño en `UserAdminCreateSerializer`, sin campo `username`) |
+| AC-USR-014 | El listado dice cuándo entró cada cuenta | users.feature | El listado dice cuándo entró cada cuenta | Sí (pytest: `test_el_inicio_de_sesion_anota_la_ultima_conexion`, `test_el_listado_dice_cuando_entro_cada_cuenta`; Vitest: `dice cuándo entró cada cuenta por última vez`) |
+| AC-USR-015 | La que nunca entró lo dice | users.feature | La cuenta que nunca entró lo dice | Sí (pytest: `test_la_cuenta_que_nunca_entro_lo_dice_con_un_nulo`, `test_el_intento_fallido_no_cuenta_como_conexion`; Vitest: `la cuenta que nunca entró lo dice, en vez de dejarlo en blanco`) |
+| AC-USR-016 | Renovar no es volver a entrar | users.feature | Renovar la sesión no cuenta como volver a entrar | Sí (pytest: `test_renovar_el_token_no_mueve_la_ultima_conexion`) |
 
 ## Roles — criterios adicionales (AC-ROL-xxx)
 

@@ -50,6 +50,7 @@ const USUARIOS = [
       },
     ],
     created_at: "2026-01-01T00:00:00Z",
+    last_login: "2026-03-04T15:30:00Z",
   },
   {
     id: 2,
@@ -60,6 +61,7 @@ const USUARIOS = [
     roles: [{ id: 9, name: "Administrador" }],
     empresas: [],
     created_at: "2026-02-01T00:00:00Z",
+    last_login: null,
   },
 ];
 
@@ -90,6 +92,27 @@ describe("El listado de usuarios", () => {
     const fila = (await screen.findByText("acevallos")).closest("tr");
     expect(fila).toHaveTextContent("ana@example.com");
     expect(fila).toHaveTextContent("Activo");
+  });
+
+  it("dice cuándo entró cada cuenta por última vez", async () => {
+    pintar();
+
+    const fila = (await screen.findByText("acevallos")).closest("tr");
+    /* El día exacto no se afirma porque depende del huso del navegador que
+       corra la prueba; lo que importa es que sale la fecha de la conexión
+       —no la de creación, que es de enero— y que lleva la hora: dos cuentas
+       que entraron el mismo día no son el mismo dato cuando se revisa qué
+       pasó esta mañana. */
+    expect(fila.textContent).toMatch(/\d{2}\/\d{2}\/2026,? \d{2}:\d{2}/);
+  });
+
+  it("la cuenta que nunca entró lo dice, en vez de dejarlo en blanco", async () => {
+    /* Un guion se lee como un dato que falta por cargar. Aquí no falta nada:
+       esa cuenta existe y no ha entrado jamás, que es lo que hay que ver. */
+    pintar();
+
+    const fila = (await screen.findByText("dpenarreta")).closest("tr");
+    expect(fila).toHaveTextContent("Nunca");
   });
 
   it("dice en qué empresas trabaja cada cuenta y con qué rol", async () => {

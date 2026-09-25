@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import update_last_login
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
@@ -134,6 +135,12 @@ class AuthenticationService:
         tokens = issue_token_pair(user, session)
         session.refresh_token_jti = tokens.pop("refresh_jti")
         session.save(update_fields=["refresh_token_jti"])
+        # La última conexión se anota aquí y no en la vista de login porque
+        # aquí pasa **toda** sesión nueva, venga del formulario o de un cambio
+        # de contraseña forzado. Refrescar el token no cuenta: reutiliza la
+        # sesión que ya existe, y contarlo haría que una pestaña olvidada
+        # abierta pareciera alguien trabajando.
+        update_last_login(None, user)
         return tokens
 
     @staticmethod
