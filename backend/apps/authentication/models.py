@@ -40,6 +40,33 @@ class Session(BaseModel):
             self.revoked_at = timezone.now()
             self.save(update_fields=["revoked_at"])
 
+    def vencida_por_inactividad(self, ahora=None) -> bool:
+        """Si lleva más del plazo configurado sin usarse.
+
+        Es un plazo **deslizante**: lo que cuenta no es cuándo se abrió la
+        sesión sino cuándo se usó por última vez, así que cada petición vuelve
+        a poner el contador a cero (ver `registrar_uso`). El `expires_at`
+        sigue siendo el techo absoluto: ni usándola sin parar dura más que el
+        refresh token.
+        """
+        ahora = ahora or timezone.now()
+        return ahora - self.last_used_at >= settings.SESSION_IDLE_TIMEOUT
+
+    def registrar_uso(self, ahora=None) -> bool:
+        """Reinicia la cuenta de inactividad. Devuelve si llegó a escribir.
+
+        No escribe en cada petición: con `last_used_at` recién puesto, un
+        UPDATE más no cambia nada y sí multiplica las escrituras por el
+        tráfico de toda la aplicación. El margen lo fija
+        `SESSION_ACTIVITY_WRITE_EVERY`.
+        """
+        ahora = ahora or timezone.now()
+        if ahora - self.last_used_at < settings.SESSION_ACTIVITY_WRITE_EVERY:
+            return False
+        # `last_used_at` es `auto_now`: lo pone el propio save.
+        self.save(update_fields=["last_used_at"])
+        return True
+
 
 class PasswordResetToken(BaseModel):
     """Token de un solo uso para el restablecimiento autónomo de contraseña.

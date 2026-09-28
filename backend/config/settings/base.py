@@ -295,6 +295,19 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
+# --- Cierre de sesión por inactividad ---
+# El refresh token dura días: sin esto, una sesión abierta en un equipo
+# compartido sigue sirviendo mañana. Con esto, cuatro horas sin usarla la
+# cierran, y cualquier petición dentro de esas cuatro horas reinicia la cuenta.
+SESSION_IDLE_TIMEOUT = timedelta(minutes=env.int("SESSION_IDLE_TIMEOUT_MINUTES", default=240))
+# Cada cuánto se reescribe la marca de actividad. Sin este margen habría un
+# UPDATE por cada petición de cada usuario; con un minuto, el corte se puede
+# adelantar como mucho un minuto sobre el plazo, que en cuatro horas no cambia
+# nada de lo que el plazo protege.
+SESSION_ACTIVITY_WRITE_EVERY = timedelta(
+    seconds=env.int("SESSION_ACTIVITY_WRITE_EVERY_SECONDS", default=60)
+)
+
 # --- Protección contra fuerza bruta en el login ---
 LOGIN_MAX_FAILED_ATTEMPTS = env.int("LOGIN_MAX_FAILED_ATTEMPTS", default=5)
 LOGIN_LOCKOUT_MINUTES = env.int("LOGIN_LOCKOUT_MINUTES", default=15)

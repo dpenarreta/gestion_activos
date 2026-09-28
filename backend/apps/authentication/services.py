@@ -23,6 +23,7 @@ from apps.core.models import AuditLog
 from apps.core.request_meta import parse_user_agent
 from apps.users.models import User
 
+from .authentication import SessionIdleTimeout
 from .emails import send_password_changed_notification, send_password_reset_email
 from .models import LoginAttempt, PasswordResetToken, Session
 from .tokens import issue_token_pair
@@ -209,6 +210,14 @@ class AuthenticationService:
         if not session.is_active:
             raise AuthenticationFailed("La sesión ya no es válida.", code="session_revoked")
 
+        # También aquí: si el plazo venció, renovar el token resucitaría una
+        # sesión que ya debería estar cerrada. Renovar no es actividad de
+        # nadie —lo hace el navegador solo—, así que no reinicia la cuenta: la
+        # reinician las peticiones que sí pidió alguien.
+        if session.vencida_por_inactividad():
+            session.revoke()
+            raise SessionIdleTimeout()
+
         if session.refresh_token_jti != refresh.get("jti"):
             # El jti presentado no coincide con el vigente: es un refresh
             # token ya rotado que se está reutilizando. Se revoca la sesión
@@ -227,7 +236,11 @@ class AuthenticationService:
         session.refresh_token_jti = tokens.pop("refresh_jti")
         if ip_address:
             session.ip_address = ip_address
-        session.save(update_fields=["refresh_token_jti", "ip_address", "last_used_at"])
+        # `last_used_at` queda fuera a propósito: renovar el token lo hace el
+        # navegador, no la persona. Lo que reinicia la cuenta de inactividad es
+        # la petición que venía detrás —la que provocó el 401—, que sí pidió
+        # alguien. Es `auto_now`, así que basta con no incluirlo aquí.
+        session.save(update_fields=["refresh_token_jti", "ip_address"])
         return tokens
 
 

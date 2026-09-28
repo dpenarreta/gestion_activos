@@ -34,21 +34,51 @@ SIMPLE_JWT = {
 1. Que el token tenga el claim `sid`.
 2. Que exista una `Session` con ese id, perteneciente al mismo usuario.
 3. Que esa `Session` siga activa (`revoked_at is None` y no expirada).
+4. Que no lleve más de `SESSION_IDLE_TIMEOUT` sin usarse (4 h por defecto).
 
 Si cualquiera de estas condiciones falla, la request se rechaza con 401
-(`token_not_valid` o `session_revoked`).
+(`token_not_valid`, `session_revoked` o `session_idle_timeout`).
+
+Cuando pasa la validación, la petición **reinicia la cuenta de inactividad**
+(`Session.registrar_uso`). Para no hacer un UPDATE por cada petición de cada
+usuario, la marca se reescribe como mucho cada `SESSION_ACTIVITY_WRITE_EVERY`
+(60 s por defecto): el corte puede adelantarse ese minuto sobre el plazo, que
+en cuatro horas no cambia nada de lo que el plazo protege.
+
+## Cierre por inactividad
+
+El refresh token dura días; sin un plazo de inactividad, una sesión abierta en
+un equipo compartido sigue sirviendo al día siguiente. El plazo es
+**deslizante**: no mide cuánto lleva abierta la sesión sino cuánto lleva sin
+usarse, así que cualquier petición dentro del plazo lo empieza de nuevo.
+
+Al vencer, la sesión **se revoca**, no se rechaza y ya: dejarla abierta haría
+que el refresh token siguiera valiendo y que la siguiente petición la
+reviviera. El frontend reconoce el código `session_idle_timeout`, va directo al
+login sin intentar renovar —el refresh responde lo mismo— y dice por qué
+(`/login?motivo=inactividad`).
+
+**Renovar el token no cuenta como actividad**: lo hace el navegador, no la
+persona. Lo que reinicia la cuenta es la petición que provocó ese 401, que sí
+pidió alguien. Si contara, una pestaña olvidada abierta mantendría la sesión
+viva sin nadie delante.
+
+`expires_at` sigue siendo el techo absoluto: ni usándola sin parar, una sesión
+dura más que el refresh token.
 
 ## Renovación (`POST /api/v1/auth/token/refresh/`)
 
 `AuthenticationService.refresh_tokens`:
 
 1. Busca la `Session` por el claim `sid` del refresh token presentado.
-2. Si el `jti` del refresh presentado no coincide con
+2. Si la sesión venció por inactividad, la revoca y responde
+   `session_idle_timeout` (renovar no puede resucitar lo que el plazo cerró).
+3. Si el `jti` del refresh presentado no coincide con
    `session.refresh_token_jti` (el último emitido), asume que es un token
    ya rotado que se está reutilizando: **revoca toda la sesión** como
    medida de contención ante un posible robo, y responde `refresh_reused`.
-3. Si todo es válido, emite un nuevo par de tokens y actualiza
-   `refresh_token_jti`.
+4. Si todo es válido, emite un nuevo par de tokens y actualiza
+   `refresh_token_jti` —sin tocar `last_used_at`, ver más arriba—.
 
 ## Cambio de contraseña obligatorio (`must_change_password`)
 

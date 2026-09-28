@@ -56,10 +56,21 @@ apiClient.interceptors.request.use((config) => {
 
 let pendingRefresh = null;
 
-function redirectToLogin() {
+function motivoDeCierre(error) {
+  return error?.response?.data?.error?.code === "session_idle_timeout"
+    ? "inactividad"
+    : undefined;
+}
+
+function redirectToLogin(motivo) {
   setTokens(null, null);
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.assign("/login");
+    // El motivo viaja en la query y no en el estado del router porque esto es
+    // una navegación del navegador, no del router: se pierde cualquier cosa
+    // que no vaya en la URL. Encontrarse la pantalla de login sin explicación
+    // se lee como que el sistema falló.
+    const destino = motivo ? `/login?motivo=${motivo}` : "/login";
+    window.location.assign(destino);
   }
 }
 
@@ -103,6 +114,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (motivoDeCierre(error)) {
+      // Renovar no serviría: el servidor ya cerró la sesión, y el propio
+      // refresh responde lo mismo. Se va directo al login, diciendo por qué.
+      redirectToLogin("inactividad");
+      return Promise.reject(error);
+    }
+
     if (
       !response ||
       response.status !== 401 ||
@@ -126,7 +144,11 @@ apiClient.interceptors.response.use(
       return apiClient(config);
     } catch (refreshError) {
       pendingRefresh = null;
-      redirectToLogin();
+      // El caso corriente al volver tras el plazo: el token de acceso ya había
+      // vencido por su cuenta, así que la petición da un 401 sin motivo y es
+      // el refresco el que se encuentra la sesión cerrada. Sin mirar aquí, se
+      // llegaría al login sin explicación.
+      redirectToLogin(motivoDeCierre(refreshError));
       return Promise.reject(refreshError);
     }
   },

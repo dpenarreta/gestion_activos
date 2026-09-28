@@ -284,6 +284,51 @@ describe("Lo que el interceptor deja pasar", () => {
     expect(getAccessToken()).toBe("bueno");
   });
 
+  it("la sesión cerrada por inactividad va al login diciendo por qué", async () => {
+    /* Sin el motivo, quien vuelve del almuerzo encuentra el login y cree que
+       el sistema falló. */
+    setTokens("bueno", "refresco-bueno");
+    guionPrincipal = (config) =>
+      respuesta(config, 401, { error: { code: "session_idle_timeout" } });
+
+    await expect(apiClient.get("/activos/")).rejects.toBeTruthy();
+
+    expect(navegacion).toEqual(["/login?motivo=inactividad"]);
+    expect(getAccessToken()).toBe(null);
+  });
+
+  it("y no intenta renovar antes: el servidor ya la cerró", async () => {
+    /* El refresco respondería lo mismo, así que pedirlo solo retrasa el
+       aterrizaje en el login con una petición que se sabe perdida. */
+    let refrescos = 0;
+    setTokens("bueno", "refresco-bueno");
+    guionRefresh = (config) => {
+      refrescos += 1;
+      return respuesta(config, 200, { access: "nuevo", refresh: "nuevo" });
+    };
+    guionPrincipal = (config) =>
+      respuesta(config, 401, { error: { code: "session_idle_timeout" } });
+
+    await expect(apiClient.get("/activos/")).rejects.toBeTruthy();
+
+    expect(refrescos).toBe(0);
+  });
+
+  it("el caso corriente: vence el acceso y el refresco topa con la sesión cerrada", async () => {
+    /* Al volver pasado el plazo, el token de acceso ya venció por su cuenta:
+       la petición da un 401 sin motivo y es el refresco el que se encuentra la
+       sesión cerrada. Es el camino que de verdad recorre la gente, y sin
+       mirarlo se llega al login sin explicación. */
+    setTokens("vencido", "refresco-bueno");
+    guionPrincipal = (config) => respuesta(config, 401);
+    guionRefresh = (config) =>
+      respuesta(config, 401, { error: { code: "session_idle_timeout" } });
+
+    await expect(apiClient.get("/activos/")).rejects.toBeTruthy();
+
+    expect(navegacion).toEqual(["/login?motivo=inactividad"]);
+  });
+
   it("estando ya en el login no vuelve a navegar al login", async () => {
     window.location.pathname = "/login";
     setTokens("vencido", null);

@@ -46,3 +46,37 @@ Feature: Seguridad de JWT
     Given que ocurrió un evento de auditoría relacionado con sesiones o tokens
     When se consulta el detalle del evento
     Then cualquier campo cuyo nombre sugiera un token o secreto aparece enmascarado
+
+  @AC-JWT-002
+  Scenario: La sesión se cierra tras cuatro horas sin usarla
+    Given una sesión iniciada que lleva cuatro horas sin ninguna petición
+    When su dueño vuelve a usar el sistema
+    Then la sesión ya no vale y se le pide iniciar sesión otra vez
+    And la pantalla de login dice que se cerró por inactividad
+    # Sin el motivo se lee como un fallo del sistema, y lleva a reintentar
+    # pensando que algo va mal.
+
+  @AC-JWT-003
+  Scenario: Volver antes del plazo lo reinicia
+    Given una sesión que lleva tres horas y media sin usarse
+    When su dueño hace cualquier petición
+    Then la sesión sigue viva
+    And a partir de esa petición vuelven a contarse cuatro horas desde cero
+    # El plazo mide inactividad, no duración: quien trabaja todo el día no
+    # tiene por qué volver a entrar a media tarde.
+
+  @AC-JWT-004
+  Scenario: Renovar el token no cuenta como actividad
+    Given una sesión sin usar desde hace rato
+    When el navegador renueva su token de acceso
+    Then la cuenta de inactividad sigue donde estaba
+    # Renovar lo hace el navegador, no la persona. Si contara, una pestaña
+    # olvidada abierta mantendría la sesión viva sin nadie delante.
+
+  @AC-JWT-005
+  Scenario: La sesión vencida se cierra, no solo se rechaza
+    Given una sesión que pasó el plazo de inactividad
+    When se intenta usarla o renovarla
+    Then queda revocada y su token de renovación deja de valer
+    # Si solo se rechazara la petición, el refresh token seguiría sirviendo y
+    # la siguiente la reviviría.

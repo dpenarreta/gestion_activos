@@ -500,6 +500,10 @@ alterar se cubre en la sección de autorización.
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
 | AC-JWT-001 | Reutilización de refresh token revoca la sesión | jwt-security.feature | Reutilización de un refresh token ya rotado revoca la sesión | Sí (pytest) |
+| AC-JWT-002 | Se cierra tras cuatro horas sin usarla | jwt-security.feature | La sesión se cierra tras cuatro horas sin usarla | Sí (pytest: `test_a_las_cuatro_horas_sin_usarla_se_cierra`, `test_el_plazo_es_configurable`; Vitest: `la sesión cerrada por inactividad va al login diciendo por qué`, `dice cuándo la sesión se cerró por inactividad`) |
+| AC-JWT-003 | Volver antes del plazo lo reinicia | jwt-security.feature | Volver antes del plazo lo reinicia | Sí (pytest: `test_justo_antes_del_plazo_sigue_viva`, `test_usarla_reinicia_la_cuenta`, `test_no_se_escribe_en_cada_peticion`, `test_pero_sí_pasado_el_margen`) |
+| AC-JWT-004 | Renovar no es actividad | jwt-security.feature | Renovar el token no cuenta como actividad | Sí (pytest: `test_renovar_el_token_no_cuenta_como_actividad`; Vitest: `y no intenta renovar antes: el servidor ya la cerró`) |
+| AC-JWT-005 | La vencida se cierra, no solo se rechaza | jwt-security.feature | La sesión vencida se cierra, no solo se rechaza | Sí (pytest: `test_y_se_cierra_de_verdad_no_solo_se_rechaza`, `test_pasado_el_plazo_tampoco_se_renueva`) |
 
 ## Contraseñas — criterios adicionales (AC-PWD-xxx)
 

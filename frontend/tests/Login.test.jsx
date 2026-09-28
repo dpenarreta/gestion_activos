@@ -53,10 +53,10 @@ function Destino() {
   return <p>Destino: {useLocation().pathname}</p>;
 }
 
-function pintar() {
+function pintar(entrada = "/login") {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={["/login"]}>
+      <MemoryRouter initialEntries={[entrada]}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Destino />} />
@@ -212,5 +212,21 @@ describe("La sesión que ya venía guardada", () => {
 
     await screen.findByLabelText(/usuario o correo/i);
     expect(me).not.toHaveBeenCalled();
+  });
+
+  it("dice cuándo la sesión se cerró por inactividad", async () => {
+    /* Llegar al login sin explicación se lee como un fallo del sistema, y
+       lleva a reintentar pensando que algo va mal. */
+    pintar("/login?motivo=inactividad");
+
+    expect(
+      await screen.findByText(/se cerró por inactividad/i),
+    ).toBeInTheDocument();
+  });
+
+  it("y no lo dice cuando se entra normalmente", () => {
+    pintar();
+
+    expect(screen.queryByText(/inactividad/i)).not.toBeInTheDocument();
   });
 });
