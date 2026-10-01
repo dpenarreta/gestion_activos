@@ -52,6 +52,14 @@ export const ADMIN_MENU = [
         path: "/admin/activos/escaner",
       },
       {
+        // Encima de los tipos: la categoría es el nivel de arriba, y el orden
+        // del menú es lo que lo explica sin tener que escribirlo.
+        id: "activos-categorias",
+        name: "Categorías",
+        icon: "tags",
+        path: "/admin/activos/categorias",
+      },
+      {
         id: "activos-tipos",
         name: "Tipos de dispositivo",
         icon: "tags",

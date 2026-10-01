@@ -66,6 +66,59 @@ class ActivoQuerySet(ConsultaPorEmpresa):
         return self.filter(estado__in=ESTADOS_FUERA_DE_INVENTARIO)
 
 
+class CategoriaActivo(ModeloDeEmpresa):
+    """La naturaleza de lo que se inventaría: hardware, software, mobiliario...
+
+    Un nivel por encima del tipo, no otro nombre para lo mismo: el tipo dice
+    *qué es* —laptop, impresora, licencia de ofimática— y la categoría *de qué
+    clase de bien se trata*. Hace falta porque las preguntas se hacen a ese
+    nivel: cuánto hay invertido en software, qué mobiliario tiene la sede de
+    Guayaquil, qué parte del parque es hardware.
+
+    Se administra, no se codifica: cada empresa inventaría cosas distintas y
+    un catálogo cerrado obligaría a tocar el código la primera vez que alguien
+    quiera registrar vehículos o herramienta. Se siembran tres —Hardware,
+    Software y Mobiliario e inmuebles— porque empezar con una lista vacía
+    tampoco ayuda a nadie.
+
+    Lo que distingue a una categoría de otra en los datos no vive aquí: lo
+    resuelven las características por tipo (`CaracteristicaTipo`), así que una
+    licencia puede pedir clave y vencimiento sin que el modelo sepa nada de
+    licencias.
+    """
+
+    nombre = models.CharField(max_length=80)
+    descripcion = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Qué entra en esta categoría. Se lee al elegirla, no es decoración.",
+    )
+    #: Nombre de icono de Bootstrap Icons, sin el prefijo `bi-`. Es cosmético
+    #: y por eso admite quedarse vacío: la categoría se distingue por su
+    #: nombre, y un icono equivocado confunde más que la ausencia de uno.
+    icono = models.CharField(max_length=40, blank=True)
+    activa = models.BooleanField(
+        default=True,
+        help_text=(
+            "Una categoría que se deja de usar se desactiva: desaparece de los "
+            "desplegables y los tipos que ya la tienen la conservan."
+        ),
+    )
+
+    class Meta:
+        ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="categoria_nombre_unica_por_empresa"
+            )
+        ]
+        verbose_name = "categoría de activo"
+        verbose_name_plural = "categorías de activo"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
 class TipoDispositivo(ModeloDeEmpresa):
     """Clase de equipo (laptop, servidor, impresora...).
 
@@ -75,6 +128,22 @@ class TipoDispositivo(ModeloDeEmpresa):
     """
 
     nombre = models.CharField(max_length=120)
+    #: De qué clase de bien es este tipo. Cuelga del tipo y no del activo
+    #: porque el tipo ya decide la naturaleza de lo que se registra: una
+    #: laptop es hardware siempre, y pedirlo activo por activo sería repetir
+    #: en cada alta un dato que ya está decidido —con el riesgo de que dos
+    #: laptops acaben en categorías distintas—.
+    #:
+    #: `PROTECT`: una categoría con tipos dentro no se borra, se desactiva.
+    #: Admite vacío para no bloquear el alta de un tipo mientras se decide
+    #: dónde encaja.
+    categoria = models.ForeignKey(
+        CategoriaActivo,
+        on_delete=models.PROTECT,
+        related_name="tipos",
+        null=True,
+        blank=True,
+    )
     codigo = models.CharField(
         max_length=10,
         help_text="Prefijo del código de barras de los activos de este tipo (ej. LAP).",

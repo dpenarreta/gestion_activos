@@ -62,6 +62,7 @@ const ETIQUETAS_FIJAS = {
 
 const TITULOS = {
   q: "Búsqueda",
+  categoria: "Categoría",
   tipo: "Tipo",
   departamento: "Área",
   sede: "Sede",
@@ -96,7 +97,8 @@ function nombreDeCatalogo(lista, id) {
 
 /**
  * @param filtros  los valores vigentes del listado
- * @param catalogos  { tipos, departamentos, sedes } tal como los cargó la pantalla
+ * @param catalogos  { categorias, tipos, departamentos, sedes } tal como los
+ *                   cargó la pantalla
  * @returns [{ claves, titulo, texto }] — `claves` son los filtros que hay que
  *          vaciar para quitar ese chip (la antigüedad son dos).
  */
@@ -106,6 +108,12 @@ export function describirFiltros(filtros, catalogos = {}) {
     chips.push({ claves, titulo: TITULOS[clave] || clave, texto });
 
   if (filtros.q) añadir(["q"], "q", `«${filtros.q}»`);
+  if (filtros.categoria)
+    añadir(
+      ["categoria"],
+      "categoria",
+      nombreDeCatalogo(catalogos.categorias, filtros.categoria),
+    );
   if (filtros.tipo)
     añadir(["tipo"], "tipo", nombreDeCatalogo(catalogos.tipos, filtros.tipo));
   if (filtros.departamento)

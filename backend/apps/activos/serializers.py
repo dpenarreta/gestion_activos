@@ -15,10 +15,52 @@ from apps.politicas.depreciacion import resolver_politica as resolver_politica_d
 from apps.politicas.services import evaluar_activo
 
 from .especificaciones import validar as validar_especificaciones
-from .models import ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo, TipoDispositivo
+from .models import (
+    ESTADOS_FUERA_DE_INVENTARIO,
+    Activo,
+    CategoriaActivo,
+    MovimientoActivo,
+    TipoDispositivo,
+)
 from .models_caracteristicas import CaracteristicaTipo
 from .serializers_caracteristicas import CaracteristicaDeTipoNuevoSerializer
 from .tiempos import calcular as calcular_tiempos
+
+
+class CategoriaActivoSerializer(serializers.ModelSerializer):
+    """El catálogo de categorías, con cuántos tipos cuelgan de cada una.
+
+    El conteo no es decoración: es lo que permite saber si una categoría se
+    puede desactivar sin dejar tipos huérfanos de clasificación.
+    """
+
+    nombre = serializers.CharField(max_length=80, validators=[])
+    total_tipos = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = CategoriaActivo
+        fields = ["id", "nombre", "descripcion", "icono", "activa", "total_tipos"]
+
+    def validate_nombre(self, value):
+        """Sin repetidas dentro de la empresa, ignorando mayúsculas.
+
+        La restricción de la base sí las distingue, así que «Software» y
+        «software» pasarían las dos y quedarían dos entradas indistinguibles en
+        el desplegable, con los tipos repartidos entre ambas.
+        """
+        limpio = (value or "").strip()
+        if not limpio:
+            raise serializers.ValidationError("La categoría necesita un nombre.")
+
+        existentes = CategoriaActivo.objects.filter(nombre__iexact=limpio)
+        if self.instance is not None:
+            existentes = existentes.exclude(pk=self.instance.pk)
+        choque = existentes.first()
+        if choque is not None:
+            raise serializers.ValidationError(
+                f"Ya existe la categoría «{choque.nombre}»: use esa o cambie el nombre."
+            )
+        return limpio
 
 
 class TipoDispositivoSerializer(serializers.ModelSerializer):
@@ -31,6 +73,9 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
     codigo = serializers.CharField(max_length=10, validators=[])
     total_activos = serializers.IntegerField(read_only=True)
     tiene_politica = serializers.SerializerMethodField()
+    categoria_nombre = serializers.CharField(
+        source="categoria.nombre", read_only=True, default=None
+    )
     #: Lo que se describe de los equipos de este tipo, declarado en la misma
     #: alta. Solo de escritura: el listado del catálogo pagina tipos, y
     #: arrastrar las características de cada uno lo convertiría en una consulta
@@ -47,6 +92,8 @@ class TipoDispositivoSerializer(serializers.ModelSerializer):
             "codigo",
             "descripcion",
             "activo",
+            "categoria",
+            "categoria_nombre",
             "total_activos",
             "tiene_politica",
             "caracteristicas",
@@ -249,6 +296,11 @@ class ActivoListSerializer(serializers.ModelSerializer):
     #: qué estados cuentan como fuera del inventario.
     esta_operativo = serializers.BooleanField(read_only=True)
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
+    #: La categoría del tipo, resuelta: es lo que deja ver en el listado por
+    #: qué un filtro devolvió lo que devolvió, sin abrir la ficha del tipo.
+    categoria_nombre = serializers.CharField(
+        source="tipo.categoria.nombre", read_only=True, default=None
+    )
     # Los nombres ya resueltos, no un conteo: «3 responsables» obligaría a
     # abrir la ficha para saber a quién llamar, que es lo que se pregunta al
     # mirar la columna.
@@ -269,6 +321,7 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "nombre",
             "tipo",
             "tipo_nombre",
+            "categoria_nombre",
             "marca",
             "modelo",
             "numero_serie",

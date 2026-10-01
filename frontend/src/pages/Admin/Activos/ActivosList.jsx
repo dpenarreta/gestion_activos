@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   activosService,
+  categoriasActivoService,
   exportacionService,
   tiposDispositivoService,
 } from "../../../api/activosService";
@@ -85,6 +86,7 @@ export function ActivosList() {
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(
     () => [...searchParams.keys()].length > 0,
   );
+  const [categorias, setCategorias] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [sedes, setSedes] = useState([]);
@@ -97,6 +99,7 @@ export function ActivosList() {
     // etiqueta de ningún equipo, y llegar con el campo vacío haría parecer
     // que no se buscó nada.
     q: searchParams.get("q") || "",
+    categoria: searchParams.get("categoria") || "",
     tipo: searchParams.get("tipo") || "",
     departamento: searchParams.get("departamento") || "",
     custodio: searchParams.get("custodio") || "",
@@ -123,6 +126,10 @@ export function ActivosList() {
   );
 
   useEffect(() => {
+    categoriasActivoService
+      .list({ activa: "true", page_size: 100 })
+      .then((datos) => setCategorias(datos.results ?? datos))
+      .catch(() => setCategorias([]));
     tiposDispositivoService
       .list({ page_size: 100 })
       .then((datos) => setTipos(datos.results ?? datos))
@@ -145,6 +152,7 @@ export function ActivosList() {
   }
 
   const chips = describirFiltros(listado.filtros, {
+    categorias,
     tipos,
     departamentos,
     sedes,
@@ -289,6 +297,21 @@ export function ActivosList() {
 
       {filtrosAbiertos && (
         <div className="activos-filtros">
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por categoría"
+            value={listado.filtros.categoria}
+            onChange={(event) =>
+              listado.actualizarFiltros({ categoria: event.target.value })
+            }
+          >
+            <option value="">Todas las categorías</option>
+            {categorias.map((categoria) => (
+              <option key={categoria.id} value={categoria.id}>
+                {categoria.nombre}
+              </option>
+            ))}
+          </select>
           <select
             className="form-select form-select-sm w-auto"
             aria-label="Filtrar por tipo"

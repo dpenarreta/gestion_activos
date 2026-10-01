@@ -16,6 +16,7 @@ import { ActivoForm } from "../pages/Admin/Activos/ActivoForm";
 import { ActivosList } from "../pages/Admin/Activos/ActivosList";
 import { EscanerPage } from "../pages/Admin/Activos/EscanerPage";
 import { ImportarActivosPage } from "../pages/Admin/Activos/ImportarActivosPage";
+import { CategoriasList } from "../pages/Admin/Activos/CategoriasList";
 import { TiposDispositivoList } from "../pages/Admin/Activos/TiposDispositivoList";
 import { ConfiguracionPage } from "../pages/Admin/Configuracion/ConfiguracionPage";
 import { RespaldosPage } from "../pages/Admin/Configuracion/RespaldosPage";
@@ -223,6 +224,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission={ACTIVOS_VER}>
               <EscanerPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="activos/categorias"
+          element={
+            <RequirePermission permission={ACTIVOS_VER}>
+              <CategoriasList />
             </RequirePermission>
           }
         />

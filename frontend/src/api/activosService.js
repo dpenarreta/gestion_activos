@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 
 const ACTIVOS = "/activos/";
 const TIPOS = "/activos/tipos/";
+const CATEGORIAS = `${ACTIVOS}categorias/`;
 const CARACTERISTICAS = "/activos/caracteristicas/";
 
 export const activosService = {
@@ -192,6 +193,20 @@ export const columnasPlantillaService = {
   camposDisponibles() {
     return apiClient
       .get(`${ACTIVOS}columnas-plantilla/campos-disponibles/`)
+      .then((res) => res.data);
+  },
+};
+
+export const categoriasActivoService = {
+  list(params = {}) {
+    return apiClient.get(CATEGORIAS, { params }).then((res) => res.data);
+  },
+  create(payload) {
+    return apiClient.post(CATEGORIAS, payload).then((res) => res.data);
+  },
+  update(id, payload) {
+    return apiClient
+      .patch(`${CATEGORIAS}${id}/`, payload)
       .then((res) => res.data);
   },
 };

@@ -15,12 +15,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listarActivos = vi.fn();
 const exportarActivos = vi.fn();
+const listarCategorias = vi.fn();
 const listarTipos = vi.fn();
 const listarDepartamentos = vi.fn();
 const listarSedes = vi.fn();
 
 vi.mock("../src/api/activosService", () => ({
   activosService: { list: (...args) => listarActivos(...args) },
+  categoriasActivoService: { list: (...args) => listarCategorias(...args) },
   exportacionService: { activos: (...args) => exportarActivos(...args) },
   tiposDispositivoService: { list: (...args) => listarTipos(...args) },
 }));
@@ -107,6 +109,12 @@ beforeEach(() => {
     count: 2,
     next: null,
     previous: null,
+  });
+  listarCategorias.mockResolvedValue({
+    results: [
+      { id: 10, nombre: "Hardware" },
+      { id: 11, nombre: "Software" },
+    ],
   });
   listarTipos.mockResolvedValue({
     results: [

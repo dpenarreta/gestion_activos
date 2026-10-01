@@ -20,7 +20,13 @@ from . import dashboard as dashboard_mod
 from . import etiquetas as etiquetas_mod
 from . import etiquetas_pdf, exportacion, importacion, plantilla_importacion
 from .barcode import aviso_del_lector, variantes_de_escaneo
-from .models import ESTADOS_EN_ALMACEN, Activo, MovimientoActivo, TipoDispositivo
+from .models import (
+    ESTADOS_EN_ALMACEN,
+    Activo,
+    CategoriaActivo,
+    MovimientoActivo,
+    TipoDispositivo,
+)
 from .models_caracteristicas import CaracteristicaTipo
 from .permissions import (
     ActivosPermission,
@@ -35,6 +41,7 @@ from .serializers import (
     ActivoWriteSerializer,
     AsignacionSerializer,
     CambioEstadoSerializer,
+    CategoriaActivoSerializer,
     MiEquipoSerializer,
     MovimientoActivoSerializer,
     TipoDispositivoSerializer,
@@ -137,6 +144,44 @@ class CaracteristicaTipoViewSet(viewsets.ModelViewSet):
         )
 
 
+class CategoriaActivoViewSet(viewsets.ModelViewSet):
+    """Catálogo de categorías. Sin `DELETE`: los tipos la referencian con
+    `PROTECT`, así que una categoría en uso se desactiva —y entonces deja de
+    ofrecerse sin tocar lo que ya la tiene—."""
+
+    permission_classes = [IsAuthenticated, TiposDispositivoPermission]
+    serializer_class = CategoriaActivoSerializer
+    pagination_class = DefaultPagination
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
+
+    def get_queryset(self):
+        queryset = CategoriaActivo.objects.annotate(total_tipos=Count("tipos"))
+        activa = self.request.query_params.get("activa")
+        if activa in {"true", "false"}:
+            queryset = queryset.filter(activa=activa == "true")
+        return queryset.order_by("nombre")
+
+    def perform_create(self, serializer):
+        categoria = serializer.save()
+        self._auditar("categoria_activo.created", categoria, serializer.data)
+
+    def perform_update(self, serializer):
+        anteriores = self.get_serializer(serializer.instance).data
+        categoria = serializer.save()
+        self._auditar("categoria_activo.updated", categoria, serializer.data, anteriores)
+
+    def _auditar(self, accion, categoria, nuevos, anteriores=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=accion,
+            target=categoria,
+            module=MODULO,
+            previous_values=anteriores or {},
+            new_values=nuevos,
+            context=get_request_context(self.request),
+        )
+
+
 class TipoDispositivoViewSet(viewsets.ModelViewSet):
     """Catálogo de tipos de equipo. Sin `DELETE`: los activos lo referencian
     con `PROTECT` y la política de renovación cuelga de él."""
@@ -195,7 +240,14 @@ class ActivoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = (
             Activo.objects.select_related(
-                "tipo", "departamento", "sede", "proveedor", "concesionario"
+                # `tipo__categoria` y no solo `tipo`: el listado escribe el
+                # nombre de la categoría, y sin precargarla cada fila se
+                # llevaría su propia consulta.
+                "tipo__categoria",
+                "departamento",
+                "sede",
+                "proveedor",
+                "concesionario",
             )
             # Los responsables son varios: sin precargarlos, cada fila del
             # listado se llevaría su propia consulta para escribir un nombre.
@@ -234,6 +286,9 @@ class ActivoViewSet(viewsets.ModelViewSet):
 
         for parametro, campo in (
             ("tipo", "tipo_id"),
+            # Por la categoría del tipo: preguntar «cuánto software hay» no
+            # obliga a conocer los tipos que cuelgan de esa categoría.
+            ("categoria", "tipo__categoria_id"),
             ("departamento", "departamento_id"),
             # Se sigue llamando `custodio` además de `responsable`: los
             # enlaces de «equipos a cargo» y de las alertas ya circulan escritos

@@ -1,9 +1,15 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import ActivoViewSet, CaracteristicaTipoViewSet, TipoDispositivoViewSet
+from .views import (
+    ActivoViewSet,
+    CaracteristicaTipoViewSet,
+    CategoriaActivoViewSet,
+    TipoDispositivoViewSet,
+)
 from .views_plantilla import ColumnaPlantillaViewSet
 
 router = DefaultRouter()
+router.register("categorias", CategoriaActivoViewSet, basename="categorias-activo")
 router.register("tipos", TipoDispositivoViewSet, basename="tipos-dispositivo")
 router.register("caracteristicas", CaracteristicaTipoViewSet, basename="caracteristicas-tipo")
 router.register(

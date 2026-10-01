@@ -26,7 +26,12 @@ const crearCaracteristica = vi.fn();
 const actualizarCaracteristica = vi.fn();
 const quitarCaracteristica = vi.fn();
 
+const listarCategorias = vi.fn();
+
 vi.mock("../src/api/activosService", () => ({
+  categoriasActivoService: {
+    list: (...args) => listarCategorias(...args),
+  },
   tiposDispositivoService: {
     list: (...args) => listar(...args),
     create: (...args) => crear(...args),
@@ -111,6 +116,12 @@ async function abrirEdicion() {
 beforeEach(() => {
   vi.clearAllMocks();
   permisos.clear();
+  listarCategorias.mockResolvedValue({
+    results: [
+      { id: 1, nombre: "Hardware" },
+      { id: 2, nombre: "Software" },
+    ],
+  });
   listar.mockResolvedValue({ results: TIPOS, count: 2 });
   listarCaracteristicas.mockResolvedValue({ results: CARACTERISTICAS });
   crear.mockResolvedValue({ id: 3 });

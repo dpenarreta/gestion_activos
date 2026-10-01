@@ -1,7 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { tiposDispositivoService } from "../../../api/activosService";
+import {
+  categoriasActivoService,
+  tiposDispositivoService,
+} from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { CaracteristicasDelTipo } from "../../../components/activos/CaracteristicasDelTipo/CaracteristicasDelTipo";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
@@ -17,7 +20,13 @@ const BREADCRUMB_ITEMS = [
   { label: "Tipos de dispositivo" },
 ];
 const FILTROS_INICIALES = { q: "" };
-const VACIO = { nombre: "", codigo: "", descripcion: "", activo: true };
+const VACIO = {
+  nombre: "",
+  codigo: "",
+  descripcion: "",
+  categoria: "",
+  activo: true,
+};
 
 /**
  * Catálogo de tipos de dispositivo.
@@ -87,6 +96,7 @@ export function TiposDispositivoList() {
             <tr>
               <th>Código</th>
               <th>Nombre</th>
+              <th>Categoría</th>
               <th>Descripción</th>
               <th className="text-end">Activos</th>
               <th>Política</th>
@@ -101,6 +111,11 @@ export function TiposDispositivoList() {
                   <code className="codigo-barras">{tipo.codigo}</code>
                 </td>
                 <td>{tipo.nombre}</td>
+                <td>
+                  {tipo.categoria_nombre || (
+                    <span className="text-muted">Sin clasificar</span>
+                  )}
+                </td>
                 <td className="text-muted small">{tipo.descripcion || "—"}</td>
                 <td className="text-end">
                   {tipo.total_activos > 0 ? (
@@ -140,7 +155,7 @@ export function TiposDispositivoList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted">
+                <td colSpan={8} className="text-center text-muted">
                   Sin tipos de dispositivo registrados
                 </td>
               </tr>
@@ -178,8 +193,20 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
     nombre: tipo.nombre || "",
     codigo: tipo.codigo || "",
     descripcion: tipo.descripcion || "",
+    categoria: tipo.categoria || "",
     activo: tipo.activo ?? true,
   });
+  /* Solo las activas: clasificar en una categoría retirada es justo lo que
+     desactivarla pretende evitar. La que ya tuviera el tipo se conserva
+     igualmente, porque el servidor no la toca si no se envía. */
+  const [categorias, setCategorias] = useState([]);
+
+  useEffect(() => {
+    categoriasActivoService
+      .list({ activa: "true", page_size: 100 })
+      .then((datos) => setCategorias(datos.results ?? datos))
+      .catch(() => setCategorias([]));
+  }, []);
   // Las características de un tipo que todavía no existe: no hay dónde
   // colgarlas hasta que el tipo se guarde, así que se acumulan aquí y viajan
   // con él en el mismo envío. El servidor crea las dos cosas en una
@@ -237,6 +264,30 @@ function TipoDialog({ tipo, onCerrar, onGuardado }) {
             setValores({ ...valores, nombre: event.target.value })
           }
         />
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label" htmlFor="tipo-categoria">
+          Categoría
+        </label>
+        <select
+          id="tipo-categoria"
+          className="form-select"
+          value={valores.categoria || ""}
+          onChange={(event) =>
+            setValores({ ...valores, categoria: event.target.value })
+          }
+        >
+          <option value="">Sin clasificar</option>
+          {categorias.map((categoria) => (
+            <option key={categoria.id} value={categoria.id}>
+              {categoria.nombre}
+            </option>
+          ))}
+        </select>
+        <div className="form-text">
+          De qué clase de bien se trata. Los equipos de este tipo la heredan.
+        </div>
       </div>
 
       <div className="mb-3">

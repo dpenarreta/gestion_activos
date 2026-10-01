@@ -250,3 +250,46 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     When se sigue ese enlace
     Then los filtros aparecen desplegados
     # Para poder ver y corregir qué se aplicó, no adivinarlo.
+
+  @AC-ACT-057
+  Scenario: Lo que se inventaría se clasifica por su naturaleza
+    Given un sistema recién actualizado
+    When se abre el catálogo de categorías
+    Then existen Hardware, Software y Mobiliario e inmuebles
+    And los tipos que ya estaban quedaron en Hardware
+    # Empezar con la lista vacía obligaría a inventárselas antes de dar de alta
+    # el primer tipo, y dejar los tipos sin clasificar obligaría a repasarlos
+    # uno a uno para poder usar el filtro.
+
+  @AC-ACT-058
+  Scenario: Las categorías se personalizan
+    Given un usuario que puede editar el inventario
+    When crea la categoría "Vehículos"
+    Then queda disponible para clasificar tipos
+    # Cada empresa inventaría cosas distintas: una lista cerrada obligaría a
+    # tocar el código la primera vez que alguien registre una flota.
+
+  @AC-ACT-059
+  Scenario: Una categoría no se borra, se desactiva
+    Given una categoría con tipos dentro
+    When se intenta eliminar
+    Then el sistema no lo permite
+    And desactivarla la saca de los desplegables sin tocar lo que ya la tiene
+
+  @AC-ACT-060
+  Scenario: El equipo hereda la categoría de su tipo
+    Given un tipo clasificado como Software
+    When se mira un equipo de ese tipo en el inventario
+    Then su categoría es Software
+    And cambiar la categoría del tipo arrastra a todos sus equipos
+    # Clasificar es decisión del tipo: una laptop es hardware siempre, y
+    # pedirlo activo por activo acabaría con dos laptops en categorías
+    # distintas.
+
+  @AC-ACT-061
+  Scenario: El inventario se filtra por categoría
+    Given un parque con hardware y software
+    When se filtra por Software
+    Then solo salen los equipos de tipos de esa categoría
+    # Permite preguntar «cuánto software hay» sin conocer qué tipos cuelgan de
+    # esa categoría.

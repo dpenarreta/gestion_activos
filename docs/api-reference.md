@@ -75,7 +75,7 @@ Base: `/api/v1/activos/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `tipo`, `departamento`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `responsable` (id, alias `custodio`), `compartido`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
+| GET | `/activos/` | `activos.ver` | Listado paginado. Filtros: `q`, `categoria`, `tipo`, `departamento`, `estado`, `sede` (id), `sede_nombre`, `criticidad`, `uso`, `condicion`, `propiedad` (`propia\|concesion`), `concesionario` (id), `responsable` (id, alias `custodio`), `compartido`, `antiguedad_min_meses`, `antiguedad_max_meses`, `operativos`, `almacenados`, `requiere_renovacion`, `garantia` (`vigente\|por_vencer\|vencida\|sin_registrar`) |
 | POST | `/activos/` | `activos.crear` | Alta. El `codigo_barras` lo genera el sistema (RF-02). `solicitado_por` (opcional) avisa por correo a quien pidió el equipo; sin él no se avisa a nadie, y la respuesta no trae bloque `aviso`. Acepta cualquier empleado, incluso uno marcado como inactivo: esa marca no la mantiene ninguna integración |
 | GET | `/activos/{id}/` | `activos.ver` | Ficha completa, con el veredicto de renovación calculado en vivo |
 | PATCH | `/activos/{id}/` | `activos.editar` | Edita la ficha técnica. No admite `custodio`/`departamento`/`estado` |
@@ -94,7 +94,14 @@ Base: `/api/v1/activos/`
 | GET | `/activos/columnas-plantilla/` | `activos.ver` | Columnas configuradas de la plantilla |
 | POST/PATCH/DELETE | `/activos/columnas-plantilla/` | `activos.editar` | Configura qué se pide. Clave: un campo del activo o `espec:<Nombre>` para una característica propia. Las estructurales (tipo, nombre, serie, departamento, fecha) no se desactivan ni se eliminan |
 | GET | `/activos/columnas-plantilla/campos-disponibles/` | `activos.ver` | Campos que una columna puede llenar, con cuáles ya están en uso |
-| GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
+| GET/POST/PATCH | `/activos/categorias/` | `activos.ver` / `activos.editar` | Catálogo de **categorías**: la naturaleza del bien (hardware, software, mobiliario…). `?activa=true` para el desplegable. Sin `DELETE`: los tipos la referencian con `PROTECT`, así que se desactiva |
+| GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo. Cada uno cuelga de una categoría (`categoria`, opcional) |
+
+El listado trae `categoria_nombre`, resuelto desde el tipo: un activo no
+guarda su categoría, la hereda. Clasificar es decisión del tipo —una laptop es
+hardware siempre—, así que pedirla activo por activo repetiría en cada alta un
+dato ya decidido, con el riesgo de que dos laptops acaben en categorías
+distintas.
 
 El listado trae `esta_operativo`, calculado por el servidor: dice si el equipo
 sigue en el parque —no está dado de baja, perdido ni robado—. Lo usa el
