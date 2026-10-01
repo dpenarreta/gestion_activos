@@ -170,19 +170,22 @@ el inventario con equipos de prueba.
 
 ## 3. Tareas programadas
 
-Dos, ambas **diarias**. Sin ellas el sistema no falla: deja de avisar en
+Tres. Las dos primeras, **diarias**; la del respaldo, **horaria** (ver el
+punto 4). Sin ellas el sistema no falla: deja de avisar —o de respaldar— en
 silencio, que es peor.
 
 | Comando | Qué pasa si no corre |
 | --- | --- |
 | `python manage.py recalcular_indicadores` | Un equipo que nadie toca **nunca** aparecerá como próximo a reemplazo: ese criterio se cumple por el paso del tiempo y ningún evento lo dispara |
 | `python manage.py enviar_alertas` | Nadie recibe el resumen. La frecuencia real (diaria o semanal) la decide la configuración, no el crontab: por eso este comando se programa todos los días |
+| `python manage.py respaldar --si-toca` | No hay copias. Igual que el resumen de alertas, la frecuencia la decide la configuración y no el crontab: por eso se programa **cada hora** y el comando decide si toca |
 
 En Linux (`crontab -e`):
 
 ```cron
 0 5 * * * cd /ruta/backend && ./.venv/bin/python manage.py recalcular_indicadores
 0 7 * * * cd /ruta/backend && ./.venv/bin/python manage.py enviar_alertas
+0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
 ```
 
 En Windows, Programador de tareas: una tarea diaria por comando, apuntando a
@@ -193,13 +196,27 @@ En Windows, Programador de tareas: una tarea diaria por comando, apuntando a
 
 ## 4. Copias de seguridad
 
+**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*: si
+está encendido, cada cuánto, a partir de qué hora, en qué carpeta y cuántos
+conservar. La tarea del sistema corre **cada hora, siempre igual**, y el
+comando decide si toca:
+
 ```cron
-0 2 * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --destino /respaldos
+0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
 ```
+
+Horaria y no diaria: es lo que permite que la hora se elija desde la pantalla
+sin tocar el programador de tareas. Sin `--si-toca` el comando respalda
+siempre —que es lo que se quiere al lanzarlo a mano—, así que programarlo así
+ignoraría la política, haría copias incluso con el respaldo apagado y no
+dejaría constancia de que fue el programado. En Windows, la tarea equivalente
+se registra una vez con repetición horaria (ver `docs/respaldos.md`).
 
 Respalda la base **y los adjuntos** —las facturas y actas firmadas no se
 regeneran—, verifica que el archivo se escribió y deja un manifiesto con los
-conteos para comparar después de restaurar.
+conteos para comparar después de restaurar. Con la base en Docker, el
+`docker-compose.yml` monta la carpeta donde SQL Server escribe el `.bak` para
+que salga del contenedor.
 
 Un respaldo que nunca se ha restaurado no es un respaldo: el procedimiento de
 restauración, probado, está en `docs/respaldos.md`. Léalo antes de necesitarlo.
@@ -217,6 +234,10 @@ arrancar) y el frontend servido por nginx. Antes:
   rutas y fragmentos de configuración, a quien lo provoque.
 - `SECRET_KEY` propia y larga: con ella se firman los tokens de sesión.
 - `ALLOWED_HOSTS` acotado a los dominios reales.
+- Decidir el **plazo de inactividad** de la sesión
+  (`SESSION_IDLE_TIMEOUT_MINUTES`, cuatro horas por defecto). Es deslizante:
+  cuenta desde la última petición, así que mide inactividad y no duración. En
+  equipos compartidos conviene bajarlo.
 - Repetir la **medición de concurrencia** contra este stack: las cifras de
   `docs/rendimiento.md` se tomaron con el servidor de desarrollo, que es
   monoproceso (`manage.py prueba_de_carga --url https://...`).
@@ -259,7 +280,6 @@ descubren con el lector en la mano, no en la pantalla.
 
 - **Integraciones** del §20 (Active Directory, RRHH, tickets, ERP). El §25 las
   clasifica como prioridad baja.
-- **Rol «Usuario final»**, que necesita una pantalla de «mis equipos».
 - **Concurrencia medida contra producción**, no contra el servidor de
   desarrollo.
 
