@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
@@ -34,7 +34,23 @@ export function ActivoDetalle() {
 
   const [ficha, setFicha] = useState(null);
   const [error, setError] = useState(null);
-  const [dialogoAbierto, setDialogoAbierto] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  /* El listado enlaza aquí con la acción ya elegida (`?accion=asignar`), así
+     que asignar desde el inventario es un clic en vez de tres. Se lee una
+     sola vez al montar y se limpia de la URL: si se quedara, cerrar el
+     diálogo lo reabriría al primer refresco, y recargar la página meses
+     después volvería a abrirlo sin que nadie lo haya pedido. */
+  const [dialogoAbierto, setDialogoAbierto] = useState(() => {
+    const pedida = searchParams.get("accion");
+    return ["asignar", "estado", "etiqueta"].includes(pedida) ? pedida : null;
+  });
+
+  useEffect(() => {
+    if (!searchParams.get("accion")) return;
+    const limpios = new URLSearchParams(searchParams);
+    limpios.delete("accion");
+    setSearchParams(limpios, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [adjuntosRecargados, setAdjuntosRecargados] = useState(0);
 
   const cargar = useCallback(() => {

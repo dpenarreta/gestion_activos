@@ -242,6 +242,12 @@ class ActivoListSerializer(serializers.ModelSerializer):
     """Versión ligera para el listado: sin especificaciones ni historial."""
 
     estado_garantia = serializers.CharField(read_only=True)
+    #: Si el equipo sigue formando parte del parque. El listado lo necesita
+    #: para no ofrecer «asignar» sobre uno dado de baja, perdido o robado: el
+    #: servidor lo rechaza, pero después de que alguien abriera el formulario.
+    #: Viene calculado, igual que en la ficha, para no repetir en el frontend
+    #: qué estados cuentan como fuera del inventario.
+    esta_operativo = serializers.BooleanField(read_only=True)
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
     # Los nombres ya resueltos, no un conteo: «3 responsables» obligaría a
     # abrir la ficha para saber a quién llamar, que es lo que se pregunta al
@@ -280,6 +286,7 @@ class ActivoListSerializer(serializers.ModelSerializer):
             "uso_display",
             "estado",
             "estado_display",
+            "esta_operativo",
             "fecha_adquisicion",
             "fecha_ingreso",
             "estado_garantia",

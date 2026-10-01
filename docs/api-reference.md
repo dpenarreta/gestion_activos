@@ -96,6 +96,11 @@ Base: `/api/v1/activos/`
 | GET | `/activos/columnas-plantilla/campos-disponibles/` | `activos.ver` | Campos que una columna puede llenar, con cuáles ya están en uso |
 | GET/POST/PATCH | `/activos/tipos/` | `activos.ver` / `activos.editar` | Catálogo de tipos de dispositivo |
 
+El listado trae `esta_operativo`, calculado por el servidor: dice si el equipo
+sigue en el parque —no está dado de baja, perdido ni robado—. Lo usa el
+inventario para no ofrecer «asignar» sobre uno que el servidor va a rechazar,
+sin repetir en el frontend qué estados cuentan como salida.
+
 `DELETE` no existe en este recurso: un activo se da de baja, nunca se borra.
 
 La situación de garantía (`estado_garantia`, `dias_para_fin_de_garantia`) es de

@@ -13,3 +13,13 @@
   background-color: var(--surface);
   color: var(--text-primary);
 }
+
+/* Cabecera del panel: una sola fila con el buscador. Sin fondo propio ni
+   sombra —el contenido ya está sobre `--surface`— para no robarle peso al
+   título de cada pantalla, que es lo que dice dónde está uno. */
+.admin-layout__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}

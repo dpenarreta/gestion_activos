@@ -1,0 +1,73 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { activosService } from "../../../api/activosService";
+import { usePermission } from "../../../hooks/usePermission";
+import "./BusquedaGlobal.css";
+
+/*
+ * Buscar un equipo desde cualquier pantalla.
+ *
+ * Es la pregunta que más veces se hace al día —«dónde está este aparato»— y
+ * hasta ahora obligaba a ir primero al inventario. Vive en la cabecera, a la
+ * vista en todo `/admin`.
+ *
+ * Dos caminos según lo que se escriba, y el orden importa:
+ *
+ * 1. Si lo tecleado es la etiqueta o el número de serie de un equipo, se abre
+ *    su ficha directamente. Es lo que pasa al pistolear una etiqueta, que
+ *    termina en un Enter: ahí nadie quiere un listado de un elemento.
+ * 2. Si no corresponde a ninguno, se abre el inventario buscando ese texto.
+ *    Así «Jorge» o «ThinkPad» llevan a la lista filtrada en vez de a un error.
+ */
+export function BusquedaGlobal() {
+  const puedeVer = usePermission("activos.ver");
+  const navigate = useNavigate();
+  const [termino, setTermino] = useState("");
+  const [isBuscando, setIsBuscando] = useState(false);
+
+  if (!puedeVer) {
+    // Quien no ve el inventario tampoco puede buscar en él: ofrecerlo acabaría
+    // en un 403 o en un listado vacío que parece un fallo.
+    return null;
+  }
+
+  async function handleSubmit(evento) {
+    evento.preventDefault();
+    const valor = termino.trim();
+    if (!valor) return;
+
+    setIsBuscando(true);
+    try {
+      const datos = await activosService.porCodigo(valor);
+      navigate(`/admin/activos/${datos.activo.id}`);
+    } catch {
+      // Cualquier fallo cae al listado: un 404 es lo normal al buscar por
+      // nombre, y si el servidor falló de verdad el listado lo dirá con su
+      // propio mensaje en vez de dejar la cabecera en silencio.
+      navigate(`/admin/activos?q=${encodeURIComponent(valor)}`);
+    } finally {
+      setIsBuscando(false);
+      setTermino("");
+    }
+  }
+
+  return (
+    <form className="busqueda-global" onSubmit={handleSubmit} role="search">
+      <label className="visually-hidden" htmlFor="busqueda-global">
+        Buscar un equipo
+      </label>
+      <i className="bi bi-upc-scan busqueda-global__icono" aria-hidden="true" />
+      <input
+        id="busqueda-global"
+        type="search"
+        className="form-control form-control-sm busqueda-global__campo"
+        placeholder="Escanee o busque: código, serie, equipo o persona"
+        value={termino}
+        onChange={(evento) => setTermino(evento.target.value)}
+        disabled={isBuscando}
+        autoComplete="off"
+      />
+    </form>
+  );
+}

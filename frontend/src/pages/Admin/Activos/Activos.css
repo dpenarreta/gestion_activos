@@ -179,3 +179,75 @@
   background: var(--surface-alt);
   border-radius: var(--border-radius, 0.5rem);
 }
+
+/* --- Listado: la fila entera lleva a la ficha --- */
+
+.activos-tabla__fila {
+  cursor: pointer;
+}
+
+.activos-tabla__nombre {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.activos-tabla__nombre:hover,
+.activos-tabla__nombre:focus-visible {
+  text-decoration: underline;
+}
+
+/* En fila y sin envolver: tres iconos puestos uno debajo de otro estirarían
+   cada fila de la tabla y harían perder de vista el resto del inventario. */
+.activos-tabla__acciones {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+/* --- Listado: filtros plegables y lo que se está aplicando --- */
+
+.activos-filtros {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Los chips, por encima del panel plegado: son lo que explica por qué el
+   listado muestra lo que muestra cuando los desplegables no están a la vista. */
+.activos-filtros__chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.activos-filtros__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-color-strong);
+  border-radius: 999px;
+  background-color: var(--surface-alt);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.activos-filtros__chip:hover,
+.activos-filtros__chip:focus-visible {
+  border-color: var(--state-danger, #dc3545);
+}
+
+.activos-filtros__chip-titulo {
+  color: var(--text-muted);
+}
+
+.activos-filtros__limpiar {
+  padding: 0;
+  font-size: 0.85rem;
+}

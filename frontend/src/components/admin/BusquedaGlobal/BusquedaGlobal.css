@@ -1,0 +1,36 @@
+.busqueda-global {
+  position: relative;
+  flex: 1;
+  /* Ni a todo lo ancho ni mínima: pasado este ancho el campo deja de leerse
+     como un buscador y empieza a parecer el contenido de la pantalla. */
+  max-width: 34rem;
+}
+
+.busqueda-global__icono {
+  position: absolute;
+  top: 50%;
+  left: 0.65rem;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.busqueda-global__campo {
+  padding-left: 2.1rem;
+  background-color: var(--surface-alt);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.busqueda-global__campo::placeholder {
+  color: var(--text-muted);
+}
+
+/* En pantallas estrechas ocupa el ancho disponible: el buscador es lo que
+   más se usa de la cabecera, y recortarlo ahí lo dejaría sin sitio para
+   escribir. */
+@media (max-width: 575.98px) {
+  .busqueda-global {
+    max-width: none;
+  }
+}

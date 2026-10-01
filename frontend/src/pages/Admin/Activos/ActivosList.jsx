@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   activosService,
@@ -20,6 +20,7 @@ import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
+import { describirFiltros } from "./filtrosAplicados";
 import "./Activos.css";
 
 const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Activos" }];
@@ -69,10 +70,21 @@ const ANTIGUEDADES = [
 export function ActivosList() {
   const puedeCrear = usePermission("activos.crear");
   const puedeExportar = usePermission("activos.exportar");
+  const puedeAsignar = usePermission("activos.asignar");
+  const puedeCambiarEstado = usePermission("activos.dar_baja");
+  const puedeImprimir = usePermission("activos.imprimir_etiqueta");
+  const navigate = useNavigate();
   const [errorExportacion, setErrorExportacion] = useState(null);
   const [isExportando, setIsExportando] = useState(false);
   const [searchParams] = useSearchParams();
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(() => searchParams.get("q") || "");
+  /* Los nueve desplegables ocupaban dos filas enteras y empujaban la tabla
+     —que es a lo que se viene— hacia abajo. Arrancan plegados, salvo que la
+     pantalla se abra ya filtrada desde otro sitio: ahí hay que poder ver y
+     corregir qué se aplicó. */
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(
+    () => [...searchParams.keys()].length > 0,
+  );
   const [tipos, setTipos] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [sedes, setSedes] = useState([]);
@@ -81,7 +93,10 @@ export function ActivosList() {
   // "activos a cargo" de un empleado, o "requieren renovación" del panel de
   // sugerencias), así que los filtros arrancan desde la URL.
   const [filtrosIniciales] = useState(() => ({
-    q: "",
+    // También `q`: la búsqueda de la cabecera trae aquí lo que no era la
+    // etiqueta de ningún equipo, y llegar con el campo vacío haría parecer
+    // que no se buscó nada.
+    q: searchParams.get("q") || "",
     tipo: searchParams.get("tipo") || "",
     departamento: searchParams.get("departamento") || "",
     custodio: searchParams.get("custodio") || "",
@@ -127,6 +142,27 @@ export function ActivosList() {
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  const chips = describirFiltros(listado.filtros, {
+    tipos,
+    departamentos,
+    sedes,
+  });
+
+  function quitarFiltro(claves) {
+    const vaciados = Object.fromEntries(claves.map((clave) => [clave, ""]));
+    if (claves.includes("q")) setBusqueda("");
+    listado.actualizarFiltros(vaciados);
+  }
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(
+      Object.fromEntries(
+        Object.keys(listado.filtros).map((clave) => [clave, ""]),
+      ),
+    );
   }
 
   async function handleExportar() {
@@ -201,7 +237,7 @@ export function ActivosList() {
         }}
       />
 
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
+      <form className="activos-filtros" onSubmit={handleBuscar}>
         <input
           type="search"
           className="form-control form-control-sm w-auto"
@@ -210,169 +246,212 @@ export function ActivosList() {
           value={busqueda}
           onChange={(event) => setBusqueda(event.target.value)}
         />
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por tipo"
-          value={listado.filtros.tipo}
-          onChange={(event) =>
-            listado.actualizarFiltros({ tipo: event.target.value })
-          }
-        >
-          <option value="">Todos los tipos</option>
-          {tipos.map((tipo) => (
-            <option key={tipo.id} value={tipo.id}>
-              {tipo.nombre}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por departamento"
-          value={listado.filtros.departamento}
-          onChange={(event) =>
-            listado.actualizarFiltros({ departamento: event.target.value })
-          }
-        >
-          <option value="">Todas las áreas</option>
-          {departamentos.map((departamento) => (
-            <option key={departamento.id} value={departamento.id}>
-              {departamento.nombre}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por estado"
-          value={listado.filtros.estado}
-          onChange={(event) =>
-            listado.actualizarFiltros({ estado: event.target.value })
-          }
-        >
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((estado) => (
-            <option key={estado.valor} value={estado.valor}>
-              {estado.etiqueta}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por ubicación"
-          value={listado.filtros.sede}
-          onChange={(event) =>
-            listado.actualizarFiltros({ sede: event.target.value })
-          }
-        >
-          <option value="">Todas las sedes</option>
-          {sedes.map((sede) => (
-            <option key={sede.id} value={sede.id}>
-              {sede.nombre}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por criticidad"
-          value={listado.filtros.criticidad}
-          onChange={(event) =>
-            listado.actualizarFiltros({ criticidad: event.target.value })
-          }
-        >
-          <option value="">Criticidad: toda</option>
-          {CRITICIDADES.map((opcion) => (
-            <option key={opcion.valor} value={opcion.valor}>
-              {opcion.etiqueta}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por uso"
-          value={listado.filtros.uso}
-          onChange={(event) =>
-            listado.actualizarFiltros({ uso: event.target.value })
-          }
-        >
-          <option value="">Uso: todos</option>
-          {USOS.map((opcion) => (
-            <option key={opcion.valor} value={opcion.valor}>
-              {opcion.etiqueta}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por propiedad"
-          value={listado.filtros.propiedad}
-          onChange={(event) =>
-            listado.actualizarFiltros({
-              propiedad: event.target.value,
-              // El partner solo acota dentro de lo que es suyo: dejarlo puesto
-              // al volver a «de la empresa» daría una lista siempre vacía.
-              concesionario:
-                event.target.value === "concesion"
-                  ? listado.filtros.concesionario
-                  : "",
-            })
-          }
-        >
-          {/* Qué equipos son nuestros y qué hay que devolverle al partner son
-              las dos preguntas que se hacen al cerrar una concesión o al
-              valorar el parque. */}
-          <option value="">Propiedad: toda</option>
-          <option value="propia">De la empresa</option>
-          <option value="concesion">En concesión</option>
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por antigüedad"
-          value={`${listado.filtros.antiguedad_min_meses}-${listado.filtros.antiguedad_max_meses}`}
-          onChange={(event) => {
-            const [minimo, maximo] = event.target.value.split("-");
-            listado.actualizarFiltros({
-              antiguedad_min_meses: minimo || "",
-              antiguedad_max_meses: maximo || "",
-            });
-          }}
-        >
-          <option value="-">Antigüedad: toda</option>
-          {ANTIGUEDADES.map((opcion) => (
-            <option key={opcion.valor} value={opcion.valor}>
-              {opcion.etiqueta}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por garantía"
-          value={listado.filtros.garantia}
-          onChange={(event) =>
-            listado.actualizarFiltros({ garantia: event.target.value })
-          }
-        >
-          <option value="">Garantía: todas</option>
-          <option value="vigente">En garantía</option>
-          <option value="por_vencer">Por vencer</option>
-          <option value="vencida">Vencida</option>
-          <option value="sin_registrar">Sin registrar</option>
-        </select>
-        <select
-          className="form-select form-select-sm w-auto"
-          aria-label="Filtrar por sugerencia de renovación"
-          value={listado.filtros.nivel_renovacion}
-          onChange={(event) =>
-            listado.actualizarFiltros({ nivel_renovacion: event.target.value })
-          }
-        >
-          <option value="">Renovación: todos</option>
-          <option value="recomendado">Reemplazo recomendado</option>
-          <option value="evaluar">Evaluar reemplazo</option>
-          <option value="ninguno">Sin sugerencia</option>
-        </select>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
           Buscar
         </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          aria-expanded={filtrosAbiertos}
+          onClick={() => setFiltrosAbiertos((abiertos) => !abiertos)}
+        >
+          <i className="bi bi-funnel me-1" aria-hidden="true" />
+          Filtros{chips.length > 0 ? ` (${chips.length})` : ""}
+        </button>
       </form>
+
+      {chips.length > 0 && (
+        <div className="activos-filtros__chips">
+          {chips.map((chip) => (
+            <button
+              key={chip.claves.join("-")}
+              type="button"
+              className="activos-filtros__chip"
+              title={`Quitar el filtro ${chip.titulo}`}
+              onClick={() => quitarFiltro(chip.claves)}
+            >
+              <span className="activos-filtros__chip-titulo">
+                {chip.titulo}:
+              </span>{" "}
+              {chip.texto}
+              <i className="bi bi-x-lg ms-1" aria-hidden="true" />
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn-link btn-sm activos-filtros__limpiar"
+            onClick={limpiarFiltros}
+          >
+            Limpiar todo
+          </button>
+        </div>
+      )}
+
+      {filtrosAbiertos && (
+        <div className="activos-filtros">
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por tipo"
+            value={listado.filtros.tipo}
+            onChange={(event) =>
+              listado.actualizarFiltros({ tipo: event.target.value })
+            }
+          >
+            <option value="">Todos los tipos</option>
+            {tipos.map((tipo) => (
+              <option key={tipo.id} value={tipo.id}>
+                {tipo.nombre}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por departamento"
+            value={listado.filtros.departamento}
+            onChange={(event) =>
+              listado.actualizarFiltros({ departamento: event.target.value })
+            }
+          >
+            <option value="">Todas las áreas</option>
+            {departamentos.map((departamento) => (
+              <option key={departamento.id} value={departamento.id}>
+                {departamento.nombre}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por estado"
+            value={listado.filtros.estado}
+            onChange={(event) =>
+              listado.actualizarFiltros({ estado: event.target.value })
+            }
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS.map((estado) => (
+              <option key={estado.valor} value={estado.valor}>
+                {estado.etiqueta}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por ubicación"
+            value={listado.filtros.sede}
+            onChange={(event) =>
+              listado.actualizarFiltros({ sede: event.target.value })
+            }
+          >
+            <option value="">Todas las sedes</option>
+            {sedes.map((sede) => (
+              <option key={sede.id} value={sede.id}>
+                {sede.nombre}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por criticidad"
+            value={listado.filtros.criticidad}
+            onChange={(event) =>
+              listado.actualizarFiltros({ criticidad: event.target.value })
+            }
+          >
+            <option value="">Criticidad: toda</option>
+            {CRITICIDADES.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por uso"
+            value={listado.filtros.uso}
+            onChange={(event) =>
+              listado.actualizarFiltros({ uso: event.target.value })
+            }
+          >
+            <option value="">Uso: todos</option>
+            {USOS.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por propiedad"
+            value={listado.filtros.propiedad}
+            onChange={(event) =>
+              listado.actualizarFiltros({
+                propiedad: event.target.value,
+                // El partner solo acota dentro de lo que es suyo: dejarlo puesto
+                // al volver a «de la empresa» daría una lista siempre vacía.
+                concesionario:
+                  event.target.value === "concesion"
+                    ? listado.filtros.concesionario
+                    : "",
+              })
+            }
+          >
+            {/* Qué equipos son nuestros y qué hay que devolverle al partner son
+              las dos preguntas que se hacen al cerrar una concesión o al
+              valorar el parque. */}
+            <option value="">Propiedad: toda</option>
+            <option value="propia">De la empresa</option>
+            <option value="concesion">En concesión</option>
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por antigüedad"
+            value={`${listado.filtros.antiguedad_min_meses}-${listado.filtros.antiguedad_max_meses}`}
+            onChange={(event) => {
+              const [minimo, maximo] = event.target.value.split("-");
+              listado.actualizarFiltros({
+                antiguedad_min_meses: minimo || "",
+                antiguedad_max_meses: maximo || "",
+              });
+            }}
+          >
+            <option value="-">Antigüedad: toda</option>
+            {ANTIGUEDADES.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por garantía"
+            value={listado.filtros.garantia}
+            onChange={(event) =>
+              listado.actualizarFiltros({ garantia: event.target.value })
+            }
+          >
+            <option value="">Garantía: todas</option>
+            <option value="vigente">En garantía</option>
+            <option value="por_vencer">Por vencer</option>
+            <option value="vencida">Vencida</option>
+            <option value="sin_registrar">Sin registrar</option>
+          </select>
+          <select
+            className="form-select form-select-sm w-auto"
+            aria-label="Filtrar por sugerencia de renovación"
+            value={listado.filtros.nivel_renovacion}
+            onChange={(event) =>
+              listado.actualizarFiltros({
+                nivel_renovacion: event.target.value,
+              })
+            }
+          >
+            <option value="">Renovación: todos</option>
+            <option value="recomendado">Reemplazo recomendado</option>
+            <option value="evaluar">Evaluar reemplazo</option>
+            <option value="ninguno">Sin sugerencia</option>
+          </select>
+        </div>
+      )}
 
       {/* El backend repara el código que llega con la distribución de teclado
           cambiada —el guion como apóstrofe— y lo dice: arreglarlo en silencio
@@ -411,13 +490,28 @@ export function ActivosList() {
           </thead>
           <tbody>
             {listado.resultados.map((activo) => (
-              <tr key={activo.id}>
+              <tr
+                key={activo.id}
+                className="activos-tabla__fila"
+                /* Atajo, no el único camino: el nombre sigue siendo un enlace
+                   de verdad —con teclado y con «abrir en otra pestaña»—, y
+                   esto solo evita tener que apuntar a él. */
+                onClick={(evento) => {
+                  if (evento.target.closest("a, button")) return;
+                  navigate(`/admin/activos/${activo.id}`);
+                }}
+              >
                 <td>
                   <code className="codigo-barras">{activo.codigo_barras}</code>
                 </td>
                 <td>
-                  <div>{activo.nombre}</div>
-                  <small className="text-muted">
+                  <Link
+                    to={`/admin/activos/${activo.id}`}
+                    className="activos-tabla__nombre"
+                  >
+                    {activo.nombre}
+                  </Link>
+                  <small className="text-muted d-block">
                     {activo.marca} {activo.modelo} · {activo.numero_serie}
                   </small>
                 </td>
@@ -449,12 +543,43 @@ export function ActivosList() {
                   )}
                 </td>
                 <td>
-                  <Link
-                    to={`/admin/activos/${activo.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    Ver ficha
-                  </Link>
+                  {/* Lo que se hace desde un listado de inventario: mover un
+                      equipo, cambiarle el estado o reimprimir su etiqueta.
+                      Llevan a la ficha con el diálogo ya abierto, así que es
+                      un clic en vez de tres, y la acción se confirma donde
+                      está todo el contexto del equipo. */}
+                  <div className="activos-tabla__acciones">
+                    {puedeAsignar && activo.esta_operativo && (
+                      <Link
+                        to={`/admin/activos/${activo.id}?accion=asignar`}
+                        className="btn btn-outline-primary btn-sm"
+                        title={`Asignar o trasladar ${activo.nombre}`}
+                        aria-label={`Asignar o trasladar ${activo.nombre}`}
+                      >
+                        <i className="bi bi-person-check" aria-hidden="true" />
+                      </Link>
+                    )}
+                    {puedeCambiarEstado && (
+                      <Link
+                        to={`/admin/activos/${activo.id}?accion=estado`}
+                        className="btn btn-outline-warning btn-sm"
+                        title={`Cambiar el estado de ${activo.nombre}`}
+                        aria-label={`Cambiar el estado de ${activo.nombre}`}
+                      >
+                        <i className="bi bi-arrow-repeat" aria-hidden="true" />
+                      </Link>
+                    )}
+                    {puedeImprimir && (
+                      <Link
+                        to={`/admin/activos/${activo.id}?accion=etiqueta`}
+                        className="btn btn-outline-secondary btn-sm"
+                        title={`Imprimir la etiqueta de ${activo.nombre}`}
+                        aria-label={`Imprimir la etiqueta de ${activo.nombre}`}
+                      >
+                        <i className="bi bi-printer" aria-hidden="true" />
+                      </Link>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

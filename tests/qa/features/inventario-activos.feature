@@ -195,3 +195,58 @@ Feature: Inventario y expediente de activos electrónicos (RF-01, RF-02)
     # Es la de quien lo recibe, así que preguntarla sería pedir dos veces el
     # mismo dato. Cambiarla sin decirlo sería peor: un dato que cambia sin que
     # nadie lo vea es un dato que nadie corrige cuando está mal.
+
+  @AC-ACT-050
+  Scenario: Buscar un equipo desde cualquier pantalla
+    Given un usuario en cualquier pantalla del panel
+    When escanea una etiqueta o escribe un código en el buscador de la cabecera
+    Then se abre la ficha de ese equipo
+    # Lo que se hace al pistolear: ahí nadie quiere un listado de un elemento.
+
+  @AC-ACT-051
+  Scenario: Lo que no es una etiqueta lleva al listado
+    Given un usuario que escribe un nombre o una persona en el buscador
+    When confirma la búsqueda
+    Then se abre el inventario buscando ese texto
+    And el campo del listado muestra lo que se buscó
+    # Un 404 sería un castigo por buscar por nombre, que es tan común como
+    # escanear.
+
+  @AC-ACT-052
+  Scenario: Actuar sobre un equipo sin entrar en su ficha
+    Given un usuario con permiso para asignar
+    When mira el inventario
+    Then cada equipo operativo ofrece asignar, cambiar estado e imprimir etiqueta
+    And la acción se confirma en la ficha, con el diálogo ya abierto
+    # Antes eran tres clics para mover un equipo. La confirmación sigue en la
+    # ficha porque es donde está todo el contexto.
+
+  @AC-ACT-053
+  Scenario: No se ofrece mover lo que ya salió del parque
+    Given un equipo dado de baja, perdido o robado
+    When se mira su fila en el inventario
+    Then no se ofrece asignarlo
+    # El servidor lo rechaza, pero después de que alguien eligiera custodio.
+
+  @AC-ACT-054
+  Scenario: Los filtros no tapan la tabla
+    Given el inventario recién abierto
+    When se mira la pantalla
+    Then los nueve filtros están plegados y la tabla ocupa el lugar principal
+    And se abren al pedirlo
+
+  @AC-ACT-055
+  Scenario: Se ve qué se está filtrando y se quita de uno en uno
+    Given un inventario filtrado por estado y por garantía
+    When se mira la pantalla
+    Then cada filtro aplicado aparece nombrado
+    And quitar uno deja los demás puestos
+    # Con nueve desplegables plegados, un filtro activo invisible es la causa
+    # más común de «no me aparece un equipo que sé que está».
+
+  @AC-ACT-056
+  Scenario: Llegar filtrado desde otra pantalla abre los filtros
+    Given un enlace del panel que abre el inventario ya filtrado
+    When se sigue ese enlace
+    Then los filtros aparecen desplegados
+    # Para poder ver y corregir qué se aplicó, no adivinarlo.

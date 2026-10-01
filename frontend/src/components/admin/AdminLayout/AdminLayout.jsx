@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { AdminSidebar } from "../AdminSidebar/AdminSidebar";
+import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
 import "./AdminLayout.css";
 
 const COLLAPSE_STORAGE_KEY = "admin.sidebar.collapsed";
@@ -27,7 +28,9 @@ function getInitialCollapsed(breakpoint) {
  */
 export function AdminLayout() {
   const breakpoint = useBreakpoint();
-  const [isCollapsed, setIsCollapsed] = useState(() => getInitialCollapsed(breakpoint));
+  const [isCollapsed, setIsCollapsed] = useState(() =>
+    getInitialCollapsed(breakpoint),
+  );
   const hadStoredPreference = useRef(hasStoredPreference());
 
   useEffect(() => {
@@ -47,9 +50,20 @@ export function AdminLayout() {
 
   return (
     <UnsavedChangesProvider>
-      <div className={`admin-layout ${isCollapsed ? "admin-layout--collapsed" : ""}`}>
-        <AdminSidebar isCollapsed={isCollapsed} onToggleCollapse={handleToggleCollapse} />
+      <div
+        className={`admin-layout ${isCollapsed ? "admin-layout--collapsed" : ""}`}
+      >
+        <AdminSidebar
+          isCollapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
         <main className="admin-layout__content">
+          {/* La cabecera vive aquí y no dentro de cada pantalla: buscar un
+              equipo es lo que más se hace, y tenerlo en un solo sitio evita
+              que cada listado se invente su propia versión. */}
+          <header className="admin-layout__cabecera">
+            <BusquedaGlobal />
+          </header>
           <Outlet />
         </main>
       </div>

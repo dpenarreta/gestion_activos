@@ -55,6 +55,7 @@ const ACTIVOS = [
     departamento_nombre: "Tecnología",
     estado: "en_uso",
     estado_display: "Asignado",
+    esta_operativo: true,
     estado_garantia: "vigente",
     total_mantenimientos: 2,
     requiere_renovacion: true,
@@ -70,8 +71,9 @@ const ACTIVOS = [
     tipo_nombre: "Impresora",
     responsables_resumen: "",
     departamento_nombre: "Logística",
-    estado: "en_bodega",
-    estado_display: "En bodega",
+    estado: "dado_de_baja",
+    estado_display: "Dado de baja",
+    esta_operativo: false,
     estado_garantia: "vencida",
     total_mantenimientos: 0,
     requiere_renovacion: false,
@@ -85,6 +87,11 @@ function pintar(ruta = "/admin/activos") {
       <ActivosList />
     </MemoryRouter>,
   );
+}
+
+/** Despliega el panel de filtros, que desde ahora arranca plegado. */
+function abrirFiltros() {
+  fireEvent.click(screen.getByRole("button", { name: /Filtros/ }));
 }
 
 /** Los filtros con los que se hizo la última consulta al backend. */
@@ -209,6 +216,7 @@ describe("Los filtros", () => {
     pintar();
 
     await screen.findByText("Laptop Jefatura TI");
+    abrirFiltros();
     fireEvent.change(screen.getByLabelText("Filtrar por tipo"), {
       target: { value: "2" },
     });
@@ -222,6 +230,7 @@ describe("Los filtros", () => {
     pintar();
 
     await screen.findByText("Laptop Jefatura TI");
+    abrirFiltros();
     fireEvent.change(screen.getByLabelText("Filtrar por propiedad"), {
       target: { value: "concesion" },
     });
@@ -252,6 +261,7 @@ describe("Los filtros", () => {
     pintar();
 
     await screen.findByText("Laptop Jefatura TI");
+    abrirFiltros();
     fireEvent.change(screen.getByLabelText("Filtrar por antigüedad"), {
       target: { value: "60-" },
     });
@@ -297,6 +307,7 @@ describe("Los filtros", () => {
     pintar();
 
     await screen.findByText("Laptop Jefatura TI");
+    abrirFiltros();
     expect(
       await screen.findByRole("option", { name: "Matriz Quito" }),
     ).toBeInTheDocument();
@@ -441,6 +452,153 @@ describe("Cuando el lector envía otra distribución de teclado", () => {
     await screen.findByText("Laptop Jefatura TI");
     expect(
       screen.queryByText(/Revise la configuración del lector/),
+    ).not.toBeInTheDocument();
+  });
+});
+
+// --- Llegar a la ficha y actuar sin entrar en ella ---------------------------
+
+describe("Lo que se puede hacer desde una fila", () => {
+  it("el nombre del equipo lleva a su ficha", async () => {
+    /* Antes el único camino era un botón al final de la fila: el nombre, que
+       es lo que uno mira, no llevaba a ninguna parte. */
+    pintar();
+
+    const enlace = await screen.findByRole("link", {
+      name: "Laptop Jefatura TI",
+    });
+    expect(enlace).toHaveAttribute("href", "/admin/activos/7");
+  });
+
+  it("quien asigna puede hacerlo desde el listado, en un clic", async () => {
+    /* Lleva a la ficha con el diálogo ya abierto: la acción se confirma donde
+       está el contexto del equipo, pero sin los tres clics de antes. */
+    permisos.add("activos.asignar");
+
+    pintar();
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Asignar o trasladar Laptop Jefatura TI/,
+      }),
+    ).toHaveAttribute("href", "/admin/activos/7?accion=asignar");
+  });
+
+  it("no se ofrece asignar un equipo que ya salió del parque", async () => {
+    /* El servidor lo rechaza, pero después de que alguien abriera el
+       formulario y eligiera custodio. */
+    permisos.add("activos.asignar");
+
+    pintar();
+    await screen.findByText("Impresora Bodega");
+
+    expect(
+      screen.queryByRole("link", {
+        name: /Asignar o trasladar Impresora Bodega/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sin permisos no aparece ninguna acción rápida", async () => {
+    pintar();
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(
+      screen.queryByRole("link", { name: /Asignar o trasladar/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Cambiar el estado/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Imprimir la etiqueta/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("la búsqueda de la cabecera llega con su texto ya aplicado", async () => {
+    /* El buscador global manda aquí lo que no era la etiqueta de nadie, y el
+       campo tiene que mostrarlo: en blanco parecería que no se buscó nada. */
+    pintar("/admin/activos?q=jefatura");
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(ultimaConsulta()).toEqual(
+      expect.objectContaining({ q: "jefatura" }),
+    );
+  });
+});
+
+// --- Qué se está filtrando ---------------------------------------------------
+
+describe("Los filtros se pliegan y dicen qué se aplicó", () => {
+  it("arrancan plegados: la tabla es a lo que se viene", async () => {
+    pintar();
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(screen.queryByLabelText("Filtrar por tipo")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Filtros/ })).toBeInTheDocument();
+  });
+
+  it("se abren al pedirlo", async () => {
+    pintar();
+    await screen.findByText("Laptop Jefatura TI");
+
+    fireEvent.click(screen.getByRole("button", { name: /Filtros/ }));
+
+    expect(screen.getByLabelText("Filtrar por tipo")).toBeInTheDocument();
+  });
+
+  it("si se llega ya filtrado desde otra pantalla, se abren solos", async () => {
+    /* Quien llega aquí desde «garantías vencidas» del panel tiene que poder
+       ver y corregir qué se aplicó, no adivinarlo. */
+    pintar("/admin/activos?garantia=vencida");
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(screen.getByLabelText("Filtrar por garantía")).toBeInTheDocument();
+  });
+
+  it("cada filtro aplicado se nombra y se puede quitar solo", async () => {
+    /* Con nueve desplegables, mirar cuál quedó en algo distinto de «todos»
+       obliga a repasarlos uno a uno: es la causa más común de «el inventario
+       no me muestra un equipo que sé que está». */
+    pintar("/admin/activos?garantia=vencida&estado=en_uso");
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(screen.getByTitle("Quitar el filtro Garantía")).toHaveTextContent(
+      "Vencida",
+    );
+    expect(screen.getByTitle("Quitar el filtro Estado")).toHaveTextContent(
+      "Asignado",
+    );
+
+    fireEvent.click(screen.getByTitle("Quitar el filtro Garantía"));
+
+    await waitFor(() =>
+      expect(ultimaConsulta()).toEqual(
+        expect.objectContaining({ estado: "en_uso" }),
+      ),
+    );
+    expect(ultimaConsulta().garantia).toBeUndefined();
+  });
+
+  it("«limpiar todo» deja el listado sin filtros", async () => {
+    pintar("/admin/activos?garantia=vencida&estado=en_uso");
+    await screen.findByText("Laptop Jefatura TI");
+
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar todo" }));
+
+    await waitFor(() => {
+      const consulta = ultimaConsulta();
+      expect(consulta.garantia).toBeUndefined();
+      expect(consulta.estado).toBeUndefined();
+    });
+  });
+
+  it("sin filtros no hay nada que explicar", async () => {
+    pintar();
+    await screen.findByText("Laptop Jefatura TI");
+
+    expect(
+      screen.queryByRole("button", { name: "Limpiar todo" }),
     ).not.toBeInTheDocument();
   });
 });
