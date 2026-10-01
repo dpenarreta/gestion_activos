@@ -62,3 +62,35 @@ Feature: Generación e impresión de etiquetas de activos (RF-08)
     Given un usuario que solo puede ver el inventario
     When intenta generar una etiqueta
     Then la operación es rechazada por falta de permiso
+
+  @AC-ETI-008
+  Scenario: La etiqueta se emite en QR cuando se pide
+    Given un equipo con su etiqueta
+    When se elige "Código QR" como tipo de código
+    Then el PDF y los trabajos térmicos salen con un QR
+    And el código en texto sigue debajo del símbolo
+    # Si se raya o el lector falla, se teclea. Eso no cambia por elegir QR.
+
+  @AC-ETI-009
+  Scenario: Sin elegir nada se imprime el código de barras
+    Given un equipo con su etiqueta
+    When se imprime sin tocar el tipo de código
+    Then sale en Code 128
+    # Es lo que leen las pistolas que hay en bodega: cambiar el valor por
+    # defecto sin cambiar los lectores dejaría etiquetas ilegibles.
+
+  @AC-ETI-010
+  Scenario: Se avisa de que una pistola láser no lee un QR
+    Given alguien a punto de imprimir
+    When elige el código QR
+    Then la pantalla advierte que hace falta un lector de imagen o una cámara
+    # La advertencia va donde se decide, no en un manual: el problema se
+    # descubre con el lector en la mano delante del equipo.
+
+  @AC-ETI-011
+  Scenario: Con QR no se ofrece la comprobación de legibilidad
+    Given una etiqueta en QR
+    When se mira el diálogo de impresión
+    Then no aparecen el ancho de módulo ni la zona muda
+    # Describen un símbolo lineal: aplicarlos a un QR sería inventarse un
+    # diagnóstico.

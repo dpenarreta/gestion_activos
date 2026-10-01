@@ -315,7 +315,7 @@ describe("La etiqueta del activo", () => {
     expect(
       await screen.findByLabelText("Vista previa de la etiqueta GA-LAP-000007"),
     ).toBeInTheDocument();
-    expect(previsualizarPdf).toHaveBeenCalledWith(7);
+    expect(previsualizarPdf).toHaveBeenCalledWith(7, "code128");
   });
 
   it("dice que el PDF se imprime a escala real", async () => {
@@ -373,7 +373,7 @@ describe("La etiqueta del activo", () => {
     fireEvent.click(screen.getByRole("button", { name: /Descargar PDF/ }));
 
     await waitFor(() =>
-      expect(descargarEtiqueta).toHaveBeenCalledWith(7, "pdf"),
+      expect(descargarEtiqueta).toHaveBeenCalledWith(7, "pdf", "code128"),
     );
   });
 
@@ -387,7 +387,7 @@ describe("La etiqueta del activo", () => {
       screen.getByRole("button", { name: /Impresión térmica directa/ }),
     );
 
-    await waitFor(() => expect(etiqueta).toHaveBeenCalledWith(7, "zpl"));
+    await waitFor(() => expect(etiqueta).toHaveBeenCalledWith(7, "zpl", "code128"));
     expect(
       await screen.findByDisplayValue("^XA^FO50,50^BCN,80^FD..."),
     ).toBeInTheDocument();
@@ -406,7 +406,7 @@ describe("La etiqueta del activo", () => {
       target: { value: "tspl" },
     });
 
-    await waitFor(() => expect(etiqueta).toHaveBeenLastCalledWith(7, "tspl"));
+    await waitFor(() => expect(etiqueta).toHaveBeenLastCalledWith(7, "tspl", "code128"));
     // TSPL se descarga como .txt; ZPL, como .zpl.
     expect(
       await screen.findByRole("button", { name: "Descargar .txt" }),
@@ -482,5 +482,49 @@ describe("La etiqueta del activo", () => {
     unmount();
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:etiqueta");
+  });
+
+  it("la etiqueta se puede emitir en QR", async () => {
+    /* El QR estaba descartado desde el 2026-09-09 y se reabre como opción:
+       quien lo elige necesita lectores de imagen. */
+    render(<EtiquetaDialog activo={ACTIVO} onCerrar={vi.fn()} />);
+    await screen.findByLabelText("Tipo de código");
+
+    fireEvent.change(screen.getByLabelText("Tipo de código"), {
+      target: { value: "qr" },
+    });
+
+    await waitFor(() =>
+      expect(previsualizarPdf).toHaveBeenLastCalledWith(7, "qr"),
+    );
+  });
+
+  it("avisa de que una pistola láser no lee un QR", async () => {
+    /* La advertencia va donde se decide, no en un manual: elegirlo sin tener
+       lectores de imagen deja etiquetas que nadie puede escanear, y eso se
+       descubre con el lector en la mano delante del equipo. */
+    render(<EtiquetaDialog activo={ACTIVO} onCerrar={vi.fn()} />);
+    await screen.findByLabelText("Tipo de código");
+
+    fireEvent.change(screen.getByLabelText("Tipo de código"), {
+      target: { value: "qr" },
+    });
+
+    expect(await screen.findByText(/pistola láser no lo lee/i)).toBeInTheDocument();
+  });
+
+  it("con QR no se enseña la medición, que es de barras", async () => {
+    /* Ancho de módulo, zona muda y altura describen un símbolo lineal:
+       mostrarlos junto a un QR sería inventarse un diagnóstico. */
+    render(<EtiquetaDialog activo={ACTIVO} onCerrar={vi.fn()} />);
+    await screen.findByLabelText("Tipo de código");
+
+    fireEvent.change(screen.getByLabelText("Tipo de código"), {
+      target: { value: "qr" },
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Ancho de la barra/i)).not.toBeInTheDocument(),
+    );
   });
 });

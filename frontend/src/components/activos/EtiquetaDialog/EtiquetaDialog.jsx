@@ -12,6 +12,23 @@ const FORMATOS_TERMICOS = [
 
 const EXTENSIONES = { zpl: "zpl", tspl: "txt" };
 
+/* Las dos simbologías, con la advertencia puesta donde se decide y no en un
+   manual: elegir QR sin tener lectores de imagen deja etiquetas que la
+   pistola de bodega no puede leer, y eso no se descubre hasta que alguien
+   está delante del equipo con el lector en la mano. */
+const SIMBOLOGIAS = [
+  {
+    valor: "code128",
+    etiqueta: "Código de barras (Code 128)",
+    nota: "Lo lee cualquier pistola, incluidas las láser de un solo haz.",
+  },
+  {
+    valor: "qr",
+    etiqueta: "Código QR",
+    nota: "Necesita lector de imagen o la cámara de un teléfono: una pistola láser no lo lee.",
+  },
+];
+
 /**
  * Etiqueta de un activo, en PDF o como trabajo de impresión térmica (RF-08).
  *
@@ -29,6 +46,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [formatoTermico, setFormatoTermico] = useState("zpl");
+  const [simbologia, setSimbologia] = useState("code128");
   const [contenidoTermico, setContenidoTermico] = useState("");
   const [mostrarTermico, setMostrarTermico] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -39,7 +57,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
     let cancelado = false;
 
     activosService
-      .previsualizarPdf(activo.id)
+      .previsualizarPdf(activo.id, simbologia)
       .then((blob) => {
         if (cancelado) return;
         urlCreada = URL.createObjectURL(blob);
@@ -68,18 +86,18 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       // memoria mientras viva la pestaña.
       if (urlCreada) URL.revokeObjectURL(urlCreada);
     };
-  }, [activo.id]);
+  }, [activo.id, simbologia]);
 
   const cargarTermico = useCallback(() => {
     activosService
-      .etiqueta(activo.id, formatoTermico)
+      .etiqueta(activo.id, formatoTermico, simbologia)
       .then((datos) => setContenidoTermico(datos.contenido))
       .catch((err) =>
         setError(
           mensajeDeError(err, "No se pudo generar el trabajo de impresión."),
         ),
       );
-  }, [activo.id, formatoTermico]);
+  }, [activo.id, formatoTermico, simbologia]);
 
   useEffect(() => {
     if (mostrarTermico) {
@@ -100,7 +118,11 @@ export function EtiquetaDialog({ activo, onCerrar }) {
 
   async function handleDescargarPdf() {
     try {
-      const blob = await activosService.descargarEtiqueta(activo.id, "pdf");
+      const blob = await activosService.descargarEtiqueta(
+        activo.id,
+        "pdf",
+        simbologia,
+      );
       descargarBlob(blob, `etiqueta-${activo.codigo_barras}.pdf`);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo descargar la etiqueta."));
@@ -112,6 +134,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       const blob = await activosService.descargarEtiqueta(
         activo.id,
         formatoTermico,
+        simbologia,
       );
       descargarBlob(
         blob,
@@ -148,9 +171,34 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <p className="text-muted small">
-        Etiqueta de 50 × 25 mm con el código en Code 128. El PDF sale a tamaño
-        real: imprímalo «a escala 100 %», sin ajustar a página.
+        Etiqueta de 50 × 25 mm con el código en{" "}
+        {simbologia === "qr" ? "QR" : "Code 128"}. El PDF sale a tamaño real:
+        imprímalo «a escala 100 %», sin ajustar a página.
       </p>
+
+      <div className="mb-3">
+        <label className="form-label" htmlFor="simbologia-etiqueta">
+          Tipo de código
+        </label>
+        <select
+          id="simbologia-etiqueta"
+          className="form-select form-select-sm"
+          value={simbologia}
+          onChange={(evento) => {
+            setSimbologia(evento.target.value);
+            setIsLoading(true);
+          }}
+        >
+          {SIMBOLOGIAS.map((opcion) => (
+            <option key={opcion.valor} value={opcion.valor}>
+              {opcion.etiqueta}
+            </option>
+          ))}
+        </select>
+        <div className="form-text">
+          {SIMBOLOGIAS.find((opcion) => opcion.valor === simbologia)?.nota}
+        </div>
+      </div>
 
       <div className="etiqueta-previa-pdf mb-3">
         {isLoading && (
@@ -177,7 +225,9 @@ export function EtiquetaDialog({ activo, onCerrar }) {
         )}
       </div>
 
-      {medicion && <LegibilidadDelCodigo medicion={medicion} />}
+      {medicion && simbologia !== "qr" && (
+        <LegibilidadDelCodigo medicion={medicion} />
+      )}
 
       <div className="d-flex gap-2 flex-wrap">
         <button

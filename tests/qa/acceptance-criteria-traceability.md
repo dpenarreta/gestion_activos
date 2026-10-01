@@ -327,6 +327,10 @@ No se marca ningún escenario como "Aprobado" sin haberlo ejecutado — ver
 | AC-ETI-005 | Impresión por lotes | etiquetas-termicas.feature | Se pueden imprimir etiquetas de varios activos en un solo trabajo | Sí (pytest) |
 | AC-ETI-006 | Descarga para la cola de impresión | etiquetas-termicas.feature | La etiqueta se puede descargar como archivo para la cola de impresión | Sí (pytest) |
 | AC-ETI-007 | Permiso propio de impresión | etiquetas-termicas.feature | Imprimir etiquetas exige su propio permiso | Sí (pytest) |
+| AC-ETI-008 | La etiqueta se emite en QR | etiquetas-termicas.feature | La etiqueta se emite en QR cuando se pide | Sí (pytest: `test_zpl_emite_un_qr_cuando_se_pide`, `test_tspl_emite_un_qr_cuando_se_pide`, `test_el_pdf_sale_en_las_dos_simbologias`, `test_el_codigo_legible_sigue_debajo_en_ambas`; Vitest: `la etiqueta se puede emitir en QR`) |
+| AC-ETI-009 | Por defecto, Code 128 | etiquetas-termicas.feature | Sin elegir nada se imprime el código de barras | Sí (pytest: `test_zpl_sigue_emitiendo_code128_por_defecto`, `test_tspl_sigue_emitiendo_code128_por_defecto`) |
+| AC-ETI-010 | Se avisa del lector que hace falta | etiquetas-termicas.feature | Se avisa de que una pistola láser no lee un QR | Sí (Vitest: `avisa de que una pistola láser no lee un QR`) |
+| AC-ETI-011 | Sin medición en QR | etiquetas-termicas.feature | Con QR no se ofrece la comprobación de legibilidad | Sí (Vitest: `con QR no se enseña la medición, que es de barras`) |
 | AC-ETI-008 | Descarga en PDF | etiquetas-termicas.feature | La etiqueta se descarga en PDF | **Sí (pytest-bdd)** |
 | AC-ETI-009 | PDF a tamaño físico real | etiquetas-termicas.feature | El PDF conserva el tamaño físico de la etiqueta | Sí (pytest) |
 | AC-ETI-010 | Vista previa antes de imprimir | etiquetas-termicas.feature | La etiqueta se puede revisar antes de imprimirla | Sí (pytest) |

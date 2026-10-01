@@ -44,9 +44,9 @@ export const activosService = {
       .post(`${ACTIVOS}${id}/cambiar-estado/`, payload)
       .then((res) => res.data);
   },
-  etiqueta(id, formato = "zpl") {
+  etiqueta(id, formato = "zpl", simbologia = "code128") {
     return apiClient
-      .get(`${ACTIVOS}${id}/etiqueta/`, { params: { formato } })
+      .get(`${ACTIVOS}${id}/etiqueta/`, { params: { formato, simbologia } })
       .then((res) => res.data);
   },
   /**
@@ -61,9 +61,13 @@ export const activosService = {
       .get(`${ACTIVOS}${id}/etiqueta/medicion/`)
       .then((res) => res.data);
   },
-  etiquetasLote(ids, formato = "zpl") {
+  etiquetasLote(ids, formato = "zpl", simbologia = "code128") {
     return apiClient
-      .post(`${ACTIVOS}etiquetas/`, { ids }, { params: { formato } })
+      .post(
+        `${ACTIVOS}etiquetas/`,
+        { ids },
+        { params: { formato, simbologia } },
+      )
       .then((res) => res.data);
   },
 
@@ -77,31 +81,31 @@ export const activosService = {
    * navegador y en los logs del servidor, que es justo lo que no se quiere
    * de un token de sesión.
    */
-  descargarEtiqueta(id, formato = "pdf") {
+  descargarEtiqueta(id, formato = "pdf", simbologia = "code128") {
     return apiClient
       .get(`${ACTIVOS}${id}/etiqueta/`, {
-        params: { formato, descargar: "true" },
+        params: { formato, simbologia, descargar: "true" },
         responseType: "blob",
       })
       .then((res) => res.data);
   },
 
   /** PDF listo para revisar en el visor del navegador, sin descargarlo. */
-  previsualizarPdf(id) {
+  previsualizarPdf(id, simbologia = "code128") {
     return apiClient
       .get(`${ACTIVOS}${id}/etiqueta/`, {
-        params: { formato: "pdf", descargar: "false" },
+        params: { formato: "pdf", simbologia, descargar: "false" },
         responseType: "blob",
       })
       .then((res) => res.data);
   },
 
-  descargarEtiquetasLote(ids, formato = "pdf") {
+  descargarEtiquetasLote(ids, formato = "pdf", simbologia = "code128") {
     return apiClient
       .post(
         `${ACTIVOS}etiquetas/`,
         { ids },
-        { params: { formato }, responseType: "blob" },
+        { params: { formato, simbologia }, responseType: "blob" },
       )
       .then((res) => res.data);
   },

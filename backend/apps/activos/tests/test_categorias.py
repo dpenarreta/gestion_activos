@@ -180,9 +180,7 @@ def test_el_inventario_se_filtra_por_categoria(editor, parque):
     assert respuesta.status_code == 200
     nombres = {fila["nombre"] for fila in respuesta.data["results"]}
     assert "Office 365 — Contabilidad" in nombres
-    assert all(
-        fila["categoria_nombre"] == "Software" for fila in respuesta.data["results"]
-    )
+    assert all(fila["categoria_nombre"] == "Software" for fila in respuesta.data["results"])
 
 
 def test_el_listado_dice_la_categoria_de_cada_equipo(editor, parque):

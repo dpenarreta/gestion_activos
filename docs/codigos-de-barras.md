@@ -1,10 +1,23 @@
 # Códigos de barras y lectura con pistola (RF-02, RF-03, RF-08, §5)
 
-El sistema identifica cada equipo con un **código de barras 1D Code 128**, no
-con QR. La decisión es deliberada: el QR necesita una cámara y un enfoque, y el
-inventario se hace con una pistola láser en la mano recorriendo estantes. Code
-128 lo lee cualquier lector del mercado —Zebra, Honeywell, Datalogic o una
-pistola genérica de sesenta dólares— sin configuración especial.
+El sistema identifica cada equipo con un **código de barras 1D Code 128**, y
+desde el 2026-10-01 la etiqueta **también se puede emitir en QR**, a elección
+de quien la imprime.
+
+Code 128 sigue siendo lo que sale por defecto, y el motivo no ha cambiado: lo
+lee cualquier lector del mercado —Zebra, Honeywell, Datalogic o una pistola
+genérica de sesenta dólares— sin configuración especial, y el inventario se
+hace con una pistola láser en la mano recorriendo estantes.
+
+**Lo que hay que saber antes de elegir QR:** es un símbolo bidimensional, así
+que **una pistola láser de un solo haz no puede leerlo**. Hace falta un lector
+de imagen (2D) o la cámara de un teléfono. A cambio guarda más información y
+aguanta mejor un roce o una esquina despegada, porque lleva corrección de
+errores. Elegirlo con los lectores actuales de bodega produciría etiquetas que
+nadie puede escanear, y eso se descubre delante del equipo, no al imprimir.
+
+El resto de este documento describe el Code 128, que es lo que el sistema
+emite salvo que se pida otra cosa.
 
 ## El código
 
@@ -146,3 +159,21 @@ equipo.
 - La API resuelve por código **o por número de serie** en el mismo endpoint
   (`/activos/por-codigo/{valor}/`): quien tiene el equipo delante y la etiqueta
   arrancada puede teclear la serie del fabricante.
+
+
+## Emitir la etiqueta en QR
+
+En la ficha del equipo, *Etiqueta* → **Tipo de código**. La vista previa se
+rehace al cambiar, así que lo que se ve es lo que se imprime, y la elección
+viaja a los tres formatos de salida: PDF, ZPL (`^BQN,2,6`) y TSPL
+(`QRCODE ... M,6`). En ZPL y TSPL va con corrección de errores media (15 %):
+en una etiqueta que se roza a diario, la baja deja de leerse antes de que
+nadie lo note.
+
+La **comprobación de legibilidad** —ancho de módulo, zona muda y altura de
+barra— solo aparece con Code 128: esas tres medidas describen un símbolo
+lineal y aplicarlas a un QR daría números que no significan nada.
+
+Con qué simbología se imprimió cada tanda **queda en la auditoría**: si una
+serie de etiquetas no se deja leer, es lo primero que hay que poder
+reconstruir.

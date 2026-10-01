@@ -870,6 +870,10 @@ class ActivoViewSet(viewsets.ModelViewSet):
         de descubrir el problema con el lector en la mano.
         """
         activo = self.get_object()
+        # Solo del Code 128: las tres medidas que decide esto —ancho de módulo,
+        # zona muda y altura de barra— son de un símbolo lineal. Un QR se mide
+        # de otra forma y devolver estos números para él sería inventarse un
+        # diagnóstico.
         return Response(
             {
                 "codigo": activo.codigo_barras,
@@ -919,6 +923,21 @@ class ActivoViewSet(viewsets.ModelViewSet):
         return self._responder_etiquetas(request, activos)
 
     def _responder_etiquetas(self, request, activos):
+        simbologia = (request.query_params.get("simbologia") or etiquetas_mod.CODE128).lower()
+        if simbologia not in etiquetas_mod.SIMBOLOGIAS:
+            return Response(
+                {
+                    "error": {
+                        "code": "simbologia_invalida",
+                        "message": (
+                            f"Simbología no soportada: {simbologia!r}. "
+                            f"Opciones: {', '.join(sorted(etiquetas_mod.SIMBOLOGIAS))}."
+                        ),
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         formato = (request.query_params.get("formato") or FORMATO_POR_DEFECTO).lower()
         if formato not in FORMATOS_SOPORTADOS:
             return Response(
@@ -934,14 +953,17 @@ class ActivoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        self._auditar_etiquetas(request, activos, formato)
+        # La simbología entra en la auditoría: si una tanda de etiquetas no se
+        # deja leer, lo primero que hay que poder reconstruir es con cuál se
+        # imprimió.
+        self._auditar_etiquetas(request, activos, formato, simbologia)
 
         if formato == "pdf":
             # El PDF es binario: no cabe en el JSON de vista previa, así que
             # siempre se devuelve como documento. `descargar=false` lo entrega
             # "inline" para poder revisarlo en el visor del navegador antes de
             # gastar consumibles.
-            documento = etiquetas_pdf.construir_pdf(activos)
+            documento = etiquetas_pdf.construir_pdf(activos, simbologia=simbologia)
             disposicion = (
                 "inline" if request.query_params.get("descargar") == "false" else "attachment"
             )
@@ -951,7 +973,7 @@ class ActivoViewSet(viewsets.ModelViewSet):
             )
             return respuesta
 
-        contenido = etiquetas_mod.construir_lote(formato, activos)
+        contenido = etiquetas_mod.construir_lote(formato, activos, simbologia=simbologia)
 
         if request.query_params.get("descargar") == "true":
             extension = etiquetas_mod.EXTENSIONES[formato]
@@ -986,13 +1008,19 @@ class ActivoViewSet(viewsets.ModelViewSet):
             else f"etiquetas-{len(activos)}.{extension}"
         )
 
-    def _auditar_etiquetas(self, request, activos, formato: str) -> None:
+    def _auditar_etiquetas(
+        self, request, activos, formato: str, simbologia: str = etiquetas_mod.CODE128
+    ) -> None:
         record_audit_event(
             actor=request.user,
             action="activo.etiqueta_generada",
             target_type="activo",
             target_id=",".join(str(a.id) for a in activos[:20]),
             module=MODULO,
-            new_values={"formato": formato, "cantidad": len(activos)},
+            new_values={
+                "formato": formato,
+                "simbologia": simbologia,
+                "cantidad": len(activos),
+            },
             context=get_request_context(request),
         )

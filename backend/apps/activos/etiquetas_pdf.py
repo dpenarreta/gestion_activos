@@ -19,11 +19,14 @@ defecto), así que al imprimir "a tamaño real" sale a escala correcta.
 
 from io import BytesIO
 
+from reportlab.graphics import renderPDF
 from reportlab.graphics.barcode import code128
+from reportlab.graphics.barcode import qr as qr_barcode
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from .etiquetas import DIMENSIONES_POR_DEFECTO, DimensionesEtiqueta
+from .etiquetas import CODE128, DIMENSIONES_POR_DEFECTO, QR, DimensionesEtiqueta
 
 # Altura de las barras. Por debajo de ~8 mm, un lector de mano necesita
 # demasiada precisión de apuntado sobre una etiqueta pequeña.
@@ -120,6 +123,24 @@ def _barra_legible(codigo: str, ancho_disponible: float):
     )
 
 
+def _qr_cuadrado(codigo: str, lado: float):
+    """QR del tamaño que quepa, con su zona muda incluida.
+
+    Cuadrado y no rectangular: un QR deformado deja de ser legible, así que lo
+    que manda es el lado menor del hueco disponible. La corrección de errores
+    es la media (15 %): en una etiqueta que se roza a diario, la baja deja de
+    leerse antes de que nadie lo note.
+    """
+    widget = qr_barcode.QrCodeWidget(codigo, barLevel="M")
+    x1, y1, x2, y2 = widget.getBounds()
+    ancho_natural = x2 - x1
+    alto_natural = y2 - y1
+
+    dibujo = Drawing(lado, lado, transform=[lado / ancho_natural, 0, 0, lado / alto_natural, 0, 0])
+    dibujo.add(widget)
+    return dibujo
+
+
 def medir_simbolo(codigo: str, dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DEFECTO) -> dict:
     """Geometría del código tal como saldrá impreso.
 
@@ -139,7 +160,9 @@ def medir_simbolo(codigo: str, dimensiones: DimensionesEtiqueta = DIMENSIONES_PO
     }
 
 
-def _dibujar_etiqueta(pdf, activo, dimensiones: DimensionesEtiqueta) -> None:
+def _dibujar_etiqueta(
+    pdf, activo, dimensiones: DimensionesEtiqueta, simbologia: str = CODE128
+) -> None:
     """Pinta una etiqueta en la página actual del canvas."""
     ancho = dimensiones.ancho_mm * mm
     alto = dimensiones.alto_mm * mm
@@ -166,12 +189,19 @@ def _dibujar_etiqueta(pdf, activo, dimensiones: DimensionesEtiqueta) -> None:
         margen, cursor, _ajustar_texto(pdf, area, ancho_util, FUENTE_DETALLE, tamano_area)
     )
 
-    barra = _barra_legible(activo.codigo_barras, ancho_util)
-
     tamano_codigo = 6
-    # Se reserva el espacio del texto legible antes de posicionar las barras.
-    y_barras = margen + tamano_codigo + 1.5
-    barra.drawOn(pdf, margen + (ancho_util - barra.width) / 2, y_barras)
+    # Se reserva el espacio del texto legible antes de posicionar el símbolo.
+    y_simbolo = margen + tamano_codigo + 1.5
+
+    if simbologia == QR:
+        # El lado lo marca lo que quede libre de alto: un QR más ancho que
+        # alto no existe, y estirarlo lo haría ilegible.
+        lado = min(ancho_util, cursor - y_simbolo - 2)
+        dibujo = _qr_cuadrado(activo.codigo_barras, lado)
+        renderPDF.draw(dibujo, pdf, margen + (ancho_util - lado) / 2, y_simbolo)
+    else:
+        barra = _barra_legible(activo.codigo_barras, ancho_util)
+        barra.drawOn(pdf, margen + (ancho_util - barra.width) / 2, y_simbolo)
 
     # El valor en texto bajo las barras: si el código se raya o el lector
     # falla, sigue siendo posible teclearlo o dictarlo.
@@ -179,7 +209,11 @@ def _dibujar_etiqueta(pdf, activo, dimensiones: DimensionesEtiqueta) -> None:
     pdf.drawCentredString(ancho / 2, margen, activo.codigo_barras)
 
 
-def construir_pdf(activos, dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DEFECTO) -> bytes:
+def construir_pdf(
+    activos,
+    dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DEFECTO,
+    simbologia: str = CODE128,
+) -> bytes:
     """PDF con una etiqueta por página, a tamaño físico real.
 
     Una página por etiqueta (y no varias en una hoja A4) porque el destino
@@ -199,7 +233,7 @@ def construir_pdf(activos, dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DE
     )
 
     for activo in activos:
-        _dibujar_etiqueta(pdf, activo, dimensiones)
+        _dibujar_etiqueta(pdf, activo, dimensiones, simbologia)
         pdf.showPage()
 
     pdf.save()

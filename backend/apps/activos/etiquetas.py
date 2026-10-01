@@ -21,6 +21,18 @@ sin tocar el código.
 
 from dataclasses import dataclass
 
+#: Simbologías que la etiqueta puede llevar.
+#:
+#: El **Code 128** es lineal y lo lee cualquier pistola, incluidas las láser de
+#: un solo haz, que es lo que suele haber en bodega. El **QR** guarda más y
+#: sobrevive mejor a un roce, pero es bidimensional: **una pistola láser 1D no
+#: puede leerlo**; hace falta un lector de imagen o la cámara de un teléfono.
+#: Por eso el valor por defecto sigue siendo el lineal: cambiarlo sin cambiar
+#: los lectores deja etiquetas que nadie puede escanear.
+CODE128 = "code128"
+QR = "qr"
+SIMBOLOGIAS = (CODE128, QR)
+
 DPI = 203
 DOTS_POR_MM = DPI / 25.4
 
@@ -68,6 +80,7 @@ def construir_zpl(
     nombre_activo: str,
     area: str,
     dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DEFECTO,
+    simbologia: str = CODE128,
 ) -> str:
     """Trabajo de impresión ZPL para una etiqueta.
 
@@ -80,6 +93,19 @@ def construir_zpl(
     codigo = _sanear(codigo_barras, 40)
     margen = dimensiones.margen_dots
 
+    if simbologia == QR:
+        # `^BQN,2,6`: modelo 2, módulo de 6 dots. Más pequeño cabría, pero
+        # un QR en térmica directa pierde definición con el uso y por
+        # debajo de eso empieza a fallar con los lectores baratos.
+        simbolo = f"^FO{margen},{margen + 50}^BQN,2,6^FDQA,{codigo}^FS"
+    else:
+        simbolo = "\n".join(
+            [
+                "^BY2,3,50",
+                f"^FO{margen},{margen + 50}^BCN,50,Y,N,N^FD{codigo}^FS",
+            ]
+        )
+
     return "\n".join(
         [
             "^XA",
@@ -89,8 +115,7 @@ def construir_zpl(
             "^CI28",  # UTF-8: sin esto los acentos salen como basura.
             f"^FO{margen},{margen}^A0N,22,22^FD{nombre}^FS",
             f"^FO{margen},{margen + 26}^A0N,18,18^FD{area_txt}^FS",
-            "^BY2,3,50",
-            f"^FO{margen},{margen + 50}^BCN,50,Y,N,N^FD{codigo}^FS",
+            simbolo,
             "^XZ",
         ]
     )
@@ -102,6 +127,7 @@ def construir_tspl(
     nombre_activo: str,
     area: str,
     dimensiones: DimensionesEtiqueta = DIMENSIONES_POR_DEFECTO,
+    simbologia: str = CODE128,
 ) -> str:
     """Trabajo de impresión TSPL para la misma etiqueta."""
     nombre = _sanear(nombre_activo, 28)
@@ -117,7 +143,13 @@ def construir_tspl(
             "CLS",
             f'TEXT {margen},{margen},"3",0,1,1,"{nombre}"',
             f'TEXT {margen},{margen + 26},"2",0,1,1,"{area_txt}"',
-            f'BARCODE {margen},{margen + 50},"128",50,1,0,2,2,"{codigo}"',
+            (
+                # Corrección de errores M (15 %): en una etiqueta que se roza a
+                # diario, L deja de leerse antes de que nadie lo note.
+                f'QRCODE {margen},{margen + 50},M,6,A,0,"{codigo}"'
+                if simbologia == QR
+                else f'BARCODE {margen},{margen + 50},"128",50,1,0,2,2,"{codigo}"'
+            ),
             "PRINT 1,1",
         ]
     )
@@ -146,7 +178,12 @@ def construir_etiqueta(lenguaje: str, **kwargs) -> str:
     return constructor(**kwargs)
 
 
-def construir_lote(lenguaje: str, activos, dimensiones=DIMENSIONES_POR_DEFECTO) -> str:
+def construir_lote(
+    lenguaje: str,
+    activos,
+    dimensiones=DIMENSIONES_POR_DEFECTO,
+    simbologia: str = CODE128,
+) -> str:
     """Un solo trabajo con las etiquetas de varios activos, en orden.
 
     Concatenar es correcto en ambos lenguajes: ZPL delimita cada etiqueta entre
@@ -160,6 +197,7 @@ def construir_lote(lenguaje: str, activos, dimensiones=DIMENSIONES_POR_DEFECTO) 
             nombre_activo=activo.nombre,
             area=activo.departamento.nombre if activo.departamento_id else "",
             dimensiones=dimensiones,
+            simbologia=simbologia,
         )
         for activo in activos
     ]

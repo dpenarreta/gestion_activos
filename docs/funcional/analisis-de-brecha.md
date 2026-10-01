@@ -1,7 +1,8 @@
 # Análisis de brecha: documento funcional vs. sistema construido
 
 Compara `Sistema_Gestion_Activos_TI.docx` (Documento Funcional v1.0) con el
-estado del sistema. Actualizado el 2026-09-25 (pantalla de auditoría).
+estado del sistema. Actualizado el 2026-10-01 (categorías de activo y
+etiquetas en QR).
 
 El documento es más amplio que los ocho requerimientos con los que arrancó el
 desarrollo: cubre 27 secciones e incluye garantías, adjuntos, notificaciones,
@@ -33,7 +34,7 @@ dashboard y reportes que no estaban en el alcance inicial.
 | 4.1 | Datos generales del activo | ✅ | Los nueve estados, fecha de ingreso, sede de catálogo, proveedor de catálogo y condición al adquirirlo (nuevo/usado) |
 | 4.2 | Características técnicas | ✅ | Cada tipo declara las suyas (`CaracteristicaTipo`), con su clase de dato —texto, texto ampliado, número, entero, sí/no, lista de opciones, fecha—, unidad, obligatoriedad y orden. El valor se guarda en `especificaciones` bajo el nombre declarado |
 | 5 | Código de barras + etiqueta + escaneo | ✅ | `barcode.py`, `etiquetas_pdf.py`, `/activos/por-codigo/` |
-| 5 | Código QR opcional | ⛔ Descartado | Decisión del 2026-09-09: el inventario se hace con pistola láser, no con cámara. Se refuerza el Code 128 (ver `docs/codigos-de-barras.md`) |
+| 5 | Código QR opcional | ✅ | Reabierto el 2026-10-01: la etiqueta se emite en Code 128 **o** en QR, a elección de quien imprime, en los tres formatos de salida. El valor por defecto sigue siendo el lineal porque el motivo de la decisión del 2026-09-09 no ha cambiado: una pistola láser no lee un símbolo 2D (ver `docs/codigos-de-barras.md`) |
 | 6 | Asignación y devolución | ✅ | Con acta de entrega y devolución en PDF |
 | 7 | Histórico de asignaciones | ✅ | `MovimientoActivo`, append-only |
 | 8 | Registro de reparaciones | ✅ | Causa, solución, estado final, garantía usada e ingreso/salida |
@@ -316,6 +317,33 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
 - Los errores de validación **llegan a la pantalla**: viajaban envueltos y la
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
+
+### Fase 15 — La etiqueta se emite en QR o en barras (§5, 2026-10-01)
+
+El QR estaba **descartado** desde el 2026-09-09, y el motivo sigue siendo
+cierto: el inventario se hace con una pistola láser recorriendo estantes, y una
+pistola de un solo haz no puede leer un símbolo bidimensional. Lo que cambia no
+es el diagnóstico sino el alcance: quien imprime elige, porque hay usos donde
+el lector es un teléfono —un equipo en casa de alguien, un acta firmada en
+sitio— y ahí el QR es lo único que funciona.
+
+Se emite en los tres formatos de salida: PDF, ZPL (`^BQN`) y TSPL (`QRCODE`),
+con corrección de errores media en los dos lenguajes térmicos; en una etiqueta
+que se roza a diario, la baja deja de leerse antes de que nadie lo note. El
+código en texto sigue debajo del símbolo en ambas simbologías: si se raya o el
+lector falla, se teclea.
+
+**El valor por defecto sigue siendo el Code 128.** Cambiarlo sin cambiar los
+lectores dejaría etiquetas que nadie puede escanear, así que la advertencia
+está donde se decide —en el propio desplegable— y no en un manual.
+
+La comprobación de legibilidad del símbolo solo se ofrece con Code 128: el
+ancho de módulo, la zona muda y la altura de barra describen un símbolo lineal,
+y aplicarlos a un QR sería inventarse un diagnóstico. Con qué simbología se
+imprimió cada tanda queda en la auditoría.
+
+Cuatro criterios nuevos (AC-ETI-008 a AC-ETI-011) en
+`etiquetas-termicas.feature` y en la matriz.
 
 ### Fase 14 — La auditoría se lee desde el panel (§17, 2026-09-25)
 
