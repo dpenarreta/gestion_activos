@@ -92,3 +92,34 @@ Feature: Consulta por lectura de código de barras (RF-03)
     # La misma pistola encontraba el equipo en el inventario y no encontraba su
     # bitácora: parecía que el equipo nunca había entrado al taller, no que la
     # lectura llegó mal.
+
+  @AC-ESC-026
+  Scenario: Leer una etiqueta con la cámara del teléfono
+    Given un equipo con etiqueta en QR
+    When se abre el escáner en el teléfono y se usa la cámara
+    Then se consulta ese equipo igual que con un disparo de pistola
+    # Una pistola láser no lee un QR: en el teléfono el lector es la cámara, y
+    # sin esto imprimir QR no servía de nada dentro del sistema.
+
+  @AC-ESC-027
+  Scenario: La cámara no se abre sola
+    Given el escáner recién abierto
+    When se mira la pantalla
+    Then la cámara está cerrada y se ofrece abrirla
+    # En bodega se escanea con pistola: pedir permiso de cámara a quien no la
+    # va a usar es ruido, y en el escritorio una ventana negra.
+
+  @AC-ESC-028
+  Scenario: La cámara se suelta al terminar
+    Given la cámara abierta
+    When se cierra o se sale de la pantalla
+    Then el dispositivo queda libre
+    # El piloto encendido después de escanear se lee como que la aplicación
+    # sigue mirando.
+
+  @AC-ESC-029
+  Scenario: Sin cámara disponible se dice por qué
+    Given un navegador sin acceso a la cámara
+    When se intenta usarla
+    Then se explica que suele ser por entrar sin HTTPS
+    And se recuerda que la pistola y el tecleo siguen sirviendo

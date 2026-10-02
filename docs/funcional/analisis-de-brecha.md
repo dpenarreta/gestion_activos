@@ -108,9 +108,12 @@ sistema, y su salida se lee a ojo cada vez que se usan.
 
 ## Diferencias por decisión, no por omisión
 
-- **Código QR (§5).** Descartado el 2026-09-09: el inventario se hace con
-  pistola láser, no con cámara. Se reforzó el Code 128 en su lugar (ver
-  `docs/codigos-de-barras.md`).
+- **Código QR (§5).** Estuvo descartado entre el 2026-09-09 y el 2026-10-01
+  —el inventario se hace con pistola láser, y una pistola no lee un símbolo
+  2D—. Desde entonces la etiqueta se emite en Code 128 **o** en QR, y el
+  escáner lee también con la cámara del teléfono: la pistola para las barras,
+  el teléfono para el QR. El lineal sigue siendo lo predeterminado porque el
+  motivo original no ha cambiado (ver `docs/codigos-de-barras.md`).
 - **Ubicación física (§4.1).** El documento pide ubicación; el sistema la
   resuelve con **sede + ciudad**. Hubo un segundo nivel —la bodega u oficina
   dentro de la sede— y se retiró el 2026-09-09: obligaba a elegir dos veces en
@@ -318,7 +321,7 @@ una asignación se administra desde la aplicación y se defiende de sí mismo.
   interfaz mostraba «Error en la solicitud.», escondiendo la única frase que
   decía qué corregir.
 
-### Fase 15 — La etiqueta se emite en QR o en barras (§5, 2026-10-01)
+### Fase 15 — QR en la etiqueta y cámara en el escáner (§5, §22.3, 2026-10-02)
 
 El QR estaba **descartado** desde el 2026-09-09, y el motivo sigue siendo
 cierto: el inventario se hace con una pistola láser recorriendo estantes, y una
@@ -326,6 +329,13 @@ pistola de un solo haz no puede leer un símbolo bidimensional. Lo que cambia no
 es el diagnóstico sino el alcance: quien imprime elige, porque hay usos donde
 el lector es un teléfono —un equipo en casa de alguien, un acta firmada en
 sitio— y ahí el QR es lo único que funciona.
+
+Y con el QR llega su lector: *Activos → Escáner* lee con la **cámara del
+teléfono** —QR y Code 128, porque quien tiene el teléfono delante no debería
+mirar qué lleva pegado el equipo—. Era el otro punto de la Fase 3 del §22.3,
+«lectura QR o código de barras desde cámara», y sin él imprimir QR no servía
+de nada: no había con qué leerlo dentro del sistema. La librería de
+reconocimiento se descarga solo al abrir la cámara.
 
 Se emite en los tres formatos de salida: PDF, ZPL (`^BQN`) y TSPL (`QRCODE`),
 con corrección de errores media en los dos lenguajes térmicos; en una etiqueta
@@ -342,8 +352,9 @@ ancho de módulo, la zona muda y la altura de barra describen un símbolo lineal
 y aplicarlos a un QR sería inventarse un diagnóstico. Con qué simbología se
 imprimió cada tanda queda en la auditoría.
 
-Cuatro criterios nuevos (AC-ETI-008 a AC-ETI-011) en
-`etiquetas-termicas.feature` y en la matriz.
+Cuatro criterios nuevos de etiqueta (AC-ETI-008 a AC-ETI-011) y cuatro de
+lectura (AC-ESC-026 a AC-ESC-029), en `etiquetas-termicas.feature` y
+`escaner-activos.feature`, con sus filas en la matriz.
 
 ### Fase 14 — La auditoría se lee desde el panel (§17, 2026-09-25)
 

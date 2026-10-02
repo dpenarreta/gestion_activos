@@ -29,6 +29,14 @@ vi.mock("../src/api/politicasService", () => ({
 }));
 
 const permisos = new Set();
+vi.mock("../src/components/activos/EscanerCamara/EscanerCamara", () => ({
+  EscanerCamara: ({ onLeer }) => (
+    <button type="button" onClick={() => onLeer("GA-LAP-000007")}>
+      cámara de mentira
+    </button>
+  ),
+}));
+
 vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codename) => permisos.has(codename),
 }));
@@ -426,5 +434,37 @@ describe("Las sugerencias de renovación", () => {
         "No se pudieron cargar las sugerencias de renovación.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("ofrece leer con la cámara, para las etiquetas en QR", async () => {
+    /* Una pistola láser no lee un QR: en el teléfono el lector es la cámara. */
+    pintar(EscanerPage);
+
+    expect(
+      screen.getByRole("button", { name: /Escanear con la cámara/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("la cámara no se abre sola", async () => {
+    /* En bodega se escanea con la pistola: pedir permiso de cámara a quien no
+       la va a usar es ruido, y en el escritorio una ventana negra. */
+    pintar(EscanerPage);
+
+    expect(
+      screen.queryByRole("button", { name: "cámara de mentira" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lo que lee la cámara se consulta igual que un disparo de pistola", async () => {
+    pintar(EscanerPage);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Escanear con la cámara/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "cámara de mentira" }));
+
+    await waitFor(() =>
+      expect(porCodigo).toHaveBeenCalledWith("GA-LAP-000007"),
+    );
   });
 });

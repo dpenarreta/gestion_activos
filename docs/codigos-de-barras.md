@@ -177,3 +177,25 @@ lineal y aplicarlas a un QR daría números que no significan nada.
 Con qué simbología se imprimió cada tanda **queda en la auditoría**: si una
 serie de etiquetas no se deja leer, es lo primero que hay que poder
 reconstruir.
+
+
+## Leer con la cámara del teléfono
+
+El reparto es ese: **la pistola lee el código de barras, el teléfono lee el
+QR**. Para la segunda mitad, *Activos → Escáner* ofrece **«Escanear con la
+cámara»**, que lee QR y Code 128 —quien tiene el teléfono delante no debería
+tener que mirar qué simbología lleva pegada el equipo—.
+
+Tres cosas que conviene saber antes de usarlo en campo:
+
+- **Hace falta HTTPS.** Los navegadores solo dan acceso a la cámara en
+  contexto seguro; por `http://` el botón avisa en vez de fallar en silencio.
+  En `localhost` sí funciona.
+- **El permiso lo concede quien usa el teléfono**, la primera vez. Si lo
+  deniega, la pantalla explica cómo volver a activarlo.
+- **La cámara se suelta al cerrar**, también si se sale de la pantalla sin
+  pulsar el botón. El piloto encendido después de escanear se lee como que la
+  aplicación sigue mirando.
+
+La librería de reconocimiento se descarga **solo al abrir la cámara**: quien
+entra desde el escritorio a mirar un listado no carga ese peso.

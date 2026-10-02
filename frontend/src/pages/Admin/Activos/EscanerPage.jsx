@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { EscanerCamara } from "../../../components/activos/EscanerCamara/EscanerCamara";
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
@@ -35,6 +36,7 @@ export function EscanerPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [recientes, setRecientes] = useState([]);
   const [avisoLector, setAvisoLector] = useState(null);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
 
   async function handleEscanear(codigo) {
     setIsLoading(true);
@@ -81,8 +83,35 @@ export function EscanerPage() {
       <h2>Consulta por escáner</h2>
       <p className="text-muted">
         Dispare la lectora sobre la etiqueta del equipo. También funciona
-        escribiendo el código o el número de serie del fabricante.
+        escribiendo el código o el número de serie del fabricante, o leyendo con
+        la cámara si está en el teléfono.
       </p>
+
+      {/* La cámara es el camino para las etiquetas en QR, que una pistola
+          láser no puede leer. Va detrás de un botón y no abierta de entrada:
+          en bodega se escanea con la pistola, y pedir permiso de cámara a
+          quien no la va a usar es ruido —y en el escritorio, una ventana
+          negra—. */}
+      <div className="mb-3">
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-sm"
+          onClick={() => setCamaraAbierta((abierta) => !abierta)}
+        >
+          <i className="bi bi-camera me-1" aria-hidden="true" />
+          {camaraAbierta ? "Cerrar la cámara" : "Escanear con la cámara"}
+        </button>
+      </div>
+
+      {camaraAbierta && (
+        <EscanerCamara
+          onCerrar={() => setCamaraAbierta(false)}
+          onLeer={(codigo) => {
+            setCamaraAbierta(false);
+            handleEscanear(codigo);
+          }}
+        />
+      )}
 
       <EscanerInput
         className="escaner-page__campo mb-4"

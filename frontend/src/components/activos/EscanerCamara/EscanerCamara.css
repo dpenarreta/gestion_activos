@@ -1,0 +1,33 @@
+.escaner-camara {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background-color: var(--surface-alt);
+}
+
+.escaner-camara__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Alto acotado: a pantalla completa, en un teléfono, el vídeo empuja fuera de
+   la vista el resultado de la lectura, que es lo que se ha venido a ver. */
+.escaner-camara__video {
+  width: 100%;
+  max-height: 20rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  background-color: #000;
+}
+
+/* Mientras no hay imagen se oculta en vez de mostrar un rectángulo negro, que
+   se lee como que la cámara falló. */
+.escaner-camara__video--oculto {
+  display: none;
+}
