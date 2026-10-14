@@ -1,296 +1,262 @@
 /*
- * El menú tiene el alto de la pantalla, no el del contenido.
- *
- * Como elemento flex se estiraba hasta el final de la página: en una ficha
- * larga el menú medía dos pantallas, con un vacío negro enorme debajo del
- * último ítem y el pie —donde vivían «Contraer» y «Cerrar sesión»— a un
- * scroll de distancia.
- *
- * `sticky` + `align-self: flex-start` es lo que lo despega de esa altura: sin
- * el `align-self`, el estiramiento por defecto de flex gana y el `sticky` no
- * tiene margen donde pegarse. Lo que sobra de menú se desplaza dentro de
- * `__nav`, que ya tiene su propio scroll.
+ * Lo que el menú de este sistema tiene y el de la identidad base no: marca
+ * enlazada con logo opcional, grupos desplegables de hasta tres niveles, modo
+ * contraído a íconos y el asa para contraerlo. El resto —colores, tamaños,
+ * ítem activo, pie con el usuario— sale tal cual de `mz-*`.
  */
-.admin-sidebar {
-  width: var(--sidebar-width-expanded);
-  flex-shrink: 0;
-  background-color: var(--color-menu, #000);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.15s ease;
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-  height: 100vh;
-  /* En móvil, 100vh se mide contra la barra del navegador y deja el pie por
-     debajo del borde visible; `dvh` sigue a la barra cuando se retrae. */
+
+/*
+ * El menú tiene el alto de la pantalla, no el del contenido: `mz-sidebar` ya es
+ * `sticky` con `height: 100vh`; en móvil, 100vh se mide contra la barra del
+ * navegador y deja el pie por debajo del borde visible, y `dvh` sigue a la
+ * barra cuando se retrae.
+ */
+.mz-sidebar {
   height: 100dvh;
+  transition: width 0.15s ease;
 }
 
-.admin-layout--collapsed .admin-sidebar {
-  width: var(--sidebar-width-collapsed);
-}
-
-.admin-sidebar__header {
-  display: flex;
-  align-items: center;
+.mz-brand {
   justify-content: space-between;
-  padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.admin-sidebar__brand {
-  color: #fff;
-  text-decoration: none;
-  font-weight: 600;
+.mz-brand-link {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
+  min-width: 0;
+  color: var(--mz-side-fg);
+  text-decoration: none;
+}
+
+.mz-brand-link:hover {
+  color: #fff;
+}
+
+.mz-brand-name {
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.admin-sidebar__logo {
-  height: 1.75rem;
+.mz-brand-logo {
+  height: 32px;
   width: auto;
+  max-width: 120px;
+  border-radius: 8px;
+  flex: none;
 }
 
-.admin-sidebar__close-mobile {
+.mz-sidebar-close {
   display: none;
   background: none;
   border: none;
-  color: #fff;
-  font-size: 1.5rem;
+  color: var(--mz-side-fg-dim);
+  padding: 4px;
 }
 
-.admin-sidebar__nav {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.admin-sidebar__list,
-.admin-sidebar__sublist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.admin-sidebar__link,
-.admin-sidebar__group-label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+/* ---------- Grupos ---------- */
+.mz-nav-group {
   width: 100%;
-  padding: 0.65rem 1rem;
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
   background: none;
-  border: none;
   text-align: left;
 }
 
-.admin-sidebar__link:hover,
-.admin-sidebar__group-label:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+.mz-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Un grupo con la pantalla actual dentro se marca sin el relleno del ítem
+   activo: el relleno es para la entrada que de verdad se está viendo, y dos
+   bloques resaltados a la vez no dicen cuál es. */
+.mz-nav-group.is-active {
+  background: none;
+  border-color: transparent;
   color: #fff;
 }
 
-.admin-sidebar__link--active,
-.admin-sidebar__group-label--active {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  font-weight: 600;
+.mz-nav-group.is-active:hover {
+  background: var(--mz-side-hover);
 }
 
-.admin-sidebar__chevron {
+.mz-nav-chevron {
   margin-left: auto;
+  font-size: 11px;
   transition: transform 0.15s ease;
 }
 
-.admin-sidebar__chevron--expanded {
+.mz-nav-group.is-expanded .mz-nav-chevron {
   transform: rotate(90deg);
 }
 
-.admin-sidebar__sublist-wrapper {
+.mz-subnav-wrap {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.2s ease;
 }
 
-.admin-sidebar__sublist-wrapper--expanded {
+.mz-subnav-wrap--open {
   /* Da para el grupo más largo con su subgrupo abierto —«Configuración» son
      cuatro entradas más los seis catálogos de «Organización»—. Es un tope y no
-     una altura: `max-height` solo tiene que ser mayor que el contenido, porque
-     lo que recorta de más no se ve pero sí se pierde, y ahí desaparecerían las
-     últimas opciones sin ningún aviso. */
+     una altura: `max-height` solo tiene que ser mayor que el contenido. */
   max-height: 40rem;
 }
 
-.admin-sidebar__sublist .admin-sidebar__link,
-.admin-sidebar__sublist .admin-sidebar__group-label {
-  padding-left: 2.5rem;
+.mz-subnav {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0 0 0 14px;
+}
+
+.mz-subnav .mz-nav-item {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 13px;
 }
 
 /* El tercer nivel se sangra otro escalón: sin esto, los seis catálogos de
-   «Organización» se leerían como hermanos de «Identidad» en vez de como lo que
-   son, y el grupo que los contiene no se distinguiría de una entrada más. */
-.admin-sidebar__sublist .admin-sidebar__sublist .admin-sidebar__link {
-  padding-left: 3.75rem;
+   «Organización» se leerían como hermanos de «Identidad». */
+.mz-subnav .mz-subnav {
+  padding-left: 14px;
 }
 
-.admin-layout--collapsed .admin-sidebar__label,
-.admin-layout--collapsed .admin-sidebar__sublist-wrapper {
-  display: none;
-}
-
-.admin-sidebar__footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.admin-sidebar__logout {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.85);
-  padding: 0.5rem;
-  text-align: left;
+/* ---------- Selector de empresa en la barra superior ---------- */
+.mz-switcher--select {
   display: flex;
   align-items: center;
-  /* La misma separación que los ítems del menú: con el relleno del pie
-     sumado, el ícono cae en la misma columna que los de arriba. */
-  gap: 0.75rem;
 }
 
-.admin-sidebar__logout:hover {
-  color: #fff;
+.mz-switcher--select select {
+  appearance: none;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-radius: 6px;
+  padding: 7px 30px 7px 32px;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--mz-ink);
+  max-width: 240px;
+  text-overflow: ellipsis;
+  cursor: pointer;
 }
 
+.mz-switcher--select select:focus-visible {
+  outline: none;
+  border-color: var(--mz-action);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--mz-action) 25%, transparent);
+}
+
+.mz-switcher__icono,
+.mz-switcher__flecha {
+  position: absolute;
+  pointer-events: none;
+  color: var(--mz-ink-faint);
+}
+
+.mz-switcher__icono {
+  left: 11px;
+  color: var(--company-color, var(--mz-blue-500));
+}
+
+.mz-switcher__flecha {
+  right: 10px;
+  font-size: 11px;
+}
+
+/* ---------- Contraído a íconos (solo escritorio) ---------- */
 /*
- * Contraer es un tirador del borde, no un ítem del menú.
- *
- * Como último elemento de la lista competía con los sitios a los que sí se
- * navega y, en cuanto el menú pasaba del alto de la pantalla, había que bajar
- * hasta el final para encontrarlo. A media altura del borde derecho está
- * siempre a la vista y siempre en el mismo punto, esté el menú abierto o
- * cerrado.
- *
- * Va montado sobre el borde (la mitad dentro, la mitad fuera) para que se lea
- * como el asa del panel y no como algo del contenido.
+ * Contraer es un tirador del borde, no un ítem del menú: a media altura del
+ * borde derecho está siempre a la vista y siempre en el mismo punto. Va
+ * montado sobre el borde para que se lea como el asa del panel.
  */
-.admin-sidebar__toggle-collapse {
+.mz-collapse-handle {
   position: absolute;
   top: 50%;
-  right: -0.875rem;
+  right: -14px;
   transform: translateY(-50%);
   z-index: 2;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 50%;
-  background-color: var(--color-menu, #000);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.75rem;
+  background: var(--mz-side-bg);
+  color: var(--mz-side-fg-dim);
+  font-size: 12px;
   line-height: 1;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
 }
 
-.admin-sidebar__toggle-collapse:hover,
-.admin-sidebar__toggle-collapse:focus-visible {
-  background-color: var(--state-info);
-  border-color: var(--state-info);
-  color: var(--text-inverse);
-}
-
-.admin-sidebar__mobile-trigger {
-  display: none;
-  position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: var(--z-sidebar-mobile);
-  background: var(--color-menu, #000);
+.mz-collapse-handle:hover,
+.mz-collapse-handle:focus-visible {
+  background: var(--mz-blue-500);
+  border-color: var(--mz-blue-500);
   color: #fff;
-  border: none;
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.5rem 0.75rem;
 }
 
-.admin-sidebar__backdrop {
-  display: none;
-}
-
-@media (max-width: 767.98px) {
-  .admin-sidebar__mobile-trigger {
-    display: block;
+@media (min-width: 881px) {
+  .mz-shell--collapsed .mz-sidebar {
+    width: 64px;
   }
 
-  .admin-sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: var(--z-sidebar-mobile);
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    width: var(--sidebar-width-expanded);
+  .mz-shell--collapsed .mz-brand {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
   }
 
-  .admin-sidebar--mobile-open {
-    transform: translateX(0);
+  .mz-shell--collapsed .mz-nav {
+    padding: 0 8px;
   }
 
-  .admin-sidebar--mobile-open ~ .admin-sidebar__backdrop,
-  .admin-sidebar__backdrop {
+  .mz-shell--collapsed .mz-nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .mz-shell--collapsed .mz-subnav-wrap {
     display: none;
   }
 
-  .admin-sidebar__close-mobile {
-    display: block;
+  .mz-shell--collapsed .mz-sidebar-foot {
+    padding: 12px 0 16px;
   }
 
-  /* En móvil el menú se abre y se cierra con la hamburguesa y la ✕: contraerlo
-     a la tira de iconos no significa nada cuando está superpuesto. */
-  .admin-sidebar__toggle-collapse {
+  .mz-shell--collapsed .mz-user {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mz-shell--collapsed .mz-logout {
+    margin-left: 0;
+  }
+}
+
+.mz-active-company--contraida {
+  margin: 0 8px 14px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* ---------- Pantallas estrechas ---------- */
+@media (max-width: 880px) {
+  /* Superpuesto, el menú se abre con la hamburguesa y se cierra con la ✕:
+     contraerlo a la tira de íconos no significa nada. */
+  .mz-collapse-handle {
     display: none;
   }
-}
 
-/*
- * El selector de empresa, entre el logo y el menú.
- *
- * Ahí y no en una pantalla de configuración porque no es un ajuste: es el
- * ámbito de todo lo que se ve debajo, y tenerlo a la vista evita el error de
- * revisar el inventario equivocado durante un rato sin notarlo.
- */
-.selector-empresa {
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-}
+  .mz-sidebar-close {
+    display: inline-flex;
+  }
 
-.selector-empresa--unica,
-.selector-empresa--contraido {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.875rem;
-}
-
-.selector-empresa--contraido {
-  justify-content: center;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.selector-empresa__icono {
-  opacity: 0.8;
+  .mz-switcher--select select {
+    max-width: 150px;
+  }
 }
 
 .visually-hidden {

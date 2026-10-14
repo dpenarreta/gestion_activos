@@ -4,7 +4,7 @@ import { Link, Navigate } from "react-router-dom";
 import { apiClient } from "../../api/client";
 import { env } from "../../config/env";
 import { useAuth } from "../../hooks/useAuth";
-import "./Home.css";
+import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 
 /**
  * La portada, que es de quien todavía no ha entrado.
@@ -40,19 +40,21 @@ export function Home() {
   }
 
   return (
-    <div className="container home-page">
-      <h1>Bienvenido a {env.appName}</h1>
-      <p className="text-muted">
-        Página inicial del sistema. Estado del backend:{" "}
+    <PantallaAcceso
+      titulo={`Bienvenido a ${env.appName}`}
+      subtitulo="Inicie sesión para consultar y administrar el inventario."
+    >
+      <p className="mz-small mz-faint">
+        Estado del backend:{" "}
         <span
-          className={`badge ${status === "ok" ? "bg-success" : "bg-secondary"}`}
+          className={`mz-pill ${status === "ok" ? "mz-pill--ok" : "mz-pill--neutral"}`}
         >
           {status}
         </span>
       </p>
-      <Link to="/login" className="btn btn-primary">
+      <Link to="/login" className="btn btn-primary w-100">
         Iniciar sesión
       </Link>
-    </div>
+    </PantallaAcceso>
   );
 }

@@ -28,11 +28,23 @@ FONT_FAMILIES = {
         "label": "Inter (si está instalada localmente)",
         "css_stack": "Inter, system-ui, -apple-system, sans-serif",
     },
+    # Las dos de la identidad base. No dependen de la red: el frontend las
+    # trae empaquetadas (`@fontsource`), así que la CSP `font-src 'self'` las
+    # deja cargar.
+    "ibm-plex-sans": {
+        "label": "IBM Plex Sans (identidad base)",
+        "css_stack": "'IBM Plex Sans', system-ui, sans-serif",
+    },
+    "sora": {
+        "label": "Sora (identidad base)",
+        "css_stack": "Sora, system-ui, sans-serif",
+    },
 }
 
 ALLOWED_BORDER_RADII = {
     "none": {"label": "Sin bordes redondeados", "value": "0"},
     "sm": {"label": "Pequeño", "value": "0.25rem"},
+    "base": {"label": "Identidad base (6px)", "value": "6px"},
     "md": {"label": "Medio", "value": "0.5rem"},
     "lg": {"label": "Grande", "value": "1rem"},
     "pill": {"label": "Píldora", "value": "50rem"},
@@ -45,18 +57,18 @@ DEFAULT_THEME = {
     "short_name": "Activos",
     "logo_url": "",
     "favicon_url": "",
-    "color_primary": "#0D6EFD",
-    "color_secondary": "#000000",
-    "color_background": "#FFFFFF",
-    "color_headings": "#000000",
-    "color_text": "#000000",
-    "color_links": "#0D6EFD",
+    "color_primary": "#1C5DA3",
+    "color_secondary": "#164B86",
+    "color_background": "#F2F4F8",
+    "color_headings": "#0F2138",
+    "color_text": "#0F2138",
+    "color_links": "#1C5DA3",
     "color_buttons": "#0D6EFD",
-    "color_menu": "#000000",
-    "font_primary": "system-ui",
-    "font_secondary": "system-ui",
-    "font_size_base": 16,
-    "border_radius": "md",
+    "color_menu": "#0A1E38",
+    "font_primary": "ibm-plex-sans",
+    "font_secondary": "sora",
+    "font_size_base": 14,
+    "border_radius": "base",
 }
 
 

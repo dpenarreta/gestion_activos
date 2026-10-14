@@ -10,16 +10,16 @@
  * los valores reales configurados en base de datos.
  */
 :root {
-  --color-primary: #0d6efd;
-  --color-secondary: #000000;
-  --color-background: #ffffff;
-  --color-headings: #000000;
-  --color-text: #000000;
-  --color-links: #0d6efd;
+  --color-primary: #1c5da3;
+  --color-secondary: #164b86;
+  --color-background: #f2f4f8;
+  --color-headings: #0f2138;
+  --color-text: #0f2138;
+  --color-links: #1c5da3;
   --color-buttons: #0d6efd;
-  --color-menu: #000000;
-  --font-primary: system-ui, -apple-system, sans-serif;
-  --font-secondary: system-ui, -apple-system, sans-serif;
-  --font-size-base: 16px;
-  --border-radius: 0.5rem;
+  --color-menu: #0a1e38;
+  --font-primary: "IBM Plex Sans", system-ui, sans-serif;
+  --font-secondary: "Sora", system-ui, sans-serif;
+  --font-size-base: 14px;
+  --border-radius: 6px;
 }

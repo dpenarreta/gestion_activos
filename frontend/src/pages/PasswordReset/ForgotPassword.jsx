@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
-import "./PasswordReset.css";
+import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 
 // El mensaje que muestra la vista viene siempre del backend
 // (PASSWORD_RESET_GENERIC_MESSAGE): nunca revela si la cuenta existe.
@@ -22,7 +22,7 @@ export function ForgotPassword() {
       // Ante cualquier error (incluida una falla de red) se muestra el mismo
       // mensaje genérico — no hay una rama distinta que revele nada.
       setMessage(
-        "Si el dato ingresado corresponde a una cuenta, se enviará un enlace de recuperación."
+        "Si el dato ingresado corresponde a una cuenta, se enviará un enlace de recuperación.",
       );
     } finally {
       setIsLoading(false);
@@ -30,11 +30,16 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="container password-reset-page">
-      <h2>Recuperar contraseña</h2>
-      <form onSubmit={handleSubmit} className="col-12 col-md-4">
+    <PantallaAcceso
+      titulo="Recuperar contraseña"
+      subtitulo="Le enviaremos un enlace para elegir una nueva."
+    >
+      <form onSubmit={handleSubmit}>
         {message ? (
-          <div className="alert alert-info">{message}</div>
+          <div className="mz-alert mz-alert--info" role="status">
+            <i className="bi bi-envelope-check" aria-hidden="true" />
+            {message}
+          </div>
         ) : (
           <>
             <div className="mb-3">
@@ -54,10 +59,10 @@ export function ForgotPassword() {
             </Button>
           </>
         )}
-        <div className="mt-3">
+        <div className="login-links">
           <Link to="/login">Volver a iniciar sesión</Link>
         </div>
       </form>
-    </div>
+    </PantallaAcceso>
   );
 }

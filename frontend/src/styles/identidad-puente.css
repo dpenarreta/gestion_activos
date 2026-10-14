@@ -1,0 +1,200 @@
+/*
+ * Puente entre la identidad base (`identidad-base.css`, copia literal de la
+ * Matriz Administrativa de Obligaciones) y este sistema.
+ *
+ * La identidad base es fija: sus colores y fuentes están escritos en la hoja.
+ * Aquí, en cambio, *Configuración → Colores y tipografía* los deja editar en
+ * tiempo de ejecución (`ThemeContext` publica `--color-*`, `--font-*`,
+ * `--font-size-base` y `--border-radius`). Este archivo hace que cada valor
+ * editable alimente un token `mz-*`, con los valores por defecto del backend
+ * iguales a los de la identidad base: sin tocar nada, la pantalla es la de la
+ * Matriz; quien cambie un color, cambia ese token y nada más.
+ *
+ * También alinea con los `mz-*` los tokens propios de la plantilla
+ * (`--surface`, `--text-primary`, `--state-*`…) y las variables de Bootstrap,
+ * para que los componentes que aún los usen —campos, modales, lo que traiga
+ * Bootstrap— se vean como parte de la misma interfaz en claro y en oscuro.
+ *
+ * Se carga después de `identidad-base.css` y gana por orden.
+ */
+
+/* ---------- Valores editables → tokens mz-* ---------- */
+:root {
+  --mz-action: var(--color-buttons, #0d6efd);
+  --mz-font-body: var(--font-primary, "IBM Plex Sans", system-ui, sans-serif);
+  --mz-font-display: var(--font-secondary, "Sora", system-ui, sans-serif);
+  --mz-side-bg: var(--color-menu, #0a1e38);
+}
+
+/*
+ * Los colores de superficie y de acento solo se aplican en claro.
+ *
+ * El tema institucional define una sola paleta, pensada para fondo claro (ver
+ * `ThemeContext`): en oscuro gobiernan los tonos que la identidad base ya
+ * aclaró para ese fondo. Un azul #1c5da3 que funciona sobre blanco da 2,6:1
+ * sobre #111f31.
+ */
+:root:not([data-theme="dark"]) {
+  --mz-bg: var(--color-background, #f2f4f8);
+  --mz-ink: var(--color-text, #0f2138);
+  --mz-heading: var(--color-headings, #0f2138);
+  --mz-link: var(--color-links, #1c5da3);
+  --mz-blue-600: var(--color-primary, #1c5da3);
+  --mz-blue-700: var(--color-secondary, #164b86);
+}
+
+:root[data-theme="dark"] {
+  --mz-heading: var(--mz-ink);
+  --mz-link: var(--mz-blue-600);
+}
+
+.mz-sidebar {
+  background: var(--mz-side-bg);
+}
+
+.mz-shell,
+.mz-overlay {
+  font-size: var(--font-size-base, 14px);
+}
+
+.mz-shell h1,
+.mz-shell h2,
+.mz-shell h3,
+.mz-shell h4,
+.mz-shell h5,
+.mz-shell h6,
+.mz-overlay h3,
+.mz-overlay h4 {
+  color: var(--mz-heading);
+}
+
+/* El foco de la identidad base lee `--mz-action-rgb`, que no se puede derivar
+   de un color elegido en tiempo de ejecución; `color-mix` sí. */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--mz-action);
+  box-shadow: 0 0 0 0.25rem
+    color-mix(in srgb, var(--mz-action) 25%, transparent);
+}
+
+.form-check-input:checked {
+  background-color: var(--mz-action);
+  border-color: var(--mz-action);
+}
+
+/* ---------- Tokens de la plantilla → tokens mz-* ---------- */
+/* Sin selector de modo: apuntan a los mz-*, que ya cambian con `data-theme`. */
+:root,
+:root[data-theme="dark"] {
+  --surface: var(--mz-raised);
+  --surface-alt: var(--mz-sunken);
+  --surface-muted: color-mix(in srgb, var(--mz-sunken) 65%, transparent);
+  --surface-overlay: rgba(9, 17, 30, 0.5);
+  --surface-tint: color-mix(in srgb, var(--mz-ink) 4%, transparent);
+
+  --border-color: var(--mz-border);
+  --border-color-strong: var(--mz-border-strong);
+
+  --text-primary: var(--mz-ink);
+  --text-muted: var(--mz-ink-faint);
+  --text-inverse: var(--mz-raised);
+
+  --state-info: var(--mz-blue-600);
+  --state-danger: var(--mz-bad-fg);
+  --state-success: var(--mz-ok-fg);
+  --state-warning: var(--mz-warn-fg);
+
+  --shadow-color: rgba(15, 33, 56, 0.12);
+}
+
+/* ---------- Bootstrap ---------- */
+:root,
+:root[data-bs-theme="dark"] {
+  --bs-body-bg: var(--mz-bg);
+  --bs-body-color: var(--mz-ink);
+  --bs-body-font-family: var(--mz-font-body);
+  --bs-body-font-size: var(--font-size-base, 14px);
+  --bs-emphasis-color: var(--mz-ink);
+  --bs-secondary-color: var(--mz-ink-faint);
+  --bs-secondary-bg: var(--mz-sunken);
+  --bs-tertiary-bg: var(--mz-sunken);
+  --bs-heading-color: var(--mz-heading);
+  --bs-border-color: var(--mz-border-strong);
+  --bs-border-color-translucent: var(--mz-border);
+  --bs-border-radius: var(--border-radius, 6px);
+  --bs-border-radius-sm: var(--border-radius, 6px);
+  --bs-border-radius-lg: 10px;
+}
+
+body {
+  background: var(--mz-bg);
+  color: var(--mz-ink);
+  font-family: var(--mz-font-body);
+  font-size: var(--font-size-base, 14px);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--mz-font-display);
+  color: var(--mz-heading);
+}
+
+a {
+  color: var(--mz-link);
+}
+
+/* Los campos van sobre la tarjeta (`--mz-raised`), no sobre la página: con el
+   fondo de Bootstrap (`--bs-body-bg`) quedarían hundidos en claro. */
+.form-control,
+.form-select {
+  background-color: var(--mz-raised);
+  border-color: var(--mz-border-strong);
+  color: var(--mz-ink);
+}
+
+.form-control::placeholder {
+  color: var(--mz-ink-faint);
+}
+
+.form-control:disabled,
+.form-select:disabled,
+.form-control[readonly] {
+  background-color: var(--mz-sunken);
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.form-text {
+  color: var(--mz-ink-faint);
+  font-size: 11.5px;
+}
+
+.invalid-feedback {
+  color: var(--mz-bad-fg);
+  font-size: 11.5px;
+}
+
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: var(--mz-bad-line);
+}
+
+/* ---------- Convenciones de la migración ---------- */
+/* `.mz-kv label` de la identidad base usa <label> para un rótulo que no
+   etiqueta ningún campo; aquí va en un <span> —el lint de accesibilidad exige
+   que todo <label> tenga su control— con el mismo dibujo. */
+.mz-kv .mz-kv-label {
+  display: block;
+  color: var(--mz-ink-faint);
+  font-size: 11px;
+  margin-bottom: 2px;
+}

@@ -1,9 +1,45 @@
-.error-page {
-  padding-top: 4rem;
+/* Las páginas de error van fuera del shell: sin menú al que volver, una
+   tarjeta de la identidad base centrada sobre el fondo de la página. */
+.mz-error-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(
+      1200px 700px at 85% -10%,
+      var(--mz-blue-100),
+      transparent 60%
+    ),
+    var(--mz-bg);
+}
+
+.mz-error-card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-2);
+  padding: 36px;
   text-align: center;
 }
 
-.error-page h1 {
-  font-size: 4rem;
-  font-weight: 700;
+.mz-error-code {
+  display: block;
+  font-family: var(--mz-font-display);
+  font-weight: 800;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--mz-blue-600);
+  margin-bottom: 10px;
+}
+
+.mz-error-card h1 {
+  font-size: 21px;
+}
+
+.mz-error-card .mz-desc {
+  margin: 8px auto 22px;
 }

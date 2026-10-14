@@ -1,7 +1,27 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SelectorEmpresa } from "../src/components/admin/AdminSidebar/SelectorEmpresa";
+import {
+  EmpresaActiva,
+  SelectorEmpresa as Desplegable,
+  useMisEmpresas,
+} from "../src/components/admin/AdminSidebar/SelectorEmpresa";
+
+/** Como lo monta el layout: la empresa activa en el menú, el cambio en la
+ * barra superior, los dos con la misma respuesta de `/empresas/mias/`. */
+function SelectorEmpresa({ isCollapsed }) {
+  const { empresas, activa } = useMisEmpresas();
+  return (
+    <>
+      <EmpresaActiva
+        empresas={empresas}
+        activa={activa}
+        isCollapsed={isCollapsed}
+      />
+      <Desplegable empresas={empresas} activa={activa} />
+    </>
+  );
+}
 
 const COURIER = { id: 1, nombre: "LaarCourier", codigo: "LC", activa: true };
 const SEGURIDAD = {

@@ -121,7 +121,7 @@ test.describe("La sesión", () => {
     await pagina.getByLabel("Contraseña").fill("no-es-la-clave");
     await pagina.getByRole("button", { name: "Entrar" }).click();
 
-    const aviso = pagina.locator(".alert-danger");
+    const aviso = pagina.locator(".mz-alert--bad, .alert-danger");
     await expect(aviso).toBeVisible();
     const conCuenta = await aviso.textContent();
 

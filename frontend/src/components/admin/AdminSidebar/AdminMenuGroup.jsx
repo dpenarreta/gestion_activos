@@ -35,47 +35,37 @@ export function AdminMenuGroup({
   const isExpanded = accordion.isExpanded(item.id);
 
   const headerClassName = [
-    "admin-sidebar__group-label",
-    isActive && "admin-sidebar__group-label--active",
-    isExpanded && "admin-sidebar__group-label--expanded",
+    "mz-nav-item",
+    "mz-nav-group",
+    isActive && "is-active",
+    isExpanded && "is-expanded",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <li
-      className={`admin-sidebar__item admin-sidebar__item--group ${
-        nivel > 1 ? "admin-sidebar__item--anidado" : ""
-      }`}
-    >
-      <div className="admin-sidebar__group-header">
-        <button
-          type="button"
-          className={headerClassName}
-          onClick={() => accordion.toggle(item.id, siblingIds)}
-          aria-expanded={isExpanded}
-          aria-controls={sublistId}
-          title={isCollapsed ? item.name : undefined}
-        >
-          <Icon name={item.icon} className="admin-sidebar__icon" />
-          {!isCollapsed && (
-            <span className="admin-sidebar__label">{item.name}</span>
-          )}
-          {!isCollapsed && (
-            <Icon
-              name="chevron-right"
-              className={`admin-sidebar__chevron ${isExpanded ? "admin-sidebar__chevron--expanded" : ""}`}
-            />
-          )}
-        </button>
-      </div>
+    <li className={nivel > 1 ? "mz-nav-anidado" : undefined}>
+      <button
+        type="button"
+        className={headerClassName}
+        onClick={() => accordion.toggle(item.id, siblingIds)}
+        aria-expanded={isExpanded}
+        aria-controls={sublistId}
+        title={isCollapsed ? item.name : undefined}
+      >
+        <Icon name={item.icon} />
+        {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
+        {!isCollapsed && (
+          <Icon name="chevron-right" className="mz-nav-chevron" />
+        )}
+      </button>
 
       <div
-        className={`admin-sidebar__sublist-wrapper ${isExpanded ? "admin-sidebar__sublist-wrapper--expanded" : ""}`}
+        className={`mz-subnav-wrap ${isExpanded ? "mz-subnav-wrap--open" : ""}`}
       >
         <ul
           id={sublistId}
-          className="admin-sidebar__sublist"
+          className="mz-subnav"
           {...(isExpanded ? {} : { inert: "" })}
         >
           {item.children.map((child) =>

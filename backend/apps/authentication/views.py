@@ -178,4 +178,8 @@ class MeView(APIView):
         # convención "modulo.accion" del catálogo— para decidir qué mostrar
         # en el menú sin otra llamada.
         data["permissions"] = sorted(get_user_permission_codenames(request.user))
+        # Para el pie del menú lateral, que dice con qué rol se está dentro.
+        # Solo los nombres: lo que cada rol permite ya va en `permissions`.
+        data["is_superuser"] = request.user.is_superuser
+        data["roles"] = sorted(request.user.groups.values_list("name", flat=True))
         return Response(data)

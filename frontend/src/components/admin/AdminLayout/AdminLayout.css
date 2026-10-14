@@ -1,25 +1,26 @@
-.admin-layout {
-  display: flex;
-  min-height: 100vh;
-  /* `stretch` es el valor por defecto y estiraría el menú hasta el alto del
-     contenido, que es justo lo que se evita. */
-  align-items: flex-start;
+/*
+ * El shell es el de la identidad base (`mz-shell`, `mz-main`, `mz-topbar`,
+ * `mz-view`); aquí solo los ajustes que pide este sistema.
+ */
+
+/* En la identidad base el menú móvil y su fondo usan z-index 40/35, por
+   debajo de la barra superior pegajosa (30) pero también de los diálogos de
+   esta app, que van por encima de 1000: se suben para que el panel abierto
+   tape la barra y no al revés. */
+@media (max-width: 880px) {
+  .mz-sidebar {
+    z-index: var(--z-sidebar-mobile);
+  }
+
+  .mz-sidebar-backdrop {
+    z-index: var(--z-sidebar-backdrop);
+  }
 }
 
-.admin-layout__content {
-  flex: 1;
-  padding: 1.5rem;
-  min-width: 0;
-  background-color: var(--surface);
-  color: var(--text-primary);
-}
-
-/* Cabecera del panel: una sola fila con el buscador. Sin fondo propio ni
-   sombra —el contenido ya está sobre `--surface`— para no robarle peso al
-   título de cada pantalla, que es lo que dice dónde está uno. */
-.admin-layout__cabecera {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+/* El título cede el sitio al buscador en el teléfono: la pantalla ya se
+   reconoce por su propio encabezado, y buscar es lo que se viene a hacer. */
+@media (max-width: 560px) {
+  .mz-topbar h1 {
+    display: none;
+  }
 }

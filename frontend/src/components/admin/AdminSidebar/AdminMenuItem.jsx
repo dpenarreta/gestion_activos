@@ -7,17 +7,16 @@ import { hasActiveDescendant } from "./adminMenuTree";
 export function AdminMenuItem({ item, isCollapsed, currentPath, onNavigate }) {
   const isActive = hasActiveDescendant(item, currentPath);
   return (
-    <li className="admin-sidebar__item">
+    <li>
       <Link
         to={item.path || "#"}
-        className={`admin-sidebar__link ${isActive ? "admin-sidebar__link--active" : ""}`}
+        className={`mz-nav-item ${isActive ? "is-active" : ""}`}
+        aria-current={isActive ? "page" : undefined}
         onClick={(event) => onNavigate(event, item.path)}
         title={isCollapsed ? item.name : undefined}
       >
-        <Icon name={item.icon} className="admin-sidebar__icon" />
-        {!isCollapsed && (
-          <span className="admin-sidebar__label">{item.name}</span>
-        )}
+        <Icon name={item.icon} />
+        {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
       </Link>
     </li>
   );

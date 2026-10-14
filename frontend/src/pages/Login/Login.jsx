@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
-import "./Login.css";
+import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 
 export function Login() {
   const { login, isLoading, error } = useAuth();
@@ -35,15 +35,23 @@ export function Login() {
   }
 
   return (
-    <div className="container login-page">
-      <h2>Iniciar sesión</h2>
-      <form onSubmit={handleSubmit} className="col-12 col-md-4">
+    <PantallaAcceso
+      titulo="Acceso al sistema"
+      subtitulo="Ingrese con su usuario corporativo."
+    >
+      <form onSubmit={handleSubmit}>
         {cerradaPorInactividad && !error && (
-          <div className="alert alert-warning" role="status">
+          <div className="mz-alert mz-alert--warn" role="status">
+            <i className="bi bi-clock-history" aria-hidden="true" />
             Su sesión se cerró por inactividad. Vuelva a iniciar sesión.
           </div>
         )}
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <i className="bi bi-x-octagon" aria-hidden="true" />
+            {error}
+          </div>
+        )}
         <div className="mb-3">
           <label className="form-label" htmlFor="identifier">
             Usuario o correo
@@ -74,10 +82,10 @@ export function Login() {
         <Button type="submit" isLoading={isLoading}>
           Entrar
         </Button>
-        <div className="mt-3">
+        <div className="login-links">
           <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
         </div>
       </form>
-    </div>
+    </PantallaAcceso>
   );
 }

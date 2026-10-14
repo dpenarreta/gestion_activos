@@ -120,7 +120,7 @@ export async function buscarEnElInventario(page, texto) {
  * pantalla todo el tiempo.
  */
 export async function noHayError(page, contexto) {
-  const aviso = page.locator(".alert-danger");
+  const aviso = page.locator(".mz-alert--bad, .alert-danger");
   if (await aviso.count()) {
     throw new Error(`${contexto}: ${await aviso.first().innerText()}`);
   }

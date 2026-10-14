@@ -5,19 +5,14 @@ import { empresasService } from "../../../api/empresasService";
 import { Icon } from "../../common/Icon/Icon";
 
 /**
- * En qué empresa se está trabajando (debajo del logo, encima del menú).
+ * En qué empresa se está trabajando.
  *
- * Cambiar de empresa cambia **de dónde salen los datos**, no una vista: el
- * inventario, los catálogos, el panel y los reportes pasan a ser los de la
- * otra. Por eso al cambiar se recarga la aplicación entera en vez de refrescar
- * la pantalla actual: media docena de pantallas tienen datos ya cargados en
- * memoria —listados, filtros, desplegables— y refrescar solo lo visible
- * dejaría los demás mostrando lo de la empresa anterior.
- *
- * Con una sola empresa no se dibuja nada: un selector de un elemento no elige,
- * solo ocupa sitio.
+ * Se pregunta una sola vez, en el layout, y se reparte a dos sitios —como en
+ * la identidad base—: el menú lateral la *muestra* («Tablero activo», debajo
+ * de la marca) y la barra superior la *cambia*. Saberlo antes de navegar evita
+ * el error de mirar el inventario equivocado durante un rato.
  */
-export function SelectorEmpresa({ isCollapsed }) {
+export function useMisEmpresas() {
   const [empresas, setEmpresas] = useState([]);
   const [activa, setActiva] = useState(null);
 
@@ -36,6 +31,55 @@ export function SelectorEmpresa({ isCollapsed }) {
       .catch(() => setEmpresas([]));
   }, []);
 
+  return { empresas, activa };
+}
+
+/** «Tablero activo» del menú lateral: solo dice dónde se está. */
+export function EmpresaActiva({ empresas, activa, isCollapsed }) {
+  if (empresas.length === 0) return null;
+  const nombre = activa?.nombre || empresas[0].nombre;
+
+  if (isCollapsed) {
+    // Contraído no cabe el nombre, pero saber en qué empresa se está no es
+    // opcional: se deja el código, con el nombre en el título.
+    return (
+      <div
+        className="mz-active-company mz-active-company--contraida"
+        title={nombre}
+      >
+        <strong aria-hidden="true">
+          {(activa?.codigo || nombre).slice(0, 2)}
+        </strong>
+        <span className="visually-hidden">{nombre}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mz-active-company">
+      <small>Tablero activo</small>
+      <strong>{nombre}</strong>
+    </div>
+  );
+}
+
+/**
+ * Cambio de empresa, en la barra superior.
+ *
+ * Cambiar de empresa cambia **de dónde salen los datos**, no una vista: el
+ * inventario, los catálogos, el panel y los reportes pasan a ser los de la
+ * otra. Por eso se recarga la aplicación entera en vez de refrescar la
+ * pantalla actual: media docena de pantallas tienen datos ya cargados en
+ * memoria —listados, filtros, desplegables— y refrescar solo lo visible
+ * dejaría los demás mostrando lo de la empresa anterior.
+ *
+ * Es un `<select>` nativo dibujado como el selector de la identidad base: el
+ * teclado, el lector de pantalla y el desplegable del teléfono vienen hechos.
+ * Con una sola empresa no se dibuja: un selector de un elemento no elige.
+ */
+export function SelectorEmpresa({ empresas, activa }) {
+  if (empresas.length < 2) return null;
+
   function cambiar(evento) {
     const id = evento.target.value;
     if (!id || id === String(activa?.id)) return;
@@ -43,48 +87,20 @@ export function SelectorEmpresa({ isCollapsed }) {
     window.location.reload();
   }
 
-  if (empresas.length === 0) return null;
-
-  if (isCollapsed) {
-    // Contraído no cabe un desplegable, pero saber en qué empresa se está no
-    // es opcional: se deja la inicial, con el nombre en el título.
-    return (
-      <div
-        className="selector-empresa selector-empresa--contraido"
-        title={activa?.nombre}
-      >
-        <span aria-hidden="true">{(activa?.codigo || "·").slice(0, 2)}</span>
-        <span className="visually-hidden">{activa?.nombre}</span>
-      </div>
-    );
-  }
-
-  if (empresas.length === 1) {
-    return (
-      <div className="selector-empresa selector-empresa--unica">
-        <Icon name="building" className="selector-empresa__icono" />
-        <span>{activa?.nombre || empresas[0].nombre}</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="selector-empresa">
+    <div className="mz-switcher mz-switcher--select">
+      <Icon name="building" className="mz-switcher__icono" />
       <label className="visually-hidden" htmlFor="selector-empresa">
         Empresa
       </label>
-      <select
-        id="selector-empresa"
-        className="form-select form-select-sm"
-        value={activa?.id ?? ""}
-        onChange={cambiar}
-      >
+      <select id="selector-empresa" value={activa?.id ?? ""} onChange={cambiar}>
         {empresas.map((empresa) => (
           <option key={empresa.id} value={empresa.id}>
             {empresa.nombre}
           </option>
         ))}
       </select>
+      <Icon name="chevron-down" className="mz-switcher__flecha" />
     </div>
   );
 }

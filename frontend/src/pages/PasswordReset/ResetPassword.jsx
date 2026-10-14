@@ -3,12 +3,15 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
-import "./PasswordReset.css";
+import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
-  const [form, setForm] = useState({ new_password: "", new_password_confirm: "" });
+  const [form, setForm] = useState({
+    new_password: "",
+    new_password_confirm: "",
+  });
   const [error, setError] = useState(null);
   const [isDone, setIsDone] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,27 +41,32 @@ export function ResetPassword() {
 
   if (isDone) {
     return (
-      <div className="container password-reset-page">
-        <h2>Recuperar contraseña</h2>
-        <div className="col-12 col-md-4">
-          <div className="alert alert-success">
-            Tu contraseña fue actualizada correctamente. Ya podés iniciar sesión.
-          </div>
-          <Link to="/login">Iniciar sesión</Link>
+      <PantallaAcceso titulo="Recuperar contraseña">
+        <div className="mz-alert mz-alert--ok" role="status">
+          <i className="bi bi-check2-circle" aria-hidden="true" />
+          Tu contraseña fue actualizada correctamente. Ya podés iniciar sesión.
         </div>
-      </div>
+        <Link to="/login" className="btn btn-primary w-100">
+          Iniciar sesión
+        </Link>
+      </PantallaAcceso>
     );
   }
 
   return (
-    <div className="container password-reset-page">
-      <h2>Establecer nueva contraseña</h2>
-      <form onSubmit={handleSubmit} className="col-12 col-md-4">
+    <PantallaAcceso
+      titulo="Establecer nueva contraseña"
+      subtitulo="Elija una contraseña que no use en otros sistemas."
+    >
+      <form onSubmit={handleSubmit}>
         {error && (
-          <div className="alert alert-danger">
-            {error}
-            <div className="mt-2">
-              <Link to="/forgot-password">Solicitar un nuevo enlace</Link>
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <i className="bi bi-x-octagon" aria-hidden="true" />
+            <div>
+              {error}
+              <div className="mt-2">
+                <Link to="/forgot-password">Solicitar un nuevo enlace</Link>
+              </div>
             </div>
           </div>
         )}
@@ -94,6 +102,6 @@ export function ResetPassword() {
           Restablecer contraseña
         </Button>
       </form>
-    </div>
+    </PantallaAcceso>
   );
 }

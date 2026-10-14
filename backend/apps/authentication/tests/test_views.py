@@ -106,3 +106,18 @@ def test_me_endpoint_lists_permissions_granted_via_catalog(api_client):
 
     assert response.status_code == 200
     assert "usuarios.ver" in response.data["permissions"]
+
+
+def test_me_endpoint_names_the_roles_for_the_sidebar(api_client):
+    from django.contrib.auth.models import Group
+
+    user = User.objects.create_user(
+        username="rol", email="rol@example.com", password="Sup3r-Secr3t!"
+    )
+    user.groups.add(Group.objects.create(name="Bodega"))
+    api_client.force_authenticate(user=user)
+
+    response = api_client.get("/api/v1/auth/me/")
+
+    assert response.data["roles"] == ["Bodega"]
+    assert response.data["is_superuser"] is False

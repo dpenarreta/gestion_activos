@@ -22,30 +22,6 @@ a {
   color: var(--color-links);
 }
 
-/*
- * El CONTENIDO del panel administrativo (`.admin-layout__content`) es
- * chrome de la herramienta, no contenido publicado — su texto/encabezados/
- * enlaces siguen el modo claro/oscuro elegido en Configuración > Apariencia,
- * nunca los colores de marca del sitio público.
- */
-.admin-layout__content h1,
-.admin-layout__content h2,
-.admin-layout__content h3,
-.admin-layout__content h4,
-.admin-layout__content h5,
-.admin-layout__content h6 {
-  color: var(--text-primary);
-}
-
-/* :not(.btn) es deliberado: sin esto, esta regla (0,1,1) le gana por
-   especificidad a `.btn { color: var(--bs-btn-color) }` (0,1,0) de
-   Bootstrap, y cualquier Link estilizado como botón (ej. "Nuevo usuario")
-   heredaría el color de enlace en vez de `--bs-btn-color` — invisible
-   cuando ambos coinciden (ver docs/architecture.md). */
-.admin-layout__content a:not(.btn) {
-  color: var(--bs-link-color, var(--text-primary));
-}
-
 .navbar-brand {
   font-weight: 600;
 }
@@ -81,13 +57,27 @@ a {
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-.table thead {
-  background-color: var(--brand-background-dark);
-  color: var(--brand-text-on-dark);
+/* Encabezado de tabla con el dibujo de `.mz-table` de la identidad base: fondo
+   hundido y rótulos en mayúsculas pequeñas, no la barra negra de la plantilla. */
+.table {
+  --bs-table-bg: var(--mz-raised);
+  --bs-table-color: var(--mz-ink);
+  --bs-table-border-color: var(--mz-border);
+  --bs-table-striped-bg: var(--mz-sunken);
+  --bs-table-striped-color: var(--mz-ink);
+  --bs-table-hover-bg: var(--mz-sunken);
+  --bs-table-hover-color: var(--mz-ink);
+  font-size: 12.8px;
 }
 
 .table thead th {
-  border-color: var(--brand-background-dark);
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-color: var(--mz-border);
+  white-space: nowrap;
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) > * {

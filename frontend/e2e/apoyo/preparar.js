@@ -76,9 +76,9 @@ async function entrar(pagina, baseURL, clave, esReintento = false) {
     })
     .then(() => null);
   const rechazo = pagina
-    .locator(".alert-danger")
+    .locator(".mz-alert--bad, .alert-danger")
     .waitFor({ timeout: 20_000 })
-    .then(() => pagina.locator(".alert-danger").innerText());
+    .then(() => pagina.locator(".mz-alert--bad, .alert-danger").innerText());
 
   const motivo = await Promise.race([dentro, rechazo]).catch(
     () => "sin respuesta",

@@ -4,13 +4,15 @@ import "./Errors.css";
 
 export function NotFound() {
   return (
-    <div className="container error-page">
-      <h1>404</h1>
-      <h2>Página no encontrada</h2>
-      <p className="text-muted">La página que buscás no existe o fue movida.</p>
-      <Link to="/" className="btn btn-primary">
-        Volver al inicio
-      </Link>
+    <div className="mz-error-page">
+      <div className="mz-error-card">
+        <span className="mz-error-code">404</span>
+        <h1>Página no encontrada</h1>
+        <p className="mz-desc">La página que buscás no existe o fue movida.</p>
+        <Link to="/" className="btn btn-primary">
+          Volver al inicio
+        </Link>
+      </div>
     </div>
   );
 }

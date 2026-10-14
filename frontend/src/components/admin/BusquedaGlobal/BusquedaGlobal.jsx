@@ -9,8 +9,8 @@ import "./BusquedaGlobal.css";
  * Buscar un equipo desde cualquier pantalla.
  *
  * Es la pregunta que más veces se hace al día —«dónde está este aparato»— y
- * hasta ahora obligaba a ir primero al inventario. Vive en la cabecera, a la
- * vista en todo `/admin`.
+ * hasta ahora obligaba a ir primero al inventario. Vive en la barra superior,
+ * a la vista en todo `/admin`, con el dibujo del buscador de la identidad base.
  *
  * Dos caminos según lo que se escriba, y el orden importa:
  *
@@ -53,15 +53,18 @@ export function BusquedaGlobal() {
   }
 
   return (
-    <form className="busqueda-global" onSubmit={handleSubmit} role="search">
+    <form
+      className="mz-search busqueda-global"
+      onSubmit={handleSubmit}
+      role="search"
+    >
       <label className="visually-hidden" htmlFor="busqueda-global">
         Buscar un equipo
       </label>
-      <i className="bi bi-upc-scan busqueda-global__icono" aria-hidden="true" />
+      <i className="bi bi-upc-scan" aria-hidden="true" />
       <input
         id="busqueda-global"
         type="search"
-        className="form-control form-control-sm busqueda-global__campo"
         placeholder="Escanee o busque: código, serie, equipo o persona"
         value={termino}
         onChange={(evento) => setTermino(evento.target.value)}

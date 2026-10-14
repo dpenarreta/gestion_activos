@@ -1,0 +1,14 @@
+/* El dibujo es el de `login-*` (identidad base); aquí lo que añade este
+   sistema: el logo configurable y los enlaces al pie de la tarjeta. */
+.login-logo {
+  height: 38px;
+  width: auto;
+  max-width: 140px;
+  border-radius: 10px;
+}
+
+.login-links {
+  margin-top: 18px;
+  font-size: 13px;
+  text-align: center;
+}

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
-import "./PasswordReset.css";
+import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 
 const EMPTY_FORM = {
   current_password: "",
@@ -44,14 +44,17 @@ export function ChangePasswordRequired() {
   }
 
   return (
-    <div className="container password-reset-page">
-      <h2>Debe cambiar su contraseña</h2>
-      <p className="text-muted">
-        Un administrador solicitó que establezca una nueva contraseña antes de
-        continuar.
-      </p>
-      <form onSubmit={handleSubmit} className="col-12 col-md-4">
-        {error && <div className="alert alert-danger">{error}</div>}
+    <PantallaAcceso
+      titulo="Debe cambiar su contraseña"
+      subtitulo="Un administrador solicitó que establezca una nueva contraseña antes de continuar."
+    >
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <i className="bi bi-x-octagon" aria-hidden="true" />
+            {error}
+          </div>
+        )}
         <div className="mb-3">
           <label className="form-label" htmlFor="current_password">
             Contraseña actual
@@ -98,6 +101,6 @@ export function ChangePasswordRequired() {
           Cambiar contraseña
         </Button>
       </form>
-    </div>
+    </PantallaAcceso>
   );
 }

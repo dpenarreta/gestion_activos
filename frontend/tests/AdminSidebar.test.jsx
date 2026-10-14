@@ -233,7 +233,7 @@ describe("El menú dice dónde se está", () => {
     pintar({ ruta: "/admin/activos/7" });
 
     const grupo = screen.getByRole("button", { name: /Activos/ });
-    expect(grupo.className).toContain("admin-sidebar__group-label--active");
+    expect(grupo.className).toContain("is-active");
   });
 
   it("un grupo se abre y se cierra", () => {
@@ -356,6 +356,7 @@ describe("El pie del menú", () => {
 
     const marca = screen.getByRole("link", { name: /Ir al inicio/ });
     expect(within(marca).queryByText("Gestión de Activos")).toBeNull();
-    expect(marca).toHaveTextContent("GE");
+    // El glifo de la identidad base: las iniciales, como «MA» en la Matriz.
+    expect(marca).toHaveTextContent("GA");
   });
 });

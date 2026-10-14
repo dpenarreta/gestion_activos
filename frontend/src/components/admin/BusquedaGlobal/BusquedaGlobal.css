@@ -1,36 +1,29 @@
+/* El dibujo es el de `.mz-search` (identidad base); aquí solo el ancho. */
 .busqueda-global {
-  position: relative;
-  flex: 1;
   /* Ni a todo lo ancho ni mínima: pasado este ancho el campo deja de leerse
      como un buscador y empieza a parecer el contenido de la pantalla. */
-  max-width: 34rem;
+  width: 100%;
+  max-width: 26rem;
 }
 
-.busqueda-global__icono {
-  position: absolute;
-  top: 50%;
-  left: 0.65rem;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
+.busqueda-global .bi {
+  color: var(--mz-ink-faint);
 }
 
-.busqueda-global__campo {
-  padding-left: 2.1rem;
-  background-color: var(--surface-alt);
-  border-color: var(--border-color);
-  color: var(--text-primary);
+.busqueda-global input::placeholder {
+  color: var(--mz-ink-faint);
 }
 
-.busqueda-global__campo::placeholder {
-  color: var(--text-muted);
-}
-
-/* En pantallas estrechas ocupa el ancho disponible: el buscador es lo que
-   más se usa de la cabecera, y recortarlo ahí lo dejaría sin sitio para
-   escribir. */
-@media (max-width: 575.98px) {
-  .busqueda-global {
+/*
+ * La identidad base esconde su buscador en pantallas estrechas; este no.
+ * Es lo que más se usa de la barra —y en el teléfono es donde se escanea—, así
+ * que en vez de desaparecer ocupa el sitio que deja el título.
+ */
+@media (max-width: 880px) {
+  .mz-search.busqueda-global {
+    display: flex;
+    flex: 1;
+    min-width: 0;
     max-width: none;
   }
 }

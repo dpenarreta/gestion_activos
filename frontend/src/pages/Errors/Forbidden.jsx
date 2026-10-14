@@ -20,34 +20,36 @@ export function Forbidden() {
   const sinNingunPermiso = menu.length === 0;
 
   return (
-    <div className="container error-page">
-      <h1>403</h1>
-      <h2>Acceso denegado</h2>
-      {sinNingunPermiso ? (
-        <>
-          <p className="text-muted">
-            Su cuenta todavía no tiene ningún permiso asignado, así que no hay
-            ninguna pantalla que pueda abrir. Pídale a un administrador que le
-            asigne un rol.
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => logout()}
-          >
-            Cerrar sesión
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-muted">
-            No tiene los permisos necesarios para ver esta página.
-          </p>
-          <Link to="/admin" className="btn btn-primary">
-            Volver al panel
-          </Link>
-        </>
-      )}
+    <div className="mz-error-page">
+      <div className="mz-error-card">
+        <span className="mz-error-code">403</span>
+        <h1>Acceso denegado</h1>
+        {sinNingunPermiso ? (
+          <>
+            <p className="mz-desc">
+              Su cuenta todavía no tiene ningún permiso asignado, así que no hay
+              ninguna pantalla que pueda abrir. Pídale a un administrador que le
+              asigne un rol.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => logout()}
+            >
+              Cerrar sesión
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="mz-desc">
+              No tiene los permisos necesarios para ver esta página.
+            </p>
+            <Link to="/admin" className="btn btn-primary">
+              Volver al panel
+            </Link>
+          </>
+        )}
+      </div>
     </div>
   );
 }

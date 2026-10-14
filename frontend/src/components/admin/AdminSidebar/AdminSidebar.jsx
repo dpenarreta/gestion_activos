@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { env } from "../../../config/env";
@@ -8,36 +7,50 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useMenuAccordion } from "../../../hooks/useMenuAccordion";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
+import { iniciales } from "../../../utils/iniciales";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
-import { SelectorEmpresa } from "./SelectorEmpresa";
 import { AdminMenuItem } from "./AdminMenuItem";
+import { EmpresaActiva } from "./SelectorEmpresa";
 import "./AdminSidebar.css";
 
+const SIN_EMPRESAS = { empresas: [], activa: null };
+
+function rolDe(user) {
+  if (user?.is_superuser) return "Superusuario";
+  return user?.roles?.[0] || null;
+}
+
 /**
- * Menú principal del panel administrativo, en un sidebar izquierdo.
- * Consume un árbol estático (ver `staticAdminMenu.js`), filtrado por
- * permiso en el propio cliente además de en el backend.
+ * Menú lateral con el dibujo de la identidad base (`mz-sidebar`): marca,
+ * empresa activa, navegación y, al pie, quién está dentro.
  *
- * Tres modos por CSS: escritorio (expandido/colapsable), tableta (colapsado
- * por defecto), móvil (offcanvas deslizable). El logo se lee directamente
- * de `ThemeContext` (`theme.logo_url`) — sin dependencia de una biblioteca
- * de medios.
+ * Consume un árbol estático (ver `staticAdminMenu.js`), filtrado por permiso
+ * en el propio cliente además de en el backend. A diferencia de la Matriz
+ * conserva los grupos desplegables —aquí hay más de treinta pantallas— y el
+ * modo contraído a íconos.
+ *
+ * En pantallas estrechas es un panel superpuesto que abre la hamburguesa de la
+ * barra superior: el estado vive en el layout, que es quien dibuja ese botón.
  */
-export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
+export function AdminSidebar({
+  isCollapsed,
+  onToggleCollapse,
+  isMobileOpen = false,
+  onMobileClose = () => {},
+  mobileTriggerRef,
+  empresas = SIN_EMPRESAS,
+}) {
   const menu = useAdminMenu();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
   const { isDirty, setIsDirty, guardedNavigate } = useUnsavedChanges();
-
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const mobileTriggerRef = useRef(null);
   const accordion = useMenuAccordion(menu, location.pathname);
 
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
     isOpen: isMobileOpen,
-    onRequestClose: () => setIsMobileOpen(false),
+    onRequestClose: onMobileClose,
     triggerRef: mobileTriggerRef,
   });
 
@@ -56,7 +69,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
     }
     event.preventDefault();
     guardedNavigate(path);
-    setIsMobileOpen(false);
+    onMobileClose();
   }
 
   function handleLogout() {
@@ -67,137 +80,137 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
       return;
     }
     setIsDirty(false);
-    setIsMobileOpen(false);
+    onMobileClose();
     logout();
   }
 
   const siteName = theme?.site_name || env.appName;
+  const nombreCompleto =
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    user?.username ||
+    "";
+  const rol = rolDe(user);
 
   return (
     <>
-      <button
-        type="button"
-        ref={mobileTriggerRef}
-        className="admin-sidebar__mobile-trigger"
-        onClick={() => setIsMobileOpen(true)}
-        aria-expanded={isMobileOpen}
-        aria-controls="admin-sidebar-nav"
-        aria-label="Abrir menú administrativo"
-      >
-        <span aria-hidden="true">☰</span>
-      </button>
-
-      {isMobileOpen && (
-        <div
-          className="admin-sidebar__backdrop"
-          onClick={handleBackdropClick}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
+      <nav
         id="admin-sidebar-nav"
         ref={panelRef}
-        className={`admin-sidebar ${isCollapsed ? "admin-sidebar--collapsed" : ""} ${
-          isMobileOpen ? "admin-sidebar--mobile-open" : ""
-        }`}
+        className={`mz-sidebar ${isMobileOpen ? "mz-sidebar--open" : ""}`}
         role={isMobileOpen ? "dialog" : undefined}
         aria-modal={isMobileOpen ? "true" : undefined}
         aria-label="Menú administrativo"
         tabIndex={-1}
       >
-        <div className="admin-sidebar__header">
+        <div className="mz-brand">
           <Link
             to="/"
-            className="admin-sidebar__brand"
+            className="mz-brand-link"
             aria-label={`${siteName} — Ir al inicio`}
           >
             {theme?.logo_url ? (
-              <img
-                src={theme.logo_url}
-                alt=""
-                className="admin-sidebar__logo"
-              />
-            ) : null}
-            {isCollapsed ? siteName.slice(0, 2).toUpperCase() : siteName}
+              <img src={theme.logo_url} alt="" className="mz-brand-logo" />
+            ) : (
+              <span className="mz-glyph" aria-hidden="true">
+                {iniciales(siteName)}
+              </span>
+            )}
+            {!isCollapsed && <span className="mz-brand-name">{siteName}</span>}
           </Link>
           <button
             type="button"
-            className="admin-sidebar__close-mobile"
+            className="mz-sidebar-close"
             onClick={() => requestClose()}
             aria-label="Cerrar menú administrativo"
           >
-            <span aria-hidden="true">×</span>
+            <Icon name="x-lg" />
           </button>
         </div>
 
-        {/* Debajo del logo y encima del menú: es el ámbito de todo lo que
-            viene después, y verlo antes de navegar evita el error de mirar el
-            inventario equivocado durante un rato. */}
-        <SelectorEmpresa isCollapsed={isCollapsed} />
+        <EmpresaActiva
+          empresas={empresas.empresas}
+          activa={empresas.activa}
+          isCollapsed={isCollapsed}
+        />
 
-        <nav className="admin-sidebar__nav">
-          <ul className="admin-sidebar__list">
-            {menu.map((item) =>
-              item.children && item.children.length > 0 ? (
-                <AdminMenuGroup
-                  key={item.id}
-                  item={item}
-                  isCollapsed={isCollapsed}
-                  currentPath={location.pathname}
-                  onNavigate={handleNavigate}
-                  accordion={accordion}
-                  siblingIds={menu.map((sibling) => sibling.id)}
-                />
-              ) : (
-                <AdminMenuItem
-                  key={item.id}
-                  item={item}
-                  isCollapsed={isCollapsed}
-                  currentPath={location.pathname}
-                  onNavigate={handleNavigate}
-                />
-              ),
-            )}
-          </ul>
-        </nav>
+        <ul className="mz-nav">
+          {menu.map((item) =>
+            item.children && item.children.length > 0 ? (
+              <AdminMenuGroup
+                key={item.id}
+                item={item}
+                isCollapsed={isCollapsed}
+                currentPath={location.pathname}
+                onNavigate={handleNavigate}
+                accordion={accordion}
+                siblingIds={menu.map((sibling) => sibling.id)}
+              />
+            ) : (
+              <AdminMenuItem
+                key={item.id}
+                item={item}
+                isCollapsed={isCollapsed}
+                currentPath={location.pathname}
+                onNavigate={handleNavigate}
+              />
+            ),
+          )}
+        </ul>
 
-        <div className="admin-sidebar__footer">
-          {/* Con ícono, como el resto del menú: contraído era el único
-              elemento dibujado con un carácter suelto en vez de un ícono, y se
-              leía como un error tipográfico más que como un botón. */}
-          <button
-            type="button"
-            className="admin-sidebar__logout"
-            onClick={handleLogout}
-            title={isCollapsed ? "Cerrar sesión" : undefined}
-            aria-label={isCollapsed ? "Cerrar sesión" : undefined}
-          >
-            <Icon name="box-arrow-right" className="admin-sidebar__icon" />
+        <div className="mz-sidebar-foot">
+          {rol && !isCollapsed && (
+            <span className="mz-role-pill">
+              <Icon name="shield-lock" /> {rol}
+            </span>
+          )}
+          <div className="mz-user">
+            <div
+              className="mz-avatar"
+              title={isCollapsed ? nombreCompleto : undefined}
+            >
+              {iniciales(nombreCompleto)}
+            </div>
             {!isCollapsed && (
-              <span className="admin-sidebar__label">Cerrar sesión</span>
+              <div>
+                <strong>{nombreCompleto}</strong>
+                <span>{user?.email}</span>
+              </div>
             )}
-          </button>
+            <button
+              type="button"
+              className="mz-logout"
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              <Icon name="box-arrow-right" />
+            </button>
+          </div>
         </div>
 
-        {/* Fuera de la lista y anclado al borde, a media altura: contraer no
-            es un sitio al que se navega, y como último elemento del menú se
-            perdía debajo de «Cerrar sesión» —y quedaba fuera de la pantalla
-            en cuanto el menú era más largo que el alto disponible. */}
+        {/* Anclado al borde, a media altura: contraer no es un sitio al que se
+            navega, y como último elemento del menú se perdía debajo del pie
+            —y quedaba fuera de la pantalla en cuanto el menú era más largo
+            que el alto disponible. */}
         <button
           type="button"
-          className="admin-sidebar__toggle-collapse"
+          className="mz-collapse-handle"
           onClick={onToggleCollapse}
           aria-pressed={isCollapsed}
           aria-label={isCollapsed ? "Expandir menú" : "Contraer menú"}
           title={isCollapsed ? "Expandir menú" : "Contraer menú"}
         >
-          <i
-            className={`bi ${isCollapsed ? "bi-chevron-right" : "bi-chevron-left"}`}
-            aria-hidden="true"
-          />
+          <Icon name={isCollapsed ? "chevron-right" : "chevron-left"} />
         </button>
-      </aside>
+      </nav>
+
+      {isMobileOpen && (
+        <div
+          className="mz-sidebar-backdrop"
+          onClick={handleBackdropClick}
+          aria-hidden="true"
+        />
+      )}
     </>
   );
 }
