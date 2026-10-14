@@ -1,0 +1,47 @@
+/*
+ * Las pestañas son `mz-tabs mz-config-tabs` de la identidad base. Aquí lo que
+ * añade este sistema: que no se partan en dos renglones cuando no caben —se
+ * desplazan—, la segunda fila de apartados y el aire hasta el contenido.
+ */
+.configuracion-marco .mz-config-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* La segunda fila son chips de la identidad, pero como enlaces: el dibujo de
+   `.mz-chips button` repetido para `a`. */
+.configuracion-marco__sub {
+  flex-wrap: wrap;
+  margin: -6px 0 18px;
+}
+
+.configuracion-marco__sub a {
+  border: 1px solid var(--mz-border-strong);
+  background: var(--mz-bg);
+  border-radius: 99px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.configuracion-marco__sub a:hover {
+  color: var(--mz-ink);
+  border-color: var(--mz-ink-faint);
+}
+
+.configuracion-marco__sub a.is-on {
+  background: var(--mz-blue-600);
+  border-color: var(--mz-blue-600);
+  color: #fff;
+}
+
+/* Cada sección abre con su propio encabezado («Empresas», «Usuarios»…), un
+   escalón por debajo del de Configuración: `mz-config-body` ya lo reduce a
+   18px; aquí solo se le quita el margen extra de `.mz-view h2`. */
+.configuracion-marco .mz-config-body .mz-view-head h2 {
+  margin-bottom: 0;
+}

@@ -7,12 +7,14 @@ import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminSidebar } from "../AdminSidebar/AdminSidebar";
-import { matchesPath } from "../AdminSidebar/adminMenuTree";
+import { coincidencia } from "../AdminSidebar/adminMenuTree";
 import {
   SelectorEmpresa,
   useMisEmpresas,
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
+import { ConfiguracionMarco } from "../ConfiguracionMarco/ConfiguracionMarco";
+import { seccionDeRuta } from "../ConfiguracionMarco/seccionesConfiguracion";
 import "./AdminLayout.css";
 
 const COLLAPSE_STORAGE_KEY = "admin.sidebar.collapsed";
@@ -36,13 +38,13 @@ function getInitialCollapsed(breakpoint) {
  */
 export function tituloDeRuta(menu, pathname) {
   let mejor = null;
+  let largo = 0;
   function recorrer(items) {
     for (const item of items) {
-      if (
-        matchesPath(item.path, pathname) &&
-        (!mejor || item.path.length > mejor.path.length)
-      ) {
+      const ruta = coincidencia(item, pathname);
+      if (ruta && ruta.length > largo) {
         mejor = item;
+        largo = ruta.length;
       }
       recorrer(item.children || []);
     }
@@ -140,7 +142,16 @@ export function AdminLayout() {
             />
           </header>
           <main className="mz-view">
-            <Outlet />
+            {/* Las secciones de Configuración conservan sus rutas de
+                siempre; el marco con sus pestañas se pone aquí, según dónde
+                se esté, y no en cada pantalla. */}
+            {seccionDeRuta(location.pathname) ? (
+              <ConfiguracionMarco empresa={empresas.activa?.nombre}>
+                <Outlet />
+              </ConfiguracionMarco>
+            ) : (
+              <Outlet />
+            )}
           </main>
         </div>
       </div>

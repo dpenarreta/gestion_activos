@@ -23,23 +23,30 @@ function renderPage(seccion, ruta) {
       <UnsavedChangesProvider>
         <RolesPage seccion={seccion} />
       </UnsavedChangesProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
+/*
+ * Roles y permisos son dos secciones de Configuración, con sus pestañas en el
+ * marco (ver ConfiguracionMarco). La página ya no dibuja pestañas propias: dos
+ * filas de pestañas para lo mismo harían dudar cuál manda.
+ */
 describe("RolesPage", () => {
-  it("ofrece el catálogo de permisos como pestaña dentro de roles", () => {
+  it("en su ruta muestra los roles, sin pestañas propias", () => {
     renderPage("roles", "/admin/roles");
 
-    const pestanas = screen.getAllByRole("tab");
-    expect(pestanas.map((t) => t.textContent)).toEqual(["Roles", "Catálogo de permisos"]);
-    expect(pestanas[0]).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", { name: "Roles", level: 2 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("marca la pestaña de permisos como activa en su propia ruta", () => {
+  it("en la suya muestra el catálogo de permisos", () => {
     renderPage("permisos", "/admin/roles/permisos");
 
-    const pestanaPermisos = screen.getByRole("tab", { name: "Catálogo de permisos" });
-    expect(pestanaPermisos).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", { name: "Permisos", level: 2 }),
+    ).toBeInTheDocument();
   });
 });

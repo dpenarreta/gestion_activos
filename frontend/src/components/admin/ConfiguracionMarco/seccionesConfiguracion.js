@@ -1,0 +1,147 @@
+import { matchesPath } from "../AdminSidebar/adminMenuTree";
+
+/**
+ * Las secciones de Configuración, en el orden de sus pestañas.
+ *
+ * Como en la Matriz, Configuración es **una sola entrada del menú** y lo que
+ * contiene se elige con pestañas: empresas, usuarios, roles, permisos,
+ * catálogos, identidad visual, respaldos y auditoría. Antes eran dos grupos
+ * desplegables —«Usuarios y roles» y «Configuración», este con un tercer nivel
+ * para los catálogos de Organización— que ocupaban medio menú con cosas que se
+ * abren de vez en cuando, y dejaban el inventario, que es lo diario, empujado
+ * hacia abajo.
+ *
+ * Cada sección conserva su dirección de siempre (`/admin/users`,
+ * `/admin/empresas`…): los enlaces guardados y las pruebas siguen valiendo, y
+ * lo único que cambia es el marco que las rodea. `rutas` son los prefijos que
+ * pertenecen a la sección —su listado, su alta y sus fichas—; gana el más
+ * largo, para que `/admin/roles/permisos` sea «Permisos» y no «Roles».
+ *
+ * `subsecciones` dibuja una segunda fila cuando la sección agrupa varias
+ * pantallas hermanas.
+ */
+export const SECCIONES_CONFIGURACION = [
+  {
+    // Primera: es lo que hay que crear antes que nada en un despliegue nuevo,
+    // porque todo lo demás cuelga de una empresa.
+    id: "empresas",
+    nombre: "Empresas",
+    path: "/admin/empresas",
+    permission: "empresas.ver",
+    rutas: ["/admin/empresas"],
+  },
+  {
+    id: "usuarios",
+    nombre: "Usuarios",
+    path: "/admin/users",
+    permission: "usuarios.ver",
+    rutas: ["/admin/users"],
+  },
+  {
+    id: "roles",
+    nombre: "Roles",
+    path: "/admin/roles",
+    permission: "roles.ver",
+    rutas: ["/admin/roles"],
+  },
+  {
+    // El catálogo de permisos solo se consulta —se asigna al editar un rol—,
+    // pero tiene su propio permiso y su propia pantalla.
+    id: "permisos",
+    nombre: "Permisos",
+    path: "/admin/roles/permisos",
+    permission: "permisos.ver",
+    rutas: ["/admin/roles/permisos"],
+  },
+  {
+    id: "catalogos",
+    nombre: "Catálogos",
+    path: "/admin/organizacion/departamentos",
+    permission: "organizacion.ver",
+    rutas: ["/admin/organizacion", "/admin/catalogos"],
+    subsecciones: [
+      { nombre: "Departamentos", path: "/admin/organizacion/departamentos" },
+      { nombre: "Sedes", path: "/admin/organizacion/sedes" },
+      { nombre: "Proveedores", path: "/admin/organizacion/proveedores" },
+      // Junto a proveedores porque es la distinción que hay que ver al lado:
+      // al proveedor se le compró el equipo, y el concesionario es su dueño.
+      { nombre: "Concesionarios", path: "/admin/organizacion/concesionarios" },
+      { nombre: "Empleados", path: "/admin/organizacion/empleados" },
+      // Al final: se usa al arrancar y de vez en cuando, no todos los días.
+      { nombre: "Carga masiva", path: "/admin/catalogos/carga" },
+    ],
+  },
+  {
+    id: "identidad",
+    nombre: "Identidad visual",
+    path: "/admin/configuracion/identidad",
+    permission: "configuracion.ver",
+    rutas: [
+      "/admin/configuracion/identidad",
+      "/admin/configuracion/colores-tipografia",
+      "/admin/configuracion/apariencia",
+    ],
+    subsecciones: [
+      { nombre: "Identidad", path: "/admin/configuracion/identidad" },
+      {
+        nombre: "Colores y tipografía",
+        path: "/admin/configuracion/colores-tipografia",
+      },
+      { nombre: "Apariencia", path: "/admin/configuracion/apariencia" },
+    ],
+  },
+  {
+    id: "respaldos",
+    nombre: "Respaldos",
+    path: "/admin/configuracion/respaldos",
+    permission: "configuracion.ver",
+    rutas: ["/admin/configuracion/respaldos"],
+  },
+  {
+    id: "auditoria",
+    nombre: "Auditoría",
+    path: "/admin/auditoria",
+    permission: "auditoria.ver",
+    rutas: ["/admin/auditoria"],
+  },
+];
+
+/** Todos los prefijos de Configuración, para marcar su entrada del menú. */
+export const RUTAS_CONFIGURACION = [
+  "/admin/configuracion",
+  ...SECCIONES_CONFIGURACION.flatMap((seccion) => seccion.rutas),
+];
+
+/** Los permisos que dan acceso a alguna sección: con uno basta para ver la
+ * entrada «Configuración». */
+export const PERMISOS_CONFIGURACION = [
+  ...new Set(SECCIONES_CONFIGURACION.map((seccion) => seccion.permission)),
+];
+
+export function seccionesVisibles(permisos = []) {
+  return SECCIONES_CONFIGURACION.filter((seccion) =>
+    permisos.includes(seccion.permission),
+  );
+}
+
+/** La sección a la que pertenece una ruta, o `null` si no es de Configuración. */
+export function seccionDeRuta(pathname) {
+  let mejor = null;
+  let largo = 0;
+  for (const seccion of SECCIONES_CONFIGURACION) {
+    for (const ruta of seccion.rutas) {
+      if (matchesPath(ruta, pathname) && ruta.length > largo) {
+        mejor = seccion;
+        largo = ruta.length;
+      }
+    }
+  }
+  return mejor;
+}
+
+/** La subsección activa: la de prefijo más largo que coincida. */
+export function subseccionDeRuta(seccion, pathname) {
+  return (seccion?.subsecciones ?? [])
+    .filter((sub) => matchesPath(sub.path, pathname))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+}

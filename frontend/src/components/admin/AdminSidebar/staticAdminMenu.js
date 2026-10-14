@@ -1,3 +1,8 @@
+import {
+  PERMISOS_CONFIGURACION,
+  RUTAS_CONFIGURACION,
+} from "../ConfiguracionMarco/seccionesConfiguracion";
+
 /**
  * Árbol del Menú Administrativo — estático, no configurable desde el
  * backend. Hoy son 4 entradas fijas; cada módulo de negocio que se agregue
@@ -5,8 +10,10 @@
  * `AdminMenuGroup` (que solo consumen esta forma de datos, sin saber de
  * dónde viene).
  *
- * Cada item: { id, name, icon, path?, permission, children? }. `permission`
- * filtra la entrada completa (y sus hijos) si el usuario no lo tiene — la
+ * Cada item: { id, name, icon, path?, permission, rutas?, children? }.
+ * `permission` (un código o una lista, de la que basta uno) filtra la entrada
+ * completa (y sus hijos) si el usuario no lo tiene; `rutas`, otras direcciones
+ * que también la marcan como activa — la
  * autorización real siempre la valida el backend, esto es solo para no
  * mostrar opciones inalcanzables.
  */
@@ -149,143 +156,31 @@ export const ADMIN_MENU = [
     permission: "reportes.ver",
   },
   {
-    // Usuarios y roles son un mismo asunto —quién entra y qué puede hacer—,
-    // y se consultan juntos: al revisar por qué alguien no ve una pantalla,
-    // se salta de su ficha al rol y viceversa. El catálogo de permisos no es
-    // una entrada propia: vive como pestaña dentro de Roles, que es donde
-    // efectivamente se asignan (ver pages/Admin/Roles/RolesPage.jsx).
-    id: "accesos",
-    name: "Usuarios y roles",
-    icon: "people",
-    permission: "usuarios.ver",
-    children: [
-      {
-        id: "accesos-usuarios",
-        name: "Usuarios",
-        icon: "person",
-        path: "/admin/users",
-      },
-      {
-        id: "accesos-roles",
-        name: "Roles y permisos",
-        icon: "shield-lock",
-        path: "/admin/roles",
-      },
-      {
-        // Aquí y no en Configuración: quien abre la auditoría viene de una
-        // pregunta sobre una persona —quién cambió esto, qué tocó fulano— y
-        // ese hilo empieza en su ficha o en su rol, que están al lado. Lleva
-        // permiso propio para que un auditor sin `usuarios.ver` siga viendo
-        // el grupo, con esta entrada sola dentro.
-        id: "accesos-auditoria",
-        name: "Auditoría",
-        icon: "clipboard-data",
-        path: "/admin/auditoria",
-        permission: "auditoria.ver",
-      },
-    ],
-  },
-  {
+    // Una sola entrada, como en la Matriz: lo que contiene —empresas,
+    // usuarios, roles, permisos, catálogos, identidad visual, respaldos y
+    // auditoría— se elige con las pestañas de la propia pantalla (ver
+    // `ConfiguracionMarco`). Como grupos desplegables ocupaban medio menú con
+    // cosas que se abren de vez en cuando.
+    //
+    // `permission` es una lista: basta con poder abrir una sección para ver
+    // la entrada. `rutas` son las direcciones de esas secciones, que conservan
+    // las suyas, para que la entrada se marque estando en cualquiera de ellas.
     id: "configuracion",
     name: "Configuración",
     icon: "gear",
-    permission: "configuracion.ver",
-    children: [
-      {
-        // Primero de la lista: es lo que hay que crear antes que nada en un
-        // despliegue nuevo, porque todo lo demás cuelga de una empresa.
-        id: "configuracion-empresas",
-        name: "Empresas",
-        icon: "buildings",
-        path: "/admin/empresas",
-        permission: "empresas.ver",
-      },
-      {
-        id: "configuracion-identidad",
-        name: "Identidad",
-        icon: "image",
-        path: "/admin/configuracion/identidad",
-      },
-      {
-        id: "configuracion-colores",
-        name: "Colores y tipografía",
-        icon: "palette",
-        path: "/admin/configuracion/colores-tipografia",
-      },
-      {
-        id: "configuracion-apariencia",
-        name: "Apariencia",
-        icon: "circle-half",
-        path: "/admin/configuracion/apariencia",
-      },
-      {
-        // Aquí y no en un grupo propio: es configuración del sistema, se toca
-        // una vez al montarlo y se vuelve cuando alguien pregunta de cuándo se
-        // puede volver.
-        id: "configuracion-respaldos",
-        name: "Respaldos",
-        icon: "shield-check",
-        path: "/admin/configuracion/respaldos",
-      },
-      // Al final y como grupo propio, no disuelto entre los de arriba: sus seis
-      // catálogos son lo que más se abre de esta sección, y sueltos dejarían
-      // «Identidad» y «Apariencia» perdidas en una lista de diez. Los cuatro
-      // que ya estaban se quedan donde estaban.
-      {
-        id: "organizacion",
-        name: "Organización",
-        icon: "diagram-3",
-        permission: "organizacion.ver",
-        children: [
-          {
-            id: "organizacion-departamentos",
-            name: "Departamentos",
-            icon: "building",
-            path: "/admin/organizacion/departamentos",
-          },
-          {
-            id: "organizacion-sedes",
-            name: "Sedes",
-            icon: "buildings",
-            path: "/admin/organizacion/sedes",
-          },
-          {
-            id: "organizacion-proveedores",
-            name: "Proveedores",
-            icon: "truck",
-            path: "/admin/organizacion/proveedores",
-          },
-          {
-            // Justo debajo de proveedores porque es la distinción que hay que ver
-            // al lado: al proveedor se le compró el equipo, y el concesionario es
-            // su dueño.
-            id: "organizacion-concesionarios",
-            name: "Concesionarios",
-            icon: "box-seam",
-            path: "/admin/organizacion/concesionarios",
-          },
-          {
-            id: "organizacion-empleados",
-            name: "Empleados",
-            icon: "person-badge",
-            path: "/admin/organizacion/empleados",
-          },
-          {
-            // Al final del grupo: se usa una vez al arrancar y de vez en cuando,
-            // no todos los días como los catálogos de arriba.
-            id: "organizacion-carga",
-            name: "Carga de catálogos",
-            icon: "file-earmark-arrow-up",
-            path: "/admin/catalogos/carga",
-          },
-        ],
-      },
-    ],
+    path: "/admin/configuracion",
+    permission: PERMISOS_CONFIGURACION,
+    rutas: RUTAS_CONFIGURACION,
   },
 ];
 
 function esVisible(permission, permissions) {
-  return !permission || permissions.includes(permission);
+  if (!permission) return true;
+  // Una lista se cumple con cualquiera de sus permisos (ver «Configuración»).
+  if (Array.isArray(permission)) {
+    return permission.some((codigo) => permissions.includes(codigo));
+  }
+  return permissions.includes(permission);
 }
 
 /**
@@ -295,10 +190,9 @@ function esVisible(permission, permissions) {
  * aparecer para quien solo administra empresas, aunque no pueda tocar la
  * identidad institucional.
  *
- * Baja por todo el árbol y no solo un nivel: con «Organización» colgando de
- * «Configuración», mirar únicamente a los hijos directos dejaría los seis
- * catálogos sin filtrar —heredando el permiso del abuelo— y se los enseñaría a
- * quien solo puede cambiar los colores del sitio.
+ * Baja por todo el árbol y no solo un nivel: un subgrupo que mirara solo a sus
+ * hijos directos dejaría los de más abajo heredando el permiso del abuelo, y se
+ * los enseñaría a quien no puede abrirlos.
  */
 function filterByPermission(items, permissions, heredado = undefined) {
   return items

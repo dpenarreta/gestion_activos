@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
+import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
 import { useAuth } from "../hooks/useAuth";
@@ -543,10 +544,7 @@ export function AppRoutes() {
           path="permissions"
           element={<Navigate to="/admin/roles/permisos" replace />}
         />
-        <Route
-          path="configuracion"
-          element={<Navigate to="/admin/configuracion/identidad" replace />}
-        />
+        <Route path="configuracion" element={<InicioDeConfiguracion />} />
         <Route
           path="configuracion/identidad"
           element={

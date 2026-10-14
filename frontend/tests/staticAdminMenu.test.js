@@ -12,36 +12,67 @@ function buscar(menu, id) {
 }
 
 describe("Menú administrativo", () => {
-  it("las empresas se crean desde Configuración", () => {
+  it("Configuración es una entrada sola, sin hijos", () => {
+    /* Sus secciones se eligen con las pestañas de la pantalla, como en la
+       Matriz: el menú solo lleva hasta ella. */
     const menu = getVisibleAdminMenu(["configuracion.ver", "empresas.ver"]);
 
     const configuracion = buscar(menu, "configuracion");
-    expect(configuracion.children[0].id).toBe("configuracion-empresas");
-    expect(configuracion.children[0].path).toBe("/admin/empresas");
+    expect(configuracion.path).toBe("/admin/configuracion");
+    expect(configuracion.children).toBeUndefined();
   });
 
-  // Quien administra las empresas del grupo no tiene por qué poder tocar la
-  // identidad institucional, y al revés.
-  it("un hijo con permiso propio se filtra por el suyo", () => {
-    const soloEmpresas = getVisibleAdminMenu(["empresas.ver"]);
-    const soloIdentidad = getVisibleAdminMenu(["configuracion.ver"]);
-
-    expect(buscar(soloEmpresas, "configuracion-empresas")).toBeDefined();
-    expect(buscar(soloEmpresas, "configuracion-identidad")).toBeUndefined();
-    expect(buscar(soloIdentidad, "configuracion-empresas")).toBeUndefined();
-    expect(buscar(soloIdentidad, "configuracion-identidad")).toBeDefined();
+  it("basta con poder abrir una de sus secciones para verla", () => {
+    for (const permiso of [
+      "empresas.ver",
+      "usuarios.ver",
+      "roles.ver",
+      "permisos.ver",
+      "organizacion.ver",
+      "configuracion.ver",
+      "auditoria.ver",
+    ]) {
+      expect(
+        buscar(getVisibleAdminMenu([permiso]), "configuracion"),
+      ).toBeDefined();
+    }
   });
 
-  it("el grupo desaparece cuando no le queda ningún hijo visible", () => {
+  it("y desaparece cuando no puede abrir ninguna", () => {
     const menu = getVisibleAdminMenu(["activos.ver"]);
 
     expect(buscar(menu, "configuracion")).toBeUndefined();
   });
 
-  it("un hijo sin permiso propio sigue heredando el del grupo", () => {
-    const menu = getVisibleAdminMenu(["usuarios.ver"]);
+  it("se marca desde las direcciones de sus secciones", () => {
+    const configuracion = buscar(
+      getVisibleAdminMenu(["usuarios.ver"]),
+      "configuracion",
+    );
 
-    expect(buscar(menu, "accesos-usuarios")).toBeDefined();
-    expect(buscar(menu, "accesos-roles")).toBeDefined();
+    expect(configuracion.rutas).toEqual(
+      expect.arrayContaining([
+        "/admin/users",
+        "/admin/empresas",
+        "/admin/roles",
+        "/admin/organizacion",
+        "/admin/catalogos",
+        "/admin/auditoria",
+      ]),
+    );
+  });
+
+  it("un hijo sin permiso propio hereda el del grupo; con uno propio, se filtra por el suyo", () => {
+    /* Quien consulta solicitudes ve las suyas y las recibidas, pero no el
+       formulario de crear, que exige otro permiso. */
+    const soloVer = getVisibleAdminMenu(["solicitudes.ver"]);
+    const verYCrear = getVisibleAdminMenu([
+      "solicitudes.ver",
+      "solicitudes.crear",
+    ]);
+
+    expect(buscar(soloVer, "solicitudes-mias")).toBeDefined();
+    expect(buscar(soloVer, "solicitudes-nueva")).toBeUndefined();
+    expect(buscar(verYCrear, "solicitudes-nueva")).toBeDefined();
   });
 });

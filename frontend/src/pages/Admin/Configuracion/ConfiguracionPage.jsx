@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { themeService } from "../../../api/themeService";
-import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
@@ -14,24 +13,6 @@ import { AparienciaTab } from "./AparienciaTab";
 import { ColoresTipografiaTab, COLOR_FIELDS } from "./ColoresTipografiaTab";
 import { IdentidadTab } from "./IdentidadTab";
 import "./ConfiguracionPage.css";
-
-const TABS = [
-  {
-    key: "identidad",
-    label: "Identidad",
-    path: "/admin/configuracion/identidad",
-  },
-  {
-    key: "colores",
-    label: "Colores y tipografía",
-    path: "/admin/configuracion/colores-tipografia",
-  },
-  {
-    key: "apariencia",
-    label: "Apariencia",
-    path: "/admin/configuracion/apariencia",
-  },
-];
 
 const EDITABLE_FIELDS = [
   "site_name",
@@ -145,15 +126,13 @@ export function ConfiguracionPage() {
     <div className="configuracion-page">
       <div className="mz-view-head">
         <div>
-          <h2>Configuración</h2>
+          <h2>Identidad visual</h2>
           <p className="mz-desc">
             Cómo se presenta el sistema: su nombre, su logo, sus colores y su
             tipografía, y si este dispositivo lo muestra claro u oscuro.
           </p>
         </div>
       </div>
-
-      <AdminTabs tabs={TABS} />
 
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
@@ -163,11 +142,7 @@ export function ConfiguracionPage() {
       )}
 
       {activeTab === "apariencia" ? (
-        <div
-          role="tabpanel"
-          id="admin-tabpanel-apariencia"
-          aria-labelledby="admin-tab-apariencia"
-        >
+        <div>
           <AparienciaTab />
         </div>
       ) : (
@@ -202,11 +177,7 @@ export function ConfiguracionPage() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <div
-              role="tabpanel"
-              id={`admin-tabpanel-${activeTab}`}
-              aria-labelledby={`admin-tab-${activeTab}`}
-            >
+            <div>
               {activeTab === "identidad" ? (
                 <IdentidadTab form={form} updateField={updateField} />
               ) : (

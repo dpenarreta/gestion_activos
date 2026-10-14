@@ -104,27 +104,57 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     expect(screen.getByText("Realizar solicitud")).toBeInTheDocument();
   });
 
-  it("un auditor sin acceso a usuarios igual llega a Auditoría", () => {
-    /* La entrada cuelga de «Usuarios y roles», que pide `usuarios.ver`. Con
-       permiso propio, el grupo se abre solo con esta dentro; sin él, quien
-       audita no encontraría la pantalla por ningún lado del menú. */
+  it("Configuración es una sola entrada, sin subelementos", () => {
+    /* Como en la Matriz: lo que contiene se elige con las pestañas de la
+       propia pantalla, no desplegando el menú. */
+    permisos.lista = [
+      "usuarios.ver",
+      "roles.ver",
+      "auditoria.ver",
+      "configuracion.ver",
+      "empresas.ver",
+      "organizacion.ver",
+    ];
+
+    pintar();
+
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute(
+      "href",
+      "/admin/configuracion",
+    );
+    for (const seccion of [
+      "Usuarios",
+      "Usuarios y roles",
+      "Auditoría",
+      "Empresas",
+      "Identidad",
+      "Organización",
+      "Sedes",
+    ]) {
+      expect(screen.queryByText(seccion)).not.toBeInTheDocument();
+    }
+  });
+
+  it("un auditor sin más permisos igual llega a Configuración", () => {
+    /* Basta con poder abrir una sección: sin esto, quien solo audita no
+       encontraría la auditoría por ningún lado del menú. */
     permisos.lista = ["auditoria.ver"];
 
     pintar();
 
-    expect(screen.getByText("Usuarios y roles")).toBeInTheDocument();
-    expect(screen.getByText("Auditoría")).toBeInTheDocument();
-    expect(screen.queryByText("Usuarios")).not.toBeInTheDocument();
-    expect(screen.queryByText("Roles y permisos")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Configuración" }),
+    ).toBeInTheDocument();
   });
 
-  it("quien administra usuarios pero no audita no ve Auditoría", () => {
-    permisos.lista = ["usuarios.ver"];
+  it("sin ninguna sección permitida, no aparece", () => {
+    permisos.lista = ["activos.ver"];
 
     pintar();
 
-    expect(screen.getByText("Usuarios")).toBeInTheDocument();
-    expect(screen.queryByText("Auditoría")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Configuración" }),
+    ).not.toBeInTheDocument();
   });
 
   it("quien consulta solicitudes pero no las hace no ve el formulario", () => {
@@ -135,81 +165,6 @@ describe("Lo que el menú ofrece depende del permiso", () => {
 
     expect(screen.getByText("Mis solicitudes")).toBeInTheDocument();
     expect(screen.queryByText("Realizar solicitud")).not.toBeInTheDocument();
-  });
-
-  it("Organización cuelga de Configuración, con sus catálogos dentro", () => {
-    /* Tres niveles: Configuración → Organización → Sedes. El grupo no se
-       disuelve entre los otros cuatro, que se quedan donde estaban. */
-    permisos.lista = ["configuracion.ver", "organizacion.ver"];
-
-    pintar();
-
-    const configuracion = screen
-      .getByRole("button", { name: /Configuración/ })
-      .closest("li");
-    const organizacion = within(configuracion).getByRole("button", {
-      name: /Organización/,
-    });
-    expect(organizacion).toBeInTheDocument();
-    expect(
-      within(organizacion.closest("li")).getByText("Sedes"),
-    ).toBeInTheDocument();
-    // Y los que ya estaban siguen colgando de Configuración, no de dentro del
-    // grupo nuevo.
-    expect(within(configuracion).getByText("Identidad")).toBeInTheDocument();
-    expect(
-      within(organizacion.closest("li")).queryByText("Identidad"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("los catálogos se filtran por su permiso, no por el del abuelo", () => {
-    /* Antes el filtro solo miraba un nivel: los seis catálogos habrían
-       heredado `configuracion.ver` y se los habría visto quien solo cambia los
-       colores del sitio. */
-    permisos.lista = ["configuracion.ver"];
-
-    pintar();
-
-    expect(screen.getByText("Identidad")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Organización/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("Sedes")).not.toBeInTheDocument();
-  });
-
-  it("quien solo administra catálogos entra por Configuración", () => {
-    permisos.lista = ["organizacion.ver"];
-
-    pintar();
-
-    const configuracion = screen
-      .getByRole("button", { name: /Configuración/ })
-      .closest("li");
-    expect(
-      within(configuracion).getByRole("button", { name: /Organización/ }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Identidad")).not.toBeInTheDocument();
-  });
-
-  it("un hijo con su propio permiso se filtra aparte del grupo", () => {
-    /* «Empresas» cuelga de Configuración pero exige `empresas.ver`: quien
-       administra la marca del sitio no tiene por qué crear organizaciones. */
-    permisos.lista = ["configuracion.ver"];
-
-    pintar({ ruta: "/admin/configuracion/identidad" });
-
-    fireEvent.click(screen.getByRole("button", { name: /Configuración/ }));
-    expect(screen.getByText("Identidad")).toBeInTheDocument();
-    expect(screen.queryByText("Empresas")).not.toBeInTheDocument();
-  });
-
-  it("con el permiso, ese hijo aparece", () => {
-    permisos.lista = ["configuracion.ver", "empresas.ver"];
-
-    pintar({ ruta: "/admin/configuracion/identidad" });
-
-    fireEvent.click(screen.getByRole("button", { name: /Configuración/ }));
-    expect(screen.getByText("Empresas")).toBeInTheDocument();
   });
 
   it("sin sesión el menú queda vacío", () => {
@@ -251,19 +206,18 @@ describe("El menú dice dónde se está", () => {
     expect(grupo).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("una pantalla de tercer nivel abre los dos grupos que la contienen", () => {
-    /* Llegar por un enlace a «Sedes» y encontrar el menú cerrado obliga a
-       adivinar de dónde cuelga lo que se está mirando. */
-    permisos.lista = ["configuracion.ver", "organizacion.ver"];
+  it("Configuración se marca desde cualquiera de sus secciones", () => {
+    /* Las secciones conservan sus direcciones (`/admin/users`,
+       `/admin/organizacion/sedes`…): la entrada tiene que marcarse igual. */
+    permisos.lista = ["usuarios.ver", "organizacion.ver"];
 
-    pintar({ ruta: "/admin/organizacion/sedes" });
-
-    expect(
-      screen.getByRole("button", { name: /Configuración/ }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("button", { name: /Organización/ }),
-    ).toHaveAttribute("aria-expanded", "true");
+    for (const ruta of ["/admin/users/4", "/admin/organizacion/sedes"]) {
+      const { unmount } = pintar({ ruta });
+      expect(
+        screen.getByRole("link", { name: "Configuración" }),
+      ).toHaveAttribute("aria-current", "page");
+      unmount();
+    }
   });
 
   it("el grupo de la pantalla actual llega abierto", () => {

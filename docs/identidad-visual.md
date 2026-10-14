@@ -178,6 +178,25 @@ principal), `btn-outline-primary` (acción de fila), `btn-outline-secondary`
 (secundaria), `btn-cancelar` (descarta), `btn-outline-danger` (borra),
 `btn-exportar` (saca datos). Ícono delante del texto con `<Icon name="…" />`.
 
+## Configuración
+
+Como en la Matriz, **Configuración es una sola entrada del menú** y sus
+secciones se eligen con pestañas (`mz-config-tabs`): Empresas, Usuarios, Roles,
+Permisos, Catálogos, Identidad visual, Respaldos y Auditoría. Catálogos e
+Identidad visual tienen una segunda fila con sus apartados.
+
+Las secciones conservan sus direcciones (`/admin/users`, `/admin/empresas`…).
+El marco —título, descripción y pestañas— lo pone `AdminLayout` cuando la ruta
+pertenece a una sección; cada pantalla solo dibuja su propio encabezado
+(«Empresas», «Usuarios»…), que dentro del marco baja un escalón de tamaño.
+
+Para añadir una sección, agréguela a
+`components/admin/ConfiguracionMarco/seccionesConfiguracion.js` con su
+`path`, su `permission` y sus `rutas` (los prefijos de su listado, su alta y sus
+fichas). Con eso aparece la pestaña para quien tenga el permiso, la entrada
+del menú se marca desde sus pantallas y `/admin/configuracion` la tiene en
+cuenta para elegir a dónde llevar.
+
 ## Pruebas
 
 Las pruebas buscan por rol, etiqueta y texto, no por clase. Si una prueba
