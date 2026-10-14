@@ -22,7 +22,7 @@ test.describe("El panel principal", () => {
     await page.goto("/admin/dashboard");
 
     await expect(
-      page.getByRole("heading", { name: "Panel principal" }),
+      page.getByRole("heading", { name: "Panel principal", level: 2 }),
     ).toBeVisible();
     await expect(page.getByText("Activos registrados")).toBeVisible();
   });
@@ -37,7 +37,7 @@ test.describe("El panel principal", () => {
 
     await expect(page).toHaveURL(/\/admin\/activos\?estado=dado_de_baja/);
     await expect(
-      page.getByRole("heading", { name: "Inventario de activos" }),
+      page.getByRole("heading", { name: "Inventario de activos", level: 2 }),
     ).toBeVisible();
     await expect(page.getByLabel("Filtrar por estado")).toHaveValue(
       "dado_de_baja",
@@ -86,7 +86,7 @@ test.describe("La sesión", () => {
 
     await expect(pagina).toHaveURL(/\/admin\//);
     await expect(
-      pagina.getByRole("heading", { name: "Panel principal" }),
+      pagina.getByRole("heading", { name: "Panel principal", level: 2 }),
     ).toBeVisible();
     await expect(
       pagina.getByRole("link", { name: "Ir al panel administrativo" }),

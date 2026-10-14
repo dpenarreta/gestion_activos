@@ -99,7 +99,9 @@ test.describe("Un equipo, de su alta a su baja", () => {
     // El equipo llega puesto desde la URL, pero su ficha se pide aparte:
     // enviar antes de que llegue deja el campo vacío y la validación del
     // navegador corta el envío sin que nada se vea en la pantalla.
-    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Cambiar", exact: true }),
+    ).toBeVisible();
 
     await page.getByLabel("Nombre del técnico o proveedor").fill("Taller E2E");
     await page.getByLabel("Trabajo realizado").fill("Cambio de disco");
@@ -144,7 +146,11 @@ test.describe("Un equipo, de su alta a su baja", () => {
 /** Abre la ficha de un equipo buscándolo por su código de barras. */
 async function abrirFicha(page, codigo) {
   const fila = await buscarEnElInventario(page, codigo);
-  await fila.getByRole("link", { name: "Ver ficha" }).click();
+  await fila
+    // La fila ya no tiene un botón «Ver ficha» (se quitó al poner las acciones
+    // en la fila, e6682f8): la ficha se abre desde el nombre del equipo.
+    .locator("a.activos-tabla__nombre")
+    .click();
   await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
 }
 

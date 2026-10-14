@@ -73,7 +73,11 @@ test.describe("Un equipo de turno", () => {
 /** Abre la ficha del equipo desde el inventario. */
 async function abrirFicha(page, codigo) {
   const fila = await buscarEnElInventario(page, codigo);
-  await fila.getByRole("link", { name: "Ver ficha" }).click();
+  await fila
+    // La fila ya no tiene un botón «Ver ficha» (se quitó al poner las acciones
+    // en la fila, e6682f8): la ficha se abre desde el nombre del equipo.
+    .locator("a.activos-tabla__nombre")
+    .click();
   await expect(page.getByRole("heading", { name: MARCA })).toBeVisible();
 }
 

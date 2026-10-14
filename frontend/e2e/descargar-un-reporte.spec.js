@@ -21,7 +21,9 @@ test.describe("Reportes", () => {
        que dice que ese contrato sigue en pie. */
     await page.goto("/admin/reportes");
 
-    await expect(page.getByRole("heading", { name: "Reportes" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Reportes", level: 2 }),
+    ).toBeVisible();
     await expect(enElCatalogo(page, "Inventario general")).toBeVisible();
     await expect(
       enElCatalogo(page, "Valor en libros y depreciación"),

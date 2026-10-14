@@ -72,12 +72,14 @@ test.describe("Consulta por escáner", () => {
     await page.getByRole("link", { name: /Registrar mantenimiento/ }).click();
 
     await expect(
-      page.getByRole("heading", { name: "Registrar mantenimiento" }),
+      page.getByRole("heading", { name: "Registrar mantenimiento", level: 2 }),
     ).toBeVisible();
     // El equipo llega puesto y se ve cuál es, no un número: por la URL solo
     // viaja el identificador, así que el formulario pide su ficha.
     await expect(page.getByText(codigo)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Cambiar", exact: true }),
+    ).toBeVisible();
   });
 
   test("en el formulario, el equipo también se elige con la pistola", async ({
@@ -93,11 +95,13 @@ test.describe("Consulta por escáner", () => {
     await campo.fill(codigo);
     await campo.press("Enter");
 
-    await expect(page.getByRole("button", { name: "Cambiar" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Cambiar", exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(`E2E-${SERIE}`)).toBeVisible();
     // Sigue en el formulario: el Enter no lo envió.
     await expect(
-      page.getByRole("heading", { name: "Registrar mantenimiento" }),
+      page.getByRole("heading", { name: "Registrar mantenimiento", level: 2 }),
     ).toBeVisible();
   });
 

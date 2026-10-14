@@ -35,7 +35,7 @@ test.describe("Un equipo puesto por un partner", () => {
     await noHayError(page, "El alta del concesionario fue rechazada");
 
     await expect(
-      page.getByRole("heading", { name: "Concesionarios" }),
+      page.getByRole("heading", { name: "Concesionarios", level: 2 }),
     ).toBeVisible();
     await expect(page.getByText(PARTNER)).toBeVisible();
   });
@@ -60,7 +60,11 @@ test.describe("Un equipo puesto por un partner", () => {
     /* Contarlo abultaría el valor del parque con algo que es de otro. El costo
        sí se guarda —es lo que el partner puso— y se sigue viendo. */
     const fila = await buscarEnElInventario(page, SERIE);
-    await fila.getByRole("link", { name: "Ver ficha" }).click();
+    await fila
+      // La fila ya no tiene un botón «Ver ficha» (se quitó al poner las acciones
+      // en la fila, e6682f8): la ficha se abre desde el nombre del equipo.
+      .locator("a.activos-tabla__nombre")
+      .click();
 
     await expect(page.getByRole("heading", { name: MARCA })).toBeVisible();
     expect(await valorDe(page, "Costo de compra")).toContain("1.800");

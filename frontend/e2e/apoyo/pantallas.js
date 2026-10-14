@@ -35,6 +35,33 @@ export async function elegirPrimeraOpcion(ambito, etiqueta) {
 }
 
 /**
+ * Elige un tipo de dispositivo que no pida características obligatorias.
+ *
+ * La primera opción del catálogo dependía del orden alfabético de cada base, y
+ * en la de desarrollo es «Celulares», que exige IMEI y sistema operativo: el
+ * formulario no se enviaba y la prueba esperaba una ficha que nunca llegaba. Se
+ * prefiere una laptop —el equipo que estas pruebas describen— y, si la base no
+ * tiene ninguna, la primera opción como antes.
+ */
+async function elegirTipoSinCaracteristicas(page) {
+  const select = page.getByLabel("Tipo de dispositivo");
+  await expect
+    .poll(async () => select.locator("option").count(), {
+      message: "el desplegable «Tipo de dispositivo» no llegó a cargarse",
+    })
+    .toBeGreaterThan(1);
+  const opciones = await select
+    .locator("option")
+    .evaluateAll((lista) =>
+      lista
+        .filter((o) => o.value)
+        .map((o) => ({ value: o.value, texto: o.textContent })),
+    );
+  const laptop = opciones.find((o) => /laptop|port[aá]til/i.test(o.texto));
+  await select.selectOption((laptop ?? opciones[0]).value);
+}
+
+/**
  * Registra un equipo en la empresa activa y deja abierta su ficha.
  *
  * Se llena lo mínimo que el formulario exige; lo demás lo prueban las de
@@ -45,7 +72,7 @@ export async function registrarEquipo(
   { nombre, serie, costo, condicion, concesionario, compartido },
 ) {
   await page.goto("/admin/activos/new");
-  await elegirPrimeraOpcion(page, "Tipo de dispositivo");
+  await elegirTipoSinCaracteristicas(page);
   await page.getByLabel("Nombre del activo").fill(nombre);
   await page.getByLabel("Marca").fill("Dell");
   await page.getByLabel("Modelo").fill("Latitude 5440");
