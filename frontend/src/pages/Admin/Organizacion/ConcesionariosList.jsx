@@ -2,16 +2,12 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { concesionariosService } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Concesionarios" },
-];
 const FILTROS_INICIALES = { q: "", activo: "" };
 
 /**
@@ -45,38 +41,42 @@ export function ConcesionariosList() {
   }
 
   return (
-    <div className="organizacion-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Concesionarios</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Concesionarios</h2>
+          <p className="mz-desc">
+            Partners que ponen equipos para operar con nosotros. La compra corre
+            por su cuenta y el mantenimiento por la nuestra, así que el equipo
+            se atiende igual que el propio pero no cuenta como patrimonio de la
+            empresa.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link
-            to="/admin/organizacion/concesionarios/new"
-            className="btn btn-primary btn-sm"
-          >
-            Nuevo concesionario
-          </Link>
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/organizacion/concesionarios/new"
+              className="btn btn-primary btn-sm"
+            >
+              <Icon name="plus-lg" /> Nuevo concesionario
+            </Link>
+          </div>
         )}
       </div>
 
-      <p className="text-muted">
-        Partners que ponen equipos para operar con nosotros. La compra corre por
-        su cuenta y el mantenimiento por la nuestra, así que el equipo se
-        atiende igual que el propio pero no cuenta como patrimonio de la
-        empresa.
-      </p>
-
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar por nombre, RUC o contacto"
-          aria-label="Buscar concesionarios"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar concesionarios</span>
+          <input
+            type="search"
+            placeholder="Buscar por nombre, RUC o contacto"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por estado"
           value={listado.filtros.activo}
           onChange={(event) =>
@@ -93,39 +93,42 @@ export function ConcesionariosList() {
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Identificación</th>
               <th>Contacto</th>
-              <th className="text-end">Equipos suyos</th>
+              <th className="num">Equipos suyos</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((concesionario) => (
               <tr key={concesionario.id}>
-                <td>{concesionario.nombre}</td>
-                <td className="text-muted">
+                <td className="mz-strong">{concesionario.nombre}</td>
+                <td className="mz-mono mz-faint">
                   {concesionario.identificacion || "—"}
                 </td>
                 <td>
                   {concesionario.contacto || (
-                    <span className="text-muted">—</span>
+                    <span className="mz-faint">—</span>
                   )}
                   {concesionario.telefono && (
-                    <div className="text-muted small">
+                    <div className="mz-faint mz-small">
                       {concesionario.telefono}
                     </div>
                   )}
                 </td>
-                <td className="text-end">
+                <td className="num">
                   {concesionario.total_activos > 0 ? (
                     <Link
                       to={`/activos?propiedad=concesion&concesionario=${concesionario.id}`}
@@ -138,12 +141,12 @@ export function ConcesionariosList() {
                 </td>
                 <td>
                   <span
-                    className={`badge ${concesionario.activo ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${concesionario.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {concesionario.activo ? "Activo" : "De baja"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     to={`/admin/organizacion/concesionarios/${concesionario.id}`}
                     className="btn btn-outline-primary btn-sm"
@@ -154,10 +157,8 @@ export function ConcesionariosList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
-                  Sin concesionarios registrados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={6}>Sin concesionarios registrados</td>
               </tr>
             )}
           </tbody>

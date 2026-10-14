@@ -4,11 +4,6 @@
   max-width: 68rem;
 }
 
-.importar-activos-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
-
 /* Los pasos se numeran a la izquierda en vez de usar la numeración nativa de
    <ol>: hace falta controlar el tamaño y la alineación del número respecto a
    un bloque de contenido que tiene título, texto y controles. */
@@ -17,24 +12,21 @@
   padding-left: 0;
   margin-bottom: 0;
   display: grid;
-  gap: 1rem;
+  gap: 14px;
 }
 
 .paso {
   display: flex;
-  gap: 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 1rem;
+  gap: 14px;
+  padding: 16px 18px;
 }
 
 .paso__numero {
-  flex: 0 0 2rem;
-  height: 2rem;
+  flex: 0 0 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--color-primary);
-  color: #ffffff;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -46,43 +38,38 @@
   min-width: 0;
 }
 
-.paso__contenido input[type="file"] {
+.paso__titulo {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+/* La zona de carga no se estira a todo el paso: es un blanco para soltar un
+   archivo, no un bloque de contenido. */
+.carga-drop {
+  display: block;
   max-width: 28rem;
+  cursor: pointer;
 }
 
-.resumen-caja {
-  background: var(--surface-alt);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.5rem 1rem;
-  min-width: 9rem;
-  text-align: center;
+/* El campo real está oculto a la vista; el foco de teclado se dibuja en la
+   zona, que es lo que se ve. */
+.carga-drop:focus-within {
+  border-color: var(--mz-action);
+  box-shadow: 0 0 0 0.25rem
+    color-mix(in srgb, var(--mz-action) 25%, transparent);
 }
 
-.resumen-caja--ok {
-  border-color: var(--state-success);
+.carga-drop.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.resumen-caja--error {
-  border-color: var(--state-danger);
-}
-
-.resumen-caja--aviso {
-  border-color: var(--state-warning);
-}
-
-.resumen-valor {
-  font-size: 1.5rem;
+/* El resultado va dentro de un aviso: el título se lee como la frase
+   principal del aviso, no como un encabezado de sección. */
+.resultado-carga__titulo {
+  font-size: inherit;
   font-weight: 600;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.resumen-etiqueta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  margin-bottom: 2px;
 }
 
 /* Un botón deshabilitado no debe insinuar que se puede pulsar: Bootstrap le

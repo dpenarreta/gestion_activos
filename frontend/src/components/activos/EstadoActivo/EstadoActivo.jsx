@@ -9,22 +9,28 @@
  * empresa, las otras dos son pérdidas que alguien tiene que investigar.
  *
  * El texto acompaña siempre al color, para no depender solo de él.
+ *
+ * La identidad tiene cuatro tonos y no nueve: verde para lo que está listo
+ * para entregarse, ámbar para lo que está de paso —en el taller, en garantía,
+ * de camino— y rojo para las pérdidas. Asignado, en bodega y la baja van en
+ * neutro: son la situación normal de un equipo, o una decisión ya cerrada, y
+ * teñirlas haría competir el inventario entero con lo que sí pide atención.
  */
 const VARIANTES = {
-  disponible: "text-bg-success",
-  en_uso: "text-bg-primary",
-  en_bodega: "text-bg-secondary",
-  en_mantenimiento: "text-bg-info",
-  en_garantia: "text-bg-info",
-  en_transito: "text-bg-warning",
-  dado_de_baja: "text-bg-dark",
-  perdido: "text-bg-danger",
-  robado: "text-bg-danger",
+  disponible: "mz-pill--ok",
+  en_uso: "mz-pill--neutral",
+  en_bodega: "mz-pill--neutral",
+  en_mantenimiento: "mz-pill--warn",
+  en_garantia: "mz-pill--warn",
+  en_transito: "mz-pill--warn",
+  dado_de_baja: "mz-pill--neutral",
+  perdido: "mz-pill--bad",
+  robado: "mz-pill--bad",
 };
 
 export function EstadoActivo({ estado, etiqueta }) {
   return (
-    <span className={`badge ${VARIANTES[estado] || "text-bg-secondary"}`}>
+    <span className={`mz-pill ${VARIANTES[estado] || "mz-pill--neutral"}`}>
       {etiqueta || estado}
     </span>
   );

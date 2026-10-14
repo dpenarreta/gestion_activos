@@ -1,19 +1,19 @@
 .escaner-camara {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  background-color: var(--surface-alt);
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background-color: var(--mz-sunken);
 }
 
 .escaner-camara__cabecera {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 16px;
 }
 
 /* Alto acotado: a pantalla completa, en un teléfono, el vídeo empuja fuera de
@@ -22,8 +22,8 @@
   width: 100%;
   max-height: 20rem;
   object-fit: cover;
-  border-radius: 0.375rem;
-  background-color: #000;
+  border-radius: 6px;
+  background-color: var(--mz-blue-950);
 }
 
 /* Mientras no hay imagen se oculta en vez de mostrar un rectángulo negro, que

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { getEmpresaActiva } from "../../../api/client";
 import { empresasService } from "../../../api/empresasService";
 import { rolesService } from "../../../api/rolesService";
+import { Icon } from "../../../components/common/Icon/Icon";
 import "./Empresas.css";
 
 /**
@@ -42,15 +43,20 @@ export function SeleccionEmpresaYRol({ empresaId, rolId, onChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <div className="alert alert-warning">{error}</div>;
+  if (error) {
+    return (
+      <div className="mz-alert mz-alert--warn" role="alert">
+        <Icon name="exclamation-triangle" />
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <>
+    <div className="mz-field-grid">
       {empresas.length > 1 && (
-        <div className="mb-3">
-          <label className="form-label" htmlFor="empresa">
-            Empresa
-          </label>
+        <div className="mz-field">
+          <label htmlFor="empresa">Empresa</label>
           <select
             id="empresa"
             className="form-select"
@@ -73,10 +79,8 @@ export function SeleccionEmpresaYRol({ empresaId, rolId, onChange }) {
         </div>
       )}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="rol">
-          Rol
-        </label>
+      <div className="mz-field">
+        <label htmlFor="rol">Rol</label>
         <select
           id="rol"
           className="form-select"
@@ -99,12 +103,12 @@ export function SeleccionEmpresaYRol({ empresaId, rolId, onChange }) {
             : "Lo que podrá hacer dentro del sistema."}
         </div>
         {roles.length === 0 && (
-          <div className="form-text text-warning">
-            No hay roles creados todavía: créelos en Usuarios y roles → Roles y
-            permisos.
+          <div className="mz-small mz-warn mt-1">
+            <Icon name="exclamation-triangle" /> No hay roles creados todavía:
+            créelos en Usuarios y roles → Roles y permisos.
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

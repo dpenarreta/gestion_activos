@@ -3,16 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { importacionActivosService } from "../../../api/activosService";
 import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ColumnasPlantillaPanel } from "./ColumnasPlantillaPanel";
 import { mensajeDeError } from "../../../utils/errores";
 import "./ImportarActivos.css";
-
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Activos", path: "/admin/activos" },
-  { label: "Carga masiva" },
-];
 
 /**
  * Carga masiva de activos desde una hoja de cálculo.
@@ -35,14 +29,12 @@ export function ImportarActivosPage({ seccion = "cargar" }) {
   if (seccion === "columnas") {
     return (
       <div className="importar-activos-page">
-        <Breadcrumbs items={BREADCRUMB_ITEMS} />
-        <h2>Carga masiva de activos</h2>
+        <Encabezado />
         <AdminTabs tabs={TABS} />
         <div
           role="tabpanel"
           id="admin-tabpanel-columnas"
           aria-labelledby="admin-tab-columnas"
-          className="pt-3"
         >
           <ColumnasPlantillaPanel />
         </div>
@@ -50,6 +42,28 @@ export function ImportarActivosPage({ seccion = "cargar" }) {
     );
   }
   return <PanelCarga />;
+}
+
+/* El mismo encabezado en las dos pestañas: son una sola pantalla, y que el
+   título o la salida cambiaran al pasar de una a otra haría pensar que se
+   salió de ella. */
+function Encabezado() {
+  return (
+    <div className="mz-view-head">
+      <div>
+        <h2>Carga masiva de activos</h2>
+        <p className="mz-desc">
+          Muchos equipos de una vez, desde una hoja de cálculo. El archivo se
+          revisa entero antes de guardar nada.
+        </p>
+      </div>
+      <div className="mz-view-actions">
+        <Link to="/admin/activos" className="btn btn-outline-secondary btn-sm">
+          <Icon name="arrow-left" /> Volver al inventario
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 function PanelCarga() {
@@ -62,6 +76,7 @@ function PanelCarga() {
   const [isValidando, setIsValidando] = useState(false);
   const [isImportando, setIsImportando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [isArrastrando, setIsArrastrando] = useState(false);
 
   async function handleDescargarPlantilla() {
     setError(null);
@@ -80,8 +95,21 @@ function PanelCarga() {
     }
   }
 
-  async function handleArchivo(event) {
-    const seleccionado = event.target.files?.[0];
+  function handleArchivo(event) {
+    validar(event.target.files?.[0]);
+  }
+
+  // Soltar el archivo sobre la zona hace lo mismo que elegirlo: la zona
+  // invita a arrastrar, y que no hiciera nada al soltar sería engañoso.
+  function handleSoltar(event) {
+    event.preventDefault();
+    setIsArrastrando(false);
+    if (isValidando || isImportando) return;
+    const soltado = event.dataTransfer?.files?.[0];
+    if (soltado) validar(soltado);
+  }
+
+  async function validar(seleccionado) {
     setReporte(null);
     setResultado(null);
     setError(null);
@@ -127,32 +155,32 @@ function PanelCarga() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  const ocupado = isValidando || isImportando;
+
   return (
     <div className="importar-activos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Carga masiva de activos</h2>
-        <Link to="/admin/activos" className="btn btn-outline-secondary btn-sm">
-          Volver al inventario
-        </Link>
-      </div>
+      <Encabezado />
 
       <AdminTabs tabs={TABS} />
 
       <div
-        className="pt-3"
         role="tabpanel"
         id="admin-tabpanel-cargar"
         aria-labelledby="admin-tab-cargar"
       >
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
 
         <ol className="pasos-carga">
-          <li className="paso">
+          <li className="mz-card paso">
             <div className="paso__numero">1</div>
             <div className="paso__contenido">
-              <h3 className="h6">Descargue la plantilla</h3>
-              <p className="text-muted small mb-2">
+              <h3 className="paso__titulo">Descargue la plantilla</h3>
+              <p className="mz-small mz-faint mb-2">
                 Incluye las columnas que se deben llenar, una hoja de
                 instrucciones, un ejemplo y los códigos vigentes de tipos de
                 dispositivo, departamentos y empleados.
@@ -162,20 +190,16 @@ function PanelCarga() {
                 className="btn btn-outline-primary btn-sm"
                 onClick={handleDescargarPlantilla}
               >
-                <i
-                  className="bi bi-file-earmark-excel me-1"
-                  aria-hidden="true"
-                />
-                Descargar plantilla (.xlsx)
+                <Icon name="file-earmark-excel" /> Descargar plantilla (.xlsx)
               </button>
             </div>
           </li>
 
-          <li className="paso">
+          <li className="mz-card paso">
             <div className="paso__numero">2</div>
             <div className="paso__contenido">
-              <h3 className="h6">Complete una fila por equipo</h3>
-              <p className="text-muted small mb-0">
+              <h3 className="paso__titulo">Complete una fila por equipo</h3>
+              <p className="mz-small mz-faint mb-0">
                 Las columnas marcadas con <strong>*</strong> son obligatorias.
                 El código de barras <strong>no se llena</strong>: lo genera el
                 sistema al importar. Máximo 1000 filas por carga.
@@ -183,25 +207,44 @@ function PanelCarga() {
             </div>
           </li>
 
-          <li className="paso">
+          <li className="mz-card paso">
             <div className="paso__numero">3</div>
             <div className="paso__contenido">
-              <h3 className="h6">Suba el archivo</h3>
-              <p className="text-muted small mb-2">
+              <h3 className="paso__titulo">Suba el archivo</h3>
+              <p className="mz-small mz-faint mb-2">
                 Se revisa completo y se le muestra qué entraría. Nada se guarda
                 hasta que confirme.
               </p>
-              <input
-                ref={inputRef}
-                type="file"
-                className="form-control form-control-sm"
-                accept=".xlsx"
-                aria-label="Archivo de carga masiva"
-                onChange={handleArchivo}
-                disabled={isValidando || isImportando}
-              />
+              {/* El campo de archivo va dentro de la zona y oculto a la vista:
+                  la zona entera es la que se pulsa, y el campo conserva su
+                  nombre accesible y el foco de teclado. */}
+              <label
+                className={`mz-drop carga-drop${isArrastrando ? " is-drag" : ""}${ocupado ? " is-disabled" : ""}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (!ocupado) setIsArrastrando(true);
+                }}
+                onDragLeave={() => setIsArrastrando(false)}
+                onDrop={handleSoltar}
+              >
+                <Icon name="cloud-arrow-up" />
+                <div>
+                  {archivo
+                    ? archivo.name
+                    : "Arrastre el .xlsx aquí o haga clic para elegirlo"}
+                </div>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  className="visually-hidden"
+                  accept=".xlsx"
+                  aria-label="Archivo de carga masiva"
+                  onChange={handleArchivo}
+                  disabled={ocupado}
+                />
+              </label>
               {isValidando && (
-                <p className="text-muted small mt-2 mb-0">
+                <p className="mz-small mz-faint mt-2 mb-0" role="status">
                   Revisando el archivo…
                 </p>
               )}
@@ -212,7 +255,14 @@ function PanelCarga() {
         {reporte && <ReporteValidacion reporte={reporte} archivo={archivo} />}
 
         {reporte && (
-          <div className="d-flex gap-2 mt-3">
+          <div className="mz-actions justify-content-end mt-3">
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={limpiar}
+            >
+              Elegir otro archivo
+            </button>
             <button
               type="button"
               className="btn btn-primary"
@@ -227,13 +277,6 @@ function PanelCarga() {
                 : reporte.es_importable
                   ? `Importar ${reporte.filas_validas} activo(s)`
                   : `Corrija ${reporte.filas_con_error ?? reporte.errores.length} fila(s) para importar`}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={limpiar}
-            >
-              Elegir otro archivo
             </button>
           </div>
         )}
@@ -300,114 +343,129 @@ function ReporteValidacion({ reporte, archivo }) {
   } = reporte;
 
   return (
-    <section className="mt-4">
-      <h3 className="h5">Revisión de {archivo?.name}</h3>
-
-      <div className="row g-2 mb-3">
-        <div className="col-auto">
-          <div className="resumen-caja">
-            <div className="resumen-valor">{totalFilas}</div>
-            <div className="resumen-etiqueta">Filas con datos</div>
-          </div>
-        </div>
-        <div className="col-auto">
-          <div
-            className={`resumen-caja ${filasValidas > 0 ? "resumen-caja--ok" : ""}`}
-          >
-            <div className="resumen-valor">{filasValidas}</div>
-            <div className="resumen-etiqueta">Listas para importar</div>
-          </div>
-        </div>
-        <div className="col-auto">
-          {/* Se cuentan filas, no errores: es lo que hay que ir a corregir en
-              el archivo, y una fila puede traer tres problemas. */}
-          <div
-            className={`resumen-caja ${errores.length > 0 ? "resumen-caja--error" : ""}`}
-          >
-            <div className="resumen-valor">
-              {filasConError ?? errores.length}
-            </div>
-            <div className="resumen-etiqueta">Filas con error</div>
-          </div>
-        </div>
-        {advertencias.length > 0 && (
-          <div className="col-auto">
-            <div className="resumen-caja resumen-caja--aviso">
-              <div className="resumen-valor">{advertencias.length}</div>
-              <div className="resumen-etiqueta">Avisos</div>
-            </div>
-          </div>
-        )}
+    <section className="mz-card mt-4">
+      <div className="mz-card-head">
+        <h3>Revisión de {archivo?.name}</h3>
       </div>
 
-      {errores.length > 0 && (
-        <>
-          <div className="alert alert-danger">
-            <strong>No se importará nada mientras haya errores.</strong> La
-            carga es todo o nada: un inventario a medio cargar es peor que uno
-            vacío, porque no se sabe qué entró. Corrija lo siguiente en el
-            archivo y vuelva a subirlo.
+      <div className="mz-card-body">
+        <div className="mz-kpi-grid">
+          <div className="mz-kpi mz-kpi--info">
+            <div className="mz-kpi-top">
+              <span className="mz-kpi-label">Filas con datos</span>
+              <span className="mz-kpi-icon">
+                <Icon name="table" />
+              </span>
+            </div>
+            <div className="mz-kpi-value">{totalFilas}</div>
           </div>
-          <ListaPorFila hallazgos={errores} tono="error" />
-        </>
-      )}
-
-      {advertencias.length > 0 && (
-        <>
-          <div className="alert alert-warning">
-            {/* Separadas de los errores a propósito: no bloquean, y mezclarlas
-                obligaría a elegir entre frenar cargas legítimas o callar cosas
-                que conviene mirar antes de confirmar. */}
-            <strong>Esto se importará igual</strong>, pero conviene revisarlo
-            antes de confirmar.
+          <div className={`mz-kpi ${filasValidas > 0 ? "mz-kpi--ok" : ""}`}>
+            <div className="mz-kpi-top">
+              <span className="mz-kpi-label">Listas para importar</span>
+              <span className="mz-kpi-icon">
+                <Icon name="check2-circle" />
+              </span>
+            </div>
+            <div className="mz-kpi-value">{filasValidas}</div>
           </div>
-          <ListaPorFila hallazgos={advertencias} tono="aviso" />
-        </>
-      )}
+          {/* Se cuentan filas, no errores: es lo que hay que ir a corregir en
+              el archivo, y una fila puede traer tres problemas. */}
+          <div className={`mz-kpi ${errores.length > 0 ? "mz-kpi--bad" : ""}`}>
+            <div className="mz-kpi-top">
+              <span className="mz-kpi-label">Filas con error</span>
+              <span className="mz-kpi-icon">
+                <Icon name="x-octagon" />
+              </span>
+            </div>
+            <div className="mz-kpi-value">
+              {filasConError ?? errores.length}
+            </div>
+          </div>
+          {advertencias.length > 0 && (
+            <div className="mz-kpi mz-kpi--warn">
+              <div className="mz-kpi-top">
+                <span className="mz-kpi-label">Avisos</span>
+                <span className="mz-kpi-icon">
+                  <Icon name="exclamation-triangle" />
+                </span>
+              </div>
+              <div className="mz-kpi-value">{advertencias.length}</div>
+            </div>
+          )}
+        </div>
 
-      {errores.length === 0 && vistaPrevia.length > 0 && (
-        <>
-          <p className="text-muted small">
+        {errores.length > 0 && (
+          <>
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              <div>
+                <strong>No se importará nada mientras haya errores.</strong> La
+                carga es todo o nada: un inventario a medio cargar es peor que
+                uno vacío, porque no se sabe qué entró. Corrija lo siguiente en
+                el archivo y vuelva a subirlo.
+              </div>
+            </div>
+            <ListaPorFila hallazgos={errores} tono="error" />
+          </>
+        )}
+
+        {advertencias.length > 0 && (
+          <>
+            <div className="mz-alert mz-alert--warn" role="status">
+              <Icon name="exclamation-triangle" />
+              {/* Separadas de los errores a propósito: no bloquean, y
+                  mezclarlas obligaría a elegir entre frenar cargas legítimas o
+                  callar cosas que conviene mirar antes de confirmar. */}
+              <div>
+                <strong>Esto se importará igual</strong>, pero conviene
+                revisarlo antes de confirmar.
+              </div>
+            </div>
+            <ListaPorFila hallazgos={advertencias} tono="aviso" />
+          </>
+        )}
+
+        {errores.length === 0 && vistaPrevia.length > 0 && (
+          <p className="mz-small mz-faint mb-0">
             Primeros {vistaPrevia.length} de {filasValidas} activos que se
             crearán:
           </p>
-          <div className="table-responsive">
-            <table className="table table-sm table-striped align-middle">
-              <thead>
-                <tr>
-                  <th className="text-end">Fila</th>
-                  <th>Nombre</th>
-                  <th>Equipo</th>
-                  <th>Serie</th>
-                  <th>Tipo</th>
-                  <th>Área</th>
-                  <th>Custodio</th>
+        )}
+      </div>
+
+      {errores.length === 0 && vistaPrevia.length > 0 && (
+        <div className="mz-table-wrap">
+          <table className="mz-table">
+            <thead>
+              <tr>
+                <th className="num">Fila</th>
+                <th>Nombre</th>
+                <th>Equipo</th>
+                <th>Serie</th>
+                <th>Tipo</th>
+                <th>Área</th>
+                <th>Custodio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vistaPrevia.map((fila) => (
+                <tr key={fila.fila}>
+                  <td className="num mz-faint">{fila.fila}</td>
+                  <td className="mz-strong">{fila.nombre}</td>
+                  <td>
+                    {fila.marca} {fila.modelo}
+                  </td>
+                  <td className="mz-mono">{fila.numero_serie}</td>
+                  <td>{fila.tipo}</td>
+                  <td>{fila.departamento}</td>
+                  <td>
+                    {fila.custodio || <span className="mz-faint">Bodega</span>}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {vistaPrevia.map((fila) => (
-                  <tr key={fila.fila}>
-                    <td className="text-end text-muted">{fila.fila}</td>
-                    <td>{fila.nombre}</td>
-                    <td>
-                      {fila.marca} {fila.modelo}
-                    </td>
-                    <td>
-                      <code>{fila.numero_serie}</code>
-                    </td>
-                    <td>{fila.tipo}</td>
-                    <td>{fila.departamento}</td>
-                    <td>
-                      {fila.custodio || (
-                        <span className="text-muted">Bodega</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -415,19 +473,22 @@ function ReporteValidacion({ reporte, archivo }) {
 
 function ResultadoImportacion({ resultado, onVerInventario }) {
   return (
-    <section className="mt-4">
-      <div className="alert alert-success">
-        <h3 className="h6">
-          Se importaron {resultado.creados.length} activo(s) con su código de
-          barras generado.
-        </h3>
-        <p className="small mb-0">
-          Ya puede imprimir sus etiquetas desde la ficha de cada uno.
-        </p>
+    <section className="mz-card mt-4">
+      <div className="mz-card-body">
+        <div className="mz-alert mz-alert--info mb-0" role="status">
+          <Icon name="check2-circle" />
+          <div>
+            <h3 className="resultado-carga__titulo">
+              Se importaron {resultado.creados.length} activo(s) con su código
+              de barras generado.
+            </h3>
+            Ya puede imprimir sus etiquetas desde la ficha de cada uno.
+          </div>
+        </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Código de barras</th>
@@ -444,20 +505,24 @@ function ResultadoImportacion({ resultado, onVerInventario }) {
                     </code>
                   </Link>
                 </td>
-                <td>{activo.nombre}</td>
+                <td className="mz-strong">{activo.nombre}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary"
-        onClick={onVerInventario}
-      >
-        Ver el inventario
-      </button>
+      <div className="mz-card-body">
+        <div className="mz-actions justify-content-end">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onVerInventario}
+          >
+            Ver el inventario
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

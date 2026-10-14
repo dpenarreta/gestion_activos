@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { activosService } from "../../../api/activosService";
+import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
 import "./EtiquetaDialog.css";
@@ -168,18 +169,21 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       onCerrar={onCerrar}
       anchoMaximo="46rem"
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <p className="text-muted small">
+      <p className="mz-faint mz-small">
         Etiqueta de 50 × 25 mm con el código en{" "}
         {simbologia === "qr" ? "QR" : "Code 128"}. El PDF sale a tamaño real:
         imprímalo «a escala 100 %», sin ajustar a página.
       </p>
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="simbologia-etiqueta">
-          Tipo de código
-        </label>
+      <div className="mz-field mb-3">
+        <label htmlFor="simbologia-etiqueta">Tipo de código</label>
         <select
           id="simbologia-etiqueta"
           className="form-select form-select-sm"
@@ -201,11 +205,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       </div>
 
       <div className="etiqueta-previa-pdf mb-3">
-        {isLoading && (
-          <p className="text-muted m-0 p-4 text-center">
-            Generando la etiqueta…
-          </p>
-        )}
+        {isLoading && <p className="mz-empty m-0">Generando la etiqueta…</p>}
         {urlPrevia && (
           <object
             data={urlPrevia}
@@ -236,8 +236,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
           onClick={handleDescargarPdf}
           disabled={isLoading}
         >
-          <i className="bi bi-file-earmark-pdf me-1" aria-hidden="true" />
-          Descargar PDF
+          <Icon name="file-earmark-pdf" /> Descargar PDF
         </button>
         <button
           type="button"
@@ -245,14 +244,14 @@ export function EtiquetaDialog({ activo, onCerrar }) {
           onClick={() => setMostrarTermico((valor) => !valor)}
           aria-expanded={mostrarTermico}
         >
-          <i className="bi bi-printer me-1" aria-hidden="true" />
+          <Icon name="printer" />{" "}
           {mostrarTermico ? "Ocultar" : "Impresión térmica directa"}
         </button>
       </div>
 
       {mostrarTermico && (
         <section className="etiqueta-termica mt-3">
-          <p className="text-muted small">
+          <p className="mz-faint mz-small">
             Para enviar el trabajo directamente a la cola de una impresora de
             etiquetas, sin pasar por el PDF.
           </p>
@@ -278,7 +277,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
           </label>
           <textarea
             id="contenido-etiqueta"
-            className="form-control font-monospace etiqueta-contenido"
+            className="form-control etiqueta-contenido"
             rows={8}
             readOnly
             value={contenidoTermico || "Generando…"}
@@ -291,7 +290,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
               onClick={handleDescargarTermico}
               disabled={!contenidoTermico}
             >
-              Descargar .{EXTENSIONES[formatoTermico]}
+              <Icon name="download" /> Descargar .{EXTENSIONES[formatoTermico]}
             </button>
             <button
               type="button"
@@ -299,6 +298,7 @@ export function EtiquetaDialog({ activo, onCerrar }) {
               onClick={handleCopiar}
               disabled={!contenidoTermico}
             >
+              <Icon name={copiado ? "check2" : "clipboard"} />{" "}
               {copiado ? "Copiado" : "Copiar al portapapeles"}
             </button>
           </div>
@@ -325,22 +325,27 @@ function LegibilidadDelCodigo({ medicion }) {
 
   return (
     <div
-      className={`alert ${correcto ? "alert-success" : "alert-warning"} py-2 small`}
+      className={`mz-alert ${correcto ? "mz-alert--info" : "mz-alert--warn"}`}
+      role="status"
     >
-      <strong>{medicion.simbologia}</strong> · barra más fina{" "}
-      {medicion.ancho_modulo_mm.toFixed(2)} mm · zona muda{" "}
-      {medicion.quiet_zone_mm.toFixed(1)} mm · alto {medicion.alto_barras_mm} mm
-      {correcto ? (
-        <span className="d-block">
-          Dentro de lo que lee una pistola láser común, incluida la Zebra.
-        </span>
-      ) : (
-        <span className="d-block">
-          El código es demasiado largo para esta etiqueta: quedaría por debajo
-          del mínimo legible. Use una etiqueta más ancha antes de imprimir el
-          lote.
-        </span>
-      )}
+      <Icon name={correcto ? "check2-circle" : "exclamation-triangle"} />
+      <div>
+        <strong>{medicion.simbologia}</strong> · barra más fina{" "}
+        {medicion.ancho_modulo_mm.toFixed(2)} mm · zona muda{" "}
+        {medicion.quiet_zone_mm.toFixed(1)} mm · alto {medicion.alto_barras_mm}{" "}
+        mm
+        {correcto ? (
+          <span className="d-block">
+            Dentro de lo que lee una pistola láser común, incluida la Zebra.
+          </span>
+        ) : (
+          <span className="d-block">
+            El código es demasiado largo para esta etiqueta: quedaría por debajo
+            del mínimo legible. Use una etiqueta más ancha antes de imprimir el
+            lote.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

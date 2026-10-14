@@ -7,13 +7,11 @@ import {
   sedesService,
 } from "../../../api/organizacionService";
 import { reportesService } from "../../../api/reportesService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Reportes.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Reportes" }];
 
 const FORMATOS = [
   { clave: "xlsx", etiqueta: "Excel", icono: "file-earmark-excel" },
@@ -147,139 +145,142 @@ export function ReportesPage() {
 
   return (
     <div className="reportes-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Reportes</h2>
-      <p className="text-muted">
-        Los trece reportes del documento funcional. Elija uno, acote el período
-        o el alcance, y descárguelo en el formato que necesite.
-      </p>
+      <div className="mz-view-head">
+        <div>
+          <h2>Reportes</h2>
+          <p className="mz-desc">
+            Los trece reportes del documento funcional. Elija uno, acote el
+            período o el alcance, y descárguelo en el formato que necesite.
+          </p>
+        </div>
+      </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="row g-3">
-        <div className="col-lg-4">
-          <div className="list-group reportes-lista">
-            {catalogo.map((reporte) => (
+      <div className="reportes-layout">
+        <section className="mz-card reportes-lista">
+          <div className="mz-card-head">
+            <h3>Catálogo</h3>
+          </div>
+          {catalogo.map((reporte) => {
+            const activo = seleccionado?.clave === reporte.clave;
+            return (
               <button
                 key={reporte.clave}
                 type="button"
-                className={`list-group-item list-group-item-action ${
-                  seleccionado?.clave === reporte.clave ? "active" : ""
-                }`}
+                className={`mz-row${activo ? " is-active" : ""}`}
+                aria-pressed={activo}
                 onClick={() => setSeleccionado(reporte)}
               >
-                <span className="fw-semibold d-block">{reporte.nombre}</span>
-                <small
-                  className={
-                    seleccionado?.clave === reporte.clave ? "" : "text-muted"
-                  }
-                >
-                  {reporte.descripcion}
-                </small>
+                <span className="mz-row-ic">
+                  <Icon name="file-earmark-text" />
+                </span>
+                <span className="mz-row-info">
+                  <strong>{reporte.nombre}</strong>
+                  <span>{reporte.descripcion}</span>
+                </span>
               </button>
-            ))}
-          </div>
-        </div>
+            );
+          })}
+        </section>
 
-        <div className="col-lg-8">
-          {seleccionado && (
-            <section className="card">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-                  <div>
-                    <h3 className="h5 mb-1">{seleccionado.nombre}</h3>
-                    <p className="text-muted small mb-0">
-                      {seleccionado.descripcion}
-                    </p>
-                  </div>
-                  <div className="btn-group">
-                    {FORMATOS.map((formato) => (
-                      <button
-                        key={formato.clave}
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        disabled={!puedeExportar || descargando !== null}
-                        title={
-                          puedeExportar
-                            ? `Descargar en ${formato.etiqueta}`
-                            : "Necesita el permiso de exportación"
-                        }
-                        onClick={() => handleDescargar(formato.clave)}
-                      >
-                        <i
-                          className={`bi bi-${formato.icono} me-1`}
-                          aria-hidden="true"
-                        />
-                        {descargando === formato.clave ? "…" : formato.etiqueta}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+        {seleccionado && (
+          <section className="mz-card reportes-detalle">
+            <div className="mz-card-head reportes-detalle__cabecera">
+              <div className="min-w-0">
+                <h3>{seleccionado.nombre}</h3>
+                <p className="mz-desc">{seleccionado.descripcion}</p>
+              </div>
+              {/* Descargar saca datos del sistema a un archivo que después
+                  circula: va en el botón de exportar, que se distingue de las
+                  acciones que se quedan dentro. */}
+              <div className="mz-view-actions">
+                {FORMATOS.map((formato) => (
+                  <button
+                    key={formato.clave}
+                    type="button"
+                    className="btn btn-exportar btn-sm"
+                    disabled={!puedeExportar || descargando !== null}
+                    title={
+                      puedeExportar
+                        ? `Descargar en ${formato.etiqueta}`
+                        : "Necesita el permiso de exportación"
+                    }
+                    onClick={() => handleDescargar(formato.clave)}
+                  >
+                    <Icon name={formato.icono} />{" "}
+                    {descargando === formato.clave ? "…" : formato.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                {seleccionado.parametros.length > 0 && (
-                  <FiltrosReporte
-                    parametros={seleccionado.parametros}
-                    valores={filtros}
-                    opciones={opciones}
-                    onCambiar={actualizarFiltro}
-                    onAplicar={() => cargarVista(seleccionado, filtros)}
-                  />
-                )}
+            <div className="mz-card-body">
+              {seleccionado.parametros.length > 0 && (
+                <FiltrosReporte
+                  parametros={seleccionado.parametros}
+                  valores={filtros}
+                  opciones={opciones}
+                  onCambiar={actualizarFiltro}
+                  onAplicar={() => cargarVista(seleccionado, filtros)}
+                />
+              )}
 
-                {isCargando && <p className="text-muted">Generando…</p>}
+              {isCargando && <div className="mz-empty">Generando…</div>}
 
-                {vista && !isCargando && (
-                  <>
-                    <p className="text-muted small">
-                      {vista.total} fila(s)
-                      {vista.total > vista.mostradas && (
-                        <>
-                          {" "}
-                          · se muestran las primeras {vista.mostradas}
-                          {/* La vista previa sirve para reconocer el reporte
-                              antes de descargarlo, no para leerlo entero. */}
-                        </>
-                      )}
-                      {vista.filtros && ` · ${vista.filtros}`}
-                    </p>
+              {vista && !isCargando && (
+                <>
+                  <p className="mz-faint mz-small">
+                    {vista.total} fila(s)
+                    {vista.total > vista.mostradas && (
+                      <>
+                        {" "}
+                        · se muestran las primeras {vista.mostradas}
+                        {/* La vista previa sirve para reconocer el reporte
+                            antes de descargarlo, no para leerlo entero. */}
+                      </>
+                    )}
+                    {vista.filtros && ` · ${vista.filtros}`}
+                  </p>
 
-                    <div className="table-responsive reportes-tabla">
-                      <table className="table table-sm table-striped align-middle">
-                        <thead>
-                          <tr>
-                            {vista.columnas.map((columna) => (
-                              <th key={columna.clave}>{columna.etiqueta}</th>
+                  <div className="mz-table-wrap reportes-tabla">
+                    <table className="mz-table">
+                      <thead>
+                        <tr>
+                          {vista.columnas.map((columna) => (
+                            <th key={columna.clave}>{columna.etiqueta}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vista.filas.map((fila, indice) => (
+                          <tr key={indice}>
+                            {fila.map((valor, columna) => (
+                              <td key={columna}>{valor}</td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {vista.filas.map((fila, indice) => (
-                            <tr key={indice}>
-                              {fila.map((valor, columna) => (
-                                <td key={columna}>{valor}</td>
-                              ))}
-                            </tr>
-                          ))}
-                          {vista.filas.length === 0 && (
-                            <tr>
-                              <td
-                                colSpan={vista.columnas.length}
-                                className="text-center text-muted"
-                              >
-                                Sin datos para este reporte con los filtros
-                                actuales
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-            </section>
-          )}
-        </div>
+                        ))}
+                        {vista.filas.length === 0 && (
+                          <tr className="mz-empty-row">
+                            <td colSpan={vista.columnas.length}>
+                              Sin datos para este reporte con los filtros
+                              actuales
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -378,7 +379,7 @@ function FiltrosReporte({
 
   return (
     <form
-      className="row g-2 align-items-end mb-3"
+      className="mz-filter-bar reportes-filtros"
       onSubmit={(event) => {
         event.preventDefault();
         onAplicar();
@@ -390,18 +391,18 @@ function FiltrosReporte({
         // formulario con un desplegable de miles de opciones.
         .filter((parametro) => parametro !== "activo")
         .map((parametro) => (
-          <div className="col-sm-6 col-md-4" key={parametro}>
-            <label className="form-label small mb-1">
+          // El rótulo envuelve al campo: así queda asociado sin inventar un
+          // id por parámetro, y se lee junto a él en la barra.
+          <label className="reportes-filtro" key={parametro}>
+            <span className="reportes-filtro__rotulo">
               {ETIQUETAS[parametro] || parametro}
-            </label>
+            </span>
             {campo(parametro)}
-          </div>
+          </label>
         ))}
-      <div className="col-sm-6 col-md-3">
-        <button type="submit" className="btn btn-secondary btn-sm w-100">
-          Aplicar filtros
-        </button>
-      </div>
+      <button type="submit" className="btn btn-outline-secondary btn-sm">
+        Aplicar filtros
+      </button>
     </form>
   );
 }

@@ -1,88 +1,101 @@
-/* Panel principal (§15 del documento funcional). */
-
-.dashboard-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
-
-.indicadores-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.75rem;
-}
+/*
+ * Panel principal (§15 del documento funcional).
+ *
+ * Indicadores, tarjetas, filas y barras de reparto son los de la identidad
+ * base (`mz-kpi`, `mz-card`, `mz-row`, `mz-bar-row`). Aquí queda solo lo que
+ * la identidad no trae: que esos bloques sean enlaces, las cifras de la
+ * bitácora y el gráfico de barras verticales por mes.
+ */
 
 /* Cada indicador es un enlace al listado ya filtrado: un número suelto solo
    informa, y lo que se quiere hacer al ver "4 en reparación" es ver cuáles. */
-.indicador-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  padding: 0.9rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border-color);
-  border-left-width: 3px;
-  border-radius: var(--border-radius, 0.5rem);
+.panel-kpi {
+  display: block;
+  color: inherit;
   text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.panel-kpi:hover,
+.panel-kpi:focus-visible {
   color: inherit;
-  transition: border-color var(--appearance-transition-duration, 0.15s) ease;
+  border-top-color: var(--mz-blue-400);
+  border-right-color: var(--mz-blue-400);
+  border-bottom-color: var(--mz-blue-400);
+  box-shadow: var(--mz-shadow-2);
 }
 
-.indicador-panel:hover,
-.indicador-panel:focus-visible {
-  border-color: var(--color-primary);
-  color: inherit;
-}
-
-.indicador-panel--ok {
-  border-left-color: var(--state-success);
-}
-.indicador-panel--info {
-  border-left-color: var(--state-info);
-}
-.indicador-panel--alerta {
-  border-left-color: var(--state-warning);
-}
-.indicador-panel--apagado {
-  opacity: 0.7;
-}
-
-.indicador-panel__icono {
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-.indicador-panel__valor {
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.1;
+.panel-kpi .mz-kpi-value {
+  color: var(--mz-heading, var(--mz-ink));
   /* Cifras de igual ancho: los indicadores se comparan en una fila. */
   font-variant-numeric: tabular-nums;
 }
 
-.indicador-panel__etiqueta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+/* La baja es historia, no algo por atender: se ve, pero sin competir con las
+   cifras vivas. */
+.panel-kpi--apagado {
+  opacity: 0.7;
 }
 
-.tarjeta-panel {
-  background: var(--surface);
-  border-color: var(--border-color);
-  height: 100%;
+/* Las filas de "Equipos más reparados" también son enlaces. */
+.dashboard-page a.mz-row {
+  text-decoration: none;
 }
 
-.cifra__valor {
-  font-size: 1.15rem;
+.dashboard-page a.mz-row:hover .mz-row-info strong {
+  text-decoration: underline;
+}
+
+/* La última fila no repite el borde: el de la tarjeta ya la cierra. */
+.panel-filas > .mz-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-page .mz-row-end .mz-pill {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Cifras de la bitácora --- */
+
+.panel-cifras {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.panel-cifra {
+  background: var(--mz-sunken);
+  border-radius: 10px;
+  padding: 10px 6px;
+}
+
+.panel-cifra__valor {
+  font-family: var(--mz-font-display);
+  font-size: 17px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.cifra__etiqueta {
-  font-size: 0.7rem;
-  color: var(--text-muted);
+.panel-cifra__etiqueta {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mz-ink-faint);
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 560px) {
+  .panel-cifras {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.panel-fuera {
+  margin-bottom: 14px;
 }
 
 /* --- Barras mensuales --- */
@@ -90,10 +103,10 @@
 .grafico-mensual {
   display: flex;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: 12px;
   height: 8rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+  border-top: 1px solid var(--mz-border);
 }
 
 .grafico-mensual__columna {
@@ -103,14 +116,14 @@
   align-items: center;
   justify-content: flex-end;
   height: 100%;
-  gap: 0.25rem;
+  gap: 4px;
 }
 
 .grafico-mensual__barra {
   width: 100%;
   max-width: 2.5rem;
-  background: var(--color-primary);
-  border-radius: 0.2rem 0.2rem 0 0;
+  background: var(--mz-blue-500);
+  border-radius: 4px 4px 0 0;
   /* Altura mínima visible: una barra de valor 0 debe distinguirse de "no hay
      columna", que es lo que comunica el eje. */
   min-height: 2px;
@@ -118,65 +131,32 @@
 
 .grafico-mensual__valor,
 .grafico-mensual__mes {
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--mz-ink-faint);
   font-variant-numeric: tabular-nums;
 }
 
-/* --- Ranking y distribución --- */
+/* --- Reparto por tipo y por área --- */
 
-.ranking__enlace {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--border-color);
-  text-decoration: none;
-  color: inherit;
+/* `mz-seg` solo trae los colores de estado (ok, warn, bad); el reparto no es
+   un estado, así que va en el azul de la identidad. */
+.panel-seg {
+  background: var(--mz-blue-500);
 }
 
-.ranking li:last-child .ranking__enlace {
-  border-bottom: none;
+.panel-bar-detalle {
+  flex: none;
+  font-size: 11px;
+  color: var(--mz-ink-faint);
+  white-space: nowrap;
 }
 
-.ranking__enlace:hover .ranking__nombre {
-  text-decoration: underline;
+.dashboard-page .mz-bar-row:last-child {
+  margin-bottom: 0;
 }
 
-.ranking__valor {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  background: var(--surface-alt);
-  border-radius: 1rem;
-  padding: 0.1rem 0.6rem;
-}
-
-.distribucion li + li {
-  margin-top: 0.6rem;
-}
-
-.distribucion__fila {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.875rem;
-  margin-bottom: 0.2rem;
-}
-
-.distribucion__total {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.distribucion__barra {
-  height: 0.35rem;
-  background: var(--surface-alt);
-  border-radius: 1rem;
-  overflow: hidden;
-}
-
-.distribucion__barra > div {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: 1rem;
+@media (max-width: 560px) {
+  .dashboard-page .mz-bar-label {
+    width: 110px;
+  }
 }

@@ -1,15 +1,14 @@
 import { Fragment, useState } from "react";
 
 import { auditoriaService } from "../../../api/auditoriaService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
+import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAuditoria } from "../../../hooks/useAuditoria";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import "./AuditoriaList.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Auditoría" }];
 
 const RESULTADOS = [
   { valor: "", etiqueta: "Todos los resultados" },
@@ -88,39 +87,43 @@ export function AuditoriaList() {
 
   return (
     <div className="auditoria-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Auditoría</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Auditoría</h2>
+          <p className="mz-desc">
+            Qué se hizo, quién lo hizo y cuándo. El registro no se edita ni se
+            borra: existe para reconstruir lo que pasó, así que lo que entra se
+            queda.
+          </p>
+        </div>
         {puedeExportar && (
-          <button
-            type="button"
-            className="btn btn-exportar btn-sm"
-            onClick={exportar}
-            disabled={isExportando || total === 0}
-            title="Exporta los eventos que coinciden con los filtros actuales"
-          >
-            <i
-              className="bi bi-file-earmark-spreadsheet me-1"
-              aria-hidden="true"
-            />
-            {isExportando ? "Exportando…" : `Exportar (${total})`}
-          </button>
+          <div className="mz-view-actions">
+            <button
+              type="button"
+              className="btn btn-exportar btn-sm"
+              onClick={exportar}
+              disabled={isExportando || total === 0}
+              title="Exporta los eventos que coinciden con los filtros actuales"
+            >
+              <Icon name="file-earmark-spreadsheet" />{" "}
+              {isExportando ? "Exportando…" : `Exportar (${total})`}
+            </button>
+          </div>
         )}
       </div>
 
-      <p className="text-muted auditoria-page__intro">
-        Qué se hizo, quién lo hizo y cuándo. El registro no se edita ni se
-        borra: existe para reconstruir lo que pasó, así que lo que entra se
-        queda.
-      </p>
-
       {errorExportacion && (
-        <div className="alert alert-danger" role="alert">
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
           {errorExportacion}
         </div>
       )}
 
-      <form className="auditoria-filtros" onSubmit={aplicar}>
+      <form
+        className="mz-filter-bar auditoria-filtros"
+        onSubmit={aplicar}
+        role="search"
+      >
         <div>
           <label htmlFor="auditoria-usuario" className="form-label">
             Usuario
@@ -198,7 +201,7 @@ export function AuditoriaList() {
         </div>
         <div className="auditoria-filtros__acciones">
           <button type="submit" className="btn btn-primary btn-sm">
-            Filtrar
+            <Icon name="funnel" /> Filtrar
           </button>
           <button
             type="button"
@@ -211,13 +214,14 @@ export function AuditoriaList() {
       </form>
 
       {error && (
-        <div className="alert alert-danger" role="alert">
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
           {error}
         </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Fecha y hora</th>
@@ -233,14 +237,16 @@ export function AuditoriaList() {
             {eventos.map((evento) => (
               <Fragment key={evento.id}>
                 <tr>
-                  <td>{formatearFecha(evento.created_at_local, true)}</td>
+                  <td className="mz-mono">
+                    {formatearFecha(evento.created_at_local, true)}
+                  </td>
                   {/* Un evento puede no tener autor —lo dispara una tarea del
                       sistema, o el intento llegó sin sesión válida—, y ahí
                       «Sistema» dice más que una celda en blanco. */}
-                  <td>{evento.actor_username || "Sistema"}</td>
-                  <td>
-                    <code>{evento.action}</code>
+                  <td className="mz-strong">
+                    {evento.actor_username || "Sistema"}
                   </td>
+                  <td className="mz-mono">{evento.action}</td>
                   <td>{evento.module || "—"}</td>
                   <td>
                     {evento.target_type}
@@ -248,17 +254,17 @@ export function AuditoriaList() {
                   </td>
                   <td>
                     <span
-                      className={`badge ${
+                      className={`mz-pill ${
                         evento.result === "success"
-                          ? "text-bg-success"
-                          : "text-bg-danger"
+                          ? "mz-pill--ok"
+                          : "mz-pill--bad"
                       }`}
                     >
                       {evento.result === "success" ? "Éxito" : "Fallido"}
                     </span>
                   </td>
                   {puedeVerDetalle && (
-                    <td>
+                    <td className="acciones">
                       <button
                         type="button"
                         className="btn btn-outline-secondary btn-sm"
@@ -276,16 +282,16 @@ export function AuditoriaList() {
                   <tr className="auditoria-detalle">
                     <td colSpan={columnas}>
                       <div className="auditoria-detalle__columnas">
-                        <div>
-                          <h3 className="h6">Antes</h3>
+                        <div className="mz-section">
+                          <h4>Antes</h4>
                           <Valores valores={evento.previous_values} />
                         </div>
-                        <div>
-                          <h3 className="h6">Después</h3>
+                        <div className="mz-section">
+                          <h4>Después</h4>
                           <Valores valores={evento.new_values} />
                         </div>
                       </div>
-                      <p className="text-muted auditoria-detalle__origen">
+                      <p className="mz-small mz-faint mb-0">
                         Desde {evento.ip_address || "origen desconocido"}
                         {evento.browser ? ` · ${evento.browser}` : ""}
                         {evento.operating_system
@@ -299,39 +305,30 @@ export function AuditoriaList() {
               </Fragment>
             ))}
             {!isLoading && eventos.length === 0 && (
-              <tr>
-                <td colSpan={columnas} className="text-center text-muted">
-                  Sin eventos para esos filtros
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={columnas}>Sin eventos para esos filtros</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <span className="text-muted">
-          {isLoading ? "Cargando…" : `${total} evento(s)`}
-        </span>
-        <div className="d-flex gap-2">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={!hayAnterior}
-            onClick={() => setPagina(pagina - 1)}
-          >
-            Anterior
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={!haySiguiente}
-            onClick={() => setPagina(pagina + 1)}
-          >
-            Siguiente
-          </button>
+      {/* Mientras carga, el pie lo dice; `Paginacion` no se pinta con cero
+          eventos, y la fila vacía de la tabla ya lo explica. */}
+      {isLoading ? (
+        <div className="mz-pager">
+          <span className="mz-small mz-faint">Cargando…</span>
         </div>
-      </div>
+      ) : (
+        <Paginacion
+          total={total}
+          pagina={pagina}
+          hasNext={haySiguiente}
+          hasPrevious={hayAnterior}
+          onCambiarPagina={setPagina}
+          etiqueta="evento(s)"
+        />
+      )}
     </div>
   );
 }
@@ -342,16 +339,18 @@ export function AuditoriaList() {
 function Valores({ valores }) {
   const entradas = Object.entries(valores || {});
   if (entradas.length === 0) {
-    return <p className="text-muted mb-0">Sin datos</p>;
+    return <p className="mz-faint mb-0">Sin datos</p>;
   }
   return (
-    <dl className="auditoria-detalle__valores mb-0">
+    <div className="mz-kv-grid">
       {entradas.map(([campo, valor]) => (
-        <div key={campo}>
-          <dt>{campo}</dt>
-          <dd>{valor === null || valor === "" ? "—" : String(valor)}</dd>
+        <div key={campo} className="mz-kv mz-kv--full">
+          <span className="mz-kv-label mz-mono">{campo}</span>
+          <span className="auditoria-detalle__valor">
+            {valor === null || valor === "" ? "—" : String(valor)}
+          </span>
         </div>
       ))}
-    </dl>
+    </div>
   );
 }

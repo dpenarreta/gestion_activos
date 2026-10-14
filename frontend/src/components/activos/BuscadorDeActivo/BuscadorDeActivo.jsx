@@ -183,7 +183,7 @@ export function BuscadorDeActivo({
      sobre el equipo elegido y esa es justamente la vista en la que hay que
      poder leer que la pistola está mal configurada. */
   const aviso = avisoLector ? (
-    <div className="form-text text-info-emphasis">
+    <div className="form-text mz-info">
       <strong>Revise la configuración del lector.</strong> {avisoLector.mensaje}
     </div>
   ) : null;
@@ -196,7 +196,7 @@ export function BuscadorDeActivo({
           <div>
             <code className="codigo-barras">{elegido.codigo_barras}</code>{" "}
             {elegido.nombre}
-            <small className="d-block text-muted">
+            <small className="d-block mz-faint">
               {elegido.marca} {elegido.modelo} · {elegido.numero_serie}
             </small>
           </div>
@@ -250,7 +250,7 @@ export function BuscadorDeActivo({
         onKeyDown={alTeclear}
       />
 
-      {error && <div className="form-text text-danger">{error}</div>}
+      {error && <div className="mz-field-error">{error}</div>}
       {hayQueEscribirMas && (
         <div className="form-text">
           Escriba al menos dos caracteres, o dispare la pistola sobre la
@@ -280,7 +280,7 @@ export function BuscadorDeActivo({
               >
                 <code className="codigo-barras">{activo.codigo_barras}</code>{" "}
                 {activo.nombre}
-                <small className="d-block text-muted">
+                <small className="d-block mz-faint">
                   {activo.marca} {activo.modelo} · {activo.numero_serie}
                   {activo.responsables_resumen
                     ? ` · ${activo.responsables_resumen}`

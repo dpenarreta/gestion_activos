@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { tiposDispositivoService } from "../../../api/activosService";
 import { politicasService } from "../../../api/politicasService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
@@ -99,69 +100,81 @@ export function PoliticasList() {
   const hayGlobal = listado.resultados.some((politica) => politica.es_global);
 
   return (
-    <div className="politicas-panel">
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h3 className="h5 mb-0">Cuándo se sugiere reemplazar un equipo</h3>
-        <div className="d-flex gap-2">
-          {puedeEditar && (
+    <section className="mz-card politicas-panel">
+      <div className="mz-card-head">
+        <h3>Cuándo se sugiere reemplazar un equipo</h3>
+        {puedeEditar && (
+          <div className="mz-view-actions">
             <button
               type="button"
               className="btn btn-outline-primary btn-sm"
               onClick={handleReevaluar}
             >
-              Reevaluar inventario
+              <Icon name="arrow-repeat" /> Reevaluar inventario
             </button>
-          )}
-          {puedeEditar && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
               onClick={() => setEnEdicion(VACIO)}
             >
-              Nueva política
+              <Icon name="plus-lg" /> Nueva política
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      <p className="text-muted">
-        Definen cuándo el sistema sugiere reemplazar un equipo. La política de
-        un tipo de dispositivo tiene prioridad sobre la global; los tipos sin
-        política propia se rigen por ella.
-      </p>
+      <div className="mz-card-body">
+        <p className="mz-faint mb-0">
+          Definen cuándo el sistema sugiere reemplazar un equipo. La política de
+          un tipo de dispositivo tiene prioridad sobre la global; los tipos sin
+          política propia se rigen por ella.
+        </p>
 
-      {aviso && (
-        <div className="alert alert-info alert-dismissible">
-          {aviso}
-          <button
-            type="button"
-            className="btn-close"
-            aria-label="Cerrar"
-            onClick={() => setAviso(null)}
-          />
-        </div>
-      )}
-      {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
-      )}
-      {errorAccion && <div className="alert alert-danger">{errorAccion}</div>}
-      {!listado.isLoading && !hayGlobal && listado.resultados.length > 0 && (
-        <div className="alert alert-warning">
-          No hay una política global. Los tipos de dispositivo sin política
-          propia no se evalúan y nunca mostrarán una sugerencia de renovación.
-        </div>
-      )}
+        {aviso && (
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="check2-circle" />
+            <div className="flex-grow-1">{aviso}</div>
+            <button
+              type="button"
+              className="mz-close"
+              aria-label="Cerrar"
+              onClick={() => setAviso(null)}
+            >
+              <Icon name="x-lg" />
+            </button>
+          </div>
+        )}
+        {listado.error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {listado.error}
+          </div>
+        )}
+        {errorAccion && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {errorAccion}
+          </div>
+        )}
+        {!listado.isLoading && !hayGlobal && listado.resultados.length > 0 && (
+          <div className="mz-alert mz-alert--warn">
+            <Icon name="exclamation-triangle" />
+            No hay una política global. Los tipos de dispositivo sin política
+            propia no se evalúan y nunca mostrarán una sugerencia de renovación.
+          </div>
+        )}
+      </div>
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
               <th>Política</th>
               <th>Alcance</th>
-              <th className="text-end">Máx. mantenimientos</th>
-              <th className="text-end">Máx. piezas críticas</th>
-              <th className="text-end">Evaluar a los</th>
-              <th className="text-end">Recomendar a los</th>
+              <th className="num">Máx. mantenimientos</th>
+              <th className="num">Máx. piezas críticas</th>
+              <th className="num">Evaluar a los</th>
+              <th className="num">Recomendar a los</th>
               <th className="ps-4">Estado</th>
               <th>Acciones</th>
             </tr>
@@ -169,10 +182,10 @@ export function PoliticasList() {
           <tbody>
             {listado.resultados.map((politica) => (
               <tr key={politica.id}>
-                <td>{politica.nombre}</td>
+                <td className="mz-strong">{politica.nombre}</td>
                 <td>
                   {politica.es_global ? (
-                    <span className="badge text-bg-primary">Global</span>
+                    <span className="mz-pill mz-pill--neutral">Global</span>
                   ) : (
                     politica.tipo_dispositivo_nombre
                   )}
@@ -193,14 +206,14 @@ export function PoliticasList() {
                 />
                 <td className="ps-4">
                   <span
-                    className={`badge ${politica.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {politica.activa ? "Activa" : "Inactiva"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   {puedeEditar && (
-                    <div className="d-flex gap-2">
+                    <>
                       <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
@@ -215,14 +228,14 @@ export function PoliticasList() {
                       >
                         Eliminar
                       </button>
-                    </div>
+                    </>
                   )}
                 </td>
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center text-muted">
+              <tr className="mz-empty-row">
+                <td colSpan={8}>
                   Sin políticas configuradas. Ningún equipo mostrará sugerencias
                   de renovación.
                 </td>
@@ -258,23 +271,23 @@ export function PoliticasList() {
         onConfirm={confirmarEliminacion}
         onCancel={() => setAEliminar(null)}
       />
-    </div>
+    </section>
   );
 }
 
 /** Un umbral vacío se muestra como "no evalúa", no como cero. */
 function Umbral({ valor, sufijo = "", nota }) {
   return (
-    <td className="text-end">
+    <td className="num">
       {valor === null || valor === undefined ? (
-        <span className="text-muted small">no evalúa</span>
+        <span className="mz-faint mz-small">no evalúa</span>
       ) : (
         <>
           {valor}
           {sufijo}
           {/* El periodo acompaña al número: «3 mantenimientos» significa algo
               muy distinto en 12 meses que en toda la vida del equipo. */}
-          {nota && <small className="d-block text-muted">{nota}</small>}
+          {nota && <div className="mz-small mz-faint">{nota}</div>}
         </>
       )}
     </td>
@@ -370,58 +383,66 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         !sinUmbrales && !segundoNivelInvertido && !ventanaSinMaximo
       }
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="pol-nombre">
-          Nombre
-        </label>
-        <input
-          id="pol-nombre"
-          className="form-control"
-          required
-          maxLength={120}
-          placeholder="Laptops corporativas"
-          value={valores.nombre}
-          onChange={(event) =>
-            setValores({ ...valores, nombre: event.target.value })
-          }
-        />
-      </div>
+      <div className="mz-field-grid mb-3">
+        <div className="mz-field">
+          <label htmlFor="pol-nombre">Nombre</label>
+          <input
+            id="pol-nombre"
+            className="form-control"
+            required
+            maxLength={120}
+            placeholder="Laptops corporativas"
+            value={valores.nombre}
+            onChange={(event) =>
+              setValores({ ...valores, nombre: event.target.value })
+            }
+          />
+        </div>
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="pol-tipo">
-          Se aplica a
-        </label>
-        <select
-          id="pol-tipo"
-          className="form-select"
-          value={valores.tipo_dispositivo}
-          onChange={(event) =>
-            setValores({ ...valores, tipo_dispositivo: event.target.value })
-          }
-        >
-          <option value="" disabled={!puedeSerGlobal}>
-            Todos los tipos (política global)
-            {!puedeSerGlobal && " — ya existe una"}
-          </option>
-          {tipos.map((tipo) => (
-            <option key={tipo.id} value={tipo.id}>
-              {tipo.nombre}
+        <div className="mz-field">
+          <label htmlFor="pol-tipo">Se aplica a</label>
+          <select
+            id="pol-tipo"
+            className="form-select"
+            value={valores.tipo_dispositivo}
+            onChange={(event) =>
+              setValores({ ...valores, tipo_dispositivo: event.target.value })
+            }
+          >
+            <option value="" disabled={!puedeSerGlobal}>
+              Todos los tipos (política global)
+              {!puedeSerGlobal && " — ya existe una"}
             </option>
-          ))}
-        </select>
-        <div className="form-text">
-          La política de un tipo específico tiene prioridad sobre la global.
+            {tipos.map((tipo) => (
+              <option key={tipo.id} value={tipo.id}>
+                {tipo.nombre}
+              </option>
+            ))}
+          </select>
+          <div className="form-text">
+            La política de un tipo específico tiene prioridad sobre la global.
+          </div>
         </div>
       </div>
 
-      <fieldset className="mb-3">
-        <legend className="form-label">Umbrales</legend>
-        <div className="alert alert-info small">
-          Dejar un umbral <strong>vacío</strong> desactiva ese criterio. Ponerlo
-          en <strong>cero</strong> es distinto: haría que la alerta se dispare
-          siempre.
+      {/* Se conserva `row g-3`: los umbrales de mantenimiento van de tres en
+          fila, y la rejilla de dos columnas de la identidad los separaría. */}
+      <div className="mz-section">
+        <h4>Umbrales</h4>
+        <div className="mz-alert mz-alert--info mt-0" role="status">
+          <Icon name="info-circle" />
+          <div>
+            Dejar un umbral <strong>vacío</strong> desactiva ese criterio.
+            Ponerlo en <strong>cero</strong> es distinto: haría que la alerta se
+            dispare siempre.
+          </div>
         </div>
 
         <div className="row g-3">
@@ -542,24 +563,27 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         )}
 
         {sinUmbrales && (
-          <div className="alert alert-warning mt-3 mb-0 small">
+          <div className="mz-alert mz-alert--warn mb-0">
+            <Icon name="exclamation-triangle" />
             Defina al menos un umbral: una política sin ninguno no evaluaría
             nada.
           </div>
         )}
         {segundoNivelInvertido && (
-          <div className="alert alert-warning mt-3 mb-0 small">
+          <div className="mz-alert mz-alert--warn mb-0">
+            <Icon name="exclamation-triangle" />
             El segundo nivel debe ser posterior al primero. Al revés,
             «recomendar» absorbería a «evaluar» y el primer aviso no llegaría
             nunca.
           </div>
         )}
         {ventanaSinMaximo && (
-          <div className="alert alert-warning mt-3 mb-0 small">
+          <div className="mz-alert mz-alert--warn mb-0">
+            <Icon name="exclamation-triangle" />
             La ventana solo tiene sentido junto a un máximo de mantenimientos.
           </div>
         )}
-      </fieldset>
+      </div>
 
       <div className="form-check">
         <input

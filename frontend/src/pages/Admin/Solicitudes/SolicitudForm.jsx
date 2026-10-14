@@ -3,15 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
 import { EspecificacionesDelTipo } from "../../../components/activos/EspecificacionesDelTipo/EspecificacionesDelTipo";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Solicitudes.css";
-
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Solicitudes" },
-  { label: "Realizar solicitud" },
-];
 
 const VACIA = {
   encargado: "",
@@ -131,20 +125,29 @@ export function SolicitudForm() {
   if (aviso) {
     return (
       <div className="solicitudes-page">
-        <Breadcrumbs items={BREADCRUMB_ITEMS} />
-        <div className="alert alert-warning">
-          <strong>Su solicitud #{aviso.id} quedó registrada</strong>, pero no se
-          pudo avisar por correo a {aviso.aviso.sin_correo.join(", ")}: su
-          cuenta no tiene dirección registrada. Aparecerá igual en sus
-          «Solicitudes recibidas», pero conviene avisarle.
+        <div className="mz-view-head">
+          <div>
+            <h2>Realizar solicitud</h2>
+          </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => navegar(`/admin/solicitudes/${aviso.id}`)}
-        >
-          Ver la solicitud
-        </button>
+        <div className="mz-alert mz-alert--warn" role="status">
+          <Icon name="exclamation-triangle" />
+          <div>
+            <strong>Su solicitud #{aviso.id} quedó registrada</strong>, pero no
+            se pudo avisar por correo a {aviso.aviso.sin_correo.join(", ")}: su
+            cuenta no tiene dirección registrada. Aparecerá igual en sus
+            «Solicitudes recibidas», pero conviene avisarle.
+          </div>
+        </div>
+        <div className="mz-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navegar(`/admin/solicitudes/${aviso.id}`)}
+          >
+            Ver la solicitud
+          </button>
+        </div>
       </div>
     );
   }
@@ -162,184 +165,209 @@ export function SolicitudForm() {
 
   return (
     <div className="solicitudes-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2 className="mb-1">Realizar solicitud</h2>
-      <p className="text-muted">
-        Pida un dispositivo o un componente que todavía no existe en el
-        inventario. Llegará a quien elija como encargado de la compra.
-      </p>
-
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      <form onSubmit={guardar} className="row g-3">
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="sol-clase">
-            Qué necesita
-          </label>
-          <select
-            id="sol-clase"
-            className="form-select"
-            value={valores.clase}
-            onChange={(evento) => cambiarClase(evento.target.value)}
-          >
-            <option value="dispositivo">Un dispositivo</option>
-            <option value="componente">Un componente o repuesto</option>
-          </select>
+      <div className="mz-view-head">
+        <div>
+          <h2>Realizar solicitud</h2>
+          <p className="mz-desc">
+            Pida un dispositivo o un componente que todavía no existe en el
+            inventario. Llegará a quien elija como encargado de la compra.
+          </p>
         </div>
+      </div>
 
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="sol-catalogo">
-            {esDispositivo ? "Tipo de dispositivo" : "Componente"}
-          </label>
-          <select
-            id="sol-catalogo"
-            className="form-select"
-            value={
-              esDispositivo ? valores.tipo_dispositivo : valores.componente
-            }
-            onChange={(evento) =>
-              esDispositivo
-                ? cambiarTipo(evento.target.value)
-                : fijar("componente", evento.target.value)
-            }
-            required
-          >
-            <option value="">
-              Elija {esDispositivo ? "el tipo" : "el componente"}
-            </option>
-            {delCatalogo.map((fila) => (
-              <option key={fila.id} value={fila.id}>
-                {fila.nombre}
-              </option>
-            ))}
-          </select>
-          <div className="form-text">
-            {esDispositivo
-              ? "Si el equipo que necesita no está en la lista, pídale a Sistemas que cree el tipo: es lo que trae sus características."
-              : "Si el repuesto no está en la lista, pídale a Sistemas que lo añada al catálogo de componentes."}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
+
+      {/* Se conserva `row g-3`: cantidad y prioridad comparten fila a un cuarto
+          de ancho cada una, que la rejilla de dos columnas no reproduce. */}
+      <section className="mz-card solicitud-form">
+        <div className="mz-card-head">
+          <h3>Datos de la solicitud</h3>
+        </div>
+        <form onSubmit={guardar} className="mz-card-body">
+          <div className="row g-3">
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="sol-clase">
+                Qué necesita
+              </label>
+              <select
+                id="sol-clase"
+                className="form-select"
+                value={valores.clase}
+                onChange={(evento) => cambiarClase(evento.target.value)}
+              >
+                <option value="dispositivo">Un dispositivo</option>
+                <option value="componente">Un componente o repuesto</option>
+              </select>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="sol-catalogo">
+                {esDispositivo ? "Tipo de dispositivo" : "Componente"}
+              </label>
+              <select
+                id="sol-catalogo"
+                className="form-select"
+                value={
+                  esDispositivo ? valores.tipo_dispositivo : valores.componente
+                }
+                onChange={(evento) =>
+                  esDispositivo
+                    ? cambiarTipo(evento.target.value)
+                    : fijar("componente", evento.target.value)
+                }
+                required
+              >
+                <option value="">
+                  Elija {esDispositivo ? "el tipo" : "el componente"}
+                </option>
+                {delCatalogo.map((fila) => (
+                  <option key={fila.id} value={fila.id}>
+                    {fila.nombre}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                {esDispositivo
+                  ? "Si el equipo que necesita no está en la lista, pídale a Sistemas que cree el tipo: es lo que trae sus características."
+                  : "Si el repuesto no está en la lista, pídale a Sistemas que lo añada al catálogo de componentes."}
+              </div>
+            </div>
+
+            {caracteristicasDelTipo.length > 0 && (
+              <div className="col-12">
+                <h4 className="solicitud-subtitulo">Con qué características</h4>
+                <p className="form-text mt-0">
+                  Las que {nombreDelTipo} declara. Las marcadas con{" "}
+                  <strong>*</strong> hay que especificarlas para poder enviar la
+                  solicitud; el resto, solo si su pedido lo exige.
+                </p>
+                <EspecificacionesDelTipo
+                  caracteristicas={caracteristicasDelTipo}
+                  valor={valores.especificaciones}
+                  onChange={(especificaciones) =>
+                    fijar("especificaciones", especificaciones)
+                  }
+                />
+              </div>
+            )}
+
+            <div className="col-6 col-md-3">
+              <label className="form-label" htmlFor="sol-cantidad">
+                Cantidad
+              </label>
+              <input
+                id="sol-cantidad"
+                type="number"
+                min="1"
+                className="form-control"
+                required
+                value={valores.cantidad}
+                onChange={(evento) => fijar("cantidad", evento.target.value)}
+              />
+            </div>
+
+            <div className="col-6 col-md-3">
+              <label className="form-label" htmlFor="sol-prioridad">
+                Prioridad
+              </label>
+              <select
+                id="sol-prioridad"
+                className="form-select"
+                value={valores.prioridad}
+                onChange={(evento) => fijar("prioridad", evento.target.value)}
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="sol-fecha">
+                Se necesita para
+              </label>
+              <input
+                id="sol-fecha"
+                type="date"
+                className="form-control"
+                value={valores.fecha_necesaria}
+                onChange={(evento) =>
+                  fijar("fecha_necesaria", evento.target.value)
+                }
+              />
+              <div className="form-text">
+                Opcional. Vacío significa que no hay fecha comprometida.
+              </div>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="sol-encargado">
+                Quién realizará la compra
+              </label>
+              <select
+                id="sol-encargado"
+                className="form-select"
+                required
+                value={valores.encargado}
+                onChange={(evento) => fijar("encargado", evento.target.value)}
+              >
+                <option value="">Elija a quién le llega</option>
+                {encargados.map((persona) => (
+                  <option key={persona.id} value={persona.id}>
+                    {persona.nombre}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                Solo aparecen quienes pueden gestionar compras: le llegará un
+                aviso y la verá en sus «Solicitudes recibidas».
+              </div>
+            </div>
+
+            <div className="col-12">
+              <label className="form-label" htmlFor="sol-justificacion">
+                Para qué hace falta
+              </label>
+              <textarea
+                id="sol-justificacion"
+                className="form-control"
+                rows={3}
+                required
+                placeholder="Entra un analista el 1 de octubre y no hay equipo libre."
+                value={valores.justificacion}
+                onChange={(evento) =>
+                  fijar("justificacion", evento.target.value)
+                }
+              />
+              <div className="form-text">
+                Es lo que sostiene la compra ante quien la autoriza.
+              </div>
+            </div>
+
+            <div className="col-12 mz-actions justify-content-end">
+              <button
+                type="button"
+                className="btn btn-cancelar"
+                onClick={() => navegar("/admin/solicitudes/mias")}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSaving}
+              >
+                {isSaving ? "Enviando…" : "Enviar solicitud"}
+              </button>
+            </div>
           </div>
-        </div>
-
-        {caracteristicasDelTipo.length > 0 && (
-          <div className="col-12">
-            <h6 className="mb-1">Con qué características</h6>
-            <p className="form-text mt-0">
-              Las que {nombreDelTipo} declara. Las marcadas con{" "}
-              <strong>*</strong> hay que especificarlas para poder enviar la
-              solicitud; el resto, solo si su pedido lo exige.
-            </p>
-            <EspecificacionesDelTipo
-              caracteristicas={caracteristicasDelTipo}
-              valor={valores.especificaciones}
-              onChange={(especificaciones) =>
-                fijar("especificaciones", especificaciones)
-              }
-            />
-          </div>
-        )}
-
-        <div className="col-6 col-md-3">
-          <label className="form-label" htmlFor="sol-cantidad">
-            Cantidad
-          </label>
-          <input
-            id="sol-cantidad"
-            type="number"
-            min="1"
-            className="form-control"
-            required
-            value={valores.cantidad}
-            onChange={(evento) => fijar("cantidad", evento.target.value)}
-          />
-        </div>
-
-        <div className="col-6 col-md-3">
-          <label className="form-label" htmlFor="sol-prioridad">
-            Prioridad
-          </label>
-          <select
-            id="sol-prioridad"
-            className="form-select"
-            value={valores.prioridad}
-            onChange={(evento) => fijar("prioridad", evento.target.value)}
-          >
-            <option value="baja">Baja</option>
-            <option value="media">Media</option>
-            <option value="alta">Alta</option>
-          </select>
-        </div>
-
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="sol-fecha">
-            Se necesita para
-          </label>
-          <input
-            id="sol-fecha"
-            type="date"
-            className="form-control"
-            value={valores.fecha_necesaria}
-            onChange={(evento) => fijar("fecha_necesaria", evento.target.value)}
-          />
-          <div className="form-text">
-            Opcional. Vacío significa que no hay fecha comprometida.
-          </div>
-        </div>
-
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="sol-encargado">
-            Quién realizará la compra
-          </label>
-          <select
-            id="sol-encargado"
-            className="form-select"
-            required
-            value={valores.encargado}
-            onChange={(evento) => fijar("encargado", evento.target.value)}
-          >
-            <option value="">Elija a quién le llega</option>
-            {encargados.map((persona) => (
-              <option key={persona.id} value={persona.id}>
-                {persona.nombre}
-              </option>
-            ))}
-          </select>
-          <div className="form-text">
-            Solo aparecen quienes pueden gestionar compras: le llegará un aviso
-            y la verá en sus «Solicitudes recibidas».
-          </div>
-        </div>
-
-        <div className="col-12">
-          <label className="form-label" htmlFor="sol-justificacion">
-            Para qué hace falta
-          </label>
-          <textarea
-            id="sol-justificacion"
-            className="form-control"
-            rows={3}
-            required
-            placeholder="Entra un analista el 1 de octubre y no hay equipo libre."
-            value={valores.justificacion}
-            onChange={(evento) => fijar("justificacion", evento.target.value)}
-          />
-          <div className="form-text">
-            Es lo que sostiene la compra ante quien la autoriza.
-          </div>
-        </div>
-
-        <div className="col-12 d-flex gap-2">
-          <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? "Enviando…" : "Enviar solicitud"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary"
-            onClick={() => navegar("/admin/solicitudes/mias")}
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
+        </form>
+      </section>
     </div>
   );
 }

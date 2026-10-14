@@ -1,25 +1,14 @@
 /*
- * Catálogos organizacionales (departamentos y empleados).
+ * Catálogos organizacionales (departamentos, sedes, proveedores,
+ * concesionarios y empleados).
  *
- * Comparten hoja porque comparten estructura exacta: cabecera con acción
- * primaria, barra de filtros y tabla. Separarlas en dos archivos idénticos
- * solo garantizaría que se desincronicen.
+ * Encabezado, filtros, tablas y fichas ya los dibujan los `mz-*` de la
+ * identidad base; aquí queda solo lo que es propio de estas pantallas.
  */
 
-.organizacion-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
-
-.organizacion-page code {
-  color: var(--text-muted);
-  font-size: 0.875em;
-}
-
-.organizacion-form {
+/* La ficha no se estira a todo el ancho: con campos de dos columnas en una
+   pantalla grande, la etiqueta queda lejos de lo que nombra y el ojo se pierde
+   entre un campo y el de al lado. */
+.organizacion-ficha {
   max-width: 60rem;
-}
-
-.organizacion-form .form-text {
-  color: var(--text-muted);
 }

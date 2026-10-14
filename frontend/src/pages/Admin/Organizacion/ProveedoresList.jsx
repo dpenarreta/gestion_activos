@@ -2,16 +2,12 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { proveedoresService } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Proveedores" },
-];
 const FILTROS_INICIALES = { q: "", activo: "" };
 
 /**
@@ -41,31 +37,40 @@ export function ProveedoresList() {
   }
 
   return (
-    <div className="organizacion-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Proveedores</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Proveedores</h2>
+          <p className="mz-desc">
+            A quién se le compran los equipos y los repuestos, y cuánto pesa
+            cada uno en el parque.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link
-            to="/admin/organizacion/proveedores/new"
-            className="btn btn-primary btn-sm"
-          >
-            Nuevo proveedor
-          </Link>
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/organizacion/proveedores/new"
+              className="btn btn-primary btn-sm"
+            >
+              <Icon name="plus-lg" /> Nuevo proveedor
+            </Link>
+          </div>
         )}
       </div>
 
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar por nombre, RUC o contacto"
-          aria-label="Buscar proveedores"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar proveedores</span>
+          <input
+            type="search"
+            placeholder="Buscar por nombre, RUC o contacto"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por estado"
           value={listado.filtros.activo}
           onChange={(event) =>
@@ -82,45 +87,50 @@ export function ProveedoresList() {
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Identificación</th>
               <th>Contacto</th>
-              <th className="text-end">Equipos</th>
-              <th className="text-end">Repuestos</th>
+              <th className="num">Equipos</th>
+              <th className="num">Repuestos</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((proveedor) => (
               <tr key={proveedor.id}>
-                <td>{proveedor.nombre}</td>
-                <td className="text-muted">
+                <td className="mz-strong">{proveedor.nombre}</td>
+                <td className="mz-mono mz-faint">
                   {proveedor.identificacion || "—"}
                 </td>
                 <td>
-                  {proveedor.contacto || <span className="text-muted">—</span>}
+                  {proveedor.contacto || <span className="mz-faint">—</span>}
                   {proveedor.telefono && (
-                    <div className="text-muted small">{proveedor.telefono}</div>
+                    <div className="mz-faint mz-small">
+                      {proveedor.telefono}
+                    </div>
                   )}
                 </td>
-                <td className="text-end">{proveedor.total_activos}</td>
-                <td className="text-end">{proveedor.total_repuestos}</td>
+                <td className="num">{proveedor.total_activos}</td>
+                <td className="num">{proveedor.total_repuestos}</td>
                 <td>
                   <span
-                    className={`badge ${proveedor.activo ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${proveedor.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {proveedor.activo ? "Activo" : "De baja"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     to={`/admin/organizacion/proveedores/${proveedor.id}`}
                     className="btn btn-outline-primary btn-sm"
@@ -131,10 +141,8 @@ export function ProveedoresList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center text-muted">
-                  Sin proveedores registrados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={7}>Sin proveedores registrados</td>
               </tr>
             )}
           </tbody>

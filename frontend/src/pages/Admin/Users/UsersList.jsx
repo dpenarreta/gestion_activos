@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
+import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
@@ -13,7 +14,14 @@ const STATUS_LABELS = {
   blocked: "Bloqueado",
 };
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Usuarios" }];
+// El estado con el color de la identidad: activa en verde y bloqueada en
+// rojo; deshabilitada va en neutro porque es una pausa decidida, no una
+// alarma.
+const STATUS_PILLS = {
+  active: "mz-pill--ok",
+  disabled: "mz-pill--neutral",
+  blocked: "mz-pill--bad",
+};
 
 export function UsersList() {
   const {
@@ -51,51 +59,61 @@ export function UsersList() {
 
   return (
     <div className="users-list-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Usuarios</h2>
-        <Link to="/admin/users/new" className="btn btn-primary btn-sm">
-          Nuevo usuario
-        </Link>
+      <div className="mz-view-head">
+        <div>
+          <h2>Usuarios</h2>
+          <p className="mz-desc">
+            Las cuentas que entran al sistema, en qué empresas trabajan y con
+            qué rol.
+          </p>
+        </div>
+        <div className="mz-view-actions">
+          <Link to="/admin/users/new" className="btn btn-primary btn-sm">
+            <Icon name="person-plus" /> Nuevo usuario
+          </Link>
+        </div>
       </div>
 
       <form
         onSubmit={handleSearchSubmit}
-        className="row g-2 mb-3 users-list-filters"
+        className="mz-filter-bar"
+        role="search"
       >
-        <div className="col-auto">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar usuarios</span>
           <input
-            className="form-control form-control-sm"
+            type="search"
             placeholder="Buscar por nombre, correo o usuario"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
           />
-        </div>
-        <div className="col-auto">
-          <select
-            className="form-select form-select-sm"
-            value={filters.status}
-            onChange={(event) => updateFilters({ status: event.target.value })}
-          >
-            <option value="">Todos los estados</option>
-            <option value="active">Activo</option>
-            <option value="disabled">Deshabilitado</option>
-            <option value="blocked">Bloqueado</option>
-          </select>
-        </div>
-        <div className="col-auto">
-          <button type="submit" className="btn btn-outline-secondary btn-sm">
-            Buscar
-          </button>
-        </div>
+        </label>
+        <select
+          className="form-select form-select-sm"
+          aria-label="Filtrar por estado"
+          value={filters.status}
+          onChange={(event) => updateFilters({ status: event.target.value })}
+        >
+          <option value="">Todos los estados</option>
+          <option value="active">Activo</option>
+          <option value="disabled">Deshabilitado</option>
+          <option value="blocked">Bloqueado</option>
+        </select>
+        <button type="submit" className="btn btn-outline-secondary btn-sm">
+          Buscar
+        </button>
       </form>
 
       {(error || actionError) && (
-        <div className="alert alert-danger">{error || actionError}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error || actionError}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
               <th>Usuario</th>
@@ -117,16 +135,18 @@ export function UsersList() {
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td>
+                <td className="mz-strong">
                   {user.username}
                   {user.is_superuser && (
-                    <span className="badge bg-dark ms-2">Administrador</span>
+                    <span className="mz-pill mz-pill--neutral ms-2">
+                      Administrador
+                    </span>
                   )}
                 </td>
                 <td>{user.email}</td>
                 <td>
                   <span
-                    className={`badge users-list-status users-list-status--${user.status}`}
+                    className={`mz-pill ${STATUS_PILLS[user.status] || "mz-pill--neutral"}`}
                   >
                     {STATUS_LABELS[user.status] || user.status}
                   </span>
@@ -136,17 +156,17 @@ export function UsersList() {
                       la primera pregunta al revisar por qué alguien no ve una
                       pantalla, y abrir ficha por ficha la vuelve impracticable. */}
                   {(user.empresas ?? []).length === 0 && (
-                    <span className="text-muted">—</span>
+                    <span className="mz-faint">—</span>
                   )}
                   {(user.empresas ?? []).map((empresa) => (
                     <div key={empresa.id} className="users-list-empresa">
                       <span className="fw-semibold">{empresa.nombre}</span>
                       {empresa.es_predeterminada && (
-                        <span className="badge text-bg-light ms-1">
+                        <span className="mz-pill mz-pill--neutral ms-1">
                           Predeterminada
                         </span>
                       )}
-                      <div className="text-muted">
+                      <div className="mz-faint mz-small">
                         {empresa.roles.map((rol) => rol.name).join(", ") ||
                           "Sin rol"}
                       </div>
@@ -163,70 +183,53 @@ export function UsersList() {
                   {user.last_login ? (
                     formatearFecha(user.last_login, true)
                   ) : (
-                    <span className="text-muted">Nunca</span>
+                    <span className="mz-faint">Nunca</span>
                   )}
                 </td>
-                <td>
-                  <div className="d-flex gap-2 flex-wrap">
-                    <Link
-                      to={`/admin/users/${user.id}`}
-                      className="btn btn-outline-primary btn-sm"
+                <td className="acciones">
+                  <Link
+                    to={`/admin/users/${user.id}`}
+                    className="btn btn-outline-primary btn-sm"
+                  >
+                    Editar
+                  </Link>
+                  {user.status === "active" ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => runAction(user, "disable")}
                     >
-                      Editar
-                    </Link>
-                    {user.status === "active" ? (
-                      <button
-                        type="button"
-                        className="btn btn-outline-warning btn-sm"
-                        onClick={() => runAction(user, "disable")}
-                      >
-                        Deshabilitar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-outline-success btn-sm"
-                        onClick={() => runAction(user, "enable")}
-                      >
-                        Habilitar
-                      </button>
-                    )}
-                  </div>
+                      Deshabilitar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => runAction(user, "enable")}
+                    >
+                      Habilitar
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
             {!isLoading && users.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center text-muted">
-                  Sin resultados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={8}>Sin resultados</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <span className="text-muted">{count} usuarios</span>
-        <div className="d-flex gap-2">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={!hasPrevious}
-            onClick={() => setPage(page - 1)}
-          >
-            Anterior
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={!hasNext}
-            onClick={() => setPage(page + 1)}
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
+      <Paginacion
+        total={count}
+        pagina={page}
+        hasNext={hasNext}
+        hasPrevious={hasPrevious}
+        onCambiarPagina={setPage}
+        etiqueta="usuarios"
+      />
     </div>
   );
 }

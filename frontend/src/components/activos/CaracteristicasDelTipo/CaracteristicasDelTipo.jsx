@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { caracteristicasService } from "../../../api/activosService";
+import { Icon } from "../../common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
 import "./CaracteristicasDelTipo.css";
 
@@ -225,24 +226,29 @@ export function CaracteristicasDelTipo({
 
   return (
     <div className="caracteristicas-tipo">
-      <p className="text-muted">
+      <p className="mz-faint">
         Lo que se declara aquí es lo que se pide al registrar un equipo de tipo{" "}
         <strong>{tipo?.nombre || "este tipo"}</strong>. Mientras no haya
         ninguna, el formulario sigue admitiendo características libres.
         {enBorrador && " Se crearán junto con el tipo al guardarlo."}
       </p>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="table-responsive">
-        <table className="table table-sm align-middle">
+      <div className="mz-table-wrap mb-3">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Característica</th>
               <th>Dato</th>
               <th>Unidad</th>
               <th className="text-center">Obligatoria</th>
-              <th className="text-center">Orden</th>
+              <th className="num">Orden</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -293,12 +299,12 @@ export function CaracteristicasDelTipo({
                   // único que las distingue, y como solo se añaden al final y se
                   // quitan enteras, no reordena filas ajenas.
                   key={caracteristica.id ?? `borrador-${posicion}`}
-                  className={caracteristica.activa ? "" : "text-muted"}
+                  className={caracteristica.activa ? "" : "mz-faint"}
                 >
                   <td>
                     {caracteristica.nombre}
                     {!caracteristica.activa && (
-                      <span className="badge text-bg-secondary ms-2">
+                      <span className="mz-pill mz-pill--neutral ms-2">
                         Ya no se pide
                       </span>
                     )}
@@ -319,7 +325,7 @@ export function CaracteristicasDelTipo({
                   <td className="text-center">
                     {caracteristica.obligatoria ? "Sí" : "—"}
                   </td>
-                  <td className="text-center">{caracteristica.orden}</td>
+                  <td className="num">{caracteristica.orden}</td>
                   <td>
                     {puedeEditar && (
                       <div className="d-flex flex-wrap gap-2">
@@ -365,8 +371,8 @@ export function CaracteristicasDelTipo({
               ),
             )}
             {!isLoading && caracteristicas.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
+              <tr className="mz-empty-row">
+                <td colSpan={6}>
                   Este tipo todavía no declara ninguna característica
                 </td>
               </tr>

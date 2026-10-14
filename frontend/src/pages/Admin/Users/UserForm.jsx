@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
-import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import { baseDeUsername } from "../../../utils/nomenclatura";
@@ -144,160 +144,199 @@ export function UserForm() {
 
   return (
     <div className="user-form-page">
-      <h2>{isEditing ? "Editar usuario" : "Nuevo usuario"}</h2>
-      <form onSubmit={handleSubmit} className="col-12 col-md-5">
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="first_name">
-            Nombres
-          </label>
-          <input
-            id="first_name"
-            name="first_name"
-            className="form-control"
-            value={form.first_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="last_name">
-            Apellidos
-          </label>
-          <input
-            id="last_name"
-            name="last_name"
-            className="form-control"
-            value={form.last_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label" htmlFor="username">
-            Nombre de usuario
-          </label>
-          <input
-            id="username"
-            name="username"
-            className="form-control"
-            value={isEditing ? form.username : usernamePropuesto}
-            readOnly
-            aria-describedby="username-ayuda"
-          />
-          <div className="form-text" id="username-ayuda">
+      <div className="mz-view-head">
+        <div>
+          <h2>{isEditing ? "Editar usuario" : "Nuevo usuario"}</h2>
+          <p className="mz-desc">
             {isEditing
-              ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
-              : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."}
-          </div>
+              ? "Los datos de la cuenta, las empresas donde trabaja y su contraseña."
+              : "La cuenta nace con su nombre, su correo y, si corresponde, la empresa y el rol con los que entra."}
+          </p>
         </div>
+      </div>
 
-        <div className="mb-3">
-          <label className="form-label" htmlFor="email">
-            Correo
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            className="form-control"
-            value={form.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        {!isEditing && (
-          <div className="mb-3">
-            <label className="form-label" htmlFor="password">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              className="form-control"
-              value={form.password}
-              onChange={handleChange}
-              required
-            />
+      <div className="mz-stack">
+        <section className="mz-card">
+          <div className="mz-card-head">
+            <h3>Datos de la cuenta</h3>
           </div>
+          <form onSubmit={handleSubmit} className="mz-card-body">
+            {error && (
+              <div className="mz-alert mz-alert--bad" role="alert">
+                <Icon name="x-octagon" />
+                {error}
+              </div>
+            )}
+
+            <div className="mz-field-grid">
+              <div className="mz-field">
+                <label htmlFor="first_name">Nombres</label>
+                <input
+                  id="first_name"
+                  name="first_name"
+                  className="form-control"
+                  value={form.first_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="mz-field">
+                <label htmlFor="last_name">Apellidos</label>
+                <input
+                  id="last_name"
+                  name="last_name"
+                  className="form-control"
+                  value={form.last_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="mz-field">
+                <label htmlFor="username">Nombre de usuario</label>
+                <input
+                  id="username"
+                  name="username"
+                  className="form-control"
+                  value={isEditing ? form.username : usernamePropuesto}
+                  readOnly
+                  aria-describedby="username-ayuda"
+                />
+                <div className="form-text" id="username-ayuda">
+                  {isEditing
+                    ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
+                    : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."}
+                </div>
+              </div>
+
+              <div className="mz-field">
+                <label htmlFor="email">Correo</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  className="form-control"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              {!isEditing && (
+                <div className="mz-field">
+                  <label htmlFor="password">Contraseña</label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    className="form-control"
+                    value={form.password}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
+            {!isEditing && puedeAsignarEmpresas && (
+              <div className="mz-section mt-3">
+                <h4>Empresa y rol</h4>
+                <SeleccionEmpresaYRol
+                  empresaId={alta.empresaId}
+                  rolId={alta.rolId}
+                  onChange={setAlta}
+                />
+              </div>
+            )}
+
+            <div className="mz-actions justify-content-end mt-3">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isLoading}
+              >
+                {isLoading ? "Procesando..." : "Guardar"}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {isEditing && <AsignacionEmpresas usuarioId={id} />}
+
+        {isEditing && canResetPassword && (
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Restablecer contraseña</h3>
+            </div>
+            <div className="mz-card-body">
+              {resetMessage && (
+                <div className="mz-alert mz-alert--info" role="status">
+                  <Icon name="check2-circle" />
+                  {resetMessage}
+                </div>
+              )}
+              {resetError && (
+                <div className="mz-alert mz-alert--bad" role="alert">
+                  <Icon name="x-octagon" />
+                  {resetError}
+                </div>
+              )}
+              <div className="form-check">
+                <input
+                  id="send_link"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={resetOptions.send_link}
+                  onChange={() => toggleResetOption("send_link")}
+                />
+                <label className="form-check-label" htmlFor="send_link">
+                  Enviar enlace de restablecimiento por correo
+                </label>
+              </div>
+              <div className="form-check">
+                <input
+                  id="force_change_on_next_login"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={resetOptions.force_change_on_next_login}
+                  onChange={() =>
+                    toggleResetOption("force_change_on_next_login")
+                  }
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor="force_change_on_next_login"
+                >
+                  Forzar cambio de contraseña en el próximo inicio de sesión
+                </label>
+              </div>
+              <div className="form-check">
+                <input
+                  id="revoke_sessions"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={resetOptions.revoke_sessions}
+                  onChange={() => toggleResetOption("revoke_sessions")}
+                />
+                <label className="form-check-label" htmlFor="revoke_sessions">
+                  Cerrar sesiones activas
+                </label>
+              </div>
+              <div className="mz-actions justify-content-end mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={!Object.values(resetOptions).some(Boolean)}
+                  onClick={() => setIsConfirmResetOpen(true)}
+                >
+                  <Icon name="key" /> Ejecutar
+                </button>
+              </div>
+            </div>
+          </section>
         )}
-
-        {!isEditing && puedeAsignarEmpresas && (
-          <SeleccionEmpresaYRol
-            empresaId={alta.empresaId}
-            rolId={alta.rolId}
-            onChange={setAlta}
-          />
-        )}
-
-        <Button type="submit" isLoading={isLoading}>
-          Guardar
-        </Button>
-      </form>
-
-      {isEditing && <AsignacionEmpresas usuarioId={id} />}
-
-      {isEditing && canResetPassword && (
-        <div className="col-12 col-md-5 mt-4">
-          <h5>Restablecer contraseña</h5>
-          {resetMessage && (
-            <div className="alert alert-success">{resetMessage}</div>
-          )}
-          {resetError && <div className="alert alert-danger">{resetError}</div>}
-          <div className="form-check">
-            <input
-              id="send_link"
-              type="checkbox"
-              className="form-check-input"
-              checked={resetOptions.send_link}
-              onChange={() => toggleResetOption("send_link")}
-            />
-            <label className="form-check-label" htmlFor="send_link">
-              Enviar enlace de restablecimiento por correo
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              id="force_change_on_next_login"
-              type="checkbox"
-              className="form-check-input"
-              checked={resetOptions.force_change_on_next_login}
-              onChange={() => toggleResetOption("force_change_on_next_login")}
-            />
-            <label
-              className="form-check-label"
-              htmlFor="force_change_on_next_login"
-            >
-              Forzar cambio de contraseña en el próximo inicio de sesión
-            </label>
-          </div>
-          <div className="form-check mb-3">
-            <input
-              id="revoke_sessions"
-              type="checkbox"
-              className="form-check-input"
-              checked={resetOptions.revoke_sessions}
-              onChange={() => toggleResetOption("revoke_sessions")}
-            />
-            <label className="form-check-label" htmlFor="revoke_sessions">
-              Cerrar sesiones activas
-            </label>
-          </div>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            disabled={!Object.values(resetOptions).some(Boolean)}
-            onClick={() => setIsConfirmResetOpen(true)}
-          >
-            Ejecutar
-          </button>
-        </div>
-      )}
+      </div>
 
       <ConfirmDialog
         isOpen={isConfirmResetOpen}

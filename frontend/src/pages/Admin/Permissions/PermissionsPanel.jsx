@@ -1,3 +1,4 @@
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
 import "./PermissionsPanel.css";
 
@@ -18,40 +19,61 @@ export function PermissionsPanel() {
   const total = catalog
     ? Object.values(catalog).reduce(
         (suma, modulo) => suma + Object.keys(modulo.permissions).length,
-        0
+        0,
       )
     : 0;
 
   return (
     <div className="permissions-page">
-      <p className="text-muted">
-        {total > 0 && <strong>{total} permisos</strong>} agrupados por módulo. Para otorgarlos, edite
-        un rol en la pestaña <strong>Roles</strong> y asígneselo al usuario desde su ficha.
+      <p className="mz-faint">
+        {total > 0 && <strong>{total} permisos</strong>} agrupados por módulo.
+        Para otorgarlos, edite un rol en la pestaña <strong>Roles</strong> y
+        asígneselo al usuario desde su ficha.
       </p>
 
-      {error && <div className="alert alert-danger">{error}</div>}
-      {isLoading && <p className="text-muted">Cargando…</p>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
+      {isLoading && <div className="mz-empty">Cargando…</div>}
 
-      {catalog &&
-        Object.entries(catalog).map(([moduleKey, module]) => (
-          <div className="card mb-3 permissions-page__module" key={moduleKey}>
-            <div className="card-header">
-              <strong>{module.label}</strong>
-              <div className="text-muted small">{module.description}</div>
-            </div>
-            <ul className="list-group list-group-flush">
-              {Object.entries(module.permissions).map(([codename, label]) => (
-                <li
-                  className="list-group-item d-flex justify-content-between align-items-center gap-3"
-                  key={codename}
-                >
-                  {label}
-                  <code className="text-muted">{codename}</code>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      {catalog && (
+        <div className="mz-stack">
+          {Object.entries(catalog).map(([moduleKey, module]) => (
+            <section className="mz-card" key={moduleKey}>
+              <div className="mz-card-head">
+                <div>
+                  <h3>{module.label}</h3>
+                  <div className="mz-small mz-faint">{module.description}</div>
+                </div>
+              </div>
+              {/* Tabla de permisos de la identidad: el nombre que se lee a la
+                  izquierda y, a la derecha, el código con el que el servidor
+                  lo reconoce —el que hay que buscar en `catalog.py`—. */}
+              <table className="mz-perm-table permissions-page__tabla">
+                <thead>
+                  <tr>
+                    <th>Permiso</th>
+                    <th>Código</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(module.permissions).map(
+                    ([codename, label]) => (
+                      <tr key={codename}>
+                        <td>{label}</td>
+                        <td className="mz-code">{codename}</td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

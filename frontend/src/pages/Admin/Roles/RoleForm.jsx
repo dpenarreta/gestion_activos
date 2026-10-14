@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
-import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { PermissionsCheckboxGroup } from "../../../components/common/PermissionsCheckboxGroup/PermissionsCheckboxGroup";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
 import "./RoleForm.css";
@@ -12,7 +12,11 @@ export function RoleForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
-  const { catalog, isLoading: isCatalogLoading, error: catalogError } = usePermissionsCatalog();
+  const {
+    catalog,
+    isLoading: isCatalogLoading,
+    error: catalogError,
+  } = usePermissionsCatalog();
 
   const [name, setName] = useState("");
   const [selected, setSelected] = useState(new Set());
@@ -54,7 +58,9 @@ export function RoleForm() {
       }
       setIsConfirmOpen(false);
     } catch (err) {
-      setError(err.response?.data?.error?.message || "No se pudo guardar el rol.");
+      setError(
+        err.response?.data?.error?.message || "No se pudo guardar el rol.",
+      );
       setIsConfirmOpen(false);
     } finally {
       setIsSaving(false);
@@ -67,32 +73,59 @@ export function RoleForm() {
 
   return (
     <div className="role-form-page">
-      <h2>{isEditing ? "Editar rol" : "Nuevo rol"}</h2>
-
-      {(error || catalogError) && <div className="alert alert-danger">{error || catalogError}</div>}
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3 col-12 col-md-5">
-          <label className="form-label" htmlFor="name">
-            Nombre del rol
-          </label>
-          <input
-            id="name"
-            className="form-control"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
+      <div className="mz-view-head">
+        <div>
+          <h2>{isEditing ? "Editar rol" : "Nuevo rol"}</h2>
+          <p className="mz-desc">
+            Un rol agrupa permisos; quien lo reciba podrá hacer exactamente lo
+            que se marque aquí.
+          </p>
         </div>
+      </div>
 
-        {catalog && (
-          <PermissionsCheckboxGroup catalog={catalog} selected={selected} onChange={setSelected} />
-        )}
-
-        <div className="mt-3">
-          <Button type="submit">Guardar</Button>
+      {(error || catalogError) && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error || catalogError}
         </div>
-      </form>
+      )}
+
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Datos del rol</h3>
+        </div>
+        <form onSubmit={handleSubmit} className="mz-card-body">
+          <div className="mz-field-grid">
+            <div className="mz-field">
+              <label htmlFor="name">Nombre del rol</label>
+              <input
+                id="name"
+                className="form-control"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          {catalog && (
+            <div className="mz-section mt-3">
+              <h4>Permisos</h4>
+              <PermissionsCheckboxGroup
+                catalog={catalog}
+                selected={selected}
+                onChange={setSelected}
+              />
+            </div>
+          )}
+
+          <div className="mz-actions justify-content-end mt-3">
+            <button type="submit" className="btn btn-primary">
+              Guardar
+            </button>
+          </div>
+        </form>
+      </section>
 
       <ConfirmDialog
         isOpen={isConfirmOpen}

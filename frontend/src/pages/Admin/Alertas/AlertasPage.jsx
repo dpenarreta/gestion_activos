@@ -2,25 +2,30 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { alertasService } from "../../../api/alertasService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Alertas.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Alertas" }];
 
 const SEVERIDADES = {
   alta: {
     clase: "alta",
     etiqueta: "Atender ya",
     icono: "exclamation-octagon-fill",
+    pill: "mz-pill--bad",
   },
   media: {
     clase: "media",
     etiqueta: "Revisar",
     icono: "exclamation-triangle-fill",
+    pill: "mz-pill--warn",
   },
-  baja: { clase: "baja", etiqueta: "Informativa", icono: "info-circle-fill" },
+  baja: {
+    clase: "baja",
+    etiqueta: "Informativa",
+    icono: "info-circle-fill",
+    pill: "mz-pill--neutral",
+  },
 };
 
 /**
@@ -60,21 +65,34 @@ export function AlertasPage() {
 
   return (
     <div className="alertas-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Alertas del parque</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Alertas del parque</h2>
+          <p className="mz-desc">
+            Lo que pide atención hoy. Cada alerta lleva al listado ya filtrado,
+            donde se resuelve.
+          </p>
+        </div>
         {puedeConfigurar && (
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm"
-            onClick={() => setConfigurando((abierto) => !abierto)}
-          >
-            {configurando ? "Ocultar configuración" : "Configurar alertas"}
-          </button>
+          <div className="mz-view-actions">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setConfigurando((abierto) => !abierto)}
+            >
+              <Icon name="sliders" />{" "}
+              {configurando ? "Ocultar configuración" : "Configurar alertas"}
+            </button>
+          </div>
         )}
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {configurando && datos && (
         <ConfiguracionPanel
@@ -86,16 +104,17 @@ export function AlertasPage() {
         />
       )}
 
-      {isLoading && <p className="text-muted">Cargando…</p>}
+      {isLoading && <div className="mz-empty">Cargando…</div>}
 
       {datos && conPendientes.length === 0 && (
-        <div className="alert alert-success">
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="check2-circle" />
           Ninguna de las alertas activas tiene equipos pendientes hoy.
         </div>
       )}
 
       {datos && conPendientes.length > 0 && (
-        <p className="text-muted">
+        <p className="mz-faint">
           {datos.total_alertas} alerta(s) con {datos.total_elementos}{" "}
           situación(es) por atender. Un mismo equipo puede aparecer en varias:
           cada una se resuelve de una forma distinta.
@@ -109,17 +128,21 @@ export function AlertasPage() {
       </div>
 
       {resueltas.length > 0 && (
-        <section className="mt-4">
-          <h3 className="h6 text-uppercase text-muted">Sin pendientes</h3>
-          <ul className="list-unstyled alertas-resueltas mb-0">
-            {resueltas.map((alerta) => (
-              <li key={alerta.tipo}>
-                <i className="bi bi-check-circle me-2" aria-hidden="true" />
-                {alerta.titulo}
-                <small className="text-muted ms-2">{alerta.detalle}</small>
-              </li>
-            ))}
-          </ul>
+        <section className="mz-card alertas-resueltas">
+          <div className="mz-card-head">
+            <h3>Sin pendientes</h3>
+          </div>
+          {resueltas.map((alerta) => (
+            <div className="mz-row" key={alerta.tipo}>
+              <span className="mz-row-ic alertas-resueltas__ic">
+                <Icon name="check-circle" />
+              </span>
+              <span className="mz-row-info">
+                <strong>{alerta.titulo}</strong>
+                <span>{alerta.detalle}</span>
+              </span>
+            </div>
+          ))}
         </section>
       )}
     </div>
@@ -130,41 +153,48 @@ function TarjetaAlerta({ alerta }) {
   const severidad = SEVERIDADES[alerta.severidad] || SEVERIDADES.baja;
 
   return (
-    <article className={`card alerta-card alerta-card--${severidad.clase}`}>
-      <div className="card-body">
-        <div className="d-flex justify-content-between align-items-start gap-2">
-          <div>
-            <h3 className="h6 mb-1">
-              <i
-                className={`bi bi-${severidad.icono} me-2`}
-                aria-hidden="true"
-              />
-              {alerta.titulo}
-            </h3>
-            <p className="small text-muted mb-0">{alerta.detalle}</p>
-          </div>
-          <span
-            className="alerta-card__total"
-            aria-label={`${alerta.total} equipos`}
-          >
-            {alerta.total}
+    <article className={`mz-card alerta-card alerta-card--${severidad.clase}`}>
+      <div className="mz-card-head alerta-card__cabecera">
+        <div className="min-w-0">
+          <h3>
+            <Icon name={severidad.icono} className="alerta-card__icono" />
+            {alerta.titulo}
+          </h3>
+          <span className={`mz-pill ${severidad.pill}`}>
+            {severidad.etiqueta}
           </span>
         </div>
+        <span
+          className="alerta-card__total"
+          aria-label={`${alerta.total} equipos`}
+        >
+          {alerta.total}
+        </span>
+      </div>
 
-        <ul className="list-unstyled alerta-card__muestra">
-          {alerta.muestra.map((elemento) => (
-            <li key={elemento.clave}>
-              <Link to={`/admin/activos/${elemento.id}`}>
-                <code className="codigo-barras">{elemento.codigo_barras}</code>
-                <span className="alerta-card__nombre">{elemento.nombre}</span>
-              </Link>
-              <small className="text-muted d-block">{elemento.dato}</small>
-            </li>
-          ))}
-        </ul>
+      <p className="mz-faint mz-small alerta-card__detalle">{alerta.detalle}</p>
 
-        {/* La muestra es un anticipo, no la lista: el trabajo se hace en el
-            listado filtrado, que además permite exportar y ordenar. */}
+      <div className="alerta-card__muestra">
+        {alerta.muestra.map((elemento) => (
+          <Link
+            key={elemento.clave}
+            to={`/admin/activos/${elemento.id}`}
+            className="mz-row"
+          >
+            <span className="mz-row-info">
+              <strong>{elemento.nombre}</strong>
+              <span>{elemento.dato}</span>
+            </span>
+            <span className="mz-row-end">
+              <code className="mz-code">{elemento.codigo_barras}</code>
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {/* La muestra es un anticipo, no la lista: el trabajo se hace en el
+          listado filtrado, que además permite exportar y ordenar. */}
+      <div className="mz-card-body">
         <Link to={alerta.destino} className="btn btn-outline-primary btn-sm">
           Ver los {alerta.total}
         </Link>
@@ -231,40 +261,52 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
   }
 
   return (
-    <form className="card mb-4" onSubmit={handleSubmit}>
-      <div className="card-body">
-        <h3 className="h6 text-uppercase text-muted mb-3">Umbrales de aviso</h3>
-        {error && <div className="alert alert-danger">{error}</div>}
+    <form className="mz-card alertas-configuracion" onSubmit={handleSubmit}>
+      <div className="mz-card-head">
+        <h3>Configurar alertas</h3>
+      </div>
+      <div className="mz-card-body">
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
 
-        <div className="row g-3 mb-4">
-          {umbrales.map(({ campo, etiqueta, ayuda }) => (
-            <div className="col-md-4" key={campo}>
-              <label className="form-label" htmlFor={`alerta-${campo}`}>
-                {etiqueta}
-              </label>
-              <input
-                id={`alerta-${campo}`}
-                type="number"
-                min="1"
-                className="form-control"
-                value={valores[campo]}
-                onChange={(event) =>
-                  setValores({
-                    ...valores,
-                    [campo]: Number(event.target.value),
-                  })
-                }
-              />
-              <div className="form-text">{ayuda}</div>
-            </div>
-          ))}
-        </div>
+        <section className="mz-section">
+          <h4>Umbrales de aviso</h4>
+          {/* Tres campos por fila: la rejilla de Bootstrap se queda, como
+              admite la guía, porque `mz-field-grid` es de dos columnas. */}
+          <div className="row g-3">
+            {umbrales.map(({ campo, etiqueta, ayuda }) => (
+              <div className="col-md-4" key={campo}>
+                <label className="form-label" htmlFor={`alerta-${campo}`}>
+                  {etiqueta}
+                </label>
+                <input
+                  id={`alerta-${campo}`}
+                  type="number"
+                  min="1"
+                  className="form-control"
+                  value={valores[campo]}
+                  onChange={(event) =>
+                    setValores({
+                      ...valores,
+                      [campo]: Number(event.target.value),
+                    })
+                  }
+                />
+                <div className="form-text">{ayuda}</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <h3 className="h6 text-uppercase text-muted mb-3">Alertas activas</h3>
-        <div className="row g-2 mb-3">
-          {interruptores.map(({ campo, etiqueta }) => (
-            <div className="col-md-6" key={campo}>
-              <div className="form-check">
+        <section className="mz-section">
+          <h4>Alertas activas</h4>
+          <div className="mz-field-grid">
+            {interruptores.map(({ campo, etiqueta }) => (
+              <div className="form-check" key={campo}>
                 <input
                   id={`alerta-${campo}`}
                   type="checkbox"
@@ -278,25 +320,27 @@ function ConfiguracionPanel({ inicial, onGuardado }) {
                   {etiqueta}
                 </label>
               </div>
-            </div>
-          ))}
-        </div>
-        <p className="form-text">
-          {/* Apagar es preferible a ignorar: una alerta que no se puede apagar
-              acaba siendo ruido que se ignora en bloque, y con ella el resto. */}
-          Una alerta apagada deja de calcularse y no aparece en esta pantalla.
-        </p>
+            ))}
+          </div>
+          <p className="form-text mb-0 mt-2">
+            {/* Apagar es preferible a ignorar: una alerta que no se puede
+                apagar acaba siendo ruido que se ignora en bloque, y con ella
+                el resto. */}
+            Una alerta apagada deja de calcularse y no aparece en esta pantalla.
+          </p>
+        </section>
 
-        <hr className="my-4" />
         <NotificacionesPanel valores={valores} setValores={setValores} />
 
-        <button
-          type="submit"
-          className="btn btn-primary btn-sm"
-          disabled={isSaving}
-        >
-          {isSaving ? "Guardando…" : "Guardar configuración"}
-        </button>
+        <div className="mz-actions justify-content-end">
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={isSaving}
+          >
+            {isSaving ? "Guardando…" : "Guardar configuración"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -366,10 +410,8 @@ function NotificacionesPanel({ valores, setValores }) {
   }
 
   return (
-    <section>
-      <h3 className="h6 text-uppercase text-muted mb-3">
-        Notificaciones por correo
-      </h3>
+    <section className="mz-section">
+      <h4>Notificaciones por correo</h4>
 
       <div className="form-check form-switch mb-3">
         <input
@@ -392,11 +434,9 @@ function NotificacionesPanel({ valores, setValores }) {
         </label>
       </div>
 
-      <div className="row g-3 mb-3">
-        <div className="col-md-4">
-          <label className="form-label" htmlFor="alerta-frecuencia">
-            Frecuencia
-          </label>
+      <div className="mz-field-grid mb-3">
+        <div className="mz-field">
+          <label htmlFor="alerta-frecuencia">Frecuencia</label>
           <select
             id="alerta-frecuencia"
             className="form-select"
@@ -411,10 +451,8 @@ function NotificacionesPanel({ valores, setValores }) {
         </div>
 
         {valores.frecuencia === "semanal" && (
-          <div className="col-md-4">
-            <label className="form-label" htmlFor="alerta-dia_envio_semanal">
-              Día del envío
-            </label>
+          <div className="mz-field">
+            <label htmlFor="alerta-dia_envio_semanal">Día del envío</label>
             <select
               id="alerta-dia_envio_semanal"
               className="form-select"
@@ -470,25 +508,23 @@ function NotificacionesPanel({ valores, setValores }) {
             tenga el permiso «Ver el centro de alertas» y un correo registrado.
           </p>
         ) : (
-          <div className="row g-2">
+          <div className="mz-field-grid">
             {candidatos.map((candidato) => (
-              <div className="col-md-6" key={candidato.id}>
-                <div className="form-check">
-                  <input
-                    id={`destinatario-${candidato.id}`}
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={seleccionados.includes(candidato.id)}
-                    onChange={() => alternarDestinatario(candidato.id)}
-                  />
-                  <label
-                    className="form-check-label"
-                    htmlFor={`destinatario-${candidato.id}`}
-                  >
-                    {candidato.nombre}{" "}
-                    <small className="text-muted">{candidato.correo}</small>
-                  </label>
-                </div>
+              <div className="form-check" key={candidato.id}>
+                <input
+                  id={`destinatario-${candidato.id}`}
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={seleccionados.includes(candidato.id)}
+                  onChange={() => alternarDestinatario(candidato.id)}
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor={`destinatario-${candidato.id}`}
+                >
+                  {candidato.nombre}{" "}
+                  <small className="mz-faint">{candidato.correo}</small>
+                </label>
               </div>
             ))}
           </div>
@@ -499,37 +535,43 @@ function NotificacionesPanel({ valores, setValores }) {
         </div>
       </fieldset>
 
-      <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <div className="mz-actions align-items-center mb-2">
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm"
           onClick={handlePrueba}
           disabled={enviandoPrueba}
         >
+          <Icon name="envelope" />{" "}
           {enviandoPrueba ? "Enviando…" : "Enviar una prueba a mi correo"}
         </button>
         {valores.ultimo_envio && (
-          <small className="text-muted">
+          <small className="mz-faint">
             Último resumen enviado el {valores.ultimo_envio}.
           </small>
         )}
       </div>
 
-      {prueba && (
-        <div
-          className={`alert ${prueba.ok ? "alert-success" : "alert-danger"} py-2`}
-        >
-          {prueba.texto}
-        </div>
-      )}
+      {prueba &&
+        (prueba.ok ? (
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="check2-circle" />
+            {prueba.texto}
+          </div>
+        ) : (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {prueba.texto}
+          </div>
+        ))}
 
       {envios.length > 0 && (
         <details className="mt-2">
-          <summary className="small text-muted">Últimos envíos</summary>
-          <ul className="list-unstyled small mt-2 mb-0">
+          <summary className="mz-small mz-faint">Últimos envíos</summary>
+          <ul className="list-unstyled mz-small mt-2 mb-0">
             {envios.map((envio) => (
               <li key={envio.id} className="mb-1">
-                <span className="text-muted">
+                <span className="mz-faint">
                   {new Date(envio.created_at).toLocaleString()}
                 </span>{" "}
                 — {envio.resultado_display}
@@ -539,7 +581,7 @@ function NotificacionesPanel({ valores, setValores }) {
                 {/* El motivo es lo que distingue un día tranquilo de un envío
                     que falló: sin él, ambos se ven igual desde fuera. */}
                 {envio.motivo && (
-                  <span className="text-muted"> · {envio.motivo}</span>
+                  <span className="mz-faint"> · {envio.motivo}</span>
                 )}
               </li>
             ))}

@@ -1,3 +1,5 @@
+import { Icon } from "../../common/Icon/Icon";
+
 /**
  * Severidad de la sugerencia de reemplazo (§11 del documento funcional).
  *
@@ -8,12 +10,12 @@
  */
 const VARIANTES = {
   evaluar: {
-    clase: "text-bg-warning",
+    clase: "mz-pill--warn",
     etiqueta: "Evaluar reemplazo",
     icono: "eye",
   },
   recomendado: {
-    clase: "text-bg-danger",
+    clase: "mz-pill--bad",
     etiqueta: "Reemplazo recomendado",
     icono: "exclamation-octagon",
   },
@@ -21,15 +23,15 @@ const VARIANTES = {
 
 export function NivelRenovacion({ nivel, etiqueta, conIcono = false }) {
   const variante = VARIANTES[nivel];
-  // «ninguno» no dibuja nada: un badge verde de «sin sugerencia» en cada fila
+  // «ninguno» no dibuja nada: una etiqueta verde de «sin sugerencia» en cada fila
   // del inventario compite visualmente con los pocos que sí necesitan atención.
   if (!variante) {
     return null;
   }
 
   return (
-    <span className={`badge ${variante.clase}`}>
-      {conIcono && <i className={`bi bi-${variante.icono} me-1`} aria-hidden="true" />}
+    <span className={`mz-pill ${variante.clase}`}>
+      {conIcono && <Icon name={variante.icono} />}
       {etiqueta || variante.etiqueta}
     </span>
   );

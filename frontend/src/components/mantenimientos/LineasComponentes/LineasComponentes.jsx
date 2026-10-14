@@ -1,4 +1,5 @@
 import { formatearMoneda } from "../../../utils/formato";
+import "./LineasComponentes.css";
 
 const LINEA_VACIA = {
   componente: "",
@@ -59,14 +60,14 @@ export function LineasComponentes({
   return (
     <div className="componentes-lineas">
       {esEdicion && lineas.length > 0 && (
-        <p className="small text-muted">
+        <p className="mz-small mz-faint">
           Al guardar, esta lista reemplaza por completo el desglose anterior de
           la intervención.
         </p>
       )}
 
       {lineas.length === 0 && (
-        <p className="text-muted mb-3">
+        <p className="mz-faint mb-3">
           Sin repuestos. Una intervención puede no consumir ninguno (por
           ejemplo, una limpieza preventiva).
         </p>
@@ -232,7 +233,7 @@ export function LineasComponentes({
           <i className="bi bi-plus-lg me-1" aria-hidden="true" />
           Agregar componente
         </button>
-        <div className="small text-muted">
+        <div className="mz-small mz-faint">
           {criticas > 0 && (
             <span className="me-3">Piezas críticas: {criticas}</span>
           )}

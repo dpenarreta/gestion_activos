@@ -16,8 +16,12 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
   const [moduleFilter, setModuleFilter] = useState("");
 
   const moduleEntries = Object.entries(catalog);
-  const allCodenames = moduleEntries.flatMap(([, module]) => Object.keys(module.permissions));
-  const selectedCount = allCodenames.filter((codename) => selected.has(codename)).length;
+  const allCodenames = moduleEntries.flatMap(([, module]) =>
+    Object.keys(module.permissions),
+  );
+  const selectedCount = allCodenames.filter((codename) =>
+    selected.has(codename),
+  ).length;
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
   function toggleModule(codenames, shouldSelect) {
@@ -44,8 +48,8 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
 
   return (
     <div className="permissions-checkbox-group">
-      <div className="row g-2 mb-2">
-        <div className="col-auto">
+      <div className="mz-filter-bar permissions-checkbox-group__filtros">
+        <div>
           <input
             className="form-control form-control-sm"
             placeholder="Buscar permiso"
@@ -53,7 +57,7 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
             onChange={(event) => setSearchTerm(event.target.value)}
           />
         </div>
-        <div className="col-auto">
+        <div>
           <select
             className="form-select form-select-sm"
             value={moduleFilter}
@@ -80,14 +84,16 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
             ([codename, name]) =>
               !normalizedSearch ||
               codename.toLowerCase().includes(normalizedSearch) ||
-              name.toLowerCase().includes(normalizedSearch)
+              name.toLowerCase().includes(normalizedSearch),
           );
           if (permissionEntries.length === 0) {
             return null;
           }
 
           const moduleCodenames = Object.keys(module.permissions);
-          const selectedInModule = moduleCodenames.filter((codename) => selected.has(codename)).length;
+          const selectedInModule = moduleCodenames.filter((codename) =>
+            selected.has(codename),
+          ).length;
 
           return (
             <ModuleSection
@@ -98,7 +104,9 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
               allSelected={selectedInModule === moduleCodenames.length}
               noneSelected={selectedInModule === 0}
               selected={selected}
-              onToggleModule={(shouldSelect) => toggleModule(moduleCodenames, shouldSelect)}
+              onToggleModule={(shouldSelect) =>
+                toggleModule(moduleCodenames, shouldSelect)
+              }
               onTogglePermission={togglePermission}
             />
           );
@@ -126,8 +134,8 @@ function ModuleSection({
   }, [allSelected, noneSelected]);
 
   return (
-    <div className="card mb-2 permissions-module">
-      <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div className="mz-card permissions-module">
+      <div className="mz-card-head flex-wrap gap-2">
         <div className="form-check mb-0">
           <input
             ref={headerCheckboxRef}
@@ -137,13 +145,16 @@ function ModuleSection({
             onChange={(event) => onToggleModule(event.target.checked)}
             id={`module-${moduleKey}`}
           />
-          <label className="form-check-label fw-semibold" htmlFor={`module-${moduleKey}`}>
+          <label
+            className="form-check-label fw-semibold"
+            htmlFor={`module-${moduleKey}`}
+          >
             {module.label}
           </label>
         </div>
-        <small className="text-muted">{module.description}</small>
+        <small className="mz-small mz-faint">{module.description}</small>
       </div>
-      <div className="card-body py-2">
+      <div className="mz-card-body">
         {permissionEntries.map(([codename, name]) => (
           <div className="form-check" key={codename}>
             <input
@@ -151,10 +162,18 @@ function ModuleSection({
               className="form-check-input"
               id={`permission-${codename}`}
               checked={selected.has(codename)}
-              onChange={(event) => onTogglePermission(codename, event.target.checked)}
+              onChange={(event) =>
+                onTogglePermission(codename, event.target.checked)
+              }
             />
-            <label className="form-check-label" htmlFor={`permission-${codename}`}>
-              {name} <code className="permissions-checkbox-group__codename">{codename}</code>
+            <label
+              className="form-check-label"
+              htmlFor={`permission-${codename}`}
+            >
+              {name}{" "}
+              <code className="permissions-checkbox-group__codename">
+                {codename}
+              </code>
             </label>
           </div>
         ))}

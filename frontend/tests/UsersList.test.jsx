@@ -149,12 +149,16 @@ describe("El listado de usuarios", () => {
     expect(fila).toHaveTextContent("Administrador");
   });
 
-  it("mantiene el breadcrumb Administración > Usuarios", async () => {
+  it("abre con su encabezado y sin migas de pan", async () => {
+    /* La barra superior y el menú ya dicen dónde se está: las migas de pan
+       repetían «Administración > Usuarios» encima del título. */
     pintar();
 
     await screen.findByText("acevallos");
-    expect(screen.getByText("Administración")).toBeInTheDocument();
-    expect(screen.getAllByText("Usuarios").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Usuarios" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Administración")).not.toBeInTheDocument();
   });
 
   it("la búsqueda se envía al confirmar, no en cada tecla", async () => {

@@ -125,6 +125,9 @@
   --bs-border-radius: var(--border-radius, 6px);
   --bs-border-radius-sm: var(--border-radius, 6px);
   --bs-border-radius-lg: 10px;
+  /* El <code> de Bootstrap es rosa: en una ficha, un número de serie rosa
+     parece un error. La identidad escribe códigos en monoespaciada y tinta. */
+  --bs-code-color: var(--mz-ink-soft);
 }
 
 body {
@@ -197,4 +200,150 @@ a {
   color: var(--mz-ink-faint);
   font-size: 11px;
   margin-bottom: 2px;
+}
+
+/* `.mz-table` nació para la matriz de once columnas: 1100px de mínimo y toda
+   fila clicable. Aquí cada listado decide: mínimo moderado por defecto,
+   `--ancha` para los de muchas columnas y `--clicable` solo donde la fila
+   entera abre algo. */
+.mz-table {
+  min-width: 640px;
+}
+
+.mz-table--ancha {
+  min-width: 1100px;
+}
+
+.mz-table tbody tr {
+  cursor: default;
+}
+
+.mz-table--clicable tbody tr,
+.mz-table tbody tr.is-clicable {
+  cursor: pointer;
+}
+
+.mz-table th.num,
+.mz-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-table td.acciones {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mz-table td.acciones .btn + .btn {
+  margin-left: 6px;
+}
+
+.mz-table tr.mz-empty-row td {
+  text-align: center;
+  color: var(--mz-ink-faint);
+  padding: 28px 12px;
+  cursor: default;
+}
+
+/* Una tabla dentro de una tarjeta no lleva marco propio: el de la tarjeta
+   basta, y dos bordes redondeados anidados se ven como un error. */
+.mz-card > .mz-table-wrap {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* La identidad base cambia la tabla por tarjetas en pantallas estrechas, y
+   exige escribir las dos versiones. Aquí la tabla se queda —con su scroll
+   horizontal— salvo en los listados que dan su versión en tarjetas y lo
+   declaran con `mz-table-wrap--con-tarjetas` seguido de `.mz-cards`. */
+@media (max-width: 880px) {
+  .mz-table-wrap {
+    display: block;
+  }
+
+  .mz-table-wrap--con-tarjetas {
+    display: none;
+  }
+
+  .mz-cards {
+    display: none;
+  }
+
+  .mz-table-wrap--con-tarjetas + .mz-cards {
+    display: flex;
+  }
+}
+
+/* La barra de filtros suele ser un <form>; sus controles no se estiran. */
+.mz-filter-bar .form-select,
+.mz-filter-bar .form-control {
+  width: auto;
+}
+
+.mz-filter-bar .mz-spacer {
+  flex: 1;
+}
+
+/* Bloques apilados de una vista: tarjetas una debajo de otra. */
+.mz-stack > * + * {
+  margin-top: 16px;
+}
+
+/* La identidad base trae píldoras para bien, aviso, mal y neutro, pero no para
+   «en curso»: una solicitud tomada o comprada no es buena ni mala noticia, es
+   información. Mismos tokens que `mz-alert--info`. */
+.mz-pill--info {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  border-color: var(--mz-blue-400);
+}
+
+/* `.mz-tl-what` es el título de cada paso del historial: un bloque, aunque se
+   escriba con un <strong>. */
+.mz-tl-what {
+  display: block;
+}
+
+/* Un indicador o una fila que llevan a otra pantalla son enlaces, pero no se
+   dibujan como enlace: el subrayado y el azul pelearían con el resto. */
+a.mz-kpi,
+a.mz-row {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.mz-row {
+  display: flex;
+}
+
+/* Dentro de un enlace, la cifra y su detalle suelen ser <span>: sin esto
+   quedarían en la misma línea en vez de uno debajo del otro. */
+.mz-kpi-value,
+.mz-kpi-sub {
+  display: block;
+}
+
+/* La última fila de una tarjeta no lleva línea debajo: ya la cierra el borde
+   de la tarjeta. */
+.mz-card > .mz-row:last-child {
+  border-bottom: none;
+}
+
+/* Una ficha también puede escribirse como lista de definiciones (`dl` con
+   `dt`/`dd` dentro de cada `.mz-kv`), que un lector de pantalla anuncia como
+   pares. Sin esto, Bootstrap le pondría margen y negrita. */
+dl.mz-kv-grid {
+  margin: 0;
+}
+
+dl.mz-kv-grid dt {
+  font-weight: 400;
+}
+
+dl.mz-kv-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

@@ -1,26 +1,30 @@
+/* La barra de pestañas del navegador simulado es parte del marco, no del
+   tema: va con los tokens de la identidad. */
 .identidad-tab__preview-browser-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--surface-alt);
-  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+  padding: 8px;
+  background: var(--mz-sunken);
+  border-bottom: 1px solid var(--mz-border);
 }
 
 .identidad-tab__preview-favicon {
   width: 1rem;
   height: 1rem;
   border-radius: 2px;
-  background: var(--border-color);
+  background: var(--mz-border);
 }
 
 .identidad-tab__preview-tab-label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-size: 12px;
+  color: var(--mz-ink-faint);
 }
 
+/* Desde aquí, lo que se previsualiza: el menú con el color elegido en
+   «Colores y tipografía», que es justamente lo que hay que ver. */
 .identidad-tab__preview-menu {
-  background: var(--color-menu, #000);
+  background: var(--color-menu, #0a1e38);
   padding: 0.75rem;
   min-height: 3rem;
   display: flex;
@@ -31,7 +35,13 @@
   max-height: 2rem;
 }
 
+.identidad-tab__preview-sin-logo {
+  color: #fff;
+  font-size: 12px;
+}
+
 .identidad-tab__preview-body {
   padding: 1.5rem;
-  color: var(--text-muted);
+  background: var(--mz-raised);
+  color: var(--mz-ink-faint);
 }

@@ -11,7 +11,7 @@ import {
   departamentosService,
   sedesService,
 } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
@@ -23,8 +23,6 @@ import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import { describirFiltros } from "./filtrosAplicados";
 import "./Activos.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Activos" }];
 
 // Los nueve estados del §12. Los tres últimos sacan al equipo del parque:
 // aparecen al final porque son la excepción, no la operación diaria.
@@ -196,16 +194,20 @@ export function ActivosList() {
 
   return (
     <div className="activos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Inventario de activos</h2>
-        <div className="d-flex gap-2">
+      <div className="mz-view-head">
+        <div>
+          <h2>Inventario de activos</h2>
+          <p className="mz-desc">
+            Cada equipo de la empresa, con quién responde por él, dónde está y
+            en qué estado se encuentra.
+          </p>
+        </div>
+        <div className="mz-view-actions">
           <Link
             to="/admin/activos/escaner"
             className="btn btn-outline-primary btn-sm"
           >
-            <i className="bi bi-upc-scan me-1" aria-hidden="true" />
-            Escanear
+            <Icon name="upc-scan" /> Escanear
           </Link>
           {puedeExportar && (
             <button
@@ -215,7 +217,7 @@ export function ActivosList() {
               disabled={isExportando || listado.total === 0}
               title="Exporta los activos que coinciden con los filtros actuales"
             >
-              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+              <Icon name="file-earmark-excel" />{" "}
               {isExportando ? "Exportando…" : `Exportar (${listado.total})`}
             </button>
           )}
@@ -224,13 +226,12 @@ export function ActivosList() {
               to="/admin/activos/importar"
               className="btn btn-outline-primary btn-sm"
             >
-              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
-              Carga masiva
+              <Icon name="file-earmark-arrow-up" /> Carga masiva
             </Link>
           )}
           {puedeCrear && (
             <Link to="/admin/activos/new" className="btn btn-primary btn-sm">
-              Nuevo activo
+              <Icon name="plus-lg" /> Nuevo activo
             </Link>
           )}
         </div>
@@ -245,15 +246,17 @@ export function ActivosList() {
         }}
       />
 
-      <form className="activos-filtros" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar"
-          aria-label="Buscar activos"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar activos</span>
+          <input
+            type="search"
+            placeholder="Buscar"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
           Buscar
         </button>
@@ -261,15 +264,16 @@ export function ActivosList() {
           type="button"
           className="btn btn-outline-secondary btn-sm"
           aria-expanded={filtrosAbiertos}
+          aria-controls="activos-filtros-panel"
           onClick={() => setFiltrosAbiertos((abiertos) => !abiertos)}
         >
-          <i className="bi bi-funnel me-1" aria-hidden="true" />
-          Filtros{chips.length > 0 ? ` (${chips.length})` : ""}
+          <Icon name="funnel" /> Filtros
+          {chips.length > 0 ? ` (${chips.length})` : ""}
         </button>
       </form>
 
       {chips.length > 0 && (
-        <div className="activos-filtros__chips">
+        <div className="mz-chips activos-filtros__chips">
           {chips.map((chip) => (
             <button
               key={chip.claves.join("-")}
@@ -282,7 +286,7 @@ export function ActivosList() {
                 {chip.titulo}:
               </span>{" "}
               {chip.texto}
-              <i className="bi bi-x-lg ms-1" aria-hidden="true" />
+              <Icon name="x-lg" className="ms-1" />
             </button>
           ))}
           <button
@@ -296,9 +300,9 @@ export function ActivosList() {
       )}
 
       {filtrosAbiertos && (
-        <div className="activos-filtros">
+        <div className="mz-filter-bar" id="activos-filtros-panel">
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por categoría"
             value={listado.filtros.categoria}
             onChange={(event) =>
@@ -313,7 +317,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por tipo"
             value={listado.filtros.tipo}
             onChange={(event) =>
@@ -328,7 +332,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por departamento"
             value={listado.filtros.departamento}
             onChange={(event) =>
@@ -343,7 +347,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por estado"
             value={listado.filtros.estado}
             onChange={(event) =>
@@ -358,7 +362,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por ubicación"
             value={listado.filtros.sede}
             onChange={(event) =>
@@ -373,7 +377,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por criticidad"
             value={listado.filtros.criticidad}
             onChange={(event) =>
@@ -388,7 +392,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por uso"
             value={listado.filtros.uso}
             onChange={(event) =>
@@ -403,7 +407,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por propiedad"
             value={listado.filtros.propiedad}
             onChange={(event) =>
@@ -426,7 +430,7 @@ export function ActivosList() {
             <option value="concesion">En concesión</option>
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por antigüedad"
             value={`${listado.filtros.antiguedad_min_meses}-${listado.filtros.antiguedad_max_meses}`}
             onChange={(event) => {
@@ -445,7 +449,7 @@ export function ActivosList() {
             ))}
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por garantía"
             value={listado.filtros.garantia}
             onChange={(event) =>
@@ -459,7 +463,7 @@ export function ActivosList() {
             <option value="sin_registrar">Sin registrar</option>
           </select>
           <select
-            className="form-select form-select-sm w-auto"
+            className="form-select form-select-sm"
             aria-label="Filtrar por sugerencia de renovación"
             value={listado.filtros.nivel_renovacion}
             onChange={(event) =>
@@ -481,20 +485,29 @@ export function ActivosList() {
           dejaría la pistola mal configurada, y el mismo problema reaparecería
           en la carga masiva, donde no hay nadie que lo repare. */}
       {listado.respuesta?.advertencia_lector && (
-        <div className="alert alert-info">
-          <strong>Revise la configuración del lector.</strong>{" "}
-          {listado.respuesta.advertencia_lector.mensaje}
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="info-circle" />
+          <div>
+            <strong>Revise la configuración del lector.</strong>{" "}
+            {listado.respuesta.advertencia_lector.mensaje}
+          </div>
         </div>
       )}
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
       {errorExportacion && (
-        <div className="alert alert-danger">{errorExportacion}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {errorExportacion}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table mz-table--ancha mz-table--clicable">
           <thead>
             <tr>
               <th>Código</th>
@@ -504,18 +517,17 @@ export function ActivosList() {
               <th>Área</th>
               <th>Estado</th>
               <th>Garantía</th>
-              <th className="text-end" title="Intervenciones acumuladas">
+              <th className="num" title="Intervenciones acumuladas">
                 Mant.
               </th>
               <th>Renovación</th>
-              <th>Acciones</th>
+              <th className="text-end">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((activo) => (
               <tr
                 key={activo.id}
-                className="activos-tabla__fila"
                 /* Atajo, no el único camino: el nombre sigue siendo un enlace
                    de verdad —con teclado y con «abrir en otra pestaña»—, y
                    esto solo evita tener que apuntar a él. */
@@ -534,7 +546,7 @@ export function ActivosList() {
                   >
                     {activo.nombre}
                   </Link>
-                  <small className="text-muted d-block">
+                  <small className="mz-faint mz-small d-block">
                     {activo.marca} {activo.modelo} · {activo.numero_serie}
                   </small>
                 </td>
@@ -544,7 +556,7 @@ export function ActivosList() {
                       abrir la ficha para saber a quién llamar, que es lo que
                       se está preguntando al mirar la columna. */}
                   {activo.responsables_resumen || (
-                    <span className="text-muted">Sin asignar</span>
+                    <span className="mz-faint">Sin asignar</span>
                   )}
                 </td>
                 <td>{activo.departamento_nombre}</td>
@@ -557,15 +569,15 @@ export function ActivosList() {
                 <td>
                   <EstadoGarantia estado={activo.estado_garantia} compacto />
                 </td>
-                <td className="text-end">{activo.total_mantenimientos}</td>
+                <td className="num">{activo.total_mantenimientos}</td>
                 <td>
                   {activo.requiere_renovacion ? (
                     <NivelRenovacion nivel={activo.nivel_renovacion} conIcono />
                   ) : (
-                    <span className="text-muted">—</span>
+                    <span className="mz-faint">—</span>
                   )}
                 </td>
-                <td>
+                <td className="acciones">
                   {/* Lo que se hace desde un listado de inventario: mover un
                       equipo, cambiarle el estado o reimprimir su etiqueta.
                       Llevan a la ficha con el diálogo ya abierto, así que es
@@ -579,7 +591,7 @@ export function ActivosList() {
                         title={`Asignar o trasladar ${activo.nombre}`}
                         aria-label={`Asignar o trasladar ${activo.nombre}`}
                       >
-                        <i className="bi bi-person-check" aria-hidden="true" />
+                        <Icon name="person-check" />
                       </Link>
                     )}
                     {puedeCambiarEstado && (
@@ -589,7 +601,7 @@ export function ActivosList() {
                         title={`Cambiar el estado de ${activo.nombre}`}
                         aria-label={`Cambiar el estado de ${activo.nombre}`}
                       >
-                        <i className="bi bi-arrow-repeat" aria-hidden="true" />
+                        <Icon name="arrow-repeat" />
                       </Link>
                     )}
                     {puedeImprimir && (
@@ -599,7 +611,7 @@ export function ActivosList() {
                         title={`Imprimir la etiqueta de ${activo.nombre}`}
                         aria-label={`Imprimir la etiqueta de ${activo.nombre}`}
                       >
-                        <i className="bi bi-printer" aria-hidden="true" />
+                        <Icon name="printer" />
                       </Link>
                     )}
                   </div>
@@ -607,10 +619,8 @@ export function ActivosList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={10} className="text-center text-muted">
-                  Sin activos que coincidan con los filtros
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={10}>Sin activos que coincidan con los filtros</td>
               </tr>
             )}
           </tbody>

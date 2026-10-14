@@ -1,35 +1,68 @@
-.apariencia-tab__legend {
-  font-size: 1.1rem;
-  font-weight: 600;
+.apariencia-tab {
+  max-width: 44rem;
 }
 
-.apariencia-tab__hint {
-  color: var(--text-muted);
+/* El fieldset no trae borde ni relleno propios: el marco es la tarjeta. La
+   leyenda se dibuja como el título de una tarjeta. */
+.apariencia-tab fieldset {
+  border: none;
+  min-width: 0;
+}
+
+.apariencia-tab__legend {
+  font-family: var(--mz-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mz-heading);
+  margin-bottom: 4px;
 }
 
 .apariencia-tab__options {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 8px;
 }
 
+/* Cada modo es una fila clicable entera, no solo el punto del radio: es una
+   elección de tres, y el texto que la explica es parte del blanco. */
 .apariencia-tab__option {
   display: flex;
-  gap: 0.75rem;
+  gap: 12px;
   align-items: flex-start;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.75rem;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-bg);
+  padding: 10px 12px;
   cursor: pointer;
+}
+
+.apariencia-tab__option:hover {
+  border-color: var(--mz-border-strong);
+}
+
+.apariencia-tab__option.is-on {
+  border-color: var(--mz-action);
+  background: var(--mz-raised);
+}
+
+.apariencia-tab__option .form-check-input {
+  margin-top: 3px;
+  flex: none;
+}
+
+.apariencia-tab__icon {
+  color: var(--mz-ink-soft);
+  font-size: 16px;
 }
 
 .apariencia-tab__option-label {
   display: block;
   font-weight: 600;
+  color: var(--mz-ink);
 }
 
 .apariencia-tab__option-description {
   display: block;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  color: var(--mz-ink-faint);
+  font-size: 12px;
 }

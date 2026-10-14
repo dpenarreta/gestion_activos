@@ -9,10 +9,15 @@ import { formatearDias, formatearFecha } from "../../../utils/formato";
  * fuera de garantía.
  */
 const VARIANTES = {
-  vigente: { clase: "text-bg-success", etiqueta: "En garantía" },
-  por_vencer: { clase: "text-bg-warning", etiqueta: "Por vencer" },
-  vencida: { clase: "text-bg-secondary", etiqueta: "Vencida" },
-  sin_registrar: { clase: "text-bg-light border", etiqueta: "Sin registrar" },
+  vigente: { clase: "mz-pill--ok", etiqueta: "En garantía" },
+  por_vencer: { clase: "mz-pill--warn", etiqueta: "Por vencer" },
+  vencida: { clase: "mz-pill--neutral", etiqueta: "Vencida" },
+  // Sin tono propio y en cursiva: neutra como la vencida, pero que se note que
+  // es un hueco del inventario y no un estado de la cobertura.
+  sin_registrar: {
+    clase: "mz-pill--neutral fst-italic",
+    etiqueta: "Sin registrar",
+  },
 };
 
 export function EstadoGarantia({
@@ -26,17 +31,17 @@ export function EstadoGarantia({
 
   if (compacto) {
     return (
-      <span className={`badge ${variante.clase}`}>{variante.etiqueta}</span>
+      <span className={`mz-pill ${variante.clase}`}>{variante.etiqueta}</span>
     );
   }
 
   return (
     <span className="d-inline-flex align-items-center gap-2 flex-wrap">
-      <span className={`badge ${variante.clase}`}>
+      <span className={`mz-pill ${variante.clase}`}>
         {etiqueta || variante.etiqueta}
       </span>
       {fecha && (
-        <span className="text-muted small">
+        <span className="mz-faint mz-small">
           hasta {formatearFecha(fecha)}
           {/* Los días restantes solo aportan cuando la fecha está cerca; a un
               año vista el número es ruido y la fecha ya lo dice todo. */}

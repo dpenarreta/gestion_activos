@@ -13,24 +13,35 @@ const DEFAULT_DEVICES = [
  * Puramente presentacional: el contenido a previsualizar se pasa como
  * `children`.
  */
-export function DevicePreviewFrame({ device, onDeviceChange, devices = DEFAULT_DEVICES, children }) {
+export function DevicePreviewFrame({
+  device,
+  onDeviceChange,
+  devices = DEFAULT_DEVICES,
+  children,
+}) {
   return (
     <div className="device-preview-frame">
-      <div className="device-preview-frame__tabs" role="tablist" aria-label="Dispositivo de vista previa">
+      <div
+        className="device-preview-frame__tabs mz-chips"
+        role="tablist"
+        aria-label="Dispositivo de vista previa"
+      >
         {devices.map((entry) => (
           <button
             key={entry.key}
             type="button"
             role="tab"
             aria-selected={device === entry.key}
-            className={`device-preview-frame__tab ${device === entry.key ? "device-preview-frame__tab--active" : ""}`}
+            className={device === entry.key ? "is-on" : undefined}
             onClick={() => onDeviceChange(entry.key)}
           >
             {entry.label}
           </button>
         ))}
       </div>
-      <div className={`device-preview-frame__viewport device-preview-frame__viewport--${device}`}>
+      <div
+        className={`device-preview-frame__viewport device-preview-frame__viewport--${device}`}
+      >
         {children}
       </div>
     </div>

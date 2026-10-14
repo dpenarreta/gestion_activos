@@ -7,8 +7,8 @@ import {
   mantenimientosService,
 } from "../../../api/mantenimientosService";
 import { proveedoresService } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { BuscadorDeActivo } from "../../../components/activos/BuscadorDeActivo/BuscadorDeActivo";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Mantenimientos.css";
@@ -193,276 +193,293 @@ export function MantenimientoForm() {
 
   return (
     <div className="mantenimientos-page">
-      <Breadcrumbs
-        items={[
-          { label: "Administración" },
-          { label: "Mantenimientos", path: "/admin/mantenimientos" },
-          { label: esEdicion ? "Editar" : "Registrar" },
-        ]}
-      />
-      <h2>{esEdicion ? "Editar intervención" : "Registrar mantenimiento"}</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>
+            {esEdicion ? "Editar intervención" : "Registrar mantenimiento"}
+          </h2>
+          <p className="mz-desc">
+            Qué se le hizo al equipo, quién lo hizo y qué piezas consumió: de
+            aquí salen sus contadores y su sugerencia de renovación.
+          </p>
+        </div>
+      </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit} className="mantenimiento-form">
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Intervención</legend>
-          <div className="row g-3">
-            <div className="col-md-6">
-              {/* Se busca contra el servidor en vez de desplegar el parque
+      {/* Se conserva `row g-3`: la intervención se captura en filas de tres y
+          cuatro campos de anchos distintos, que la rejilla de dos columnas de
+          la identidad no reproduce. */}
+      <form onSubmit={handleSubmit} className="mz-card mantenimiento-form">
+        <div className="mz-card-body">
+          <div className="mz-section">
+            <h4>Intervención</h4>
+            <div className="row g-3">
+              <div className="col-md-6">
+                {/* Se busca contra el servidor en vez de desplegar el parque
                   entero: con el equipo en la mano, disparar la pistola o
                   teclear tres letras es más rápido que recorrer una lista, y
                   la lista además se pedía con un tope de trescientos —en un
                   inventario de verdad, el trescientos uno no se podía elegir—. */}
-              <BuscadorDeActivo
-                valor={valores.activo}
-                onChange={(id, activo) => {
-                  actualizar("activo", id);
-                  setActivoSeleccionado(activo);
-                }}
-                disabled={esEdicion}
-                requerido
-                ayuda={
-                  esEdicion
-                    ? "Una intervención no cambia de activo. Si se capturó sobre el equipo equivocado, elimínela y regístrela de nuevo."
-                    : undefined
-                }
-              />
-              <AvisoDeNotificacion activo={activoSeleccionado} />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="tipo">
-                Tipo
-              </label>
-              <select
-                id="tipo"
-                className="form-select"
-                value={valores.tipo}
-                onChange={(event) => actualizar("tipo", event.target.value)}
-              >
-                <option value="correctivo">Correctivo</option>
-                <option value="preventivo">Preventivo</option>
-              </select>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="fecha">
-                Fecha de ingreso
-              </label>
-              <input
-                id="fecha"
-                type="date"
-                className="form-control"
-                required
-                max={hoy()}
-                min={activoSeleccionado?.fecha_adquisicion}
-                value={valores.fecha_intervencion}
-                onChange={(event) =>
-                  actualizar("fecha_intervencion", event.target.value)
-                }
-              />
-              {activoSeleccionado && (
-                <div className="form-text">
-                  El equipo se adquirió el{" "}
-                  {activoSeleccionado.fecha_adquisicion}.
-                </div>
-              )}
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="fecha_salida">
-                Fecha de salida
-              </label>
-              <input
-                id="fecha_salida"
-                type="date"
-                className="form-control"
-                max={hoy()}
-                min={valores.fecha_intervencion || undefined}
-                value={valores.fecha_salida}
-                onChange={(event) =>
-                  actualizar("fecha_salida", event.target.value)
-                }
-              />
-              <div className="form-text">
-                {valores.fecha_salida
-                  ? `${formatearDias(diasFuera(valores))} fuera de operación.`
-                  : "Vacío mientras el equipo siga fuera de operación."}
-              </div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="tipo_responsable">
-                A cargo de
-              </label>
-              <select
-                id="tipo_responsable"
-                className="form-select"
-                value={valores.tipo_responsable}
-                onChange={(event) =>
-                  actualizar("tipo_responsable", event.target.value)
-                }
-              >
-                <option value="tecnico_interno">Técnico interno</option>
-                <option value="proveedor_externo">Proveedor externo</option>
-              </select>
-            </div>
-            <div className="col-md-8">
-              <label className="form-label" htmlFor="responsable">
-                Nombre del técnico o proveedor
-              </label>
-              <input
-                id="responsable"
-                className="form-control"
-                required
-                maxLength={150}
-                value={valores.responsable}
-                onChange={(event) =>
-                  actualizar("responsable", event.target.value)
-                }
-              />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label" htmlFor="causa">
-                Causa de la falla
-              </label>
-              <input
-                id="causa"
-                className="form-control"
-                list="causas-frecuentes"
-                maxLength={150}
-                placeholder="Pantalla dañada, batería, disco, lentitud…"
-                value={valores.causa}
-                onChange={(event) => actualizar("causa", event.target.value)}
-              />
-              {/* Sugerencias para que la misma falla no se escriba de tres
-                  formas distintas: es lo que permite ver causas recurrentes. */}
-              <datalist id="causas-frecuentes">
-                {CAUSAS_SUGERIDAS.map((causa) => (
-                  <option key={causa} value={causa} />
-                ))}
-              </datalist>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="estado_final">
-                Estado final
-              </label>
-              <select
-                id="estado_final"
-                className="form-select"
-                value={valores.estado_final}
-                onChange={(event) =>
-                  actualizar("estado_final", event.target.value)
-                }
-              >
-                {ESTADOS_FINALES.map((opcion) => (
-                  <option key={opcion.valor} value={opcion.valor}>
-                    {opcion.etiqueta}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-3 d-flex align-items-end">
-              <div className="form-check mb-2">
-                <input
-                  id="garantia_usada"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={valores.garantia_usada}
-                  onChange={(event) =>
-                    actualizar("garantia_usada", event.target.checked)
+                <BuscadorDeActivo
+                  valor={valores.activo}
+                  onChange={(id, activo) => {
+                    actualizar("activo", id);
+                    setActivoSeleccionado(activo);
+                  }}
+                  disabled={esEdicion}
+                  requerido
+                  ayuda={
+                    esEdicion
+                      ? "Una intervención no cambia de activo. Si se capturó sobre el equipo equivocado, elimínela y regístrela de nuevo."
+                      : undefined
                   }
                 />
-                <label className="form-check-label" htmlFor="garantia_usada">
-                  Cubierto por garantía
+                <AvisoDeNotificacion activo={activoSeleccionado} />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="tipo">
+                  Tipo
                 </label>
+                <select
+                  id="tipo"
+                  className="form-select"
+                  value={valores.tipo}
+                  onChange={(event) => actualizar("tipo", event.target.value)}
+                >
+                  <option value="correctivo">Correctivo</option>
+                  <option value="preventivo">Preventivo</option>
+                </select>
+              </div>
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="fecha">
+                  Fecha de ingreso
+                </label>
+                <input
+                  id="fecha"
+                  type="date"
+                  className="form-control"
+                  required
+                  max={hoy()}
+                  min={activoSeleccionado?.fecha_adquisicion}
+                  value={valores.fecha_intervencion}
+                  onChange={(event) =>
+                    actualizar("fecha_intervencion", event.target.value)
+                  }
+                />
+                {activoSeleccionado && (
+                  <div className="form-text">
+                    El equipo se adquirió el{" "}
+                    {activoSeleccionado.fecha_adquisicion}.
+                  </div>
+                )}
+              </div>
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="fecha_salida">
+                  Fecha de salida
+                </label>
+                <input
+                  id="fecha_salida"
+                  type="date"
+                  className="form-control"
+                  max={hoy()}
+                  min={valores.fecha_intervencion || undefined}
+                  value={valores.fecha_salida}
+                  onChange={(event) =>
+                    actualizar("fecha_salida", event.target.value)
+                  }
+                />
+                <div className="form-text">
+                  {valores.fecha_salida
+                    ? `${formatearDias(diasFuera(valores))} fuera de operación.`
+                    : "Vacío mientras el equipo siga fuera de operación."}
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="tipo_responsable">
+                  A cargo de
+                </label>
+                <select
+                  id="tipo_responsable"
+                  className="form-select"
+                  value={valores.tipo_responsable}
+                  onChange={(event) =>
+                    actualizar("tipo_responsable", event.target.value)
+                  }
+                >
+                  <option value="tecnico_interno">Técnico interno</option>
+                  <option value="proveedor_externo">Proveedor externo</option>
+                </select>
+              </div>
+              <div className="col-md-8">
+                <label className="form-label" htmlFor="responsable">
+                  Nombre del técnico o proveedor
+                </label>
+                <input
+                  id="responsable"
+                  className="form-control"
+                  required
+                  maxLength={150}
+                  value={valores.responsable}
+                  onChange={(event) =>
+                    actualizar("responsable", event.target.value)
+                  }
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label" htmlFor="causa">
+                  Causa de la falla
+                </label>
+                <input
+                  id="causa"
+                  className="form-control"
+                  list="causas-frecuentes"
+                  maxLength={150}
+                  placeholder="Pantalla dañada, batería, disco, lentitud…"
+                  value={valores.causa}
+                  onChange={(event) => actualizar("causa", event.target.value)}
+                />
+                {/* Sugerencias para que la misma falla no se escriba de tres
+                  formas distintas: es lo que permite ver causas recurrentes. */}
+                <datalist id="causas-frecuentes">
+                  {CAUSAS_SUGERIDAS.map((causa) => (
+                    <option key={causa} value={causa} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="estado_final">
+                  Estado final
+                </label>
+                <select
+                  id="estado_final"
+                  className="form-select"
+                  value={valores.estado_final}
+                  onChange={(event) =>
+                    actualizar("estado_final", event.target.value)
+                  }
+                >
+                  {ESTADOS_FINALES.map((opcion) => (
+                    <option key={opcion.valor} value={opcion.valor}>
+                      {opcion.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-3 d-flex align-items-end">
+                <div className="form-check mb-2">
+                  <input
+                    id="garantia_usada"
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={valores.garantia_usada}
+                    onChange={(event) =>
+                      actualizar("garantia_usada", event.target.checked)
+                    }
+                  />
+                  <label className="form-check-label" htmlFor="garantia_usada">
+                    Cubierto por garantía
+                  </label>
+                </div>
+              </div>
+              <div className="col-12">
+                <label className="form-label" htmlFor="descripcion">
+                  Trabajo realizado
+                </label>
+                <textarea
+                  id="descripcion"
+                  className="form-control"
+                  rows={2}
+                  required
+                  value={valores.descripcion}
+                  onChange={(event) =>
+                    actualizar("descripcion", event.target.value)
+                  }
+                />
+              </div>
+              <div className="col-12">
+                <label className="form-label" htmlFor="diagnostico">
+                  Diagnóstico
+                </label>
+                <textarea
+                  id="diagnostico"
+                  className="form-control"
+                  rows={2}
+                  value={valores.diagnostico}
+                  onChange={(event) =>
+                    actualizar("diagnostico", event.target.value)
+                  }
+                />
+              </div>
+              <div className="col-12">
+                <label className="form-label" htmlFor="solucion">
+                  Solución aplicada
+                </label>
+                <textarea
+                  id="solucion"
+                  className="form-control"
+                  rows={2}
+                  value={valores.solucion}
+                  onChange={(event) =>
+                    actualizar("solucion", event.target.value)
+                  }
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="costo_mano_obra">
+                  Costo de mano de obra
+                </label>
+                <input
+                  id="costo_mano_obra"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-control"
+                  value={valores.costo_mano_obra}
+                  onChange={(event) =>
+                    actualizar("costo_mano_obra", event.target.value)
+                  }
+                />
               </div>
             </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="descripcion">
-                Trabajo realizado
-              </label>
-              <textarea
-                id="descripcion"
-                className="form-control"
-                rows={2}
-                required
-                value={valores.descripcion}
-                onChange={(event) =>
-                  actualizar("descripcion", event.target.value)
-                }
-              />
-            </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="diagnostico">
-                Diagnóstico
-              </label>
-              <textarea
-                id="diagnostico"
-                className="form-control"
-                rows={2}
-                value={valores.diagnostico}
-                onChange={(event) =>
-                  actualizar("diagnostico", event.target.value)
-                }
-              />
-            </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="solucion">
-                Solución aplicada
-              </label>
-              <textarea
-                id="solucion"
-                className="form-control"
-                rows={2}
-                value={valores.solucion}
-                onChange={(event) => actualizar("solucion", event.target.value)}
-              />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="costo_mano_obra">
-                Costo de mano de obra
-              </label>
-              <input
-                id="costo_mano_obra"
-                type="number"
-                step="0.01"
-                min="0"
-                className="form-control"
-                value={valores.costo_mano_obra}
-                onChange={(event) =>
-                  actualizar("costo_mano_obra", event.target.value)
-                }
-              />
-            </div>
           </div>
-        </fieldset>
 
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">
-            Componentes y repuestos utilizados
-          </legend>
-          <LineasComponentes
-            lineas={lineas}
-            componentes={componentes}
-            proveedores={proveedores}
-            onChange={setLineas}
-            esEdicion={esEdicion}
-          />
-        </fieldset>
+          <div className="mz-section">
+            <h4>Componentes y repuestos utilizados</h4>
+            <LineasComponentes
+              lineas={lineas}
+              componentes={componentes}
+              proveedores={proveedores}
+              onChange={setLineas}
+              esEdicion={esEdicion}
+            />
+          </div>
 
-        <div className="d-flex gap-2">
-          <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving
-              ? "Guardando…"
-              : esEdicion
-                ? "Guardar cambios"
-                : "Registrar intervención"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-cancelar"
-            onClick={() => navigate("/admin/mantenimientos")}
-          >
-            Cancelar
-          </button>
+          <div className="mz-actions justify-content-end mt-3">
+            <button
+              type="button"
+              className="btn btn-cancelar"
+              onClick={() => navigate("/admin/mantenimientos")}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSaving}
+            >
+              {isSaving
+                ? "Guardando…"
+                : esEdicion
+                  ? "Guardar cambios"
+                  : "Registrar intervención"}
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -509,7 +526,7 @@ function AvisoDeNotificacion({ activo }) {
         </span>
       )}
       {sinCorreo.length > 0 && (
-        <span className="text-warning-emphasis">
+        <span className="mz-warn">
           {sinCorreo.map((persona) => persona.nombre_completo).join(", ")}{" "}
           {sinCorreo.length === 1 ? "no tiene" : "no tienen"} correo en su ficha
           y no {sinCorreo.length === 1 ? "recibirá" : "recibirán"} el aviso

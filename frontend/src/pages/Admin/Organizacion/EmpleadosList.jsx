@@ -5,13 +5,12 @@ import {
   departamentosService,
   empleadosService,
 } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Empleados" }];
 const FILTROS_INICIALES = { q: "", departamento: "", activo: "" };
 
 export function EmpleadosList() {
@@ -38,31 +37,40 @@ export function EmpleadosList() {
   }
 
   return (
-    <div className="organizacion-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Empleados</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Empleados</h2>
+          <p className="mz-desc">
+            Las personas que pueden tener equipos a cargo, cada una en su
+            departamento.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link
-            to="/admin/organizacion/empleados/new"
-            className="btn btn-primary btn-sm"
-          >
-            Nuevo empleado
-          </Link>
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/organizacion/empleados/new"
+              className="btn btn-primary btn-sm"
+            >
+              <Icon name="plus-lg" /> Nuevo empleado
+            </Link>
+          </div>
         )}
       </div>
 
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Nombre, código o correo"
-          aria-label="Buscar empleados"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar empleados</span>
+          <input
+            type="search"
+            placeholder="Nombre, código o correo"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por departamento"
           value={listado.filtros.departamento}
           onChange={(event) =>
@@ -77,7 +85,7 @@ export function EmpleadosList() {
           ))}
         </select>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por estado"
           value={listado.filtros.activo}
           onChange={(event) =>
@@ -94,32 +102,33 @@ export function EmpleadosList() {
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Código</th>
               <th>Nombre</th>
               <th>Cargo</th>
               <th>Departamento</th>
-              <th className="text-end">Activos a cargo</th>
+              <th className="num">Activos a cargo</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((empleado) => (
               <tr key={empleado.id}>
-                <td>
-                  <code>{empleado.codigo_empleado}</code>
-                </td>
-                <td>{empleado.nombre_completo}</td>
+                <td className="mz-code">{empleado.codigo_empleado}</td>
+                <td className="mz-strong">{empleado.nombre_completo}</td>
                 <td>{empleado.cargo || "—"}</td>
                 <td>{empleado.departamento_nombre}</td>
-                <td className="text-end">
+                <td className="num">
                   {empleado.total_activos > 0 ? (
                     <Link to={`/admin/activos?custodio=${empleado.id}`}>
                       {empleado.total_activos}
@@ -130,12 +139,12 @@ export function EmpleadosList() {
                 </td>
                 <td>
                   <span
-                    className={`badge ${empleado.activo ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${empleado.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {empleado.activo ? "Activo" : "Inactivo"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     to={`/admin/organizacion/empleados/${empleado.id}`}
                     className="btn btn-outline-primary btn-sm"
@@ -146,10 +155,8 @@ export function EmpleadosList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center text-muted">
-                  Sin empleados registrados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={7}>Sin empleados registrados</td>
               </tr>
             )}
           </tbody>

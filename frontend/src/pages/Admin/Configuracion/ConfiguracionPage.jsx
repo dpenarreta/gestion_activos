@@ -3,23 +3,35 @@ import { useLocation } from "react-router-dom";
 
 import { themeService } from "../../../api/themeService";
 import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
-import { Button } from "../../../components/common/Button/Button";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
-import { evaluateThemeContrast, isValidHexColor } from "../../../utils/colorContrast";
+import {
+  evaluateThemeContrast,
+  isValidHexColor,
+} from "../../../utils/colorContrast";
 import { AparienciaTab } from "./AparienciaTab";
 import { ColoresTipografiaTab, COLOR_FIELDS } from "./ColoresTipografiaTab";
 import { IdentidadTab } from "./IdentidadTab";
 import "./ConfiguracionPage.css";
 
 const TABS = [
-  { key: "identidad", label: "Identidad", path: "/admin/configuracion/identidad" },
-  { key: "colores", label: "Colores y tipografía", path: "/admin/configuracion/colores-tipografia" },
-  { key: "apariencia", label: "Apariencia", path: "/admin/configuracion/apariencia" },
+  {
+    key: "identidad",
+    label: "Identidad",
+    path: "/admin/configuracion/identidad",
+  },
+  {
+    key: "colores",
+    label: "Colores y tipografía",
+    path: "/admin/configuracion/colores-tipografia",
+  },
+  {
+    key: "apariencia",
+    label: "Apariencia",
+    path: "/admin/configuracion/apariencia",
+  },
 ];
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Configuración" }];
 
 const EDITABLE_FIELDS = [
   "site_name",
@@ -88,7 +100,9 @@ export function ConfiguracionPage() {
 
   const liveWarnings = form ? evaluateThemeContrast(form) : [];
   const failingContrast = liveWarnings.filter((entry) => !entry.passes);
-  const hasInvalidHex = form ? COLOR_FIELDS.some((field) => !isValidHexColor(form[field.key])) : false;
+  const hasInvalidHex = form
+    ? COLOR_FIELDS.some((field) => !isValidHexColor(form[field.key]))
+    : false;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -101,7 +115,10 @@ export function ConfiguracionPage() {
       setWarnings(response.warnings || []);
       setIsDirty(false);
     } catch (err) {
-      setError(err.response?.data?.error?.message || "No se pudo guardar la configuración.");
+      setError(
+        err.response?.data?.error?.message ||
+          "No se pudo guardar la configuración.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -126,38 +143,61 @@ export function ConfiguracionPage() {
 
   return (
     <div className="configuracion-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Configuración</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Configuración</h2>
+          <p className="mz-desc">
+            Cómo se presenta el sistema: su nombre, su logo, sus colores y su
+            tipografía, y si este dispositivo lo muestra claro u oscuro.
+          </p>
+        </div>
+      </div>
 
       <AdminTabs tabs={TABS} />
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {activeTab === "apariencia" ? (
-        <div role="tabpanel" id="admin-tabpanel-apariencia" aria-labelledby="admin-tab-apariencia">
+        <div
+          role="tabpanel"
+          id="admin-tabpanel-apariencia"
+          aria-labelledby="admin-tab-apariencia"
+        >
           <AparienciaTab />
         </div>
       ) : (
         <>
           {failingContrast.length > 0 && (
-            <div className="alert alert-warning">
-              <strong>Advertencia de accesibilidad:</strong> las siguientes combinaciones no cumplen el
-              contraste mínimo recomendado (4.5:1):
-              <ul className="mb-0">
-                {failingContrast.map((entry) => (
-                  <li key={entry.pair}>
-                    {entry.pair} — contraste {entry.ratio}:1 (afecta: {entry.foreground} sobre{" "}
-                    {entry.background})
-                  </li>
-                ))}
-              </ul>
+            <div className="mz-alert mz-alert--warn">
+              <Icon name="exclamation-triangle" />
+              <div>
+                <strong>Advertencia de accesibilidad:</strong> las siguientes
+                combinaciones no cumplen el contraste mínimo recomendado
+                (4.5:1):
+                <ul className="mb-0">
+                  {failingContrast.map((entry) => (
+                    <li key={entry.pair}>
+                      {entry.pair} — contraste {entry.ratio}:1 (afecta:{" "}
+                      {entry.foreground} sobre {entry.background})
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
           {warnings.length > 0 && (
-            <div className="alert alert-info">
-              La configuración se guardó. Advertencias de contraste pendientes:{" "}
-              {warnings.map((w) => w.pair).join(", ")}.
+            <div className="mz-alert mz-alert--info" role="status">
+              <Icon name="info-circle" />
+              <div>
+                La configuración se guardó. Advertencias de contraste
+                pendientes: {warnings.map((w) => w.pair).join(", ")}.
+              </div>
             </div>
           )}
 
@@ -170,20 +210,31 @@ export function ConfiguracionPage() {
               {activeTab === "identidad" ? (
                 <IdentidadTab form={form} updateField={updateField} />
               ) : (
-                <ColoresTipografiaTab form={form} updateField={updateField} options={options} />
+                <ColoresTipografiaTab
+                  form={form}
+                  updateField={updateField}
+                  options={options}
+                />
               )}
             </div>
 
-            <div className="d-flex gap-2 mt-3">
-              <Button type="submit" isLoading={isSaving} disabled={hasInvalidHex}>
-                Guardar
-              </Button>
+            {/* Un solo pie para las dos pestañas: editan el mismo tema y se
+                guardan juntas. */}
+            <div className="mz-actions justify-content-end mt-3">
               <button
                 type="button"
                 className="btn btn-outline-secondary"
                 onClick={() => setIsConfirmResetOpen(true)}
               >
-                Restaurar valores por defecto
+                <Icon name="arrow-counterclockwise" /> Restaurar valores por
+                defecto
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSaving || hasInvalidHex}
+              >
+                {isSaving ? "Procesando..." : "Guardar"}
               </button>
             </div>
           </form>

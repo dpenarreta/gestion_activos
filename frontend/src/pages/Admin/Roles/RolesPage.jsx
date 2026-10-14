@@ -1,14 +1,15 @@
 import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { PermissionsPanel } from "../Permissions/PermissionsPanel";
 import { RolesPanel } from "./RolesPanel";
 
 const TABS = [
   { key: "roles", label: "Roles", path: "/admin/roles" },
-  { key: "permisos", label: "Catálogo de permisos", path: "/admin/roles/permisos" },
+  {
+    key: "permisos",
+    label: "Catálogo de permisos",
+    path: "/admin/roles/permisos",
+  },
 ];
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Roles y permisos" }];
 
 /**
  * Host del módulo de roles, con el catálogo de permisos como segunda pestaña.
@@ -22,15 +23,21 @@ const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Roles y permis
 export function RolesPage({ seccion = "roles" }) {
   return (
     <div className="roles-page-host">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Roles y permisos</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Roles y permisos</h2>
+          <p className="mz-desc">
+            Qué puede hacer cada cuenta: los permisos se agrupan en roles y los
+            roles se asignan desde la ficha del usuario.
+          </p>
+        </div>
+      </div>
       <AdminTabs tabs={TABS} />
 
       <div
         role="tabpanel"
         id={`admin-tabpanel-${seccion}`}
         aria-labelledby={`admin-tab-${seccion}`}
-        className="pt-3"
       >
         {seccion === "permisos" ? <PermissionsPanel /> : <RolesPanel />}
       </div>

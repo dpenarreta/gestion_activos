@@ -1,3 +1,4 @@
+import { Icon } from "../../common/Icon/Icon";
 import { NivelRenovacion } from "../NivelRenovacion/NivelRenovacion";
 import "./AlertaRenovacion.css";
 
@@ -26,44 +27,52 @@ export function AlertaRenovacion({ renovacion }) {
 
   return (
     <div
-      className={`alert ${esRecomendado ? "alert-danger" : "alert-warning"} alerta-renovacion`}
+      className={`mz-alert ${esRecomendado ? "mz-alert--bad" : "mz-alert--warn"} alerta-renovacion`}
       role="status"
     >
-      <div className="d-flex align-items-start gap-2">
-        <i
-          className={`bi bi-${esRecomendado ? "exclamation-octagon-fill" : "exclamation-triangle-fill"} fs-5`}
-          aria-hidden="true"
-        />
-        <div className="flex-grow-1">
-          <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-            <h3 className="h6 mb-0">Sugerencia de cambio o renovación</h3>
-            <NivelRenovacion
-              nivel={renovacion.nivel_renovacion}
-              etiqueta={renovacion.nivel_renovacion_display}
-            />
-          </div>
-          <p className="mb-2 small">
-            Este equipo excede los umbrales definidos
-            {renovacion.politica_aplicada && (
-              <> por la política <strong>{renovacion.politica_aplicada}</strong></>
-            )}
-            .
-          </p>
-          <ul className="alerta-renovacion__motivos mb-0">
-            {renovacion.motivos.map((motivo) => (
-              <li key={motivo.criterio}>
-                <span className="alerta-renovacion__criterio">
-                  {ETIQUETAS_CRITERIO[motivo.criterio] || motivo.criterio}
-                </span>
-                <span className="alerta-renovacion__cifras">
-                  {motivo.valor_actual} <span aria-hidden="true">/</span>
-                  <span className="visually-hidden">de un umbral de</span> {motivo.umbral}
-                </span>
-                <span className="alerta-renovacion__detalle">{motivo.detalle}</span>
-              </li>
-            ))}
-          </ul>
+      <Icon
+        name={
+          esRecomendado
+            ? "exclamation-octagon-fill"
+            : "exclamation-triangle-fill"
+        }
+        className="alerta-renovacion__icono"
+      />
+      <div className="alerta-renovacion__cuerpo">
+        <div className="alerta-renovacion__titulo">
+          <h3>Sugerencia de cambio o renovación</h3>
+          <NivelRenovacion
+            nivel={renovacion.nivel_renovacion}
+            etiqueta={renovacion.nivel_renovacion_display}
+          />
         </div>
+        <p className="mb-2">
+          Este equipo excede los umbrales definidos
+          {renovacion.politica_aplicada && (
+            <>
+              {" "}
+              por la política <strong>{renovacion.politica_aplicada}</strong>
+            </>
+          )}
+          .
+        </p>
+        <ul className="alerta-renovacion__motivos">
+          {renovacion.motivos.map((motivo) => (
+            <li key={motivo.criterio}>
+              <span className="alerta-renovacion__criterio">
+                {ETIQUETAS_CRITERIO[motivo.criterio] || motivo.criterio}
+              </span>
+              <span className="alerta-renovacion__cifras">
+                {motivo.valor_actual} <span aria-hidden="true">/</span>
+                <span className="visually-hidden">de un umbral de</span>{" "}
+                {motivo.umbral}
+              </span>
+              <span className="alerta-renovacion__detalle">
+                {motivo.detalle}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

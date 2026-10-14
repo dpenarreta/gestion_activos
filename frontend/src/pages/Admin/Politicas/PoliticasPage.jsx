@@ -1,13 +1,7 @@
 import { AdminTabs } from "../../../components/admin/AdminTabs/AdminTabs";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { DepreciacionPanel } from "./DepreciacionPanel";
 import { PoliticasList } from "./PoliticasList";
 import "./Politicas.css";
-
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Políticas del parque" },
-];
 
 const TABS = [
   { key: "renovacion", label: "Renovación", path: "/admin/politicas" },
@@ -30,8 +24,15 @@ const TABS = [
 export function PoliticasPage({ seccion = "renovacion" }) {
   return (
     <div className="politicas-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Políticas del parque</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Políticas del parque</h2>
+          <p className="mz-desc">
+            Cuánto dura un equipo, contado de dos maneras: cuándo conviene
+            reemplazarlo y en cuánto tiempo pierde su valor contable.
+          </p>
+        </div>
+      </div>
 
       <AdminTabs tabs={TABS} />
 

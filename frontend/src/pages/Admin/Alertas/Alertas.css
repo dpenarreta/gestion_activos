@@ -1,78 +1,106 @@
-/* Centro de alertas del parque (§19). */
-
-.alertas-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
+/*
+ * Centro de alertas del parque (§19).
+ *
+ * Tarjetas, filas, etiquetas y avisos son los de la identidad base. Aquí
+ * queda la rejilla de tarjetas, el color de cada severidad y el total grande.
+ */
 
 .alertas-grid {
   display: grid;
   /* Tarjetas y no una tabla: cada alerta trae un total, una explicación y una
      muestra de equipos, y eso en una fila obliga a apilar texto en una celda. */
   grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
-  gap: 1rem;
+  gap: 16px;
   /* Cada tarjeta ocupa lo que necesita: una alerta con un solo equipo no tiene
      por qué estirarse hasta la altura de la que trae cinco. */
   align-items: start;
 }
 
-.alerta-card {
-  background: var(--surface);
-  border-left-width: 4px;
+.alertas-configuracion {
+  margin-bottom: 18px;
 }
 
-/* El color es redundante con el icono y con el orden de las tarjetas: quien
-   no distinga los tonos sigue viendo primero las graves, y cada una lleva su
-   icono propio. */
-.alerta-card--alta {
-  border-left-color: var(--state-danger);
+.alertas-resueltas {
+  margin-top: 18px;
 }
 
-.alerta-card--media {
-  border-left-color: var(--state-warning);
-}
-
-.alerta-card--baja {
-  border-left-color: var(--state-info);
-}
-
-.alerta-card__total {
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-headings);
-}
-
-.alerta-card__muestra {
-  margin: 0.75rem 0;
-  font-size: 0.875rem;
-}
-
-.alerta-card__muestra li {
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.alerta-card__muestra li:last-child {
+.alertas-resueltas .mz-row:last-child {
   border-bottom: none;
 }
 
-.alerta-card__muestra a {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+.alertas-resueltas__ic {
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+}
+
+/* El color es redundante con el icono, la etiqueta y el orden de las
+   tarjetas: quien no distinga los tonos sigue viendo primero las graves, y
+   cada una lleva su icono y su «Atender ya», «Revisar» o «Informativa». */
+.alerta-card {
+  border-left-width: 4px;
+}
+
+.alerta-card--alta {
+  border-left-color: var(--mz-bad-line);
+}
+
+.alerta-card--media {
+  border-left-color: var(--mz-warn-line);
+}
+
+.alerta-card--baja {
+  border-left-color: var(--mz-blue-500);
+}
+
+.alerta-card__cabecera {
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: none;
+  padding-bottom: 6px;
+}
+
+.alerta-card__cabecera h3 {
+  margin-bottom: 6px;
+}
+
+.alerta-card__icono {
+  margin-right: 8px;
+}
+
+.alerta-card--alta .alerta-card__icono {
+  color: var(--mz-bad-fg);
+}
+
+.alerta-card--media .alerta-card__icono {
+  color: var(--mz-warn-fg);
+}
+
+.alerta-card--baja .alerta-card__icono {
+  color: var(--mz-info-fg);
+}
+
+.alerta-card__total {
+  font-family: var(--mz-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--mz-heading, var(--mz-ink));
+}
+
+.alerta-card__detalle {
+  margin: 0;
+  padding: 0 18px 12px;
+}
+
+.alerta-card__muestra {
+  border-top: 1px solid var(--mz-border);
+}
+
+.alerta-card__muestra a.mz-row {
   text-decoration: none;
 }
 
-.alerta-card__nombre {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alertas-resueltas li {
-  padding: 0.3rem 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+.alerta-card__muestra a.mz-row:hover .mz-row-info strong {
+  text-decoration: underline;
 }

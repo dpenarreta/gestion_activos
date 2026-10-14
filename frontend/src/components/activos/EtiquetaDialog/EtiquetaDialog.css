@@ -4,11 +4,12 @@
  */
 
 .etiqueta-previa-pdf {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  /* Fondo claro fijo, no un token de tema: detrás del PDF debe verse el color
-     del papel, o en modo oscuro la etiqueta parecería flotar sobre un vacío y
-     dejaría de anticipar el resultado impreso. */
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  /* Fondo claro fijo, no un token de tema —la única excepción de la hoja—:
+     detrás del PDF debe verse el color del papel, o en modo oscuro la etiqueta
+     parecería flotar sobre un vacío y dejaría de anticipar el resultado
+     impreso. */
   background: #f1f3f5;
   overflow: hidden;
   min-height: 12rem;
@@ -24,11 +25,12 @@
 }
 
 .etiqueta-termica {
-  border-top: 1px solid var(--border-color);
-  padding-top: 1rem;
+  border-top: 1px solid var(--mz-border);
+  padding-top: 16px;
 }
 
 .etiqueta-contenido {
-  font-size: 0.8rem;
-  background: var(--surface-alt);
+  font-family: var(--mz-font-mono);
+  font-size: 12px;
+  background: var(--mz-sunken);
 }

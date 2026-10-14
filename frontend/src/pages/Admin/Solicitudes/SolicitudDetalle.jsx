@@ -1,8 +1,8 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { useAuth } from "../../../hooks/useAuth";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
@@ -95,12 +95,15 @@ export function SolicitudDetalle() {
   if (error && !solicitud) {
     return (
       <div className="solicitudes-page">
-        <div className="alert alert-danger">{error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
       </div>
     );
   }
   if (!solicitud) {
-    return <div className="solicitudes-page text-muted">Cargando…</div>;
+    return <div className="solicitudes-page mz-empty">Cargando…</div>;
   }
 
   const esMia = solicitud.solicitante === user?.id;
@@ -116,150 +119,172 @@ export function SolicitudDetalle() {
 
   return (
     <div className="solicitudes-page">
-      <Breadcrumbs
-        items={[
-          { label: "Administración" },
-          { label: "Solicitudes" },
-          {
-            label: esMia ? "Mis solicitudes" : "Solicitudes recibidas",
-            path: esMia
-              ? "/admin/solicitudes/mias"
-              : "/admin/solicitudes/recibidas",
-          },
-          { label: `Solicitud #${solicitud.id}` },
-        ]}
-      />
-
-      <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+      <div className="mz-view-head">
         <div>
-          <h2 className="mb-1">
+          <h2>
             Solicitud #{solicitud.id}{" "}
             <EstadoDeSolicitud solicitud={solicitud} />
           </h2>
-          <p className="text-muted mb-0">{solicitud.lo_que_se_pide}</p>
+          <p className="mz-desc">{solicitud.lo_que_se_pide}</p>
         </div>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="row g-4">
-        <div className="col-12 col-lg-7">
-          <dl className="row mb-0">
-            <dt className="col-5 col-sm-4">Qué se pide</dt>
-            <dd className="col-7 col-sm-8">{solicitud.lo_que_se_pide}</dd>
-            <dt className="col-5 col-sm-4">Clase</dt>
-            <dd className="col-7 col-sm-8">{solicitud.clase_display}</dd>
-            <dt className="col-5 col-sm-4">Cantidad</dt>
-            <dd className="col-7 col-sm-8">{solicitud.cantidad}</dd>
-            <dt className="col-5 col-sm-4">Prioridad</dt>
-            <dd className="col-7 col-sm-8">{solicitud.prioridad_display}</dd>
-            <dt className="col-5 col-sm-4">Se necesita para</dt>
-            <dd className="col-7 col-sm-8">
-              {solicitud.fecha_necesaria
-                ? formatearFecha(solicitud.fecha_necesaria)
-                : "Sin fecha comprometida"}
-            </dd>
-            <dt className="col-5 col-sm-4">Quién la pidió</dt>
-            <dd className="col-7 col-sm-8">{solicitud.solicitante_nombre}</dd>
-            <dt className="col-5 col-sm-4">Quién la gestiona</dt>
-            <dd className="col-7 col-sm-8">{solicitud.encargado_nombre}</dd>
-            <dt className="col-5 col-sm-4">Para qué hace falta</dt>
-            <dd className="col-7 col-sm-8">{solicitud.justificacion}</dd>
-          </dl>
-
-          {/* Lo pedido con el vocabulario del tipo: es lo que permite comparar
-              con lo que se acabó comprando, cosa que una justificación escrita a
-              mano no deja hacer. */}
-          {Object.keys(solicitud.especificaciones ?? {}).length > 0 && (
-            <div className="mt-3">
-              <h6>Con qué características</h6>
-              <dl className="row mb-0">
-                {Object.entries(solicitud.especificaciones).map(
-                  ([nombre, contenido]) => (
-                    <Fragment key={nombre}>
-                      <dt className="col-5 col-sm-4">{nombre}</dt>
-                      <dd className="col-7 col-sm-8">
-                        {contenido === true
-                          ? "Sí"
-                          : contenido === false
-                            ? "No"
-                            : String(contenido)}
-                      </dd>
-                    </Fragment>
-                  ),
-                )}
-              </dl>
+      <div className="mz-grid-2">
+        <div className="mz-stack">
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Datos de la solicitud</h3>
             </div>
-          )}
+            <div className="mz-card-body">
+              <div className="mz-kv-grid">
+                <div className="mz-kv mz-kv--full">
+                  <span className="mz-kv-label">Qué se pide</span>
+                  {solicitud.lo_que_se_pide}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Clase</span>
+                  {solicitud.clase_display}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Cantidad</span>
+                  {solicitud.cantidad}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Prioridad</span>
+                  <span className={`mz-prio--${solicitud.prioridad}`}>
+                    {solicitud.prioridad_display}
+                  </span>
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Se necesita para</span>
+                  {solicitud.fecha_necesaria
+                    ? formatearFecha(solicitud.fecha_necesaria)
+                    : "Sin fecha comprometida"}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Quién la pidió</span>
+                  {solicitud.solicitante_nombre}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Quién la gestiona</span>
+                  {solicitud.encargado_nombre}
+                </div>
+                <div className="mz-kv mz-kv--full">
+                  <span className="mz-kv-label">Para qué hace falta</span>
+                  {solicitud.justificacion}
+                </div>
+              </div>
 
-          {(pasos.length > 0 || puedeCancelar) && (
-            <div className="mt-4">
-              <h6>Qué se puede hacer ahora</h6>
-              {(pasos.some((paso) => paso.exigeNota) || puedeCancelar) && (
-                <div className="mb-2">
-                  <label className="form-label small" htmlFor="sol-nota">
-                    Nota (obligatoria al rechazar)
-                  </label>
-                  <textarea
-                    id="sol-nota"
-                    className="form-control form-control-sm"
-                    rows={2}
-                    value={nota}
-                    onChange={(evento) => setNota(evento.target.value)}
-                  />
+              {/* Lo pedido con el vocabulario del tipo: es lo que permite comparar
+                  con lo que se acabó comprando, cosa que una justificación escrita a
+                  mano no deja hacer. */}
+              {Object.keys(solicitud.especificaciones ?? {}).length > 0 && (
+                <div className="mz-section mt-3 mb-0">
+                  <h4>Con qué características</h4>
+                  <div className="mz-kv-grid">
+                    {Object.entries(solicitud.especificaciones).map(
+                      ([nombre, contenido]) => (
+                        <div className="mz-kv" key={nombre}>
+                          <span className="mz-kv-label">{nombre}</span>
+                          {contenido === true
+                            ? "Sí"
+                            : contenido === false
+                              ? "No"
+                              : String(contenido)}
+                        </div>
+                      ),
+                    )}
+                  </div>
                 </div>
               )}
-              <div className="d-flex flex-wrap gap-2">
-                {pasos.map((paso) => (
-                  <button
-                    key={paso.estado}
-                    type="button"
-                    className={`btn btn-sm ${paso.clase}`}
-                    disabled={isSaving}
-                    onClick={() => mover(paso)}
-                  >
-                    {paso.texto}
-                  </button>
-                ))}
-                {puedeCancelar && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    disabled={isSaving}
-                    onClick={() => mover({ estado: "cancelada" })}
-                  >
-                    Cancelar la solicitud
-                  </button>
-                )}
-              </div>
+
+              {solicitud.esta_cerrada && (
+                <p className="mz-note mt-3 mb-0">
+                  Su recorrido terminó y no se reabre. Si vuelve a hacer falta,
+                  se pide de nuevo.
+                </p>
+              )}
             </div>
-          )}
+          </section>
 
-          {solicitud.esta_cerrada && (
-            <p className="text-muted mt-3 mb-0">
-              Su recorrido terminó y no se reabre. Si vuelve a hacer falta, se
-              pide de nuevo.
-            </p>
-          )}
-        </div>
-
-        <div className="col-12 col-lg-5">
-          <h6>Recorrido</h6>
-          <ul className="solicitudes-recorrido">
-            {solicitud.movimientos.map((movimiento) => (
-              <li key={movimiento.id}>
-                <strong>{movimiento.estado_nuevo_display}</strong>
-                <small className="d-block text-muted">
-                  {formatearFecha(movimiento.created_at)} ·{" "}
-                  {movimiento.actor_nombre || "el sistema"}
-                </small>
-                {movimiento.nota && (
-                  <div className="nota small">{movimiento.nota}</div>
+          {(pasos.length > 0 || puedeCancelar) && (
+            <section className="mz-card">
+              <div className="mz-card-head">
+                <h3>Qué se puede hacer ahora</h3>
+              </div>
+              <div className="mz-card-body">
+                {(pasos.some((paso) => paso.exigeNota) || puedeCancelar) && (
+                  <div className="mz-field">
+                    <label htmlFor="sol-nota">
+                      Nota (obligatoria al rechazar)
+                    </label>
+                    <textarea
+                      id="sol-nota"
+                      className="form-control form-control-sm"
+                      rows={2}
+                      value={nota}
+                      onChange={(evento) => setNota(evento.target.value)}
+                    />
+                  </div>
                 )}
-              </li>
-            ))}
-          </ul>
+                <div className="mz-actions">
+                  {pasos.map((paso) => (
+                    <button
+                      key={paso.estado}
+                      type="button"
+                      className={`btn btn-sm ${paso.clase}`}
+                      disabled={isSaving}
+                      onClick={() => mover(paso)}
+                    >
+                      {paso.texto}
+                    </button>
+                  ))}
+                  {puedeCancelar && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      disabled={isSaving}
+                      onClick={() => mover({ estado: "cancelada" })}
+                    >
+                      Cancelar la solicitud
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
         </div>
+
+        <section className="mz-card">
+          <div className="mz-card-head">
+            <h3>Recorrido</h3>
+          </div>
+          <div className="mz-card-body">
+            <ul className="mz-timeline solicitudes-recorrido">
+              {solicitud.movimientos.map((movimiento) => (
+                <li key={movimiento.id} className="mz-tl-item">
+                  <strong className="mz-tl-what">
+                    {movimiento.estado_nuevo_display}
+                  </strong>
+                  <div className="mz-tl-when">
+                    {formatearFecha(movimiento.created_at)} ·{" "}
+                    {movimiento.actor_nombre || "el sistema"}
+                  </div>
+                  {movimiento.nota && (
+                    <div className="mz-tl-why nota">{movimiento.nota}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
       </div>
     </div>
   );

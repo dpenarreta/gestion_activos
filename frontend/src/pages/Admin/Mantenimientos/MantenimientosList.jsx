@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 
 import { exportacionService } from "../../../api/activosService";
 import { mantenimientosService } from "../../../api/mantenimientosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
@@ -13,10 +13,6 @@ import { descargarBlob } from "../../../utils/descargas";
 import { formatearFecha, formatearMoneda } from "../../../utils/formato";
 import "./Mantenimientos.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Mantenimientos" },
-];
 const FILTROS_INICIALES = { q: "", tipo: "", desde: "", hasta: "" };
 
 export function MantenimientosList() {
@@ -72,15 +68,20 @@ export function MantenimientosList() {
 
   return (
     <div className="mantenimientos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Bitácora de mantenimientos</h2>
-        <div className="d-flex gap-2">
+      <div className="mz-view-head">
+        <div>
+          <h2>Bitácora de mantenimientos</h2>
+          <p className="mz-desc">
+            Cada intervención preventiva o correctiva sobre un equipo, con sus
+            piezas y su costo.
+          </p>
+        </div>
+        <div className="mz-view-actions">
           <Link
             to="/admin/mantenimientos/componentes"
             className="btn btn-outline-primary btn-sm"
           >
-            Catálogo de componentes
+            <Icon name="cpu" /> Catálogo de componentes
           </Link>
           {puedeExportar && (
             <button
@@ -90,7 +91,7 @@ export function MantenimientosList() {
               disabled={isExportando || listado.total === 0}
               title="Exporta las intervenciones que coinciden con los filtros actuales"
             >
-              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+              <Icon name="file-earmark-excel" />{" "}
               {isExportando ? "Exportando…" : `Exportar (${listado.total})`}
             </button>
           )}
@@ -99,36 +100,33 @@ export function MantenimientosList() {
               to="/admin/mantenimientos/new"
               className="btn btn-primary btn-sm"
             >
-              Registrar mantenimiento
+              <Icon name="plus-lg" /> Registrar mantenimiento
             </Link>
           )}
         </div>
       </div>
 
       <form
-        className="d-flex gap-2 mb-3 flex-wrap align-items-end"
+        className="mz-filter-bar"
+        role="search"
         onSubmit={(event) => {
           event.preventDefault();
           listado.actualizarFiltros({ q: busqueda });
         }}
       >
-        <div>
-          <label className="form-label small mb-1" htmlFor="mant-buscar">
-            Buscar
-          </label>
+        <label className="mz-fb-search" htmlFor="mant-buscar">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar</span>
           <input
             id="mant-buscar"
             type="search"
-            className="form-control form-control-sm"
             placeholder="Código, responsable o diagnóstico"
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
           />
-        </div>
-        <div>
-          <label className="form-label small mb-1" htmlFor="mant-tipo">
-            Tipo
-          </label>
+        </label>
+        <div className="mz-inline-field">
+          <label htmlFor="mant-tipo">Tipo</label>
           <select
             id="mant-tipo"
             className="form-select form-select-sm"
@@ -142,10 +140,8 @@ export function MantenimientosList() {
             <option value="correctivo">Correctivo</option>
           </select>
         </div>
-        <div>
-          <label className="form-label small mb-1" htmlFor="mant-desde">
-            Desde
-          </label>
+        <div className="mz-inline-field">
+          <label htmlFor="mant-desde">Desde</label>
           <input
             id="mant-desde"
             type="date"
@@ -156,10 +152,8 @@ export function MantenimientosList() {
             }
           />
         </div>
-        <div>
-          <label className="form-label small mb-1" htmlFor="mant-hasta">
-            Hasta
-          </label>
+        <div className="mz-inline-field">
+          <label htmlFor="mant-hasta">Hasta</label>
           <input
             id="mant-hasta"
             type="date"
@@ -181,18 +175,29 @@ export function MantenimientosList() {
           es el historial de un equipo concreto: sin aviso, una lectura mal
           traducida se lee como «este equipo nunca entró al taller». */}
       {listado.respuesta?.advertencia_lector && (
-        <div className="alert alert-info">
-          <strong>Revise la configuración del lector.</strong>{" "}
-          {listado.respuesta.advertencia_lector.mensaje}
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="info-circle" />
+          <div>
+            <strong>Revise la configuración del lector.</strong>{" "}
+            {listado.respuesta.advertencia_lector.mensaje}
+          </div>
         </div>
       )}
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
-      {errorAccion && <div className="alert alert-danger">{errorAccion}</div>}
+      {errorAccion && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {errorAccion}
+        </div>
+      )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
               <th>Fecha</th>
@@ -201,7 +206,7 @@ export function MantenimientosList() {
               <th>Responsable</th>
               <th>Trabajo</th>
               <th>Componentes</th>
-              <th className="text-end">Costo</th>
+              <th className="num">Costo</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -212,21 +217,22 @@ export function MantenimientosList() {
                   {formatearFecha(mantenimiento.fecha_intervencion)}
                 </td>
                 <td>
-                  <Link to={`/admin/activos/${mantenimiento.activo}`}>
-                    <code className="codigo-barras">
-                      {mantenimiento.activo_codigo}
-                    </code>
+                  <Link
+                    to={`/admin/activos/${mantenimiento.activo}`}
+                    className="mz-mono"
+                  >
+                    {mantenimiento.activo_codigo}
                   </Link>
-                  <div className="small text-muted">
+                  <div className="mz-small mz-faint">
                     {mantenimiento.activo_nombre}
                   </div>
                 </td>
                 <td>
                   <span
-                    className={`badge ${
+                    className={`mz-pill ${
                       mantenimiento.tipo === "correctivo"
-                        ? "text-bg-warning"
-                        : "text-bg-info"
+                        ? "mz-pill--warn"
+                        : "mz-pill--neutral"
                     }`}
                   >
                     {mantenimiento.tipo_display}
@@ -234,7 +240,7 @@ export function MantenimientosList() {
                 </td>
                 <td>
                   {mantenimiento.responsable}
-                  <div className="small text-muted">
+                  <div className="mz-small mz-faint">
                     {mantenimiento.tipo_responsable_display}
                   </div>
                 </td>
@@ -243,14 +249,14 @@ export function MantenimientosList() {
                 </td>
                 <td>
                   {mantenimiento.componentes.length === 0 ? (
-                    <span className="text-muted">—</span>
+                    <span className="mz-faint">—</span>
                   ) : (
-                    <ul className="list-unstyled mb-0 small">
+                    <ul className="list-unstyled mb-0 mz-small">
                       {mantenimiento.componentes.map((componente) => (
                         <li key={componente.id}>
                           {componente.componente_nombre} ×{componente.cantidad}
                           {componente.era_critico && (
-                            <span className="badge text-bg-danger ms-1">
+                            <span className="mz-pill mz-pill--bad ms-1">
                               crítica
                             </span>
                           )}
@@ -259,35 +265,33 @@ export function MantenimientosList() {
                     </ul>
                   )}
                 </td>
-                <td className="text-end text-nowrap">
+                <td className="num text-nowrap">
                   {formatearMoneda(mantenimiento.costo_total)}
                 </td>
-                <td>
-                  <div className="d-flex gap-2">
-                    {puedeEditar && (
-                      <>
-                        <Link
-                          to={`/admin/mantenimientos/${mantenimiento.id}`}
-                          className="btn btn-outline-primary btn-sm"
-                        >
-                          Editar
-                        </Link>
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => setAEliminar(mantenimiento)}
-                        >
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
+                <td className="acciones">
+                  {puedeEditar && (
+                    <>
+                      <Link
+                        to={`/admin/mantenimientos/${mantenimiento.id}`}
+                        className="btn btn-outline-primary btn-sm"
+                      >
+                        Editar
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => setAEliminar(mantenimiento)}
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center text-muted">
+              <tr className="mz-empty-row">
+                <td colSpan={8}>
                   Sin intervenciones que coincidan con los filtros
                 </td>
               </tr>

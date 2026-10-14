@@ -10,7 +10,7 @@ export function Button({
   return (
     <button
       type="button"
-      className={`btn app-button app-button--${variant}`}
+      className={`btn btn-${variant} app-button`}
       disabled={isLoading || disabled}
       {...props}
     >

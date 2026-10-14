@@ -1,8 +1,12 @@
-/* Políticas de renovación y panel de sugerencias (RF-06, RF-07). */
+/* Políticas de renovación y panel de sugerencias (RF-06, RF-07).
+   Encabezado, tarjetas, tablas y estados salen de la identidad (`mz-*`);
+   aquí queda solo lo propio de estas pantallas. */
 
-.politicas-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
+/* La cabecera de cada panel lleva sus acciones; en el teléfono bajan a la
+   línea siguiente en vez de apretar el título. */
+.politicas-panel .mz-card-head {
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .sugerencias-grid {
@@ -14,10 +18,14 @@
   gap: 1rem;
 }
 
+/* El filo de aviso dice, antes de leer nada, que la tarjeta pide atención. */
 .sugerencia-card {
-  background: var(--surface);
-  border-color: var(--state-warning);
-  border-left-width: 3px;
+  border-left: 3px solid var(--mz-warn-line);
+}
+
+.sugerencia-nombre {
+  font-size: 14px;
+  margin-bottom: 2px;
 }
 
 .sugerencia-motivo {
@@ -26,16 +34,12 @@
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.35rem 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.875rem;
+  border-bottom: 1px solid var(--mz-border);
+  font-size: 12.8px;
 }
 
 .sugerencia-motivo:last-child {
   border-bottom: none;
-}
-
-.sugerencia-motivo__criterio {
-  color: var(--text-muted);
 }
 
 .sugerencia-motivo__cifra {

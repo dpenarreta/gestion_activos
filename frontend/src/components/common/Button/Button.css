@@ -1,42 +1,25 @@
+/*
+ * El dibujo es el de los botones de Bootstrap (`btn-primary`, `btn-danger`…),
+ * que el puente de la identidad ya pinta con el color de acción y el radio del
+ * tema. Aquí solo el ancho mínimo, para que «Entrar» o «Confirmar» no queden
+ * como un botón diminuto junto a un texto largo.
+ */
 .app-button {
   min-width: 8rem;
-  border-radius: var(--border-radius, 0.5rem);
-  border: none;
 }
 
-.app-button--primary {
-  background-color: var(--color-buttons);
-  color: var(--brand-text-on-primary);
+/* Lo que no tiene vuelta atrás: el rojo del estado «mal» de la identidad, no
+   el de Bootstrap, para que se lea igual que los avisos de error. */
+.btn-danger.app-button {
+  --bs-btn-bg: var(--mz-bad-line);
+  --bs-btn-border-color: var(--mz-bad-line);
+  --bs-btn-hover-bg: var(--mz-bad-line);
+  --bs-btn-hover-border-color: var(--mz-bad-line);
+  --bs-btn-active-bg: var(--mz-bad-line);
+  --bs-btn-active-border-color: var(--mz-bad-line);
 }
 
-.app-button--primary:hover,
-.app-button--primary:focus {
-  background-color: var(--color-buttons);
-  filter: brightness(0.9);
-  color: var(--brand-text-on-primary);
-}
-
-.app-button--secondary {
-  background-color: var(--color-secondary);
-  color: var(--brand-text-on-dark);
-}
-
-.app-button--secondary:hover,
-.app-button--secondary:focus {
-  background-color: var(--color-secondary);
-  filter: brightness(0.9);
-  color: var(--brand-text-on-dark);
-}
-
-/* Lo que no tiene vuelta atrás: el rojo del estado «mal» de la identidad. */
-.app-button--danger {
-  background-color: var(--mz-bad-line, #c0392b);
-  color: #fff;
-}
-
-.app-button--danger:hover,
-.app-button--danger:focus {
-  background-color: var(--mz-bad-line, #c0392b);
-  filter: brightness(0.9);
-  color: #fff;
+.btn-danger.app-button:hover,
+.btn-danger.app-button:focus {
+  filter: brightness(0.92);
 }

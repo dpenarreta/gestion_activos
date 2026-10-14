@@ -1,0 +1,19 @@
+/*
+ * Alta y edición de la ficha de un activo.
+ *
+ * El formulario conserva sus filas de tres campos (`row g-3`): marca, modelo y
+ * serie se leen juntos, y la rejilla de dos columnas de la identidad los
+ * partiría. Aquí solo va lo que los `mz-*` no cubren.
+ */
+
+/* Ancho tope: en un monitor ancho, una fila de tres campos estirada a toda la
+   pantalla deja cada etiqueta a medio metro de la siguiente. */
+.activo-form {
+  max-width: 75rem;
+}
+
+/* La última sección cierra pegada a los botones: el margen de `mz-section`
+   separa secciones entre sí, no la sección del pie. */
+.activo-form .mz-section:last-of-type {
+  margin-bottom: 0;
+}

@@ -169,9 +169,10 @@ describe("Al subir el archivo se revisa entero", () => {
     expect(
       await screen.findByText("Revisión de activos.xlsx"),
     ).toBeInTheDocument();
+    // La cifra va en el mismo indicador que su rótulo, no en otro cualquiera.
     expect(
-      screen.getByText("Listas para importar").previousSibling,
-    ).toHaveTextContent("2");
+      screen.getByText("Listas para importar").closest(".mz-kpi"),
+    ).toHaveTextContent(/^Listas para importar2$/);
     expect(screen.getByText("Laptop Contabilidad 01")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Importar 2 activo(s)" }),

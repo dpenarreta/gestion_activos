@@ -6,6 +6,7 @@ import {
   empleadosService,
   sedesService,
 } from "../../../api/organizacionService";
+import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
 import "./AsignarCustodioDialog.css";
@@ -193,7 +194,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         modo === MODOS.TRASLADAR ? "Registrar traslado" : "Confirmar"
       }
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       <section className="situacion-actual">
         <h3 className="situacion-actual__titulo">Situación actual</h3>
@@ -201,7 +207,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           <dt>{activo.compartido ? "Responsables" : "Responsable"}</dt>
           <dd>
             {activo.responsables_resumen || (
-              <span className="text-muted">Sin asignar</span>
+              <span className="mz-faint">Sin asignar</span>
             )}
           </dd>
           <dt>Área</dt>
@@ -209,7 +215,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           <dt>Ciudad</dt>
           <dd>
             {activo.ciudad || (
-              <span className="text-muted">Sin sede registrada</span>
+              <span className="mz-faint">Sin sede registrada</span>
             )}
           </dd>
         </dl>
@@ -248,7 +254,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
       {modo === MODOS.ASIGNAR ? (
         <>
           {activo.compartido ? (
-            <div className="mb-3">
+            <div className="mz-field mb-3">
               <span className="form-label d-block" id="etiqueta-responsables">
                 Responsables
               </span>
@@ -260,21 +266,23 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 aria-labelledby="etiqueta-responsables"
               >
                 {elegidos.map((persona) => (
-                  <li key={persona.id}>
+                  <li key={persona.id} className="mz-pill mz-pill--neutral">
                     <span>{persona.nombre_completo}</span>
                     <button
                       type="button"
-                      className="btn-close"
+                      className="mz-close"
                       aria-label={`Quitar a ${persona.nombre_completo}`}
                       onClick={() => quitar(persona.id)}
-                    />
+                    >
+                      <Icon name="x-lg" />
+                    </button>
                   </li>
                 ))}
                 {elegidos.length === 0 && (
-                  <li className="text-muted">Nadie responde por él</li>
+                  <li className="mz-faint">Nadie responde por él</li>
                 )}
               </ul>
-              <label className="form-label mt-2" htmlFor="sumar-responsable">
+              <label className="mt-2" htmlFor="sumar-responsable">
                 Sumar a alguien
               </label>
               <select
@@ -292,10 +300,8 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               </select>
             </div>
           ) : (
-            <div className="mb-3">
-              <label className="form-label" htmlFor="custodio">
-                Nuevo responsable
-              </label>
+            <div className="mz-field mb-3">
+              <label htmlFor="custodio">Nuevo responsable</label>
               <select
                 id="custodio"
                 className="form-select"
@@ -323,18 +329,19 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               antes de confirmar. Quien devuelve un equipo lo sabe; quien
               quitaba a la última persona de un turno, no siempre. */}
           {esDevolucion && (
-            <div className="alert alert-warning" role="alert">
-              <strong>Aviso:</strong> El equipo quedará{" "}
-              <strong>sin responsable</strong> y volverá a bodega. Nadie
-              responderá por él hasta que se lo entregue a alguien.{" "}
-              {activo.responsables_resumen} seguirá en su historial.
+            <div className="mz-alert mz-alert--warn" role="alert">
+              <Icon name="exclamation-triangle" />
+              <div>
+                <strong>Aviso:</strong> El equipo quedará{" "}
+                <strong>sin responsable</strong> y volverá a bodega. Nadie
+                responderá por él hasta que se lo entregue a alguien.{" "}
+                {activo.responsables_resumen} seguirá en su historial.
+              </div>
             </div>
           )}
 
-          <div className="mb-3">
-            <label className="form-label" htmlFor="sede-entrega">
-              Sede donde queda el equipo
-            </label>
+          <div className="mz-field mb-3">
+            <label htmlFor="sede-entrega">Sede donde queda el equipo</label>
             <select
               id="sede-entrega"
               className="form-select"
@@ -372,15 +379,16 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               consecuencia menos evidente del traslado —el equipo cambia de
               sitio *y* deja de tener responsable— y hay que leerla antes de
               elegir el destino, no después. */}
-          <div className="alert alert-warning" role="alert">
-            <strong>Aviso:</strong> El equipo quedará sin responsable y se
-            asignará únicamente a la nueva ubicación
+          <div className="mz-alert mz-alert--warn" role="alert">
+            <Icon name="exclamation-triangle" />
+            <div>
+              <strong>Aviso:</strong> El equipo quedará sin responsable y se
+              asignará únicamente a la nueva ubicación
+            </div>
           </div>
 
-          <div className="mb-3">
-            <label className="form-label" htmlFor="sede">
-              Sede de destino
-            </label>
+          <div className="mz-field mb-3">
+            <label htmlFor="sede">Sede de destino</label>
             <select
               id="sede"
               className="form-select"
@@ -411,10 +419,8 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         </>
       )}
 
-      <div className="mb-0">
-        <label className="form-label" htmlFor="motivo">
-          Motivo
-        </label>
+      <div className="mz-field">
+        <label htmlFor="motivo">Motivo</label>
         <textarea
           id="motivo"
           className="form-control"

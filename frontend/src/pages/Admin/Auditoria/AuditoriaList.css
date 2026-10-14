@@ -1,11 +1,21 @@
 /* Los filtros en rejilla y no en una fila: son seis y en pantallas estrechas
-   una fila los encoge hasta que las fechas no caben. */
+   una fila los encoge hasta que las fechas no caben. La barra conserva el
+   marco de `mz-filter-bar`; solo cambia cómo reparte los campos. */
 .auditoria-filtros {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: 0.75rem;
   align-items: end;
-  margin-bottom: 1rem;
+}
+
+.auditoria-filtros .form-control,
+.auditoria-filtros .form-select {
+  width: 100%;
+  max-width: none;
+}
+
+.auditoria-filtros .form-label {
+  margin-bottom: 4px;
 }
 
 .auditoria-filtros__acciones {
@@ -13,14 +23,11 @@
   gap: 0.5rem;
 }
 
-.auditoria-page__intro {
-  max-width: 60ch;
-}
-
 /* El detalle abierto se separa del resto: sin fondo propio, la fila expandida
    se lee como un evento más de la lista. */
-.auditoria-detalle > td {
-  background-color: var(--surface-muted, rgba(127, 127, 127, 0.08));
+.mz-table tr.auditoria-detalle > td {
+  background-color: var(--mz-sunken);
+  padding: 14px 16px;
 }
 
 /* Antes y después uno al lado del otro, que es como se comparan; apilados en
@@ -28,26 +35,9 @@
 .auditoria-detalle__columnas {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 1rem;
+  gap: 0 1.5rem;
 }
 
-.auditoria-detalle__valores > div {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-}
-
-.auditoria-detalle__valores dt {
-  min-width: 10rem;
-  font-weight: 600;
-}
-
-.auditoria-detalle__valores dd {
-  margin: 0;
+.auditoria-detalle__valor {
   overflow-wrap: anywhere;
-}
-
-.auditoria-detalle__origen {
-  margin: 0.75rem 0 0;
-  font-size: 0.85em;
 }

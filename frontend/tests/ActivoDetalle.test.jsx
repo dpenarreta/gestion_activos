@@ -168,9 +168,12 @@ describe("La ficha del activo", () => {
     pintar();
 
     expect(await screen.findByText("Laptop Jefatura TI")).toBeInTheDocument();
-    // El código aparece dos veces a propósito: en la miga de pan y junto al
-    // nombre, que es lo que se lee al llegar desde el escáner.
-    expect(screen.getAllByText("GA-LAP-000007")).toHaveLength(2);
+    // El código va junto al nombre, que es lo que se lee al llegar desde el
+    // escáner. Ya no se repite en una miga de pan: la barra superior y el
+    // menú dicen dónde se está.
+    expect(
+      screen.getByText("GA-LAP-000007", { selector: "code" }),
+    ).toBeVisible();
     expect(valorDe("Número de serie")).toBe("DL5440-0011");
     expect(valorDe("Proveedor")).toBe("Tecnomega C.A.");
     expect(valorDe("Responsable")).toContain("María Fernanda Salazar Ruiz");

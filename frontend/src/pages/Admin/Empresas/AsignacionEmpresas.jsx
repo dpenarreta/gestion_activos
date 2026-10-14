@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { adminUsersService } from "../../../api/adminUsersService";
 import { empresasService } from "../../../api/empresasService";
 import { rolesService } from "../../../api/rolesService";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Empresas.css";
@@ -141,164 +142,189 @@ export function AsignacionEmpresas({ usuarioId }) {
   if (!puedeVer) return null;
 
   return (
-    <div className="empresas-asignacion mt-4">
-      <h5>Empresas y roles</h5>
-      <p className="text-muted">
-        Solo verá la información de las empresas marcadas, y en cada una podrá
-        hacer lo que digan los roles que tenga ahí. La predeterminada es la que
-        se abre al entrar.
-      </p>
-
-      {error && <div className="alert alert-danger">{error}</div>}
-      {mensaje && <div className="alert alert-success">{mensaje}</div>}
-
-      {empresas.length === 1 && (
-        <div className="alert alert-info">
-          {/* Con una sola empresa no hay de quién aislarse, y el backend deja
-              trabajar en ella aunque nadie haya marcado nada: decirlo aquí
-              evita que se lea como un permiso que falta. */}
-          Hay una sola empresa: todas las cuentas trabajan en ella aunque no se
-          marque nada. La asignación empieza a decidir en cuanto exista una
-          segunda.
-        </div>
-      )}
-
-      {sinCatalogoDeRoles && (
-        <div className="alert alert-warning">
-          No se pudo leer el catálogo de roles (hace falta el permiso
-          «roles.ver»). Puede asignar empresas, pero no los roles de cada una.
-        </div>
-      )}
-
-      <div className="table-responsive">
-        <table className="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Empresa</th>
-              <th className="text-center">Asignada</th>
-              <th className="text-center">Predeterminada</th>
-              <th>Roles en esta empresa</th>
-            </tr>
-          </thead>
-          <tbody>
-            {empresas.map((empresa) => {
-              const estaAsignada = empresa.id in asignadas;
-              return (
-                <tr key={empresa.id}>
-                  <td>
-                    {empresa.nombre}
-                    {!empresa.activa && (
-                      <span className="badge text-bg-secondary ms-2">
-                        Inactiva
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      aria-label={`Asignar ${empresa.nombre}`}
-                      checked={estaAsignada}
-                      disabled={!puedeAsignar}
-                      onChange={() => alternarEmpresa(empresa.id)}
-                    />
-                  </td>
-                  <td className="text-center">
-                    <input
-                      type="radio"
-                      name="empresa-predeterminada"
-                      className="form-check-input"
-                      aria-label={`${empresa.nombre} como predeterminada`}
-                      checked={predeterminada === empresa.id}
-                      disabled={!puedeAsignar || !estaAsignada}
-                      onChange={() => setPredeterminada(empresa.id)}
-                    />
-                  </td>
-                  <td>
-                    <div className="empresas-asignacion__roles">
-                      {roles.map((rol) => (
-                        <div className="form-check" key={rol.id}>
-                          <input
-                            type="checkbox"
-                            className="form-check-input"
-                            id={`rol-${empresa.id}-${rol.id}`}
-                            checked={(asignadas[empresa.id] ?? []).includes(
-                              rol.id,
-                            )}
-                            disabled={!puedeAsignar || !estaAsignada}
-                            onChange={() => alternarRol(empresa.id, rol.id)}
-                          />
-                          <label
-                            className="form-check-label"
-                            htmlFor={`rol-${empresa.id}-${rol.id}`}
-                          >
-                            {rol.name}
-                          </label>
-                        </div>
-                      ))}
-                      {roles.length === 0 && (
-                        <span className="text-muted">—</span>
-                      )}
-                    </div>
-                    {/* Sin rol ve la empresa en el selector pero no puede
-                        abrir nada dentro: se dice aquí y no en un error
-                        posterior, cuando ya se guardó. */}
-                    {/* El superusuario se salta los permisos: avisarle de
-                        que no verá nada sería falso. */}
-                    {estaAsignada &&
-                      !esSuperusuario &&
-                      (asignadas[empresa.id] ?? []).length === 0 &&
-                      rolesGlobales.length === 0 && (
-                        <div className="form-text text-warning">
-                          Sin rol aquí: entrará a la empresa pero no verá nada
-                          dentro.
-                        </div>
-                      )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <section className="mz-card empresas-asignacion">
+      <div className="mz-card-head">
+        <h3>Empresas y roles</h3>
       </div>
+      <div className="mz-card-body">
+        <p className="mz-faint">
+          Solo verá la información de las empresas marcadas, y en cada una podrá
+          hacer lo que digan los roles que tenga ahí. La predeterminada es la
+          que se abre al entrar.
+        </p>
 
-      <h6 className="mt-3">Roles en todas las empresas</h6>
-      <p className="text-muted">
-        Valen en cualquier empresa, incluidas las que se creen después. Son los
-        del administrador del grupo, que tiene que poder entrar a todas.
-      </p>
-      <div className="empresas-asignacion__roles mb-3">
-        {roles.map((rol) => (
-          <div className="form-check" key={rol.id}>
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={`rol-global-${rol.id}`}
-              checked={rolesGlobales.includes(rol.id)}
-              disabled={!puedeRolesGlobales}
-              onChange={() => alternarRolGlobal(rol.id)}
-            />
-            <label
-              className="form-check-label"
-              htmlFor={`rol-global-${rol.id}`}
-            >
-              {rol.name}
-            </label>
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
           </div>
-        ))}
-        {roles.length === 0 && <span className="text-muted">—</span>}
-      </div>
+        )}
+        {mensaje && (
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="check2-circle" />
+            {mensaje}
+          </div>
+        )}
 
-      {(puedeAsignar || puedeRolesGlobales) && (
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          disabled={isSaving}
-          onClick={guardar}
-        >
-          {isSaving ? "Guardando…" : "Guardar empresas y roles"}
-        </button>
-      )}
-    </div>
+        {empresas.length === 1 && (
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="info-circle" />
+            {/* Con una sola empresa no hay de quién aislarse, y el backend deja
+                trabajar en ella aunque nadie haya marcado nada: decirlo aquí
+                evita que se lea como un permiso que falta. */}
+            <div>
+              Hay una sola empresa: todas las cuentas trabajan en ella aunque no
+              se marque nada. La asignación empieza a decidir en cuanto exista
+              una segunda.
+            </div>
+          </div>
+        )}
+
+        {sinCatalogoDeRoles && (
+          <div className="mz-alert mz-alert--warn" role="status">
+            <Icon name="exclamation-triangle" />
+            <div>
+              No se pudo leer el catálogo de roles (hace falta el permiso
+              «roles.ver»). Puede asignar empresas, pero no los roles de cada
+              una.
+            </div>
+          </div>
+        )}
+
+        <div className="mz-table-wrap">
+          <table className="mz-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th className="text-center">Asignada</th>
+                <th className="text-center">Predeterminada</th>
+                <th>Roles en esta empresa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {empresas.map((empresa) => {
+                const estaAsignada = empresa.id in asignadas;
+                return (
+                  <tr key={empresa.id}>
+                    <td className="mz-strong">
+                      {empresa.nombre}
+                      {!empresa.activa && (
+                        <span className="mz-pill mz-pill--neutral ms-2">
+                          Inactiva
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        aria-label={`Asignar ${empresa.nombre}`}
+                        checked={estaAsignada}
+                        disabled={!puedeAsignar}
+                        onChange={() => alternarEmpresa(empresa.id)}
+                      />
+                    </td>
+                    <td className="text-center">
+                      <input
+                        type="radio"
+                        name="empresa-predeterminada"
+                        className="form-check-input"
+                        aria-label={`${empresa.nombre} como predeterminada`}
+                        checked={predeterminada === empresa.id}
+                        disabled={!puedeAsignar || !estaAsignada}
+                        onChange={() => setPredeterminada(empresa.id)}
+                      />
+                    </td>
+                    <td>
+                      <div className="empresas-asignacion__roles">
+                        {roles.map((rol) => (
+                          <div className="form-check" key={rol.id}>
+                            <input
+                              type="checkbox"
+                              className="form-check-input"
+                              id={`rol-${empresa.id}-${rol.id}`}
+                              checked={(asignadas[empresa.id] ?? []).includes(
+                                rol.id,
+                              )}
+                              disabled={!puedeAsignar || !estaAsignada}
+                              onChange={() => alternarRol(empresa.id, rol.id)}
+                            />
+                            <label
+                              className="form-check-label"
+                              htmlFor={`rol-${empresa.id}-${rol.id}`}
+                            >
+                              {rol.name}
+                            </label>
+                          </div>
+                        ))}
+                        {roles.length === 0 && (
+                          <span className="mz-faint">—</span>
+                        )}
+                      </div>
+                      {/* Sin rol ve la empresa en el selector pero no puede
+                          abrir nada dentro: se dice aquí y no en un error
+                          posterior, cuando ya se guardó. */}
+                      {/* El superusuario se salta los permisos: avisarle de
+                          que no verá nada sería falso. */}
+                      {estaAsignada &&
+                        !esSuperusuario &&
+                        (asignadas[empresa.id] ?? []).length === 0 &&
+                        rolesGlobales.length === 0 && (
+                          <div className="mz-small mz-warn mt-1">
+                            <Icon name="exclamation-triangle" /> Sin rol aquí:
+                            entrará a la empresa pero no verá nada dentro.
+                          </div>
+                        )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mz-section mt-3">
+          <h4>Roles en todas las empresas</h4>
+          <p className="mz-faint">
+            Valen en cualquier empresa, incluidas las que se creen después. Son
+            los del administrador del grupo, que tiene que poder entrar a todas.
+          </p>
+          <div className="empresas-asignacion__roles">
+            {roles.map((rol) => (
+              <div className="form-check" key={rol.id}>
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id={`rol-global-${rol.id}`}
+                  checked={rolesGlobales.includes(rol.id)}
+                  disabled={!puedeRolesGlobales}
+                  onChange={() => alternarRolGlobal(rol.id)}
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor={`rol-global-${rol.id}`}
+                >
+                  {rol.name}
+                </label>
+              </div>
+            ))}
+            {roles.length === 0 && <span className="mz-faint">—</span>}
+          </div>
+        </div>
+
+        {(puedeAsignar || puedeRolesGlobales) && (
+          <div className="mz-actions justify-content-end">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={isSaving}
+              onClick={guardar}
+            >
+              {isSaving ? "Guardando…" : "Guardar empresas y roles"}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

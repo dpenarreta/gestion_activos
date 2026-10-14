@@ -13,74 +13,28 @@
 .mis-equipos {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  gap: 1rem;
-}
-
-.equipo-card {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  background-color: var(--surface-alt);
-  padding: 1rem;
+  gap: 16px;
+  align-items: start;
 }
 
 .equipo-card__cabecera {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.equipo-card__nombre {
-  font-size: 1.05rem;
-  margin: 0;
-}
-
-.equipo-card__tipo {
-  margin: 0.1rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.equipo-card__datos {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.35rem 1rem;
-  margin: 0;
-}
-
-.equipo-card__datos dt {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.equipo-card__datos dd {
-  margin: 0;
-}
-
-/* El código y la serie son lo que se dicta por teléfono: monoespaciada para
-   que no se confundan el cero y la O. */
-.equipo-card__datos code {
-  font-size: 0.95rem;
+/* El código y la serie son lo que se dicta por teléfono: monoespaciada y algo
+   más grande que el resto, para que no se confundan el cero y la O. */
+.equipo-card__codigo {
+  font-size: 14px;
+  color: var(--mz-ink);
 }
 
 .equipo-card__especificaciones {
   list-style: none;
-  margin: 0.75rem 0 0;
-  padding: 0.75rem 0 0;
-  border-top: 1px solid var(--border-color);
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--mz-border);
   display: grid;
-  gap: 0.2rem;
-  font-size: 0.875rem;
-}
-
-@media (max-width: 36em) {
-  .equipo-card__datos {
-    grid-template-columns: 1fr;
-    gap: 0 0;
-  }
-
-  .equipo-card__datos dd {
-    margin-bottom: 0.4rem;
-  }
+  gap: 3px;
+  font-size: 12.8px;
 }

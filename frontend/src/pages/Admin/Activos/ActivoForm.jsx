@@ -13,11 +13,12 @@ import {
   proveedoresService,
   sedesService,
 } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { EspecificacionesDelTipo } from "../../../components/activos/EspecificacionesDelTipo/EspecificacionesDelTipo";
 import { EspecificacionesEditor } from "../../../components/activos/EspecificacionesEditor/EspecificacionesEditor";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Activos.css";
+import "./ActivoForm.css";
 
 const VACIO = {
   tipo: "",
@@ -208,556 +209,565 @@ export function ActivoForm() {
   }
 
   return (
-    <div className="activos-page">
-      <Breadcrumbs
-        items={[
-          { label: "Administración" },
-          { label: "Activos", path: "/admin/activos" },
-          { label: esEdicion ? "Editar ficha" : "Nuevo activo" },
-        ]}
-      />
-      <h2>{esEdicion ? "Editar ficha técnica" : "Nuevo activo"}</h2>
+    <div className="activo-form">
+      <div className="mz-view-head">
+        <div>
+          <h2>{esEdicion ? "Editar ficha técnica" : "Nuevo activo"}</h2>
+          {!esEdicion && (
+            <p className="mz-desc">
+              El código de barras se genera automáticamente al guardar, a partir
+              del tipo de dispositivo.
+            </p>
+          )}
+        </div>
+      </div>
 
-      {!esEdicion && (
-        <p className="text-muted">
-          El código de barras se genera automáticamente al guardar, a partir del
-          tipo de dispositivo.
-        </p>
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
       )}
 
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="activo-form">
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">
-            Identificación
-          </legend>
-          <div className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="tipo">
-                Tipo de dispositivo
-              </label>
-              <select
-                id="tipo"
-                className="form-select"
-                required
-                value={valores.tipo}
-                onChange={(event) => actualizar("tipo", event.target.value)}
-              >
-                <option value="">Seleccione un tipo</option>
-                {tipos.map((tipo) => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nombre} ({tipo.codigo})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-8">
-              <label className="form-label" htmlFor="nombre">
-                Nombre del activo
-              </label>
-              <input
-                id="nombre"
-                className="form-control"
-                required
-                maxLength={150}
-                placeholder="Laptop Contabilidad 01"
-                value={valores.nombre}
-                onChange={(event) => actualizar("nombre", event.target.value)}
-              />
-              <div className="form-text">
-                Se imprime en la etiqueta, junto al código de barras.
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Ficha del equipo</h3>
+        </div>
+        <form onSubmit={handleSubmit} className="mz-card-body">
+          <section className="mz-section">
+            <h4>Identificación</h4>
+            <div className="row g-3">
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="tipo">
+                  Tipo de dispositivo
+                </label>
+                <select
+                  id="tipo"
+                  className="form-select"
+                  required
+                  value={valores.tipo}
+                  onChange={(event) => actualizar("tipo", event.target.value)}
+                >
+                  <option value="">Seleccione un tipo</option>
+                  {tipos.map((tipo) => (
+                    <option key={tipo.id} value={tipo.id}>
+                      {tipo.nombre} ({tipo.codigo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-8">
+                <label className="form-label" htmlFor="nombre">
+                  Nombre del activo
+                </label>
+                <input
+                  id="nombre"
+                  className="form-control"
+                  required
+                  maxLength={150}
+                  placeholder="Laptop Contabilidad 01"
+                  value={valores.nombre}
+                  onChange={(event) => actualizar("nombre", event.target.value)}
+                />
+                <div className="form-text">
+                  Se imprime en la etiqueta, junto al código de barras.
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="marca">
+                  Marca
+                </label>
+                <input
+                  id="marca"
+                  className="form-control"
+                  required
+                  maxLength={80}
+                  value={valores.marca}
+                  onChange={(event) => actualizar("marca", event.target.value)}
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="modelo">
+                  Modelo
+                </label>
+                <input
+                  id="modelo"
+                  className="form-control"
+                  required
+                  maxLength={120}
+                  value={valores.modelo}
+                  onChange={(event) => actualizar("modelo", event.target.value)}
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="numero_serie">
+                  Número de serie
+                </label>
+                <input
+                  id="numero_serie"
+                  className="form-control mz-mono"
+                  required
+                  maxLength={120}
+                  value={valores.numero_serie}
+                  onChange={(event) =>
+                    actualizar("numero_serie", event.target.value)
+                  }
+                />
+                <div className="form-text">Único en todo el inventario.</div>
               </div>
             </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="marca">
-                Marca
-              </label>
-              <input
-                id="marca"
-                className="form-control"
-                required
-                maxLength={80}
-                value={valores.marca}
-                onChange={(event) => actualizar("marca", event.target.value)}
-              />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="modelo">
-                Modelo
-              </label>
-              <input
-                id="modelo"
-                className="form-control"
-                required
-                maxLength={120}
-                value={valores.modelo}
-                onChange={(event) => actualizar("modelo", event.target.value)}
-              />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="numero_serie">
-                Número de serie
-              </label>
-              <input
-                id="numero_serie"
-                className="form-control font-monospace"
-                required
-                maxLength={120}
-                value={valores.numero_serie}
-                onChange={(event) =>
-                  actualizar("numero_serie", event.target.value)
-                }
-              />
-              <div className="form-text">Único en todo el inventario.</div>
-            </div>
-          </div>
-        </fieldset>
+          </section>
 
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">
-            {caracteristicas.length > 0
-              ? "Características del equipo"
-              : "Especificaciones del hardware"}
-          </legend>
-          {/* Con características declaradas se piden esas y no otras; sin
+          <section className="mz-section">
+            <h4>
+              {caracteristicas.length > 0
+                ? "Características del equipo"
+                : "Especificaciones del hardware"}
+            </h4>
+            {/* Con características declaradas se piden esas y no otras; sin
               ellas, el tipo todavía no se describió y siguen valiendo los pares
               libres de antes. */}
-          {caracteristicas.length > 0 ? (
-            <EspecificacionesDelTipo
-              caracteristicas={caracteristicas}
-              valor={valores.especificaciones}
-              heredadas={Object.entries(valores.especificaciones || {}).filter(
-                ([nombre]) => !caracteristicas.some((c) => c.nombre === nombre),
-              )}
-              onChange={(especificaciones) =>
-                actualizar("especificaciones", especificaciones)
-              }
-            />
-          ) : (
-            <EspecificacionesEditor
-              valor={valores.especificaciones}
-              onChange={(especificaciones) =>
-                actualizar("especificaciones", especificaciones)
-              }
-            />
-          )}
-        </fieldset>
+            {caracteristicas.length > 0 ? (
+              <EspecificacionesDelTipo
+                caracteristicas={caracteristicas}
+                valor={valores.especificaciones}
+                heredadas={Object.entries(
+                  valores.especificaciones || {},
+                ).filter(
+                  ([nombre]) =>
+                    !caracteristicas.some((c) => c.nombre === nombre),
+                )}
+                onChange={(especificaciones) =>
+                  actualizar("especificaciones", especificaciones)
+                }
+              />
+            ) : (
+              <EspecificacionesEditor
+                valor={valores.especificaciones}
+                onChange={(especificaciones) =>
+                  actualizar("especificaciones", especificaciones)
+                }
+              />
+            )}
+          </section>
 
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">
-            Custodia y ubicación
-          </legend>
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label" htmlFor="departamento">
-                Departamento
-              </label>
-              <select
-                id="departamento"
-                className="form-select"
-                required={!esEdicion}
-                disabled={esEdicion}
-                value={valores.departamento}
-                onChange={(event) =>
-                  actualizar("departamento", event.target.value)
-                }
-              >
-                <option value="">Seleccione un departamento</option>
-                {departamentos.map((departamento) => (
-                  <option key={departamento.id} value={departamento.id}>
-                    {departamento.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-6">
-              <label className="form-label" htmlFor="custodio">
-                Custodio
-              </label>
-              <select
-                id="custodio"
-                className="form-select"
-                disabled={esEdicion}
-                value={valores.responsables[0] || ""}
-                onChange={(event) =>
-                  actualizar(
-                    "responsables",
-                    event.target.value ? [event.target.value] : [],
-                  )
-                }
-              >
-                <option value="">Sin asignar (queda en bodega)</option>
-                {empleados
-                  .filter((empleado) => empleado.activo !== false)
-                  .map((empleado) => (
+          <section className="mz-section">
+            <h4>Custodia y ubicación</h4>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label" htmlFor="departamento">
+                  Departamento
+                </label>
+                <select
+                  id="departamento"
+                  className="form-select"
+                  required={!esEdicion}
+                  disabled={esEdicion}
+                  value={valores.departamento}
+                  onChange={(event) =>
+                    actualizar("departamento", event.target.value)
+                  }
+                >
+                  <option value="">Seleccione un departamento</option>
+                  {departamentos.map((departamento) => (
+                    <option key={departamento.id} value={departamento.id}>
+                      {departamento.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label" htmlFor="custodio">
+                  Custodio
+                </label>
+                <select
+                  id="custodio"
+                  className="form-select"
+                  disabled={esEdicion}
+                  value={valores.responsables[0] || ""}
+                  onChange={(event) =>
+                    actualizar(
+                      "responsables",
+                      event.target.value ? [event.target.value] : [],
+                    )
+                  }
+                >
+                  <option value="">Sin asignar (queda en bodega)</option>
+                  {empleados
+                    .filter((empleado) => empleado.activo !== false)
+                    .map((empleado) => (
+                      <option key={empleado.id} value={empleado.id}>
+                        {empleado.nombre_completo}
+                      </option>
+                    ))}
+                </select>
+                {/* El alta entrega a una sola persona incluso en un equipo
+                  compartido: sumar al resto del turno es una entrega más, y
+                  cada una deja su movimiento y su acta. Se hace desde la ficha,
+                  con «Asignar / trasladar». */}
+                {valores.compartido && (
+                  <div className="form-text">
+                    A los demás se los suma desde la ficha, con «Asignar /
+                    trasladar»: cada entrega deja su acta.
+                  </div>
+                )}
+              </div>
+              <div className="col-md-6">
+                <label className="form-label" htmlFor="solicitado_por">
+                  Lo pidió
+                </label>
+                <select
+                  id="solicitado_por"
+                  className="form-select"
+                  disabled={esEdicion}
+                  value={valores.solicitado_por}
+                  onChange={(event) =>
+                    actualizar("solicitado_por", event.target.value)
+                  }
+                >
+                  <option value="">Nadie: es una compra de reposición</option>
+                  {/* Todos, incluidos los marcados como inactivos: esa marca no
+                    la mantiene nada, y lo que importa aquí es dejar constancia
+                    de quién pidió el equipo. */}
+                  {empleados.map((empleado) => (
                     <option key={empleado.id} value={empleado.id}>
                       {empleado.nombre_completo}
                     </option>
                   ))}
-              </select>
-              {/* El alta entrega a una sola persona incluso en un equipo
-                  compartido: sumar al resto del turno es una entrega más, y
-                  cada una deja su movimiento y su acta. Se hace desde la ficha,
-                  con «Asignar / trasladar». */}
-              {valores.compartido && (
+                </select>
                 <div className="form-text">
-                  A los demás se los suma desde la ficha, con «Asignar /
-                  trasladar»: cada entrega deja su acta.
-                </div>
-              )}
-            </div>
-            <div className="col-md-6">
-              <label className="form-label" htmlFor="solicitado_por">
-                Lo pidió
-              </label>
-              <select
-                id="solicitado_por"
-                className="form-select"
-                disabled={esEdicion}
-                value={valores.solicitado_por}
-                onChange={(event) =>
-                  actualizar("solicitado_por", event.target.value)
-                }
-              >
-                <option value="">Nadie: es una compra de reposición</option>
-                {/* Todos, incluidos los marcados como inactivos: esa marca no
-                    la mantiene nada, y lo que importa aquí es dejar constancia
-                    de quién pidió el equipo. */}
-                {empleados.map((empleado) => (
-                  <option key={empleado.id} value={empleado.id}>
-                    {empleado.nombre_completo}
-                  </option>
-                ))}
-              </select>
-              <div className="form-text">
-                {/* Un correo por cada equipo que entra al inventario es ruido,
+                  {/* Un correo por cada equipo que entra al inventario es ruido,
                     y del que se aprende a ignorar. */}
-                {valores.solicitado_por
-                  ? "Se le avisará por correo de que el equipo ya llegó."
-                  : "Si el equipo vino por pedido de alguien, dígalo aquí y se le avisará al registrarlo. Si el pedido fue de un área, anote a quien lo pidió en su nombre."}
+                  {valores.solicitado_por
+                    ? "Se le avisará por correo de que el equipo ya llegó."
+                    : "Si el equipo vino por pedido de alguien, dígalo aquí y se le avisará al registrarlo. Si el pedido fue de un área, anote a quien lo pidió en su nombre."}
+                </div>
               </div>
-            </div>
-            <div className="col-12">
-              <div className="form-check">
-                <input
-                  id="compartido"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={valores.compartido}
-                  onChange={(event) =>
-                    actualizar("compartido", event.target.checked)
-                  }
-                />
-                <label className="form-check-label" htmlFor="compartido">
-                  Varias personas responden por él
-                </label>
-              </div>
-              <div className="form-text">
-                {/* Repartir la responsabilidad de una laptop personal entre
+              <div className="col-12">
+                <div className="form-check">
+                  <input
+                    id="compartido"
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={valores.compartido}
+                    onChange={(event) =>
+                      actualizar("compartido", event.target.checked)
+                    }
+                  />
+                  <label className="form-check-label" htmlFor="compartido">
+                    Varias personas responden por él
+                  </label>
+                </div>
+                <div className="form-text">
+                  {/* Repartir la responsabilidad de una laptop personal entre
                     tres nombres es lo que hace que después nadie responda por
                     ella: la marca es una decisión, no un efecto lateral. */}
-                Márquelo solo si es un equipo de turno —un escáner de andén, una
-                impresora de mostrador—, del que varias personas responden en
-                igualdad.
-              </div>
-            </div>
-            {esEdicion && (
-              <div className="col-12">
-                <div className="form-text">
-                  Quién responde y el departamento se cambian desde la ficha,
-                  con la acción «Asignar / trasladar»: así el cambio queda
-                  registrado en el historial.
+                  Márquelo solo si es un equipo de turno —un escáner de andén,
+                  una impresora de mostrador—, del que varias personas responden
+                  en igualdad.
                 </div>
               </div>
-            )}
-            <div className="col-md-6">
-              <label className="form-label" htmlFor="sede">
-                Sede
-              </label>
-              <select
-                id="sede"
-                className="form-select"
-                value={valores.sede}
-                onChange={(event) => actualizar("sede", event.target.value)}
-              >
-                <option value="">Sin sede registrada</option>
-                {sedes.map((sede) => (
-                  <option key={sede.id} value={sede.id}>
-                    {sede.nombre}
-                    {sede.ciudad ? ` — ${sede.ciudad}` : ""}
-                  </option>
-                ))}
-              </select>
-              <div className="form-text">
-                {/* El catálogo es lo que hace que el filtro por sede devuelva
-                    todos los equipos que están ahí y no solo los que alguien
-                    escribió igual. */}
-                Se administra en Organización → Sedes.
-              </div>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="criticidad">
-                Criticidad
-              </label>
-              <select
-                id="criticidad"
-                className="form-select"
-                value={valores.criticidad}
-                onChange={(event) =>
-                  actualizar("criticidad", event.target.value)
-                }
-              >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="critica">Crítica</option>
-              </select>
-              <div className="form-text">
-                Qué tan urgente es reponerlo si falla.
-              </div>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label" htmlFor="uso">
-                Uso
-              </label>
-              <select
-                id="uso"
-                className="form-select"
-                value={valores.uso}
-                onChange={(event) => actualizar("uso", event.target.value)}
-              >
-                <option value="administrativo">Administrativo</option>
-                <option value="operativo">Operativo</option>
-                <option value="desarrollo">Desarrollo</option>
-                <option value="diseno">Diseño</option>
-                <option value="gerencial">Gerencial</option>
-                <option value="atencion_cliente">Atención al cliente</option>
-                <option value="bodega">Bodega</option>
-                <option value="infraestructura">Infraestructura</option>
-              </select>
-              <div className="form-text">
-                La función que cumple, no cuánto se usa.
-              </div>
-            </div>
-          </div>
-        </fieldset>
-
-        <fieldset className="mb-4">
-          <legend className="h6 text-uppercase text-muted">Adquisición</legend>
-          <div className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="fecha_adquisicion">
-                Fecha de adquisición
-              </label>
-              <input
-                id="fecha_adquisicion"
-                type="date"
-                className="form-control"
-                required
-                value={valores.fecha_adquisicion}
-                onChange={(event) =>
-                  actualizar("fecha_adquisicion", event.target.value)
-                }
-              />
-              <div className="form-text">
-                Base del cálculo de vida útil del equipo.
-              </div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="fecha_ingreso">
-                Fecha de ingreso
-              </label>
-              <input
-                id="fecha_ingreso"
-                type="date"
-                className="form-control"
-                value={valores.fecha_ingreso}
-                onChange={(event) =>
-                  actualizar("fecha_ingreso", event.target.value)
-                }
-              />
-              <div className="form-text">
-                {/* La garantía corre desde la compra y la custodia desde el
-                    ingreso: un equipo comprado en diciembre puede entrar en
-                    marzo. */}
-                Cuándo entró al inventario, si es distinta de la compra.
-              </div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="costo_adquisicion">
-                Costo de compra
-              </label>
-              <input
-                id="costo_adquisicion"
-                type="number"
-                step="0.01"
-                min="0"
-                className="form-control"
-                value={valores.costo_adquisicion}
-                onChange={(event) =>
-                  actualizar("costo_adquisicion", event.target.value)
-                }
-              />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="condicion">
-                Condición al adquirirlo
-              </label>
-              <select
-                id="condicion"
-                className="form-select"
-                value={valores.condicion}
-                onChange={(event) =>
-                  actualizar("condicion", event.target.value)
-                }
-              >
-                {/* Se puede dejar sin decir, y esa es la opción que viene por
-                    delante: el levantamiento inicial se hace con equipos cuya
-                    procedencia ya nadie recuerda, y dar «nuevo» por supuesto
-                    sería inventarla. */}
-                <option value="">Sin especificar</option>
-                <option value="nuevo">Nuevo</option>
-                <option value="usado">Usado</option>
-              </select>
-              <div className="form-text">
-                {/* Un equipo usado llega con parte de su vida ya gastada: sus
-                    mismos meses de antigüedad no significan lo mismo. */}
-                Si se compró nuevo o se adquirió de segunda mano.
-              </div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="proveedor">
-                Proveedor
-              </label>
-              <select
-                id="proveedor"
-                className="form-select"
-                value={valores.proveedor}
-                onChange={(event) =>
-                  actualizar("proveedor", event.target.value)
-                }
-              >
-                <option value="">Sin proveedor registrado</option>
-                {proveedores.map((proveedor) => (
-                  <option key={proveedor.id} value={proveedor.id}>
-                    {proveedor.nombre}
-                  </option>
-                ))}
-              </select>
-              <div className="form-text">
-                {/* Escrito a mano, «Tecnomega» y «TECNOMEGA» serían dos
-                    proveedores y las compras quedarían repartidas. */}
-                Se administra en Organización → Proveedores.
-              </div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="propiedad">
-                De quién es el equipo
-              </label>
-              <select
-                id="propiedad"
-                className="form-select"
-                value={valores.propiedad}
-                onChange={(event) =>
-                  actualizar("propiedad", event.target.value)
-                }
-              >
-                {/* Lo normal es que se haya comprado, así que es lo que viene
-                    puesto: obligar a decirlo en cada alta no capturaría nada
-                    que no se supiera ya. */}
-                <option value="propia">De la empresa</option>
-                <option value="concesion">En concesión</option>
-              </select>
-              <div className="form-text">
-                {/* No es lo mismo que tener proveedor: al proveedor se le
-                    compró, y entonces el equipo sí es de la empresa. */}
-                «En concesión» es un equipo que pone un partner: lo compró él y
-                lo mantenemos nosotros.
-              </div>
-            </div>
-            {valores.propiedad === "concesion" && (
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="concesionario">
-                  Concesionario
+              {esEdicion && (
+                <div className="col-12">
+                  <div className="form-text">
+                    Quién responde y el departamento se cambian desde la ficha,
+                    con la acción «Asignar / trasladar»: así el cambio queda
+                    registrado en el historial.
+                  </div>
+                </div>
+              )}
+              <div className="col-md-6">
+                <label className="form-label" htmlFor="sede">
+                  Sede
                 </label>
                 <select
-                  id="concesionario"
+                  id="sede"
                   className="form-select"
-                  required
-                  value={valores.concesionario}
-                  onChange={(event) =>
-                    actualizar("concesionario", event.target.value)
-                  }
+                  value={valores.sede}
+                  onChange={(event) => actualizar("sede", event.target.value)}
                 >
-                  <option value="">Elija el partner</option>
-                  {concesionarios.map((concesionario) => (
-                    <option key={concesionario.id} value={concesionario.id}>
-                      {concesionario.nombre}
+                  <option value="">Sin sede registrada</option>
+                  {sedes.map((sede) => (
+                    <option key={sede.id} value={sede.id}>
+                      {sede.nombre}
+                      {sede.ciudad ? ` — ${sede.ciudad}` : ""}
                     </option>
                   ))}
                 </select>
                 <div className="form-text">
-                  {/* Sin el dueño, «en concesión» no responde ni a qué hay que
-                      devolver ni a quién. */}
-                  Se administra en Organización → Concesionarios.
+                  {/* El catálogo es lo que hace que el filtro por sede devuelva
+                    todos los equipos que están ahí y no solo los que alguien
+                    escribió igual. */}
+                  Se administra en Organización → Sedes.
                 </div>
               </div>
-            )}
-            <div className="col-md-4">
-              <label className="form-label" htmlFor="fecha_fin_garantia">
-                Fin de garantía
-              </label>
-              <input
-                id="fecha_fin_garantia"
-                type="date"
-                className="form-control"
-                min={valores.fecha_adquisicion || undefined}
-                value={valores.fecha_fin_garantia}
-                onChange={(event) =>
-                  actualizar("fecha_fin_garantia", event.target.value)
-                }
-              />
-              <div className="form-text">
-                Déjelo vacío si el equipo no tiene garantía registrada.
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="criticidad">
+                  Criticidad
+                </label>
+                <select
+                  id="criticidad"
+                  className="form-select"
+                  value={valores.criticidad}
+                  onChange={(event) =>
+                    actualizar("criticidad", event.target.value)
+                  }
+                >
+                  <option value="baja">Baja</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Crítica</option>
+                </select>
+                <div className="form-text">
+                  Qué tan urgente es reponerlo si falla.
+                </div>
+              </div>
+              <div className="col-md-3">
+                <label className="form-label" htmlFor="uso">
+                  Uso
+                </label>
+                <select
+                  id="uso"
+                  className="form-select"
+                  value={valores.uso}
+                  onChange={(event) => actualizar("uso", event.target.value)}
+                >
+                  <option value="administrativo">Administrativo</option>
+                  <option value="operativo">Operativo</option>
+                  <option value="desarrollo">Desarrollo</option>
+                  <option value="diseno">Diseño</option>
+                  <option value="gerencial">Gerencial</option>
+                  <option value="atencion_cliente">Atención al cliente</option>
+                  <option value="bodega">Bodega</option>
+                  <option value="infraestructura">Infraestructura</option>
+                </select>
+                <div className="form-text">
+                  La función que cumple, no cuánto se usa.
+                </div>
               </div>
             </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="observaciones">
-                Observaciones
-              </label>
-              <textarea
-                id="observaciones"
-                className="form-control"
-                rows={2}
-                value={valores.observaciones}
-                onChange={(event) =>
-                  actualizar("observaciones", event.target.value)
-                }
-              />
-            </div>
-          </div>
-        </fieldset>
+          </section>
 
-        <div className="d-flex gap-2">
-          <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving
-              ? "Guardando…"
-              : esEdicion
-                ? "Guardar cambios"
-                : "Registrar activo"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-cancelar"
-            onClick={() =>
-              navigate(esEdicion ? `/admin/activos/${id}` : "/admin/activos")
-            }
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
+          <section className="mz-section">
+            <h4>Adquisición</h4>
+            <div className="row g-3">
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="fecha_adquisicion">
+                  Fecha de adquisición
+                </label>
+                <input
+                  id="fecha_adquisicion"
+                  type="date"
+                  className="form-control"
+                  required
+                  value={valores.fecha_adquisicion}
+                  onChange={(event) =>
+                    actualizar("fecha_adquisicion", event.target.value)
+                  }
+                />
+                <div className="form-text">
+                  Base del cálculo de vida útil del equipo.
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="fecha_ingreso">
+                  Fecha de ingreso
+                </label>
+                <input
+                  id="fecha_ingreso"
+                  type="date"
+                  className="form-control"
+                  value={valores.fecha_ingreso}
+                  onChange={(event) =>
+                    actualizar("fecha_ingreso", event.target.value)
+                  }
+                />
+                <div className="form-text">
+                  {/* La garantía corre desde la compra y la custodia desde el
+                    ingreso: un equipo comprado en diciembre puede entrar en
+                    marzo. */}
+                  Cuándo entró al inventario, si es distinta de la compra.
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="costo_adquisicion">
+                  Costo de compra
+                </label>
+                <input
+                  id="costo_adquisicion"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-control"
+                  value={valores.costo_adquisicion}
+                  onChange={(event) =>
+                    actualizar("costo_adquisicion", event.target.value)
+                  }
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="condicion">
+                  Condición al adquirirlo
+                </label>
+                <select
+                  id="condicion"
+                  className="form-select"
+                  value={valores.condicion}
+                  onChange={(event) =>
+                    actualizar("condicion", event.target.value)
+                  }
+                >
+                  {/* Se puede dejar sin decir, y esa es la opción que viene por
+                    delante: el levantamiento inicial se hace con equipos cuya
+                    procedencia ya nadie recuerda, y dar «nuevo» por supuesto
+                    sería inventarla. */}
+                  <option value="">Sin especificar</option>
+                  <option value="nuevo">Nuevo</option>
+                  <option value="usado">Usado</option>
+                </select>
+                <div className="form-text">
+                  {/* Un equipo usado llega con parte de su vida ya gastada: sus
+                    mismos meses de antigüedad no significan lo mismo. */}
+                  Si se compró nuevo o se adquirió de segunda mano.
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="proveedor">
+                  Proveedor
+                </label>
+                <select
+                  id="proveedor"
+                  className="form-select"
+                  value={valores.proveedor}
+                  onChange={(event) =>
+                    actualizar("proveedor", event.target.value)
+                  }
+                >
+                  <option value="">Sin proveedor registrado</option>
+                  {proveedores.map((proveedor) => (
+                    <option key={proveedor.id} value={proveedor.id}>
+                      {proveedor.nombre}
+                    </option>
+                  ))}
+                </select>
+                <div className="form-text">
+                  {/* Escrito a mano, «Tecnomega» y «TECNOMEGA» serían dos
+                    proveedores y las compras quedarían repartidas. */}
+                  Se administra en Organización → Proveedores.
+                </div>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="propiedad">
+                  De quién es el equipo
+                </label>
+                <select
+                  id="propiedad"
+                  className="form-select"
+                  value={valores.propiedad}
+                  onChange={(event) =>
+                    actualizar("propiedad", event.target.value)
+                  }
+                >
+                  {/* Lo normal es que se haya comprado, así que es lo que viene
+                    puesto: obligar a decirlo en cada alta no capturaría nada
+                    que no se supiera ya. */}
+                  <option value="propia">De la empresa</option>
+                  <option value="concesion">En concesión</option>
+                </select>
+                <div className="form-text">
+                  {/* No es lo mismo que tener proveedor: al proveedor se le
+                    compró, y entonces el equipo sí es de la empresa. */}
+                  «En concesión» es un equipo que pone un partner: lo compró él
+                  y lo mantenemos nosotros.
+                </div>
+              </div>
+              {valores.propiedad === "concesion" && (
+                <div className="col-md-4">
+                  <label className="form-label" htmlFor="concesionario">
+                    Concesionario
+                  </label>
+                  <select
+                    id="concesionario"
+                    className="form-select"
+                    required
+                    value={valores.concesionario}
+                    onChange={(event) =>
+                      actualizar("concesionario", event.target.value)
+                    }
+                  >
+                    <option value="">Elija el partner</option>
+                    {concesionarios.map((concesionario) => (
+                      <option key={concesionario.id} value={concesionario.id}>
+                        {concesionario.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="form-text">
+                    {/* Sin el dueño, «en concesión» no responde ni a qué hay que
+                      devolver ni a quién. */}
+                    Se administra en Organización → Concesionarios.
+                  </div>
+                </div>
+              )}
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="fecha_fin_garantia">
+                  Fin de garantía
+                </label>
+                <input
+                  id="fecha_fin_garantia"
+                  type="date"
+                  className="form-control"
+                  min={valores.fecha_adquisicion || undefined}
+                  value={valores.fecha_fin_garantia}
+                  onChange={(event) =>
+                    actualizar("fecha_fin_garantia", event.target.value)
+                  }
+                />
+                <div className="form-text">
+                  Déjelo vacío si el equipo no tiene garantía registrada.
+                </div>
+              </div>
+              <div className="col-12">
+                <label className="form-label" htmlFor="observaciones">
+                  Observaciones
+                </label>
+                <textarea
+                  id="observaciones"
+                  className="form-control"
+                  rows={2}
+                  value={valores.observaciones}
+                  onChange={(event) =>
+                    actualizar("observaciones", event.target.value)
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          <div className="mz-actions justify-content-end mt-3">
+            <button
+              type="button"
+              className="btn btn-cancelar"
+              onClick={() =>
+                navigate(esEdicion ? `/admin/activos/${id}` : "/admin/activos")
+              }
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSaving}
+            >
+              {isSaving
+                ? "Guardando…"
+                : esEdicion
+                  ? "Guardar cambios"
+                  : "Registrar activo"}
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
   );
 }

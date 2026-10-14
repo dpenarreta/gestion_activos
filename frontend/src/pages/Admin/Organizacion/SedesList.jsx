@@ -2,13 +2,12 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { sedesService } from "../../../api/organizacionService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Sedes" }];
 const FILTROS_INICIALES = { q: "", activa: "" };
 
 /**
@@ -37,31 +36,40 @@ export function SedesList() {
   }
 
   return (
-    <div className="organizacion-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Sedes</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Sedes</h2>
+          <p className="mz-desc">
+            Los edificios y locales donde puede estar un equipo, escritos una
+            sola vez para que el inventario se filtre sin perder ninguno.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link
-            to="/admin/organizacion/sedes/new"
-            className="btn btn-primary btn-sm"
-          >
-            Nueva sede
-          </Link>
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/organizacion/sedes/new"
+              className="btn btn-primary btn-sm"
+            >
+              <Icon name="plus-lg" /> Nueva sede
+            </Link>
+          </div>
         )}
       </div>
 
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar por nombre o ciudad"
-          aria-label="Buscar sedes"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar sedes</span>
+          <input
+            type="search"
+            placeholder="Buscar por nombre o ciudad"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por estado"
           value={listado.filtros.activa}
           onChange={(event) =>
@@ -78,36 +86,39 @@ export function SedesList() {
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Ciudad</th>
               <th>Dirección</th>
-              <th className="text-end">Activos</th>
+              <th className="num">Activos</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((sede) => (
               <tr key={sede.id}>
-                <td>{sede.nombre}</td>
+                <td className="mz-strong">{sede.nombre}</td>
                 <td>{sede.ciudad || "—"}</td>
-                <td className="text-muted">{sede.direccion || "—"}</td>
-                <td className="text-end">{sede.total_activos}</td>
+                <td className="mz-faint">{sede.direccion || "—"}</td>
+                <td className="num">{sede.total_activos}</td>
                 <td>
                   <span
-                    className={`badge ${sede.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${sede.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {sede.activa ? "Abierta" : "Cerrada"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     to={`/admin/organizacion/sedes/${sede.id}`}
                     className="btn btn-outline-primary btn-sm"
@@ -118,10 +129,8 @@ export function SedesList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
-                  Sin sedes registradas
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={6}>Sin sedes registradas</td>
               </tr>
             )}
           </tbody>

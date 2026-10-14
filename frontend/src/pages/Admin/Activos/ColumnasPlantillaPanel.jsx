@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { columnasPlantillaService } from "../../../api/activosService";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
@@ -26,12 +27,17 @@ export function ColumnasPlantillaPanel() {
 
   const cargar = useCallback(() => {
     setIsLoading(true);
-    Promise.all([columnasPlantillaService.list(), columnasPlantillaService.camposDisponibles()])
+    Promise.all([
+      columnasPlantillaService.list(),
+      columnasPlantillaService.camposDisponibles(),
+    ])
       .then(([listaColumnas, listaCampos]) => {
         setColumnas(listaColumnas.results ?? listaColumnas);
         setCampos(listaCampos);
       })
-      .catch(() => setError("No se pudieron cargar las columnas de la plantilla."))
+      .catch(() =>
+        setError("No se pudieron cargar las columnas de la plantilla."),
+      )
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -42,7 +48,9 @@ export function ColumnasPlantillaPanel() {
   async function alternar(columna, campo) {
     setError(null);
     try {
-      await columnasPlantillaService.update(columna.id, { [campo]: !columna[campo] });
+      await columnasPlantillaService.update(columna.id, {
+        [campo]: !columna[campo],
+      });
       cargar();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo cambiar la columna."));
@@ -57,8 +65,12 @@ export function ColumnasPlantillaPanel() {
     try {
       // Se intercambian los órdenes en vez de renumerar toda la lista: dos
       // peticiones bastan y no se toca lo que el usuario no movió.
-      await columnasPlantillaService.update(columna.id, { orden: vecino.orden });
-      await columnasPlantillaService.update(vecino.id, { orden: columna.orden });
+      await columnasPlantillaService.update(columna.id, {
+        orden: vecino.orden,
+      });
+      await columnasPlantillaService.update(vecino.id, {
+        orden: columna.orden,
+      });
       cargar();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo reordenar."));
@@ -76,42 +88,60 @@ export function ColumnasPlantillaPanel() {
   }
 
   if (isLoading) {
-    return <p className="text-muted">Cargando…</p>;
+    return <div className="mz-empty">Cargando…</div>;
   }
 
   return (
-    <div className="columnas-plantilla">
-      <div className="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-        <p className="text-muted mb-0">
-          Define qué se pide en la plantilla y qué se lee al importar. Los cambios se aplican a la
-          próxima descarga.
+    <section className="mz-card columnas-plantilla">
+      <div className="mz-card-head">
+        <p className="mz-desc mt-0">
+          Define qué se pide en la plantilla y qué se lee al importar. Los
+          cambios se aplican a la próxima descarga.
         </p>
         {puedeEditar && (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setEnEdicion({})}>
-            Agregar columna
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setEnEdicion({})}
+          >
+            <Icon name="plus-lg" /> Agregar columna
           </button>
         )}
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-card-body pb-0">
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        </div>
+      )}
 
-      <div className="table-responsive">
-        <table className="table table-sm align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
-              <th style={{ width: "5rem" }}>Orden</th>
+              <th className="columnas-plantilla__orden">Orden</th>
               <th>Columna</th>
               <th>Qué llena</th>
               <th className="text-center">Se pide</th>
               <th className="text-center">Obligatoria</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {columnas.map((columna, indice) => (
-              <tr key={columna.id} className={columna.activa ? "" : "columna-inactiva"}>
+              <tr
+                key={columna.id}
+                className={columna.activa ? "" : "columna-inactiva"}
+              >
                 <td>
-                  <div className="btn-group btn-group-sm" role="group" aria-label="Reordenar">
+                  <div
+                    className="btn-group btn-group-sm"
+                    role="group"
+                    aria-label="Reordenar"
+                  >
                     <button
                       type="button"
                       className="btn btn-outline-secondary"
@@ -119,7 +149,7 @@ export function ColumnasPlantillaPanel() {
                       onClick={() => mover(columna, -1)}
                       aria-label={`Subir ${columna.etiqueta}`}
                     >
-                      <i className="bi bi-arrow-up" aria-hidden="true" />
+                      <Icon name="arrow-up" />
                     </button>
                     <button
                       type="button"
@@ -128,28 +158,33 @@ export function ColumnasPlantillaPanel() {
                       onClick={() => mover(columna, 1)}
                       aria-label={`Bajar ${columna.etiqueta}`}
                     >
-                      <i className="bi bi-arrow-down" aria-hidden="true" />
+                      <Icon name="arrow-down" />
                     </button>
                   </div>
                 </td>
                 <td>
-                  <strong>{columna.etiqueta}</strong>
-                  {columna.ayuda && <div className="small text-muted">{columna.ayuda}</div>}
+                  <span className="mz-strong">{columna.etiqueta}</span>
+                  {columna.ayuda && (
+                    <div className="mz-small mz-faint">{columna.ayuda}</div>
+                  )}
                 </td>
                 <td>
                   {columna.es_especificacion ? (
                     <>
-                      <span className="badge text-bg-info">Especificación</span>
-                      <div className="small text-muted">
-                        Se guarda como «{columna.clave.slice(PREFIJO_ESPECIFICACION.length)}»
+                      <span className="mz-pill mz-pill--neutral">
+                        Especificación
+                      </span>
+                      <div className="mz-small mz-faint">
+                        Se guarda como «
+                        {columna.clave.slice(PREFIJO_ESPECIFICACION.length)}»
                       </div>
                     </>
                   ) : (
-                    <code className="small">{columna.clave}</code>
+                    <code className="mz-code">{columna.clave}</code>
                   )}
                   {columna.es_estructural && (
-                    <div className="small text-muted">
-                      <i className="bi bi-lock me-1" aria-hidden="true" />
+                    <div className="mz-small mz-faint">
+                      <Icon name="lock" className="me-1" />
                       Imprescindible para crear el activo
                     </div>
                   )}
@@ -165,17 +200,19 @@ export function ColumnasPlantillaPanel() {
                 <td className="text-center">
                   <Interruptor
                     activo={columna.obligatoria}
-                    bloqueado={!puedeEditar || columna.es_estructural || !columna.activa}
+                    bloqueado={
+                      !puedeEditar || columna.es_estructural || !columna.activa
+                    }
                     etiqueta={`Hacer obligatoria ${columna.etiqueta}`}
                     onCambiar={() => alternar(columna, "obligatoria")}
                   />
                 </td>
-                <td>
+                <td className="acciones">
                   {puedeEditar && (
-                    <div className="d-flex gap-2">
+                    <>
                       <button
                         type="button"
-                        className="btn btn-outline-secondary btn-sm"
+                        className="btn btn-outline-primary btn-sm"
                         onClick={() => setEnEdicion(columna)}
                       >
                         Editar
@@ -189,7 +226,7 @@ export function ColumnasPlantillaPanel() {
                           Quitar
                         </button>
                       )}
-                    </div>
+                    </>
                   )}
                 </td>
               </tr>
@@ -209,7 +246,7 @@ export function ColumnasPlantillaPanel() {
           }}
         />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -232,7 +269,7 @@ function Interruptor({ activo, bloqueado, etiqueta, onCambiar }) {
 function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
   const esEdicion = Boolean(columna.id);
   const [tipoColumna, setTipoColumna] = useState(
-    columna.es_especificacion ? "especificacion" : "campo"
+    columna.es_especificacion ? "especificacion" : "campo",
   );
   const [valores, setValores] = useState({
     clave: columna.clave || "",
@@ -285,12 +322,19 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
       onSubmit={handleSubmit}
       isSaving={isSaving}
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {!esEdicion && (
         <>
           <div className="mb-3">
-            <span className="form-label d-block">¿Qué dato pide esta columna?</span>
+            <span className="form-label d-block">
+              ¿Qué dato pide esta columna?
+            </span>
             <div className="form-check">
               <input
                 id="tipo-campo"
@@ -312,23 +356,24 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
                 onChange={() => setTipoColumna("especificacion")}
               />
               <label className="form-check-label" htmlFor="tipo-espec">
-                Una característica propia (se guarda en las especificaciones del equipo)
+                Una característica propia (se guarda en las especificaciones del
+                equipo)
               </label>
             </div>
           </div>
 
           {tipoColumna === "campo" ? (
-            <div className="mb-3">
-              <label className="form-label" htmlFor="col-clave">
-                Campo
-              </label>
+            <div className="mz-field mb-3">
+              <label htmlFor="col-clave">Campo</label>
               <select
                 id="col-clave"
                 className="form-select"
                 required
                 value={valores.clave}
                 onChange={(event) => {
-                  const campo = campos.find((c) => c.clave === event.target.value);
+                  const campo = campos.find(
+                    (c) => c.clave === event.target.value,
+                  );
                   setValores({
                     ...valores,
                     clave: event.target.value,
@@ -345,16 +390,14 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
               </select>
               {disponibles.length === 0 && (
                 <div className="form-text">
-                  Todos los campos del activo ya tienen su columna. Agregue una característica
-                  propia si necesita pedir otro dato.
+                  Todos los campos del activo ya tienen su columna. Agregue una
+                  característica propia si necesita pedir otro dato.
                 </div>
               )}
             </div>
           ) : (
-            <div className="mb-3">
-              <label className="form-label" htmlFor="col-espec">
-                Nombre de la característica
-              </label>
+            <div className="mz-field mb-3">
+              <label htmlFor="col-espec">Nombre de la característica</label>
               <input
                 id="col-espec"
                 className="form-control"
@@ -370,60 +413,61 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
                 }
               />
               <div className="form-text">
-                Se guarda con este nombre dentro de las especificaciones del activo, sin cambiar la
-                base de datos.
+                Se guarda con este nombre dentro de las especificaciones del
+                activo, sin cambiar la base de datos.
               </div>
             </div>
           )}
         </>
       )}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="col-etiqueta">
-          Encabezado en la plantilla
-        </label>
+      <div className="mz-field mb-3">
+        <label htmlFor="col-etiqueta">Encabezado en la plantilla</label>
         <input
           id="col-etiqueta"
           className="form-control"
           required
           maxLength={120}
           value={valores.etiqueta}
-          onChange={(event) => setValores({ ...valores, etiqueta: event.target.value })}
+          onChange={(event) =>
+            setValores({ ...valores, etiqueta: event.target.value })
+          }
         />
       </div>
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="col-ayuda">
-          Ayuda
-        </label>
+      <div className="mz-field mb-3">
+        <label htmlFor="col-ayuda">Ayuda</label>
         <textarea
           id="col-ayuda"
           className="form-control"
           rows={2}
           maxLength={255}
           value={valores.ayuda}
-          onChange={(event) => setValores({ ...valores, ayuda: event.target.value })}
+          onChange={(event) =>
+            setValores({ ...valores, ayuda: event.target.value })
+          }
         />
         <div className="form-text">
-          Aparece como comentario al pasar el cursor sobre el encabezado en Excel.
+          Aparece como comentario al pasar el cursor sobre el encabezado en
+          Excel.
         </div>
       </div>
 
-      <div className="row g-3">
-        <div className="col-6">
-          <label className="form-label" htmlFor="col-orden">
-            Orden
-          </label>
+      <div className="mz-field-grid">
+        <div className="mz-field">
+          <label htmlFor="col-orden">Orden</label>
           <input
             id="col-orden"
             type="number"
             min="0"
             className="form-control"
             value={valores.orden}
-            onChange={(event) => setValores({ ...valores, orden: event.target.value })}
+            onChange={(event) =>
+              setValores({ ...valores, orden: event.target.value })
+            }
           />
         </div>
-        <div className="col-6 d-flex flex-column justify-content-end">
+        <div className="d-flex flex-column justify-content-end">
           <div className="form-check">
             <input
               id="col-activa"
@@ -431,7 +475,9 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
               className="form-check-input"
               checked={valores.activa}
               disabled={columna.es_estructural}
-              onChange={(event) => setValores({ ...valores, activa: event.target.checked })}
+              onChange={(event) =>
+                setValores({ ...valores, activa: event.target.checked })
+              }
             />
             <label className="form-check-label" htmlFor="col-activa">
               Se pide en la plantilla
@@ -444,7 +490,9 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
               className="form-check-input"
               checked={valores.obligatoria}
               disabled={columna.es_estructural}
-              onChange={(event) => setValores({ ...valores, obligatoria: event.target.checked })}
+              onChange={(event) =>
+                setValores({ ...valores, obligatoria: event.target.checked })
+              }
             />
             <label className="form-check-label" htmlFor="col-obligatoria">
               Obligatoria
@@ -454,9 +502,11 @@ function ColumnaDialog({ columna, campos, onCerrar, onGuardado }) {
       </div>
 
       {columna.es_estructural && (
-        <div className="alert alert-info mt-3 mb-0 small">
-          Esta columna es imprescindible para crear un activo, así que no se puede desactivar ni
-          volver opcional. Sí puede cambiar su encabezado, su ayuda y su orden.
+        <div className="mz-alert mz-alert--info mt-3 mb-0" role="status">
+          <Icon name="info-circle" />
+          Esta columna es imprescindible para crear un activo, así que no se
+          puede desactivar ni volver opcional. Sí puede cambiar su encabezado,
+          su ayuda y su orden.
         </div>
       )}
     </ModalDialog>

@@ -4,7 +4,7 @@
 
 .font-preview-option__label {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--mz-ink-faint);
 }
 
 .font-preview-option__demo {

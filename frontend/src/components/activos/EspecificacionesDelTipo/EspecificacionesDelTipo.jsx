@@ -31,20 +31,17 @@ export function EspecificacionesDelTipo({
 
   return (
     <div className="especificaciones-tipo">
-      <div className="row g-3">
+      <div className="mz-field-grid">
         {caracteristicas.map((caracteristica) => (
-          <div className="col-md-6" key={caracteristica.id}>
-            <label
-              className="form-label"
-              htmlFor={`espec-${caracteristica.id}`}
-            >
+          <div className="mz-field" key={caracteristica.id}>
+            <label htmlFor={`espec-${caracteristica.id}`}>
               {caracteristica.nombre}
               {/* `{" "}` explícito: JSX recorta el espacio que abre una línea,
                   y sin él se lee «Lente(mm)» y «Resolución*». */}
               {caracteristica.unidad && (
                 <>
                   {" "}
-                  <span className="text-muted">({caracteristica.unidad})</span>
+                  <span className="mz-faint">({caracteristica.unidad})</span>
                 </>
               )}
               {caracteristica.obligatoria && (
@@ -69,14 +66,12 @@ export function EspecificacionesDelTipo({
       </div>
 
       {heredadas.length > 0 && (
-        <div className="mt-3">
+        <div className="mz-section mt-3">
           {/* Un equipo cargado antes de que el tipo se describiera arrastra
               características que ya nadie declara. Se muestran y se conservan:
               borrarlas al guardar haría perder datos que alguien capturó, y
               esconderlas haría creer que el equipo no los tiene. */}
-          <h6 className="text-uppercase text-muted small">
-            Características anteriores
-          </h6>
+          <h4>Características anteriores</h4>
           <p className="form-text mb-2">
             Este equipo las tenía antes de que el tipo declarara las suyas. Se
             conservan tal como están; para dejar de verlas aquí, añádalas al

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { formatearFecha } from "../../../utils/formato";
@@ -17,9 +17,25 @@ export const ESTADOS = [
   ["cancelada", "Cancelada"],
 ];
 
+/**
+ * Los colores dicen en qué punto está, no si es buena o mala noticia: la
+ * pendiente resalta porque espera a alguien, la que está en camino se lee
+ * como información y la cancelada se apaga porque ya no hay nada que hacer
+ * con ella.
+ */
+const TONO_DEL_ESTADO = {
+  pendiente: "mz-pill--warn",
+  en_gestion: "mz-pill--info",
+  comprada: "mz-pill--info",
+  entregada: "mz-pill--ok",
+  rechazada: "mz-pill--bad",
+  cancelada: "mz-pill--neutral",
+};
+
 export function EstadoDeSolicitud({ solicitud }) {
+  const tono = TONO_DEL_ESTADO[solicitud.estado] ?? "mz-pill--neutral";
   return (
-    <span className={`badge estado estado--${solicitud.estado}`}>
+    <span className={`mz-pill estado estado--${solicitud.estado} ${tono}`}>
       {solicitud.estado_display}
     </span>
   );
@@ -53,47 +69,38 @@ export function ListadoDeSolicitudes({
   );
 
   const esRecibidas = ambito === "recibidas";
-  const breadcrumbs = [
-    { label: "Administración" },
-    { label: "Solicitudes" },
-    { label: titulo },
-  ];
 
   return (
     <div className="solicitudes-page">
-      <Breadcrumbs items={breadcrumbs} />
-      <div className="d-flex justify-content-between align-items-start mb-3 gap-3 flex-wrap">
+      <div className="mz-view-head">
         <div>
-          <h2 className="mb-1">{titulo}</h2>
-          <p className="text-muted mb-0">{descripcion}</p>
+          <h2>{titulo}</h2>
+          <p className="mz-desc">{descripcion}</p>
         </div>
-        {acciones}
+        {acciones && <div className="mz-view-actions">{acciones}</div>}
       </div>
 
       <form
-        className="d-flex gap-2 mb-3 flex-wrap align-items-end"
+        className="mz-filter-bar"
+        role="search"
         onSubmit={(evento) => {
           evento.preventDefault();
           listado.actualizarFiltros({ q: busqueda });
         }}
       >
-        <div>
-          <label className="form-label small mb-1" htmlFor="sol-buscar">
-            Buscar
-          </label>
+        <label className="mz-fb-search" htmlFor="sol-buscar">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar</span>
           <input
             id="sol-buscar"
             type="search"
-            className="form-control form-control-sm"
             placeholder="Qué se pidió, o quién"
             value={busqueda}
             onChange={(evento) => setBusqueda(evento.target.value)}
           />
-        </div>
-        <div>
-          <label className="form-label small mb-1" htmlFor="sol-estado">
-            Estado
-          </label>
+        </label>
+        <div className="mz-inline-field">
+          <label htmlFor="sol-estado">Estado</label>
           <select
             id="sol-estado"
             className="form-select form-select-sm"
@@ -110,10 +117,8 @@ export function ListadoDeSolicitudes({
             ))}
           </select>
         </div>
-        <div>
-          <label className="form-label small mb-1" htmlFor="sol-abiertas">
-            Mostrar
-          </label>
+        <div className="mz-inline-field">
+          <label htmlFor="sol-abiertas">Mostrar</label>
           <select
             id="sol-abiertas"
             className="form-select form-select-sm"
@@ -133,16 +138,19 @@ export function ListadoDeSolicitudes({
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>#</th>
               <th>Qué se pide</th>
-              <th className="text-end">Cantidad</th>
+              <th className="num">Cantidad</th>
               <th>{esRecibidas ? "Quién la pidió" : "Quién la gestiona"}</th>
               <th>Prioridad</th>
               <th>Se necesita</th>
@@ -153,20 +161,20 @@ export function ListadoDeSolicitudes({
           <tbody>
             {listado.resultados.map((solicitud) => (
               <tr key={solicitud.id}>
-                <td>#{solicitud.id}</td>
+                <td className="mz-mono">#{solicitud.id}</td>
                 <td>
-                  {solicitud.lo_que_se_pide}
-                  <small className="d-block text-muted">
+                  <span className="mz-strong">{solicitud.lo_que_se_pide}</span>
+                  <div className="mz-small mz-faint">
                     Pedida el {formatearFecha(solicitud.created_at)}
-                  </small>
+                  </div>
                 </td>
-                <td className="text-end">{solicitud.cantidad}</td>
+                <td className="num">{solicitud.cantidad}</td>
                 <td>
                   {esRecibidas
                     ? solicitud.solicitante_nombre
                     : solicitud.encargado_nombre}
                 </td>
-                <td className={`prioridad--${solicitud.prioridad}`}>
+                <td className={`mz-prio--${solicitud.prioridad}`}>
                   {solicitud.prioridad_display}
                 </td>
                 <td>
@@ -177,7 +185,7 @@ export function ListadoDeSolicitudes({
                 <td>
                   <EstadoDeSolicitud solicitud={solicitud} />
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     className="btn btn-outline-primary btn-sm"
                     to={`/admin/solicitudes/${solicitud.id}`}
@@ -188,8 +196,8 @@ export function ListadoDeSolicitudes({
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center text-muted">
+              <tr className="mz-empty-row">
+                <td colSpan={8}>
                   {esRecibidas
                     ? "No tiene solicitudes por gestionar"
                     : "Todavía no ha realizado ninguna solicitud"}

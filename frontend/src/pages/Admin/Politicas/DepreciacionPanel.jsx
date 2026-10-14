@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { tiposDispositivoService } from "../../../api/activosService";
 import { depreciacionService } from "../../../api/politicasService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
@@ -66,47 +67,60 @@ export function DepreciacionPanel() {
   const hayGlobal = listado.resultados.some((politica) => politica.es_global);
 
   return (
-    <div className="politicas-panel">
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h3 className="h5 mb-0">Cuánto vale en libros cada tipo de equipo</h3>
+    <section className="mz-card politicas-panel">
+      <div className="mz-card-head">
+        <h3>Cuánto vale en libros cada tipo de equipo</h3>
         {puedeEditar && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setEnEdicion(VACIA)}
-          >
-            Nueva política de depreciación
-          </button>
+          <div className="mz-view-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEnEdicion(VACIA)}
+            >
+              <Icon name="plus-lg" /> Nueva política de depreciación
+            </button>
+          </div>
         )}
       </div>
 
-      <p className="text-muted">
-        El costo se reparte en partes iguales entre los meses de vida contable.
-        No es la vida útil de la política de renovación: un equipo se deprecia
-        en tres años y se reemplaza a los cuatro o cinco, y seguir usando un
-        equipo ya depreciado es lo normal.
-      </p>
+      <div className="mz-card-body">
+        <p className="mz-faint mb-0">
+          El costo se reparte en partes iguales entre los meses de vida
+          contable. No es la vida útil de la política de renovación: un equipo
+          se deprecia en tres años y se reemplaza a los cuatro o cinco, y seguir
+          usando un equipo ya depreciado es lo normal.
+        </p>
 
-      {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
-      )}
-      {errorAccion && <div className="alert alert-danger">{errorAccion}</div>}
-      {!listado.isLoading && !hayGlobal && (
-        <div className="alert alert-warning">
-          No hay una política global. Los tipos de dispositivo sin política
-          propia no muestran valor en libros, y el reporte de valor del parque
-          saldrá con esas columnas vacías.
-        </div>
-      )}
+        {listado.error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {listado.error}
+          </div>
+        )}
+        {errorAccion && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {errorAccion}
+          </div>
+        )}
+        {!listado.isLoading && !hayGlobal && (
+          <div className="mz-alert mz-alert--warn">
+            <Icon name="exclamation-triangle" />
+            No hay una política global. Los tipos de dispositivo sin política
+            propia no muestran valor en libros, y el reporte de valor del parque
+            saldrá con esas columnas vacías.
+          </div>
+        )}
+      </div>
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Política</th>
               <th>Alcance</th>
-              <th className="text-end">Vida contable</th>
-              <th className="text-end">Valor residual</th>
+              <th className="num">Vida contable</th>
+              <th className="num">Valor residual</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -114,36 +128,36 @@ export function DepreciacionPanel() {
           <tbody>
             {listado.resultados.map((politica) => (
               <tr key={politica.id}>
-                <td>{politica.nombre}</td>
+                <td className="mz-strong">{politica.nombre}</td>
                 <td>
                   {politica.es_global ? (
-                    <span className="badge text-bg-primary">Global</span>
+                    <span className="mz-pill mz-pill--neutral">Global</span>
                   ) : (
                     politica.tipo_dispositivo_nombre
                   )}
                 </td>
-                <td className="text-end">
+                <td className="num">
                   {formatearMeses(politica.meses_vida_contable)}
                 </td>
-                <td className="text-end">
+                <td className="num">
                   {Number(politica.porcentaje_residual) > 0 ? (
                     `${politica.porcentaje_residual} %`
                   ) : (
                     // Cero es el caso normal en equipo de cómputo: se
                     // deprecia por completo.
-                    <span className="text-muted small">Sin residual</span>
+                    <span className="mz-faint mz-small">Sin residual</span>
                   )}
                 </td>
                 <td>
                   <span
-                    className={`badge ${politica.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {politica.activa ? "Activa" : "Inactiva"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   {puedeEditar && (
-                    <div className="d-flex gap-2">
+                    <>
                       <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
@@ -158,14 +172,14 @@ export function DepreciacionPanel() {
                       >
                         Eliminar
                       </button>
-                    </div>
+                    </>
                   )}
                 </td>
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
+              <tr className="mz-empty-row">
+                <td colSpan={6}>
                   Sin políticas de depreciación. Ningún equipo mostrará valor en
                   libros.
                 </td>
@@ -201,7 +215,7 @@ export function DepreciacionPanel() {
         onConfirm={confirmarEliminacion}
         onCancel={() => setAEliminar(null)}
       />
-    </div>
+    </section>
   );
 }
 
@@ -267,57 +281,56 @@ function DepreciacionDialog({
       isSaving={isSaving}
       puedeConfirmar={!vidaInvalida && !residualInvalido}
     >
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      <div className="mb-3">
-        <label className="form-label" htmlFor="dep-nombre">
-          Nombre
-        </label>
-        <input
-          id="dep-nombre"
-          className="form-control"
-          required
-          maxLength={120}
-          placeholder="Equipos de cómputo"
-          value={valores.nombre}
-          onChange={(event) =>
-            setValores({ ...valores, nombre: event.target.value })
-          }
-        />
-      </div>
-
-      <div className="mb-3">
-        <label className="form-label" htmlFor="dep-tipo">
-          Se aplica a
-        </label>
-        <select
-          id="dep-tipo"
-          className="form-select"
-          value={valores.tipo_dispositivo}
-          onChange={(event) =>
-            setValores({ ...valores, tipo_dispositivo: event.target.value })
-          }
-        >
-          <option value="" disabled={!puedeSerGlobal}>
-            Todos los tipos (política global)
-            {!puedeSerGlobal && " — ya existe una"}
-          </option>
-          {tipos.map((tipo) => (
-            <option key={tipo.id} value={tipo.id}>
-              {tipo.nombre}
-            </option>
-          ))}
-        </select>
-        <div className="form-text">
-          La política de un tipo específico tiene prioridad sobre la global.
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
         </div>
-      </div>
+      )}
 
-      <div className="row g-3">
-        <div className="col-md-6">
-          <label className="form-label" htmlFor="dep-vida">
-            Vida contable (meses)
-          </label>
+      <div className="mz-field-grid">
+        <div className="mz-field">
+          <label htmlFor="dep-nombre">Nombre</label>
+          <input
+            id="dep-nombre"
+            className="form-control"
+            required
+            maxLength={120}
+            placeholder="Equipos de cómputo"
+            value={valores.nombre}
+            onChange={(event) =>
+              setValores({ ...valores, nombre: event.target.value })
+            }
+          />
+        </div>
+
+        <div className="mz-field">
+          <label htmlFor="dep-tipo">Se aplica a</label>
+          <select
+            id="dep-tipo"
+            className="form-select"
+            value={valores.tipo_dispositivo}
+            onChange={(event) =>
+              setValores({ ...valores, tipo_dispositivo: event.target.value })
+            }
+          >
+            <option value="" disabled={!puedeSerGlobal}>
+              Todos los tipos (política global)
+              {!puedeSerGlobal && " — ya existe una"}
+            </option>
+            {tipos.map((tipo) => (
+              <option key={tipo.id} value={tipo.id}>
+                {tipo.nombre}
+              </option>
+            ))}
+          </select>
+          <div className="form-text">
+            La política de un tipo específico tiene prioridad sobre la global.
+          </div>
+        </div>
+
+        <div className="mz-field">
+          <label htmlFor="dep-vida">Vida contable (meses)</label>
           <input
             id="dep-vida"
             type="number"
@@ -338,10 +351,8 @@ function DepreciacionDialog({
             de renovación.
           </div>
         </div>
-        <div className="col-md-6">
-          <label className="form-label" htmlFor="dep-residual">
-            Valor residual (%)
-          </label>
+        <div className="mz-field">
+          <label htmlFor="dep-residual">Valor residual (%)</label>
           <input
             id="dep-residual"
             type="number"
@@ -365,13 +376,15 @@ function DepreciacionDialog({
       </div>
 
       {vidaInvalida && (
-        <div className="alert alert-warning mt-3 mb-0 small">
+        <div className="mz-alert mz-alert--warn mb-0">
+          <Icon name="exclamation-triangle" />
           La vida contable debe ser de al menos un mes. Para dejar de depreciar
           un tipo, desactive la política.
         </div>
       )}
       {residualInvalido && (
-        <div className="alert alert-warning mt-3 mb-0 small">
+        <div className="mz-alert mz-alert--warn mb-0">
+          <Icon name="exclamation-triangle" />
           El valor residual va entre 0 y 99,99: un equipo que conserva todo su
           valor no se deprecia nunca.
         </div>

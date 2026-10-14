@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { adjuntosService } from "../../../api/adjuntosService";
 import { ConfirmDialog } from "../../common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
@@ -41,7 +42,11 @@ const MAXIMO_MB = 10;
  * aquí hay facturas y actas firmadas, y un enlace público bastaría para
  * sacarlas sin pasar por el login.
  */
-export function AdjuntosPanel({ activoId, mantenimientoId = null, recargarToken = 0 }) {
+export function AdjuntosPanel({
+  activoId,
+  mantenimientoId = null,
+  recargarToken = 0,
+}) {
   const puedeSubir = usePermission("adjuntos.subir");
   const puedeEliminar = usePermission("adjuntos.eliminar");
 
@@ -121,9 +126,9 @@ export function AdjuntosPanel({ activoId, mantenimientoId = null, recargarToken 
   }
 
   return (
-    <section className="adjuntos-panel">
-      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        <h3 className="h5 mb-0">Documentos y evidencias</h3>
+    <section className="mz-card adjuntos-panel">
+      <div className="mz-card-head flex-wrap gap-2">
+        <h3>Documentos y evidencias</h3>
         {puedeSubir && (
           <div className="d-flex gap-2 align-items-center">
             <select
@@ -151,27 +156,44 @@ export function AdjuntosPanel({ activoId, mantenimientoId = null, recargarToken 
               disabled={subiendo}
               onClick={() => entradaArchivo.current?.click()}
             >
+              <Icon name="paperclip" />{" "}
               {subiendo ? "Subiendo…" : "Adjuntar archivo"}
             </button>
           </div>
         )}
       </div>
 
-      {error && <div className="alert alert-danger py-2 small">{error}</div>}
+      {error && (
+        <div className="mz-card-body pb-0">
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        </div>
+      )}
 
       {adjuntos.length === 0 ? (
-        <p className="text-muted mb-0">
-          Sin documentos adjuntos.
-          {puedeSubir && ` Se admiten PDF, imágenes, Word y Excel de hasta ${MAXIMO_MB} MB.`}
-        </p>
+        <div className="mz-empty">
+          <Icon name="folder2-open" />
+          <div>
+            Sin documentos adjuntos.
+            {puedeSubir &&
+              ` Se admiten PDF, imágenes, Word y Excel de hasta ${MAXIMO_MB} MB.`}
+          </div>
+        </div>
       ) : (
-        <ul className="list-unstyled adjuntos-lista mb-0">
+        <ul className="adjuntos-lista">
           {adjuntos.map((adjunto) => (
-            <li key={adjunto.id}>
-              <i
-                className={`bi bi-${ICONOS[extension(adjunto.nombre_original)] || "file-earmark"} adjuntos-lista__icono`}
-                aria-hidden="true"
-              />
+            <li key={adjunto.id} className="mz-row">
+              <span
+                className={`mz-row-ic${extension(adjunto.nombre_original) === "pdf" ? " mz-row-ic--pdf" : ""}`}
+              >
+                <Icon
+                  name={
+                    ICONOS[extension(adjunto.nombre_original)] || "file-earmark"
+                  }
+                />
+              </span>
               <div className="adjuntos-lista__datos">
                 <button
                   type="button"
@@ -180,12 +202,14 @@ export function AdjuntosPanel({ activoId, mantenimientoId = null, recargarToken 
                 >
                   {adjunto.nombre_original}
                 </button>
-                <small className="d-block text-muted">
-                  {adjunto.tipo_display} · {formatearTamano(adjunto.tamano_bytes)} ·{" "}
+                <small className="d-block mz-faint mz-small">
+                  {adjunto.tipo_display} ·{" "}
+                  {formatearTamano(adjunto.tamano_bytes)} ·{" "}
                   {formatearFecha(adjunto.created_at)}
                   {adjunto.generado_por_el_sistema
                     ? " · generado por el sistema"
-                    : adjunto.subido_por_nombre && ` · ${adjunto.subido_por_nombre}`}
+                    : adjunto.subido_por_nombre &&
+                      ` · ${adjunto.subido_por_nombre}`}
                 </small>
               </div>
               {puedeEliminar && (
@@ -195,7 +219,7 @@ export function AdjuntosPanel({ activoId, mantenimientoId = null, recargarToken 
                   onClick={() => setAEliminar(adjunto)}
                   aria-label={`Eliminar ${adjunto.nombre_original}`}
                 >
-                  <i className="bi bi-trash" aria-hidden="true" />
+                  <Icon name="trash" />
                 </button>
               )}
             </li>

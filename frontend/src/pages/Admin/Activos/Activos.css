@@ -1,79 +1,66 @@
 /*
- * Inventario de activos: listado, ficha, formulario y escáner.
+ * Inventario de activos: listado, ficha y escáner.
  *
- * Una sola hoja para el módulo porque las cuatro pantallas comparten los
- * mismos elementos —código de barras monoespaciado, tarjetas de sección,
- * indicadores— y separarlas obligaría a repetirlos.
+ * Tarjetas, tablas, filtros y etiquetas de estado los dibuja la identidad base
+ * (`mz-*`). Aquí queda solo lo propio del módulo, que comparten varias
+ * pantallas: el código de barras, la lista de datos de la ficha y los
+ * indicadores.
  */
-
-.activos-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
 
 /* El código de barras se coteja a simple vista contra la etiqueta física:
    monoespaciado para no confundir 0/O ni 1/l, y con algo de interletraje. */
 .codigo-barras {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--mz-font-mono);
+  font-size: 0.92em;
   letter-spacing: 0.04em;
-  color: var(--text-primary);
-  background: var(--surface-tint);
+  color: var(--mz-ink);
+  background: var(--mz-sunken);
   padding: 0.1rem 0.35rem;
-  border-radius: 0.25rem;
+  border-radius: 4px;
+  /* El código se lee y se dicta de corrido: partido en renglones, «GA-PCE-»
+     y «000004» parecen dos datos distintos. */
+  white-space: nowrap;
 }
 
-.activo-card {
-  background: var(--surface);
-  border-color: var(--border-color);
-  /* Sin `height: 100%`. Con él, cada tarjeta se estiraba hasta la altura de su
-     columna: la ficha técnica quedaba con un hueco enorme debajo, y las tres
-     tarjetas apiladas de la derecha pedían el 100 % cada una —el triple de la
-     columna— y se desbordaban sobre la bitácora. La rejilla de abajo las
-     alinea arriba y cada una ocupa lo que necesita. */
+/* El código y el estado, juntos bajo el nombre del equipo. */
+.activo-detalle__identidad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /*
- * Paneles de la ficha: dos columnas en escritorio, una en pantallas
- * estrechas. `align-items: start` es lo que impide que una tarjeta corta se
- * estire para igualar a la larga de al lado.
+ * Paneles de la ficha: las dos columnas de `mz-grid-2`, que ya pasan a una en
+ * pantallas estrechas. `align-items: start` es lo que impide que una tarjeta
+ * corta se estire para igualar a la larga de al lado: sin él, la ficha técnica
+ * quedaba con un hueco enorme debajo y las tarjetas apiladas de la derecha se
+ * desbordaban sobre la bitácora.
  */
 .activo-paneles {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
   align-items: start;
 }
 
 .activo-paneles__columna {
   display: grid;
-  gap: 1rem;
+  gap: 16px;
   align-content: start;
-  /* `minmax(0, …)` evita que una tabla o un texto largo dentro de la tarjeta
-     ensanche la columna por encima del espacio disponible. */
+  /* Evita que una tabla o un texto largo dentro de la tarjeta ensanche la
+     columna por encima del espacio disponible. */
   min-width: 0;
 }
 
-@media (min-width: 62em) {
-  .activo-paneles {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  }
-}
-
 /*
- * Listas «etiqueta: valor». La etiqueta ocupa lo justo y el valor va pegado:
- * con las columnas de Bootstrap (`col-sm-5`/`col-sm-7`) quedaban separados
- * media pantalla en un monitor ancho, y leer la ficha era recorrer un hueco.
+ * Listas «etiqueta: valor» de la ficha: un `<dl>` con la rejilla `mz-kv-grid`,
+ * cada par en su `mz-kv`. Solo se deshacen los márgenes y la negrita que
+ * Bootstrap da a `dt`/`dd`, que la rejilla no necesita.
  */
 .activo-datos {
-  display: grid;
-  grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr);
-  gap: 0.4rem 1rem;
   margin: 0;
 }
 
 .activo-datos dt {
   font-weight: 400;
-  color: var(--text-muted);
 }
 
 .activo-datos dd {
@@ -92,24 +79,11 @@
 }
 
 .activo-responsables li + li {
-  margin-top: 0.15rem;
-}
-
-/* En móvil el valor va debajo de su etiqueta: a dos columnas, un nombre de
-   equipo largo rompería el renglón en cada palabra. */
-@media (max-width: 36em) {
-  .activo-datos {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .activo-datos dd {
-    margin-bottom: 0.6rem;
-  }
+  margin-top: 0.25rem;
 }
 
 /*
- * Indicadores de la ficha: tantas columnas como quepan. Con `col-6` fijo
+ * Indicadores de la ficha: tantas columnas como quepan. Con columnas fijas
  * quedaban huecos en la fila impar y la tarjeta crecía sin necesidad.
  *
  * El nombre lleva el prefijo del módulo porque las hojas de estilo del
@@ -119,14 +93,14 @@
 .activo-indicadores {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: 0.5rem;
+  gap: 8px;
   text-align: center;
 }
 
 .indicador {
-  background: var(--surface-alt);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.75rem 0.5rem;
+  background: var(--mz-sunken);
+  border-radius: 10px;
+  padding: 12px 8px;
 }
 
 /* El importe invertido ocupa la fila entera: es la cifra que se busca primero
@@ -136,33 +110,22 @@
 }
 
 .indicador-valor {
-  font-size: 1.5rem;
+  font-family: var(--mz-font-display);
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.1;
   /* Cifras de igual ancho: los indicadores se comparan entre filas y con
      ancho variable "111" parece más corto que "999". */
   font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
+  color: var(--mz-ink);
 }
 
 .indicador-etiqueta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--mz-ink-faint);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.activo-form,
-.activo-detalle {
-  max-width: 75rem;
-}
-
-.activo-form legend {
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.35rem;
-  margin-bottom: 1rem;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
 }
 
 .escaner-page__campo {
@@ -170,24 +133,19 @@
 }
 
 .escaner-resultado {
-  background: var(--surface);
-  border-color: var(--border-color);
   max-width: 60rem;
 }
 
-.especificaciones-editor .table {
-  background: var(--surface-alt);
-  border-radius: var(--border-radius, 0.5rem);
+/* Tres columnas cortas: el mínimo de 640px de `mz-table` haría aparecer un
+   scroll horizontal dentro del formulario sin necesidad. */
+.especificaciones-editor .mz-table {
+  min-width: 0;
 }
 
-/* --- Listado: la fila entera lleva a la ficha --- */
-
-.activos-tabla__fila {
-  cursor: pointer;
-}
+/* --- Listado --- */
 
 .activos-tabla__nombre {
-  color: var(--text-primary);
+  color: var(--mz-ink);
   font-weight: 600;
   text-decoration: none;
 }
@@ -200,54 +158,42 @@
 /* En fila y sin envolver: tres iconos puestos uno debajo de otro estirarían
    cada fila de la tabla y harían perder de vista el resto del inventario. */
 .activos-tabla__acciones {
-  display: flex;
-  gap: 0.35rem;
+  display: inline-flex;
+  gap: 6px;
   flex-wrap: nowrap;
 }
 
-/* --- Listado: filtros plegables y lo que se está aplicando --- */
-
-.activos-filtros {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-/* Los chips, por encima del panel plegado: son lo que explica por qué el
-   listado muestra lo que muestra cuando los desplegables no están a la vista. */
+/* Los chips de lo que se está filtrando, por encima del panel plegado: son lo
+   que explica por qué el listado muestra lo que muestra cuando los
+   desplegables no están a la vista. Cada uno se quita con un clic. */
 .activos-filtros__chips {
-  display: flex;
-  gap: 0.4rem;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 14px;
 }
 
-.activos-filtros__chip {
+.mz-chips .activos-filtros__chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.15rem 0.6rem;
-  border: 1px solid var(--border-color-strong);
-  border-radius: 999px;
-  background-color: var(--surface-alt);
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  line-height: 1.6;
+  gap: 2px;
+  color: var(--mz-ink);
 }
 
-.activos-filtros__chip:hover,
-.activos-filtros__chip:focus-visible {
-  border-color: var(--state-danger, #dc3545);
+.mz-chips .activos-filtros__chip:hover,
+.mz-chips .activos-filtros__chip:focus-visible {
+  border-color: var(--mz-bad-line);
 }
 
 .activos-filtros__chip-titulo {
-  color: var(--text-muted);
+  color: var(--mz-ink-faint);
 }
 
-.activos-filtros__limpiar {
-  padding: 0;
-  font-size: 0.85rem;
+/* Va dentro de `.mz-chips` pero no es un chip: sin esto heredaría su borde de
+   píldora y se leería como un filtro más. */
+.mz-chips .activos-filtros__limpiar {
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--mz-link);
+  font-size: 11.5px;
 }

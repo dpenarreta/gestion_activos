@@ -222,7 +222,7 @@ describe("Antes de guardar nada, se revisa", () => {
     expect(
       await screen.findByText("Revisión de empleados.xlsx"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Se crearán").previousSibling).toHaveTextContent(
+    expect(screen.getByText("Se crearán").closest(".mz-kpi")).toHaveTextContent(
       "3",
     );
     expect(screen.getByText("Ana Cevallos")).toBeInTheDocument();

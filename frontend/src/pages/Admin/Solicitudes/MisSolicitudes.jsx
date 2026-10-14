@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { ListadoDeSolicitudes } from "./ListadoDeSolicitudes";
 
@@ -18,7 +19,7 @@ export function MisSolicitudes() {
             className="btn btn-primary btn-sm"
             to="/admin/solicitudes/nueva"
           >
-            Realizar solicitud
+            <Icon name="plus-lg" /> Realizar solicitud
           </Link>
         )
       }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Icon } from "../../common/Icon/Icon";
 import "./EscanerCamara.css";
 
 /*
@@ -107,19 +108,25 @@ export function EscanerCamara({ onLeer, onCerrar }) {
             onCerrar();
           }}
         >
-          Cerrar la cámara
+          <Icon name="x-lg" /> Cerrar la cámara
         </button>
       </div>
 
       {estado === "no_disponible" && (
-        <div className="alert alert-warning mb-0">
+        <div className="mz-alert mz-alert--warn m-0" role="status">
+          <Icon name="exclamation-triangle" />
           Este navegador no da acceso a la cámara. Suele pasar al entrar por una
           dirección sin HTTPS; también puede escanear con la pistola o escribir
           el código.
         </div>
       )}
 
-      {error && <div className="alert alert-danger mb-0">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad m-0" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {/* `playsInline` es lo que evita que iOS abra el vídeo a pantalla
           completa y tape la pantalla entera al empezar a leer. */}
@@ -134,7 +141,7 @@ export function EscanerCamara({ onLeer, onCerrar }) {
       />
 
       {estado === "leyendo" && (
-        <p className="text-muted small mb-0">
+        <p className="mz-faint mz-small mb-0">
           Lee códigos QR y de barras. Se cierra sola al reconocer uno.
         </p>
       )}

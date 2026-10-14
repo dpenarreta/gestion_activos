@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Icon } from "../../common/Icon/Icon";
 import "./EscanerInput.css";
 
 /**
@@ -58,10 +59,14 @@ export function EscanerInput({
   }
 
   return (
-    <form className={`escaner-input ${className}`} onSubmit={handleSubmit} role="search">
+    <form
+      className={`escaner-input ${className}`}
+      onSubmit={handleSubmit}
+      role="search"
+    >
       <div className="input-group">
-        <span className="input-group-text" aria-hidden="true">
-          <i className="bi bi-upc-scan" />
+        <span className="input-group-text">
+          <Icon name="upc-scan" />
         </span>
         <input
           ref={inputRef}
@@ -79,7 +84,11 @@ export function EscanerInput({
           spellCheck="false"
           onChange={(event) => setValor(event.target.value)}
         />
-        <button type="submit" className="btn btn-primary" disabled={disabled || !valor.trim()}>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={disabled || !valor.trim()}
+        >
           Buscar
         </button>
       </div>

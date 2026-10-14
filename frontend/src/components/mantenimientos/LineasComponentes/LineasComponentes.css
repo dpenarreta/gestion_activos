@@ -1,0 +1,8 @@
+/* Las piezas cambiadas en un mantenimiento, en un recuadro hundido dentro del
+   formulario: se leen como un bloque aparte del resto de los campos. */
+.componentes-lineas {
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  padding: 0.75rem;
+}

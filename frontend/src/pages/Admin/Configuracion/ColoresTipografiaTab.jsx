@@ -21,10 +21,8 @@ export const COLOR_FIELDS = [
 function ColorField({ id, label, value, onChange }) {
   const valid = isValidHexColor(value);
   return (
-    <div className="mb-3 colores-tab__color-field">
-      <label className="form-label" htmlFor={id}>
-        {label}
-      </label>
+    <div className="mz-field colores-tab__color-field">
+      <label htmlFor={id}>{label}</label>
       <div className="d-flex align-items-center gap-2">
         <input
           type="color"
@@ -36,13 +34,15 @@ function ColorField({ id, label, value, onChange }) {
         />
         <input
           type="text"
-          className={`form-control ${valid ? "" : "is-invalid"}`}
+          className={`form-control mz-mono ${valid ? "" : "is-invalid"}`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder="#0D6EFD"
         />
       </div>
-      {!valid && <div className="invalid-feedback d-block">Formato hexadecimal inválido.</div>}
+      {!valid && (
+        <div className="mz-field-error">Formato hexadecimal inválido.</div>
+      )}
     </div>
   );
 }
@@ -51,6 +51,10 @@ function ColorField({ id, label, value, onChange }) {
  * Componente de presentación puro (mismo contrato que IdentidadTab): recibe
  * `form`/`updateField`/`options` (catálogo de fuentes y radios de borde) de
  * `ConfiguracionPage`. Incluye la vista previa en vivo.
+ *
+ * Los controles van con la identidad del sistema; lo de dentro de la vista
+ * previa, no: ahí se pintan los colores, la fuente y el radio elegidos, que
+ * es lo que hay que ver antes de guardar.
  */
 export function ColoresTipografiaTab({ form, updateField, options }) {
   const [previewDevice, setPreviewDevice] = useState("desktop");
@@ -63,108 +67,157 @@ export function ColoresTipografiaTab({ form, updateField, options }) {
     "--color-links": form.color_links,
     "--color-buttons": form.color_buttons,
     "--color-menu": form.color_menu,
-    "--font-primary": options.fonts.find((font) => font.key === form.font_primary)?.css_stack,
-    "--font-secondary": options.fonts.find((font) => font.key === form.font_secondary)?.css_stack,
+    "--font-primary": options.fonts.find(
+      (font) => font.key === form.font_primary,
+    )?.css_stack,
+    "--font-secondary": options.fonts.find(
+      (font) => font.key === form.font_secondary,
+    )?.css_stack,
     "--font-size-base": `${form.font_size_base}px`,
     "--border-radius": options.border_radii[form.border_radius]?.value,
   };
 
   return (
-    <div className="colores-tab row">
-      <div className="col-12 col-lg-6">
-        <h5>Colores</h5>
-        {COLOR_FIELDS.map((field) => (
-          <ColorField
-            key={field.key}
-            id={field.key}
-            label={field.label}
-            value={form[field.key]}
-            onChange={(value) => updateField(field.key, value)}
-          />
-        ))}
+    <div className="colores-tab mz-grid-2 mz-grid-2--even">
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Tema</h3>
+        </div>
+        <div className="mz-card-body">
+          <div className="mz-section">
+            <h4>Colores</h4>
+            <div className="mz-field-grid">
+              {COLOR_FIELDS.map((field) => (
+                <ColorField
+                  key={field.key}
+                  id={field.key}
+                  label={field.label}
+                  value={form[field.key]}
+                  onChange={(value) => updateField(field.key, value)}
+                />
+              ))}
+            </div>
+          </div>
 
-        <h5>Tipografía</h5>
-        <div className="mb-3">
-          <TypographySelector
-            label="Fuente principal"
-            fonts={options.fonts}
-            value={form.font_primary}
-            onChange={(fontKey) => updateField("font_primary", fontKey)}
-          />
-        </div>
-        <div className="mb-3">
-          <TypographySelector
-            label="Fuente secundaria (encabezados)"
-            fonts={options.fonts}
-            value={form.font_secondary}
-            onChange={(fontKey) => updateField("font_secondary", fontKey)}
-          />
-        </div>
-        <div className="mb-3">
-          <label className="form-label" htmlFor="font_size_base">
-            Tamaño base de fuente (px)
-          </label>
-          <input
-            id="font_size_base"
-            type="number"
-            min="12"
-            max="24"
-            className="form-control"
-            value={form.font_size_base}
-            onChange={(event) => updateField("font_size_base", event.target.value)}
-          />
-        </div>
-
-        <h5>Bordes</h5>
-        <div className="mb-4">
-          <label className="form-label" htmlFor="border_radius">
-            Radio de bordes
-          </label>
-          <select
-            id="border_radius"
-            className="form-select"
-            value={form.border_radius}
-            onChange={(event) => updateField("border_radius", event.target.value)}
-          >
-            {Object.entries(options.border_radii).map(([slug, radius]) => (
-              <option key={slug} value={slug}>
-                {radius.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="col-12 col-lg-6">
-        <h5>Vista previa</h5>
-        <DevicePreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
-          <div className="colores-tab__preview" style={previewStyle}>
-            <div className="colores-tab__preview-menu">{form.site_name || "Nombre del sitio"}</div>
-            <div className="colores-tab__preview-body">
-              <h3>Encabezado de ejemplo</h3>
-              <p>{DEMO_TEXT}</p>
-              <p>
-                Este es un párrafo de demostración con un <a href="#preview">enlace de ejemplo</a> para
-                mostrar el color configurado.
-              </p>
-              <div className="mb-3">
-                <label className="form-label" htmlFor="preview-input">
-                  Campo de formulario de ejemplo
-                </label>
-                <input id="preview-input" className="form-control" readOnly value={DEMO_TEXT} />
+          <div className="mz-section">
+            <h4>Tipografía</h4>
+            <div className="mz-field-grid">
+              <div className="mz-field mz-field--full">
+                <TypographySelector
+                  label="Fuente principal"
+                  fonts={options.fonts}
+                  value={form.font_primary}
+                  onChange={(fontKey) => updateField("font_primary", fontKey)}
+                />
               </div>
-              <div className="d-flex flex-wrap gap-2">
-                <button type="button" className="btn app-button app-button--primary">
-                  Botón primario
-                </button>
-                <button type="button" className="btn app-button app-button--secondary">
-                  Botón secundario
-                </button>
+              <div className="mz-field mz-field--full">
+                <TypographySelector
+                  label="Fuente secundaria (encabezados)"
+                  fonts={options.fonts}
+                  value={form.font_secondary}
+                  onChange={(fontKey) => updateField("font_secondary", fontKey)}
+                />
+              </div>
+              <div className="mz-field">
+                <label htmlFor="font_size_base">
+                  Tamaño base de fuente (px)
+                </label>
+                <input
+                  id="font_size_base"
+                  type="number"
+                  min="12"
+                  max="24"
+                  className="form-control"
+                  value={form.font_size_base}
+                  onChange={(event) =>
+                    updateField("font_size_base", event.target.value)
+                  }
+                />
               </div>
             </div>
           </div>
-        </DevicePreviewFrame>
-      </div>
+
+          <div className="mz-section mb-0">
+            <h4>Bordes</h4>
+            <div className="mz-field-grid">
+              <div className="mz-field">
+                <label htmlFor="border_radius">Radio de bordes</label>
+                <select
+                  id="border_radius"
+                  className="form-select"
+                  value={form.border_radius}
+                  onChange={(event) =>
+                    updateField("border_radius", event.target.value)
+                  }
+                >
+                  {Object.entries(options.border_radii).map(
+                    ([slug, radius]) => (
+                      <option key={slug} value={slug}>
+                        {radius.label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mz-card colores-tab__preview-card">
+        <div className="mz-card-head">
+          <h3>Vista previa</h3>
+        </div>
+        <div className="mz-card-body">
+          <DevicePreviewFrame
+            device={previewDevice}
+            onDeviceChange={setPreviewDevice}
+          >
+            <div className="colores-tab__preview" style={previewStyle}>
+              <div className="colores-tab__preview-menu">
+                {form.site_name || "Nombre del sitio"}
+              </div>
+              <div className="colores-tab__preview-body">
+                <h3>Encabezado de ejemplo</h3>
+                <p>{DEMO_TEXT}</p>
+                <p>
+                  Este es un párrafo de demostración con un{" "}
+                  <a href="#preview">enlace de ejemplo</a> para mostrar el color
+                  configurado.
+                </p>
+                <div className="mb-3">
+                  <label
+                    className="colores-tab__preview-label"
+                    htmlFor="preview-input"
+                  >
+                    Campo de formulario de ejemplo
+                  </label>
+                  <input
+                    id="preview-input"
+                    className="form-control colores-tab__preview-input"
+                    readOnly
+                    value={DEMO_TEXT}
+                  />
+                </div>
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn colores-tab__preview-btn colores-tab__preview-btn--primary"
+                  >
+                    Botón primario
+                  </button>
+                  <button
+                    type="button"
+                    className="btn colores-tab__preview-btn colores-tab__preview-btn--secondary"
+                  >
+                    Botón secundario
+                  </button>
+                </div>
+              </div>
+            </div>
+          </DevicePreviewFrame>
+        </div>
+      </section>
     </div>
   );
 }

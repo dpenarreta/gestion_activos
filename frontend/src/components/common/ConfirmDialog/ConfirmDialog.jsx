@@ -38,24 +38,25 @@ export function ConfirmDialog({
     // equivalente accesible por teclado es Escape (ver useModalA11y) y el
     // botón "Cancelar" explícito más abajo.
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className="confirm-dialog__backdrop" onClick={handleBackdropClick}>
+    <div
+      className="mz-overlay mz-overlay--center"
+      onClick={handleBackdropClick}
+    >
       <div
         ref={panelRef}
-        className="confirm-dialog__panel"
+        className="mz-modal mz-modal--confirmar"
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         tabIndex={-1}
       >
-        <div className="confirm-dialog__header">
-          <h5 id="confirm-dialog-title" className="mb-0">
-            {title}
-          </h5>
+        <div className="mz-panel-head">
+          <h3 id="confirm-dialog-title">{title}</h3>
         </div>
-        <div className="confirm-dialog__body">
+        <div className="mz-panel-body">
           <p className="mb-0">{message}</p>
         </div>
-        <div className="confirm-dialog__footer">
+        <div className="mz-panel-foot">
           <button
             type="button"
             className="btn btn-cancelar btn-sm"

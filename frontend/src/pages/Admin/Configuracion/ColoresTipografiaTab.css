@@ -1,7 +1,28 @@
+/* La vista previa se queda a la vista mientras se recorren los campos: si se
+   fuera con el scroll, cada cambio de color obligaría a bajar a mirarlo. */
+@media (min-width: 1081px) {
+  .colores-tab__preview-card {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+  }
+}
+
+.colores-tab__color-field .form-control-color {
+  flex: none;
+}
+
+/*
+ * Desde aquí, la vista previa del tema: el único lugar de las hojas de esta
+ * pantalla con colores que no son tokens de la identidad. Muestra los valores
+ * que se están eligiendo (las `--color-*`, `--font-*`, `--font-size-base` y
+ * `--border-radius` que el componente fija en línea), no los vigentes.
+ */
 .colores-tab__preview {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-primary);
+  font-size: var(--font-size-base);
 }
 
 .colores-tab__preview-menu {
@@ -15,23 +36,44 @@
   padding: 1.5rem;
 }
 
-.colores-tab__preview-body h3 {
+/* Con el prefijo del contenedor para ganarle a `.mz-shell h3`, que pinta los
+   títulos con el color vigente y no con el elegido. */
+.colores-tab__preview .colores-tab__preview-body h3 {
   color: var(--color-headings);
   font-family: var(--font-secondary);
 }
 
-.colores-tab__preview-body a {
+.colores-tab__preview .colores-tab__preview-body a {
   color: var(--color-links);
 }
 
-.app-button--primary {
+.colores-tab__preview-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.colores-tab__preview-input {
+  border-radius: var(--border-radius);
+  font-size: inherit;
+}
+
+.colores-tab__preview-btn {
+  border: none;
+  border-radius: var(--border-radius);
+  color: #fff;
+  font-size: inherit;
+}
+
+.colores-tab__preview-btn--primary,
+.colores-tab__preview-btn--primary:hover {
   background-color: var(--color-buttons);
-  border-color: var(--color-buttons);
   color: #fff;
 }
 
-.app-button--secondary {
+.colores-tab__preview-btn--secondary,
+.colores-tab__preview-btn--secondary:hover {
   background-color: var(--color-secondary);
-  border-color: var(--color-secondary);
   color: #fff;
 }

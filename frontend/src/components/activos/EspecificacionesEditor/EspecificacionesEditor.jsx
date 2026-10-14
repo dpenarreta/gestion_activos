@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { Icon } from "../../common/Icon/Icon";
+
 /**
  * Editor de las especificaciones de hardware, como pares clave/valor libres.
  *
@@ -50,8 +52,8 @@ export function EspecificacionesEditor({ valor = {}, onChange }) {
   return (
     <div className="especificaciones-editor">
       {entradas.length > 0 && (
-        <div className="table-responsive mb-3">
-          <table className="table table-sm align-middle mb-0">
+        <div className="mz-table-wrap mb-3">
+          <table className="mz-table">
             <thead>
               <tr>
                 <th>Característica</th>
@@ -64,14 +66,14 @@ export function EspecificacionesEditor({ valor = {}, onChange }) {
                 <tr key={nombre}>
                   <td>{nombre}</td>
                   <td>{String(dato)}</td>
-                  <td className="text-end">
+                  <td className="acciones">
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"
                       onClick={() => eliminar(nombre)}
                       aria-label={`Quitar ${nombre}`}
                     >
-                      <i className="bi bi-x-lg" aria-hidden="true" />
+                      <Icon name="x-lg" />
                     </button>
                   </td>
                 </tr>

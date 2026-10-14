@@ -1,9 +1,6 @@
-/* Bitácora de mantenimientos y catálogo de componentes. */
-
-.mantenimientos-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
+/* Bitácora de mantenimientos y catálogo de componentes.
+   Encabezado, tablas, tarjeta y secciones salen de la identidad (`mz-*`);
+   aquí queda solo lo propio de estas pantallas. */
 
 /* La descripción del trabajo suele ser una o dos frases: se le da un ancho
    máximo para que no estire la tabla y deje las columnas de costo fuera de
@@ -12,20 +9,11 @@
   max-width: 22rem;
 }
 
+/* Las filas de tres y cuatro campos se leen mal a todo el ancho de una
+   pantalla grande. */
 .mantenimiento-form {
   max-width: 70rem;
 }
 
-.mantenimiento-form legend {
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.35rem;
-  margin-bottom: 1rem;
-}
-
-.componentes-lineas {
-  background: var(--surface-alt);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.75rem;
-}
+/* Las líneas de repuestos las dibuja `LineasComponentes`; el fondo hundido
+   las separa del resto del formulario, que es lo que se captura una vez. */

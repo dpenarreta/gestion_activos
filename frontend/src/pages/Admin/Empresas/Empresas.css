@@ -1,30 +1,16 @@
 /*
- * Empresas del grupo: listado y ficha.
+ * Empresas del grupo: listado, ficha y reparto de accesos.
  *
- * Misma estructura que los catálogos organizacionales —cabecera con acción
- * primaria, filtro y tabla—, en hoja propia porque la pantalla vive en otro
- * módulo del menú y las dos evolucionarán por su lado.
+ * Encabezado, filtros, tablas y fichas ya los dibujan los `mz-*` de la
+ * identidad base; aquí queda solo lo que es propio de estas pantallas. Hoja
+ * propia y no la de Organización porque la pantalla vive en otro módulo del
+ * menú y las dos evolucionarán por su lado.
  */
 
-.empresas-page h2 {
-  color: var(--color-headings);
-  font-family: var(--font-secondary);
-}
-
-.empresas-page code {
-  color: var(--text-muted);
-  font-size: 0.875em;
-}
-
-.empresas-form {
-  max-width: 60rem;
-}
-
-.empresas-form .form-text {
-  color: var(--text-muted);
-}
-
-/* Bloque de asignación dentro de la ficha del usuario. */
+/* Ni la ficha ni el reparto se estiran a todo el ancho: con los campos o los
+   roles repartidos en una pantalla grande, el ojo se pierde entre lo que se
+   nombra y lo que se marca. */
+.empresas-ficha,
 .empresas-asignacion {
   max-width: 60rem;
 }

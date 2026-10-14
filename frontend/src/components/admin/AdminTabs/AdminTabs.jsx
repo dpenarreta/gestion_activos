@@ -2,7 +2,6 @@ import { useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
-import "./AdminTabs.css";
 
 /**
  * Pestañas horizontales genéricas, ligadas a rutas reales (cada pestaña
@@ -46,7 +45,7 @@ export function AdminTabs({ tabs }) {
   }
 
   return (
-    <div className="admin-tabs" role="tablist" aria-label="Secciones de la página">
+    <div className="mz-tabs" role="tablist" aria-label="Secciones de la página">
       {tabs.map((tab, index) => {
         const isActive = location.pathname === tab.path;
         return (
@@ -61,7 +60,7 @@ export function AdminTabs({ tabs }) {
             aria-selected={isActive}
             aria-controls={`admin-tabpanel-${tab.key}`}
             tabIndex={isActive ? 0 : -1}
-            className={`admin-tabs__tab ${isActive ? "admin-tabs__tab--active" : ""}`}
+            className={isActive ? "is-active" : undefined}
             onClick={() => guardedNavigate(tab.path)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           >

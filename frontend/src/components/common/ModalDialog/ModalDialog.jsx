@@ -1,4 +1,5 @@
 import { useModalA11y } from "../../../hooks/useModalA11y";
+import { Icon } from "../Icon/Icon";
 import "./ModalDialog.css";
 
 /**
@@ -33,32 +34,38 @@ export function ModalDialog({
 
   return (
     <div
-      className="modal-dialog-custom__backdrop"
+      className="mz-overlay mz-overlay--center"
       onClick={handleBackdropClick}
       role="presentation"
     >
       <div
-        className="modal-dialog-custom__panel"
-        style={anchoMaximo ? { maxWidth: anchoMaximo } : undefined}
+        className="mz-modal"
+        style={anchoMaximo ? { width: `min(${anchoMaximo}, 94vw)` } : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-dialog-titulo"
         ref={panelRef}
         tabIndex={-1}
       >
-        <form onSubmit={onSubmit}>
-          <div className="modal-dialog-custom__header">
-            <h2 className="h5 mb-0" id="modal-dialog-titulo">
-              {titulo}
-            </h2>
-            {subtitulo && (
-              <p className="text-muted small mb-0 mt-1">{subtitulo}</p>
-            )}
+        <form onSubmit={onSubmit} className="mz-modal-form">
+          <div className="mz-panel-head">
+            <div>
+              <h3 id="modal-dialog-titulo">{titulo}</h3>
+              {subtitulo && <p className="mz-desc">{subtitulo}</p>}
+            </div>
+            <button
+              type="button"
+              className="mz-close"
+              onClick={onCerrar}
+              aria-label="Cerrar"
+            >
+              <Icon name="x-lg" />
+            </button>
           </div>
 
-          <div className="modal-dialog-custom__body">{children}</div>
+          <div className="mz-panel-body">{children}</div>
 
-          <div className="modal-dialog-custom__footer">
+          <div className="mz-panel-foot">
             <button
               type="button"
               className="btn btn-cancelar"

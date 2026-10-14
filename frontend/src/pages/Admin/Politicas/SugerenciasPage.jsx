@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 
 import { politicasService } from "../../../api/politicasService";
 import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/NivelRenovacion";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Politicas.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Sugerencias de renovación" }];
 
 const ETIQUETAS_CRITERIO = {
   mantenimientos: "Intervenciones",
@@ -36,7 +34,9 @@ export function SugerenciasPage() {
     politicasService
       .sugerencias(nivel ? { nivel } : undefined)
       .then(setDatos)
-      .catch(() => setError("No se pudieron cargar las sugerencias de renovación."))
+      .catch(() =>
+        setError("No se pudieron cargar las sugerencias de renovación."),
+      )
       .finally(() => setIsLoading(false));
   }, [nivel]);
 
@@ -46,32 +46,49 @@ export function SugerenciasPage() {
 
   return (
     <div className="politicas-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h2>Sugerencias de renovación</h2>
-        <div className="d-flex gap-2 align-items-center">
-          <select
-            className="form-select form-select-sm w-auto"
-            aria-label="Filtrar por nivel de sugerencia"
-            value={nivel}
-            onChange={(event) => setNivel(event.target.value)}
-          >
-            <option value="">Todos los niveles</option>
-            <option value="recomendado">Reemplazo recomendado</option>
-            <option value="evaluar">Evaluar reemplazo</option>
-          </select>
-          {puedeConfigurar && (
-            <Link to="/admin/politicas" className="btn btn-outline-secondary btn-sm">
-              Configurar umbrales
-            </Link>
-          )}
+      <div className="mz-view-head">
+        <div>
+          <h2>Sugerencias de renovación</h2>
+          <p className="mz-desc">
+            Los equipos que superan algún umbral de su política, con las cifras
+            que lo sostienen.
+          </p>
         </div>
+        {puedeConfigurar && (
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/politicas"
+              className="btn btn-outline-secondary btn-sm"
+            >
+              <Icon name="sliders" /> Configurar umbrales
+            </Link>
+          </div>
+        )}
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      <div className="mz-filter-bar">
+        <select
+          className="form-select form-select-sm"
+          aria-label="Filtrar por nivel de sugerencia"
+          value={nivel}
+          onChange={(event) => setNivel(event.target.value)}
+        >
+          <option value="">Todos los niveles</option>
+          <option value="recomendado">Reemplazo recomendado</option>
+          <option value="evaluar">Evaluar reemplazo</option>
+        </select>
+      </div>
+
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {!isLoading && datos && datos.total === 0 && (
-        <div className="alert alert-success">
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="check2-circle" />
           {nivel
             ? "Ningún equipo está hoy en ese nivel."
             : "Ningún equipo excede hoy los umbrales configurados."}
@@ -80,7 +97,7 @@ export function SugerenciasPage() {
 
       {datos && datos.total > 0 && (
         <>
-          <p className="text-muted">
+          <p className="mz-faint">
             {datos.total} equipo(s) superan al menos un umbral de su política
             {datos.por_nivel && !nivel && (
               <>
@@ -89,17 +106,18 @@ export function SugerenciasPage() {
                 {datos.por_nivel.evaluar} a evaluar
               </>
             )}
-            . Las cifras respaldan la solicitud de reemplazo ante el área financiera.
+            . Las cifras respaldan la solicitud de reemplazo ante el área
+            financiera.
           </p>
 
           <div className="sugerencias-grid">
             {datos.resultados.map((activo) => (
-              <article className="card sugerencia-card" key={activo.id}>
-                <div className="card-body">
+              <article className="mz-card sugerencia-card" key={activo.id}>
+                <div className="mz-card-body">
                   <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
                     <div>
-                      <h3 className="h6 mb-1">{activo.nombre}</h3>
-                      <code className="codigo-barras">{activo.codigo_barras}</code>
+                      <h3 className="sugerencia-nombre">{activo.nombre}</h3>
+                      <span className="mz-code">{activo.codigo_barras}</span>
                     </div>
                     <div className="text-end">
                       <NivelRenovacion
@@ -115,7 +133,7 @@ export function SugerenciasPage() {
                     </div>
                   </div>
 
-                  <p className="small text-muted mb-3">
+                  <p className="mz-small mz-faint mb-3">
                     {activo.marca} {activo.modelo} · {activo.tipo}
                     <br />
                     {activo.departamento}
@@ -125,19 +143,20 @@ export function SugerenciasPage() {
                   <ul className="list-unstyled mb-0">
                     {activo.motivos.map((motivo) => (
                       <li key={motivo.criterio} className="sugerencia-motivo">
-                        <span className="sugerencia-motivo__criterio">
-                          {ETIQUETAS_CRITERIO[motivo.criterio] || motivo.criterio}
+                        <span className="mz-faint">
+                          {ETIQUETAS_CRITERIO[motivo.criterio] ||
+                            motivo.criterio}
                         </span>
                         <span className="sugerencia-motivo__cifra">
                           {motivo.valor_actual}
-                          <span className="text-muted"> / {motivo.umbral}</span>
+                          <span className="mz-faint"> / {motivo.umbral}</span>
                         </span>
                       </li>
                     ))}
                   </ul>
 
                   {activo.politica_aplicada && (
-                    <p className="small text-muted mt-3 mb-0">
+                    <p className="mz-small mz-faint mt-3 mb-0">
                       Política: {activo.politica_aplicada}
                     </p>
                   )}

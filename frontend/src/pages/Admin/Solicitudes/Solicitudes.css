@@ -4,77 +4,46 @@
  * Las tres pantallas —lo que pedí, lo que me toca y el formulario— comparten
  * hoja: son el mismo objeto visto desde distintos lados, y que el estado se
  * lea igual en las tres es justamente lo que evita tener que traducirlo.
+ *
+ * Encabezado, tablas, tarjetas, estados y recorrido salen de la identidad
+ * (`mz-*`); aquí queda solo lo que ella no trae.
  */
 
-.solicitudes-page .estado {
-  font-size: 0.8em;
-  white-space: nowrap;
+/* La identidad no tiene píldora «informativa»: la tomada y la comprada
+   están en camino —ni esperan a nadie ni terminaron—, y se pintan con los
+   tonos de información para que no se confundan con la pendiente ni con la
+   cancelada. */
+/* El encabezado lleva la píldora del estado junto al número: se alinea con
+   el texto en vez de quedarse pegada a la línea base. */
+.solicitudes-page .mz-view-head h2 .estado {
+  vertical-align: middle;
 }
 
-/* Los colores dicen en qué punto está, no si es buena o mala noticia: la
-   entregada se apaga porque ya no hay nada que hacer con ella, y la pendiente
-   resalta porque espera a alguien. */
-.solicitudes-page .estado--pendiente {
-  background-color: var(--bs-warning, #ffc107);
-  color: #212529;
+.solicitud-form {
+  max-width: 60rem;
 }
 
-.solicitudes-page .estado--en_gestion {
-  background-color: var(--bs-info, #0dcaf0);
-  color: #212529;
+.solicitud-subtitulo {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 4px;
 }
 
-.solicitudes-page .estado--comprada {
-  background-color: var(--bs-primary, #0d6efd);
-  color: #fff;
-}
-
-.solicitudes-page .estado--entregada {
-  background-color: var(--bs-success, #198754);
-  color: #fff;
-}
-
-.solicitudes-page .estado--rechazada {
-  background-color: var(--bs-danger, #dc3545);
-  color: #fff;
-}
-
-.solicitudes-page .estado--cancelada {
-  background-color: var(--bs-secondary, #6c757d);
-  color: #fff;
-}
-
-.solicitudes-page .prioridad--alta {
-  font-weight: 600;
-  color: var(--bs-danger, #dc3545);
-}
-
-/* El recorrido se lee de arriba abajo, como ocurrió. */
+/* El recorrido se lee de arriba abajo, como ocurrió, y el punto encendido es
+   el último paso: el estado en que está ahora. */
 .solicitudes-recorrido {
   list-style: none;
-  margin: 0;
-  padding: 0;
-  border-left: 2px solid var(--border-color, #dee2e6);
+  margin-bottom: 0;
 }
 
-.solicitudes-recorrido li {
-  position: relative;
-  padding: 0 0 1rem 1.25rem;
+.solicitudes-recorrido .mz-tl-item:not(:last-child)::before {
+  background: var(--mz-border-strong);
 }
 
-.solicitudes-recorrido li::before {
-  content: "";
-  position: absolute;
-  left: -0.4rem;
-  top: 0.35rem;
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  background-color: var(--border-color, #dee2e6);
-}
-
-.solicitudes-recorrido li:last-child::before {
-  background-color: var(--bs-primary, #0d6efd);
+.solicitudes-recorrido .mz-tl-item:last-child {
+  padding-bottom: 0;
 }
 
 .solicitudes-recorrido .nota {

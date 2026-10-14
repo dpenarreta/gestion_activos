@@ -1,12 +1,72 @@
+/*
+ * Reportes (§16).
+ *
+ * Catálogo a la izquierda, reporte abierto a la derecha. `mz-grid-2` deja la
+ * columna ancha a la izquierda; aquí es al revés —la vista previa es la que
+ * necesita sitio—, así que la rejilla es propia.
+ */
+.reportes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .reportes-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* La lista de reportes es larga (trece): se le da altura propia y scroll para
    que el reporte seleccionado y su vista previa queden a la vista a la vez. */
 .reportes-lista {
-  max-height: 32rem;
+  max-height: 36rem;
   overflow-y: auto;
 }
 
-.reportes-lista .list-group-item {
-  border-radius: 0;
+.reportes-lista .mz-row:last-child {
+  border-bottom: none;
+}
+
+/* La descripción es lo que distingue reportes de nombre parecido: se deja
+   partir en varias líneas en vez de cortarla con puntos suspensivos. */
+.reportes-lista .mz-row-info span {
+  white-space: normal;
+}
+
+.reportes-lista .mz-row.is-active {
+  background: var(--mz-blue-50);
+  box-shadow: inset 3px 0 0 var(--mz-blue-600);
+}
+
+.reportes-lista .mz-row.is-active .mz-row-info strong {
+  color: var(--mz-blue-700);
+}
+
+.reportes-detalle__cabecera {
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Los filtros llevan su rótulo encima, como en el resto de formularios: son
+   varios y de tipos distintos, y un desplegable sin rótulo no dice qué filtra. */
+.reportes-filtros {
+  align-items: flex-end;
+}
+
+.reportes-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 10rem;
+}
+
+.reportes-filtro__rotulo {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
 }
 
 /* Las tablas de reporte tienen hasta dieciocho columnas: sin un alto máximo,
@@ -16,11 +76,10 @@
   overflow: auto;
 }
 
+/* La cabecera ya es fija en `mz-table`; se pone por encima de las celdas
+   para que no se cuelen al desplazar. */
 .reportes-tabla thead th {
-  position: sticky;
-  top: 0;
   z-index: 1;
-  background-color: var(--bs-body-bg, #fff);
   white-space: nowrap;
 }
 

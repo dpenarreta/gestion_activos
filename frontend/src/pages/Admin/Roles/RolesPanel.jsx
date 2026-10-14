@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./RolesPanel.css";
@@ -11,8 +12,9 @@ import "./RolesPanel.css";
  * Listado de roles.
  *
  * Es un panel y no una página completa: vive dentro de `RolesPage`, que aporta
- * las migas de pan, el título y las pestañas compartidas con el catálogo de
- * permisos.
+ * el encabezado y las pestañas compartidas con el catálogo de permisos. Por
+ * eso «Nuevo rol» va en la barra del panel y no en el encabezado de la vista:
+ * en la pestaña del catálogo no hay nada que crear.
  */
 export function RolesPanel() {
   const puedeEditar = usePermission("roles.editar");
@@ -48,60 +50,61 @@ export function RolesPanel() {
 
   return (
     <div className="roles-list-page">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <p className="text-muted mb-0">
+      <div className="roles-list-barra">
+        <p className="mz-faint mb-0">
           Un rol agrupa permisos. Se asigna a un usuario desde su ficha, en{" "}
           <Link to="/admin/users">Usuarios</Link>.
         </p>
         {puedeEditar && (
           <Link to="/admin/roles/new" className="btn btn-primary btn-sm">
-            Nuevo rol
+            <Icon name="plus-lg" /> Nuevo rol
           </Link>
         )}
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Nombre</th>
-              <th className="text-end">Permisos</th>
-              <th>Acciones</th>
+              <th className="num">Permisos</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {roles.map((role) => (
               <tr key={role.id}>
-                <td>{role.name}</td>
-                <td className="text-end">{role.permission_codenames.length}</td>
-                <td>
-                  <div className="d-flex gap-2">
-                    <Link
-                      to={`/admin/roles/${role.id}`}
-                      className="btn btn-outline-primary btn-sm"
+                <td className="mz-strong">{role.name}</td>
+                <td className="num">{role.permission_codenames.length}</td>
+                <td className="acciones">
+                  <Link
+                    to={`/admin/roles/${role.id}`}
+                    className="btn btn-outline-primary btn-sm"
+                  >
+                    {puedeEditar ? "Editar" : "Ver"}
+                  </Link>
+                  {puedeEditar && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => setAEliminar(role)}
                     >
-                      {puedeEditar ? "Editar" : "Ver"}
-                    </Link>
-                    {puedeEditar && (
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => setAEliminar(role)}
-                      >
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
+                      Eliminar
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
             {!isLoading && roles.length === 0 && (
-              <tr>
-                <td colSpan={3} className="text-center text-muted">
-                  Sin roles registrados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={3}>Sin roles registrados</td>
               </tr>
             )}
           </tbody>

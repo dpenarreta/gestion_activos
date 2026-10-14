@@ -1,7 +1,14 @@
 /* Configuración de las columnas de la plantilla de carga masiva. */
 
-.columnas-plantilla code {
-  color: var(--text-muted);
+/* La explicación ocupa el encabezado de la tarjeta junto al botón: sin tope,
+   empujaría el botón fuera del renglón en cuanto la pantalla se estrecha. */
+.columnas-plantilla .mz-card-head {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.columnas-plantilla__orden {
+  width: 5rem;
 }
 
 /* Una columna desactivada sigue visible —para poder reactivarla— pero atenuada,

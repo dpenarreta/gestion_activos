@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { misEquiposService } from "../../../api/activosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { formatearDias, formatearFecha } from "../../../utils/formato";
 import { mensajeDeError } from "../../../utils/errores";
 import "./MisEquipos.css";
-
-const BREADCRUMB_ITEMS = [{ label: "Mis equipos" }];
 
 const MILISEGUNDOS_POR_DIA = 86400000;
 
@@ -48,26 +46,40 @@ export function MisEquiposPage() {
 
   return (
     <div className="mis-equipos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Mis equipos</h2>
-      {datos?.empleado && (
-        <p className="text-muted">
-          {datos.empleado.nombre} · {datos.empleado.codigo} ·{" "}
-          {datos.empleado.departamento}
-        </p>
-      )}
+      <div className="mz-view-head">
+        <div>
+          <h2>Mis equipos</h2>
+          {datos?.empleado && (
+            <p className="mz-desc">
+              {datos.empleado.nombre} · {datos.empleado.codigo} ·{" "}
+              {datos.empleado.departamento}
+            </p>
+          )}
+        </div>
+      </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {/* La cuenta sin ficha de empleado no es una lista vacía: el sistema no
           sabe qué equipos son suyos, y eso lo arregla un administrador. */}
-      {datos?.aviso && <div className="alert alert-warning">{datos.aviso}</div>}
+      {datos?.aviso && (
+        <div className="mz-alert mz-alert--warn">
+          <Icon name="exclamation-triangle" />
+          {datos.aviso}
+        </div>
+      )}
 
       {!isCargando &&
         !error &&
         !datos?.aviso &&
         datos?.equipos.length === 0 && (
-          <div className="alert alert-info">
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="info-circle" />
             No tiene equipos a su cargo. Si acaba de recibir uno, pídale a
             soporte que registre la entrega.
           </div>
@@ -75,11 +87,11 @@ export function MisEquiposPage() {
 
       <div className="mis-equipos">
         {(datos?.equipos ?? []).map((equipo) => (
-          <article className="equipo-card" key={equipo.id}>
-            <header className="equipo-card__cabecera">
-              <div>
-                <h3 className="equipo-card__nombre">{equipo.nombre}</h3>
-                <p className="equipo-card__tipo">
+          <article className="mz-card equipo-card" key={equipo.id}>
+            <header className="mz-card-head equipo-card__cabecera">
+              <div className="min-w-0">
+                <h3>{equipo.nombre}</h3>
+                <p className="mz-desc">
                   {equipo.tipo_nombre} · {equipo.marca} {equipo.modelo}
                 </p>
               </div>
@@ -89,72 +101,81 @@ export function MisEquiposPage() {
               />
             </header>
 
-            <dl className="equipo-card__datos">
-              <dt>Código</dt>
-              <dd>
-                <code>{equipo.codigo_barras}</code>
-              </dd>
-              <dt>Serie</dt>
-              <dd>
-                <code>{equipo.numero_serie}</code>
-              </dd>
-              <dt>Desde</dt>
-              <dd>
-                {equipo.desde ? (
-                  <>
-                    {formatearFecha(equipo.desde)}
-                    {/* La fecha sola obliga a contar: lo que se quiere saber
-                        es si el equipo lleva dos meses o cuatro años. */}
-                    <span className="text-muted">
-                      {" "}
-                      · hace {formatearDias(diasCon(equipo.desde))}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-muted">Sin registro de entrega</span>
-                )}
-              </dd>
-              <dt>Ciudad</dt>
-              <dd>{equipo.ciudad || <span className="text-muted">—</span>}</dd>
-              {/* Es lo primero que se pregunta cuando algo falla en un aparato
-                  de turno: si responde más gente, hay a quién avisar antes de
-                  llevárselo. */}
-              {equipo.compartido && (
-                <>
-                  <dt>Responden también</dt>
-                  <dd>
+            <div className="mz-card-body">
+              <div className="mz-kv-grid">
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Código</span>
+                  <code className="mz-mono equipo-card__codigo">
+                    {equipo.codigo_barras}
+                  </code>
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Serie</span>
+                  <code className="mz-mono equipo-card__codigo">
+                    {equipo.numero_serie}
+                  </code>
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Desde</span>
+                  {equipo.desde ? (
+                    <>
+                      {formatearFecha(equipo.desde)}
+                      {/* La fecha sola obliga a contar: lo que se quiere saber
+                          es si el equipo lleva dos meses o cuatro años. */}
+                      <span className="mz-faint">
+                        {" "}
+                        · hace {formatearDias(diasCon(equipo.desde))}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="mz-faint">Sin registro de entrega</span>
+                  )}
+                </div>
+                <div className="mz-kv">
+                  <span className="mz-kv-label">Ciudad</span>
+                  {equipo.ciudad || <span className="mz-faint">—</span>}
+                </div>
+                {/* Es lo primero que se pregunta cuando algo falla en un aparato
+                    de turno: si responde más gente, hay a quién avisar antes de
+                    llevárselo. */}
+                {equipo.compartido && (
+                  <div className="mz-kv mz-kv--full">
+                    <span className="mz-kv-label">Responden también</span>
                     {equipo.con_quien_mas?.length ? (
                       equipo.con_quien_mas.join(", ")
                     ) : (
-                      <span className="text-muted">Solo usted, por ahora</span>
+                      <span className="mz-faint">Solo usted, por ahora</span>
                     )}
-                  </dd>
-                </>
-              )}
-            </dl>
-
-            {Object.keys(equipo.especificaciones ?? {}).length > 0 && (
-              <ul className="equipo-card__especificaciones">
-                {Object.entries(equipo.especificaciones).map(
-                  ([clave, valor]) => (
-                    <li key={clave}>
-                      <span className="text-muted">{clave}:</span> {valor}
-                    </li>
-                  ),
+                  </div>
                 )}
-              </ul>
-            )}
+              </div>
+
+              {Object.keys(equipo.especificaciones ?? {}).length > 0 && (
+                <ul className="equipo-card__especificaciones">
+                  {Object.entries(equipo.especificaciones).map(
+                    ([clave, valor]) => (
+                      <li key={clave}>
+                        <span className="mz-faint">{clave}:</span> {valor}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              )}
+            </div>
           </article>
         ))}
       </div>
 
       {(datos?.equipos ?? []).length > 0 && (
-        <p className="text-muted small mt-3">
+        <p className="mz-note">
+          <Icon name="info-circle" />
           {/* Lo que hay que hacer con la pantalla, no solo lo que muestra: el
               código es lo que se le pide a quien tiene el equipo cuando llama
               a soporte. */}
-          Al pedir soporte, indique el código del equipo. Si alguno de estos ya
-          no está con usted, avise para que se registre la devolución.
+          <span>
+            Al pedir soporte, indique el código del equipo. Si alguno de estos
+            ya no está con usted, avise para que se registre la devolución.
+          </span>
         </p>
       )}
     </div>

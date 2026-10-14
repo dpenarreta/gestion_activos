@@ -1,9 +1,22 @@
 .permissions-checkbox-group__summary {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--mz-ink-faint);
 }
 
 .permissions-checkbox-group__codename {
-  color: var(--text-muted);
+  color: var(--mz-ink-faint);
   font-size: 0.8em;
+}
+
+/* Un módulo debajo de otro, con aire entre tarjetas. */
+.permissions-module + .permissions-module {
+  margin-top: 10px;
+}
+
+.permissions-module .mz-card-head {
+  padding: 10px 14px;
+}
+
+.permissions-module .mz-card-body {
+  padding: 10px 14px;
 }

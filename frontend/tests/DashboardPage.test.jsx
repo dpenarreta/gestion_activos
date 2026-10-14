@@ -312,7 +312,7 @@ describe("Los listados del panel", () => {
     pintar();
 
     await screen.findByText("Activos registrados");
-    const porArea = screen.getByText("Por área").closest(".card-body");
+    const porArea = screen.getByText("Por área").closest(".mz-card");
     expect(within(porArea).getByText("Tecnología")).toBeInTheDocument();
     // El total y los asignados van juntos: «9» sin más no dice cuántos de
     // esos nueve están en manos de alguien.
@@ -320,7 +320,7 @@ describe("Los listados del panel", () => {
 
     const porTipo = screen
       .getByText("Por tipo de dispositivo")
-      .closest(".card-body");
+      .closest(".mz-card");
     expect(within(porTipo).getByText("Impresora")).toBeInTheDocument();
   });
 

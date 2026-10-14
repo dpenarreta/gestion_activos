@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { AsignarCustodioDialog } from "../../../components/activos/AsignarCustodioDialog/AsignarCustodioDialog";
@@ -65,7 +65,12 @@ export function ActivoDetalle() {
   }, [cargar]);
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return (
+      <div className="mz-alert mz-alert--bad" role="alert">
+        <Icon name="x-octagon" />
+        {error}
+      </div>
+    );
   }
   if (!ficha) {
     return null;
@@ -82,34 +87,27 @@ export function ActivoDetalle() {
 
   return (
     <div className="activos-page activo-detalle">
-      <Breadcrumbs
-        items={[
-          { label: "Administración" },
-          { label: "Activos", path: "/admin/activos" },
-          { label: activo.codigo_barras },
-        ]}
-      />
-
-      <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div className="mz-view-head">
         <div>
-          <h2 className="mb-1">{activo.nombre}</h2>
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <code className="codigo-barras fs-6">{activo.codigo_barras}</code>
+          <h2>{activo.nombre}</h2>
+          {/* La descripción de una ficha es su identidad: el código que se
+              coteja con la etiqueta pegada al equipo y el estado en que está. */}
+          <div className="mz-desc activo-detalle__identidad">
+            <code className="codigo-barras">{activo.codigo_barras}</code>
             <EstadoActivo
               estado={activo.estado}
               etiqueta={activo.estado_display}
             />
           </div>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
+        <div className="mz-view-actions">
           {puedeImprimir && (
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
               onClick={() => setDialogoAbierto("etiqueta")}
             >
-              <i className="bi bi-printer me-1" aria-hidden="true" />
-              Etiqueta
+              <Icon name="printer" /> Etiqueta
             </button>
           )}
           {puedeAsignar && !salioDelParque && (
@@ -118,7 +116,7 @@ export function ActivoDetalle() {
               className="btn btn-outline-primary btn-sm"
               onClick={() => setDialogoAbierto("asignar")}
             >
-              Asignar / trasladar
+              <Icon name="person-check" /> Asignar / trasladar
             </button>
           )}
           {puedeDarBaja && (
@@ -127,7 +125,7 @@ export function ActivoDetalle() {
               className="btn btn-outline-warning btn-sm"
               onClick={() => setDialogoAbierto("estado")}
             >
-              Cambiar estado
+              <Icon name="arrow-repeat" /> Cambiar estado
             </button>
           )}
           {puedeEditar && !salioDelParque && (
@@ -135,7 +133,7 @@ export function ActivoDetalle() {
               to={`/admin/activos/${activo.id}/editar`}
               className="btn btn-outline-secondary btn-sm"
             >
-              Editar ficha
+              <Icon name="pencil" /> Editar ficha
             </Link>
           )}
         </div>
@@ -143,20 +141,20 @@ export function ActivoDetalle() {
 
       <AlertaRenovacion renovacion={activo.renovacion} />
 
-      <div className="activo-paneles">
+      <div className="mz-grid-2 activo-paneles">
         <div className="activo-paneles__columna">
-          <section className="card activo-card">
-            <div className="card-body">
-              <h3 className="h6 text-uppercase text-muted mb-3">
-                Ficha técnica
-              </h3>
-              <dl className="activo-datos">
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Ficha técnica</h3>
+            </div>
+            <div className="mz-card-body">
+              <dl className="mz-kv-grid activo-datos">
                 <Dato etiqueta="Tipo" valor={activo.tipo_nombre} />
                 <Dato etiqueta="Marca" valor={activo.marca} />
                 <Dato etiqueta="Modelo" valor={activo.modelo} />
                 <Dato
                   etiqueta="Número de serie"
-                  valor={<code>{activo.numero_serie}</code>}
+                  valor={<code className="mz-mono">{activo.numero_serie}</code>}
                 />
                 <Dato
                   etiqueta="Adquirido"
@@ -190,7 +188,7 @@ export function ActivoDetalle() {
                     activo.condicion_display || (
                       // Vacío no es «nuevo»: es que nadie lo anotó, y se dice
                       // con esas palabras para que se pueda completar.
-                      <span className="text-muted">Sin especificar</span>
+                      <span className="mz-faint">Sin especificar</span>
                     )
                   }
                 />
@@ -209,6 +207,7 @@ export function ActivoDetalle() {
                 )}
                 <Dato
                   etiqueta="Garantía"
+                  completo
                   valor={
                     <EstadoGarantia
                       estado={activo.estado_garantia}
@@ -239,11 +238,9 @@ export function ActivoDetalle() {
               </dl>
 
               {Object.keys(activo.especificaciones || {}).length > 0 && (
-                <>
-                  <h3 className="h6 text-uppercase text-muted mt-4 mb-3">
-                    Especificaciones
-                  </h3>
-                  <dl className="activo-datos">
+                <div className="mz-section mt-4 mb-0">
+                  <h4>Especificaciones</h4>
+                  <dl className="mz-kv-grid activo-datos">
                     {Object.entries(activo.especificaciones).map(
                       ([clave, valor]) => (
                         <Dato
@@ -254,16 +251,14 @@ export function ActivoDetalle() {
                       ),
                     )}
                   </dl>
-                </>
+                </div>
               )}
 
               {activo.observaciones && (
-                <>
-                  <h3 className="h6 text-uppercase text-muted mt-4 mb-2">
-                    Observaciones
-                  </h3>
+                <div className="mz-section mt-4 mb-0">
+                  <h4>Observaciones</h4>
                   <p className="mb-0">{activo.observaciones}</p>
-                </>
+                </div>
               )}
             </div>
           </section>
@@ -276,28 +271,31 @@ export function ActivoDetalle() {
         </div>
 
         <div className="activo-paneles__columna">
-          <section className="card activo-card">
-            <div className="card-body">
-              <h3 className="h6 text-uppercase text-muted mb-3">Custodia</h3>
-              <dl className="activo-datos">
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Custodia</h3>
+            </div>
+            <div className="mz-card-body">
+              <dl className="mz-kv-grid activo-datos">
                 {/* Todos los nombres, sin destacar a ninguno: de un
                     equipo compartido responden varias personas en igualdad, y
                     poner a una primera inventaría un titular donde se decidió
                     que no lo hubiera. */}
                 <Dato
                   etiqueta={activo.compartido ? "Responsables" : "Responsable"}
+                  completo
                   valor={
                     activo.responsables?.length ? (
                       <ul className="activo-responsables">
                         {activo.responsables.map((persona) => (
                           <li key={persona.id}>
                             {persona.nombre_completo}
-                            <span className="text-muted">
+                            <span className="mz-faint">
                               {" "}
                               · {persona.codigo_empleado}
                             </span>
                             {!persona.activo && (
-                              <span className="badge text-bg-warning ms-2">
+                              <span className="mz-pill mz-pill--warn ms-2">
                                 Dado de baja
                               </span>
                             )}
@@ -306,7 +304,7 @@ export function ActivoDetalle() {
                                 porque es donde se puede ir a corregirlo. */}
                             {persona.recibe_avisos === false && (
                               <span
-                                className="badge text-bg-secondary ms-2"
+                                className="mz-pill mz-pill--neutral ms-2"
                                 title="Sin correo en su ficha: no recibirá los avisos de mantenimiento"
                               >
                                 Sin avisos
@@ -316,7 +314,7 @@ export function ActivoDetalle() {
                         ))}
                       </ul>
                     ) : (
-                      <span className="text-muted">Sin asignar</span>
+                      <span className="mz-faint">Sin asignar</span>
                     )
                   }
                 />
@@ -344,9 +342,11 @@ export function ActivoDetalle() {
             </div>
           </section>
 
-          <section className="card activo-card">
-            <div className="card-body">
-              <h3 className="h6 text-uppercase text-muted mb-3">Indicadores</h3>
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Indicadores</h3>
+            </div>
+            <div className="mz-card-body">
               <div className="activo-indicadores">
                 <Indicador
                   valor={activo.total_mantenimientos}
@@ -367,7 +367,7 @@ export function ActivoDetalle() {
                 />
               </div>
               {puedeVerMantenimientos && (
-                <div className="small text-muted mt-3">
+                <div className="mz-small mz-faint mt-3">
                   Mano de obra {formatearMoneda(costos.costo_mano_obra)} ·
                   repuestos {formatearMoneda(costos.costo_repuestos)}
                 </div>
@@ -378,15 +378,15 @@ export function ActivoDetalle() {
       </div>
 
       {puedeVerMantenimientos && (
-        <section className="mt-4">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h3 className="h5 mb-0">Bitácora de mantenimientos</h3>
+        <section className="mz-card mt-4">
+          <div className="mz-card-head">
+            <h3>Bitácora de mantenimientos</h3>
             {puedeRegistrarMantenimiento && !salioDelParque && (
               <Link
                 to={`/admin/mantenimientos/new?activo=${activo.id}`}
                 className="btn btn-primary btn-sm"
               >
-                Registrar mantenimiento
+                <Icon name="tools" /> Registrar mantenimiento
               </Link>
             )}
           </div>
@@ -395,16 +395,22 @@ export function ActivoDetalle() {
       )}
 
       {puedeVerAdjuntos && (
-        <section className="mt-4">
+        <div className="mt-4">
           <AdjuntosPanel
             activoId={activo.id}
             recargarToken={adjuntosRecargados}
           />
-        </section>
+        </div>
       )}
 
-      <section className="mt-4">
-        <h3 className="h5 mb-2">Historial de movimientos</h3>
+      {/* Tabla y no línea de tiempo: cada movimiento se lee por columnas
+          —quién, qué área, qué ciudad, antes y después— y lleva su acta al
+          final de la fila; en una línea de tiempo esas comparaciones se
+          perderían en párrafos. */}
+      <section className="mz-card mt-4">
+        <div className="mz-card-head">
+          <h3>Historial de movimientos</h3>
+        </div>
         <TablaMovimientos
           movimientos={movimientos}
           puedeArchivar={puedeSubirAdjuntos}
@@ -462,10 +468,12 @@ export function TiemposDelActivo({ tiempos }) {
   ];
 
   return (
-    <section className="card activo-card">
-      <div className="card-body">
-        <h3 className="h6 text-uppercase text-muted mb-3">Tiempos</h3>
-        <dl className="activo-datos">
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Tiempos</h3>
+      </div>
+      <div className="mz-card-body">
+        <dl className="mz-kv-grid activo-datos">
           {filas.map(([etiqueta, valor]) => (
             <Dato
               key={etiqueta}
@@ -478,22 +486,25 @@ export function TiemposDelActivo({ tiempos }) {
         {tiempos.en_reparacion_ahora_dias > 0 && (
           /* Se informa aparte del acumulado: sumarlos escondería que el equipo
              sigue fuera de operación ahora mismo. */
-          <div className="alert alert-info py-2 small mt-3 mb-0">
+          <div className="mz-alert mz-alert--info mb-0" role="status">
+            <Icon name="hourglass-split" />
             Lleva {formatearDias(tiempos.en_reparacion_ahora_dias)} en
             reparación sin cerrar.
           </div>
         )}
 
-        <p className="form-text mb-0 mt-3">
-          <strong>
-            Tiempo activo real: {formatearDias(tiempos.activo_real_dias)}
-          </strong>{" "}
-          — lo que estuvo trabajando, descontando lo que pasó guardado y en el
-          taller. Medido desde{" "}
-          {tiempos.medido_desde === "ingreso"
-            ? "el ingreso al inventario"
-            : "la compra"}
-          .
+        <p className="mz-note mb-0">
+          <span>
+            <strong>
+              Tiempo activo real: {formatearDias(tiempos.activo_real_dias)}
+            </strong>{" "}
+            — lo que estuvo trabajando, descontando lo que pasó guardado y en el
+            taller. Medido desde{" "}
+            {tiempos.medido_desde === "ingreso"
+              ? "el ingreso al inventario"
+              : "la compra"}
+            .
+          </span>
         </p>
       </div>
     </section>
@@ -501,19 +512,20 @@ export function TiemposDelActivo({ tiempos }) {
 }
 
 /**
- * Una fila «etiqueta: valor» de la ficha.
+ * Un par «etiqueta: valor» de la ficha.
  *
- * El ancho de la etiqueta lo fija la rejilla `.activo-datos`, no una clase de
- * columna: con `col-sm-5` el valor quedaba a media pantalla de su etiqueta en
- * monitores anchos, y leer la ficha obligaba a recorrer el ojo por un hueco
- * vacío.
+ * Va como `<dt>`/`<dd>` dentro de un `mz-kv`, y no con el `<span>` de rótulo
+ * de la identidad: es una lista de definiciones de verdad, y los lectores de
+ * pantalla la anuncian como tal —«Marca: Dell»— en vez de leer dos textos
+ * sueltos. La rejilla `mz-kv-grid` pone la etiqueta encima del valor, que
+ * así no queda a media pantalla de ella en un monitor ancho.
  */
-function Dato({ etiqueta, valor }) {
+function Dato({ etiqueta, valor, completo = false }) {
   return (
-    <>
-      <dt>{etiqueta}</dt>
+    <div className={`mz-kv${completo ? " mz-kv--full" : ""}`}>
+      <dt className="mz-kv-label">{etiqueta}</dt>
       <dd>{valor || "—"}</dd>
-    </>
+    </div>
   );
 }
 
@@ -533,7 +545,7 @@ function ValorEnLibros({ depreciacion }) {
   return (
     <>
       {formatearMoneda(depreciacion.valor_en_libros)}
-      <small className="d-block text-muted">
+      <small className="d-block mz-faint mz-small">
         {depreciacion.totalmente_depreciado
           ? `Totalmente depreciado desde el ${formatearFecha(depreciacion.fin)}`
           : `${depreciacion.porcentaje_depreciado} % depreciado · termina el ${formatearFecha(
@@ -556,12 +568,12 @@ function Indicador({ valor, etiqueta, anchoCompleto = false }) {
 function TablaMantenimientos({ mantenimientos }) {
   if (mantenimientos.length === 0) {
     return (
-      <p className="text-muted">Este activo no registra intervenciones.</p>
+      <div className="mz-empty">Este activo no registra intervenciones.</div>
     );
   }
   return (
-    <div className="table-responsive">
-      <table className="table table-sm table-striped align-middle">
+    <div className="mz-table-wrap">
+      <table className="mz-table mz-table--ancha">
         <thead>
           <tr>
             <th>Ingreso</th>
@@ -571,7 +583,7 @@ function TablaMantenimientos({ mantenimientos }) {
             <th>Responsable</th>
             <th>Trabajo</th>
             <th>Componentes</th>
-            <th className="text-end">Costo</th>
+            <th className="num">Costo</th>
           </tr>
         </thead>
         <tbody>
@@ -580,17 +592,17 @@ function TablaMantenimientos({ mantenimientos }) {
               <td>{formatearFecha(mantenimiento.fecha_intervencion)}</td>
               <td>
                 {mantenimiento.sigue_fuera_de_operacion ? (
-                  <span className="badge text-bg-warning">En reparación</span>
+                  <span className="mz-pill mz-pill--warn">En reparación</span>
                 ) : (
                   formatearDias(mantenimiento.dias_fuera_de_operacion)
                 )}
               </td>
               <td>
                 <span
-                  className={`badge ${
+                  className={`mz-pill ${
                     mantenimiento.tipo === "correctivo"
-                      ? "text-bg-warning"
-                      : "text-bg-info"
+                      ? "mz-pill--warn"
+                      : "mz-pill--neutral"
                   }`}
                 >
                   {mantenimiento.tipo_display}
@@ -599,31 +611,31 @@ function TablaMantenimientos({ mantenimientos }) {
               <td>
                 {mantenimiento.responsable}
                 <br />
-                <small className="text-muted">
+                <small className="mz-faint mz-small">
                   {mantenimiento.tipo_responsable_display}
                 </small>
               </td>
               <td>
                 {mantenimiento.causa && (
-                  <div className="small text-muted">
+                  <div className="mz-small mz-faint">
                     Causa: {mantenimiento.causa}
                   </div>
                 )}
                 {mantenimiento.descripcion}
                 {mantenimiento.garantia_usada && (
-                  <span className="badge text-bg-success ms-1">garantía</span>
+                  <span className="mz-pill mz-pill--ok ms-1">garantía</span>
                 )}
               </td>
               <td>
                 {mantenimiento.componentes.length === 0 ? (
-                  <span className="text-muted">—</span>
+                  <span className="mz-faint">—</span>
                 ) : (
-                  <ul className="list-unstyled mb-0 small">
+                  <ul className="list-unstyled mb-0 mz-small">
                     {mantenimiento.componentes.map((componente) => (
                       <li key={componente.id}>
                         {componente.componente_nombre} ×{componente.cantidad}
                         {componente.era_critico && (
-                          <span className="badge text-bg-danger ms-1">
+                          <span className="mz-pill mz-pill--bad ms-1">
                             crítica
                           </span>
                         )}
@@ -632,7 +644,7 @@ function TablaMantenimientos({ mantenimientos }) {
                   </ul>
                 )}
               </td>
-              <td className="text-end">
+              <td className="num">
                 {formatearMoneda(mantenimiento.costo_total)}
               </td>
             </tr>
@@ -645,11 +657,11 @@ function TablaMantenimientos({ mantenimientos }) {
 
 function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
   if (movimientos.length === 0) {
-    return <p className="text-muted">Sin movimientos registrados.</p>;
+    return <div className="mz-empty">Sin movimientos registrados.</div>;
   }
   return (
-    <div className="table-responsive">
-      <table className="table table-sm table-striped align-middle">
+    <div className="mz-table-wrap">
+      <table className="mz-table mz-table--ancha">
         <thead>
           <tr>
             <th>Fecha</th>
@@ -665,8 +677,10 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
         <tbody>
           {movimientos.map((movimiento) => (
             <tr key={movimiento.id}>
-              <td>{formatearFecha(movimiento.created_at, true)}</td>
-              <td>{movimiento.tipo_display}</td>
+              <td className="text-nowrap">
+                {formatearFecha(movimiento.created_at, true)}
+              </td>
+              <td className="mz-strong">{movimiento.tipo_display}</td>
               <td>
                 <Transicion
                   anterior={movimiento.custodio_anterior_nombre}
@@ -717,7 +731,7 @@ function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
     movimiento.tipo === "asignacion" || movimiento.tipo === "devolucion";
 
   if (!generaActa) {
-    return <span className="text-muted">—</span>;
+    return <span className="mz-faint">—</span>;
   }
 
   async function descargar() {
@@ -749,7 +763,7 @@ function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
         onClick={descargar}
         title="Descargar el acta en PDF para firmarla"
       >
-        <i className="bi bi-file-earmark-pdf" aria-hidden="true" />
+        <Icon name="file-earmark-pdf" />
         <span className="visually-hidden">Descargar acta</span>
       </button>
       {puedeArchivar && (
@@ -760,7 +774,7 @@ function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
           onClick={archivar}
           title="Guardar el acta entre los documentos del equipo"
         >
-          <i className="bi bi-paperclip" aria-hidden="true" />
+          <Icon name="paperclip" />
           <span className="visually-hidden">Archivar acta</span>
         </button>
       )}
@@ -771,15 +785,15 @@ function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
 /** Muestra "antes → después" solo cuando hubo un cambio real. */
 function Transicion({ anterior, nuevo }) {
   if (!anterior && !nuevo) {
-    return <span className="text-muted">—</span>;
+    return <span className="mz-faint">—</span>;
   }
   if (anterior && nuevo && anterior !== nuevo) {
     return (
       <span>
-        <span className="text-muted text-decoration-line-through">
+        <span className="mz-faint text-decoration-line-through">
           {anterior}
         </span>{" "}
-        <i className="bi bi-arrow-right" aria-hidden="true" /> {nuevo}
+        <Icon name="arrow-right" /> {nuevo}
       </span>
     );
   }

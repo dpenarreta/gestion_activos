@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { componentesService } from "../../../api/mantenimientosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -9,11 +9,6 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Mantenimientos.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Mantenimientos", path: "/admin/mantenimientos" },
-  { label: "Componentes" },
-];
 const FILTROS_INICIALES = { q: "", es_critico: "" };
 const VACIO = {
   nombre: "",
@@ -43,42 +38,48 @@ export function ComponentesList() {
 
   return (
     <div className="mantenimientos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Catálogo de componentes</h2>
+      <div className="mz-view-head">
+        <div>
+          <h2>Catálogo de componentes</h2>
+          <p className="mz-desc">
+            Las piezas marcadas como <strong>críticas</strong> son las que
+            cuentan contra el umbral de sustituciones de la política de
+            renovación.
+          </p>
+        </div>
         {puedeEditar && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setEnEdicion(VACIO)}
-          >
-            Nuevo componente
-          </button>
+          <div className="mz-view-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEnEdicion(VACIO)}
+            >
+              <Icon name="plus-lg" /> Nuevo componente
+            </button>
+          </div>
         )}
       </div>
 
-      <p className="text-muted">
-        Las piezas marcadas como <strong>críticas</strong> son las que cuentan
-        contra el umbral de sustituciones de la política de renovación.
-      </p>
-
       <form
-        className="d-flex gap-2 mb-3 flex-wrap"
+        className="mz-filter-bar"
+        role="search"
         onSubmit={(event) => {
           event.preventDefault();
           listado.actualizarFiltros({ q: busqueda });
         }}
       >
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar por nombre o código"
-          aria-label="Buscar componentes"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar componentes</span>
+          <input
+            type="search"
+            placeholder="Buscar por nombre o código"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <select
-          className="form-select form-select-sm w-auto"
+          className="form-select form-select-sm"
           aria-label="Filtrar por criticidad"
           value={listado.filtros.es_critico}
           onChange={(event) =>
@@ -95,11 +96,14 @@ export function ComponentesList() {
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Código</th>
@@ -113,28 +117,26 @@ export function ComponentesList() {
           <tbody>
             {listado.resultados.map((componente) => (
               <tr key={componente.id}>
-                <td>
-                  <code className="codigo-barras">{componente.codigo}</code>
-                </td>
-                <td>{componente.nombre}</td>
-                <td className="text-muted small">
+                <td className="mz-mono">{componente.codigo}</td>
+                <td className="mz-strong">{componente.nombre}</td>
+                <td className="mz-faint mz-small">
                   {componente.descripcion || "—"}
                 </td>
                 <td>
                   {componente.es_critico ? (
-                    <span className="badge text-bg-danger">Crítica</span>
+                    <span className="mz-pill mz-pill--bad">Crítica</span>
                   ) : (
-                    <span className="text-muted small">Común</span>
+                    <span className="mz-faint mz-small">Común</span>
                   )}
                 </td>
                 <td>
                   <span
-                    className={`badge ${componente.activo ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${componente.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {componente.activo ? "Activo" : "Inactivo"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   {puedeEditar && (
                     <button
                       type="button"
@@ -148,10 +150,8 @@ export function ComponentesList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
-                  Sin componentes registrados
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={6}>Sin componentes registrados</td>
               </tr>
             )}
           </tbody>
@@ -220,7 +220,12 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
       onSubmit={handleSubmit}
       isSaving={isSaving}
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       <div className="row g-3">
         <div className="col-8">
@@ -308,7 +313,8 @@ function ComponenteDialog({ componente, onCerrar, onGuardado }) {
       </div>
 
       {cambiaCriticidad && (
-        <div className="alert alert-info mt-3 mb-0">
+        <div className="mz-alert mz-alert--info mb-0" role="status">
+          <Icon name="info-circle" />
           El cambio rige de aquí en adelante. Las intervenciones ya registradas
           conservan la criticidad que la pieza tenía cuando se consumió, así que
           los contadores actuales de los equipos no se alteran.

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { categoriasActivoService } from "../../../api/activosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -10,11 +10,6 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Activos.css";
 
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Activos", path: "/admin/activos" },
-  { label: "Categorías" },
-];
 const FILTROS_INICIALES = {};
 const VACIA = { nombre: "", descripcion: "", icono: "", activa: true };
 
@@ -44,57 +39,57 @@ export function CategoriasList() {
   );
 
   return (
-    <div className="activos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Categorías de activo</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Categorías de activo</h2>
+          <p className="mz-desc">
+            De qué clase es cada cosa del inventario. Los tipos de dispositivo
+            cuelgan de una categoría, y los equipos la heredan de su tipo.
+          </p>
+        </div>
         {puedeEditar && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setEnEdicion(VACIA)}
-          >
-            Nueva categoría
-          </button>
+          <div className="mz-view-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEnEdicion(VACIA)}
+            >
+              <Icon name="plus-lg" /> Nueva categoría
+            </button>
+          </div>
         )}
       </div>
 
-      <p className="text-muted">
-        De qué clase es cada cosa del inventario. Los tipos de dispositivo
-        cuelgan de una categoría, y los equipos la heredan de su tipo.
-      </p>
-
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Categoría</th>
               <th>Descripción</th>
-              <th className="text-end">Tipos</th>
+              <th className="num">Tipos</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((categoria) => (
               <tr key={categoria.id}>
-                <td>
+                <td className="mz-strong">
                   {categoria.icono && (
-                    <i
-                      className={`bi bi-${categoria.icono} me-2`}
-                      aria-hidden="true"
-                    />
+                    <Icon name={categoria.icono} className="me-2" />
                   )}
                   {categoria.nombre}
                 </td>
-                <td className="text-muted small">
-                  {categoria.descripcion || "—"}
-                </td>
-                <td className="text-end">
+                <td className="mz-faint">{categoria.descripcion || "—"}</td>
+                <td className="num">
                   {/* El conteo enlaza al inventario de esa categoría: es la
                       pregunta que trae aquí a cualquiera —cuánto hay de
                       esto— y verlo sin poder abrirlo obligaría a repetir el
@@ -109,14 +104,14 @@ export function CategoriasList() {
                 </td>
                 <td>
                   <span
-                    className={`badge ${
-                      categoria.activa ? "text-bg-success" : "text-bg-secondary"
+                    className={`mz-pill ${
+                      categoria.activa ? "mz-pill--ok" : "mz-pill--neutral"
                     }`}
                   >
                     {categoria.activa ? "Activa" : "Inactiva"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   {puedeEditar && (
                     <button
                       type="button"
@@ -130,10 +125,8 @@ export function CategoriasList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-muted">
-                  Sin categorías registradas
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={5}>Sin categorías registradas</td>
               </tr>
             )}
           </tbody>
@@ -199,12 +192,15 @@ function CategoriaDialog({ categoria, onCerrar, onGuardado }) {
       onSubmit={handleSubmit}
       isSaving={isSaving}
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="categoria-nombre">
-          Nombre
-        </label>
+      <div className="mz-field">
+        <label htmlFor="categoria-nombre">Nombre</label>
         <input
           id="categoria-nombre"
           className="form-control"
@@ -218,10 +214,8 @@ function CategoriaDialog({ categoria, onCerrar, onGuardado }) {
         />
       </div>
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="categoria-descripcion">
-          Qué entra aquí
-        </label>
+      <div className="mz-field mt-3">
+        <label htmlFor="categoria-descripcion">Qué entra aquí</label>
         <input
           id="categoria-descripcion"
           className="form-control"
@@ -238,13 +232,11 @@ function CategoriaDialog({ categoria, onCerrar, onGuardado }) {
         </div>
       </div>
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="categoria-icono">
-          Icono (opcional)
-        </label>
+      <div className="mz-field mt-3">
+        <label htmlFor="categoria-icono">Icono (opcional)</label>
         <input
           id="categoria-icono"
-          className="form-control font-monospace"
+          className="form-control mz-mono"
           maxLength={40}
           placeholder="pc-display, window-stack, building…"
           value={valores.icono}
@@ -259,7 +251,7 @@ function CategoriaDialog({ categoria, onCerrar, onGuardado }) {
       </div>
 
       {esEdicion && (
-        <div className="form-check">
+        <div className="form-check mt-3">
           <input
             id="categoria-activa"
             type="checkbox"

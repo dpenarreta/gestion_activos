@@ -2,13 +2,12 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { empresasService } from "../../../api/empresasService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Empresas.css";
 
-const BREADCRUMB_ITEMS = [{ label: "Administración" }, { label: "Empresas" }];
 const FILTROS_INICIALES = {};
 
 /**
@@ -36,79 +35,87 @@ export function EmpresasList() {
   }
 
   return (
-    <div className="empresas-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>Empresas</h2>
+    <div>
+      <div className="mz-view-head">
+        <div>
+          <h2>Empresas</h2>
+          <p className="mz-desc">
+            Todo lo que se registra pertenece a una empresa. Cambiar de empresa
+            en el selector del menú cambia de dónde salen los datos: el
+            inventario, los catálogos, el panel y los reportes pasan a ser los
+            de la otra.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link to="/admin/empresas/new" className="btn btn-primary btn-sm">
-            Nueva empresa
-          </Link>
+          <div className="mz-view-actions">
+            <Link to="/admin/empresas/new" className="btn btn-primary btn-sm">
+              <Icon name="plus-lg" /> Nueva empresa
+            </Link>
+          </div>
         )}
       </div>
 
-      <p className="text-muted">
-        Todo lo que se registra pertenece a una empresa. Cambiar de empresa en
-        el selector del menú cambia de dónde salen los datos: el inventario, los
-        catálogos, el panel y los reportes pasan a ser los de la otra.
-      </p>
-
-      <form className="d-flex gap-2 mb-3 flex-wrap" onSubmit={handleBuscar}>
-        <input
-          type="search"
-          className="form-control form-control-sm w-auto"
-          placeholder="Buscar por nombre"
-          aria-label="Buscar empresas"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-        />
+      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar empresas</span>
+          <input
+            type="search"
+            placeholder="Buscar por nombre"
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+          />
+        </label>
         <button type="submit" className="btn btn-outline-secondary btn-sm">
           Buscar
         </button>
       </form>
 
       {listado.error && (
-        <div className="alert alert-danger">{listado.error}</div>
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {listado.error}
+        </div>
       )}
 
-      <div className="table-responsive">
-        <table className="table table-sm table-striped align-middle">
+      <div className="mz-table-wrap">
+        <table className="mz-table">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Código</th>
               <th>Identificación</th>
-              <th className="text-end">Usuarios</th>
+              <th className="num">Usuarios</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
             {listado.resultados.map((empresa) => (
               <tr key={empresa.id}>
-                <td>{empresa.nombre}</td>
-                <td>
-                  <code>{empresa.codigo}</code>
+                <td className="mz-strong">{empresa.nombre}</td>
+                <td className="mz-code">{empresa.codigo}</td>
+                <td className="mz-mono mz-faint">
+                  {empresa.identificacion || "—"}
                 </td>
-                <td className="text-muted">{empresa.identificacion || "—"}</td>
-                <td className="text-end">
+                <td className="num">
                   {empresa.usuarios}
                   {/* Una empresa sin nadie asignado no la ve nadie, y desde
                       fuera parece que el sistema perdió los datos. */}
                   {empresa.usuarios === 0 && (
-                    <span className="badge text-bg-warning ms-2">
+                    <span className="mz-pill mz-pill--warn ms-2">
                       Sin usuarios
                     </span>
                   )}
                 </td>
                 <td>
                   <span
-                    className={`badge ${empresa.activa ? "text-bg-success" : "text-bg-secondary"}`}
+                    className={`mz-pill ${empresa.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
                   >
                     {empresa.activa ? "Activa" : "Inactiva"}
                   </span>
                 </td>
-                <td>
+                <td className="acciones">
                   <Link
                     to={`/admin/empresas/${empresa.id}`}
                     className="btn btn-outline-primary btn-sm"
@@ -119,10 +126,8 @@ export function EmpresasList() {
               </tr>
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted">
-                  Sin empresas registradas
-                </td>
+              <tr className="mz-empty-row">
+                <td colSpan={6}>Sin empresas registradas</td>
               </tr>
             )}
           </tbody>

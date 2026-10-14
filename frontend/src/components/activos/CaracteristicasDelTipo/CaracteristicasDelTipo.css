@@ -1,19 +1,21 @@
 /*
  * Características declaradas por un tipo de equipo.
  *
- * Vive dentro del diálogo de edición del tipo, así que no repite tarjeta ni
- * borde: lo que la separa del resto del formulario es el espacio y el título,
- * no otra caja dentro de la caja.
+ * Vive dentro del diálogo de edición del tipo, así que no repite tarjeta: lo
+ * que la separa del resto del formulario es el espacio y la raya de arriba, no
+ * otra caja dentro de la caja.
  */
 
 .caracteristicas-tipo {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border-color, #dee2e6);
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--mz-border);
 }
 
-.caracteristicas-tipo .form-text {
-  color: var(--text-muted);
+/* El diálogo mide 34rem: con el mínimo de 640px de `mz-table` la tabla
+   pediría scroll horizontal aunque sus seis columnas cortas quepan. */
+.caracteristicas-tipo .mz-table {
+  min-width: 0;
 }
 
 /* Las opciones de una lista se leen como una enumeración, no como un párrafo. */

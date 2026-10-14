@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { activosService } from "../../../api/activosService";
+import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
 
@@ -80,19 +81,23 @@ export function CambiarEstadoDialog({ activo, onCerrar, onGuardado }) {
       textoConfirmar={esBaja ? "Dar de baja" : "Confirmar"}
       variante={esSalida ? "danger" : "primary"}
     >
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
       {yaEstaDeBaja && (
-        <div className="alert alert-secondary">
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="info-circle" />
           Este activo está dado de baja: su estado ya no se modifica. Si el
           equipo volvió a la empresa, regístrelo como uno nuevo.
         </div>
       )}
 
-      <div className="mb-3">
-        <label className="form-label" htmlFor="estado">
-          Nuevo estado
-        </label>
+      <div className="mz-field mb-3">
+        <label htmlFor="estado">Nuevo estado</label>
         <select
           id="estado"
           className="form-select"
@@ -118,14 +123,24 @@ export function CambiarEstadoDialog({ activo, onCerrar, onGuardado }) {
       </div>
 
       {esSalida && !yaEstaDeBaja && (
-        <div className={`alert ${esBaja ? "alert-warning" : "alert-danger"}`}>
-          <strong>El equipo sale del inventario.</strong> {ADVERTENCIAS[estado]}
+        // Advertencia y no error: es lo que pasará al confirmar, no algo que
+        // haya fallado. Por eso `status` y no `alert`, que interrumpiría la
+        // lectura en cuanto se elige la opción.
+        <div
+          className={`mz-alert ${esBaja ? "mz-alert--warn" : "mz-alert--bad"}`}
+          role="status"
+        >
+          <Icon name="exclamation-triangle" />
+          <div>
+            <strong>El equipo sale del inventario.</strong>{" "}
+            {ADVERTENCIAS[estado]}
+          </div>
         </div>
       )}
 
-      <div className="mb-0">
-        <label className="form-label" htmlFor="motivo-estado">
-          Motivo {esSalida && <span className="text-danger">*</span>}
+      <div className="mz-field">
+        <label htmlFor="motivo-estado">
+          Motivo {esSalida && <span className="mz-bad">*</span>}
         </label>
         <textarea
           id="motivo-estado"

@@ -6,32 +6,34 @@
  * historial guarda «de esto a esto».
  */
 .situacion-actual {
-  background: var(--surface-alt);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius, 0.5rem);
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
 }
 
-.situacion-actual__titulo {
-  font-size: 0.75rem;
+/* El título con el dibujo de `mz-section h4`, sin su raya: dentro de la caja
+   sombreada ya está claro dónde empieza y dónde acaba. */
+.mz-overlay .situacion-actual__titulo {
+  font-size: 11.5px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  margin: 0 0 0.5rem;
+  letter-spacing: 0.05em;
+  color: var(--mz-ink-faint);
+  margin: 0 0 8px;
 }
 
 .situacion-actual__datos {
   display: grid;
   grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr);
-  gap: 0.3rem 1rem;
+  gap: 4px 16px;
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 12.8px;
 }
 
 .situacion-actual__datos dt {
   font-weight: 400;
-  color: var(--text-muted);
+  color: var(--mz-ink-faint);
 }
 
 .situacion-actual__datos dd {
@@ -41,11 +43,11 @@
 
 /* El «de → a» del traslado: es la frase que resume lo que se va a registrar. */
 .situacion-actual__cambio {
-  margin: 0.5rem 0 0;
-  padding: 0.4rem 0.6rem;
-  background: var(--surface-alt);
-  border-radius: var(--border-radius, 0.5rem);
-  font-size: 0.9rem;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  background: var(--mz-sunken);
+  border-radius: 6px;
+  font-size: 12.8px;
 }
 
 @media (max-width: 36em) {
@@ -55,34 +57,25 @@
   }
 
   .situacion-actual__datos dd {
-    margin-bottom: 0.5rem;
+    margin-bottom: 8px;
   }
 }
 
 /* La lista de quienes responden por un equipo compartido. Todos con el mismo
-   trato y su botón de quitar al lado: ninguno manda sobre otro, así que
-   ninguno se destaca. */
+   trato —la misma etiqueta neutra— y su botón de quitar al lado: ninguno
+   manda sobre otro, así que ninguno se destaca. */
 .responsables-elegidos {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 6px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.responsables-elegidos li {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.7rem;
-  border: 1px solid var(--border-color, #dee2e6);
-  border-radius: 999px;
-  font-size: 0.875rem;
-}
-
-.responsables-elegidos .btn-close {
-  width: 0.6em;
-  height: 0.6em;
-  opacity: 0.55;
+.responsables-elegidos .mz-close {
+  padding: 0 2px;
+  line-height: 1;
+  font-size: 10px;
+  color: inherit;
 }

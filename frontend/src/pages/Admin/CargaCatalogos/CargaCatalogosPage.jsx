@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { catalogosMasivosService } from "../../../api/catalogosService";
-import { Breadcrumbs } from "../../../components/common/Breadcrumbs/Breadcrumbs";
+import { Icon } from "../../../components/common/Icon/Icon";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import "./CargaCatalogos.css";
-
-const BREADCRUMB_ITEMS = [
-  { label: "Administración" },
-  { label: "Carga de catálogos" },
-];
 
 /**
  * Carga masiva de los catálogos, **un archivo por catálogo**.
@@ -44,28 +39,32 @@ export function CargaCatalogosPage() {
 
   return (
     <div className="carga-catalogos-page">
-      <Breadcrumbs items={BREADCRUMB_ITEMS} />
-      <h2>Carga de catálogos</h2>
-      <p className="text-muted">
-        Cada catálogo tiene su propio archivo. Se descarga con lo que ya está
-        registrado dentro, así que sirve de referencia al llenar la plantilla de
-        activos y de plantilla para añadir filas debajo.
-      </p>
+      <div className="mz-view-head">
+        <div>
+          <h2>Carga de catálogos</h2>
+          <p className="mz-desc">
+            Cada catálogo tiene su propio archivo. Se descarga con lo que ya
+            está registrado dentro, así que sirve de referencia al llenar la
+            plantilla de activos y de plantilla para añadir filas debajo.
+          </p>
+        </div>
+      </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
 
-      <div className="carga-catalogos__selector" role="tablist">
+      <div className="mz-tabs" role="tablist">
         {catalogos.map((catalogo) => (
           <button
             key={catalogo.clave}
             type="button"
             role="tab"
             aria-selected={elegido?.clave === catalogo.clave}
-            className={`btn btn-sm ${
-              elegido?.clave === catalogo.clave
-                ? "btn-primary"
-                : "btn-outline-primary"
-            }`}
+            className={elegido?.clave === catalogo.clave ? "is-active" : ""}
             onClick={() => setElegido(catalogo)}
           >
             {catalogo.nombre}
@@ -86,6 +85,7 @@ function PanelCatalogo({ catalogo }) {
   const [error, setError] = useState(null);
   const [isValidando, setIsValidando] = useState(false);
   const [isImportando, setIsImportando] = useState(false);
+  const [isArrastrando, setIsArrastrando] = useState(false);
 
   function limpiar() {
     setArchivo(null);
@@ -105,8 +105,11 @@ function PanelCatalogo({ catalogo }) {
     }
   }
 
-  async function elegirArchivo(event) {
-    const elegido = event.target.files?.[0];
+  /*
+   * El archivo llega por el selector o arrastrado sobre el recuadro; en los
+   * dos casos se revisa igual, y nada se guarda hasta que se confirme.
+   */
+  async function revisar(elegido) {
     if (!elegido) return;
     setArchivo(elegido);
     setReporte(null);
@@ -122,6 +125,12 @@ function PanelCatalogo({ catalogo }) {
     } finally {
       setIsValidando(false);
     }
+  }
+
+  function soltarArchivo(event) {
+    event.preventDefault();
+    setIsArrastrando(false);
+    revisar(event.dataTransfer?.files?.[0]);
   }
 
   async function importar() {
@@ -140,86 +149,111 @@ function PanelCatalogo({ catalogo }) {
   }
 
   return (
-    <section className="carga-catalogos__panel">
-      <div className="carga-catalogos__pasos">
-        <div className="paso">
-          <span className="paso__numero">1</span>
-          <div>
-            <strong>Descargue el archivo de {catalogo.plural}</strong>
-            <p className="text-muted mb-2">
-              Baja con lo que ya está registrado. Escriba las filas nuevas
-              debajo, sin borrar las que hay.
-              {catalogo.nota ? ` ${catalogo.nota}` : ""}
-            </p>
-            <button
-              type="button"
-              className="btn btn-outline-primary btn-sm"
-              onClick={descargar}
-            >
-              <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
-              Descargar plantilla (.xlsx)
-            </button>
+    <section className="mz-card">
+      <div className="mz-card-body">
+        <div className="carga-catalogos__pasos">
+          <div className="paso">
+            <span className="paso__numero">1</span>
+            <div>
+              <strong>Descargue el archivo de {catalogo.plural}</strong>
+              <p className="mz-faint mb-2">
+                Baja con lo que ya está registrado. Escriba las filas nuevas
+                debajo, sin borrar las que hay.
+                {catalogo.nota ? ` ${catalogo.nota}` : ""}
+              </p>
+              <button
+                type="button"
+                className="btn btn-exportar btn-sm"
+                onClick={descargar}
+              >
+                <Icon name="file-earmark-excel" /> Descargar plantilla (.xlsx)
+              </button>
+            </div>
+          </div>
+
+          <div className="paso">
+            <span className="paso__numero">2</span>
+            <div>
+              <strong>Suba el archivo</strong>
+              <p className="mz-faint mb-2">
+                Se revisa completo y se le muestra qué entraría. Nada se guarda
+                hasta que confirme. Volver a subir el mismo archivo no duplica
+                nada.
+              </p>
+              <div
+                className={`mz-drop carga-catalogos__drop${isArrastrando ? " is-drag" : ""}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsArrastrando(true);
+                }}
+                onDragLeave={() => setIsArrastrando(false)}
+                onDrop={soltarArchivo}
+              >
+                <Icon name="cloud-arrow-up" />
+                <div>Arrastre aquí el archivo .xlsx, o elíjalo:</div>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".xlsx"
+                  className="form-control form-control-sm"
+                  aria-label={`Archivo de ${catalogo.plural}`}
+                  onChange={(event) => revisar(event.target.files?.[0])}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="paso">
-          <span className="paso__numero">2</span>
-          <div>
-            <strong>Suba el archivo</strong>
-            <p className="text-muted mb-2">
-              Se revisa completo y se le muestra qué entraría. Nada se guarda
-              hasta que confirme. Volver a subir el mismo archivo no duplica
-              nada.
-            </p>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xlsx"
-              className="form-control form-control-sm w-auto"
-              aria-label={`Archivo de ${catalogo.plural}`}
-              onChange={elegirArchivo}
-            />
+        {error && (
+          <div className="mz-alert mz-alert--bad mt-3" role="alert">
+            <Icon name="x-octagon" />
+            {error}
           </div>
-        </div>
+        )}
+        {isValidando && (
+          <p className="mz-faint mt-3" role="status">
+            Revisando el archivo…
+          </p>
+        )}
+
+        {reporte && (
+          <>
+            <ReporteCatalogo reporte={reporte} archivo={archivo} />
+            <div className="mz-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!reporte.es_importable || isImportando}
+                onClick={importar}
+              >
+                {isImportando
+                  ? "Importando…"
+                  : reporte.es_importable
+                    ? `Importar ${reporte.filas_validas} ${catalogo.plural}`
+                    : `Corrija ${reporte.filas_con_error} fila(s) para importar`}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={limpiar}
+              >
+                Elegir otro archivo
+              </button>
+            </div>
+          </>
+        )}
+
+        {resultado && (
+          <div className="mz-alert mz-alert--info mt-3" role="status">
+            <Icon name="check2-circle" />
+            <div>
+              Se crearon <strong>{resultado.creados}</strong> {catalogo.plural}.{" "}
+              {resultado.advertencias.length > 0 &&
+                `${resultado.advertencias.length} fila(s) ya existían y se omitieron.`}
+            </div>
+          </div>
+        )}
       </div>
-
-      {error && <div className="alert alert-danger mt-3">{error}</div>}
-      {isValidando && <p className="text-muted mt-3">Revisando el archivo…</p>}
-
-      {reporte && (
-        <>
-          <ReporteCatalogo reporte={reporte} archivo={archivo} />
-          <div className="d-flex gap-2">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!reporte.es_importable || isImportando}
-              onClick={importar}
-            >
-              {isImportando
-                ? "Importando…"
-                : reporte.es_importable
-                  ? `Importar ${reporte.filas_validas} ${catalogo.plural}`
-                  : `Corrija ${reporte.filas_con_error} fila(s) para importar`}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={limpiar}
-            >
-              Elegir otro archivo
-            </button>
-          </div>
-        </>
-      )}
-
-      {resultado && (
-        <div className="alert alert-success mt-3">
-          Se crearon <strong>{resultado.creados}</strong> {catalogo.plural}.{" "}
-          {resultado.advertencias.length > 0 &&
-            `${resultado.advertencias.length} fila(s) ya existían y se omitieron.`}
-        </div>
-      )}
     </section>
   );
 }
@@ -268,46 +302,45 @@ function ReporteCatalogo({ reporte, archivo }) {
 
   return (
     <section className="mt-4">
-      <h3 className="h5">Revisión de {archivo?.name}</h3>
+      <h3 className="carga-catalogos__titulo">Revisión de {archivo?.name}</h3>
 
-      <div className="row g-2 mb-3">
-        <div className="col-auto">
-          <div className="resumen-caja">
-            <div className="resumen-valor">{totalFilas}</div>
-            <div className="resumen-etiqueta">Filas con datos</div>
+      <div className="mz-kpi-grid carga-catalogos__resumen">
+        <div className="mz-kpi mz-kpi--info">
+          <div className="mz-kpi-top">
+            <span className="mz-kpi-label">Filas con datos</span>
           </div>
+          <div className="mz-kpi-value">{totalFilas}</div>
         </div>
-        <div className="col-auto">
-          <div
-            className={`resumen-caja ${filasValidas > 0 ? "resumen-caja--ok" : ""}`}
-          >
-            <div className="resumen-valor">{filasValidas}</div>
-            <div className="resumen-etiqueta">Se crearán</div>
+        <div className={`mz-kpi ${filasValidas > 0 ? "mz-kpi--ok" : ""}`}>
+          <div className="mz-kpi-top">
+            <span className="mz-kpi-label">Se crearán</span>
           </div>
+          <div className="mz-kpi-value">{filasValidas}</div>
         </div>
-        <div className="col-auto">
-          <div
-            className={`resumen-caja ${errores.length > 0 ? "resumen-caja--error" : ""}`}
-          >
-            <div className="resumen-valor">{filasConError}</div>
-            <div className="resumen-etiqueta">Filas con error</div>
+        <div className={`mz-kpi ${errores.length > 0 ? "mz-kpi--bad" : ""}`}>
+          <div className="mz-kpi-top">
+            <span className="mz-kpi-label">Filas con error</span>
           </div>
+          <div className="mz-kpi-value">{filasConError}</div>
         </div>
         {advertencias.length > 0 && (
-          <div className="col-auto">
-            <div className="resumen-caja resumen-caja--aviso">
-              <div className="resumen-valor">{advertencias.length}</div>
-              <div className="resumen-etiqueta">Ya existían</div>
+          <div className="mz-kpi mz-kpi--warn">
+            <div className="mz-kpi-top">
+              <span className="mz-kpi-label">Ya existían</span>
             </div>
+            <div className="mz-kpi-value">{advertencias.length}</div>
           </div>
         )}
       </div>
 
       {errores.length > 0 && (
         <>
-          <div className="alert alert-danger">
-            <strong>No se importará nada mientras haya errores.</strong> La
-            carga es todo o nada: a medias no se sabría qué entró.
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            <div>
+              <strong>No se importará nada mientras haya errores.</strong> La
+              carga es todo o nada: a medias no se sabría qué entró.
+            </div>
           </div>
           <ListaPorFila hallazgos={errores} tono="error" />
         </>
@@ -315,9 +348,12 @@ function ReporteCatalogo({ reporte, archivo }) {
 
       {advertencias.length > 0 && (
         <>
-          <div className="alert alert-warning">
-            <strong>Estas filas ya existen</strong> y se omiten; el resto se
-            importa igual.
+          <div className="mz-alert mz-alert--warn" role="status">
+            <Icon name="exclamation-triangle" />
+            <div>
+              <strong>Estas filas ya existen</strong> y se omiten; el resto se
+              importa igual.
+            </div>
           </div>
           <ListaPorFila hallazgos={advertencias} tono="aviso" />
         </>
@@ -325,15 +361,15 @@ function ReporteCatalogo({ reporte, archivo }) {
 
       {errores.length === 0 && vistaPrevia.length > 0 && (
         <>
-          <p className="text-muted small">
+          <p className="mz-faint mz-small">
             Primeras {vistaPrevia.length} de {filasValidas} filas que se
             crearán:
           </p>
-          <div className="table-responsive">
-            <table className="table table-sm table-striped align-middle">
+          <div className="mz-table-wrap mb-3">
+            <table className="mz-table">
               <thead>
                 <tr>
-                  <th className="text-end">Fila</th>
+                  <th className="num">Fila</th>
                   {columnas.map((columna) => (
                     <th key={columna}>{columna}</th>
                   ))}
@@ -342,7 +378,7 @@ function ReporteCatalogo({ reporte, archivo }) {
               <tbody>
                 {vistaPrevia.map((fila) => (
                   <tr key={fila.fila}>
-                    <td className="text-end text-muted">{fila.fila}</td>
+                    <td className="num mz-faint">{fila.fila}</td>
                     {fila.valores.map((valor, indice) => (
                       <td key={indice}>{valor}</td>
                     ))}
