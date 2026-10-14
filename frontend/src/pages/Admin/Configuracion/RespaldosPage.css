@@ -1,0 +1,94 @@
+/* Lo que la pantalla de respaldos añade a los componentes `mz-*`. */
+.respaldo-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.respaldo-atajos .btn-link {
+  font-size: 12px;
+  padding: 2px 4px;
+  text-decoration: none;
+}
+
+.respaldo-horas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.respaldo-horas .mz-pill {
+  font-size: 12.5px;
+  padding: 4px 6px 4px 12px;
+}
+
+.respaldo-quitar {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  line-height: 1;
+  color: var(--mz-ink-faint);
+  border-radius: 99px;
+}
+
+.respaldo-quitar:hover {
+  color: var(--mz-bad-fg);
+}
+
+.mz-inline-add input[type="time"] {
+  max-width: 140px;
+}
+
+.respaldo-error {
+  font-size: 11.5px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- Respaldos guardados ---------- */
+.respaldos-guardados {
+  margin-top: 16px;
+}
+
+/* La tabla de la identidad base se pensó para la matriz (1100px de mínimo):
+   esta tiene cinco columnas y cabe en el ancho de la vista. */
+.respaldos-tabla {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.respaldos-tabla .mz-table {
+  min-width: 720px;
+}
+
+.respaldos-tabla .mz-table tbody tr {
+  cursor: default;
+}
+
+.respaldos-tarjetas {
+  padding: 12px;
+}
+
+.respaldo-partes {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.respaldo-accion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.respaldo-motivo {
+  max-width: 230px;
+  line-height: 1.3;
+}

@@ -178,7 +178,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # --- Internacionalización ---
 LANGUAGE_CODE = env.str("LANGUAGE_CODE", default="es")
-TIME_ZONE = env.str("TIME_ZONE", default="UTC")
+# La hora local de las empresas, no UTC. Todo lo que se configura con un reloj
+# —la hora del respaldo, la del resumen de alertas— se interpreta en esta zona:
+# con UTC, «02:30» en pantalla eran las 21:30 en Ecuador, y el sistema no
+# respaldaba a la hora que decía. En la base las fechas se guardan igual en UTC
+# (`USE_TZ`); esto solo cambia cómo se leen los relojes.
+TIME_ZONE = env.str("TIME_ZONE", default="America/Guayaquil")
 USE_I18N = True
 USE_TZ = True
 
@@ -195,6 +200,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # En Docker debe ser un volumen: sin él, cada despliegue se lleva por delante
 # lo que la gente haya subido (ver docker-compose.prod.yml).
 MEDIA_ROOT = env.str("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+
+# Dónde ve esta máquina la carpeta en la que SQL Server escribe los `.bak` (con
+# Docker, el volumen montado en docker-compose.yml). Hace falta para que la
+# pantalla de Respaldos pueda borrar también la copia de la base; vacío, solo
+# borra los adjuntos y el manifiesto. Relativa a `backend/` o absoluta.
+RESPALDOS_SQL_LOCAL = env.str("RESPALDOS_SQL_LOCAL", default="")
 
 # Un archivo mayor a esto se escribe en un temporal en vez de mantenerse en
 # memoria. El límite real de tamaño lo pone `apps.adjuntos.validators`; esto

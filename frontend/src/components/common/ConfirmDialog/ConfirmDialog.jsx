@@ -17,6 +17,10 @@ export function ConfirmDialog({
   isLoading,
   onConfirm,
   onCancel,
+  confirmLabel = "Confirmar",
+  // `danger` para lo que no tiene vuelta atrás (borrar): el botón rojo es lo
+  // último que se ve antes de confirmar, y un azul neutro lo disimularía.
+  confirmVariant = "primary",
 }) {
   const triggerRef = useRef(null);
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
@@ -59,8 +63,12 @@ export function ConfirmDialog({
           >
             Cancelar
           </button>
-          <Button variant="primary" isLoading={isLoading} onClick={onConfirm}>
-            Confirmar
+          <Button
+            variant={confirmVariant}
+            isLoading={isLoading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
           </Button>
         </div>
       </div>

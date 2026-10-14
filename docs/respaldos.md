@@ -63,42 +63,102 @@ directamente a `--destino`.
 
 ## Programarlo
 
-**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*: si
-está encendido, cada cuánto (diario o semanal, y qué día), a partir de qué hora,
-en qué carpeta y cuántos conservar. La tarea del sistema corre **cada hora,
-siempre igual**, y el comando decide si toca.
+**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*,
+como un horario:
 
-Está así por lo mismo que la frecuencia del resumen de alertas: el programador
-de tareas es infraestructura, y quien decide cada cuánto hay que respaldar no
-tiene acceso a él. Cambiar «semanal» por «diaria» no debería necesitar un
-administrador de servidores.
+- **qué días** de la semana (todos, de lunes a viernes, o los que se marquen);
+- **a qué horas** de cada uno de esos días —una o varias, hasta ocho—, en
+  **hora local** (`TIME_ZONE`, por defecto `America/Guayaquil`);
+- en qué carpeta y cuántos conservar.
+
+De fábrica viene **encendido, todos los días a las 17:00**. La tarea del
+sistema corre **cada cinco minutos, siempre igual**, y el comando decide si
+toca. Cambiar la hora o los días no necesita un administrador de
+servidores: el programador de tareas no se vuelve a tocar.
 
 ```bash
 # Lo que ejecuta la tarea. Sin --si-toca respalda siempre, que es lo que se
-# quiere al lanzarlo a mano.
+# quiere al lanzarlo a mano desde la terminal.
 python manage.py respaldar --si-toca
 ```
 
-En Windows la tarea se registra una vez, con repetición horaria:
+### Cómo decide si toca
+
+Cada hora configurada es un **turno**. En cada pasada, el comando busca el
+último turno de hoy que ya pasó y lo cubre si no estaba cubierto
+(`ultimo_programado`). Con «13:00 y 22:00»:
+
+| La tarea pasa a las… | Hace |
+| --- | --- |
+| 12:55 | Nada: todavía no es la hora (y lo escribe) |
+| 13:00 | El respaldo de las 13:00 |
+| 13:05 … 21:55 | Nada: el turno de las 13:00 ya está cubierto |
+| 22:00 | El respaldo de las 22:00 |
+
+Si el equipo estuvo apagado en los dos turnos, al encenderse hace **uno**, no
+dos seguidos con el mismo contenido. Los turnos de días anteriores no se
+recuperan: el siguiente cubre lo mismo y más.
+
+Un respaldo lanzado **a mano** desde la terminal no cuenta como turno, para que
+probar el comando un martes no salte el programado.
+
+### Respaldar ahora
+
+El botón **Respaldar ahora** de la pantalla no respalda dentro de la petición
+web: un respaldo tarda minutos y bloquea, y una petición que espera tanto acaba
+cortada por el navegador o el proxy con el respaldo a medias. Deja la orden
+(`solicitado_en`) y la tarea la cumple en su siguiente pasada, como mucho cinco
+minutos después; la pantalla avisa cuando termina. Vale también con el respaldo
+automático apagado, y pedirlo dos veces no hace dos.
+
+### El resultado queda a la vista
+
+Cada ejecución anota cuándo fue y, si falló, por qué (`ultima_ejecucion`,
+`ultimo_error`). La pantalla lo muestra: un respaldo que falla todas las noches
+—Docker apagado, disco lleno— no puede quedar solo en una salida que nadie
+mira.
+
+### La tarea en Windows
+
+Se registra **una vez**, cada cinco minutos y con `pythonw.exe` para que no
+abra una ventana de consola en cada pasada:
 
 ```powershell
-$py = 'C:\ruta\backend\.venv\Scripts\python.exe'
-$accion = New-ScheduledTaskAction -Execute $py -Argument 'manage.py respaldar --si-toca' -WorkingDirectory 'C:\ruta\backend'
-$disparo = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Hours 1)
-Register-ScheduledTask -TaskName 'GestionActivos-Respaldo' -Action $accion -Trigger $disparo -Force
+$b = 'C:\ruta\backend'
+$accion  = New-ScheduledTaskAction -Execute "$b\.venv\Scripts\pythonw.exe" -Argument 'scripts\tarea_respaldo.py' -WorkingDirectory $b
+$disparo = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)
+$ajustes = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 2) -Hidden -Priority 7
+Register-ScheduledTask -TaskName 'GestionActivos-Respaldo' -Action $accion -Trigger $disparo -Settings $ajustes -Force
 ```
 
-En Linux, el equivalente es una línea de cron **horaria**, no diaria:
+**Nunca interrumpe a quien trabaja en el equipo**, cambie como cambie el
+horario: los días y las horas se deciden en la aplicación y no tocan la tarea,
+que sigue siendo la misma —sin ventana (`pythonw.exe`), oculta (`-Hidden`) y
+de prioridad baja (`-Priority 7`)—. El script, además, se suelta de la consola
+y baja su propia prioridad si alguien lo lanza con `python.exe`. En la
+interfaz web un respaldo automático no muestra nada; solo la pantalla de
+Respaldos avisa, y solo de un «Respaldar ahora» que pidió quien la está mirando.
+Con permisos de administrador puede registrarse además con
+`New-ScheduledTaskPrincipal -LogonType S4U` («ejecutar tanto si el usuario
+inició sesión como si no»), que la saca del escritorio del todo.
+
+`scripts/tarea_respaldo.py` existe porque bajo `pythonw.exe` no hay consola
+donde escribir: manda la salida a `backend/logs/tarea-respaldo.log` (se recorta
+pasado 1 MB). `MultipleInstances IgnoreNew` evita que una pasada empiece
+mientras la anterior sigue respaldando.
+
+Si se registra con otro intervalo, cambiar también `TAREA_CADA_MINUTOS` en
+`apps/core/respaldos_views.py`: la pantalla lo usa para decir cuánto tarda en
+empezar un «Respaldar ahora».
+
+### La tarea en Linux
 
 ```cron
-0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
+*/5 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca >> logs/tarea-respaldo.log 2>&1
 ```
 
-Que corra cada hora y no una vez al día es lo que hace que la hora sea
-configurable desde la aplicación. Dos cosas la protegen de repetirse: la marca
-del último respaldo —uno por día, aunque la tarea pase veinticuatro veces— y que
-un respaldo lanzado **a mano** no cuenta como el programado, para que probar el
-comando un martes no salte el del miércoles.
+Dos cosas la protegen de repetirse: la marca del último turno cubierto y que
+un respaldo lanzado a mano no cuenta como el programado.
 
 ### Que el `.bak` salga del contenedor
 
@@ -117,6 +177,32 @@ donde no protege: en el mismo sitio que la base.
 
 `verificar_despliegue` avisa si no consta ningún respaldo o si el último tiene
 más de una semana.
+
+## Borrar respaldos
+
+*Configuración → Respaldos → Respaldos guardados* lista lo que hay en disco, del
+más reciente al más antiguo, con su fecha, si incluye la base y los adjuntos,
+qué contenía (según su manifiesto) y cuánto pesa. Cada uno tiene su botón
+**Borrar**, que pide confirmación.
+
+- **Se borra entero**: la copia de la base (`.bak`), los adjuntos y el
+  manifiesto. Dejar una parte haría creer que hay de dónde volver.
+- **El más reciente no se puede borrar.** Su botón aparece deshabilitado con el
+  motivo al lado, y el servidor rechaza el borrado (`409`) aunque se pida sin
+  pasar por la pantalla.
+- **Queda auditado** (`respaldo.borrado`) con quién lo borró, qué archivos eran
+  y qué contenía.
+- Exige el permiso `configuracion.respaldos`, el mismo que cambiar el horario.
+
+El `.bak` lo escribe SQL Server en su propio sistema de archivos. Para que la
+pantalla pueda borrarlo, el backend tiene que ver esa carpeta:
+`RESPALDOS_SQL_LOCAL` en el `.env` (con Docker, el volumen de
+`docker-compose.yml`: `respaldos/sql`). Sin ella, la lista no muestra la copia
+de la base y la pantalla avisa que borrar la deja en el servidor.
+
+La fecha de cada respaldo sale de la marca de su nombre (`AAAAMMDD-HHMM`). Los
+anteriores al 14 de octubre de 2026 se nombraron con la hora UTC: aparecen
+cinco horas más tarde de lo que fueron.
 
 ## Restaurar
 
@@ -173,7 +259,9 @@ alguien busca un acta que no está.
 
 ## Qué no cubre esto
 
-- **La retención**: el comando no borra respaldos viejos. Con `INIT` cada
+- **La retención de los `.bak`**: «cuántos conservar» retira los adjuntos y
+  los manifiestos viejos, no la copia de la base; esa se borra desde la pantalla
+  (ver «Borrar respaldos»). Con `INIT` cada
   archivo se sobrescribe a sí mismo, pero los de días distintos se acumulan;
   decidir cuántos conservar es una política de cada empresa.
 - **El cifrado del respaldo**. El `.bak` contiene todo el inventario y los

@@ -27,3 +27,16 @@
   filter: brightness(0.9);
   color: var(--brand-text-on-dark);
 }
+
+/* Lo que no tiene vuelta atrás: el rojo del estado «mal» de la identidad. */
+.app-button--danger {
+  background-color: var(--mz-bad-line, #c0392b);
+  color: #fff;
+}
+
+.app-button--danger:hover,
+.app-button--danger:focus {
+  background-color: var(--mz-bad-line, #c0392b);
+  filter: brightness(0.9);
+  color: #fff;
+}

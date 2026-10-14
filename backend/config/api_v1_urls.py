@@ -2,7 +2,12 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 from apps.branding.views import CurrentThemeView
-from apps.core.respaldos_views import PoliticaDeRespaldoView
+from apps.core.respaldos_views import (
+    BorrarRespaldoView,
+    PoliticaDeRespaldoView,
+    RespaldarAhoraView,
+    RespaldosEnDiscoView,
+)
 from apps.core.version_views import version_info
 
 urlpatterns = [
@@ -35,6 +40,21 @@ urlpatterns = [
     path("catalogos/", include("apps.core.catalogos_urls")),
     # --- Cuándo se respalda solo ---
     path("configuracion/respaldos/", PoliticaDeRespaldoView.as_view(), name="respaldos-politica"),
+    path(
+        "configuracion/respaldos/ahora/",
+        RespaldarAhoraView.as_view(),
+        name="respaldos-ahora",
+    ),
+    path(
+        "configuracion/respaldos/archivos/",
+        RespaldosEnDiscoView.as_view(),
+        name="respaldos-archivos",
+    ),
+    path(
+        "configuracion/respaldos/archivos/<str:marca>/",
+        BorrarRespaldoView.as_view(),
+        name="respaldos-borrar",
+    ),
     # --- Catálogos organizacionales: departamentos y empleados ---
     path("organizacion/", include("apps.organizacion.urls")),
     # --- Bitácora de mantenimientos (RF-04, RF-05) ---

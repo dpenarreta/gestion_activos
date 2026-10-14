@@ -96,23 +96,72 @@ class Command(BaseCommand):
             action="store_true",
             help=(
                 "Respalda solo si la politica configurada dice que corresponde "
-                "ahora. Es lo que ejecuta la tarea programada, cada hora: la "
-                "frecuencia se decide en la aplicacion, no en el programador."
+                "ahora: un turno del horario o un «Respaldar ahora» pedido desde "
+                "la pantalla. Es lo que ejecuta la tarea programada, cada pocos "
+                "minutos: el cuando se decide en la aplicacion, no en el programador."
             ),
         )
 
     def handle(self, *args, **opciones):
-        politica = None
-        if opciones["si_toca"]:
-            politica = self._politica_si_toca()
-            if politica is None:
-                return
-            # Lo configurado manda sobre el valor por defecto del argumento:
-            # quien programo la tarea no tiene por que saber donde quiere la
-            # carpeta quien administra el sistema.
-            if opciones["destino"] == "respaldos":
-                opciones["destino"] = politica.destino
+        if not opciones["si_toca"]:
+            self._respaldar(opciones)
+            return
 
+        from apps.core.models import PoliticaDeRespaldo
+
+        politica = PoliticaDeRespaldo.vigente()
+        ahora = timezone.localtime()
+        turno = politica.turno_pendiente(ahora)
+        solicitado = politica.solicitado_en is not None
+
+        if turno is None and not solicitado:
+            self._explicar_por_que_no(politica, ahora)
+            return
+
+        # Lo configurado manda sobre el valor por defecto del argumento: quien
+        # programó la tarea no tiene por qué saber dónde quiere la carpeta
+        # quien administra el sistema.
+        if opciones["destino"] == "respaldos":
+            opciones["destino"] = politica.destino
+
+        if solicitado:
+            self.stdout.write(
+                f"Respaldo pedido desde la pantalla el {timezone.localtime(politica.solicitado_en):%Y-%m-%d %H:%M}."
+            )
+        try:
+            destino = self._respaldar(opciones)
+        except Exception as error:
+            # Se anota y se vuelve a lanzar: la pantalla tiene que poder decir
+            # que anoche falló, y la tarea tiene que seguir terminando con
+            # error para quien mire el programador.
+            politica.ultima_ejecucion = timezone.now()
+            politica.ultimo_error = str(error)[:2000]
+            politica.solicitado_en = None
+            politica.solicitado_por = None
+            politica.save(
+                update_fields=[
+                    "ultima_ejecucion",
+                    "ultimo_error",
+                    "solicitado_en",
+                    "solicitado_por",
+                ]
+            )
+            raise
+
+        politica.ultima_ejecucion = timezone.now()
+        politica.ultimo_error = ""
+        politica.solicitado_en = None
+        politica.solicitado_por = None
+        campos = ["ultima_ejecucion", "ultimo_error", "solicitado_en", "solicitado_por"]
+        if turno is not None:
+            # Un pedido a mano que coincide con un turno lo cubre: hacer otro
+            # minutos después sería el mismo respaldo dos veces.
+            politica.ultimo_programado = turno
+            campos.append("ultimo_programado")
+        politica.save(update_fields=campos)
+        self._retirar_los_viejos(destino, politica.conservar)
+
+    def _respaldar(self, opciones) -> Path:
         marca = timezone.localtime().strftime("%Y%m%d-%H%M")
         destino = Path(opciones["destino"]).resolve()
         destino.mkdir(parents=True, exist_ok=True)
@@ -133,11 +182,6 @@ class Command(BaseCommand):
             json.dumps(manifiesto, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
-        if politica is not None:
-            politica.ultimo_respaldo = timezone.localdate()
-            politica.save(update_fields=["ultimo_respaldo"])
-            self._retirar_los_viejos(destino, politica.conservar)
-
         self.stdout.write(self.style.SUCCESS(f"\nRespaldo {marca} completado."))
         self.stdout.write(f"  Manifiesto: {ruta_manifiesto}")
         self.stdout.write(
@@ -145,33 +189,25 @@ class Command(BaseCommand):
             "un respaldo que nunca se restauro no es un respaldo "
             "(ver docs/respaldos.md)."
         )
+        return destino
 
     # --- Respaldo programado ---
 
-    def _politica_si_toca(self):
-        """La politica vigente si corresponde respaldar ahora; `None` si no.
-
-        Escribe por que no toca en vez de callar: la tarea corre cada hora y su
-        salida es lo unico que alguien mirara el dia que pregunte por que no hay
-        respaldos.
-        """
-        from apps.core.models import PoliticaDeRespaldo
-
-        politica = PoliticaDeRespaldo.vigente()
-        ahora = timezone.localtime()
-
-        if politica.toca_respaldar(ahora):
-            return politica
-
+    def _explicar_por_que_no(self, politica, ahora) -> None:
+        """Escribe por qué no toca en vez de callar: la salida de la tarea es lo
+        único que alguien mirará el día que pregunte por qué no hay respaldos."""
+        turnos_de_hoy = politica._turnos_del_dia(ahora.date())
         if not politica.activo:
             self.stdout.write("El respaldo automatico esta apagado: no se hace nada.")
-        elif politica.ultimo_respaldo == ahora.date():
-            self.stdout.write(f"Ya hay respaldo de hoy ({politica.ultimo_respaldo}).")
-        elif ahora.time() < politica.hora:
-            self.stdout.write(f"Todavia no es la hora configurada ({politica.hora:%H:%M}).")
+        elif not turnos_de_hoy:
+            self.stdout.write("Hoy no es uno de los dias configurados.")
+        elif all(turno > ahora for turno in turnos_de_hoy):
+            self.stdout.write(f"Todavia no es la hora configurada ({turnos_de_hoy[0]:%H:%M}).")
         else:
-            self.stdout.write("Hoy no toca segun la frecuencia configurada.")
-        return None
+            self.stdout.write(
+                f"Ya hay respaldo del ultimo turno "
+                f"({timezone.localtime(politica.ultimo_programado):%Y-%m-%d %H:%M})."
+            )
 
     def _retirar_los_viejos(self, destino: Path, conservar: int) -> None:
         """Deja solo los ultimos `conservar` respaldos de la carpeta.

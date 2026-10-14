@@ -173,7 +173,10 @@ def test_dice_desde_cuando_lo_tengo_yo(admin, crear_activo, departamento):
     ultima = activo.movimientos.filter(custodio_nuevo=yo).order_by("-created_at").first()
 
     assert equipo["desde"] is not None
-    assert equipo["desde"][:19] == ultima.created_at.isoformat()[:19]
+    # Se comparan instantes y no texto: la API escribe la hora local con su
+    # desfase (-05:00) y la base la guarda en UTC.
+    desde = datetime.datetime.fromisoformat(equipo["desde"])
+    assert desde.replace(microsecond=0) == ultima.created_at.replace(microsecond=0)
 
 
 def test_un_equipo_dado_de_baja_deja_de_aparecer(admin, crear_activo, departamento):

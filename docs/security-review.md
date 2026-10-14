@@ -206,6 +206,13 @@ producción no levanta ningún aviso de la familia `security.*`.
   exitoso sin que nadie reciba nada: la bitácora de `/alertas/envios/` dice
   que salió porque, para el sistema, salió.
 
+- **Borrar un respaldo es un borrado físico.** No hay baja lógica de un
+  archivo que se borra para recuperar espacio. Lo compensan tres cosas: exige
+  `configuracion.respaldos`, queda auditado con lo que contenía y el más
+  reciente no se puede borrar (lo rechaza el servidor, no solo el botón). La
+  marca que llega en la ruta se valida con su forma exacta antes de usarse en un
+  `glob`, para que no pueda colar comodines ni rutas.
+
 ## Recomendaciones para un despliegue productivo real
 
 1. Ejecutar `pip-audit` y `npm audit` (con revisión manual de cada

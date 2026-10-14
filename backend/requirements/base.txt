@@ -10,3 +10,6 @@ python-json-logger==2.0.7
 drf-spectacular==0.30.0
 reportlab==5.0.1
 openpyxl==3.1.5
+# La zona horaria America/Guayaquil (TIME_ZONE) sin depender de que la imagen
+# traiga /usr/share/zoneinfo: Django solo exige tzdata en Windows.
+tzdata==2026.3

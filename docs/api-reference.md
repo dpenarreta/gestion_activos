@@ -606,6 +606,23 @@ que un auditor no tiene por qué tener.
 
 La pantalla que consume esto es *Usuarios y roles → Auditoría*.
 
+## Respaldos (`configuracion/respaldos/`)
+
+Una sola política para todo el despliegue: se lee y se corrige, sin listado.
+Leer exige `configuracion.ver`; cambiarla o pedir un respaldo,
+`configuracion.respaldos`.
+
+| Método | Ruta | Qué hace |
+| --- | --- | --- |
+| `GET` | `configuracion/respaldos/` | La política, más `proximo` (ISO con desfase, hora local), `ultimo_en_disco`, `tarea_cada_minutos` y `zona_horaria` |
+| `PATCH` | `configuracion/respaldos/` | Corrige `activo`, `dias` (0 = lunes … 6), `horas` (`HH:MM`, de 1 a 8), `destino`, `conservar`. Auditado como `respaldo.politica_changed` |
+| `POST` | `configuracion/respaldos/ahora/` | Deja la orden de respaldar ya (`202`). La cumple la tarea en su siguiente pasada; pedirlo otra vez antes no crea una segunda orden. Auditado como `respaldo.solicitado` |
+| `GET` | `configuracion/respaldos/archivos/` | Los respaldos en disco, del más reciente al más antiguo: `marca`, `fecha`, `archivos`, `bytes`, `tiene_base`, `tiene_adjuntos`, `contenido`, `es_el_mas_reciente`; más `borra_la_base` (si se ve la carpeta de los `.bak`) |
+| `DELETE` | `configuracion/respaldos/archivos/<marca>/` | Borra el respaldo entero (`204`). `409` si es el más reciente; `404` si la marca no existe o no tiene la forma `AAAAMMDD-HHMM`. Auditado como `respaldo.borrado` |
+
+Solo lectura: `ultimo_programado` (último turno cubierto), `solicitado_en`,
+`ultima_ejecucion` y `ultimo_error` (vacío si la última ejecución terminó bien).
+
 ## Identidad institucional / tema (`admin/theme/`, `theme/current/`)
 
 | Método | Ruta | Auth | Permiso |

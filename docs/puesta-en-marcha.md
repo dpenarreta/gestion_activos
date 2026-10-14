@@ -178,14 +178,14 @@ silencio, que es peor.
 | --- | --- |
 | `python manage.py recalcular_indicadores` | Un equipo que nadie toca **nunca** aparecerá como próximo a reemplazo: ese criterio se cumple por el paso del tiempo y ningún evento lo dispara |
 | `python manage.py enviar_alertas` | Nadie recibe el resumen. La frecuencia real (diaria o semanal) la decide la configuración, no el crontab: por eso este comando se programa todos los días |
-| `python manage.py respaldar --si-toca` | No hay copias. Igual que el resumen de alertas, la frecuencia la decide la configuración y no el crontab: por eso se programa **cada hora** y el comando decide si toca |
+| `python manage.py respaldar --si-toca` | No hay copias. Igual que el resumen de alertas, el horario lo decide la configuración y no el crontab: por eso se programa **cada cinco minutos** y el comando decide si toca |
 
 En Linux (`crontab -e`):
 
 ```cron
 0 5 * * * cd /ruta/backend && ./.venv/bin/python manage.py recalcular_indicadores
 0 7 * * * cd /ruta/backend && ./.venv/bin/python manage.py enviar_alertas
-0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
+*/5 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
 ```
 
 En Windows, Programador de tareas: una tarea diaria por comando, apuntando a
@@ -196,21 +196,23 @@ En Windows, Programador de tareas: una tarea diaria por comando, apuntando a
 
 ## 4. Copias de seguridad
 
-**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*: si
-está encendido, cada cuánto, a partir de qué hora, en qué carpeta y cuántos
-conservar. La tarea del sistema corre **cada hora, siempre igual**, y el
-comando decide si toca:
+**El cuándo se configura en la aplicación**, en *Configuración → Respaldos*:
+si está encendido, qué días, a qué horas (una o varias, en hora local), en qué
+carpeta y cuántos conservar; y desde ahí mismo, **Respaldar ahora**. La tarea
+del sistema corre **cada cinco minutos, siempre igual**, y el comando decide si
+toca:
 
 ```cron
-0 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
+*/5 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca
 ```
 
-Horaria y no diaria: es lo que permite que la hora se elija desde la pantalla
-sin tocar el programador de tareas. Sin `--si-toca` el comando respalda
+Cada cinco minutos y no una vez al día: es lo que permite que la hora se elija
+desde la pantalla, al minuto, sin tocar el programador de tareas. Sin `--si-toca` el comando respalda
 siempre —que es lo que se quiere al lanzarlo a mano—, así que programarlo así
 ignoraría la política, haría copias incluso con el respaldo apagado y no
 dejaría constancia de que fue el programado. En Windows, la tarea equivalente
-se registra una vez con repetición horaria (ver `docs/respaldos.md`).
+se registra una vez, cada cinco minutos y con `pythonw.exe` para que no abra
+una consola en cada pasada (ver `docs/respaldos.md`).
 
 Respalda la base **y los adjuntos** —las facturas y actas firmadas no se
 regeneran—, verifica que el archivo se escribió y deja un manifiesto con los

@@ -86,42 +86,61 @@ class AuditLog(BaseModel):
         return f"{self.action} sobre {self.target_type}:{self.target_id}"
 
 
+#: Lunes es 0, como `weekday()` de Python. El número y no el nombre, para no
+#: depender del idioma con el que se configuró el sistema.
+TODOS_LOS_DIAS = [0, 1, 2, 3, 4, 5, 6]
+
+#: Tope de horas por día. No es un límite técnico: un respaldo completo lleva
+#: minutos y bloquea, y pasado este número lo que se busca es otra cosa —una
+#: réplica de la base—, no más copias.
+MAXIMO_HORAS = 8
+
+
+def _dias_por_defecto():
+    return list(TODOS_LOS_DIAS)
+
+
+def _horas_por_defecto():
+    # Al final de la jornada y no de madrugada: un respaldo programado para
+    # cuando el equipo está apagado no se hace, y en esta instalación el equipo
+    # que lo corre es de oficina.
+    return ["17:00"]
+
+
 class PoliticaDeRespaldo(models.Model):
     """Cuándo se respalda solo, y dónde queda.
 
-    **La frecuencia vive aquí y no en el programador de tareas**, por lo mismo
-    que la del resumen de alertas: el programador es infraestructura —quien
-    decide cada cuánto hay que respaldar no tiene acceso a él, y cambiar
-    «semanal» por «diaria» no debería necesitar un administrador de servidores—.
-    La tarea del sistema corre cada hora, siempre igual, y esto decide si toca.
+    **El cuándo vive aquí y no en el programador de tareas**, por lo mismo que
+    la frecuencia del resumen de alertas: el programador es infraestructura
+    —quien decide cuándo hay que respaldar no tiene acceso a él—, y cambiar la
+    hora o los días no debería necesitar un administrador de servidores. La
+    tarea del sistema corre cada pocos minutos, siempre igual, y esto decide si
+    toca.
+
+    Se configura como un horario: **qué días** de la semana y **a qué horas**
+    de cada uno de esos días. «Diario a las 02:00» son los siete días con una
+    hora; «de lunes a viernes a las 13:00 y a las 22:00», cinco días con dos.
 
     Es una sola fila para todo el despliegue, no una por empresa: lo que se
     respalda es la base entera, y una base no se puede respaldar «solo la parte
     de LaarCourier».
     """
 
-    class Frecuencia(models.TextChoices):
-        DIARIA = "diaria", "Diaria"
-        SEMANAL = "semanal", "Semanal"
-
+    #: Encendido de fábrica: un sistema recién instalado sin respaldo no avisa
+    #: de nada hasta el día que hace falta volver a algún sitio.
     activo = models.BooleanField(
-        default=False,
+        default=True,
         help_text="Si el respaldo automático está encendido.",
     )
-    frecuencia = models.CharField(
-        max_length=10, choices=Frecuencia.choices, default=Frecuencia.DIARIA
+    dias = models.JSONField(
+        default=_dias_por_defecto,
+        help_text="Días de la semana en que se respalda (0 = lunes … 6 = domingo).",
     )
-    #: `weekday()` de Python: lunes es 0. El número y no el nombre, para no
-    #: depender del idioma con el que se configuró el sistema.
-    dia_semanal = models.PositiveSmallIntegerField(
-        default=0,
-        help_text="Día de la semana, cuando la frecuencia es semanal (0 = lunes).",
-    )
-    hora = models.TimeField(
-        default=datetime.time(2, 0),
+    horas = models.JSONField(
+        default=_horas_por_defecto,
         help_text=(
-            "A partir de qué hora del día se respalda. De madrugada, mientras "
-            "nadie trabaja: un respaldo es lento y bloquea."
+            "Horas del día, en hora local y formato HH:MM. Mejor fuera del "
+            "horario de trabajo: un respaldo es lento y bloquea."
         ),
     )
     destino = models.CharField(
@@ -141,10 +160,29 @@ class PoliticaDeRespaldo(models.Model):
             "fallar justo cuando más falta hace."
         ),
     )
-    #: La fecha del último respaldo **automático**. Uno hecho a mano no cuenta
-    #: aquí: si contara, lanzar uno de prueba un martes saltaría el programado
-    #: del miércoles sin que nadie lo notara.
-    ultimo_respaldo = models.DateField(null=True, blank=True)
+    #: El último turno del horario que quedó cubierto —la fecha y hora
+    #: programadas, no la de ejecución—. Es lo que evita repetirlo: la tarea
+    #: pasa varias veces después de cada turno. Uno hecho a mano desde la
+    #: terminal no cuenta aquí: si contara, lanzar uno de prueba un martes
+    #: saltaría el programado sin que nadie lo notara.
+    ultimo_programado = models.DateTimeField(null=True, blank=True)
+    #: «Respaldar ahora» desde la pantalla. La petición web no respalda: un
+    #: respaldo tarda minutos y bloquea, y una petición que espera tanto acaba
+    #: cortada por el navegador o el proxy con el respaldo a medias. Deja la
+    #: orden aquí y la tarea la cumple en su siguiente pasada.
+    solicitado_en = models.DateTimeField(null=True, blank=True)
+    solicitado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    #: Cómo terminó la última vez que la tarea respaldó. Sin esto, un respaldo
+    #: que falla todas las noches —Docker apagado, disco lleno— solo deja
+    #: rastro en una salida que nadie mira.
+    ultima_ejecucion = models.DateTimeField(null=True, blank=True)
+    ultimo_error = models.TextField(blank=True, default="")
 
     class Meta:
         verbose_name = "política de respaldo"
@@ -153,7 +191,7 @@ class PoliticaDeRespaldo(models.Model):
     def __str__(self) -> str:
         if not self.activo:
             return "Respaldo automático apagado"
-        return f"Respaldo {self.get_frecuencia_display().lower()} a las {self.hora:%H:%M}"
+        return f"Respaldo a las {', '.join(self.horas_ordenadas())}"
 
     @classmethod
     def vigente(cls):
@@ -168,22 +206,56 @@ class PoliticaDeRespaldo(models.Model):
             raise ValidationError(
                 {"conservar": "Hay que conservar al menos uno: cero sería no respaldar."}
             )
-        if not 0 <= self.dia_semanal <= 6:
-            raise ValidationError({"dia_semanal": "El día va de 0 (lunes) a 6 (domingo)."})
 
-    def toca_respaldar(self, ahora) -> bool:
-        """Si corresponde respaldar en este momento.
+    # --- El horario ---
 
-        Tres condiciones, y las tres importan: que esté encendido, que hoy sea
-        el día y que ya haya pasado la hora. Lo que evita el respaldo repetido
-        no es el reloj sino `ultimo_respaldo`: la tarea corre cada hora, y sin
-        esa marca haría uno por hora desde las dos de la mañana.
+    def horas_ordenadas(self) -> list[str]:
+        return sorted(set(self.horas or []))
+
+    def _turnos_del_dia(self, dia: datetime.date) -> list[datetime.datetime]:
+        """Los momentos programados de un día, en la zona del sistema."""
+        from django.utils import timezone
+
+        if dia.weekday() not in (self.dias or []):
+            return []
+        return [
+            timezone.make_aware(datetime.datetime.combine(dia, datetime.time.fromisoformat(hora)))
+            for hora in self.horas_ordenadas()
+        ]
+
+    def turno_pendiente(self, ahora):
+        """El turno que corresponde cubrir ahora, o `None`.
+
+        Es el último turno de hoy que ya pasó, si no se cubrió todavía. Solo el
+        último: si el equipo estuvo apagado a las 13:00 y a las 22:00, al
+        encenderse se hace **un** respaldo, no dos seguidos con el mismo
+        contenido. Tampoco se recuperan turnos de días anteriores: al día
+        siguiente ya hay uno nuevo que cubre lo mismo y más.
         """
         if not self.activo:
-            return False
-        hoy = ahora.date()
-        if self.ultimo_respaldo == hoy:
-            return False
-        if self.frecuencia == self.Frecuencia.SEMANAL and hoy.weekday() != self.dia_semanal:
-            return False
-        return ahora.time() >= self.hora
+            return None
+        pasados = [turno for turno in self._turnos_del_dia(ahora.date()) if turno <= ahora]
+        if not pasados:
+            return None
+        turno = pasados[-1]
+        if self.ultimo_programado and self.ultimo_programado >= turno:
+            return None
+        return turno
+
+    def toca_respaldar(self, ahora) -> bool:
+        return self.turno_pendiente(ahora) is not None
+
+    def proximo_turno(self, ahora):
+        """Cuándo le toca: el pendiente si lo hay, si no el siguiente del
+        horario. `None` si está apagado o el horario está vacío."""
+        if not self.activo:
+            return None
+        pendiente = self.turno_pendiente(ahora)
+        if pendiente is not None:
+            return pendiente
+        for dentro_de in range(0, 8):
+            dia = ahora.date() + datetime.timedelta(days=dentro_de)
+            for turno in self._turnos_del_dia(dia):
+                if turno > ahora:
+                    return turno
+        return None
