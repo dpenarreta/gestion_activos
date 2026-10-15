@@ -16,6 +16,7 @@ const VACIO = {
   color: "#164B86",
   gerente_general: "",
   base_cumplimiento: "validacion",
+  matriz_crear_para_otros: false,
 };
 
 /** Sugerencias para el campo de zona horaria; se acepta cualquier zona IANA,
@@ -57,6 +58,7 @@ export function EmpresaForm() {
           color: datos.color,
           gerente_general: datos.gerente_general ?? "",
           base_cumplimiento: datos.base_cumplimiento,
+          matriz_crear_para_otros: Boolean(datos.matriz_crear_para_otros),
         });
         setUsuarios(datos.usuarios ?? 0);
       })
@@ -294,6 +296,35 @@ export function EmpresaForm() {
                 </select>
                 <div className="form-text">
                   Qué fecha decide si una obligación se cumplió a tiempo.
+                </div>
+              </div>
+              <div className="mz-field mz-field--full">
+                <div className="form-check form-switch">
+                  <input
+                    id="matriz_crear_para_otros"
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={valores.matriz_crear_para_otros}
+                    disabled={!puedeEditar}
+                    onChange={(event) =>
+                      actualizar(
+                        "matriz_crear_para_otros",
+                        event.target.checked,
+                      )
+                    }
+                  />
+                  <label
+                    className="form-check-label"
+                    htmlFor="matriz_crear_para_otros"
+                  >
+                    Quien no ve toda la empresa puede crear obligaciones para
+                    otras personas
+                  </label>
+                </div>
+                <div className="form-text">
+                  {valores.matriz_crear_para_otros
+                    ? "Permitido: quien crea para otra persona deja de ver la obligación en cuanto la guarda, y no podrá corregir un error en ella."
+                    : "Desactivado (recomendado): quien no ve toda la empresa tiene que figurar como responsable o suplente de lo que crea, para poder seguir viéndolo. Los roles con «ver todas» crean para cualquiera."}
                 </div>
               </div>
             </div>

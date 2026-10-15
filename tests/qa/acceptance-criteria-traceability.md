@@ -959,3 +959,10 @@ estado del módulo en `docs/matriz-obligaciones.md`.
 | AC-MTZ-054 | Último gestor | matriz-obligaciones.feature | Una empresa no se queda sin quien gestione sus miembros | Sí (pytest: `test_una_empresa_no_se_queda_sin_quien_gestione_sus_miembros`, `test_una_empresa_sin_gestores_no_bloquea_a_nadie`) |
 | AC-MTZ-055 | Acción `remind` | matriz-obligaciones.feature | La acción «Reenviar recordatorio» sigue a la especificación | Sí (pytest: `test_el_detalle_ofrece_reenviar_solo_a_quien_puede`; Vitest: `reenviar pide confirmación, envía y avisa`) |
 | AC-MTZ-056 | Menú y Configuración | matriz-obligaciones.feature | El menú y Configuración del módulo | Parcial (revisión manual en el navegador; las rutas las cubren las pruebas de cada pantalla) |
+
+## Matriz de obligaciones: reglas añadidas tras las pruebas funcionales
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-MTZ-057 | Crear para otros | matriz-obligaciones.feature | Crear sin «ver todas» exige figurar, salvo que la empresa lo permita | Sí (pytest: `test_sin_ver_todas_no_se_crea_lo_que_no_se_podria_ver`, `test_la_empresa_puede_permitir_crear_para_otros`, `test_el_ajuste_se_cambia_desde_la_ficha_de_la_empresa`; Vitest: `se explica en el alta y propone a uno mismo como responsable`, `sin la regla, no hay nota ni responsable propuesto`) |
+

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -68,6 +68,17 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
     setValores((actual) => ({ ...actual, [campo]: valor }));
   }
 
+  // Si la regla aplica, lo natural es que el responsable sea uno mismo: se
+  // propone, y se puede cambiar (siendo entonces el suplente).
+  const yo = opciones.reglas?.solo_propias ? opciones.reglas.yo : null;
+  useEffect(() => {
+    if (yo) {
+      setValores((actual) =>
+        actual.responsable ? actual : { ...actual, responsable: String(yo) },
+      );
+    }
+  }, [yo]);
+
   async function guardar(evento) {
     evento.preventDefault();
     setIsSaving(true);
@@ -95,6 +106,9 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
   }
 
   const anual = valores.periodicidad === "anual";
+  // La regla la decide el servidor (sin «ver todas» y sin permiso de la
+  // empresa, quien crea tiene que figurar); aquí solo se explica.
+  const soloPropias = Boolean(opciones.reglas?.solo_propias);
   const seleccion = (id, etiqueta, campo, lista, opcional) => (
     <Campo id={id} etiqueta={etiqueta} error={errores[campo]}>
       <select
@@ -326,6 +340,18 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
 
       <div className="mz-section">
         <h4>Responsables</h4>
+        {soloPropias && (
+          <div className="mz-note mt-0 mb-3" role="note">
+            <Icon name="info-circle" />
+            <span>
+              Usted ve solo las obligaciones donde es responsable o suplente,
+              así que tiene que figurar en una de las dos: si no, dejaría de
+              verla al guardarla. Para crear a nombre de otra persona sin
+              figurar, pida un rol con «ver todas» o que un administrador lo
+              permita en Configuración → Empresas.
+            </span>
+          </div>
+        )}
         <div className="mz-field-grid">
           {seleccion("obl-responsable", "Responsable", "responsable", personas)}
           {seleccion("obl-suplente", "Suplente", "suplente", personas, true)}

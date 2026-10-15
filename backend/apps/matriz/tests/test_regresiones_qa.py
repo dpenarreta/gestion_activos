@@ -118,6 +118,35 @@ def test_sin_ver_todas_no_se_crea_lo_que_no_se_podria_ver(escena):
     )
 
 
+def test_la_empresa_puede_permitir_crear_para_otros(escena):
+    """La regla anterior es la de fábrica; la empresa la puede relajar en
+    Configuración → Empresas (`matriz_crear_para_otros`)."""
+    empresa = Empresa.objects.get(codigo="LC")
+    reglas = escena["ana"].get("/api/v1/matriz/catalogos/").data["reglas"]
+    assert reglas == {"solo_propias": True, "yo": escena["gente"]["ana"].id}
+    assert escena["admin"].get("/api/v1/matriz/catalogos/").data["reglas"]["solo_propias"] is False
+
+    empresa.matriz_crear_para_otros = True
+    empresa.save()
+    assert escena["ana"].get("/api/v1/matriz/catalogos/").data["reglas"]["solo_propias"] is False
+    ajena = _alta(escena, "ana", responsable=escena["gente"]["beto"].id)
+    assert ajena.status_code == 201
+
+
+def test_el_ajuste_se_cambia_desde_la_ficha_de_la_empresa(escena):
+    empresa = Empresa.objects.get(codigo="LC")
+    raiz = User.objects.create_superuser("raiz", "raiz@example.com", "Sup3r-Secr3t!")
+    cliente = APIClient()
+    cliente.force_authenticate(user=raiz)
+    respuesta = cliente.patch(
+        f"/api/v1/empresas/{empresa.id}/", {"matriz_crear_para_otros": True}, format="json"
+    )
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.data["matriz_crear_para_otros"] is True
+    empresa.refresh_from_db()
+    assert empresa.matriz_crear_para_otros
+
+
 @pytest.mark.parametrize(
     "extra,campo",
     [

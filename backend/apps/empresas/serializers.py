@@ -39,6 +39,7 @@ class EmpresaAdminSerializer(serializers.ModelSerializer):
             "gerente_general",
             "gerente_general_nombre",
             "base_cumplimiento",
+            "matriz_crear_para_otros",
         ]
 
     gerente_general_nombre = serializers.SerializerMethodField()

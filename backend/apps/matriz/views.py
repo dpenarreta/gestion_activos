@@ -198,10 +198,18 @@ def _opciones(choices):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def catalogos(request):
-    """Todo lo que eligen los formularios de la Matriz, en una sola petición."""
-    empresa_de_la_matriz(request)
+    """Todo lo que eligen los formularios de la Matriz, en una sola petición.
+
+    Lleva también las reglas que el alta tiene que explicar antes de que el
+    servidor rechace: hoy, si quien crea debe figurar en lo que crea.
+    """
+    empresa, capacidades = empresa_de_la_matriz(request)
     return Response(
         {
+            "reglas": {
+                "solo_propias": _solo_propias(empresa, capacidades),
+                "yo": request.user.id,
+            },
             "areas": AreaSerializer(Area.objects.all(), many=True).data,
             "entidades": EntidadControlSerializer(EntidadControl.objects.all(), many=True).data,
             "sedes": [{"id": s.id, "nombre": s.nombre} for s in Sede.objects.order_by("nombre")],
@@ -456,6 +464,15 @@ def historial(request, pk):
 # --- Obligaciones -----------------------------------------------------------------
 
 
+def _solo_propias(empresa, capacidades) -> bool:
+    """Si quien crea tiene que figurar como responsable o suplente.
+
+    Aplica a quien no ve toda la empresa, salvo que la empresa lo permita
+    (`Empresa.matriz_crear_para_otros`, en Configuración → Empresas).
+    """
+    return "matriz.ver_todas" not in capacidades and not empresa.matriz_crear_para_otros
+
+
 def _puede_crear_en(request, area, capacidades):
     """Con `crear`, sin `ver_todas` y con áreas en la membresía, solo crea en
     esas áreas (§8.7)."""
@@ -484,7 +501,7 @@ def obligaciones(request):
     entrada.is_valid(raise_exception=True)
     if not _puede_crear_en(request, entrada.validated_data["area"], capacidades):
         raise ValidationError({"area": "Solo puede crear obligaciones de sus áreas."})
-    if "matriz.ver_todas" not in capacidades and request.user.pk not in (
+    if _solo_propias(empresa, capacidades) and request.user.pk not in (
         getattr(entrada.validated_data.get("responsable"), "pk", None),
         getattr(entrada.validated_data.get("suplente"), "pk", None),
     ):
@@ -493,7 +510,8 @@ def obligaciones(request):
                 "responsable": (
                     "Sin permiso para ver toda la empresa, usted tiene que ser el "
                     "responsable o el suplente de lo que crea: de lo contrario no "
-                    "podría volver a verlo."
+                    "podría volver a verlo. Un administrador de la empresa puede "
+                    "permitirlo en Configuración → Empresas."
                 )
             }
         )

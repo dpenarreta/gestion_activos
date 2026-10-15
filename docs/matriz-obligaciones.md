@@ -220,6 +220,14 @@ tiene y agrega solo lo propio de la matriz.
 - **Crear sin «ver todas»**: quien crea tiene que ser el responsable o el
   suplente del primer período. Antes se podía crear para otra persona y
   dejar de verlo en el mismo instante.
+  - El formulario de alta lo explica y propone a quien crea como
+    responsable. Los roles con «ver todas» crean para cualquiera.
+  - **Para cambiarla**: Configuración → Empresas → ficha de la empresa →
+    sección «Matriz de obligaciones» → «Quien no ve toda la empresa puede
+    crear obligaciones para otras personas» (`Empresa.matriz_crear_para_otros`,
+    desactivado por defecto). Es por empresa y queda en la auditoría como
+    `empresa.updated`. Activado, lo creado para otro deja de verse en cuanto
+    se guarda.
 - **Ceder el período**: quien pasa la responsabilidad a otra persona recibe
   `visible: false` en la respuesta y el panel lo explica, en vez de un 404.
 - **Plantilla**: el mes de vencimiento solo existe en las anuales y exige el

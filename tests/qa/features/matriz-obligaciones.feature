@@ -326,3 +326,12 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
   Scenario: El menú y Configuración del módulo
     Then el menú de la Matriz tiene Resumen, Matriz, Calendario, Documentos y Reportes
     And Configuración → Auditoría tiene «Sistema» con «auditoria.ver» y «Matriz» con «ver_auditoria»
+
+  # Reglas añadidas tras las pruebas funcionales
+
+  @AC-MTZ-057
+  Scenario: Crear sin «ver todas» exige figurar, salvo que la empresa lo permita
+    Given una persona sin «ver todas» en una empresa que no permite crear para otros
+    Then solo crea obligaciones donde es responsable o suplente, y el alta se lo explica y la propone como responsable
+    And si la empresa activa «Quien no ve toda la empresa puede crear obligaciones para otras personas», puede crear para cualquiera
+

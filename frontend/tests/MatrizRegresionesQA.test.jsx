@@ -198,6 +198,38 @@ describe("Nueva obligación", () => {
   });
 });
 
+describe("La regla de crear sin «ver todas»", () => {
+  it("se explica en el alta y propone a uno mismo como responsable", async () => {
+    svc.catalogos.mockResolvedValue({
+      ...(await svc.catalogos()),
+      reglas: { solo_propias: true, yo: 7 },
+    });
+    pintar(<ObligacionFormModal onCerrar={vi.fn()} onCreada={vi.fn()} />);
+
+    expect(
+      await screen.findByText(/tiene que figurar en una de las dos/),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Responsable")).toHaveValue("7"),
+    );
+  });
+
+  it("sin la regla, no hay nota ni responsable propuesto", async () => {
+    svc.catalogos.mockResolvedValue({
+      ...(await svc.catalogos()),
+      reglas: { solo_propias: false, yo: 7 },
+    });
+    pintar(<ObligacionFormModal onCerrar={vi.fn()} onCreada={vi.fn()} />);
+
+    await waitFor(() => expect(svc.personas).toHaveBeenCalled());
+    await screen.findAllByRole("option", { name: "Ana Pérez" });
+    expect(
+      screen.queryByText(/tiene que figurar en una de las dos/),
+    ).toBeNull();
+    expect(screen.getByLabelText("Responsable")).toHaveValue("");
+  });
+});
+
 describe("Ceder el período", () => {
   it("si deja de ser suyo, el panel lo dice en vez de mostrar un error", async () => {
     svc.periodo.mockResolvedValue(DETALLE);

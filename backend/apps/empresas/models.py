@@ -69,6 +69,19 @@ class Empresa(BaseModel):
         choices=BaseDeCumplimiento.choices,
         default=BaseDeCumplimiento.VALIDACION,
     )
+    #: Si quien **no** ve toda la empresa puede crear obligaciones para otras
+    #: personas. Desactivado, tiene que figurar como responsable o suplente
+    #: del primer período: si no, no podría volver a verlo —sin `ver_todas`
+    #: solo se ve lo propio— y la obligación quedaría a cargo de alguien sin
+    #: que quien la registró pueda corregir un error. Activado, se permite, y
+    #: lo creado para otro deja de verse en cuanto se guarda.
+    matriz_crear_para_otros = models.BooleanField(
+        default=False,
+        help_text=(
+            "Permite que quien no ve toda la empresa cree obligaciones para "
+            "otras personas (dejará de verlas al guardarlas)."
+        ),
+    )
 
     class Meta:
         ordering = ["nombre"]
