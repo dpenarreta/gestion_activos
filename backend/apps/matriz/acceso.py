@@ -38,6 +38,10 @@ ACOTADAS_AL_PERIODO = {
 MENSAJES = {
     "matriz.crear": "No tiene permiso para crear obligaciones.",
     "matriz.editar": "No tiene permiso para editar este período.",
+    "matriz.cambiar_fecha": "No tiene permiso para cambiar la fecha de vencimiento.",
+    "matriz.cargar": "No tiene permiso para cargar evidencias en este período.",
+    "matriz.enviar": "No tiene permiso para enviar este período a validación.",
+    "matriz.validar": "No tiene permiso para validar este período.",
 }
 
 
@@ -127,10 +131,24 @@ def acciones(periodo, usuario, capacidades) -> list[str]:
     """Las acciones que el detalle ofrece, calculadas en el servidor (§8.10).
 
     El frontend dibuja solo estas: un botón que termina en un 403 hace parecer
-    roto el sistema. Las del cierre (enviar, validar, devolver…) se suman con
-    la fase 3; las de recordatorios, con la 4.
+    roto el sistema. La separación de funciones no se mira aquí sino al
+    validar, para que el botón no desaparezca sin explicación: si toca, el
+    servidor responde con el motivo. Las de recordatorios llegan con la fase 4.
     """
-    resultado = []
-    if not periodo.cerrado and puede("matriz.editar", periodo, usuario, capacidades):
-        resultado.append("edit")
-    return resultado
+    if periodo.cerrado:
+        return []
+    pendiente = periodo.etapa == "pendiente_validacion"
+
+    def tiene(capacidad):
+        return puede(capacidad, periodo, usuario, capacidades)
+
+    candidatas = [
+        ("edit", tiene("matriz.editar")),
+        ("change_due_date", tiene("matriz.cambiar_fecha")),
+        ("upload", tiene("matriz.cargar")),
+        ("submit", not pendiente and tiene("matriz.enviar")),
+        ("validate", pendiente and tiene("matriz.validar")),
+        ("return", pendiente and tiene("matriz.validar")),
+        ("reject_document", tiene("matriz.validar")),
+    ]
+    return [accion for accion, permitida in candidatas if permitida]

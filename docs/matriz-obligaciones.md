@@ -57,7 +57,7 @@ tiene y agrega solo lo propio de la matriz.
 | --- | --- | --- |
 | 1. Base y acceso | Selector de módulos; empresa ampliada; áreas y entidades de control; permisos y roles sembrados; acceso solo por membresía; empresas de la Matriz con su rol | **Hecha** (AC-MTZ-001 a 010) |
 | 2. Obligaciones y matriz | Obligación, período, secuencia, historial; motor de estados; Resumen, Matriz, Detalle | **Hecha** (AC-MTZ-011 a 025) |
-| 3. Evidencias y cierre | PDF, visor, enviar, validar, devolver, rechazar, cambio de fecha; Documentos | Pendiente |
+| 3. Evidencias y cierre | PDF, visor, enviar, validar, devolver, rechazar, cambio de fecha; Documentos | **Hecha** (AC-MTZ-026 a 036) |
 | 4. Recordatorios | Configuración por empresa, correo, reintentos, escalamiento, en la tarea programada | Pendiente |
 | 5. Reportes y configuración | Calendario, Reportes, exportaciones, auditoría, pestaña Recordatorios | Pendiente |
 
@@ -104,3 +104,32 @@ tiene y agrega solo lo propio de la matriz.
   recordatorios (fase 4) y la generación automática de los períodos siguientes
   (fase 5). La pantalla para asignar áreas a una membresía llega con la fase 5;
   la regla ya se aplica en el servidor.
+
+## Lo que trae la fase 3
+
+- **Modelo**: `Documento` (acotado a la empresa por su período). El archivo se
+  guarda en `evidencias/{empresa}/{año}/{código}/v{versión}-{sha12}.pdf`, con
+  su huella SHA-256; el mismo nombre en el mismo período es una versión nueva.
+  Estados `valido`, `rechazado` y `eliminado`: no hay borrado físico.
+- **Reglas** (`apps/matriz/cierre.py`): solo PDF (extensión y firma `%PDF-`),
+  hasta `DOCUMENT_MAX_UPLOAD_MB` (10 por defecto); la primera evidencia pasa el
+  período a «En preparación»; enviar exige un documento válido; quien envió o
+  cargó no valida (separación de funciones); la fecha de cumplimiento sigue la
+  base de la empresa (validación o envío) y un cierre tardío queda «Finalizada
+  fuera de plazo»; devolver, rechazar y cambiar la fecha exigen un motivo de al
+  menos 10 caracteres. Todo deja su evento en el historial.
+- **Acciones por rol** (`acceso.acciones()`, §8.10): `edit`, `upload`,
+  `submit`, `validate`, `return`, `reject_document` y `change_due_date`; la
+  pantalla dibuja solo las que manda el servidor.
+- **API** (sobre la empresa activa)
+  - `GET/POST periodos/{id}/documentos/`: lista y carga (multipart, `file`).
+  - `GET documentos/{id}/archivo/` (`?download=1` para descargar): el PDF con
+    la sesión; cada acceso queda auditado como `document.accessed`.
+  - `POST documentos/{id}/rechazar/` y `DELETE documentos/{id}/` (lógico).
+  - `POST periodos/{id}/enviar/`, `validar/`, `devolver/` y `vencimiento/`.
+  - `GET documentos/`: la vista Documentos (`with_evidence` y `pending`).
+- **Pantallas**: en el panel del período, la barra de acciones, la pestaña
+  Documentos (válidos y rechazados), «Cargar evidencia» (arrastrar y soltar,
+  varios archivos, progreso por archivo), el visor de PDF, «Devolver»,
+  «Rechazar evidencia» y «Cambiar fecha de vencimiento». En el menú del
+  módulo, la vista Documentos (`/admin/matriz/documentos`).

@@ -6,7 +6,15 @@ from apps.users.models import User
 
 from .acceso import acciones
 from .estados import estado
-from .models import Area, EntidadControl, EventoPeriodo, Obligacion, Periodo, Prioridad
+from .models import (
+    Area,
+    Documento,
+    EntidadControl,
+    EventoPeriodo,
+    Obligacion,
+    Periodo,
+    Prioridad,
+)
 
 # --- Catálogos ---------------------------------------------------------------
 
@@ -333,3 +341,42 @@ class EventoSerializer(serializers.ModelSerializer):
 
     def get_actor(self, obj):
         return persona(obj.actor)["nombre"] if obj.actor else "Sistema"
+
+
+class DocumentoSerializer(serializers.ModelSerializer):
+    """Una evidencia, sin la ruta en disco: el archivo solo se entrega por su
+    endpoint, que comprueba permisos y deja traza (§11.4)."""
+
+    subido_por = serializers.SerializerMethodField()
+    rechazado_por = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Documento
+        fields = [
+            "id",
+            "nombre_original",
+            "version",
+            "tamano",
+            "estado",
+            "created_at",
+            "subido_por",
+            "motivo_rechazo",
+            "rechazado_por",
+            "rechazado_en",
+        ]
+
+    def get_subido_por(self, obj):
+        return persona(obj.subido_por)
+
+    def get_rechazado_por(self, obj):
+        return persona(obj.rechazado_por)
+
+
+class MotivoSerializer(serializers.Serializer):
+    reason = serializers.CharField(allow_blank=True)
+
+
+class CambioVencimientoSerializer(serializers.Serializer):
+    due_date = serializers.DateField()
+    due_time = serializers.TimeField(required=False, allow_null=True)
+    reason = serializers.CharField(allow_blank=True)

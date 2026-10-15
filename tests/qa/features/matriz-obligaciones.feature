@@ -157,3 +157,64 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
     Then la etiqueta sale del mes del vencimiento: «Octubre 2026», «T4 2026», «S2 2026», «Período 2026», «Período único»
     And sin fecha, el primer vencimiento sale de la regla de la plantilla
     And el siguiente respeta el fin de mes (31 → 30 o 28)
+
+  # Fase 3: evidencias y cierre
+
+  @AC-MTZ-026
+  Scenario: Solo se aceptan PDF, con tope de tamaño
+    When se carga un archivo que no es PDF, que no empieza por «%PDF-» o que supera el tope (10 MB)
+    Then el servidor lo rechaza con un mensaje claro
+    And la pantalla lo avisa antes de subirlo por extensión y tamaño
+
+  @AC-MTZ-027
+  Scenario: Cargar evidencia versiona y pone en marcha el período
+    When se carga un PDF con el mismo nombre que otro del período
+    Then queda como una versión nueva y la anterior se conserva
+    And la primera evidencia pasa el período de «Sin iniciar» a «En preparación»
+    And cada archivo de una carga múltiple tiene su progreso y su error
+
+  @AC-MTZ-028
+  Scenario: El archivo se sirve con la sesión y cada acceso queda auditado
+    Then el PDF se ve en el visor del navegador y se descarga por su endpoint, nunca por una ruta pública
+    And el archivo de un período ajeno responde 404
+
+  @AC-MTZ-029
+  Scenario: Rechazar una evidencia exige motivo; eliminar es lógico
+    When quien valida rechaza un documento con un motivo de al menos 10 caracteres
+    Then el documento queda en rojo con su motivo y deja de contar como evidencia
+    And eliminar un rechazado lo oculta sin borrar el archivo
+
+  @AC-MTZ-030
+  Scenario: Sin evidencia válida no se envía
+    Then «Enviar a validación» responde con un error si el período no tiene un documento válido
+
+  @AC-MTZ-031
+  Scenario: Enviar y validar cierran el período
+    When el responsable envía y otra persona valida
+    Then el período queda «Finalizado» con la fecha de cumplimiento
+    And las dos acciones piden confirmación en la pantalla
+
+  @AC-MTZ-032
+  Scenario: Separación de funciones
+    Then quien envió o cargó la evidencia no puede validar el mismo período
+
+  @AC-MTZ-033
+  Scenario: El cumplimiento sigue la base de la empresa
+    Then si la empresa cuenta la validación, un cierre posterior al vencimiento queda «Finalizada fuera de plazo»
+    And si cuenta el envío, la fecha de cumplimiento es la del envío
+
+  @AC-MTZ-034
+  Scenario: Devolver exige motivo
+    When quien valida devuelve el período con un motivo de al menos 10 caracteres
+    Then vuelve a «En preparación» y el motivo queda en el historial
+
+  @AC-MTZ-035
+  Scenario: Cambiar la fecha exige permiso y justificación
+    Then solo Administrador y Supervisor cambian el vencimiento, con justificación
+    And el cambio queda en el historial con la fecha anterior
+    And un período cerrado no cambia de fecha
+
+  @AC-MTZ-036
+  Scenario: La vista Documentos
+    Then separa los períodos con evidencia válida de los pendientes
+    And cada fila abre el período en el panel lateral

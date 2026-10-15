@@ -393,3 +393,5 @@ LOGGING = build_logging_config(debug=DEBUG)
 # --- Matriz de obligaciones -------------------------------------------------
 # Prefijo de los códigos de período: OBL-0001, OBL-0002…
 PERIOD_CODE_PREFIX = env.str("PERIOD_CODE_PREFIX", default="OBL")
+# Tamaño máximo de cada evidencia PDF, en MB (§11.4).
+DOCUMENT_MAX_UPLOAD_MB = env.int("DOCUMENT_MAX_UPLOAD_MB", default=10)

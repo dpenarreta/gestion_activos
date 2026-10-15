@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
 import { CatalogoMatrizPage } from "../pages/Matriz/CatalogoMatrizPage";
+import { DocumentosMatriz } from "../pages/Matriz/DocumentosMatriz";
 import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
@@ -560,6 +561,7 @@ export function AppRoutes() {
           path="matriz/obligaciones"
           element={<MatrizObligacionesPage />}
         />
+        <Route path="matriz/documentos" element={<DocumentosMatriz />} />
         {/* Catálogos de la Matriz: viven en Configuración → Catálogos, junto
             a los del inventario, con su propio permiso. */}
         <Route

@@ -8,8 +8,8 @@ completa está en `matriz_admin/docs/modulo/MODULO-MATRIZ-OBLIGACIONES.md`; los
 números de sección de los comentarios remiten a ella.
 
 Fase 1: los catálogos compartidos. Fase 2: obligaciones, períodos, la
-secuencia de códigos y el historial. Evidencias y recordatorios llegan en las
-fases siguientes.
+secuencia de códigos y el historial. Fase 3: las evidencias. Los recordatorios
+llegan en la fase 4.
 """
 
 import datetime
@@ -295,3 +295,79 @@ class EventoPeriodo(BaseModel):
 
     def delete(self, *args, **kwargs):
         raise ValueError("El historial es de solo inserción: no se borra.")
+
+
+# --- Evidencias (fase 3) ---------------------------------------------------
+
+
+def ruta_evidencia(instance, filename: str) -> str:
+    """`evidencias/{empresa}/{año del vencimiento}/{código}/v{versión}-{sha}.pdf`
+    (§4.8).
+
+    Nunca el nombre que trajo el archivo: puede traer separadores, `..` o
+    chocar con otro. El original se guarda aparte, para mostrarlo y descargarlo.
+    """
+    periodo = instance.periodo
+    return (
+        f"evidencias/{periodo.empresa.codigo}/{periodo.vence_en.year}/{periodo.codigo}/"
+        f"v{instance.version}-{instance.sha256[:12]}.pdf"
+    )
+
+
+class EstadoDocumento(models.TextChoices):
+    VALIDO = "valido", "Válido"
+    RECHAZADO = "rechazado", "Rechazado"
+    ELIMINADO = "eliminado", "Eliminado"
+
+
+class Documento(BaseModel):
+    """Un PDF que respalda el cumplimiento de un período (§4.8).
+
+    **Nada se borra físicamente**: eliminar un documento rechazado lo marca
+    como eliminado y el archivo se conserva. «Con evidencia» cuenta solo los
+    válidos; un período con solo rechazados sigue pendiente.
+    """
+
+    periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="documentos")
+    archivo = models.FileField(upload_to=ruta_evidencia, max_length=255)
+    nombre_original = models.CharField(max_length=255)
+    #: Volver a subir un archivo con el mismo nombre en el período (sin
+    #: distinguir mayúsculas) es una versión nueva, no un reemplazo.
+    version = models.PositiveIntegerField(default=1)
+    tamano = models.BigIntegerField()
+    content_type = models.CharField(max_length=100, default="application/pdf")
+    sha256 = models.CharField(max_length=64)
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    estado = models.CharField(
+        max_length=10, choices=EstadoDocumento.choices, default=EstadoDocumento.VALIDO
+    )
+    motivo_rechazo = models.TextField(blank=True)
+    rechazado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    rechazado_en = models.DateTimeField(null=True, blank=True)
+    eliminado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    eliminado_en = models.DateTimeField(null=True, blank=True)
+
+    #: Se ve desde la empresa de su período, y desde ninguna otra.
+    objects = gestor_de_lo_que_cuelga("periodo__empresa")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "documento de evidencia"
+        verbose_name_plural = "documentos de evidencia"
+
+    def __str__(self) -> str:
+        return f"{self.nombre_original} (v{self.version})"

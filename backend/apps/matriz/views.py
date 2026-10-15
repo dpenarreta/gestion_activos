@@ -1,7 +1,9 @@
 import datetime
+from urllib.parse import quote
 
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.db.models.deletion import ProtectedError
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -18,11 +20,13 @@ from apps.empresas.servicios import empresas_de
 from apps.organizacion.models import Sede
 from apps.users.models import User
 
-from . import estados, servicios
-from .acceso import capacidades_en, empresa_de_la_matriz, exigir, visibles
+from . import cierre, estados, servicios
+from .acceso import capacidades_en, empresa_de_la_matriz, exigir, puede, visibles
 from .models import (
     Area,
+    Documento,
     EntidadControl,
+    EstadoDocumento,
     Etapa,
     Obligacion,
     Periodicidad,
@@ -33,8 +37,11 @@ from .models import (
 from .permissions import CatalogosPermission
 from .serializers import (
     AreaSerializer,
+    CambioVencimientoSerializer,
+    DocumentoSerializer,
     EntidadControlSerializer,
     EventoSerializer,
+    MotivoSerializer,
     ObligacionAltaSerializer,
     ObligacionSerializer,
     PeriodoDetalleSerializer,
@@ -474,3 +481,177 @@ def obligacion(request, pk):
                 context=get_request_context(request),
             )
     return Response(ObligacionSerializer(actual).data)
+
+
+# --- Evidencias y cierre (fase 3) ---------------------------------------------------
+
+
+def _responder_detalle(request, pk):
+    actual, capacidades = _periodo_visible(request, pk)
+    return Response(
+        PeriodoDetalleSerializer(
+            actual, context={"request": request, "capacidades": capacidades}
+        ).data
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def documentos(request, pk):
+    """Las evidencias del período (válidas y rechazadas); con `POST`, cargar
+    una (`multipart/form-data` con `file`) (§14.4)."""
+    actual, capacidades = _periodo_visible(request, pk)
+    if request.method == "POST":
+        exigir(request, "matriz.cargar", capacidades, actual)
+        archivo = request.FILES.get("file")
+        if archivo is None:
+            raise ValidationError({"file": "Adjunte el archivo PDF."})
+        documento = cierre.cargar_evidencia(
+            periodo=actual,
+            archivo=archivo,
+            actor=request.user,
+            contexto=get_request_context(request),
+        )
+        return Response(DocumentoSerializer(documento).data, status=status.HTTP_201_CREATED)
+    lista = actual.documentos.exclude(estado=EstadoDocumento.ELIMINADO).select_related(
+        "subido_por", "rechazado_por"
+    )
+    return Response(DocumentoSerializer(lista, many=True).data)
+
+
+def _documento_visible(request, pk):
+    """El documento si su período se puede ver; si no, 404 (§8.4)."""
+    _, capacidades = empresa_de_la_matriz(request)
+    documento = get_object_or_404(
+        Documento.objects.select_related("periodo", "periodo__empresa"), pk=pk
+    )
+    visible = visibles(Periodo.objects.filter(pk=documento.periodo_id), request.user, capacidades)
+    if not visible.exists() or documento.estado == EstadoDocumento.ELIMINADO:
+        raise Http404()
+    return documento, capacidades
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def documento_archivo(request, pk):
+    """El PDF, en línea o como descarga con `?download=1`. Cada acceso queda en
+    la auditoría (`document.accessed`): es un archivo que sale del sistema."""
+    documento, _ = _documento_visible(request, pk)
+    try:
+        fichero = documento.archivo.open("rb")
+    except FileNotFoundError as error:
+        raise Http404("El archivo ya no está disponible en el servidor.") from error
+    descarga = request.query_params.get("download") == "1"
+    record_audit_event(
+        actor=request.user,
+        action="document.accessed",
+        target=documento,
+        module=MODULO,
+        new_values={"descarga": descarga},
+        context=get_request_context(request),
+    )
+    respuesta = FileResponse(fichero, content_type="application/pdf")
+    disposicion = "attachment" if descarga else "inline"
+    respuesta["Content-Disposition"] = (
+        f"{disposicion}; filename*=UTF-8''{quote(documento.nombre_original)}"
+    )
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    return respuesta
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def documento_rechazar(request, pk):
+    documento, capacidades = _documento_visible(request, pk)
+    exigir(request, "matriz.validar", capacidades, documento.periodo)
+    entrada = MotivoSerializer(data=request.data)
+    entrada.is_valid(raise_exception=True)
+    cierre.rechazar_documento(
+        documento=documento,
+        motivo=entrada.validated_data["reason"],
+        actor=request.user,
+        contexto=get_request_context(request),
+    )
+    return Response(DocumentoSerializer(Documento.objects.get(pk=pk)).data)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def documento_eliminar(request, pk):
+    documento, capacidades = _documento_visible(request, pk)
+    exigir(request, "matriz.cargar", capacidades, documento.periodo)
+    cierre.eliminar_documento(
+        documento=documento, actor=request.user, contexto=get_request_context(request)
+    )
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _accion_del_periodo(capacidad, funcion, con_motivo=False):
+    @api_view(["POST"])
+    @permission_classes([IsAuthenticated])
+    def vista(request, pk):
+        actual, capacidades = _periodo_visible(request, pk)
+        exigir(request, capacidad, capacidades, actual)
+        extra = {}
+        if con_motivo:
+            entrada = MotivoSerializer(data=request.data)
+            entrada.is_valid(raise_exception=True)
+            extra["motivo"] = entrada.validated_data["reason"]
+        funcion(periodo=actual, actor=request.user, contexto=get_request_context(request), **extra)
+        return _responder_detalle(request, pk)
+
+    return vista
+
+
+enviar = _accion_del_periodo("matriz.enviar", cierre.enviar)
+validar = _accion_del_periodo("matriz.validar", cierre.validar)
+devolver = _accion_del_periodo("matriz.validar", cierre.devolver, con_motivo=True)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def cambiar_vencimiento(request, pk):
+    """`{"due_date": "2026-10-20", "due_time": "17:00", "reason": "…"}` (§14.3)."""
+    actual, capacidades = _periodo_visible(request, pk)
+    exigir(request, "matriz.cambiar_fecha", capacidades, actual)
+    entrada = CambioVencimientoSerializer(data=request.data)
+    entrada.is_valid(raise_exception=True)
+    cierre.cambiar_vencimiento(
+        periodo=actual,
+        fecha=entrada.validated_data["due_date"],
+        hora=entrada.validated_data.get("due_time"),
+        motivo=entrada.validated_data["reason"],
+        actor=request.user,
+        contexto=get_request_context(request),
+    )
+    return _responder_detalle(request, pk)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def documentos_resumen(request):
+    """La vista Documentos (§15.7): expedientes con evidencia y pendientes."""
+    _, capacidades = empresa_de_la_matriz(request)
+    ahora = timezone.now()
+    consulta = visibles(_consulta_base(), request.user, capacidades).annotate(
+        validos=Count("documentos", filter=Q(documentos__estado=EstadoDocumento.VALIDO))
+    )
+    contexto = {"ahora": ahora}
+
+    def filas(qs):
+        resultado = []
+        for periodo in qs.order_by("vence_en")[:200]:
+            datos = PeriodoListaSerializer(periodo, context=contexto).data
+            datos["documentos_validos"] = periodo.validos
+            resultado.append(datos)
+        return resultado
+
+    return Response(
+        {
+            "with_evidence": filas(consulta.filter(validos__gt=0)),
+            "pending": filas(consulta.filter(validos=0)),
+        }
+    )
+
+
+__all__ = ["puede"]

@@ -46,6 +46,69 @@ export const matrizService = {
   catalogos() {
     return apiClient.get(`${BASE}/catalogos/`).then((res) => res.data);
   },
+
+  // --- Evidencias y cierre (fase 3) ---
+  documentos(id) {
+    return apiClient
+      .get(`${BASE}/periodos/${id}/documentos/`)
+      .then((res) => res.data);
+  },
+  /** Sube un PDF; `alProgresar` recibe el porcentaje enviado. */
+  cargarEvidencia(id, archivo, alProgresar) {
+    const datos = new FormData();
+    datos.append("file", archivo);
+    return apiClient
+      .post(`${BASE}/periodos/${id}/documentos/`, datos, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (evento) => {
+          if (alProgresar && evento.total) {
+            alProgresar(Math.round((evento.loaded / evento.total) * 100));
+          }
+        },
+      })
+      .then((res) => res.data);
+  },
+  /** El PDF como `Blob`: el endpoint exige la sesión, así que no puede ir
+   * directo al `src` de un visor; se pide con el cliente autenticado. */
+  archivo(documentoId, { descarga = false } = {}) {
+    return apiClient
+      .get(`${BASE}/documentos/${documentoId}/archivo/`, {
+        params: descarga ? { download: 1 } : {},
+        responseType: "blob",
+      })
+      .then((res) => res.data);
+  },
+  rechazarDocumento(documentoId, reason) {
+    return apiClient
+      .post(`${BASE}/documentos/${documentoId}/rechazar/`, { reason })
+      .then((res) => res.data);
+  },
+  eliminarDocumento(documentoId) {
+    return apiClient.delete(`${BASE}/documentos/${documentoId}/`);
+  },
+  enviar(id) {
+    return apiClient
+      .post(`${BASE}/periodos/${id}/enviar/`)
+      .then((res) => res.data);
+  },
+  validar(id) {
+    return apiClient
+      .post(`${BASE}/periodos/${id}/validar/`)
+      .then((res) => res.data);
+  },
+  devolver(id, reason) {
+    return apiClient
+      .post(`${BASE}/periodos/${id}/devolver/`, { reason })
+      .then((res) => res.data);
+  },
+  cambiarVencimiento(id, datos) {
+    return apiClient
+      .post(`${BASE}/periodos/${id}/vencimiento/`, datos)
+      .then((res) => res.data);
+  },
+  documentosResumen() {
+    return apiClient.get(`${BASE}/documentos/`).then((res) => res.data);
+  },
 };
 
 /** Áreas y entidades de control: catálogos compartidos por las empresas. */

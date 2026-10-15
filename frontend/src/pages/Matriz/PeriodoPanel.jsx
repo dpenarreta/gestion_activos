@@ -11,7 +11,12 @@ import {
   diaCorto,
   fechaHora,
 } from "./formatoMatriz";
+import { CambiarFechaModal } from "./CambiarFechaModal";
+import { CargarEvidenciaModal } from "./CargarEvidenciaModal";
+import { DocumentosDelPeriodo } from "./DocumentosDelPeriodo";
+import { MotivoModal } from "./MotivoModal";
 import { SeguimientoModal } from "./SeguimientoModal";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog/ConfirmDialog";
 
 const TIPOS = {
   regulatoria: "Regulatoria",
@@ -48,6 +53,74 @@ function Persona({ persona }) {
 }
 
 /**
+ * Los botones del período, en el orden del flujo, y solo los que el servidor
+ * ofrece en `acciones` (§8.10).
+ */
+const BOTONES = [
+  {
+    accion: "submit",
+    ventana: "enviar",
+    texto: "Enviar a validación",
+    icono: "send",
+    clase: "btn-primary",
+  },
+  {
+    accion: "validate",
+    ventana: "validar",
+    texto: "Validar y finalizar",
+    icono: "check2-circle",
+    clase: "btn-primary",
+  },
+  {
+    accion: "return",
+    ventana: "devolver",
+    texto: "Devolver",
+    icono: "arrow-counterclockwise",
+    clase: "btn-outline-warning",
+  },
+  {
+    accion: "upload",
+    ventana: "cargar",
+    texto: "Cargar evidencia",
+    icono: "cloud-arrow-up",
+    clase: "btn-outline-primary",
+  },
+  {
+    accion: "edit",
+    ventana: "seguimiento",
+    texto: "Editar seguimiento",
+    icono: "pencil",
+    clase: "btn-outline-primary",
+  },
+  {
+    accion: "change_due_date",
+    ventana: "fecha",
+    texto: "Cambiar fecha",
+    icono: "calendar-event",
+    clase: "btn-outline-secondary",
+  },
+];
+
+function BarraDeAcciones({ acciones, onAccion }) {
+  const visibles = BOTONES.filter((b) => acciones.includes(b.accion));
+  if (visibles.length === 0) return null;
+  return (
+    <div className="mz-actions mb-3">
+      {visibles.map((b) => (
+        <button
+          key={b.accion}
+          type="button"
+          className={`btn btn-sm ${b.clase}`}
+          onClick={() => onAccion(b.ventana)}
+        >
+          <Icon name={b.icono} /> {b.texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * El detalle de un período, en un panel lateral (§15.4).
  *
  * Se abre desde cualquier pantalla de la Matriz con `?periodo=ID` en la
@@ -60,7 +133,12 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
   const [historial, setHistorial] = useState(null);
   const [error, setError] = useState(null);
   const [pestana, setPestana] = useState("general");
-  const [editando, setEditando] = useState(false);
+  // La ventana abierta: seguimiento, fecha, carga, devolver, enviar o validar.
+  const [ventana, setVentana] = useState(null);
+  const [isConfirmando, setIsConfirmando] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  // Sube cada vez que algo cambia, para que la pestaña Documentos se relea.
+  const [version, setVersion] = useState(0);
 
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -85,6 +163,31 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
     setError(null);
     cargar();
   }, [cargar]);
+
+  function despuesDeCambiar(mensaje) {
+    setVentana(null);
+    setAviso(mensaje ?? null);
+    setVersion((v) => v + 1);
+    cargar();
+    onCambio?.();
+  }
+
+  async function confirmar(accion) {
+    setIsConfirmando(true);
+    try {
+      await (accion === "enviar"
+        ? matrizService.enviar(id)
+        : matrizService.validar(id));
+      despuesDeCambiar(
+        accion === "enviar" ? "Enviado a validación." : "Cierre validado.",
+      );
+    } catch (err) {
+      setVentana(null);
+      setError(mensajeDeError(err, "No se pudo completar la acción."));
+    } finally {
+      setIsConfirmando(false);
+    }
+  }
 
   const zona = periodo?.empresa?.zona_horaria;
   const estado = periodo?.estado;
@@ -144,6 +247,13 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
             </div>
           )}
 
+          {aviso && (
+            <div className="mz-alert mz-alert--info" role="status">
+              <Icon name="check2-circle" />
+              {aviso}
+            </div>
+          )}
+
           {periodo && (
             <>
               <div
@@ -153,6 +263,7 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
               >
                 {[
                   ["general", "General"],
+                  ["documentos", "Documentos"],
                   ["historial", "Historial"],
                 ].map(([clave, nombre]) => (
                   <button
@@ -170,17 +281,10 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
 
               {pestana === "general" && (
                 <div role="tabpanel" aria-label="General">
-                  {periodo.acciones.includes("edit") && (
-                    <div className="mz-actions mb-3">
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => setEditando(true)}
-                      >
-                        <Icon name="pencil" /> Editar seguimiento
-                      </button>
-                    </div>
-                  )}
+                  <BarraDeAcciones
+                    acciones={periodo.acciones}
+                    onAccion={setVentana}
+                  />
                   {periodo.recordatorios_suspendidos && (
                     <div className="mz-alert mz-alert--info" role="status">
                       <Icon name="bell-slash" />
@@ -299,6 +403,27 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                 </div>
               )}
 
+              {pestana === "documentos" && (
+                <div role="tabpanel" aria-label="Documentos">
+                  {periodo.acciones.includes("upload") && (
+                    <div className="mz-actions mb-3">
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setVentana("cargar")}
+                      >
+                        <Icon name="cloud-arrow-up" /> Cargar evidencia
+                      </button>
+                    </div>
+                  )}
+                  <DocumentosDelPeriodo
+                    periodo={periodo}
+                    version={version}
+                    onCambio={() => despuesDeCambiar()}
+                  />
+                </div>
+              )}
+
               {pestana === "historial" && (
                 <div role="tabpanel" aria-label="Historial">
                   {historial === null ? (
@@ -332,17 +457,62 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
         </div>
       </aside>
 
-      {editando && periodo && (
+      {periodo && ventana === "seguimiento" && (
         <SeguimientoModal
           periodo={periodo}
-          onCerrar={() => setEditando(false)}
-          onGuardado={() => {
-            setEditando(false);
+          onCerrar={() => setVentana(null)}
+          onGuardado={() => despuesDeCambiar("Seguimiento actualizado.")}
+        />
+      )}
+      {periodo && ventana === "fecha" && (
+        <CambiarFechaModal
+          periodo={periodo}
+          onCerrar={() => setVentana(null)}
+          onGuardado={() => despuesDeCambiar("Fecha de vencimiento cambiada.")}
+        />
+      )}
+      {periodo && ventana === "cargar" && (
+        <CargarEvidenciaModal
+          periodo={periodo}
+          onCerrar={() => setVentana(null)}
+          onCargado={() => {
+            setVersion((v) => v + 1);
             cargar();
             onCambio?.();
           }}
         />
       )}
+      {periodo && ventana === "devolver" && (
+        <MotivoModal
+          titulo="Devolver a preparación"
+          subtitulo={`${periodo.codigo} · ${periodo.obligacion.nombre}`}
+          etiqueta="Qué hay que corregir"
+          textoConfirmar="Devolver"
+          onCerrar={() => setVentana(null)}
+          onConfirmar={async (motivo) => {
+            await matrizService.devolver(id, motivo);
+            despuesDeCambiar("Devuelto a preparación.");
+          }}
+        />
+      )}
+      <ConfirmDialog
+        isOpen={ventana === "enviar"}
+        title="Enviar a validación"
+        message="El período pasará a «Pendiente de validación» y quien valida podrá cerrarlo o devolverlo."
+        confirmLabel="Enviar"
+        isLoading={isConfirmando}
+        onConfirm={() => confirmar("enviar")}
+        onCancel={() => setVentana(null)}
+      />
+      <ConfirmDialog
+        isOpen={ventana === "validar"}
+        title="Validar y finalizar"
+        message="El período queda cerrado con su evidencia y deja de recibir recordatorios. No se puede reabrir."
+        confirmLabel="Validar y finalizar"
+        isLoading={isConfirmando}
+        onConfirm={() => confirmar("validar")}
+        onCancel={() => setVentana(null)}
+      />
     </div>
   );
 }

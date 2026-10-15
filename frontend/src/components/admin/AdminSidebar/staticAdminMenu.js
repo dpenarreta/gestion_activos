@@ -205,6 +205,14 @@ export const ADMIN_MENU = [
     insignia: "atencion",
   },
   {
+    id: "matriz-documentos",
+    modulo: "matriz",
+    name: "Documentos",
+    icon: "folder2-open",
+    path: "/admin/matriz/documentos",
+    permission: PERMISOS_MATRIZ,
+  },
+  {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,
     // usuarios, roles, permisos, catálogos, identidad visual, respaldos y
     // auditoría— se elige con las pestañas de la propia pantalla (ver
