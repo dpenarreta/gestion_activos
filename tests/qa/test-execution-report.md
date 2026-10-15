@@ -186,7 +186,7 @@ en `apps/matriz/tests/test_regresiones_qa.py`,
 de la base QA, por el camino completo (notificación registrada y correo por
 `inboundlaarcouriernew.alphaside.com:2524` con STARTTLS), a un único buzón de
 la persona que pidió la prueba. El servidor lo aceptó en 1,4 s y la
-notificación quedó «enviado». La destinataria confirmó que el correo llegó y
+notificación quedó «enviado». Quien lo recibió confirmó que el correo llegó y
 se ve bien. Contra un servidor que acepta la conexión y no responde, el envío
 se colgaba (defecto 12); con el límite falla a los 20 s y queda para
 reintento.
