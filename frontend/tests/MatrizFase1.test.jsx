@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /*
  * Matriz de obligaciones, fase 1: la entrada del módulo y sus catálogos.
  *
- * Cobertura de AC-MTZ-004 y AC-MTZ-006.
+ * Cobertura de AC-MTZ-006 (la entrada de la Matriz, AC-MTZ-004, pasó a
+ * MatrizFase2.test.jsx con el tablero).
  */
 
 const misEmpresas = vi.fn();
@@ -33,7 +34,6 @@ vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codigo) => permisos.has(codigo),
 }));
 
-const { ResumenMatriz } = await import("../src/pages/Matriz/ResumenMatriz");
 const { CatalogoMatrizPage } =
   await import("../src/pages/Matriz/CatalogoMatrizPage");
 
@@ -55,34 +55,6 @@ beforeEach(() => {
   listar.mockResolvedValue([
     { id: 1, codigo: "CONT", nombre: "Contabilidad y Tributario" },
   ]);
-});
-
-describe("La entrada de la Matriz", () => {
-  it("dice la empresa, su zona horaria, el rol y qué permite", async () => {
-    render(<ResumenMatriz />);
-
-    expect(
-      await screen.findByRole("heading", { name: "LaarCourier", level: 2 }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/America\/Guayaquil/)).toBeInTheDocument();
-    expect(screen.getByText("Matriz · Responsable")).toBeInTheDocument();
-    expect(screen.getByText("Cargar evidencias")).toBeInTheDocument();
-    expect(screen.getByText("Enviar a validación")).toBeInTheDocument();
-    expect(screen.queryByText("Validar cierres y devolver")).toBeNull();
-  });
-
-  it("sin rol de la Matriz en la empresa activa, lo dice y cómo resolverlo", async () => {
-    /* Los permisos valen por empresa: en otra puede tener rol, aquí no. */
-    empresaActiva = "2";
-
-    render(<ResumenMatriz />);
-
-    expect(
-      await screen.findByText(
-        "No tiene un rol de la Matriz en la empresa activa.",
-      ),
-    ).toBeInTheDocument();
-  });
 });
 
 describe("Áreas y entidades de control", () => {

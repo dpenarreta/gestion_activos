@@ -29,7 +29,15 @@ from apps.empresas.managers import ATRIBUTO_RUTA
 #: Dónde vive el dominio. Lo transversal —autenticación, permisos, identidad
 #: visual— no describe activos de nadie y no entra en el recorrido.
 APPS_DE_NEGOCIO = frozenset(
-    {"activos", "organizacion", "mantenimientos", "politicas", "alertas", "adjuntos"}
+    {
+        "activos",
+        "organizacion",
+        "mantenimientos",
+        "politicas",
+        "alertas",
+        "adjuntos",
+        "matriz",
+    }
 )
 
 #: Lo que **no** se acota, y por qué. Cada línea es una decisión tomada, no un
@@ -60,6 +68,17 @@ GLOBALES_A_PROPOSITO = {
     "users.User": (
         "La cuenta es una sola persona en todo el despliegue; a qué empresas "
         "entra lo dice su membresía, no una copia de la cuenta por empresa."
+    ),
+    "matriz.Area": (
+        "Catálogo compartido por todas las empresas (especificación de la "
+        "Matriz, §4.3): el reporte por área tiene que poder sumar el grupo."
+    ),
+    "matriz.EntidadControl": (
+        "Catálogo compartido por todas las empresas (§4.3): el SRI es el mismo " "para todas."
+    ),
+    "matriz.SecuenciaCodigo": (
+        "El contador de los códigos OBL-0001 es global a propósito (§4.6): el "
+        "código identifica un período en todo el grupo."
     ),
     "branding.SiteTheme": (
         "La identidad visual es global por ahora. Está registrado como decisión "

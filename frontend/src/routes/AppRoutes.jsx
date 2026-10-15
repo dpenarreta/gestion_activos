@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
 import { CatalogoMatrizPage } from "../pages/Matriz/CatalogoMatrizPage";
+import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
@@ -550,7 +551,15 @@ export function AppRoutes() {
         {/* Matriz de obligaciones: su propio prefijo, como pide la
             especificación del módulo. Sus permisos se comprueban en el
             servidor por empresa; la pantalla dice si no hay rol. */}
-        <Route path="matriz" element={<ResumenMatriz />} />
+        <Route
+          path="matriz"
+          element={<Navigate to="/admin/matriz/resumen" replace />}
+        />
+        <Route path="matriz/resumen" element={<ResumenMatriz />} />
+        <Route
+          path="matriz/obligaciones"
+          element={<MatrizObligacionesPage />}
+        />
         {/* Catálogos de la Matriz: viven en Configuración → Catálogos, junto
             a los del inventario, con su propio permiso. */}
         <Route

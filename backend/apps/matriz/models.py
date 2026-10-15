@@ -7,13 +7,20 @@ tarea programada— y agrega solo lo propio de la matriz. La especificación
 completa está en `matriz_admin/docs/modulo/MODULO-MATRIZ-OBLIGACIONES.md`; los
 números de sección de los comentarios remiten a ella.
 
-Fase 1: los catálogos compartidos. Obligaciones, períodos, evidencias y
-recordatorios llegan en las fases siguientes.
+Fase 1: los catálogos compartidos. Fase 2: obligaciones, períodos, la
+secuencia de códigos y el historial. Evidencias y recordatorios llegan en las
+fases siguientes.
 """
 
+import datetime
+
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.core.models import BaseModel
+from apps.empresas.managers import gestor_de_lo_que_cuelga
+from apps.empresas.models import ModeloDeEmpresa
 
 
 class _Catalogo(BaseModel):
@@ -44,6 +51,12 @@ class Area(_Catalogo):
     """
 
     nombre = models.CharField(max_length=120)
+    #: Áreas donde puede **crear** obligaciones quien no ve toda la empresa
+    #: (§4.4, §8.7). Cuelga de la membresía del sistema: es el mismo «quién
+    #: trabaja dónde», con lo que la Matriz necesita encima. Vacío = cualquiera.
+    membresias = models.ManyToManyField(
+        "empresas.MembresiaEmpresa", blank=True, related_name="areas_matriz"
+    )
 
     class Meta(_Catalogo.Meta):
         verbose_name = "área"
@@ -58,3 +71,227 @@ class EntidadControl(_Catalogo):
     class Meta(_Catalogo.Meta):
         verbose_name = "entidad de control"
         verbose_name_plural = "entidades de control"
+
+
+# --- Listas cerradas (§5) -------------------------------------------------
+
+
+class Tipo(models.TextChoices):
+    REGULATORIA = "regulatoria", "Regulatoria"
+    CONTRACTUAL = "contractual", "Contractual"
+    INTERNA = "interna", "Interna"
+
+
+class Periodicidad(models.TextChoices):
+    MENSUAL = "mensual", "Mensual"
+    TRIMESTRAL = "trimestral", "Trimestral"
+    SEMESTRAL = "semestral", "Semestral"
+    ANUAL = "anual", "Anual"
+    UNICA = "unica", "Única"
+
+
+class Prioridad(models.TextChoices):
+    ALTA = "alta", "Alta"
+    MEDIA = "media", "Media"
+    BAJA = "baja", "Baja"
+
+
+class Etapa(models.TextChoices):
+    SIN_INICIAR = "sin_iniciar", "Sin iniciar"
+    EN_PREPARACION = "en_preparacion", "En preparación"
+    PENDIENTE_VALIDACION = "pendiente_validacion", "Pendiente de validación"
+
+
+# --- Obligación y período ---------------------------------------------------
+
+
+class Obligacion(ModeloDeEmpresa):
+    """La plantilla de un deber recurrente: «Declaración de IVA» (§4.5).
+
+    Cada vencimiento concreto es un `Periodo`. Desactivarla deja de generar
+    períodos nuevos sin tocar los que ya existen.
+    """
+
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    area = models.ForeignKey(Area, on_delete=models.PROTECT, related_name="obligaciones")
+    entidad = models.ForeignKey(
+        EntidadControl, on_delete=models.PROTECT, related_name="obligaciones"
+    )
+    tipo = models.CharField(max_length=12, choices=Tipo.choices, default=Tipo.REGULATORIA)
+    periodicidad = models.CharField(max_length=12, choices=Periodicidad.choices)
+    fundamento_legal = models.TextField(blank=True)
+    fundamento_url = models.URLField(max_length=500, blank=True)
+    evidencia_esperada = models.CharField(
+        max_length=255, help_text="Ej.: «Formulario 104 y comprobante de pago»."
+    )
+    dia_vencimiento = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
+    mes_vencimiento = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Solo para las anuales.",
+    )
+    hora_vencimiento = models.TimeField(default=datetime.time(17, 0))
+    prioridad_defecto = models.CharField(
+        max_length=6, choices=Prioridad.choices, default=Prioridad.MEDIA
+    )
+    activa = models.BooleanField(default=True)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "obligación"
+        verbose_name_plural = "obligaciones"
+        constraints = [
+            # El nombre no se repite en una empresa. La intercalación de SQL
+            # Server no distingue mayúsculas, así que «IVA» e «iva» chocan
+            # aquí también; el serializador lo dice antes, con un mensaje claro.
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="obligacion_nombre_unico_por_empresa"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class SecuenciaCodigo(models.Model):
+    """El contador de los códigos `OBL-0001` (§4.6).
+
+    Global y no por empresa: el código identifica un período en todo el grupo,
+    en un correo o en una conversación, sin tener que decir de qué empresa es.
+    Se incrementa con bloqueo de fila (ver `servicios.siguiente_codigo`).
+    """
+
+    nombre = models.CharField(max_length=30, unique=True)
+    ultimo_valor = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "secuencia de códigos"
+        verbose_name_plural = "secuencias de códigos"
+
+
+class Periodo(ModeloDeEmpresa):
+    """Cada vencimiento concreto de una obligación, con su código (§4.7).
+
+    El **estado** —incumplido, en progreso, finalizado— no se guarda: se
+    calcula en cada consulta con la hora de la empresa (ver `estados.py`). Lo
+    que se guarda es lo que alguien decidió: la etapa, el avance, el cierre.
+    """
+
+    codigo = models.CharField(max_length=20, unique=True)
+    obligacion = models.ForeignKey(Obligacion, on_delete=models.PROTECT, related_name="periodos")
+    #: La sucursal: las sedes de Organización (decisión del mapa de
+    #: integración), no una entidad aparte.
+    sede = models.ForeignKey(
+        "organizacion.Sede",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="periodos_matriz",
+    )
+    etiqueta = models.CharField(max_length=60)
+    fecha_inicio = models.DateField()
+    fecha_preparacion = models.DateField()
+    vence_en = models.DateTimeField(db_index=True)
+    responsable = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="periodos_responsable"
+    )
+    suplente = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="periodos_suplente",
+    )
+    supervisor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="periodos_supervisor",
+    )
+    aprobador = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="periodos_aprobador",
+    )
+    prioridad = models.CharField(max_length=6, choices=Prioridad.choices, default=Prioridad.MEDIA)
+    avance = models.PositiveSmallIntegerField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    etapa = models.CharField(max_length=24, choices=Etapa.choices, default=Etapa.SIN_INICIAR)
+    observaciones = models.TextField(blank=True)
+    enviado_en = models.DateTimeField(null=True, blank=True)
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    cerrado = models.BooleanField(default=False, db_index=True)
+    cumplido_en = models.DateTimeField(null=True, blank=True)
+    validado_en = models.DateTimeField(null=True, blank=True)
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    recordatorios_suspendidos = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["vence_en"]
+        verbose_name = "período"
+        verbose_name_plural = "períodos"
+
+    def __str__(self) -> str:
+        return f"{self.codigo} · {self.obligacion} ({self.etiqueta})"
+
+
+class EventoPeriodo(BaseModel):
+    """Una línea del historial de un período (§4.9).
+
+    **Solo inserción**: no se edita ni se borra, porque es lo que se mira el día
+    que hay que reconstruir quién hizo qué. Sin actor, lo hizo el sistema.
+    """
+
+    periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE, related_name="eventos")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    accion = models.CharField(max_length=60)
+    descripcion = models.CharField(max_length=255)
+    motivo = models.TextField(blank=True)
+    valor_anterior = models.CharField(max_length=255, blank=True)
+    valor_nuevo = models.CharField(max_length=255, blank=True)
+
+    #: Se ve desde la empresa de su período, y desde ninguna otra.
+    objects = gestor_de_lo_que_cuelga("periodo__empresa")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "evento del período"
+        verbose_name_plural = "historial de períodos"
+        indexes = [models.Index(fields=["created_at"])]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None:
+            raise ValueError("El historial es de solo inserción: no se edita.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("El historial es de solo inserción: no se borra.")

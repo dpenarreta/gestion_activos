@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { usePermission } from "../../../hooks/usePermission";
+import { useModuloActivo } from "../../../modulos/useModuloActivo";
 import "./BusquedaGlobal.css";
 
 /*
@@ -20,7 +21,64 @@ import "./BusquedaGlobal.css";
  * 2. Si no corresponde a ninguno, se abre el inventario buscando ese texto.
  *    Así «Jorge» o «ThinkPad» llevan a la lista filtrada en vez de a un error.
  */
+/**
+ * En la Matriz, la barra busca obligaciones (§15.1): tras 250 ms sin escribir
+ * abre la matriz filtrada (`?q=`), sin tener que pulsar Enter. Busca en el
+ * nombre, el código, el período, el responsable, la entidad y el área.
+ */
+function BusquedaEnLaMatriz() {
+  const navigate = useNavigate();
+  const [termino, setTermino] = useState("");
+  const temporizador = useRef(null);
+
+  useEffect(() => () => clearTimeout(temporizador.current), []);
+
+  function abrir(valor) {
+    navigate(
+      `/admin/matriz/obligaciones?q=${encodeURIComponent(valor.trim())}`,
+    );
+  }
+
+  return (
+    <form
+      className="mz-search busqueda-global"
+      role="search"
+      onSubmit={(evento) => {
+        evento.preventDefault();
+        clearTimeout(temporizador.current);
+        abrir(termino);
+      }}
+    >
+      <label className="visually-hidden" htmlFor="busqueda-global">
+        Buscar en la matriz
+      </label>
+      <i className="bi bi-search" aria-hidden="true" />
+      <input
+        id="busqueda-global"
+        type="search"
+        placeholder="Buscar obligación, responsable, código…"
+        value={termino}
+        autoComplete="off"
+        onChange={(evento) => {
+          const valor = evento.target.value;
+          setTermino(valor);
+          clearTimeout(temporizador.current);
+          temporizador.current = setTimeout(() => abrir(valor), 250);
+        }}
+      />
+    </form>
+  );
+}
+
 export function BusquedaGlobal() {
+  return useModuloActivo() === "matriz" ? (
+    <BusquedaEnLaMatriz />
+  ) : (
+    <BusquedaDeActivos />
+  );
+}
+
+function BusquedaDeActivos() {
   const puedeVer = usePermission("activos.ver");
   const navigate = useNavigate();
   const [termino, setTermino] = useState("");

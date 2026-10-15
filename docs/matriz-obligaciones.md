@@ -56,7 +56,7 @@ tiene y agrega solo lo propio de la matriz.
 | Fase | Contenido | Estado |
 | --- | --- | --- |
 | 1. Base y acceso | Selector de módulos; empresa ampliada; áreas y entidades de control; permisos y roles sembrados; acceso solo por membresía; empresas de la Matriz con su rol | **Hecha** (AC-MTZ-001 a 010) |
-| 2. Obligaciones y matriz | Obligación, período, secuencia, historial; motor de estados; Resumen, Matriz, Detalle | Pendiente |
+| 2. Obligaciones y matriz | Obligación, período, secuencia, historial; motor de estados; Resumen, Matriz, Detalle | **Hecha** (AC-MTZ-011 a 025) |
 | 3. Evidencias y cierre | PDF, visor, enviar, validar, devolver, rechazar, cambio de fecha; Documentos | Pendiente |
 | 4. Recordatorios | Configuración por empresa, correo, reintentos, escalamiento, en la tarea programada | Pendiente |
 | 5. Reportes y configuración | Calendario, Reportes, exportaciones, auditoría, pestaña Recordatorios | Pendiente |
@@ -76,3 +76,31 @@ tiene y agrega solo lo propio de la matriz.
     permite.
   - Configuración → Catálogos → Áreas y Entidades de control.
   - Ficha de empresa con la sección «Matriz de obligaciones».
+
+## Lo que trae la fase 2
+
+- **Modelos**: `Obligacion` y `Periodo` (acotados a la empresa),
+  `SecuenciaCodigo` (global: `OBL-0001`…) y `EventoPeriodo` (historial de solo
+  inserción). Las áreas ganan su relación con la membresía, para la regla de
+  crear por área.
+- **Motor de estados** (`apps/matriz/estados.py`): calculado en cada consulta,
+  en la zona horaria de la empresa, con filtros equivalentes en base de datos.
+- **API** (sobre la empresa activa)
+  - `GET resumen/`: indicadores, próximos vencimientos y cierres recientes.
+  - `GET periodos/`: la matriz, con `q`, `area`, `entity`, `responsible`,
+    `obligation`, `priority`, `stage`, `status`, `due_today`, `due_from` y
+    `due_to`; `sort` por urgencia (defecto), `due`, `name`, `area`, `entity`,
+    `responsible`, `code` o `priority` (con `-` para invertir); paginada.
+  - `GET/PATCH periodos/{id}/`: detalle con `estado` y `acciones`, y el
+    seguimiento. `GET periodos/{id}/historial/`.
+  - `POST obligaciones/`: la obligación con su primer período.
+    `GET/PATCH obligaciones/{id}/`.
+  - `GET personas/` y `GET catalogos/`: lo que eligen los formularios.
+- **Pantallas**: Resumen (tablero), Matriz de obligaciones (con el contador de
+  urgentes en el menú), panel lateral del período (General e Historial,
+  `?periodo=ID`), «Nueva obligación» y «Editar seguimiento». En el módulo, la
+  búsqueda de la barra superior abre la matriz filtrada.
+- **Para las fases siguientes**: las acciones del cierre (fase 3), los
+  recordatorios (fase 4) y la generación automática de los períodos siguientes
+  (fase 5). La pantalla para asignar áreas a una membresía llega con la fase 5;
+  la regla ya se aplica en el servidor.

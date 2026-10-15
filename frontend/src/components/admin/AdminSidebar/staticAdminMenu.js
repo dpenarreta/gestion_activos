@@ -190,8 +190,19 @@ export const ADMIN_MENU = [
     modulo: "matriz",
     name: "Resumen",
     icon: "grid-1x2",
-    path: "/admin/matriz",
+    path: "/admin/matriz/resumen",
     permission: PERMISOS_MATRIZ,
+  },
+  {
+    id: "matriz-obligaciones",
+    modulo: "matriz",
+    name: "Matriz de obligaciones",
+    icon: "building",
+    path: "/admin/matriz/obligaciones",
+    permission: PERMISOS_MATRIZ,
+    // El contador de lo incumplido o que vence hoy (§15.1), que pinta el
+    // menú lateral con `counts.attention` del resumen.
+    insignia: "atencion",
   },
   {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,

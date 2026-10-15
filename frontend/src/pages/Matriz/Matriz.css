@@ -31,3 +31,37 @@
 .matriz-resumen .mz-card-head h3 {
   margin-right: auto;
 }
+
+/* --- La matriz --- */
+
+/* El encabezado ordenable es un botón: se ve como el texto de la columna, y
+   se enfoca y se pulsa con el teclado. */
+.matriz-orden {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.matriz-orden .bi {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.matriz-page .mz-table td {
+  vertical-align: middle;
+}
+
+.matriz-page .mz-card-row {
+  width: 100%;
+}
+
+.mz-drawer .mz-panel-head .mz-pill-row {
+  margin-top: 8px;
+}

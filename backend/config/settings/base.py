@@ -389,3 +389,7 @@ DEFAULT_FROM_EMAIL = env.str(
 from .logging import build_logging_config  # noqa: E402
 
 LOGGING = build_logging_config(debug=DEBUG)
+
+# --- Matriz de obligaciones -------------------------------------------------
+# Prefijo de los códigos de período: OBL-0001, OBL-0002…
+PERIOD_CODE_PREFIX = env.str("PERIOD_CODE_PREFIX", default="OBL")

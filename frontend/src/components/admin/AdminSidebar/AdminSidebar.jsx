@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+
+import { matrizService } from "../../../api/matrizService";
 
 import { env } from "../../../config/env";
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
@@ -33,6 +36,32 @@ function rolDe(user) {
  * En pantallas estrechas es un panel superpuesto que abre la hamburguesa de la
  * barra superior: el estado vive en el layout, que es quien dibuja ese botón.
  */
+/**
+ * Los contadores de las entradas que llevan insignia. Hoy solo la Matriz: lo
+ * incumplido o que vence hoy (`counts.attention`). Se vuelve a pedir al cambiar
+ * de pantalla, que es cuando un cierre o un alta pudo moverlo.
+ */
+function useInsignias(menu, pathname) {
+  const conAtencion = menu.some((item) => item.insignia === "atencion");
+  const [insignias, setInsignias] = useState({});
+
+  useEffect(() => {
+    if (!conAtencion) return undefined;
+    let vigente = true;
+    matrizService
+      .resumen()
+      .then((datos) => {
+        if (vigente) setInsignias({ atencion: datos.counts.attention });
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [conAtencion, pathname]);
+
+  return insignias;
+}
+
 export function AdminSidebar({
   isCollapsed,
   onToggleCollapse,
@@ -47,6 +76,7 @@ export function AdminSidebar({
   const location = useLocation();
   const { isDirty, setIsDirty, guardedNavigate } = useUnsavedChanges();
   const accordion = useMenuAccordion(menu, location.pathname);
+  const insignias = useInsignias(menu, location.pathname);
 
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
     isOpen: isMobileOpen,
@@ -152,6 +182,7 @@ export function AdminSidebar({
                 isCollapsed={isCollapsed}
                 currentPath={location.pathname}
                 onNavigate={handleNavigate}
+                insignia={insignias[item.insignia]}
               />
             ),
           )}
