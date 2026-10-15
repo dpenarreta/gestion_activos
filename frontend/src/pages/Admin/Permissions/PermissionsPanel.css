@@ -1,7 +1,3 @@
-.permissions-page {
-  max-width: 60rem;
-}
-
 /* `mz-perm-table` centra las columnas de casillas; aquí la segunda es el
    código, que se lee mejor alineado a la derecha. Sin la raya de la última
    fila, que ya la pone el borde de la tarjeta. */

@@ -6,7 +6,6 @@ import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmD
 import { Icon } from "../../../components/common/Icon/Icon";
 import { PermissionsCheckboxGroup } from "../../../components/common/PermissionsCheckboxGroup/PermissionsCheckboxGroup";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
-import "./RoleForm.css";
 
 export function RoleForm() {
   const { id } = useParams();

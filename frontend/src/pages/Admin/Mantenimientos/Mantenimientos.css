@@ -9,11 +9,5 @@
   max-width: 22rem;
 }
 
-/* Las filas de tres y cuatro campos se leen mal a todo el ancho de una
-   pantalla grande. */
-.mantenimiento-form {
-  max-width: 70rem;
-}
-
 /* Las líneas de repuestos las dibuja `LineasComponentes`; el fondo hundido
    las separa del resto del formulario, que es lo que se captura una vez. */

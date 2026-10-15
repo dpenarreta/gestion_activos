@@ -7,14 +7,6 @@
  * menú y las dos evolucionarán por su lado.
  */
 
-/* Ni la ficha ni el reparto se estiran a todo el ancho: con los campos o los
-   roles repartidos en una pantalla grande, el ojo se pierde entre lo que se
-   nombra y lo que se marca. */
-.empresas-ficha,
-.empresas-asignacion {
-  max-width: 60rem;
-}
-
 .empresas-asignacion .form-check {
   padding-block: 0.15rem;
 }

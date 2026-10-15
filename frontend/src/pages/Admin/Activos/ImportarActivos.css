@@ -1,9 +1,5 @@
 /* Carga masiva de activos: pasos guiados y reporte de validación. */
 
-.importar-activos-page {
-  max-width: 68rem;
-}
-
 /* Los pasos se numeran a la izquierda en vez de usar la numeración nativa de
    <ol>: hace falta controlar el tamaño y la alineación del número respecto a
    un bloque de contenido que tiene título, texto y controles. */

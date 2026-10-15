@@ -10,10 +10,6 @@
  * lo que el libro de ocho hojas escondía—.
  */
 
-.carga-catalogos-page {
-  max-width: 62rem;
-}
-
 .carga-catalogos__pasos {
   display: grid;
   gap: 1rem;

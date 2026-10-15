@@ -1,7 +1,3 @@
-.apariencia-tab {
-  max-width: 44rem;
-}
-
 /* El fieldset no trae borde ni relleno propios: el marco es la tarjeta. La
    leyenda se dibuja como el título de una tarjeta. */
 .apariencia-tab fieldset {

@@ -12,7 +12,6 @@ import {
 import { AparienciaTab } from "./AparienciaTab";
 import { ColoresTipografiaTab, COLOR_FIELDS } from "./ColoresTipografiaTab";
 import { IdentidadTab } from "./IdentidadTab";
-import "./ConfiguracionPage.css";
 
 const EDITABLE_FIELDS = [
   "site_name",

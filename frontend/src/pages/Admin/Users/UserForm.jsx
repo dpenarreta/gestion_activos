@@ -9,7 +9,6 @@ import { mensajeDeError } from "../../../utils/errores";
 import { baseDeUsername } from "../../../utils/nomenclatura";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
-import "./UserForm.css";
 
 const EMPTY_FORM = {
   username: "",

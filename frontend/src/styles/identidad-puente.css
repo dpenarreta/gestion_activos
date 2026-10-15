@@ -347,3 +347,10 @@ dl.mz-kv-grid dd {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* La vista ocupa todo el ancho disponible. La identidad base la limita a
+   1440px y la centra; aquí se pidió aprovechar la pantalla entera, y en un
+   monitor ancho ese tope dejaba franjas vacías a los lados del inventario. */
+.mz-view {
+  max-width: none;
+}

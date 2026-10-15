@@ -132,10 +132,6 @@
   max-width: 40rem;
 }
 
-.escaner-resultado {
-  max-width: 60rem;
-}
-
 /* Tres columnas cortas: el mínimo de 640px de `mz-table` haría aparecer un
    scroll horizontal dentro del formulario sin necesidad. */
 .especificaciones-editor .mz-table {
