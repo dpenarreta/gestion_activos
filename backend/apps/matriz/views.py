@@ -20,28 +20,33 @@ from apps.empresas.servicios import empresas_de
 from apps.organizacion.models import Sede
 from apps.users.models import User
 
-from . import cierre, estados, servicios
+from . import cierre, estados, recordatorios, servicios
 from .acceso import capacidades_en, empresa_de_la_matriz, exigir, puede, visibles
 from .models import (
     Area,
     Documento,
     EntidadControl,
     EstadoDocumento,
+    EstadoNotificacion,
     Etapa,
+    Notificacion,
     Obligacion,
     Periodicidad,
     Periodo,
     Prioridad,
     Tipo,
+    TipoNotificacion,
 )
 from .permissions import CatalogosPermission
 from .serializers import (
     AreaSerializer,
     CambioVencimientoSerializer,
+    ConfiguracionRecordatoriosSerializer,
     DocumentoSerializer,
     EntidadControlSerializer,
     EventoSerializer,
     MotivoSerializer,
+    NotificacionSerializer,
     ObligacionAltaSerializer,
     ObligacionSerializer,
     PeriodoDetalleSerializer,
@@ -652,6 +657,134 @@ def documentos_resumen(request):
             "pending": filas(consulta.filter(validos=0)),
         }
     )
+
+
+# --- Recordatorios (fase 4) -------------------------------------------------------
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def configuracion_recordatorios(request):
+    """La configuración de la empresa activa: la ve cualquiera con un rol de la
+    Matriz y la cambia quien tiene `configurar` (§14.5)."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    config = recordatorios.configuracion_de(empresa)
+    if request.method == "PUT":
+        exigir(request, "matriz.configurar", capacidades)
+        anterior = ConfiguracionRecordatoriosSerializer(config).data
+        entrada = ConfiguracionRecordatoriosSerializer(config, data=request.data)
+        entrada.is_valid(raise_exception=True)
+        config = entrada.save()
+        nuevo = ConfiguracionRecordatoriosSerializer(config).data
+        record_audit_event(
+            actor=request.user,
+            action="reminder_config.updated",
+            target=empresa,
+            module=MODULO,
+            previous_values={k: v for k, v in anterior.items() if k != "updated_at"},
+            new_values={k: v for k, v in nuevo.items() if k != "updated_at"},
+            context=get_request_context(request),
+        )
+    datos = ConfiguracionRecordatoriosSerializer(config).data
+    datos["can_edit"] = "matriz.configurar" in capacidades
+    return Response(datos)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def notificaciones(request):
+    """Las notificaciones de la empresa activa, paginadas (§14.5)."""
+    _, capacidades = empresa_de_la_matriz(request)
+    exigir(request, "matriz.ver_auditoria", capacidades)
+    consulta = Notificacion.objects.select_related(
+        "periodo__obligacion", "destinatario", "disparado_por"
+    )
+    estado = request.query_params.get("status")
+    if estado in EstadoNotificacion.values:
+        consulta = consulta.filter(estado=estado)
+    paginador = DefaultPagination()
+    pagina = paginador.paginate_queryset(consulta, request)
+    return paginador.get_paginated_response(NotificacionSerializer(pagina, many=True).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def notificacion_reintentar(request, pk):
+    """Reintentar un aviso fallido (§12.3). El período tiene que estar a la
+    vista; si no, 404."""
+    _, capacidades = empresa_de_la_matriz(request)
+    notificacion = get_object_or_404(
+        Notificacion.objects.select_related("periodo"),
+        pk=pk,
+        periodo__in=visibles(Periodo.objects.all(), request.user, capacidades),
+    )
+    exigir(request, "matriz.recordar", capacidades, notificacion.periodo)
+    try:
+        nueva = recordatorios.reintentar(notificacion, actor=request.user)
+    except ValueError as error:
+        raise ValidationError({"detail": str(error)}) from error
+    record_audit_event(
+        actor=request.user,
+        action="notification.retried",
+        target=notificacion.periodo,
+        module=MODULO,
+        new_values={"notificacion": notificacion.id, "resultado": nueva.estado},
+        context=get_request_context(request),
+    )
+    nueva = Notificacion.objects.select_related("periodo__obligacion").get(pk=nueva.pk)
+    return Response(NotificacionSerializer(nueva).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def recordatorios_del_periodo(request, pk):
+    """La programación de los avisos y las notificaciones del período (§12.5)."""
+    actual, capacidades = _periodo_visible(request, pk)
+    lista = actual.notificaciones.select_related(
+        "periodo__obligacion", "destinatario", "disparado_por"
+    )
+    return Response(
+        {
+            "suspended": actual.cerrado or actual.recordatorios_suspendidos,
+            "can_send": puede("matriz.recordar", actual, request.user, capacidades)
+            and not actual.cerrado,
+            "schedule": recordatorios.programacion(actual),
+            "notifications": NotificacionSerializer(lista, many=True).data,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def recordatorio_enviar(request, pk):
+    """«Reenviar recordatorio» (§14.5)."""
+    actual, capacidades = _periodo_visible(request, pk)
+    exigir(request, "matriz.recordar", capacidades, actual)
+    if actual.cerrado:
+        raise ValidationError(
+            {"detail": "El período está cerrado: sus recordatorios están suspendidos."}
+        )
+    try:
+        enviadas = recordatorios.enviar_manual(
+            periodo=actual, actor=request.user, contexto=get_request_context(request)
+        )
+    except ValueError as error:
+        raise ValidationError({"detail": str(error)}) from error
+    lista = Notificacion.objects.select_related("periodo__obligacion").filter(
+        pk__in=[n.pk for n in enviadas if n]
+    )
+    return Response(NotificacionSerializer(lista, many=True).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def recordatorio_vista_previa(request, pk):
+    """El correo tal como saldría, sin enviarlo (`?kind=`, §12.5)."""
+    actual, _ = _periodo_visible(request, pk)
+    tipo = request.query_params.get("kind", TipoNotificacion.RECORDATORIO)
+    if tipo not in TipoNotificacion.values:
+        raise ValidationError({"kind": "Tipo de aviso desconocido."})
+    return Response(recordatorios.vista_previa(actual, tipo))
 
 
 __all__ = ["puede"]

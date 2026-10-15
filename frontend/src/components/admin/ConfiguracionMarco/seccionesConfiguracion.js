@@ -1,4 +1,5 @@
 import { matchesPath } from "../AdminSidebar/adminMenuTree";
+import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
 
 /**
  * Las secciones de Configuración, en el orden de sus pestañas.
@@ -109,6 +110,15 @@ export const SECCIONES_CONFIGURACION = [
         permission: "catalogos.ver",
       },
     ],
+  },
+  {
+    // Por empresa, como todo lo de la Matriz: la ve cualquiera con un rol del
+    // módulo en la empresa activa, y la pantalla dice si puede cambiarla.
+    id: "recordatorios",
+    nombre: "Recordatorios",
+    path: "/admin/configuracion/recordatorios",
+    permission: PERMISOS_MATRIZ,
+    rutas: ["/admin/configuracion/recordatorios"],
   },
   {
     id: "identidad",

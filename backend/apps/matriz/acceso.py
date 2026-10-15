@@ -42,6 +42,9 @@ MENSAJES = {
     "matriz.cargar": "No tiene permiso para cargar evidencias en este período.",
     "matriz.enviar": "No tiene permiso para enviar este período a validación.",
     "matriz.validar": "No tiene permiso para validar este período.",
+    "matriz.recordar": "No tiene permiso para enviar recordatorios de este período.",
+    "matriz.configurar": "No tiene permiso para configurar los recordatorios de la empresa.",
+    "matriz.ver_auditoria": "No tiene permiso para ver las notificaciones de la empresa.",
 }
 
 
@@ -133,7 +136,7 @@ def acciones(periodo, usuario, capacidades) -> list[str]:
     El frontend dibuja solo estas: un botón que termina en un 403 hace parecer
     roto el sistema. La separación de funciones no se mira aquí sino al
     validar, para que el botón no desaparezca sin explicación: si toca, el
-    servidor responde con el motivo. Las de recordatorios llegan con la fase 4.
+    servidor responde con el motivo.
     """
     if periodo.cerrado:
         return []
@@ -150,5 +153,6 @@ def acciones(periodo, usuario, capacidades) -> list[str]:
         ("validate", pendiente and tiene("matriz.validar")),
         ("return", pendiente and tiene("matriz.validar")),
         ("reject_document", tiene("matriz.validar")),
+        ("send_reminder", tiene("matriz.recordar")),
     ]
     return [accion for accion, permitida in candidatas if permitida]

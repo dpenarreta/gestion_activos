@@ -109,6 +109,45 @@ export const matrizService = {
   documentosResumen() {
     return apiClient.get(`${BASE}/documentos/`).then((res) => res.data);
   },
+
+  // Recordatorios (fase 4)
+  recordatorios(id) {
+    return apiClient
+      .get(`${BASE}/periodos/${id}/recordatorios/`)
+      .then((res) => res.data);
+  },
+  enviarRecordatorio(id) {
+    return apiClient
+      .post(`${BASE}/periodos/${id}/recordatorios/enviar/`)
+      .then((res) => res.data);
+  },
+  vistaPrevia(id, kind) {
+    return apiClient
+      .get(`${BASE}/periodos/${id}/recordatorios/vista-previa/`, {
+        params: { kind },
+      })
+      .then((res) => res.data);
+  },
+  configuracionRecordatorios() {
+    return apiClient
+      .get(`${BASE}/recordatorios/configuracion/`)
+      .then((res) => res.data);
+  },
+  guardarConfiguracionRecordatorios(datos) {
+    return apiClient
+      .put(`${BASE}/recordatorios/configuracion/`, datos)
+      .then((res) => res.data);
+  },
+  notificaciones(params = {}) {
+    return apiClient
+      .get(`${BASE}/notificaciones/`, { params })
+      .then((res) => res.data);
+  },
+  reintentarNotificacion(id) {
+    return apiClient
+      .post(`${BASE}/notificaciones/${id}/reintentar/`)
+      .then((res) => res.data);
+  },
 };
 
 /** Áreas y entidades de control: catálogos compartidos por las empresas. */

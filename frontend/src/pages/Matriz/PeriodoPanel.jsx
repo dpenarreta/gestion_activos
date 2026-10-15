@@ -15,6 +15,7 @@ import { CambiarFechaModal } from "./CambiarFechaModal";
 import { CargarEvidenciaModal } from "./CargarEvidenciaModal";
 import { DocumentosDelPeriodo } from "./DocumentosDelPeriodo";
 import { MotivoModal } from "./MotivoModal";
+import { RecordatoriosDelPeriodo } from "./RecordatoriosDelPeriodo";
 import { SeguimientoModal } from "./SeguimientoModal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog/ConfirmDialog";
 
@@ -99,7 +100,30 @@ const BOTONES = [
     icono: "calendar-event",
     clase: "btn-outline-secondary",
   },
+  {
+    accion: "send_reminder",
+    ventana: "recordar",
+    texto: "Reenviar recordatorio",
+    icono: "send",
+    clase: "btn-outline-secondary",
+  },
 ];
+
+/** Las acciones que solo piden confirmación: qué llaman y qué avisan. */
+const CONFIRMABLES = {
+  enviar: {
+    llamar: (id) => matrizService.enviar(id),
+    aviso: "Enviado a validación.",
+  },
+  validar: {
+    llamar: (id) => matrizService.validar(id),
+    aviso: "Cierre validado.",
+  },
+  recordar: {
+    llamar: (id) => matrizService.enviarRecordatorio(id),
+    aviso: "Recordatorio enviado.",
+  },
+};
 
 function BarraDeAcciones({ acciones, onAccion }) {
   const visibles = BOTONES.filter((b) => acciones.includes(b.accion));
@@ -175,12 +199,8 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
   async function confirmar(accion) {
     setIsConfirmando(true);
     try {
-      await (accion === "enviar"
-        ? matrizService.enviar(id)
-        : matrizService.validar(id));
-      despuesDeCambiar(
-        accion === "enviar" ? "Enviado a validación." : "Cierre validado.",
-      );
+      await CONFIRMABLES[accion].llamar(id);
+      despuesDeCambiar(CONFIRMABLES[accion].aviso);
     } catch (err) {
       setVentana(null);
       setError(mensajeDeError(err, "No se pudo completar la acción."));
@@ -264,6 +284,7 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                 {[
                   ["general", "General"],
                   ["documentos", "Documentos"],
+                  ["recordatorios", "Recordatorios"],
                   ["historial", "Historial"],
                 ].map(([clave, nombre]) => (
                   <button
@@ -424,6 +445,16 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                 </div>
               )}
 
+              {pestana === "recordatorios" && (
+                <div role="tabpanel" aria-label="Recordatorios">
+                  <RecordatoriosDelPeriodo
+                    periodo={periodo}
+                    version={version}
+                    onReenviar={() => setVentana("recordar")}
+                  />
+                </div>
+              )}
+
               {pestana === "historial" && (
                 <div role="tabpanel" aria-label="Historial">
                   {historial === null ? (
@@ -511,6 +542,15 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
         confirmLabel="Validar y finalizar"
         isLoading={isConfirmando}
         onConfirm={() => confirmar("validar")}
+        onCancel={() => setVentana(null)}
+      />
+      <ConfirmDialog
+        isOpen={ventana === "recordar"}
+        title="Reenviar recordatorio"
+        message="Se envía ahora un recordatorio al responsable (y al suplente, si la empresa lo pide), aunque ya se haya enviado otro hoy."
+        confirmLabel="Enviar"
+        isLoading={isConfirmando}
+        onConfirm={() => confirmar("recordar")}
         onCancel={() => setVentana(null)}
       />
     </div>

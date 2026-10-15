@@ -58,7 +58,7 @@ tiene y agrega solo lo propio de la matriz.
 | 1. Base y acceso | Selector de módulos; empresa ampliada; áreas y entidades de control; permisos y roles sembrados; acceso solo por membresía; empresas de la Matriz con su rol | **Hecha** (AC-MTZ-001 a 010) |
 | 2. Obligaciones y matriz | Obligación, período, secuencia, historial; motor de estados; Resumen, Matriz, Detalle | **Hecha** (AC-MTZ-011 a 025) |
 | 3. Evidencias y cierre | PDF, visor, enviar, validar, devolver, rechazar, cambio de fecha; Documentos | **Hecha** (AC-MTZ-026 a 036) |
-| 4. Recordatorios | Configuración por empresa, correo, reintentos, escalamiento, en la tarea programada | Pendiente |
+| 4. Recordatorios | Configuración por empresa, correo, reintentos, escalamiento, en la tarea programada | **Hecha** (AC-MTZ-037 a 046) |
 | 5. Reportes y configuración | Calendario, Reportes, exportaciones, auditoría, pestaña Recordatorios | Pendiente |
 
 ## Lo que trae la fase 1
@@ -133,3 +133,48 @@ tiene y agrega solo lo propio de la matriz.
   varios archivos, progreso por archivo), el visor de PDF, «Devolver»,
   «Rechazar evidencia» y «Cambiar fecha de vencimiento». En el menú del
   módulo, la vista Documentos (`/admin/matriz/documentos`).
+
+## Lo que trae la fase 4
+
+- **Modelos**: `ConfiguracionRecordatorios` (una por empresa, creada con los
+  valores por defecto al leerla: 15, 7, 3, 1 y 0 días; 08:00; copia al
+  suplente; escalamiento a los 2 días, una sola vez) y `Notificacion` (una
+  fila por aviso y destinatario, con su clave única).
+- **El motor** (`apps/matriz/recordatorios.py`), en la hora local de cada
+  empresa:
+  - Recordatorios: al responsable y, si la empresa lo pide, al suplente, sin
+    repetir correos y omitiendo a quien no tiene; a partir de la hora de envío.
+  - Escalamiento: al supervisor o, si no hay, al aprobador, con N días de
+    atraso; una vez o cada N días. Deja «Escalamiento enviado a…» en el
+    historial, por «Sistema».
+  - Reintentos: los fallidos, hasta `NOTIFICATION_MAX_ATTEMPTS` (3). Cada
+    reintento es otra notificación; la original queda «reintentada».
+  - Sin duplicados: la fila se crea **antes** de enviar con su clave única
+    (`auto:…`, `esc:…`, `retry:…`, `manual:…`, §12.4), así que dos pasadas a
+    la vez chocan en la base y solo una manda el correo. La fecha de
+    vencimiento va en la clave: si cambia, los avisos se reprograman.
+- **La tarea programada**: `manage.py ciclo_matriz` corre recordatorios,
+  escalamientos y reintentos. Lo lanza la misma tarea oculta del respaldo
+  (`scripts/tarea_respaldo.py`, cada 5 minutos con `pythonw.exe`), sin ventana
+  y sin registrar otra tarea; un respaldo fallido no deja sin avisos a nadie.
+  La generación automática de períodos se suma en la fase 5.
+- **El correo** (`templates/emails/matriz_recordatorio.html`, HTML y texto):
+  los asuntos de §12.5 y el enlace a
+  `{FRONTEND_URL}/admin/matriz/obligaciones?periodo={id}&empresa={id}`. La
+  aplicación toma `empresa` antes de montar, para que quien trabaja en dos
+  empresas caiga en la del aviso.
+- **API** (sobre la empresa activa)
+  - `GET/PUT recordatorios/configuracion/`: la ve cualquiera con rol de la
+    Matriz; la cambia `configurar` (auditado).
+  - `GET notificaciones/?status=`: las de la empresa, con `ver_auditoria`.
+  - `POST notificaciones/{id}/reintentar/`: con `recordar`.
+  - `GET periodos/{id}/recordatorios/`: programación y notificaciones.
+  - `POST periodos/{id}/recordatorios/enviar/`: reenvío manual, con
+    `recordar` (historial y auditoría).
+  - `GET periodos/{id}/recordatorios/vista-previa/?kind=`: el correo sin
+    enviarlo.
+- **Pantallas**: la pestaña Recordatorios del período (programación,
+  notificaciones con «Reintentar», vista previa del correo y «Reenviar
+  recordatorio», también en la barra de acciones) y Configuración →
+  Recordatorios (anticipaciones, hora, copia al suplente, escalamiento e
+  historial de la empresa).

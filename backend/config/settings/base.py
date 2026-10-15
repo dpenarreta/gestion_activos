@@ -395,3 +395,5 @@ LOGGING = build_logging_config(debug=DEBUG)
 PERIOD_CODE_PREFIX = env.str("PERIOD_CODE_PREFIX", default="OBL")
 # Tamaño máximo de cada evidencia PDF, en MB (§11.4).
 DOCUMENT_MAX_UPLOAD_MB = env.int("DOCUMENT_MAX_UPLOAD_MB", default=10)
+# Intentos de cada aviso de la Matriz antes de dejarlo fallido (§12.3).
+NOTIFICATION_MAX_ATTEMPTS = env.int("NOTIFICATION_MAX_ATTEMPTS", default=3)

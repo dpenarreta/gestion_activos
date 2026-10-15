@@ -39,6 +39,31 @@ export function setEmpresaActiva(id) {
   }
 }
 
+/**
+ * Los enlaces de los correos de la Matriz llevan `?empresa=ID`: quien trabaja
+ * en dos empresas tiene que caer en la del aviso, no en la última que usó, o el
+ * período respondería 404. Se lee **antes** de montar la aplicación —ninguna
+ * pantalla alcanza a pedir datos con la empresa anterior— y se quita de la
+ * dirección. Si la empresa no es suya, el backend responde con otra y el
+ * selector lo corrige, como siempre.
+ */
+export function tomarEmpresaDeLaDireccion() {
+  try {
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get("empresa");
+    if (!id || !/^\d+$/.test(id)) return;
+    setEmpresaActiva(id);
+    url.searchParams.delete("empresa");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  } catch {
+    // Sin URL o sin historial se sigue con la empresa que hubiera.
+  }
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) {

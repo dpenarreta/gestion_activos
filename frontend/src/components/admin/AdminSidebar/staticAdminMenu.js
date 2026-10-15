@@ -3,22 +3,11 @@ import {
   RUTAS_CONFIGURACION,
 } from "../ConfiguracionMarco/seccionesConfiguracion";
 import { MODULO_POR_DEFECTO } from "../../../modulos/modulos";
+import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
 
-/** Cualquiera de estos abre la Matriz en la empresa activa. */
-export const PERMISOS_MATRIZ = [
-  "matriz.ver_todas",
-  "matriz.crear",
-  "matriz.editar",
-  "matriz.cambiar_fecha",
-  "matriz.cargar",
-  "matriz.enviar",
-  "matriz.validar",
-  "matriz.recordar",
-  "matriz.exportar",
-  "matriz.ver_auditoria",
-  "matriz.configurar",
-  "matriz.gestionar_miembros",
-];
+// En su propio módulo: Configuración también lo usa, y este archivo ya
+// importa de Configuración (sería una importación circular).
+export { PERMISOS_MATRIZ };
 
 /**
  * Árbol del Menú Administrativo — estático, no configurable desde el

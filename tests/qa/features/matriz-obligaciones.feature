@@ -218,3 +218,56 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
   Scenario: La vista Documentos
     Then separa los períodos con evidencia válida de los pendientes
     And cada fila abre el período en el panel lateral
+
+  # Fase 4: recordatorios
+
+  @AC-MTZ-037
+  Scenario: Los recordatorios llegan en cada anticipación, una sola vez
+    Then con la configuración por defecto llegan 15, 7, 3 y 1 día antes y el día del vencimiento
+    And van al responsable y, si la empresa lo pide, al suplente, sin repetir correos y omitiendo a quien no tiene
+    And el del día del vencimiento tiene el asunto «Hoy vence — {Obligación} ({Período})»
+
+  @AC-MTZ-038
+  Scenario: A la hora de envío de la empresa, en su zona horaria
+    Then ningún aviso sale antes de la hora configurada en la hora local de la empresa
+
+  @AC-MTZ-039
+  Scenario: Correr el programador dos veces no duplica nada
+    Then cada aviso tiene una clave única y una segunda pasada no envía otra vez
+    And si cambia la fecha de vencimiento, los avisos se reprograman
+
+  @AC-MTZ-040
+  Scenario: Al validar, dejan de enviarse
+    Then un período cerrado no recibe recordatorios ni escalamientos
+    And su pestaña Recordatorios dice que están suspendidos
+
+  @AC-MTZ-041
+  Scenario: El escalamiento llega al supervisor o al aprobador
+    Then con 2 días de atraso se avisa al supervisor, o al aprobador si no hay
+    And se envía una sola vez, o cada N días si la empresa lo configura
+    And queda en el historial «Escalamiento enviado a {nombre}» con los días de atraso, por «Sistema»
+
+  @AC-MTZ-042
+  Scenario: Un envío fallido se reintenta sin duplicar
+    Then el fallo queda con su error y se reintenta solo hasta 3 intentos
+    And cada reintento es una notificación nueva y la original queda «Reintentada»
+    And «Reintentar» a mano lo hace quien tiene «recordar»
+
+  @AC-MTZ-043
+  Scenario: La configuración de recordatorios por empresa
+    Then la ve cualquiera con un rol de la Matriz y la cambia quien tiene «configurar»
+    And las anticipaciones van de 0 a 90 sin repetir, y el día del vencimiento siempre está
+
+  @AC-MTZ-044
+  Scenario: Vista previa del correo
+    Then muestra para, asunto y cuerpo del aviso elegido sin enviar nada
+    And el enlace lleva al período en la empresa del aviso
+
+  @AC-MTZ-045
+  Scenario: Reenviar un recordatorio
+    Then siempre sale, queda en el historial y en la auditoría, y exige «recordar»
+
+  @AC-MTZ-046
+  Scenario: La programación y el historial de avisos
+    Then el período muestra por cada anticipación su fecha y si quedó programado, enviado, fallido, no enviado o suspendido
+    And la empresa ve sus notificaciones filtradas por estado con «ver_auditoria»

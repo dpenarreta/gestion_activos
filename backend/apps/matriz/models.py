@@ -8,8 +8,8 @@ completa está en `matriz_admin/docs/modulo/MODULO-MATRIZ-OBLIGACIONES.md`; los
 números de sección de los comentarios remiten a ella.
 
 Fase 1: los catálogos compartidos. Fase 2: obligaciones, períodos, la
-secuencia de códigos y el historial. Fase 3: las evidencias. Los recordatorios
-llegan en la fase 4.
+secuencia de códigos y el historial. Fase 3: las evidencias. Fase 4: la
+configuración de los recordatorios y las notificaciones.
 """
 
 import datetime
@@ -371,3 +371,107 @@ class Documento(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.nombre_original} (v{self.version})"
+
+
+# --- Recordatorios (fase 4) ------------------------------------------------
+
+
+def anticipaciones_por_defecto() -> list[int]:
+    return [15, 7, 3, 1, 0]
+
+
+class ConfiguracionRecordatorios(BaseModel):
+    """Cuándo y a quién avisa la Matriz en una empresa (§4.10).
+
+    Una por empresa, creada con los valores por defecto la primera vez que se
+    lee. El día del vencimiento (0) siempre está en las anticipaciones: sin él,
+    el aviso más importante dependería de que alguien se acordara de ponerlo.
+    """
+
+    empresa = models.OneToOneField(
+        "empresas.Empresa", on_delete=models.CASCADE, related_name="recordatorios_matriz"
+    )
+    anticipaciones = models.JSONField(default=anticipaciones_por_defecto)
+    hora_envio = models.TimeField(default=datetime.time(8, 0))
+    copia_suplente = models.BooleanField(default=True)
+    escalamiento_activo = models.BooleanField(default=True)
+    dias_escalamiento = models.PositiveSmallIntegerField(
+        default=2, validators=[MinValueValidator(1), MaxValueValidator(30)]
+    )
+    #: 0 = escalar una sola vez; N = repetir cada N días.
+    repetir_escalamiento_cada = models.PositiveSmallIntegerField(
+        default=0, validators=[MaxValueValidator(30)]
+    )
+
+    objects = gestor_de_lo_que_cuelga("empresa")
+
+    class Meta:
+        verbose_name = "configuración de recordatorios"
+        verbose_name_plural = "configuraciones de recordatorios"
+
+    def __str__(self) -> str:
+        return f"Recordatorios de {self.empresa}"
+
+
+class TipoNotificacion(models.TextChoices):
+    RECORDATORIO = "recordatorio", "Recordatorio"
+    VENCIMIENTO = "vencimiento", "Día del vencimiento"
+    ESCALAMIENTO = "escalamiento", "Escalamiento"
+    MANUAL = "manual", "Manual"
+
+
+class EstadoNotificacion(models.TextChoices):
+    ENVIADO = "enviado", "Enviado"
+    FALLIDO = "fallido", "Fallido"
+    REINTENTADO = "reintentado", "Reintentado"
+
+
+class Notificacion(BaseModel):
+    """Un aviso a una persona sobre un período (§4.11).
+
+    `clave` es única y es lo que impide los duplicados (§12.4): la fila se crea
+    **antes** de enviar, así que dos pasadas del programador a la vez chocan en
+    la base y solo una manda el correo. Si el proceso muere entre crear la fila
+    y enviar, la fila queda fallida y el reintento la recoge.
+    """
+
+    periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE, related_name="notificaciones")
+    tipo = models.CharField(max_length=12, choices=TipoNotificacion.choices)
+    #: Días de anticipación; negativo = días de atraso en un escalamiento.
+    anticipacion = models.SmallIntegerField(null=True, blank=True)
+    destinatario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="notificaciones_matriz",
+    )
+    correo = models.EmailField()
+    #: El día local de la empresa al que corresponde el aviso.
+    programada_para = models.DateField()
+    estado = models.CharField(max_length=12, choices=EstadoNotificacion.choices)
+    intentos = models.PositiveSmallIntegerField(default=1)
+    ultimo_error = models.TextField(blank=True)
+    enviado_en = models.DateTimeField(null=True, blank=True)
+    reintento_de = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="reintentos"
+    )
+    disparado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    clave = models.CharField(max_length=200, unique=True)
+
+    objects = gestor_de_lo_que_cuelga("periodo__empresa")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "notificación"
+        verbose_name_plural = "notificaciones"
+        indexes = [models.Index(fields=["estado", "intentos"])]
+
+    def __str__(self) -> str:
+        return f"{self.get_tipo_display()} a {self.correo} ({self.periodo.codigo})"

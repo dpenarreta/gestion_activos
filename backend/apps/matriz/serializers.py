@@ -8,9 +8,11 @@ from .acceso import acciones
 from .estados import estado
 from .models import (
     Area,
+    ConfiguracionRecordatorios,
     Documento,
     EntidadControl,
     EventoPeriodo,
+    Notificacion,
     Obligacion,
     Periodo,
     Prioridad,
@@ -380,3 +382,85 @@ class CambioVencimientoSerializer(serializers.Serializer):
     due_date = serializers.DateField()
     due_time = serializers.TimeField(required=False, allow_null=True)
     reason = serializers.CharField(allow_blank=True)
+
+
+# --- Recordatorios (fase 4) ----------------------------------------------------
+
+
+class ConfiguracionRecordatoriosSerializer(serializers.ModelSerializer):
+    """La configuración de la empresa (§4.10), con los nombres de la API."""
+
+    offsets = serializers.ListField(
+        source="anticipaciones",
+        child=serializers.IntegerField(min_value=0, max_value=90),
+        allow_empty=True,
+    )
+    send_time = serializers.TimeField(source="hora_envio", format="%H:%M")
+    copy_backup = serializers.BooleanField(source="copia_suplente")
+    escalation_enabled = serializers.BooleanField(source="escalamiento_activo")
+    escalation_days = serializers.IntegerField(
+        source="dias_escalamiento", min_value=1, max_value=30
+    )
+    escalation_repeat_days = serializers.IntegerField(
+        source="repetir_escalamiento_cada", min_value=0, max_value=30
+    )
+
+    class Meta:
+        model = ConfiguracionRecordatorios
+        fields = [
+            "offsets",
+            "send_time",
+            "copy_backup",
+            "escalation_enabled",
+            "escalation_days",
+            "escalation_repeat_days",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
+
+    def validate_offsets(self, valores):
+        if len(valores) != len(set(valores)):
+            raise serializers.ValidationError("Las anticipaciones no se pueden repetir.")
+        # El día del vencimiento siempre va (§4.10).
+        return sorted(set(valores) | {0}, reverse=True)
+
+
+class NotificacionSerializer(serializers.ModelSerializer):
+    destinatario = serializers.SerializerMethodField()
+    disparado_por = serializers.SerializerMethodField()
+    periodo = serializers.SerializerMethodField()
+    tipo_nombre = serializers.CharField(source="get_tipo_display", read_only=True)
+
+    class Meta:
+        model = Notificacion
+        fields = [
+            "id",
+            "periodo",
+            "tipo",
+            "tipo_nombre",
+            "anticipacion",
+            "destinatario",
+            "correo",
+            "programada_para",
+            "estado",
+            "intentos",
+            "ultimo_error",
+            "enviado_en",
+            "created_at",
+            "reintento_de",
+            "disparado_por",
+        ]
+
+    def get_destinatario(self, obj):
+        return persona(obj.destinatario)
+
+    def get_disparado_por(self, obj):
+        return persona(obj.disparado_por)["nombre"] if obj.disparado_por else "Sistema"
+
+    def get_periodo(self, obj):
+        return {
+            "id": obj.periodo_id,
+            "codigo": obj.periodo.codigo,
+            "etiqueta": obj.periodo.etiqueta,
+            "obligacion": obj.periodo.obligacion.nombre,
+        }

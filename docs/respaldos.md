@@ -147,6 +147,11 @@ donde escribir: manda la salida a `backend/logs/tarea-respaldo.log` (se recorta
 pasado 1 MB). `MultipleInstances IgnoreNew` evita que una pasada empiece
 mientras la anterior sigue respaldando.
 
+La misma pasada corre después el ciclo de la Matriz de obligaciones
+(`manage.py ciclo_matriz`: recordatorios, escalamientos y reintentos; ver
+`docs/matriz-obligaciones.md`). Cada trabajo va por su lado: si el respaldo
+falla, los avisos salen igual.
+
 Si se registra con otro intervalo, cambiar también `TAREA_CADA_MINUTOS` en
 `apps/core/respaldos_views.py`: la pantalla lo usa para decir cuánto tarda en
 empezar un «Respaldar ahora».
@@ -155,6 +160,7 @@ empezar un «Respaldar ahora».
 
 ```cron
 */5 * * * * cd /ruta/backend && ./.venv/bin/python manage.py respaldar --si-toca >> logs/tarea-respaldo.log 2>&1
+*/5 * * * * cd /ruta/backend && ./.venv/bin/python manage.py ciclo_matriz >> logs/tarea-respaldo.log 2>&1
 ```
 
 Dos cosas la protegen de repetirse: la marca del último turno cubierto y que

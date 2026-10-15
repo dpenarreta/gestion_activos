@@ -11,6 +11,11 @@ Este script resuelve las dos cosas: corre bajo `pythonw.exe` y manda la salida a
 pregunte por qué no hay respaldos. El resultado de cada respaldo, además, queda
 en la base y se ve en *Configuración → Respaldos*.
 
+En la misma pasada corre el ciclo de la Matriz de obligaciones
+(`ciclo_matriz`): recordatorios, escalamientos y reintentos. Reutiliza esta
+tarea en vez de registrar otra para que siga habiendo una sola, oculta y sin
+ventana; cada aviso decide su hora por la configuración de su empresa.
+
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -69,16 +74,24 @@ def main() -> int:
 
         django.setup()
         from django.core.management import call_command
-
-        call_command("respaldar", "--si-toca", stdout=registro, stderr=registro)
-        return 0
     except Exception:  # noqa: BLE001
-        # El comando ya anotó el fallo en la base; aquí queda la traza completa.
         traceback.print_exc()
-        return 1
-    finally:
-        registro.flush()
         registro.close()
+        return 1
+
+    resultado = 0
+    # Cada trabajo por su lado: un respaldo fallido no debe dejar sin
+    # recordatorios a nadie, ni al revés.
+    for comando, argumentos in (("respaldar", ["--si-toca"]), ("ciclo_matriz", [])):
+        try:
+            call_command(comando, *argumentos, stdout=registro, stderr=registro)
+        except Exception:  # noqa: BLE001
+            # El respaldo ya anotó su fallo en la base; aquí queda la traza.
+            traceback.print_exc()
+            resultado = 1
+    registro.flush()
+    registro.close()
+    return resultado
 
 
 if __name__ == "__main__":
