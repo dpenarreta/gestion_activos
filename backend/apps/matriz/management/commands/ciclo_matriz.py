@@ -12,11 +12,15 @@ from apps.matriz.recordatorios import ciclo
 
 
 class Command(BaseCommand):
-    help = "Envía los recordatorios y escalamientos de la Matriz y reintenta los fallidos."
+    help = (
+        "Genera los períodos siguientes, envía los recordatorios y escalamientos de la Matriz "
+        "y reintenta los fallidos."
+    )
 
     def handle(self, *args, **options):
         resumen = ciclo()
         self.stdout.write(
-            "Matriz: {recordatorios} recordatorio(s), {escalamientos} escalamiento(s), "
+            "Matriz: {periodos} período(s) generado(s), {recordatorios} recordatorio(s), "
+            "{escalamientos} escalamiento(s), "
             "{reintentos} reintento(s).".format(**resumen)
         )

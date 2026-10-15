@@ -194,11 +194,27 @@ export const ADMIN_MENU = [
     insignia: "atencion",
   },
   {
+    id: "matriz-calendario",
+    modulo: "matriz",
+    name: "Calendario",
+    icon: "calendar3",
+    path: "/admin/matriz/calendario",
+    permission: PERMISOS_MATRIZ,
+  },
+  {
     id: "matriz-documentos",
     modulo: "matriz",
     name: "Documentos",
     icon: "folder2-open",
     path: "/admin/matriz/documentos",
+    permission: PERMISOS_MATRIZ,
+  },
+  {
+    id: "matriz-reportes",
+    modulo: "matriz",
+    name: "Reportes",
+    icon: "bar-chart",
+    path: "/admin/matriz/reportes",
     permission: PERMISOS_MATRIZ,
   },
   {

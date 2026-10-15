@@ -94,11 +94,16 @@ class MembresiaSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source="empresa.nombre", read_only=True)
     codigo = serializers.CharField(source="empresa.codigo", read_only=True)
     roles = serializers.SerializerMethodField()
+    areas = serializers.SerializerMethodField()
 
     class Meta:
         model = MembresiaEmpresa
-        fields = ["id", "nombre", "codigo", "es_predeterminada", "roles"]
+        fields = ["id", "nombre", "codigo", "es_predeterminada", "roles", "areas"]
         read_only_fields = fields
 
     def get_roles(self, obj: MembresiaEmpresa) -> list[dict]:
         return [{"id": rol.id, "name": rol.name} for rol in obj.roles.all()]
+
+    def get_areas(self, obj: MembresiaEmpresa) -> list[dict]:
+        """Las áreas de la Matriz de la membresía (§8.7)."""
+        return [{"id": area.id, "nombre": area.nombre} for area in obj.areas_matriz.all()]

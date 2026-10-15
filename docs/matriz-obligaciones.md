@@ -59,7 +59,7 @@ tiene y agrega solo lo propio de la matriz.
 | 2. Obligaciones y matriz | Obligación, período, secuencia, historial; motor de estados; Resumen, Matriz, Detalle | **Hecha** (AC-MTZ-011 a 025) |
 | 3. Evidencias y cierre | PDF, visor, enviar, validar, devolver, rechazar, cambio de fecha; Documentos | **Hecha** (AC-MTZ-026 a 036) |
 | 4. Recordatorios | Configuración por empresa, correo, reintentos, escalamiento, en la tarea programada | **Hecha** (AC-MTZ-037 a 046) |
-| 5. Reportes y configuración | Calendario, Reportes, exportaciones, auditoría, pestaña Recordatorios | Pendiente |
+| 5. Reportes y configuración | Calendario, Reportes, exportaciones, auditoría, pestaña Recordatorios | **Hecha** (AC-MTZ-047 a 056) |
 
 ## Lo que trae la fase 1
 
@@ -178,3 +178,39 @@ tiene y agrega solo lo propio de la matriz.
   recordatorio», también en la barra de acciones) y Configuración →
   Recordatorios (anticipaciones, hora, copia al suplente, escalamiento e
   historial de la empresa).
+
+## Lo que trae la fase 5
+
+- **Generación automática** (`apps/matriz/generacion.py`, §11.3): en cada
+  pasada del ciclo, antes de los avisos, cada obligación recurrente activa
+  cuyo último período vence dentro de `PERIOD_GENERATION_LEAD_DAYS` (30)
+  recibe el siguiente. Hereda responsable, suplente, supervisor, aprobador,
+  prioridad y sucursal, y conserva la hora de vencimiento. No repite
+  etiquetas y crea como mucho 24 por obligación y pasada. La única no genera.
+- **API** (sobre la empresa activa)
+  - `GET calendario/?year=&month=`: lo que vence en el mes, en la hora de la
+    empresa.
+  - `GET reportes/?due_from=&due_to=`: `kpis`, `by_area` y `by_entity`; con
+    `export=xlsx|pdf`, el archivo.
+  - `GET periodos/?…&export=xlsx|pdf`: la matriz con los mismos filtros y
+    orden de la pantalla.
+  - `GET auditoria/?actor=&action=&from=&to=`: el historial de los períodos
+    de la empresa, con `ver_auditoria`.
+  - Las exportaciones exigen `exportar`, se auditan como `report.exported` y
+    llevan empresa, fecha de corte y quién exportó. Se dibujan con los
+    renderizadores de `apps/reportes`.
+- **Membresías**
+  - La asignación de empresas de la ficha del usuario acepta `areas` por
+    empresa. Sin la clave, se conservan: antes, guardar la ficha borraba las
+    áreas, porque la asignación reemplaza las membresías.
+  - Último gestor (§8.9): una asignación que deja sin `gestionar_miembros` a
+    una empresa que tenía alguno se rechaza entera. Esto vigila la ficha del
+    usuario. Quitar el permiso de un rol desde Roles no lo vigila todavía.
+- **Pantallas**: Calendario y Reportes en el menú del módulo, «Excel» y «PDF»
+  en la Matriz y en Reportes (solo con `exportar`), Configuración →
+  Auditoría → Matriz, y las áreas de la Matriz (plegadas) en «Empresas y
+  roles» de la ficha del usuario.
+- **Nombres**: la acción del detalle es `remind`, como en §8.10. En el
+  historial, el reenvío y el escalamiento quedan como `reminder.sent` y
+  `reminder.escalated` (en la especificación, `period.reminder_sent` y
+  `period.escalated`).

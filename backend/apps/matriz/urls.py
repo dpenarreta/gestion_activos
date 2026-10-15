@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AreaViewSet,
     EntidadControlViewSet,
+    auditoria,
+    calendario,
     cambiar_vencimiento,
     catalogos,
     configuracion_recordatorios,
@@ -26,6 +28,7 @@ from .views import (
     recordatorio_enviar,
     recordatorio_vista_previa,
     recordatorios_del_periodo,
+    reportes,
     resumen,
     validar,
 )
@@ -45,6 +48,9 @@ urlpatterns = [
     path("personas/", personas, name="matriz-personas"),
     path("catalogos/", catalogos, name="matriz-catalogos"),
     path("resumen/", resumen, name="matriz-resumen"),
+    path("calendario/", calendario, name="matriz-calendario"),
+    path("reportes/", reportes, name="matriz-reportes"),
+    path("auditoria/", auditoria, name="matriz-auditoria"),
     path("periodos/", periodos, name="matriz-periodos"),
     path("periodos/<int:pk>/", periodo, name="matriz-periodo"),
     path("periodos/<int:pk>/historial/", historial, name="matriz-periodo-historial"),

@@ -28,6 +28,32 @@ export function diaCorto(valor) {
   });
 }
 
+/** El día (AAAA-MM-DD) de un instante en la zona de la empresa: lo que dice
+ * en qué casilla del calendario cae un vencimiento. */
+export function diaLocal(valor, zona) {
+  return new Date(valor).toLocaleDateString("en-CA", {
+    timeZone: zona || undefined,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+export const MESES_LARGOS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
 export function horaCorta(valor, zona) {
   if (!valor) return "";
   return new Date(valor).toLocaleTimeString(LOCALE, {

@@ -410,10 +410,13 @@ def reintentar_fallidos(ahora=None) -> int:
 
 
 def ciclo(ahora=None) -> dict:
-    """Los procesos del programador, en orden (§13). La generación de los
-    períodos siguientes llega con la fase 5."""
+    """Los procesos del programador, en orden (§13): primero se generan los
+    períodos, para que los nuevos ya reciban sus avisos en la misma pasada."""
+    from .generacion import generar_periodos
+
     ahora = ahora or timezone.now()
     return {
+        "periodos": generar_periodos(ahora),
         "recordatorios": enviar_recordatorios(ahora),
         "escalamientos": escalar_atrasos(ahora),
         "reintentos": reintentar_fallidos(ahora),

@@ -153,6 +153,6 @@ def acciones(periodo, usuario, capacidades) -> list[str]:
         ("validate", pendiente and tiene("matriz.validar")),
         ("return", pendiente and tiene("matriz.validar")),
         ("reject_document", tiene("matriz.validar")),
-        ("send_reminder", tiene("matriz.recordar")),
+        ("remind", not periodo.recordatorios_suspendidos and tiene("matriz.recordar")),
     ]
     return [accion for accion, permitida in candidatas if permitida]

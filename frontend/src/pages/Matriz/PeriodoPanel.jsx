@@ -101,7 +101,7 @@ const BOTONES = [
     clase: "btn-outline-secondary",
   },
   {
-    accion: "send_reminder",
+    accion: "remind",
     ventana: "recordar",
     texto: "Reenviar recordatorio",
     icono: "send",

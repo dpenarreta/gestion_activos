@@ -464,3 +464,20 @@ class NotificacionSerializer(serializers.ModelSerializer):
             "etiqueta": obj.periodo.etiqueta,
             "obligacion": obj.periodo.obligacion.nombre,
         }
+
+
+class EventoAuditoriaSerializer(EventoSerializer):
+    """Una línea del historial de la empresa: la del período, más cuál."""
+
+    periodo = serializers.SerializerMethodField()
+
+    class Meta(EventoSerializer.Meta):
+        fields = EventoSerializer.Meta.fields + ["periodo"]
+
+    def get_periodo(self, obj):
+        return {
+            "id": obj.periodo_id,
+            "codigo": obj.periodo.codigo,
+            "etiqueta": obj.periodo.etiqueta,
+            "obligacion": obj.periodo.obligacion.nombre,
+        }

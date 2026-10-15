@@ -397,3 +397,5 @@ PERIOD_CODE_PREFIX = env.str("PERIOD_CODE_PREFIX", default="OBL")
 DOCUMENT_MAX_UPLOAD_MB = env.int("DOCUMENT_MAX_UPLOAD_MB", default=10)
 # Intentos de cada aviso de la Matriz antes de dejarlo fallido (§12.3).
 NOTIFICATION_MAX_ATTEMPTS = env.int("NOTIFICATION_MAX_ATTEMPTS", default=3)
+# Cuántos días antes del vencimiento del último período se crea el siguiente (§11.3).
+PERIOD_GENERATION_LEAD_DAYS = env.int("PERIOD_GENERATION_LEAD_DAYS", default=30)

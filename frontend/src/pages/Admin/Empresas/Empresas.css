@@ -19,6 +19,19 @@
   gap: 0.25rem 1rem;
 }
 
+/* Las áreas de la Matriz, plegadas: solo importan a quien crea obligaciones
+   sin ver toda la empresa, y abiertas ocuparían media fila. */
+.empresas-asignacion__areas {
+  margin-top: 0.5rem;
+  font-size: 12.5px;
+}
+
+.empresas-asignacion__areas summary {
+  cursor: pointer;
+  color: var(--mz-ink-soft);
+  font-weight: 600;
+}
+
 .empresas-color {
   display: flex;
   align-items: center;

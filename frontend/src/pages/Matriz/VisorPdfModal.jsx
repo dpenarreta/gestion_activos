@@ -4,19 +4,13 @@ import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { guardarBlob } from "./BotonesExportar";
 
 /** Descarga un documento con el cliente autenticado (el endpoint exige la
  * sesión y audita el acceso). */
 export async function descargarDocumento(documento) {
   const blob = await matrizService.archivo(documento.id, { descarga: true });
-  const url = URL.createObjectURL(blob);
-  const enlace = document.createElement("a");
-  enlace.href = url;
-  enlace.download = documento.nombre_original;
-  document.body.appendChild(enlace);
-  enlace.click();
-  enlace.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  guardarBlob(blob, documento.nombre_original);
 }
 
 /**

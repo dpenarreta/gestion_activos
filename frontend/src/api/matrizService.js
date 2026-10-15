@@ -148,6 +148,33 @@ export const matrizService = {
       .post(`${BASE}/notificaciones/${id}/reintentar/`)
       .then((res) => res.data);
   },
+
+  // Calendario, reportes, exportaciones y auditoría (fase 5)
+  calendario(year, month) {
+    return apiClient
+      .get(`${BASE}/calendario/`, { params: { year, month } })
+      .then((res) => res.data);
+  },
+  reportes(params = {}) {
+    return apiClient
+      .get(`${BASE}/reportes/`, { params })
+      .then((res) => res.data);
+  },
+  auditoria(params = {}) {
+    return apiClient
+      .get(`${BASE}/auditoria/`, { params })
+      .then((res) => res.data);
+  },
+  /** El archivo de la matriz (`periodos`) o del reporte (`reportes`), con
+   * los mismos filtros de la pantalla. */
+  exportar(recurso, params, formato) {
+    return apiClient
+      .get(`${BASE}/${recurso}/`, {
+        params: { ...params, export: formato },
+        responseType: "blob",
+      })
+      .then((res) => res.data);
+  },
 };
 
 /** Áreas y entidades de control: catálogos compartidos por las empresas. */

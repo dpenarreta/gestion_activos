@@ -50,7 +50,7 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     # empresas trabaja cada cuenta: sin esto son dos consultas por fila.
     queryset = (
         User.objects.all()
-        .prefetch_related("membresias__empresa", "membresias__roles")
+        .prefetch_related("membresias__empresa", "membresias__roles", "membresias__areas_matriz")
         .order_by("-created_at")
     )
 
@@ -247,7 +247,7 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             raise ValidationError({"empresas": [str(error)]}) from error
         # Se relee: el usuario se cargó con las membresías precargadas, así que
         # el objeto en memoria sigue teniendo las de antes del cambio.
-        actualizado = User.objects.prefetch_related("membresias__empresa", "membresias__roles").get(
-            pk=user.pk
-        )
+        actualizado = User.objects.prefetch_related(
+            "membresias__empresa", "membresias__roles", "membresias__areas_matriz"
+        ).get(pk=user.pk)
         return Response(UserAdminDetailSerializer(actualizado).data)

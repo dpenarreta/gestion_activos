@@ -271,3 +271,58 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
   Scenario: La programación y el historial de avisos
     Then el período muestra por cada anticipación su fecha y si quedó programado, enviado, fallido, no enviado o suspendido
     And la empresa ve sus notificaciones filtradas por estado con «ver_auditoria»
+
+  # Fase 5: reportes y configuración
+
+  @AC-MTZ-047
+  Scenario: Los períodos siguientes se generan solos
+    Then para cada obligación recurrente activa, cuando su último período vence dentro de 30 días, se crea el siguiente
+    And hereda responsable, suplente, supervisor, aprobador, prioridad y sucursal, con «Registro del período generado» por «Sistema»
+    And suma 1, 3, 6 o 12 meses según la periodicidad; la única y la inactiva no generan
+
+  @AC-MTZ-048
+  Scenario: Generar es idempotente y tiene tope
+    Then correr el ciclo dos veces no crea dos veces el mismo período
+    And nunca crea más de 24 por obligación en una pasada
+
+  @AC-MTZ-049
+  Scenario: El calendario del mes
+    Then muestra los vencimientos del mes, de domingo a sábado, con hoy resaltado y el color del estado
+    And hasta tres por día con «+N más», y un clic abre el detalle
+    And sin «ver_todas», solo lo propio
+
+  @AC-MTZ-050
+  Scenario: El reporte de cumplimiento
+    Then cumplimiento a tiempo = cerrados a tiempo ÷ cerrados × 100, redondeado, y 0 sin cerrados; tardío igual con los fuera de plazo
+    And barras por área y por entidad con finalizados, en progreso, incumplidos y total, ordenadas por nombre
+    And respeta el rango de fechas de vencimiento y el alcance propio
+
+  @AC-MTZ-051
+  Scenario: Exportar a Excel y PDF
+    Then la matriz y el reporte se exportan con las mismas filas y filtros que la pantalla
+    And el archivo dice la empresa, la fecha de corte y quién exportó
+    And exige «exportar» y cada exportación queda en la auditoría como «report.exported»
+
+  @AC-MTZ-052
+  Scenario: La auditoría de la empresa
+    Then quien tiene «ver_auditoria» ve el historial de los períodos de la empresa, del más reciente al más antiguo
+    And filtra por persona (o «Sistema»), acción y fechas, y no ve nada de otra empresa
+
+  @AC-MTZ-053
+  Scenario: Las áreas de la Matriz en la ficha del usuario
+    Then en la asignación de empresas se marcan las áreas en que crea obligaciones quien no ve toda la empresa
+    And guardar la ficha sin enviarlas conserva las que tenía
+
+  @AC-MTZ-054
+  Scenario: Una empresa no se queda sin quien gestione sus miembros
+    Then quitar el último rol con «gestionar_miembros» de una empresa se rechaza y no cambia nada
+    And una empresa que nunca tuvo ese rol no bloquea ninguna ficha
+
+  @AC-MTZ-055
+  Scenario: La acción «Reenviar recordatorio» sigue a la especificación
+    Then el detalle ofrece «remind» solo en un período abierto, con recordatorios no suspendidos y a quien tiene «recordar»
+
+  @AC-MTZ-056
+  Scenario: El menú y Configuración del módulo
+    Then el menú de la Matriz tiene Resumen, Matriz, Calendario, Documentos y Reportes
+    And Configuración → Auditoría tiene «Sistema» con «auditoria.ver» y «Matriz» con «ver_auditoria»

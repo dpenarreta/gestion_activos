@@ -2,9 +2,12 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
 import { CatalogoMatrizPage } from "../pages/Matriz/CatalogoMatrizPage";
+import { AuditoriaMatriz } from "../pages/Matriz/AuditoriaMatriz";
+import { CalendarioMatriz } from "../pages/Matriz/CalendarioMatriz";
 import { ConfiguracionRecordatoriosPage } from "../pages/Matriz/ConfiguracionRecordatoriosPage";
 import { DocumentosMatriz } from "../pages/Matriz/DocumentosMatriz";
 import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
+import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
@@ -563,6 +566,11 @@ export function AppRoutes() {
           element={<MatrizObligacionesPage />}
         />
         <Route path="matriz/documentos" element={<DocumentosMatriz />} />
+        <Route path="matriz/calendario" element={<CalendarioMatriz />} />
+        <Route path="matriz/reportes" element={<ReportesMatriz />} />
+        {/* La auditoría de la Matriz: el servidor exige `ver_auditoria` en
+            la empresa activa y la pantalla muestra su mensaje si falta. */}
+        <Route path="auditoria/matriz" element={<AuditoriaMatriz />} />
         <Route
           path="configuracion/recordatorios"
           element={<ConfiguracionRecordatoriosPage />}

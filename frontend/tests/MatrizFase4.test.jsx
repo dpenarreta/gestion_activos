@@ -96,7 +96,7 @@ const DETALLE = {
   aprobador: null,
   observaciones: "",
   recordatorios_suspendidos: false,
-  acciones: ["send_reminder"],
+  acciones: ["remind"],
 };
 
 const FALLIDA = {

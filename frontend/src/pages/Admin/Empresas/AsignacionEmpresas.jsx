@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { adminUsersService } from "../../../api/adminUsersService";
 import { empresasService } from "../../../api/empresasService";
+import { catalogoMatrizService } from "../../../api/matrizService";
 import { rolesService } from "../../../api/rolesService";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
@@ -33,6 +34,10 @@ export function AsignacionEmpresas({ usuarioId }) {
   const [roles, setRoles] = useState([]);
   const [sinCatalogoDeRoles, setSinCatalogoDeRoles] = useState(false);
   const [asignadas, setAsignadas] = useState({});
+  // Las áreas de la Matriz por empresa (§8.7). `null` si no se pudo leer el
+  // catálogo: entonces no se envían y el servidor conserva las que había.
+  const [areas, setAreas] = useState(null);
+  const [areasAsignadas, setAreasAsignadas] = useState({});
   const [predeterminada, setPredeterminada] = useState(null);
   const [rolesGlobales, setRolesGlobales] = useState([]);
   const [esSuperusuario, setEsSuperusuario] = useState(false);
@@ -48,9 +53,15 @@ export function AsignacionEmpresas({ usuarioId }) {
       // Sin `roles.ver` el catálogo no se puede leer, pero las empresas sí se
       // pueden seguir asignando: se degrada la columna, no la pantalla.
       rolesService.list().catch(() => null),
+      catalogoMatrizService("areas")
+        .list()
+        .catch(() => null),
     ])
-      .then(([listado, usuario, catalogo]) => {
+      .then(([listado, usuario, catalogo, catalogoAreas]) => {
         setEmpresas(listado.results ?? []);
+        setAreas(
+          catalogoAreas?.filter((area) => area.activo !== false) ?? null,
+        );
         setRoles(catalogo ?? []);
         setSinCatalogoDeRoles(catalogo === null);
         const membresias = usuario.empresas ?? [];
@@ -59,6 +70,14 @@ export function AsignacionEmpresas({ usuarioId }) {
             membresias.map((empresa) => [
               empresa.id,
               (empresa.roles ?? []).map((rol) => rol.id),
+            ]),
+          ),
+        );
+        setAreasAsignadas(
+          Object.fromEntries(
+            membresias.map((empresa) => [
+              empresa.id,
+              (empresa.areas ?? []).map((area) => area.id),
             ]),
           ),
         );
@@ -104,6 +123,19 @@ export function AsignacionEmpresas({ usuarioId }) {
     });
   }
 
+  function alternarArea(empresaId, areaId) {
+    setMensaje(null);
+    setAreasAsignadas((actuales) => {
+      const propias = actuales[empresaId] ?? [];
+      return {
+        ...actuales,
+        [empresaId]: propias.includes(areaId)
+          ? propias.filter((id) => id !== areaId)
+          : [...propias, areaId],
+      };
+    });
+  }
+
   function alternarRolGlobal(rolId) {
     setMensaje(null);
     setRolesGlobales((actuales) =>
@@ -125,6 +157,9 @@ export function AsignacionEmpresas({ usuarioId }) {
             empresa_id: Number(empresaId),
             roles: rolesDeLaEmpresa,
             es_predeterminada: Number(empresaId) === predeterminada,
+            ...(areas !== null && {
+              areas: areasAsignadas[empresaId] ?? [],
+            }),
           })),
         );
       }
@@ -261,6 +296,44 @@ export function AsignacionEmpresas({ usuarioId }) {
                           <span className="mz-faint">—</span>
                         )}
                       </div>
+                      {estaAsignada && areas !== null && areas.length > 0 && (
+                        <details className="empresas-asignacion__areas">
+                          <summary>
+                            Áreas de la Matriz (
+                            {(areasAsignadas[empresa.id] ?? []).length ||
+                              "todas"}
+                            )
+                          </summary>
+                          <p className="mz-small mz-faint mb-1">
+                            Quien no ve toda la empresa solo crea obligaciones
+                            de estas áreas. Sin ninguna marcada, de todas.
+                          </p>
+                          <div className="empresas-asignacion__roles">
+                            {areas.map((area) => (
+                              <div className="form-check" key={area.id}>
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input"
+                                  id={`area-${empresa.id}-${area.id}`}
+                                  checked={(
+                                    areasAsignadas[empresa.id] ?? []
+                                  ).includes(area.id)}
+                                  disabled={!puedeAsignar}
+                                  onChange={() =>
+                                    alternarArea(empresa.id, area.id)
+                                  }
+                                />
+                                <label
+                                  className="form-check-label"
+                                  htmlFor={`area-${empresa.id}-${area.id}`}
+                                >
+                                  {area.nombre}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                       {/* Sin rol ve la empresa en el selector pero no puede
                           abrir nada dentro: se dice aquí y no en un error
                           posterior, cuando ya se guardó. */}

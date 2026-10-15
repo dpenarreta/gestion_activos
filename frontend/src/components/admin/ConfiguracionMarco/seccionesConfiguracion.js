@@ -150,8 +150,22 @@ export const SECCIONES_CONFIGURACION = [
     id: "auditoria",
     nombre: "Auditoría",
     path: "/admin/auditoria",
-    permission: "auditoria.ver",
+    // La del sistema exige `auditoria.ver`; la de la Matriz, `ver_auditoria`
+    // en la empresa activa (§15.9). La sección aparece con cualquiera.
+    permission: ["auditoria.ver", "matriz.ver_auditoria"],
     rutas: ["/admin/auditoria"],
+    subsecciones: [
+      {
+        nombre: "Sistema",
+        path: "/admin/auditoria",
+        permission: "auditoria.ver",
+      },
+      {
+        nombre: "Matriz",
+        path: "/admin/auditoria/matriz",
+        permission: "matriz.ver_auditoria",
+      },
+    ],
   },
 ];
 

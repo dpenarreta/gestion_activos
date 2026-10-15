@@ -61,6 +61,29 @@ def empresa_para(usuario, solicitada):
     return empresa_predeterminada(usuario) or SIN_EMPRESA
 
 
+ULTIMO_GESTOR = (
+    "{empresa} se quedaría sin nadie que gestione sus miembros en la Matriz de "
+    "obligaciones. Asigne antes ese rol a otra persona."
+)
+
+#: El permiso que una empresa no puede perder del todo (§8.9 de la Matriz).
+GESTIONAR_MIEMBROS = "matriz.gestionar_miembros"
+
+
+def gestores_de(empresa_ids) -> dict[int, int]:
+    """Cuántas membresías con `gestionar_miembros` tiene cada empresa."""
+    from django.db.models import Count
+
+    filas = (
+        MembresiaEmpresa.objects.filter(
+            empresa_id__in=empresa_ids, roles__permissions__codename=GESTIONAR_MIEMBROS
+        )
+        .values("empresa_id")
+        .annotate(total=Count("id", distinct=True))
+    )
+    return {fila["empresa_id"]: fila["total"] for fila in filas}
+
+
 AUTOEXCLUSION = (
     "No es posible quitarse a uno mismo todas las empresas: perdería el acceso "
     "a la información en cuanto se guardara el cambio."
@@ -99,6 +122,14 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
     if faltantes:
         raise ValueError(f"Empresas inexistentes: {faltantes}.")
 
+    from apps.matriz.models import Area
+
+    areas_pedidas = {a for entrada in asignaciones for a in entrada.get("areas") or []}
+    areas = {area.id: area for area in Area.objects.filter(id__in=areas_pedidas)}
+    faltantes = sorted(areas_pedidas - set(areas))
+    if faltantes:
+        raise ValueError(f"Áreas inexistentes: {faltantes}.")
+
     roles_pedidos = {rol for entrada in asignaciones for rol in entrada.get("roles", [])}
     roles = {rol.id: rol for rol in Group.objects.filter(id__in=roles_pedidos)}
     faltantes = sorted(roles_pedidos - set(roles))
@@ -129,6 +160,17 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
         predeterminada = None
 
     anteriores = _retrato(usuario)
+    # Las áreas de la Matriz de cada membresía. La asignación reemplaza las
+    # membresías, y sin esto cada guardado de la ficha del usuario borraría en
+    # silencio sus áreas: quien no las envía, las conserva.
+    areas_previas = {
+        membresia.empresa_id: [area.id for area in membresia.areas_matriz.all()]
+        for membresia in MembresiaEmpresa.objects.filter(usuario=usuario).prefetch_related(
+            "areas_matriz"
+        )
+    }
+    tocadas = set(areas_previas) | set(empresas)
+    gestores_antes = gestores_de(tocadas)
 
     with transaction.atomic():
         MembresiaEmpresa.objects.filter(usuario=usuario).delete()
@@ -139,6 +181,18 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
                 es_predeterminada=entrada["empresa_id"] == predeterminada,
             )
             membresia.roles.set([roles[rol] for rol in entrada.get("roles", [])])
+            elegidas = entrada.get("areas")
+            if elegidas is None:
+                elegidas = areas_previas.get(entrada["empresa_id"], [])
+            membresia.areas_matriz.set(elegidas)
+
+        # Último gestor (§8.9): solo cuenta si la empresa tenía alguno. Una
+        # empresa que nunca usó la Matriz no bloquea la ficha de nadie.
+        gestores_despues = gestores_de(tocadas)
+        for empresa_id, antes in gestores_antes.items():
+            if antes and not gestores_despues.get(empresa_id):
+                nombre = Empresa.objects.get(pk=empresa_id).nombre
+                raise PermissionError(ULTIMO_GESTOR.format(empresa=nombre))
 
     record_audit_event(
         actor=actor,
@@ -166,6 +220,7 @@ def _retrato(usuario):
                 "nombre": membresia.empresa.nombre,
                 "predeterminada": membresia.es_predeterminada,
                 "roles": sorted(rol.name for rol in membresia.roles.all()),
+                "areas": sorted(area.nombre for area in membresia.areas_matriz.all()),
             }
             for membresia in membresias_de(usuario)
         ]
@@ -176,5 +231,5 @@ def membresias_de(usuario):
     return (
         MembresiaEmpresa.objects.filter(usuario=usuario)
         .select_related("empresa")
-        .prefetch_related("roles")
+        .prefetch_related("roles", "areas_matriz")
     )

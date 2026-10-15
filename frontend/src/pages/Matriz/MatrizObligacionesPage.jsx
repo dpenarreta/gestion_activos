@@ -13,6 +13,7 @@ import {
   fechaCorta,
   textoDeDias,
 } from "./formatoMatriz";
+import { BotonesExportar } from "./BotonesExportar";
 import { ObligacionFormModal } from "./ObligacionFormModal";
 import { PeriodoPanel } from "./PeriodoPanel";
 import { useOpcionesMatriz } from "./useOpcionesMatriz";
@@ -157,6 +158,7 @@ export function MatrizObligacionesPage() {
 
   const zona = empresa?.zona_horaria;
   const puedeCrear = empresa?.capacidades.includes("matriz.crear");
+  const puedeExportar = empresa?.capacidades.includes("matriz.exportar");
 
   return (
     <div className="matriz-page">
@@ -168,15 +170,24 @@ export function MatrizObligacionesPage() {
             defecto, lo más urgente arriba.
           </p>
         </div>
-        {puedeCrear && (
+        {(puedeCrear || puedeExportar) && (
           <div className="mz-view-actions">
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => setCreando(true)}
-            >
-              <Icon name="plus-lg" /> Nueva obligación
-            </button>
+            {puedeExportar && (
+              <BotonesExportar
+                recurso="periodos"
+                params={{ ...filtros, sort: orden }}
+                nombre="matriz"
+              />
+            )}
+            {puedeCrear && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreando(true)}
+              >
+                <Icon name="plus-lg" /> Nueva obligación
+              </button>
+            )}
           </div>
         )}
       </div>

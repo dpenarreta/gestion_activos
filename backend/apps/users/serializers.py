@@ -50,6 +50,9 @@ class AsignacionEmpresaSerializer(serializers.Serializer):
     empresa_id = serializers.IntegerField()
     roles = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
     es_predeterminada = serializers.BooleanField(required=False, default=False)
+    #: Las áreas de la Matriz en que crea obligaciones quien no ve toda la
+    #: empresa (§8.7). Sin la clave, se conservan las que tenía.
+    areas = serializers.ListField(child=serializers.IntegerField(), required=False)
 
 
 class UserAdminListSerializer(serializers.ModelSerializer):

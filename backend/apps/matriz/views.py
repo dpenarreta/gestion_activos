@@ -20,7 +20,7 @@ from apps.empresas.servicios import empresas_de
 from apps.organizacion.models import Sede
 from apps.users.models import User
 
-from . import cierre, estados, recordatorios, servicios
+from . import cierre, estados, informes, recordatorios, servicios
 from .acceso import capacidades_en, empresa_de_la_matriz, exigir, puede, visibles
 from .models import (
     Area,
@@ -29,6 +29,7 @@ from .models import (
     EstadoDocumento,
     EstadoNotificacion,
     Etapa,
+    EventoPeriodo,
     Notificacion,
     Obligacion,
     Periodicidad,
@@ -44,6 +45,7 @@ from .serializers import (
     ConfiguracionRecordatoriosSerializer,
     DocumentoSerializer,
     EntidadControlSerializer,
+    EventoAuditoriaSerializer,
     EventoSerializer,
     MotivoSerializer,
     NotificacionSerializer,
@@ -356,6 +358,16 @@ def periodos(request):
     consulta = visibles(_consulta_base(), request.user, capacidades)
     consulta = _filtrar(consulta, request.query_params, empresa, ahora)
     consulta = _ordenar(consulta, request.query_params.get("sort", "urgency"), ahora)
+
+    if "export" in request.query_params:
+        formato = _exportacion_auditada(request, empresa, capacidades, "matriz")
+        return informes.exportar_matriz(
+            consulta,
+            empresa=empresa,
+            usuario=request.user,
+            formato=formato,
+            filtros=_describir_filtros(request.query_params),
+        )
 
     paginador = DefaultPagination()
     pagina = paginador.paginate_queryset(consulta, request)
@@ -785,6 +797,143 @@ def recordatorio_vista_previa(request, pk):
     if tipo not in TipoNotificacion.values:
         raise ValidationError({"kind": "Tipo de aviso desconocido."})
     return Response(recordatorios.vista_previa(actual, tipo))
+
+
+# --- Calendario, reportes, exportaciones y auditoría (fase 5) -----------------------
+
+FORMATOS = {"xlsx", "pdf"}
+
+#: Los filtros de la matriz, con su nombre legible para la cabecera del archivo.
+NOMBRES_DE_FILTRO = {
+    "q": "búsqueda",
+    "status": "estado",
+    "area": "área",
+    "entity": "entidad",
+    "responsible": "responsable",
+    "priority": "prioridad",
+    "stage": "etapa",
+    "due_today": "vence hoy",
+    "due_from": "desde",
+    "due_to": "hasta",
+}
+
+
+def _describir_filtros(params) -> str:
+    partes = [
+        f"{nombre}: {params.get(clave)}"
+        for clave, nombre in NOMBRES_DE_FILTRO.items()
+        if params.get(clave)
+    ]
+    return ", ".join(partes)
+
+
+def _exportacion_auditada(request, empresa, capacidades, tipo):
+    """El formato pedido, si se puede exportar; deja la traza (§16)."""
+    formato = request.query_params.get("export")
+    if formato not in FORMATOS:
+        raise ValidationError({"export": "Formato desconocido: use xlsx o pdf."})
+    exigir(request, "matriz.exportar", capacidades)
+    record_audit_event(
+        actor=request.user,
+        action="report.exported",
+        target=empresa,
+        module=MODULO,
+        new_values={
+            "reporte": tipo,
+            "formato": formato,
+            "filtros": {k: v for k, v in request.query_params.items() if k != "export"},
+        },
+        context=get_request_context(request),
+    )
+    return formato
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def calendario(request):
+    """Los períodos que vencen en un mes, en la hora de la empresa (§15.6)."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    hoy = timezone.now().astimezone(estados.zona_de(empresa)).date()
+    try:
+        anio = int(request.query_params.get("year", hoy.year))
+        mes = int(request.query_params.get("month", hoy.month))
+        inicio = datetime.date(anio, mes, 1)
+    except ValueError:
+        raise ValidationError({"detail": "Indique un año y un mes válidos."}) from None
+    siguiente = datetime.date(anio + mes // 12, mes % 12 + 1, 1)
+    zona = estados.zona_de(empresa)
+    consulta = visibles(_consulta_base(), request.user, capacidades).filter(
+        vence_en__gte=datetime.datetime.combine(inicio, datetime.time(), zona),
+        vence_en__lt=datetime.datetime.combine(siguiente, datetime.time(), zona),
+    )
+    ahora = timezone.now()
+    return Response(
+        {
+            "year": anio,
+            "month": mes,
+            "periods": PeriodoListaSerializer(
+                consulta.order_by("vence_en", "id"), many=True, context={"ahora": ahora}
+            ).data,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def reportes(request):
+    """Indicadores y conteos por área y entidad (§15.8, §16); con `export`,
+    el archivo."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    consulta = visibles(_consulta_base(), request.user, capacidades)
+    rango = {
+        clave: request.query_params[clave]
+        for clave in ("due_from", "due_to")
+        if request.query_params.get(clave)
+    }
+    consulta = _filtrar(consulta, rango, empresa, timezone.now())
+    datos = informes.calcular(consulta)
+    if "export" in request.query_params:
+        formato = _exportacion_auditada(request, empresa, capacidades, "reporte")
+        return informes.exportar_reporte(
+            datos,
+            empresa=empresa,
+            usuario=request.user,
+            formato=formato,
+            filtros=_describir_filtros(rango),
+        )
+    return Response(datos)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def auditoria(request):
+    """El historial de los períodos de la empresa, del más reciente al más
+    antiguo, con filtros (§14.2)."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    exigir(request, "matriz.ver_auditoria", capacidades)
+    consulta = EventoPeriodo.objects.select_related("actor", "periodo__obligacion")
+    params = request.query_params
+    actor = params.get("actor")
+    if actor == "sistema":
+        consulta = consulta.filter(actor__isnull=True)
+    elif actor:
+        consulta = consulta.filter(actor_id=actor)
+    if params.get("action"):
+        consulta = consulta.filter(accion=params["action"])
+    zona = estados.zona_de(empresa)
+    for parametro, operador, sumar in (("from", "gte", 0), ("to", "lt", 1)):
+        valor = params.get(parametro)
+        if valor:
+            try:
+                dia = datetime.date.fromisoformat(valor) + datetime.timedelta(days=sumar)
+            except ValueError:
+                raise ValidationError({parametro: "Use una fecha AAAA-MM-DD."}) from None
+            consulta = consulta.filter(
+                **{f"created_at__{operador}": datetime.datetime.combine(dia, datetime.time(), zona)}
+            )
+    paginador = DefaultPagination()
+    pagina = paginador.paginate_queryset(consulta, request)
+    return paginador.get_paginated_response(EventoAuditoriaSerializer(pagina, many=True).data)
 
 
 __all__ = ["puede"]

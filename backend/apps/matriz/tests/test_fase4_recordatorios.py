@@ -374,8 +374,8 @@ def test_reenviar_exige_permiso(escena):
 
 def test_el_detalle_ofrece_reenviar_solo_a_quien_puede(escena):
     detalle = f"/api/v1/matriz/periodos/{escena['periodo'].id}/"
-    assert "send_reminder" in escena["ana"].get(detalle).data["acciones"]
-    assert "send_reminder" not in escena["aldo"].get(detalle).data["acciones"]
+    assert "remind" in escena["ana"].get(detalle).data["acciones"]
+    assert "remind" not in escena["aldo"].get(detalle).data["acciones"]
 
 
 def test_la_programacion_dice_que_salio_y_que_falta(escena, monkeypatch):
