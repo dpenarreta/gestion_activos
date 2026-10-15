@@ -35,6 +35,41 @@ class Empresa(BaseModel):
     )
     activa = models.BooleanField(default=True)
 
+    # --- Lo que pide la Matriz de obligaciones ---------------------------
+    #
+    # Los vencimientos y recordatorios de la Matriz se calculan en la hora de
+    # cada empresa, no en la del servidor: «vence hoy a las 17:00» tiene que
+    # ser hoy y a las 17:00 donde trabaja quien cumple la obligación.
+
+    class BaseDeCumplimiento(models.TextChoices):
+        VALIDACION = "validacion", "Fecha de validación"
+        ENVIO = "envio", "Fecha de envío a validación"
+
+    zona_horaria = models.CharField(
+        max_length=64,
+        default="America/Guayaquil",
+        help_text="Zona IANA. Se usa en todos los cálculos de vencimientos.",
+    )
+    #: Identifica la empresa a simple vista: el punto del selector y el borde
+    #: de «Tablero activo» en el menú.
+    color = models.CharField(max_length=7, default="#164B86")
+    #: Aprobador por defecto de los períodos de la Matriz.
+    gerente_general = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="empresas_que_gerencia",
+    )
+    #: Qué fecha cuenta como cumplimiento de una obligación: la de validación
+    #: (lo habitual) o la de envío, para empresas que dan por cumplido lo que
+    #: se presentó a tiempo aunque se valide después.
+    base_cumplimiento = models.CharField(
+        max_length=12,
+        choices=BaseDeCumplimiento.choices,
+        default=BaseDeCumplimiento.VALIDACION,
+    )
+
     class Meta:
         ordering = ["nombre"]
         verbose_name = "empresa"

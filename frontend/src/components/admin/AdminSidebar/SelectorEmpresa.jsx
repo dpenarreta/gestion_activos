@@ -34,6 +34,17 @@ export function useMisEmpresas() {
   return { empresas, activa };
 }
 
+/**
+ * El nombre con el rol que se ejerce en ella: la misma persona puede
+ * administrar una empresa y solo consultar otra, y conviene saberlo antes de
+ * cambiar (especificación de la Matriz, §15.1).
+ */
+function conRol(empresa) {
+  return empresa.roles?.length
+    ? `${empresa.nombre} — ${empresa.roles.join(", ")}`
+    : empresa.nombre;
+}
+
 /** «Tablero activo» del menú lateral: solo dice dónde se está. */
 export function EmpresaActiva({ empresas, activa, isCollapsed }) {
   if (empresas.length === 0) return null;
@@ -55,10 +66,15 @@ export function EmpresaActiva({ empresas, activa, isCollapsed }) {
     );
   }
 
+  const roles = (empresas.find((e) => e.id === activa?.id) ?? empresas[0])
+    ?.roles;
   return (
     <div className="mz-active-company">
       <small>Tablero activo</small>
       <strong>{nombre}</strong>
+      {roles?.length > 0 && (
+        <span className="mz-active-company__rol">{roles.join(" · ")}</span>
+      )}
     </div>
   );
 }
@@ -96,7 +112,7 @@ export function SelectorEmpresa({ empresas, activa }) {
       <select id="selector-empresa" value={activa?.id ?? ""} onChange={cambiar}>
         {empresas.map((empresa) => (
           <option key={empresa.id} value={empresa.id}>
-            {empresa.nombre}
+            {conRol(empresa)}
           </option>
         ))}
       </select>

@@ -2,6 +2,23 @@ import {
   PERMISOS_CONFIGURACION,
   RUTAS_CONFIGURACION,
 } from "../ConfiguracionMarco/seccionesConfiguracion";
+import { MODULO_POR_DEFECTO } from "../../../modulos/modulos";
+
+/** Cualquiera de estos abre la Matriz en la empresa activa. */
+export const PERMISOS_MATRIZ = [
+  "matriz.ver_todas",
+  "matriz.crear",
+  "matriz.editar",
+  "matriz.cambiar_fecha",
+  "matriz.cargar",
+  "matriz.enviar",
+  "matriz.validar",
+  "matriz.recordar",
+  "matriz.exportar",
+  "matriz.ver_auditoria",
+  "matriz.configurar",
+  "matriz.gestionar_miembros",
+];
 
 /**
  * Árbol del Menú Administrativo — estático, no configurable desde el
@@ -20,6 +37,7 @@ import {
 export const ADMIN_MENU = [
   {
     id: "panel",
+    modulo: "activos",
     name: "Panel principal",
     icon: "speedometer2",
     path: "/admin/dashboard",
@@ -29,6 +47,7 @@ export const ADMIN_MENU = [
     // Arriba, junto al panel: es la pantalla desde la que se decide qué hacer
     // hoy, y esconderla dentro de un submenú la volvería opcional.
     id: "alertas",
+    modulo: "activos",
     name: "Alertas",
     icon: "bell",
     path: "/admin/alertas",
@@ -36,6 +55,7 @@ export const ADMIN_MENU = [
   },
   {
     id: "activos",
+    modulo: "activos",
     name: "Activos",
     icon: "pc-display",
     permission: "activos.ver",
@@ -76,6 +96,7 @@ export const ADMIN_MENU = [
   },
   {
     id: "mantenimientos",
+    modulo: "activos",
     name: "Mantenimientos",
     icon: "tools",
     permission: "mantenimientos.ver",
@@ -99,6 +120,7 @@ export const ADMIN_MENU = [
     // del equipo —se inventaría, se repara, se pide el reemplazo—, y una
     // solicitud es casi siempre la consecuencia de lo de arriba.
     id: "solicitudes",
+    modulo: "activos",
     name: "Solicitudes",
     icon: "cart-plus",
     permission: "solicitudes.ver",
@@ -128,6 +150,7 @@ export const ADMIN_MENU = [
   },
   {
     id: "renovacion",
+    modulo: "activos",
     name: "Renovación",
     icon: "arrow-repeat",
     permission: "politicas.ver",
@@ -150,10 +173,25 @@ export const ADMIN_MENU = [
     // Los reportes son transversales: cruzan activos, custodia y
     // mantenimientos, así que no cuelgan de ninguno de los tres.
     id: "reportes",
+    modulo: "activos",
     name: "Reportes",
     icon: "file-earmark-bar-graph",
     path: "/admin/reportes",
     permission: "reportes.ver",
+  },
+  // --- Matriz de obligaciones -------------------------------------------
+  //
+  // Sus permisos valen solo por la membresía en la empresa activa (ver
+  // `apps.permissions.authorization.SOLO_POR_EMPRESA`), así que la entrada
+  // aparece en las empresas donde la persona tiene un rol de la Matriz y en las
+  // demás no.
+  {
+    id: "matriz-resumen",
+    modulo: "matriz",
+    name: "Resumen",
+    icon: "grid-1x2",
+    path: "/admin/matriz",
+    permission: PERMISOS_MATRIZ,
   },
   {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,
@@ -166,6 +204,8 @@ export const ADMIN_MENU = [
     // la entrada. `rutas` son las direcciones de esas secciones, que conservan
     // las suyas, para que la entrada se marque estando en cualquiera de ellas.
     id: "configuracion",
+    // Común a todos los módulos.
+    modulo: "comun",
     name: "Configuración",
     icon: "gear",
     path: "/admin/configuracion",
@@ -207,7 +247,28 @@ function filterByPermission(items, permissions, heredado = undefined) {
     .filter(Boolean);
 }
 
-/** Filtra el árbol completo por los permisos del usuario autenticado. */
-export function getVisibleAdminMenu(permissions = []) {
-  return filterByPermission(ADMIN_MENU, permissions);
+/**
+ * El menú de un módulo, filtrado por los permisos del usuario autenticado:
+ * sus entradas más las comunes (Configuración).
+ */
+export function getVisibleAdminMenu(
+  permissions = [],
+  modulo = MODULO_POR_DEFECTO,
+) {
+  const delModulo = ADMIN_MENU.filter(
+    (item) => item.modulo === modulo || item.modulo === "comun",
+  );
+  return filterByPermission(delModulo, permissions);
+}
+
+/** Los módulos en los que la persona tiene algo que abrir, sin contar lo
+ * común: un módulo cuya única entrada fuera Configuración no se ofrece. */
+export function modulosConAcceso(permissions = []) {
+  const modulos = new Set(
+    filterByPermission(
+      ADMIN_MENU.filter((item) => item.modulo !== "comun"),
+      permissions,
+    ).map((item) => item.modulo),
+  );
+  return [...modulos];
 }

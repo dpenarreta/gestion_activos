@@ -875,3 +875,21 @@ juntas.
 | AC-E2E-011 | No se registra sobre lo que salió del parque | escaner-activos.feature | No se ofrece registrar sobre un equipo que salió del parque | Sí (Vitest: `sobre un equipo que ya salió del parque tampoco`) |
 | AC-E2E-010 | El escáner ofrece ver la ficha o registrar | escaner-activos.feature | Una lectura ofrece las dos cosas que se hacen con el equipo en la mano | Sí (Playwright y Vitest: `consulta-por-escaner.spec.js`, `ofrece las dos cosas que se hacen con el equipo en la mano`) |
 | AC-E2E-008 | Un reporte se descarga con contenido | dashboard-y-reportes.feature | El archivo se descarga con su nombre y no llega vacío | Sí (Playwright: `descargar-un-reporte.spec.js`) |
+
+## Matriz de obligaciones, fase 1: base y acceso (AC-MTZ-001 a AC-MTZ-010)
+
+Especificación: `matriz_admin/docs/modulo/MODULO-MATRIZ-OBLIGACIONES.md`. Plan y
+estado del módulo en `docs/matriz-obligaciones.md`.
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-MTZ-001 | Un rol global no da la Matriz | matriz-obligaciones.feature | Un rol global no da permisos de la Matriz | Sí (pytest: `test_un_rol_global_no_da_permisos_de_la_matriz`) |
+| AC-MTZ-002 | El rol vale solo en su empresa | matriz-obligaciones.feature | El rol de la membresía vale solo en su empresa | Sí (pytest: `test_el_rol_de_la_membresia_vale_solo_en_su_empresa`, `test_el_superusuario_tiene_toda_la_matriz`) |
+| AC-MTZ-003 | Solo sus empresas, con su rol | matriz-obligaciones.feature | Solo ve sus empresas, con su rol | Sí (pytest: `test_solo_ve_sus_empresas_con_su_rol`, `test_una_empresa_inactiva_no_da_acceso`, `test_el_selector_de_empresa_dice_el_rol_en_cada_una`) |
+| AC-MTZ-004 | La entrada dice dónde y con qué rol | matriz-obligaciones.feature | La entrada de la Matriz dice dónde se está y con qué rol | Sí (Vitest: `dice la empresa, su zona horaria, el rol y qué permite`, `sin rol de la Matriz en la empresa activa, lo dice y cómo resolverlo`) |
+| AC-MTZ-005 | Roles sembrados | matriz-obligaciones.feature | Los roles de la Matriz vienen sembrados y son editables | Sí (pytest: `test_los_roles_sembrados_son_los_de_la_especificacion`) |
+| AC-MTZ-006 | Catálogos compartidos | matriz-obligaciones.feature | Áreas y entidades de control compartidas | Sí (pytest: `test_los_catalogos_vienen_sembrados`, `test_ver_los_catalogos_exige_su_permiso`, `test_editarlos_exige_el_suyo_y_queda_auditado`; Vitest: `se consultan sin el permiso de editar, pero no se cambian`, `con permiso se crea una nueva`, `cada apartado se filtra por su permiso`) |
+| AC-MTZ-007 | La empresa para la Matriz | matriz-obligaciones.feature | La empresa tiene lo que la Matriz necesita | Sí (pytest: `test_la_empresa_tiene_zona_color_y_base_de_cumplimiento`, `test_el_gerente_general_debe_trabajar_en_la_empresa`, `test_las_personas_de_la_empresa_para_elegir_gerente`; Vitest: `guarda lo que pide la Matriz: zona, color, gerente y base de cumplimiento`) |
+| AC-MTZ-008 | Selector de módulos | matriz-obligaciones.feature | El selector de módulos ofrece los módulos con algo que abrir | Sí (Vitest: `dice en qué módulo se está y ofrece los demás`, `elegir otro lleva a su inicio`, `con un solo módulo no se dibuja`) |
+| AC-MTZ-009 | Un menú por módulo | matriz-obligaciones.feature | Cada módulo trae su menú; Configuración es común | Sí (Vitest: `el inventario no muestra la Matriz, ni la Matriz el inventario`, `Configuración aparece en los dos`) |
+| AC-MTZ-010 | Configuración conserva el módulo | matriz-obligaciones.feature | Configuración conserva el módulo desde el que se llegó | Sí (Vitest: `en Configuración conserva el módulo desde el que se llegó`) |

@@ -16,6 +16,12 @@ const listar = vi.fn();
 const obtener = vi.fn();
 const crear = vi.fn();
 const actualizar = vi.fn();
+const personas = vi.fn(() =>
+  Promise.resolve([
+    { id: 7, nombre: "Ana Pérez" },
+    { id: 9, nombre: "Luis Mora" },
+  ]),
+);
 
 vi.mock("../src/api/empresasService", () => ({
   empresasService: {
@@ -23,6 +29,7 @@ vi.mock("../src/api/empresasService", () => ({
     get: (...args) => obtener(...args),
     create: (...args) => crear(...args),
     update: (...args) => actualizar(...args),
+    personas: (...args) => personas(...args),
   },
 }));
 
@@ -43,6 +50,10 @@ const EMPRESAS = [
     identificacion: "1790012345001",
     usuarios: 9,
     activa: true,
+    zona_horaria: "America/Guayaquil",
+    color: "#164B86",
+    gerente_general: null,
+    base_cumplimiento: "validacion",
   },
   {
     id: 2,
@@ -51,6 +62,10 @@ const EMPRESAS = [
     identificacion: "",
     usuarios: 0,
     activa: true,
+    zona_horaria: "America/Guayaquil",
+    color: "#0E7C86",
+    gerente_general: null,
+    base_cumplimiento: "validacion",
   },
 ];
 
@@ -281,6 +296,46 @@ describe("Crear o editar una empresa", () => {
     await waitFor(() => expect(actualizar).toHaveBeenCalled());
     expect(actualizar.mock.calls[0][0]).toBe("1");
     expect(crear).not.toHaveBeenCalled();
+  });
+
+  it("guarda lo que pide la Matriz: zona, color, gerente y base de cumplimiento", async () => {
+    /* Los vencimientos de la Matriz se calculan en la hora de cada empresa, y
+       el gerente aprueba por defecto: se elige entre quienes trabajan en ella. */
+    permisos.add("empresas.editar");
+
+    pintarFormulario(1);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Nombre")).toHaveValue("LaarCourier"),
+    );
+    expect(screen.getByLabelText("Zona horaria")).toHaveValue(
+      "America/Guayaquil",
+    );
+    await screen.findByRole("option", { name: "Luis Mora" });
+    fireEvent.change(screen.getByLabelText("Gerente general"), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText("Cuenta como cumplida"), {
+      target: { value: "envio" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(actualizar).toHaveBeenCalled());
+    expect(actualizar.mock.calls[0][1]).toMatchObject({
+      zona_horaria: "America/Guayaquil",
+      gerente_general: "9",
+      base_cumplimiento: "envio",
+    });
+  });
+
+  it("al crear, el gerente se elige después de guardar", async () => {
+    permisos.add("empresas.editar");
+
+    pintarFormulario();
+
+    await screen.findByText("Nueva empresa");
+    expect(screen.getByLabelText("Gerente general")).toBeDisabled();
+    expect(personas).not.toHaveBeenCalled();
   });
 
   it("si el servidor rechaza el guardado, lo dice con su motivo", async () => {

@@ -171,6 +171,45 @@ PERMISSION_CATALOG = {
             "reportes.exportar": "Descargar reportes en Excel, CSV o PDF",
         },
     },
+    "matriz": {
+        "label": "Matriz de obligaciones",
+        "description": (
+            "Obligaciones regulatorias, contractuales e internas de cada "
+            "empresa: sus períodos, evidencias, cierres y recordatorios. Estos "
+            "permisos valen **solo en la empresa donde se tienen** por el rol "
+            "de la membresía: un rol global del usuario no los concede en "
+            "ninguna empresa (ver `apps.permissions.authorization`)."
+        ),
+        "permissions": {
+            "matriz.ver_todas": (
+                "Ver todos los períodos de la empresa; sin él, solo aquellos en "
+                "los que es responsable o suplente"
+            ),
+            "matriz.crear": "Crear obligaciones",
+            "matriz.editar": "Editar obligaciones y el seguimiento de los períodos",
+            "matriz.cambiar_fecha": "Cambiar la fecha de vencimiento de un período, con justificación",
+            "matriz.cargar": "Cargar evidencias y eliminar las rechazadas",
+            "matriz.enviar": "Enviar períodos a validación",
+            "matriz.validar": "Validar cierres, devolver períodos y rechazar evidencias",
+            "matriz.recordar": "Reenviar recordatorios y reintentar avisos fallidos",
+            "matriz.exportar": "Exportar la matriz y sus reportes a Excel o PDF",
+            "matriz.ver_auditoria": "Ver el historial y las notificaciones de la empresa",
+            "matriz.configurar": "Configurar la empresa y sus recordatorios",
+            "matriz.gestionar_miembros": "Asignar y quitar roles de personas en la empresa",
+        },
+    },
+    "catalogos": {
+        "label": "Catálogos de la Matriz",
+        "description": (
+            "Áreas y entidades de control, compartidas por todas las empresas. "
+            "No son los departamentos del inventario: estas clasifican "
+            "obligaciones, aquellos organizan personas y equipos."
+        ),
+        "permissions": {
+            "catalogos.ver": "Ver áreas y entidades de control",
+            "catalogos.editar": "Crear, editar y eliminar áreas y entidades de control",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",

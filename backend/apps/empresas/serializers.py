@@ -1,3 +1,6 @@
+import re
+import zoneinfo
+
 from rest_framework import serializers
 
 from .models import Empresa, MembresiaEmpresa
@@ -13,7 +16,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Empresa
-        fields = ["id", "nombre", "codigo", "identificacion", "activa"]
+        fields = ["id", "nombre", "codigo", "identificacion", "activa", "color", "zona_horaria"]
         read_only_fields = fields
 
 
@@ -24,7 +27,53 @@ class EmpresaAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Empresa
-        fields = ["id", "nombre", "codigo", "identificacion", "activa", "usuarios"]
+        fields = [
+            "id",
+            "nombre",
+            "codigo",
+            "identificacion",
+            "activa",
+            "usuarios",
+            "zona_horaria",
+            "color",
+            "gerente_general",
+            "gerente_general_nombre",
+            "base_cumplimiento",
+        ]
+
+    gerente_general_nombre = serializers.SerializerMethodField()
+
+    def get_gerente_general_nombre(self, obj: Empresa) -> str | None:
+        gerente = obj.gerente_general
+        if gerente is None:
+            return None
+        return gerente.get_full_name() or gerente.username
+
+    def validate_zona_horaria(self, value: str) -> str:
+        try:
+            zoneinfo.ZoneInfo(value)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+            raise serializers.ValidationError(
+                f"«{value}» no es una zona horaria conocida (ej.: America/Guayaquil)."
+            ) from None
+        return value
+
+    def validate_color(self, value: str) -> str:
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", value or ""):
+            raise serializers.ValidationError("El color va en hexadecimal: #RRGGBB.")
+        return value.upper()
+
+    def validate(self, attrs):
+        # El gerente aprueba por defecto los períodos de la Matriz: tiene que
+        # poder entrar a la empresa, o los cierres quedarían esperando a alguien
+        # que no ve nada de ella.
+        gerente = attrs.get("gerente_general")
+        if gerente is not None and self.instance is not None:
+            if not self.instance.membresias.filter(usuario=gerente).exists():
+                raise serializers.ValidationError(
+                    {"gerente_general": "El gerente general debe trabajar en la empresa."}
+                )
+        return attrs
 
     def get_usuarios(self, obj: Empresa) -> int:
         """Cuántas cuentas trabajan en ella.

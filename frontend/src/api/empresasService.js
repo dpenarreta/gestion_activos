@@ -23,6 +23,10 @@ export const empresasService = {
   create(payload) {
     return apiClient.post(EMPRESAS, payload).then((res) => res.data);
   },
+  /** Quienes trabajan en la empresa: de ahí sale el gerente general. */
+  personas(id) {
+    return apiClient.get(`${EMPRESAS}${id}/personas/`).then((res) => res.data);
+  },
   update(id, payload) {
     return apiClient
       .patch(`${EMPRESAS}${id}/`, payload)

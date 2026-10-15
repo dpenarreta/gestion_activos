@@ -18,3 +18,25 @@
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
 }
+
+.empresas-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.empresas-color .form-control-color {
+  width: 3rem;
+  padding: 4px;
+}
+
+/* El punto de color delante del código, como en la Matriz: identifica la
+   empresa igual que en el selector de la barra superior. */
+.empresas-punto {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}

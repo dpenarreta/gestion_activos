@@ -26,6 +26,7 @@ const { UnsavedChangesProvider } =
   await import("../src/context/UnsavedChangesContext");
 
 const TODOS = [
+  "catalogos.ver",
   "empresas.ver",
   "usuarios.ver",
   "roles.ver",
@@ -132,8 +133,28 @@ describe("Las pestañas de Configuración", () => {
       "Concesionarios",
       "Empleados",
       "Carga masiva",
+      "Áreas",
+      "Entidades de control",
     ]);
     expect(apartados[1]).toHaveAttribute("aria-current", "page");
+  });
+
+  it("cada apartado se filtra por su permiso", () => {
+    /* Quien solo ve los catálogos de la Matriz entra a «Catálogos» por
+       «Áreas», no por un departamento que le respondería 403. */
+    permisos.lista = ["catalogos.ver"];
+
+    pintar("/admin/catalogos/areas");
+
+    const catalogos = screen.getByRole("link", { name: "Catálogos" });
+    expect(catalogos).toHaveAttribute("href", "/admin/catalogos/areas");
+    const apartados = within(
+      screen.getByRole("navigation", { name: "Apartados de catálogos" }),
+    ).getAllByRole("link");
+    expect(apartados.map((a) => a.textContent)).toEqual([
+      "Áreas",
+      "Entidades de control",
+    ]);
   });
 
   it("una pestaña lleva a su sección", () => {

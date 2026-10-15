@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 
 import { useAdminMenu } from "../hooks/useAdminMenu";
 import { usePermission } from "../hooks/usePermission";
+import { moduloPorId } from "../modulos/modulos";
 
 /**
  * A dónde entra cada quien al abrir `/admin`.
@@ -16,7 +17,8 @@ import { usePermission } from "../hooks/usePermission";
  * principal, porque es la primera del árbol para quien puede verlo.
  */
 export function InicioDelPanel() {
-  const menu = useAdminMenu();
+  const menu = useAdminMenu("activos");
+  const menuMatriz = useAdminMenu("matriz");
   const veLoSuyo = usePermission("activos.ver_asignados");
   const destino = primeraRuta(menu);
 
@@ -28,6 +30,12 @@ export function InicioDelPanel() {
   // mismo 403 que este componente existe para evitar.
   if (!destino && veLoSuyo) {
     return <Navigate to="/admin/mis-equipos" replace />;
+  }
+
+  // Quien no tiene nada del inventario pero sí de la Matriz entra por ella:
+  // es el otro módulo, no un 403.
+  if (!destino && menuMatriz.some((item) => item.modulo === "matriz")) {
+    return <Navigate to={moduloPorId("matriz").inicio} replace />;
   }
 
   // Sin ninguna opción visible no hay a dónde mandarlo, y el 403 es la verdad:

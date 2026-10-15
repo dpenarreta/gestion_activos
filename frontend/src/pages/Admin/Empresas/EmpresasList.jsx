@@ -85,6 +85,7 @@ export function EmpresasList() {
               <th>Nombre</th>
               <th>Código</th>
               <th>Identificación</th>
+              <th>Zona horaria</th>
               <th className="num">Usuarios</th>
               <th>Estado</th>
               <th aria-label="Acciones" />
@@ -94,10 +95,18 @@ export function EmpresasList() {
             {listado.resultados.map((empresa) => (
               <tr key={empresa.id}>
                 <td className="mz-strong">{empresa.nombre}</td>
-                <td className="mz-code">{empresa.codigo}</td>
+                <td className="mz-code">
+                  <span
+                    className="empresas-punto"
+                    style={{ background: empresa.color }}
+                    aria-hidden="true"
+                  />
+                  {empresa.codigo}
+                </td>
                 <td className="mz-mono mz-faint">
                   {empresa.identificacion || "—"}
                 </td>
+                <td className="mz-faint">{empresa.zona_horaria}</td>
                 <td className="num">
                   {empresa.usuarios}
                   {/* Una empresa sin nadie asignado no la ve nadie, y desde
@@ -127,7 +136,7 @@ export function EmpresasList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr className="mz-empty-row">
-                <td colSpan={6}>Sin empresas registradas</td>
+                <td colSpan={7}>Sin empresas registradas</td>
               </tr>
             )}
           </tbody>

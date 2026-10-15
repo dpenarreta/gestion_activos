@@ -57,18 +57,57 @@ export const SECCIONES_CONFIGURACION = [
     id: "catalogos",
     nombre: "Catálogos",
     path: "/admin/organizacion/departamentos",
-    permission: "organizacion.ver",
+    // Los del inventario (organización) y los de la Matriz (áreas y
+    // entidades de control) tienen permisos distintos: cada apartado declara
+    // el suyo y la sección aparece con cualquiera.
+    permission: ["organizacion.ver", "catalogos.ver"],
     rutas: ["/admin/organizacion", "/admin/catalogos"],
     subsecciones: [
-      { nombre: "Departamentos", path: "/admin/organizacion/departamentos" },
-      { nombre: "Sedes", path: "/admin/organizacion/sedes" },
-      { nombre: "Proveedores", path: "/admin/organizacion/proveedores" },
+      {
+        nombre: "Departamentos",
+        path: "/admin/organizacion/departamentos",
+        permission: "organizacion.ver",
+      },
+      {
+        nombre: "Sedes",
+        path: "/admin/organizacion/sedes",
+        permission: "organizacion.ver",
+      },
+      {
+        nombre: "Proveedores",
+        path: "/admin/organizacion/proveedores",
+        permission: "organizacion.ver",
+      },
       // Junto a proveedores porque es la distinción que hay que ver al lado:
       // al proveedor se le compró el equipo, y el concesionario es su dueño.
-      { nombre: "Concesionarios", path: "/admin/organizacion/concesionarios" },
-      { nombre: "Empleados", path: "/admin/organizacion/empleados" },
-      // Al final: se usa al arrancar y de vez en cuando, no todos los días.
-      { nombre: "Carga masiva", path: "/admin/catalogos/carga" },
+      {
+        nombre: "Concesionarios",
+        path: "/admin/organizacion/concesionarios",
+        permission: "organizacion.ver",
+      },
+      {
+        nombre: "Empleados",
+        path: "/admin/organizacion/empleados",
+        permission: "organizacion.ver",
+      },
+      // Al final de los del inventario: se usa al arrancar y de vez en
+      // cuando, no todos los días.
+      {
+        nombre: "Carga masiva",
+        path: "/admin/catalogos/carga",
+        permission: "organizacion.ver",
+      },
+      // Los de la Matriz, compartidos por todas las empresas.
+      {
+        nombre: "Áreas",
+        path: "/admin/catalogos/areas",
+        permission: "catalogos.ver",
+      },
+      {
+        nombre: "Entidades de control",
+        path: "/admin/catalogos/entidades-control",
+        permission: "catalogos.ver",
+      },
     ],
   },
   {
@@ -115,13 +154,35 @@ export const RUTAS_CONFIGURACION = [
 /** Los permisos que dan acceso a alguna sección: con uno basta para ver la
  * entrada «Configuración». */
 export const PERMISOS_CONFIGURACION = [
-  ...new Set(SECCIONES_CONFIGURACION.map((seccion) => seccion.permission)),
+  ...new Set(SECCIONES_CONFIGURACION.flatMap((seccion) => seccion.permission)),
 ];
 
+function tiene(permisos, permission) {
+  if (!permission) return true;
+  const lista = Array.isArray(permission) ? permission : [permission];
+  return lista.some((codigo) => permisos.includes(codigo));
+}
+
+/**
+ * Las secciones que la persona puede abrir, cada una con solo sus apartados
+ * permitidos y apuntando al primero de ellos: quien solo ve los catálogos de
+ * la Matriz entra a «Catálogos» por «Áreas», no por un departamento que le
+ * respondería 403.
+ */
 export function seccionesVisibles(permisos = []) {
   return SECCIONES_CONFIGURACION.filter((seccion) =>
-    permisos.includes(seccion.permission),
-  );
+    tiene(permisos, seccion.permission),
+  ).map((seccion) => {
+    if (!seccion.subsecciones) return seccion;
+    const subsecciones = seccion.subsecciones.filter((sub) =>
+      tiene(permisos, sub.permission),
+    );
+    return {
+      ...seccion,
+      subsecciones,
+      path: subsecciones[0]?.path ?? seccion.path,
+    };
+  });
 }
 
 /** La sección a la que pertenece una ruta, o `null` si no es de Configuración. */

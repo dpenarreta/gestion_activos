@@ -1,0 +1,40 @@
+/* El botón y el desplegable son `mz-switcher` / `mz-dropdown` de la identidad
+   base; aquí el glifo de cada módulo y el recorte del nombre largo. */
+.selector-modulo__icono {
+  color: var(--mz-blue-600);
+}
+
+.selector-modulo__nombre {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selector-modulo .mz-dropdown {
+  min-width: 300px;
+}
+
+.selector-modulo .mz-dropdown-item[aria-checked="true"] {
+  background: var(--mz-blue-50);
+}
+
+.selector-modulo__glifo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mz-blue-50);
+  color: var(--mz-blue-700);
+}
+
+/* En el teléfono queda solo el ícono: el nombre del módulo ya lo dice el
+   título de cada pantalla, y la barra no da para tanto. */
+@media (max-width: 560px) {
+  .selector-modulo__nombre {
+    display: none;
+  }
+}

@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
+import { CatalogoMatrizPage } from "../pages/Matriz/CatalogoMatrizPage";
+import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
 import { useAuth } from "../hooks/useAuth";
@@ -545,6 +547,28 @@ export function AppRoutes() {
           element={<Navigate to="/admin/roles/permisos" replace />}
         />
         <Route path="configuracion" element={<InicioDeConfiguracion />} />
+        {/* Matriz de obligaciones: su propio prefijo, como pide la
+            especificación del módulo. Sus permisos se comprueban en el
+            servidor por empresa; la pantalla dice si no hay rol. */}
+        <Route path="matriz" element={<ResumenMatriz />} />
+        {/* Catálogos de la Matriz: viven en Configuración → Catálogos, junto
+            a los del inventario, con su propio permiso. */}
+        <Route
+          path="catalogos/areas"
+          element={
+            <RequirePermission permission="catalogos.ver">
+              <CatalogoMatrizPage key="areas" tipo="areas" />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="catalogos/entidades-control"
+          element={
+            <RequirePermission permission="catalogos.ver">
+              <CatalogoMatrizPage key="entidades" tipo="entidades-control" />
+            </RequirePermission>
+          }
+        />
         <Route
           path="configuracion/identidad"
           element={

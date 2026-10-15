@@ -15,6 +15,7 @@ import {
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
 import { ConfiguracionMarco } from "../ConfiguracionMarco/ConfiguracionMarco";
 import { seccionDeRuta } from "../ConfiguracionMarco/seccionesConfiguracion";
+import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
 import "./AdminLayout.css";
 
 const COLLAPSE_STORAGE_KEY = "admin.sidebar.collapsed";
@@ -107,7 +108,14 @@ export function AdminLayout() {
 
   return (
     <UnsavedChangesProvider>
-      <div className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}>
+      <div
+        className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
+        style={
+          empresas.activa?.color
+            ? { "--company-color": empresas.activa.color }
+            : undefined
+        }
+      >
         <AdminSidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={handleToggleCollapse}
@@ -136,6 +144,7 @@ export function AdminLayout() {
             <div className="mz-spacer" />
             <BusquedaGlobal />
             <BotonTema />
+            <SelectorModulo />
             <SelectorEmpresa
               empresas={empresas.empresas}
               activa={empresas.activa}

@@ -1,13 +1,14 @@
 import { getVisibleAdminMenu } from "../components/admin/AdminSidebar/staticAdminMenu";
+import { useModuloActivo } from "../modulos/useModuloActivo";
 import { useAuth } from "./useAuth";
 
-/** Reemplaza al `useAdministrativeMenu` dinámico del proyecto original:
- * el árbol es estático (ver `staticAdminMenu.js`), solo se filtra por los
- * permisos del usuario autenticado. */
-export function useAdminMenu() {
+/** El menú del módulo activo, filtrado por los permisos del usuario
+ * autenticado (ver `staticAdminMenu.js`). Con `modulo` se pide el de otro. */
+export function useAdminMenu(modulo) {
   const { user, isAuthenticated } = useAuth();
+  const activo = useModuloActivo();
   if (!isAuthenticated) {
     return [];
   }
-  return getVisibleAdminMenu(user?.permissions || []);
+  return getVisibleAdminMenu(user?.permissions || [], modulo ?? activo);
 }

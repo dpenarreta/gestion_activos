@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { modulosConAcceso } from "../../components/admin/AdminSidebar/staticAdminMenu";
 import { useAdminMenu } from "../../hooks/useAdminMenu";
 import { useAuth } from "../../hooks/useAuth";
 import "./Errors.css";
@@ -15,9 +16,12 @@ import "./Errors.css";
  * hay que decirle qué pasa y a quién pedírselo, y dejarle salir.
  */
 export function Forbidden() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const menu = useAdminMenu();
-  const sinNingunPermiso = menu.length === 0;
+  // En ningún módulo, no solo en el que se estaba: quien no tiene nada del
+  // inventario pero sí de la Matriz no es una cuenta sin permisos.
+  const sinNingunPermiso =
+    menu.length === 0 && modulosConAcceso(user?.permissions || []).length === 0;
 
   return (
     <div className="mz-error-page">

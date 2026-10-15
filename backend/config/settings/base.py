@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     "apps.adjuntos",
     "apps.reportes",
     "apps.solicitudes",
+    "apps.matriz",
 ]
 
 MIDDLEWARE = [

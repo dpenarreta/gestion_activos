@@ -1,7 +1,7 @@
 """Las empresas del grupo: el selector del menú y su administración."""
 
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -39,9 +39,20 @@ def mis_empresas(request):
     activa = empresa_actual()
     if activa is SIN_EMPRESA:
         activa = None
+    # El rol de la cuenta en cada empresa, para el selector: la misma persona
+    # puede administrar una y solo consultar otra, y conviene verlo antes de
+    # cambiar.
+    roles = {}
+    for membresia in request.user.membresias.prefetch_related("roles"):
+        roles[membresia.empresa_id] = [rol.name for rol in membresia.roles.all()]
+    empresas = EmpresaSerializer(disponibles, many=True).data
+    for empresa in empresas:
+        empresa["roles"] = roles.get(empresa["id"], [])
+        if request.user.is_superuser and not empresa["roles"]:
+            empresa["roles"] = ["Superusuario"]
     return Response(
         {
-            "empresas": EmpresaSerializer(disponibles, many=True).data,
+            "empresas": empresas,
             "activa": EmpresaSerializer(activa).data if activa else None,
         }
     )
@@ -95,3 +106,19 @@ class EmpresaViewSet(viewsets.ModelViewSet):
                 new_values=cambios,
                 context=get_request_context(self.request),
             )
+
+    @action(detail=True, methods=["get"])
+    def personas(self, request, pk=None):
+        """Quienes trabajan en la empresa, para elegir entre ellos al gerente
+        general: tiene que poder entrar a ella (ver `EmpresaAdminSerializer`)."""
+        empresa = self.get_object()
+        personas = [
+            {
+                "id": membresia.usuario_id,
+                "nombre": membresia.usuario.get_full_name() or membresia.usuario.username,
+            }
+            for membresia in empresa.membresias.select_related("usuario").order_by(
+                "usuario__first_name", "usuario__username"
+            )
+        ]
+        return Response(personas)

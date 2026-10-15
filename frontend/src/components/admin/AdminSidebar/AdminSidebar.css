@@ -236,6 +236,16 @@
   }
 }
 
+.mz-active-company__rol {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--mz-side-fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mz-active-company--contraida {
   margin: 0 8px 14px;
   padding: 8px 0;

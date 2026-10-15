@@ -26,7 +26,10 @@ export function ConfiguracionMarco({ empresa, children }) {
   const { user } = useAuth();
   const { guardedNavigate } = useUnsavedChanges();
   const visibles = seccionesVisibles(user?.permissions || []);
-  const actual = seccionDeRuta(pathname);
+  const deRuta = seccionDeRuta(pathname);
+  // La versión filtrada por permisos, para dibujar solo sus apartados visibles.
+  const actual =
+    visibles.find((seccion) => seccion.id === deRuta?.id) ?? deRuta;
   const subActual = subseccionDeRuta(actual, pathname);
 
   function navegar(evento, path) {

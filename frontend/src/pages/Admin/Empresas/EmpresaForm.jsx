@@ -7,7 +7,29 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Empresas.css";
 
-const VACIO = { nombre: "", codigo: "", identificacion: "", activa: true };
+const VACIO = {
+  nombre: "",
+  codigo: "",
+  identificacion: "",
+  activa: true,
+  zona_horaria: "America/Guayaquil",
+  color: "#164B86",
+  gerente_general: "",
+  base_cumplimiento: "validacion",
+};
+
+/** Sugerencias para el campo de zona horaria; se acepta cualquier zona IANA,
+ * que valida el servidor. */
+const ZONAS = [
+  "America/Guayaquil",
+  "America/Bogota",
+  "America/Lima",
+  "America/Mexico_City",
+  "America/Panama",
+  "America/New_York",
+  "Europe/Madrid",
+  "UTC",
+];
 
 export function EmpresaForm() {
   const { id } = useParams();
@@ -17,6 +39,7 @@ export function EmpresaForm() {
 
   const [valores, setValores] = useState(VACIO);
   const [usuarios, setUsuarios] = useState(0);
+  const [personas, setPersonas] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,10 +53,18 @@ export function EmpresaForm() {
           codigo: datos.codigo,
           identificacion: datos.identificacion || "",
           activa: datos.activa,
+          zona_horaria: datos.zona_horaria,
+          color: datos.color,
+          gerente_general: datos.gerente_general ?? "",
+          base_cumplimiento: datos.base_cumplimiento,
         });
         setUsuarios(datos.usuarios ?? 0);
       })
       .catch(() => setError("No se pudo cargar la empresa."));
+    empresasService
+      .personas(id)
+      .then(setPersonas)
+      .catch(() => setPersonas([]));
   }, [id, esEdicion]);
 
   function actualizar(campo, valor) {
@@ -44,11 +75,16 @@ export function EmpresaForm() {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    // Sin gerente se manda `null`, no la cadena vacía del desplegable.
+    const datos = {
+      ...valores,
+      gerente_general: valores.gerente_general || null,
+    };
     try {
       if (esEdicion) {
-        await empresasService.update(id, valores);
+        await empresasService.update(id, datos);
       } else {
-        await empresasService.create(valores);
+        await empresasService.create(datos);
       }
       navigate("/admin/empresas");
     } catch (err) {
@@ -168,6 +204,97 @@ export function EmpresaForm() {
                 {esEdicion && usuarios > 0 && (
                   <> Hoy trabajan aquí {usuarios} usuario(s).</>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Lo que pide la Matriz de obligaciones (§4.1): sus vencimientos se
+              calculan en la hora de cada empresa. */}
+          <div className="mz-section mt-3">
+            <h4>Matriz de obligaciones</h4>
+            <div className="mz-field-grid">
+              <div className="mz-field">
+                <label htmlFor="zona_horaria">Zona horaria</label>
+                <input
+                  id="zona_horaria"
+                  className="form-control"
+                  required
+                  list="zonas-horarias"
+                  value={valores.zona_horaria}
+                  disabled={!puedeEditar}
+                  onChange={(event) =>
+                    actualizar("zona_horaria", event.target.value)
+                  }
+                />
+                <datalist id="zonas-horarias">
+                  {ZONAS.map((zona) => (
+                    <option key={zona} value={zona} />
+                  ))}
+                </datalist>
+                <div className="form-text">
+                  Los vencimientos y recordatorios se calculan en esta hora.
+                </div>
+              </div>
+              <div className="mz-field">
+                <label htmlFor="color">Color</label>
+                <div className="empresas-color">
+                  <input
+                    id="color"
+                    type="color"
+                    className="form-control form-control-color"
+                    value={valores.color}
+                    disabled={!puedeEditar}
+                    onChange={(event) =>
+                      actualizar("color", event.target.value.toUpperCase())
+                    }
+                  />
+                  <span className="mz-mono">{valores.color}</span>
+                </div>
+                <div className="form-text">
+                  Distingue la empresa en el selector y en el menú.
+                </div>
+              </div>
+              <div className="mz-field">
+                <label htmlFor="gerente_general">Gerente general</label>
+                <select
+                  id="gerente_general"
+                  className="form-select"
+                  value={valores.gerente_general}
+                  disabled={!puedeEditar || !esEdicion}
+                  onChange={(event) =>
+                    actualizar("gerente_general", event.target.value)
+                  }
+                >
+                  <option value="">Sin asignar</option>
+                  {personas.map((persona) => (
+                    <option key={persona.id} value={persona.id}>
+                      {persona.nombre}
+                    </option>
+                  ))}
+                </select>
+                <div className="form-text">
+                  {esEdicion
+                    ? "Aprueba por defecto los cierres. Debe trabajar en la empresa."
+                    : "Se elige después de guardar, entre quienes trabajan en ella."}
+                </div>
+              </div>
+              <div className="mz-field">
+                <label htmlFor="base_cumplimiento">Cuenta como cumplida</label>
+                <select
+                  id="base_cumplimiento"
+                  className="form-select"
+                  value={valores.base_cumplimiento}
+                  disabled={!puedeEditar}
+                  onChange={(event) =>
+                    actualizar("base_cumplimiento", event.target.value)
+                  }
+                >
+                  <option value="validacion">Cuando se valida el cierre</option>
+                  <option value="envio">Cuando se envía a validación</option>
+                </select>
+                <div className="form-text">
+                  Qué fecha decide si una obligación se cumplió a tiempo.
+                </div>
               </div>
             </div>
           </div>
