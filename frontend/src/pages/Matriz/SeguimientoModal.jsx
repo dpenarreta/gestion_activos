@@ -65,11 +65,11 @@ export function SeguimientoModal({ periodo, onCerrar, onGuardado }) {
     setIsSaving(true);
     setError(null);
     try {
-      await matrizService.editarSeguimiento(periodo.id, {
+      const actualizado = await matrizService.editarSeguimiento(periodo.id, {
         ...valores,
         avance: Number(valores.avance),
       });
-      onGuardado();
+      onGuardado(actualizado);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el seguimiento."));
       setIsSaving(false);

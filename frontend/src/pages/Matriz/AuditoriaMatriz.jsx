@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { fechaHora } from "./formatoMatriz";
 import "./Matriz.css";
@@ -65,17 +66,22 @@ export function AuditoriaMatriz() {
     [filtros, pagina],
   );
 
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
+    const vigente = nuevaPeticion();
     matrizService
       .auditoria(params)
       .then((respuesta) => {
+        if (!vigente()) return;
         setDatos(respuesta);
         setError(null);
       })
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar la auditoría.")),
+      .catch(
+        (err) =>
+          vigente() &&
+          setError(mensajeDeError(err, "No se pudo cargar la auditoría.")),
       );
-  }, [params]);
+  }, [params, nuevaPeticion]);
 
   useEffect(() => {
     cargar();

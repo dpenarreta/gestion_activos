@@ -130,3 +130,67 @@ Apariencia).
   secretos"): se hizo `grep` manual de patrones obvios (`password=`,
   `SECRET`, etc.) sin hallazgos, pero no se ejecutó una herramienta dedicada
   (ej. `gitleaks`, `truffleHog`).
+
+## Matriz de obligaciones: pruebas funcionales completas (15 de octubre de 2026)
+
+**Entorno aislado**, para no tocar la base de desarrollo: base
+`gestion_activos_qa` en el mismo SQL Server, backend en 8011 con correo de
+consola y adjuntos fuera del proyecto, frontend en 5176. Se sembraron dos
+empresas y una cuenta por rol de la Matriz (Administrador, Responsable ×2,
+Supervisor/Aprobador, Auditor, sin rol y un superusuario), con claves
+generadas en cada siembra.
+
+**Qué se ejecutó**:
+- Batería de la API con cada rol entrando por el login real: 148
+  comprobaciones (acceso, alta y validaciones, filtros y orden, seguimiento,
+  evidencias, cierre, separación de funciones, cambio de fecha,
+  recordatorios, calendario, reportes, exportaciones, auditoría).
+- Concurrencia: seis subidas simultáneas del mismo archivo (versiones 1 a 6
+  sin duplicar), envíos y validaciones simultáneos (uno solo cuenta), altas
+  simultáneas (códigos únicos), PDF de 11 MB (rechazado con mensaje).
+- Interfaz con Playwright, entrando por la pantalla con cada rol: el flujo
+  completo (alta → carga → visor → envío → devolución → reenvío →
+  validación), calendario, reportes y descargas, auditoría, configuración de
+  recordatorios, auditor sin acciones, cuenta sin rol, enlace del correo con
+  cambio de empresa, ficha del usuario (áreas y último gestor), ceder el
+  período y todas las pantallas a 390 px sin desborde. Se vigilaron los
+  errores de consola y las respuestas 5xx en cada página.
+- El ciclo programado (`ciclo_matriz`) dos veces sobre los datos QA: 15
+  períodos generados y 2 recordatorios la primera vez, nada la segunda.
+- Recorrido visual con capturas, en claro y en oscuro.
+
+**Defectos encontrados y corregidos** (cada uno con su prueba de regresión
+en `apps/matriz/tests/test_regresiones_qa.py`,
+`frontend/tests/MatrizRegresionesQA.test.jsx` o
+`apps/matriz/tests/test_fase5_reportes.py`):
+
+| # | Defecto | Corrección |
+| --- | --- | --- |
+| 1 | `?area=abc` (y `entity`, `responsible`, `obligation`) en la matriz: error 500 | 400 con el campo |
+| 2 | `?actor=abc` en la auditoría: error 500 | 400 con el campo |
+| 3 | Ceder el período a otra persona guardaba el cambio pero respondía 404 | 200 con `visible: false`; el panel lo explica |
+| 4 | Una Responsable creaba una obligación para otro y dejaba de verla al instante | Sin `ver_todas`, quien crea tiene que ser responsable o suplente |
+| 5 | Mes de vencimiento sin día, o en una obligación no anual, se aceptaba | 400; la plantilla exige el día y solo admite el mes en anuales |
+| 6 | El suplente podía ser el mismo responsable | 400, en el alta y en el seguimiento |
+| 7 | Un período «Noviembre» adelantado a octubre dejaba la obligación sin generar nunca más | La generación salta a la siguiente etiqueta libre |
+| 8 | El formulario de alta enviaba el mes oculto tras cambiar de «anual» a otra periodicidad | El mes solo viaja en las anuales |
+| 9 | Sin rol de la Matriz, Calendario, Reportes, Documentos, Matriz y Auditoría decían «No encontrado.» | Mensaje común con qué falta y cómo resolverlo |
+| 10 | Los botones de acción solo estaban en la pestaña General: tras cargar la evidencia no se veía «Enviar» | La barra de acciones va encima de las pestañas |
+| 11 | Usuarios (y los listados de la Matriz): una respuesta lenta sin filtro podía pisar la filtrada | Solo cuenta la última petición (`useUltimaPeticion`) |
+| 12 | Sin `EMAIL_TIMEOUT`, un servidor SMTP que acepta y no responde colgaba el envío para siempre (en la tarea programada, también los respaldos) | `EMAIL_TIMEOUT` = 20 s: el aviso queda fallido y se reintenta |
+
+**Resultado final**: API 148/148, concurrencia sin defectos, interfaz QA
+14/14, backend 1436 pruebas, frontend 925, e2e 35/35.
+
+**Envío por el servidor de correo real**: un reenvío manual desde un período
+de la base QA, por el camino completo (notificación registrada y correo por
+`inboundlaarcouriernew.alphaside.com:2524` con STARTTLS), a un único buzón de
+la persona que pidió la prueba. El servidor lo aceptó en 1,4 s y la
+notificación quedó «enviado». Contra un servidor que acepta la conexión y no
+responde, el envío se colgaba (defecto 12); con el límite falla a los 20 s y
+queda para reintento.
+
+**Pendiente o no verificado**: la recepción y el aspecto del correo en el
+buzón (lo confirma quien lo recibe), la tarea programada de Windows contra la
+base QA (se ejecutó el comando a mano) y los navegadores distintos de Chromium.
+

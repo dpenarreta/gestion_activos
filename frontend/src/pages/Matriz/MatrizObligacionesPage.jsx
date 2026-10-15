@@ -5,6 +5,7 @@ import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import {
   ICONO_DEL_GRUPO,
@@ -100,17 +101,22 @@ export function MatrizObligacionesPage() {
       .catch(() => setEmpresa(null));
   }, []);
 
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
+    const vigente = nuevaPeticion();
     matrizService
       .periodos({ ...filtros, sort: orden, page: pagina })
       .then((respuesta) => {
+        if (!vigente()) return;
         setDatos(respuesta);
         setError(null);
       })
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar la matriz.")),
+      .catch(
+        (err) =>
+          vigente() &&
+          setError(mensajeDeError(err, "No se pudo cargar la matriz.")),
       );
-  }, [filtros, orden, pagina]);
+  }, [filtros, orden, pagina, nuevaPeticion]);
 
   useEffect(() => {
     cargar();

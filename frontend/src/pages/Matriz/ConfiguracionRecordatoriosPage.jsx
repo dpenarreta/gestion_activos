@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { ESTADO_DE_NOTIFICACION, textoDeAnticipacion } from "./avisosMatriz";
 import { fechaHora } from "./formatoMatriz";
@@ -387,18 +388,20 @@ function HistorialDeNotificaciones({ zona, puedeReintentar }) {
   const [error, setError] = useState(null);
   const [reintentando, setReintentando] = useState(null);
 
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
+    const vigente = nuevaPeticion();
     const params = { page: pagina };
     if (filtro) params.status = filtro;
     matrizService
       .notificaciones(params)
-      .then(setDatos)
+      .then((respuesta) => vigente() && setDatos(respuesta))
       .catch((err) =>
         setError(
           mensajeDeError(err, "No se pudieron cargar las notificaciones."),
         ),
       );
-  }, [filtro, pagina]);
+  }, [filtro, pagina, nuevaPeticion]);
 
   useEffect(() => {
     cargar();

@@ -42,11 +42,16 @@ def _recurrentes():
     )
 
 
+def _etiqueta_ocupada(obligacion, vencimiento: datetime.date) -> bool:
+    etiqueta = fechas.etiqueta(obligacion.periodicidad, vencimiento)
+    return Periodo.objects.todas().filter(obligacion=obligacion, etiqueta=etiqueta).exists()
+
+
 @transaction.atomic
 def _crear_siguiente(obligacion, ultimo, vencimiento: datetime.date) -> Periodo | None:
-    etiqueta = fechas.etiqueta(obligacion.periodicidad, vencimiento)
-    if Periodo.objects.todas().filter(obligacion=obligacion, etiqueta=etiqueta).exists():
+    if _etiqueta_ocupada(obligacion, vencimiento):
         return None
+    etiqueta = fechas.etiqueta(obligacion.periodicidad, vencimiento)
     zona = zona_de(obligacion.empresa)
     hora = ultimo.vence_en.astimezone(zona).time().replace(second=0, microsecond=0)
     inicio, preparacion = fechas.fechas_por_defecto(vencimiento)
@@ -85,11 +90,15 @@ def generar_periodos(ahora=None) -> int:
             if dia_ultimo > limite:
                 break
             siguiente = fechas.siguiente_vencimiento(obligacion, dia_ultimo)
-            if siguiente is None:
-                break
-            if _crear_siguiente(obligacion, ultimo, siguiente) is None:
-                # La etiqueta ya existe (alguien lo creó a mano, o hay un hueco
-                # raro en las fechas): no se insiste en esta pasada.
+            # Si esa etiqueta ya existe —un período «Noviembre» al que se le
+            # adelantó la fecha a octubre, o uno creado a mano— se salta a la
+            # siguiente libre. Detenerse aquí dejaba la obligación sin generar
+            # nunca más: cada pasada volvía a calcular la misma etiqueta.
+            for _ in range(12):
+                if siguiente is None or not _etiqueta_ocupada(obligacion, siguiente):
+                    break
+                siguiente = fechas.siguiente_vencimiento(obligacion, siguiente)
+            if siguiente is None or _crear_siguiente(obligacion, ultimo, siguiente) is None:
                 break
             creados += 1
     if creados:

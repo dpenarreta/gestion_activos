@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { MESES_LARGOS, diaLocal } from "./formatoMatriz";
 import { PeriodoPanel } from "./PeriodoPanel";
@@ -76,17 +77,21 @@ export function CalendarioMatriz() {
       );
   }, []);
 
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
     if (!mes) return;
+    const vigente = nuevaPeticion();
     setPeriodos(null);
     setAbiertos({});
     matrizService
       .calendario(mes.anio, mes.mes)
-      .then((datos) => setPeriodos(datos.periods))
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar el calendario.")),
+      .then((datos) => vigente() && setPeriodos(datos.periods))
+      .catch(
+        (err) =>
+          vigente() &&
+          setError(mensajeDeError(err, "No se pudo cargar el calendario.")),
       );
-  }, [mes]);
+  }, [mes, nuevaPeticion]);
 
   useEffect(() => {
     cargar();

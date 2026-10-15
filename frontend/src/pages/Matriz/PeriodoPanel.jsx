@@ -246,7 +246,9 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                 </div>
               </>
             ) : (
-              <h3 id="periodo-titulo">{error ? "Período" : "Cargando…"}</h3>
+              <h3 id="periodo-titulo">
+                {error || aviso ? "Período" : "Cargando…"}
+              </h3>
             )}
           </div>
           <button
@@ -276,6 +278,13 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
 
           {periodo && (
             <>
+              {/* Encima de las pestañas y no dentro de General: el siguiente
+                  paso suele darse desde otra —tras cargar la evidencia en
+                  Documentos, enviarla— y no debe obligar a volver. */}
+              <BarraDeAcciones
+                acciones={periodo.acciones}
+                onAccion={setVentana}
+              />
               <div
                 className="mz-tabs"
                 role="tablist"
@@ -302,10 +311,6 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
 
               {pestana === "general" && (
                 <div role="tabpanel" aria-label="General">
-                  <BarraDeAcciones
-                    acciones={periodo.acciones}
-                    onAccion={setVentana}
-                  />
                   {periodo.recordatorios_suspendidos && (
                     <div className="mz-alert mz-alert--info" role="status">
                       <Icon name="bell-slash" />
@@ -426,17 +431,6 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
 
               {pestana === "documentos" && (
                 <div role="tabpanel" aria-label="Documentos">
-                  {periodo.acciones.includes("upload") && (
-                    <div className="mz-actions mb-3">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setVentana("cargar")}
-                      >
-                        <Icon name="cloud-arrow-up" /> Cargar evidencia
-                      </button>
-                    </div>
-                  )}
                   <DocumentosDelPeriodo
                     periodo={periodo}
                     version={version}
@@ -450,7 +444,6 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                   <RecordatoriosDelPeriodo
                     periodo={periodo}
                     version={version}
-                    onReenviar={() => setVentana("recordar")}
                   />
                 </div>
               )}
@@ -492,7 +485,20 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
         <SeguimientoModal
           periodo={periodo}
           onCerrar={() => setVentana(null)}
-          onGuardado={() => despuesDeCambiar("Seguimiento actualizado.")}
+          onGuardado={(actualizado) => {
+            if (actualizado?.visible === false) {
+              // Se cedió a otra persona: ya no es suyo y recargarlo daría un
+              // 404 que parecería un fallo del guardado.
+              setVentana(null);
+              setPeriodo(null);
+              setAviso(
+                "Seguimiento guardado. El período ya no está entre los suyos: dejó de ser su responsable o suplente.",
+              );
+              onCambio?.();
+              return;
+            }
+            despuesDeCambiar("Seguimiento actualizado.");
+          }}
         />
       )}
       {periodo && ventana === "fecha" && (

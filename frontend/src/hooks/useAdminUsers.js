@@ -1,17 +1,34 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { adminUsersService } from "../api/adminUsersService";
+import { useUltimaPeticion } from "./useUltimaPeticion";
 
-const DEFAULT_FILTERS = { q: "", status: "", role: "", created_from: "", created_to: "" };
+const DEFAULT_FILTERS = {
+  q: "",
+  status: "",
+  role: "",
+  created_from: "",
+  created_to: "",
+};
 
 export function useAdminUsers() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [page, setPage] = useState(1);
-  const [data, setData] = useState({ results: [], count: 0, next: null, previous: null });
+  const [data, setData] = useState({
+    results: [],
+    count: 0,
+    next: null,
+    previous: null,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const nuevaPeticion = useUltimaPeticion();
+
   const fetchUsers = useCallback(() => {
+    // Solo cuenta la última: si la carga inicial llega después de la
+    // filtrada, la pisaría (se busca «ana» y se ven todas las cuentas).
+    const vigente = nuevaPeticion();
     setIsLoading(true);
     setError(null);
     const params = { page };
@@ -20,12 +37,16 @@ export function useAdminUsers() {
     });
     return adminUsersService
       .list(params)
-      .then(setData)
+      .then((respuesta) => vigente() && setData(respuesta))
       .catch((err) => {
-        setError(err.response?.data?.error?.message || "No se pudo cargar el listado de usuarios.");
+        if (!vigente()) return;
+        setError(
+          err.response?.data?.error?.message ||
+            "No se pudo cargar el listado de usuarios.",
+        );
       })
-      .finally(() => setIsLoading(false));
-  }, [filters, page]);
+      .finally(() => vigente() && setIsLoading(false));
+  }, [filters, page, nuevaPeticion]);
 
   useEffect(() => {
     fetchUsers();

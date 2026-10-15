@@ -214,3 +214,18 @@ tiene y agrega solo lo propio de la matriz.
   historial, el reenvío y el escalamiento quedan como `reminder.sent` y
   `reminder.escalated` (en la especificación, `period.reminder_sent` y
   `period.escalated`).
+
+## Reglas añadidas tras las pruebas funcionales (15 de octubre de 2026)
+
+- **Crear sin «ver todas»**: quien crea tiene que ser el responsable o el
+  suplente del primer período. Antes se podía crear para otra persona y
+  dejar de verlo en el mismo instante.
+- **Ceder el período**: quien pasa la responsabilidad a otra persona recibe
+  `visible: false` en la respuesta y el panel lo explica, en vez de un 404.
+- **Plantilla**: el mes de vencimiento solo existe en las anuales y exige el
+  día; el suplente no puede ser el mismo responsable.
+- **Generación**: si la etiqueta del siguiente período ya existe (un período
+  adelantado de mes), se salta a la siguiente libre.
+
+El detalle de la ronda está en `tests/qa/test-execution-report.md`.
+

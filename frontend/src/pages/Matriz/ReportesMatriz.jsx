@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { BotonesExportar } from "./BotonesExportar";
 import "./Matriz.css";
@@ -109,17 +110,22 @@ export function ReportesMatriz() {
     return p;
   }, [desde, hasta]);
 
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
+    const vigente = nuevaPeticion();
     matrizService
       .reportes(params)
       .then((respuesta) => {
+        if (!vigente()) return;
         setDatos(respuesta);
         setError(null);
       })
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar el reporte.")),
+      .catch(
+        (err) =>
+          vigente() &&
+          setError(mensajeDeError(err, "No se pudo cargar el reporte.")),
       );
-  }, [params]);
+  }, [params, nuevaPeticion]);
 
   useEffect(() => {
     cargar();

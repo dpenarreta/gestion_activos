@@ -14,9 +14,10 @@ import { VistaPreviaCorreoModal } from "./VistaPreviaCorreoModal";
 /**
  * La pestaña Recordatorios del período (§15.4): qué avisos tiene programados
  * y en qué quedó cada uno, el historial de notificaciones —con «Reintentar»
- * en las fallidas—, la vista previa del correo y el reenvío.
+ * en las fallidas— y la vista previa del correo. «Reenviar recordatorio» está
+ * en la barra de acciones del panel.
  */
-export function RecordatoriosDelPeriodo({ periodo, version, onReenviar }) {
+export function RecordatoriosDelPeriodo({ periodo, version }) {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [viendo, setViendo] = useState(false);
@@ -76,15 +77,6 @@ export function RecordatoriosDelPeriodo({ periodo, version, onReenviar }) {
         >
           <Icon name="envelope-open" /> Vista previa del correo
         </button>
-        {datos?.can_send && (
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm"
-            onClick={onReenviar}
-          >
-            <Icon name="send" /> Reenviar recordatorio
-          </button>
-        )}
       </div>
 
       {datos && (

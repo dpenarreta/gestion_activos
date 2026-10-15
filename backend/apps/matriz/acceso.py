@@ -96,6 +96,11 @@ def visibles(consulta, usuario, capacidades):
     return consulta.filter(Q(responsable=usuario) | Q(suplente=usuario))
 
 
+def puede_ver(periodo, usuario, capacidades) -> bool:
+    """Si el período entra en lo que la persona ve (§8.6)."""
+    return "matriz.ver_todas" in capacidades or es_mio(periodo, usuario)
+
+
 def puede(capacidad, periodo, usuario, capacidades) -> bool:
     """Si la capacidad alcanza a este período: acotada y sin `ver_todas`, solo
     si es suyo."""

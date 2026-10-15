@@ -73,9 +73,16 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
     setIsSaving(true);
     setErrores({});
     setErrorGeneral(null);
-    // Lo vacío no viaja: el servidor aplica sus valores por defecto.
+    // Lo vacío no viaja: el servidor aplica sus valores por defecto. El mes
+    // solo cuenta en las anuales: si se eligió «anual», se escribió un mes y
+    // luego se cambió de periodicidad, el campo ya no se ve y su error
+    // quedaría donde nadie puede leerlo.
     const datos = Object.fromEntries(
-      Object.entries(valores).filter(([, valor]) => valor !== ""),
+      Object.entries(valores).filter(
+        ([campo, valor]) =>
+          valor !== "" &&
+          (campo !== "mes_vencimiento" || valores.periodicidad === "anual"),
+      ),
     );
     try {
       const periodo = await matrizService.crearObligacion(datos);

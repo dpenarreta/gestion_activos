@@ -8,6 +8,7 @@ import { ConfiguracionRecordatoriosPage } from "../pages/Matriz/ConfiguracionRec
 import { DocumentosMatriz } from "../pages/Matriz/DocumentosMatriz";
 import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
+import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
@@ -563,14 +564,46 @@ export function AppRoutes() {
         <Route path="matriz/resumen" element={<ResumenMatriz />} />
         <Route
           path="matriz/obligaciones"
-          element={<MatrizObligacionesPage />}
+          element={
+            <RequiereRolMatriz>
+              <MatrizObligacionesPage />
+            </RequiereRolMatriz>
+          }
         />
-        <Route path="matriz/documentos" element={<DocumentosMatriz />} />
-        <Route path="matriz/calendario" element={<CalendarioMatriz />} />
-        <Route path="matriz/reportes" element={<ReportesMatriz />} />
+        <Route
+          path="matriz/documentos"
+          element={
+            <RequiereRolMatriz>
+              <DocumentosMatriz />
+            </RequiereRolMatriz>
+          }
+        />
+        <Route
+          path="matriz/calendario"
+          element={
+            <RequiereRolMatriz>
+              <CalendarioMatriz />
+            </RequiereRolMatriz>
+          }
+        />
+        <Route
+          path="matriz/reportes"
+          element={
+            <RequiereRolMatriz>
+              <ReportesMatriz />
+            </RequiereRolMatriz>
+          }
+        />
         {/* La auditoría de la Matriz: el servidor exige `ver_auditoria` en
             la empresa activa y la pantalla muestra su mensaje si falta. */}
-        <Route path="auditoria/matriz" element={<AuditoriaMatriz />} />
+        <Route
+          path="auditoria/matriz"
+          element={
+            <RequiereRolMatriz>
+              <AuditoriaMatriz />
+            </RequiereRolMatriz>
+          }
+        />
         <Route
           path="configuracion/recordatorios"
           element={<ConfiguracionRecordatoriosPage />}

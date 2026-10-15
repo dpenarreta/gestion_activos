@@ -169,6 +169,19 @@ def test_no_crea_mas_de_24_por_pasada(escena):
     assert generar_periodos() == 24
 
 
+def test_un_periodo_adelantado_no_bloquea_la_generacion(escena):
+    """«Noviembre» movido a octubre: el siguiente calculado es otra vez
+    «Noviembre»; se salta a «Diciembre» en vez de no generar nunca más."""
+    primero = _alta(escena, "Adelantada", _hoy().replace(day=1) + datetime.timedelta(days=40))
+    Periodo.objects.todas().filter(pk=primero.pk).update(
+        vence_en=timezone.now() - datetime.timedelta(days=3)
+    )
+    assert generar_periodos() == 1
+    nuevo = Periodo.objects.todas().exclude(pk=primero.pk).get()
+    assert nuevo.etiqueta != primero.etiqueta
+    assert generar_periodos() == 0
+
+
 def test_el_ciclo_genera_antes_de_avisar(escena):
     from apps.matriz.recordatorios import ciclo
 

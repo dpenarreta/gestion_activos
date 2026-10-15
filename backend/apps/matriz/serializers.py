@@ -14,6 +14,7 @@ from .models import (
     EventoPeriodo,
     Notificacion,
     Obligacion,
+    Periodicidad,
     Periodo,
     Prioridad,
 )
@@ -142,6 +143,28 @@ class ObligacionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Indique qué evidencia respalda el cumplimiento.")
         return value.strip()
 
+    def validate(self, attrs):
+        """El mes del vencimiento solo sirve en una anual, y con su día: sin
+        día la regla no dice qué fecha es y el primer vencimiento saldría de
+        «hoy + 30» sin que nadie lo note."""
+        attrs = super().validate(attrs)
+
+        def valor(campo):
+            if campo in attrs:
+                return attrs[campo]
+            return getattr(self.instance, campo, None)
+
+        mes, dia = valor("mes_vencimiento"), valor("dia_vencimiento")
+        if mes and valor("periodicidad") != Periodicidad.ANUAL:
+            raise serializers.ValidationError(
+                {"mes_vencimiento": "El mes del vencimiento solo aplica a las anuales."}
+            )
+        if mes and not dia:
+            raise serializers.ValidationError(
+                {"dia_vencimiento": "Indique el día junto con el mes del vencimiento."}
+            )
+        return attrs
+
 
 class ObligacionAltaSerializer(ObligacionSerializer):
     """La obligación más los datos de su primer período (§11.1)."""
@@ -191,6 +214,12 @@ class ObligacionAltaSerializer(ObligacionSerializer):
         ]
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
+        suplente = attrs.get("suplente")
+        if suplente is not None and suplente == attrs.get("responsable"):
+            raise serializers.ValidationError(
+                {"suplente": "El suplente tiene que ser otra persona que el responsable."}
+            )
         inicio, preparacion = attrs.get("fecha_inicio"), attrs.get("fecha_preparacion")
         vence = attrs.get("fecha_vencimiento")
         if inicio and preparacion and inicio > preparacion:

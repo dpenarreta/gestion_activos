@@ -21,7 +21,14 @@ from apps.organizacion.models import Sede
 from apps.users.models import User
 
 from . import cierre, estados, informes, recordatorios, servicios
-from .acceso import capacidades_en, empresa_de_la_matriz, exigir, puede, visibles
+from .acceso import (
+    capacidades_en,
+    empresa_de_la_matriz,
+    exigir,
+    puede,
+    puede_ver,
+    visibles,
+)
 from .models import (
     Area,
     Documento,
@@ -295,6 +302,8 @@ def _filtrar(consulta, params, empresa, ahora):
     ):
         valor = params.get(parametro)
         if valor:
+            if campo.endswith("_id") and not str(valor).isdigit():
+                raise ValidationError({parametro: "Debe ser un identificador numérico."})
             consulta = consulta.filter(**{campo: valor})
 
     grupo = params.get("status")
@@ -409,15 +418,31 @@ def periodo(request, pk):
         entrada.is_valid(raise_exception=True)
         if "responsable" in request.data and entrada.validated_data.get("responsable") is None:
             raise ValidationError({"responsable": "El responsable es obligatorio."})
+        cambios = entrada.validated_data
+        responsable = cambios.get("responsable", actual.responsable)
+        suplente = cambios["suplente"] if "suplente" in cambios else actual.suplente
+        if suplente is not None and suplente == responsable:
+            raise ValidationError(
+                {"suplente": "El suplente tiene que ser otra persona que el responsable."}
+            )
         servicios.editar_seguimiento(
             periodo=actual,
             actor=request.user,
             cambios=entrada.validated_data,
             contexto=get_request_context(request),
         )
-        actual, capacidades = _periodo_visible(request, pk)
+        # Se relee sin el filtro de visibilidad: quien cede el período a otra
+        # persona deja de verlo, y responder 404 a un cambio que sí se guardó
+        # le haría creer que falló. La respuesta dice que ya no es suyo.
+        actual = (
+            _consulta_base()
+            .select_related("sede", "suplente", "supervisor", "aprobador", "validado_por")
+            .get(pk=pk)
+        )
 
-    return Response(PeriodoDetalleSerializer(actual, context=contexto).data)
+    datos = PeriodoDetalleSerializer(actual, context=contexto).data
+    datos["visible"] = puede_ver(actual, request.user, capacidades)
+    return Response(datos)
 
 
 @api_view(["GET"])
@@ -459,6 +484,19 @@ def obligaciones(request):
     entrada.is_valid(raise_exception=True)
     if not _puede_crear_en(request, entrada.validated_data["area"], capacidades):
         raise ValidationError({"area": "Solo puede crear obligaciones de sus áreas."})
+    if "matriz.ver_todas" not in capacidades and request.user.pk not in (
+        getattr(entrada.validated_data.get("responsable"), "pk", None),
+        getattr(entrada.validated_data.get("suplente"), "pk", None),
+    ):
+        raise ValidationError(
+            {
+                "responsable": (
+                    "Sin permiso para ver toda la empresa, usted tiene que ser el "
+                    "responsable o el suplente de lo que crea: de lo contrario no "
+                    "podría volver a verlo."
+                )
+            }
+        )
     plantilla, primero = entrada.separar()
     _, nuevo = servicios.crear_obligacion(
         empresa=empresa,
@@ -917,6 +955,8 @@ def auditoria(request):
     if actor == "sistema":
         consulta = consulta.filter(actor__isnull=True)
     elif actor:
+        if not actor.isdigit():
+            raise ValidationError({"actor": "Debe ser un identificador numérico o «sistema»."})
         consulta = consulta.filter(actor_id=actor)
     if params.get("action"):
         consulta = consulta.filter(accion=params["action"])

@@ -13,6 +13,7 @@ import {
 } from "./formatoMatriz";
 import { ObligacionFormModal } from "./ObligacionFormModal";
 import { PeriodoPanel } from "./PeriodoPanel";
+import { SinRolMatriz } from "./RequiereRolMatriz";
 import { usePanelDePeriodo } from "./usePanelDePeriodo";
 import "./Matriz.css";
 
@@ -108,22 +109,7 @@ export function ResumenMatriz() {
     );
   }
 
-  if (!empresa) {
-    return (
-      <div className="mz-card">
-        <div className="mz-empty">
-          <Icon name="shield-lock" />
-          <p className="mb-1">
-            No tiene un rol de la Matriz en la empresa activa.
-          </p>
-          <p className="mz-small mb-0">
-            Pida a un administrador que se lo asigne en Configuración →
-            Usuarios, o cambie de empresa desde la barra superior.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!empresa) return <SinRolMatriz />;
 
   const puedeCrear = empresa.capacidades.includes("matriz.crear");
   const zona = empresa.zona_horaria;
