@@ -261,6 +261,33 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    "ordenes": {
+        "label": "Órdenes de trabajo",
+        "description": (
+            "Mantenimiento de sedes y agencias: solicitar, asignar, ejecutar y "
+            "aceptar órdenes de trabajo. Sin «ver todas», cada persona ve las "
+            "que solicitó, las asignadas a ella y las de las sedes a su cargo "
+            "(Configuración → Catálogos → Sedes)."
+        ),
+        "permissions": {
+            "ordenes.ver": (
+                "Entrar al módulo y ver las órdenes que solicitó, las asignadas "
+                "a usted y las de las sedes a su cargo"
+            ),
+            "ordenes.ver_todas": "Ver todas las órdenes de la empresa",
+            "ordenes.crear": "Solicitar órdenes de trabajo",
+            "ordenes.gestionar": (
+                "Asignar, programar, corregir y mover cualquier orden (coordinación)"
+            ),
+            "ordenes.ejecutar": (
+                "Ejecutar las órdenes asignadas a usted: programarlas, iniciarlas, "
+                "pausarlas, registrar materiales y horas y enviarlas a aprobación"
+            ),
+            "ordenes.aceptar": ("Aceptar o devolver el trabajo terminado en las sedes a su cargo"),
+            "ordenes.ver_contacto": "Ver completo el teléfono de contacto del solicitante",
+            "ordenes.reportes": "Ver y exportar los reportes de órdenes de trabajo",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -361,6 +388,16 @@ MODULE_GROUPS = [
             "departamento, sus datos y su interpretación con IA."
         ),
         "modules": ["dashboard"],
+    },
+    {
+        "id": "sedes",
+        "label": "Mantenimiento de sedes",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Mantenimiento de sedes: las órdenes de "
+            "trabajo sobre sedes y agencias, su ejecución y su aceptación."
+        ),
+        "modules": ["ordenes"],
     },
 ]
 

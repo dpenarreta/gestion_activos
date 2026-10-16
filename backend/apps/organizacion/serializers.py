@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
@@ -68,6 +69,13 @@ class DepartamentoSerializer(serializers.ModelSerializer):
 
 class SedeSerializer(serializers.ModelSerializer):
     total_activos = serializers.IntegerField(read_only=True)
+    region_display = serializers.CharField(source="get_region_display", read_only=True)
+    #: Quienes responden por la sede (mantenimiento de sedes). Se escriben por
+    #: id y se leen también con su nombre, para pintarlos sin otra consulta.
+    responsables = serializers.PrimaryKeyRelatedField(
+        many=True, required=False, queryset=get_user_model().objects.filter(is_active=True)
+    )
+    responsables_detalle = serializers.SerializerMethodField()
 
     class Meta:
         model = Sede
@@ -76,12 +84,40 @@ class SedeSerializer(serializers.ModelSerializer):
             "nombre",
             "ciudad",
             "direccion",
+            "region",
+            "region_display",
+            "provincia",
+            "responsables",
+            "responsables_detalle",
             "activa",
             "total_activos",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_responsables_detalle(self, sede):
+        return [
+            {"id": u.id, "nombre": u.get_full_name() or u.username} for u in sede.responsables.all()
+        ]
+
+    def validate_responsables(self, usuarios):
+        """Solo quien trabaja en la empresa: un responsable sin membresía no
+        podría entrar a ver las órdenes de la sede que se le encarga."""
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+        empresa = empresa_actual()
+        if empresa is None or empresa is SIN_EMPRESA:
+            return usuarios
+        ajenos = [
+            u
+            for u in usuarios
+            if not u.is_superuser and not u.membresias.filter(empresa=empresa).exists()
+        ]
+        if ajenos:
+            nombres = ", ".join(u.get_full_name() or u.username for u in ajenos)
+            raise serializers.ValidationError(f"No trabajan en esta empresa: {nombres}.")
+        return usuarios
 
     def validate_nombre(self, value):
         """El duplicado se rechaza sin distinguir mayúsculas.

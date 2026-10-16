@@ -7,7 +7,22 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import "./Organizacion.css";
 
-const VACIO = { nombre: "", ciudad: "", direccion: "", activa: true };
+const VACIO = {
+  nombre: "",
+  ciudad: "",
+  direccion: "",
+  region: "",
+  provincia: "",
+  responsables: [],
+  activa: true,
+};
+
+const REGIONES = [
+  ["sierra", "Sierra"],
+  ["costa", "Costa"],
+  ["amazonia", "Amazonía"],
+  ["insular", "Insular"],
+];
 
 export function SedeForm() {
   const { id } = useParams();
@@ -17,8 +32,16 @@ export function SedeForm() {
 
   const [valores, setValores] = useState(VACIO);
   const [totalActivos, setTotalActivos] = useState(0);
+  const [personas, setPersonas] = useState([]);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    sedesService
+      .personas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]));
+  }, []);
 
   useEffect(() => {
     if (!esEdicion) return;
@@ -29,6 +52,9 @@ export function SedeForm() {
           nombre: datos.nombre,
           ciudad: datos.ciudad || "",
           direccion: datos.direccion || "",
+          region: datos.region || "",
+          provincia: datos.provincia || "",
+          responsables: datos.responsables ?? [],
           activa: datos.activa,
         });
         setTotalActivos(datos.total_activos ?? 0);
@@ -65,7 +91,7 @@ export function SedeForm() {
           <h2>{esEdicion ? "Editar sede" : "Nueva sede"}</h2>
           <p className="mz-desc">
             Un edificio o local donde pueden quedar equipos, con lo necesario
-            para ir a buscarlos.
+            para ir a buscarlos, y quién responde por él.
           </p>
         </div>
       </div>
@@ -137,6 +163,82 @@ export function SedeForm() {
                 Para quien tenga que ir a buscar el equipo.
               </div>
             </div>
+            <div className="mz-field">
+              <label htmlFor="region">Región</label>
+              <select
+                id="region"
+                className="form-select"
+                value={valores.region}
+                disabled={!puedeEditar}
+                onChange={(event) => actualizar("region", event.target.value)}
+              >
+                <option value="">Sin indicar</option>
+                {REGIONES.map(([valor, etiqueta]) => (
+                  <option key={valor} value={valor}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                El mantenimiento de sedes reporta por región.
+              </div>
+            </div>
+            <div className="mz-field">
+              <label htmlFor="provincia">Provincia</label>
+              <input
+                id="provincia"
+                className="form-control"
+                maxLength={80}
+                placeholder="Pichincha"
+                value={valores.provincia}
+                disabled={!puedeEditar}
+                onChange={(event) =>
+                  actualizar("provincia", event.target.value)
+                }
+              />
+            </div>
+            <fieldset className="mz-field mz-field--full">
+              <legend className="form-label">Responsables de la sede</legend>
+              <div className="form-text mt-0 mb-2">
+                Ven las órdenes de trabajo de esta sede y aceptan el trabajo
+                terminado (Mantenimiento de sedes). Pueden ser varios.
+              </div>
+              {personas.length === 0 ? (
+                <p className="mz-small mz-faint mb-0">
+                  No hay cuentas en esta empresa para elegir.
+                </p>
+              ) : (
+                <div className="sede-responsables">
+                  {personas.map((persona) => (
+                    <div className="form-check" key={persona.id}>
+                      <input
+                        id={`responsable-${persona.id}`}
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={valores.responsables.includes(persona.id)}
+                        disabled={!puedeEditar}
+                        onChange={(event) =>
+                          actualizar(
+                            "responsables",
+                            event.target.checked
+                              ? [...valores.responsables, persona.id]
+                              : valores.responsables.filter(
+                                  (idPersona) => idPersona !== persona.id,
+                                ),
+                          )
+                        }
+                      />
+                      <label
+                        className="form-check-label"
+                        htmlFor={`responsable-${persona.id}`}
+                      >
+                        {persona.nombre}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </fieldset>
             <div className="mz-field--full">
               <div className="form-check">
                 <input

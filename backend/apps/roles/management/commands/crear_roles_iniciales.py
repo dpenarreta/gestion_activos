@@ -126,6 +126,11 @@ ROLES = {
             "catalogos.ver",
             # Y los dashboards (de cualquier área), solo para verlos.
             "dashboard.view",
+            # Las órdenes de trabajo de todas las sedes y sus reportes, sin
+            # moverlas.
+            "ordenes.ver",
+            "ordenes.ver_todas",
+            "ordenes.reportes",
             # Sin `auditoria.ver_ubicacion`: es un dato personal de contexto y
             # se concede aparte, a quien lo necesite y por un motivo concreto
             # (ver docs/data-protection-review.md).

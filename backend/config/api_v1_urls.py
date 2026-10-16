@@ -35,6 +35,7 @@ urlpatterns = [
     path("activos/", include("apps.activos.urls")),
     # --- Solicitudes de compra: lo que falta, no lo que hay ---
     path("solicitudes/", include("apps.solicitudes.urls")),
+    path("ordenes/", include("apps.ordenes.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---

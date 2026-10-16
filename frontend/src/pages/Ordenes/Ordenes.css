@@ -1,0 +1,163 @@
+/*
+ * Mantenimiento de sedes (órdenes de trabajo).
+ *
+ * Encabezados, tablas, tarjetas, indicadores y recorrido salen de la
+ * identidad (`mz-*`); aquí queda solo lo que ella no trae.
+ */
+
+/* Píldoras que la identidad no tiene: «en marcha» e información (asignada,
+   programada, en plazo), y la crítica, que es la única que va en relleno
+   fuerte porque es la que no puede esperar. */
+.ordenes-pill--info {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.ordenes-pill--marcha {
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+}
+
+.ordenes-pill--critica {
+  background: var(--mz-bad-line);
+  color: #ffffff;
+}
+
+.ordenes-pill--baja {
+  background: var(--mz-sunken);
+  color: var(--mz-ink-faint);
+}
+
+.ordenes-page .mz-view-head h2 .mz-pill {
+  vertical-align: middle;
+}
+
+/* Ocho indicadores: de a cuatro en pantalla ancha, de a dos en el teléfono. */
+.ordenes-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.ordenes-kpis .mz-kpi-value {
+  font-size: 26px;
+}
+
+.ordenes-kpi--vencidas .mz-kpi-value {
+  color: var(--mz-bad-fg);
+}
+
+.ordenes-kpi--cerradas .mz-kpi-value {
+  color: var(--mz-ok-fg);
+}
+
+.ordenes-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 991.98px) {
+  .ordenes-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ordenes-alcance {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ordenes-actividad {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ordenes-actividad li {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ordenes-actividad__punto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--mz-blue-500);
+}
+
+.ordenes-actividad__punto--estado {
+  background: var(--mz-ok-line);
+}
+
+/* Gráficos de barras horizontales de la reportería: etiqueta, barra y cifra. */
+.ordenes-graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.ordenes-barra {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 90px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.ordenes-barra + .ordenes-barra {
+  margin-top: 10px;
+}
+
+.ordenes-barra__pista {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--mz-sunken);
+  overflow: hidden;
+}
+
+.ordenes-barra__relleno {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--mz-blue-500);
+}
+
+.ordenes-barra__cifra {
+  text-align: right;
+  font-family: var(--mz-font-mono, "IBM Plex Mono", monospace);
+}
+
+@media (max-width: 575.98px) {
+  .ordenes-barra {
+    grid-template-columns: 100px minmax(0, 1fr) 70px;
+  }
+}
+
+.ordenes-costos td.num,
+.ordenes-costos th.num {
+  text-align: right;
+}
+
+.ordenes-costos tfoot td {
+  font-weight: 600;
+}
+
+.ordenes-recorrido {
+  list-style: none;
+  margin-bottom: 0;
+}
+
+.ordenes-recorrido .mz-tl-item:last-child {
+  padding-bottom: 0;
+}
+
+.ordenes-recorrido .nota {
+  white-space: pre-wrap;
+}

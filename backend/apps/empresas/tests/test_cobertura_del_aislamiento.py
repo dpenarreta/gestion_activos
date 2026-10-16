@@ -38,6 +38,7 @@ APPS_DE_NEGOCIO = frozenset(
         "adjuntos",
         "matriz",
         "cartera",
+        "ordenes",
     }
 )
 

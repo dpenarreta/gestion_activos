@@ -115,4 +115,8 @@ export const sedesService = {
   update(id, payload) {
     return apiClient.patch(`${SEDES}${id}/`, payload).then((res) => res.data);
   },
+  /** Quién puede responder por una sede: las cuentas de la empresa activa. */
+  personas() {
+    return apiClient.get(`${SEDES}personas/`).then((res) => res.data);
+  },
 };

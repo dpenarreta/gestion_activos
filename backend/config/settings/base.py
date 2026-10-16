@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     "apps.solicitudes",
     "apps.matriz",
     "apps.cartera",
+    "apps.ordenes",
 ]
 
 MIDDLEWARE = [
@@ -438,3 +439,8 @@ GEMINI_MODEL = env.str("GEMINI_MODEL", default="gemini-flash-latest")
 GEMINI_MODELOS_RESPALDO = env.list(
     "GEMINI_MODELOS_RESPALDO", default=["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 )
+
+# --- Mantenimiento de sedes (órdenes de trabajo) ---
+# El IVA con el que se calcula el total de cada orden (materiales + mano de
+# obra). Ecuador: 15 % desde abril de 2024.
+ORDENES_IVA_PORCENTAJE = env.int("ORDENES_IVA_PORCENTAJE", default=15)

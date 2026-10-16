@@ -5,3 +5,13 @@
  * Encabezado, filtros, tablas y fichas ya los dibujan los `mz-*` de la
  * identidad base; aquí queda solo lo que es propio de estas pantallas.
  */
+
+/* Responsables de la sede: casillas en columnas, que una empresa con muchas
+   cuentas no convierta el formulario en una lista interminable. */
+.sede-responsables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 16px;
+  max-height: 240px;
+  overflow-y: auto;
+}

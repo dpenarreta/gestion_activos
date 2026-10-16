@@ -1,11 +1,14 @@
 from django.db.models import Count, Q
+from django.contrib.auth import get_user_model
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
+from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
 from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
 from .permissions import OrganizacionPermission
@@ -101,10 +104,28 @@ class SedeViewSet(_CatalogoOrganizacionalViewSet):
     serializer_class = SedeSerializer
     accion_auditoria = "sede"
 
+    @action(detail=False, methods=["get"])
+    def personas(self, request):
+        """Quién puede responder por una sede: las cuentas activas que trabajan
+        en la empresa activa. Va por aquí y no por la lista de usuarios porque
+        quien edita catálogos no tiene por qué poder administrar usuarios."""
+        usuarios = get_user_model().objects.filter(is_active=True)
+        empresa = empresa_actual()
+        if empresa is not None and empresa is not SIN_EMPRESA:
+            usuarios = usuarios.filter(membresias__empresa=empresa)
+        return Response(
+            [
+                {"id": u.id, "nombre": u.get_full_name() or u.username}
+                for u in usuarios.distinct().order_by("first_name", "last_name", "username")
+            ]
+        )
+
     def get_queryset(self):
-        queryset = Sede.objects.annotate(
-            total_activos=Count("activos", distinct=True),
-        ).order_by("nombre")
+        queryset = (
+            Sede.objects.annotate(total_activos=Count("activos", distinct=True))
+            .prefetch_related("responsables")
+            .order_by("nombre")
+        )
         params = self.request.query_params
         busqueda = params.get("q")
         if busqueda:

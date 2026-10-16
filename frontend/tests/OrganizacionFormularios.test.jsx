@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const servicio = {
-  sedes: { get: vi.fn(), create: vi.fn(), update: vi.fn() },
+  sedes: { get: vi.fn(), create: vi.fn(), update: vi.fn(), personas: vi.fn() },
   departamentos: {
     get: vi.fn(),
     create: vi.fn(),
@@ -228,6 +228,10 @@ beforeEach(() => {
   servicio.departamentos.list.mockResolvedValue({
     results: [{ id: 2, nombre: "Tecnología" }],
   });
+  servicio.sedes.personas.mockResolvedValue([
+    { id: 7, nombre: "Paola Ríos" },
+    { id: 8, nombre: "Marco Villacís" },
+  ]);
   servicio.empleados.list.mockResolvedValue({
     results: [{ id: 3, nombre_completo: "Luis Mora" }],
   });
@@ -350,6 +354,42 @@ describe.each(FORMULARIOS)(
 );
 
 // --- Las reglas que se adelantan --------------------------------------------
+
+describe("Sede: región, provincia y responsables", () => {
+  it("carga lo que tiene y guarda los responsables marcados", async () => {
+    /* Los responsables ven las órdenes de trabajo de su sede y aceptan el
+       trabajo terminado (Mantenimiento de sedes). */
+    permisos.add("organizacion.editar");
+    servicio.sedes.get.mockResolvedValue({
+      id: 4,
+      nombre: "Quito · Matriz",
+      ciudad: "Quito",
+      direccion: "",
+      region: "sierra",
+      provincia: "Pichincha",
+      responsables: [7],
+      activa: true,
+      total_activos: 0,
+    });
+
+    pintar(SedeForm, "/admin/organizacion/sedes", 4);
+
+    await screen.findByText("Editar sede");
+    expect(screen.getByLabelText("Región")).toHaveValue("sierra");
+    expect(screen.getByLabelText("Provincia")).toHaveValue("Pichincha");
+    expect(await screen.findByLabelText("Paola Ríos")).toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("Marco Villacís"));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(servicio.sedes.update).toHaveBeenCalled());
+    expect(servicio.sedes.update.mock.calls[0][1]).toMatchObject({
+      region: "sierra",
+      provincia: "Pichincha",
+      responsables: [7, 8],
+    });
+  });
+});
 
 describe("Lo que el formulario advierte antes de intentarlo", () => {
   it("no se desactiva a un empleado que todavía custodia equipos", async () => {

@@ -120,6 +120,24 @@ class Sede(ModeloDeEmpresa):
         help_text="Es lo que se muestra al decir dónde está un equipo. Ej.: «Quito».",
     )
     direccion = models.CharField(max_length=200, blank=True)
+
+    class Region(models.TextChoices):
+        SIERRA = "sierra", "Sierra"
+        COSTA = "costa", "Costa"
+        AMAZONIA = "amazonia", "Amazonía"
+        INSULAR = "insular", "Insular"
+
+    #: Región y provincia: el mantenimiento de sedes reporta por región y las
+    #: órdenes se leen como «Quito · Sierra · Pichincha». Opcionales para que
+    #: las sedes que ya existían no se rompan; se completan al editarlas.
+    region = models.CharField(max_length=10, choices=Region.choices, blank=True)
+    provincia = models.CharField(max_length=80, blank=True)
+    #: Quienes responden por la sede: ven sus órdenes de mantenimiento y las
+    #: aceptan al terminar (ver `apps.ordenes`). Una sede puede tener más de
+    #: uno —titular y suplente— y una persona, más de una sede.
+    responsables = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="sedes_a_cargo"
+    )
     activa = models.BooleanField(default=True)
 
     class Meta:
