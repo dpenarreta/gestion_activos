@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlertasPage } from "../src/pages/Admin/Alertas/AlertasPage";
+import { NotificacionesAlertasPage } from "../src/pages/Admin/Configuracion/NotificacionesAlertasPage";
 
 const CONFIGURACION = {
   dias_sin_asignar: 90,
@@ -75,17 +76,32 @@ vi.mock("../src/hooks/usePermission", () => ({
 
 const { alertasService } = await import("../src/api/alertasService");
 
+/** La configuración vive en Configuración → Notificaciones → Alertas del
+ * inventario, no en la pantalla de Alertas. */
 async function abrirConfiguracion() {
   render(
     <MemoryRouter>
-      <AlertasPage />
+      <NotificacionesAlertasPage />
     </MemoryRouter>,
   );
-  const boton = await screen.findByRole("button", {
-    name: "Configurar alertas",
+  await screen.findByRole("heading", {
+    name: "Qué se avisa y a quién",
+    level: 3,
   });
-  fireEvent.click(boton);
 }
+
+describe("La pantalla de Alertas lleva a la configuración general", () => {
+  it("«Configurar alertas» abre Configuración → Notificaciones", async () => {
+    render(
+      <MemoryRouter>
+        <AlertasPage />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByRole("link", { name: /Configurar alertas/ }),
+    ).toHaveAttribute("href", "/admin/configuracion/notificaciones/alertas");
+  });
+});
 
 describe("Notificaciones por correo del centro de alertas", () => {
   beforeEach(() => {

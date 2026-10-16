@@ -1,3 +1,5 @@
+import { CorreoDelSistemaPage } from "../pages/Admin/Configuracion/CorreoDelSistemaPage";
+import { NotificacionesAlertasPage } from "../pages/Admin/Configuracion/NotificacionesAlertasPage";
 import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
@@ -611,6 +613,22 @@ export function AppRoutes() {
             <RequiereRolMatriz>
               <AuditoriaMatriz />
             </RequiereRolMatriz>
+          }
+        />
+        <Route
+          path="configuracion/notificaciones"
+          element={
+            <RequirePermission permission="configuracion.ver">
+              <CorreoDelSistemaPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/notificaciones/alertas"
+          element={
+            <RequirePermission permission="alertas.configurar">
+              <NotificacionesAlertasPage />
+            </RequirePermission>
           }
         />
         <Route

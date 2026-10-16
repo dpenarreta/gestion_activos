@@ -73,6 +73,7 @@ describe("Las pestañas de Configuración", () => {
       "Roles",
       "Permisos",
       "Catálogos",
+      "Notificaciones",
       "Identidad visual",
       "Respaldos",
       "Auditoría",
@@ -84,7 +85,7 @@ describe("Las pestañas de Configuración", () => {
 
     expect(
       screen.getByText(
-        "LaarCourier: empresas, usuarios, roles, permisos, catálogos, identidad visual, respaldos y auditoría.",
+        "LaarCourier: empresas, usuarios, roles, permisos, catálogos, notificaciones, identidad visual, respaldos y auditoría.",
       ),
     ).toBeInTheDocument();
   });

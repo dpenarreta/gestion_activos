@@ -275,6 +275,7 @@ REST_FRAMEWORK = {
         # El correo de prueba de alertas dispara un envío real: se limita
         # aparte para que no sirva como generador de correo saliente.
         "alertas_prueba": env.str("ALERTAS_PRUEBA_THROTTLE_RATE", default="10/hour"),
+        "correo_prueba": env.str("CORREO_PRUEBA_THROTTLE_RATE", default="10/hour"),
     },
 }
 

@@ -265,3 +265,20 @@ un módulo:
 - **Permisos**: todos funcionan igual. Los de la Matriz ya no exigen venir de
   la membresía: un rol global los da en todas las empresas de la persona.
 
+## Configuración → Notificaciones (16 de octubre de 2026)
+
+Todos los avisos del sistema en una sola pestaña de Configuración, con un
+apartado por tema y cada uno con su permiso:
+
+- **Correo del sistema** (`configuracion.ver`): por dónde sale el correo
+  —servidor, puerto, cifrado, cuenta, remitente, espera máxima y el enlace de
+  los avisos (`FRONTEND_URL`)—, sin la clave. «Enviar una prueba a mi correo»
+  (`configuracion.editar`, máximo 10 por hora) escribe solo a quien lo pide y
+  devuelve el motivo si falla. API: `GET configuracion/correo/` y
+  `POST configuracion/correo/prueba/` (auditado como `correo.prueba_enviada`).
+- **Alertas del inventario** (`alertas.configurar`): umbrales, alertas activas,
+  resumen por correo, destinatarios, prueba e historial de envíos. Salió de la
+  pantalla de Alertas, que ahora solo muestra lo pendiente y enlaza aquí.
+- **Recordatorios de la Matriz** (cualquier permiso de la Matriz): la que antes
+  era la pestaña «Recordatorios», en su misma dirección
+  (`/admin/configuracion/recordatorios`).

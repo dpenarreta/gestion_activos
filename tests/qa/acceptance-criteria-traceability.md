@@ -972,4 +972,4 @@ estado del módulo en `docs/matriz-obligaciones.md`.
 | --- | --- | --- | --- | --- |
 | AC-GEN-001 | Reportes y Configuración generales | matriz-obligaciones.feature | Reportes y Configuración son generales, no de un módulo | Sí (Vitest: `NavegacionGeneral.test.jsx`, 8 casos) |
 | AC-GEN-002 | Catálogo único de roles | matriz-obligaciones.feature | Un solo catálogo de roles para todo el sistema | Sí (pytest: `test_un_rol_global_da_permisos_de_la_matriz_como_los_demas`, `test_roles_iniciales.py`, `test_los_roles_generales_traen_la_matriz`) |
-
+| AC-GEN-003 | Notificaciones en Configuración | matriz-obligaciones.feature | Configuración → Notificaciones reúne todos los avisos | Sí (pytest: `apps/core/tests/test_correo_del_sistema.py`, 6 casos; Vitest: `NotificacionesConfiguracion.test.jsx`, `AlertasNotificaciones.test.jsx`, `ConfiguracionMarco.test.jsx`) |

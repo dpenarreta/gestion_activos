@@ -158,8 +158,11 @@ clave— basta con conectar y autenticar:
 python -c "import smtplib,ssl,os; s=smtplib.SMTP(os.environ['EMAIL_HOST'],int(os.environ['EMAIL_PORT']),timeout=20); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo(); s.login(os.environ['EMAIL_HOST_USER'],os.environ['EMAIL_HOST_PASSWORD']); print('autentica')"
 ```
 
-Compruébelo antes de activarlo, desde *Alertas → Configurar alertas → Enviar
-una prueba a mi correo*: escribe solo a quien lo pide.
+Compruébelo antes de activarlo, desde *Configuración → Notificaciones → Correo
+del sistema → Enviar una prueba a mi correo*: escribe solo a quien lo pide y
+dice el motivo si falla. Esa pantalla muestra también por dónde sale el correo
+(servidor, puerto, cifrado, remitente, espera máxima y la dirección a la que
+llevan los botones de los avisos), sin la clave.
 
 Para revisar **cómo se ven** los avisos de mantenimiento al llegar —los
 clientes de correo corporativos descartan hojas de estilo y tratan las tablas a

@@ -363,7 +363,7 @@ export function ConfiguracionRecordatoriosPage() {
           ) : (
             <section className="mz-card">
               <div className="mz-card-head">
-                <h3>Notificaciones</h3>
+                <h3>Historial de avisos</h3>
               </div>
               <div className="mz-empty">
                 <Icon name="lock" />
@@ -423,7 +423,7 @@ function HistorialDeNotificaciones({ zona, puedeReintentar }) {
   return (
     <section className="mz-card">
       <div className="mz-card-head">
-        <h3>Notificaciones</h3>
+        <h3>Historial de avisos</h3>
         {datos && <span className="mz-faint">{datos.count}</span>}
       </div>
       <div className="mz-card-body">

@@ -2,6 +2,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 from apps.branding.views import CurrentThemeView
+from apps.core.correo_views import CorreoDelSistemaView, PruebaDeCorreoView
 from apps.core.respaldos_views import (
     BorrarRespaldoView,
     PoliticaDeRespaldoView,
@@ -39,6 +40,9 @@ urlpatterns = [
     # --- Carga masiva de los catálogos, un archivo por catálogo ---
     path("catalogos/", include("apps.core.catalogos_urls")),
     # --- Cuándo se respalda solo ---
+    # --- Por dónde sale el correo, y su prueba ---
+    path("configuracion/correo/", CorreoDelSistemaView.as_view(), name="correo-del-sistema"),
+    path("configuracion/correo/prueba/", PruebaDeCorreoView.as_view(), name="correo-prueba"),
     path("configuracion/respaldos/", PoliticaDeRespaldoView.as_view(), name="respaldos-politica"),
     path(
         "configuracion/respaldos/ahora/",

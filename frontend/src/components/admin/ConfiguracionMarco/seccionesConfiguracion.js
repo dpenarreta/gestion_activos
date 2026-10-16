@@ -6,7 +6,7 @@ import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
  *
  * Como en la Matriz, Configuración es **una sola entrada del menú** y lo que
  * contiene se elige con pestañas: empresas, usuarios, roles, permisos,
- * catálogos, identidad visual, respaldos y auditoría. Antes eran dos grupos
+ * catálogos, notificaciones, identidad visual, respaldos y auditoría. Antes eran dos grupos
  * desplegables —«Usuarios y roles» y «Configuración», este con un tercer nivel
  * para los catálogos de Organización— que ocupaban medio menú con cosas que se
  * abren de vez en cuando, y dejaban el inventario, que es lo diario, empujado
@@ -112,13 +112,36 @@ export const SECCIONES_CONFIGURACION = [
     ],
   },
   {
-    // Por empresa, como todo lo de la Matriz: la ve cualquiera con un rol del
-    // módulo en la empresa activa, y la pantalla dice si puede cambiarla.
-    id: "recordatorios",
-    nombre: "Recordatorios",
-    path: "/admin/configuracion/recordatorios",
-    permission: PERMISOS_MATRIZ,
-    rutas: ["/admin/configuracion/recordatorios"],
+    // Todos los avisos del sistema en un solo sitio: por dónde sale el correo,
+    // las alertas del inventario y los recordatorios de la Matriz. Cada
+    // apartado con su permiso; la sección aparece con cualquiera.
+    id: "notificaciones",
+    nombre: "Notificaciones",
+    path: "/admin/configuracion/notificaciones",
+    permission: ["configuracion.ver", "alertas.configurar", ...PERMISOS_MATRIZ],
+    rutas: [
+      "/admin/configuracion/notificaciones",
+      "/admin/configuracion/recordatorios",
+    ],
+    subsecciones: [
+      {
+        nombre: "Correo del sistema",
+        path: "/admin/configuracion/notificaciones",
+        permission: "configuracion.ver",
+      },
+      {
+        nombre: "Alertas del inventario",
+        path: "/admin/configuracion/notificaciones/alertas",
+        permission: "alertas.configurar",
+      },
+      {
+        // Por empresa, como todo lo de la Matriz: la ve cualquiera con algún
+        // permiso del módulo, y la pantalla dice si puede cambiarla.
+        nombre: "Recordatorios de la Matriz",
+        path: "/admin/configuracion/recordatorios",
+        permission: PERMISOS_MATRIZ,
+      },
+    ],
   },
   {
     id: "identidad",

@@ -348,3 +348,8 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
     Then los roles de la Matriz se fundieron en los generales y quien los tenía conserva sus permisos
     And los permisos de cualquier módulo cuentan igual desde un rol global o desde la membresía
 
+  @AC-GEN-003
+  Scenario: Configuración → Notificaciones reúne todos los avisos
+    Then la pestaña Notificaciones tiene «Correo del sistema», «Alertas del inventario» y «Recordatorios de la Matriz», cada uno visible con su permiso
+    And el correo del sistema dice por dónde sale el correo sin mostrar la clave, y la prueba escribe solo a quien la pide y dice el motivo si falla
+    And la pantalla de Alertas ya no configura: enlaza a Configuración → Notificaciones
