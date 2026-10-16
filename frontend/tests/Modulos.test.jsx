@@ -83,6 +83,7 @@ describe("Cada módulo trae su menú", () => {
     expect(moduloDeRuta("/admin/matriz")).toBe("matriz");
     expect(moduloDeRuta("/admin/activos/4")).toBe("activos");
     expect(moduloDeRuta("/admin/users")).toBeNull();
+    expect(moduloDeRuta("/admin/auditoria/matriz")).toBeNull();
     expect(moduloDeRuta("/admin/dashboards/directorio")).toBe("dashboards");
   });
 });

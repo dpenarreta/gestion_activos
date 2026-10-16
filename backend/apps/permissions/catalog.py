@@ -8,11 +8,12 @@ y `apps.permissions.authorization`).
 
 Convención de nombres: `"<modulo>.<accion>"`, ej. `"usuarios.ver"`.
 
-Hoy solo contiene los módulos transversales (usuarios, roles, permisos,
-auditoría, configuración/branding). Cada módulo de negocio que se agregue
-debe sumar aquí sus propias entradas — el catálogo es cerrado: un permiso
-que no esté en este archivo no existe para el sistema
-(ver docs/roles-and-permissions.md).
+Cada bloque pertenece a un grupo (`MODULE_GROUPS`): una sección general
+(Reportes, Auditoría, Configuración) o un módulo (Gestión de Activos, Matriz,
+Dashboards, Mantenimiento de sedes). Cada
+módulo de negocio que se agregue debe sumar aquí sus propias entradas y su
+grupo — el catálogo es cerrado: un permiso que no esté en este archivo no
+existe para el sistema (ver docs/roles-and-permissions.md).
 """
 
 PERMISSION_CATALOG = {
@@ -157,7 +158,19 @@ PERMISSION_CATALOG = {
         "description": "Avisos sobre el estado del parque y sus umbrales.",
         "permissions": {
             "alertas.ver": "Ver el centro de alertas del parque",
-            "alertas.configurar": "Configurar los umbrales y qué alertas están activas",
+        },
+    },
+    "notificaciones": {
+        "label": "Notificaciones",
+        "description": (
+            "Configuración → Notificaciones: qué alertas del inventario están "
+            "activas, sus umbrales y a quién se avisan. Es configuración del "
+            "sistema, no trabajo del módulo. (Hasta el 16 de octubre de 2026 "
+            "era `alertas.configurar`; la migración lo renombró y los roles lo "
+            "conservan.)"
+        ),
+        "permissions": {
+            "notificaciones.configurar": "Configurar los umbrales y qué alertas están activas",
         },
     },
     "reportes": {
@@ -175,10 +188,9 @@ PERMISSION_CATALOG = {
         "label": "Matriz de obligaciones",
         "description": (
             "Obligaciones regulatorias, contractuales e internas de cada "
-            "empresa: sus períodos, evidencias, cierres y recordatorios. Estos "
-            "permisos valen **solo en la empresa donde se tienen** por el rol "
-            "de la membresía: un rol global del usuario no los concede en "
-            "ninguna empresa (ver `apps.permissions.authorization`)."
+            "empresa: sus períodos, evidencias, cierres y recordatorios. Como "
+            "todos, cuentan por un rol general o por el de la membresía en la "
+            "empresa activa (ver `apps.permissions.authorization`)."
         ),
         "permissions": {
             "matriz.ver_todas": (
@@ -260,6 +272,122 @@ PERMISSION_CATALOG = {
         },
     },
 }
+
+
+#: A qué parte del sistema pertenece cada bloque del catálogo, en el orden en
+#: que se muestran. Los **generales** son las secciones del bloque «General»
+#: del menú —Reportes, Auditoría y Configuración, con todo lo que se
+#: administra desde ella— y valen en todo el sistema; los demás solo sirven
+#: dentro de su módulo. Todo
+#: bloque del catálogo está en exactamente un grupo (lo comprueba
+#: `apps/permissions/tests/test_grupos_del_catalogo.py`).
+MODULE_GROUPS = [
+    # --- Generales: las secciones del bloque «General» del menú -------------
+    {
+        "id": "reportes",
+        "label": "Reportes",
+        "alcance": "general",
+        "description": (
+            "La sección Reportes del bloque «General»: los reportes y su "
+            "descarga. La pestaña de cada módulo pide además los permisos de "
+            "ese módulo (los de la Matriz, los suyos)."
+        ),
+        "modules": ["reportes"],
+    },
+    {
+        "id": "auditoria",
+        "label": "Auditoría",
+        "alcance": "general",
+        "description": (
+            "La sección Auditoría del bloque «General»: el registro de lo que "
+            "se hizo en todo el sistema."
+        ),
+        "modules": ["auditoria"],
+    },
+    {
+        "id": "configuracion",
+        "label": "Configuración",
+        "alcance": "general",
+        "description": (
+            "La sección Configuración del bloque «General»: empresas, usuarios, "
+            "roles y permisos, catálogos, notificaciones, identidad visual y "
+            "respaldos. Valen en todo el sistema."
+        ),
+        "modules": [
+            "empresas",
+            "usuarios",
+            "roles",
+            "permisos",
+            "organizacion",
+            "catalogos",
+            "notificaciones",
+            "configuracion",
+        ],
+    },
+    # --- De cada módulo: solo sirven dentro de él ----------------------------
+    {
+        "id": "activos",
+        "label": "Gestión de Activos",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Gestión de Activos: inventario, "
+            "alertas, mantenimientos, solicitudes y renovación."
+        ),
+        "modules": [
+            "activos",
+            "alertas",
+            "adjuntos",
+            "mantenimientos",
+            "solicitudes",
+            "politicas",
+        ],
+    },
+    {
+        "id": "matriz",
+        "label": "Matriz de obligaciones",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de la Matriz: obligaciones, períodos, "
+            "evidencias y recordatorios de cada empresa."
+        ),
+        "modules": ["matriz"],
+    },
+    {
+        "id": "dashboards",
+        "label": "Dashboards",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Dashboards: los de cada área o "
+            "departamento, sus datos y su interpretación con IA."
+        ),
+        "modules": ["dashboard"],
+    },
+]
+
+
+def _anotar_grupos():
+    """Cada bloque del catálogo lleva su grupo (`grupo`), y el catálogo queda
+    en el orden de los grupos: quien lo recorre los encuentra juntos."""
+    global PERMISSION_CATALOG
+    ordenado = {}
+    for orden, grupo in enumerate(MODULE_GROUPS):
+        resumen = {
+            "id": grupo["id"],
+            "label": grupo["label"],
+            "alcance": grupo["alcance"],
+            "description": grupo["description"],
+            "orden": orden,
+        }
+        for clave in grupo["modules"]:
+            ordenado[clave] = {**PERMISSION_CATALOG[clave], "grupo": resumen}
+    # Un bloque sin grupo no se pierde: va al final, sin `grupo`, y la prueba
+    # del catálogo lo señala.
+    for clave, modulo in PERMISSION_CATALOG.items():
+        ordenado.setdefault(clave, modulo)
+    PERMISSION_CATALOG = ordenado
+
+
+_anotar_grupos()
 
 
 def iter_all_permissions():

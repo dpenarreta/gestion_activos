@@ -39,7 +39,7 @@ const SEVERIDADES = {
  * rápido, y el trabajo real se hace sobre el listado.
  */
 export function AlertasPage() {
-  const puedeConfigurar = usePermission("alertas.configurar");
+  const puedeConfigurar = usePermission("notificaciones.configurar");
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);

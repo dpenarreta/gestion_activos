@@ -1,0 +1,82 @@
+.grupo-permisos + .grupo-permisos {
+  margin-top: 12px;
+}
+
+.grupo-permisos__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 4px;
+}
+
+.grupo-permisos__boton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.grupo-permisos__titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grupo-permisos__titulo strong {
+  font-family: var(--mz-font-display);
+  font-size: 1rem;
+}
+
+.grupo-permisos__resumen {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.grupo-permisos__chevron {
+  color: var(--mz-ink-faint);
+}
+
+.grupo-permisos__descripcion {
+  margin: 0;
+  padding: 0 16px 12px;
+}
+
+.grupo-permisos__cuerpo {
+  padding: 0 16px 16px;
+}
+
+/* Los bloques del grupo, uno debajo de otro, sin la sombra de la tarjeta de
+   afuera para que se lean como parte de ella. */
+.grupo-permisos__cuerpo > .mz-card {
+  box-shadow: none;
+}
+
+.grupo-permisos__cuerpo > .mz-card + .mz-card {
+  margin-top: 10px;
+}
+
+@media (max-width: 575.98px) {
+  .grupo-permisos__boton {
+    flex-wrap: wrap;
+  }
+
+  .grupo-permisos__resumen {
+    margin-left: 0;
+    white-space: normal;
+  }
+}
+
+/* La identidad no trae una píldora informativa: la de «General» usa los
+   tonos de los avisos de información. */
+.grupo-permisos__general {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}

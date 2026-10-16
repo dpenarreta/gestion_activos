@@ -494,10 +494,10 @@ Base: `/api/v1/alertas/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET | `/alertas/` | `alertas.ver` | Las siete alertas del §19 con su total, severidad y una muestra de equipos |
-| GET/PATCH | `/alertas/configuracion/` | `alertas.ver` / `alertas.configurar` | Umbrales en días, qué alertas están encendidas y el envío por correo |
-| GET | `/alertas/destinatarios/` | `alertas.configurar` | Usuarios que pueden recibir el resumen, con el correo enmascarado |
+| GET/PATCH | `/alertas/configuracion/` | `alertas.ver` / `notificaciones.configurar` | Umbrales en días, qué alertas están encendidas y el envío por correo |
+| GET | `/alertas/destinatarios/` | `notificaciones.configurar` | Usuarios que pueden recibir el resumen, con el correo enmascarado |
 | GET | `/alertas/envios/` | `alertas.ver` | Últimos 15 intentos de envío, incluidos los omitidos y los fallidos |
-| POST | `/alertas/envios/prueba/` | `alertas.configurar` | Envía el resumen de hoy al correo de quien lo solicita |
+| POST | `/alertas/envios/prueba/` | `notificaciones.configurar` | Envía el resumen de hoy al correo de quien lo solicita |
 
 Las alertas se calculan en cada consulta; no hay tabla de «alertas
 generadas». Guardarlas obligaría a un proceso que también las retirara cuando

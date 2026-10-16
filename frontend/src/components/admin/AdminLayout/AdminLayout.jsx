@@ -13,6 +13,10 @@ import {
   useMisEmpresas,
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
+import {
+  AuditoriaMarco,
+  esRutaDeAuditoria,
+} from "../AuditoriaMarco/AuditoriaMarco";
 import { ConfiguracionMarco } from "../ConfiguracionMarco/ConfiguracionMarco";
 import { seccionDeRuta } from "../ConfiguracionMarco/seccionesConfiguracion";
 import {
@@ -162,6 +166,10 @@ export function AdminLayout() {
               <ConfiguracionMarco empresa={empresas.activa?.nombre}>
                 <Outlet />
               </ConfiguracionMarco>
+            ) : esRutaDeAuditoria(location.pathname) ? (
+              <AuditoriaMarco>
+                <Outlet />
+              </AuditoriaMarco>
             ) : esRutaDeReportes(location.pathname) ? (
               <ReportesMarco>
                 <Outlet />

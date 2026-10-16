@@ -93,7 +93,7 @@ ROLES = {
             "politicas.editar",
             "adjuntos.ver",
             "alertas.ver",
-            "alertas.configurar",
+            "notificaciones.configurar",
             "reportes.ver",
             "reportes.exportar",
             "auditoria.ver",

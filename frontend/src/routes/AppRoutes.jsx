@@ -1,5 +1,6 @@
 import { CorreoDelSistemaPage } from "../pages/Admin/Configuracion/CorreoDelSistemaPage";
 import { NotificacionesAlertasPage } from "../pages/Admin/Configuracion/NotificacionesAlertasPage";
+import { AuditoriaInicio } from "../components/admin/AuditoriaMarco/AuditoriaMarco";
 import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
@@ -171,9 +172,11 @@ export function AppRoutes() {
         <Route
           path="auditoria"
           element={
-            <RequirePermission permission={AUDITORIA_VER}>
-              <AuditoriaList />
-            </RequirePermission>
+            <AuditoriaInicio>
+              <RequirePermission permission={AUDITORIA_VER}>
+                <AuditoriaList />
+              </RequirePermission>
+            </AuditoriaInicio>
           }
         />
         <Route
@@ -656,7 +659,7 @@ export function AppRoutes() {
         <Route
           path="configuracion/notificaciones/alertas"
           element={
-            <RequirePermission permission="alertas.configurar">
+            <RequirePermission permission="notificaciones.configurar">
               <NotificacionesAlertasPage />
             </RequirePermission>
           }

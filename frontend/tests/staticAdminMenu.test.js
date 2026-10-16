@@ -30,7 +30,6 @@ describe("Menú administrativo", () => {
       "permisos.ver",
       "organizacion.ver",
       "configuracion.ver",
-      "auditoria.ver",
     ]) {
       expect(
         buscar(getVisibleAdminMenu([permiso]), "configuracion"),
@@ -57,9 +56,23 @@ describe("Menú administrativo", () => {
         "/admin/roles",
         "/admin/organizacion",
         "/admin/catalogos",
-        "/admin/auditoria",
       ]),
     );
+    expect(configuracion.rutas).not.toContain("/admin/auditoria");
+  });
+
+  it("Auditoría va aparte, en el bloque General, con cualquiera de sus dos permisos", () => {
+    for (const permiso of ["auditoria.ver", "matriz.ver_auditoria"]) {
+      const auditoria = buscar(getVisibleAdminMenu([permiso]), "auditoria");
+      expect(auditoria.modulo).toBe("comun");
+      expect(auditoria.path).toBe("/admin/auditoria");
+    }
+    expect(
+      buscar(getVisibleAdminMenu(["auditoria.ver"]), "configuracion"),
+    ).toBeUndefined();
+    expect(
+      buscar(getVisibleAdminMenu(["activos.ver"]), "auditoria"),
+    ).toBeUndefined();
   });
 
   it("un hijo sin permiso propio hereda el del grupo; con uno propio, se filtra por el suyo", () => {

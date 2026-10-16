@@ -9,3 +9,12 @@
 .permissions-page__tabla tbody tr:last-child td {
   border-bottom: none;
 }
+
+.permissions-page__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}

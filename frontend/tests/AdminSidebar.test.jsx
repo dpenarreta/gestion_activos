@@ -125,7 +125,6 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     for (const seccion of [
       "Usuarios",
       "Usuarios y roles",
-      "Auditoría",
       "Empresas",
       "Identidad",
       "Organización",
@@ -135,16 +134,18 @@ describe("Lo que el menú ofrece depende del permiso", () => {
     }
   });
 
-  it("un auditor sin más permisos igual llega a Configuración", () => {
-    /* Basta con poder abrir una sección: sin esto, quien solo audita no
-       encontraría la auditoría por ningún lado del menú. */
+  it("Auditoría tiene su propia entrada en el bloque General", () => {
+    /* Fuera de Configuración, como Reportes: quien solo audita la encuentra
+       sin pasar por una pantalla que no le corresponde. */
     permisos.lista = ["auditoria.ver"];
 
     pintar();
 
-    expect(
-      screen.getByRole("link", { name: "Configuración" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Auditoría" })).toHaveAttribute(
+      "href",
+      "/admin/auditoria",
+    );
+    expect(screen.queryByRole("link", { name: "Configuración" })).toBeNull();
   });
 
   it("sin ninguna sección permitida, no aparece", () => {

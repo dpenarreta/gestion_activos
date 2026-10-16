@@ -8,11 +8,6 @@
   font-size: 0.8em;
 }
 
-/* Un módulo debajo de otro, con aire entre tarjetas. */
-.permissions-module + .permissions-module {
-  margin-top: 10px;
-}
-
 .permissions-module .mz-card-head {
   padding: 10px 14px;
 }

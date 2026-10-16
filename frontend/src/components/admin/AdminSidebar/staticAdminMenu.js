@@ -8,6 +8,7 @@ import {
   PERMISOS_DASHBOARDS,
   RUTA_DASHBOARDS,
 } from "../../../modulos/permisosDashboards";
+import { PERMISOS_AUDITORIA } from "../AuditoriaMarco/AuditoriaMarco";
 import { PERMISOS_REPORTES } from "../ReportesMarco/ReportesMarco";
 
 // En su propio módulo: Configuración también lo usa, y este archivo ya
@@ -230,9 +231,20 @@ export const ADMIN_MENU = [
     rutas: ["/admin/reportes"],
   },
   {
+    // Fuera de Configuración, como Reportes: es de todo el sistema y se
+    // consulta a menudo. Sistema y Matriz, en pestañas (ver `AuditoriaMarco`).
+    id: "auditoria",
+    modulo: "comun",
+    name: "Auditoría",
+    icon: "shield-check",
+    path: "/admin/auditoria",
+    permission: PERMISOS_AUDITORIA,
+    rutas: ["/admin/auditoria"],
+  },
+  {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,
-    // usuarios, roles, permisos, catálogos, identidad visual, respaldos y
-    // auditoría— se elige con las pestañas de la propia pantalla (ver
+    // usuarios, roles, permisos, catálogos, notificaciones, identidad visual
+    // y respaldos— se elige con las pestañas de la propia pantalla (ver
     // `ConfiguracionMarco`). Como grupos desplegables ocupaban medio menú con
     // cosas que se abren de vez en cuando.
     //

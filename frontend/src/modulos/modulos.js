@@ -7,8 +7,8 @@ import { RUTAS_CONFIGURACION } from "../components/admin/ConfiguracionMarco/secc
  * apilar todo en un menú interminable, cada módulo muestra solo sus pantallas
  * y se cambia de uno a otro desde el selector de la barra superior, junto al
  * de empresa: los dos dicen *dónde* se está trabajando. Lo general del
- * sistema —Reportes y Configuración, con usuarios, roles y permisos— no es de
- * ningún módulo: aparece en todos, en el bloque «General» del menú.
+ * sistema —Reportes, Auditoría y Configuración, con usuarios, roles y
+ * permisos— no es de ningún módulo: aparece en todos, en el bloque «General» del menú.
  *
  * Un módulo se identifica por el prefijo de sus rutas. Las que no son de
  * ninguno (las de Configuración) conservan el módulo desde el que se llegó.
@@ -60,7 +60,11 @@ export function moduloDeRuta(pathname) {
   return esRutaComun(pathname) ? null : MODULO_POR_DEFECTO;
 }
 
-const RUTAS_COMUNES = [...RUTAS_CONFIGURACION, "/admin/reportes"];
+const RUTAS_COMUNES = [
+  ...RUTAS_CONFIGURACION,
+  "/admin/reportes",
+  "/admin/auditoria",
+];
 
 function esRutaComun(pathname) {
   return RUTAS_COMUNES.some(

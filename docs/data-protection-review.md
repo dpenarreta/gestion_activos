@@ -126,7 +126,7 @@ rigen los permisos que protegen la pantalla. Los controles que lo acotan:
 - **Correos enmascarados en la interfaz**: `GET /alertas/destinatarios/`
   devuelve `d****@empresa.com`. Quien configura las alertas necesita reconocer
   a la persona, no llevarse el directorio de correos del personal; por eso el
-  endpoint exige `alertas.configurar` y no expone la dirección completa
+  endpoint exige `notificaciones.configurar` y no expone la dirección completa
   (`AC-NOT-020`).
 - **Bitácora sin direcciones**: `EnvioAlertas` guarda identificadores de
   usuario, no correos. Es un registro append-only que no se purga, y una

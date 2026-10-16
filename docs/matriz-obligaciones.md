@@ -276,7 +276,7 @@ apartado por tema y cada uno con su permiso:
   (`configuracion.editar`, máximo 10 por hora) escribe solo a quien lo pide y
   devuelve el motivo si falla. API: `GET configuracion/correo/` y
   `POST configuracion/correo/prueba/` (auditado como `correo.prueba_enviada`).
-- **Alertas del inventario** (`alertas.configurar`): umbrales, alertas activas,
+- **Alertas del inventario** (`notificaciones.configurar`): umbrales, alertas activas,
   resumen por correo, destinatarios, prueba e historial de envíos. Salió de la
   pantalla de Alertas, que ahora solo muestra lo pendiente y enlaza aquí.
 - **Recordatorios de la Matriz** (cualquier permiso de la Matriz): la que antes
