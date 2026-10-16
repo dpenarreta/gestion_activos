@@ -13,6 +13,7 @@ import {
   useMisEmpresas,
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
+import { CampanaNotificaciones } from "../Notificaciones/CampanaNotificaciones";
 import {
   AuditoriaMarco,
   esRutaDeAuditoria,
@@ -151,6 +152,7 @@ export function AdminLayout() {
             <h1>{tituloDeRuta(menu, location.pathname)}</h1>
             <div className="mz-spacer" />
             <BusquedaGlobal />
+            <CampanaNotificaciones />
             <BotonTema />
             <SelectorModulo />
             <SelectorEmpresa

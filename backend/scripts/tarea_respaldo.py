@@ -89,6 +89,7 @@ def main() -> int:
         ("respaldar", ["--si-toca"]),
         ("ciclo_matriz", []),
         ("actualizar_fuentes_bd", ["--si-toca"]),
+        ("limpiar_notificaciones", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

@@ -136,6 +136,22 @@ rigen los permisos que protegen la pantalla. Los controles que lo acotan:
   frecuencia: un endpoint que dispara correos a terceros es un remitente
   disponible para quien consiga una sesión (`AC-NOT-014`, `AC-NOT-016`).
 
+## Notificaciones de la campana
+
+Cada aviso por correo a alguien con cuenta deja también una notificación en el
+sistema (`apps.notificaciones`), y algunos avisos solo existen ahí (el ticket
+asignado a un técnico). A diferencia del correo, no salen del perímetro:
+
+- **Solo las ve su destinatario**, y solo en la empresa activa: la API filtra
+  por la cuenta que pide, y marcar como leída una ajena responde 404.
+- **Contenido mínimo**: el nombre del aviso, su asunto y una ruta del sistema.
+  El enlace se guarda como ruta interna y nunca apunta a otro sitio; abrirlo
+  exige iniciar sesión y los permisos de siempre.
+- **La recuperación de contraseña no se guarda**: su enlace es de un solo uso
+  y no debe quedar en ningún otro lugar.
+- **Retención**: las leídas se borran a los 90 días y las demás a los 180
+  (`limpiar_notificaciones`, en la tarea programada).
+
 ## Escenarios Gherkin relacionados
 
 Ver `tests/qa/features/personal-data-protection.feature`

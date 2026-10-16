@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "apps.cartera",
     "apps.ordenes",
     "apps.correos",
+    "apps.notificaciones",
 ]
 
 MIDDLEWARE = [

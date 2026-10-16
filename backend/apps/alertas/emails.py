@@ -129,6 +129,15 @@ def enviar_resumen(*, alertas, direcciones: list[str], es_prueba: bool = False) 
     )
     datos = variables(contexto, firma=firma)
     correo = servicio.renderizar("alertas.resumen", datos)
+    if not es_prueba:
+        from apps.notificaciones import services as campana
+
+        campana.desde_correo(
+            clave="alertas.resumen",
+            asunto=correo["asunto"],
+            variables=datos,
+            direcciones=direcciones,
+        )
 
     try:
         mensaje = EmailMultiAlternatives(

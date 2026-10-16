@@ -93,6 +93,13 @@ def enviar(
 
     correo = servicio.renderizar(clave, variables)
     asunto = f"{prefijo_asunto}{correo['asunto']}"
+    # La campana recibe el aviso aunque el correo no salga: así quien tiene
+    # cuenta se entera igual si el SMTP está caído.
+    from apps.notificaciones import services as campana
+
+    campana.desde_correo(
+        clave=clave, asunto=asunto, variables=variables, direcciones=destinatarios.direcciones
+    )
     try:
         mensaje = EmailMultiAlternatives(
             subject=asunto,

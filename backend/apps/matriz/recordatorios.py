@@ -228,8 +228,31 @@ def _registrar_y_mandar(*, clave, ahora, **campos) -> Notificacion | None:
             )
     except IntegrityError:
         return None
+    _a_la_campana(notificacion, ahora)
     _mandar(notificacion, ahora)
     return notificacion
+
+
+def _a_la_campana(notificacion: Notificacion, ahora) -> None:
+    """La notificación en el sistema, una sola vez por aviso (aquí ya pasó la
+    deduplicación) y aunque el correo falle y se reintente después."""
+    if notificacion.destinatario is None:
+        return
+    from apps.correos import catalogo
+    from apps.notificaciones import services as campana
+
+    periodo = notificacion.periodo
+    clave = CLAVE_DEL_TIPO[notificacion.tipo]
+    plantilla = catalogo.obtener(clave)
+    asunto = construir_correo(periodo, notificacion.tipo, "", ahora)["subject"]
+    campana.notificar(
+        [notificacion.destinatario],
+        tipo=clave,
+        titulo=plantilla.nombre if plantilla else asunto,
+        resumen=asunto,
+        enlace=_enlace(periodo),
+        empresa=periodo.empresa,
+    )
 
 
 # --- Los procesos programados -------------------------------------------------------------
