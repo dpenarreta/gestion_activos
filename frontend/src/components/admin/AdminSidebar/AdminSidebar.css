@@ -302,3 +302,77 @@
   color: var(--mz-side-fg);
   opacity: 0.55;
 }
+
+/* ---------- Panel flotante de un grupo ----------
+   Al pasar el mouse por un grupo cerrado, sus entradas se despliegan al
+   costado del menú (ver `AdminMenuGroup.jsx`). `position: fixed` con
+   coordenadas medidas: la lista del menú tiene su propio scroll y recortaría
+   un panel absoluto. Mismo fondo que el menú, para leerse como parte de él. */
+.mz-flyout {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 280px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--mz-blue-950);
+  color: var(--mz-side-fg);
+  box-shadow: var(--mz-shadow-3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mz-flyout-titulo {
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mz-side-fg-dim);
+}
+
+.mz-flyout-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mz-flyout-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--mz-side-fg);
+  text-decoration: none;
+}
+
+.mz-flyout-item:hover,
+.mz-flyout-item:focus-visible {
+  background: var(--mz-side-hover);
+  color: #fff;
+}
+
+.mz-flyout-item.is-active {
+  background: var(--mz-side-hover);
+  color: #fff;
+  font-weight: 600;
+}
+
+.mz-flyout-seccion {
+  margin-top: 6px;
+}
+
+.mz-flyout-rotulo {
+  display: block;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mz-side-fg-dim);
+}
+
+.mz-flyout-seccion .mz-flyout-lista {
+  padding-left: 8px;
+}

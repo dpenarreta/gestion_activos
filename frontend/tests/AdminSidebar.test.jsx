@@ -315,3 +315,73 @@ describe("El pie del menú", () => {
     expect(marca).toHaveTextContent("GA");
   });
 });
+
+// --- Panel flotante al pasar el mouse ---------------------------------------
+
+describe("Al pasar el mouse por un grupo", () => {
+  function conMouse(siOno) {
+    window.matchMedia = vi.fn((query) => ({
+      matches: siOno,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  }
+
+  it("despliega sus entradas al costado y navega desde ahí", () => {
+    conMouse(true);
+    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    pintar({ ruta: "/admin/mantenimientos" });
+
+    fireEvent.mouseEnter(
+      screen.getByRole("button", { name: /Activos/ }).closest("li"),
+    );
+    const panel = screen.getByRole("group", { name: "Activos" });
+    fireEvent.click(within(panel).getByRole("link", { name: "Carga masiva" }));
+
+    expect(
+      screen.getByText("Ruta: /admin/activos/importar"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Activos" })).toBeNull();
+  });
+
+  it("pulsar el grupo lo abre en acordeón debajo y cierra el panel", () => {
+    conMouse(true);
+    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    pintar({ ruta: "/admin/mantenimientos" });
+
+    const grupo = screen.getByRole("button", { name: /Activos/ });
+    fireEvent.mouseEnter(grupo.closest("li"));
+    fireEvent.click(grupo);
+
+    expect(grupo).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("group", { name: "Activos" })).toBeNull();
+    // Abierto en acordeón, pasar el mouse ya no despliega el panel.
+    fireEvent.mouseEnter(grupo.closest("li"));
+    expect(screen.queryByRole("group", { name: "Activos" })).toBeNull();
+  });
+
+  it("con el menú contraído a íconos es la forma de llegar a lo de dentro", () => {
+    conMouse(true);
+    permisos.lista = ["activos.ver"];
+    pintar({ colapsado: true });
+
+    // Contraído no hay texto: el grupo se nombra por su `title`.
+    fireEvent.mouseEnter(screen.getByTitle("Activos").closest("li"));
+    const panel = screen.getByRole("group", { name: "Activos" });
+    expect(
+      within(panel).getByRole("link", { name: "Inventario" }),
+    ).toBeInTheDocument();
+  });
+
+  it("sin mouse (teléfono) no hay panel: solo el acordeón", () => {
+    conMouse(false);
+    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    pintar({ ruta: "/admin/mantenimientos" });
+
+    fireEvent.mouseEnter(
+      screen.getByRole("button", { name: /Activos/ }).closest("li"),
+    );
+    expect(screen.queryByRole("group", { name: "Activos" })).toBeNull();
+  });
+});
