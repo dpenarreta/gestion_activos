@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     "apps.matriz",
     "apps.cartera",
     "apps.ordenes",
+    "apps.correos",
 ]
 
 MIDDLEWARE = [

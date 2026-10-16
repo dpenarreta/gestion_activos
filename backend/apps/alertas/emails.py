@@ -15,7 +15,10 @@ import logging
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+from django.utils.html import escape
+
+from apps.correos import servicio
+from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
 logger = logging.getLogger("apps.alertas")
 
@@ -58,27 +61,54 @@ def construir_contexto(alertas, *, es_prueba: bool = False) -> dict:
     }
 
 
-def _texto_plano(contexto: dict) -> str:
-    """Versión en texto del mismo resumen.
+_COLOR_SEVERIDAD = {
+    "alta": "background-color: #f8d7da; color: #842029;",
+    "media": "background-color: #fff3cd; color: #664d03;",
+}
 
-    No es un adorno: hay clientes de correo corporativos que bloquean el HTML
-    de remitentes internos automáticos, y un correo que llega vacío es
-    indistinguible de uno que no llegó.
+
+def detalle_html(alertas_del_contexto) -> str:
+    """La tabla de alertas del resumen: el bloque `{{detalle_alertas}}`.
+
+    La arma el sistema —cada alerta con su cantidad, su severidad y el enlace
+    a su listado— y la plantilla decide dónde ponerla.
     """
-    if not contexto["alertas"]:
-        cuerpo = "Ninguna alerta activa tiene equipos pendientes."
-    else:
-        lineas = [
-            f"- [{alerta['etiqueta_severidad']}] {alerta['titulo']}: "
-            f"{alerta['total']} — {alerta['detalle']}"
-            for alerta in contexto["alertas"]
-        ]
-        cuerpo = "\n".join(lineas)
+    filas = []
+    for alerta in alertas_del_contexto:
+        color = _COLOR_SEVERIDAD.get(
+            alerta["severidad"], "background-color: #e2e3e5; color: #41464b;"
+        )
+        filas.append(
+            '<tr><td style="padding: 12px 0; border-top: 1px solid #e9ecef;">'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+            f'<td style="font-size: 14px; font-weight: bold;">{escape(alerta["titulo"])}</td>'
+            f'<td align="right" style="font-size: 18px; font-weight: bold;">{alerta["total"]}</td>'
+            "</tr></table>"
+            f'<p style="margin: 4px 0 8px; font-size: 13px; color: #6c757d;">{escape(alerta["detalle"])}</p>'
+            '<span style="display: inline-block; padding: 2px 8px; border-radius: 10px; '
+            f'font-size: 11px; text-transform: uppercase; {color}">'
+            f'{escape(alerta["etiqueta_severidad"])}</span>'
+            f'<a href="{escape(alerta["url"])}" style="margin-left: 8px; font-size: 13px; '
+            'color: #0d6efd;">Ver el listado</a></td></tr>'
+        )
     return (
-        f"Resumen de alertas de {contexto['system_name']}\n\n"
-        f"{cuerpo}\n\n"
-        f"Ver el detalle: {contexto['url_centro']}\n"
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
+        + "".join(filas)
+        + "</table>"
     )
+
+
+def variables(contexto: dict, *, firma: str) -> dict:
+    """Las variables de la plantilla `alertas.resumen`."""
+    return {
+        "total_alertas": str(contexto["total_alertas"]),
+        "total_elementos": str(contexto["total_elementos"]),
+        "detalle_alertas": detalle_html(contexto["alertas"]),
+        "es_prueba": "sí" if contexto["es_prueba"] else "",
+        "prefijo": "[PRUEBA] " if contexto["es_prueba"] else "",
+        "firma": firma,
+        "enlace": contexto["url_centro"],
+    }
 
 
 def enviar_resumen(*, alertas, direcciones: list[str], es_prueba: bool = False) -> str | None:
@@ -88,10 +118,7 @@ def enviar_resumen(*, alertas, direcciones: list[str], es_prueba: bool = False) 
     intento fallido en la bitácora de envíos, y una excepción que sube dejaría
     ese registro sin escribir —el fallo desaparecería justo cuando importa.
     """
-    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
-
     contexto = construir_contexto(alertas, es_prueba=es_prueba)
-    prefijo = "[PRUEBA] " if es_prueba else ""
     # El asunto nombra la empresa porque quien trabaja en dos recibe dos correos
     # el mismo día, y sin distinguirlos el segundo parece un duplicado.
     empresa = empresa_actual()
@@ -100,24 +127,20 @@ def enviar_resumen(*, alertas, direcciones: list[str], es_prueba: bool = False) 
         if empresa is not None and empresa is not SIN_EMPRESA
         else settings.SYSTEM_NAME
     )
-    if contexto["total_alertas"]:
-        asunto = f"{prefijo}{contexto['total_alertas']} alerta(s) del parque — {firma}"
-    else:
-        asunto = f"{prefijo}Sin alertas pendientes — {firma}"
+    datos = variables(contexto, firma=firma)
+    correo = servicio.renderizar("alertas.resumen", datos)
 
     try:
         mensaje = EmailMultiAlternatives(
-            subject=asunto,
-            body=_texto_plano(contexto),
+            subject=correo["asunto"],
+            body=correo["texto"],
             from_email=settings.DEFAULT_FROM_EMAIL,
             # El destinatario visible es el propio remitente; las personas van
             # en copia oculta (ver el docstring del módulo).
             to=[settings.DEFAULT_FROM_EMAIL],
             bcc=direcciones,
         )
-        mensaje.attach_alternative(
-            render_to_string("emails/alertas_resumen.html", contexto), "text/html"
-        )
+        mensaje.attach_alternative(correo["html"], "text/html")
         mensaje.send()
     except Exception as error:  # noqa: BLE001
         logger.exception(

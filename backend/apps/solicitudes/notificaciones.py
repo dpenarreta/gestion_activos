@@ -36,35 +36,49 @@ def _para(usuario) -> eventos.Destinatarios:
     return eventos.Destinatarios(sin_correo=[nombre_de(usuario)])
 
 
-def _contexto(solicitud) -> dict:
+def variables(solicitud, para, nota: str = "") -> dict:
+    """Las variables de los avisos de una solicitud; `para` es quien lo recibe."""
+    from .serializers import nombre_de
+
+    estado = solicitud.get_estado_display()
     return {
-        "solicitud": solicitud,
-        "url": f"{settings.FRONTEND_URL.rstrip('/')}/admin/solicitudes/{solicitud.id}",
+        "numero": str(solicitud.id),
+        "que_se_pide": solicitud.lo_que_se_pide,
+        "cantidad": str(solicitud.cantidad),
+        "prioridad": solicitud.get_prioridad_display(),
+        "fecha_necesaria": (
+            solicitud.fecha_necesaria.strftime("%d/%m/%Y") if solicitud.fecha_necesaria else ""
+        ),
+        "justificacion": solicitud.justificacion,
+        "solicitante": nombre_de(solicitud.solicitante),
+        "estado": estado,
+        "estado_minusculas": estado.lower(),
+        "motivo": nota or "",
+        "nombre": nombre_de(para),
+        "correo": getattr(para, "email", "") or "",
+        "enlace": f"{settings.FRONTEND_URL.rstrip('/')}/admin/solicitudes/{solicitud.id}",
     }
 
 
 def al_recibirla(solicitud) -> eventos.Destinatarios:
     """Avisa a quien tendrá que comprarla."""
     return _avisar(
-        solicitud,
         _para(solicitud.encargado),
-        asunto=f"Nueva solicitud #{solicitud.id}: {solicitud.lo_que_se_pide}",
-        plantilla="emails/solicitud_recibida.html",
+        clave="solicitudes.recibida",
+        datos=variables(solicitud, solicitud.encargado),
     )
 
 
 def al_cambiar_de_estado(solicitud, nota: str = "") -> eventos.Destinatarios:
     """Avisa a quien pidió en qué punto está lo suyo."""
     return _avisar(
-        solicitud,
         _para(solicitud.solicitante),
-        asunto=f"Solicitud #{solicitud.id}: {solicitud.get_estado_display().lower()}",
-        plantilla="emails/solicitud_actualizada.html",
-        extra={"nota": nota},
+        clave="solicitudes.actualizada",
+        datos=variables(solicitud, solicitud.solicitante, nota),
     )
 
 
-def _avisar(solicitud, destinatarios, *, asunto, plantilla, extra=None):
+def _avisar(destinatarios, *, clave, datos):
     """Programa el envío y devuelve el reparto en el acto.
 
     La pantalla tiene que poder decir «a Fulano no se le avisará porque su
@@ -73,13 +87,7 @@ def _avisar(solicitud, destinatarios, *, asunto, plantilla, extra=None):
     """
     if not _activado():
         return destinatarios
-    contexto = {**_contexto(solicitud), **(extra or {})}
     transaction.on_commit(
-        lambda: eventos.enviar(
-            asunto=asunto,
-            plantilla=plantilla,
-            contexto=contexto,
-            destinatarios=destinatarios,
-        )
+        lambda: eventos.enviar(clave=clave, variables=datos, destinatarios=destinatarios)
     )
     return destinatarios

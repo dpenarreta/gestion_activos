@@ -18,10 +18,10 @@ from dataclasses import dataclass
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db import IntegrityError, transaction
-from django.template.loader import render_to_string
 from django.utils import timezone
 
 from apps.core.audit import record_audit_event
+from apps.correos import servicio as servicio_de_correos
 
 from . import estados
 from .fechas import MESES
@@ -41,12 +41,8 @@ logger = logging.getLogger("apps.matriz")
 #: recoge el reintento.
 EN_CURSO = "Envío interrumpido antes de terminar."
 
-ASUNTOS = {
-    TipoNotificacion.RECORDATORIO: "Recordatorio de vencimiento — {obligacion} ({periodo})",
-    TipoNotificacion.MANUAL: "Recordatorio de vencimiento — {obligacion} ({periodo})",
-    TipoNotificacion.VENCIMIENTO: "Hoy vence — {obligacion} ({periodo})",
-    TipoNotificacion.ESCALAMIENTO: ("Escalamiento: obligación vencida — {obligacion} ({periodo})"),
-}
+# Los asuntos y el diseño de cada aviso están en `apps.correos.catalogo` (y se
+# pueden personalizar en Configuración → Notificaciones → Plantillas de correo).
 
 
 def maximo_intentos() -> int:
@@ -137,61 +133,41 @@ def _enlace(periodo) -> str:
     )
 
 
-def construir_correo(periodo, tipo, nombre: str, ahora=None) -> dict:
-    """Asunto, texto y HTML de un aviso, sin enviarlo. Lo usan el envío y la
-    vista previa, para que lo que se previsualiza sea exactamente lo que llega."""
+#: Qué plantilla (`apps.correos`) usa cada tipo de aviso. El reenvío manual es
+#: un recordatorio más.
+CLAVE_DEL_TIPO = {
+    TipoNotificacion.RECORDATORIO: "matriz.recordatorio",
+    TipoNotificacion.MANUAL: "matriz.recordatorio",
+    TipoNotificacion.VENCIMIENTO: "matriz.vencimiento",
+    TipoNotificacion.ESCALAMIENTO: "matriz.escalamiento",
+}
+
+
+def variables(periodo, nombre: str, ahora=None) -> dict:
+    """Las variables de los avisos de la Matriz para un período."""
     ahora = ahora or timezone.now()
     estado = estados.estado(periodo, ahora)
     obligacion = periodo.obligacion
-    contexto = {
-        "system_name": settings.SYSTEM_NAME,
-        "nombre": nombre,
-        "tipo": tipo,
-        "es_escalamiento": tipo == TipoNotificacion.ESCALAMIENTO,
-        "es_vencimiento": tipo == TipoNotificacion.VENCIMIENTO,
-        "dias_atraso": estado["days_overdue"],
-        "filas": [
-            ("Obligación", obligacion.nombre),
-            ("Período", periodo.etiqueta),
-            ("Empresa", periodo.empresa.nombre),
-            ("Entidad de control", obligacion.entidad.nombre),
-            ("Responsable", periodo.responsable.get_full_name() or periodo.responsable.username),
-            ("Vencimiento", texto_de_vencimiento(periodo)),
-            ("Estado actual", estado["label"]),
-        ],
-        "codigo": periodo.codigo,
-        "url": _enlace(periodo),
-    }
-    asunto = ASUNTOS[tipo].format(obligacion=obligacion.nombre, periodo=periodo.etiqueta)
     return {
-        "subject": asunto,
-        "text": _texto_plano(contexto),
-        "html": render_to_string("emails/matriz_recordatorio.html", contexto),
+        "nombre": nombre,
+        "codigo": periodo.codigo,
+        "obligacion": obligacion.nombre,
+        "periodo": periodo.etiqueta,
+        "empresa": periodo.empresa.nombre,
+        "entidad": obligacion.entidad.nombre,
+        "responsable": periodo.responsable.get_full_name() or periodo.responsable.username,
+        "vencimiento": texto_de_vencimiento(periodo),
+        "estado": estado["label"],
+        "dias_atraso": str(estado["days_overdue"] or 0),
+        "enlace": _enlace(periodo),
     }
 
 
-def _texto_plano(contexto: dict) -> str:
-    """La misma información sin HTML: hay buzones corporativos que lo bloquean,
-    y un correo vacío no se distingue de uno que no llegó."""
-    lineas = [f"Estimado(a) {contexto['nombre']}:", ""]
-    if contexto["es_escalamiento"]:
-        lineas.append(
-            f"El período {contexto['codigo']} está vencido, con "
-            f"{contexto['dias_atraso']} día(s) de atraso, y aún no tiene el cierre validado."
-        )
-    elif contexto["es_vencimiento"]:
-        lineas.append(f"Hoy vence el período {contexto['codigo']}.")
-    else:
-        lineas.append(f"Le recordamos el vencimiento del período {contexto['codigo']}.")
-    lineas.append("")
-    lineas += [f"{etiqueta}: {valor}" for etiqueta, valor in contexto["filas"]]
-    lineas += [
-        "",
-        f"Consultar el detalle y cargar la evidencia: {contexto['url']}",
-        "",
-        contexto["system_name"],
-    ]
-    return "\n".join(lineas)
+def construir_correo(periodo, tipo, nombre: str, ahora=None) -> dict:
+    """Asunto, texto y HTML de un aviso, sin enviarlo. Lo usan el envío y la
+    vista previa, para que lo que se previsualiza sea exactamente lo que llega."""
+    correo = servicio_de_correos.renderizar(CLAVE_DEL_TIPO[tipo], variables(periodo, nombre, ahora))
+    return {"subject": correo["asunto"], "text": correo["texto"], "html": correo["html"]}
 
 
 def vista_previa(periodo, tipo, ahora=None) -> dict:

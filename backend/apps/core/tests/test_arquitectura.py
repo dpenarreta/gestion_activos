@@ -55,7 +55,11 @@ def test_backend_y_frontend_son_proyectos_independientes():
 
 
 def test_el_backend_no_sirve_la_interfaz():
-    """Los templates que quedan son de correo, no de pantalla.
+    """Ninguna plantilla de Django dibuja pantallas.
+
+    Los correos tampoco usan plantillas de Django: desde el 16 de octubre de
+    2026 viven en `apps.correos` (editables desde Configuración), así que
+    `templates/` puede quedar vacío; si vuelve a haber algo, que sea de correo.
 
     Es la frontera que separa «API con cliente propio» de «Django sirviendo
     HTML»: el día que aparezca aquí una plantilla de interfaz, habrá dos sitios
@@ -64,7 +68,6 @@ def test_el_backend_no_sirve_la_interfaz():
     plantillas = [
         ruta.relative_to(BACKEND).as_posix() for ruta in (BACKEND / "templates").rglob("*.html")
     ]
-    assert plantillas, "Se esperaban al menos las plantillas de correo."
     ajenas = [ruta for ruta in plantillas if not ruta.startswith("templates/emails/")]
     assert not ajenas, f"Plantillas fuera de correo: {ajenas}"
 

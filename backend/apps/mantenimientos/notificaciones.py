@@ -27,37 +27,42 @@ def _activado() -> bool:
     return getattr(settings, "AVISAR_EVENTOS_DE_MANTENIMIENTO", True)
 
 
-def _contexto(mantenimiento) -> dict:
+def _fecha(valor) -> str:
+    return valor.strftime("%d/%m/%Y") if valor else ""
+
+
+def variables(mantenimiento) -> dict:
+    """Las variables de los avisos de entrada y salida del taller."""
+    from apps.activos.notificaciones import variables_del_equipo
+
     activo = mantenimiento.activo
     return {
-        "activo": activo,
-        "mantenimiento": mantenimiento,
+        **variables_del_equipo(activo),
         "responsables": activo.resumen_de_responsables or "nadie",
-        "url": f"{settings.FRONTEND_URL.rstrip('/')}/admin/activos/{activo.id}",
+        "fecha_ingreso": _fecha(mantenimiento.fecha_intervencion),
+        "tipo_mantenimiento": mantenimiento.get_tipo_display(),
+        "atiende": str(mantenimiento.responsable or ""),
+        "causa": mantenimiento.causa or "",
+        "fecha_salida": _fecha(mantenimiento.fecha_salida),
+        "dias_fuera": str(mantenimiento.dias_fuera_de_operacion or 0),
+        "resultado": (
+            mantenimiento.get_estado_final_display() if mantenimiento.estado_final else ""
+        ),
+        "solucion": mantenimiento.solucion or "",
     }
 
 
 def al_entrar_al_taller(mantenimiento, actor) -> eventos.Destinatarios:
     """Avisa de que el equipo entró a reparación."""
-    return _avisar(
-        mantenimiento,
-        actor,
-        asunto=f"Equipo en mantenimiento: {mantenimiento.activo.codigo_barras}",
-        plantilla="emails/mantenimiento_entrada.html",
-    )
+    return _avisar(mantenimiento, actor, clave="mantenimientos.entrada")
 
 
 def al_salir_del_taller(mantenimiento, actor) -> eventos.Destinatarios:
     """Avisa de que el equipo volvió, y en qué estado."""
-    return _avisar(
-        mantenimiento,
-        actor,
-        asunto=f"Equipo de vuelta: {mantenimiento.activo.codigo_barras}",
-        plantilla="emails/mantenimiento_salida.html",
-    )
+    return _avisar(mantenimiento, actor, clave="mantenimientos.salida")
 
 
-def _avisar(mantenimiento, actor, *, asunto: str, plantilla: str) -> eventos.Destinatarios:
+def _avisar(mantenimiento, actor, *, clave: str) -> eventos.Destinatarios:
     """Resuelve a quién y programa el envío para después del `commit`.
 
     Devuelve el reparto **en el acto**, aunque el correo salga más tarde: la
@@ -68,13 +73,8 @@ def _avisar(mantenimiento, actor, *, asunto: str, plantilla: str) -> eventos.Des
     if not _activado():
         return destinatarios
 
-    contexto = _contexto(mantenimiento)
+    datos = variables(mantenimiento)
     transaction.on_commit(
-        lambda: eventos.enviar(
-            asunto=asunto,
-            plantilla=plantilla,
-            contexto=contexto,
-            destinatarios=destinatarios,
-        )
+        lambda: eventos.enviar(clave=clave, variables=datos, destinatarios=destinatarios)
     )
     return destinatarios

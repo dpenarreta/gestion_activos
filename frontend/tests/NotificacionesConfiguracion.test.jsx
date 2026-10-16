@@ -123,11 +123,12 @@ describe("La sección Notificaciones", () => {
     return seccion ? seccion.subsecciones.map((sub) => sub.nombre) : null;
   }
 
-  it("reúne los tres apartados para quien puede abrirlos", () => {
+  it("reúne los cuatro apartados para quien puede abrirlos", () => {
     expect(
-      apartados(["configuracion.ver", "alertas.configurar", "matriz.crear"]),
+      apartados(["configuracion.ver", "notificaciones.configurar", "matriz.crear"]),
     ).toEqual([
       "Correo del sistema",
+      "Plantillas de correo",
       "Alertas del inventario",
       "Recordatorios de la Matriz",
     ]);

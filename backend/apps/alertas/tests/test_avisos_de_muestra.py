@@ -10,7 +10,6 @@ para entonces ya está delante del buzón de otro.
 import pytest
 from django.core import mail
 from django.core.management import CommandError, call_command
-from django.template.loader import render_to_string
 
 from apps.alertas.management.commands.enviar_avisos_de_muestra import muestras
 
@@ -28,19 +27,15 @@ def test_hay_una_muestra_por_cada_situacion_que_el_sistema_avisa():
 
 
 def test_todas_las_plantillas_se_dibujan(settings):
-    """Sin mandar nada: una variable mal escrita en la plantilla revienta aquí
-    y no delante del buzón de alguien."""
-    for titulo, plantilla, mantenimiento, _ in muestras():
-        cuerpo = render_to_string(
-            plantilla,
-            {
-                "activo": mantenimiento.activo,
-                "mantenimiento": mantenimiento,
-                "url": "http://localhost/admin/activos/42",
-                "system_name": settings.SYSTEM_NAME,
-            },
-        )
-        assert mantenimiento.activo.codigo_barras in cuerpo, titulo
+    """Sin mandar nada: una variable mal escrita en la plantilla se nota aquí,
+    y no cuando alguien pide las muestras."""
+    from apps.alertas.management.commands.enviar_avisos_de_muestra import variables_de_muestra
+    from apps.correos import servicio
+
+    for titulo, clave, mantenimiento, _ in muestras():
+        correo = servicio.renderizar(clave, variables_de_muestra(clave, mantenimiento))
+        assert mantenimiento.activo.codigo_barras in correo["html"], titulo
+        assert correo["texto"].strip(), titulo
 
 
 def test_manda_una_por_cada_muestra():

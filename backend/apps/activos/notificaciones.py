@@ -33,16 +33,30 @@ def al_llegar_lo_solicitado(activo, actor) -> eventos.Destinatarios | None:
     if not _activado():
         return destinatarios
 
-    contexto = {
-        "activo": activo,
-        "url": f"{settings.FRONTEND_URL.rstrip('/')}/admin/activos/{activo.id}",
-    }
+    datos = variables(activo)
     transaction.on_commit(
         lambda: eventos.enviar(
-            asunto=f"Llegó el equipo que pidió: {activo.nombre}",
-            plantilla="emails/activo_solicitado.html",
-            contexto=contexto,
-            destinatarios=destinatarios,
+            clave="activos.llego_lo_solicitado", variables=datos, destinatarios=destinatarios
         )
     )
     return destinatarios
+
+
+def variables_del_equipo(activo) -> dict:
+    """Lo que dicen del equipo todos los avisos sobre un equipo."""
+    return {
+        "equipo": activo.nombre,
+        "codigo": activo.codigo_barras,
+        "serie": activo.numero_serie or "",
+        "enlace": f"{settings.FRONTEND_URL.rstrip('/')}/admin/activos/{activo.id}",
+    }
+
+
+def variables(activo) -> dict:
+    """Las variables del aviso «Llegó el equipo que pidió»."""
+    return {
+        **variables_del_equipo(activo),
+        "tipo": activo.tipo.nombre if activo.tipo_id else "",
+        "area": activo.departamento.nombre if activo.departamento_id else "",
+        "condicion": activo.get_condicion_display() if activo.condicion else "",
+    }

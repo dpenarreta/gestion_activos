@@ -30,7 +30,6 @@ from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
 
 logger = logging.getLogger("apps.alertas")
 
@@ -78,8 +77,10 @@ def resolver(responsables, actor) -> Destinatarios:
     return reparto
 
 
-def enviar(*, asunto: str, plantilla: str, contexto: dict, destinatarios: Destinatarios) -> bool:
-    """Manda el aviso. Devuelve si salió algo.
+def enviar(
+    *, clave: str, variables: dict, destinatarios: Destinatarios, prefijo_asunto: str = ""
+) -> bool:
+    """Manda el aviso con su plantilla (`apps.correos`). Devuelve si salió algo.
 
     Nunca levanta: un servidor de correo caído no puede impedir que se registre
     una reparación. El fallo se deja en el registro del sistema, que es donde
@@ -88,17 +89,20 @@ def enviar(*, asunto: str, plantilla: str, contexto: dict, destinatarios: Destin
     if not destinatarios.hay_a_quien_avisar:
         return False
 
-    cuerpo = render_to_string(plantilla, {**contexto, "system_name": settings.SYSTEM_NAME})
+    from apps.correos import servicio
+
+    correo = servicio.renderizar(clave, variables)
+    asunto = f"{prefijo_asunto}{correo['asunto']}"
     try:
         mensaje = EmailMultiAlternatives(
             subject=asunto,
-            body=_a_texto_plano(cuerpo),
+            body=correo["texto"],
             from_email=settings.DEFAULT_FROM_EMAIL,
             # En copia oculta, como el resumen: quién más responde por un
             # equipo no es algo que cada destinatario necesite saber.
             bcc=destinatarios.direcciones,
         )
-        mensaje.attach_alternative(cuerpo, "text/html")
+        mensaje.attach_alternative(correo["html"], "text/html")
         mensaje.send(fail_silently=False)
     except Exception:
         logger.exception(
@@ -115,11 +119,3 @@ def enviar(*, asunto: str, plantilla: str, contexto: dict, destinatarios: Destin
         " (a quien registró la acción, por no haber correo)" if destinatarios.por_defecto else "",
     )
     return True
-
-
-def _a_texto_plano(html: str) -> str:
-    """Versión sin etiquetas, para el cliente de correo que no dibuja HTML."""
-    import re
-
-    sin_etiquetas = re.sub(r"<[^>]+>", " ", html)
-    return re.sub(r"\s+", " ", sin_etiquetas).strip()

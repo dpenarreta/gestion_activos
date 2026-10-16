@@ -1,0 +1,81 @@
+/*
+ * Configuración → Notificaciones → Plantillas de correo.
+ * Tarjetas, tablas y campos salen de la identidad (`mz-*`); aquí, el editor.
+ */
+
+.plantillas-correo__grupo + .plantillas-correo__grupo {
+  margin-top: 16px;
+}
+
+.plantillas-correo__cuando {
+  min-width: 260px;
+  white-space: normal;
+}
+
+.plantillas-correo__cabecera {
+  margin-bottom: 16px;
+}
+
+/* Diseño a la izquierda, vista previa a la derecha; uno debajo del otro en
+   pantallas angostas. */
+.plantillas-correo__editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1199.98px) {
+  .plantillas-correo__editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.plantillas-correo__codigo {
+  min-height: 460px;
+  font-family: var(--mz-font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.plantillas-correo__asunto {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+/* El correo se ve sobre blanco, como en un buzón, también en modo oscuro. */
+.plantillas-correo__marco {
+  display: block;
+  width: 100%;
+  height: 560px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: #ffffff;
+  margin-bottom: 8px;
+}
+
+.plantillas-correo__texto {
+  max-height: 560px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.plantillas-correo__variables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.plantillas-correo__ejemplo {
+  max-width: 240px;
+  white-space: normal;
+  word-break: break-word;
+}

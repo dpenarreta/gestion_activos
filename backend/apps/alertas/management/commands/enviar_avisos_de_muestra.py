@@ -61,20 +61,20 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
     return [
         (
             "Llegó el equipo que pidió",
-            "emails/activo_solicitado.html",
+            "activos.llego_lo_solicitado",
             _intervencion(),
             "Alguien pidió el equipo y ya está registrado. Un alta que nadie "
             "pidió no avisa a nadie.",
         ),
         (
             "Entra al taller",
-            "emails/mantenimiento_entrada.html",
+            "mantenimientos.entrada",
             _intervencion(),
             "El equipo entra a reparación; pasa a «En reparación» en su ficha.",
         ),
         (
             "Vuelve reparado",
-            "emails/mantenimiento_salida.html",
+            "mantenimientos.salida",
             _intervencion(
                 fecha_salida=datetime.date(2026, 9, 17),
                 estado_final=Mantenimiento.EstadoFinal.REPARADO,
@@ -84,7 +84,7 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
         ),
         (
             "Vuelve pendiente",
-            "emails/mantenimiento_salida.html",
+            "mantenimientos.salida",
             _intervencion(
                 fecha_salida=datetime.date(2026, 9, 16),
                 estado_final=Mantenimiento.EstadoFinal.PENDIENTE,
@@ -94,7 +94,7 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
         ),
         (
             "No reparable",
-            "emails/mantenimiento_salida.html",
+            "mantenimientos.salida",
             _intervencion(
                 fecha_salida=datetime.date(2026, 9, 18),
                 estado_final=Mantenimiento.EstadoFinal.NO_REPARABLE,
@@ -104,7 +104,7 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
         ),
         (
             "Mantenimiento preventivo",
-            "emails/mantenimiento_entrada.html",
+            "mantenimientos.entrada",
             _intervencion(
                 tipo=Mantenimiento.Tipo.PREVENTIVO,
                 causa="",
@@ -114,7 +114,7 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
         ),
         (
             "Reparación de un proveedor externo",
-            "emails/mantenimiento_salida.html",
+            "mantenimientos.salida",
             _intervencion(
                 tipo_responsable=Mantenimiento.TipoResponsable.PROVEEDOR_EXTERNO,
                 responsable="Tecnomega C.A.",
@@ -125,6 +125,18 @@ def muestras() -> list[tuple[str, str, Mantenimiento, str]]:
             "Atendida por un proveedor; once días fuera de operación.",
         ),
     ]
+
+
+def variables_de_muestra(clave: str, mantenimiento) -> dict:
+    """Las variables de una muestra, como las armaría el aviso de verdad."""
+    from apps.activos import notificaciones as de_activos
+    from apps.mantenimientos import notificaciones as de_mantenimientos
+
+    if clave == "activos.llego_lo_solicitado":
+        datos = de_activos.variables(mantenimiento.activo)
+    else:
+        datos = de_mantenimientos.variables(mantenimiento)
+    return {**datos, "enlace": f"{settings.FRONTEND_URL.rstrip('/')}/admin/activos/42"}
 
 
 class Command(BaseCommand):
@@ -149,16 +161,11 @@ class Command(BaseCommand):
         )
 
         fallos = 0
-        for numero, (titulo, plantilla, mantenimiento, explicacion) in enumerate(lista, start=1):
+        for numero, (titulo, clave, mantenimiento, explicacion) in enumerate(lista, start=1):
             salio = eventos.enviar(
-                asunto=f"[Muestra {numero}/{len(lista)}] {titulo} · "
-                f"{mantenimiento.activo.codigo_barras}",
-                plantilla=plantilla,
-                contexto={
-                    "activo": mantenimiento.activo,
-                    "mantenimiento": mantenimiento,
-                    "url": f"{settings.FRONTEND_URL.rstrip('/')}/admin/activos/42",
-                },
+                clave=clave,
+                variables=variables_de_muestra(clave, mantenimiento),
+                prefijo_asunto=f"[Muestra {numero}/{len(lista)}] {titulo} · ",
                 destinatarios=eventos.Destinatarios(direcciones=[destino]),
             )
             if salio:

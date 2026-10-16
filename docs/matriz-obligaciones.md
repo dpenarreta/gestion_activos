@@ -159,7 +159,9 @@ tiene y agrega solo lo propio de la matriz.
   (`scripts/tarea_respaldo.py`, cada 5 minutos con `pythonw.exe`), sin ventana
   y sin registrar otra tarea; un respaldo fallido no deja sin avisos a nadie.
   La generación automática de períodos se suma en la fase 5.
-- **El correo** (`templates/emails/matriz_recordatorio.html`, HTML y texto):
+- **El correo** (plantillas `matriz.recordatorio`, `matriz.vencimiento` y
+  `matriz.escalamiento` de `apps/correos/catalogo.py`, editables en
+  Configuración → Notificaciones → Plantillas de correo; HTML y texto):
   los asuntos de §12.5 y el enlace a
   `{FRONTEND_URL}/admin/matriz/obligaciones?periodo={id}&empresa={id}`. La
   aplicación toma `empresa` antes de montar, para que quien trabaja en dos

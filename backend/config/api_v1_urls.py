@@ -48,6 +48,7 @@ urlpatterns = [
     # --- Por dónde sale el correo, y su prueba ---
     path("configuracion/correo/", CorreoDelSistemaView.as_view(), name="correo-del-sistema"),
     path("configuracion/correo/prueba/", PruebaDeCorreoView.as_view(), name="correo-prueba"),
+    path("configuracion/correos/plantillas/", include("apps.correos.urls")),
     path("configuracion/respaldos/", PoliticaDeRespaldoView.as_view(), name="respaldos-politica"),
     path(
         "configuracion/respaldos/ahora/",
