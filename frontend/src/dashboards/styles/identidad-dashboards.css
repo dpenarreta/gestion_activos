@@ -1,0 +1,669 @@
+/*
+ * GENERADO desde cms_dashboards (frontend/src/styles/identidad-cms.css) por el portado
+ * del módulo de Dashboards: reglas acotadas a `.modulo-dashboards` para que no
+ * alcancen al resto del sistema. Las variables del sistema (`--color-*`,
+ * `--font-*`, `--mz-action`) no se pisan: manda Configuración → Colores.
+ */
+
+/* ---------- Variables del proyecto → tokens de la Matriz ---------- */
+/* Mismo bloque en claro y en oscuro: `dashboard.css` redefine estas variables con valores fijos
+   bajo `[data-theme='dark']`, y esa regla le ganaría a un `:root` solo. Como acá apuntan a tokens,
+   cada modo resuelve su propio valor. */
+.modulo-dashboards, .modulo-dashboards-portal, .modal, .offcanvas, [data-theme='dark'] .modulo-dashboards, [data-theme='dark'] .modulo-dashboards-portal, [data-theme='dark'] .modal, [data-theme='dark'] .offcanvas {
+  --surface-1: var(--mz-raised);
+  --page-plane: var(--mz-bg);
+  --text-primary: var(--mz-ink);
+  --text-secondary: var(--mz-ink-soft);
+  --text-muted: var(--mz-ink-faint);
+  --gridline: var(--mz-border);
+  --baseline: var(--mz-border-strong);
+  --border: var(--mz-border);
+
+  --status-good: var(--mz-ok-line);
+  --status-warning: #e0a100;
+  --status-serious: var(--mz-warn-line);
+  --status-critical: var(--mz-bad-line);
+
+  --hallazgos-bg: var(--mz-info-bg);
+  --hallazgos-border: var(--mz-blue-100);
+
+  /* Lo que antes ajustaba la identidad institucional y ahora fija la Matriz (ver
+     `ThemeContext.jsx`: la marca solo conserva primario y enlaces). */
+}
+
+.modulo-dashboards, .modulo-dashboards-portal, .modal, .offcanvas {
+  /* Primario de la identidad institucional (en línea, `ThemeContext.jsx`) como color de acción;
+     sin marca cargada, el de la Matriz. */
+
+  /* Series de los gráficos: el azul institucional primero y los colores de estado después, para
+     que un gráfico de una sola serie se vea como la Matriz. */
+  --series-1: #2c74c2;
+  --series-2: #ff6347;
+  --series-3: #1f9d6b;
+  --series-4: #e0a100;
+  --series-5: #5b93d3;
+  --series-6: #0e7c86;
+  --series-7: #5b3fa0;
+  --series-8: #c0392b;
+}
+
+[data-theme='dark'] .modulo-dashboards, [data-theme='dark'] .modulo-dashboards-portal, [data-theme='dark'] .modal, [data-theme='dark'] .offcanvas {
+  --series-1: #5b9ae0;
+  --series-2: #ff9a71;
+  --series-3: #5fd39c;
+  --series-4: #ffc94d;
+  --series-5: #8fb9e8;
+  --series-6: #3fb8c2;
+  --series-7: #9b85dd;
+  --series-8: #ff8080;
+}
+
+.modulo-dashboards {
+  font-size: 14px;
+}
+
+.modulo-dashboards h1, .modulo-dashboards h2, .modulo-dashboards h3, .modulo-dashboards h4, .modulo-dashboards h5, .modulo-dashboards h6, .modulo-dashboards .h1, .modulo-dashboards .h2, .modulo-dashboards .h3, .modulo-dashboards .h4, .modulo-dashboards .h5, .modulo-dashboards .h6 {
+  font-family: var(--mz-font-display);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards a {
+  color: var(--color-links);
+}
+/* ---------- Componentes de Bootstrap con el aspecto de la Matriz ---------- */
+.modulo-dashboards .btn {
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.modulo-dashboards .btn-outline-secondary {
+  --bs-btn-color: var(--mz-ink-soft);
+  --bs-btn-border-color: var(--mz-border-strong);
+  --bs-btn-hover-color: var(--mz-ink);
+  --bs-btn-hover-bg: var(--mz-sunken);
+  --bs-btn-hover-border-color: var(--mz-border-strong);
+  --bs-btn-active-color: var(--mz-ink);
+  --bs-btn-active-bg: var(--mz-sunken);
+  --bs-btn-active-border-color: var(--mz-border-strong);
+  --bs-btn-disabled-color: var(--mz-ink-faint);
+  --bs-btn-disabled-border-color: var(--mz-border);
+}
+
+.modulo-dashboards .btn-danger {
+  --bs-btn-bg: var(--mz-bad-line);
+  --bs-btn-border-color: var(--mz-bad-line);
+  --bs-btn-hover-bg: var(--mz-bad-fg);
+  --bs-btn-hover-border-color: var(--mz-bad-fg);
+  --bs-btn-active-bg: var(--mz-bad-fg);
+  --bs-btn-active-border-color: var(--mz-bad-fg);
+  --bs-btn-disabled-bg: var(--mz-bad-line);
+  --bs-btn-disabled-border-color: var(--mz-bad-line);
+}
+
+.modulo-dashboards .btn-outline-danger {
+  --bs-btn-color: var(--mz-bad-fg);
+  --bs-btn-border-color: var(--mz-bad-line);
+  --bs-btn-hover-bg: var(--mz-bad-line);
+  --bs-btn-hover-border-color: var(--mz-bad-line);
+  --bs-btn-active-bg: var(--mz-bad-line);
+  --bs-btn-active-border-color: var(--mz-bad-line);
+}
+
+.modulo-dashboards .btn-success {
+  --bs-btn-bg: var(--mz-ok-line);
+  --bs-btn-border-color: var(--mz-ok-line);
+  --bs-btn-hover-bg: var(--mz-ok-fg);
+  --bs-btn-hover-border-color: var(--mz-ok-fg);
+  --bs-btn-active-bg: var(--mz-ok-fg);
+  --bs-btn-active-border-color: var(--mz-ok-fg);
+}
+
+.modulo-dashboards .btn-link {
+  --bs-btn-color: var(--color-links);
+  --bs-btn-hover-color: var(--mz-blue-700);
+}
+
+.modulo-dashboards .form-control, .modulo-dashboards .form-select {
+  border-color: var(--mz-border-strong);
+  border-radius: 6px;
+  background-color: var(--mz-raised);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .form-control::placeholder {
+  color: var(--mz-ink-faint);
+}
+
+.modulo-dashboards .form-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.modulo-dashboards .form-text {
+  color: var(--mz-ink-faint);
+}
+
+/* Avisos (`<Alert variant>`, el patrón de error de todas las páginas) con la forma de `mz-alert`. */
+.modulo-dashboards .alert {
+  --bs-alert-border-radius: 10px;
+  --bs-alert-padding-y: 10px;
+  --bs-alert-padding-x: 12px;
+  font-size: 13px;
+}
+
+.modulo-dashboards .alert-danger {
+  --bs-alert-bg: var(--mz-bad-bg);
+  --bs-alert-color: var(--mz-bad-fg);
+  --bs-alert-border-color: var(--mz-bad-line);
+  --bs-alert-link-color: var(--mz-bad-fg);
+}
+
+.modulo-dashboards .alert-warning {
+  --bs-alert-bg: var(--mz-warn-bg);
+  --bs-alert-color: var(--mz-warn-fg);
+  --bs-alert-border-color: var(--mz-warn-line);
+  --bs-alert-link-color: var(--mz-warn-fg);
+}
+
+.modulo-dashboards .alert-success {
+  --bs-alert-bg: var(--mz-ok-bg);
+  --bs-alert-color: var(--mz-ok-fg);
+  --bs-alert-border-color: var(--mz-ok-line);
+  --bs-alert-link-color: var(--mz-ok-fg);
+}
+
+.modulo-dashboards .alert-info, .modulo-dashboards .alert-primary, .modulo-dashboards .alert-secondary, .modulo-dashboards .alert-light {
+  --bs-alert-bg: var(--mz-info-bg);
+  --bs-alert-color: var(--mz-info-fg);
+  --bs-alert-border-color: var(--mz-blue-400);
+  --bs-alert-link-color: var(--mz-info-fg);
+}
+
+/* Etiquetas (`<Badge bg>`) como las píldoras de estado. */
+.modulo-dashboards .badge {
+  border-radius: 99px;
+  font-weight: 600;
+  padding: 0.35em 0.7em;
+}
+
+.modulo-dashboards .badge.bg-success { background-color: var(--mz-ok-bg) !important; color: var(--mz-ok-fg) !important; }
+.modulo-dashboards .badge.bg-danger { background-color: var(--mz-bad-bg) !important; color: var(--mz-bad-fg) !important; }
+.modulo-dashboards .badge.bg-warning { background-color: var(--mz-warn-bg) !important; color: var(--mz-warn-fg) !important; }
+.modulo-dashboards .badge.bg-info, .modulo-dashboards .badge.bg-primary { background-color: var(--mz-info-bg) !important; color: var(--mz-info-fg) !important; }
+.modulo-dashboards .badge.bg-secondary, .modulo-dashboards .badge.bg-light { background-color: var(--mz-sunken) !important; color: var(--mz-ink-soft) !important; }
+
+/* Pestañas (`<Nav variant="tabs">`: dashboards, usuarios/roles, configuración) como `mz-tabs`. */
+.modulo-dashboards .nav-tabs {
+  --bs-nav-tabs-border-color: var(--mz-border);
+  --bs-nav-tabs-link-active-bg: transparent;
+  --bs-nav-tabs-link-active-border-color: transparent;
+  gap: 4px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.modulo-dashboards .nav-tabs .nav-link {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mz-ink-faint);
+  background: none;
+}
+
+.modulo-dashboards .nav-tabs .nav-link:hover {
+  color: var(--mz-ink);
+  border-bottom-color: var(--mz-border-strong);
+}
+
+.modulo-dashboards .nav-tabs .nav-link.active {
+  color: var(--mz-blue-600);
+  border-bottom-color: var(--mz-blue-600);
+  background: none;
+}
+
+/* Modales y panel lateral (`Modal`, `Offcanvas`) como `mz-modal`/`mz-drawer`. */
+.modal-content {
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-3);
+}
+
+.modal-header, .modal-footer, .offcanvas-header {
+  border-color: var(--mz-border);
+}
+
+.modal-title, .offcanvas-title {
+  font-family: var(--mz-font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mz-ink);
+}
+
+.offcanvas {
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  box-shadow: var(--mz-shadow-3);
+}
+
+.dropdown-menu {
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-2);
+  padding: 6px;
+  font-size: 12.5px;
+}
+
+.modulo-dashboards .dropdown-item {
+  border-radius: 6px;
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .dropdown-item:hover, .modulo-dashboards .dropdown-item:focus {
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .list-group-item {
+  background: var(--mz-raised);
+  border-color: var(--mz-border);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .card {
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-1);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .card-header {
+  background: var(--mz-sunken);
+  border-color: var(--mz-border);
+}
+
+.modulo-dashboards .card-title {
+  font-family: var(--mz-font-display);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.modulo-dashboards .text-muted, .modulo-dashboards .text-body-secondary {
+  color: var(--mz-ink-faint) !important;
+}
+
+/* Tablas de Bootstrap fuera de `.mz-view` (modales, paneles) con los mismos tokens. */
+.modulo-dashboards .table {
+  --bs-table-bg: var(--mz-raised);
+  --bs-table-color: var(--mz-ink);
+  --bs-table-striped-bg: var(--mz-sunken);
+  --bs-table-striped-color: var(--mz-ink);
+  --bs-table-hover-bg: var(--mz-sunken);
+  --bs-table-hover-color: var(--mz-ink);
+  --bs-table-border-color: var(--mz-border);
+}
+
+.modulo-dashboards .table thead th {
+  background: var(--mz-sunken);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-soft);
+  white-space: nowrap;
+}
+
+/* La paginación propia (`Pagination.jsx`) como `mz-pager`. */
+.modulo-dashboards .pagination-bar__resumen {
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+}
+
+/* ---------- Dashboards ---------- */
+/* La vista ya la centra `.mz-view`: el contenedor del dashboard no suma otro relleno. */
+.mz-view .modulo-dashboards .cartera-app {
+  max-width: none;
+  padding: 0;
+}
+
+/* KPI con la forma de `mz-kpi`: filete de color a la izquierda, etiqueta en mayúsculas y cifra en
+   Sora. El filete toma el color de acento del componente si lo tiene. */
+.modulo-dashboards .kpi-card {
+  border: 1px solid var(--mz-border);
+  border-left: 4px solid var(--mz-blue-500);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-1);
+  padding: 16px 18px;
+}
+
+.modulo-dashboards .kpi-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--mz-ink-faint);
+}
+
+.modulo-dashboards .kpi-card__value {
+  font-family: var(--mz-font-display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 6px;
+}
+
+.modulo-dashboards .kpi-card__sub {
+  font-size: 11.5px;
+  color: var(--mz-ink-faint);
+}
+
+/* Paneles de gráficos, tablas y textos como `mz-card`. */
+.modulo-dashboards .chart-panel {
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-1);
+  padding: 16px 18px;
+}
+
+.modulo-dashboards .chart-panel__title {
+  font-family: var(--mz-font-display);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.modulo-dashboards .chart-panel__subtitle {
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+}
+
+.modulo-dashboards .hallazgos-clave {
+  border-radius: 10px;
+  border-color: var(--mz-blue-400);
+}
+
+.modulo-dashboards .hallazgos-clave__titulo {
+  color: var(--mz-info-fg);
+}
+
+.modulo-dashboards .aviso-columnas-blanco {
+  border-radius: 10px;
+  border-color: var(--mz-blue-400);
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+/* Zona de carga como `mz-drop`. */
+.modulo-dashboards .upload-dropzone {
+  border: 2px dashed var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--mz-bg);
+  color: var(--mz-ink-soft);
+}
+
+.modulo-dashboards .upload-dropzone--active {
+  border-color: var(--mz-blue-500);
+  background: var(--mz-info-bg);
+}
+
+.modulo-dashboards .table-scroll {
+  border-color: var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.modulo-dashboards .dashboard-card__actions {
+  background: rgba(10, 30, 56, 0.78);
+  border-radius: 16px;
+}
+
+/* Tooltips de Recharts con el aspecto de un menú desplegable de la Matriz, en ambos modos. */
+.modulo-dashboards .recharts-default-tooltip {
+  background-color: var(--mz-raised) !important;
+  border: 1px solid var(--mz-border) !important;
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-2);
+  color: var(--mz-ink) !important;
+  font-size: 12.5px;
+}
+
+.modulo-dashboards .recharts-cartesian-axis-tick text {
+  fill: var(--mz-ink-soft);
+}
+
+.modulo-dashboards .recharts-legend-item-text {
+  color: var(--mz-ink-soft) !important;
+}
+
+/* "Mis dashboards": rejilla de tarjetas como las listas de la Matriz. */
+.modulo-dashboards .dashboards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.modulo-dashboards .dashboard-card__fila {
+  border-bottom: none;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.modulo-dashboards .dashboard-card__fila .mz-row-info strong {
+  font-family: var(--mz-font-display);
+  font-size: 14px;
+}
+
+/* Encabezado del dashboard: los botones de acción quedan a la derecha del título, como
+   `mz-view-actions`, y bajan de fila sin encogerse (`acciones-dashboard`). */
+.modulo-dashboards .mz-view-head .acciones-dashboard {
+  align-items: center;
+}
+
+/* Paginación propia (`Pagination.jsx`) con la medida de `mz-pager`. */
+.modulo-dashboards .pagination-bar {
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.modulo-dashboards .pagination-bar__pagina {
+  font-family: var(--mz-font-mono);
+  color: var(--mz-ink-soft);
+}
+
+/* Ícono del KPI genérico con la forma de `mz-kpi-icon`, aunque su color venga del componente. */
+.modulo-dashboards .kpi-card .mz-kpi-top {
+  margin-bottom: 2px;
+}
+
+/* Ícono de "Hallazgos clave", separado del texto. */
+.modulo-dashboards .hallazgos-clave__titulo .bi {
+  margin-right: 4px;
+}
+
+/* ---------- Editor de dashboards (modo "Editar dashboard") ---------- */
+/* Zonas del diseño: el recuadro punteado sigue (dice "acá se agrupa"), pero con los tokens de la
+   Matriz, el radio de las tarjetas y un fondo hundido que separa la zona de la página. */
+.modulo-dashboards .mz-edit-zone__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 8px;
+}
+
+.modulo-dashboards .mz-edit-zone {
+  border: 1.5px dashed var(--mz-border-strong);
+  border-radius: 16px;
+  background: var(--mz-sunken);
+  padding: 6px;
+}
+
+/* Cada componente en edición: marco liso de tarjeta; el seleccionado, con el color de acción. */
+.modulo-dashboards .mz-edit-item {
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  background: var(--mz-bg);
+  padding: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modulo-dashboards .mz-edit-item:hover {
+  border-color: var(--mz-border-strong);
+}
+
+.modulo-dashboards .mz-edit-item.is-selected {
+  border-color: var(--mz-action);
+  box-shadow: 0 0 0 3px rgba(var(--mz-action-rgb), 0.18);
+}
+
+/* Barra de acciones sobre el componente: manija y mover a la izquierda, el resto a la derecha. */
+.modulo-dashboards .mz-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.modulo-dashboards .mz-edit-bar__acciones, .modulo-dashboards .mz-edit-mover {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modulo-dashboards .mz-edit-bar .mz-icon-btn {
+  padding: 4px 7px;
+  font-size: 13px;
+  line-height: 1;
+  background: var(--mz-raised);
+  align-items: center;
+}
+
+.modulo-dashboards .mz-edit-bar .mz-icon-btn:hover:not(:disabled) {
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+}
+
+.modulo-dashboards .mz-edit-bar .mz-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.modulo-dashboards .mz-edit-bar .mz-icon-btn.is-active {
+  background: var(--mz-info-bg);
+  border-color: var(--mz-blue-400);
+  color: var(--mz-info-fg);
+}
+
+.modulo-dashboards .mz-edit-grip {
+  cursor: grab;
+}
+
+.modulo-dashboards .mz-icon-btn--peligro {
+  color: var(--mz-bad-fg);
+}
+
+.modulo-dashboards .mz-edit-bar .mz-icon-btn--peligro:hover:not(:disabled) {
+  background: var(--mz-bad-bg);
+  border-color: var(--mz-bad-line);
+  color: var(--mz-bad-fg);
+}
+
+.modulo-dashboards .mz-edit-confirmar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-bad-fg);
+}
+
+.modulo-dashboards .mz-edit-oculto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 12px;
+  border-radius: 10px;
+  background: var(--mz-raised);
+  color: var(--mz-ink-faint);
+  font-size: 12.5px;
+}
+
+/* Paleta de componentes y panel de propiedades como `mz-drawer`, a la derecha. La paleta empieza
+   debajo de la barra superior para no tapar el botón de tema ni "Volver a Dashboards" (no tiene
+   fondo modal: se edita con ella abierta). El panel de propiedades sí es modal y va a alto
+   completo. */
+.offcanvas.mz-paleta {
+  --bs-offcanvas-width: 280px;
+  top: var(--mz-topbar-h);
+  border-left: 1px solid var(--mz-border);
+  border-top: 1px solid var(--mz-border);
+}
+
+.offcanvas.mz-propiedades {
+  --bs-offcanvas-width: 400px;
+  border-left: 1px solid var(--mz-border);
+}
+
+.modulo-dashboards .mz-paleta .offcanvas-header, .modulo-dashboards .mz-propiedades .offcanvas-header {
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.modulo-dashboards .mz-paleta-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-1);
+  color: var(--mz-ink);
+  cursor: grab;
+}
+
+.modulo-dashboards .mz-paleta-item:hover {
+  border-color: var(--mz-blue-400);
+  background: var(--mz-info-bg);
+}
+
+/* Secciones del panel de propiedades (Accordion) con el aspecto de las tarjetas de la Matriz. */
+.modulo-dashboards .mz-propiedades .accordion {
+  --bs-accordion-bg: var(--mz-raised);
+  --bs-accordion-color: var(--mz-ink);
+  --bs-accordion-border-color: var(--mz-border);
+  --bs-accordion-border-radius: 10px;
+  --bs-accordion-inner-border-radius: 9px;
+  --bs-accordion-btn-color: var(--mz-ink);
+  --bs-accordion-btn-bg: var(--mz-sunken);
+  --bs-accordion-active-bg: var(--mz-info-bg);
+  --bs-accordion-active-color: var(--mz-info-fg);
+  --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(var(--mz-action-rgb), 0.2);
+}
+
+.modulo-dashboards .mz-propiedades .accordion-button {
+  font-family: var(--mz-font-display);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Con la paleta abierta, el dashboard le deja su ancho libre (no la tapa ni ella a él). Lleva
+   `.mz-view` delante para ganarle a `.mz-view .cartera-app { padding: 0 }`. */
+@media (min-width: 881px) {
+  .mz-view .modulo-dashboards .cartera-app--con-panel {
+    padding-right: 280px;
+  }
+}
+

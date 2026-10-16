@@ -16,6 +16,9 @@ En la misma pasada corre el ciclo de la Matriz de obligaciones
 tarea en vez de registrar otra para que siga habiendo una sola, oculta y sin
 ventana; cada aviso decide su hora por la configuración de su empresa.
 
+Y, como mucho una vez por hora, la actualización automática de los dashboards
+de Cartera conectados a una base de datos (`actualizar_fuentes_bd`): cada uno
+decide si le toca por su frecuencia, semanal o mensual.
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -82,7 +85,11 @@ def main() -> int:
     resultado = 0
     # Cada trabajo por su lado: un respaldo fallido no debe dejar sin
     # recordatorios a nadie, ni al revés.
-    for comando, argumentos in (("respaldar", ["--si-toca"]), ("ciclo_matriz", [])):
+    for comando, argumentos in (
+        ("respaldar", ["--si-toca"]),
+        ("ciclo_matriz", []),
+        ("actualizar_fuentes_bd", ["--si-toca"]),
+    ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)
         except Exception:  # noqa: BLE001

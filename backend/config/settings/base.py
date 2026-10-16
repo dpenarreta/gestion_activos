@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     "apps.reportes",
     "apps.solicitudes",
     "apps.matriz",
+    "apps.cartera",
 ]
 
 MIDDLEWARE = [
@@ -276,6 +277,8 @@ REST_FRAMEWORK = {
         # aparte para que no sirva como generador de correo saliente.
         "alertas_prueba": env.str("ALERTAS_PRUEBA_THROTTLE_RATE", default="10/hour"),
         "correo_prueba": env.str("CORREO_PRUEBA_THROTTLE_RATE", default="10/hour"),
+        # Cartera: cada interpretación o hallazgo con IA es una llamada de pago.
+        "ia": env.str("IA_THROTTLE_RATE", default="20/hour"),
     },
 }
 
@@ -404,3 +407,34 @@ DOCUMENT_MAX_UPLOAD_MB = env.int("DOCUMENT_MAX_UPLOAD_MB", default=10)
 NOTIFICATION_MAX_ATTEMPTS = env.int("NOTIFICATION_MAX_ATTEMPTS", default=3)
 # Cuántos días antes del vencimiento del último período se crea el siguiente (§11.3).
 PERIOD_GENERATION_LEAD_DAYS = env.int("PERIOD_GENERATION_LEAD_DAYS", default=30)
+
+# --- Cartera: dashboards de cartera (portado de cms_dashboards) -------------
+# Conexión externa de SOLO LECTURA para «Conectar vista de base de datos» y el
+# procedimiento del Dashboard Directorio (dbo.sp_Reporte_Seguimiento_Cartera).
+# No es una segunda entrada de DATABASES a propósito: se usa por pyodbc directo
+# (`apps/cartera/services/db_source.py`) para una consulta por carga, y así
+# ninguna migración ni consulta del ORM puede apuntar por error a esa base. Sin
+# EXTERNAL_DB_HOST, la función queda deshabilitada con un error claro.
+EXTERNAL_DB_HOST = env.str("EXTERNAL_DB_HOST", default="")
+EXTERNAL_DB_PORT = env.str("EXTERNAL_DB_PORT", default="1433")
+EXTERNAL_DB_NAME = env.str("EXTERNAL_DB_NAME", default="")
+EXTERNAL_DB_USER = env.str("EXTERNAL_DB_USER", default="")
+EXTERNAL_DB_PASSWORD = env.str("EXTERNAL_DB_PASSWORD", default="")
+EXTERNAL_DB_ENCRYPT = env.str("EXTERNAL_DB_ENCRYPT", default="yes")
+EXTERNAL_DB_TRUST_SERVER_CERTIFICATE = env.str("EXTERNAL_DB_TRUST_SERVER_CERTIFICATE", default="no")
+# El driver ODBC es el mismo de la base propia (el módulo de origen lo llama así).
+DB_ODBC_DRIVER = env.str("DB_DRIVER", default="ODBC Driver 18 for SQL Server")
+# Tamaño máximo del Excel de cartera (25 MiB, como el origen).
+UPLOAD_MAX_SIZE_BYTES = env.int("UPLOAD_MAX_SIZE_BYTES", default=25 * 1024 * 1024)
+# Temporales (se limpian a las 24 h con `clean_temp_uploads`) y archivos
+# aplicados a un dashboard (permanentes, para reconfigurar sin recargar).
+CARTERA_TEMP_UPLOADS_DIR = Path(MEDIA_ROOT) / "cartera" / "uploads_temp"
+CARTERA_ARCHIVOS_DIR = Path(MEDIA_ROOT) / "cartera" / "archivos_dashboard"
+# Filas por lote al insertar en SQL Server.
+CARTERA_BULK_BATCH_SIZE = 2000
+# IA opcional (Gemini): sin clave, la interpretación responde con un error claro.
+GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env.str("GEMINI_MODEL", default="gemini-flash-latest")
+GEMINI_MODELOS_RESPALDO = env.list(
+    "GEMINI_MODELOS_RESPALDO", default=["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+)

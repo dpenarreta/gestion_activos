@@ -210,6 +210,45 @@ PERMISSION_CATALOG = {
             "catalogos.editar": "Crear, editar y eliminar áreas y entidades de control",
         },
     },
+    "dashboard": {
+        "label": "Dashboards",
+        "description": (
+            "Los dashboards de cada área o departamento de la empresa: verlos, crearlos, editarlos, "
+            "cargar sus datos (Excel o la base externa) y su IA. Los codenames "
+            "son los del sistema de origen (cms_dashboards). Un dashboard con "
+            "roles propios (editores/lectores) decide su acceso por esa lista y "
+            "no por estos permisos (ver `apps.cartera.permisos`)."
+        ),
+        "permissions": {
+            "dashboard.crear": "Crear nuevos dashboards por área",
+            "dashboard.editar": "Editar el nombre y área de un dashboard",
+            "dashboard.eliminar": "Eliminar un dashboard",
+            "dashboard.view": "Ver Dashboards",
+            "dashboard.edit": "Entrar en modo edición del dashboard",
+            "dashboard.layout.edit": "Editar el diseño (orden/tamaño) del dashboard",
+            "dashboard.component.style": "Editar estilos de un componente del dashboard",
+            "dashboard.component.create": "Crear componentes del dashboard",
+            "dashboard.component.delete": "Eliminar componentes del dashboard",
+            "dashboard.configuration.reset": "Restablecer la configuración del dashboard",
+            "dashboard.interpretar": "Generar la interpretación completa del dashboard con IA",
+            "dashboard.hallazgos_ia": "Generar hallazgos clave por componente con IA",
+            "dashboard.fuente_bd.configurar": (
+                "Elegir/cambiar la vista o procedimiento de base de datos, sus "
+                "parámetros y la frecuencia de actualización automática de un dashboard"
+            ),
+            "dashboard.fuente_bd.actualizar": (
+                "Forzar una actualización inmediata de los datos desde la base de "
+                "datos ya configurada"
+            ),
+            "dashboard.archivo.cargar": (
+                "Cargar un archivo Excel nuevo que reemplaza los datos de un dashboard "
+                '("Cargar otro archivo")'
+            ),
+            "dashboard.datos.editar": (
+                "Procesar, reprocesar, borrar o remapear los datos ya cargados de un dashboard"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",

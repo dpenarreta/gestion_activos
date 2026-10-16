@@ -40,6 +40,10 @@ urlpatterns = [
     # --- Carga masiva de los catálogos, un archivo por catálogo ---
     path("catalogos/", include("apps.core.catalogos_urls")),
     # --- Cuándo se respalda solo ---
+    # --- Dashboards de cartera (portado de cms_dashboards): mismas rutas
+    #     relativas que el origen, bajo /api/v1/ ---
+    path("cartera/", include("apps.cartera.urls")),
+    path("dashboards/", include("apps.cartera.dashboard_urls")),
     # --- Por dónde sale el correo, y su prueba ---
     path("configuracion/correo/", CorreoDelSistemaView.as_view(), name="correo-del-sistema"),
     path("configuracion/correo/prueba/", PruebaDeCorreoView.as_view(), name="correo-prueba"),

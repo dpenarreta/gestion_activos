@@ -13,6 +13,12 @@ import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
+import {
+  DashboardsDetalle,
+  DashboardsHistorico,
+  DashboardsListado,
+  DashboardsPlantillaBase,
+} from "../dashboards/paginas";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
 import { useAuth } from "../hooks/useAuth";
@@ -401,6 +407,30 @@ export function AppRoutes() {
               <AlertasPage />
             </RequirePermission>
           }
+        />
+        <Route
+          path="configuracion/plantilla-dashboards"
+          element={
+            <RequirePermission permission={CONFIGURACION_VER}>
+              <DashboardsPlantillaBase />
+            </RequirePermission>
+          }
+        />
+        {/* Dashboards de cada área o departamento de la empresa. El listado pide el permiso
+            del módulo; un dashboard puede abrirse también por su lista de
+            roles, y eso lo decide el servidor (la pantalla muestra su 403). */}
+        <Route
+          path="dashboards"
+          element={
+            <RequirePermission permission="dashboard.view">
+              <DashboardsListado />
+            </RequirePermission>
+          }
+        />
+        <Route path="dashboards/:dashboardId" element={<DashboardsDetalle />} />
+        <Route
+          path="dashboards/:dashboardId/historico"
+          element={<DashboardsHistorico />}
         />
         <Route
           path="renovacion/sugerencias"

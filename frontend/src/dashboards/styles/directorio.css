@@ -1,0 +1,546 @@
+/*
+ * Dashboard Directorio — los datos de la pestaña "6. Cartera" de un informe financiero, con el
+ * aspecto de la identidad base de la Matriz (`matriz.css`): tarjetas como `mz-kpi`, tablas como
+ * `mz-table`, resultados como `mz-pill` y hallazgos como `mz-alert--info`.
+ *
+ * Todo cuelga de `.directorio-*`, así que no toca a ningún otro dashboard. Los colores salen de
+ * los tokens `--mz-*`, que ya tienen su valor de modo claro y oscuro: no hace falta una segunda
+ * paleta. IMPORTANT: nada de `color-mix()` ni funciones de color modernas — html2canvas ("Imprimir
+ * como PDF") no las sabe leer y corta la captura entera.
+ */
+
+.directorio-seccion {
+  padding: 16px 18px;
+}
+
+/* Encabezado de la sección como `mz-card-head`: título en Sora y una línea debajo. */
+.directorio-seccion__titulo {
+  font-family: var(--mz-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--mz-ink);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+/* --- Tarjetas KPI (forma de `mz-kpi`) -------------------------------------- */
+
+.directorio-kpi {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 18px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-left: 4px solid var(--mz-blue-500);
+  border-radius: 16px;
+  box-shadow: var(--mz-shadow-1);
+}
+
+/* Filete por tono, igual que `mz-kpi--ok/--bad/--info`. Un color principal elegido en
+   "Configurar componente" llega en línea y gana: es una preferencia explícita. */
+.directorio-kpi--ok { border-left-color: var(--mz-ok-line); }
+.directorio-kpi--alerta { border-left-color: var(--mz-bad-line); }
+.directorio-kpi--neutro { border-left-color: var(--mz-blue-500); }
+.directorio-kpi--top { border-left-color: var(--mz-blue-700); }
+.directorio-kpi--resto { border-left-color: var(--mz-blue-400); }
+
+.directorio-kpi__etiqueta {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--mz-ink-faint);
+}
+
+.directorio-kpi__valor {
+  font-family: var(--mz-font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--mz-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.directorio-kpi__sub {
+  font-size: 11.5px;
+  color: var(--mz-ink-faint);
+}
+
+.directorio-kpi__sub--alerta { color: var(--mz-bad-fg); font-weight: 600; }
+.directorio-kpi__sub--ok { color: var(--mz-ok-fg); font-weight: 600; }
+
+/* Las dos tarjetas resumen que van DENTRO de la sección de concentración. */
+.directorio-resumen {
+  container: panel-resumen / inline-size;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.directorio-kpi--interno {
+  /* La base baja de 260px: con 260 las dos tarjetas necesitaban 534px de panel para convivir, y
+     un panel de 471 —el que queda con una ventana de 700— las apilaba dejando cada una de 471px
+     para un importe de siete cifras. Con 180 entran de a dos desde 374px de panel, que es el que
+     queda con una ventana de 620. Por debajo de eso se apilan: dos tarjetas de menos de 180px no
+     muestran el importe ni con la letra del escalón más chico. */
+  flex: 1 1 180px;
+  /* Contenedor de consulta: el tamaño de la letra de abajo depende de lo que mide LA TARJETA. */
+  container: tarjeta-resumen / inline-size;
+  /* `height: auto` pisa el `height: 100%` de `.directorio-kpi`, que acá hace daño: cuando las
+     dos tarjetas no entran lado a lado y la segunda pasa al renglón siguiente, ese 100% se
+     resuelve contra el CONTENEDOR (una línea de alto) y no contra su propio renglón. El
+     contenedor no crece para las dos líneas y la segunda tarjeta se dibuja encima de la tabla,
+     con los importes montados sobre las filas.
+     El 100% sí hace falta en las tarjetas de la fila superior, que tienen que llenar su celda
+     de la rejilla; acá el alto lo iguala `align-items: stretch`, renglón por renglón. */
+  height: auto;
+}
+
+/* Cuánto mide el importe, que es lo más ancho de la tarjeta: si no entra se parte en dos
+ * renglones y duplica el alto del bloque. Los cortes miran la TARJETA y no la ventana, que es lo
+ * que hacían antes (`@media (max-width: 1199.98px)`): el panel de esta sección ocupa media
+ * rejilla o la rejilla entera según cómo esté armado el dashboard, así que a 1100px de ventana la
+ * tarjeta tenía 423px de sobra y la letra se achicaba igual.
+ *
+ * IMPORTANT: `container-type: inline-size` consulta el ANCHO DE CONTENIDO, no el de la tarjeta
+ * entera — entre uno y otro hay 41px de relleno y bordes (29px en el panel angosto). Los
+ * umbrales son anchos de contenido, y salen de medir el importe más largo que puede aparecer
+ * —ocho cifras, "$10,555,218"— en cada tamaño: 160px a 1.75rem, 128px a 1.4rem y 114px a
+ * 1.25rem con la letra del sistema. Cada umbral deja unos 10px de aire sobre esa medida.
+ *
+ * Con Sora (identidad Matriz) las cifras salen ~13% más anchas, así que los umbrales se corrieron
+ * en esa proporción (≈181px a 1.75rem y ≈145px a 1.4rem). Si cambia la tipografía, volver a medir.
+ */
+@container tarjeta-resumen (max-width: 190.98px) {
+  /* 1.4rem y no 1.45: es el mismo tamaño al que `dashboard.css` ya baja todos los KPI en
+     pantallas chicas, así que este escalón nunca AGRANDA el importe respecto de sus vecinos —
+     que es lo que pasaba con 1.45rem, una tarjeta angosta con la letra más grande que las de
+     arriba. */
+  .directorio-kpi--interno .directorio-kpi__valor {
+    font-size: 1.4rem;
+  }
+}
+
+@container tarjeta-resumen (max-width: 159.98px) {
+  .directorio-kpi--interno .directorio-kpi__valor {
+    font-size: 1.25rem;
+  }
+}
+
+/* En el panel más angosto que todavía muestra las dos tarjetas lado a lado, los 18px de relleno
+   por lado son la quinta parte de cada tarjeta: vale más el número que el aire a los costados.
+   Cuelga del PANEL y no de la tarjeta a propósito — apretar el relleno cambia el ancho que la
+   consulta de la tarjeta mide, y una regla que se realimenta así oscila. */
+@container panel-resumen (max-width: 439.98px) {
+  .directorio-kpi--interno {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* --- Tablas (forma de `mz-table`) ------------------------------------------ */
+
+.directorio-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.8px;
+  font-variant-numeric: tabular-nums;
+  background: var(--mz-raised);
+}
+
+.directorio-tabla th {
+  background: var(--mz-sunken);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mz-ink-soft);
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--mz-border);
+  /* El encabezado se parte en dos renglones cuando hace falta, en vez de imponerle a su columna
+     el ancho del título entero. Con `nowrap`, "% ACUMULADO (CALCULADO)" reservaba 188px y
+     empujaba la tabla a 501px: en una ventana de 620 no entraba y aparecía un desplazamiento
+     lateral por culpa de un título, no de los datos. Partiéndolo, la misma tabla mide 391px y
+     entra completa.
+     No hace falta ninguna media query: mientras haya espacio el navegador lo deja en una línea
+     (verificado de 1024 a 1440px) y solo lo parte cuando el ancho aprieta, que es justo el
+     momento en que conviene. */
+  white-space: normal;
+}
+
+.directorio-tabla td {
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--mz-border);
+  color: var(--mz-ink);
+  vertical-align: middle;
+}
+
+.directorio-tabla tbody tr:hover td {
+  background: var(--mz-sunken);
+}
+
+.directorio-tabla--compacta td,
+.directorio-tabla--compacta th {
+  padding: 7px 8px;
+}
+
+.directorio-tabla__meta {
+  color: var(--mz-ink-faint);
+  white-space: nowrap;
+}
+
+.directorio-tabla__fila--cierre td,
+.directorio-tabla__fila--resto td,
+.directorio-tabla__fila--destacada td {
+  font-weight: 700;
+}
+
+/* El tramo más pesado de un deudor, como fila de alerta. */
+.directorio-tabla__fila--destacada td {
+  color: var(--mz-bad-fg);
+  background: var(--mz-bad-bg);
+}
+
+/* El "Resto" de la concentración, como la fila de grupo de la Matriz (`mz-group-row`). */
+.directorio-tabla__fila--resto td {
+  background: var(--mz-blue-50);
+  color: var(--mz-blue-700);
+}
+
+.directorio-tabla__fila--total td {
+  font-family: var(--mz-font-display);
+  font-weight: 700;
+  color: var(--mz-ink);
+  background: var(--mz-sunken);
+  border-bottom: none;
+}
+
+/* Píldora de resultado (`mz-pill--ok/--bad`) dentro de una celda: algo más baja que la de la
+   Matriz para no agrandar las filas. */
+.directorio-pill {
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Dos mayores deudores -------------------------------------------------- */
+
+.directorio-deudores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.directorio-deudor {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.directorio-deudor__titulo {
+  font-family: var(--mz-font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--mz-ink);
+  margin-bottom: 8px;
+}
+
+.directorio-deudor__comentario {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+}
+
+/* --- Hallazgos y notas ----------------------------------------------------- */
+
+/* Como `mz-alert--info`. Con tokens planos y no con `color-mix(…)`: Chrome computa un `color-mix`
+   como `color(srgb …)`, y html2canvas —con el que se arma "Imprimir como PDF"— corta la captura
+   con "unsupported color function". El dashboard se veía bien en pantalla y el PDF no salía. */
+.directorio-hallazgos {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-blue-400);
+  background: var(--mz-info-bg);
+  border-radius: 10px;
+}
+
+.directorio-hallazgos__titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--mz-info-fg);
+  margin-bottom: 4px;
+}
+
+.directorio-hallazgos__texto {
+  margin: 0;
+  font-size: 12.8px;
+  line-height: 1.55;
+  color: var(--mz-ink);
+}
+
+/* Como `mz-note`: texto secundario, sin la cursiva del informe impreso. */
+.directorio-nota {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mz-ink-faint);
+}
+
+/* La etiqueta que va sobre cada barra del gráfico de antigüedad. */
+.directorio-barra__etiqueta {
+  font-family: var(--mz-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--mz-ink-soft);
+}
+
+@media (max-width: 700px) {
+  .directorio-kpi__valor { font-size: 1.4rem; }
+  .directorio-seccion { padding: 14px; }
+}
+
+/* --- Consulta puntual por cliente ------------------------------------------
+   Antigüedad a la izquierda (angosta, de ancho fijo) y documentos a la derecha, que es donde está
+   la información densa: el detalle puede traer hasta 28 columnas y necesita todo el ancho que
+   sobre, más su propio scroll horizontal. */
+.directorio-buscador {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1rem;
+  max-width: 540px;
+}
+
+/* El campo y su lista de sugerencias: la lista se posiciona contra ESTE contenedor, no contra
+   el formulario, para que no se corra al lado del botón "Consultar". */
+.directorio-buscador__campo {
+  position: relative;
+  flex: 1;
+}
+
+/* Lista de sugerencias como `mz-dropdown`. */
+.directorio-sugerencias {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-2);
+  overflow: hidden;
+}
+
+.directorio-sugerencia {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--mz-ink);
+}
+
+/* El resaltado sigue al teclado igual que al puntero: la fila activa es una sola, venga de una
+   flecha o del mouse (`onMouseEnter` mueve el mismo índice). */
+.directorio-sugerencia--activa {
+  background: var(--mz-sunken);
+}
+
+.directorio-sugerencia__nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directorio-sugerencia__saldo {
+  font-family: var(--mz-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--mz-ink-soft);
+  flex-shrink: 0;
+}
+
+.directorio-sugerencia__id {
+  font-family: var(--mz-font-mono);
+  color: var(--mz-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* El aviso va en el color de "por revisar" y no en el de error: es un dato para revisar —
+   las cifras que se muestran son correctas para el identificador elegido. */
+.directorio-sugerencia__alerta,
+.directorio-coincidencia__alerta {
+  color: var(--mz-warn-fg);
+  flex-shrink: 0;
+}
+
+.directorio-coincidencia__alerta {
+  flex-basis: 100%;
+  font-size: 11.5px;
+}
+
+/* El marcado ya lleva `mz-alert mz-alert--warn`; acá solo el espacio con lo que sigue. */
+.directorio-deudor-consulta__alerta {
+  margin: 0 0 14px;
+}
+
+.directorio-sugerencias__resto {
+  padding: 6px 10px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--mz-ink-faint);
+  border-top: 1px solid var(--mz-border);
+}
+
+/* Lista de coincidencias como una tarjeta con filas `mz-row`. */
+.directorio-coincidencias {
+  border: 1px solid var(--mz-border);
+  border-radius: 16px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.directorio-coincidencias__titulo {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--mz-ink-soft);
+  background: var(--mz-sunken);
+}
+
+.directorio-coincidencia {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-top: 1px solid var(--mz-border);
+  background: transparent;
+  text-align: left;
+  color: var(--mz-ink);
+}
+
+.directorio-coincidencia:hover,
+.directorio-coincidencia:focus-visible {
+  background: var(--mz-sunken);
+  outline: none;
+}
+
+.directorio-coincidencia__nombre { font-weight: 600; }
+.directorio-coincidencia__id,
+.directorio-coincidencia__filas { font-size: 11.5px; color: var(--mz-ink-faint); }
+.directorio-coincidencia__id { font-family: var(--mz-font-mono); }
+.directorio-coincidencia__saldo { font-family: var(--mz-font-mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.directorio-deudor-consulta__encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: .75rem;
+}
+
+.directorio-deudor-consulta__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Cada tabla se desplaza dentro de su tarjeta en vez de desbordarla.
+ *
+ * Sin esto, en un monitor de 1024 la tabla de cumplimiento de metas (470px) se salía 95px de su
+ * panel (326px): la columna "RESULTADO" quedaba fuera de la tarjeta y para verla había que mover
+ * la página entera de lado. Con el desplazamiento propio, lo que se mueve es la tabla y el resto
+ * del informe se queda quieto.
+ *
+ * Es el complemento de que los paneles se apilen en pantallas angostas (`.dashboard-grid__celda`
+ * en dashboard.css): apilar da el espacio, esto evita que falte cuando aun así no alcanza.
+ *
+ * El borde y el radio son los de `mz-table-wrap`. */
+.directorio-tabla-ancho {
+  overflow-x: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+/* `minmax(0, 1fr)` en la rejilla y `overflow-x` acá: sin el `minmax(0, …)`, la columna del
+   detalle se estira con la tabla en vez de acotarla, y el desplazamiento nunca aparece — la
+   tabla desborda la tarjeta y empuja el ancho de toda la página. */
+.directorio-tabla-scroll {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.directorio-tabla-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--mz-sunken);
+  z-index: 1;
+}
+
+/* En pantallas muy angostas la tabla se aprieta para entrar entera en vez de desplazarse.
+ *
+ * El relleno de las celdas es lo primero que se recorta (10px → 3px por lado son 56px menos en
+ * una tabla de cuatro columnas), pero no alcanza solo: a 520px de ventana faltaban 86px. El
+ * resto lo aporta bajar un punto la letra, que encoge las cuatro columnas a la vez.
+ *
+ * Todo esto vale solo para este tamaño: de 768px para arriba la tabla se ve como siempre.
+ */
+@media (max-width: 767.98px) {
+  .directorio-tabla th,
+  .directorio-tabla td {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  /* La letra baja un punto en vez de partir los nombres por la mitad. Probé lo segundo
+     (`overflow-wrap: anywhere`) y la tabla entraba, pero la columna quedaba en 46px y
+     "TRANSEXPRESS" se leía "TRA / NSE / XPR / ESS": entra y no se entiende, que es peor que
+     desplazarla. Con la letra más chica los nombres siguen partiéndose solo entre palabras. */
+  .directorio-tabla {
+    font-size: 0.75rem;
+  }
+
+  .directorio-tabla th {
+    font-size: 0.6rem;
+  }
+
+  /* La píldora suma relleno a la columna RESULTADO: se achica junto con el resto de la tabla
+     para no deshacer lo que se ganó arriba. */
+  .directorio-pill {
+    padding: 0 5px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 991px) {
+  /* `minmax(0, 1fr)` y no `1fr` a secas: un `1fr` tiene `min-width: auto`, así que la columna
+     crece hasta el ancho mínimo de la tabla en vez de acotarla, y el desplazamiento horizontal
+     nunca aparece. Era el mismo problema que la regla de arriba ya resolvía para pantallas
+     grandes, reintroducido acá: en una ventana de 760px la tabla del detalle se salía 239px de
+     su tarjeta, con las últimas columnas cortadas y sin forma de llegar a ellas. */
+  .directorio-deudor-consulta__cuerpo { grid-template-columns: minmax(0, 1fr); }
+}

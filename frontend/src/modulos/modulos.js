@@ -30,6 +30,14 @@ export const MODULOS = [
     inicio: "/admin/matriz",
     prefijo: "/admin/matriz",
   },
+  {
+    id: "dashboards",
+    nombre: "Dashboards",
+    descripcion: "Los dashboards de cada área o departamento",
+    icono: "bar-chart-line",
+    inicio: "/admin/dashboards",
+    prefijo: "/admin/dashboards",
+  },
 ];
 
 export const MODULO_POR_DEFECTO = "activos";

@@ -1,0 +1,457 @@
+/*
+ * GENERADO desde cms_dashboards (frontend/src/styles/dashboard.css) por el portado
+ * del módulo de Dashboards: reglas acotadas a `.modulo-dashboards` para que no
+ * alcancen al resto del sistema. Las variables del sistema (`--color-*`,
+ * `--font-*`, `--mz-action`) no se pisan: manda Configuración → Colores.
+ */
+
+.modulo-dashboards, .modulo-dashboards-portal, .modal, .offcanvas {
+  color-scheme: light;
+  --surface-1: #ffffff;
+  --page-plane: #eeeeee;
+  --text-primary: #000000;
+  --text-secondary: #000000;
+  --text-muted: #000000;
+  --gridline: #999999;
+  --baseline: #666666;
+  --border: #999999;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --hallazgos-bg: #eaf2fc;
+  --hallazgos-border: #c7ddf7;
+
+  /* Identidad institucional (apps.branding) — valores "de arranque en frío" antes de que
+     ThemeProvider aplique el tema real desde el backend (GET /api/branding/current). Coinciden
+     a propósito con la paleta de arriba, para que activar el theming no cambie nada visualmente
+     el día 1 (docs/integracion/decisions.md). Un administrador los cambia desde
+     /admin/settings; ThemeProvider los sobreescribe en runtime con `element.style.setProperty`. */
+}
+
+/**
+ * Tema oscuro (sección "toda la página" — toggle en `AdminSidebar`, ver `useColorMode.js`):
+ * redefine las variables de superficie/texto/serie que NO están bajo control de la identidad
+ * institucional (`apps.branding`, ver `ThemeContext.jsx`) — esas (`--color-*`) se dejan intactas
+ * acá a propósito, salvo `--color-background`: es la única que también gobierna el fondo de
+ * `body` (línea de abajo) y, por eso, `useColorMode.js` la sobreescribe en línea sobre
+ * `documentElement` (un estilo en línea siempre gana sobre esta regla) — el valor de acá solo
+ * sirve de fondo correcto en el primer pintado, antes de que React/el hook terminen de montar.
+ */
+[data-theme='dark'] .modulo-dashboards, [data-theme='dark'] .modulo-dashboards-portal, [data-theme='dark'] .modal, [data-theme='dark'] .offcanvas {
+  color-scheme: dark;
+  --surface-1: #1b212c;
+  --page-plane: #10141b;
+  --text-primary: #e8eaf0;
+  --text-secondary: #aab2c0;
+  --text-muted: #7b8496;
+  --gridline: #2b3342;
+  --baseline: #5a6478;
+  --border: #323a4a;
+
+  --series-1: #5b9bea;
+  --series-2: #ff9159;
+  --series-3: #2ecc8f;
+  --series-4: #ffbb42;
+  --series-5: #f093bd;
+  --series-6: #4caf50;
+  --series-7: #9083e0;
+  --series-8: #f07171;
+
+  --status-good: #3ecf6e;
+  --status-warning: #ffc94d;
+  --status-serious: #ff9466;
+  --status-critical: #ff6161;
+
+  --hallazgos-bg: #1a2c42;
+  --hallazgos-border: #2d4d70;
+}
+
+.modulo-dashboards {
+  background: var(--color-background);
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+}
+
+.modulo-dashboards .cartera-app {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.modulo-dashboards .kpi-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1.5px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 16px 18px;
+  height: 100%;
+  min-width: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .kpi-card__label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.modulo-dashboards .kpi-card__value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: proportional-nums;
+  overflow-wrap: anywhere;
+}
+
+.modulo-dashboards .kpi-card__sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.modulo-dashboards .kpi-card:focus-visible, .modulo-dashboards [role='button']:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.modulo-dashboards .chart-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1.5px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  height: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .chart-panel__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .chart-panel__subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* Aviso "Columnas con valores en blanco" (`AvisoColumnasEnBlanco`, `TemplateMappingStep.jsx`,
+   paso de mapeo del asistente de carga) — antes un `Alert variant="warning"` de Bootstrap (fondo
+   amarillo fijo, reteñido por el color de marca sin garantía de buen contraste, y demasiado
+   llamativo para información que no bloquea nada). Reusa el mismo azul oscuro/texto claro que ya
+   llevan los recuadros "Hallazgos clave" (`--hallazgos-bg`/`--hallazgos-border`) para que se vea
+   como el resto de tarjetas del dashboard. */
+.modulo-dashboards .aviso-columnas-blanco {
+  padding: 14px 16px;
+  border: 1px solid var(--hallazgos-border);
+  border-radius: var(--border-radius);
+  background: var(--hallazgos-bg);
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .aviso-columnas-blanco__ejemplos {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* Tarjetas de "Mis dashboards" (DashboardsListPage) — los botones de acción (Entrar/Editar/
+   Eliminar) siempre existen en el DOM, solo se revelan visualmente al pasar el cursor o al
+   recibir foco de teclado (accesible sin mouse). */
+.modulo-dashboards .dashboard-card {
+  position: relative;
+}
+
+.modulo-dashboards .dashboard-card__actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border-radius: var(--border-radius);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.modulo-dashboards .dashboard-card:hover .dashboard-card__actions, .modulo-dashboards .dashboard-card:focus-within .dashboard-card__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* `margin-top: auto` (no un valor fijo) para que, dentro de `.kpi-card`/`.chart-panel`
+   (`display: flex; flex-direction: column`), quede siempre pegado al fondo del contenedor —
+   misma altura relativa en toda una fila de tarjetas, sin importar cuánto texto tenga el
+   contenido de arriba (título/descripción/filtro elegido). */
+.modulo-dashboards .hallazgos-clave {
+  margin-top: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--hallazgos-border);
+  border-radius: 8px;
+  background: var(--hallazgos-bg);
+}
+
+.modulo-dashboards .hallazgos-clave__titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--series-1);
+  cursor: pointer;
+}
+
+.modulo-dashboards .hallazgos-clave__titulo:hover {
+  text-decoration: underline;
+}
+
+.modulo-dashboards .hallazgos-clave__texto {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .recharts-cartesian-axis-tick text {
+  fill: var(--text-primary);
+  font-size: 12px;
+}
+
+.modulo-dashboards .recharts-cartesian-grid-horizontal line, .modulo-dashboards .recharts-cartesian-grid-vertical line {
+  stroke: var(--gridline);
+}
+
+/* Recharts fija el fondo/color de su tooltip por defecto con estilos en línea (blanco fijo) —
+   `!important` es lo único que gana contra un estilo en línea sin tener que pasarle `contentStyle`
+   a cada gráfico uno por uno. */
+[data-theme='dark'] .modulo-dashboards .recharts-default-tooltip {
+  background-color: var(--surface-1) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] .modulo-dashboards .recharts-tooltip-item, [data-theme='dark'] .modulo-dashboards .recharts-tooltip-label {
+  color: var(--text-primary) !important;
+}
+
+/* "Imprimir como PDF" (`DashboardAreaPage.jsx` + `utils/pdfExport.js`) NO usa el pipeline nativo
+   de impresión del navegador (`window.print()`/`@media print`) — se probó y se descartó: Recharts
+   mide su tamaño una sola vez con `ResizeObserver`, y la foto de impresión de Chrome la toma en un
+   instante intermedio antes de que ese observer termine de recalcular, dejando gráficos (sobre
+   todo los circulares, cuyo radio es un % del tamaño medido) reducidos a una fracción de su
+   tamaño real — ningún truco de CSS/timing lo resolvió de forma confiable. En cambio, el botón
+   captura con `html2canvas` el DOM tal cual ya está renderizado en pantalla (sin re-medir nada) y
+   arma el PDF con `jsPDF`.
+
+   Mientras se genera (clase `.generando-pdf` en `<html>`, agregada/sacada por
+   `pdfExport.js::generarPDFDesdeElemento`), el mismo chrome que ya se marcaba `d-print-none`
+   (sidebar, pestañas, botones, "Hallazgos clave") se oculta de VERDAD — no alcanza con
+   `@media print`, que no aplica acá, ni con el `ignoreElements` de html2canvas solo: la altura de
+   cada tarjeta se mide ANTES de capturar para decidir dónde cortar cada hoja sin partir ninguna a
+   la mitad, y esa medida tiene que coincidir exactamente con lo que después se captura. */
+.generando-pdf .d-print-none {
+  display: none !important;
+}
+
+.modulo-dashboards .upload-dropzone {
+  border: 2px dashed var(--baseline);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .upload-dropzone--active {
+  border-color: var(--series-1);
+}
+
+.modulo-dashboards .table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.modulo-dashboards .table-scroll table {
+  color: var(--text-primary);
+}
+
+.modulo-dashboards .table-scroll th, .modulo-dashboards .table-scroll td {
+  border-color: var(--border) !important;
+}
+
+.modulo-dashboards .matrix-table th, .modulo-dashboards .matrix-table td {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.modulo-dashboards .pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.modulo-dashboards .pagination-bar__selector, .modulo-dashboards .pagination-bar__controles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modulo-dashboards .pagination-bar__resumen {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 576px) {
+  .modulo-dashboards .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .modulo-dashboards .pagination-bar__selector, .modulo-dashboards .pagination-bar__controles {
+    justify-content: center;
+  }
+
+  .modulo-dashboards .pagination-bar__resumen {
+    order: -1;
+  }
+}
+
+/* --- Rejilla de paneles: cuántos entran por fila según el ancho de pantalla ----------------
+ *
+ * Cada celda declara su ancho en doceavos (`--ancho-panel`, lo pone el componente) y esta clase
+ * lo traduce a `flex`. La separación importa: un `flex` inline le gana a cualquier media query,
+ * y era lo que dejaba dos paneles de media página conviviendo en 326px cada uno en un monitor
+ * de 1024 — ahí no entra ni una tabla de cuatro columnas.
+ *
+ * Los cortes no son redondos por gusto: con la barra lateral (230px) y los márgenes, un panel de
+ * media página recién alcanza los ~470px que necesita la tabla de cumplimiento de metas cuando
+ * la ventana pasa de ~1260px. Por debajo de eso conviene apilar antes que encoger.
+ */
+.modulo-dashboards .dashboard-grid__celda {
+  flex: 0 0 var(--ancho-panel, 100%);
+  max-width: var(--ancho-panel, 100%);
+  min-width: 0;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* El grid se mide A SÍ MISMO, no a la ventana.
+ *
+ * Con media queries los cortes miraban el ancho de la VENTANA, y entre la ventana y el grid hay
+ * un menú lateral (que además se pliega) más los rellenos del contenido: a 1100px de ventana el
+ * grid medía 917 y seguía en el escalón de "pantalla chica", así que los cuatro KPI se acomodaban
+ * de a dos y cada tarjeta quedaba de 459px para mostrar un número de seis cifras. Al revés
+ * también fallaba: plegar el menú ensancha el grid 180px y ningún corte se enteraba.
+ *
+ * `container-type: inline-size` hace que los cortes de abajo midan el grid. Los umbrales están en
+ * el ancho que necesita una tarjeta para leerse (~200px), no en tamaños de dispositivo.
+ */
+.modulo-dashboards .dashboard-grid {
+  container-type: inline-size;
+}
+
+@container (max-width: 799.98px) {
+  /* Los paneles anchos (media página o más) pasan a ocupar la fila entera. */
+  .modulo-dashboards .dashboard-grid__celda {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  /* Los KPI y demás piezas angostas se acomodan de a dos: apilarlos de a uno obligaría a
+     recorrer cuatro pantallazos para leer cuatro números. */
+  .modulo-dashboards .dashboard-grid__celda[data-ancho="2"], .modulo-dashboards .dashboard-grid__celda[data-ancho="3"], .modulo-dashboards .dashboard-grid__celda[data-ancho="4"] {
+    flex-basis: 50%;
+    max-width: 50%;
+  }
+}
+
+@container (max-width: 439.98px) {
+  /* Dos tarjetas de menos de 220px ya no muestran un importe completo: recién acá se apilan. */
+  .modulo-dashboards .dashboard-grid__celda[data-ancho] {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
+
+/* --- Barra de acciones del encabezado -------------------------------------------------------
+ *
+ * Los botones pasan a la fila siguiente en vez de encogerse. La diferencia está en el
+ * `flex-shrink: 0`: un contenedor flex, antes de envolver, reparte la falta de espacio
+ * achicando a sus hijos, y con etiquetas largas ("Conectar vista de base de datos") eso termina
+ * en botones angostos con el texto partido en cuatro renglones — a 700px la barra llegaba a
+ * medir 94px de alto. Conservando su ancho natural, los que no entran bajan a una segunda fila
+ * y todos quedan de una sola línea.
+ */
+.modulo-dashboards .acciones-dashboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.modulo-dashboards .acciones-dashboard > .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Por debajo de esto, un botón solo ya puede ser más ancho que la pantalla: ahí sí conviene
+   que el texto se parta, que es preferible a que se salga. */
+@media (max-width: 400px) {
+  .modulo-dashboards .acciones-dashboard > .btn {
+    white-space: normal;
+  }
+}
+
+/* --- Propio de esta integración (no viene de cms_dashboards) ------------- */
+
+/* El total en el centro de la dona (`GenericPieChart.jsx`). En el origen eran
+   estilos en línea; aquí van al CSS, como pide la arquitectura del proyecto. */
+.modulo-dashboards .grafico-dona__centro {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.modulo-dashboards .grafico-dona__etiqueta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.modulo-dashboards .grafico-dona__valor {
+  font-weight: 600;
+}

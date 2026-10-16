@@ -124,6 +124,8 @@ ROLES = {
             "matriz.exportar",
             "matriz.ver_auditoria",
             "catalogos.ver",
+            # Y los dashboards (de cualquier área), solo para verlos.
+            "dashboard.view",
             # Sin `auditoria.ver_ubicacion`: es un dato personal de contexto y
             # se concede aparte, a quien lo necesite y por un motivo concreto
             # (ver docs/data-protection-review.md).

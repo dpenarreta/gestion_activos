@@ -77,12 +77,24 @@ def test_consulta_no_puede_modificar_nada():
     # Todo lo que no sea leer o exportar cuenta como escritura. La lista es de
     # sufijos y no de nombres completos para que un permiso nuevo entre solo:
     # si alguien añade `activos.eliminar` y se lo da a este rol, la prueba lo
-    # ve sin que nadie se acuerde de actualizarla.
+    # ve sin que nadie se acuerde de actualizarla. (`.view` es el «ver» de los
+    # dashboards de Cartera, que conservan los nombres del sistema de origen;
+    # `.reportes`, ver y exportar los de las órdenes de trabajo.)
     escrituras = {
         codename
         for codename in permisos
         if not codename.endswith(
-            (".ver", ".ver_detalle", ".ver_asignados", ".exportar", ".ver_todas", ".ver_auditoria")
+            (
+                ".ver",
+                ".ver_detalle",
+                ".ver_asignados",
+                ".exportar",
+                ".ver_todas",
+                ".ver_auditoria",
+                ".view",
+                ".reportes",
+                ".ver_todos",
+            )
         )
     }
     assert not escrituras, f"el rol de solo lectura tiene permisos de escritura: {escrituras}"

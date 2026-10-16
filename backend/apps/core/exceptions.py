@@ -96,6 +96,20 @@ def api_exception_handler(exc, context):
     """
     response = exception_handler(exc, context)
 
+    # El módulo de Cartera (portado de cms_dashboards) conserva su propio
+    # contrato de error, del que depende su frontend: `{"error": CODIGO,
+    # "mensaje": texto, "detalles": {...}}` con HTTP 400.
+    if response is None:
+        from apps.cartera.exceptions import CarteraError
+
+        if isinstance(exc, CarteraError):
+            from rest_framework.response import Response
+
+            return Response(
+                {"error": exc.codigo, "mensaje": exc.message, "detalles": exc.detalles},
+                status=400,
+            )
+
     if response is None:
         logger.exception("Error no controlado", exc_info=exc)
         return error_response(

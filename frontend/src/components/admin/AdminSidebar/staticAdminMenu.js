@@ -4,6 +4,10 @@ import {
 } from "../ConfiguracionMarco/seccionesConfiguracion";
 import { MODULO_POR_DEFECTO } from "../../../modulos/modulos";
 import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
+import {
+  PERMISOS_DASHBOARDS,
+  RUTA_DASHBOARDS,
+} from "../../../modulos/permisosDashboards";
 import { PERMISOS_REPORTES } from "../ReportesMarco/ReportesMarco";
 
 // En su propio módulo: Configuración también lo usa, y este archivo ya
@@ -197,6 +201,19 @@ export const ADMIN_MENU = [
     icon: "folder2-open",
     path: "/admin/matriz/documentos",
     permission: PERMISOS_MATRIZ,
+  },
+  // --- Dashboards ---------------------------------------------------------
+  //
+  // Un solo listado: cada dashboard se abre desde ahí y sus pestañas viven
+  // dentro de él.
+  {
+    id: "dashboards-lista",
+    modulo: "dashboards",
+    name: "Dashboards",
+    icon: "bar-chart-line",
+    path: RUTA_DASHBOARDS,
+    permission: PERMISOS_DASHBOARDS,
+    rutas: [RUTA_DASHBOARDS],
   },
   // --- General: igual en todos los módulos --------------------------------
   //
