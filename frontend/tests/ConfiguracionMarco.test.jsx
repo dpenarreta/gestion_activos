@@ -75,8 +75,8 @@ describe("Las pestañas de Configuración", () => {
       "Catálogos",
       "Notificaciones",
       "Identidad visual",
+      "Plantilla de dashboards",
       "Respaldos",
-      "Auditoría",
     ]);
   });
 
@@ -85,20 +85,20 @@ describe("Las pestañas de Configuración", () => {
 
     expect(
       screen.getByText(
-        "LaarCourier: empresas, usuarios, roles, permisos, catálogos, notificaciones, identidad visual, respaldos y auditoría.",
+        "LaarCourier: empresas, usuarios, roles, permisos, catálogos, notificaciones, identidad visual, plantilla de dashboards y respaldos.",
       ),
     ).toBeInTheDocument();
   });
 
   it("solo ofrece las que se pueden abrir", () => {
     /* Una pestaña que termina en un 403 hace parecer roto el sistema. */
-    permisos.lista = ["auditoria.ver", "organizacion.ver"];
+    permisos.lista = ["empresas.ver", "organizacion.ver"];
 
-    pintar("/admin/auditoria");
+    pintar("/admin/empresas");
 
     expect(pestanas().map((p) => p.textContent)).toEqual([
+      "Empresas",
       "Catálogos",
-      "Auditoría",
     ]);
   });
 
@@ -161,9 +161,11 @@ describe("Las pestañas de Configuración", () => {
   it("una pestaña lleva a su sección", () => {
     pintar("/admin/empresas");
 
-    fireEvent.click(screen.getByRole("link", { name: "Auditoría" }));
+    fireEvent.click(screen.getByRole("link", { name: "Respaldos" }));
 
-    expect(screen.getByText("Ruta: /admin/auditoria")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ruta: /admin/configuracion/respaldos"),
+    ).toBeInTheDocument();
   });
 });
 

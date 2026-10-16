@@ -1,0 +1,128 @@
+/*
+ * Páginas públicas de la mesa de ayuda (formulario y seguimiento): sin el
+ * menú del sistema, una columna centrada sobre el fondo de la identidad.
+ */
+.soporte-publico {
+  min-height: 100vh;
+  background: var(--mz-bg);
+  padding: 32px 16px 48px;
+}
+
+.soporte-publico__caja {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.soporte-publico__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.soporte-publico__cabecera h1 {
+  margin: 0;
+  font-size: 22px;
+  font-family: var(--mz-font-display);
+}
+
+.soporte-publico__icono {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mz-blue-950);
+  color: #ffffff;
+  font-size: 22px;
+}
+
+.soporte-publico__resultado h2 {
+  font-size: 20px;
+}
+
+.soporte-publico__posicion,
+.soporte-publico__estado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 15px;
+}
+
+.soporte-publico__numero {
+  font-family: var(--mz-font-display);
+  font-size: 26px;
+}
+
+.soporte-publico__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 16px;
+  margin: 16px 0 12px;
+}
+
+.soporte-publico__datos dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--mz-ink-faint);
+}
+
+.soporte-publico__datos dd {
+  margin: 0;
+}
+
+.soporte-publico__descripcion {
+  white-space: pre-wrap;
+}
+
+.soporte-publico__archivos {
+  max-width: 320px;
+}
+
+/* El campo trampa: fuera de la vista y del lector de pantalla, pero en el
+   formulario (un bot lo llena; `display: none` lo delataría). */
+.soporte-publico__trampa {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.soporte-hilo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.soporte-hilo li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mz-sunken);
+  white-space: pre-wrap;
+}
+
+.soporte-hilo__propio {
+  background: var(--mz-info-bg) !important;
+}
+
+.soporte-hilo__interno {
+  background: var(--mz-warn-bg) !important;
+}
+
+.soporte-adjuntos {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}

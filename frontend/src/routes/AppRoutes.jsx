@@ -1,5 +1,7 @@
 import { CorreoDelSistemaPage } from "../pages/Admin/Configuracion/CorreoDelSistemaPage";
 import { NotificacionesAlertasPage } from "../pages/Admin/Configuracion/NotificacionesAlertasPage";
+import { PlantillaCorreoEditor } from "../pages/Admin/Configuracion/PlantillaCorreoEditor";
+import { PlantillasCorreoPage } from "../pages/Admin/Configuracion/PlantillasCorreoPage";
 import { AuditoriaInicio } from "../components/admin/AuditoriaMarco/AuditoriaMarco";
 import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
@@ -14,6 +16,26 @@ import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
+import { OrdenDetalle } from "../pages/Ordenes/OrdenDetalle";
+import { Bandeja } from "../pages/Soporte/Bandeja";
+import {
+  CategoriasSoporte,
+  EquipoSoporte,
+  RespuestasSoporte,
+  SlaSoporte,
+} from "../pages/Soporte/Configuracion/ConfiguracionSoporte";
+import { NotificacionesPage } from "../pages/Notificaciones/NotificacionesPage";
+import { FormularioEditor } from "../pages/Soporte/FormularioEditor";
+import { HorasFuera } from "../pages/Soporte/HorasFuera";
+import { MiHorario } from "../pages/Soporte/MiHorario";
+import { FormularioSoporte } from "../pages/Soporte/Publico/FormularioSoporte";
+import { SeguimientoTicket } from "../pages/Soporte/Publico/SeguimientoTicket";
+import { ReportesSoporte } from "../pages/Soporte/ReportesSoporte";
+import { TicketDetalle } from "../pages/Soporte/TicketDetalle";
+import { OrdenForm } from "../pages/Ordenes/OrdenForm";
+import { OrdenesList } from "../pages/Ordenes/OrdenesList";
+import { PanelOrdenes } from "../pages/Ordenes/PanelOrdenes";
+import { ReportesOrdenes } from "../pages/Ordenes/ReportesOrdenes";
 import {
   DashboardsDetalle,
   DashboardsHistorico,
@@ -112,6 +134,13 @@ export function AppRoutes() {
           empresa y su rol. */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Mesa de ayuda: el formulario de cada empresa y el seguimiento por
+          enlace secreto, sin iniciar sesión. */}
+      <Route
+        path="/soporte/seguimiento/:token"
+        element={<SeguimientoTicket />}
+      />
+      <Route path="/soporte/:codigo" element={<FormularioSoporte />} />
       <Route
         path={CHANGE_PASSWORD_REQUIRED_PATH}
         element={<ChangePasswordRequired />}
@@ -378,6 +407,135 @@ export function AppRoutes() {
           element={<Navigate to="/admin/solicitudes/mias" replace />}
         />
         <Route
+          path="configuracion/plantilla-dashboards"
+          element={
+            <RequirePermission permission={CONFIGURACION_VER}>
+              <DashboardsPlantillaBase />
+            </RequirePermission>
+          }
+        />
+        {/* Dashboards de cada área o departamento de la empresa. El listado pide el permiso
+            del módulo; un dashboard puede abrirse también por su lista de
+            roles, y eso lo decide el servidor (la pantalla muestra su 403). */}
+        {/* Mantenimiento de sedes: órdenes de trabajo. Qué órdenes ve cada
+            quien lo decide el servidor (todas, o las suyas, las asignadas y
+            las de las sedes a su cargo). */}
+        <Route
+          path="ordenes"
+          element={<Navigate to="/admin/ordenes/panel" replace />}
+        />
+        {/* Las notificaciones de la campana: cada quien las suyas. */}
+        <Route path="notificaciones" element={<NotificacionesPage />} />
+        {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
+        <Route
+          path="soporte"
+          element={<Navigate to="/admin/soporte/bandeja" replace />}
+        />
+        <Route path="soporte/bandeja" element={<Bandeja />} />
+        <Route
+          path="soporte/todos"
+          element={
+            <RequirePermission permission="soporte.ver_todos">
+              <Bandeja todos />
+            </RequirePermission>
+          }
+        />
+        <Route path="soporte/tickets/:id" element={<TicketDetalle />} />
+        <Route
+          path="soporte/mi-horario"
+          element={
+            <RequirePermission permission="soporte.atender">
+              <MiHorario />
+            </RequirePermission>
+          }
+        />
+        <Route path="soporte/horas" element={<HorasFuera />} />
+        <Route
+          path="soporte/formulario"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <FormularioEditor />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/soporte"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <EquipoSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/soporte/categorias"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <CategoriasSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/soporte/sla"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <SlaSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/soporte/respuestas"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <RespuestasSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="ordenes/lista"
+          element={
+            <RequirePermission permission="ordenes.ver">
+              <OrdenesList />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="ordenes/panel"
+          element={
+            <RequirePermission permission="ordenes.ver">
+              <PanelOrdenes />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="ordenes/lista/nueva"
+          element={
+            <RequirePermission permission="ordenes.crear">
+              <OrdenForm />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="ordenes/lista/:id"
+          element={
+            <RequirePermission permission="ordenes.ver">
+              <OrdenDetalle />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="dashboards"
+          element={
+            <RequirePermission permission="dashboard.view">
+              <DashboardsListado />
+            </RequirePermission>
+          }
+        />
+        <Route path="dashboards/:dashboardId" element={<DashboardsDetalle />} />
+        <Route
+          path="dashboards/:dashboardId/historico"
+          element={<DashboardsHistorico />}
+        />
+        <Route
           path="configuracion/respaldos"
           element={
             <RequirePermission permission={CONFIGURACION_VER}>
@@ -410,30 +568,6 @@ export function AppRoutes() {
               <AlertasPage />
             </RequirePermission>
           }
-        />
-        <Route
-          path="configuracion/plantilla-dashboards"
-          element={
-            <RequirePermission permission={CONFIGURACION_VER}>
-              <DashboardsPlantillaBase />
-            </RequirePermission>
-          }
-        />
-        {/* Dashboards de cada área o departamento de la empresa. El listado pide el permiso
-            del módulo; un dashboard puede abrirse también por su lista de
-            roles, y eso lo decide el servidor (la pantalla muestra su 403). */}
-        <Route
-          path="dashboards"
-          element={
-            <RequirePermission permission="dashboard.view">
-              <DashboardsListado />
-            </RequirePermission>
-          }
-        />
-        <Route path="dashboards/:dashboardId" element={<DashboardsDetalle />} />
-        <Route
-          path="dashboards/:dashboardId/historico"
-          element={<DashboardsHistorico />}
         />
         <Route
           path="renovacion/sugerencias"
@@ -486,6 +620,22 @@ export function AppRoutes() {
             <ReportesInicio>
               <ReportesPage />
             </ReportesInicio>
+          }
+        />
+        <Route
+          path="reportes/soporte"
+          element={
+            <RequirePermission permission="soporte.reportes">
+              <ReportesSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="reportes/ordenes"
+          element={
+            <RequirePermission permission="ordenes.reportes">
+              <ReportesOrdenes />
+            </RequirePermission>
           }
         />
         <Route
@@ -653,6 +803,22 @@ export function AppRoutes() {
           element={
             <RequirePermission permission="configuracion.ver">
               <CorreoDelSistemaPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/notificaciones/plantillas"
+          element={
+            <RequirePermission permission="configuracion.ver">
+              <PlantillasCorreoPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/notificaciones/plantillas/:clave"
+          element={
+            <RequirePermission permission="configuracion.ver">
+              <PlantillaCorreoEditor />
             </RequirePermission>
           }
         />

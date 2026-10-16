@@ -1,0 +1,188 @@
+/*
+ * Mesa de ayuda (pantallas del equipo). Encabezados, tablas, tarjetas e
+ * indicadores salen de la identidad (`mz-*`); aquí, lo que ella no trae.
+ */
+@import "./Publico/Publico.css";
+
+.soporte-pill--info {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.soporte-pill--critica {
+  background: var(--mz-bad-line);
+  color: #ffffff;
+}
+
+.soporte-sla {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.soporte-estado-tecnico {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  align-items: center;
+}
+
+.soporte-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.soporte-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 991.98px) {
+  .soporte-detalle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.soporte-sugerencias {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.soporte-sugerencias button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: inherit;
+}
+
+.soporte-sugerencias button:hover,
+.soporte-sugerencias button:focus-visible {
+  background: var(--mz-sunken);
+}
+
+.soporte-franja {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr)
+    auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.soporte-franja + .soporte-franja {
+  margin-top: 8px;
+}
+
+@media (max-width: 575.98px) {
+  .soporte-franja {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.soporte-graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.soporte-barra {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 50px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.soporte-barra + .soporte-barra {
+  margin-top: 10px;
+}
+
+.soporte-barra__pista {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--mz-sunken);
+  overflow: hidden;
+}
+
+.soporte-barra__relleno {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--mz-blue-500);
+}
+
+.soporte-barra > span:last-child {
+  text-align: right;
+}
+
+/* --- Mesa de ayuda → Formulario ------------------------------------------ */
+
+.soporte-formulario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 991.98px) {
+  .soporte-formulario {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.soporte-formulario__vista {
+  position: sticky;
+  top: 16px;
+}
+
+.soporte-campos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.soporte-campo__fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 6px;
+  background: var(--mz-raised);
+}
+
+.soporte-campo--oculto .soporte-campo__fila {
+  background: var(--mz-sunken);
+  opacity: 0.75;
+}
+
+.soporte-campo__orden {
+  display: flex;
+  flex-direction: column;
+}
+
+.soporte-campo__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.soporte-campo__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}

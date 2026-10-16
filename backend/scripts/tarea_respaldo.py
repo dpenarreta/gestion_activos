@@ -19,6 +19,10 @@ ventana; cada aviso decide su hora por la configuración de su empresa.
 Y, como mucho una vez por hora, la actualización automática de los dashboards
 de Cartera conectados a una base de datos (`actualizar_fuentes_bd`): cada uno
 decide si le toca por su frecuencia, semanal o mensual.
+
+Y el ciclo de la Mesa de ayuda (`ciclo_soporte`): repartir la cola entre quien
+empieza su turno, avisar y escalar por SLA, y cerrar lo atendido sin respuesta.
+
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -89,6 +93,7 @@ def main() -> int:
         ("respaldar", ["--si-toca"]),
         ("ciclo_matriz", []),
         ("actualizar_fuentes_bd", ["--si-toca"]),
+        ("ciclo_soporte", []),
         ("limpiar_notificaciones", []),
     ):
         try:

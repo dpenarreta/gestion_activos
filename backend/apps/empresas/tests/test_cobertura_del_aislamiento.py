@@ -39,6 +39,7 @@ APPS_DE_NEGOCIO = frozenset(
         "matriz",
         "cartera",
         "ordenes",
+        "soporte",
         "notificaciones",
     }
 )

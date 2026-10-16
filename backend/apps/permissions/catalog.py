@@ -288,6 +288,28 @@ PERMISSION_CATALOG = {
             "ordenes.reportes": "Ver y exportar los reportes de órdenes de trabajo",
         },
     },
+    "soporte": {
+        "label": "Mesa de ayuda",
+        "description": (
+            "Tickets de soporte de TI que los empleados crean desde el formulario "
+            "público de su empresa. Se reparten por disponibilidad entre los "
+            "técnicos habilitados para cada categoría y en su horario."
+        ),
+        "permissions": {
+            "soporte.atender": (
+                "Atender tickets: bandeja propia, tomar de la cola, responder, "
+                "escalar, marcar como atendido y registrar horas fuera de horario"
+            ),
+            "soporte.ver_todos": "Ver todos los tickets de la empresa",
+            "soporte.asignar": "Asignar y reasignar tickets a cualquier técnico (coordinación)",
+            "soporte.aprobar_horas": "Aprobar o rechazar las horas fuera de horario",
+            "soporte.configurar": (
+                "Configurar la mesa de ayuda: niveles, categorías y casos, técnicos y "
+                "sus horarios, SLA y respuestas predefinidas"
+            ),
+            "soporte.reportes": "Ver los reportes de la mesa de ayuda",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -398,6 +420,16 @@ MODULE_GROUPS = [
             "trabajo sobre sedes y agencias, su ejecución y su aceptación."
         ),
         "modules": ["ordenes"],
+    },
+    {
+        "id": "mesa_de_ayuda",
+        "label": "Mesa de ayuda",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Mesa de ayuda: atender, asignar y supervisar "
+            "los tickets de soporte de la empresa."
+        ),
+        "modules": ["soporte"],
     },
 ]
 

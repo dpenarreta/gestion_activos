@@ -8,6 +8,14 @@ import {
   PERMISOS_DASHBOARDS,
   RUTA_DASHBOARDS,
 } from "../../../modulos/permisosDashboards";
+import {
+  PERMISOS_SOPORTE,
+  RUTA_SOPORTE,
+} from "../../../modulos/permisosSoporte";
+import {
+  PERMISOS_ORDENES,
+  RUTA_ORDENES,
+} from "../../../modulos/permisosOrdenes";
 import { PERMISOS_AUDITORIA } from "../AuditoriaMarco/AuditoriaMarco";
 import { PERMISOS_REPORTES } from "../ReportesMarco/ReportesMarco";
 
@@ -202,6 +210,67 @@ export const ADMIN_MENU = [
     icon: "folder2-open",
     path: "/admin/matriz/documentos",
     permission: PERMISOS_MATRIZ,
+  },
+  // --- Mantenimiento de sedes ----------------------------------------------
+  {
+    id: "ordenes-panel",
+    modulo: "sedes",
+    name: "Panel",
+    icon: "speedometer2",
+    path: `${RUTA_ORDENES}/panel`,
+    permission: PERMISOS_ORDENES,
+  },
+  {
+    id: "ordenes-lista",
+    modulo: "sedes",
+    name: "Órdenes de trabajo",
+    icon: "tools",
+    // La ficha y el alta cuelgan del listado, así que también lo marcan.
+    path: `${RUTA_ORDENES}/lista`,
+    permission: PERMISOS_ORDENES,
+  },
+  // --- Mesa de ayuda -------------------------------------------------------
+  {
+    id: "soporte-bandeja",
+    modulo: "soporte",
+    name: "Bandeja",
+    icon: "inbox",
+    path: `${RUTA_SOPORTE}/bandeja`,
+    permission: PERMISOS_SOPORTE,
+    // La ficha de un ticket se abre desde la bandeja: la marca a ella.
+    rutas: [`${RUTA_SOPORTE}/tickets`],
+  },
+  {
+    id: "soporte-todos",
+    modulo: "soporte",
+    name: "Todos los tickets",
+    icon: "list-task",
+    path: `${RUTA_SOPORTE}/todos`,
+    permission: "soporte.ver_todos",
+  },
+  {
+    id: "soporte-horario",
+    modulo: "soporte",
+    name: "Mi horario",
+    icon: "calendar-week",
+    path: `${RUTA_SOPORTE}/mi-horario`,
+    permission: "soporte.atender",
+  },
+  {
+    id: "soporte-horas",
+    modulo: "soporte",
+    name: "Horas fuera de horario",
+    icon: "moon-stars",
+    path: `${RUTA_SOPORTE}/horas`,
+    permission: ["soporte.atender", "soporte.aprobar_horas"],
+  },
+  {
+    id: "soporte-formulario",
+    modulo: "soporte",
+    name: "Formulario",
+    icon: "ui-checks",
+    path: `${RUTA_SOPORTE}/formulario`,
+    permission: "soporte.configurar",
   },
   // --- Dashboards ---------------------------------------------------------
   //

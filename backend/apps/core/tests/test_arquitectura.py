@@ -87,13 +87,20 @@ def test_el_backend_usa_django():
 
 #: Las apps con pantalla propia. Las de infraestructura —`core`, `empresas`,
 #: `branding`— no describen entidades del negocio.
-APPS_DE_NEGOCIO = ("activos", "mantenimientos", "politicas", "organizacion")
+APPS_DE_NEGOCIO = (
+    "activos",
+    "mantenimientos",
+    "politicas",
+    "organizacion",
+    "ordenes",
+    "soporte",
+)
 
 #: Y de esas, las que llevan **reglas**: dar de alta un activo emite su código
 #: de barras y deja un movimiento; cerrar una reparación recalcula indicadores.
 #: `organizacion` queda fuera a propósito —es un catálogo, y sus dos guardas
 #: viven en el viewset—: exigirle una capa de servicios sería ceremonia.
-APPS_CON_SERVICIOS = ("activos", "mantenimientos", "politicas")
+APPS_CON_SERVICIOS = ("activos", "mantenimientos", "politicas", "ordenes", "soporte")
 
 
 @pytest.mark.parametrize("app", APPS_DE_NEGOCIO)

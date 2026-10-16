@@ -118,7 +118,11 @@ export const SECCIONES_CONFIGURACION = [
     id: "notificaciones",
     nombre: "Notificaciones",
     path: "/admin/configuracion/notificaciones",
-    permission: ["configuracion.ver", "alertas.configurar", ...PERMISOS_MATRIZ],
+    permission: [
+      "configuracion.ver",
+      "notificaciones.configurar",
+      ...PERMISOS_MATRIZ,
+    ],
     rutas: [
       "/admin/configuracion/notificaciones",
       "/admin/configuracion/recordatorios",
@@ -130,9 +134,16 @@ export const SECCIONES_CONFIGURACION = [
         permission: "configuracion.ver",
       },
       {
+        // Todos los correos del sistema: editar su diseño, ver sus
+        // variables y previsualizarlos.
+        nombre: "Plantillas de correo",
+        path: "/admin/configuracion/notificaciones/plantillas",
+        permission: "configuracion.ver",
+      },
+      {
         nombre: "Alertas del inventario",
         path: "/admin/configuracion/notificaciones/alertas",
-        permission: "alertas.configurar",
+        permission: "notificaciones.configurar",
       },
       {
         // Por empresa, como todo lo de la Matriz: la ve cualquiera con algún
@@ -163,32 +174,41 @@ export const SECCIONES_CONFIGURACION = [
     ],
   },
   {
+    // La mesa de ayuda de la empresa: su equipo, qué atiende cada quien, los
+    // plazos y las respuestas predefinidas.
+    id: "soporte",
+    nombre: "Mesa de ayuda",
+    path: "/admin/configuracion/soporte",
+    permission: "soporte.configurar",
+    rutas: ["/admin/configuracion/soporte"],
+    subsecciones: [
+      { nombre: "Equipo", path: "/admin/configuracion/soporte" },
+      {
+        nombre: "Categorías y casos",
+        path: "/admin/configuracion/soporte/categorias",
+      },
+      { nombre: "SLA", path: "/admin/configuracion/soporte/sla" },
+      {
+        nombre: "Respuestas predefinidas",
+        path: "/admin/configuracion/soporte/respuestas",
+      },
+    ],
+  },
+  {
+    // La plantilla con la que nace todo dashboard nuevo: es de
+    // todas las empresas, por eso vive aquí y no en el módulo.
+    id: "plantilla-dashboards",
+    nombre: "Plantilla de dashboards",
+    path: "/admin/configuracion/plantilla-dashboards",
+    permission: "configuracion.ver",
+    rutas: ["/admin/configuracion/plantilla-dashboards"],
+  },
+  {
     id: "respaldos",
     nombre: "Respaldos",
     path: "/admin/configuracion/respaldos",
     permission: "configuracion.ver",
     rutas: ["/admin/configuracion/respaldos"],
-  },
-  {
-    id: "auditoria",
-    nombre: "Auditoría",
-    path: "/admin/auditoria",
-    // La del sistema exige `auditoria.ver`; la de la Matriz, `ver_auditoria`
-    // en la empresa activa (§15.9). La sección aparece con cualquiera.
-    permission: ["auditoria.ver", "matriz.ver_auditoria"],
-    rutas: ["/admin/auditoria"],
-    subsecciones: [
-      {
-        nombre: "Sistema",
-        path: "/admin/auditoria",
-        permission: "auditoria.ver",
-      },
-      {
-        nombre: "Matriz",
-        path: "/admin/auditoria/matriz",
-        permission: "matriz.ver_auditoria",
-      },
-    ],
   },
 ];
 

@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "apps.ordenes",
     "apps.correos",
     "apps.notificaciones",
+    "apps.soporte",
 ]
 
 MIDDLEWARE = [
@@ -282,6 +283,9 @@ REST_FRAMEWORK = {
         "correo_prueba": env.str("CORREO_PRUEBA_THROTTLE_RATE", default="10/hour"),
         # Cartera: cada interpretación o hallazgo con IA es una llamada de pago.
         "ia": env.str("IA_THROTTLE_RATE", default="20/hour"),
+        # Mesa de ayuda: el formulario público y las respuestas desde el enlace
+        # de seguimiento, sin sesión. Frena el spam sin estorbar a una persona.
+        "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }
 
@@ -446,3 +450,8 @@ GEMINI_MODELOS_RESPALDO = env.list(
 # El IVA con el que se calcula el total de cada orden (materiales + mano de
 # obra). Ecuador: 15 % desde abril de 2024.
 ORDENES_IVA_PORCENTAJE = env.int("ORDENES_IVA_PORCENTAJE", default=15)
+
+# --- Mesa de ayuda ---
+# Días que un ticket atendido espera la confirmación de quien lo pidió antes de
+# cerrarse solo (si responde antes, se reabre).
+SOPORTE_DIAS_CIERRE_AUTOMATICO = env.int("SOPORTE_DIAS_CIERRE_AUTOMATICO", default=3)

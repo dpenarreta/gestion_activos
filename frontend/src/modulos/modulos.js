@@ -31,6 +31,22 @@ export const MODULOS = [
     prefijo: "/admin/matriz",
   },
   {
+    id: "sedes",
+    nombre: "Mantenimiento de sedes",
+    descripcion: "Órdenes de trabajo de sedes y agencias",
+    icono: "buildings",
+    inicio: "/admin/ordenes/panel",
+    prefijo: "/admin/ordenes",
+  },
+  {
+    id: "soporte",
+    nombre: "Mesa de ayuda",
+    descripcion: "Tickets de soporte de TI de los empleados",
+    icono: "headset",
+    inicio: "/admin/soporte/bandeja",
+    prefijo: "/admin/soporte",
+  },
+  {
     id: "dashboards",
     nombre: "Dashboards",
     descripcion: "Los dashboards de cada área o departamento",

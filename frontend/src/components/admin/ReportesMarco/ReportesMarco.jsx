@@ -23,6 +23,18 @@ export const SECCIONES_REPORTES = [
     path: "/admin/reportes/matriz",
     permission: PERMISOS_MATRIZ,
   },
+  {
+    id: "ordenes",
+    nombre: "Órdenes de trabajo",
+    path: "/admin/reportes/ordenes",
+    permission: ["ordenes.reportes"],
+  },
+  {
+    id: "soporte",
+    nombre: "Mesa de ayuda",
+    path: "/admin/reportes/soporte",
+    permission: ["soporte.reportes"],
+  },
 ];
 
 /** Todos los permisos que abren alguna pestaña: los del menú. */

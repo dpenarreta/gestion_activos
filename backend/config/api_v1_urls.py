@@ -36,6 +36,7 @@ urlpatterns = [
     # --- Solicitudes de compra: lo que falta, no lo que hay ---
     path("solicitudes/", include("apps.solicitudes.urls")),
     path("ordenes/", include("apps.ordenes.urls")),
+    path("soporte/", include("apps.soporte.urls")),
     path("notificaciones/", include("apps.notificaciones.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
