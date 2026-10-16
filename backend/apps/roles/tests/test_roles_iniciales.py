@@ -81,7 +81,9 @@ def test_consulta_no_puede_modificar_nada():
     escrituras = {
         codename
         for codename in permisos
-        if not codename.endswith((".ver", ".ver_detalle", ".ver_asignados", ".exportar"))
+        if not codename.endswith(
+            (".ver", ".ver_detalle", ".ver_asignados", ".exportar", ".ver_todas", ".ver_auditoria")
+        )
     }
     assert not escrituras, f"el rol de solo lectura tiene permisos de escritura: {escrituras}"
 

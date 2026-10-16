@@ -77,6 +77,31 @@ export function AdminSidebar({
   const { isDirty, setIsDirty, guardedNavigate } = useUnsavedChanges();
   const accordion = useMenuAccordion(menu, location.pathname);
   const insignias = useInsignias(menu, location.pathname);
+  const operativas = menu.filter((item) => item.modulo !== "comun");
+  const generales = menu.filter((item) => item.modulo === "comun");
+
+  function dibujar(item) {
+    return item.children && item.children.length > 0 ? (
+      <AdminMenuGroup
+        key={item.id}
+        item={item}
+        isCollapsed={isCollapsed}
+        currentPath={location.pathname}
+        onNavigate={handleNavigate}
+        accordion={accordion}
+        siblingIds={menu.map((sibling) => sibling.id)}
+      />
+    ) : (
+      <AdminMenuItem
+        key={item.id}
+        item={item}
+        isCollapsed={isCollapsed}
+        currentPath={location.pathname}
+        onNavigate={handleNavigate}
+        insignia={insignias[item.insignia]}
+      />
+    );
+  }
 
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
     isOpen: isMobileOpen,
@@ -163,30 +188,16 @@ export function AdminSidebar({
           isCollapsed={isCollapsed}
         />
 
-        <ul className="mz-nav">
-          {menu.map((item) =>
-            item.children && item.children.length > 0 ? (
-              <AdminMenuGroup
-                key={item.id}
-                item={item}
-                isCollapsed={isCollapsed}
-                currentPath={location.pathname}
-                onNavigate={handleNavigate}
-                accordion={accordion}
-                siblingIds={menu.map((sibling) => sibling.id)}
-              />
-            ) : (
-              <AdminMenuItem
-                key={item.id}
-                item={item}
-                isCollapsed={isCollapsed}
-                currentPath={location.pathname}
-                onNavigate={handleNavigate}
-                insignia={insignias[item.insignia]}
-              />
-            ),
-          )}
-        </ul>
+        <ul className="mz-nav">{operativas.map(dibujar)}</ul>
+
+        {/* Lo general del sistema —reportes, configuración, usuarios, roles—
+            no es de ningún módulo: va aparte, al pie, igual en todos. */}
+        {generales.length > 0 && (
+          <div className="mz-nav-general">
+            {!isCollapsed && <div className="mz-nav-titulo">General</div>}
+            <ul className="mz-nav mz-nav--general">{generales.map(dibujar)}</ul>
+          </div>
+        )}
 
         <div className="mz-sidebar-foot">
           {rol && !isCollapsed && (

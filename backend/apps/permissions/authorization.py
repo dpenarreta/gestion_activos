@@ -1,9 +1,5 @@
 """Resolución de permisos efectivos de un usuario contra el catálogo."""
 
-#: Módulos cuyos permisos solo se obtienen por el rol de la membresía en la
-#: empresa activa, nunca por un rol global del usuario.
-SOLO_POR_EMPRESA = ("matriz.",)
-
 
 def _permisos_de_la_empresa_activa(user) -> set[str]:
     """Los que la cuenta tiene por los roles que ejerce **en esta empresa**.
@@ -64,13 +60,10 @@ def get_user_permission_codenames(user) -> set[str]:
     igual, sin que este módulo tenga que duplicar esa lógica."""
     if user is None or not user.is_authenticated:
         return set()
+    # Todos los permisos funcionan igual, sean del módulo que sean: los roles
+    # son generales del sistema. (Hasta el 15 de octubre de 2026 los de la
+    # Matriz solo valían por la membresía; se unificó a pedido del negocio.)
     globales = {perm.partition(".")[2] for perm in user.get_all_permissions()}
-    if not user.is_superuser:
-        # Los de la Matriz solo valen por la membresía (especificación del
-        # módulo, §8.1): un rol global con `matriz.validar` no puede validar
-        # cierres en una empresa donde la persona no tiene rol. El
-        # superusuario sí los tiene en todas.
-        globales = {p for p in globales if not p.startswith(SOLO_POR_EMPRESA)}
     return globales | _permisos_de_la_empresa_activa(user)
 
 

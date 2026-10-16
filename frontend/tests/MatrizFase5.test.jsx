@@ -53,7 +53,7 @@ vi.mock("../src/api/empresasService", () => ({
 }));
 vi.mock("../src/api/rolesService", () => ({
   rolesService: {
-    list: () => Promise.resolve([{ id: 20, name: "Matriz · Responsable" }]),
+    list: () => Promise.resolve([{ id: 20, name: "Responsable de cumplimiento" }]),
   },
 }));
 vi.mock("../src/api/adminUsersService", () => ({
@@ -333,7 +333,7 @@ describe("Las áreas de la Matriz en la ficha del usuario (§8.7)", () => {
           id: 1,
           nombre: "LaarCourier",
           es_predeterminada: true,
-          roles: [{ id: 20, name: "Matriz · Responsable" }],
+          roles: [{ id: 20, name: "Responsable de cumplimiento" }],
           areas: [{ id: 5, nombre: "Contabilidad y Tributario" }],
         },
       ],

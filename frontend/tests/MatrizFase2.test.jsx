@@ -58,7 +58,7 @@ const COURIER = {
   codigo: "LC",
   color: "#164B86",
   zona_horaria: "America/Guayaquil",
-  roles: ["Matriz · Responsable"],
+  roles: ["Responsable de cumplimiento"],
   capacidades: ["matriz.crear", "matriz.cargar", "matriz.enviar"],
 };
 
@@ -208,7 +208,7 @@ describe("El tablero (§15.2)", () => {
     expect(
       screen.getByText("3 a tiempo · 1 fuera de plazo"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Matriz · Responsable/)).toBeInTheDocument();
+    expect(screen.getByText(/Responsable de cumplimiento/)).toBeInTheDocument();
     expect(screen.getByText("Declaración de IVA")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Nueva obligación/ }),

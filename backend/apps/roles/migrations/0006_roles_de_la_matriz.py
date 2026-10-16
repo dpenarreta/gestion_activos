@@ -7,9 +7,8 @@ es idempotente.
 Los cuatro roles son **roles editables** del sistema, no lógica fija: después se
 pueden renombrar, cambiar o borrar desde Configuración → Roles. Llevan el
 prefijo «Matriz ·» porque ya existe un «Administrador» del inventario, y dos
-roles con el mismo nombre en la ficha de un usuario no se distinguirían. Sus
-permisos `matriz.*` solo valen en las empresas donde el rol se asigna en la
-membresía (ver `apps.permissions.authorization.SOLO_POR_EMPRESA`).
+roles con el mismo nombre en la ficha de un usuario no se distinguirían. La
+`0007` los funde en el catálogo general de roles.
 """
 
 from django.db import migrations

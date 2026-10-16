@@ -43,7 +43,7 @@ const COURIER = {
   codigo: "LC",
   color: "#164B86",
   zona_horaria: "America/Guayaquil",
-  roles: ["Matriz · Responsable"],
+  roles: ["Responsable de cumplimiento"],
   capacidades: ["matriz.cargar", "matriz.enviar"],
 };
 

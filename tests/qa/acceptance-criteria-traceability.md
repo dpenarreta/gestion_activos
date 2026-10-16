@@ -883,7 +883,7 @@ estado del módulo en `docs/matriz-obligaciones.md`.
 
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
-| AC-MTZ-001 | Un rol global no da la Matriz | matriz-obligaciones.feature | Un rol global no da permisos de la Matriz | Sí (pytest: `test_un_rol_global_no_da_permisos_de_la_matriz`) |
+| AC-MTZ-001 | Un rol global da la Matriz | matriz-obligaciones.feature | Un rol global da los permisos de la Matriz como los de cualquier módulo | Sí (pytest: `test_un_rol_global_da_permisos_de_la_matriz_como_los_demas`) |
 | AC-MTZ-002 | El rol vale solo en su empresa | matriz-obligaciones.feature | El rol de la membresía vale solo en su empresa | Sí (pytest: `test_el_rol_de_la_membresia_vale_solo_en_su_empresa`, `test_el_superusuario_tiene_toda_la_matriz`) |
 | AC-MTZ-003 | Solo sus empresas, con su rol | matriz-obligaciones.feature | Solo ve sus empresas, con su rol | Sí (pytest: `test_solo_ve_sus_empresas_con_su_rol`, `test_una_empresa_inactiva_no_da_acceso`, `test_el_selector_de_empresa_dice_el_rol_en_cada_una`) |
 | AC-MTZ-004 | La entrada dice dónde y con qué rol | matriz-obligaciones.feature | La entrada de la Matriz dice dónde se está y con qué rol | Sí (Vitest: `dice la empresa, su zona horaria, el rol y qué permite`, `sin rol de la Matriz en la empresa activa, lo dice y cómo resolverlo`) |
@@ -965,4 +965,11 @@ estado del módulo en `docs/matriz-obligaciones.md`.
 | ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
 | --- | --- | --- | --- | --- |
 | AC-MTZ-057 | Crear para otros | matriz-obligaciones.feature | Crear sin «ver todas» exige figurar, salvo que la empresa lo permita | Sí (pytest: `test_sin_ver_todas_no_se_crea_lo_que_no_se_podria_ver`, `test_la_empresa_puede_permitir_crear_para_otros`, `test_el_ajuste_se_cambia_desde_la_ficha_de_la_empresa`; Vitest: `se explica en el alta y propone a uno mismo como responsable`, `sin la regla, no hay nota ni responsable propuesto`) |
+
+## Lo general del sistema (AC-GEN-001 y AC-GEN-002)
+
+| ID | Criterio | Archivo `.feature` | Escenario | Automatizado |
+| --- | --- | --- | --- | --- |
+| AC-GEN-001 | Reportes y Configuración generales | matriz-obligaciones.feature | Reportes y Configuración son generales, no de un módulo | Sí (Vitest: `NavegacionGeneral.test.jsx`, 8 casos) |
+| AC-GEN-002 | Catálogo único de roles | matriz-obligaciones.feature | Un solo catálogo de roles para todo el sistema | Sí (pytest: `test_un_rol_global_da_permisos_de_la_matriz_como_los_demas`, `test_roles_iniciales.py`, `test_los_roles_generales_traen_la_matriz`) |
 

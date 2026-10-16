@@ -1,3 +1,4 @@
+import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
@@ -442,12 +443,22 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
+        {/* Reportes, uno solo para todo el sistema: inventario en su
+            dirección de siempre y la Matriz como otra pestaña. */}
         <Route
           path="reportes"
           element={
-            <RequirePermission permission="reportes.ver">
+            <ReportesInicio>
               <ReportesPage />
-            </RequirePermission>
+            </ReportesInicio>
+          }
+        />
+        <Route
+          path="reportes/matriz"
+          element={
+            <RequiereRolMatriz>
+              <ReportesMatriz />
+            </RequiereRolMatriz>
           }
         />
         <Route
@@ -586,13 +597,11 @@ export function AppRoutes() {
             </RequiereRolMatriz>
           }
         />
+        {/* La dirección anterior de los reportes de la Matriz, por los
+            enlaces guardados. */}
         <Route
           path="matriz/reportes"
-          element={
-            <RequiereRolMatriz>
-              <ReportesMatriz />
-            </RequiereRolMatriz>
-          }
+          element={<Navigate to="/admin/reportes/matriz" replace />}
         />
         {/* La auditoría de la Matriz: el servidor exige `ver_auditoria` en
             la empresa activa y la pantalla muestra su mensaje si falta. */}

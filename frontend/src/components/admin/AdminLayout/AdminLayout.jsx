@@ -15,6 +15,10 @@ import {
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
 import { ConfiguracionMarco } from "../ConfiguracionMarco/ConfiguracionMarco";
 import { seccionDeRuta } from "../ConfiguracionMarco/seccionesConfiguracion";
+import {
+  ReportesMarco,
+  esRutaDeReportes,
+} from "../ReportesMarco/ReportesMarco";
 import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
 import "./AdminLayout.css";
 
@@ -158,6 +162,10 @@ export function AdminLayout() {
               <ConfiguracionMarco empresa={empresas.activa?.nombre}>
                 <Outlet />
               </ConfiguracionMarco>
+            ) : esRutaDeReportes(location.pathname) ? (
+              <ReportesMarco>
+                <Outlet />
+              </ReportesMarco>
             ) : (
               <Outlet />
             )}

@@ -85,7 +85,8 @@ tocan: son configuración.
 python manage.py crear_roles_iniciales
 ```
 
-Crea los cinco roles del documento con sus permisos. Es una **plantilla**: se
+Crea el catálogo general de roles —los cinco del documento funcional y los dos
+de cumplimiento de la Matriz— con sus permisos. Es una **plantilla**: se
 ejecuta una vez y a partir de ahí se ajustan desde *Usuarios y roles → Roles*.
 Volver a ejecutarlo no pisa lo que se haya cambiado (`--actualizar` sí).
 
@@ -96,6 +97,11 @@ Volver a ejecutarlo no pisa lo que se haya cambiado (`--actualizar` sí).
 | **Supervisor TI** | Aprueba bajas, define reglas de reemplazo, exporta reportes | **No crea ni edita fichas**: la separación es lo que hace que la aprobación signifique algo |
 | **Consulta / Auditoría** | Ve y exporta todo el histórico | **No modifica nada** ni ve la ubicación de la auditoría, que es un dato personal y se concede aparte |
 | **Usuario final** | Consulta los equipos que tiene a su cargo | **No ve el inventario**: ni el parque, ni los custodios de los demás, ni los costos |
+| **Responsable de cumplimiento** | Prepara las obligaciones a su cargo: crea, carga evidencia, envía y reenvía recordatorios | **No ve las ajenas** ni valida: ve y actúa solo sobre lo suyo |
+| **Supervisor de cumplimiento** | Ve todas las obligaciones, valida o devuelve los cierres, cambia fechas, exporta | **No carga ni envía**: la separación de funciones es la que da valor a la validación |
+
+Los roles son **generales del sistema**: el Administrador tiene también toda la
+Matriz y Consulta / Auditoría la ve toda.
 
 El quinto rol, **«Usuario final»**, lleva un único permiso
 —`activos.ver_asignados`— y ahí está todo su sentido: abre *Mis equipos*, que

@@ -1,8 +1,8 @@
 """Quién puede qué en la Matriz, empresa por empresa (§8).
 
-Los permisos `matriz.*` salen del rol de la **membresía** en cada empresa; el
-superusuario los tiene todos en todas (ver
-`apps.permissions.authorization.SOLO_POR_EMPRESA`).
+Los permisos `matriz.*` funcionan como los de cualquier otro módulo: salen de
+los roles generales de la persona y de los que tiene en la membresía de cada
+empresa. El superusuario los tiene todos en todas.
 
 Dos respuestas distintas, a propósito (§8.4, §8.5):
 
@@ -56,15 +56,19 @@ def capacidades_en(usuario, empresa) -> list[str]:
     if not empresa.activa:
         # Una empresa inactiva no da acceso a nadie (§8.3).
         return []
-    return sorted(
-        set(
-            Permission.objects.filter(
-                codename__startswith="matriz.",
-                group__membresias__usuario=usuario,
-                group__membresias__empresa=empresa,
-            ).values_list("codename", flat=True)
-        )
+    de_la_membresia = Permission.objects.filter(
+        codename__startswith="matriz.",
+        group__membresias__usuario=usuario,
+        group__membresias__empresa=empresa,
+    ).values_list("codename", flat=True)
+    # Los roles generales de la persona valen en todas sus empresas.
+    globales = Permission.objects.filter(
+        codename__startswith="matriz.", group__user=usuario
+    ).values_list("codename", flat=True)
+    directos = usuario.user_permissions.filter(codename__startswith="matriz.").values_list(
+        "codename", flat=True
     )
+    return sorted(set(de_la_membresia) | set(globales) | set(directos))
 
 
 def empresa_de_la_matriz(request):

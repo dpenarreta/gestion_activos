@@ -7,15 +7,13 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
   # La fase 1 sale cuando «un usuario solo ve sus empresas, con su rol» (§21).
 
   @AC-MTZ-001
-  Scenario: Un rol global no da permisos de la Matriz
+  Scenario: Un rol global da los permisos de la Matriz como los de cualquier módulo
     Given una persona con un rol global que incluye «matriz.validar»
-    And sin rol de la Matriz en la membresía de una empresa
+    And sin rol en la membresía de una empresa
     When trabaja en esa empresa
-    Then no puede validar cierres ahí
-    And los demás permisos globales le siguen valiendo
-    # §8.1: los permisos de la Matriz salen solo del rol de la membresía. Es
-    # la diferencia con el resto del sistema, donde un rol global vale en
-    # todas las empresas.
+    Then puede validar cierres ahí, igual que le valen los demás permisos globales
+    # Los roles son generales del sistema (15 de octubre de 2026). Antes los
+    # permisos de la Matriz solo salían de la membresía (§8.1).
 
   @AC-MTZ-002
   Scenario: El rol de la membresía vale solo en su empresa
@@ -37,11 +35,10 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
     And sin rol de la Matriz en la empresa activa, lo dice y cómo resolverlo
 
   @AC-MTZ-005
-  Scenario: Los roles de la Matriz vienen sembrados y son editables
-    Then existen «Matriz · Administrador», «Matriz · Responsable», «Matriz · Supervisor/Aprobador» y «Matriz · Auditor»
-    And cada uno con los permisos de la tabla de la sección 7
-    And el rol «Superusuario» recibe los permisos nuevos
-    # Llevan el prefijo porque ya existe un «Administrador» del inventario.
+  Scenario: Los roles son generales y traen los permisos de la Matriz
+    Then «Administrador» tiene toda la Matriz y «Consulta / Auditoría» la ve toda y la exporta
+    And existen «Responsable de cumplimiento» y «Supervisor de cumplimiento» con los permisos de la sección 7
+    And no queda ningún rol propio de un módulo ni el rol «Superusuario» sin los permisos nuevos
 
   @AC-MTZ-006
   Scenario: Áreas y entidades de control compartidas
@@ -334,4 +331,18 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
     Given una persona sin «ver todas» en una empresa que no permite crear para otros
     Then solo crea obligaciones donde es responsable o suplente, y el alta se lo explica y la propone como responsable
     And si la empresa activa «Quien no ve toda la empresa puede crear obligaciones para otras personas», puede crear para cualquiera
+
+  # Lo general del sistema
+
+  @AC-GEN-001
+  Scenario: Reportes y Configuración son generales, no de un módulo
+    Then el menú lateral lleva un bloque «General» al pie, igual en todos los módulos, con Reportes y Configuración
+    And Reportes es uno solo, con una pestaña por asunto que se puede abrir (Inventario, Matriz de obligaciones)
+    And quien solo tiene la Matriz entra a Reportes por su pestaña, sin un 403
+    And entrar a Reportes o a Configuración no cambia de módulo
+
+  @AC-GEN-002
+  Scenario: Un solo catálogo de roles para todo el sistema
+    Then los roles de la Matriz se fundieron en los generales y quien los tenía conserva sus permisos
+    And los permisos de cualquier módulo cuentan igual desde un rol global o desde la membresía
 

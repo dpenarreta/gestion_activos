@@ -59,7 +59,7 @@ test.describe("El panel principal", () => {
       [null, "Reportes", "Reportes"],
     ]) {
       if (grupo) {
-        await page.getByRole("button", { name: new RegExp(grupo) }).click();
+        await page.getByRole("button", { name: grupo, exact: true }).click();
       }
       await page.getByRole("link", { name: opcion, exact: true }).click();
       await expect(

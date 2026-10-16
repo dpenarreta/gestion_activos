@@ -4,6 +4,7 @@ import {
 } from "../ConfiguracionMarco/seccionesConfiguracion";
 import { MODULO_POR_DEFECTO } from "../../../modulos/modulos";
 import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
+import { PERMISOS_REPORTES } from "../ReportesMarco/ReportesMarco";
 
 // En su propio módulo: Configuración también lo usa, y este archivo ya
 // importa de Configuración (sería una importación circular).
@@ -158,22 +159,10 @@ export const ADMIN_MENU = [
       },
     ],
   },
-  {
-    // Los reportes son transversales: cruzan activos, custodia y
-    // mantenimientos, así que no cuelgan de ninguno de los tres.
-    id: "reportes",
-    modulo: "activos",
-    name: "Reportes",
-    icon: "file-earmark-bar-graph",
-    path: "/admin/reportes",
-    permission: "reportes.ver",
-  },
   // --- Matriz de obligaciones -------------------------------------------
   //
-  // Sus permisos valen solo por la membresía en la empresa activa (ver
-  // `apps.permissions.authorization.SOLO_POR_EMPRESA`), así que la entrada
-  // aparece en las empresas donde la persona tiene un rol de la Matriz y en las
-  // demás no.
+  // Sus permisos salen de los roles generales y de los de la empresa activa,
+  // como los de cualquier módulo.
   {
     id: "matriz-resumen",
     modulo: "matriz",
@@ -209,13 +198,19 @@ export const ADMIN_MENU = [
     path: "/admin/matriz/documentos",
     permission: PERMISOS_MATRIZ,
   },
+  // --- General: igual en todos los módulos --------------------------------
+  //
+  // Reportes, configuración, usuarios y roles son del sistema, no de un
+  // módulo: van en el bloque «General» al pie del menú.
   {
-    id: "matriz-reportes",
-    modulo: "matriz",
+    // Uno solo, con una pestaña por asunto (ver `ReportesMarco`).
+    id: "reportes",
+    modulo: "comun",
     name: "Reportes",
-    icon: "bar-chart",
-    path: "/admin/matriz/reportes",
-    permission: PERMISOS_MATRIZ,
+    icon: "file-earmark-bar-graph",
+    path: "/admin/reportes",
+    permission: PERMISOS_REPORTES,
+    rutas: ["/admin/reportes"],
   },
   {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,
@@ -228,7 +223,6 @@ export const ADMIN_MENU = [
     // la entrada. `rutas` son las direcciones de esas secciones, que conservan
     // las suyas, para que la entrada se marque estando en cualquiera de ellas.
     id: "configuracion",
-    // Común a todos los módulos.
     modulo: "comun",
     name: "Configuración",
     icon: "gear",

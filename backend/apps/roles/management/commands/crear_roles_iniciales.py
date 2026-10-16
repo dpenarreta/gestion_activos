@@ -1,4 +1,4 @@
-"""Crea los cinco roles del §13 con sus permisos.
+"""Crea el catálogo general de roles con sus permisos.
 
 El sistema tiene un catálogo de 46 permisos y un modelo de roles configurable,
 pero una instalación recién migrada llega sin ningún rol: el primer
@@ -6,6 +6,11 @@ administrador acaba trabajando como superusuario y, cuando entra el resto del
 equipo, o se les da superusuario también o alguien tiene que deducir a mano qué
 permisos corresponden a cada puesto. Este comando parte de la tabla del §13 del
 documento funcional y la traduce al catálogo.
+
+Los roles son **generales del sistema**, no de un módulo: cada uno junta los
+permisos de todos los módulos que le corresponden (inventario y Matriz de
+obligaciones). Los dos de cumplimiento vienen de la especificación de la
+Matriz (§7).
 
 **Es una plantilla, no una imposición.** Los roles son una decisión de cada
 empresa, así que esto no vive en una migración —que los recrearía en cada
@@ -27,7 +32,7 @@ from django.db import transaction
 from apps.permissions.catalog import all_codenames
 from apps.permissions.models import ModulePermission
 
-#: Los cinco roles del §13, traducidos al catálogo de permisos.
+#: El catálogo general de roles, traducido al catálogo de permisos.
 #:
 #: Las exclusiones son la parte que importa, porque son las que separan un rol
 #: de otro; cada una lleva su motivo al lado.
@@ -114,6 +119,11 @@ ROLES = {
             "auditoria.ver",
             "auditoria.ver_detalle",
             "auditoria.exportar",
+            # De la Matriz, lo mismo: ver todo y exportar, sin tocar nada.
+            "matriz.ver_todas",
+            "matriz.exportar",
+            "matriz.ver_auditoria",
+            "catalogos.ver",
             # Sin `auditoria.ver_ubicacion`: es un dato personal de contexto y
             # se concede aparte, a quien lo necesite y por un motivo concreto
             # (ver docs/data-protection-review.md).
@@ -136,11 +146,36 @@ ROLES = {
             "solicitudes.crear",
         ],
     },
+    "Responsable de cumplimiento": {
+        "descripcion": "Prepara las obligaciones a su cargo: carga la evidencia y la envía.",
+        # Sin `matriz.ver_todas`: ve y actúa solo sobre lo suyo (responsable o
+        # suplente), y crea en sus áreas.
+        "permisos": [
+            "matriz.crear",
+            "matriz.editar",
+            "matriz.cargar",
+            "matriz.enviar",
+            "matriz.recordar",
+        ],
+    },
+    "Supervisor de cumplimiento": {
+        "descripcion": "Ve todas las obligaciones, valida o devuelve los cierres y cambia fechas.",
+        # Sin cargar ni enviar: la separación de funciones es la que da valor a
+        # la validación.
+        "permisos": [
+            "matriz.ver_todas",
+            "matriz.cambiar_fecha",
+            "matriz.validar",
+            "matriz.recordar",
+            "matriz.exportar",
+            "matriz.ver_auditoria",
+        ],
+    },
 }
 
 
 class Command(BaseCommand):
-    help = "Crea los cinco roles del §13 del documento funcional con sus permisos."
+    help = "Crea el catálogo general de roles (inventario y Matriz) con sus permisos."
 
     def add_arguments(self, parser):
         parser.add_argument(

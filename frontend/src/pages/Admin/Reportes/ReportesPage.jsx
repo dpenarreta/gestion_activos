@@ -145,15 +145,10 @@ export function ReportesPage() {
 
   return (
     <div className="reportes-page">
-      <div className="mz-view-head">
-        <div>
-          <h2>Reportes</h2>
-          <p className="mz-desc">
-            Los trece reportes del documento funcional. Elija uno, acote el
-            período o el alcance, y descárguelo en el formato que necesite.
-          </p>
-        </div>
-      </div>
+      <p className="mz-desc">
+        Los trece reportes del inventario. Elija uno, acote el período o el
+        alcance, y descárguelo en el formato que necesite.
+      </p>
 
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">

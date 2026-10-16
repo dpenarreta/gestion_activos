@@ -74,22 +74,26 @@ def seguridad():
 # --- Permisos solo por membresía (§8.1) --------------------------------------
 
 
-def test_un_rol_global_no_da_permisos_de_la_matriz(courier, seguridad):
-    """Un rol global con `matriz.validar` no puede validar en una empresa donde
-    la persona no tiene rol: los permisos de la Matriz salen de la membresía."""
+def test_un_rol_global_da_permisos_de_la_matriz_como_los_demas(courier, seguridad):
+    """Los roles son generales del sistema: un rol global con `matriz.validar`
+    vale en todas las empresas de la persona, igual que `activos.ver`. (Hasta
+    el 15 de octubre de 2026 los de la Matriz solo valían por la membresía.)"""
     cuenta = _cuenta("global", "matriz.validar", "activos.ver")
     _membresia(cuenta, courier)
 
-    permisos = _cliente(cuenta, courier).get("/api/v1/auth/me/").data["permissions"]
-
-    assert "matriz.validar" not in permisos
-    # Los demás permisos globales siguen valiendo.
+    cliente = _cliente(cuenta, courier)
+    permisos = cliente.get("/api/v1/auth/me/").data["permissions"]
+    assert "matriz.validar" in permisos
     assert "activos.ver" in permisos
+    # Y el selector de la Matriz la ofrece, con esa capacidad.
+    empresas = cliente.get("/api/v1/matriz/empresas/mias/").data["empresas"]
+    assert [e["codigo"] for e in empresas] == ["LC"]
+    assert "matriz.validar" in empresas[0]["capacidades"]
 
 
 def test_el_rol_de_la_membresia_vale_solo_en_su_empresa(courier, seguridad):
     cuenta = _cuenta("ana")
-    supervisor = Group.objects.get(name="Matriz · Supervisor/Aprobador")
+    supervisor = Group.objects.get(name="Supervisor de cumplimiento")
     _membresia(cuenta, courier, supervisor)
     _membresia(cuenta, seguridad)
 
@@ -117,7 +121,7 @@ def test_el_superusuario_tiene_toda_la_matriz():
 def test_solo_ve_sus_empresas_con_su_rol(courier, seguridad):
     """El criterio de salida de la fase 1."""
     cuenta = _cuenta("bea")
-    responsable = Group.objects.get(name="Matriz · Responsable")
+    responsable = Group.objects.get(name="Responsable de cumplimiento")
     inventario = _rol("Bodega", "activos.ver")
     _membresia(cuenta, courier, responsable, inventario)
     # Membresía sin rol de la Matriz: entra al inventario, no a este módulo.
@@ -126,14 +130,14 @@ def test_solo_ve_sus_empresas_con_su_rol(courier, seguridad):
     empresas = _cliente(cuenta).get(MIAS).data["empresas"]
 
     assert [e["codigo"] for e in empresas] == ["LC"]
-    assert empresas[0]["roles"] == ["Matriz · Responsable"]
+    assert empresas[0]["roles"] == ["Responsable de cumplimiento"]
     assert "matriz.cargar" in empresas[0]["capacidades"]
     assert "matriz.validar" not in empresas[0]["capacidades"]
 
 
 def test_una_empresa_inactiva_no_da_acceso(courier):
     cuenta = _cuenta("cid")
-    _membresia(cuenta, courier, Group.objects.get(name="Matriz · Administrador"))
+    _membresia(cuenta, courier, Group.objects.get(name="Administrador"))
     courier.activa = False
     courier.save()
 
@@ -144,14 +148,22 @@ def test_los_roles_sembrados_son_los_de_la_especificacion():
     def acciones(nombre):
         return {
             p.codename.removeprefix("matriz.")
-            for p in Group.objects.get(name=nombre).permissions.all()
+            for p in Group.objects.get(name=nombre).permissions.filter(
+                codename__startswith="matriz."
+            )
         }
 
-    assert len(acciones("Matriz · Administrador")) == 12
-    assert acciones("Matriz · Responsable") == {"crear", "editar", "cargar", "enviar", "recordar"}
-    assert acciones("Matriz · Auditor") == {"ver_todas", "exportar", "ver_auditoria"}
-    assert "validar" in acciones("Matriz · Supervisor/Aprobador")
-    assert "crear" not in acciones("Matriz · Supervisor/Aprobador")
+    assert len(acciones("Administrador")) == 12
+    assert acciones("Responsable de cumplimiento") == {
+        "crear",
+        "editar",
+        "cargar",
+        "enviar",
+        "recordar",
+    }
+    assert acciones("Consulta / Auditoría") == {"ver_todas", "exportar", "ver_auditoria"}
+    assert "validar" in acciones("Supervisor de cumplimiento")
+    assert "crear" not in acciones("Supervisor de cumplimiento")
 
 
 # --- Catálogos compartidos (§4.3, §5) ----------------------------------------
@@ -230,13 +242,13 @@ def test_las_personas_de_la_empresa_para_elegir_gerente(courier, seguridad):
 
 def test_el_selector_de_empresa_dice_el_rol_en_cada_una(courier, seguridad):
     cuenta = _cuenta("dora")
-    _membresia(cuenta, courier, Group.objects.get(name="Matriz · Auditor"))
+    _membresia(cuenta, courier, Group.objects.get(name="Consulta / Auditoría"))
     _membresia(cuenta, seguridad)
 
     empresas = {
         e["codigo"]: e for e in _cliente(cuenta).get("/api/v1/empresas/mias/").data["empresas"]
     }
 
-    assert empresas["LC"]["roles"] == ["Matriz · Auditor"]
+    assert empresas["LC"]["roles"] == ["Consulta / Auditoría"]
     assert empresas["LS"]["roles"] == []
     assert empresas["LC"]["color"] == "#164B86"

@@ -22,6 +22,15 @@ from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
 
+#: Los roles que estas pruebas llamaban por su papel en la Matriz, con su
+#: nombre en el catálogo general de roles.
+ROL_GENERAL = {
+    "Administrador": "Administrador",
+    "Auditor": "Consulta / Auditoría",
+    "Responsable": "Responsable de cumplimiento",
+    "Supervisor/Aprobador": "Supervisor de cumplimiento",
+}
+
 GYE = zoneinfo.ZoneInfo("America/Guayaquil")
 
 
@@ -38,7 +47,7 @@ def _cuenta(nombre, **extra):
 
 
 def _rol(nombre):
-    return Group.objects.get(name=f"Matriz · {nombre}")
+    return Group.objects.get(name=ROL_GENERAL[nombre])
 
 
 def _miembro(usuario, empresa, *roles):

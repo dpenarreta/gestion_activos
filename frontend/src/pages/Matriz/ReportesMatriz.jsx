@@ -138,7 +138,6 @@ export function ReportesMatriz() {
     <div>
       <div className="mz-view-head">
         <div>
-          <h2>Reportes</h2>
           <p className="mz-desc">
             Cumplimiento de las obligaciones por fecha de vencimiento.
           </p>

@@ -12,19 +12,21 @@ tiene y agrega solo lo propio de la matriz.
 ## Cómo se entra
 
 - **Selector de módulos** en la barra superior, junto al de empresa: «Gestión de
-  Activos» o «Matriz de obligaciones». Cada módulo trae su propio menú lateral;
-  Configuración es común a los dos.
+  Activos» o «Matriz de obligaciones». Cada módulo trae su propio menú lateral
+  con sus pantallas operativas; lo general del sistema —Reportes (uno solo, con
+  una pestaña por asunto) y Configuración (usuarios, roles, permisos,
+  catálogos…)— va en el bloque «General» al pie, igual en los dos.
 - Frontend bajo `/admin/matriz/...`; API bajo `/api/v1/matriz/...`
   (`apps.matriz`).
-- La Matriz aparece en las empresas donde la persona tiene un rol de la Matriz
-  en la membresía, y en las demás no.
+- La Matriz aparece en las empresas donde la persona tiene algún permiso
+  `matriz.*`, por un rol general o por el de su membresía, y en las demás no.
 
 ## Mapa de integración (§3)
 
 | Necesidad | Decisión |
 | --- | --- |
 | Usuarios, login | Los del sistema (JWT con sesiones, Argon2, bloqueo por intentos) |
-| Roles editables | `auth.Group`; se siembran «Matriz · Administrador», «Matriz · Responsable», «Matriz · Supervisor/Aprobador» y «Matriz · Auditor» (con prefijo: ya existe un «Administrador») |
+| Roles editables | `auth.Group`, un solo catálogo general (ver «Roles generales» más abajo) |
 | Catálogo de permisos | `apps/permissions/catalog.py`: módulos `matriz` y `catalogos` |
 | Empresas y membresía | `Empresa` y `MembresiaEmpresa` (con roles por empresa), ampliadas con zona horaria, color, gerente general y base de cumplimiento |
 | Sucursales | Las sedes de Organización |
@@ -36,10 +38,9 @@ tiene y agrega solo lo propio de la matriz.
 ## Decisiones confirmadas (§24), 15 de octubre de 2026
 
 1. Se reutilizan las empresas del sistema y se amplían.
-2. Roles por empresa = roles del sistema asignados en la membresía. Los
-   permisos `matriz.*` **solo** cuentan por la membresía: un rol global no los
-   concede (`apps.permissions.authorization.SOLO_POR_EMPRESA`). El superusuario
-   los tiene en todas.
+2. Roles por empresa = roles del sistema asignados en la membresía. *(Cambió el
+   15 de octubre: los roles son generales y los permisos `matriz.*` cuentan
+   también desde un rol global, como los de cualquier módulo.)*
 3. Áreas y entidades de control: catálogos nuevos, compartidos por todas las
    empresas, sembrados con los de la sección 5. No son los departamentos del
    inventario.
@@ -236,4 +237,26 @@ tiene y agrega solo lo propio de la matriz.
   adelantado de mes), se salta a la siguiente libre.
 
 El detalle de la ronda está en `tests/qa/test-execution-report.md`.
+
+## Roles generales y lo común del sistema (15 de octubre de 2026)
+
+Configuración, usuarios, roles, permisos y reportes son **del sistema**, no de
+un módulo:
+
+- **Menú**: el bloque «General», al pie del menú lateral e igual en todos los
+  módulos, lleva Reportes y Configuración. Entrar en ellos no cambia de módulo.
+- **Reportes**: uno solo (`/admin/reportes`), con una pestaña por asunto:
+  Inventario y Matriz de obligaciones (`/admin/reportes/matriz`). Quien solo
+  tiene la Matriz entra por su pestaña. `/admin/matriz/reportes` redirige.
+- **Roles**: un solo catálogo (`roles.0007_roles_generales` y
+  `crear_roles_iniciales`):
+  - **Administrador**: todo, Matriz y sus catálogos incluidos.
+  - **Consulta / Auditoría**: además de lo del inventario, ve toda la Matriz,
+    la exporta y ve su auditoría.
+  - **Responsable de cumplimiento** y **Supervisor de cumplimiento**: los que
+    eran «Matriz · Responsable» y «Matriz · Supervisor/Aprobador».
+  - «Matriz · Administrador» y «Matriz · Auditor» se fundieron en los dos
+    primeros. Quien los tenía recibió el general.
+- **Permisos**: todos funcionan igual. Los de la Matriz ya no exigen venir de
+  la membresía: un rol global los da en todas las empresas de la persona.
 

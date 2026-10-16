@@ -166,7 +166,7 @@ function empresa(capacidades) {
     id: 1,
     nombre: "LaarCourier",
     zona_horaria: "America/Guayaquil",
-    roles: ["Matriz · Administrador"],
+    roles: ["Administrador"],
     capacidades,
   };
 }

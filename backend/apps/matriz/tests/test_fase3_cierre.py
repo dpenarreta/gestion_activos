@@ -23,6 +23,15 @@ from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
 
+#: Los roles que estas pruebas llamaban por su papel en la Matriz, con su
+#: nombre en el catálogo general de roles.
+ROL_GENERAL = {
+    "Administrador": "Administrador",
+    "Auditor": "Consulta / Auditoría",
+    "Responsable": "Responsable de cumplimiento",
+    "Supervisor/Aprobador": "Supervisor de cumplimiento",
+}
+
 GYE = zoneinfo.ZoneInfo("America/Guayaquil")
 PDF = b"%PDF-1.4\n%prueba\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
 
@@ -44,7 +53,7 @@ def _cuenta(nombre):
 
 def _miembro(usuario, empresa, rol):
     membresia = MembresiaEmpresa.objects.create(usuario=usuario, empresa=empresa)
-    membresia.roles.set([Group.objects.get(name=f"Matriz · {rol}")])
+    membresia.roles.set([Group.objects.get(name=ROL_GENERAL[rol])])
 
 
 def _cliente(usuario, empresa):
