@@ -63,25 +63,61 @@ def empresa_para(usuario, solicitada):
 
 ULTIMO_GESTOR = (
     "{empresa} se quedaría sin nadie que gestione sus miembros en la Matriz de "
-    "obligaciones. Asigne antes ese rol a otra persona."
+    "obligaciones. Asigne antes ese permiso a otra persona de la empresa."
 )
 
 #: El permiso que una empresa no puede perder del todo (§8.9 de la Matriz).
 GESTIONAR_MIEMBROS = "matriz.gestionar_miembros"
 
 
-def gestores_de(empresa_ids) -> dict[int, int]:
-    """Cuántas membresías con `gestionar_miembros` tiene cada empresa."""
-    from django.db.models import Count
+class EmpresaSinGestor(PermissionError):
+    """Un cambio dejaría a una empresa sin quien gestione sus miembros."""
 
-    filas = (
-        MembresiaEmpresa.objects.filter(
-            empresa_id__in=empresa_ids, roles__permissions__codename=GESTIONAR_MIEMBROS
-        )
-        .values("empresa_id")
-        .annotate(total=Count("id", distinct=True))
+
+def gestores_de(empresa_ids=None) -> dict[int, int]:
+    """Cuántas personas activas pueden gestionar los miembros de cada empresa.
+
+    Cuenta a quien trabaja en la empresa (tiene membresía), está activo y tiene
+    `gestionar_miembros` por cualquier vía: el rol de esa membresía, un rol
+    general, un permiso directo o ser superusuario. Desde el 15 de octubre los
+    roles son generales, así que el rol global cuenta como cualquier otro.
+    """
+    from django.db.models import Count, Q
+
+    from apps.users.models import User
+
+    consulta = MembresiaEmpresa.objects.filter(usuario__status=User.Status.ACTIVE).filter(
+        Q(roles__permissions__codename=GESTIONAR_MIEMBROS)
+        | Q(usuario__groups__permissions__codename=GESTIONAR_MIEMBROS)
+        | Q(usuario__user_permissions__codename=GESTIONAR_MIEMBROS)
+        | Q(usuario__is_superuser=True)
     )
+    if empresa_ids is not None:
+        consulta = consulta.filter(empresa_id__in=empresa_ids)
+    filas = consulta.values("empresa_id").annotate(total=Count("usuario", distinct=True))
     return {fila["empresa_id"]: fila["total"] for fila in filas}
+
+
+def sin_dejar_empresas_sin_gestor(cambio):
+    """Ejecuta `cambio()` y lo deshace si alguna empresa se queda sin gestor.
+
+    Es la regla del último gestor (§8.9) para todos los caminos que la pueden
+    romper: la ficha de empresas del usuario, sus roles generales y permisos
+    directos, deshabilitarlo o bloquearlo, y quitar el permiso a un rol o
+    borrarlo. Solo cuenta para las empresas que tenían algún gestor: una que
+    nunca usó la Matriz no bloquea nada.
+    """
+    from django.db import transaction
+
+    with transaction.atomic():
+        antes = gestores_de()
+        resultado = cambio()
+        despues = gestores_de(list(antes))
+        for empresa_id, total in antes.items():
+            if total and not despues.get(empresa_id):
+                nombre = Empresa.objects.get(pk=empresa_id).nombre
+                raise EmpresaSinGestor(ULTIMO_GESTOR.format(empresa=nombre))
+    return resultado
 
 
 AUTOEXCLUSION = (
@@ -109,7 +145,6 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
     administrador, o al superusuario si queda alguno—.
     """
     from django.contrib.auth.models import Group
-    from django.db import transaction
 
     from apps.core.audit import record_audit_event
 
@@ -169,10 +204,8 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
             "areas_matriz"
         )
     }
-    tocadas = set(areas_previas) | set(empresas)
-    gestores_antes = gestores_de(tocadas)
 
-    with transaction.atomic():
+    def reemplazar():
         MembresiaEmpresa.objects.filter(usuario=usuario).delete()
         for entrada in asignaciones:
             membresia = MembresiaEmpresa.objects.create(
@@ -186,13 +219,7 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
                 elegidas = areas_previas.get(entrada["empresa_id"], [])
             membresia.areas_matriz.set(elegidas)
 
-        # Último gestor (§8.9): solo cuenta si la empresa tenía alguno. Una
-        # empresa que nunca usó la Matriz no bloquea la ficha de nadie.
-        gestores_despues = gestores_de(tocadas)
-        for empresa_id, antes in gestores_antes.items():
-            if antes and not gestores_despues.get(empresa_id):
-                nombre = Empresa.objects.get(pk=empresa_id).nombre
-                raise PermissionError(ULTIMO_GESTOR.format(empresa=nombre))
+    sin_dejar_empresas_sin_gestor(reemplazar)
 
     record_audit_event(
         actor=actor,

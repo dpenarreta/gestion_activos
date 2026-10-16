@@ -204,9 +204,14 @@ tiene y agrega solo lo propio de la matriz.
   - La asignación de empresas de la ficha del usuario acepta `areas` por
     empresa. Sin la clave, se conservan: antes, guardar la ficha borraba las
     áreas, porque la asignación reemplaza las membresías.
-  - Último gestor (§8.9): una asignación que deja sin `gestionar_miembros` a
-    una empresa que tenía alguno se rechaza entera. Esto vigila la ficha del
-    usuario. Quitar el permiso de un rol desde Roles no lo vigila todavía.
+  - Último gestor (§8.9): ningún cambio puede dejar sin `gestionar_miembros` a
+    una empresa que tenía alguien con ese permiso; se rechaza entero. Lo
+    vigila `apps.empresas.servicios.sin_dejar_empresas_sin_gestor` en todos
+    los caminos: la ficha de empresas del usuario, quitar el permiso a un rol
+    o borrarlo, quitar un rol general o un permiso directo, y deshabilitar o
+    bloquear a la persona. Cuenta como gestor quien tiene membresía en la
+    empresa, está activo y tiene el permiso por cualquier vía (rol de la
+    membresía, rol general, permiso directo o superusuario).
 - **Pantallas**: Calendario y Reportes en el menú del módulo, «Excel» y «PDF»
   en la Matriz y en Reportes (solo con `exportar`), Configuración →
   Auditoría → Matriz, y las áreas de la Matriz (plegadas) en «Empresas y

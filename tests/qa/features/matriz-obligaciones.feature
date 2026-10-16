@@ -313,6 +313,8 @@ Feature: Matriz de obligaciones — fase 1: base y acceso
   @AC-MTZ-054
   Scenario: Una empresa no se queda sin quien gestione sus miembros
     Then quitar el último rol con «gestionar_miembros» de una empresa se rechaza y no cambia nada
+    And lo mismo al quitarle el permiso a un rol o borrarlo, al quitar un rol general o un permiso directo, y al deshabilitar o bloquear a la única persona que lo tiene
+    And quien está deshabilitado no cuenta como gestor
     And una empresa que nunca tuvo ese rol no bloquea ninguna ficha
 
   @AC-MTZ-055

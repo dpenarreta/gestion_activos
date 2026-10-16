@@ -14,9 +14,20 @@ from apps.permissions.authorization import permisos_que_no_tiene
 from .models import User
 from .nomenclatura import generar_username
 
+
 # AC-038: el sistema nunca debe quedar sin al menos un administrador activo
 # (definido como `is_superuser=True` — el único bypass real de autorización,
 # ver `apps.permissions.authorization.user_has_permission`).
+def _vigilando_gestores(cambio):
+    """La regla del último gestor de la Matriz (§8.9), como error del formulario."""
+    from apps.empresas.servicios import EmpresaSinGestor, sin_dejar_empresas_sin_gestor
+
+    try:
+        return sin_dejar_empresas_sin_gestor(cambio)
+    except EmpresaSinGestor as error:
+        raise serializers.ValidationError({"detail": str(error)}) from error
+
+
 LAST_ACTIVE_ADMIN_ERROR = (
     "No es posible deshabilitar/bloquear a este usuario: es el único "
     "administrador activo del sistema."
@@ -132,7 +143,11 @@ class UserAdminService:
         previous_status = user.status
         user.status = status
         user.updated_by = actor
-        user.save(update_fields=["status", "is_active", "updated_by", "updated_at"])
+        # Deshabilitar o bloquear al único gestor dejaría a su empresa sin
+        # nadie que pueda dar roles en la Matriz.
+        _vigilando_gestores(
+            lambda: user.save(update_fields=["status", "is_active", "updated_by", "updated_at"])
+        )
         record_audit_event(
             actor=actor,
             action=action,
@@ -203,7 +218,7 @@ class UserAdminService:
     ) -> User:
         previous_groups = list(user.groups.all())
         groups = list(Group.objects.filter(id__in=role_ids))
-        user.groups.set(groups)
+        _vigilando_gestores(lambda: user.groups.set(groups))
         user.updated_by = actor
         user.save(update_fields=["updated_by", "updated_at"])
         record_audit_event(
@@ -239,7 +254,7 @@ class UserAdminService:
                 }
             )
         previous_permissions = list(user.user_permissions.all())
-        user.user_permissions.set(permissions)
+        _vigilando_gestores(lambda: user.user_permissions.set(permissions))
         user.updated_by = actor
         user.save(update_fields=["updated_by", "updated_at"])
         record_audit_event(

@@ -11,6 +11,18 @@ from apps.permissions.models import ModulePermission
 from apps.users.models import User
 
 
+def _vigilando_gestores(cambio):
+    """La regla del último gestor, con el error como los demás del formulario."""
+    from rest_framework import serializers
+
+    from apps.empresas.servicios import EmpresaSinGestor, sin_dejar_empresas_sin_gestor
+
+    try:
+        return sin_dejar_empresas_sin_gestor(cambio)
+    except EmpresaSinGestor as error:
+        raise serializers.ValidationError({"detail": str(error)}) from error
+
+
 class RoleService:
     @staticmethod
     def _comprobar_alcance(actor: User, codenames: list[str]) -> None:
@@ -73,7 +85,11 @@ class RoleService:
             if previous_codenames != sorted(permission_codenames):
                 previous_values["permission_codenames"] = previous_codenames
                 new_values["permission_codenames"] = permission_codenames
-            role.permissions.set(RoleService._permissions_for(permission_codenames))
+            # Quitarle `gestionar_miembros` a un rol puede dejar a una empresa
+            # sin quien gestione sus miembros (§8.9).
+            _vigilando_gestores(
+                lambda: role.permissions.set(RoleService._permissions_for(permission_codenames))
+            )
         if new_values:
             record_audit_event(
                 actor=actor,
@@ -89,7 +105,7 @@ class RoleService:
     @staticmethod
     def delete_role(*, actor: User, role: Group, context: dict | None = None) -> None:
         role_id, role_name = role.id, role.name
-        role.delete()
+        _vigilando_gestores(role.delete)
         record_audit_event(
             actor=actor,
             action="role.deleted",
