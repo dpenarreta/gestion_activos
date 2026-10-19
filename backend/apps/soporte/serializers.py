@@ -50,27 +50,17 @@ def validar_adjuntos(archivos):
 # --- Formulario público ----------------------------------------------------------------
 
 
-class FormularioPublicoSerializer(serializers.Serializer):
-    """Lo que pide el formulario externo. Los querysets se fijan al construirlo
-    (dentro de la empresa del formulario), no al importar."""
+class SolicitudSerializer(serializers.Serializer):
+    """Lo que pide el formulario de «Soporte TI». Los datos de contacto no van
+    aquí: salen de «Mis datos» de quien pide."""
 
-    nombre = serializers.CharField(max_length=150)
-    # Teléfono, agencia y área pueden no estar en el formulario de la empresa:
-    # si son obligatorios lo decide `formulario.validar_envio`.
-    telefono = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    correo = serializers.EmailField()
-    sede = RelacionDeEmpresa(Sede, {"activa": True}, required=False, allow_null=True)
-    area = RelacionDeEmpresa(Departamento, {"activo": True}, required=False, allow_null=True)
     caso = RelacionDeEmpresa(CasoAyuda, {"activo": True, "categoria__activa": True})
     descripcion = serializers.CharField(max_length=5000)
     impacto = serializers.ChoiceField(Impacto.choices, required=False, allow_blank=True)
     urgencia = serializers.ChoiceField(Urgencia.choices, required=False, allow_blank=True)
-    acepta_datos = serializers.BooleanField()
     #: Lo respondido en los campos propios de la empresa: un objeto clave → valor
     #: (en un envío con archivos llega como texto JSON).
     adicionales = serializers.JSONField(required=False, default=dict)
-    #: Campo trampa: invisible para una persona; un bot lo llena.
-    sitio_web = serializers.CharField(required=False, allow_blank=True)
 
     def validate_adicionales(self, valor):
         if isinstance(valor, str):
@@ -82,6 +72,20 @@ class FormularioPublicoSerializer(serializers.Serializer):
             raise serializers.ValidationError("Formato no válido.")
         return valor
 
+
+class TicketInternoSerializer(SolicitudSerializer):
+    """El ticket que registra alguien del equipo en nombre de una persona
+    registrada (una llamada, un WhatsApp, una visita). Sus datos salen de «Mis
+    datos»; lo que le falte se completa aquí, solo para este ticket."""
+
+    solicitante = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True))
+    telefono = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    sede = RelacionDeEmpresa(Sede, {"activa": True}, required=False, allow_null=True)
+    area = RelacionDeEmpresa(Departamento, {"activo": True}, required=False, allow_null=True)
+    canal = serializers.ChoiceField(Canal.choices)
+    #: Si quien registra se lo queda (lo atiende en la misma llamada).
+    asignarme = serializers.BooleanField(required=False, default=False)
+
     def validate_telefono(self, valor):
         if not valor.strip():
             return ""
@@ -89,25 +93,6 @@ class FormularioPublicoSerializer(serializers.Serializer):
         if not 7 <= len(digitos) <= 15:
             raise serializers.ValidationError("Escriba un teléfono de 7 a 15 dígitos.")
         return valor.strip()
-
-    def validate_acepta_datos(self, valor):
-        if not valor:
-            raise serializers.ValidationError(
-                "Para crear el ticket debe aceptar el tratamiento de sus datos."
-            )
-        return valor
-
-
-class TicketInternoSerializer(FormularioPublicoSerializer):
-    """El ticket que registra alguien del equipo en nombre de quien pide (una
-    llamada, un WhatsApp, una visita). Sin campo trampa ni aceptación: lo
-    escribe el equipo."""
-
-    acepta_datos = None
-    sitio_web = None
-    canal = serializers.ChoiceField(Canal.choices)
-    #: Si quien registra se lo queda (lo atiende en la misma llamada).
-    asignarme = serializers.BooleanField(required=False, default=False)
 
 
 class MensajePublicoSerializer(serializers.Serializer):
@@ -688,17 +673,9 @@ class MesaSerializer(serializers.Serializer):
     meta_sla = serializers.IntegerField(min_value=1, max_value=100)
     meta_sla_critica = serializers.IntegerField(min_value=1, max_value=100)
     critica_24x7 = serializers.BooleanField()
-    dominios = serializers.CharField(max_length=255, required=False, allow_blank=True)
     etiquetas = serializers.JSONField(required=False)
     horarios = HorarioSerializer(many=True)
     feriados = AusenciaSerializer(many=True)
-
-    def validate_dominios(self, valor):
-        dominios = [d.strip().lstrip("@").lower() for d in valor.split(",") if d.strip()]
-        for dominio in dominios:
-            if "." not in dominio or " " in dominio or "@" in dominio:
-                raise serializers.ValidationError(f"«{dominio}» no es un dominio válido.")
-        return ", ".join(dominios)
 
     def validate_etiquetas(self, valor):
         return etiquetas.limpiar(valor)

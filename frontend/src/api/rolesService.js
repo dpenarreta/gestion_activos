@@ -11,12 +11,16 @@ export const rolesService = {
     return apiClient.post("/admin/roles/", payload).then((res) => res.data);
   },
   update(id, payload) {
-    return apiClient.patch(`/admin/roles/${id}/`, payload).then((res) => res.data);
+    return apiClient
+      .patch(`/admin/roles/${id}/`, payload)
+      .then((res) => res.data);
   },
   remove(id) {
     return apiClient.delete(`/admin/roles/${id}/`).then((res) => res.data);
   },
   permissionsCatalog() {
-    return apiClient.get("/admin/roles/permissions-catalog/").then((res) => res.data);
+    return apiClient
+      .get("/admin/roles/permissions-catalog/")
+      .then((res) => res.data);
   },
 };

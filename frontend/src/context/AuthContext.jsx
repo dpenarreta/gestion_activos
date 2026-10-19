@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { authService } from "../api/authService";
+import { useAlCambiarConfiguracion } from "../api/cambiosDeConfiguracion";
 import { getAccessToken, setTokens } from "../api/client";
 
 export const AuthContext = createContext(null);
@@ -62,6 +63,18 @@ export function AuthProvider({ children }) {
     } finally {
       setTokens(null, null);
       setUser(null);
+      // El aviso de perfil incompleto vuelve a salir en el próximo inicio.
+      try {
+        Object.keys(sessionStorage)
+          .filter(
+            (clave) =>
+              clave.startsWith("perfil.aviso_visto") ||
+              clave.startsWith("aviso_inicio.visto"),
+          )
+          .forEach((clave) => sessionStorage.removeItem(clave));
+      } catch {
+        /* Sin almacenamiento no hay nada que limpiar. */
+      }
     }
   }, []);
 
@@ -82,6 +95,12 @@ export function AuthProvider({ children }) {
     setUser(me);
     return me;
   }, []);
+
+  // Un cambio de roles, usuarios o empresas puede cambiar los permisos de
+  // quien está conectado: se relee su perfil y el menú se ajusta solo.
+  useAlCambiarConfiguracion(["permisos", "empresas"], () => {
+    if (getAccessToken()) refreshUser().catch(() => null);
+  });
 
   const value = useMemo(
     () => ({

@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { env } from "../config/env";
+import { avisarCambio } from "./cambiosDeConfiguracion";
 
 const ACCESS_TOKEN_KEY = "gestion_activos_access_token";
 const REFRESH_TOKEN_KEY = "gestion_activos_refresh_token";
@@ -127,7 +128,12 @@ async function refreshAccessToken() {
 // intenta renovar una única vez con el refresh token; si eso también falla
 // (refresh vencido o revocado), se limpia la sesión y se redirige al login.
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Un cambio de Configuración que se ve en todo el sistema (tema,
+    // permisos, empresas) se avisa para que se aplique sin recargar.
+    avisarCambio(response.config);
+    return response;
+  },
   async (error) => {
     const { config, response } = error;
 

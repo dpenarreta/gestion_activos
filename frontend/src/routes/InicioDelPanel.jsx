@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 
+import { conPermiso } from "../components/admin/AdminSidebar/staticAdminMenu";
 import { useAdminMenu } from "../hooks/useAdminMenu";
 import { usePermission } from "../hooks/usePermission";
 import { moduloPorId } from "../modulos/modulos";
@@ -17,7 +18,9 @@ import { moduloPorId } from "../modulos/modulos";
  * principal, porque es la primera del árbol para quien puede verlo.
  */
 export function InicioDelPanel() {
-  const menu = useAdminMenu("activos");
+  // Solo cuentan las opciones que exigen un permiso para elegir la pantalla
+  // de entrada; si no hay ninguna, la salida es Soporte TI.
+  const menu = conPermiso(useAdminMenu("activos"));
   const menuMatriz = useAdminMenu("matriz");
   const veLoSuyo = usePermission("activos.ver_asignados");
   const destino = primeraRuta(menu);
@@ -38,9 +41,9 @@ export function InicioDelPanel() {
     return <Navigate to={moduloPorId("matriz").inicio} replace />;
   }
 
-  // Sin ninguna opción visible no hay a dónde mandarlo, y el 403 es la verdad:
-  // la cuenta existe pero todavía no tiene ningún permiso.
-  return <Navigate to={destino ?? "/403"} replace />;
+  // Sin ningún permiso, igual puede pedir soporte (desde el 20/10/2026 la
+  // mesa de ayuda es para toda persona con sesión): no es un 403.
+  return <Navigate to={destino ?? "/admin/ayuda"} replace />;
 }
 
 /** La primera pantalla del menú, entrando en los grupos si hace falta. */

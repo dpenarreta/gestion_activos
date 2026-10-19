@@ -259,17 +259,9 @@ class ConfiguracionMesa(ModeloDeEmpresa):
     )
     #: Los P1 se miden en horas calendario (las 24 h). Si no, en horario hábil.
     critica_24x7 = models.BooleanField(default=True)
-    #: Dominios de correo internos, separados por comas («grupolaar.com»). Solo
-    #: quien escribe desde uno de ellos crea tickets. Vacío: cualquiera.
-    dominios = models.CharField(max_length=255, blank=True)
     #: Los nombres propios de la empresa para estados y prioridades:
     #: ``{"estados": {"atendido": "Resuelto"}, "prioridades": {"critica": "P1"}}``.
     etiquetas = models.JSONField(default=dict, blank=True)
-
-    def lista_de_dominios(self) -> list[str]:
-        return [
-            d.strip().lstrip("@").lower() for d in (self.dominios or "").split(",") if d.strip()
-        ]
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["empresa"], name="configuracion_mesa_unica")]
@@ -352,7 +344,9 @@ class CampoFormulario(ModeloDeEmpresa):
     }
     #: Los del sistema que se pueden ocultar o volver opcionales. El resto los
     #: necesitan la cola, la prioridad o los avisos.
-    BASE_OCULTABLES = ("telefono", "sede", "area", "impacto", "urgencia")
+    #: Teléfono, agencia y área salen de «Mis datos» desde el 20/10/2026: ya no se
+    #: ocultan desde aquí.
+    BASE_OCULTABLES = ("impacto", "urgencia")
 
     clave = models.SlugField(max_length=40)
     etiqueta = models.CharField(max_length=120)
@@ -438,6 +432,15 @@ class Ticket(ModeloDeEmpresa):
 
     tipo = models.CharField(max_length=10, choices=TipoTicket.choices, default=TipoTicket.INCIDENTE)
     canal = models.CharField(max_length=12, choices=Canal.choices, default=Canal.PORTAL)
+    #: Quien lo pidió, con su cuenta (desde el 20/10/2026 solo piden personas
+    #: registradas; vacío en los tickets de antes).
+    solicitante = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tickets_de_soporte",
+    )
     #: Quién lo registró en nombre del usuario (vacío: lo creó él en el portal).
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"

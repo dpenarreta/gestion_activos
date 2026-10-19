@@ -93,13 +93,23 @@ def describir(campo) -> dict:
         "opciones": list(campo.opciones or []) if not campo.base else [],
         "obligatorio": campo.obligatorio,
         "base": campo.base,
+        "del_perfil": campo.base and campo.clave in PERSONALES,
         "categorias": [c.id for c in campo.categorias.all()],
     }
 
 
-def visibles():
-    """Los campos que muestra el formulario público."""
-    return [describir(c) for c in campos() if c.activo]
+#: Los campos del sistema que salen de «Mis datos» de quien pide: el
+#: formulario no los pregunta (decidido el 20/10/2026).
+PERSONALES = ("nombre", "telefono", "correo", "sede", "area")
+
+
+def visibles(excluir_personales=False):
+    """Los campos que muestra el formulario."""
+    return [
+        describir(c)
+        for c in campos()
+        if c.activo and not (excluir_personales and c.base and c.clave in PERSONALES)
+    ]
 
 
 def _vacio(valor) -> bool:
@@ -161,13 +171,11 @@ def validar_envio(datos: dict, adicionales: dict) -> tuple[dict, list]:
     datos = dict(datos)
     categoria = datos["caso"].categoria if datos.get("caso") else None
     respuestas = []
-    error_de_dominio = validar_dominio(datos.get("correo"))
-    if error_de_dominio:
-        errores["correo"] = [error_de_dominio]
     for campo in campos():
         if campo.base:
             dato = _DATO_DE_LA_CLAVE.get(campo.clave)
-            if dato is None:
+            if dato is None or campo.clave in PERSONALES:
+                # Los datos de contacto vienen de «Mis datos»: ya se exigieron.
                 continue
             if not campo.activo:
                 datos[dato] = None if dato in {"sede", "area"} else ""
@@ -195,22 +203,6 @@ def validar_envio(datos: dict, adicionales: dict) -> tuple[dict, list]:
     if errores:
         raise serializers.ValidationError(errores)
     return datos, respuestas
-
-
-def validar_dominio(correo) -> str:
-    """Solo crean tickets los correos de los dominios internos de la empresa
-    (si los configuró). Devuelve el error, o vacío si está bien."""
-    from .models import ConfiguracionMesa
-
-    configuracion = ConfiguracionMesa.objects.first()
-    dominios = configuracion.lista_de_dominios() if configuracion else []
-    if not dominios or not correo:
-        return ""
-    dominio = correo.rsplit("@", 1)[-1].lower()
-    if dominio in dominios:
-        return ""
-    lista = ", ".join(f"@{d}" for d in dominios)
-    return f"Use su correo de la empresa ({lista})."
 
 
 def siguiente_orden() -> int:

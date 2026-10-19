@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { Conversacion } from "./Conversacion";
-import { Directorio, esGrupal, ListaConversaciones, NuevoGrupo } from "./Panel";
+import { Directorio, esGrupal, Grupos, ListaConversaciones } from "./Panel";
 import "./ChatDock.css";
 
 const PESTANAS = [
   ["conversaciones", "Chats"],
   ["personas", "Personas"],
-  ["grupo", "Nuevo grupo"],
+  ["grupos", "Grupos"],
 ];
 
 /** Una pestaña acoplada abajo: minimizada solo muestra su barra. */
@@ -69,13 +69,29 @@ function Ventana({ ventana }) {
  * El chat acoplado abajo a la derecha, en todo `/admin`: el botón con lo que
  * falta leer, el panel para elegir conversación, buscar personas o crear un
  * grupo, y las pestañas de cada conversación. En `/admin/chat` se oculta: ahí
- * el chat ocupa la pantalla.
+ * el chat ocupa la pantalla. Un clic fuera del chat lo minimiza todo.
  */
 export function ChatDock() {
   const chat = useChat();
   const location = useLocation();
   const [panel, setPanel] = useState(false);
   const [pestana, setPestana] = useState("conversaciones");
+  const zona = useRef(null);
+  const algoAbierto = panel || Boolean(chat?.ventanas.some((v) => v.abierta));
+  const minimizarTodo = chat?.minimizarTodo;
+
+  // Un clic en cualquier otra parte de la pantalla minimiza el chat: el panel
+  // se cierra y las conversaciones quedan en su barra, sin perderse.
+  useEffect(() => {
+    if (!algoAbierto) return undefined;
+    function fuera(evento) {
+      if (zona.current?.contains(evento.target)) return;
+      setPanel(false);
+      minimizarTodo?.();
+    }
+    document.addEventListener("mousedown", fuera);
+    return () => document.removeEventListener("mousedown", fuera);
+  }, [algoAbierto, minimizarTodo]);
 
   if (!chat || location.pathname.startsWith("/admin/chat")) return null;
 
@@ -99,7 +115,7 @@ export function ChatDock() {
   }
 
   return (
-    <div className="chat-dock">
+    <div className="chat-dock" ref={zona}>
       {chat.ventanas.map((v) => (
         <Ventana key={v.id} ventana={v} />
       ))}
@@ -135,7 +151,7 @@ export function ChatDock() {
                 <ListaConversaciones onElegir={elegir} />
               )}
               {pestana === "personas" && <Directorio onElegida={elegir} />}
-              {pestana === "grupo" && <NuevoGrupo onCreado={elegir} />}
+              {pestana === "grupos" && <Grupos onElegir={elegir} />}
             </div>
           </section>
         )}

@@ -2,7 +2,7 @@ import { apiClient } from "./client";
 
 const ORDENES = "/ordenes/";
 
-/** Mantenimiento de sedes: órdenes de trabajo. */
+/** Órdenes de trabajo: mantenimiento de sedes y agencias. */
 export const ordenesService = {
   list(params = {}) {
     return apiClient.get(ORDENES, { params }).then((res) => res.data);

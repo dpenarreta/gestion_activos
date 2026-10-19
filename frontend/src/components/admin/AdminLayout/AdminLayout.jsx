@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAppearance } from "../../../context/AppearanceContext";
 import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
@@ -13,6 +13,8 @@ import {
   useMisEmpresas,
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
+import { AvisoInicioSesion } from "../AvisoInicioSesion/AvisoInicioSesion";
+import { AvisoPerfil } from "../AvisoPerfil/AvisoPerfil";
 import { ChatProvider } from "../Chat/ChatContext";
 import { ChatDock } from "../Chat/ChatDock";
 import { CampanaNotificaciones } from "../Notificaciones/CampanaNotificaciones";
@@ -26,7 +28,6 @@ import {
   ReportesMarco,
   esRutaDeReportes,
 } from "../ReportesMarco/ReportesMarco";
-import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
 import "./AdminLayout.css";
 
 const COLLAPSE_STORAGE_KEY = "admin.sidebar.collapsed";
@@ -93,6 +94,7 @@ function BotonTema() {
 export function AdminLayout() {
   const breakpoint = useBreakpoint();
   const location = useLocation();
+  const [avisoListo, setAvisoListo] = useState(false);
   const menu = useAdminMenu();
   const empresas = useMisEmpresas();
   const [isCollapsed, setIsCollapsed] = useState(() =>
@@ -134,7 +136,6 @@ export function AdminLayout() {
             isMobileOpen={isMobileOpen}
             onMobileClose={() => setIsMobileOpen(false)}
             mobileTriggerRef={mobileTriggerRef}
-            empresas={empresas}
           />
           <div className="mz-main">
             {/* La búsqueda vive aquí y no dentro de cada pantalla: buscar un
@@ -155,15 +156,32 @@ export function AdminLayout() {
               <h1>{tituloDeRuta(menu, location.pathname)}</h1>
               <div className="mz-spacer" />
               <BusquedaGlobal />
+              {/* Soporte TI: toda persona con sesión pide ayuda desde aquí. */}
+              <Link
+                to="/admin/ayuda"
+                className="mz-icon-btn"
+                aria-label="Soporte TI"
+                title="Soporte TI: pedir ayuda y ver mis tickets"
+              >
+                <Icon name="headset" />
+              </Link>
               <CampanaNotificaciones />
               <BotonTema />
-              <SelectorModulo />
               <SelectorEmpresa
                 empresas={empresas.empresas}
                 activa={empresas.activa}
               />
             </header>
-            <main className="mz-view">
+            {/* Con el chat acoplado abajo a la derecha, el contenido deja
+                espacio al final: si no, el botón del chat tapa el último botón
+                de la pantalla (el «Guardar» de Configuración). */}
+            <main
+              className={`mz-view${
+                location.pathname.startsWith("/admin/chat")
+                  ? ""
+                  : " mz-view--con-chat"
+              }`}
+            >
               {/* Las secciones de Configuración conservan sus rutas de
                 siempre; el marco con sus pestañas se pone aquí, según dónde
                 se esté, y no en cada pantalla. */}
@@ -186,6 +204,11 @@ export function AdminLayout() {
           </div>
         </div>
         <ChatDock />
+        {/* Primero el aviso importante de la empresa; cerrado (o si no hay),
+            el de completar «Mi perfil»: uno a la vez, nunca uno encima del
+            otro. */}
+        <AvisoInicioSesion onTerminado={() => setAvisoListo(true)} />
+        {avisoListo && <AvisoPerfil />}
       </ChatProvider>
     </UnsavedChangesProvider>
   );

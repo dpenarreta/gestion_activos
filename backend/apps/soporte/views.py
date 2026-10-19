@@ -1,11 +1,11 @@
 """La API de la Mesa de ayuda.
 
-- **Pública** (sin sesión): el formulario de cada empresa y la página de
-  seguimiento por enlace secreto. Va acotada a la empresa del formulario o del
-  ticket con `usando_empresa`, porque sin sesión no hay empresa activa.
+- **Quien pide soporte**: toda persona con sesión, sin permisos («Soporte TI»):
+  crear un ticket con sus datos de «Mi perfil» y seguir los suyos. Desde el
+  20/10/2026 no hay formulario público ni enlace de seguimiento sin sesión.
 - **Del equipo**: bandeja, ficha y acciones sobre los tickets.
 - **Configuración**: niveles, categorías y casos, técnicos con su horario, SLA,
-  respuestas predefinidas y los campos del formulario público.
+  respuestas predefinidas y los campos del formulario.
 """
 
 from django.core.exceptions import PermissionDenied
@@ -17,8 +17,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -26,8 +27,7 @@ from rest_framework.views import APIView
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
-from apps.empresas.contexto import usando_empresa
-from apps.empresas.models import Empresa
+from apps.organizacion import contacto
 from apps.organizacion.models import Departamento, Sede
 from apps.permissions.permissions import HasActionPermission, HasModulePermission
 
@@ -60,7 +60,6 @@ from .serializers import (
     DecisionSerializer,
     EncuestaSerializer,
     EscalarSerializer,
-    FormularioPublicoSerializer,
     HorasSerializer,
     MensajePublicoSerializer,
     MesaSerializer,
@@ -68,6 +67,7 @@ from .serializers import (
     ReglaSLASerializer,
     RespuestaPredefinidaSerializer,
     RespuestaSerializer,
+    SolicitudSerializer,
     TecnicoSerializer,
     TicketDetalleSerializer,
     TicketInternoSerializer,
@@ -91,7 +91,7 @@ def _descargar(adjunto):
     return respuesta
 
 
-# --- Pública ---------------------------------------------------------------------------
+# --- Quien pide soporte (con sesión) ---------------------------------------------------
 
 
 def datos_del_formulario(empresa_nombre) -> dict:
@@ -154,87 +154,77 @@ def _datos_del_ticket(datos, adicionales) -> dict:
     }
 
 
-def _empresa_del_formulario(codigo):
-    empresa = Empresa.objects.filter(codigo__iexact=codigo, activa=True).first()
-    if empresa is None:
-        raise Http404("No existe una mesa de ayuda con ese código.")
-    return empresa
+class FaltanDatos(APIException):
+    """A quien pide le falta algo en «Mi perfil»: la pantalla le pide
+    completarlo antes de crear el ticket."""
+
+    status_code = 400
+    default_code = "faltan_datos"
 
 
-class FormularioPublicoView(APIView):
-    """`GET`: lo que muestra el formulario. `POST`: crea el ticket."""
-
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def get_throttles(self):
-        if self.request.method == "POST":
-            self.throttle_scope = "soporte_formulario"
-            return [ScopedRateThrottle()]
-        return []
-
-    def get(self, request, codigo):
-        empresa = _empresa_del_formulario(codigo)
-        with usando_empresa(empresa):
-            return Response(datos_del_formulario(empresa.nombre))
-
-    def post(self, request, codigo):
-        empresa = _empresa_del_formulario(codigo)
-        with usando_empresa(empresa):
-            entrada = FormularioPublicoSerializer(data=request.data)
-            entrada.is_valid(raise_exception=True)
-            datos = entrada.validated_data
-            if datos.get("sitio_web"):
-                # Un bot llenó el campo trampa: se responde como si nada para
-                # no enseñarle qué lo delató, y no se crea nada.
-                return Response({"numero": "", "posicion": None, "token": ""}, status=201)
-            datos, adicionales = formulario.validar_envio(datos, datos.get("adicionales") or {})
-            archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
-            contexto = get_request_context(request) or {}
-            try:
-                with transaction.atomic():
-                    ticket = services.crear_ticket(
-                        datos=_datos_del_ticket(datos, adicionales),
-                        ip=contexto.get("ip_address"),
-                    )
-                    services.guardar_adjuntos(ticket, archivos, del_solicitante=True)
-            except ErrorDeModelo as error:
-                raise serializers.ValidationError(_errores(error)) from error
-            ticket.refresh_from_db()
-            return Response(
-                {
-                    "numero": ticket.numero,
-                    "posicion": services.posicion_en_cola(ticket),
-                    "estado": ticket.estado,
-                    "fuera_de_horario": ticket.fuera_de_horario,
-                    "token": ticket.token,
-                },
-                status=status.HTTP_201_CREATED,
-            )
+def datos_de_la_persona(usuario, extra=None):
+    """Nombre, correo, teléfono, área y agencia de quien pide, desde «Mis
+    datos» (decidido el 20/10/2026). En el alta interna, `extra` completa lo
+    que falte solo para ese ticket. Devuelve los datos y lo que sigue faltando."""
+    perfil = contacto.de(usuario)
+    extra = extra or {}
+    area = extra.get("area") or (
+        Departamento.objects.filter(pk=perfil["area"]["id"]).first() if perfil["area"] else None
+    )
+    sede = extra.get("sede") or (
+        Sede.objects.filter(pk=perfil["agencia"]["id"]).first() if perfil["agencia"] else None
+    )
+    persona = {
+        "nombre": perfil["nombre"],
+        "correo": usuario.email,
+        "telefono": extra.get("telefono") or perfil["telefono"],
+        "area": area,
+        "sede": sede,
+    }
+    faltan = [
+        contacto.ETIQUETAS[clave]
+        for clave, valor in (
+            ("nombre", persona["nombre"]),
+            ("telefono", persona["telefono"]),
+            ("area", area),
+            ("agencia", sede),
+        )
+        if not valor
+    ]
+    return persona, faltan
 
 
-def _ticket_del_enlace(token):
+def _mis_tickets(usuario):
+    """Los tickets que pidió la persona (los de antes de tener sesión, por su
+    correo)."""
+    return Ticket.objects.filter(
+        Q(solicitante=usuario)
+        | Q(solicitante__isnull=True, solicitante_correo__iexact=usuario.email)
+    )
+
+
+def _mi_ticket(request, pk):
     ticket = (
-        Ticket.objects.todas()
+        _mis_tickets(request.user)
         .select_related("empresa", "sede", "area", "categoria", "caso", "tecnico__usuario")
-        .filter(token=token)
+        .prefetch_related("mensajes__autor", "mensajes__adjuntos", "adjuntos", "aprobaciones")
+        .filter(pk=pk)
         .first()
     )
     if ticket is None:
-        raise Http404("El enlace no corresponde a ningún ticket.")
+        raise Http404("No encontramos ese ticket entre los suyos.")
     return ticket
 
 
-def _url_publica(token):
-    return lambda adjunto: f"/soporte/seguimiento/{token}/adjuntos/{adjunto.id}/"
+def _url_mia(ticket):
+    return lambda adjunto: f"/soporte/mis-tickets/{ticket.id}/adjuntos/{adjunto.id}/"
 
 
-class SeguimientoView(APIView):
-    """La página de seguimiento de quien pidió, por su enlace secreto."""
+class SolicitarView(APIView):
+    """«Soporte TI → Nuevo ticket». Toda persona con sesión, sin permisos: sus
+    datos de contacto salen de «Mi perfil»; si falta algo, se le pide antes."""
 
-    permission_classes = [AllowAny]
-    authentication_classes = []
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_throttles(self):
@@ -243,71 +233,135 @@ class SeguimientoView(APIView):
             return [ScopedRateThrottle()]
         return []
 
-    def get(self, request, token):
-        ticket = _ticket_del_enlace(token)
-        with usando_empresa(ticket.empresa):
-            ticket = Ticket.objects.prefetch_related(
-                "mensajes__autor", "mensajes__adjuntos", "adjuntos"
-            ).get(pk=ticket.pk)
-            return Response(seguimiento(ticket, _url_publica(token)))
+    def get(self, request):
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
-    def post(self, request, token):
-        """Responder (con adjuntos) o confirmar la solución (`confirmar: true`)."""
-        ticket = _ticket_del_enlace(token)
-        with usando_empresa(ticket.empresa):
-            try:
-                with transaction.atomic():
-                    if str(request.data.get("confirmar", "")).lower() in {"true", "1"}:
-                        services.confirmar_solucion(ticket)
-                    else:
-                        entrada = MensajePublicoSerializer(data=request.data)
-                        entrada.is_valid(raise_exception=True)
-                        archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
-                        mensaje = services.mensaje_del_solicitante(
-                            ticket, entrada.validated_data["texto"]
-                        )
-                        services.guardar_adjuntos(
-                            ticket, archivos, mensaje=mensaje, del_solicitante=True
-                        )
-            except ErrorDeModelo as error:
-                raise serializers.ValidationError(_errores(error)) from error
-            return self.get(request, token)
+        empresa = empresa_actual()
+        datos = datos_del_formulario("" if empresa in (None, SIN_EMPRESA) else empresa.nombre)
+        datos["campos"] = formulario.visibles(excluir_personales=True)
+        datos["mis_datos"] = contacto.de(request.user)
+        return Response(datos)
 
-
-class EncuestaPublicaView(APIView):
-    """La encuesta de satisfacción, desde el enlace de seguimiento."""
-
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    throttle_scope = "soporte_formulario"
-
-    def get_throttles(self):
-        return [ScopedRateThrottle()]
-
-    def post(self, request, token):
-        ticket = _ticket_del_enlace(token)
-        with usando_empresa(ticket.empresa):
-            entrada = EncuestaSerializer(data=request.data)
-            entrada.is_valid(raise_exception=True)
-            try:
-                services.responder_encuesta(ticket, **entrada.validated_data)
-            except ErrorDeModelo as error:
-                raise serializers.ValidationError(_errores(error)) from error
-            ticket = Ticket.objects.prefetch_related(
-                "mensajes__autor", "mensajes__adjuntos", "adjuntos"
-            ).get(pk=ticket.pk)
-            return Response(seguimiento(ticket, _url_publica(token)), status=201)
+    def post(self, request):
+        entrada = SolicitudSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        persona, faltan = datos_de_la_persona(request.user)
+        if faltan:
+            raise FaltanDatos(
+                {
+                    "faltan": faltan,
+                    "mis_datos": [
+                        "Complete su perfil (" + ", ".join(faltan) + ") para crear el ticket."
+                    ],
+                }
+            )
+        datos = {**entrada.validated_data, **persona}
+        datos, adicionales = formulario.validar_envio(datos, datos.get("adicionales") or {})
+        archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
+        contexto = get_request_context(request) or {}
+        try:
+            with transaction.atomic():
+                ticket = services.crear_ticket(
+                    datos=_datos_del_ticket(datos, adicionales),
+                    solicitante=request.user,
+                    ip=contexto.get("ip_address"),
+                )
+                services.guardar_adjuntos(ticket, archivos, del_solicitante=True)
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        ticket.refresh_from_db()
+        return Response(
+            {
+                "id": ticket.id,
+                "numero": ticket.numero,
+                "posicion": services.posicion_en_cola(ticket),
+                "estado": ticket.estado,
+                "fuera_de_horario": ticket.fuera_de_horario,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
-class AdjuntoPublicoView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
+class MisTicketsView(APIView):
+    """«Soporte TI → Mis tickets»: lo que pidió, lo más reciente primero."""
 
-    def get(self, request, token, adjunto_id):
-        ticket = _ticket_del_enlace(token)
-        with usando_empresa(ticket.empresa):
-            adjunto = get_object_or_404(AdjuntoTicket, pk=adjunto_id, ticket=ticket, interno=False)
-            return _descargar(adjunto)
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        nombres = etiquetas.de_la_empresa()
+        tickets = _mis_tickets(request.user).select_related("caso", "categoria")[:100]
+        return Response(
+            [
+                {
+                    "id": t.id,
+                    "numero": t.numero,
+                    "categoria": t.categoria.nombre,
+                    "caso": t.caso.nombre,
+                    "estado": t.estado,
+                    "estado_display": nombres["estados"][t.estado],
+                    "posicion": services.posicion_en_cola(t),
+                    "creado": t.created_at,
+                    "atendido_en": t.atendido_en,
+                }
+                for t in tickets
+            ]
+        )
+
+
+class MiTicketView(APIView):
+    """La ficha de un ticket propio: estado, posición en la cola y respuestas.
+    `POST`: responder (con adjuntos) o confirmar la solución."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request, pk):
+        ticket = _mi_ticket(request, pk)
+        return Response(seguimiento(ticket, _url_mia(ticket)))
+
+    def post(self, request, pk):
+        ticket = _mi_ticket(request, pk)
+        try:
+            with transaction.atomic():
+                if str(request.data.get("confirmar", "")).lower() in {"true", "1"}:
+                    services.confirmar_solucion(ticket)
+                else:
+                    entrada = MensajePublicoSerializer(data=request.data)
+                    entrada.is_valid(raise_exception=True)
+                    archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
+                    mensaje = services.mensaje_del_solicitante(
+                        ticket, entrada.validated_data["texto"]
+                    )
+                    services.guardar_adjuntos(
+                        ticket, archivos, mensaje=mensaje, del_solicitante=True
+                    )
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        return self.get(request, pk)
+
+
+class MiEncuestaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        ticket = _mi_ticket(request, pk)
+        entrada = EncuestaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            services.responder_encuesta(ticket, **entrada.validated_data)
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        ticket = _mi_ticket(request, pk)
+        return Response(seguimiento(ticket, _url_mia(ticket)), status=201)
+
+
+class MiAdjuntoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, adjunto_id):
+        ticket = _mi_ticket(request, pk)
+        adjunto = get_object_or_404(AdjuntoTicket, pk=adjunto_id, ticket=ticket, interno=False)
+        return _descargar(adjunto)
 
 
 # --- Equipo ----------------------------------------------------------------------------
@@ -326,7 +380,11 @@ class TicketsPermission(HasActionPermission):
         usuario = request.user
         if not (usuario and usuario.is_authenticated):
             return False
-        return any(services.tiene(usuario, p) for p in ("atender", "ver_todos", "asignar"))
+        # Quien solo registra entra para el alta interna; ve los tickets que le
+        # toquen (ninguno, si no es técnico).
+        return any(
+            services.tiene(usuario, p) for p in ("atender", "ver_todos", "asignar", "registrar")
+        )
 
 
 class TicketViewSet(viewsets.ReadOnlyModelViewSet):
@@ -462,6 +520,7 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                 "puede": {
                     "ver_todos": services.tiene(request.user, "ver_todos"),
                     "asignar": services.tiene(request.user, "asignar"),
+                    "registrar": services.tiene(request.user, "registrar"),
                     "aprobar_horas": services.tiene(request.user, "aprobar_horas"),
                 },
             }
@@ -480,19 +539,60 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
             for valor, etiqueta in Canal.choices
             if valor != Canal.PORTAL
         ]
+        datos["campos"] = formulario.visibles(excluir_personales=True)
         datos["soy_tecnico"] = services.tecnico_de(request.user) is not None
         return Response(datos)
+
+    @action(detail=False, methods=["get"])
+    def personas(self, request):
+        """Las personas registradas de la empresa, con sus datos de contacto,
+        para el alta interna: solo se registran tickets de personas con cuenta."""
+        if not services.tiene(request.user, "registrar"):
+            raise PermissionDenied("No tiene el permiso requerido: soporte.registrar.")
+        from apps.chat.services import buscar_personas
+
+        return Response(
+            [
+                {"id": p.id, **contacto.de(p)}
+                for p in buscar_personas(request.query_params.get("q", ""), limite=20)
+            ]
+        )
 
     @action(detail=False, methods=["post"])
     def registrar(self, request):
         """Alta interna: un ticket que llegó por teléfono, WhatsApp o en persona,
         registrado por el equipo en nombre de quien pide."""
-        if not (services.tiene(request.user, "atender") or services.tiene(request.user, "asignar")):
-            raise PermissionDenied("Registra tickets quien atiende o coordina la mesa.")
+        if not services.tiene(request.user, "registrar"):
+            raise PermissionDenied("No tiene el permiso requerido: soporte.registrar.")
         entrada = TicketInternoSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
-        canal, asignarme = datos["canal"], datos["asignarme"]
+        canal, asignarme, solicitante = datos["canal"], datos["asignarme"], datos["solicitante"]
+        from apps.chat.services import personas_de_la_empresa
+
+        if not personas_de_la_empresa().filter(pk=solicitante.pk).exists():
+            raise serializers.ValidationError(
+                {"solicitante": "Esa persona no está registrada en esta empresa."}
+            )
+        persona, faltan = datos_de_la_persona(
+            solicitante,
+            {
+                "telefono": datos.get("telefono"),
+                "area": datos.get("area"),
+                "sede": datos.get("sede"),
+            },
+        )
+        if faltan:
+            raise FaltanDatos(
+                {
+                    "faltan": faltan,
+                    "solicitante": [
+                        "A esta persona le falta " + ", ".join(faltan) + ": complételo en el "
+                        "formulario."
+                    ],
+                }
+            )
+        datos = {**datos, **persona}
         datos, adicionales = formulario.validar_envio(datos, datos.get("adicionales") or {})
         archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
         try:
@@ -502,6 +602,7 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                     actor=request.user,
                     canal=canal,
                     asignarme=asignarme,
+                    solicitante=solicitante,
                 )
                 services.guardar_adjuntos(ticket, archivos)
         except ErrorDeModelo as error:
@@ -746,6 +847,21 @@ class ConfiguracionPermission(HasModulePermission):
     write_permission = "soporte.configurar"
 
 
+class FormularioPermission(HasModulePermission):
+    view_permission = "soporte.formulario"
+    write_permission = "soporte.formulario"
+
+
+class VerCategoriasPermission(BasePermission):
+    """Las categorías se leen para filtrar la bandeja, para configurarlas y
+    para decir a qué categorías aplica un campo del formulario."""
+
+    def has_permission(self, request, view) -> bool:
+        return TicketsPermission().has_permission(request, view) or any(
+            services.tiene(request.user, p) for p in ("configurar", "formulario")
+        )
+
+
 class _Config(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ConfiguracionPermission]
     entidad = ""
@@ -805,9 +921,10 @@ class CategoriaViewSet(_Config):
     entidad = "categoria"
 
     def get_permissions(self):
-        # Ver las categorías lo necesita también quien atiende (filtros).
+        # Ver las categorías lo necesita también quien atiende (filtros) y
+        # quien edita el formulario (a qué categorías aplica cada campo).
         if self.request.method in SAFE_METHODS:
-            return [IsAuthenticated(), TicketsPermission()]
+            return [IsAuthenticated(), VerCategoriasPermission()]
         return super().get_permissions()
 
     def get_queryset(self):
@@ -1009,7 +1126,6 @@ class MesaView(APIView):
             "meta_sla": configuracion.meta_sla,
             "meta_sla_critica": configuracion.meta_sla_critica,
             "critica_24x7": configuracion.critica_24x7,
-            "dominios": configuracion.dominios,
             "etiquetas": configuracion.etiquetas or {},
             "etiquetas_por_defecto": {
                 "estados": dict(Ticket.Estado.choices),
@@ -1052,8 +1168,10 @@ class MesaView(APIView):
 
 
 class CampoFormularioViewSet(_Config):
-    """Los campos del formulario público (menú Mesa de ayuda → Formulario)."""
+    """Los campos del formulario de «Soporte TI» (menú Mesa de ayuda →
+    Formulario). Su propio permiso: no exige configurar la mesa."""
 
+    permission_classes = [IsAuthenticated, FormularioPermission]
     serializer_class = CampoFormularioSerializer
     entidad = "campo_formulario"
 

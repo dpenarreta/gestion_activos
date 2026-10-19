@@ -19,9 +19,14 @@ export function esGrupal(conversacion) {
 }
 
 /** Mis conversaciones: el canal general primero, luego lo más reciente. */
-export function ListaConversaciones({ onElegir, activa }) {
-  const { conversaciones, noLeidos } = useChat();
-  if (conversaciones.length === 0) {
+export function ListaConversaciones({
+  onElegir,
+  activa,
+  soloGrupales = false,
+}) {
+  const { conversaciones: todas, noLeidos } = useChat();
+  const conversaciones = soloGrupales ? todas.filter(esGrupal) : todas;
+  if (todas.length === 0) {
     return (
       <p className="mz-small mz-faint p-3 mb-0">Cargando conversaciones…</p>
     );
@@ -288,5 +293,46 @@ export function NuevoGrupo({ onCreado }) {
         Crear grupo
       </button>
     </form>
+  );
+}
+
+/** La pestaña «Grupos»: el canal general y los grupos, y desde aquí se crea
+ * uno nuevo. */
+export function Grupos({ onElegir, activa }) {
+  const [creando, setCreando] = useState(false);
+  if (creando) {
+    return (
+      <div>
+        <div className="chat-grupos__acciones">
+          <button
+            type="button"
+            className="btn btn-link btn-sm p-0"
+            onClick={() => setCreando(false)}
+          >
+            <Icon name="arrow-left" /> Volver a los grupos
+          </button>
+        </div>
+        <NuevoGrupo
+          onCreado={(id) => {
+            setCreando(false);
+            onElegir(id);
+          }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="chat-grupos__acciones">
+        <button
+          type="button"
+          className="btn btn-primary btn-sm w-100"
+          onClick={() => setCreando(true)}
+        >
+          <Icon name="plus-lg" /> Crear grupo
+        </button>
+      </div>
+      <ListaConversaciones onElegir={onElegir} activa={activa} soloGrupales />
+    </div>
   );
 }

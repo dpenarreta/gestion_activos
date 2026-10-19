@@ -1,4 +1,5 @@
 import { createContext, useCallback, useEffect, useState } from "react";
+import { useAlCambiarConfiguracion } from "../api/cambiosDeConfiguracion";
 
 import { themeService } from "../api/themeService";
 import { useAppearance } from "./AppearanceContext";
@@ -94,6 +95,10 @@ export function ThemeProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Guardado el tema en Configuración, se vuelve a pedir y se aplica al
+  // momento: logo, nombre y colores cambian sin recargar la página.
+  useAlCambiarConfiguracion(["tema"], refresh);
+
   // Reaplicar también cuando cambia claro/oscuro: el usuario puede alternar
   // el modo sin recargar, y las variables de superficie dependen de él.
   useEffect(() => {
@@ -103,6 +108,8 @@ export function ThemeProvider({ children }) {
   }, [theme, resolvedTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, isLoading, refresh }}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, isLoading, refresh }}>
+      {children}
+    </ThemeContext.Provider>
   );
 }

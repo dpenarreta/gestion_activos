@@ -1,0 +1,1413 @@
+/* Módulo Institucional: el organigrama y su estructura. */
+
+.org-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-barra__check {
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.org-barra__buscar {
+  margin-left: auto;
+  max-width: 280px;
+}
+
+.org-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  display: grid;
+  gap: 6px;
+}
+
+.org-resultados li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+/* ---------- El árbol ----------
+   Listas anidadas con conectores dibujados: cada rama baja de su padre y se
+   abre en horizontal. El lienzo se desplaza de lado si el árbol es ancho, sin
+   mover la página. */
+/* El marco del árbol: su propio zoom y su propio desplazamiento, para que
+   acercar o alejar no mueva la página. */
+.org-marco {
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-sunken);
+  overflow: hidden;
+}
+
+.org-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+}
+
+.org-zoom__valor {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-zoom__ayuda {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.org-lienzo {
+  overflow: auto;
+  height: min(70vh, 720px);
+  padding: 16px 8px;
+  cursor: grab;
+}
+
+.org-lienzo--arrastrando {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.org-escala {
+  width: max-content;
+  min-width: 100%;
+}
+
+.org-arbol,
+.org-hijas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+}
+
+.org-arbol {
+  min-width: max-content;
+  margin: 0 auto;
+}
+
+.org-hijas {
+  position: relative;
+  padding-top: 22px;
+}
+
+/* La línea que baja del padre hasta la barra de sus hijas. */
+.org-hijas::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 22px;
+  border-left: 2px solid var(--mz-border-strong);
+}
+
+.org-rama {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 10px 0;
+}
+
+.org-arbol > .org-rama {
+  padding-top: 0;
+}
+
+/* La barra horizontal entre hermanas y la línea que baja a cada una. */
+.org-hijas > .org-rama::before,
+.org-hijas > .org-rama::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 22px;
+  border-top: 2px solid var(--mz-border-strong);
+}
+
+.org-hijas > .org-rama::before {
+  right: 50%;
+}
+
+.org-hijas > .org-rama::after {
+  left: 50%;
+  border-left: 2px solid var(--mz-border-strong);
+}
+
+.org-hijas > .org-rama:first-child::before,
+.org-hijas > .org-rama:last-child::after {
+  border-top: 0;
+}
+
+.org-hijas > .org-rama:only-child::before {
+  display: none;
+}
+
+.org-hijas > .org-rama:first-child::after {
+  border-top-left-radius: 8px;
+}
+
+.org-hijas > .org-rama:last-child::before {
+  border-top-right-radius: 8px;
+  border-right: 2px solid var(--mz-border-strong);
+}
+
+/* ---------- Una unidad ---------- */
+.org-unidad {
+  width: 240px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-top: 4px solid var(--company-color, var(--mz-blue-500));
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-1);
+  text-align: left;
+}
+
+.org-unidad--inactiva {
+  opacity: 0.55;
+}
+
+.org-unidad__cabecera {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.org-unidad__cabecera small {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mz-ink-faint);
+}
+
+.org-unidad__cabecera strong {
+  display: block;
+  font-size: 14px;
+  color: var(--mz-ink);
+}
+
+.org-unidad__area {
+  font-size: 11.5px;
+  color: var(--mz-ink-soft);
+}
+
+.org-unidad__vacia {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+}
+
+.org-unidad__alternar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--mz-border);
+  border-radius: 0 0 10px 10px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.org-unidad__alternar:hover {
+  color: var(--mz-action);
+}
+
+.org-cargos {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.org-cargo {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.org-cargo__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.org-cargo__jefe {
+  display: block;
+  font-size: 11px;
+  color: var(--mz-ink-faint);
+}
+
+.org-plazas {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+}
+
+.org-plazas--vacante {
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
+.org-personas {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+.org-personas__vacante {
+  font-style: italic;
+  color: var(--mz-ink-faint);
+}
+
+/* ---------- Estructura ---------- */
+.org-plazas-edicion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.org-plazas-edicion input {
+  width: 72px;
+  text-align: right;
+}
+.org-sangria {
+  display: inline-block;
+}
+
+@media (max-width: 560px) {
+  .org-zoom__ayuda {
+    display: none;
+  }
+
+  .org-barra__buscar {
+    margin-left: 0;
+    max-width: none;
+  }
+}
+
+/* ---------- Inicio ---------- */
+.inicio-titulo {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mz-ink-faint);
+}
+
+.inicio-grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.inicio-tarjeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  color: var(--mz-ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.inicio-tarjeta:hover,
+.inicio-tarjeta:focus-visible {
+  border-color: var(--mz-action);
+  box-shadow: var(--mz-shadow-2);
+  color: var(--mz-ink);
+}
+
+.inicio-tarjeta strong {
+  display: block;
+  font-size: 14px;
+}
+
+.inicio-tarjeta small {
+  display: block;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+.inicio-tarjeta__icono {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--mz-blue-50);
+  color: var(--mz-blue-700);
+}
+
+/* ---------- Códigos de conducta ---------- */
+.docs-lista {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.docs-item {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.docs-item--retirado {
+  opacity: 0.6;
+}
+
+.docs-item__abrir {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--mz-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.docs-item__abrir:hover,
+.docs-item__abrir:focus-visible {
+  background: var(--mz-sunken);
+}
+
+.docs-item__icono {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--mz-blue-50);
+  color: var(--mz-blue-700);
+}
+
+.docs-item__icono--pdf {
+  background: var(--mz-bad-bg);
+  color: var(--mz-bad-fg);
+}
+
+.docs-item__texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.docs-item__texto strong {
+  font-size: 14px;
+}
+
+.docs-item__texto small {
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+.docs-item__descripcion {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.docs-item__accion {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-action);
+}
+
+.docs-item__gestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+}
+
+/* Una pestaña por documento; con muchos, se desplazan de lado. */
+.docs-pestanas {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.docs-pestanas button {
+  white-space: nowrap;
+}
+
+.docs-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+  overflow: hidden;
+}
+
+.docs-panel__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.docs-panel__cabecera strong {
+  display: block;
+  font-size: 15px;
+}
+
+.docs-panel__cabecera small {
+  display: block;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+.docs-panel__cabecera p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.docs-panel__cuerpo {
+  height: min(78vh, 900px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mz-sunken);
+}
+
+.docs-panel__cuerpo .mz-alert {
+  margin: 16px;
+}
+
+/* El texto del acuerdo respeta los saltos de línea con que se escribió. */
+.acuerdo-texto {
+  max-height: 50vh;
+  overflow-y: auto;
+  white-space: pre-line;
+  font-size: 13.5px;
+  line-height: 1.55;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+/* ---------- Carrusel de noticias de Inicio ---------- */
+.carrusel {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--mz-sunken);
+  box-shadow: var(--mz-shadow-1);
+}
+
+/* Siempre 16:5, en cualquier pantalla: así la imagen hecha a la medida
+   publicada (1920 × 600) se ve completa, sin recortes. */
+.carrusel__diapositiva {
+  position: relative;
+  aspect-ratio: 16 / 5;
+  width: 100%;
+}
+
+.carrusel__diapositiva img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.carrusel__cargando {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--mz-ink-faint);
+}
+
+.carrusel__texto {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 28px 20px 30px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  color: #fff;
+}
+
+.carrusel__texto strong {
+  font-size: 18px;
+}
+
+.carrusel__texto span {
+  font-size: 13.5px;
+  opacity: 0.9;
+}
+
+.carrusel__flecha {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1b2430;
+  box-shadow: var(--mz-shadow-2);
+  cursor: pointer;
+}
+
+.carrusel__flecha:hover,
+.carrusel__flecha:focus-visible {
+  background: #fff;
+}
+
+.carrusel__flecha--anterior {
+  left: 12px;
+}
+
+.carrusel__flecha--siguiente {
+  right: 12px;
+}
+
+.carrusel__puntos {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.carrusel__punto {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+}
+
+.carrusel__punto.is-active {
+  background: #fff;
+  width: 22px;
+  border-radius: 999px;
+}
+
+.carrusel__punto:focus-visible,
+.carrusel__flecha:focus-visible {
+  outline: 2px solid var(--mz-action);
+  outline-offset: 2px;
+}
+
+.noticias-miniatura {
+  width: 96px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--mz-sunken);
+}
+
+@media (max-width: 560px) {
+  .carrusel__texto strong {
+    font-size: 15px;
+  }
+}
+
+/* Guía de medidas para quien diseña las imágenes. */
+.medidas-guia {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  max-width: 480px;
+  border: 2px dashed var(--mz-border-strong);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 11px;
+  color: var(--mz-ink-soft);
+}
+
+.medidas-guia__segura {
+  position: absolute;
+  top: 10%;
+  bottom: 22%;
+  left: 10%;
+  right: 10%;
+  border: 1.5px solid var(--mz-ok-fg);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--mz-ok-bg) 70%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--mz-ok-fg);
+  font-weight: 600;
+}
+
+.medidas-guia__franja {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--mz-ink) 12%, transparent);
+}
+
+.medidas-guia__cota {
+  position: absolute;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+.medidas-guia__cota--ancho {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.medidas-guia__cota--alto {
+  right: -46px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ---------- Inicio: noticias y calendario, uno junto al otro ---------- */
+/* Las dos columnas miden lo mismo: el carrusel se estira al alto del
+   calendario (y al revés, si el carrusel es el más alto). */
+.inicio-destacados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.inicio-destacados__columna {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inicio-destacados__columna > .calendario {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* En Inicio el carrusel mide 16:10 (la medida de las imágenes) y es el que
+   fija el alto; el calendario recogido se ajusta a él. */
+.inicio-destacados__columna > .carrusel {
+  aspect-ratio: 16 / 10;
+}
+
+/* En escritorio, la columna del calendario no empuja el alto de la fila: lo
+   pone el carrusel, y si hay muchas fechas la lista se desplaza. */
+@media (min-width: 992px) {
+  .inicio-destacados__columna--calendario {
+    contain: size;
+  }
+}
+
+.inicio-destacados__columna > .carrusel .carrusel__diapositiva {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+}
+
+.inicio-destacados__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 31px;
+}
+
+.inicio-destacados__cabecera .inicio-titulo {
+  margin: 0;
+}
+
+.inicio-destacados__vacio {
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--mz-border-strong);
+  border-radius: 14px;
+  color: var(--mz-ink-faint);
+  font-size: 13px;
+}
+
+@media (max-width: 991px) {
+  .inicio-destacados {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Calendario de Inicio ---------- */
+/* Los colores de cada tipo valen en todo el módulo: el calendario, su
+   ventana y la tabla de «Gestionar calendario». Feriado: verde con la
+   bandera blanca. */
+.institucional-page,
+.calendario {
+  --cal-evento: var(--mz-action);
+  --cal-cumpleanos: #c2185b;
+  --cal-feriado: #2e7d32;
+}
+
+.calendario {
+  border: 1px solid var(--mz-border);
+  border-radius: 14px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  padding: 12px;
+}
+
+.calendario__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.calendario__mes {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.calendario__fila {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.calendario__dia-semana {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mz-ink-faint);
+  text-transform: uppercase;
+}
+
+.calendario__dia {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 34px;
+  padding: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mz-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calendario__dia:hover {
+  background: var(--mz-sunken);
+}
+
+.calendario__dia--fuera {
+  color: var(--mz-ink-faint);
+  opacity: 0.6;
+}
+
+.calendario__dia--hoy span:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mz-action);
+  color: #fff;
+  font-weight: 600;
+}
+
+.calendario__dia--elegido {
+  border-color: var(--mz-action);
+  background: color-mix(in srgb, var(--mz-action) 8%, transparent);
+}
+
+.calendario__dia:focus-visible {
+  outline: 2px solid var(--mz-action);
+  outline-offset: 1px;
+}
+
+.calendario__marcas {
+  display: flex;
+  gap: 3px;
+}
+
+.calendario__marca {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.calendario__marca--evento {
+  background: var(--cal-evento);
+}
+
+.calendario__marca--cumpleanos {
+  background: var(--cal-cumpleanos);
+}
+
+.calendario__marca--feriado {
+  background: var(--cal-feriado);
+}
+
+.calendario__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 11.5px;
+  color: var(--mz-ink-soft);
+}
+
+.calendario__detalle {
+  border-top: 1px solid var(--mz-border);
+  padding-top: 8px;
+  font-size: 13px;
+}
+
+.calendario__detalle > strong {
+  display: block;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.calendario__eventos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.calendario__eventos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.calendario__eventos small {
+  display: block;
+  color: var(--mz-ink-soft);
+}
+
+.calendario__icono {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+}
+
+.calendario__icono--evento {
+  background: var(--cal-evento);
+}
+
+.calendario__icono--cumpleanos {
+  background: var(--cal-cumpleanos);
+}
+
+.calendario__icono--feriado {
+  background: var(--cal-feriado);
+}
+
+/* El calendario recogido: hoy y mañana en texto, y el botón para ampliarlo. */
+.calendario-resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calendario-resumen__lista {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.calendario-resumen__dia > strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.calendario-resumen__dia .mz-faint {
+  font-weight: 400;
+}
+
+.calendario-resumen__dia p {
+  font-size: 13px;
+}
+
+.calendario-resumen__ampliar {
+  align-self: flex-start;
+}
+
+/* ---------- Mis vacaciones ---------- */
+.vacaciones-resumen {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+}
+
+.vacaciones-resumen > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+}
+
+.vacaciones-resumen span {
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vacaciones-resumen strong {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.vacaciones-resumen small {
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.vacaciones-resumen__principal {
+  border-left: 4px solid var(--mz-action) !important;
+}
+
+.vacaciones-resumen__principal strong {
+  font-size: 40px;
+  color: var(--mz-action);
+}
+
+.vacaciones-periodos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+.vacaciones-periodo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-top: 4px solid var(--mz-warn-fg);
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.vacaciones-periodo--completo {
+  border-top-color: var(--mz-ok-fg);
+}
+
+.vacaciones-periodo__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vacaciones-periodo__cabecera strong {
+  display: block;
+  font-size: 15px;
+}
+
+.vacaciones-periodo__cabecera small {
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+.vacaciones-periodo__cifras {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  text-align: center;
+}
+
+.vacaciones-periodo__cifras dt {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--mz-ink-soft);
+}
+
+.vacaciones-periodo__cifras dd {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.vacaciones-periodo__pendientes {
+  color: var(--mz-action);
+}
+
+.vacaciones-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  overflow: hidden;
+}
+
+.vacaciones-barra span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mz-ok-fg);
+}
+
+/* Dentro de la tarjeta del período: sin el ancho mínimo de los listados
+   grandes (1100 px), que la hacía salirse de la tarjeta. */
+.vacaciones-goces-marco {
+  overflow-x: auto;
+  margin: 0 -4px;
+}
+
+.mz-table.vacaciones-goces {
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.mz-table.vacaciones-goces thead th,
+.mz-table.vacaciones-goces tbody td {
+  padding: 7px 6px;
+}
+
+.mz-table.vacaciones-goces td:last-child {
+  overflow-wrap: anywhere;
+}
+
+.vacaciones-consulta summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.vacaciones-personas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.vacaciones-personas__boton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mz-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vacaciones-personas__boton:hover,
+.vacaciones-personas__boton:focus-visible {
+  background: var(--mz-sunken);
+}
+
+@media (max-width: 720px) {
+  .vacaciones-resumen {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Solicitud de permisos ---------- */
+.solicitud-contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--mz-bad-fg);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.solicitud-ruta {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 12.5px;
+}
+
+.solicitud-ruta ol {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.solicitud-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.solicitud-cabecera strong {
+  display: block;
+  font-size: 16px;
+}
+
+.solicitud-cabecera small {
+  color: var(--mz-ink-soft);
+}
+
+.solicitud-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--mz-border);
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.solicitud-historial li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.solicitud-historial li::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mz-border-strong);
+}
+
+.solicitud-historial__aprobada::before {
+  background: var(--mz-ok-fg) !important;
+}
+
+.solicitud-historial__rechazada::before {
+  background: var(--mz-bad-fg) !important;
+}
+
+.solicitud-historial__escalada::before,
+.solicitud-historial__asignada::before {
+  background: var(--mz-action) !important;
+}
+
+.solicitud-acciones {
+  padding-top: 10px;
+  border-top: 1px solid var(--mz-border);
+}
+
+.flujos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 12px;
+}
+
+.flujo-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.flujo-tarjeta--inactivo {
+  opacity: 0.6;
+}
+
+.flujo-tarjeta__cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.flujo-tarjeta__cabecera strong {
+  font-size: 15px;
+}
+
+.flujo-tarjeta__cabecera small {
+  display: block;
+  color: var(--mz-ink-soft);
+}
+
+.flujo-tarjeta__pasos {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.flujo-tarjeta__pasos li span {
+  display: block;
+}
+
+.flujo-tarjeta__avisos {
+  display: grid;
+  gap: 2px;
+  color: var(--mz-ink-soft);
+}
+
+.flujo-editor {
+  width: min(980px, 96vw);
+}
+
+.flujo-pasos {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.flujo-paso {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.flujo-paso__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.flujo-paso__numero {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mz-action);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.flujo-destinos {
+  display: grid;
+  gap: 6px;
+}
+
+.flujo-destinos__fila {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.flujo-destinos__o {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-ink-faint);
+}

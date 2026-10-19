@@ -147,6 +147,26 @@
   box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--mz-action) 25%, transparent);
 }
 
+/* Con una sola empresa: el nombre, sin desplegable. */
+.mz-switcher--fija {
+  display: flex;
+  align-items: center;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-radius: 6px;
+  padding: 7px 12px 7px 32px;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--mz-ink);
+  max-width: 240px;
+}
+
+.mz-switcher--fija span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mz-switcher__icono,
 .mz-switcher__flecha {
   position: absolute;
@@ -234,22 +254,6 @@
   .mz-shell--collapsed .mz-logout {
     margin-left: 0;
   }
-}
-
-.mz-active-company__rol {
-  display: block;
-  margin-top: 2px;
-  font-size: 10.5px;
-  color: var(--mz-side-fg-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mz-active-company--contraida {
-  margin: 0 8px 14px;
-  padding: 8px 0;
-  text-align: center;
 }
 
 /* ---------- Pantallas estrechas ---------- */
@@ -375,4 +379,69 @@
 
 .mz-flyout-seccion .mz-flyout-lista {
   padding-left: 8px;
+}
+
+/* --- El usuario del pie: un clic abre «Mi perfil» y cerrar sesión -------- */
+
+.mz-user--menu {
+  position: relative;
+}
+
+.mz-user__boton {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px;
+  margin: -4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.mz-user__boton:hover,
+.mz-user__boton[aria-expanded="true"] {
+  background: var(--mz-side-hover);
+}
+
+.mz-user__texto {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mz-user__menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  min-width: 190px;
+  z-index: 20;
+  padding: 6px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-2);
+}
+
+.mz-user__menu a,
+.mz-user__menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--mz-ink);
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.mz-user__menu a:hover,
+.mz-user__menu button:hover {
+  background: var(--mz-sunken);
 }

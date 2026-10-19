@@ -22,6 +22,9 @@ import { chatService } from "../../../api/chatService";
  */
 
 export const INTERVALO_MS = 4000;
+/** Con la pestaña oculta se sigue consultando (para avisar al navegador de un
+ * mensaje nuevo), pero más espaciado: no hace falta cada 4 s. */
+export const INTERVALO_OCULTA_MS = 30000;
 const CLAVE_VENTANAS = "chat.ventanas";
 
 const ChatContext = createContext(null);
@@ -140,6 +143,15 @@ export function ChatProvider({ children }) {
     [cargarMensajes, leer],
   );
 
+  /** Deja todas las pestañas en su barra (al hacer clic fuera del chat). */
+  const minimizarTodo = useCallback(() => {
+    setVentanas((lista) =>
+      lista.some((v) => v.abierta)
+        ? lista.map((v) => (v.abierta ? { ...v, abierta: false } : v))
+        : lista,
+    );
+  }, []);
+
   const cerrar = useCallback((id) => {
     setVentanas((lista) => lista.filter((v) => v.id !== id));
   }, []);
@@ -228,12 +240,28 @@ export function ChatProvider({ children }) {
         /* Sin red: se intenta de nuevo en el próximo turno. */
       }
     }
+    let ultima = 0;
+    function turno() {
+      const ahora = Date.now();
+      if (document.hidden && ahora - ultima < INTERVALO_OCULTA_MS) return;
+      ultima = ahora;
+      consultar();
+    }
+    // Al volver a la pestaña se consulta enseguida, sin esperar el turno.
+    function alVolver() {
+      if (!document.hidden) {
+        ultima = Date.now();
+        consultar();
+      }
+    }
     cargarConversaciones();
-    consultar();
-    const intervalo = setInterval(consultar, INTERVALO_MS);
+    turno();
+    const intervalo = setInterval(turno, INTERVALO_MS);
+    document.addEventListener("visibilitychange", alVolver);
     return () => {
       vigente = false;
       clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
     };
   }, [abrir, cargarConversaciones, leer]);
 
@@ -246,6 +274,7 @@ export function ChatProvider({ children }) {
       ventanas,
       abrir,
       alternar,
+      minimizarTodo,
       cerrar,
       cargarMensajes,
       enviar,
@@ -261,6 +290,7 @@ export function ChatProvider({ children }) {
       ventanas,
       abrir,
       alternar,
+      minimizarTodo,
       cerrar,
       cargarMensajes,
       enviar,

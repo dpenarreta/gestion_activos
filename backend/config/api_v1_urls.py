@@ -39,6 +39,7 @@ urlpatterns = [
     path("soporte/", include("apps.soporte.urls")),
     path("notificaciones/", include("apps.notificaciones.urls")),
     path("chat/", include("apps.chat.urls")),
+    path("licencias/", include("apps.licencias.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---

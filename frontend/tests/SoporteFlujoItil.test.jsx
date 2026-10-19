@@ -15,8 +15,9 @@ const servicio = {
   cambiarPrioridad: vi.fn(),
   formularioInterno: vi.fn(),
   registrar: vi.fn(),
-  seguimiento: vi.fn(),
-  responderEncuesta: vi.fn(),
+  personas: vi.fn(),
+  miTicket: vi.fn(),
+  encuestaMiTicket: vi.fn(),
   reportes: vi.fn(),
   config: { mesa: vi.fn(), guardarMesa: vi.fn() },
 };
@@ -25,8 +26,7 @@ vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
 const { TicketDetalle } = await import("../src/pages/Soporte/TicketDetalle");
 const { RegistrarTicket } =
   await import("../src/pages/Soporte/RegistrarTicket");
-const { SeguimientoTicket } =
-  await import("../src/pages/Soporte/Publico/SeguimientoTicket");
+const { MiTicket } = await import("../src/pages/Ayuda/MiTicket");
 const { HorarioMesaSoporte } =
   await import("../src/pages/Soporte/Configuracion/ConfiguracionSoporte");
 const { ReportesSoporte } =
@@ -146,7 +146,7 @@ describe("El alta interna", () => {
         { id: "telefono", nombre: "Teléfono" },
         { id: "whatsapp", nombre: "WhatsApp" },
       ],
-      agencias: [],
+      agencias: [{ id: 1, nombre: "Loja · Agencia" }],
       areas: [],
       categorias: [
         {
@@ -158,22 +158,6 @@ describe("El alta interna", () => {
         },
       ],
       campos: [
-        {
-          clave: "nombre",
-          etiqueta: "Nombre",
-          tipo: "texto",
-          base: true,
-          obligatorio: true,
-          categorias: [],
-        },
-        {
-          clave: "correo",
-          etiqueta: "Correo",
-          tipo: "correo",
-          base: true,
-          obligatorio: true,
-          categorias: [],
-        },
         {
           clave: "categoria",
           etiqueta: "Categoría",
@@ -200,17 +184,34 @@ describe("El alta interna", () => {
         },
       ],
     });
+    servicio.personas.mockResolvedValue([
+      {
+        id: 7,
+        nombre: "Carla Ordóñez",
+        correo: "carla@grupolaar.com",
+        telefono: "",
+        area: { id: 2, nombre: "Cobranzas" },
+        agencia: null,
+        faltan: ["telefono", "agencia"],
+      },
+    ]);
     servicio.registrar.mockResolvedValue({ id: 42 });
     pintar(<RegistrarTicket />, "/r", "/r");
 
-    fireEvent.change(await screen.findByLabelText("¿Por dónde llegó?"), {
+    // Solo personas registradas: se elige de la lista y sus datos se cargan.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Carla Ordóñez/ }),
+    );
+    expect(screen.getByText("Cobranzas")).toBeInTheDocument();
+    // Le faltan teléfono y agencia: se completan para este ticket.
+    fireEvent.change(screen.getByLabelText("Teléfono"), {
+      target: { value: "0994182273" },
+    });
+    fireEvent.change(screen.getByLabelText("Agencia"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText("¿Por dónde llegó?"), {
       target: { value: "whatsapp" },
-    });
-    fireEvent.change(screen.getByLabelText("Nombre"), {
-      target: { value: "Carla" },
-    });
-    fireEvent.change(screen.getByLabelText("Correo"), {
-      target: { value: "carla@x.com" },
     });
     fireEvent.change(screen.getByLabelText("Categoría"), {
       target: { value: "3" },
@@ -227,7 +228,9 @@ describe("El alta interna", () => {
     expect(campos).toMatchObject({
       canal: "whatsapp",
       asignarme: "true",
-      nombre: "Carla",
+      solicitante: 7,
+      telefono: "0994182273",
+      sede: "1",
       caso: "4",
     });
     expect(await screen.findByText("Ficha abierta")).toBeInTheDocument();
@@ -254,19 +257,19 @@ describe("La encuesta de satisfacción", () => {
       puede_encuestar: true,
       encuesta: null,
     };
-    servicio.seguimiento.mockResolvedValue(base);
-    servicio.responderEncuesta.mockResolvedValue({
+    servicio.miTicket.mockResolvedValue(base);
+    servicio.encuestaMiTicket.mockResolvedValue({
       ...base,
       puede_encuestar: false,
       encuesta: { calificacion: 4, resuelto: true, comentario: "" },
     });
-    pintar(<SeguimientoTicket />, "/s/tok", "/s/:token");
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
     fireEvent.click(await screen.findByRole("radio", { name: "4 de 5" }));
     fireEvent.click(screen.getByLabelText("Sí"));
     fireEvent.click(screen.getByRole("button", { name: "Enviar encuesta" }));
     await waitFor(() =>
-      expect(servicio.responderEncuesta).toHaveBeenCalledWith("tok", {
+      expect(servicio.encuestaMiTicket).toHaveBeenCalledWith("42", {
         calificacion: 4,
         resuelto: true,
         comentario: "",
@@ -358,8 +361,8 @@ describe("Los indicadores del piloto", () => {
   });
 });
 
-describe("Dominios y nombres propios de la mesa", () => {
-  it("guarda el dominio interno y el nombre propio de un estado", async () => {
+describe("Nombres propios de la mesa", () => {
+  it("guarda el nombre propio de un estado", async () => {
     servicio.config.mesa.mockResolvedValue({
       meta_sla: 85,
       meta_sla_critica: 95,
@@ -367,7 +370,6 @@ describe("Dominios y nombres propios de la mesa", () => {
       horario_por_defecto: false,
       horarios: [],
       feriados: [],
-      dominios: "",
       etiquetas: {},
       etiquetas_por_defecto: {
         estados: { atendido: "Atendido" },
@@ -383,20 +385,14 @@ describe("Dominios y nombres propios de la mesa", () => {
       },
     }));
     render(<HorarioMesaSoporte />);
-    fireEvent.change(
-      await screen.findByLabelText("Dominios de correo internos"),
-      {
-        target: { value: "grupolaar.com" },
-      },
-    );
-    fireEvent.change(screen.getByLabelText("Atendido"), {
+    expect(screen.queryByLabelText("Dominios de correo internos")).toBeNull();
+    fireEvent.change(await screen.findByLabelText("Atendido"), {
       target: { value: "Resuelto" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() =>
       expect(servicio.config.guardarMesa).toHaveBeenCalledWith(
         expect.objectContaining({
-          dominios: "grupolaar.com",
           etiquetas: { estados: { atendido: "Resuelto" } },
         }),
       ),

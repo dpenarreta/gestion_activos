@@ -42,6 +42,7 @@ APPS_DE_NEGOCIO = frozenset(
         "soporte",
         "notificaciones",
         "chat",
+        "licencias",
     }
 )
 

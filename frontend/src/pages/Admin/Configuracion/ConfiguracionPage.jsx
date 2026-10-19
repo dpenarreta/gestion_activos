@@ -9,6 +9,7 @@ import {
   evaluateThemeContrast,
   isValidHexColor,
 } from "../../../utils/colorContrast";
+import { mensajeDeError } from "../../../utils/errores";
 import { AparienciaTab } from "./AparienciaTab";
 import { ColoresTipografiaTab, COLOR_FIELDS } from "./ColoresTipografiaTab";
 import { IdentidadTab } from "./IdentidadTab";
@@ -58,6 +59,7 @@ export function ConfiguracionPage() {
   const [options, setOptions] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [error, setError] = useState(null);
+  const [guardado, setGuardado] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -75,6 +77,7 @@ export function ConfiguracionPage() {
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
+    setGuardado(false);
     setIsDirty(true);
   }
 
@@ -87,6 +90,7 @@ export function ConfiguracionPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
+    setGuardado(false);
     setIsSaving(true);
     try {
       const payload = { ...form, font_size_base: Number(form.font_size_base) };
@@ -94,11 +98,11 @@ export function ConfiguracionPage() {
       setForm(pickEditableFields(response));
       setWarnings(response.warnings || []);
       setIsDirty(false);
+      // Sin esto, guardar no daba ninguna señal y parecía no haber pasado nada.
+      setGuardado(true);
     } catch (err) {
-      setError(
-        err.response?.data?.error?.message ||
-          "No se pudo guardar la configuración.",
-      );
+      // El detalle por campo primero: dice qué corregir.
+      setError(mensajeDeError(err, "No se pudo guardar la configuración."));
     } finally {
       setIsSaving(false);
     }
@@ -137,6 +141,12 @@ export function ConfiguracionPage() {
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}
+        </div>
+      )}
+      {guardado && (
+        <div className="mz-alert mz-alert--ok">
+          <Icon name="check-circle" />
+          Cambios guardados. Ya se ven en todo el sistema.
         </div>
       )}
 
@@ -191,6 +201,11 @@ export function ConfiguracionPage() {
             {/* Un solo pie para las dos pestañas: editan el mismo tema y se
                 guardan juntas. */}
             <div className="mz-actions justify-content-end mt-3">
+              {guardado && (
+                <span className="mz-small text-success me-auto" role="status">
+                  <Icon name="check-circle" /> Guardado
+                </span>
+              )}
               <button
                 type="button"
                 className="btn btn-outline-secondary"

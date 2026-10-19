@@ -1,22 +1,71 @@
-from django.db.models import Count, Q
+from urllib.parse import quote
+
 from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
+from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
-from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
-from .permissions import OrganizacionPermission
+from . import (
+    avisos_inicio,
+    calendario,
+    confidencialidad,
+    contacto,
+    noticias,
+    organigrama,
+    vacaciones,
+)
+from .models import (
+    Cargo,
+    Concesionario,
+    DatosDeContacto,
+    Departamento,
+    DocumentoInstitucional,
+    Empleado,
+    EventoCalendario,
+    NivelJerarquico,
+    NoticiaInicio,
+    Proveedor,
+    Sede,
+    UnidadOrganizacional,
+)
+from .permissions import (
+    AsignarCargosPermission,
+    AceptacionesPermission,
+    AcuerdoPermission,
+    AvisoInicioPermission,
+    CalendarioPermission,
+    NoticiasPermission,
+    DocumentosPermission,
+    InstitucionalPermission,
+    OrganizacionPermission,
+    VacacionesDeTodosPermission,
+    VerOrganigramaPermission,
+)
 from .serializers import (
     ConcesionarioSerializer,
     DepartamentoSerializer,
     EmpleadoSerializer,
+    AcuerdoConfidencialidadSerializer,
+    AjustesCarruselSerializer,
+    AvisoInicioSerializer,
+    AsignacionSerializer,
+    CargoSerializer,
+    DocumentoInstitucionalSerializer,
+    EventoCalendarioSerializer,
+    MisDatosSerializer,
+    NivelJerarquicoSerializer,
+    NoticiaInicioSerializer,
     ProveedorSerializer,
+    UnidadOrganizacionalSerializer,
     SedeSerializer,
 )
 
@@ -332,3 +381,585 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         return super().update(request, *args, **kwargs)
+
+
+class MisDatosView(APIView):
+    """«Mi perfil»: toda persona con sesión ve y actualiza su teléfono, área,
+    agencia y cargo en la empresa activa (y su nombre). No pide permisos: es de
+    ella."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({**contacto.de(request.user), **contacto.opciones()})
+
+    def put(self, request):
+        entrada = MisDatosSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        contacto.guardar(
+            request.user,
+            nombres=datos["nombres"],
+            apellidos=datos["apellidos"],
+            telefono=datos["telefono"],
+            departamento=datos["area"],
+            sede=datos["agencia"],
+            cargo=datos.get("cargo"),
+        )
+        return Response({**contacto.de(request.user), **contacto.opciones()})
+
+
+# --- Organigrama (módulo Institucional) ---------------------------------------
+
+MODULO_INSTITUCIONAL = "institucional"
+
+
+class OrganigramaView(APIView):
+    """Todo el organigrama de la empresa activa: niveles, unidades, cargos y
+    quién ocupa cada uno."""
+
+    permission_classes = [IsAuthenticated, VerOrganigramaPermission]
+
+    def get(self, request):
+        return Response(organigrama.arbol())
+
+
+class _EstructuraViewSet(viewsets.ModelViewSet):
+    """Niveles, unidades y cargos: se crean, editan y borran (si nada depende
+    de ellos), y cada cambio queda en la auditoría."""
+
+    permission_classes = [IsAuthenticated, InstitucionalPermission]
+    entidad = ""
+
+    def _auditar(self, accion, objeto, nuevos=None, anteriores=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.{self.entidad}.{accion}",
+            target=objeto,
+            module=MODULO_INSTITUCIONAL,
+            previous_values=anteriores or {},
+            new_values=nuevos or {},
+            context=get_request_context(self.request),
+        )
+
+    def perform_create(self, serializer):
+        objeto = serializer.save()
+        self._auditar("created", objeto, serializer.data)
+
+    def perform_update(self, serializer):
+        anteriores = self.get_serializer(serializer.instance).data
+        objeto = serializer.save()
+        self._auditar("updated", objeto, serializer.data, anteriores)
+
+    def destroy(self, request, *args, **kwargs):
+        objeto = self.get_object()
+        motivo = organigrama.no_se_puede_borrar(objeto)
+        if motivo:
+            return Response({"detail": motivo}, status=status.HTTP_409_CONFLICT)
+        self._auditar("deleted", objeto, anteriores=self.get_serializer(objeto).data)
+        objeto.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class NivelJerarquicoViewSet(_EstructuraViewSet):
+    serializer_class = NivelJerarquicoSerializer
+    entidad = "nivel"
+
+    def get_queryset(self):
+        return NivelJerarquico.objects.order_by("orden", "nombre")
+
+
+class UnidadOrganizacionalViewSet(_EstructuraViewSet):
+    serializer_class = UnidadOrganizacionalSerializer
+    entidad = "unidad"
+
+    def get_queryset(self):
+        return UnidadOrganizacional.objects.select_related("nivel", "padre").order_by(
+            "orden", "nombre"
+        )
+
+
+class CargoViewSet(_EstructuraViewSet):
+    serializer_class = CargoSerializer
+    entidad = "cargo"
+
+    def get_queryset(self):
+        return Cargo.objects.select_related("unidad", "jefe").order_by("nombre")
+
+
+class AsignacionesView(APIView):
+    """Quién está en qué cargo, y ponerlo o sacarlo. Escribe en el mismo dato
+    que la persona elige en «Mi perfil»: el último que lo cambia manda."""
+
+    permission_classes = [IsAuthenticated, AsignarCargosPermission]
+
+    def get(self, request):
+        from apps.chat.services import buscar_personas
+
+        personas = list(buscar_personas(request.query_params.get("q", ""), limite=50))
+        cargos = {
+            fila.usuario_id: fila.cargo
+            for fila in DatosDeContacto.objects.filter(
+                usuario__in=personas, cargo__isnull=False
+            ).select_related("cargo__unidad")
+        }
+        return Response(
+            [
+                {
+                    "id": p.id,
+                    "nombre": p.get_full_name().strip() or p.username,
+                    "correo": p.email,
+                    "cargo": (
+                        {
+                            "id": cargos[p.id].id,
+                            "nombre": organigrama.nombre_con_unidad(cargos[p.id]),
+                        }
+                        if p.id in cargos
+                        else None
+                    ),
+                }
+                for p in personas
+            ]
+        )
+
+    def post(self, request):
+        from apps.chat.services import personas_de_la_empresa
+
+        entrada = AsignacionSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        usuario = personas_de_la_empresa().filter(pk=entrada.validated_data["usuario"]).first()
+        if usuario is None:
+            return Response(
+                {"usuario": ["Esa persona no está registrada en esta empresa."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        cargo = entrada.validated_data["cargo"]
+        anterior = (
+            DatosDeContacto.objects.filter(usuario=usuario)
+            .values_list("cargo_id", flat=True)
+            .first()
+        )
+        organigrama.asignar(usuario, cargo)
+        record_audit_event(
+            actor=request.user,
+            action="institucional.cargo.asignado",
+            target=usuario,
+            module=MODULO_INSTITUCIONAL,
+            previous_values={"cargo": anterior},
+            new_values={"cargo": cargo.id if cargo else None},
+            context=get_request_context(request),
+        )
+        return Response({"usuario": usuario.id, "cargo": cargo.id if cargo else None})
+
+
+class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
+    """Códigos de conducta y reglamentos de la empresa activa.
+
+    Toda persona con sesión ve los vigentes y los abre; quien tiene
+    `codigos.publicar` ve también los retirados, los publica, los
+    edita y los borra. Abrir uno queda en la auditoría: es la constancia de que
+    la persona tuvo acceso a la norma.
+    """
+
+    permission_classes = [IsAuthenticated, DocumentosPermission]
+    serializer_class = DocumentoInstitucionalSerializer
+
+    def _gestiona(self) -> bool:
+        from apps.permissions.authorization import user_has_permission
+
+        return user_has_permission(self.request.user, "codigos.publicar")
+
+    def get_queryset(self):
+        queryset = DocumentoInstitucional.objects.select_related("subido_por")
+        if not self._gestiona():
+            queryset = queryset.filter(activo=True)
+        return queryset.order_by("categoria", "titulo")
+
+    def _auditar(self, accion, documento, nuevos=None):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.documento.{accion}",
+            target=documento,
+            module=MODULO_INSTITUCIONAL,
+            new_values=nuevos or {},
+            context=get_request_context(self.request),
+        )
+
+    def _uno_predeterminado(self, documento):
+        """Marcar uno desmarca al que lo era: se abre primero uno solo."""
+        if documento.predeterminado:
+            DocumentoInstitucional.objects.exclude(pk=documento.pk).filter(
+                predeterminado=True
+            ).update(predeterminado=False)
+
+    def perform_create(self, serializer):
+        documento = serializer.save(subido_por=self.request.user)
+        self._uno_predeterminado(documento)
+        confidencialidad.documentos_cambiaron()
+        self._auditar("publicado", documento, {"titulo": documento.titulo})
+
+    def perform_update(self, serializer):
+        anterior = serializer.instance.archivo.name if serializer.instance.archivo else ""
+        documento = serializer.save()
+        self._uno_predeterminado(documento)
+        confidencialidad.documentos_cambiaron()
+        if "archivo" in serializer.validated_data and anterior:
+            # Se reemplazó el archivo: el viejo no queda huérfano en el disco.
+            documento.archivo.storage.delete(anterior)
+        self._auditar("editado", documento, {"titulo": documento.titulo})
+
+    def perform_destroy(self, documento):
+        self._auditar("borrado", documento, {"titulo": documento.titulo})
+        documento.borrar_archivo()
+        documento.delete()
+        confidencialidad.documentos_cambiaron()
+
+    @action(detail=True, methods=["get"])
+    def archivo(self, request, pk=None):
+        documento = self.get_object()
+        if not confidencialidad.aceptado(request.user):
+            # Sin el acuerdo aceptado no se entrega el contenido, aunque se
+            # pida directo a la API.
+            return Response(
+                {
+                    "error": {
+                        "code": "acuerdo_pendiente",
+                        "message": "Acepte el acuerdo de confidencialidad para ver los documentos.",
+                    }
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            fichero = documento.archivo.open("rb")
+        except FileNotFoundError as error:
+            raise Http404("El archivo ya no está disponible en el servidor.") from error
+        self._auditar("abierto", documento)
+        respuesta = FileResponse(
+            fichero,
+            filename=documento.nombre_original,
+            content_type=documento.content_type or "application/octet-stream",
+        )
+        # El visor del sistema lo pide como blob; servido como adjunto y sin
+        # adivinar el tipo, el navegador no lo ejecuta por su cuenta.
+        respuesta["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{quote(documento.nombre_original)}"
+        )
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
+
+
+class ConfidencialidadView(APIView):
+    """El acuerdo de confidencialidad: verlo (con si la persona ya lo aceptó
+    para la versión vigente de los documentos) y, con
+    `codigos.acuerdo`, cambiar su título y texto."""
+
+    permission_classes = [IsAuthenticated, AcuerdoPermission]
+
+    def get(self, request):
+        return Response(confidencialidad.estado(request.user))
+
+    def put(self, request):
+        entrada = AcuerdoConfidencialidadSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        vigente = confidencialidad.acuerdo()
+        anteriores = {"titulo": vigente.titulo, "texto": vigente.texto}
+        vigente.titulo = entrada.validated_data["titulo"].strip()
+        vigente.texto = entrada.validated_data["texto"].strip()
+        vigente.save(update_fields=["titulo", "texto", "updated_at"])
+        record_audit_event(
+            actor=request.user,
+            action="institucional.confidencialidad.editada",
+            target=vigente,
+            module=MODULO_INSTITUCIONAL,
+            previous_values=anteriores,
+            new_values={"titulo": vigente.titulo, "texto": vigente.texto},
+            context=get_request_context(request),
+        )
+        return Response(confidencialidad.estado(request.user))
+
+
+class AceptarConfidencialidadView(APIView):
+    """Aceptar el acuerdo: toda persona con sesión. Queda con su fecha."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        aceptacion = confidencialidad.aceptar(request.user)
+        record_audit_event(
+            actor=request.user,
+            action="institucional.confidencialidad.aceptada",
+            target=request.user,
+            module=MODULO_INSTITUCIONAL,
+            new_values={
+                "version_documentos": aceptacion.version_documentos,
+                "aceptado_en": aceptacion.aceptado_en.isoformat(),
+            },
+            context=get_request_context(request),
+        )
+        return Response(confidencialidad.estado(request.user))
+
+
+class AceptacionesConfidencialidadView(APIView):
+    """Quién aceptó el acuerdo y cuándo (pide `codigos.ver_aceptaciones`)."""
+
+    permission_classes = [IsAuthenticated, AceptacionesPermission]
+
+    def get(self, request):
+        from .models import AceptacionConfidencialidad
+
+        vigente = confidencialidad.acuerdo().version_documentos
+        filas = AceptacionConfidencialidad.objects.select_related("usuario").order_by(
+            "-aceptado_en"
+        )[:500]
+        return Response(
+            [
+                {
+                    "id": fila.id,
+                    "persona": fila.usuario.get_full_name().strip() or fila.usuario.username,
+                    "correo": fila.usuario.email,
+                    "aceptado_en": fila.aceptado_en,
+                    "version": fila.version_documentos,
+                    "vigente": fila.version_documentos == vigente,
+                }
+                for fila in filas
+            ]
+        )
+
+
+class NoticiaInicioViewSet(viewsets.ModelViewSet):
+    """El carrusel de Inicio: toda persona con sesión ve las imágenes vigentes
+    hoy; quien tiene `noticias.gestionar` ve todas (también las programadas y
+    vencidas), las sube, las edita y las borra."""
+
+    permission_classes = [IsAuthenticated, NoticiasPermission]
+    serializer_class = NoticiaInicioSerializer
+
+    def _gestiona(self) -> bool:
+        from apps.permissions.authorization import user_has_permission
+
+        return user_has_permission(self.request.user, "noticias.gestionar")
+
+    def get_queryset(self):
+        # El listado muestra lo vigente hoy (es lo que ve el Inicio); quien
+        # gestiona pide `?todas=1` y abre, edita o borra cualquiera.
+        todas = self.action != "list" or self.request.query_params.get("todas") == "1"
+        if self._gestiona() and todas:
+            queryset = NoticiaInicio.objects.all()
+        else:
+            queryset = noticias.vigentes()
+        return queryset.order_by("orden", "-publicar_desde", "id")
+
+    def _auditar(self, accion, noticia):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.noticia.{accion}",
+            target=noticia,
+            module=MODULO_INSTITUCIONAL,
+            new_values={
+                "titulo": noticia.titulo,
+                "publicar_desde": str(noticia.publicar_desde),
+                "publicar_hasta": str(noticia.publicar_hasta),
+            },
+            context=get_request_context(self.request),
+        )
+
+    def perform_create(self, serializer):
+        self._auditar("publicada", serializer.save(subido_por=self.request.user))
+
+    def perform_update(self, serializer):
+        anterior = serializer.instance.imagen.name if serializer.instance.imagen else ""
+        noticia = serializer.save()
+        if "imagen" in serializer.validated_data and anterior:
+            noticia.imagen.storage.delete(anterior)
+        self._auditar("editada", noticia)
+
+    def perform_destroy(self, noticia):
+        self._auditar("borrada", noticia)
+        noticia.borrar_imagen()
+        noticia.delete()
+
+    @action(detail=True, methods=["get"])
+    def imagen(self, request, pk=None):
+        noticia = self.get_object()
+        try:
+            fichero = noticia.imagen.open("rb")
+        except FileNotFoundError as error:
+            raise Http404("La imagen ya no está disponible en el servidor.") from error
+        respuesta = FileResponse(
+            fichero, content_type=noticia.content_type or "application/octet-stream"
+        )
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        respuesta["Cache-Control"] = "private, max-age=300"
+        return respuesta
+
+
+class AjustesCarruselView(APIView):
+    """Cada cuántos segundos cambia el carrusel: lo leen todos (lo usa el
+    Inicio); cambiarlo pide `noticias.gestionar`."""
+
+    permission_classes = [IsAuthenticated, NoticiasPermission]
+
+    def get(self, request):
+        return Response({"segundos": noticias.ajustes().segundos})
+
+    def put(self, request):
+        entrada = AjustesCarruselSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        actual = noticias.ajustes()
+        anterior = actual.segundos
+        actual.segundos = entrada.validated_data["segundos"]
+        actual.save(update_fields=["segundos", "updated_at"])
+        record_audit_event(
+            actor=request.user,
+            action="institucional.carrusel.ajustado",
+            target=actual,
+            module=MODULO_INSTITUCIONAL,
+            previous_values={"segundos": anterior},
+            new_values={"segundos": actual.segundos},
+            context=get_request_context(request),
+        )
+        return Response({"segundos": actual.segundos})
+
+
+class EventoCalendarioViewSet(viewsets.ModelViewSet):
+    """Las fechas del calendario de Inicio, para gestionarlas: verlas es de
+    todos; agregar, editar y borrar pide `calendario.gestionar`."""
+
+    permission_classes = [IsAuthenticated, CalendarioPermission]
+    serializer_class = EventoCalendarioSerializer
+
+    def get_queryset(self):
+        return EventoCalendario.objects.order_by("fecha", "titulo")
+
+    def _auditar(self, accion, evento):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.calendario.{accion}",
+            target=evento,
+            module=MODULO_INSTITUCIONAL,
+            new_values={"titulo": evento.titulo, "fecha": str(evento.fecha), "tipo": evento.tipo},
+            context=get_request_context(self.request),
+        )
+
+    def perform_create(self, serializer):
+        self._auditar("agregado", serializer.save(creado_por=self.request.user))
+
+    def perform_update(self, serializer):
+        self._auditar("editado", serializer.save())
+
+    def perform_destroy(self, evento):
+        self._auditar("borrado", evento)
+        evento.delete()
+
+
+class CalendarioView(APIView):
+    """Lo que hay en el calendario entre `desde` y `hasta` (el mes que se
+    mira), con los cumpleaños y demás fechas anuales en cada año del rango."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import datetime
+
+        try:
+            desde = datetime.date.fromisoformat(request.query_params.get("desde", ""))
+            hasta = datetime.date.fromisoformat(request.query_params.get("hasta", ""))
+        except ValueError:
+            return Response(
+                {"detail": "Indique desde y hasta como AAAA-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if hasta < desde or (hasta - desde).days > calendario.DIAS_MAXIMOS:
+            return Response(
+                {"detail": "El rango debe ir hacia adelante y no pasar de 400 días."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(calendario.apariciones(desde, hasta))
+
+
+def _aviso_inicio():
+    return avisos_inicio.actual()
+
+
+def _datos_del_aviso(aviso):
+    return {
+        "activo": aviso.activo,
+        "titulo": aviso.titulo,
+        "contenido": aviso.contenido,
+        "tiene_imagen": bool(aviso.imagen),
+        "version": aviso.version,
+        "actualizado": aviso.updated_at,
+    }
+
+
+class AvisoInicioView(APIView):
+    """El aviso que se muestra al entrar al sistema: lo leen todos; cambiarlo
+    pide `configuracion.aviso_inicio`."""
+
+    permission_classes = [IsAuthenticated, AvisoInicioPermission]
+
+    def get(self, request):
+        return Response(_datos_del_aviso(_aviso_inicio()))
+
+    def put(self, request):
+        entrada = AvisoInicioSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        aviso = _aviso_inicio()
+        avisos_inicio.guardar(aviso, datos)
+        record_audit_event(
+            actor=request.user,
+            action="configuracion.aviso_inicio.actualizado",
+            target=aviso,
+            module="configuracion",
+            new_values={"activo": aviso.activo, "titulo": aviso.titulo},
+            context=get_request_context(request),
+        )
+        return Response(_datos_del_aviso(aviso))
+
+
+class ImagenAvisoInicioView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        aviso = _aviso_inicio()
+        if not aviso.imagen:
+            raise Http404("El aviso no tiene imagen.")
+        try:
+            fichero = aviso.imagen.open("rb")
+        except FileNotFoundError as error:
+            raise Http404("La imagen ya no está disponible en el servidor.") from error
+        respuesta = FileResponse(
+            fichero, content_type=aviso.content_type or "application/octet-stream"
+        )
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
+
+
+class MisVacacionesView(APIView):
+    """Mis vacaciones: por período, los días que me corresponden, los que
+    gocé y los que me quedan. Toda persona con sesión ve las suyas."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(vacaciones.resumen(request.user))
+
+
+class VacacionesDeTodosView(APIView):
+    """Las vacaciones de cualquier persona de la empresa (pide
+    `vacaciones.ver_todas`): sin `usuario`, la lista de personas con sus días
+    pendientes; con `usuario`, el detalle de esa persona."""
+
+    permission_classes = [IsAuthenticated, VacacionesDeTodosPermission]
+
+    def get(self, request):
+        from apps.chat.services import personas_de_la_empresa
+
+        usuario = request.query_params.get("usuario", "")
+        if not usuario.isdigit():
+            return Response(vacaciones.personas(request.query_params.get("q", "")))
+        persona = personas_de_la_empresa().filter(pk=int(usuario)).first()
+        if persona is None:
+            raise Http404("Esa persona no está en esta empresa.")
+        return Response(vacaciones.resumen(persona))

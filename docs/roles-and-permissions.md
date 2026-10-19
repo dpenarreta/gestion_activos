@@ -26,22 +26,53 @@ módulos y permisos.
 
 ## Catálogo actual
 
-| Módulo | Permisos |
-| --- | --- |
-| `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password` |
-| `roles` | `ver`, `editar` |
-| `permisos` | `ver` |
-| `configuracion` | `ver`, `editar`, `respaldos` |
-| `activos` | `ver`, `ver_asignados`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
-| `organizacion` | `ver`, `editar` |
-| `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
-| `solicitudes` | `ver`, `crear`, `gestionar`, `administrar` |
-| `politicas` | `ver`, `editar` |
-| `adjuntos` | `ver`, `subir`, `eliminar` |
-| `alertas` | `ver`, `configurar` |
-| `empresas` | `ver`, `editar`, `asignar` |
-| `reportes` | `ver`, `exportar` |
-| `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
+Cada bloque pertenece a un grupo (`MODULE_GROUPS` en `catalog.py`), que es como
+lo muestra el editor de roles. Los **generales** valen en todo el sistema; los
+de **módulo** solo sirven dentro de él.
+
+| Grupo | Alcance | Bloque | Permisos |
+| --- | --- | --- | --- |
+| Reportes | general | `reportes` | `ver`, `exportar` |
+| Auditoría | general | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
+| Configuración | general | `empresas` | `ver`, `editar`, `asignar` |
+| | | `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password` |
+| | | `roles` | `ver`, `editar` |
+| | | `permisos` | `ver` |
+| | | `organizacion` | `ver`, `editar` |
+| | | `catalogos` | `ver`, `editar` |
+| | | `notificaciones` | `configurar` |
+| | | `configuracion` | `ver`, `editar`, `aviso_inicio`, `respaldos` |
+| Chat | general | `chat` | `historial_completo`, `grupos_por_area` |
+| Institucional | módulo | `institucional` | `ver`, `editar`, `asignar` |
+| | | `codigos` | `publicar`, `acuerdo`, `ver_aceptaciones` |
+| | | `noticias` | `gestionar` |
+| | | `calendario` | `gestionar` |
+| | | `vacaciones` | `ver_todas` |
+| | | `licencias` | `configurar`, `ver_todas` |
+| Dashboards | módulo | `dashboard` | `crear`, `editar`, `eliminar`, `view`, `edit`, `layout.edit`, `component.style`, `component.create`, `component.delete`, `configuration.reset`, `interpretar`, `hallazgos_ia`, `fuente_bd.configurar`, `fuente_bd.actualizar`, `archivo.cargar`, `datos.editar` |
+| Mesa de ayuda | módulo | `soporte` | `atender`, `registrar`, `ver_todos`, `asignar`, `aprobar_horas`, `configurar`, `formulario`, `reportes` |
+| Matriz de obligaciones | módulo | `matriz` | `ver_todas`, `crear`, `editar`, `cambiar_fecha`, `cargar`, `enviar`, `validar`, `recordar`, `exportar`, `ver_auditoria`, `configurar`, `gestionar_miembros` |
+| Órdenes de trabajo | módulo | `ordenes` | `ver`, `ver_todas`, `crear`, `gestionar`, `ejecutar`, `aceptar`, `ver_contacto`, `reportes` |
+| Gestión de Activos | módulo | `activos` | `ver`, `ver_asignados`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
+| | | `alertas` | `ver` |
+| | | `adjuntos` | `ver`, `subir`, `eliminar` |
+| | | `mantenimientos` | `ver`, `registrar`, `editar`, `componentes`, `exportar` |
+| | | `solicitudes` | `ver`, `crear`, `gestionar`, `administrar` |
+| | | `politicas` | `ver`, `editar` |
+
+**Sin ningún permiso**, toda persona con cuenta usa el chat, la campana de
+notificaciones, «Soporte TI» (pedir ayuda y seguir sus tickets), «Mi perfil»
+(donde también elige su cargo del organigrama), Institucional → Inicio
+(a donde entra al iniciar sesión, siempre), los códigos de conducta y
+reglamentos (gestionarlos pide `codigos.*`, uno por pestaña) y
+las aprobaciones de la Mesa de ayuda en las que figura como aprobadora.
+
+**`soporte`** separa `registrar` de `atender` y `formulario` de `configurar`
+desde el 2026-10-19: registrar en nombre de otro lo hace también una recepción
+que no resuelve tickets, y lo que pregunta el formulario lo puede cuidar alguien
+que no decide plazos ni el equipo. Quien tenía `atender` o `asignar` recibió
+`registrar`, y quien tenía `configurar` recibió `formulario` (migración
+`roles.0012`).
 
 **`solicitudes`** separa pedir de gestionar a propósito: cualquiera que trabaje
 con equipos debería poder pedir uno (`crear`), y decidir si se compra es otro
@@ -149,3 +180,10 @@ nunca un valor hardcodeado en el repositorio.
 - El menú administrativo (`staticAdminMenu.js`) filtra client-side por
   `user.permissions` — nunca es la única barrera: toda vista administrativa
   vuelve a validar el permiso en el backend.
+
+**`codigos`** separa, desde el 2026-10-19, lo que antes era un solo
+`institucional.documentos`: publicar los documentos (`publicar`), configurar el
+acuerdo de confidencialidad (`acuerdo`) y consultar quién lo aceptó
+(`ver_aceptaciones`, que es de solo lectura y por eso lo tiene Consulta /
+Auditoría). La migración `roles.0015` renombró el permiso viejo a
+`codigos.publicar` —nadie lo perdió— y sumó los otros dos a quien lo tenía.

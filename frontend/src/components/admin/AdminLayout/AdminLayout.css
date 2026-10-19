@@ -24,3 +24,9 @@
     display: none;
   }
 }
+
+/* El espacio que ocupa el botón del chat (abajo a la derecha, fijo), para que
+   nada quede debajo de él al llegar al final de la página. */
+.mz-view--con-chat {
+  padding-bottom: 96px;
+}

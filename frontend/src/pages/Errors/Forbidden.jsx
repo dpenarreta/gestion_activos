@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
 
-import { modulosConAcceso } from "../../components/admin/AdminSidebar/staticAdminMenu";
+import {
+  conPermiso,
+  modulosConPermiso,
+} from "../../components/admin/AdminSidebar/staticAdminMenu";
 import { useAdminMenu } from "../../hooks/useAdminMenu";
 import { useAuth } from "../../hooks/useAuth";
 import "./Errors.css";
+import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
 
 /**
  * Acceso denegado.
@@ -20,8 +24,10 @@ export function Forbidden() {
   const menu = useAdminMenu();
   // En ningún módulo, no solo en el que se estaba: quien no tiene nada del
   // inventario pero sí de la Matriz no es una cuenta sin permisos.
+  // Solo cuentan las opciones que exigen un permiso.
   const sinNingunPermiso =
-    menu.length === 0 && modulosConAcceso(user?.permissions || []).length === 0;
+    conPermiso(menu).length === 0 &&
+    modulosConPermiso(user?.permissions || []).length === 0;
 
   return (
     <div className="mz-error-page">
@@ -33,22 +39,27 @@ export function Forbidden() {
             <p className="mz-desc">
               Su cuenta todavía no tiene ningún permiso asignado, así que no hay
               ninguna pantalla que pueda abrir. Pídale a un administrador que le
-              asigne un rol.
+              asigne un rol; mientras tanto, puede pedir soporte.
             </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => logout()}
-            >
-              Cerrar sesión
-            </button>
+            <div className="mz-actions justify-content-center">
+              <Link className="btn btn-outline-primary" to="/admin/ayuda">
+                Pedir soporte
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => logout()}
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </>
         ) : (
           <>
             <p className="mz-desc">
               No tiene los permisos necesarios para ver esta página.
             </p>
-            <Link to="/admin" className="btn btn-primary">
+            <Link to={RUTA_DE_ENTRADA} className="btn btn-primary">
               Volver al panel
             </Link>
           </>

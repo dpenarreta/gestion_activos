@@ -3,16 +3,17 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
- * Mesa de ayuda: el formulario público, el seguimiento por enlace, la bandeja
- * y la ficha del ticket.
+ * Mesa de ayuda: «Soporte TI» (nuevo ticket con los datos de «Mi perfil» y la
+ * ficha de un ticket propio), la bandeja y la ficha del ticket del equipo.
  */
 
 const servicio = {
-  formulario: vi.fn(),
+  solicitar: vi.fn(),
   crearTicket: vi.fn(),
-  seguimiento: vi.fn(),
-  responderComoSolicitante: vi.fn(),
-  confirmarSolucion: vi.fn(),
+  miTicket: vi.fn(),
+  responderMiTicket: vi.fn(),
+  confirmarMiTicket: vi.fn(),
+  encuestaMiTicket: vi.fn(),
   bandeja: vi.fn(),
   tickets: vi.fn(),
   ticket: vi.fn(),
@@ -27,13 +28,37 @@ const servicio = {
   descargar: vi.fn(),
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
+const misDatos = { obtener: vi.fn(), guardar: vi.fn() };
+vi.mock("../src/api/misDatosService", () => ({ misDatosService: misDatos }));
 
-const { FormularioSoporte } =
-  await import("../src/pages/Soporte/Publico/FormularioSoporte");
-const { SeguimientoTicket } =
-  await import("../src/pages/Soporte/Publico/SeguimientoTicket");
+const { NuevoTicket } = await import("../src/pages/Ayuda/NuevoTicket");
+const { MiTicket } = await import("../src/pages/Ayuda/MiTicket");
 const { Bandeja } = await import("../src/pages/Soporte/Bandeja");
 const { TicketDetalle } = await import("../src/pages/Soporte/TicketDetalle");
+
+function base(clave, etiqueta, tipo) {
+  return {
+    clave,
+    etiqueta,
+    tipo,
+    ayuda: "",
+    opciones: [],
+    obligatorio: true,
+    base: true,
+    categorias: [],
+  };
+}
+
+const MIS_DATOS = {
+  nombre: "Carla Ordóñez",
+  nombres: "Carla",
+  apellidos: "Ordóñez",
+  correo: "carla@grupolaar.com",
+  telefono: "0994182273",
+  area: { id: 2, nombre: "Cobranzas" },
+  agencia: { id: 1, nombre: "Loja · Agencia" },
+  faltan: [],
+};
 
 const FORMULARIO = {
   empresa: "LaarCourier",
@@ -54,6 +79,14 @@ const FORMULARIO = {
       ],
     },
   ],
+  campos: [
+    base("categoria", "Categoría", "lista"),
+    base("caso", "Caso de ayuda", "lista"),
+    base("descripcion", "Describa el problema", "parrafo"),
+    base("impacto", "¿A quién afecta?", "lista"),
+    base("urgencia", "¿Puede seguir trabajando?", "lista"),
+  ],
+  mis_datos: MIS_DATOS,
 };
 
 function Ruta() {
@@ -76,31 +109,23 @@ beforeEach(() => {
   servicio.respuestas.mockResolvedValue([]);
 });
 
-describe("El formulario público", () => {
-  it("pide los campos acordados, deduce la prioridad del caso y muestra la posición", async () => {
-    servicio.formulario.mockResolvedValue(FORMULARIO);
+describe("Soporte TI: nuevo ticket", () => {
+  it("carga los datos de quien pide y solo pregunta el problema", async () => {
+    servicio.solicitar.mockResolvedValue(FORMULARIO);
     servicio.crearTicket.mockResolvedValue({
+      id: 42,
       numero: "TCK-2026-000042",
       posicion: 4,
+      estado: "nuevo",
       fuera_de_horario: true,
-      token: "secreto",
     });
-    pintar(<FormularioSoporte />, "/soporte/LC", "/soporte/:codigo");
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
 
-    expect(await screen.findByText("LaarCourier")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Nombre y apellido"), {
-      target: { value: "Carla" },
-    });
-    fireEvent.change(screen.getByLabelText("Teléfono de contacto"), {
-      target: { value: "0994182273" },
-    });
-    fireEvent.change(screen.getByLabelText("Correo"), {
-      target: { value: "carla@x.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Agencia"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("Área"), { target: { value: "2" } });
+    // Sus datos vienen de «Mi perfil»: no se vuelven a pedir.
+    expect(await screen.findByText("Carla Ordóñez")).toBeInTheDocument();
+    expect(screen.getByText("Loja · Agencia")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nombre y apellido")).toBeNull();
+
     expect(screen.getByLabelText("Caso de ayuda")).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Categoría"), {
       target: { value: "3" },
@@ -112,29 +137,24 @@ describe("El formulario público", () => {
     fireEvent.change(screen.getByLabelText("Describa el problema"), {
       target: { value: "No prende" },
     });
-    // La matriz de prioridad: con estas respuestas el ticket puede subir.
     fireEvent.change(screen.getByLabelText("¿A quién afecta?"), {
       target: { value: "medio" },
     });
     fireEvent.change(screen.getByLabelText("¿Puede seguir trabajando?"), {
       target: { value: "alta" },
     });
-    fireEvent.click(screen.getByLabelText(/Acepto que mis datos/));
     fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
 
     await waitFor(() => expect(servicio.crearTicket).toHaveBeenCalled());
-    const [codigo, campos] = servicio.crearTicket.mock.calls[0];
-    expect(codigo).toBe("LC");
+    const [campos] = servicio.crearTicket.mock.calls[0];
     expect(campos).toMatchObject({
-      nombre: "Carla",
-      sede: "1",
-      area: "2",
       caso: "4",
+      descripcion: "No prende",
       impacto: "medio",
       urgencia: "alta",
-      acepta_datos: true,
     });
     expect(campos).not.toHaveProperty("categoria");
+    expect(campos).not.toHaveProperty("nombre");
     expect(await screen.findByText("TCK-2026-000042")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(
@@ -142,13 +162,52 @@ describe("El formulario público", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver mi ticket" })).toHaveAttribute(
       "href",
-      "/soporte/seguimiento/secreto",
+      "/admin/ayuda/tickets/42",
     );
   });
 
+  it("si le faltan datos, los pide antes y quedan guardados", async () => {
+    servicio.solicitar
+      .mockResolvedValueOnce({
+        ...FORMULARIO,
+        mis_datos: {
+          ...MIS_DATOS,
+          telefono: "",
+          agencia: null,
+          faltan: ["telefono", "agencia"],
+        },
+      })
+      .mockResolvedValue(FORMULARIO);
+    misDatos.guardar.mockResolvedValue(MIS_DATOS);
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
+
+    expect(await screen.findByText("Complete sus datos")).toBeInTheDocument();
+    expect(
+      screen.getByText(/complete: teléfono y agencia/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Describa el problema")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Teléfono"), {
+      target: { value: "0994182273" },
+    });
+    fireEvent.change(screen.getByLabelText("Agencia"), {
+      target: { value: "1" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar y continuar" }),
+    );
+    await waitFor(() =>
+      expect(misDatos.guardar).toHaveBeenCalledWith(
+        expect.objectContaining({ telefono: "0994182273", agencia: "1" }),
+      ),
+    );
+    expect(
+      await screen.findByLabelText("Describa el problema"),
+    ).toBeInTheDocument();
+  });
+
   it("si la mesa de la empresa no está configurada, lo dice", async () => {
-    servicio.formulario.mockResolvedValue({ ...FORMULARIO, disponible: false });
-    pintar(<FormularioSoporte />, "/soporte/LS", "/soporte/:codigo");
+    servicio.solicitar.mockResolvedValue({ ...FORMULARIO, disponible: false });
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
     expect(
       await screen.findByText(/todavía no está disponible/),
     ).toBeInTheDocument();
@@ -174,10 +233,10 @@ const SEGUIMIENTO = {
   puede_confirmar: false,
 };
 
-describe("El seguimiento", () => {
+describe("Mis tickets: la ficha de un ticket propio", () => {
   it("muestra la posición en la cola y deja responder", async () => {
-    servicio.seguimiento.mockResolvedValue(SEGUIMIENTO);
-    servicio.responderComoSolicitante.mockResolvedValue({
+    servicio.miTicket.mockResolvedValue(SEGUIMIENTO);
+    servicio.responderMiTicket.mockResolvedValue({
       ...SEGUIMIENTO,
       mensajes: [
         {
@@ -190,11 +249,7 @@ describe("El seguimiento", () => {
         },
       ],
     });
-    pintar(
-      <SeguimientoTicket />,
-      "/soporte/seguimiento/secreto",
-      "/soporte/seguimiento/:token",
-    );
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
     expect(await screen.findByText("3")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Responder"), {
@@ -202,8 +257,8 @@ describe("El seguimiento", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
     await waitFor(() =>
-      expect(servicio.responderComoSolicitante).toHaveBeenCalledWith(
-        "secreto",
+      expect(servicio.responderMiTicket).toHaveBeenCalledWith(
+        "42",
         "Sigue igual",
         [],
       ),
@@ -212,7 +267,7 @@ describe("El seguimiento", () => {
   });
 
   it("un ticket atendido se puede confirmar como resuelto", async () => {
-    servicio.seguimiento.mockResolvedValue({
+    servicio.miTicket.mockResolvedValue({
       ...SEGUIMIENTO,
       estado: "atendido",
       estado_display: "Atendido",
@@ -220,25 +275,21 @@ describe("El seguimiento", () => {
       atiende: "Jorge Andrade",
       puede_confirmar: true,
     });
-    servicio.confirmarSolucion.mockResolvedValue({
+    servicio.confirmarMiTicket.mockResolvedValue({
       ...SEGUIMIENTO,
       estado: "cerrado",
       estado_display: "Cerrado",
       posicion: null,
       puede_responder: false,
     });
-    pintar(
-      <SeguimientoTicket />,
-      "/soporte/seguimiento/secreto",
-      "/soporte/seguimiento/:token",
-    );
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
     expect(
       await screen.findByText("Lo atiende Jorge Andrade"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sí, quedó resuelto" }));
     await waitFor(() =>
-      expect(servicio.confirmarSolucion).toHaveBeenCalledWith("secreto"),
+      expect(servicio.confirmarMiTicket).toHaveBeenCalledWith("42"),
     );
     expect(await screen.findByText("Cerrado")).toBeInTheDocument();
   });
@@ -257,7 +308,12 @@ describe("La bandeja", () => {
         cola_para_mi: 2,
       },
       cola_total: 5,
-      puede: { ver_todos: false, asignar: false, aprobar_horas: false },
+      puede: {
+        ver_todos: false,
+        asignar: false,
+        registrar: true,
+        aprobar_horas: false,
+      },
     });
     servicio.tickets.mockResolvedValue({
       results: [],

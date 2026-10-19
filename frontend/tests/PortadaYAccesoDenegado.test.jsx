@@ -66,7 +66,9 @@ describe("La portada", () => {
 
     pintar(<Home />);
 
-    expect(screen.getByText("Destino: /admin")).toBeInTheDocument();
+    expect(
+      screen.getByText("Destino: /admin/institucional/inicio"),
+    ).toBeInTheDocument();
   });
 
   it("sin sesión sí se dibuja, con lo único que hay que hacer en ella", () => {
@@ -98,7 +100,7 @@ describe("Acceso denegado", () => {
 
     expect(
       screen.getByRole("link", { name: "Volver al panel" }),
-    ).toHaveAttribute("href", "/admin");
+    ).toHaveAttribute("href", "/admin/institucional/inicio");
   });
 
   it("a quien no tiene ninguno le dice qué pasa y le deja salir", () => {

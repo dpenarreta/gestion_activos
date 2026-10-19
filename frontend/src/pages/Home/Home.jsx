@@ -5,6 +5,7 @@ import { apiClient } from "../../api/client";
 import { env } from "../../config/env";
 import { useAuth } from "../../hooks/useAuth";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
 
 /**
  * La portada, que es de quien todavía no ha entrado.
@@ -36,7 +37,7 @@ export function Home() {
     return null;
   }
   if (isAuthenticated) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to={RUTA_DE_ENTRADA} replace />;
   }
 
   return (

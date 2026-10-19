@@ -283,14 +283,14 @@ describe("A dónde lleva /admin", () => {
     expect(screen.getByText("Destino: /admin/dashboard")).toBeInTheDocument();
   });
 
-  it("sin ningún permiso, el 403 es la verdad", async () => {
-    /* La cuenta existe pero todavía no tiene nada asignado; mandarla a una
-       pantalla cualquiera solo movería el error de sitio. */
+  it("sin ningún permiso, entra a Soporte TI y no a un 403", async () => {
+    /* Desde el 20/10/2026 la mesa de ayuda es para toda persona con sesión:
+       quien todavía no tiene nada asignado igual puede pedir soporte. */
     permisos.lista = [];
 
     pintarInicio();
 
-    expect(screen.getByText("Destino: /403")).toBeInTheDocument();
+    expect(screen.getByText("Destino: /admin/ayuda")).toBeInTheDocument();
   });
 });
 

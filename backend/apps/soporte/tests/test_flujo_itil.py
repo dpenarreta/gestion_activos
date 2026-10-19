@@ -16,7 +16,6 @@ from unittest import mock
 import pytest
 from django.core.management import call_command
 from django.utils import timezone
-from rest_framework.test import APIClient
 
 from apps.empresas.contexto import usando_empresa
 from apps.notificaciones.models import Notificacion
@@ -30,12 +29,13 @@ from apps.soporte.models import (
     Ticket,
 )
 from apps.soporte.tests.test_soporte import (
-    PUBLICO,
     SEGUIMIENTO,
+    SOLICITAR,
     TICKETS,
     _crear,
     _equipo,
     _formulario,
+    _quien_pide,
     _siempre,
     _ticket,
     _usuario,
@@ -72,7 +72,7 @@ def test_lead_time_desde_la_creacion_y_cycle_time_desde_que_se_toma(mesa):
     _sin_reglas(mesa)
     antes = timezone.now()
     with mock.patch.object(services, "repartir", return_value=0):
-        ticket = _ticket(_crear(mesa, caso=_caso_critico(mesa).id)["token"], mesa)
+        ticket = _ticket(_crear(mesa, caso=_caso_critico(mesa).id)["id"], mesa)
     # P1: 15 min de respuesta y 4 h de solución, en horas calendario.
     assert (ticket.sla_respuesta_minutos, ticket.sla_minutos) == (15, 240)
     assert antes + timedelta(minutes=15) <= ticket.sla_respuesta_vence
@@ -110,7 +110,7 @@ def test_p2_a_p4_se_miden_en_el_horario_habil_de_la_mesa(mesa):
 def test_escalar_no_regala_tiempo(mesa):
     _siempre(mesa["jorge"])
     _siempre(mesa["experto"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     vence = ticket.sla_vence
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/escalar/", {"motivo": "Falla de placa"}, format="json"
@@ -122,7 +122,7 @@ def test_escalar_no_regala_tiempo(mesa):
 
 def test_reabrir_conserva_lo_que_quedaba(mesa):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json"
     )
@@ -130,7 +130,7 @@ def test_reabrir_conserva_lo_que_quedaba(mesa):
     assert ticket.sla_cumplido is True
     quedaba = ticket.sla_restante_al_pausar
     assert quedaba and quedaba <= ticket.sla_minutos
-    APIClient().post(f"{SEGUIMIENTO}{ticket.token}/", {"texto": "Sigue igual"}, format="json")
+    _quien_pide(mesa).post(f"{SEGUIMIENTO}{ticket.id}/", {"texto": "Sigue igual"}, format="json")
     ticket.refresh_from_db()
     assert ticket.estado == Ticket.Estado.EN_CURSO
     assert ticket.reaperturas == 1
@@ -142,7 +142,7 @@ def test_reabrir_conserva_lo_que_quedaba(mesa):
 
 def test_la_primera_respuesta_y_su_vencimiento(mesa):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     assert ticket.respondido_en is None
     with usando_empresa(mesa["empresa"]):
         Ticket.objects.filter(pk=ticket.pk).update(
@@ -177,14 +177,14 @@ def test_la_matriz_puede_subir_la_prioridad_del_caso():
 def test_el_formulario_aplica_la_matriz(mesa):
     with mock.patch.object(services, "repartir", return_value=0):
         creado = _crear(mesa, impacto="alto", urgencia="alta")
-    ticket = _ticket(creado["token"], mesa)
+    ticket = _ticket(creado["id"], mesa)
     assert (ticket.prioridad_base, ticket.prioridad) == ("alta", "critica")
     assert ticket.movimientos.filter(descripcion__contains="impacto y urgencia").exists()
 
 
 def test_cambiar_la_prioridad_exige_justificacion_y_conserva_lo_consumido(mesa):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     cliente = _equipo(mesa["jorge"].usuario)
     url = f"{TICKETS}{ticket.id}/prioridad/"
     assert cliente.post(url, {"prioridad": "baja"}, format="json").status_code == 400
@@ -216,12 +216,18 @@ def test_el_equipo_registra_un_ticket_en_nombre_de_quien_llama(mesa):
     formulario = cliente.get(f"{TICKETS}formulario/").json()
     assert "portal" not in [c["id"] for c in formulario["canales"]]
     assert formulario["soy_tecnico"] is True
-    datos = _formulario(mesa, canal="telefono", asignarme=True)
-    datos.pop("acepta_datos")
+    # Solo se registran tickets de personas con cuenta: se elige de la lista.
+    _quien_pide(mesa)  # Carla: registrada, con «Mis datos»
+    personas = cliente.get(f"{TICKETS}personas/", {"q": "carla"}).json()
+    carla = next(p for p in personas if p["correo"] == "carla@x.com")
+    assert carla["agencia"]["nombre"] == "Loja · Agencia"
+    datos = _formulario(mesa, canal="telefono", asignarme=True, solicitante=carla["id"])
     respuesta = cliente.post(f"{TICKETS}registrar/", datos, format="json")
     assert respuesta.status_code == 201, respuesta.data
     ticket = Ticket.objects.todas().get(pk=respuesta.json()["id"])
     assert ticket.canal == "telefono"
+    assert ticket.solicitante_id == carla["id"]
+    assert ticket.solicitante_telefono == "099 418 2273"  # de «Mis datos»
     assert ticket.registrado_por == mesa["jorge"].usuario
     assert ticket.tecnico_id == mesa["jorge"].id  # se lo quedó
     # Sin ser del equipo, no.
@@ -234,24 +240,24 @@ def test_el_equipo_registra_un_ticket_en_nombre_de_quien_llama(mesa):
 
 def test_la_encuesta_se_responde_una_vez_cuando_se_atendio(mesa):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
-    url = f"{SEGUIMIENTO}{ticket.token}/encuesta/"
+    ticket = _ticket(_crear(mesa)["id"], mesa)
+    url = f"{SEGUIMIENTO}{ticket.id}/encuesta/"
     voto = {"calificacion": 5, "resuelto": True, "comentario": "Rápido"}
-    assert APIClient().post(url, voto, format="json").status_code == 400  # aún no atendido
+    assert _quien_pide(mesa).post(url, voto, format="json").status_code == 400  # aún no
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json"
     )
-    assert APIClient().get(f"{SEGUIMIENTO}{ticket.token}/").json()["puede_encuestar"] is True
-    respuesta = APIClient().post(url, voto, format="json")
+    assert _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()["puede_encuestar"] is True
+    respuesta = _quien_pide(mesa).post(url, voto, format="json")
     assert respuesta.status_code == 201
     assert respuesta.json()["encuesta"]["calificacion"] == 5
-    assert APIClient().post(url, voto, format="json").status_code == 400
+    assert _quien_pide(mesa).post(url, voto, format="json").status_code == 400
 
 
 def test_el_cierre_automatico_cuenta_dias_habiles(mesa, settings):
     settings.SOPORTE_DIAS_CIERRE_AUTOMATICO = 3
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json"
     )
@@ -270,12 +276,12 @@ def test_el_cierre_automatico_cuenta_dias_habiles(mesa, settings):
 
 def test_los_indicadores_del_piloto(mesa):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json"
     )
-    APIClient().post(
-        f"{SEGUIMIENTO}{ticket.token}/encuesta/",
+    _quien_pide(mesa).post(
+        f"{SEGUIMIENTO}{ticket.id}/encuesta/",
         {"calificacion": 4, "resuelto": True},
         format="json",
     )
@@ -329,8 +335,8 @@ def test_el_catalogo_de_servicios_se_carga_y_se_puede_repetir(mesa):
     assert "0 servicio(s) nuevo(s), 29 actualizado(s)" in salida.getvalue()
 
 
-def test_el_formulario_publico_ofrece_la_matriz(mesa):
-    datos = APIClient().get(f"{PUBLICO}LC/").json()
+def test_soporte_ti_ofrece_la_matriz(mesa):
+    datos = _quien_pide(mesa).get(SOLICITAR).json()
     claves = [c["clave"] for c in datos["campos"]]
     assert claves[-2:] == ["impacto", "urgencia"]
     assert [i["id"] for i in datos["impactos"]] == ["bajo", "medio", "alto"]
@@ -339,7 +345,7 @@ def test_el_formulario_publico_ofrece_la_matriz(mesa):
 @pytest.mark.parametrize("estado", ["esperando_usuario"])
 def test_esperar_al_usuario_no_cuenta_como_falta_de_respuesta(mesa, estado):
     _siempre(mesa["jorge"])
-    ticket = _ticket(_crear(mesa)["token"], mesa)
+    ticket = _ticket(_crear(mesa)["id"], mesa)
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/",
         {"estado": estado, "nota": "¿Serie?"},
@@ -387,14 +393,14 @@ def test_una_solicitud_con_aprobacion_espera_el_visto_bueno_del_jefe(mesa):
     _jefe_de(mesa["area"], jefa, mesa["empresa"])
     caso = _caso_con_aprobacion(mesa)
     creado = _crear(mesa, caso=caso.id)
-    ticket = _ticket(creado["token"], mesa)
+    ticket = _ticket(creado["id"], mesa)
     assert ticket.estado == "esperando_aprobacion"
     assert ticket.tecnico_id is None  # no entró a la cola
     assert ticket.sla_respuesta_vence is None  # ningún plazo corre todavía
     # La jefa recibe el aviso en la campana (y por correo), con el enlace al sistema.
     aviso = Notificacion.objects.todas().get(usuario=jefa, tipo="soporte.aprobacion_pendiente")
     assert aviso.enlace == "/admin/aprobaciones"
-    seguimiento = APIClient().get(f"{SEGUIMIENTO}{ticket.token}/").json()
+    seguimiento = _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()
     assert seguimiento["aprobaciones"][0]["rol"] == "Jefe de área (Cobranzas)"
 
     # Sin permisos de la mesa, la jefa ve lo suyo y lo aprueba.
@@ -416,7 +422,7 @@ def test_un_rechazo_cierra_la_solicitud_y_avisa_con_el_motivo(mesa):
 
     jefa = _usuario("rosa", empresa=mesa["empresa"])
     _jefe_de(mesa["area"], jefa, mesa["empresa"])
-    ticket = _ticket(_crear(mesa, caso=_caso_con_aprobacion(mesa).id)["token"], mesa)
+    ticket = _ticket(_crear(mesa, caso=_caso_con_aprobacion(mesa).id)["id"], mesa)
     aprobacion = ticket.aprobaciones.get()
     url = f"/api/v1/soporte/aprobaciones/{aprobacion.id}/decidir/"
     cliente = _equipo(jefa)
@@ -430,7 +436,7 @@ def test_un_rechazo_cierra_la_solicitud_y_avisa_con_el_motivo(mesa):
 
 
 def test_sin_jefe_con_cuenta_decide_quien_coordina(mesa):
-    ticket = _ticket(_crear(mesa, caso=_caso_con_aprobacion(mesa).id)["token"], mesa)
+    ticket = _ticket(_crear(mesa, caso=_caso_con_aprobacion(mesa).id)["id"], mesa)
     aprobacion = ticket.aprobaciones.get()
     assert aprobacion.aprobador is None
     coordinadora = _equipo(mesa["supervisor"])  # tiene «asignar»
@@ -439,19 +445,6 @@ def test_sin_jefe_con_cuenta_decide_quien_coordina(mesa):
     ]
     url = f"/api/v1/soporte/aprobaciones/{aprobacion.id}/decidir/"
     assert coordinadora.post(url, {"aprobar": True}, format="json").status_code == 200
-
-
-def test_solo_crean_tickets_los_correos_de_la_empresa(mesa):
-    with usando_empresa(mesa["empresa"]):
-        ConfiguracionMesa.objects.create(dominios="grupolaar.com")
-    with mock.patch.object(services, "repartir", return_value=0):
-        externo = APIClient().post(f"{PUBLICO}LC/", _formulario(mesa), format="json")
-        assert externo.status_code == 400
-        assert "@grupolaar.com" in str(externo.json()["error"]["details"]["correo"])
-        propio = APIClient().post(
-            f"{PUBLICO}LC/", _formulario(mesa, correo="Carla@GrupoLaar.com"), format="json"
-        )
-    assert propio.status_code == 201, propio.data
 
 
 def test_los_nombres_de_estados_y_prioridades_son_de_la_empresa(mesa):
@@ -463,7 +456,6 @@ def test_los_nombres_de_estados_y_prioridades_son_de_la_empresa(mesa):
             **{k: mesa_actual[k] for k in ("meta_sla", "meta_sla_critica", "critica_24x7")},
             "horarios": [],
             "feriados": [],
-            "dominios": "@grupolaar.com, laarcourier.com",
             "etiquetas": {
                 "estados": {"atendido": "Resuelto", "inventado": "X"},
                 "prioridades": {"alta": "P2", "media": "  "},
@@ -473,7 +465,6 @@ def test_los_nombres_de_estados_y_prioridades_son_de_la_empresa(mesa):
     )
     assert respuesta.status_code == 200, respuesta.data
     datos = respuesta.json()
-    assert datos["dominios"] == "grupolaar.com, laarcourier.com"
     assert datos["etiquetas"] == {
         "estados": {"atendido": "Resuelto"},
         "prioridades": {"alta": "P2"},
@@ -481,9 +472,23 @@ def test_los_nombres_de_estados_y_prioridades_son_de_la_empresa(mesa):
 
     _siempre(mesa["jorge"])
     with mock.patch.object(services, "repartir", return_value=0):
-        ticket = _ticket(_crear(mesa, correo="carla@grupolaar.com")["token"], mesa)
-    seguimiento = APIClient().get(f"{SEGUIMIENTO}{ticket.token}/").json()
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    seguimiento = _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()
     assert seguimiento["prioridad_display"] == "P2"
     nombres = _equipo(mesa["jorge"].usuario).get("/api/v1/soporte/etiquetas/").json()
     assert ["atendido", "Resuelto"] in nombres["estados"]
     assert ["media", "P3 · Media"] in nombres["prioridades"]
+
+
+def test_registrar_en_nombre_de_otro_es_un_permiso_aparte(mesa):
+    """Atender no basta para el alta interna: hace falta `soporte.registrar`. Y
+    quien solo registra entra a la mesa sin ver tickets ajenos."""
+    solo_atiende = _equipo(_usuario("ana", "atender", empresa=mesa["empresa"]))
+    assert solo_atiende.get(f"{TICKETS}personas/").status_code == 403
+    assert solo_atiende.post(f"{TICKETS}registrar/", {}, format="json").status_code == 403
+
+    _crear(mesa)
+    recepcion = _equipo(_usuario("rita", "registrar", empresa=mesa["empresa"]))
+    assert recepcion.get(f"{TICKETS}personas/").status_code == 200
+    bandeja = recepcion.get(TICKETS).json()
+    assert (bandeja.get("results", bandeja)) == []

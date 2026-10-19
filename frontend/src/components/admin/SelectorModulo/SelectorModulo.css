@@ -1,22 +1,100 @@
-/* El botón y el desplegable son `mz-switcher` / `mz-dropdown` de la identidad
-   base; aquí el glifo de cada módulo y el recorte del nombre largo. */
+/* «Módulo activo» en el menú lateral: la tarjeta es `mz-active-company` de la
+   identidad base, hecha botón; el panel es el mismo `mz-flyout` de los grupos
+   del menú. */
+.selector-modulo__tarjeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  color: var(--mz-side-fg);
+  font: inherit;
+  text-align: left;
+}
+
+button.selector-modulo__tarjeta {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button.selector-modulo__tarjeta:hover,
+button.selector-modulo__tarjeta[aria-expanded="true"] {
+  background: var(--mz-side-hover);
+}
+
+button.selector-modulo__tarjeta:focus-visible {
+  outline: 2px solid var(--mz-blue-400);
+  outline-offset: 2px;
+}
+
+.selector-modulo__textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.selector-modulo__tarjeta strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: #fff;
+}
+
 .selector-modulo__icono {
-  color: var(--mz-blue-600);
+  color: var(--mz-blue-300, var(--mz-blue-400));
 }
 
 .selector-modulo__nombre {
-  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.selector-modulo .mz-dropdown {
-  min-width: 300px;
+.selector-modulo__flecha {
+  flex: none;
+  color: var(--mz-side-fg-dim);
+  font-size: 12px;
 }
 
-.selector-modulo .mz-dropdown-item[aria-checked="true"] {
-  background: var(--mz-blue-50);
+/* Contraído: solo el ícono del módulo, centrado. */
+.selector-modulo__tarjeta--contraida {
+  justify-content: center;
+  width: calc(100% - 16px);
+  margin: 0 8px 14px;
+  padding: 10px 0;
+  font-size: 16px;
+}
+
+.selector-modulo__panel {
+  min-width: 280px;
+  max-width: 320px;
+}
+
+/* En el teléfono no hay «pasar por encima»: la lista va debajo. */
+.selector-modulo__lista {
+  margin: -8px 12px 14px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.selector-modulo__opcion {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selector-modulo__opcion small {
+  font-size: 11px;
+  color: var(--mz-side-fg-dim);
+  white-space: normal;
 }
 
 .selector-modulo__glifo {
@@ -27,14 +105,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--mz-blue-50);
-  color: var(--mz-blue-700);
-}
-
-/* En el teléfono queda solo el ícono: el nombre del módulo ya lo dice el
-   título de cada pantalla, y la barra no da para tanto. */
-@media (max-width: 560px) {
-  .selector-modulo__nombre {
-    display: none;
-  }
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }

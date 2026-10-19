@@ -17,40 +17,39 @@ const multipart = { headers: { "Content-Type": "multipart/form-data" } };
 /** Mesa de ayuda. Lo público no usa sesión: el servidor lo acota por el
  * código de la empresa o por el enlace secreto del ticket. */
 export const soporteService = {
-  // --- Público ---
-  formulario(codigo) {
-    return apiClient.get(`${BASE}/publico/${codigo}/`).then((r) => r.data);
+  // --- Quien pide soporte (con sesión) ---
+  /** Lo que muestra «Soporte TI → Nuevo ticket», con «Mi perfil». */
+  solicitar() {
+    return apiClient.get(`${BASE}/solicitar/`).then((r) => r.data);
   },
-  crearTicket(codigo, campos, archivos) {
+  crearTicket(campos, archivos) {
     return apiClient
-      .post(
-        `${BASE}/publico/${codigo}/`,
-        conArchivos(campos, archivos),
-        multipart,
-      )
+      .post(`${BASE}/solicitar/`, conArchivos(campos, archivos), multipart)
       .then((r) => r.data);
   },
-  seguimiento(token) {
-    return apiClient.get(`${BASE}/seguimiento/${token}/`).then((r) => r.data);
+  misTickets() {
+    return apiClient.get(`${BASE}/mis-tickets/`).then((r) => r.data);
   },
-  responderComoSolicitante(token, texto, archivos) {
+  miTicket(id) {
+    return apiClient.get(`${BASE}/mis-tickets/${id}/`).then((r) => r.data);
+  },
+  responderMiTicket(id, texto, archivos) {
     return apiClient
       .post(
-        `${BASE}/seguimiento/${token}/`,
+        `${BASE}/mis-tickets/${id}/`,
         conArchivos({ texto }, archivos),
         multipart,
       )
       .then((r) => r.data);
   },
-  confirmarSolucion(token) {
+  confirmarMiTicket(id) {
     return apiClient
-      .post(`${BASE}/seguimiento/${token}/`, { confirmar: true })
+      .post(`${BASE}/mis-tickets/${id}/`, { confirmar: true })
       .then((r) => r.data);
   },
-  /** La encuesta de satisfacción, desde el enlace de seguimiento. */
-  responderEncuesta(token, datos) {
+  encuestaMiTicket(id, datos) {
     return apiClient
-      .post(`${BASE}/seguimiento/${token}/encuesta/`, datos)
+      .post(`${BASE}/mis-tickets/${id}/encuesta/`, datos)
       .then((r) => r.data);
   },
 
@@ -84,6 +83,12 @@ export const soporteService = {
   /** Lo que pide el alta interna (formulario de la empresa y canales). */
   formularioInterno() {
     return apiClient.get(`${BASE}/tickets/formulario/`).then((r) => r.data);
+  },
+  /** Las personas registradas, con sus datos, para el alta interna. */
+  personas(q = "") {
+    return apiClient
+      .get(`${BASE}/tickets/personas/`, { params: q ? { q } : {} })
+      .then((r) => r.data);
   },
   /** Alta interna: un ticket que llegó por teléfono, WhatsApp o en persona. */
   registrar(campos, archivos) {

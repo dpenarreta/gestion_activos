@@ -201,6 +201,35 @@ describe("La barra de chat", () => {
     expect(enlace.getAttribute("href")).toMatch(/^mailto:beto@grupolaar\.com/);
     expect(within(ventana).getByText(/supera los 10 MB/)).toBeInTheDocument();
   });
+
+  it("un clic en cualquier otra parte minimiza el panel y las conversaciones", async () => {
+    sessionStorage.setItem(
+      "chat.ventanas",
+      JSON.stringify([{ id: 2, abierta: true }]),
+    );
+    pintar();
+    const ventana = await screen.findByRole("region", { name: "Chat: Beto" });
+    fireEvent.click(screen.getByRole("button", { name: "Chat" }));
+
+    // Dentro del chat no se minimiza nada.
+    fireEvent.mouseDown(within(ventana).getByLabelText("Mensaje para Beto"));
+    expect(
+      within(ventana).getByRole("button", { name: "Minimizar" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Chat de la empresa" }),
+    ).toBeInTheDocument();
+
+    // Fuera, sí: la pestaña queda en su barra, sin cerrarse.
+    fireEvent.mouseDown(screen.getByText("Pantalla"));
+    expect(
+      screen.queryByRole("region", { name: "Chat de la empresa" }),
+    ).toBeNull();
+    expect(
+      within(ventana).getByRole("button", { name: "Abrir" }),
+    ).toBeInTheDocument();
+    expect(within(ventana).queryByLabelText("Mensaje para Beto")).toBeNull();
+  });
 });
 
 describe("Los colores", () => {
@@ -227,6 +256,59 @@ describe("Los colores", () => {
     expect(within(panel).getByRole("button", { name: /Beto/ })).not.toHaveClass(
       "chat-lista__item--grupo",
     );
+  });
+});
+
+describe("Quién envía y la pestaña Grupos", () => {
+  it("en un grupo cada mensaje dice quién lo envió, también los propios", async () => {
+    servicio.mensajes.mockResolvedValue({
+      mensajes: [
+        {
+          id: 6,
+          conversacion: 1,
+          autor: { id: 9, nombre: "Beto Ruiz" },
+          propio: false,
+          texto: "Reunión a las 3",
+          archivo: null,
+          fecha: "2026-10-19T10:00:00Z",
+        },
+        {
+          id: 7,
+          conversacion: 1,
+          autor: { id: 1, nombre: "Ana" },
+          propio: true,
+          texto: "Ahí estaré",
+          archivo: null,
+          fecha: "2026-10-19T10:01:00Z",
+        },
+      ],
+      hay_mas: false,
+    });
+    pintar("/admin/chat?c=1");
+    expect(await screen.findByText("Beto Ruiz")).toBeInTheDocument();
+    expect(screen.getByText("Usted")).toBeInTheDocument();
+    expect(screen.getByText("BR")).toHaveClass("chat-avatar");
+  });
+
+  it("en un directo no hace falta: no se repite el nombre", async () => {
+    pintar("/admin/chat?c=2");
+    expect(await screen.findByText("Hola, ¿cómo vas?")).toBeInTheDocument();
+    expect(document.querySelector(".chat-mensaje__autor")).toBeNull();
+  });
+
+  it("la pestaña Grupos muestra solo los grupos y desde ahí se crea uno", async () => {
+    pintar();
+    fireEvent.click(await screen.findByRole("button", { name: "Chat" }));
+    const panel = screen.getByRole("region", { name: "Chat de la empresa" });
+    fireEvent.click(within(panel).getByRole("tab", { name: "Grupos" }));
+    expect(
+      await within(panel).findByRole("button", { name: /Canal general/ }),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Beto/ })).toBeNull();
+    fireEvent.click(within(panel).getByRole("button", { name: /Crear grupo/ }));
+    expect(
+      within(panel).getByLabelText("Nombre del grupo"),
+    ).toBeInTheDocument();
   });
 });
 

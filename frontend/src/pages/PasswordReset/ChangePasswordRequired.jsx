@@ -5,6 +5,7 @@ import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
 
 const EMPTY_FORM = {
   current_password: "",
@@ -30,7 +31,7 @@ export function ChangePasswordRequired() {
     try {
       await authService.changePassword(form);
       await refreshUser();
-      navigate("/admin");
+      navigate(RUTA_DE_ENTRADA);
     } catch (err) {
       const details = err.response?.data?.error?.details;
       const message =

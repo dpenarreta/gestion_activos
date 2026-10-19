@@ -5,8 +5,8 @@ import { useChat } from "../../components/admin/Chat/ChatContext";
 import { Conversacion } from "../../components/admin/Chat/Conversacion";
 import {
   Directorio,
+  Grupos,
   ListaConversaciones,
-  NuevoGrupo,
 } from "../../components/admin/Chat/Panel";
 import "../../components/admin/Chat/ChatDock.css";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -14,7 +14,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 const PESTANAS = [
   ["conversaciones", "Chats"],
   ["personas", "Personas"],
-  ["grupo", "Nuevo grupo"],
+  ["grupos", "Grupos"],
 ];
 
 /**
@@ -66,7 +66,7 @@ export function ChatPage() {
             <ListaConversaciones onElegir={elegir} activa={activa} />
           )}
           {pestana === "personas" && <Directorio onElegida={elegir} />}
-          {pestana === "grupo" && <NuevoGrupo onCreado={elegir} />}
+          {pestana === "grupos" && <Grupos onElegir={elegir} activa={activa} />}
         </div>
       </aside>
       <section className="chat-pagina__principal">

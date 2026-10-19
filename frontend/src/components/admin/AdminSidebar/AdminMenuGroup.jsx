@@ -14,7 +14,7 @@ const CON_MOUSE = "(hover: hover) and (pointer: fine) and (min-width: 881px)";
  * el margen entre el ítem y el panel sin que desaparezca a mitad de camino. */
 const RETARDO_CIERRE_MS = 180;
 
-function useConMouse() {
+export function useConMouse() {
   const [conMouse, setConMouse] = useState(
     () =>
       typeof window !== "undefined" &&

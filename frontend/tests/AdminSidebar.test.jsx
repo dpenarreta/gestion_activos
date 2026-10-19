@@ -188,7 +188,7 @@ describe("El menú dice dónde se está", () => {
 
     pintar({ ruta: "/admin/activos/7" });
 
-    const grupo = screen.getByRole("button", { name: /Activos/ });
+    const grupo = screen.getByRole("button", { name: /^Activos/ });
     expect(grupo.className).toContain("is-active");
   });
 
@@ -241,7 +241,7 @@ describe("Navegar desde el menú", () => {
 
     pintar({ ruta: "/admin/reportes" });
 
-    fireEvent.click(screen.getByRole("button", { name: /Activos/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Activos/ }));
     fireEvent.click(screen.getByText("Inventario"));
 
     expect(screen.getByText("Ruta: /admin/activos")).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe("Navegar desde el menú", () => {
 
     pintar({ ruta: "/admin/reportes" });
 
-    fireEvent.click(screen.getByRole("button", { name: /Activos/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Activos/ }));
     const enlace = screen.getByText("Inventario").closest("a");
     expect(enlace).toHaveAttribute("href", "/admin/activos");
 
@@ -273,6 +273,35 @@ describe("El pie del menú", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cerrar sesión/ }));
 
     expect(logout).toHaveBeenCalled();
+  });
+
+  it("un clic en el usuario abre su menú con «Mi perfil»", () => {
+    /* «Mi perfil» no está entre las opciones del menú: se llega desde el
+       usuario, abajo. */
+    pintar();
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.queryByText("Mis datos")).toBeNull();
+    expect(screen.queryByText("Soporte TI")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Menú de/ }));
+    const menu = screen.getByRole("menu");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Mi perfil/ }));
+
+    expect(screen.getByText("Ruta: /admin/perfil")).toBeInTheDocument();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("el menú del usuario se cierra con Escape o un clic fuera", () => {
+    pintar();
+    const boton = screen.getByRole("button", { name: /^Menú de/ });
+
+    fireEvent.click(boton);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(boton);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("contraído, cada elemento conserva su nombre accesible", () => {
@@ -334,7 +363,7 @@ describe("Al pasar el mouse por un grupo", () => {
     pintar({ ruta: "/admin/mantenimientos" });
 
     fireEvent.mouseEnter(
-      screen.getByRole("button", { name: /Activos/ }).closest("li"),
+      screen.getByRole("button", { name: /^Activos/ }).closest("li"),
     );
     const panel = screen.getByRole("group", { name: "Activos" });
     fireEvent.click(within(panel).getByRole("link", { name: "Carga masiva" }));
@@ -350,7 +379,7 @@ describe("Al pasar el mouse por un grupo", () => {
     permisos.lista = ["activos.ver", "mantenimientos.ver"];
     pintar({ ruta: "/admin/mantenimientos" });
 
-    const grupo = screen.getByRole("button", { name: /Activos/ });
+    const grupo = screen.getByRole("button", { name: /^Activos/ });
     fireEvent.mouseEnter(grupo.closest("li"));
     fireEvent.click(grupo);
 
@@ -380,7 +409,7 @@ describe("Al pasar el mouse por un grupo", () => {
     pintar({ ruta: "/admin/mantenimientos" });
 
     fireEvent.mouseEnter(
-      screen.getByRole("button", { name: /Activos/ }).closest("li"),
+      screen.getByRole("button", { name: /^Activos/ }).closest("li"),
     );
     expect(screen.queryByRole("group", { name: "Activos" })).toBeNull();
   });

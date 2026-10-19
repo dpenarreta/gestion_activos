@@ -85,7 +85,13 @@ def hay_quien_atienda(categoria, nivel, momento=None) -> bool:
 
 
 def crear_ticket(
-    *, datos: dict, ip=None, registrado_por=None, canal=Canal.PORTAL, repartir_ahora=True
+    *,
+    datos: dict,
+    ip=None,
+    solicitante=None,
+    registrado_por=None,
+    canal=Canal.PORTAL,
+    repartir_ahora=True,
 ) -> Ticket:
     """Registra un ticket y lo pone en la cola.
 
@@ -118,6 +124,7 @@ def crear_ticket(
                     en_cola_desde=ahora,
                     ip_origen=ip,
                     canal=canal,
+                    solicitante=solicitante,
                     registrado_por=registrado_por,
                     categoria=caso.categoria,
                     **{k: v for k, v in datos.items() if k != "categoria"},
@@ -134,7 +141,7 @@ def crear_ticket(
                     f"Ticket registrado por {registrado_por.get_full_name() or registrado_por}"
                     f" ({ticket.get_canal_display().lower()}) a nombre de {ticket.solicitante_nombre}"
                     if registrado_por
-                    else f"Ticket creado por {ticket.solicitante_nombre} desde el formulario"
+                    else f"Ticket creado por {ticket.solicitante_nombre} desde Soporte TI"
                 )
                 _movimiento(ticket, registrado_por, origen, nuevo=ticket.estado)
                 if prioridad != caso.prioridad:
@@ -391,11 +398,17 @@ def repartir() -> int:
             return asignados
 
 
-def registrar_ticket(*, datos, actor, canal, asignarme=False) -> Ticket:
+def registrar_ticket(*, datos, actor, canal, asignarme=False, solicitante=None) -> Ticket:
     """Alta interna: el equipo registra el ticket en nombre de quien pide. Si
     quien registra es técnico y lo pide, se lo queda (lo resuelve en la misma
     llamada); si no, entra a la cola como cualquier otro."""
-    ticket = crear_ticket(datos=datos, registrado_por=actor, canal=canal, repartir_ahora=False)
+    ticket = crear_ticket(
+        datos=datos,
+        solicitante=solicitante,
+        registrado_por=actor,
+        canal=canal,
+        repartir_ahora=False,
+    )
     tecnico = tecnico_de(actor) if asignarme else None
     if tecnico is not None:
         _asignar(ticket, tecnico, actor, f"{tecnico} registró el ticket y lo tomó")
@@ -410,8 +423,6 @@ def guardar_mesa(datos) -> None:
         configuracion.meta_sla = datos["meta_sla"]
         configuracion.meta_sla_critica = datos["meta_sla_critica"]
         configuracion.critica_24x7 = datos["critica_24x7"]
-        if "dominios" in datos:
-            configuracion.dominios = datos["dominios"]
         if "etiquetas" in datos:
             configuracion.etiquetas = datos["etiquetas"]
         configuracion.save()

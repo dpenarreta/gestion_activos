@@ -4,6 +4,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import {
+  MODULO_DE_ENTRADA,
+  RUTA_DE_ENTRADA,
+  recordarModulo,
+} from "../../modulos/modulos";
 
 export function Login() {
   const { login, isLoading, error } = useAuth();
@@ -23,11 +28,11 @@ export function Login() {
     event.preventDefault();
     try {
       const me = await login(form);
-      // Al panel, no a la portada: quien entra viene a trabajar, y la portada
-      // solo ofrecía un botón para seguir hasta aquí. `/admin` reparte a cada
-      // quien a la primera pantalla que puede abrir (ver `InicioDelPanel`).
+      // Siempre a Institucional → Inicio (19/10/2026): es de todos, tenga los
+      // permisos que tenga, y desde ahí se va a cada módulo.
+      recordarModulo(MODULO_DE_ENTRADA);
       navigate(
-        me.must_change_password ? "/change-password-required" : "/admin",
+        me.must_change_password ? "/change-password-required" : RUTA_DE_ENTRADA,
       );
     } catch {
       // El mensaje de error ya se expone vía useAuth().error

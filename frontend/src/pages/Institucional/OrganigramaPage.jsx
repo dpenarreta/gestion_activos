@@ -1,0 +1,423 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { institucionalService } from "../../api/institucionalService";
+import { Icon } from "../../components/common/Icon/Icon";
+import { usePermission } from "../../hooks/usePermission";
+import { mensajeDeError } from "../../utils/errores";
+import { armarArbol, nombreDeCargo, totalesDe } from "./organigrama";
+import "./Institucional.css";
+
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 2;
+const PASO = 0.1;
+
+const acotar = (valor) =>
+  Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(valor * 100) / 100));
+
+/**
+ * El marco del árbol, con su propio zoom: acercar o alejar cambia solo lo que
+ * está dentro, no la página. Botones +/−, «Ajustar» (todo el árbol a lo ancho
+ * del marco) y «100 %»; Ctrl + rueda acerca o aleja, y arrastrar con el mouse
+ * mueve el árbol dentro del marco.
+ */
+function Lienzo({ children }) {
+  const marco = useRef(null);
+  const contenido = useRef(null);
+  const arrastre = useRef(null);
+  const [zoom, setZoom] = useState(1);
+  const [arrastrando, setArrastrando] = useState(false);
+
+  // Ctrl + rueda: el listener va a mano porque React registra la rueda como
+  // pasiva y así no se podría evitar el zoom de toda la página.
+  useEffect(() => {
+    const nodo = marco.current;
+    if (!nodo) return undefined;
+    function rueda(evento) {
+      if (!evento.ctrlKey && !evento.metaKey) return;
+      evento.preventDefault();
+      setZoom((z) => acotar(z + (evento.deltaY < 0 ? PASO : -PASO)));
+    }
+    nodo.addEventListener("wheel", rueda, { passive: false });
+    return () => nodo.removeEventListener("wheel", rueda);
+  }, []);
+
+  function ajustar() {
+    if (!marco.current || !contenido.current) return;
+    const ancho = contenido.current.offsetWidth / zoom;
+    if (ancho > 0) setZoom(acotar((marco.current.clientWidth - 16) / ancho));
+  }
+
+  function teclado(evento) {
+    if (evento.key === "+" || evento.key === "=")
+      setZoom((z) => acotar(z + PASO));
+    else if (evento.key === "-") setZoom((z) => acotar(z - PASO));
+    else if (evento.key === "0") setZoom(1);
+  }
+
+  function empezar(evento) {
+    if (evento.button !== 0 || evento.target.closest("button, a, input"))
+      return;
+    arrastre.current = {
+      x: evento.clientX,
+      y: evento.clientY,
+      izquierda: marco.current.scrollLeft,
+      arriba: marco.current.scrollTop,
+    };
+    setArrastrando(true);
+  }
+
+  function mover(evento) {
+    if (!arrastre.current) return;
+    marco.current.scrollLeft =
+      arrastre.current.izquierda - (evento.clientX - arrastre.current.x);
+    marco.current.scrollTop =
+      arrastre.current.arriba - (evento.clientY - arrastre.current.y);
+  }
+
+  function soltar() {
+    arrastre.current = null;
+    setArrastrando(false);
+  }
+
+  return (
+    <div className="org-marco">
+      <div
+        className="org-zoom"
+        role="toolbar"
+        aria-label="Zoom del organigrama"
+      >
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          aria-label="Alejar"
+          disabled={zoom <= ZOOM_MIN}
+          onClick={() => setZoom((z) => acotar(z - PASO))}
+        >
+          <Icon name="zoom-out" />
+        </button>
+        <span className="org-zoom__valor" aria-live="polite">
+          {Math.round(zoom * 100)} %
+        </span>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          aria-label="Acercar"
+          disabled={zoom >= ZOOM_MAX}
+          onClick={() => setZoom((z) => acotar(z + PASO))}
+        >
+          <Icon name="zoom-in" />
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={ajustar}
+        >
+          <Icon name="arrows-angle-contract" /> Ajustar
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          disabled={zoom === 1}
+          onClick={() => setZoom(1)}
+        >
+          100 %
+        </button>
+        <span className="org-zoom__ayuda mz-faint">
+          Ctrl + rueda para acercar · arrastre para moverse
+        </span>
+      </div>
+      {/* Una región desplazable debe poder enfocarse (WCAG 2.1.1): con el
+          teclado se recorre con las flechas y se acerca o aleja con + y −. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        ref={marco}
+        className={`org-lienzo${arrastrando ? " org-lienzo--arrastrando" : ""}`}
+        role="region"
+        aria-label="Árbol del organigrama"
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        onKeyDown={teclado}
+        onMouseDown={empezar}
+        onMouseMove={mover}
+        onMouseUp={soltar}
+        onMouseLeave={soltar}
+      >
+        <div ref={contenido} className="org-escala" style={{ zoom }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Cargo({ cargo, cargos, conPersonas }) {
+  const jefe = cargos.find((c) => c.id === cargo.jefe);
+  return (
+    <li className="org-cargo">
+      <div className="org-cargo__cabecera">
+        <strong>{cargo.nombre}</strong>
+        <span
+          className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
+          title={`${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`}
+        >
+          {cargo.plazas - cargo.vacantes}/{cargo.plazas}
+        </span>
+      </div>
+      {jefe && <span className="org-cargo__jefe">Reporta a {jefe.nombre}</span>}
+      {conPersonas && (
+        <ul className="org-personas">
+          {cargo.ocupantes.map((p) => (
+            <li key={p.id}>
+              <Icon name="person" /> {p.nombre}
+            </li>
+          ))}
+          {cargo.vacantes > 0 && (
+            <li className="org-personas__vacante">
+              {cargo.vacantes === 1
+                ? "1 plaza vacante"
+                : `${cargo.vacantes} plazas vacantes`}
+            </li>
+          )}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function Unidad({ nodo, cargos, conPersonas, cerradas, alternar }) {
+  const cerrada = cerradas.has(nodo.id);
+  const totales = totalesDe(nodo);
+  return (
+    <li className="org-rama">
+      <section
+        className={`org-unidad${nodo.activa ? "" : " org-unidad--inactiva"}`}
+        aria-label={nodo.nombre}
+      >
+        <header className="org-unidad__cabecera">
+          <small>{nodo.nivel?.nombre ?? "Sin nivel"}</small>
+          <strong>{nodo.nombre}</strong>
+          {nodo.departamento && (
+            <span className="org-unidad__area">
+              Área: {nodo.departamento.nombre}
+            </span>
+          )}
+        </header>
+        {nodo.cargos.length > 0 ? (
+          <ul className="org-cargos">
+            {nodo.cargos.map((c) => (
+              <Cargo
+                key={c.id}
+                cargo={c}
+                cargos={cargos}
+                conPersonas={conPersonas}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="org-unidad__vacia">Sin cargos</p>
+        )}
+        {nodo.hijas.length > 0 && (
+          <button
+            type="button"
+            className="org-unidad__alternar"
+            aria-expanded={!cerrada}
+            onClick={() => alternar(nodo.id)}
+          >
+            <Icon name={cerrada ? "plus-square" : "dash-square"} />
+            {cerrada
+              ? `Ver ${nodo.hijas.length} unidad(es) · ${totales.plazas} plazas`
+              : "Contraer"}
+          </button>
+        )}
+      </section>
+      {nodo.hijas.length > 0 && !cerrada && (
+        <ul className="org-hijas">
+          {nodo.hijas.map((hija) => (
+            <Unidad
+              key={hija.id}
+              nodo={hija}
+              cargos={cargos}
+              conPersonas={conPersonas}
+              cerradas={cerradas}
+              alternar={alternar}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Institucional → Organigrama: el árbol de la empresa, unidad por unidad, con
+ * sus cargos, a quién reporta cada uno, quién lo ocupa y cuántas plazas
+ * quedan vacantes. Cada rama se contrae para leer organigramas grandes.
+ */
+export function OrganigramaPage() {
+  // El botón a la estructura se ve con su permiso: armarla (`editar`) o
+  // asignar cargos (`asignar`, que abre solo esa pestaña).
+  const puedeEditar = usePermission("institucional.editar");
+  const puedeAsignar = usePermission("institucional.asignar");
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState(null);
+  const [conPersonas, setConPersonas] = useState(true);
+  const [cerradas, setCerradas] = useState(() => new Set());
+  const [buscar, setBuscar] = useState("");
+
+  useEffect(() => {
+    institucionalService
+      .organigrama()
+      .then(setDatos)
+      .catch((err) =>
+        setError(mensajeDeError(err, "No se pudo cargar el organigrama.")),
+      );
+  }, []);
+
+  const arbol = useMemo(() => (datos ? armarArbol(datos) : []), [datos]);
+  const totales = useMemo(
+    () =>
+      arbol.map(totalesDe).reduce(
+        (s, t) => ({
+          plazas: s.plazas + t.plazas,
+          vacantes: s.vacantes + t.vacantes,
+        }),
+        { plazas: 0, vacantes: 0 },
+      ),
+    [arbol],
+  );
+  const encontrados = useMemo(() => {
+    const texto = buscar.trim().toLowerCase();
+    if (!texto || !datos) return [];
+    return datos.cargos
+      .filter(
+        (c) =>
+          c.nombre.toLowerCase().includes(texto) ||
+          c.ocupantes.some((p) => p.nombre.toLowerCase().includes(texto)),
+      )
+      .slice(0, 12);
+  }, [buscar, datos]);
+
+  function alternar(id) {
+    setCerradas((actual) => {
+      const nuevas = new Set(actual);
+      if (nuevas.has(id)) nuevas.delete(id);
+      else nuevas.add(id);
+      return nuevas;
+    });
+  }
+
+  return (
+    <div className="institucional-page mz-stack">
+      <div className="mz-view-head">
+        <div>
+          <h2>Organigrama</h2>
+          <p className="mz-desc">
+            La estructura de la empresa: sus unidades, los cargos de cada una, a
+            quién reportan y quién los ocupa.
+          </p>
+        </div>
+        {(puedeEditar || puedeAsignar) && (
+          <div className="mz-actions">
+            <Link
+              to={
+                puedeEditar
+                  ? "/admin/institucional/estructura"
+                  : "/admin/institucional/estructura?pestana=asignaciones"
+              }
+              className="btn btn-outline-primary btn-sm"
+            >
+              <Icon name={puedeEditar ? "diagram-3" : "person-badge"} />{" "}
+              {puedeEditar ? "Editar estructura" : "Asignar cargos"}
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {error}
+        </div>
+      )}
+
+      {datos && (
+        <div className="org-barra">
+          <span className="mz-pill">
+            {datos.unidades.length} unidades · {datos.cargos.length} cargos
+          </span>
+          <span className="mz-pill">
+            {totales.plazas - totales.vacantes} de {totales.plazas} plazas
+            cubiertas
+          </span>
+          <label className="org-barra__check">
+            <input
+              type="checkbox"
+              checked={conPersonas}
+              onChange={(e) => setConPersonas(e.target.checked)}
+            />{" "}
+            Mostrar personas
+          </label>
+          <input
+            type="search"
+            className="form-control form-control-sm org-barra__buscar"
+            placeholder="Buscar un cargo o una persona"
+            aria-label="Buscar un cargo o una persona"
+            value={buscar}
+            onChange={(e) => setBuscar(e.target.value)}
+          />
+        </div>
+      )}
+
+      {buscar.trim() && datos && (
+        <ul className="org-resultados" aria-label="Resultados">
+          {encontrados.map((c) => (
+            <li key={c.id}>
+              <strong>{nombreDeCargo(c, datos.unidades, datos.cargos)}</strong>
+              <span className="mz-small">
+                {c.ocupantes.map((p) => p.nombre).join(", ") || "Vacante"}
+              </span>
+            </li>
+          ))}
+          {encontrados.length === 0 && (
+            <li className="mz-faint">Ningún cargo o persona coincide.</li>
+          )}
+        </ul>
+      )}
+
+      {datos && arbol.length === 0 && (
+        <div className="mz-card">
+          <div className="mz-card-body mz-empty">
+            <Icon name="diagram-3" />
+            <p>Todavía no hay organigrama.</p>
+            {puedeEditar && (
+              <Link
+                to="/admin/institucional/estructura"
+                className="btn btn-primary btn-sm"
+              >
+                Empezar por los niveles
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {arbol.length > 0 && (
+        <Lienzo>
+          <ul className="org-arbol">
+            {arbol.map((nodo) => (
+              <Unidad
+                key={nodo.id}
+                nodo={nodo}
+                cargos={datos.cargos}
+                conPersonas={conPersonas}
+                cerradas={cerradas}
+                alternar={alternar}
+              />
+            ))}
+          </ul>
+        </Lienzo>
+      )}
+    </div>
+  );
+}

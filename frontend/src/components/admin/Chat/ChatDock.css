@@ -427,3 +427,72 @@
 .chat-pagina__titulo--grupo {
   border-left: 4px solid var(--chat-grupo);
 }
+
+/* --- Quién envía: filas con el círculo de iniciales en los grupos -------- */
+
+.chat-fila {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.chat-fila--propia {
+  flex-direction: row-reverse;
+}
+
+.chat-fila .chat-mensaje {
+  align-self: auto;
+}
+
+.chat-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.chat-avatar--0 {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.chat-avatar--1 {
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+}
+
+.chat-avatar--2 {
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
+.chat-avatar--3 {
+  background: var(--mz-bad-bg);
+  color: var(--mz-bad-fg);
+}
+
+.chat-avatar--4 {
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+}
+
+.chat-avatar--5 {
+  background: var(--mz-blue-100);
+  color: var(--mz-blue-600);
+}
+
+.chat-mensaje--propio .chat-mensaje__autor {
+  text-align: right;
+}
+
+/* --- Pestaña Grupos ----------------------------------------------------- */
+
+.chat-grupos__acciones {
+  padding: 10px;
+  border-bottom: 1px solid var(--mz-border);
+}

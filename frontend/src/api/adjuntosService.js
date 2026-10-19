@@ -36,7 +36,10 @@ export const adjuntosService = {
   /** Acta de entrega o devolución de un movimiento, sin archivarla. */
   acta(movimientoId) {
     return apiClient
-      .get(`${ADJUNTOS}acta/`, { params: { movimiento: movimientoId }, responseType: "blob" })
+      .get(`${ADJUNTOS}acta/`, {
+        params: { movimiento: movimientoId },
+        responseType: "blob",
+      })
       .then((res) => res.data);
   },
 

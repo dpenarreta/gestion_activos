@@ -1,7 +1,22 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Concesionario, Departamento, Empleado, Proveedor, Sede
+from apps.empresas.campos import RelacionDeEmpresa
+
+from . import documentos, noticias, organigrama
+from .models import (
+    Cargo,
+    Concesionario,
+    Departamento,
+    DocumentoInstitucional,
+    Empleado,
+    EventoCalendario,
+    NivelJerarquico,
+    NoticiaInicio,
+    Proveedor,
+    Sede,
+    UnidadOrganizacional,
+)
 
 
 class DepartamentoSerializer(serializers.ModelSerializer):
@@ -259,3 +274,269 @@ class EmpleadoSerializer(serializers.ModelSerializer):
 
     def validate_codigo_empleado(self, value):
         return value.strip().upper()
+
+
+class MisDatosSerializer(serializers.Serializer):
+    """«Mi perfil»: lo que cada persona actualiza de sí misma."""
+
+    nombres = serializers.CharField(max_length=150)
+    apellidos = serializers.CharField(max_length=150)
+    telefono = serializers.CharField(max_length=30)
+    area = RelacionDeEmpresa(Departamento, {"activo": True})
+    agencia = RelacionDeEmpresa(Sede, {"activa": True})
+    cargo = RelacionDeEmpresa(Cargo, {"activo": True}, required=False, allow_null=True)
+
+    def validate_telefono(self, valor):
+        digitos = [c for c in valor if c.isdigit()]
+        if not 7 <= len(digitos) <= 15:
+            raise serializers.ValidationError("Escriba un teléfono de 7 a 15 dígitos.")
+        return valor.strip()
+
+
+# --- Organigrama (módulo Institucional) ---------------------------------------
+
+
+class NivelJerarquicoSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(max_length=80, validators=[])
+
+    class Meta:
+        model = NivelJerarquico
+        fields = ["id", "nombre", "orden"]
+
+    def validate_nombre(self, valor):
+        valor = valor.strip()
+        repetido = NivelJerarquico.objects.filter(nombre__iexact=valor)
+        if self.instance is not None:
+            repetido = repetido.exclude(pk=self.instance.pk)
+        if repetido.exists():
+            raise serializers.ValidationError(f"Ya hay un nivel «{valor}».")
+        return valor
+
+
+class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
+    nivel = RelacionDeEmpresa(NivelJerarquico)
+    padre = RelacionDeEmpresa(UnidadOrganizacional, required=False, allow_null=True)
+    departamento = RelacionDeEmpresa(Departamento, required=False, allow_null=True)
+
+    class Meta:
+        model = UnidadOrganizacional
+        fields = [
+            "id",
+            "nombre",
+            "codigo",
+            "nivel",
+            "padre",
+            "departamento",
+            "descripcion",
+            "activa",
+            "orden",
+        ]
+
+    def validate(self, datos):
+        nivel = datos.get("nivel", getattr(self.instance, "nivel", None))
+        padre = datos.get("padre", getattr(self.instance, "padre", None))
+        organigrama.validar_padre(self.instance, padre, nivel)
+        return datos
+
+
+class CargoSerializer(serializers.ModelSerializer):
+    unidad = RelacionDeEmpresa(UnidadOrganizacional)
+    jefe = RelacionDeEmpresa(Cargo, required=False, allow_null=True)
+    plazas = serializers.IntegerField(min_value=1, max_value=999, default=1)
+
+    class Meta:
+        model = Cargo
+        fields = ["id", "nombre", "unidad", "jefe", "plazas", "descripcion", "activo"]
+
+    def validate(self, datos):
+        nombre = datos.get("nombre", getattr(self.instance, "nombre", "")).strip()
+        unidad = datos.get("unidad", getattr(self.instance, "unidad", None))
+        jefe = datos.get("jefe", getattr(self.instance, "jefe", None))
+        # El mismo nombre se repite en una unidad bajo jefes distintos («Asesor
+        # Comercial» del coordinador y del jefe de ventas), no bajo el mismo.
+        repetido = Cargo.objects.filter(nombre__iexact=nombre, unidad=unidad, jefe=jefe)
+        if self.instance is not None:
+            repetido = repetido.exclude(pk=self.instance.pk)
+        if repetido.exists():
+            bajo = f" que reporte a «{jefe}»" if jefe else " sin jefe"
+            raise serializers.ValidationError(
+                {"nombre": f"«{unidad}» ya tiene un cargo «{nombre}»{bajo}."}
+            )
+        organigrama.validar_jefe(self.instance, jefe)
+        datos["nombre"] = nombre
+        return datos
+
+
+class AsignacionSerializer(serializers.Serializer):
+    """Poner a una persona en un cargo (o sacarla, con `cargo` vacío)."""
+
+    usuario = serializers.IntegerField()
+    cargo = RelacionDeEmpresa(Cargo, {"activo": True}, allow_null=True)
+
+
+class DocumentoInstitucionalSerializer(serializers.ModelSerializer):
+    """Un código o reglamento. El archivo se sube al crear (y puede
+    reemplazarse al editar); nunca se devuelve su ruta, solo lo que hace falta
+    para mostrarlo."""
+
+    archivo = serializers.FileField(write_only=True, required=False)
+    # Explícito: en un formulario multipart, un booleano que no viene se lee
+    # como `False` y el documento se publicaría ya retirado.
+    activo = serializers.BooleanField(default=True)
+    predeterminado = serializers.BooleanField(default=False)
+    categoria_display = serializers.CharField(source="get_categoria_display", read_only=True)
+    es_pdf = serializers.SerializerMethodField()
+    subido_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DocumentoInstitucional
+        fields = [
+            "id",
+            "titulo",
+            "categoria",
+            "categoria_display",
+            "descripcion",
+            "version",
+            "vigente_desde",
+            "archivo",
+            "nombre_original",
+            "tamano_bytes",
+            "es_pdf",
+            "activo",
+            "predeterminado",
+            "subido_por_nombre",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["nombre_original", "tamano_bytes", "created_at", "updated_at"]
+
+    def get_es_pdf(self, documento) -> bool:
+        return documento.extension == ".pdf"
+
+    def get_subido_por_nombre(self, documento) -> str:
+        quien = documento.subido_por
+        return (quien.get_full_name().strip() or quien.username) if quien else ""
+
+    def validate_archivo(self, archivo):
+        self._extension = documentos.validar(archivo)
+        return archivo
+
+    def validate(self, datos):
+        if self.instance is None and not datos.get("archivo"):
+            raise serializers.ValidationError({"archivo": "Adjunte el documento (PDF o Word)."})
+        archivo = datos.get("archivo")
+        if archivo:
+            datos["nombre_original"] = archivo.name[:255]
+            datos["tamano_bytes"] = archivo.size
+            datos["content_type"] = documentos.TIPOS[self._extension]
+        return datos
+
+
+class AcuerdoConfidencialidadSerializer(serializers.Serializer):
+    titulo = serializers.CharField(max_length=200)
+    texto = serializers.CharField()
+
+
+class NoticiaInicioSerializer(serializers.ModelSerializer):
+    """Una imagen del carrusel de Inicio. La imagen se sube al crear (y puede
+    reemplazarse); nunca se devuelve su ruta."""
+
+    imagen = serializers.FileField(write_only=True, required=False)
+    estado = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NoticiaInicio
+        fields = [
+            "id",
+            "titulo",
+            "descripcion",
+            "imagen",
+            "nombre_original",
+            "tamano_bytes",
+            "publicar_desde",
+            "publicar_hasta",
+            "orden",
+            "estado",
+            "created_at",
+        ]
+        read_only_fields = ["nombre_original", "tamano_bytes", "created_at"]
+
+    def get_estado(self, noticia) -> str:
+        return noticias.estado(noticia)
+
+    def validate_imagen(self, archivo):
+        self._extension = noticias.validar_imagen(archivo)
+        return archivo
+
+    def validate(self, datos):
+        if self.instance is None and not datos.get("imagen"):
+            raise serializers.ValidationError({"imagen": "Adjunte la imagen."})
+        desde = datos.get("publicar_desde", getattr(self.instance, "publicar_desde", None))
+        hasta = datos.get("publicar_hasta", getattr(self.instance, "publicar_hasta", None))
+        if desde and hasta and hasta < desde:
+            raise serializers.ValidationError(
+                {"publicar_hasta": "La fecha de fin no puede ser anterior a la de inicio."}
+            )
+        imagen = datos.get("imagen")
+        if imagen:
+            datos["nombre_original"] = imagen.name[:255]
+            datos["tamano_bytes"] = imagen.size
+            datos["content_type"] = noticias.TIPOS[self._extension]
+        return datos
+
+
+class AjustesCarruselSerializer(serializers.Serializer):
+    segundos = serializers.IntegerField(
+        min_value=noticias.SEGUNDOS_MIN, max_value=noticias.SEGUNDOS_MAX
+    )
+
+
+class EventoCalendarioSerializer(serializers.ModelSerializer):
+    tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
+    cada_anio = serializers.BooleanField(default=False)
+
+    class Meta:
+        model = EventoCalendario
+        fields = [
+            "id",
+            "titulo",
+            "tipo",
+            "tipo_display",
+            "fecha",
+            "fecha_fin",
+            "descripcion",
+            "cada_anio",
+        ]
+
+    def validate(self, datos):
+        fecha = datos.get("fecha", getattr(self.instance, "fecha", None))
+        fin = datos.get("fecha_fin", getattr(self.instance, "fecha_fin", None))
+        if fecha and fin and fin < fecha:
+            raise serializers.ValidationError(
+                {"fecha_fin": "La fecha de fin no puede ser anterior a la de inicio."}
+            )
+        return datos
+
+
+class AvisoInicioSerializer(serializers.Serializer):
+    """Lo que se guarda del aviso al iniciar sesión. La imagen es opcional; se
+    reemplaza subiendo otra o se quita con `quitar_imagen`."""
+
+    activo = serializers.BooleanField(default=False)
+    titulo = serializers.CharField(max_length=150, allow_blank=True, default="")
+    contenido = serializers.CharField(allow_blank=True, default="")
+    imagen = serializers.FileField(required=False)
+    quitar_imagen = serializers.BooleanField(default=False)
+
+    def validate_imagen(self, archivo):
+        self._extension = noticias.validar_imagen(archivo)
+        return archivo
+
+    def validate(self, datos):
+        if datos.get("activo") and not datos.get("titulo", "").strip():
+            raise serializers.ValidationError(
+                {"titulo": "Escriba un título para poder mostrar el aviso."}
+            )
+        if datos.get("imagen"):
+            datos["content_type"] = noticias.TIPOS[self._extension]
+        return datos

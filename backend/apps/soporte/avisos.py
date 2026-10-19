@@ -1,8 +1,8 @@
 """Los correos de la Mesa de ayuda. Salen por el SMTP configurado y con las
 plantillas editables de Configuración → Notificaciones → Plantillas de correo.
 
-Nunca se leen respuestas por correo: quien pidió contesta desde su enlace de
-seguimiento, que va en cada aviso.
+Nunca se leen respuestas por correo: quien pidió contesta desde la ficha de su
+ticket en el sistema («Soporte TI»), cuyo enlace va en cada aviso.
 """
 
 from django.conf import settings
@@ -16,7 +16,9 @@ def _base() -> str:
 
 
 def enlace_de_seguimiento(ticket) -> str:
-    return f"{_base()}/soporte/seguimiento/{ticket.token}"
+    """La ficha del ticket dentro del sistema: exige iniciar sesión y solo la
+    ve quien lo pidió (desde el 20/10/2026 no hay enlace sin sesión)."""
+    return f"{_base()}/admin/ayuda/tickets/{ticket.id}"
 
 
 def datos_adicionales_html(ticket) -> str:

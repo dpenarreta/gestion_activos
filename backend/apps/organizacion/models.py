@@ -10,6 +10,8 @@ pero es opcional (`usuario`).
 """
 
 import re
+import uuid
+from pathlib import PurePath
 
 from django.conf import settings
 from django.db import models
@@ -411,3 +413,375 @@ class Empleado(ModeloDeEmpresa):
     @property
     def nombre_completo(self) -> str:
         return f"{self.nombres} {self.apellidos}".strip()
+
+
+class NivelJerarquico(ModeloDeEmpresa):
+    """Un escalón del organigrama de la empresa (Presidencia, Gerencia,
+    Departamento, Área…), en orden de arriba hacia abajo. Cada empresa define
+    los suyos: no todas se organizan igual."""
+
+    nombre = models.CharField(max_length=80)
+    orden = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        ordering = ["orden", "nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nombre"], name="nivel_jerarquico_nombre_unico_por_empresa"
+            )
+        ]
+        verbose_name = "nivel jerárquico"
+        verbose_name_plural = "niveles jerárquicos"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class UnidadOrganizacional(ModeloDeEmpresa):
+    """Un nodo del organigrama: una gerencia, un departamento, un área. Cuelga
+    de otra unidad de un nivel superior (la raíz no cuelga de ninguna).
+
+    Puede enlazarse a un Área (`Departamento`) de las que ya usan el
+    inventario y la Mesa de ayuda, para no tener dos nombres de lo mismo."""
+
+    nombre = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=20, blank=True)
+    nivel = models.ForeignKey(NivelJerarquico, on_delete=models.PROTECT, related_name="unidades")
+    padre = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="hijas"
+    )
+    departamento = models.ForeignKey(
+        Departamento, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    descripcion = models.TextField(blank=True)
+    activa = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["orden", "nombre"]
+        verbose_name = "unidad organizacional"
+        verbose_name_plural = "unidades organizacionales"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class Cargo(ModeloDeEmpresa):
+    """Un cargo del organigrama: pertenece a una unidad, reporta a otro cargo
+    (su jefe inmediato) y tiene un número de plazas. Cada persona lo elige en
+    «Mi perfil» o se lo asigna quien administra el organigrama.
+
+    Un catálogo y no texto libre, por lo mismo que las sedes: «Analista de TI»
+    y «analista TI» son el mismo cargo para una persona y dos para un reporte.
+    El nombre se repite entre unidades («Asistente») y, dentro de una, bajo
+    jefes distintos; no bajo el mismo jefe."""
+
+    nombre = models.CharField(max_length=120)
+    unidad = models.ForeignKey(
+        UnidadOrganizacional,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="cargos",
+    )
+    jefe = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="subordinados"
+    )
+    plazas = models.PositiveSmallIntegerField(default=1)
+    descripcion = models.TextField(blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "cargo"
+        verbose_name_plural = "cargos"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class DatosDeContacto(ModeloDeEmpresa):
+    """«Mi perfil»: el teléfono, el área y la agencia de una persona con cuenta
+    en la empresa, que ella misma mantiene.
+
+    Existe para quien no está en nómina (no tiene ficha de empleado) y para la
+    agencia, que la ficha de empleado no guarda. La ficha de empleado de
+    Talento Humano no se toca: de ella salen los valores iniciales.
+    """
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="datos_de_contacto"
+    )
+    telefono = models.CharField(max_length=30, blank=True)
+    departamento = models.ForeignKey(
+        Departamento, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    sede = models.ForeignKey(
+        Sede, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    cargo = models.ForeignKey(
+        Cargo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "usuario"], name="datos_de_contacto_unicos")
+        ]
+
+
+def ruta_documento(instance, filename: str) -> str:
+    """Nombre generado, nunca el que trajo el archivo (el original se guarda
+    aparte, para mostrarlo y descargarlo)."""
+    return f"institucional/{uuid.uuid4().hex}{PurePath(filename).suffix.lower()}"
+
+
+class DocumentoInstitucional(ModeloDeEmpresa):
+    """Un código de conducta, reglamento disciplinario u otra norma de la
+    empresa, para que toda persona con cuenta lo lea (módulo Institucional →
+    Códigos de conducta). Lo publica quien tiene `codigos.publicar`.
+
+    Como los adjuntos, el archivo no se sirve como estático: se entrega por una
+    vista que exige sesión y solo los documentos de la empresa activa.
+    """
+
+    class Categoria(models.TextChoices):
+        CONDUCTA = "conducta", "Código de conducta"
+        DISCIPLINARIO = "disciplinario", "Reglamento disciplinario"
+        OTRO = "otro", "Otra norma"
+
+    titulo = models.CharField(max_length=200)
+    categoria = models.CharField(max_length=20, choices=Categoria.choices)
+    descripcion = models.TextField(blank=True)
+    version = models.CharField(max_length=30, blank=True)
+    vigente_desde = models.DateField(null=True, blank=True)
+    archivo = models.FileField(upload_to=ruta_documento, max_length=255)
+    nombre_original = models.CharField(max_length=255)
+    tamano_bytes = models.PositiveIntegerField()
+    content_type = models.CharField(max_length=100, blank=True)
+    activo = models.BooleanField(default=True)
+    #: El que se abre primero en «Códigos de conducta» (uno por empresa; si
+    #: ninguno lo está, se abre el primero).
+    predeterminado = models.BooleanField(default=False)
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["categoria", "titulo"]
+        verbose_name = "documento institucional"
+        verbose_name_plural = "documentos institucionales"
+
+    def __str__(self) -> str:
+        return self.titulo
+
+    @property
+    def extension(self) -> str:
+        return PurePath(self.nombre_original).suffix.lower()
+
+    def borrar_archivo(self):
+        if self.archivo:
+            self.archivo.storage.delete(self.archivo.name)
+
+
+class AcuerdoConfidencialidad(ModeloDeEmpresa):
+    """El acuerdo de confidencialidad que se acepta antes de leer los códigos
+    de conducta y reglamentos. Uno por empresa; título y texto los configura
+    quien tiene `codigos.acuerdo`.
+
+    `version_documentos` sube cada vez que se agrega, modifica o borra un
+    documento: una aceptación vale para la versión en que se dio, así que
+    cualquier cambio en los documentos obliga a aceptar de nuevo.
+    """
+
+    titulo = models.CharField(max_length=200)
+    texto = models.TextField()
+    version_documentos = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["empresa"], name="un_acuerdo_por_empresa")]
+        verbose_name = "acuerdo de confidencialidad"
+        verbose_name_plural = "acuerdos de confidencialidad"
+
+    def __str__(self) -> str:
+        return self.titulo
+
+
+class AceptacionConfidencialidad(ModeloDeEmpresa):
+    """Que una persona aceptó el acuerdo, cuándo y para qué versión de los
+    documentos. No se sobrescribe: cada aceptación queda, con el texto que se
+    aceptó, como constancia."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    version_documentos = models.PositiveIntegerField()
+    aceptado_en = models.DateTimeField(auto_now_add=True)
+    titulo_aceptado = models.CharField(max_length=200)
+    texto_aceptado = models.TextField()
+
+    class Meta:
+        ordering = ["-aceptado_en"]
+        indexes = [models.Index(fields=["usuario", "version_documentos"])]
+        verbose_name = "aceptación de confidencialidad"
+        verbose_name_plural = "aceptaciones de confidencialidad"
+
+
+def ruta_noticia(instance, filename: str) -> str:
+    return f"noticias/{uuid.uuid4().hex}{PurePath(filename).suffix.lower()}"
+
+
+class NoticiaInicio(ModeloDeEmpresa):
+    """Una imagen del carrusel de Inicio: una noticia, aviso o evento que la
+    empresa (Talento Humano) quiere que todos vean al entrar. Se muestra solo
+    entre `publicar_desde` y `publicar_hasta`, ambos días incluidos."""
+
+    titulo = models.CharField(max_length=150, blank=True)
+    descripcion = models.CharField(max_length=300, blank=True)
+    imagen = models.FileField(upload_to=ruta_noticia, max_length=255)
+    nombre_original = models.CharField(max_length=255)
+    tamano_bytes = models.PositiveIntegerField()
+    content_type = models.CharField(max_length=100, blank=True)
+    publicar_desde = models.DateField()
+    publicar_hasta = models.DateField()
+    orden = models.PositiveSmallIntegerField(default=0)
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["orden", "-publicar_desde", "id"]
+        verbose_name = "noticia de inicio"
+        verbose_name_plural = "noticias de inicio"
+
+    def __str__(self) -> str:
+        return self.titulo or self.nombre_original
+
+    def borrar_imagen(self):
+        if self.imagen:
+            self.imagen.storage.delete(self.imagen.name)
+
+
+class AjustesCarrusel(ModeloDeEmpresa):
+    """Cada cuántos segundos cambia solo el carrusel de Inicio. Uno por
+    empresa."""
+
+    segundos = models.PositiveSmallIntegerField(default=6)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["empresa"], name="un_carrusel_por_empresa")]
+        verbose_name = "ajustes del carrusel"
+        verbose_name_plural = "ajustes del carrusel"
+
+
+class EventoCalendario(ModeloDeEmpresa):
+    """Una fecha del calendario de Inicio: un evento importante, un
+    cumpleaños o un feriado. Puede durar varios días (`fecha_fin`) y repetirse
+    cada año (`cada_anio`, lo normal en un cumpleaños)."""
+
+    class Tipo(models.TextChoices):
+        EVENTO = "evento", "Evento"
+        CUMPLEANOS = "cumpleanos", "Cumpleaños"
+        FERIADO = "feriado", "Feriado"
+
+    titulo = models.CharField(max_length=150)
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.EVENTO)
+    fecha = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True)
+    descripcion = models.CharField(max_length=300, blank=True)
+    cada_anio = models.BooleanField(default=False)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["fecha", "titulo"]
+        verbose_name = "evento del calendario"
+        verbose_name_plural = "eventos del calendario"
+
+    def __str__(self) -> str:
+        return self.titulo
+
+
+def ruta_aviso(instance, filename: str) -> str:
+    return f"avisos/{uuid.uuid4().hex}{PurePath(filename).suffix.lower()}"
+
+
+class AvisoInicio(ModeloDeEmpresa):
+    """El aviso importante que se muestra a toda persona al entrar al sistema
+    tras iniciar sesión (una vez por sesión). Uno solo por empresa: título,
+    imagen opcional y contenido. Se configura en Configuración → Aviso al
+    iniciar sesión, con `configuracion.aviso_inicio`.
+
+    `version` sube con cada cambio: quien ya lo cerró en esta sesión lo vuelve
+    a ver si el aviso cambió."""
+
+    activo = models.BooleanField(default=False)
+    titulo = models.CharField(max_length=150, blank=True)
+    contenido = models.TextField(blank=True)
+    imagen = models.FileField(upload_to=ruta_aviso, max_length=255, blank=True)
+    content_type = models.CharField(max_length=100, blank=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa"], name="un_aviso_de_inicio_por_empresa")
+        ]
+        verbose_name = "aviso al iniciar sesión"
+        verbose_name_plural = "avisos al iniciar sesión"
+
+    def __str__(self) -> str:
+        return self.titulo or "Aviso al iniciar sesión"
+
+
+class PeriodoVacaciones(ModeloDeEmpresa):
+    """Un período de vacaciones de una persona: un año de servicio (`desde` a
+    `hasta`) con los días que le corresponden. Lo gozado sale de sus goces;
+    lo pendiente, de la resta."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    desde = models.DateField()
+    hasta = models.DateField()
+    dias_correspondientes = models.PositiveSmallIntegerField(default=15)
+    nota = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["usuario", "-desde"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "usuario", "desde"], name="un_periodo_por_inicio"
+            )
+        ]
+        verbose_name = "período de vacaciones"
+        verbose_name_plural = "períodos de vacaciones"
+
+    def __str__(self) -> str:
+        return f"{self.desde.year}-{self.hasta.year}"
+
+
+class GoceVacaciones(ModeloDeEmpresa):
+    """Unos días de vacaciones gozados, a cuenta de un período."""
+
+    periodo = models.ForeignKey(PeriodoVacaciones, on_delete=models.CASCADE, related_name="goces")
+    desde = models.DateField()
+    hasta = models.DateField()
+    dias = models.PositiveSmallIntegerField()
+    descripcion = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["desde"]
+        verbose_name = "goce de vacaciones"
+        verbose_name_plural = "goces de vacaciones"

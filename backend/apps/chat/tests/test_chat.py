@@ -254,3 +254,20 @@ def test_a_los_12_meses_se_borra(empresa):
 
 def test_sin_sesion_no_hay_chat(empresa):
     assert APIClient().get(f"{URL}conversaciones/").status_code == 401
+
+
+def test_el_sondeo_no_gasta_el_limite_general_de_la_persona(db):
+    """Las novedades del chat se consultan cada 4 s (~900 por hora): con el
+    límite general (1000 por hora) dejaban sin servicio a todo lo demás."""
+    from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+
+    from apps.chat.views import NovedadesView
+    from apps.notificaciones.views import NotificacionViewSet
+
+    assert NovedadesView.throttle_scope == "sondeo"
+    assert NovedadesView.throttle_classes == [ScopedRateThrottle]
+    vista = NotificacionViewSet()
+    vista.action = "resumen"
+    assert [type(t) for t in vista.get_throttles()] == [ScopedRateThrottle]
+    vista.action = "list"
+    assert UserRateThrottle in [type(t) for t in vista.get_throttles()]

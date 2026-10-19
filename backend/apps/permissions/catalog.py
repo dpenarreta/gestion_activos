@@ -9,8 +9,8 @@ y `apps.permissions.authorization`).
 Convención de nombres: `"<modulo>.<accion>"`, ej. `"usuarios.ver"`.
 
 Cada bloque pertenece a un grupo (`MODULE_GROUPS`): una sección general
-(Reportes, Auditoría, Configuración) o un módulo (Gestión de Activos, Matriz,
-Dashboards, Mantenimiento de sedes). Cada
+(Reportes, Auditoría, Configuración, Chat) o un módulo (Gestión de Activos,
+Matriz, Dashboards, Órdenes de trabajo, Mesa de ayuda, Institucional). Cada
 módulo de negocio que se agregue debe sumar aquí sus propias entradas y su
 grupo — el catálogo es cerrado: un permiso que no esté en este archivo no
 existe para el sistema (ver docs/roles-and-permissions.md).
@@ -76,6 +76,12 @@ PERMISSION_CATALOG = {
             # pierde. Quien tenía `configuracion.editar` lo conserva —la
             # migración se lo concede—, pero a partir de ahora se pueden
             # separar.
+            # El aviso que ve toda persona al entrar: decide qué se le dice a
+            # toda la empresa apenas inicia sesión, por eso va aparte.
+            "configuracion.aviso_inicio": (
+                "Configurar el aviso importante que se muestra a todos al "
+                "iniciar sesión (título, imagen y contenido)"
+            ),
             "configuracion.respaldos": (
                 "Configurar el respaldo automático: si está encendido, cada "
                 "cuánto, a qué hora, en qué carpeta y cuántos conservar"
@@ -291,21 +297,39 @@ PERMISSION_CATALOG = {
     "soporte": {
         "label": "Mesa de ayuda",
         "description": (
-            "Tickets de soporte de TI que los empleados crean desde el formulario "
-            "público de su empresa. Se reparten por disponibilidad entre los "
-            "técnicos habilitados para cada categoría y en su horario."
+            "Tickets de soporte de TI. Pedir ayuda («Soporte TI», en la barra "
+            "superior) y seguir los propios tickets lo hace toda persona con "
+            "cuenta, sin permisos, con los datos de su perfil; aprobar una "
+            "solicitud lo hace quien figure como aprobador del servicio. Estos "
+            "permisos son los del equipo de la mesa: los tickets se reparten por "
+            "disponibilidad entre los técnicos de cada categoría y en su horario."
         ),
         "permissions": {
             "soporte.atender": (
                 "Atender tickets: bandeja propia, tomar de la cola, responder, "
                 "escalar, marcar como atendido y registrar horas fuera de horario"
             ),
+            # Aparte de atender porque no es la misma responsabilidad: quien
+            # recibe la llamada o el WhatsApp (una recepción, un coordinador)
+            # no siempre resuelve tickets. Quien atendía o coordinaba lo
+            # conserva: la migración se lo concede.
+            "soporte.registrar": (
+                "Registrar tickets en nombre de una persona registrada, cuando "
+                "llegan por teléfono, WhatsApp o en persona"
+            ),
             "soporte.ver_todos": "Ver todos los tickets de la empresa",
             "soporte.asignar": "Asignar y reasignar tickets a cualquier técnico (coordinación)",
             "soporte.aprobar_horas": "Aprobar o rechazar las horas fuera de horario",
             "soporte.configurar": (
-                "Configurar la mesa de ayuda: niveles, categorías y casos, técnicos y "
-                "sus horarios, SLA y respuestas predefinidas"
+                "Configurar la mesa de ayuda: equipo y niveles, categorías y casos "
+                "con sus aprobadores, SLA, horario y metas, nombres propios de "
+                "estados y respuestas predefinidas"
+            ),
+            # Aparte de configurar: lo que se pregunta al pedir ayuda lo puede
+            # cuidar alguien que no decide plazos ni el equipo. Quien
+            # configuraba la mesa lo conserva (la migración se lo concede).
+            "soporte.formulario": (
+                "Editar el formulario de «Soporte TI»: agregar, quitar, ordenar y " "ocultar campos"
             ),
             "soporte.reportes": "Ver los reportes de la mesa de ayuda",
         },
@@ -326,6 +350,104 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    "institucional": {
+        "label": "Organigrama",
+        "description": (
+            "El organigrama institucional de la empresa: niveles jerárquicos, "
+            "unidades (cada una dentro de otra) y cargos con su jefe inmediato y "
+            "sus plazas. Cada persona elige su cargo en «Mi perfil»; asignarlo a "
+            "otros es un permiso aparte. La pantalla «Estructura» se abre con "
+            "`editar` (y su pestaña de asignación, con `asignar`)."
+        ),
+        "permissions": {
+            "institucional.ver": "Ver el organigrama, sus cargos y quién ocupa cada uno",
+            "institucional.editar": (
+                "Armar el organigrama: crear, editar y borrar niveles, unidades y cargos"
+            ),
+            "institucional.asignar": "Asignar personas a los cargos del organigrama",
+        },
+    },
+    "codigos": {
+        "label": "Códigos de conducta",
+        "description": (
+            "Los códigos de conducta, reglamentos disciplinarios y demás normas de "
+            "la empresa. Leerlos no pide permiso: toda persona con cuenta los ve, "
+            "tras aceptar el acuerdo de confidencialidad. Estos permisos son los de "
+            "«Gestionar documentos», cada uno con su pestaña. (Hasta el 19 de "
+            "octubre de 2026 todo era `institucional.documentos`; la migración lo "
+            "renombró a `codigos.publicar` y sumó los otros dos a quien lo tenía.)"
+        ),
+        "permissions": {
+            "codigos.publicar": (
+                "Publicar, editar, reemplazar, retirar y borrar documentos, y elegir "
+                "el que se abre primero"
+            ),
+            "codigos.acuerdo": ("Configurar el título y el texto del acuerdo de confidencialidad"),
+            "codigos.ver_aceptaciones": (
+                "Ver quién aceptó el acuerdo de confidencialidad y cuándo"
+            ),
+        },
+    },
+    "noticias": {
+        "label": "Noticias de Inicio",
+        "description": (
+            "El carrusel de Inicio: las noticias, avisos y eventos (imágenes) que "
+            "la empresa quiere que todos vean al entrar, cada una con su día de "
+            "inicio y de fin. Verlo no pide permiso."
+        ),
+        "permissions": {
+            "noticias.gestionar": (
+                "Subir, editar y borrar las imágenes del carrusel de Inicio, sus "
+                "fechas de publicación y cada cuántos segundos cambia"
+            ),
+        },
+    },
+    "calendario": {
+        "label": "Calendario de Inicio",
+        "description": (
+            "El calendario de Inicio: eventos importantes, cumpleaños y feriados "
+            "de la empresa, que pueden repetirse cada año. Verlo no pide permiso."
+        ),
+        "permissions": {
+            "calendario.gestionar": (
+                "Agregar, editar y borrar los eventos, cumpleaños y feriados del "
+                "calendario de Inicio"
+            ),
+        },
+    },
+    "vacaciones": {
+        "label": "Vacaciones",
+        "description": (
+            "Los días de vacaciones de cada persona por período: los que le "
+            "corresponden, los gozados y los pendientes. Cada quien ve los suyos "
+            "en «Mis vacaciones» sin permiso; ver los de otros es un dato personal "
+            "y pide permiso."
+        ),
+        "permissions": {
+            "vacaciones.ver_todas": (
+                "Consultar las vacaciones (gozadas y pendientes) de cualquier "
+                "persona de la empresa"
+            ),
+        },
+    },
+    "licencias": {
+        "label": "Solicitud de permisos",
+        "description": (
+            "Los permisos laborales (vacaciones, permiso médico…): cada tipo es un "
+            "flujo con sus pasos de aprobación y a quién se avisa el resultado. "
+            "Solicitar y aprobar lo que a uno le toca no piden permiso."
+        ),
+        "permissions": {
+            "licencias.configurar": (
+                "Crear y editar los tipos de permiso: sus pasos de aprobación, quién "
+                "aprueba cada uno y a quién se avisa el resultado"
+            ),
+            "licencias.ver_todas": (
+                "Ver todas las solicitudes de permiso de la empresa y escalar "
+                "cualquiera que esté pendiente"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -342,7 +464,7 @@ PERMISSION_CATALOG = {
 #: A qué parte del sistema pertenece cada bloque del catálogo, en el orden en
 #: que se muestran. Los **generales** son las secciones del bloque «General»
 #: del menú —Reportes, Auditoría y Configuración, con todo lo que se
-#: administra desde ella— y valen en todo el sistema; los demás solo sirven
+#: administra desde ella— y el Chat, y valen en todo el sistema; los demás solo sirven
 #: dentro de su módulo. Todo
 #: bloque del catálogo está en exactamente un grupo (lo comprueba
 #: `apps/permissions/tests/test_grupos_del_catalogo.py`).
@@ -401,6 +523,65 @@ MODULE_GROUPS = [
     },
     # --- De cada módulo: solo sirven dentro de él ----------------------------
     {
+        "id": "institucional",
+        "label": "Institucional",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo Institucional: el organigrama de la empresa "
+            "(sus jerarquías, cargos y quién ocupa cada uno) y la gestión de los "
+            "códigos de conducta. «Inicio» y leer los códigos no piden permiso."
+        ),
+        "modules": [
+            "institucional",
+            "codigos",
+            "noticias",
+            "calendario",
+            "vacaciones",
+            "licencias",
+        ],
+    },
+    {
+        "id": "dashboards",
+        "label": "Dashboards",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Dashboards: los de cada área o "
+            "departamento, sus datos y su interpretación con IA."
+        ),
+        "modules": ["dashboard"],
+    },
+    {
+        "id": "mesa_de_ayuda",
+        "label": "Mesa de ayuda",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Mesa de ayuda: atender, registrar, asignar "
+            "y supervisar los tickets de soporte de la empresa, su formulario y su "
+            "configuración. Pedir ayuda no requiere ninguno."
+        ),
+        "modules": ["soporte"],
+    },
+    {
+        "id": "matriz",
+        "label": "Matriz de obligaciones",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de la Matriz: obligaciones, períodos, "
+            "evidencias y recordatorios de cada empresa."
+        ),
+        "modules": ["matriz"],
+    },
+    {
+        "id": "sedes",
+        "label": "Órdenes de trabajo",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Órdenes de trabajo: las órdenes de "
+            "trabajo sobre sedes y agencias, su ejecución y su aceptación."
+        ),
+        "modules": ["ordenes"],
+    },
+    {
         "id": "activos",
         "label": "Gestión de Activos",
         "alcance": "modulo",
@@ -416,46 +597,6 @@ MODULE_GROUPS = [
             "solicitudes",
             "politicas",
         ],
-    },
-    {
-        "id": "matriz",
-        "label": "Matriz de obligaciones",
-        "alcance": "modulo",
-        "description": (
-            "Solo sirven en el módulo de la Matriz: obligaciones, períodos, "
-            "evidencias y recordatorios de cada empresa."
-        ),
-        "modules": ["matriz"],
-    },
-    {
-        "id": "dashboards",
-        "label": "Dashboards",
-        "alcance": "modulo",
-        "description": (
-            "Solo sirven en el módulo de Dashboards: los de cada área o "
-            "departamento, sus datos y su interpretación con IA."
-        ),
-        "modules": ["dashboard"],
-    },
-    {
-        "id": "sedes",
-        "label": "Mantenimiento de sedes",
-        "alcance": "modulo",
-        "description": (
-            "Solo sirven en el módulo de Mantenimiento de sedes: las órdenes de "
-            "trabajo sobre sedes y agencias, su ejecución y su aceptación."
-        ),
-        "modules": ["ordenes"],
-    },
-    {
-        "id": "mesa_de_ayuda",
-        "label": "Mesa de ayuda",
-        "alcance": "modulo",
-        "description": (
-            "Solo sirven en el módulo de Mesa de ayuda: atender, asignar y supervisar "
-            "los tickets de soporte de la empresa."
-        ),
-        "modules": ["soporte"],
     },
 ]
 

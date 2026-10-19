@@ -79,7 +79,8 @@ def test_consulta_no_puede_modificar_nada():
     # si alguien añade `activos.eliminar` y se lo da a este rol, la prueba lo
     # ve sin que nadie se acuerde de actualizarla. (`.view` es el «ver» de los
     # dashboards de Cartera, que conservan los nombres del sistema de origen;
-    # `.reportes`, ver y exportar los de las órdenes de trabajo.)
+    # `.reportes`, ver y exportar los de las órdenes de trabajo; `.ver_aceptaciones`,
+    # quién aceptó el acuerdo de los códigos de conducta.)
     escrituras = {
         codename
         for codename in permisos
@@ -94,6 +95,7 @@ def test_consulta_no_puede_modificar_nada():
                 ".view",
                 ".reportes",
                 ".ver_todos",
+                ".ver_aceptaciones",
             )
         )
     }

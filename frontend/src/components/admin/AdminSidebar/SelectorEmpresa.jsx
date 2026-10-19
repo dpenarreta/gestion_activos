@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 
 import { getEmpresaActiva, setEmpresaActiva } from "../../../api/client";
+import { useAlCambiarConfiguracion } from "../../../api/cambiosDeConfiguracion";
 import { empresasService } from "../../../api/empresasService";
 import { Icon } from "../../common/Icon/Icon";
 
 /**
  * En qué empresa se está trabajando.
  *
- * Se pregunta una sola vez, en el layout, y se reparte a dos sitios —como en
- * la identidad base—: el menú lateral la *muestra* («Tablero activo», debajo
- * de la marca) y la barra superior la *cambia*. Saberlo antes de navegar evita
- * el error de mirar el inventario equivocado durante un rato.
+ * Se pregunta una sola vez, en el layout: la barra superior la muestra y la
+ * cambia (el menú lateral dice el módulo). Saberlo antes de navegar evita el
+ * error de mirar el inventario equivocado durante un rato.
  */
 export function useMisEmpresas() {
   const [empresas, setEmpresas] = useState([]);
   const [activa, setActiva] = useState(null);
+
+  const [vuelta, setVuelta] = useState(0);
+  // Editada una empresa (nombre, color), la barra superior lo muestra ya.
+  useAlCambiarConfiguracion(["empresas"], () => setVuelta((v) => v + 1));
 
   useEffect(() => {
     empresasService
@@ -29,7 +33,7 @@ export function useMisEmpresas() {
         }
       })
       .catch(() => setEmpresas([]));
-  }, []);
+  }, [vuelta]);
 
   return { empresas, activa };
 }
@@ -45,40 +49,6 @@ function conRol(empresa) {
     : empresa.nombre;
 }
 
-/** «Tablero activo» del menú lateral: solo dice dónde se está. */
-export function EmpresaActiva({ empresas, activa, isCollapsed }) {
-  if (empresas.length === 0) return null;
-  const nombre = activa?.nombre || empresas[0].nombre;
-
-  if (isCollapsed) {
-    // Contraído no cabe el nombre, pero saber en qué empresa se está no es
-    // opcional: se deja el código, con el nombre en el título.
-    return (
-      <div
-        className="mz-active-company mz-active-company--contraida"
-        title={nombre}
-      >
-        <strong aria-hidden="true">
-          {(activa?.codigo || nombre).slice(0, 2)}
-        </strong>
-        <span className="visually-hidden">{nombre}</span>
-      </div>
-    );
-  }
-
-  const roles = (empresas.find((e) => e.id === activa?.id) ?? empresas[0])
-    ?.roles;
-  return (
-    <div className="mz-active-company">
-      <small>Tablero activo</small>
-      <strong>{nombre}</strong>
-      {roles?.length > 0 && (
-        <span className="mz-active-company__rol">{roles.join(" · ")}</span>
-      )}
-    </div>
-  );
-}
-
 /**
  * Cambio de empresa, en la barra superior.
  *
@@ -91,10 +61,19 @@ export function EmpresaActiva({ empresas, activa, isCollapsed }) {
  *
  * Es un `<select>` nativo dibujado como el selector de la identidad base: el
  * teclado, el lector de pantalla y el desplegable del teléfono vienen hechos.
- * Con una sola empresa no se dibuja: un selector de un elemento no elige.
+ * Con una sola empresa queda su nombre, sin desplegable: saber dónde se está
+ * no es opcional, pero un selector de un elemento no elige.
  */
 export function SelectorEmpresa({ empresas, activa }) {
-  if (empresas.length < 2) return null;
+  if (empresas.length === 0) return null;
+  if (empresas.length === 1) {
+    return (
+      <div className="mz-switcher mz-switcher--fija" title="Empresa">
+        <Icon name="building" className="mz-switcher__icono" />
+        <span>{conRol(activa ?? empresas[0])}</span>
+      </div>
+    );
+  }
 
   function cambiar(evento) {
     const id = evento.target.value;

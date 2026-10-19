@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 
 from apps.core.pagination import DefaultPagination
@@ -32,6 +33,14 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         if self.request.query_params.get("estado") == "no_leidas":
             consulta = consulta.filter(leida_en__isnull=True)
         return consulta.order_by("-created_at", "-id")
+
+    def get_throttles(self):
+        # La campana consulta el resumen sola cada pocos segundos: va con el
+        # límite de los sondeos, no con el general de la persona.
+        if getattr(self, "action", None) == "resumen":
+            self.throttle_scope = "sondeo"
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
 
     @action(detail=False, methods=["get"])
     def resumen(self, request):

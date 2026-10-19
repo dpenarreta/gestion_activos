@@ -3,6 +3,10 @@ import {
   RUTAS_CONFIGURACION,
 } from "../ConfiguracionMarco/seccionesConfiguracion";
 import { MODULO_POR_DEFECTO } from "../../../modulos/modulos";
+import {
+  PERMISOS_INSTITUCIONAL,
+  RUTA_INSTITUCIONAL,
+} from "../../../modulos/permisosInstitucional";
 import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
 import {
   PERMISOS_DASHBOARDS,
@@ -211,7 +215,7 @@ export const ADMIN_MENU = [
     path: "/admin/matriz/documentos",
     permission: PERMISOS_MATRIZ,
   },
-  // --- Mantenimiento de sedes ----------------------------------------------
+  // --- Órdenes de trabajo -------------------------------------------------
   {
     id: "ordenes-panel",
     modulo: "sedes",
@@ -270,7 +274,62 @@ export const ADMIN_MENU = [
     name: "Formulario",
     icon: "ui-checks",
     path: `${RUTA_SOPORTE}/formulario`,
-    permission: "soporte.configurar",
+    permission: "soporte.formulario",
+  },
+  // --- Institucional ------------------------------------------------------
+  {
+    // Sin permiso: es a donde entra toda persona al iniciar sesión.
+    id: "institucional-inicio",
+    modulo: "institucional",
+    name: "Inicio",
+    icon: "house",
+    path: `${RUTA_INSTITUCIONAL}/inicio`,
+    // «Gestionar noticias» y «Gestionar calendario» cuelgan del Inicio.
+    rutas: [
+      `${RUTA_INSTITUCIONAL}/noticias`,
+      `${RUTA_INSTITUCIONAL}/calendario`,
+    ],
+  },
+  {
+    id: "institucional-organigrama",
+    modulo: "institucional",
+    name: "Organigrama",
+    icon: "diagram-3",
+    path: `${RUTA_INSTITUCIONAL}/organigrama`,
+    // Lo ve quien tenga cualquiera de los permisos del organigrama. La
+    // estructura (y su pestaña de asignación de cargos) no va en el menú: se
+    // abre con el botón «Editar estructura» del organigrama, que también pide
+    // su permiso.
+    permission: PERMISOS_INSTITUCIONAL,
+    rutas: [`${RUTA_INSTITUCIONAL}/estructura`],
+  },
+  {
+    // Sin permiso: cada persona pide sus permisos y aprueba lo que le toca;
+    // configurar los flujos cuelga de aquí (con su permiso).
+    id: "institucional-permisos",
+    modulo: "institucional",
+    name: "Solicitud de permisos",
+    icon: "calendar-check",
+    path: `${RUTA_INSTITUCIONAL}/permisos`,
+    rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
+  },
+  {
+    // Sin permiso: cada persona ve sus días de vacaciones.
+    id: "institucional-vacaciones",
+    modulo: "institucional",
+    name: "Mis vacaciones",
+    icon: "sun",
+    path: `${RUTA_INSTITUCIONAL}/vacaciones`,
+  },
+  {
+    // Sin permiso: toda persona lee los códigos y reglamentos de la empresa.
+    id: "institucional-codigos",
+    modulo: "institucional",
+    name: "Códigos de conducta",
+    icon: "journal-text",
+    path: `${RUTA_INSTITUCIONAL}/codigos`,
+    // La gestión no va en el menú: se abre con su botón, con su permiso.
+    rutas: [`${RUTA_INSTITUCIONAL}/codigos`],
   },
   // --- Dashboards ---------------------------------------------------------
   //
@@ -387,4 +446,24 @@ export function modulosConAcceso(permissions = []) {
     ).map((item) => item.modulo),
   );
   return [...modulos];
+}
+
+/** Los módulos en los que la persona tiene algún permiso de verdad: sin
+ * contar Institucional por su «Inicio», que es de todos. */
+export function modulosConPermiso(permissions = []) {
+  return [
+    ...new Set(
+      filterByPermission(
+        conPermiso(ADMIN_MENU.filter((item) => item.modulo !== "comun")),
+        permissions,
+      ).map((item) => item.modulo),
+    ),
+  ];
+}
+
+/** Las opciones que exigen algún permiso (sin las que vería cualquiera).
+ * Sirve para saber si alguien tiene permisos de verdad (la pantalla de inicio
+ * y el 403). */
+export function conPermiso(items) {
+  return items.filter((item) => item.permission || item.children?.length);
 }

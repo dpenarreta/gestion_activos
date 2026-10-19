@@ -174,6 +174,14 @@ export const SECCIONES_CONFIGURACION = [
     ],
   },
   {
+    // La ventana destacada que ve toda persona al entrar al sistema.
+    id: "aviso-inicio",
+    nombre: "Aviso al iniciar sesión",
+    path: "/admin/configuracion/aviso-inicio",
+    permission: "configuracion.aviso_inicio",
+    rutas: ["/admin/configuracion/aviso-inicio"],
+  },
+  {
     // La mesa de ayuda de la empresa: su equipo, qué atiende cada quien, los
     // plazos y las respuestas predefinidas.
     id: "soporte",

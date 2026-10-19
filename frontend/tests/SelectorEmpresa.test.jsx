@@ -2,25 +2,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  EmpresaActiva,
   SelectorEmpresa as Desplegable,
   useMisEmpresas,
 } from "../src/components/admin/AdminSidebar/SelectorEmpresa";
 
-/** Como lo monta el layout: la empresa activa en el menú, el cambio en la
- * barra superior, los dos con la misma respuesta de `/empresas/mias/`. */
-function SelectorEmpresa({ isCollapsed }) {
+/** Como lo monta el layout: en la barra superior, con la respuesta de
+ * `/empresas/mias/`. */
+function SelectorEmpresa() {
   const { empresas, activa } = useMisEmpresas();
-  return (
-    <>
-      <EmpresaActiva
-        empresas={empresas}
-        activa={activa}
-        isCollapsed={isCollapsed}
-      />
-      <Desplegable empresas={empresas} activa={activa} />
-    </>
-  );
+  return <Desplegable empresas={empresas} activa={activa} />;
 }
 
 const COURIER = { id: 1, nombre: "LaarCourier", codigo: "LC", activa: true };
@@ -52,7 +42,7 @@ describe("SelectorEmpresa", () => {
   it("con una sola empresa muestra el nombre pero no un desplegable", async () => {
     mias.mockResolvedValue({ empresas: [COURIER], activa: COURIER });
 
-    render(<SelectorEmpresa isCollapsed={false} />);
+    render(<SelectorEmpresa />);
 
     expect(await screen.findByText("LaarCourier")).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
@@ -61,7 +51,7 @@ describe("SelectorEmpresa", () => {
   it("con dos empresas deja elegir entre ellas", async () => {
     mias.mockResolvedValue({ empresas: [COURIER, SEGURIDAD], activa: COURIER });
 
-    render(<SelectorEmpresa isCollapsed={false} />);
+    render(<SelectorEmpresa />);
 
     const selector = await screen.findByRole("combobox", { name: "Empresa" });
     expect(selector).toHaveValue("1");
@@ -80,7 +70,7 @@ describe("SelectorEmpresa", () => {
       writable: true,
     });
 
-    render(<SelectorEmpresa isCollapsed={false} />);
+    render(<SelectorEmpresa />);
     const selector = await screen.findByRole("combobox", { name: "Empresa" });
     fireEvent.change(selector, { target: { value: "2" } });
 
@@ -91,7 +81,7 @@ describe("SelectorEmpresa", () => {
   it("sin empresas no dibuja nada", async () => {
     mias.mockResolvedValue({ empresas: [], activa: null });
 
-    const { container } = render(<SelectorEmpresa isCollapsed={false} />);
+    const { container } = render(<SelectorEmpresa />);
 
     await waitFor(() => expect(mias).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();

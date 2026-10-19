@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { matrizService } from "../../../api/matrizService";
@@ -13,11 +13,9 @@ import { useTheme } from "../../../hooks/useTheme";
 import { iniciales } from "../../../utils/iniciales";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
+import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
 import { AdminMenuItem } from "./AdminMenuItem";
-import { EmpresaActiva } from "./SelectorEmpresa";
 import "./AdminSidebar.css";
-
-const SIN_EMPRESAS = { empresas: [], activa: null };
 
 function rolDe(user) {
   if (user?.is_superuser) return "Superusuario";
@@ -68,7 +66,6 @@ export function AdminSidebar({
   isMobileOpen = false,
   onMobileClose = () => {},
   mobileTriggerRef,
-  empresas = SIN_EMPRESAS,
 }) {
   const menu = useAdminMenu();
   const { user, logout } = useAuth();
@@ -127,6 +124,24 @@ export function AdminSidebar({
     onMobileClose();
   }
 
+  const [menuUsuario, setMenuUsuario] = useState(false);
+  const zonaUsuario = useRef(null);
+  useEffect(() => {
+    if (!menuUsuario) return undefined;
+    function fuera(evento) {
+      if (!zonaUsuario.current?.contains(evento.target)) setMenuUsuario(false);
+    }
+    function tecla(evento) {
+      if (evento.key === "Escape") setMenuUsuario(false);
+    }
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", tecla);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", tecla);
+    };
+  }, [menuUsuario]);
+
   function handleLogout() {
     if (
       isDirty &&
@@ -182,11 +197,9 @@ export function AdminSidebar({
           </button>
         </div>
 
-        <EmpresaActiva
-          empresas={empresas.empresas}
-          activa={empresas.activa}
-          isCollapsed={isCollapsed}
-        />
+        {/* En qué módulo se trabaja, y desde aquí se cambia. La empresa y el
+            usuario se ven en la barra superior. */}
+        <SelectorModulo isCollapsed={isCollapsed} onElegido={onMobileClose} />
 
         <ul className="mz-nav">{operativas.map(dibujar)}</ul>
 
@@ -205,17 +218,45 @@ export function AdminSidebar({
               <Icon name="shield-lock" /> {rol}
             </span>
           )}
-          <div className="mz-user">
-            <div
-              className="mz-avatar"
-              title={isCollapsed ? nombreCompleto : undefined}
+          <div className="mz-user mz-user--menu" ref={zonaUsuario}>
+            {/* Un clic en el usuario abre su menú: «Mi perfil» (su información
+                personal) y cerrar sesión. */}
+            <button
+              type="button"
+              className="mz-user__boton"
+              aria-haspopup="menu"
+              aria-expanded={menuUsuario}
+              aria-label={`Menú de ${nombreCompleto}`}
+              onClick={() => setMenuUsuario((abierto) => !abierto)}
             >
-              {iniciales(nombreCompleto)}
-            </div>
-            {!isCollapsed && (
-              <div>
-                <strong>{nombreCompleto}</strong>
-                <span>{user?.email}</span>
+              <span
+                className="mz-avatar"
+                title={isCollapsed ? nombreCompleto : undefined}
+              >
+                {iniciales(nombreCompleto)}
+              </span>
+              {!isCollapsed && (
+                <span className="mz-user__texto">
+                  <strong>{nombreCompleto}</strong>
+                  <span>{user?.email}</span>
+                </span>
+              )}
+            </button>
+            {menuUsuario && (
+              <div className="mz-user__menu" role="menu">
+                <Link
+                  to="/admin/perfil"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuUsuario(false);
+                    onMobileClose?.();
+                  }}
+                >
+                  <Icon name="person-vcard" /> Mi perfil
+                </Link>
+                <button type="button" role="menuitem" onClick={handleLogout}>
+                  <Icon name="box-arrow-right" /> Cerrar sesión
+                </button>
               </div>
             )}
             <button

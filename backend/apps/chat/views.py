@@ -260,6 +260,9 @@ class NovedadesView(APIView):
     devuelve solo el punto de partida, para no traer todo el historial."""
 
     permission_classes = [IsAuthenticated]
+    # Su propio límite: no gasta el general de la persona (ver «sondeo»).
+    throttle_scope = "sondeo"
+    throttle_classes = [ScopedRateThrottle]
 
     def get(self, request):
         desde = request.query_params.get("desde", "")

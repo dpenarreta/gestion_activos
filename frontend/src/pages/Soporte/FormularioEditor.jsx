@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -16,6 +17,9 @@ const TIPOS = [
   ["correo", "Correo"],
   ["telefono", "Teléfono"],
 ];
+
+/** Los campos del sistema que salen de «Mi perfil»: no se preguntan. */
+const PERSONALES = new Set(["nombre", "telefono", "correo", "sede", "area"]);
 
 const NUEVO = {
   etiqueta: "",
@@ -40,8 +44,6 @@ const NUEVO = {
 export function FormularioEditor() {
   const [campos, setCampos] = useState(null);
   const [categorias, setCategorias] = useState([]);
-  const [publico, setPublico] = useState({ agencias: [], areas: [] });
-  const [codigo, setCodigo] = useState(null);
   const [editando, setEditando] = useState(null);
   const [porQuitar, setPorQuitar] = useState(null);
   const [error, setError] = useState(null);
@@ -62,14 +64,6 @@ export function FormularioEditor() {
       .listar("categorias")
       .then(setCategorias)
       .catch(() => setCategorias([]));
-    soporteService.config
-      .codigoFormulario()
-      .then(({ codigo: propio }) => {
-        setCodigo(propio);
-        if (propio) return soporteService.formulario(propio).then(setPublico);
-        return null;
-      })
-      .catch(() => setCodigo(null));
   }, [cargar]);
 
   async function ejecutar(accion) {
@@ -114,10 +108,9 @@ export function FormularioEditor() {
     if (hecho) setEditando(null);
   }
 
-  const enlace = codigo ? `${window.location.origin}/soporte/${codigo}` : null;
   const datosVista = {
-    agencias: publico.agencias ?? [],
-    areas: publico.areas ?? [],
+    agencias: [],
+    areas: [],
     categorias: categorias
       .filter((c) => c.activa)
       .map((c) => ({ ...c, casos: c.casos.filter((caso) => caso.activo) })),
@@ -132,21 +125,15 @@ export function FormularioEditor() {
         <div>
           <h2>Formulario</h2>
           <p className="mz-desc">
-            Lo que pregunta el formulario público de la mesa de ayuda. Los
+            Lo que pregunta «Soporte TI» al pedir ayuda. Nombre, correo,
+            teléfono, área y agencia salen de «Mi perfil» de cada persona. Los
             cambios se aplican al momento.
           </p>
         </div>
         <div className="mz-actions">
-          {enlace && (
-            <a
-              className="btn btn-outline-secondary btn-sm"
-              href={enlace}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Icon name="box-arrow-up-right" /> Abrir el formulario
-            </a>
-          )}
+          <Link className="btn btn-outline-secondary btn-sm" to="/admin/ayuda">
+            <Icon name="box-arrow-up-right" /> Abrir Soporte TI
+          </Link>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -228,6 +215,11 @@ export function FormularioEditor() {
                               Del sistema
                             </span>
                           )}
+                          {campo.base && PERSONALES.has(campo.clave) && (
+                            <span className="mz-pill mz-pill--neutral">
+                              De «Mi perfil»
+                            </span>
+                          )}
                           {!campo.activo ? (
                             <span className="mz-pill mz-pill--warn">
                               Oculto
@@ -303,9 +295,10 @@ export function FormularioEditor() {
               ))}
             </ol>
             <p className="mz-small mz-faint mb-0">
-              Nombre, correo, categoría, caso y descripción no se pueden
-              ocultar: los necesitan la cola, la prioridad y los avisos. Quitar
-              un campo propio no borra lo que ya respondieron en los tickets.
+              Los datos de contacto no se preguntan: salen de «Mi perfil» de
+              quien pide. Categoría, caso y descripción no se pueden ocultar:
+              los necesitan la cola, la prioridad y los avisos. Quitar un campo
+              propio no borra lo que ya respondieron en los tickets.
             </p>
           </div>
 
@@ -495,7 +488,9 @@ function EditorDeCampo({
 function VistaPrevia({ campos, datos }) {
   const [valores, setValores] = useState({ categoria: "", caso: "" });
   const [adicionales, setAdicionales] = useState({});
-  const visibles = campos.filter((c) => c.activo);
+  const visibles = campos.filter(
+    (c) => c.activo && !(c.base && PERSONALES.has(c.clave)),
+  );
 
   return (
     <section className="mz-card soporte-formulario__vista">

@@ -17,17 +17,19 @@ router.register(
 )
 
 urlpatterns = [
-    path("publico/<str:codigo>/", views.FormularioPublicoView.as_view(), name="soporte-formulario"),
-    path("seguimiento/<str:token>/", views.SeguimientoView.as_view(), name="soporte-seguimiento"),
+    # Quien pide soporte, con sesión (no hay formulario público desde el 20/10/2026).
+    path("solicitar/", views.SolicitarView.as_view(), name="soporte-solicitar"),
+    path("mis-tickets/", views.MisTicketsView.as_view(), name="soporte-mis-tickets"),
+    path("mis-tickets/<int:pk>/", views.MiTicketView.as_view(), name="soporte-mi-ticket"),
     path(
-        "seguimiento/<str:token>/adjuntos/<int:adjunto_id>/",
-        views.AdjuntoPublicoView.as_view(),
-        name="soporte-seguimiento-adjunto",
+        "mis-tickets/<int:pk>/encuesta/",
+        views.MiEncuestaView.as_view(),
+        name="soporte-mi-encuesta",
     ),
     path(
-        "seguimiento/<str:token>/encuesta/",
-        views.EncuestaPublicaView.as_view(),
-        name="soporte-encuesta",
+        "mis-tickets/<int:pk>/adjuntos/<int:adjunto_id>/",
+        views.MiAdjuntoView.as_view(),
+        name="soporte-mi-adjunto",
     ),
     path("etiquetas/", views.EtiquetasView.as_view(), name="soporte-etiquetas"),
     path("aprobaciones/", views.AprobacionesView.as_view(), name="soporte-aprobaciones"),

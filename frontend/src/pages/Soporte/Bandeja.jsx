@@ -99,16 +99,18 @@ export function Bandeja({ todos = false }) {
               : "Mesa de ayuda de TI."}
           </p>
         </div>
-        {(tecnico || cabecera?.puede.asignar) && (
+        {(tecnico || cabecera?.puede.registrar) && (
           <div className="mz-view-actions">
             {/* Lo que llega por teléfono, WhatsApp o en persona también se
                 registra: «sin ticket no hay atención». */}
-            <Link
-              className="btn btn-outline-primary btn-sm"
-              to="/admin/soporte/registrar"
-            >
-              <Icon name="telephone-plus" /> Registrar ticket
-            </Link>
+            {cabecera?.puede.registrar && (
+              <Link
+                className="btn btn-outline-primary btn-sm"
+                to="/admin/soporte/registrar"
+              >
+                <Icon name="telephone-plus" /> Registrar ticket
+              </Link>
+            )}
             {tecnico && (
               <button
                 type="button"

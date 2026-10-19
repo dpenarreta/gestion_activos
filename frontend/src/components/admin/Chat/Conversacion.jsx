@@ -6,6 +6,17 @@ import { descargarBlob } from "../../../utils/descargas";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 
+/** Las iniciales de un nombre: «Carla Ordóñez» → «CO». */
+export function iniciales(nombre) {
+  const partes = (nombre || "?").trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+/** El color de cada persona, fijo: el mismo número de usuario, el mismo tono. */
+export function tonoDe(id) {
+  return Math.abs(Number(id) || 0) % 6;
+}
+
 /** Una foto del chat: se pide con la sesión y se muestra como blob. */
 function Imagen({ archivo }) {
   const [url, setUrl] = useState(null);
@@ -64,6 +75,7 @@ export function Conversacion({ conversacion, compacta = false }) {
   const fondo = useRef(null);
   const entradaArchivo = useRef(null);
   const cantidad = datos?.lista.length ?? 0;
+  const grupal = conversacion.tipo !== "directa";
 
   const { cargarMensajes } = chat;
   useEffect(() => {
@@ -108,7 +120,7 @@ export function Conversacion({ conversacion, compacta = false }) {
   return (
     <div
       className={`chat-conversacion${compacta ? " chat-conversacion--compacta" : ""}${
-        conversacion.tipo !== "directa" ? " chat-conversacion--grupo" : ""
+        grupal ? " chat-conversacion--grupo" : ""
       }`}
     >
       <div className="chat-mensajes" aria-live="polite">
@@ -128,21 +140,50 @@ export function Conversacion({ conversacion, compacta = false }) {
             Todavía no hay mensajes. ¡Escriba el primero!
           </p>
         )}
-        {(datos?.lista ?? []).map((m) => (
-          <div
-            key={m.id}
-            className={`chat-mensaje${m.propio ? " chat-mensaje--propio" : ""}`}
-          >
-            {!m.propio && conversacion.tipo !== "directa" && (
-              <span className="chat-mensaje__autor">{m.autor?.nombre}</span>
-            )}
-            {m.texto && <p className="chat-mensaje__texto">{m.texto}</p>}
-            {m.archivo && <Archivo archivo={m.archivo} />}
-            <span className="chat-mensaje__hora">
-              {formatearFecha(m.fecha, true)}
-            </span>
-          </div>
-        ))}
+        {(datos?.lista ?? []).map((m) => {
+          const burbuja = (
+            <div
+              className={`chat-mensaje${m.propio ? " chat-mensaje--propio" : ""}`}
+            >
+              {grupal && (
+                <span className="chat-mensaje__autor">
+                  {m.propio ? "Usted" : (m.autor?.nombre ?? "Alguien")}
+                </span>
+              )}
+              {m.texto && <p className="chat-mensaje__texto">{m.texto}</p>}
+              {m.archivo && <Archivo archivo={m.archivo} />}
+              <span className="chat-mensaje__hora">
+                {formatearFecha(m.fecha, true)}
+              </span>
+            </div>
+          );
+          if (!grupal)
+            return (
+              <div
+                key={m.id}
+                className={`chat-fila${m.propio ? " chat-fila--propia" : ""}`}
+              >
+                {burbuja}
+              </div>
+            );
+          // En un grupo, cada mensaje dice quién lo envió: su nombre y un
+          // círculo con sus iniciales, del mismo color siempre.
+          return (
+            <div
+              key={m.id}
+              className={`chat-fila chat-fila--grupo${m.propio ? " chat-fila--propia" : ""}`}
+            >
+              <span
+                className={`chat-avatar chat-avatar--${tonoDe(m.autor?.id)}`}
+                aria-hidden="true"
+                title={m.autor?.nombre}
+              >
+                {iniciales(m.propio ? "Usted" : m.autor?.nombre)}
+              </span>
+              {burbuja}
+            </div>
+          );
+        })}
         <div ref={fondo} />
       </div>
 

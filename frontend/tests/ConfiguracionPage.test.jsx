@@ -159,6 +159,22 @@ describe("La pestaña de identidad", () => {
     expect(actualizarTema.mock.calls[0][0].font_size_base).toBe(16);
   });
 
+  it("al guardar confirma que se guardó, junto al botón", async () => {
+    /* Sin señal, guardar parecía no haber hecho nada. */
+    pintar();
+    await screen.findByLabelText("Nombre del sitio");
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Guardado");
+    expect(screen.getByText(/Cambios guardados/)).toBeInTheDocument();
+
+    // Al volver a cambiar algo, la confirmación desaparece.
+    fireEvent.change(screen.getByLabelText("Nombre del sitio"), {
+      target: { value: "Otro nombre" },
+    });
+    expect(screen.queryByText(/Cambios guardados/)).toBeNull();
+  });
+
   it("si el servidor rechaza el tema, lo dice con su motivo", async () => {
     actualizarTema.mockRejectedValue({
       response: {

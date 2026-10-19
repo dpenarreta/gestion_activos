@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     "apps.notificaciones",
     "apps.chat",
     "apps.soporte",
+    "apps.licencias",
 ]
 
 MIDDLEWARE = [
@@ -288,6 +289,11 @@ REST_FRAMEWORK = {
         # de seguimiento, sin sesión. Frena el spam sin estorbar a una persona.
         # Chat: mensajes por minuto de cada persona; frena el spam y los bucles.
         "chat": env.str("CHAT_THROTTLE_RATE", default="60/min"),
+        # Lo que la pantalla consulta sola cada pocos segundos (novedades del
+        # chat, la campana): va aparte del límite general por persona. Si no,
+        # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000
+        # por hora y todo lo demás empezaba a responder 429 (19/10/2026).
+        "sondeo": env.str("SONDEO_THROTTLE_RATE", default="2400/hour"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }

@@ -17,7 +17,22 @@ import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { OrdenDetalle } from "../pages/Ordenes/OrdenDetalle";
+import { CodigosConductaPage } from "../pages/Institucional/CodigosConductaPage";
+import { EstructuraPage } from "../pages/Institucional/EstructuraPage";
+import { FlujosPermisoPage } from "../pages/Institucional/FlujosPermisoPage";
+import { SolicitudPermisosPage } from "../pages/Institucional/SolicitudPermisosPage";
+import { GestionCalendarioPage } from "../pages/Institucional/GestionCalendarioPage";
+import { GestionDocumentosPage } from "../pages/Institucional/GestionDocumentosPage";
+import { GestionNoticiasPage } from "../pages/Institucional/GestionNoticiasPage";
+import { InicioInstitucional } from "../pages/Institucional/InicioInstitucional";
+import { MisVacacionesPage } from "../pages/Institucional/MisVacacionesPage";
+import {
+  PERMISOS_CODIGOS,
+  PERMISOS_INSTITUCIONAL,
+} from "../modulos/permisosInstitucional";
+import { OrganigramaPage } from "../pages/Institucional/OrganigramaPage";
 import { Bandeja } from "../pages/Soporte/Bandeja";
+import { AvisoInicioPage } from "../pages/Admin/Configuracion/AvisoInicioPage";
 import {
   CategoriasSoporte,
   EquipoSoporte,
@@ -32,8 +47,9 @@ import { FormularioEditor } from "../pages/Soporte/FormularioEditor";
 import { HorasFuera } from "../pages/Soporte/HorasFuera";
 import { MiHorario } from "../pages/Soporte/MiHorario";
 import { RegistrarTicket } from "../pages/Soporte/RegistrarTicket";
-import { FormularioSoporte } from "../pages/Soporte/Publico/FormularioSoporte";
-import { SeguimientoTicket } from "../pages/Soporte/Publico/SeguimientoTicket";
+import { AyudaPage } from "../pages/Ayuda/AyudaPage";
+import { MiTicket } from "../pages/Ayuda/MiTicket";
+import { MisDatosPage } from "../pages/MisDatos/MisDatosPage";
 import { ReportesSoporte } from "../pages/Soporte/ReportesSoporte";
 import { TicketDetalle } from "../pages/Soporte/TicketDetalle";
 import { OrdenForm } from "../pages/Ordenes/OrdenForm";
@@ -138,13 +154,17 @@ export function AppRoutes() {
           empresa y su rol. */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      {/* Mesa de ayuda: el formulario de cada empresa y el seguimiento por
-          enlace secreto, sin iniciar sesión. */}
+      {/* Desde el 20/10/2026 la mesa de ayuda es solo para personas con sesión:
+          los enlaces viejos (formulario público y seguimiento sin sesión)
+          llevan a «Soporte TI», que pide iniciar sesión. */}
       <Route
         path="/soporte/seguimiento/:token"
-        element={<SeguimientoTicket />}
+        element={<Navigate to="/admin/ayuda" replace />}
       />
-      <Route path="/soporte/:codigo" element={<FormularioSoporte />} />
+      <Route
+        path="/soporte/:codigo"
+        element={<Navigate to="/admin/ayuda" replace />}
+      />
       <Route
         path={CHANGE_PASSWORD_REQUIRED_PATH}
         element={<ChangePasswordRequired />}
@@ -421,7 +441,7 @@ export function AppRoutes() {
         {/* Dashboards de cada área o departamento de la empresa. El listado pide el permiso
             del módulo; un dashboard puede abrirse también por su lista de
             roles, y eso lo decide el servidor (la pantalla muestra su 403). */}
-        {/* Mantenimiento de sedes: órdenes de trabajo. Qué órdenes ve cada
+        {/* Órdenes de trabajo (mantenimiento de sedes y agencias). Qué órdenes ve cada
             quien lo decide el servidor (todas, o las suyas, las asignadas y
             las de las sedes a su cargo). */}
         <Route
@@ -433,8 +453,100 @@ export function AppRoutes() {
         {/* Aprobaciones: llega quien debe dar el visto bueno, aunque no
             tenga permisos de la mesa (lo decide el servidor). */}
         <Route path="aprobaciones" element={<AprobacionesPage />} />
+        {/* Soporte TI (botón de la barra superior) y Mi perfil (menú del
+            usuario, abajo): toda persona con sesión, sin permisos. */}
+        <Route path="ayuda" element={<AyudaPage />} />
+        <Route path="ayuda/tickets/:id" element={<MiTicket />} />
+        <Route path="perfil" element={<MisDatosPage />} />
+        <Route
+          path="mis-datos"
+          element={<Navigate to="/admin/perfil" replace />}
+        />
         {/* El chat de la empresa: toda persona con sesión, sin permisos. */}
         <Route path="chat" element={<ChatPage />} />
+        {/* Institucional: el organigrama, su estructura y los cargos. */}
+        <Route
+          path="institucional"
+          element={<Navigate to="/admin/institucional/inicio" replace />}
+        />
+        {/* Inicio: toda persona con sesión, sin permisos. */}
+        <Route path="institucional/inicio" element={<InicioInstitucional />} />
+        {/* El calendario de Inicio: gestionarlo pide su permiso. */}
+        <Route
+          path="institucional/calendario"
+          element={
+            <RequirePermission permission="calendario.gestionar">
+              <GestionCalendarioPage />
+            </RequirePermission>
+          }
+        />
+        {/* El carrusel de Inicio: gestionarlo pide su permiso. */}
+        <Route
+          path="institucional/noticias"
+          element={
+            <RequirePermission permission="noticias.gestionar">
+              <GestionNoticiasPage />
+            </RequirePermission>
+          }
+        />
+        {/* Solicitud de permisos: pedir y aprobar, sin permiso; los flujos,
+            con el suyo. */}
+        <Route
+          path="institucional/permisos"
+          element={<SolicitudPermisosPage />}
+        />
+        <Route
+          path="institucional/permisos/flujos"
+          element={
+            <RequirePermission permission="licencias.configurar">
+              <FlujosPermisoPage />
+            </RequirePermission>
+          }
+        />
+        {/* Mis vacaciones: cada persona las suyas, sin permiso. */}
+        <Route
+          path="institucional/vacaciones"
+          element={<MisVacacionesPage />}
+        />
+        {/* Códigos de conducta: los lee toda persona con sesión. */}
+        <Route path="institucional/codigos" element={<CodigosConductaPage />} />
+        {/* Gestionarlos (publicar, editar, borrar) sí pide permiso. */}
+        <Route
+          path="institucional/codigos/gestionar"
+          element={
+            <RequirePermission permission={PERMISOS_CODIGOS}>
+              <GestionDocumentosPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="institucional/organigrama"
+          element={
+            <RequirePermission permission={PERMISOS_INSTITUCIONAL}>
+              <OrganigramaPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="institucional/estructura"
+          element={
+            <RequirePermission
+              permission={["institucional.editar", "institucional.asignar"]}
+            >
+              <EstructuraPage />
+            </RequirePermission>
+          }
+        />
+        {/* La asignación de cargos pasó a ser una pestaña de Estructura. */}
+        <Route
+          path="institucional/asignaciones"
+          element={
+            <Navigate
+              to="/admin/institucional/estructura?pestana=asignaciones"
+              replace
+            />
+          }
+        />
         {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
         <Route
           path="soporte"
@@ -450,7 +562,14 @@ export function AppRoutes() {
           }
         />
         <Route path="soporte/tickets/:id" element={<TicketDetalle />} />
-        <Route path="soporte/registrar" element={<RegistrarTicket />} />
+        <Route
+          path="soporte/registrar"
+          element={
+            <RequirePermission permission="soporte.registrar">
+              <RegistrarTicket />
+            </RequirePermission>
+          }
+        />
         <Route
           path="soporte/mi-horario"
           element={
@@ -463,8 +582,16 @@ export function AppRoutes() {
         <Route
           path="soporte/formulario"
           element={
-            <RequirePermission permission="soporte.configurar">
+            <RequirePermission permission="soporte.formulario">
               <FormularioEditor />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/aviso-inicio"
+          element={
+            <RequirePermission permission="configuracion.aviso_inicio">
+              <AvisoInicioPage />
             </RequirePermission>
           }
         />

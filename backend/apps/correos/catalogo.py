@@ -536,8 +536,8 @@ _SOPORTE_FILAS = [
 ]
 
 _SOPORTE_RAZON = (
-    "Le llega porque creó este ticket en la mesa de ayuda. Para responder use el enlace: "
-    "las respuestas a este correo no se leen."
+    "Le llega porque creó este ticket en la mesa de ayuda. Para responder, entre al sistema "
+    "con el enlace: las respuestas a este correo no se leen."
 )
 
 PLANTILLAS_SOPORTE = (
@@ -545,7 +545,7 @@ PLANTILLAS_SOPORTE = (
         clave="soporte.ticket_creado",
         nombre="Ticket creado",
         modulo="Mesa de ayuda",
-        descripcion="Al enviar el formulario de soporte. Llega a quien lo creó, con su enlace de seguimiento.",
+        descripcion="Al crear un ticket en Soporte TI. Llega a quien lo pidió, con el enlace a su ticket.",
         asunto="[{{numero}}] Recibimos su solicitud: {{caso}}",
         html=_aviso(
             encabezado="Recibimos su solicitud de soporte",
@@ -567,8 +567,8 @@ PLANTILLAS_SOPORTE = (
             Variable("fuera_de_horario", "«sí» si llegó fuera del horario de atención", ""),
             Variable(
                 "enlace",
-                "Enlace secreto de seguimiento",
-                "https://activos.empresa.com/soporte/seguimiento/…",
+                "La ficha del ticket en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/ayuda/tickets/42",
             ),
         ),
         razon=_SOPORTE_RAZON,
@@ -598,8 +598,8 @@ PLANTILLAS_SOPORTE = (
             Variable("tecnico", "Quién atiende el ticket", "Jorge Andrade"),
             Variable(
                 "enlace",
-                "Enlace secreto de seguimiento",
-                "https://activos.empresa.com/soporte/seguimiento/…",
+                "La ficha del ticket en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/ayuda/tickets/42",
             ),
         ),
         razon=_SOPORTE_RAZON,
@@ -628,8 +628,8 @@ PLANTILLAS_SOPORTE = (
             Variable("dias_cierre", "Días hasta el cierre automático", "3"),
             Variable(
                 "enlace",
-                "Enlace secreto de seguimiento",
-                "https://activos.empresa.com/soporte/seguimiento/…",
+                "La ficha del ticket en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/ayuda/tickets/42",
             ),
         ),
         razon=_SOPORTE_RAZON,
@@ -650,7 +650,7 @@ PLANTILLAS_SOPORTE = (
                 "saber cómo lo atendimos: son tres preguntas y toma menos de un minuto."
             ),
             filas=_SOPORTE_FILAS,
-            cuerpo="Si el problema sigue, cree un ticket nuevo desde el formulario.",
+            cuerpo="Si el problema sigue, cree un ticket nuevo en Soporte TI.",
             boton="Responder la encuesta",
         ),
         variables=_SOPORTE_VARIABLES
@@ -658,8 +658,8 @@ PLANTILLAS_SOPORTE = (
             Variable("tecnico", "Quién lo atendió", "Jorge Andrade"),
             Variable(
                 "enlace",
-                "Enlace a la encuesta (la página de seguimiento)",
-                "https://activos.empresa.com/soporte/seguimiento/…#encuesta",
+                "La encuesta, en la ficha del ticket en el sistema",
+                "https://activos.empresa.com/admin/ayuda/tickets/42#encuesta",
             ),
         ),
         razon=_SOPORTE_RAZON,
@@ -720,8 +720,8 @@ PLANTILLAS_SOPORTE = (
             Variable("motivo", "Por qué no la aprobó", "No corresponde a su cargo"),
             Variable(
                 "enlace",
-                "Enlace secreto de seguimiento",
-                "https://activos.empresa.com/soporte/seguimiento/…",
+                "La ficha del ticket en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/ayuda/tickets/42",
             ),
         ),
         razon=_SOPORTE_RAZON,

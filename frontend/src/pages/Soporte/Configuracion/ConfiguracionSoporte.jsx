@@ -80,7 +80,6 @@ export function EquipoSoporte() {
   const tecnicos = useRecurso("tecnicos");
   const categorias = useRecurso("categorias");
   const [personas, setPersonas] = useState([]);
-  const [enlace, setEnlace] = useState(null);
   const [editando, setEditando] = useState(null);
   const [nuevoNivel, setNuevoNivel] = useState({ nombre: "", orden: "" });
 
@@ -89,37 +88,17 @@ export function EquipoSoporte() {
       .personas()
       .then(setPersonas)
       .catch(() => setPersonas([]));
-    apiClient
-      .get("/soporte/config/niveles/formulario/")
-      .then((r) =>
-        setEnlace(
-          r.data.codigo
-            ? `${window.location.origin}/soporte/${r.data.codigo}`
-            : null,
-        ),
-      )
-      .catch(() => setEnlace(null));
   }, []);
 
   return (
     <div className="soporte-page mz-stack">
-      {enlace && (
-        <div className="mz-alert mz-alert--info">
-          <Icon name="link-45deg" />
-          <span>
-            Formulario público de esta empresa:{" "}
-            <a
-              href={enlace}
-              target="_blank"
-              rel="noreferrer"
-              className="mz-mono"
-            >
-              {enlace}
-            </a>
-            . Compártalo con los empleados para que creen sus tickets.
-          </span>
-        </div>
-      )}
+      <div className="mz-alert mz-alert--info">
+        <Icon name="info-circle" />
+        <span>
+          Las personas piden soporte desde «Soporte TI», con su sesión: sus
+          datos de contacto salen de «Mi perfil».
+        </span>
+      </div>
 
       <section className="mz-card">
         <div className="mz-card-head">
@@ -1154,7 +1133,6 @@ export function HorarioMesaSoporte() {
           meta_sla: Number(mesa.meta_sla),
           meta_sla_critica: Number(mesa.meta_sla_critica),
           critica_24x7: mesa.critica_24x7,
-          dominios: mesa.dominios,
           etiquetas: mesa.etiquetas,
           horarios: mesa.horarios,
           feriados: mesa.feriados,
@@ -1233,28 +1211,6 @@ export function HorarioMesaSoporte() {
                 Los P1 se miden en horas calendario (24/7)
               </label>
             </div>
-          </div>
-        </div>
-      </section>
-      <section className="mz-card">
-        <div className="mz-card-head">
-          <h3>Quién puede crear tickets</h3>
-        </div>
-        <div className="mz-card-body">
-          <label className="form-label" htmlFor="ms-dominios">
-            Dominios de correo internos
-          </label>
-          <input
-            id="ms-dominios"
-            className="form-control"
-            maxLength={255}
-            placeholder="grupolaar.com"
-            value={mesa.dominios}
-            onChange={(e) => setMesa({ ...mesa, dominios: e.target.value })}
-          />
-          <div className="form-text">
-            Separados por comas. Solo quien escribe desde uno de ellos crea
-            tickets; vacío, cualquiera.
           </div>
         </div>
       </section>

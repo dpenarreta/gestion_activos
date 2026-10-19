@@ -11,9 +11,10 @@ MODULOS = {
     "alertas": ("Alertas", "exclamation-triangle"),
     "matriz": ("Matriz de obligaciones", "journal-check"),
     "soporte": ("Mesa de ayuda", "headset"),
-    "ordenes": ("Mantenimiento de sedes", "buildings"),
+    "ordenes": ("Órdenes de trabajo", "buildings"),
     "dashboards": ("Dashboards", "bar-chart-line"),
     "chat": ("Chat", "chat-dots"),
+    "licencias": ("Solicitud de permisos", "calendar-check"),
 }
 
 SISTEMA = ("Sistema", "bell")

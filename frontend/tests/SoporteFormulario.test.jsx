@@ -9,26 +9,25 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
- * Mesa de ayuda → Formulario: el formulario público arma sus campos con lo
- * que configuró la empresa, y el editor los agrega, ordena y protege.
+ * Mesa de ayuda → Formulario: «Soporte TI» arma sus campos con lo que
+ * configuró la empresa, y el editor los agrega, ordena y protege. Los datos de
+ * contacto salen de «Mi perfil» y no se preguntan.
  */
 
 const servicio = {
-  formulario: vi.fn(),
+  solicitar: vi.fn(),
   crearTicket: vi.fn(),
   config: {
     listar: vi.fn(),
     crear: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
-    codigoFormulario: vi.fn(),
     ordenarCampos: vi.fn(),
   },
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
 
-const { FormularioSoporte } =
-  await import("../src/pages/Soporte/Publico/FormularioSoporte");
+const { NuevoTicket } = await import("../src/pages/Ayuda/NuevoTicket");
 const { FormularioEditor } =
   await import("../src/pages/Soporte/FormularioEditor");
 
@@ -79,17 +78,23 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("El formulario público configurable", () => {
+describe("El formulario configurable de Soporte TI", () => {
   it("pinta los campos de la empresa y pide los propios solo en su categoría", async () => {
-    servicio.formulario.mockResolvedValue({
+    servicio.solicitar.mockResolvedValue({
       empresa: "LaarCourier",
       disponible: true,
       agencias: [],
       areas: [],
       categorias: [HARDWARE, ACCESOS],
+      mis_datos: {
+        nombre: "Carla Ordóñez",
+        correo: "carla@grupolaar.com",
+        telefono: "0994182273",
+        area: { id: 2, nombre: "Cobranzas" },
+        agencia: { id: 1, nombre: "Loja" },
+        faltan: [],
+      },
       campos: [
-        base("nombre", "Su nombre", "texto"),
-        base("correo", "Correo", "correo"),
         base("categoria", "Categoría", "lista"),
         base("caso", "Caso de ayuda", "lista"),
         base("descripcion", "Describa el problema", "parrafo"),
@@ -107,22 +112,22 @@ describe("El formulario público configurable", () => {
       ],
     });
     servicio.crearTicket.mockResolvedValue({
+      id: 1,
       numero: "TCK-2026-000001",
       posicion: 1,
-      token: "t",
+      estado: "nuevo",
     });
     render(
-      <MemoryRouter initialEntries={["/soporte/LC"]}>
+      <MemoryRouter initialEntries={["/admin/ayuda"]}>
         <Routes>
-          <Route path="/soporte/:codigo" element={<FormularioSoporte />} />
+          <Route path="/admin/ayuda" element={<NuevoTicket />} />
         </Routes>
       </MemoryRouter>,
     );
 
-    // Lo que la empresa quitó (teléfono, agencia, área) no aparece.
-    expect(await screen.findByLabelText("Su nombre")).toBeInTheDocument();
+    // Los datos de contacto salen de «Mi perfil»: no se preguntan.
+    expect(await screen.findByText("Carla Ordóñez")).toBeInTheDocument();
     expect(screen.queryByLabelText("Teléfono de contacto")).toBeNull();
-    expect(screen.queryByLabelText("Agencia")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Categoría"), {
       target: { value: "5" },
@@ -135,23 +140,16 @@ describe("El formulario público configurable", () => {
       target: { value: "MX20991" },
     });
     fireEvent.click(screen.getByLabelText("Bloquea su trabajo"));
-    fireEvent.change(screen.getByLabelText("Su nombre"), {
-      target: { value: "Carla" },
-    });
-    fireEvent.change(screen.getByLabelText("Correo"), {
-      target: { value: "carla@x.com" },
-    });
     fireEvent.change(screen.getByLabelText("Caso de ayuda"), {
       target: { value: "4" },
     });
     fireEvent.change(screen.getByLabelText("Describa el problema"), {
       target: { value: "No prende" },
     });
-    fireEvent.click(screen.getByLabelText(/Acepto que mis datos/));
     fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
 
     await waitFor(() => expect(servicio.crearTicket).toHaveBeenCalled());
-    const campos = servicio.crearTicket.mock.calls[0][1];
+    const campos = servicio.crearTicket.mock.calls[0][0];
     expect(JSON.parse(campos.adicionales)).toEqual({
       serie: "MX20991",
       urgente: true,
@@ -190,8 +188,6 @@ function pintarEditor() {
   servicio.config.listar.mockImplementation((recurso) =>
     Promise.resolve(recurso === "formulario" ? CAMPOS : [HARDWARE, ACCESOS]),
   );
-  servicio.config.codigoFormulario.mockResolvedValue({ codigo: "LC" });
-  servicio.formulario.mockResolvedValue({ agencias: [], areas: [] });
   return render(
     <MemoryRouter>
       <FormularioEditor />
@@ -258,8 +254,11 @@ describe("El editor del formulario", () => {
     const vista = screen.getByRole("form", {
       name: "Vista previa del formulario",
     });
+    // Los datos de contacto no se preguntan: no están en la vista previa.
+    expect(within(vista).queryByLabelText("Nombre y apellido")).toBeNull();
     expect(
-      within(vista).getByLabelText("Nombre y apellido"),
+      within(vista).getByLabelText("Describa el problema"),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("De «Mi perfil»").length).toBe(2);
   });
 });

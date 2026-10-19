@@ -14,7 +14,9 @@ export const mantenimientosService = {
     return apiClient.post(MANTENIMIENTOS, payload).then((res) => res.data);
   },
   update(id, payload) {
-    return apiClient.patch(`${MANTENIMIENTOS}${id}/`, payload).then((res) => res.data);
+    return apiClient
+      .patch(`${MANTENIMIENTOS}${id}/`, payload)
+      .then((res) => res.data);
   },
   remove(id) {
     return apiClient.delete(`${MANTENIMIENTOS}${id}/`).then((res) => res.data);
@@ -29,6 +31,8 @@ export const componentesService = {
     return apiClient.post(COMPONENTES, payload).then((res) => res.data);
   },
   update(id, payload) {
-    return apiClient.patch(`${COMPONENTES}${id}/`, payload).then((res) => res.data);
+    return apiClient
+      .patch(`${COMPONENTES}${id}/`, payload)
+      .then((res) => res.data);
   },
 };
