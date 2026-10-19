@@ -27,9 +27,10 @@ def test_cada_bloque_lleva_su_grupo_y_el_catalogo_sigue_el_orden_de_los_grupos()
 
 def test_lo_general_son_las_secciones_del_bloque_general_del_menu():
     """Reportes, Auditoría y Configuración —con lo que se administra desde
-    ella, como los catálogos— son del sistema, no de un módulo."""
+    ella, como los catálogos— son del sistema, no de un módulo; el Chat
+    también, porque lo usa toda la empresa desde cualquier módulo."""
     generales = [g["id"] for g in MODULE_GROUPS if g["alcance"] == "general"]
-    assert generales == ["reportes", "auditoria", "configuracion"]
+    assert generales == ["reportes", "auditoria", "configuracion", "chat"]
     for clave, seccion in {
         "reportes": "reportes",
         "auditoria": "auditoria",

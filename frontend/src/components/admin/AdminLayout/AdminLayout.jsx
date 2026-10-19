@@ -13,6 +13,8 @@ import {
   useMisEmpresas,
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
+import { ChatProvider } from "../Chat/ChatContext";
+import { ChatDock } from "../Chat/ChatDock";
 import { CampanaNotificaciones } from "../Notificaciones/CampanaNotificaciones";
 import {
   AuditoriaMarco,
@@ -117,71 +119,74 @@ export function AdminLayout() {
 
   return (
     <UnsavedChangesProvider>
-      <div
-        className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
-        style={
-          empresas.activa?.color
-            ? { "--company-color": empresas.activa.color }
-            : undefined
-        }
-      >
-        <AdminSidebar
-          isCollapsed={isCollapsed}
-          onToggleCollapse={handleToggleCollapse}
-          isMobileOpen={isMobileOpen}
-          onMobileClose={() => setIsMobileOpen(false)}
-          mobileTriggerRef={mobileTriggerRef}
-          empresas={empresas}
-        />
-        <div className="mz-main">
-          {/* La búsqueda vive aquí y no dentro de cada pantalla: buscar un
+      <ChatProvider>
+        <div
+          className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
+          style={
+            empresas.activa?.color
+              ? { "--company-color": empresas.activa.color }
+              : undefined
+          }
+        >
+          <AdminSidebar
+            isCollapsed={isCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+            isMobileOpen={isMobileOpen}
+            onMobileClose={() => setIsMobileOpen(false)}
+            mobileTriggerRef={mobileTriggerRef}
+            empresas={empresas}
+          />
+          <div className="mz-main">
+            {/* La búsqueda vive aquí y no dentro de cada pantalla: buscar un
               equipo es lo que más se hace, y tenerlo en un solo sitio evita
               que cada listado se invente su propia versión. */}
-          <header className="mz-topbar">
-            <button
-              type="button"
-              ref={mobileTriggerRef}
-              className="mz-icon-btn mz-menu-btn"
-              onClick={() => setIsMobileOpen(true)}
-              aria-expanded={isMobileOpen}
-              aria-controls="admin-sidebar-nav"
-              aria-label="Abrir menú administrativo"
-            >
-              <Icon name="list" />
-            </button>
-            <h1>{tituloDeRuta(menu, location.pathname)}</h1>
-            <div className="mz-spacer" />
-            <BusquedaGlobal />
-            <CampanaNotificaciones />
-            <BotonTema />
-            <SelectorModulo />
-            <SelectorEmpresa
-              empresas={empresas.empresas}
-              activa={empresas.activa}
-            />
-          </header>
-          <main className="mz-view">
-            {/* Las secciones de Configuración conservan sus rutas de
+            <header className="mz-topbar">
+              <button
+                type="button"
+                ref={mobileTriggerRef}
+                className="mz-icon-btn mz-menu-btn"
+                onClick={() => setIsMobileOpen(true)}
+                aria-expanded={isMobileOpen}
+                aria-controls="admin-sidebar-nav"
+                aria-label="Abrir menú administrativo"
+              >
+                <Icon name="list" />
+              </button>
+              <h1>{tituloDeRuta(menu, location.pathname)}</h1>
+              <div className="mz-spacer" />
+              <BusquedaGlobal />
+              <CampanaNotificaciones />
+              <BotonTema />
+              <SelectorModulo />
+              <SelectorEmpresa
+                empresas={empresas.empresas}
+                activa={empresas.activa}
+              />
+            </header>
+            <main className="mz-view">
+              {/* Las secciones de Configuración conservan sus rutas de
                 siempre; el marco con sus pestañas se pone aquí, según dónde
                 se esté, y no en cada pantalla. */}
-            {seccionDeRuta(location.pathname) ? (
-              <ConfiguracionMarco empresa={empresas.activa?.nombre}>
+              {seccionDeRuta(location.pathname) ? (
+                <ConfiguracionMarco empresa={empresas.activa?.nombre}>
+                  <Outlet />
+                </ConfiguracionMarco>
+              ) : esRutaDeAuditoria(location.pathname) ? (
+                <AuditoriaMarco>
+                  <Outlet />
+                </AuditoriaMarco>
+              ) : esRutaDeReportes(location.pathname) ? (
+                <ReportesMarco>
+                  <Outlet />
+                </ReportesMarco>
+              ) : (
                 <Outlet />
-              </ConfiguracionMarco>
-            ) : esRutaDeAuditoria(location.pathname) ? (
-              <AuditoriaMarco>
-                <Outlet />
-              </AuditoriaMarco>
-            ) : esRutaDeReportes(location.pathname) ? (
-              <ReportesMarco>
-                <Outlet />
-              </ReportesMarco>
-            ) : (
-              <Outlet />
-            )}
-          </main>
+              )}
+            </main>
+          </div>
         </div>
-      </div>
+        <ChatDock />
+      </ChatProvider>
     </UnsavedChangesProvider>
   );
 }

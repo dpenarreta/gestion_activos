@@ -41,6 +41,7 @@ APPS_DE_NEGOCIO = frozenset(
         "ordenes",
         "soporte",
         "notificaciones",
+        "chat",
     }
 )
 

@@ -95,6 +95,7 @@ def main() -> int:
         ("actualizar_fuentes_bd", ["--si-toca"]),
         ("ciclo_soporte", []),
         ("limpiar_notificaciones", []),
+        ("limpiar_chat", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

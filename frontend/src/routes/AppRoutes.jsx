@@ -26,6 +26,7 @@ import {
   SlaSoporte,
 } from "../pages/Soporte/Configuracion/ConfiguracionSoporte";
 import { AprobacionesPage } from "../pages/Aprobaciones/AprobacionesPage";
+import { ChatPage } from "../pages/Chat/ChatPage";
 import { NotificacionesPage } from "../pages/Notificaciones/NotificacionesPage";
 import { FormularioEditor } from "../pages/Soporte/FormularioEditor";
 import { HorasFuera } from "../pages/Soporte/HorasFuera";
@@ -432,6 +433,8 @@ export function AppRoutes() {
         {/* Aprobaciones: llega quien debe dar el visto bueno, aunque no
             tenga permisos de la mesa (lo decide el servidor). */}
         <Route path="aprobaciones" element={<AprobacionesPage />} />
+        {/* El chat de la empresa: toda persona con sesión, sin permisos. */}
+        <Route path="chat" element={<ChatPage />} />
         {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
         <Route
           path="soporte"

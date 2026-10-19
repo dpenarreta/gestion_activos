@@ -13,6 +13,7 @@ MODULOS = {
     "soporte": ("Mesa de ayuda", "headset"),
     "ordenes": ("Mantenimiento de sedes", "buildings"),
     "dashboards": ("Dashboards", "bar-chart-line"),
+    "chat": ("Chat", "chat-dots"),
 }
 
 SISTEMA = ("Sistema", "bell")

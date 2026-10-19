@@ -94,13 +94,14 @@ APPS_DE_NEGOCIO = (
     "organizacion",
     "ordenes",
     "soporte",
+    "chat",
 )
 
 #: Y de esas, las que llevan **reglas**: dar de alta un activo emite su código
 #: de barras y deja un movimiento; cerrar una reparación recalcula indicadores.
 #: `organizacion` queda fuera a propósito —es un catálogo, y sus dos guardas
 #: viven en el viewset—: exigirle una capa de servicios sería ceremonia.
-APPS_CON_SERVICIOS = ("activos", "mantenimientos", "politicas", "ordenes", "soporte")
+APPS_CON_SERVICIOS = ("activos", "mantenimientos", "politicas", "ordenes", "soporte", "chat")
 
 
 @pytest.mark.parametrize("app", APPS_DE_NEGOCIO)

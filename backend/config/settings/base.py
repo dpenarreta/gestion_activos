@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "apps.ordenes",
     "apps.correos",
     "apps.notificaciones",
+    "apps.chat",
     "apps.soporte",
 ]
 
@@ -285,6 +286,8 @@ REST_FRAMEWORK = {
         "ia": env.str("IA_THROTTLE_RATE", default="20/hour"),
         # Mesa de ayuda: el formulario público y las respuestas desde el enlace
         # de seguimiento, sin sesión. Frena el spam sin estorbar a una persona.
+        # Chat: mensajes por minuto de cada persona; frena el spam y los bucles.
+        "chat": env.str("CHAT_THROTTLE_RATE", default="60/min"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }

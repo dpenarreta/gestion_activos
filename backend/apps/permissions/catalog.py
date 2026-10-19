@@ -310,6 +310,22 @@ PERMISSION_CATALOG = {
             "soporte.reportes": "Ver los reportes de la mesa de ayuda",
         },
     },
+    "chat": {
+        "label": "Chat",
+        "description": (
+            "El chat de la empresa (canal general, mensajes directos y grupos) lo usa "
+            "toda persona con cuenta sin ningún permiso. Estos permisos suman lo de "
+            "administración."
+        ),
+        "permissions": {
+            "chat.historial_completo": (
+                "Ver hasta 12 meses de historial en sus conversaciones (los demás ven 6)"
+            ),
+            "chat.grupos_por_area": (
+                "Crear grupos por área, cuyos miembros son las personas de esa área"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -372,6 +388,16 @@ MODULE_GROUPS = [
             "notificaciones",
             "configuracion",
         ],
+    },
+    {
+        "id": "chat",
+        "label": "Chat",
+        "alcance": "general",
+        "description": (
+            "El chat de la empresa: lo usa toda persona con cuenta. Estos permisos "
+            "suman el historial de 12 meses y los grupos por área."
+        ),
+        "modules": ["chat"],
     },
     # --- De cada módulo: solo sirven dentro de él ----------------------------
     {

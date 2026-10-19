@@ -169,3 +169,21 @@ estado de automatización.
 3. Validar con un asesor legal si la finalidad y el plazo de conservación
    documentados aquí son suficientes para el caso de uso concreto del
    proyecto que se construya sobre esta base.
+
+## Chat de la empresa
+
+El chat (`apps.chat`) reemplaza, para lo interno, conversaciones que hoy van por
+WhatsApp personal. Decisiones del 19/10/2026 y controles:
+
+- **Quién lo usa**: toda cuenta con membresía en la empresa activa, en nómina o
+  no, sin permisos especiales. Cada empresa tiene su propio chat.
+- **Quién lee qué**: solo quienes participan en una conversación. Nadie, ni la
+  administración, lee mensajes directos o grupos ajenos; la API responde 403.
+- **Retención**: se guardan 12 meses (`limpiar_chat`, en la tarea programada,
+  borra los mensajes y sus archivos). Cada persona ve los últimos 6 meses; con
+  `chat.historial_completo`, hasta 12.
+- **Archivos**: los mismos tipos y validación de contenido que los adjuntos,
+  hasta 10 MB. Lo que pesa más se sugiere enviarlo por correo; la descarga
+  exige sesión y ser participante.
+- **Avisos**: la campana guarda solo el último mensaje resumido de cada
+  conversación sin leer, y se marca leída al abrirla.
