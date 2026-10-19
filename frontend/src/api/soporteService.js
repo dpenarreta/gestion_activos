@@ -47,6 +47,12 @@ export const soporteService = {
       .post(`${BASE}/seguimiento/${token}/`, { confirmar: true })
       .then((r) => r.data);
   },
+  /** La encuesta de satisfacción, desde el enlace de seguimiento. */
+  responderEncuesta(token, datos) {
+    return apiClient
+      .post(`${BASE}/seguimiento/${token}/encuesta/`, datos)
+      .then((r) => r.data);
+  },
 
   // --- Equipo ---
   bandeja() {
@@ -61,6 +67,38 @@ export const soporteService = {
   /** A quién se puede asignar (quien coordina). */
   tecnicos() {
     return apiClient.get(`${BASE}/tickets/tecnicos/`).then((r) => r.data);
+  },
+  /** Los nombres de estados y prioridades que usa la empresa. */
+  etiquetas() {
+    return apiClient.get(`${BASE}/etiquetas/`).then((r) => r.data);
+  },
+  /** Las solicitudes que esperan el visto bueno de quien entra. */
+  aprobaciones() {
+    return apiClient.get(`${BASE}/aprobaciones/`).then((r) => r.data);
+  },
+  decidirAprobacion(id, aprobar, nota = "") {
+    return apiClient
+      .post(`${BASE}/aprobaciones/${id}/decidir/`, { aprobar, nota })
+      .then((r) => r.data);
+  },
+  /** Lo que pide el alta interna (formulario de la empresa y canales). */
+  formularioInterno() {
+    return apiClient.get(`${BASE}/tickets/formulario/`).then((r) => r.data);
+  },
+  /** Alta interna: un ticket que llegó por teléfono, WhatsApp o en persona. */
+  registrar(campos, archivos) {
+    return apiClient
+      .post(
+        `${BASE}/tickets/registrar/`,
+        conArchivos(campos, archivos),
+        multipart,
+      )
+      .then((r) => r.data);
+  },
+  cambiarPrioridad(id, datos) {
+    return apiClient
+      .post(`${BASE}/tickets/${id}/prioridad/`, datos)
+      .then((r) => r.data);
   },
   tomarSiguiente() {
     return apiClient
@@ -140,6 +178,13 @@ export const soporteService = {
       return apiClient
         .get(`${BASE}/config/tecnicos/personas/`)
         .then((r) => r.data);
+    },
+    /** Horario hábil, feriados, metas y si los P1 corren 24/7. */
+    mesa() {
+      return apiClient.get(`${BASE}/config/mesa/`).then((r) => r.data);
+    },
+    guardarMesa(datos) {
+      return apiClient.put(`${BASE}/config/mesa/`, datos).then((r) => r.data);
     },
     /** El código de la empresa activa, para el enlace del formulario público. */
     codigoFormulario() {

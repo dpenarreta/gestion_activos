@@ -15,25 +15,26 @@ from django.utils import timezone
 
 from apps.permissions.authorization import user_has_permission
 
-from . import avisos
+from . import avisos, sla
 from .horario import Agenda
 from .models import (
     AdjuntoTicket,
+    AprobacionTicket,
+    Canal,
+    ConfiguracionMesa,
+    EncuestaTicket,
+    FeriadoMesa,
+    HorarioMesa,
     HorasFueraDeHorario,
     MensajeTicket,
     MovimientoTicket,
     NivelSoporte,
-    ReglaSLA,
+    Prioridad,
     Tecnico,
     Ticket,
 )
 
 Estado = Ticket.Estado
-
-#: Plazo cuando la empresa no configuró ninguna regla: una jornada.
-SLA_POR_DEFECTO_MINUTOS = 480
-#: Proporción del plazo en que se avisa antes de vencer.
-PROPORCION_ALERTA = 0.8
 
 
 def tiene(usuario, permiso: str) -> bool:
@@ -63,35 +64,9 @@ def _movimiento(ticket, actor, descripcion, *, anterior="", nuevo="", nota=""):
     )
 
 
-# --- SLA -------------------------------------------------------------------------------
-
-
 def minutos_sla(ticket) -> int:
-    """El plazo de la regla más específica que coincide con el ticket."""
-    mejor, puntos_mejor = None, -1
-    # Por la empresa del ticket y no la activa: la tarea programada corre sin
-    # empresa y vería las reglas de todas.
-    for regla in ReglaSLA.objects.todas().filter(empresa_id=ticket.empresa_id):
-        if regla.categoria_id and regla.categoria_id != ticket.categoria_id:
-            continue
-        if regla.area_id and regla.area_id != ticket.area_id:
-            continue
-        if regla.prioridad and regla.prioridad != ticket.prioridad:
-            continue
-        puntos = bool(regla.categoria_id) * 4 + bool(regla.area_id) * 2 + bool(regla.prioridad)
-        if puntos > puntos_mejor:
-            mejor, puntos_mejor = regla, puntos
-    return mejor.minutos if mejor else SLA_POR_DEFECTO_MINUTOS
-
-
-def _programar_sla(ticket, agenda: Agenda, desde, minutos_restantes: int):
-    """Calcula el vencimiento y el momento del aviso desde `desde`."""
-    ticket.sla_vence = agenda.sumar_minutos(desde, minutos_restantes)
-    margen = int(ticket.sla_minutos * (1 - PROPORCION_ALERTA))
-    antes_del_aviso = max(minutos_restantes - margen, 0)
-    ticket.sla_alerta_en = (
-        agenda.sumar_minutos(desde, antes_del_aviso) if antes_del_aviso else desde
-    )
+    """El plazo de solución que le corresponde (ver `sla.plazos`)."""
+    return sla.plazos(ticket)[1]
 
 
 # --- Alta y cola -----------------------------------------------------------------------
@@ -109,16 +84,26 @@ def hay_quien_atienda(categoria, nivel, momento=None) -> bool:
     return False
 
 
-def crear_ticket(*, datos: dict, ip=None) -> Ticket:
-    """Registra un ticket del formulario público y lo pone en la cola."""
-    nivel = primer_nivel()
+def crear_ticket(
+    *, datos: dict, ip=None, registrado_por=None, canal=Canal.PORTAL, repartir_ahora=True
+) -> Ticket:
+    """Registra un ticket y lo pone en la cola.
+
+    Lo crea quien pide desde el portal, o alguien del equipo en su nombre
+    (`registrado_por`, con el canal por donde llegó: teléfono, WhatsApp…). El
+    caso fija el tipo, la prioridad base y el nivel por donde entra; la matriz
+    impacto × urgencia puede subir la prioridad. Los dos plazos corren desde
+    ahora.
+    """
+    caso = datos["caso"]
+    nivel = caso.nivel_inicial or primer_nivel()
     if nivel is None:
         raise ValidationError(
             "La mesa de ayuda de esta empresa todavía no está configurada (no tiene niveles)."
         )
-    caso = datos["caso"]
     ahora = timezone.now()
     anio = timezone.localdate().year
+    prioridad = sla.prioridad_inicial(caso.prioridad, datos.get("impacto"), datos.get("urgencia"))
     for _intento in range(5):
         try:
             with transaction.atomic():
@@ -126,21 +111,41 @@ def crear_ticket(*, datos: dict, ip=None) -> Ticket:
                 ticket = Ticket(
                     anio=anio,
                     secuencia=ultimo + 1,
-                    prioridad=caso.prioridad,
+                    tipo=caso.tipo,
+                    prioridad_base=caso.prioridad,
+                    prioridad=prioridad,
                     nivel=nivel,
                     en_cola_desde=ahora,
                     ip_origen=ip,
+                    canal=canal,
+                    registrado_por=registrado_por,
                     categoria=caso.categoria,
                     **{k: v for k, v in datos.items() if k != "categoria"},
                 )
                 ticket.fuera_de_horario = not hay_quien_atienda(ticket.categoria, nivel, ahora)
+                pide_aprobacion = caso.requiere_aprobacion
+                if pide_aprobacion:
+                    # No entra a la cola ni corre ningún plazo hasta el visto bueno.
+                    ticket.estado = Estado.ESPERANDO_APROBACION
+                else:
+                    sla.iniciar(ticket, ahora)
                 ticket.save()
-                _movimiento(
-                    ticket,
-                    None,
-                    f"Ticket creado por {ticket.solicitante_nombre} desde el formulario",
-                    nuevo=ticket.estado,
+                origen = (
+                    f"Ticket registrado por {registrado_por.get_full_name() or registrado_por}"
+                    f" ({ticket.get_canal_display().lower()}) a nombre de {ticket.solicitante_nombre}"
+                    if registrado_por
+                    else f"Ticket creado por {ticket.solicitante_nombre} desde el formulario"
                 )
+                _movimiento(ticket, registrado_por, origen, nuevo=ticket.estado)
+                if prioridad != caso.prioridad:
+                    _movimiento(
+                        ticket,
+                        None,
+                        f"Prioridad {Prioridad(caso.prioridad).label} → "
+                        f"{Prioridad(prioridad).label} por impacto y urgencia",
+                    )
+                if pide_aprobacion:
+                    _pedir_aprobaciones(ticket)
                 break
         except IntegrityError:
             continue
@@ -148,7 +153,117 @@ def crear_ticket(*, datos: dict, ip=None) -> Ticket:
         raise ValidationError("No se pudo numerar el ticket; inténtelo de nuevo.")
 
     transaction.on_commit(lambda: avisos.ticket_creado(ticket, posicion_en_cola(ticket)))
-    repartir()
+    if repartir_ahora and ticket.estado == Estado.NUEVO:
+        repartir()
+    return ticket
+
+
+# --- Aprobaciones ----------------------------------------------------------------------
+
+
+def _responsable_con_cuenta(departamento):
+    empleado = departamento.responsable if departamento else None
+    usuario = getattr(empleado, "usuario", None) if empleado else None
+    return usuario if usuario is not None and usuario.is_active else None
+
+
+def _pedir_aprobaciones(ticket):
+    """Crea un visto bueno por cada aprobador del caso y les avisa. El correo
+    los lleva al sistema: se aprueba entrando con la cuenta."""
+    caso = ticket.caso
+    pedidos = []
+    if caso.aprueba_jefe_area:
+        area = ticket.area
+        pedidos.append(
+            (
+                f"Jefe de área ({area.nombre})" if area else "Jefe de área",
+                _responsable_con_cuenta(area),
+            )
+        )
+    for departamento in caso.aprueban.select_related("responsable__usuario"):
+        pedidos.append((departamento.nombre, _responsable_con_cuenta(departamento)))
+    for rol, aprobador in pedidos:
+        aprobacion = AprobacionTicket.objects.create(ticket=ticket, rol=rol, aprobador=aprobador)
+        transaction.on_commit(lambda a=aprobacion: avisos.aprobacion_pendiente(a))
+    _movimiento(
+        ticket,
+        None,
+        "Esperando aprobación de: " + ", ".join(rol for rol, _ in pedidos),
+        nuevo=Estado.ESPERANDO_APROBACION,
+    )
+
+
+def aprobaciones_de(usuario):
+    """Lo que le toca decidir: las suyas y, a quien coordina, también las que
+    no tienen aprobador (el área no tiene responsable con cuenta)."""
+    pendientes = AprobacionTicket.objects.filter(
+        estado=AprobacionTicket.Estado.PENDIENTE,
+        ticket__estado=Estado.ESPERANDO_APROBACION,
+    )
+    filtro = Q(aprobador=usuario)
+    if tiene(usuario, "asignar"):
+        filtro |= Q(aprobador__isnull=True)
+    return pendientes.filter(filtro)
+
+
+def decidir_aprobacion(aprobacion, actor, *, aprobar: bool, nota="") -> Ticket:
+    """El aprobador (o quien coordina, si no hay aprobador) decide. Con todos
+    los vistos buenos, la solicitud entra a la cola y empiezan sus plazos; un
+    rechazo la cierra y se le avisa a quien pidió."""
+    puede = aprobacion.aprobador_id == actor.id or (
+        aprobacion.aprobador_id is None and tiene(actor, "asignar")
+    )
+    if not puede:
+        raise PermissionDenied("Esta aprobación le corresponde a otra persona.")
+    if aprobacion.estado != AprobacionTicket.Estado.PENDIENTE:
+        raise ValidationError({"estado": "Esta aprobación ya se decidió."})
+    nota = (nota or "").strip()
+    if not aprobar and not nota:
+        raise ValidationError(
+            {"nota": "Diga por qué no aprueba: es lo que le llega a quien pidió."}
+        )
+    ticket = aprobacion.ticket
+    ahora = timezone.now()
+    with transaction.atomic():
+        aprobacion.estado = (
+            AprobacionTicket.Estado.APROBADA if aprobar else AprobacionTicket.Estado.RECHAZADA
+        )
+        aprobacion.decidido_por = actor
+        aprobacion.decidido_en = ahora
+        aprobacion.nota = nota[:500]
+        aprobacion.save()
+        quien = actor.get_full_name() or actor.username
+        if not aprobar:
+            ticket.estado = Estado.CERRADO
+            ticket.cerrado_en = ahora
+            ticket.save()
+            _movimiento(
+                ticket,
+                actor,
+                f"No aprobado por {quien} ({aprobacion.rol})",
+                anterior=Estado.ESPERANDO_APROBACION,
+                nuevo=Estado.CERRADO,
+                nota=nota,
+            )
+            transaction.on_commit(lambda: avisos.solicitud_rechazada(ticket, aprobacion))
+            return ticket
+        _movimiento(ticket, actor, f"Aprobado por {quien} ({aprobacion.rol})", nota=nota)
+        faltan = ticket.aprobaciones.exclude(estado=AprobacionTicket.Estado.APROBADA).exists()
+        if not faltan:
+            # Con todos los vistos buenos entra a la cola: la entrega se mide
+            # desde la aprobación.
+            ticket.estado = Estado.NUEVO
+            ticket.en_cola_desde = ahora
+            sla.iniciar(ticket, ahora)
+            ticket.save()
+            _movimiento(
+                ticket,
+                None,
+                "Aprobado: entra a la cola",
+                anterior=Estado.ESPERANDO_APROBACION,
+                nuevo=Estado.NUEVO,
+            )
+            transaction.on_commit(repartir)
     return ticket
 
 
@@ -197,23 +312,25 @@ def _siguiente_para(tecnico):
 
 
 def _asignar(ticket, tecnico, actor, descripcion, nota="") -> bool:
-    """Asigna si el ticket sigue en la cola (otro proceso pudo ganarlo)."""
+    """Asigna si el ticket sigue en la cola (otro proceso pudo ganarlo). La
+    primera vez que se toma arranca el reloj de solución (cycle time); al
+    reasignarlo o tras escalarlo sigue el mismo."""
     ahora = timezone.now()
-    agenda = Agenda(tecnico)
-    minutos = minutos_sla(ticket)
-    ticket.sla_minutos = minutos
-    _programar_sla(ticket, agenda, ahora, minutos)
-    tomados = Ticket.objects.filter(pk=ticket.pk, estado=Estado.NUEVO).update(
-        estado=Estado.ASIGNADO,
-        tecnico=tecnico,
-        tomado_en=ahora,
-        sla_minutos=minutos,
-        sla_vence=ticket.sla_vence,
-        sla_alerta_en=ticket.sla_alerta_en,
-        sla_restante_al_pausar=None,
-        sla_alerta_enviada=False,
-        sla_vencido_notificado=False,
-    )
+    campos = {"estado": Estado.ASIGNADO, "tecnico": tecnico, "tomado_en": ticket.tomado_en or ahora}
+    if ticket.sla_respuesta_vence is None and ticket.respondido_en is None:
+        sla.iniciar(ticket, ticket.en_cola_desde)  # un ticket de antes de los plazos
+        campos.update(
+            sla_respuesta_minutos=ticket.sla_respuesta_minutos,
+            sla_respuesta_vence=ticket.sla_respuesta_vence,
+        )
+    if not sla.solucion_iniciada(ticket):
+        sla.iniciar_solucion(ticket, ahora)
+        campos.update(
+            sla_minutos=ticket.sla_minutos,
+            sla_vence=ticket.sla_vence,
+            sla_alerta_en=ticket.sla_alerta_en,
+        )
+    tomados = Ticket.objects.filter(pk=ticket.pk, estado=Estado.NUEVO).update(**campos)
     if not tomados:
         return False
     ticket.refresh_from_db()
@@ -272,6 +389,38 @@ def repartir() -> int:
                 break
         if not avance:
             return asignados
+
+
+def registrar_ticket(*, datos, actor, canal, asignarme=False) -> Ticket:
+    """Alta interna: el equipo registra el ticket en nombre de quien pide. Si
+    quien registra es técnico y lo pide, se lo queda (lo resuelve en la misma
+    llamada); si no, entra a la cola como cualquier otro."""
+    ticket = crear_ticket(datos=datos, registrado_por=actor, canal=canal, repartir_ahora=False)
+    tecnico = tecnico_de(actor) if asignarme else None
+    if tecnico is not None:
+        _asignar(ticket, tecnico, actor, f"{tecnico} registró el ticket y lo tomó")
+    transaction.on_commit(repartir)
+    return ticket
+
+
+def guardar_mesa(datos) -> None:
+    """Configuración → Mesa de ayuda → Horario y metas, de una vez."""
+    with transaction.atomic():
+        configuracion = ConfiguracionMesa.objects.first() or ConfiguracionMesa()
+        configuracion.meta_sla = datos["meta_sla"]
+        configuracion.meta_sla_critica = datos["meta_sla_critica"]
+        configuracion.critica_24x7 = datos["critica_24x7"]
+        if "dominios" in datos:
+            configuracion.dominios = datos["dominios"]
+        if "etiquetas" in datos:
+            configuracion.etiquetas = datos["etiquetas"]
+        configuracion.save()
+        HorarioMesa.objects.all().delete()
+        for franja in datos["horarios"]:
+            HorarioMesa.objects.create(**franja)
+        FeriadoMesa.objects.all().delete()
+        for feriado in datos["feriados"]:
+            FeriadoMesa.objects.create(**feriado)
 
 
 def tomar_siguiente(tecnico, actor) -> Ticket | None:
@@ -352,20 +501,14 @@ def cambiar_estado(ticket, actor, estado, nota="") -> Ticket:
 def _mover(ticket, actor, estado, nota="", descripcion=None):
     anterior = ticket.estado
     ahora = timezone.now()
-    agenda = Agenda(ticket.tecnico) if ticket.tecnico_id else None
-    if estado == Estado.ESPERANDO_USUARIO and agenda and ticket.sla_vence:
-        ticket.sla_restante_al_pausar = agenda.minutos_entre(ahora, ticket.sla_vence)
-    if anterior == Estado.ESPERANDO_USUARIO and estado != Estado.ESPERANDO_USUARIO and agenda:
-        restante = ticket.sla_restante_al_pausar
-        if restante is not None:
-            _programar_sla(ticket, agenda, ahora, restante)
-        ticket.sla_restante_al_pausar = None
+    sla.al_cambiar_de_estado(ticket, anterior, estado, ahora)
     if estado == Estado.ATENDIDO:
         ticket.atendido_en = ahora
     if estado == Estado.CERRADO:
         ticket.cerrado_en = ahora
     if anterior == Estado.ATENDIDO and estado == Estado.EN_CURSO:
         ticket.atendido_en = None
+        ticket.reaperturas += 1
     ticket.estado = estado
     ticket.save()
     texto = descripcion or f"{Estado(anterior).label} → {Estado(estado).label}"
@@ -389,10 +532,12 @@ def escalar(ticket, actor, motivo: str) -> Ticket:
         raise ValidationError({"nivel": "No hay un nivel superior al que escalar."})
     with transaction.atomic():
         anterior = ticket.estado
+        # El plazo sigue: se escala el ticket, no se le regala tiempo.
+        sla.al_cambiar_de_estado(ticket, anterior, Estado.NUEVO, timezone.now())
         ticket.nivel = siguiente
         ticket.tecnico = None
         ticket.estado = Estado.NUEVO
-        ticket.sla_vence = ticket.sla_alerta_en = None
+        ticket.escalamientos += 1
         ticket.save()
         _movimiento(
             ticket,
@@ -458,6 +603,51 @@ def mensaje_del_solicitante(ticket, texto) -> MensajeTicket:
     return mensaje
 
 
+def cambiar_prioridad(ticket, actor, *, prioridad, justificacion, impacto="", urgencia=""):
+    """El técnico o quien coordina ajusta la prioridad, con justificación. El
+    plazo se recalcula conservando lo ya consumido."""
+    if not puede_trabajarlo(actor, ticket):
+        raise PermissionDenied("La prioridad la ajusta el técnico asignado, o quien coordina.")
+    if ticket.estado in (Estado.ATENDIDO, Estado.CERRADO):
+        raise ValidationError({"estado": "El ticket ya fue atendido."})
+    justificacion = (justificacion or "").strip()
+    if not justificacion:
+        raise ValidationError({"justificacion": "Diga por qué cambia la prioridad."})
+    if impacto and urgencia:
+        prioridad = sla.prioridad_por_matriz(impacto, urgencia) or prioridad
+    if prioridad not in Prioridad.values:
+        raise ValidationError({"prioridad": "Elija una prioridad."})
+    anterior = ticket.prioridad
+    with transaction.atomic():
+        if impacto:
+            ticket.impacto = impacto
+        if urgencia:
+            ticket.urgencia = urgencia
+        sla.recalcular_por_prioridad(ticket, prioridad, timezone.now())
+        ticket.save()
+        _movimiento(
+            ticket,
+            actor,
+            f"Prioridad {Prioridad(anterior).label} → {Prioridad(prioridad).label}",
+            nota=justificacion,
+        )
+    return ticket
+
+
+def responder_encuesta(ticket, *, calificacion, resuelto, comentario="") -> EncuestaTicket:
+    """La encuesta de satisfacción: una por ticket, cuando ya se atendió."""
+    if ticket.estado not in (Estado.ATENDIDO, Estado.CERRADO):
+        raise ValidationError({"estado": "La encuesta se responde cuando el ticket se atendió."})
+    if EncuestaTicket.objects.filter(ticket=ticket).exists():
+        raise ValidationError({"encuesta": "Esta encuesta ya se respondió. ¡Gracias!"})
+    return EncuestaTicket.objects.create(
+        ticket=ticket,
+        calificacion=calificacion,
+        resuelto=resuelto,
+        comentario=(comentario or "").strip(),
+    )
+
+
 def confirmar_solucion(ticket) -> Ticket:
     """Quien pidió confirma que quedó resuelto: se cierra."""
     if ticket.estado != Estado.ATENDIDO:
@@ -516,14 +706,57 @@ def revisar_horas(registro, actor, *, aprobar: bool, nota="") -> HorasFueraDeHor
 
 def ciclo(ahora=None) -> dict:
     """Lo que hace la tarea oculta cada 5 minutos, empresa por empresa:
-    repartir lo pendiente, avisar al 80 % del SLA, escalar los vencidos y
-    cerrar los atendidos que nadie reabrió."""
+    repartir lo pendiente, avisar al 80 % del SLA, escalar los vencidos (de
+    respuesta y de solución) y cerrar los atendidos que nadie reabrió."""
     ahora = ahora or timezone.now()
-    resumen = {"asignados": repartir(), "alertas": 0, "vencidos": 0, "cerrados": 0}
+    resumen = {
+        "asignados": repartir(),
+        "alertas": 0,
+        "vencidos": 0,
+        "sin_respuesta": 0,
+        "cerrados": 0,
+    }
 
-    en_atencion = Ticket.objects.filter(estado__in=Ticket.ABIERTOS_DEL_TECNICO).select_related(
+    # Los tickets de antes de los dos relojes los reciben aquí: el de respuesta
+    # desde que entraron y el de solución desde que se tomaron.
+    for ticket in Ticket.objects.filter(
+        estado__in=sla.CORRE, sla_respuesta_vence__isnull=True, respondido_en__isnull=True
+    ).select_related("caso"):
+        sla.iniciar(ticket, ticket.en_cola_desde)
+        ticket.save()
+    for ticket in Ticket.objects.filter(
+        estado__in=sla.CORRE,
+        tomado_en__isnull=False,
+        sla_vence__isnull=True,
+        sla_restante_al_pausar__isnull=True,
+    ).select_related("caso"):
+        sla.iniciar_solucion(ticket, ticket.tomado_en)
+        ticket.save()
+
+    # El reloj de solución corre también en la cola: un ticket que espera puede
+    # vencerse sin que nadie lo haya tomado.
+    en_atencion = Ticket.objects.filter(estado__in=sla.CORRE).select_related(
         "tecnico__usuario", "nivel"
     )
+    for ticket in en_atencion.filter(
+        respondido_en__isnull=True,
+        sla_respuesta_vencida_notificada=False,
+        sla_respuesta_vence__lte=ahora,
+    ):
+        Ticket.objects.filter(pk=ticket.pk).update(sla_respuesta_vencida_notificada=True)
+        _movimiento(ticket, None, "Plazo de respuesta vencido sin respuesta del equipo")
+        destinatarios = list(ticket.nivel.supervisores.all())
+        if ticket.tecnico_id:
+            destinatarios.append(ticket.tecnico.usuario)
+        _a_la_campana(
+            ticket,
+            destinatarios,
+            "soporte.respuesta_vencida",
+            "Respuesta vencida",
+            f"{ticket.numero} · {ticket.get_prioridad_display()}: nadie le respondió a "
+            f"{ticket.solicitante_nombre}",
+        )
+        resumen["sin_respuesta"] += 1
     for ticket in en_atencion.filter(sla_alerta_enviada=False, sla_alerta_en__lte=ahora):
         Ticket.objects.filter(pk=ticket.pk).update(sla_alerta_enviada=True)
         avisos.alerta_sla(ticket)
@@ -536,16 +769,24 @@ def ciclo(ahora=None) -> dict:
         avisos.sla_vencido(ticket)
         resumen["vencidos"] += 1
 
+    # Cierre automático a los N días **hábiles** de la mesa: un ticket atendido
+    # el viernes no se cierra el lunes sin que el usuario tuviera un día para
+    # responder.
     dias = getattr(settings, "SOPORTE_DIAS_CIERRE_AUTOMATICO", 3)
-    limite = ahora - timedelta(days=dias)
-    for ticket in Ticket.objects.filter(estado=Estado.ATENDIDO, atendido_en__lte=limite):
+    for ticket in Ticket.objects.filter(
+        estado=Estado.ATENDIDO, atendido_en__lte=ahora - timedelta(days=dias)
+    ):
+        if sla.dias_habiles_entre(ticket.empresa_id, ticket.atendido_en, ahora) < dias:
+            continue
         with transaction.atomic():
             _mover(
                 ticket,
                 None,
                 Estado.CERRADO,
-                descripcion=f"Cerrado automáticamente tras {dias} día(s) sin respuesta del usuario",
+                descripcion=f"Cerrado automáticamente tras {dias} día(s) hábiles sin respuesta "
+                "del usuario",
             )
+        transaction.on_commit(lambda t=ticket: avisos.ticket_cerrado(t))
         resumen["cerrados"] += 1
     return resumen
 

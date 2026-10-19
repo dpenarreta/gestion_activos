@@ -36,6 +36,9 @@ def datos_adicionales_html(ticket) -> str:
 
 
 def _variables(ticket) -> dict:
+    from .etiquetas import de_la_empresa
+
+    nombres = de_la_empresa(ticket.empresa_id)
     return {
         "numero": ticket.numero,
         "nombre": ticket.solicitante_nombre,
@@ -46,8 +49,8 @@ def _variables(ticket) -> dict:
         "datos_adicionales": datos_adicionales_html(ticket),
         "categoria": ticket.categoria.nombre,
         "caso": ticket.caso.nombre,
-        "prioridad": ticket.get_prioridad_display(),
-        "estado": ticket.get_estado_display(),
+        "prioridad": nombres["prioridades"].get(ticket.prioridad, ticket.prioridad),
+        "estado": nombres["estados"].get(ticket.estado, ticket.estado),
         "empresa": ticket.empresa.nombre if ticket.empresa_id else "",
         "enlace": enlace_de_seguimiento(ticket),
     }
@@ -88,6 +91,46 @@ def ticket_atendido(ticket) -> bool:
             "tecnico": str(ticket.tecnico) if ticket.tecnico_id else "",
             "dias_cierre": str(getattr(settings, "SOPORTE_DIAS_CIERRE_AUTOMATICO", 3)),
         },
+    )
+
+
+def ticket_cerrado(ticket) -> bool:
+    """El cierre automático, con el enlace a la encuesta."""
+    return _al_solicitante(
+        "soporte.ticket_cerrado",
+        ticket,
+        {
+            "tecnico": str(ticket.tecnico) if ticket.tecnico_id else "",
+            "enlace": f"{enlace_de_seguimiento(ticket)}#encuesta",
+        },
+    )
+
+
+def aprobacion_pendiente(aprobacion) -> bool:
+    """Al aprobador: el correo lo lleva al sistema, donde decide con su cuenta.
+    Sin aprobador, a la supervisión del nivel, que puede decidir por él."""
+    ticket = aprobacion.ticket
+    if aprobacion.aprobador_id and aprobacion.aprobador.email:
+        correos = [aprobacion.aprobador.email]
+    else:
+        correos = [s.email for s in ticket.nivel.supervisores.all() if s.email]
+    return eventos.enviar(
+        clave="soporte.aprobacion_pendiente",
+        variables={
+            **_variables(ticket),
+            "rol": aprobacion.rol,
+            "descripcion": ticket.descripcion[:500],
+            "enlace": f"{_base()}/admin/aprobaciones",
+        },
+        destinatarios=eventos.Destinatarios(direcciones=correos),
+    )
+
+
+def solicitud_rechazada(ticket, aprobacion) -> bool:
+    return _al_solicitante(
+        "soporte.solicitud_rechazada",
+        ticket,
+        {"rol": aprobacion.rol, "motivo": aprobacion.nota},
     )
 
 

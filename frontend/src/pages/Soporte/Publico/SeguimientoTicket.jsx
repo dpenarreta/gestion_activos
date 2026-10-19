@@ -16,8 +16,8 @@ const REFRESCO_MS = 30_000;
  *
  * Quien pidió ve el estado, su posición en la cola (que baja a medida que se
  * atienden los anteriores) y las respuestas de soporte, y puede contestar,
- * adjuntar archivos o confirmar que quedó resuelto. Nada interno del equipo
- * llega aquí: el servidor lo filtra.
+ * adjuntar archivos, confirmar que quedó resuelto y responder la encuesta de
+ * satisfacción. Nada interno del equipo llega aquí: el servidor lo filtra.
  */
 export function SeguimientoTicket() {
   const { token } = useParams();
@@ -113,6 +113,16 @@ export function SeguimientoTicket() {
                     <span>Lo atiende {ticket.atiende}</span>
                   ) : null}
                 </div>
+                {ticket.estado === "esperando_aprobacion" && (
+                  <p className="mz-small mt-2 mb-0">
+                    Su solicitud necesita la aprobación de{" "}
+                    {ticket.aprobaciones
+                      .filter((ap) => ap.estado === "pendiente")
+                      .map((ap) => ap.rol)
+                      .join(", ")}
+                    . En cuanto la aprueben, entra a la cola de soporte.
+                  </p>
+                )}
                 {ticket.fuera_de_horario && ticket.posicion && (
                   <p className="mz-small mz-faint mt-2 mb-0">
                     Llegó fuera del horario de atención: se atenderá a la
@@ -167,6 +177,16 @@ export function SeguimientoTicket() {
                   </button>
                 </span>
               </div>
+            )}
+
+            {(ticket.puede_encuestar || ticket.encuesta) && (
+              <Encuesta
+                ticket={ticket}
+                onResponder={(datos) =>
+                  ejecutar(() => soporteService.responderEncuesta(token, datos))
+                }
+                enviando={enviando}
+              />
             )}
 
             <section className="mz-card">
@@ -252,6 +272,110 @@ export function SeguimientoTicket() {
         )}
       </div>
     </main>
+  );
+}
+
+/** Tres preguntas al cerrar: calificación, si se resolvió y un comentario. */
+function Encuesta({ ticket, onResponder, enviando }) {
+  const [calificacion, setCalificacion] = useState(0);
+  const [resuelto, setResuelto] = useState("");
+  const [comentario, setComentario] = useState("");
+
+  if (ticket.encuesta) {
+    return (
+      <section className="mz-card" id="encuesta">
+        <div className="mz-card-body">
+          <p className="mb-0">
+            <Icon name="heart" /> ¡Gracias por su respuesta! Calificó la
+            atención con {ticket.encuesta.calificacion} de 5.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mz-card" id="encuesta">
+      <div className="mz-card-head">
+        <h3>¿Cómo lo atendimos?</h3>
+      </div>
+      <form
+        className="mz-card-body"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onResponder({
+            calificacion,
+            resuelto: resuelto === "si",
+            comentario,
+          });
+        }}
+      >
+        <fieldset className="mb-3">
+          <legend className="form-label">
+            ¿Qué tan satisfecho está con la atención recibida?
+          </legend>
+          <div className="soporte-estrellas" role="radiogroup">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={calificacion === n}
+                aria-label={`${n} de 5`}
+                className={n <= calificacion ? "activa" : undefined}
+                onClick={() => setCalificacion(n)}
+              >
+                <Icon name={n <= calificacion ? "star-fill" : "star"} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="mb-3">
+          <legend className="form-label">
+            ¿Su requerimiento se resolvió completamente?
+          </legend>
+          <div className="d-flex gap-3">
+            {[
+              ["si", "Sí"],
+              ["no", "No"],
+            ].map(([valor, etiqueta]) => (
+              <div key={valor} className="form-check">
+                <input
+                  id={`enc-${valor}`}
+                  type="radio"
+                  name="resuelto"
+                  className="form-check-input"
+                  required
+                  checked={resuelto === valor}
+                  onChange={() => setResuelto(valor)}
+                />
+                <label className="form-check-label" htmlFor={`enc-${valor}`}>
+                  {etiqueta}
+                </label>
+              </div>
+            ))}
+          </div>
+        </fieldset>
+        <label className="form-label" htmlFor="enc-comentario">
+          Comentario (opcional)
+        </label>
+        <textarea
+          id="enc-comentario"
+          className="form-control"
+          rows={2}
+          maxLength={2000}
+          value={comentario}
+          onChange={(e) => setComentario(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="btn btn-primary mt-2"
+          disabled={enviando || !calificacion || !resuelto}
+        >
+          Enviar encuesta
+        </button>
+      </form>
+    </section>
   );
 }
 

@@ -119,6 +119,9 @@ def _formulario(mesa, **extra):
         "area": mesa["area"].id,
         "caso": mesa["no_enciende"].id,
         "descripcion": "La laptop no enciende desde esta mañana.",
+        # Lo más bajo de la matriz: la prioridad queda la del caso.
+        "impacto": "bajo",
+        "urgencia": "baja",
         "acepta_datos": True,
         **extra,
     }
@@ -149,7 +152,7 @@ def test_el_formulario_publico_muestra_lo_de_su_empresa(mesa):
     assert datos["empresa"] == "LaarCourier"
     assert [a["nombre"] for a in datos["agencias"]] == ["Loja · Agencia"]
     casos = {c["nombre"]: c for categoria in datos["categorias"] for c in categoria["casos"]}
-    assert casos["No enciende"]["prioridad_display"] == "Alta"
+    assert casos["No enciende"]["prioridad_display"] == "P2 · Alta"
     assert APIClient().get(f"{PUBLICO}NOEXISTE/").status_code == 404
 
 
@@ -331,7 +334,9 @@ def test_lo_atendido_sin_respuesta_se_cierra_solo(mesa, settings):
     )
     with usando_empresa(mesa["empresa"]):
         Ticket.objects.filter(pk=ticket.pk).update(
-            atendido_en=timezone.now() - datetime.timedelta(days=4)
+            # Una semana y un día: más de 3 días hábiles, caiga en el día que caiga.
+            atendido_en=timezone.now()
+            - datetime.timedelta(days=8)
         )
     services.ciclo()
     ticket.refresh_from_db()

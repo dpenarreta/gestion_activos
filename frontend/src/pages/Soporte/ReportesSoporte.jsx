@@ -5,22 +5,45 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import "./Soporte.css";
 
+/* Los indicadores del piloto (§6.8 del flujo ITIL), con su meta. */
 const INDICADORES = [
   ["creados", "Tickets creados", "ticket-detailed", "info"],
   ["en_cola", "En cola", "hourglass-split", "warn"],
-  ["en_atencion", "En atención", "person-workspace", "info"],
   ["atendidos", "Atendidos", "check2-circle", "ok"],
-  ["cumplimiento_sla", "Cumplimiento de SLA", "speedometer", "ok"],
-  ["minutos_promedio", "Atención promedio", "stopwatch", "info"],
+  ["canal_oficial", "Por el portal (meta ≥ 80 %)", "globe", "info"],
+  ["cumplimiento_respuesta", "SLA de respuesta (meta ≥ 90 %)", "reply", "ok"],
+  ["cumplimiento_sla", "SLA de solución", "speedometer", "ok"],
+  ["fcr", "Resueltos en primer contacto (meta ≥ 50 %)", "1-circle", "ok"],
+  ["csat", "Satisfacción (meta ≥ 4,0 / 5)", "star", "ok"],
+  ["reabiertos", "Reabiertos (meta ≤ 5 %)", "arrow-counterclockwise", "warn"],
+  [
+    "lead_time_promedio",
+    "Lead time (llega → 1.ª respuesta)",
+    "hourglass",
+    "info",
+  ],
+  ["minutos_promedio", "Cycle time (toma → solución)", "stopwatch", "info"],
   ["escalados_sla", "Escalados por SLA", "exclamation-octagon", "bad"],
   ["horas_fuera_aprobadas", "Horas fuera de horario", "moon", "warn"],
 ];
 
+const PORCENTAJES = new Set([
+  "cumplimiento_sla",
+  "cumplimiento_respuesta",
+  "fcr",
+  "reabiertos",
+  "canal_oficial",
+]);
+
 function valor(clave, kpis) {
   const dato = kpis[clave];
   if (dato === null || dato === undefined) return "—";
-  if (clave === "cumplimiento_sla") return `${dato} %`;
-  if (clave === "minutos_promedio")
+  if (clave === "cumplimiento_sla")
+    return `${dato} % (meta ${kpis.meta_sla} %)`;
+  if (PORCENTAJES.has(clave)) return `${dato} %`;
+  if (clave === "csat")
+    return `${dato} / 5${kpis.respuesta_encuesta !== null ? ` · ${kpis.respuesta_encuesta} % respondió` : ""}`;
+  if (clave === "minutos_promedio" || clave === "lead_time_promedio")
     return dato >= 60
       ? `${Math.floor(dato / 60)} h ${dato % 60} min`
       : `${dato} min`;
@@ -130,6 +153,47 @@ export function ReportesSoporte() {
               );
             })}
           </div>
+          <section className="mz-card">
+            <div className="mz-card-head">
+              <h3>Cumplimiento de SLA por prioridad</h3>
+            </div>
+            <div className="mz-table-wrap">
+              <table className="mz-table">
+                <thead>
+                  <tr>
+                    <th>Prioridad</th>
+                    <th className="num">Tickets</th>
+                    <th className="num">Cumplimiento</th>
+                    <th className="num">Meta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(datos.prioridades ?? []).map((p) => (
+                    <tr key={p.prioridad}>
+                      <td>{p.etiqueta}</td>
+                      <td className="num">{p.tickets}</td>
+                      <td className="num">
+                        {p.cumplimiento === null ? (
+                          "—"
+                        ) : (
+                          <span
+                            className={
+                              p.cumplimiento >= p.meta
+                                ? "soporte-meta--ok"
+                                : "soporte-meta--bajo"
+                            }
+                          >
+                            {p.cumplimiento} %
+                          </span>
+                        )}
+                      </td>
+                      <td className="num">≥ {p.meta} %</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
           <section className="mz-card">
             <div className="mz-card-head">
               <h3>Desempeño por técnico</h3>

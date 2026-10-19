@@ -6,7 +6,15 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { descargarBlob } from "../../utils/descargas";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
-import { EstadoTicket, PrioridadTicket, SlaTicket } from "./comunes";
+import {
+  EstadoTicket,
+  IMPACTOS,
+  PrioridadTicket,
+  RespuestaTicket,
+  SlaTicket,
+  URGENCIAS,
+  useEtiquetas,
+} from "./comunes";
 import "./Soporte.css";
 
 const TEXTO_DEL_PASO = {
@@ -19,11 +27,12 @@ const TEXTO_DEL_PASO = {
 /**
  * La ficha de un ticket para el equipo: datos de quien pidió, la conversación
  * (con notas internas que el usuario no ve), los pasos que se pueden dar,
- * escalar al nivel siguiente y, si se trabaja fuera del horario, registrar las
- * horas dedicadas.
+ * escalar al nivel siguiente, ajustar la prioridad con justificación y, si se
+ * trabaja fuera del horario, registrar las horas dedicadas.
  */
 export function TicketDetalle() {
   const { id } = useParams();
+  const etiquetas = useEtiquetas();
   const [ticket, setTicket] = useState(null);
   const [respuestas, setRespuestas] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
@@ -115,6 +124,12 @@ export function TicketDetalle() {
             {ticket.numero} <EstadoTicket ticket={ticket} />
           </h2>
           <p className="mz-desc">
+            <span className="mz-pill mz-pill--neutral me-2">
+              {ticket.tipo_display}
+            </span>
+            {ticket.codigo && (
+              <span className="mz-mono me-1">{ticket.codigo}</span>
+            )}
             {ticket.categoria} · {ticket.caso}
           </p>
         </div>
@@ -251,16 +266,45 @@ export function TicketDetalle() {
                   {d.valor}
                 </Dato>
               ))}
+              <Dato etiqueta="Canal">
+                {ticket.canal_display}
+                {ticket.registrado_por && (
+                  <div className="mz-small mz-faint">
+                    Registrado por {ticket.registrado_por}
+                  </div>
+                )}
+              </Dato>
               <Dato etiqueta="Prioridad">
                 <PrioridadTicket ticket={ticket} />
+                {ticket.prioridad_base &&
+                  ticket.prioridad_base !== ticket.prioridad && (
+                    <div className="mz-small mz-faint">
+                      Base del caso:{" "}
+                      {etiquetas.prioridades.find(
+                        ([v]) => v === ticket.prioridad_base,
+                      )?.[1] ?? ticket.prioridad_base}
+                    </div>
+                  )}
               </Dato>
+              {ticket.impacto && (
+                <Dato etiqueta="Impacto">{ticket.impacto_display}</Dato>
+              )}
+              {ticket.urgencia && (
+                <Dato etiqueta="Urgencia">{ticket.urgencia_display}</Dato>
+              )}
               <Dato etiqueta="Nivel">{ticket.nivel}</Dato>
               <Dato etiqueta="Atiende">
                 {ticket.tecnico?.nombre || "Sin asignar"}
               </Dato>
-              <Dato etiqueta="SLA">
+              <Dato etiqueta="Respuesta">
+                <RespuestaTicket sla={ticket.sla} />
+              </Dato>
+              <Dato etiqueta="Solución">
                 <SlaTicket sla={ticket.sla} />
               </Dato>
+              {ticket.reaperturas > 0 && (
+                <Dato etiqueta="Reaperturas">{ticket.reaperturas}</Dato>
+              )}
               <Dato etiqueta="Creado">
                 {formatearFecha(ticket.created_at, true)}
               </Dato>
@@ -290,6 +334,54 @@ export function TicketDetalle() {
                 hacer(
                   () => soporteService.asignar(ticket.id, tecnico, nota),
                   "Ticket asignado.",
+                )
+              }
+            />
+          )}
+
+          {ticket.aprobaciones?.length > 0 && (
+            <section className="mz-card">
+              <div className="mz-card-head">
+                <h3>Aprobaciones</h3>
+              </div>
+              <ul className="mz-card-body soporte-aprobaciones">
+                {ticket.aprobaciones.map((a) => (
+                  <li key={a.id}>
+                    <strong>{a.rol}</strong>{" "}
+                    <span
+                      className={`mz-pill ${
+                        a.estado === "aprobada"
+                          ? "mz-pill--ok"
+                          : a.estado === "rechazada"
+                            ? "mz-pill--bad"
+                            : "mz-pill--warn"
+                      }`}
+                    >
+                      {a.estado_display}
+                    </span>
+                    <div className="mz-small mz-faint">
+                      {a.decidido_por
+                        ? `${a.decidido_por} · ${formatearFecha(a.decidido_en, true)}`
+                        : a.aprobador
+                          ? `Le toca a ${a.aprobador}`
+                          : "Sin responsable con cuenta: decide quien coordina"}
+                    </div>
+                    {a.nota && <div className="mz-small">«{a.nota}»</div>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {permisos.prioridad && (
+            <CambiarPrioridad
+              ticket={ticket}
+              prioridades={etiquetas.prioridades}
+              ocupado={ocupado}
+              onCambiar={(datos) =>
+                hacer(
+                  () => soporteService.cambiarPrioridad(ticket.id, datos),
+                  "Prioridad actualizada; el plazo se recalculó.",
                 )
               }
             />
@@ -533,6 +625,151 @@ function Acciones({ ticket, tecnicos, ocupado, onPaso, onEscalar, onAsignar }) {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+/** Ajustar la prioridad: elegirla, o calcularla por impacto y urgencia.
+ * Siempre con justificación, que queda en el historial. */
+function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
+  const [modo, setModo] = useState("matriz");
+  const [valores, setValores] = useState({
+    prioridad: ticket.prioridad,
+    impacto: ticket.impacto || "",
+    urgencia: ticket.urgencia || "",
+    justificacion: "",
+  });
+  const fijar = (campo) => (e) =>
+    setValores((actual) => ({ ...actual, [campo]: e.target.value }));
+
+  return (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Ajustar prioridad</h3>
+      </div>
+      <form
+        className="mz-card-body"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const datos =
+            modo === "matriz"
+              ? {
+                  impacto: valores.impacto,
+                  urgencia: valores.urgencia,
+                  justificacion: valores.justificacion,
+                }
+              : {
+                  prioridad: valores.prioridad,
+                  justificacion: valores.justificacion,
+                };
+          if (await onCambiar(datos))
+            setValores((actual) => ({ ...actual, justificacion: "" }));
+        }}
+      >
+        <div className="d-flex gap-3 mb-2">
+          <div className="form-check">
+            <input
+              id="cp-matriz"
+              type="radio"
+              className="form-check-input"
+              checked={modo === "matriz"}
+              onChange={() => setModo("matriz")}
+            />
+            <label className="form-check-label" htmlFor="cp-matriz">
+              Por impacto y urgencia
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              id="cp-directa"
+              type="radio"
+              className="form-check-input"
+              checked={modo === "directa"}
+              onChange={() => setModo("directa")}
+            />
+            <label className="form-check-label" htmlFor="cp-directa">
+              Elegir la prioridad
+            </label>
+          </div>
+        </div>
+        {modo === "matriz" ? (
+          <>
+            <div className="mz-field">
+              <label htmlFor="cp-impacto">Impacto</label>
+              <select
+                id="cp-impacto"
+                className="form-select form-select-sm"
+                required
+                value={valores.impacto}
+                onChange={fijar("impacto")}
+              >
+                <option value="">Elija</option>
+                {IMPACTOS.map(([v, etiqueta]) => (
+                  <option key={v} value={v}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mz-field">
+              <label htmlFor="cp-urgencia">Urgencia</label>
+              <select
+                id="cp-urgencia"
+                className="form-select form-select-sm"
+                required
+                value={valores.urgencia}
+                onChange={fijar("urgencia")}
+              >
+                <option value="">Elija</option>
+                {URGENCIAS.map(([v, etiqueta]) => (
+                  <option key={v} value={v}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        ) : (
+          <div className="mz-field">
+            <label htmlFor="cp-prioridad">Prioridad</label>
+            <select
+              id="cp-prioridad"
+              className="form-select form-select-sm"
+              value={valores.prioridad}
+              onChange={fijar("prioridad")}
+            >
+              {prioridades.map(([v, etiqueta]) => (
+                <option key={v} value={v}>
+                  {etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="mz-field">
+          <label htmlFor="cp-justificacion">Justificación</label>
+          <textarea
+            id="cp-justificacion"
+            className="form-control form-control-sm"
+            rows={2}
+            required
+            maxLength={1000}
+            value={valores.justificacion}
+            onChange={fijar("justificacion")}
+          />
+          <div className="form-text">
+            Queda en el historial. El plazo se recalcula conservando el tiempo
+            ya consumido.
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="btn btn-sm btn-outline-primary"
+          disabled={ocupado}
+        >
+          Cambiar prioridad
+        </button>
+      </form>
     </section>
   );
 }

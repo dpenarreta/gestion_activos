@@ -7,7 +7,12 @@ import { Paginacion } from "../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
-import { ESTADOS, EstadoTicket, PrioridadTicket, SlaTicket } from "./comunes";
+import {
+  EstadoTicket,
+  PrioridadTicket,
+  SlaTicket,
+  useEtiquetas,
+} from "./comunes";
 import "./Soporte.css";
 
 /** Cada cuánto se refresca la bandeja: los tickets llegan solos. */
@@ -22,6 +27,7 @@ const REFRESCO_MS = 30_000;
  */
 export function Bandeja({ todos = false }) {
   const navegar = useNavigate();
+  const etiquetas = useEtiquetas();
   const [cabecera, setCabecera] = useState(null);
   const [ambito, setAmbito] = useState(todos ? "todos" : "mios");
   const [busqueda, setBusqueda] = useState("");
@@ -93,15 +99,25 @@ export function Bandeja({ todos = false }) {
               : "Mesa de ayuda de TI."}
           </p>
         </div>
-        {tecnico && (
+        {(tecnico || cabecera?.puede.asignar) && (
           <div className="mz-view-actions">
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={tomarSiguiente}
+            {/* Lo que llega por teléfono, WhatsApp o en persona también se
+                registra: «sin ticket no hay atención». */}
+            <Link
+              className="btn btn-outline-primary btn-sm"
+              to="/admin/soporte/registrar"
             >
-              <Icon name="inbox-fill" /> Tomar siguiente
-            </button>
+              <Icon name="telephone-plus" /> Registrar ticket
+            </Link>
+            {tecnico && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={tomarSiguiente}
+              >
+                <Icon name="inbox-fill" /> Tomar siguiente
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -199,7 +215,7 @@ export function Bandeja({ todos = false }) {
               }
             >
               <option value="">Abiertos</option>
-              {ESTADOS.map(([valor, etiqueta]) => (
+              {etiquetas.estados.map(([valor, etiqueta]) => (
                 <option key={valor} value={valor}>
                   {etiqueta}
                 </option>

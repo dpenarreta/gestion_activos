@@ -126,3 +126,22 @@
   flex-wrap: wrap;
   gap: 4px 14px;
 }
+
+/* La encuesta de satisfacción: cinco estrellas. */
+.soporte-estrellas {
+  display: flex;
+  gap: 4px;
+}
+
+.soporte-estrellas button {
+  border: 0;
+  background: none;
+  padding: 2px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--mz-border-strong);
+}
+
+.soporte-estrellas button.activa {
+  color: #e0a800;
+}

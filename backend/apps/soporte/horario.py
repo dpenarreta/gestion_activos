@@ -1,9 +1,9 @@
-"""El tiempo hábil de un técnico: cuándo atiende y cuánto falta para un plazo.
+"""El tiempo hábil: cuándo se atiende y cuánto falta para un plazo.
 
-El SLA no se descuenta minuto a minuto: al tomar un ticket se calcula su
-vencimiento absoluto proyectando los minutos del plazo sobre el horario de
-quien lo tomó (sus franjas semanales menos sus ausencias). Así la tarea
-programada solo compara fechas.
+El SLA no se descuenta minuto a minuto: al crear un ticket se calcula su
+vencimiento absoluto proyectando los minutos del plazo sobre el calendario de
+su prioridad (el horario hábil de la mesa, o las 24 horas para los P1). Así la
+tarea programada solo compara fechas.
 
 Todo se calcula en la zona horaria del sistema (`TIME_ZONE`): un horario de
 08:00 a 17:00 es de Guayaquil, no de UTC.
@@ -19,31 +19,70 @@ DIAS_MAXIMOS = 120
 
 
 class Agenda:
-    """Las franjas y ausencias de un técnico, cargadas una vez."""
+    """Un calendario de atención: franjas semanales menos fechas sin atención.
 
-    def __init__(self, tecnico):
+    Sirve para tres cosas: el horario de un técnico (`Agenda(tecnico)`, decide
+    el reparto), el horario hábil de la mesa (`Agenda.de_franjas`, mide los
+    plazos de P2 a P4) y el reloj continuo de los P1 (`Agenda.continua()`, las
+    24 horas de todos los días).
+    """
+
+    def __init__(self, tecnico=None):
+        self.continua_ = False
         self.franjas = {}
-        for franja in tecnico.horarios.all():
-            if franja.hora_fin > franja.hora_inicio:
-                self.franjas.setdefault(franja.dia_semana, []).append(
-                    (franja.hora_inicio, franja.hora_fin)
-                )
+        self.ausencias = []
+        if tecnico is not None:
+            self._cargar(
+                [(f.dia_semana, f.hora_inicio, f.hora_fin) for f in tecnico.horarios.all()],
+                [(a.desde, a.hasta) for a in tecnico.ausencias.all()],
+            )
+
+    @classmethod
+    def de_franjas(cls, franjas, ausencias=()):
+        """`franjas`: (día, inicio, fin); `ausencias`: (desde, hasta)."""
+        agenda = cls()
+        agenda._cargar(franjas, ausencias)
+        return agenda
+
+    @classmethod
+    def continua(cls):
+        agenda = cls()
+        agenda.continua_ = True
+        return agenda
+
+    def _cargar(self, franjas, ausencias):
+        for dia, inicio, fin in franjas:
+            if fin > inicio:
+                self.franjas.setdefault(dia, []).append((inicio, fin))
         for lista in self.franjas.values():
             lista.sort()
-        self.ausencias = [(a.desde, a.hasta) for a in tecnico.ausencias.all()]
+        self.ausencias = list(ausencias)
 
     @property
     def tiene_horario(self) -> bool:
-        return bool(self.franjas)
+        return self.continua_ or bool(self.franjas)
 
     def _ausente(self, dia) -> bool:
         return any(desde <= dia <= hasta for desde, hasta in self.ausencias)
 
+    def es_habil(self, dia) -> bool:
+        """Si en esa fecha se atiende (tiene franjas y no es feriado)."""
+        return bool(self.tramos_del_dia(dia))
+
     def tramos_del_dia(self, dia):
         """Los tramos de atención de una fecha, como datetimes locales."""
+        zona = timezone.get_current_timezone()
+        if self.continua_:
+            return [
+                (
+                    timezone.make_aware(datetime.combine(dia, datetime.min.time()), zona),
+                    timezone.make_aware(
+                        datetime.combine(dia + timedelta(days=1), datetime.min.time()), zona
+                    ),
+                )
+            ]
         if self._ausente(dia):
             return []
-        zona = timezone.get_current_timezone()
         return [
             (
                 timezone.make_aware(datetime.combine(dia, inicio), zona),

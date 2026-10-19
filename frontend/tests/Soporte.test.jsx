@@ -112,6 +112,13 @@ describe("El formulario público", () => {
     fireEvent.change(screen.getByLabelText("Describa el problema"), {
       target: { value: "No prende" },
     });
+    // La matriz de prioridad: con estas respuestas el ticket puede subir.
+    fireEvent.change(screen.getByLabelText("¿A quién afecta?"), {
+      target: { value: "medio" },
+    });
+    fireEvent.change(screen.getByLabelText("¿Puede seguir trabajando?"), {
+      target: { value: "alta" },
+    });
     fireEvent.click(screen.getByLabelText(/Acepto que mis datos/));
     fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
 
@@ -123,6 +130,8 @@ describe("El formulario público", () => {
       sede: "1",
       area: "2",
       caso: "4",
+      impacto: "medio",
+      urgencia: "alta",
       acepta_datos: true,
     });
     expect(campos).not.toHaveProperty("categoria");

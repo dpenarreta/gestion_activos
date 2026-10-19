@@ -14,6 +14,8 @@ export const CAMPOS_BASE = [
   ["categoria", "Categoría", "lista"],
   ["caso", "Caso de ayuda", "lista"],
   ["descripcion", "Describa el problema", "parrafo"],
+  ["impacto", "¿A quién afecta?", "lista"],
+  ["urgencia", "¿Puede seguir trabajando?", "lista"],
 ].map(([clave, etiqueta, tipo]) => ({
   clave,
   etiqueta,
@@ -26,6 +28,18 @@ export const CAMPOS_BASE = [
 }));
 
 const ANCHOS = new Set(["parrafo", "casilla", "correo"]);
+
+/** Las respuestas de la matriz de prioridad, si el servidor no las manda. */
+const IMPACTOS = [
+  { id: "bajo", nombre: "Solo a mí" },
+  { id: "medio", nombre: "A mi área o grupo de trabajo" },
+  { id: "alto", nombre: "A toda la agencia, la sucursal o la empresa" },
+];
+const URGENCIAS = [
+  { id: "alta", nombre: "No, la operación está detenida" },
+  { id: "media", nombre: "Sí, pero con dificultad" },
+  { id: "baja", nombre: "Sí, puede esperar" },
+];
 
 /** Si un campo propio aplica a la categoría elegida (sin filtro: siempre). */
 export function aplica(campo, categoria) {
@@ -77,6 +91,23 @@ function ControlBase({ campo, id, datos, valores, onBase }) {
           opciones={datos.agencias.map((a) => [a.id, a.nombre])}
         />
       );
+    case "impacto":
+    case "urgencia": {
+      const opciones =
+        campo.clave === "impacto"
+          ? (datos.impactos ?? IMPACTOS)
+          : (datos.urgencias ?? URGENCIAS);
+      return (
+        <Lista
+          id={id}
+          campo={campo}
+          valor={valor}
+          onCambiar={cambiar}
+          vacio="Elija una opción"
+          opciones={opciones.map((o) => [o.id, o.nombre])}
+        />
+      );
+    }
     case "area":
       return (
         <Lista

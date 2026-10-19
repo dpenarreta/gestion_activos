@@ -81,6 +81,7 @@ const RUTAS_COMUNES = [
   "/admin/reportes",
   "/admin/auditoria",
   "/admin/notificaciones",
+  "/admin/aprobaciones",
 ];
 
 function esRutaComun(pathname) {

@@ -24,6 +24,19 @@ urlpatterns = [
         views.AdjuntoPublicoView.as_view(),
         name="soporte-seguimiento-adjunto",
     ),
+    path(
+        "seguimiento/<str:token>/encuesta/",
+        views.EncuestaPublicaView.as_view(),
+        name="soporte-encuesta",
+    ),
+    path("etiquetas/", views.EtiquetasView.as_view(), name="soporte-etiquetas"),
+    path("aprobaciones/", views.AprobacionesView.as_view(), name="soporte-aprobaciones"),
+    path(
+        "aprobaciones/<int:pk>/decidir/",
+        views.DecidirAprobacionView.as_view(),
+        name="soporte-aprobacion-decidir",
+    ),
+    path("config/mesa/", views.MesaView.as_view(), name="soporte-mesa"),
     path("mi-horario/", views.MiAgendaView.as_view(), name="soporte-mi-horario"),
     path("reportes/", views.ReportesSoporteView.as_view(), name="soporte-reportes"),
 ] + router.urls

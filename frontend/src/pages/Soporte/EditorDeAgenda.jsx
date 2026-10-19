@@ -2,7 +2,8 @@ import { DIAS } from "./comunes";
 
 /**
  * Las franjas semanales y las ausencias de un técnico. Lo usan «Mi horario»
- * (cada técnico el suyo) y la configuración de técnicos (quien coordina).
+ * (cada técnico el suyo), la configuración de técnicos (quien coordina) y el
+ * horario hábil de la mesa, con sus feriados.
  * Solo cuenta para el SLA y el reparto lo que esté aquí.
  */
 export function EditorDeAgenda({
@@ -10,7 +11,14 @@ export function EditorDeAgenda({
   ausencias,
   onCambiar,
   deshabilitado = false,
+  textos = {},
 }) {
+  const t = {
+    horario: "Horario de atención semanal",
+    sinFranjas: "Sin franjas: no recibirá tickets automáticamente.",
+    ausencias: "Fechas sin atención (vacaciones, permisos, feriados)",
+    ...textos,
+  };
   function cambiarFranja(indice, campo, valor) {
     onCambiar({
       horarios: horarios.map((f, i) =>
@@ -32,11 +40,9 @@ export function EditorDeAgenda({
   return (
     <div className="mz-stack">
       <fieldset>
-        <legend className="form-label">Horario de atención semanal</legend>
+        <legend className="form-label">{t.horario}</legend>
         {horarios.length === 0 && (
-          <p className="mz-small mz-faint">
-            Sin franjas: no recibirá tickets automáticamente.
-          </p>
+          <p className="mz-small mz-faint">{t.sinFranjas}</p>
         )}
         {horarios.map((franja, i) => (
           <div className="soporte-franja" key={`f-${i}`}>
@@ -143,9 +149,7 @@ export function EditorDeAgenda({
       </fieldset>
 
       <fieldset>
-        <legend className="form-label">
-          Fechas sin atención (vacaciones, permisos, feriados)
-        </legend>
+        <legend className="form-label">{t.ausencias}</legend>
         {ausencias.length === 0 && (
           <p className="mz-small mz-faint">Ninguna.</p>
         )}

@@ -31,12 +31,17 @@ from apps.empresas.models import Empresa
 from apps.organizacion.models import Departamento, Sede
 from apps.permissions.permissions import HasActionPermission, HasModulePermission
 
-from . import formulario, services
+from . import etiquetas, formulario, services, sla
 from .models import (
     AdjuntoTicket,
+    AprobacionTicket,
     CampoFormulario,
+    Canal,
     CasoAyuda,
     Categoria,
+    ConfiguracionMesa,
+    FeriadoMesa,
+    HorarioMesa,
     HorasFueraDeHorario,
     NivelSoporte,
     ReglaSLA,
@@ -48,19 +53,24 @@ from .serializers import (
     AgendaPropiaSerializer,
     AsignarSerializer,
     CambioEstadoSerializer,
+    CambioPrioridadSerializer,
     CampoFormularioSerializer,
     CasoSerializer,
     CategoriaSerializer,
+    DecisionSerializer,
+    EncuestaSerializer,
     EscalarSerializer,
     FormularioPublicoSerializer,
     HorasSerializer,
     MensajePublicoSerializer,
+    MesaSerializer,
     NivelSerializer,
     ReglaSLASerializer,
     RespuestaPredefinidaSerializer,
     RespuestaSerializer,
     TecnicoSerializer,
     TicketDetalleSerializer,
+    TicketInternoSerializer,
     TicketListaSerializer,
     seguimiento,
     validar_adjuntos,
@@ -82,6 +92,66 @@ def _descargar(adjunto):
 
 
 # --- Pública ---------------------------------------------------------------------------
+
+
+def datos_del_formulario(empresa_nombre) -> dict:
+    """Lo que necesita el formulario (el público y el de alta interna) de la
+    empresa activa: sus campos, agencias, áreas, categorías con sus casos y las
+    opciones de la matriz de prioridad."""
+    categorias = Categoria.objects.filter(activa=True).prefetch_related("casos").order_by("nombre")
+    nombres = etiquetas.de_la_empresa()
+    return {
+        "empresa": empresa_nombre,
+        "disponible": NivelSoporte.objects.exists(),
+        "campos": formulario.visibles(),
+        "agencias": [
+            {"id": s.id, "nombre": s.nombre, "ciudad": s.ciudad}
+            for s in Sede.objects.filter(activa=True).order_by("nombre")
+        ],
+        "areas": [
+            {"id": d.id, "nombre": d.nombre}
+            for d in Departamento.objects.filter(activo=True).order_by("nombre")
+        ],
+        "categorias": [
+            {
+                "id": c.id,
+                "nombre": c.nombre,
+                "descripcion": c.descripcion,
+                "casos": [
+                    {
+                        "id": caso.id,
+                        "codigo": caso.codigo,
+                        "nombre": caso.nombre,
+                        "tipo": caso.tipo,
+                        "tipo_display": caso.get_tipo_display(),
+                        "prioridad": caso.prioridad,
+                        "prioridad_display": nombres["prioridades"][caso.prioridad],
+                    }
+                    for caso in c.casos.all()
+                    if caso.activo
+                ],
+            }
+            for c in categorias
+        ],
+        "impactos": [{"id": v, "nombre": n} for v, n in formulario.OPCIONES_IMPACTO],
+        "urgencias": [{"id": v, "nombre": n} for v, n in formulario.OPCIONES_URGENCIA],
+    }
+
+
+def _datos_del_ticket(datos, adicionales) -> dict:
+    """Lo validado del formulario, con los nombres de las columnas del ticket."""
+    return {
+        "solicitante_nombre": datos["nombre"].strip(),
+        "solicitante_telefono": datos.get("telefono") or "",
+        "solicitante_correo": datos["correo"],
+        "sede": datos.get("sede"),
+        "area": datos.get("area"),
+        "caso": datos["caso"],
+        "descripcion": datos["descripcion"].strip(),
+        "impacto": datos.get("impacto") or "",
+        "urgencia": datos.get("urgencia") or "",
+        "datos_adicionales": adicionales,
+    }
 
 
 def _empresa_del_formulario(codigo):
@@ -107,43 +177,7 @@ class FormularioPublicoView(APIView):
     def get(self, request, codigo):
         empresa = _empresa_del_formulario(codigo)
         with usando_empresa(empresa):
-            configurado = NivelSoporte.objects.exists()
-            categorias = (
-                Categoria.objects.filter(activa=True).prefetch_related("casos").order_by("nombre")
-            )
-            return Response(
-                {
-                    "empresa": empresa.nombre,
-                    "disponible": configurado,
-                    "campos": formulario.visibles(),
-                    "agencias": [
-                        {"id": s.id, "nombre": s.nombre, "ciudad": s.ciudad}
-                        for s in Sede.objects.filter(activa=True).order_by("nombre")
-                    ],
-                    "areas": [
-                        {"id": d.id, "nombre": d.nombre}
-                        for d in Departamento.objects.filter(activo=True).order_by("nombre")
-                    ],
-                    "categorias": [
-                        {
-                            "id": c.id,
-                            "nombre": c.nombre,
-                            "descripcion": c.descripcion,
-                            "casos": [
-                                {
-                                    "id": caso.id,
-                                    "nombre": caso.nombre,
-                                    "prioridad": caso.prioridad,
-                                    "prioridad_display": caso.get_prioridad_display(),
-                                }
-                                for caso in c.casos.all()
-                                if caso.activo
-                            ],
-                        }
-                        for c in categorias
-                    ],
-                }
-            )
+            return Response(datos_del_formulario(empresa.nombre))
 
     def post(self, request, codigo):
         empresa = _empresa_del_formulario(codigo)
@@ -161,16 +195,7 @@ class FormularioPublicoView(APIView):
             try:
                 with transaction.atomic():
                     ticket = services.crear_ticket(
-                        datos={
-                            "solicitante_nombre": datos["nombre"].strip(),
-                            "solicitante_telefono": datos.get("telefono") or "",
-                            "solicitante_correo": datos["correo"],
-                            "sede": datos.get("sede"),
-                            "area": datos.get("area"),
-                            "caso": datos["caso"],
-                            "descripcion": datos["descripcion"].strip(),
-                            "datos_adicionales": adicionales,
-                        },
+                        datos=_datos_del_ticket(datos, adicionales),
                         ip=contexto.get("ip_address"),
                     )
                     services.guardar_adjuntos(ticket, archivos, del_solicitante=True)
@@ -249,6 +274,31 @@ class SeguimientoView(APIView):
             return self.get(request, token)
 
 
+class EncuestaPublicaView(APIView):
+    """La encuesta de satisfacción, desde el enlace de seguimiento."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_scope = "soporte_formulario"
+
+    def get_throttles(self):
+        return [ScopedRateThrottle()]
+
+    def post(self, request, token):
+        ticket = _ticket_del_enlace(token)
+        with usando_empresa(ticket.empresa):
+            entrada = EncuestaSerializer(data=request.data)
+            entrada.is_valid(raise_exception=True)
+            try:
+                services.responder_encuesta(ticket, **entrada.validated_data)
+            except ErrorDeModelo as error:
+                raise serializers.ValidationError(_errores(error)) from error
+            ticket = Ticket.objects.prefetch_related(
+                "mensajes__autor", "mensajes__adjuntos", "adjuntos"
+            ).get(pk=ticket.pk)
+            return Response(seguimiento(ticket, _url_publica(token)), status=201)
+
+
 class AdjuntoPublicoView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -287,11 +337,16 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         usuario = self.request.user
         queryset = Ticket.objects.select_related(
-            "sede", "area", "categoria", "caso", "nivel", "tecnico__usuario"
+            "sede", "area", "categoria", "caso", "nivel", "tecnico__usuario", "registrado_por"
         )
         if self.action == "retrieve":
             queryset = queryset.prefetch_related(
-                "mensajes__autor", "mensajes__adjuntos", "adjuntos", "movimientos__actor"
+                "mensajes__autor",
+                "mensajes__adjuntos",
+                "adjuntos",
+                "movimientos__actor",
+                "aprobaciones__aprobador",
+                "aprobaciones__decidido_por",
             )
         ve_todo = services.tiene(usuario, "ver_todos") or services.tiene(usuario, "asignar")
         tecnico = services.tecnico_de(usuario)
@@ -410,6 +465,71 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                     "aprobar_horas": services.tiene(request.user, "aprobar_horas"),
                 },
             }
+        )
+
+    @action(detail=False, methods=["get"])
+    def formulario(self, request):
+        """Lo que pide el alta interna: el formulario de la empresa y los canales."""
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+        empresa = empresa_actual()
+        nombre = "" if empresa in (None, SIN_EMPRESA) else empresa.nombre
+        datos = datos_del_formulario(nombre)
+        datos["canales"] = [
+            {"id": valor, "nombre": etiqueta}
+            for valor, etiqueta in Canal.choices
+            if valor != Canal.PORTAL
+        ]
+        datos["soy_tecnico"] = services.tecnico_de(request.user) is not None
+        return Response(datos)
+
+    @action(detail=False, methods=["post"])
+    def registrar(self, request):
+        """Alta interna: un ticket que llegó por teléfono, WhatsApp o en persona,
+        registrado por el equipo en nombre de quien pide."""
+        if not (services.tiene(request.user, "atender") or services.tiene(request.user, "asignar")):
+            raise PermissionDenied("Registra tickets quien atiende o coordina la mesa.")
+        entrada = TicketInternoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        canal, asignarme = datos["canal"], datos["asignarme"]
+        datos, adicionales = formulario.validar_envio(datos, datos.get("adicionales") or {})
+        archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
+        try:
+            with transaction.atomic():
+                ticket = services.registrar_ticket(
+                    datos=_datos_del_ticket(datos, adicionales),
+                    actor=request.user,
+                    canal=canal,
+                    asignarme=asignarme,
+                )
+                services.guardar_adjuntos(ticket, archivos)
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        self._auditar("ticket.registrado", ticket, {"canal": canal, "asignarme": asignarme})
+        return Response(self._detalle(ticket), status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def prioridad(self, request, pk=None):
+        """Ajustar la prioridad (o calcularla por impacto y urgencia), con
+        justificación."""
+        ticket = self.get_object()
+        entrada = CambioPrioridadSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        anterior = ticket.prioridad
+        return self._accion(
+            "ticket.prioridad_changed",
+            lambda: services.cambiar_prioridad(
+                ticket,
+                request.user,
+                prioridad=datos.get("prioridad") or anterior,
+                justificacion=datos["justificacion"],
+                impacto=datos.get("impacto", ""),
+                urgencia=datos.get("urgencia", ""),
+            ),
+            ticket,
+            {"anterior": anterior, "justificacion": datos["justificacion"]},
         )
 
     @action(detail=False, methods=["get"])
@@ -790,6 +910,145 @@ class RespuestaPredefinidaViewSet(_Config):
 
     def get_queryset(self):
         return RespuestaPredefinida.objects.all()
+
+
+class EtiquetasView(APIView):
+    """Los nombres de estados y prioridades de la empresa, para las pantallas."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        nombres = etiquetas.de_la_empresa()
+        return Response(
+            {
+                "estados": list(nombres["estados"].items()),
+                "prioridades": list(nombres["prioridades"].items()),
+            }
+        )
+
+
+class AprobacionesView(APIView):
+    """Las solicitudes que esperan el visto bueno de quien entra. Llega aquí
+    desde el correo: un jefe de área no necesita permisos de la mesa de ayuda,
+    solo ser el aprobador."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        nombres = etiquetas.de_la_empresa()
+        pendientes = services.aprobaciones_de(request.user).select_related(
+            "ticket__caso", "ticket__categoria", "ticket__area", "ticket__sede", "aprobador"
+        )
+        return Response(
+            [
+                {
+                    "id": a.id,
+                    "rol": a.rol,
+                    "sin_aprobador": a.aprobador_id is None,
+                    "creada": a.created_at,
+                    "ticket": {
+                        "numero": a.ticket.numero,
+                        "solicitante": a.ticket.solicitante_nombre,
+                        "correo": a.ticket.solicitante_correo,
+                        "area": a.ticket.area.nombre if a.ticket.area_id else "",
+                        "agencia": a.ticket.sede.nombre if a.ticket.sede_id else "",
+                        "categoria": a.ticket.categoria.nombre,
+                        "codigo": a.ticket.caso.codigo,
+                        "caso": a.ticket.caso.nombre,
+                        "prioridad_display": nombres["prioridades"][a.ticket.prioridad],
+                        "descripcion": a.ticket.descripcion,
+                        "datos_adicionales": a.ticket.datos_adicionales or [],
+                    },
+                }
+                for a in pendientes
+            ]
+        )
+
+
+class DecidirAprobacionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        aprobacion = get_object_or_404(
+            AprobacionTicket.objects.select_related("ticket__caso", "ticket__nivel"), pk=pk
+        )
+        entrada = DecisionSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        try:
+            ticket = services.decidir_aprobacion(
+                aprobacion, request.user, aprobar=datos["aprobar"], nota=datos.get("nota", "")
+            )
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        record_audit_event(
+            actor=request.user,
+            action="ticket.aprobado" if datos["aprobar"] else "ticket.rechazado",
+            target_type="ticket",
+            target_id=ticket.numero,
+            module=MODULO,
+            new_values={"rol": aprobacion.rol, "nota": datos.get("nota", "")},
+            context=get_request_context(request),
+        )
+        return Response({"numero": ticket.numero, "estado": ticket.estado})
+
+
+class MesaView(APIView):
+    """Configuración → Mesa de ayuda → Horario y metas: el horario hábil con
+    que se miden los plazos de P2 a P4, los feriados, las metas de
+    cumplimiento y si los P1 corren 24/7."""
+
+    permission_classes = [IsAuthenticated, ConfiguracionPermission]
+
+    def _datos(self):
+        from django.db.models import F
+
+        configuracion = ConfiguracionMesa.objects.first() or ConfiguracionMesa()
+        horarios = list(HorarioMesa.objects.values("dia_semana", "hora_inicio", "hora_fin"))
+        return {
+            "meta_sla": configuracion.meta_sla,
+            "meta_sla_critica": configuracion.meta_sla_critica,
+            "critica_24x7": configuracion.critica_24x7,
+            "dominios": configuracion.dominios,
+            "etiquetas": configuracion.etiquetas or {},
+            "etiquetas_por_defecto": {
+                "estados": dict(Ticket.Estado.choices),
+                "prioridades": dict(Ticket._meta.get_field("prioridad").choices),
+            },
+            "horarios": horarios
+            or [
+                {"dia_semana": d, "hora_inicio": i, "hora_fin": f}
+                for d, i, f in sla.HORARIO_POR_DEFECTO
+            ],
+            "horario_por_defecto": not horarios,
+            "feriados": list(
+                FeriadoMesa.objects.order_by(F("desde")).values("desde", "hasta", "motivo")
+            ),
+        }
+
+    def get(self, request):
+        return Response(self._datos())
+
+    def put(self, request):
+        entrada = MesaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        services.guardar_mesa(entrada.validated_data)
+        record_audit_event(
+            actor=request.user,
+            action="soporte.mesa.updated",
+            target_type="mesa",
+            target_id=None,
+            module=MODULO,
+            new_values={
+                "meta_sla": entrada.validated_data["meta_sla"],
+                "meta_sla_critica": entrada.validated_data["meta_sla_critica"],
+                "critica_24x7": entrada.validated_data["critica_24x7"],
+                "franjas": len(entrada.validated_data["horarios"]),
+                "feriados": len(entrada.validated_data["feriados"]),
+            },
+            context=get_request_context(request),
+        )
+        return Response(self._datos())
 
 
 class CampoFormularioViewSet(_Config):

@@ -186,3 +186,35 @@
   gap: 6px;
   margin-top: 4px;
 }
+
+/* Cumplimiento contra su meta, en Reportes → Mesa de ayuda. */
+.soporte-meta--ok {
+  color: var(--mz-ok-fg, #1e7b4f);
+  font-weight: 600;
+}
+
+.soporte-meta--bajo {
+  color: var(--mz-bad-fg);
+  font-weight: 600;
+}
+
+.soporte-aprobaciones {
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.soporte-aprueban {
+  min-width: 150px;
+  min-height: 60px;
+}
+
+.soporte-nombre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}

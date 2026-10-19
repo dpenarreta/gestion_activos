@@ -16,6 +16,8 @@ const VACIO = {
   categoria: "",
   caso: "",
   descripcion: "",
+  impacto: "",
+  urgencia: "",
   acepta_datos: false,
   sitio_web: "",
 };

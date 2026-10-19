@@ -23,8 +23,22 @@ MAXIMO_PROPIOS = 30
 MAXIMO_OPCIONES = 50
 LARGO_MAXIMO = {"texto": 200, "parrafo": 2000, "correo": 254, "telefono": 20}
 
+#: Las respuestas de la matriz de prioridad, en palabras de quien pide.
+OPCIONES_IMPACTO = [
+    ("bajo", "Solo a mí"),
+    ("medio", "A mi área o grupo de trabajo"),
+    ("alto", "A toda la agencia, la sucursal o la empresa"),
+]
+OPCIONES_URGENCIA = [
+    ("alta", "No, la operación está detenida"),
+    ("media", "Sí, pero con dificultad"),
+    ("baja", "Sí, puede esperar"),
+]
+
 #: Clave del campo del sistema → nombre del dato que recibe el formulario.
 _DATO_DE_LA_CLAVE = {
+    "impacto": "impacto",
+    "urgencia": "urgencia",
     "nombre": "nombre",
     "telefono": "telefono",
     "correo": "correo",
@@ -147,6 +161,9 @@ def validar_envio(datos: dict, adicionales: dict) -> tuple[dict, list]:
     datos = dict(datos)
     categoria = datos["caso"].categoria if datos.get("caso") else None
     respuestas = []
+    error_de_dominio = validar_dominio(datos.get("correo"))
+    if error_de_dominio:
+        errores["correo"] = [error_de_dominio]
     for campo in campos():
         if campo.base:
             dato = _DATO_DE_LA_CLAVE.get(campo.clave)
@@ -178,6 +195,22 @@ def validar_envio(datos: dict, adicionales: dict) -> tuple[dict, list]:
     if errores:
         raise serializers.ValidationError(errores)
     return datos, respuestas
+
+
+def validar_dominio(correo) -> str:
+    """Solo crean tickets los correos de los dominios internos de la empresa
+    (si los configuró). Devuelve el error, o vacío si está bien."""
+    from .models import ConfiguracionMesa
+
+    configuracion = ConfiguracionMesa.objects.first()
+    dominios = configuracion.lista_de_dominios() if configuracion else []
+    if not dominios or not correo:
+        return ""
+    dominio = correo.rsplit("@", 1)[-1].lower()
+    if dominio in dominios:
+        return ""
+    lista = ", ".join(f"@{d}" for d in dominios)
+    return f"Use su correo de la empresa ({lista})."
 
 
 def siguiente_orden() -> int:

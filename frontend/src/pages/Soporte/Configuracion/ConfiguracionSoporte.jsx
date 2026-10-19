@@ -8,17 +8,31 @@ import { EditorDeAgenda } from "../EditorDeAgenda";
 import "../Soporte.css";
 
 /*
- * Configuración → Mesa de ayuda. Cuatro apartados: equipo (niveles y
- * técnicos), categorías y casos, SLA y respuestas predefinidas. Todo es de la
- * empresa activa: cada empresa tiene su propio equipo.
+ * Configuración → Mesa de ayuda. Cinco apartados: equipo (niveles y
+ * técnicos), categorías y casos (el catálogo de servicios), SLA, horario y
+ * metas, y respuestas predefinidas. Todo es de la empresa activa: cada empresa
+ * tiene su propio equipo.
  */
 
 const PRIORIDADES = [
-  ["critica", "Crítica"],
-  ["alta", "Alta"],
-  ["media", "Media"],
-  ["baja", "Baja"],
+  ["critica", "P1 · Crítica"],
+  ["alta", "P2 · Alta"],
+  ["media", "P3 · Media"],
+  ["baja", "P4 · Baja"],
 ];
+
+const TIPOS = [
+  ["incidente", "Incidente"],
+  ["solicitud", "Solicitud"],
+  ["consulta", "Consulta"],
+];
+
+const CASO_NUEVO = {
+  codigo: "",
+  nombre: "",
+  tipo: "incidente",
+  prioridad: "media",
+};
 
 function useRecurso(recurso) {
   const [lista, setLista] = useState(null);
@@ -532,17 +546,34 @@ function FormularioTecnico({
 
 export function CategoriasSoporte() {
   const categorias = useRecurso("categorias");
+  const niveles = useRecurso("niveles");
+  const [areas, setAreas] = useState([]);
   const [nueva, setNueva] = useState("");
+
+  useEffect(() => {
+    apiClient
+      .get("/soporte/config/sla/areas/")
+      .then((r) => setAreas(r.data))
+      .catch(() => setAreas([]));
+  }, []);
 
   return (
     <div className="soporte-page mz-stack">
       <Error texto={categorias.error} />
       <p className="mz-faint mb-0">
-        Las categorías ordenan los tickets y dicen qué técnicos los pueden
-        atender. Cada caso de ayuda fija la prioridad del ticket.
+        El catálogo de servicios. Las categorías dicen qué técnicos atienden
+        cada tipo de ticket; cada caso fija el tipo, la prioridad base (la
+        matriz impacto × urgencia puede subirla), por qué nivel entra y, si lo
+        tiene, un plazo propio de solución o de entrega.
       </p>
       {(categorias.lista ?? []).map((c) => (
-        <TarjetaCategoria key={c.id} categoria={c} recurso={categorias} />
+        <TarjetaCategoria
+          key={c.id}
+          categoria={c}
+          recurso={categorias}
+          niveles={niveles.lista ?? []}
+          areas={areas}
+        />
       ))}
       <form
         className="mz-card"
@@ -580,8 +611,12 @@ export function CategoriasSoporte() {
   );
 }
 
-function TarjetaCategoria({ categoria, recurso }) {
-  const [caso, setCaso] = useState({ nombre: "", prioridad: "media" });
+function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
+  const [caso, setCaso] = useState(CASO_NUEVO);
+  const cambiar = (c, datos) =>
+    recurso.ejecutar(() =>
+      soporteService.config.actualizar("casos", c.id, datos),
+    );
   return (
     <section className="mz-card">
       <div className="mz-card-head">
@@ -616,8 +651,12 @@ function TarjetaCategoria({ categoria, recurso }) {
           <table className="mz-table">
             <thead>
               <tr>
-                <th>Caso de ayuda</th>
-                <th>Prioridad</th>
+                <th>Servicio</th>
+                <th>Tipo</th>
+                <th>Prioridad base</th>
+                <th>Entra por</th>
+                <th>Plazo propio (h)</th>
+                <th>Aprueban</th>
                 <th aria-label="Acciones" />
               </tr>
             </thead>
@@ -625,6 +664,9 @@ function TarjetaCategoria({ categoria, recurso }) {
               {categoria.casos.map((c) => (
                 <tr key={c.id}>
                   <td>
+                    {c.codigo && (
+                      <span className="mz-mono me-1">{c.codigo}</span>
+                    )}
                     {c.nombre}
                     {!c.activo && (
                       <span className="mz-pill mz-pill--neutral ms-2">
@@ -635,14 +677,24 @@ function TarjetaCategoria({ categoria, recurso }) {
                   <td>
                     <select
                       className="form-select form-select-sm"
+                      aria-label={`Tipo de ${c.nombre}`}
+                      value={c.tipo}
+                      onChange={(e) => cambiar(c, { tipo: e.target.value })}
+                    >
+                      {TIPOS.map(([valor, etiqueta]) => (
+                        <option key={valor} value={valor}>
+                          {etiqueta}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className="form-select form-select-sm"
                       aria-label={`Prioridad de ${c.nombre}`}
                       value={c.prioridad}
                       onChange={(e) =>
-                        recurso.ejecutar(() =>
-                          soporteService.config.actualizar("casos", c.id, {
-                            prioridad: e.target.value,
-                          }),
-                        )
+                        cambiar(c, { prioridad: e.target.value })
                       }
                     >
                       {PRIORIDADES.map(([valor, etiqueta]) => (
@@ -652,17 +704,84 @@ function TarjetaCategoria({ categoria, recurso }) {
                       ))}
                     </select>
                   </td>
+                  <td>
+                    <select
+                      className="form-select form-select-sm"
+                      aria-label={`Nivel de entrada de ${c.nombre}`}
+                      value={c.nivel_inicial ?? ""}
+                      onChange={(e) =>
+                        cambiar(c, { nivel_inicial: e.target.value || null })
+                      }
+                    >
+                      <option value="">Primer nivel</option>
+                      {niveles.map((n) => (
+                        <option key={n.id} value={n.id}>
+                          N{n.orden} · {n.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0.25"
+                      step="0.25"
+                      className="form-control form-control-sm"
+                      aria-label={`Plazo propio de ${c.nombre}, en horas`}
+                      placeholder="Reglas"
+                      defaultValue={c.minutos_plazo ? c.minutos_plazo / 60 : ""}
+                      onBlur={(e) => {
+                        const minutos = e.target.value
+                          ? Math.round(Number(e.target.value) * 60)
+                          : null;
+                        if (minutos !== c.minutos_plazo)
+                          cambiar(c, { minutos_plazo: minutos });
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <div className="form-check mb-1">
+                      <input
+                        id={`cs-jefe-${c.id}`}
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={c.aprueba_jefe_area}
+                        onChange={(e) =>
+                          cambiar(c, { aprueba_jefe_area: e.target.checked })
+                        }
+                      />
+                      <label
+                        className="form-check-label mz-small"
+                        htmlFor={`cs-jefe-${c.id}`}
+                      >
+                        Jefe de área
+                      </label>
+                    </div>
+                    <select
+                      multiple
+                      className="form-select form-select-sm soporte-aprueban"
+                      aria-label={`Áreas que aprueban ${c.nombre}`}
+                      value={(c.aprueban ?? []).map(String)}
+                      onChange={(e) =>
+                        cambiar(c, {
+                          aprueban: Array.from(e.target.selectedOptions).map(
+                            (o) => Number(o.value),
+                          ),
+                        })
+                      }
+                    >
+                      {areas.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="num">
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() =>
-                        recurso.ejecutar(() =>
-                          soporteService.config.actualizar("casos", c.id, {
-                            activo: !c.activo,
-                          }),
-                        )
-                      }
+                      onClick={() => cambiar(c, { activo: !c.activo })}
                     >
                       {c.activo ? "Desactivar" : "Activar"}
                     </button>
@@ -684,10 +803,48 @@ function TarjetaCategoria({ categoria, recurso }) {
                 }),
               )
             )
-              setCaso({ nombre: "", prioridad: "media" });
+              setCaso(CASO_NUEVO);
           }}
         >
-          <div className="col-12 col-md-7">
+          <div className="col-6 col-md-2">
+            <label
+              className="form-label mz-small"
+              htmlFor={`cs-codigo-${categoria.id}`}
+            >
+              Código
+            </label>
+            <input
+              id={`cs-codigo-${categoria.id}`}
+              className="form-control form-control-sm"
+              maxLength={20}
+              placeholder="TRK-06"
+              value={caso.codigo}
+              onChange={(e) =>
+                setCaso((v) => ({ ...v, codigo: e.target.value.toUpperCase() }))
+              }
+            />
+          </div>
+          <div className="col-6 col-md-2">
+            <label
+              className="form-label mz-small"
+              htmlFor={`cs-tipo-${categoria.id}`}
+            >
+              Tipo
+            </label>
+            <select
+              id={`cs-tipo-${categoria.id}`}
+              className="form-select form-select-sm"
+              value={caso.tipo}
+              onChange={(e) => setCaso((v) => ({ ...v, tipo: e.target.value }))}
+            >
+              {TIPOS.map(([valor, etiqueta]) => (
+                <option key={valor} value={valor}>
+                  {etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-12 col-md-3">
             <label
               className="form-label mz-small"
               htmlFor={`cs-nombre-${categoria.id}`}
@@ -711,7 +868,7 @@ function TarjetaCategoria({ categoria, recurso }) {
               className="form-label mz-small"
               htmlFor={`cs-prioridad-${categoria.id}`}
             >
-              Prioridad
+              Prioridad base
             </label>
             <select
               id={`cs-prioridad-${categoria.id}`}
@@ -762,6 +919,7 @@ export function SlaSoporte() {
     area: "",
     prioridad: "",
     horas: "",
+    respuesta: "",
   });
 
   useEffect(() => {
@@ -775,10 +933,13 @@ export function SlaSoporte() {
     <div className="soporte-page mz-stack">
       <Error texto={reglas.error} />
       <p className="mz-faint mb-0">
-        El plazo se cuenta en horas de atención, desde que un técnico toma el
-        ticket hasta que lo marca como atendido. Gana la regla más específica
-        (categoría, área y prioridad; vacío es «cualquiera»). Sin ninguna regla,
-        el plazo es de 8 horas.
+        Los plazos corren desde que se crea el ticket: la respuesta, hasta la
+        primera respuesta del equipo; la solución, hasta que se atiende. Los P1
+        se cuentan en horas calendario y los demás en el horario hábil de la
+        mesa (ver «Horario y metas»). Gana el plazo propio del caso; si no, la
+        regla más específica (categoría, área y prioridad; vacío es
+        «cualquiera»). Sin reglas rigen los de cada prioridad: P1 15 min / 4 h,
+        P2 30 min / 8 h, P3 2 h / 16 h y P4 4 h / 40 h.
       </p>
       <div className="mz-table-wrap">
         <table className="mz-table">
@@ -787,7 +948,8 @@ export function SlaSoporte() {
               <th>Categoría</th>
               <th>Área solicitante</th>
               <th>Prioridad</th>
-              <th>Plazo</th>
+              <th>Respuesta</th>
+              <th>Solución</th>
               <th aria-label="Acciones" />
             </tr>
           </thead>
@@ -797,6 +959,11 @@ export function SlaSoporte() {
                 <td>{r.categoria_nombre || "Cualquiera"}</td>
                 <td>{r.area_nombre || "Cualquiera"}</td>
                 <td>{r.prioridad_display || "Cualquiera"}</td>
+                <td>
+                  {r.minutos_respuesta
+                    ? horasYMinutos(r.minutos_respuesta)
+                    : "La de su prioridad"}
+                </td>
                 <td>{horasYMinutos(r.minutos)}</td>
                 <td className="num">
                   <button
@@ -815,8 +982,8 @@ export function SlaSoporte() {
             ))}
             {reglas.lista?.length === 0 && (
               <tr className="mz-empty-row">
-                <td colSpan={5}>
-                  Sin reglas: todos los tickets tienen 8 horas
+                <td colSpan={6}>
+                  Sin reglas: rigen los plazos de cada prioridad
                 </td>
               </tr>
             )}
@@ -832,13 +999,22 @@ export function SlaSoporte() {
             area: nueva.area || null,
             prioridad: nueva.prioridad,
             minutos: Math.round(Number(nueva.horas) * 60),
+            minutos_respuesta: nueva.respuesta
+              ? Math.round(Number(nueva.respuesta) * 60)
+              : null,
           };
           if (
             await reglas.ejecutar(() =>
               soporteService.config.crear("sla", datos),
             )
           )
-            setNueva({ categoria: "", area: "", prioridad: "", horas: "" });
+            setNueva({
+              categoria: "",
+              area: "",
+              prioridad: "",
+              horas: "",
+              respuesta: "",
+            });
         }}
       >
         <div className="mz-card-body row g-2 align-items-end">
@@ -903,8 +1079,25 @@ export function SlaSoporte() {
             </select>
           </div>
           <div className="col-6 col-md-2">
+            <label className="form-label mz-small" htmlFor="sla-respuesta">
+              Respuesta (horas)
+            </label>
+            <input
+              id="sla-respuesta"
+              type="number"
+              min="0.05"
+              step="0.05"
+              className="form-control form-control-sm"
+              placeholder="La de su prioridad"
+              value={nueva.respuesta}
+              onChange={(e) =>
+                setNueva((v) => ({ ...v, respuesta: e.target.value }))
+              }
+            />
+          </div>
+          <div className="col-6 col-md-2">
             <label className="form-label mz-small" htmlFor="sla-horas">
-              Plazo (horas)
+              Solución (horas)
             </label>
             <input
               id="sla-horas"
@@ -927,6 +1120,225 @@ export function SlaSoporte() {
         </div>
       </form>
     </div>
+  );
+}
+
+// --- Horario y metas -------------------------------------------------------------------
+
+/** El horario hábil de la mesa (mide los plazos de P2 a P4 y el cierre
+ * automático), sus feriados, las metas de cumplimiento y si los P1 corren las
+ * 24 horas. */
+export function HorarioMesaSoporte() {
+  const [mesa, setMesa] = useState(null);
+  const [error, setError] = useState(null);
+  const [aviso, setAviso] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    soporteService.config
+      .mesa()
+      .then(setMesa)
+      .catch((err) =>
+        setError(mensajeDeError(err, "No se pudo cargar la configuración.")),
+      );
+  }, []);
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    setGuardando(true);
+    setError(null);
+    setAviso(null);
+    try {
+      setMesa(
+        await soporteService.config.guardarMesa({
+          meta_sla: Number(mesa.meta_sla),
+          meta_sla_critica: Number(mesa.meta_sla_critica),
+          critica_24x7: mesa.critica_24x7,
+          dominios: mesa.dominios,
+          etiquetas: mesa.etiquetas,
+          horarios: mesa.horarios,
+          feriados: mesa.feriados,
+        }),
+      );
+      setAviso(
+        "Guardado. Rige para los tickets nuevos y para los que reanudan su plazo.",
+      );
+    } catch (err) {
+      setError(mensajeDeError(err, "No se pudo guardar."));
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!mesa) return <Error texto={error} />;
+
+  return (
+    <form className="soporte-page mz-stack" onSubmit={guardar}>
+      <Error texto={error} />
+      {aviso && (
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="check2-circle" />
+          {aviso}
+        </div>
+      )}
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Metas y P1</h3>
+        </div>
+        <div className="mz-card-body row g-3">
+          <div className="col-6 col-md-3">
+            <label className="form-label" htmlFor="ms-meta">
+              Meta de cumplimiento (%)
+            </label>
+            <input
+              id="ms-meta"
+              type="number"
+              min="1"
+              max="100"
+              className="form-control"
+              required
+              value={mesa.meta_sla}
+              onChange={(e) => setMesa({ ...mesa, meta_sla: e.target.value })}
+            />
+          </div>
+          <div className="col-6 col-md-3">
+            <label className="form-label" htmlFor="ms-meta-p1">
+              Meta de los P1 (%)
+            </label>
+            <input
+              id="ms-meta-p1"
+              type="number"
+              min="1"
+              max="100"
+              className="form-control"
+              required
+              value={mesa.meta_sla_critica}
+              onChange={(e) =>
+                setMesa({ ...mesa, meta_sla_critica: e.target.value })
+              }
+            />
+          </div>
+          <div className="col-12 col-md-6 d-flex align-items-end">
+            <div className="form-check">
+              <input
+                id="ms-24x7"
+                type="checkbox"
+                className="form-check-input"
+                checked={mesa.critica_24x7}
+                onChange={(e) =>
+                  setMesa({ ...mesa, critica_24x7: e.target.checked })
+                }
+              />
+              <label className="form-check-label" htmlFor="ms-24x7">
+                Los P1 se miden en horas calendario (24/7)
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Quién puede crear tickets</h3>
+        </div>
+        <div className="mz-card-body">
+          <label className="form-label" htmlFor="ms-dominios">
+            Dominios de correo internos
+          </label>
+          <input
+            id="ms-dominios"
+            className="form-control"
+            maxLength={255}
+            placeholder="grupolaar.com"
+            value={mesa.dominios}
+            onChange={(e) => setMesa({ ...mesa, dominios: e.target.value })}
+          />
+          <div className="form-text">
+            Separados por comas. Solo quien escribe desde uno de ellos crea
+            tickets; vacío, cualquiera.
+          </div>
+        </div>
+      </section>
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Nombres de estados y prioridades</h3>
+        </div>
+        <div className="mz-card-body row g-3">
+          <p className="col-12 mz-small mz-faint mb-0">
+            Cómo se llaman en las pantallas, los correos y los reportes. Vacío:
+            el nombre de siempre.
+          </p>
+          {[
+            ["estados", "Estados"],
+            ["prioridades", "Prioridades"],
+          ].map(([grupo, titulo]) => (
+            <fieldset key={grupo} className="col-12 col-md-6">
+              <legend className="form-label">{titulo}</legend>
+              {Object.entries(mesa.etiquetas_por_defecto?.[grupo] ?? {}).map(
+                ([valor, porDefecto]) => (
+                  <div key={valor} className="soporte-nombre">
+                    <label
+                      className="mz-small"
+                      htmlFor={`ms-${grupo}-${valor}`}
+                    >
+                      {porDefecto}
+                    </label>
+                    <input
+                      id={`ms-${grupo}-${valor}`}
+                      className="form-control form-control-sm"
+                      maxLength={40}
+                      placeholder={porDefecto}
+                      value={mesa.etiquetas?.[grupo]?.[valor] ?? ""}
+                      onChange={(e) =>
+                        setMesa({
+                          ...mesa,
+                          etiquetas: {
+                            ...mesa.etiquetas,
+                            [grupo]: {
+                              ...(mesa.etiquetas?.[grupo] ?? {}),
+                              [valor]: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                ),
+              )}
+            </fieldset>
+          ))}
+        </div>
+      </section>
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Horario hábil y feriados</h3>
+        </div>
+        <div className="mz-card-body">
+          {mesa.horario_por_defecto && (
+            <p className="mz-small mz-faint">
+              Rige el horario por defecto (lunes a viernes, 08:00 a 17:30) hasta
+              que guarde uno.
+            </p>
+          )}
+          <EditorDeAgenda
+            horarios={mesa.horarios}
+            ausencias={mesa.feriados}
+            onCambiar={({ horarios, ausencias }) =>
+              setMesa({ ...mesa, horarios, feriados: ausencias })
+            }
+            textos={{
+              horario: "Horario hábil de la mesa",
+              sinFranjas: "Sin franjas: rige el horario por defecto.",
+              ausencias: "Feriados y cierres (no cuentan para los plazos)",
+            }}
+          />
+        </div>
+      </section>
+      <div className="mz-actions justify-content-end">
+        <button type="submit" className="btn btn-primary" disabled={guardando}>
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+      </div>
+    </form>
   );
 }
 

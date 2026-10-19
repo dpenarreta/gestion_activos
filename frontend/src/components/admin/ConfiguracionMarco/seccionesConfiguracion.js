@@ -189,6 +189,10 @@ export const SECCIONES_CONFIGURACION = [
       },
       { nombre: "SLA", path: "/admin/configuracion/soporte/sla" },
       {
+        nombre: "Horario y metas",
+        path: "/admin/configuracion/soporte/horario",
+      },
+      {
         nombre: "Respuestas predefinidas",
         path: "/admin/configuracion/soporte/respuestas",
       },

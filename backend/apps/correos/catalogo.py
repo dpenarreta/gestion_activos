@@ -618,13 +618,106 @@ PLANTILLAS_SOPORTE = (
                 "problema sigue, respóndanos ahí mismo y el ticket se reabre."
             ),
             filas=_SOPORTE_FILAS,
-            cuerpo="Si no recibimos respuesta en {{dias_cierre}} día(s), el ticket se cerrará solo.",
+            cuerpo="Si no recibimos respuesta en {{dias_cierre}} día(s) hábiles, el ticket se "
+            "cerrará solo.",
             boton="Confirmar o responder",
         ),
         variables=_SOPORTE_VARIABLES
         + (
             Variable("tecnico", "Quién lo atendió", "Jorge Andrade"),
             Variable("dias_cierre", "Días hasta el cierre automático", "3"),
+            Variable(
+                "enlace",
+                "Enlace secreto de seguimiento",
+                "https://activos.empresa.com/soporte/seguimiento/…",
+            ),
+        ),
+        razon=_SOPORTE_RAZON,
+    ),
+    Plantilla(
+        clave="soporte.ticket_cerrado",
+        nombre="Ticket cerrado (encuesta)",
+        modulo="Mesa de ayuda",
+        descripcion=(
+            "Cuando un ticket atendido se cierra solo por falta de respuesta. Llega a quien lo "
+            "creó, con el enlace a la encuesta de satisfacción."
+        ),
+        asunto="[{{numero}}] ¿Cómo lo atendimos?",
+        html=_aviso(
+            encabezado="Su ticket se cerró",
+            saludo=(
+                "Hola {{nombre}}: como no recibimos respuesta, cerramos su ticket. Nos ayuda mucho "
+                "saber cómo lo atendimos: son tres preguntas y toma menos de un minuto."
+            ),
+            filas=_SOPORTE_FILAS,
+            cuerpo="Si el problema sigue, cree un ticket nuevo desde el formulario.",
+            boton="Responder la encuesta",
+        ),
+        variables=_SOPORTE_VARIABLES
+        + (
+            Variable("tecnico", "Quién lo atendió", "Jorge Andrade"),
+            Variable(
+                "enlace",
+                "Enlace a la encuesta (la página de seguimiento)",
+                "https://activos.empresa.com/soporte/seguimiento/…#encuesta",
+            ),
+        ),
+        razon=_SOPORTE_RAZON,
+    ),
+    Plantilla(
+        clave="soporte.aprobacion_pendiente",
+        nombre="Solicitud por aprobar",
+        modulo="Mesa de ayuda",
+        descripcion=(
+            "Cuando una solicitud de soporte necesita visto bueno (jefe de área, Talento "
+            "Humano…). Llega al aprobador, que entra al sistema para decidir."
+        ),
+        asunto="[{{numero}}] Solicitud por aprobar: {{caso}}",
+        html=_aviso(
+            encabezado="Una solicitud espera su aprobación",
+            saludo=(
+                "{{nombre}} pidió <strong>{{caso}}</strong> y necesita el visto bueno de "
+                "<strong>{{rol}}</strong> para que soporte la atienda."
+            ),
+            filas=_SOPORTE_FILAS,
+            cuerpo="«{{descripcion}}». Para aprobar o rechazar, entre al sistema con su cuenta.",
+            boton="Revisar en el sistema",
+        ),
+        variables=_SOPORTE_VARIABLES
+        + (
+            Variable("rol", "Por qué le toca aprobar", "Jefe de área (Cobranzas)"),
+            Variable("descripcion", "Lo que escribió quien pidió", "Necesito acceso a la VPN"),
+            Variable(
+                "enlace",
+                "Las aprobaciones pendientes en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/aprobaciones",
+            ),
+        ),
+        razon=(
+            "Le llega porque es responsable de un área que debe aprobar esta solicitud. "
+            "Se aprueba entrando al sistema con su cuenta."
+        ),
+    ),
+    Plantilla(
+        clave="soporte.solicitud_rechazada",
+        nombre="Solicitud no aprobada",
+        modulo="Mesa de ayuda",
+        descripcion="Cuando un aprobador rechaza una solicitud. Llega a quien la pidió.",
+        asunto="[{{numero}}] Su solicitud no fue aprobada",
+        html=_aviso(
+            encabezado="Su solicitud no fue aprobada",
+            saludo=(
+                "Hola {{nombre}}: <strong>{{rol}}</strong> no aprobó su solicitud, así que "
+                "se cerró sin atenderse."
+            ),
+            filas=_SOPORTE_FILAS,
+            cuerpo="Motivo: «{{motivo}}». Si tiene dudas, consúltelo con quien la revisó.",
+            boton="Ver mi solicitud",
+        ),
+        variables=_SOPORTE_VARIABLES
+        + (
+            Variable("rol", "Quién la rechazó", "Jefe de área (Cobranzas)"),
+            Variable("motivo", "Por qué no la aprobó", "No corresponde a su cargo"),
             Variable(
                 "enlace",
                 "Enlace secreto de seguimiento",

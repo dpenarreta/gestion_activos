@@ -21,13 +21,16 @@ import { Bandeja } from "../pages/Soporte/Bandeja";
 import {
   CategoriasSoporte,
   EquipoSoporte,
+  HorarioMesaSoporte,
   RespuestasSoporte,
   SlaSoporte,
 } from "../pages/Soporte/Configuracion/ConfiguracionSoporte";
+import { AprobacionesPage } from "../pages/Aprobaciones/AprobacionesPage";
 import { NotificacionesPage } from "../pages/Notificaciones/NotificacionesPage";
 import { FormularioEditor } from "../pages/Soporte/FormularioEditor";
 import { HorasFuera } from "../pages/Soporte/HorasFuera";
 import { MiHorario } from "../pages/Soporte/MiHorario";
+import { RegistrarTicket } from "../pages/Soporte/RegistrarTicket";
 import { FormularioSoporte } from "../pages/Soporte/Publico/FormularioSoporte";
 import { SeguimientoTicket } from "../pages/Soporte/Publico/SeguimientoTicket";
 import { ReportesSoporte } from "../pages/Soporte/ReportesSoporte";
@@ -426,6 +429,9 @@ export function AppRoutes() {
         />
         {/* Las notificaciones de la campana: cada quien las suyas. */}
         <Route path="notificaciones" element={<NotificacionesPage />} />
+        {/* Aprobaciones: llega quien debe dar el visto bueno, aunque no
+            tenga permisos de la mesa (lo decide el servidor). */}
+        <Route path="aprobaciones" element={<AprobacionesPage />} />
         {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
         <Route
           path="soporte"
@@ -441,6 +447,7 @@ export function AppRoutes() {
           }
         />
         <Route path="soporte/tickets/:id" element={<TicketDetalle />} />
+        <Route path="soporte/registrar" element={<RegistrarTicket />} />
         <Route
           path="soporte/mi-horario"
           element={
@@ -479,6 +486,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission="soporte.configurar">
               <SlaSoporte />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/soporte/horario"
+          element={
+            <RequirePermission permission="soporte.configurar">
+              <HorarioMesaSoporte />
             </RequirePermission>
           }
         />

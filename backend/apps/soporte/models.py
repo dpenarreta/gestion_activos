@@ -30,10 +30,46 @@ from apps.empresas.models import ModeloDeEmpresa
 
 
 class Prioridad(models.TextChoices):
-    CRITICA = "critica", "Crítica"
-    ALTA = "alta", "Alta"
-    MEDIA = "media", "Media"
-    BAJA = "baja", "Baja"
+    """P1 a P4 del flujo ITIL de la empresa. Los valores guardados siguen siendo
+    los de siempre; la etiqueta dice las dos cosas."""
+
+    CRITICA = "critica", "P1 · Crítica"
+    ALTA = "alta", "P2 · Alta"
+    MEDIA = "media", "P3 · Media"
+    BAJA = "baja", "P4 · Baja"
+
+
+class TipoTicket(models.TextChoices):
+    INCIDENTE = "incidente", "Incidente"
+    SOLICITUD = "solicitud", "Solicitud"
+    CONSULTA = "consulta", "Consulta"
+
+
+class Impacto(models.TextChoices):
+    """A cuántos afecta: la mitad de la matriz de prioridad."""
+
+    ALTO = "alto", "Alto: toda la empresa, una sucursal o un proceso crítico"
+    MEDIO = "medio", "Medio: un área o un grupo"
+    BAJO = "bajo", "Bajo: un usuario"
+
+
+class Urgencia(models.TextChoices):
+    """Cuánto apura: la otra mitad de la matriz."""
+
+    ALTA = "alta", "Alta: la operación está detenida"
+    MEDIA = "media", "Media: degradada, con alternativa"
+    BAJA = "baja", "Baja: puede programarse"
+
+
+class Canal(models.TextChoices):
+    """Por dónde llegó el ticket. Solo el portal es autoservicio; los demás los
+    registra el equipo en nombre de quien pide."""
+
+    PORTAL = "portal", "Portal (formulario)"
+    TELEFONO = "telefono", "Teléfono"
+    WHATSAPP = "whatsapp", "WhatsApp"
+    PRESENCIAL = "presencial", "Presencial"
+    CORREO = "correo", "Correo"
 
 
 # --- Configuración (por empresa) -------------------------------------------------------
@@ -83,13 +119,37 @@ class Categoria(ModeloDeEmpresa):
 
 
 class CasoAyuda(BaseModel):
-    """El caso concreto dentro de una categoría («No enciende el equipo»).
-    Elegirlo en el formulario fija la prioridad del ticket."""
+    """Un servicio del catálogo dentro de una categoría («TRK-01 Falla general
+    del tracking»). Elegirlo en el formulario fija el tipo, la prioridad base,
+    el nivel por donde entra y, si lo tiene, su plazo propio."""
 
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name="casos")
+    #: El código del catálogo de servicios (TRK-01, ERP-04…). Opcional.
+    codigo = models.CharField(max_length=20, blank=True)
     nombre = models.CharField(max_length=120)
+    tipo = models.CharField(max_length=10, choices=TipoTicket.choices, default=TipoTicket.INCIDENTE)
     prioridad = models.CharField(max_length=10, choices=Prioridad.choices, default=Prioridad.MEDIA)
+    #: Por dónde entra (un caso de infraestructura puede ir directo a N2).
+    #: Vacío: el primer nivel.
+    nivel_inicial = models.ForeignKey(
+        NivelSoporte, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    #: Plazo propio de solución (o de entrega, en una solicitud), en minutos.
+    #: Gana sobre las reglas de SLA. Vacío: las reglas.
+    minutos_plazo = models.PositiveIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(5)]
+    )
+    #: Si lo aprueba el jefe del área de quien pide (el responsable del área).
+    aprueba_jefe_area = models.BooleanField(default=False)
+    #: Áreas cuyo responsable también aprueba (Talento Humano, Financiero…).
+    aprueban = models.ManyToManyField(
+        "organizacion.Departamento", blank=True, related_name="casos_que_aprueba"
+    )
     activo = models.BooleanField(default=True)
+
+    @property
+    def requiere_aprobacion(self) -> bool:
+        return self.aprueba_jefe_area or self.aprueban.exists()
 
     objects = gestor_de_lo_que_cuelga("categoria__empresa")
 
@@ -171,11 +231,73 @@ class ReglaSLA(ModeloDeEmpresa):
     prioridad = models.CharField(max_length=10, choices=Prioridad.choices, blank=True)
     minutos = models.PositiveIntegerField(
         validators=[MinValueValidator(5)],
-        help_text="Minutos hábiles desde que se toma el ticket hasta marcarlo atendido.",
+        help_text="Minutos para resolver, desde que se crea el ticket, en el calendario de "
+        "su prioridad.",
+    )
+    #: Minutos para la primera respuesta. Vacío: el de su prioridad por defecto.
+    minutos_respuesta = models.PositiveIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)]
     )
 
     class Meta:
         ordering = ["categoria__nombre", "prioridad"]
+
+
+class ConfiguracionMesa(ModeloDeEmpresa):
+    """Lo general de la mesa de la empresa: sus metas y si los P1 corren 24/7.
+
+    Una fila por empresa; si no existe, rigen los valores por defecto.
+    """
+
+    #: Porcentaje de tickets que deben resolverse dentro del SLA.
+    meta_sla = models.PositiveSmallIntegerField(
+        default=85, validators=[MinValueValidator(1), MaxValueValidator(100)]
+    )
+    #: Y el de los P1.
+    meta_sla_critica = models.PositiveSmallIntegerField(
+        default=95, validators=[MinValueValidator(1), MaxValueValidator(100)]
+    )
+    #: Los P1 se miden en horas calendario (las 24 h). Si no, en horario hábil.
+    critica_24x7 = models.BooleanField(default=True)
+    #: Dominios de correo internos, separados por comas («grupolaar.com»). Solo
+    #: quien escribe desde uno de ellos crea tickets. Vacío: cualquiera.
+    dominios = models.CharField(max_length=255, blank=True)
+    #: Los nombres propios de la empresa para estados y prioridades:
+    #: ``{"estados": {"atendido": "Resuelto"}, "prioridades": {"critica": "P1"}}``.
+    etiquetas = models.JSONField(default=dict, blank=True)
+
+    def lista_de_dominios(self) -> list[str]:
+        return [
+            d.strip().lstrip("@").lower() for d in (self.dominios or "").split(",") if d.strip()
+        ]
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["empresa"], name="configuracion_mesa_unica")]
+
+
+class HorarioMesa(ModeloDeEmpresa):
+    """Una franja del horario hábil de la mesa: con él se miden los plazos de
+    P2 a P4 y se cuentan los días del cierre automático."""
+
+    dia_semana = models.PositiveSmallIntegerField(
+        validators=[MaxValueValidator(6)], help_text="0 = lunes … 6 = domingo"
+    )
+    hora_inicio = models.TimeField(default=time(8, 0))
+    hora_fin = models.TimeField(default=time(17, 30))
+
+    class Meta:
+        ordering = ["dia_semana", "hora_inicio"]
+
+
+class FeriadoMesa(ModeloDeEmpresa):
+    """Fechas sin atención hábil (feriados, cierres): no cuentan para el plazo."""
+
+    desde = models.DateField()
+    hasta = models.DateField()
+    motivo = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ["desde"]
 
 
 class RespuestaPredefinida(ModeloDeEmpresa):
@@ -223,10 +345,14 @@ class CampoFormulario(ModeloDeEmpresa):
         "categoria": ("Categoría", Tipo.LISTA),
         "caso": ("Caso de ayuda", Tipo.LISTA),
         "descripcion": ("Describa el problema", Tipo.PARRAFO),
+        # La matriz de prioridad: con estas dos respuestas el ticket puede
+        # subir sobre la prioridad base de su caso.
+        "impacto": ("¿A quién afecta?", Tipo.LISTA),
+        "urgencia": ("¿Puede seguir trabajando?", Tipo.LISTA),
     }
     #: Los del sistema que se pueden ocultar o volver opcionales. El resto los
     #: necesitan la cola, la prioridad o los avisos.
-    BASE_OCULTABLES = ("telefono", "sede", "area")
+    BASE_OCULTABLES = ("telefono", "sede", "area", "impacto", "urgencia")
 
     clave = models.SlugField(max_length=40)
     etiqueta = models.CharField(max_length=120)
@@ -270,6 +396,9 @@ class Ticket(ModeloDeEmpresa):
         ASIGNADO = "asignado", "Asignado"
         EN_CURSO = "en_curso", "En curso"
         ESPERANDO_USUARIO = "esperando_usuario", "Esperando al usuario"
+        #: Una solicitud que necesita visto bueno: no entra a la cola hasta
+        #: que aprueban todos.
+        ESPERANDO_APROBACION = "esperando_aprobacion", "Esperando aprobación"
         ATENDIDO = "atendido", "Atendido"
         CERRADO = "cerrado", "Cerrado"
 
@@ -307,6 +436,16 @@ class Ticket(ModeloDeEmpresa):
     #: ``[{"clave", "etiqueta", "valor"}]``.
     datos_adicionales = models.JSONField(default=list, blank=True)
 
+    tipo = models.CharField(max_length=10, choices=TipoTicket.choices, default=TipoTicket.INCIDENTE)
+    canal = models.CharField(max_length=12, choices=Canal.choices, default=Canal.PORTAL)
+    #: Quién lo registró en nombre del usuario (vacío: lo creó él en el portal).
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    impacto = models.CharField(max_length=6, choices=Impacto.choices, blank=True)
+    urgencia = models.CharField(max_length=6, choices=Urgencia.choices, blank=True)
+    #: La del caso elegido; `prioridad` puede subir por la matriz o ajustarse.
+    prioridad_base = models.CharField(max_length=10, choices=Prioridad.choices, blank=True)
     prioridad = models.CharField(max_length=10, choices=Prioridad.choices)
     estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.NUEVO)
     nivel = models.ForeignKey(NivelSoporte, on_delete=models.PROTECT, related_name="tickets")
@@ -319,12 +458,22 @@ class Ticket(ModeloDeEmpresa):
     #: Entró cuando nadie habilitado estaba en horario.
     fuera_de_horario = models.BooleanField(default=False)
     tomado_en = models.DateTimeField(null=True, blank=True)
+    #: La primera respuesta del equipo (pasar a curso, pedir datos o atender).
+    respondido_en = models.DateTimeField(null=True, blank=True)
     atendido_en = models.DateTimeField(null=True, blank=True)
     cerrado_en = models.DateTimeField(null=True, blank=True)
+    reaperturas = models.PositiveSmallIntegerField(default=0)
+    escalamientos = models.PositiveSmallIntegerField(default=0)
 
-    # SLA: plazo en minutos hábiles y su vencimiento, calculado al tomarlo con
-    # el horario del técnico. Esperar al usuario lo pausa: al volver se
-    # recalcula con lo que quedaba.
+    # SLA de respuesta: desde que se crea hasta la primera respuesta.
+    sla_respuesta_minutos = models.PositiveIntegerField(default=0)
+    sla_respuesta_vence = models.DateTimeField(null=True, blank=True)
+    sla_respuesta_vencida_notificada = models.BooleanField(default=False)
+
+    # SLA de solución, de punta a punta: corre desde que se crea, en el
+    # calendario de su prioridad, y no se reinicia al escalar. Se detiene al
+    # esperar al usuario y al quedar atendido; al volver (o al reabrirse) sigue
+    # con lo que quedaba.
     sla_minutos = models.PositiveIntegerField(default=0)
     sla_vence = models.DateTimeField(null=True, blank=True)
     sla_restante_al_pausar = models.PositiveIntegerField(null=True, blank=True)
@@ -333,6 +482,8 @@ class Ticket(ModeloDeEmpresa):
     sla_alerta_enviada = models.BooleanField(default=False)
     sla_vencido_notificado = models.BooleanField(default=False)
     escalado_por_sla = models.BooleanField(default=False)
+    #: Si se atendió dentro del plazo (se fija al atender; vacío mientras no).
+    sla_cumplido = models.BooleanField(null=True, blank=True)
 
     ip_origen = models.GenericIPAddressField(null=True, blank=True)
 
@@ -443,3 +594,48 @@ class HorasFueraDeHorario(BaseModel):
 
     class Meta:
         ordering = ["-fecha", "-created_at"]
+
+
+class EncuestaTicket(BaseModel):
+    """La encuesta de satisfacción de un ticket, desde el enlace de seguimiento."""
+
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name="encuesta")
+    calificacion = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    resuelto = models.BooleanField()
+    comentario = models.TextField(blank=True)
+
+    objects = gestor_de_lo_que_cuelga("ticket__empresa")
+
+
+class AprobacionTicket(BaseModel):
+    """Un visto bueno que pide una solicitud (jefe de área, Talento Humano…).
+
+    El aprobador entra al sistema para decidir: el correo solo lo lleva ahí.
+    Si no se pudo saber quién aprueba (el área no tiene responsable con
+    cuenta), decide quien coordina la mesa.
+    """
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        APROBADA = "aprobada", "Aprobada"
+        RECHAZADA = "rechazada", "Rechazada"
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="aprobaciones")
+    #: «Jefe de área (Cobranzas)», «Talento Humano»…
+    rol = models.CharField(max_length=120)
+    aprobador = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
+    decidido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decidido_en = models.DateTimeField(null=True, blank=True)
+    nota = models.CharField(max_length=500, blank=True)
+
+    objects = gestor_de_lo_que_cuelga("ticket__empresa")
+
+    class Meta:
+        ordering = ["created_at"]
