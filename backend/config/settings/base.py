@@ -102,6 +102,9 @@ INSTALLED_APPS = [
     "apps.chat",
     "apps.soporte",
     "apps.licencias",
+    "apps.sugerencias",
+    "apps.nomina",
+    "apps.capacitacion",
 ]
 
 MIDDLEWARE = [
@@ -289,6 +292,10 @@ REST_FRAMEWORK = {
         # de seguimiento, sin sesión. Frena el spam sin estorbar a una persona.
         # Chat: mensajes por minuto de cada persona; frena el spam y los bucles.
         "chat": env.str("CHAT_THROTTLE_RATE", default="60/min"),
+        # Rol de pagos: cada consulta confirma la contraseña de la cuenta; se
+        # limita como el inicio de sesión. Y los envíos al correo personal.
+        "rol_pagos": env.str("ROL_PAGOS_THROTTLE_RATE", default="10/min"),
+        "rol_pagos_envio": env.str("ROL_PAGOS_ENVIO_THROTTLE_RATE", default="10/hour"),
         # Lo que la pantalla consulta sola cada pocos segundos (novedades del
         # chat, la campana): va aparte del límite general por persona. Si no,
         # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000
@@ -438,6 +445,15 @@ EXTERNAL_DB_USER = env.str("EXTERNAL_DB_USER", default="")
 EXTERNAL_DB_PASSWORD = env.str("EXTERNAL_DB_PASSWORD", default="")
 EXTERNAL_DB_ENCRYPT = env.str("EXTERNAL_DB_ENCRYPT", default="yes")
 EXTERNAL_DB_TRUST_SERVER_CERTIFICATE = env.str("EXTERNAL_DB_TRUST_SERVER_CERTIFICATE", default="no")
+
+# Consultar rol de pagos (apps.nomina): el procedimiento almacenado de la base
+# externa que recibe año, mes y código de empleado. Sin él, en desarrollo se
+# usan datos de ejemplo (NOMINA_ROL_DEMO, por defecto igual a DEBUG).
+NOMINA_ROL_PROCEDIMIENTO = env.str("NOMINA_ROL_PROCEDIMIENTO", default="")
+
+# Onboarding (apps.capacitacion): días para completarlo desde que se asigna.
+CAPACITACION_DIAS_PLAZO = env.int("CAPACITACION_DIAS_PLAZO", default=15)
+NOMINA_ROL_DEMO = env.bool("NOMINA_ROL_DEMO", default=DEBUG)
 # El driver ODBC es el mismo de la base propia (el módulo de origen lo llama así).
 DB_ODBC_DRIVER = env.str("DB_DRIVER", default="ODBC Driver 18 for SQL Server")
 # Tamaño máximo del Excel de cartera (25 MiB, como el origen).

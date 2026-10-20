@@ -168,8 +168,19 @@ function Cargo({ cargo, cargos, conPersonas }) {
       {conPersonas && (
         <ul className="org-personas">
           {cargo.ocupantes.map((p) => (
-            <li key={p.id}>
-              <Icon name="person" /> {p.nombre}
+            <li
+              key={p.id}
+              className={p.sin_cuenta ? "org-personas__sin-cuenta" : undefined}
+              title={
+                p.sin_cuenta
+                  ? "Cargada desde la plantilla; todavía no tiene cuenta en el sistema"
+                  : undefined
+              }
+            >
+              <Icon name={p.sin_cuenta ? "person-dash" : "person"} /> {p.nombre}
+              {p.sin_cuenta && (
+                <span className="org-personas__etiqueta">sin cuenta</span>
+              )}
             </li>
           ))}
           {cargo.vacantes > 0 && (
@@ -259,19 +270,37 @@ export function OrganigramaPage() {
   // asignar cargos (`asignar`, que abre solo esa pestaña).
   const puedeEditar = usePermission("institucional.editar");
   const puedeAsignar = usePermission("institucional.asignar");
+  const puedePerfiles = usePermission("institucional.perfil_cargo");
+  const puedeHerramientas = usePermission("herramientas.gestionar");
+  const puedeCapacitacion = usePermission("capacitacion.gestionar");
+  const puedeResultados = usePermission("capacitacion.resultados");
+  // A Editar estructura se entra por la primera pestaña que se pueda abrir.
+  const entrada = [
+    [puedeEditar, "", "Editar estructura", "diagram-3"],
+    [puedeAsignar, "asignaciones", "Asignar cargos", "person-badge"],
+    [puedePerfiles, "perfiles", "Perfiles de cargo", "card-checklist"],
+    [puedeHerramientas, "herramientas", "Herramientas y licencias", "tools"],
+    [puedeCapacitacion, "capacitacion", "Capacitación", "mortarboard"],
+    [puedeResultados, "resultados", "Resultados de capacitación", "graph-up"],
+  ]
+    .filter(([puede]) => puede)
+    .map(([, pestana, texto, icono]) => ({ pestana, texto, icono }))[0];
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [conPersonas, setConPersonas] = useState(true);
   const [cerradas, setCerradas] = useState(() => new Set());
   const [buscar, setBuscar] = useState("");
 
-  useEffect(() => {
+  const cargar = () =>
     institucionalService
       .organigrama()
       .then(setDatos)
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudo cargar el organigrama.")),
       );
+
+  useEffect(() => {
+    cargar();
   }, []);
 
   const arbol = useMemo(() => (datos ? armarArbol(datos) : []), [datos]);
@@ -317,18 +346,13 @@ export function OrganigramaPage() {
             quién reportan y quién los ocupa.
           </p>
         </div>
-        {(puedeEditar || puedeAsignar) && (
+        {entrada && (
           <div className="mz-actions">
             <Link
-              to={
-                puedeEditar
-                  ? "/admin/institucional/estructura"
-                  : "/admin/institucional/estructura?pestana=asignaciones"
-              }
+              to={`/admin/institucional/estructura${entrada.pestana ? `?pestana=${entrada.pestana}` : ""}`}
               className="btn btn-outline-primary btn-sm"
             >
-              <Icon name={puedeEditar ? "diagram-3" : "person-badge"} />{" "}
-              {puedeEditar ? "Editar estructura" : "Asignar cargos"}
+              <Icon name={entrada.icono} /> {entrada.texto}
             </Link>
           </div>
         )}

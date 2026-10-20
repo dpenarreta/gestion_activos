@@ -261,6 +261,11 @@ su ficha. Sus datos de contacto salen de «Mis datos» (`DatosDeContacto`):
 - **Quién lo ve:** toda persona con sesión de la empresa. Un cumpleaños es un
   dato personal: se publica solo el día y el mes que se escriban, nunca el año
   de nacimiento, y conviene cargar solo los de quienes estén de acuerdo.
+- **Desde «Mi perfil» (2026-10-20):** cada persona decide si muestra su
+  cumpleaños. Activarlo pide aceptar en una ventana que sea público y la fecha;
+  se guardan solo día y mes y la fecha de la aceptación
+  (`DatosDeContacto.cumpleanos_aceptado_en`). Desactivarlo lo retira del
+  calendario y borra día, mes y aceptación. Cada cambio queda en la auditoría.
 - **Quién lo gestiona:** quien tiene `calendario.gestionar`; cada cambio
   queda en la auditoría.
 

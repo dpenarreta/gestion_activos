@@ -34,6 +34,7 @@ const servicio = {
   flujos: vi.fn(),
   guardarFlujo: vi.fn(),
   eliminarFlujo: vi.fn(),
+  evaluar: vi.fn(),
 };
 vi.mock("../src/api/licenciasService", () => ({ licenciasService: servicio }));
 
@@ -116,6 +117,7 @@ function pintar(elemento, ruta = "/") {
 beforeEach(() => {
   vi.clearAllMocks();
   permisos.lista = [];
+  servicio.evaluar.mockResolvedValue({ reglas: [], bloquea: false });
   servicio.solicitudes.mockResolvedValue([SOLICITUD]);
   servicio.resumen.mockResolvedValue({ por_aprobar: 1 });
   servicio.tipos.mockResolvedValue([VACACIONES]);
@@ -173,6 +175,133 @@ describe("Solicitud de permisos", () => {
     expect(
       await screen.findByText(/queda pendiente de Julia Paz/),
     ).toBeInTheDocument();
+  });
+
+  it("el calendario y los campos Desde y Hasta muestran lo mismo", async () => {
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+
+    // Escribir las fechas las marca en el calendario (y lo lleva a ese mes).
+    fireEvent.change(within(ventana).getByLabelText("Desde"), {
+      target: { value: "2026-12-07" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Hasta"), {
+      target: { value: "2026-12-09" },
+    });
+    const marcados = () =>
+      within(ventana)
+        .getAllByRole("gridcell")
+        .filter((c) => c.getAttribute("aria-selected") === "true")
+        .map((c) => c.textContent);
+    expect(within(ventana).getByText(/diciembre de 2026/)).toBeInTheDocument();
+    expect(marcados()).toEqual(["7", "8", "9"]);
+    expect(within(ventana).getByText("3 días en total")).toBeInTheDocument();
+
+    // Elegir en el calendario llena los campos: primer clic el inicio,
+    // segundo el fin.
+    fireEvent.click(
+      within(ventana).getByRole("gridcell", {
+        name: "14 de diciembre de 2026",
+      }),
+    );
+    expect(within(ventana).getByLabelText("Desde")).toHaveValue("2026-12-14");
+    expect(within(ventana).getByLabelText("Hasta")).toHaveValue("2026-12-14");
+    fireEvent.click(
+      within(ventana).getByRole("gridcell", {
+        name: "18 de diciembre de 2026",
+      }),
+    );
+    expect(within(ventana).getByLabelText("Hasta")).toHaveValue("2026-12-18");
+    expect(marcados()).toEqual(["14", "15", "16", "17", "18"]);
+    expect(within(ventana).getByText("5 días en total")).toBeInTheDocument();
+  });
+
+  it("debajo de los días muestra las restricciones y no deja enviar si falla una", async () => {
+    servicio.evaluar.mockResolvedValue({
+      bloquea: true,
+      reglas: [
+        {
+          clave: "minimo",
+          estado: "falla",
+          texto: "Mínimo 5 días seguidos por solicitud.",
+          detalle: "Ha elegido 3 días.",
+        },
+        {
+          clave: "fines-1",
+          estado: "aviso",
+          texto:
+            "De cada período anual deben salir al menos 2 sábados y 2 domingos.",
+          detalle: "Período 2024 – 2025, con esta solicitud: 0 de 2 sábados.",
+        },
+      ],
+    });
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    fireEvent.change(within(ventana).getByLabelText("Desde"), {
+      target: { value: "2026-11-02" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Hasta"), {
+      target: { value: "2026-11-04" },
+    });
+    const restricciones = await within(ventana).findByRole("region", {
+      name: "Restricciones de este permiso",
+    });
+    expect(servicio.evaluar).toHaveBeenLastCalledWith(
+      "1",
+      "2026-11-02",
+      "2026-11-04",
+    );
+    expect(
+      within(restricciones).getByText("Mínimo 5 días seguidos por solicitud."),
+    ).toBeInTheDocument();
+    expect(
+      within(restricciones).getByText("Ha elegido 3 días."),
+    ).toBeInTheDocument();
+    expect(
+      within(restricciones).getByText(/0 de 2 sábados/),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    ).toBeDisabled();
+  });
+
+  it("sin rol asignado no deja hacer solicitudes y explica por qué", async () => {
+    servicio.resumen.mockResolvedValue({
+      por_aprobar: 0,
+      puede_solicitar: false,
+    });
+    pintar(<SolicitudPermisosPage />);
+    expect(
+      await screen.findByText(/Su cuenta no tiene un rol asignado/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Nueva solicitud/ }),
+    ).toBeDisabled();
+  });
+
+  it("un tipo que no pide motivo (vacaciones) no muestra el campo", async () => {
+    servicio.tipos.mockResolvedValue([{ ...VACACIONES, pide_motivo: false }]);
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    expect(within(ventana).queryByLabelText("Motivo")).toBeNull();
   });
 
   it("el detalle (desde el aviso de la campana) muestra el historial y deja aprobar", async () => {
@@ -241,6 +370,14 @@ describe("Configurar flujos", () => {
     fireEvent.change(within(ventana).getByLabelText("Nombre del permiso"), {
       target: { value: "Permiso médico" },
     });
+    fireEvent.change(
+      within(ventana).getByLabelText("Máximo de días seguidos"),
+      {
+        target: { value: "3" },
+      },
+    );
+    // Los fines de semana solo aplican si se descuenta de las vacaciones.
+    expect(within(ventana).queryByLabelText("Sábados por período")).toBeNull();
     // El primer paso trae al jefe inmediato; se suma Talento Humano como
     // alternativa (cualquiera de los dos aprueba).
     fireEvent.click(
@@ -272,6 +409,8 @@ describe("Configurar flujos", () => {
         undefined,
         expect.objectContaining({
           nombre: "Permiso médico",
+          dias_maximos: 3,
+          descuenta_vacaciones: false,
           pasos: [
             {
               nombre: "Jefatura",

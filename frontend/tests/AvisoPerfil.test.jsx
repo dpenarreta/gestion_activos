@@ -1,19 +1,27 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
- * El aviso de «Complete su información».
+ * El perfil obligatorio al entrar (20/10/2026).
  *
- * Sale al iniciar sesión si al perfil le faltan datos (los que la Mesa de
- * ayuda carga en cada ticket), para que se llenen desde el principio. Si la
- * persona lo cierra, no vuelve a salir hasta su próximo inicio de sesión: los
- * cambios después se hacen en «Mi perfil».
+ * Si a la persona le falta cualquiera de nombres, apellidos, correo
+ * institucional, teléfono, área, agencia o cargo, el sistema queda bloqueado
+ * con una ventana que no se cierra: informa qué falta, dice que es
+ * obligatorio y solo se sale completándolo (o cerrando la sesión). Vuelve en
+ * cada carga mientras falte algo.
  */
 
 const misDatos = { obtener: vi.fn(), guardar: vi.fn() };
 vi.mock("../src/api/misDatosService", () => ({ misDatosService: misDatos }));
+const logout = vi.fn();
 vi.mock("../src/hooks/useAuth", () => ({
-  useAuth: () => ({ user: { id: 7 } }),
+  useAuth: () => ({ user: { id: 7 }, logout }),
 }));
 
 const { AvisoPerfil } =
@@ -24,76 +32,169 @@ const COMPLETOS = {
   nombres: "Carla",
   apellidos: "Ordóñez",
   correo: "carla@grupolaar.com",
+  correo_institucional: true,
   telefono: "0994182273",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },
+  cargo: { id: 5, nombre: "Analista · Cobranzas" },
   areas: [{ id: 2, nombre: "Cobranzas" }],
   agencias: [{ id: 1, nombre: "Loja · Agencia" }],
+  cargos: [{ id: 5, nombre: "Analista · Cobranzas" }],
   faltan: [],
 };
 const INCOMPLETOS = {
   ...COMPLETOS,
   telefono: "",
   agencia: null,
-  faltan: ["telefono", "agencia"],
+  cargo: null,
+  faltan: ["telefono", "agencia", "cargo"],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  sessionStorage.clear();
 });
 
-describe("Aviso de perfil incompleto", () => {
-  it("con todo completo no aparece", async () => {
+async function ventana() {
+  return screen.findByRole("dialog", {
+    name: "Complete su información para continuar",
+  });
+}
+
+describe("Perfil obligatorio al entrar", () => {
+  it("con todo completo no bloquea", async () => {
     misDatos.obtener.mockResolvedValue(COMPLETOS);
     render(<AvisoPerfil />);
     await waitFor(() => expect(misDatos.obtener).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("si faltan datos los pide y al guardarlos se cierra", async () => {
+  it("informa qué falta, que es obligatorio, y al completarlo deja continuar", async () => {
     misDatos.obtener.mockResolvedValue(INCOMPLETOS);
     misDatos.guardar.mockResolvedValue(COMPLETOS);
     render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    expect(within(dialogo).getByText(/Es obligatorio/)).toBeInTheDocument();
 
-    expect(
-      await screen.findByRole("dialog", { name: "Complete su información" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/teléfono y agencia/)).toBeInTheDocument();
-    // Área, agencia y cargo en la misma línea; el cargo, mientras el
-    // catálogo esté vacío, no tiene qué elegir y no es obligatorio.
-    const cargo = screen.getByLabelText("Cargo");
-    expect(cargo).not.toBeRequired();
-    expect(cargo).toHaveDisplayValue("Sin cargos disponibles");
-    expect(cargo.closest(".col-md-4")).not.toBeNull();
-    expect(screen.getByLabelText("Área").closest(".col-md-4")).not.toBeNull();
-    fireEvent.change(screen.getByLabelText("Teléfono"), {
+    // Los siete datos, cada uno con si falta o está completo.
+    const lista = within(dialogo).getByRole("list", {
+      name: "Datos obligatorios",
+    });
+    const estados = within(lista)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(estados).toEqual([
+      "Nombres: completo",
+      "Apellidos: completo",
+      "Correo institucional: completo",
+      "Teléfono: falta",
+      "Área: completo",
+      "Agencia: falta",
+      "Cargo: falta",
+    ]);
+    expect(within(dialogo).getByLabelText("Cargo")).toBeRequired();
+
+    fireEvent.change(within(dialogo).getByLabelText("Teléfono"), {
       target: { value: "0994182273" },
     });
-    fireEvent.change(screen.getByLabelText("Agencia"), {
+    fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
       target: { value: "1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-
+    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: "Guardar y continuar" }),
+    );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(misDatos.guardar).toHaveBeenCalledWith(
-      expect.objectContaining({ telefono: "0994182273", agencia: "1" }),
+      expect.objectContaining({
+        telefono: "0994182273",
+        agencia: "1",
+        cargo: "5",
+      }),
     );
   });
 
-  it("«Completar después» lo cierra y no vuelve en la misma sesión", async () => {
+  it("el cargo se elige una sola vez: al elegirlo se advierte, y si ya tiene uno no se cambia", async () => {
     misDatos.obtener.mockResolvedValue(INCOMPLETOS);
     const { unmount } = render(<AvisoPerfil />);
-
-    fireEvent.click(
-      (await screen.findAllByRole("button", { name: "Completar después" }))[0],
+    let dialogo = await ventana();
+    expect(within(dialogo).queryByRole("alert")).toBeNull();
+    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+      target: { value: "5" },
+    });
+    expect(within(dialogo).getByRole("alert")).toHaveTextContent(
+      /no podrá cambiarlo usted: solo TI o la administración/,
     );
-    expect(screen.queryByRole("dialog")).toBeNull();
     unmount();
 
-    // Otra pantalla del panel, misma sesión: ni siquiera se consulta.
+    // Con cargo ya elegido, el campo queda fijo y dice quién lo cambia.
+    misDatos.obtener.mockResolvedValue({
+      ...COMPLETOS,
+      telefono: "",
+      faltan: ["telefono"],
+    });
     render(<AvisoPerfil />);
-    expect(misDatos.obtener).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    dialogo = await ventana();
+    expect(within(dialogo).getByLabelText("Cargo")).toBeDisabled();
+    expect(
+      within(dialogo).getByText(/solo lo cambia TI o la administración/),
+    ).toBeInTheDocument();
+  });
+
+  it("no se cierra: ni con Escape, ni con clic fuera, ni hay «Completar después»", async () => {
+    misDatos.obtener.mockResolvedValue(INCOMPLETOS);
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    expect(
+      within(dialogo).queryByRole("button", { name: /Cerrar$|después/ }),
+    ).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    fireEvent.click(dialogo.parentElement);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("si guarda y aún falta algo, sigue bloqueado", async () => {
+    misDatos.obtener.mockResolvedValue(INCOMPLETOS);
+    misDatos.guardar.mockResolvedValue({
+      ...COMPLETOS,
+      correo: "carla@gmail.com",
+      correo_institucional: false,
+      faltan: ["correo"],
+    });
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    fireEvent.change(within(dialogo).getByLabelText("Teléfono"), {
+      target: { value: "0994182273" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: "Guardar y continuar" }),
+    );
+    // El correo no lo cambia la persona: se le dice quién lo corrige.
+    expect(
+      await screen.findByText(/No es un correo institucional/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("vuelve en cada carga mientras falte algo, y se puede cerrar sesión", async () => {
+    misDatos.obtener.mockResolvedValue(INCOMPLETOS);
+    const { unmount } = render(<AvisoPerfil />);
+    await ventana();
+    unmount();
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    expect(misDatos.obtener).toHaveBeenCalledTimes(2);
+    fireEvent.click(
+      within(dialogo).getByRole("button", { name: /Cerrar sesión/ }),
+    );
+    expect(logout).toHaveBeenCalled();
   });
 });

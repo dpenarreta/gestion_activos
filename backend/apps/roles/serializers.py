@@ -14,11 +14,19 @@ class RoleSerializer(serializers.ModelSerializer):
     """Representación de un rol (`auth.Group`) con sus permisos del catálogo."""
 
     permission_codenames = serializers.SerializerMethodField()
+    nivel = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
-        fields = ["id", "name", "permission_codenames"]
+        fields = ["id", "name", "permission_codenames", "nivel"]
         read_only_fields = fields
+
+    def get_nivel(self, obj: Group):
+        """Si es el rol de un nivel del organigrama: cuál y de qué empresa."""
+        nivel = getattr(obj, "nivel_jerarquico", None)
+        if nivel is None:
+            return None
+        return {"id": nivel.id, "nombre": nivel.nombre, "empresa": nivel.empresa.nombre}
 
     def get_permission_codenames(self, obj: Group) -> list[str]:
         return sorted(

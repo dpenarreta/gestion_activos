@@ -121,6 +121,17 @@ describe("Asignación de empresas y roles a un usuario", () => {
     expect(screen.queryByText(/Sin rol aquí/)).not.toBeInTheDocument();
   });
 
+  it("al superusuario se le explica que no necesita roles", async () => {
+    get.mockResolvedValue({ roles: [], is_superuser: true, empresas: [] });
+
+    render(<AsignacionEmpresas usuarioId="7" />);
+
+    expect(
+      await screen.findByText("Superusuario (cuenta)."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(/todos los permisos/);
+  });
+
   it("avisa si una empresa queda asignada sin ningún rol", async () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 

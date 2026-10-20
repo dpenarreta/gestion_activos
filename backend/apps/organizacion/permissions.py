@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import HasModulePermission
@@ -23,6 +23,16 @@ class AsignarCargosPermission(HasModulePermission):
     write_permission = "institucional.asignar"
 
 
+class ArmarOAsignarPermission(BasePermission):
+    """Descargar la plantilla o el organigrama completo (con nombres y
+    correos): quien arma la estructura o asigna cargos."""
+
+    def has_permission(self, request, view) -> bool:
+        return any(
+            user_has_permission(request.user, f"institucional.{p}") for p in ("editar", "asignar")
+        )
+
+
 class VerOrganigramaPermission(BasePermission):
     """Leer el organigrama: quien lo ve, lo arma o asigna cargos (la pestaña de
     asignación lo necesita para listar los cargos y sus vacantes)."""
@@ -30,8 +40,18 @@ class VerOrganigramaPermission(BasePermission):
     def has_permission(self, request, view) -> bool:
         return any(
             user_has_permission(request.user, f"institucional.{p}")
-            for p in ("ver", "editar", "asignar")
+            for p in ("ver", "editar", "asignar", "perfil_cargo")
         )
+
+
+class PerfilCargoPermission(BasePermission):
+    """Leer el perfil de un cargo: quien ve el organigrama; escribirlo:
+    `institucional.perfil_cargo`."""
+
+    def has_permission(self, request, view) -> bool:
+        if request.method in SAFE_METHODS:
+            return VerOrganigramaPermission().has_permission(request, view)
+        return user_has_permission(request.user, "institucional.perfil_cargo")
 
 
 class DocumentosPermission(HasModulePermission):
@@ -87,3 +107,18 @@ class VacacionesDeTodosPermission(HasModulePermission):
 
     view_permission = "vacaciones.ver_todas"
     write_permission = "vacaciones.ver_todas"
+
+
+class HerramientasPermission(BasePermission):
+    """El catálogo de herramientas: leerlo es de toda persona con sesión (lo
+    necesita «Mis herramientas»); cambiarlo pide `herramientas.gestionar`."""
+
+    def has_permission(self, request, view) -> bool:
+        if request.method in SAFE_METHODS:
+            return bool(request.user and request.user.is_authenticated)
+        return user_has_permission(request.user, "herramientas.gestionar")
+
+
+class GestionarHerramientasPermission(BasePermission):
+    def has_permission(self, request, view) -> bool:
+        return user_has_permission(request.user, "herramientas.gestionar")

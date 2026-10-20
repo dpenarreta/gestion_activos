@@ -16,6 +16,7 @@ const EMPTY_FORM = {
   password: "",
   first_name: "",
   last_name: "",
+  codigo_empleado: "",
 };
 const EMPTY_RESET_OPTIONS = {
   send_link: false,
@@ -58,6 +59,7 @@ export function UserForm() {
           password: "",
           first_name: data.first_name,
           last_name: data.last_name,
+          codigo_empleado: data.codigo_empleado ?? "",
         }),
       )
       .catch(() => setError("No se pudo cargar el usuario."))
@@ -85,6 +87,7 @@ export function UserForm() {
           email,
           first_name: firstName,
           last_name: lastName,
+          codigo_empleado: form.codigo_empleado.trim(),
         });
       } else {
         // Al crear, se pasa a la URL de edición del usuario recién creado
@@ -96,6 +99,9 @@ export function UserForm() {
           password: form.password,
           first_name: form.first_name,
           last_name: form.last_name,
+          ...(form.codigo_empleado.trim()
+            ? { codigo_empleado: form.codigo_empleado.trim() }
+            : {}),
           ...(puedeAsignarEmpresas && alta.empresaId && alta.rolId
             ? {
                 empresas: [
@@ -190,6 +196,25 @@ export function UserForm() {
                   onChange={handleChange}
                   required
                 />
+              </div>
+
+              <div className="mz-field">
+                <label htmlFor="codigo_empleado">Código de empleado</label>
+                <input
+                  id="codigo_empleado"
+                  name="codigo_empleado"
+                  className="form-control"
+                  maxLength={40}
+                  inputMode="numeric"
+                  value={form.codigo_empleado}
+                  onChange={handleChange}
+                  aria-describedby="codigo-empleado-ayuda"
+                />
+                <div className="form-text" id="codigo-empleado-ayuda">
+                  El de nómina (p. ej. 20104758). Con él la persona consulta su
+                  rol de pagos: solo lo asigna la administración. Déjelo vacío
+                  si la cuenta no es de un empleado.
+                </div>
               </div>
 
               <div className="mz-field">

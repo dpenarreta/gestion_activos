@@ -8,7 +8,6 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
 import { CatalogoMatrizPage } from "../pages/Matriz/CatalogoMatrizPage";
-import { AuditoriaMatriz } from "../pages/Matriz/AuditoriaMatriz";
 import { CalendarioMatriz } from "../pages/Matriz/CalendarioMatriz";
 import { ConfiguracionRecordatoriosPage } from "../pages/Matriz/ConfiguracionRecordatoriosPage";
 import { DocumentosMatriz } from "../pages/Matriz/DocumentosMatriz";
@@ -20,7 +19,10 @@ import { OrdenDetalle } from "../pages/Ordenes/OrdenDetalle";
 import { CodigosConductaPage } from "../pages/Institucional/CodigosConductaPage";
 import { EstructuraPage } from "../pages/Institucional/EstructuraPage";
 import { FlujosPermisoPage } from "../pages/Institucional/FlujosPermisoPage";
+import { MiOnboardingPage } from "../pages/Institucional/MiOnboardingPage";
+import { RolPagosPage } from "../pages/Institucional/RolPagosPage";
 import { SolicitudPermisosPage } from "../pages/Institucional/SolicitudPermisosPage";
+import { SugerenciasPage as SugerenciasErroresPage } from "../pages/Institucional/SugerenciasPage";
 import { GestionCalendarioPage } from "../pages/Institucional/GestionCalendarioPage";
 import { GestionDocumentosPage } from "../pages/Institucional/GestionDocumentosPage";
 import { GestionNoticiasPage } from "../pages/Institucional/GestionNoticiasPage";
@@ -115,7 +117,6 @@ import { UserForm } from "../pages/Admin/Users/UserForm";
 import { UsersList } from "../pages/Admin/Users/UsersList";
 
 const USUARIOS_VER = "usuarios.ver";
-const AUDITORIA_VER = "auditoria.ver";
 const ROLES_VER = "roles.ver";
 const PERMISOS_VER = "permisos.ver";
 const CONFIGURACION_VER = "configuracion.ver";
@@ -226,9 +227,7 @@ export function AppRoutes() {
           path="auditoria"
           element={
             <AuditoriaInicio>
-              <RequirePermission permission={AUDITORIA_VER}>
-                <AuditoriaList />
-              </RequirePermission>
+              <AuditoriaList />
             </AuditoriaInicio>
           }
         />
@@ -510,6 +509,25 @@ export function AppRoutes() {
         />
         {/* Códigos de conducta: los lee toda persona con sesión. */}
         <Route path="institucional/codigos" element={<CodigosConductaPage />} />
+        {/* Consultar rol de pagos: cada quien el suyo (términos + contraseña). */}
+        <Route path="institucional/rol-pagos" element={<RolPagosPage />} />
+        {/* Mi onboarding: toda persona, su plan de capacitación. */}
+        <Route path="institucional/onboarding" element={<MiOnboardingPage />} />
+        {/* Sugerencias y errores: toda persona reporta; gestionar pide su permiso. */}
+        <Route
+          path="institucional/sugerencias"
+          element={<SugerenciasErroresPage />}
+        />
+        {/* Herramientas y licencias se gestiona desde Editar estructura. */}
+        <Route
+          path="institucional/herramientas"
+          element={
+            <Navigate
+              to="/admin/institucional/estructura?pestana=herramientas"
+              replace
+            />
+          }
+        />
         {/* Gestionarlos (publicar, editar, borrar) sí pide permiso. */}
         <Route
           path="institucional/codigos/gestionar"
@@ -531,7 +549,14 @@ export function AppRoutes() {
           path="institucional/estructura"
           element={
             <RequirePermission
-              permission={["institucional.editar", "institucional.asignar"]}
+              permission={[
+                "institucional.editar",
+                "institucional.asignar",
+                "institucional.perfil_cargo",
+                "herramientas.gestionar",
+                "capacitacion.gestionar",
+                "capacitacion.resultados",
+              ]}
             >
               <EstructuraPage />
             </RequirePermission>
@@ -933,15 +958,11 @@ export function AppRoutes() {
           path="matriz/reportes"
           element={<Navigate to="/admin/reportes/matriz" replace />}
         />
-        {/* La auditoría de la Matriz: el servidor exige `ver_auditoria` en
-            la empresa activa y la pantalla muestra su mensaje si falta. */}
+        {/* La auditoría de la Matriz ya no es una pestaña aparte: es una
+            opción del filtro «Módulo» de la Auditoría unificada. */}
         <Route
           path="auditoria/matriz"
-          element={
-            <RequiereRolMatriz>
-              <AuditoriaMatriz />
-            </RequiereRolMatriz>
-          }
+          element={<Navigate to="/admin/auditoria?modulo=matriz" replace />}
         />
         <Route
           path="configuracion/notificaciones"

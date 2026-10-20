@@ -14,11 +14,12 @@ from apps.organizacion.models import Cargo
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import HasModulePermission
 
-from . import services
+from . import restricciones, services
 from .models import Destino, FlujoPermiso, SolicitudPermiso
 from .serializers import (
     DestinoSerializer,
     DetalleSolicitudSerializer,
+    EvaluarSerializer,
     FlujoParaSolicitarSerializer,
     FlujoSerializer,
     NuevaSolicitudSerializer,
@@ -113,6 +114,28 @@ class FlujosParaSolicitarView(APIView):
         return Response(FlujoParaSolicitarSerializer(flujos, many=True).data)
 
 
+class EvaluarView(APIView):
+    """Las restricciones de un tipo de permiso para unas fechas, con si se
+    cumplen: lo que ve quien solicita debajo de los días elegidos."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        flujo = FlujoPermiso.objects.filter(pk=pk, activo=True).first()
+        if flujo is None:
+            raise Http404("No se encontró el tipo de permiso.")
+        entrada = EvaluarSerializer(data=request.query_params)
+        entrada.is_valid(raise_exception=True)
+        return Response(
+            restricciones.evaluar(
+                request.user,
+                flujo,
+                entrada.validated_data["desde"],
+                entrada.validated_data["hasta"],
+            )
+        )
+
+
 class _Comentario(serializers.Serializer):
     comentario = serializers.CharField(allow_blank=True, default="")
 
@@ -190,7 +213,9 @@ class SolicitudViewSet(viewsets.GenericViewSet):
             {
                 "por_aprobar": SolicitudPermiso.objects.filter(
                     pendiente_de=request.user, estado=SolicitudPermiso.Estado.PENDIENTE
-                ).count()
+                ).count(),
+                # Sin rol asignado no se solicita nada (restricciones.tiene_rol).
+                "puede_solicitar": restricciones.tiene_rol(request.user),
             }
         )
 

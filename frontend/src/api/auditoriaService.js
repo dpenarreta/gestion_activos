@@ -6,6 +6,10 @@ export const auditoriaService = {
   list(params) {
     return apiClient.get(AUDITORIA, { params }).then((res) => res.data);
   },
+  /** Los módulos con eventos, con su nombre: las opciones del filtro. */
+  modulos() {
+    return apiClient.get(`${AUDITORIA}modulos/`).then((res) => res.data);
+  },
   get(id) {
     return apiClient.get(`${AUDITORIA}${id}/`).then((res) => res.data);
   },

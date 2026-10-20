@@ -54,3 +54,6 @@ frontend/e2e/.auth/
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+
+# Datos reales de prueba que no se versionan (p. ej. el rol de pagos de ejemplo).
+backend/datos_locales/

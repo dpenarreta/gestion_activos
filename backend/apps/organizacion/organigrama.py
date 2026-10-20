@@ -15,7 +15,15 @@ Lo que se protege:
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from .models import Cargo, DatosDeContacto, NivelJerarquico, UnidadOrganizacional
+from . import perfiles_cargo
+
+from .models import (
+    Cargo,
+    DatosDeContacto,
+    NivelJerarquico,
+    OcupanteCargo,
+    UnidadOrganizacional,
+)
 
 
 def validar_padre(unidad, padre, nivel):
@@ -62,7 +70,8 @@ def _persona(usuario):
 
 
 def ocupantes() -> dict[int, list[dict]]:
-    """Cargo → las personas activas que lo ocupan (según su perfil)."""
+    """Cargo → las personas activas que lo ocupan (según su perfil) y, después,
+    las cargadas sin cuenta (`sin_cuenta`)."""
     por_cargo: dict[int, list[dict]] = {}
     filas = (
         DatosDeContacto.objects.filter(cargo__isnull=False, usuario__is_active=True)
@@ -71,6 +80,10 @@ def ocupantes() -> dict[int, list[dict]]:
     )
     for fila in filas:
         por_cargo.setdefault(fila.cargo_id, []).append(_persona(fila.usuario))
+    for otro in OcupanteCargo.objects.all():
+        por_cargo.setdefault(otro.cargo_id, []).append(
+            {"id": f"sin-cuenta-{otro.pk}", "nombre": str(otro), "sin_cuenta": True}
+        )
     return por_cargo
 
 
@@ -95,12 +108,22 @@ def arbol() -> dict:
                 "activo": cargo.activo,
                 "ocupantes": en_el,
                 "vacantes": max(cargo.plazas - len(en_el), 0),
+                "perfil": (
+                    "completo"
+                    if perfiles_cargo.de(cargo)["completo"]
+                    else ("parcial" if perfiles_cargo.tiene_perfil(cargo) else "vacio")
+                ),
             }
         )
     return {
         "niveles": [
-            {"id": n.id, "nombre": n.nombre, "orden": n.orden}
-            for n in NivelJerarquico.objects.order_by("orden", "nombre")
+            {
+                "id": n.id,
+                "nombre": n.nombre,
+                "orden": n.orden,
+                "rol": {"id": n.rol_id, "nombre": n.rol.name} if n.rol_id else None,
+            }
+            for n in NivelJerarquico.objects.select_related("rol").order_by("orden", "nombre")
         ],
         "unidades": [
             {
@@ -123,6 +146,47 @@ def arbol() -> dict:
             )
         ],
         "cargos": cargos,
+    }
+
+
+def linea_de_supervision(usuario, cargo) -> dict:
+    """Su línea de supervisión según el organigrama (para «Mi perfil»):
+
+    - **jefes**: de arriba hacia abajo, la cadena dentro de su unidad más su
+      jefe directo aunque esté en otra (el gerente del área ve a quién reporta;
+      el resto no ve más allá de su área);
+    - **companeros**: quienes ocupan su mismo cargo;
+    - **supervisa**: los cargos que le reportan directamente, con quién los
+      ocupa y sus plazas vacantes.
+
+    Las personas incluyen a quienes tienen cuenta y a las cargadas sin cuenta.
+    """
+    quienes = ocupantes()
+
+    def cargo_con_personas(c, sin=None):
+        personas = [p for p in quienes.get(c.id, []) if p["id"] != sin]
+        return {
+            "id": c.id,
+            "nombre": c.nombre,
+            "unidad": c.unidad.nombre if c.unidad_id else "",
+            "personas": personas,
+            "vacantes": max(c.plazas - len(quienes.get(c.id, [])), 0),
+        }
+
+    jefes, actual, vistos = [], cargo.jefe, {cargo.pk}
+    while actual is not None and actual.pk not in vistos:
+        vistos.add(actual.pk)
+        jefes.append(cargo_con_personas(actual))
+        if actual.unidad_id != cargo.unidad_id:
+            break  # fuera de su área solo se ve el jefe directo
+        actual = actual.jefe
+    subordinados = (
+        Cargo.objects.filter(jefe=cargo, activo=True).select_related("unidad").order_by("nombre")
+    )
+    return {
+        "jefes": list(reversed(jefes)),
+        "companeros": cargo_con_personas(cargo, sin=usuario.id)["personas"],
+        "supervisa": [cargo_con_personas(c) for c in subordinados],
     }
 
 

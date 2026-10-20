@@ -177,7 +177,11 @@ def test_soporte_ti_muestra_lo_de_su_empresa_y_los_datos_de_quien_pide(mesa):
     )
     assert datos["mis_datos"]["nombre"] == "Carla Ordóñez"
     assert datos["mis_datos"]["agencia"]["nombre"] == "Loja · Agencia"
-    assert datos["mis_datos"]["faltan"] == []
+    # Lo que la mesa carga en el ticket está completo (el correo de la prueba
+    # no es institucional y no tiene cargo: eso lo pide el bloqueo de inicio).
+    assert not {"nombres", "apellidos", "telefono", "area", "agencia"} & set(
+        datos["mis_datos"]["faltan"]
+    )
 
 
 def test_solo_las_personas_registradas_piden_soporte(mesa):
@@ -208,15 +212,17 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
     nuevo.first_name = ""  # sin nombre ni «Mis datos»
     nuevo.save()
     cliente = _equipo(nuevo)
-    assert set(cliente.get(SOLICITAR).json()["mis_datos"]["faltan"]) == {
-        "nombre",
-        "telefono",
-        "area",
-        "agencia",
-    }
+    assert {"nombres", "telefono", "area", "agencia"} <= set(
+        cliente.get(SOLICITAR).json()["mis_datos"]["faltan"]
+    )
     respuesta = cliente.post(SOLICITAR, _formulario(mesa), format="json")
     assert respuesta.status_code == 400
     assert respuesta.json()["error"]["code"] == "faltan_datos"
+    from apps.empresas.contexto import usando_empresa
+    from apps.organizacion.models import Cargo
+
+    with usando_empresa(mesa["empresa"]):
+        cargo = Cargo.objects.create(nombre="Asistente")
     actualizado = cliente.put(
         "/api/v1/organizacion/mis-datos/",
         {
@@ -225,11 +231,14 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
             "telefono": "0991234567",
             "area": mesa["area"].id,
             "agencia": mesa["sede"].id,
+            "cargo": cargo.id,
         },
         format="json",
     )
     assert actualizado.status_code == 200, actualizado.data
-    assert actualizado.json()["faltan"] == []
+    assert not {"nombres", "apellidos", "telefono", "area", "agencia", "cargo"} & set(
+        actualizado.json()["faltan"]
+    )
     with mock.patch.object(services, "repartir", return_value=0):
         assert cliente.post(SOLICITAR, _formulario(mesa), format="json").status_code == 201
 

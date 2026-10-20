@@ -28,7 +28,7 @@ export const ACCIONES = [
  * la empresa activa, del más reciente al más antiguo, con filtros por
  * persona, acción y fechas. Exige `ver_auditoria` en la empresa.
  */
-export function AuditoriaMatriz() {
+export function AuditoriaMatriz({ incrustada = false }) {
   const [zona, setZona] = useState(undefined);
   const [personas, setPersonas] = useState([]);
   const [filtros, setFiltros] = useState({
@@ -94,15 +94,23 @@ export function AuditoriaMatriz() {
 
   return (
     <div>
-      <div className="mz-view-head">
-        <div>
-          <h2>Auditoría de la Matriz</h2>
-          <p className="mz-desc">
-            Quién hizo qué en los períodos de la empresa activa. Es de solo
-            lectura: el historial no se edita ni se borra.
-          </p>
+      {/* Dentro de la Auditoría unificada, el encabezado lo pone ella. */}
+      {!incrustada && (
+        <div className="mz-view-head">
+          <div>
+            <h2>Auditoría de la Matriz</h2>
+            <p className="mz-desc">
+              Quién hizo qué en los períodos de la empresa activa. Es de solo
+              lectura: el historial no se edita ni se borra.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+      {incrustada && (
+        <p className="mz-faint mz-small">
+          Quién hizo qué en los períodos de la Matriz de la empresa activa.
+        </p>
+      )}
 
       <div className="mz-filter-bar">
         <select

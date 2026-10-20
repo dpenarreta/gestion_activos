@@ -149,6 +149,16 @@ describe("El listado de usuarios", () => {
     expect(fila).toHaveTextContent("Administrador");
   });
 
+  it("el superusuario se marca como tal aunque no tenga roles", async () => {
+    /* Es una marca de la cuenta, no un rol: sin la etiqueta parecería una
+       cuenta sin permisos. */
+    pintar();
+    const fila = (await screen.findByText("dpenarreta")).closest("tr");
+    expect(fila).toHaveTextContent("Superusuario (cuenta)");
+    const otra = screen.getByText("acevallos").closest("tr");
+    expect(otra).not.toHaveTextContent("Superusuario");
+  });
+
   it("abre con su encabezado y sin migas de pan", async () => {
     /* La barra superior y el menú ya dicen dónde se está: las migas de pan
        repetían «Administración > Usuarios» encima del título. */

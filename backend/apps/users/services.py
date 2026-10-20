@@ -48,6 +48,7 @@ class UserAdminService:
         password: str,
         first_name: str = "",
         last_name: str = "",
+        codigo_empleado: str | None = None,
         role_ids: list[int] | None = None,
         empresas: list[dict] | None = None,
         context: dict | None = None,
@@ -73,10 +74,12 @@ class UserAdminService:
         )
         user.created_by = actor
         user.updated_by = actor
-        user.save(update_fields=["created_by", "updated_by"])
+        user.codigo_empleado = codigo_empleado or None
+        user.save(update_fields=["created_by", "updated_by", "codigo_empleado"])
 
         if role_ids:
-            user.groups.set(Group.objects.filter(id__in=role_ids))
+            # Los roles de nivel del organigrama no son globales: van por empresa.
+            user.groups.set(Group.objects.filter(id__in=role_ids, nivel_jerarquico__isnull=True))
 
         record_audit_event(
             actor=actor,
@@ -217,7 +220,9 @@ class UserAdminService:
         *, actor: User, user: User, role_ids: list[int], context: dict | None = None
     ) -> User:
         previous_groups = list(user.groups.all())
-        groups = list(Group.objects.filter(id__in=role_ids))
+        # Los roles de nivel del organigrama no son globales: los pone el cargo,
+        # en la empresa de ese organigrama.
+        groups = list(Group.objects.filter(id__in=role_ids, nivel_jerarquico__isnull=True))
         _vigilando_gestores(lambda: user.groups.set(groups))
         user.updated_by = actor
         user.save(update_fields=["updated_by", "updated_at"])

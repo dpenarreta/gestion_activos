@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.utils import timezone as django_timezone
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from apps.permissions.authorization import user_has_permission
@@ -38,6 +39,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
     actor_username = serializers.CharField(source="actor.username", default=None, read_only=True)
     created_at_local = serializers.SerializerMethodField()
+    module_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
@@ -47,6 +49,7 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "actor_username",
             "action",
             "module",
+            "module_nombre",
             "target_type",
             "target_id",
             "result",
@@ -62,6 +65,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "created_at_local",
         ]
         read_only_fields = fields
+
+    def get_module_nombre(self, obj) -> str:
+        from apps.core.modulos_auditoria import nombre
+
+        return nombre(obj.module)
 
     def get_created_at_local(self, obj: AuditLog) -> str:
         # La zona horaria ya resuelta server-side (settings.TIME_ZONE) —
@@ -137,6 +145,25 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         return filter_audit_logs(
             _de_la_empresa_activa(super().get_queryset(), self.request.user),
             self.request.query_params,
+        )
+
+    @action(detail=False, methods=["get"])
+    def modulos(self, request):
+        """Los módulos con eventos en el registro (de la empresa activa), con
+        su nombre legible: las opciones del filtro «Módulo»."""
+        from apps.core.modulos_auditoria import nombre
+
+        presentes = (
+            _de_la_empresa_activa(AuditLog.objects.all(), request.user)
+            .order_by()
+            .values_list("module", flat=True)
+            .distinct()
+        )
+        return Response(
+            sorted(
+                ({"id": modulo, "nombre": nombre(modulo)} for modulo in set(presentes)),
+                key=lambda m: m["nombre"],
+            )
         )
 
     @action(

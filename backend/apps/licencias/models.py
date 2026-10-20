@@ -52,6 +52,22 @@ class FlujoPermiso(ModeloDeEmpresa):
     adjunto = models.CharField(max_length=12, choices=Adjunto.choices, default=Adjunto.NO)
     orden = models.PositiveSmallIntegerField(default=0)
 
+    # Restricciones (20/10/2026), que se informan a quien solicita y se
+    # validan (ver restricciones.py). 0 = sin restricción.
+    dias_minimos = models.PositiveSmallIntegerField(default=0)
+    dias_maximos = models.PositiveSmallIntegerField(default=0)
+    #: Los días salen de sus vacaciones pendientes y, al aprobarse, quedan
+    #: como gozados.
+    descuenta_vacaciones = models.BooleanField(default=False)
+    #: Sábados y domingos que, como mínimo, salen de cada período anual de
+    #: vacaciones; los que falten se marcan por defecto al completarlo.
+    sabados_por_periodo = models.PositiveSmallIntegerField(default=0)
+    domingos_por_periodo = models.PositiveSmallIntegerField(default=0)
+    #: Si se pide un motivo al solicitar (vacaciones no lo pide).
+    pide_motivo = models.BooleanField(default=True)
+    #: Otras indicaciones para quien solicita, una por línea.
+    restricciones = models.TextField(blank=True)
+
     class Meta:
         ordering = ["orden", "nombre"]
         constraints = [

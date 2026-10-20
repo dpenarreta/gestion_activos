@@ -5,6 +5,8 @@ from django.db.models import Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,14 +15,18 @@ from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+from apps.permissions.authorization import user_has_permission
 
 from . import (
     avisos_inicio,
     calendario,
     confidencialidad,
     contacto,
+    herramientas,
     noticias,
     organigrama,
+    perfiles_cargo,
+    roles_de_nivel,
     vacaciones,
 )
 from .models import (
@@ -31,6 +37,7 @@ from .models import (
     DocumentoInstitucional,
     Empleado,
     EventoCalendario,
+    Herramienta,
     NivelJerarquico,
     NoticiaInicio,
     Proveedor,
@@ -38,35 +45,45 @@ from .models import (
     UnidadOrganizacional,
 )
 from .permissions import (
-    AsignarCargosPermission,
     AceptacionesPermission,
     AcuerdoPermission,
+    ArmarOAsignarPermission,
+    AsignarCargosPermission,
     AvisoInicioPermission,
     CalendarioPermission,
-    NoticiasPermission,
     DocumentosPermission,
+    GestionarHerramientasPermission,
+    HerramientasPermission,
     InstitucionalPermission,
+    NoticiasPermission,
     OrganizacionPermission,
+    PerfilCargoPermission,
     VacacionesDeTodosPermission,
     VerOrganigramaPermission,
 )
 from .serializers import (
-    ConcesionarioSerializer,
-    DepartamentoSerializer,
-    EmpleadoSerializer,
+    AccesoHerramientaSerializer,
     AcuerdoConfidencialidadSerializer,
     AjustesCarruselSerializer,
-    AvisoInicioSerializer,
+    AniversarioSerializer,
     AsignacionSerializer,
+    AvisoInicioSerializer,
     CargoSerializer,
+    ConcesionarioSerializer,
+    CumpleanosSerializer,
+    DepartamentoSerializer,
     DocumentoInstitucionalSerializer,
+    EmpleadoSerializer,
     EventoCalendarioSerializer,
+    HerramientaSerializer,
     MisDatosSerializer,
+    MisHerramientasSerializer,
     NivelJerarquicoSerializer,
     NoticiaInicioSerializer,
+    PerfilCargoSerializer,
     ProveedorSerializer,
-    UnidadOrganizacionalSerializer,
     SedeSerializer,
+    UnidadOrganizacionalSerializer,
 )
 
 MODULO = "organizacion"
@@ -404,7 +421,7 @@ class MisDatosView(APIView):
             telefono=datos["telefono"],
             departamento=datos["area"],
             sede=datos["agencia"],
-            cargo=datos.get("cargo"),
+            cargo=datos["cargo"],
         )
         return Response({**contacto.de(request.user), **contacto.opciones()})
 
@@ -462,8 +479,25 @@ class _EstructuraViewSet(viewsets.ModelViewSet):
 
 
 class NivelJerarquicoViewSet(_EstructuraViewSet):
+    """Cada nivel lleva su rol del sistema: se crea, renombra y borra con él."""
+
     serializer_class = NivelJerarquicoSerializer
     entidad = "nivel"
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        roles_de_nivel.asegurar_rol(serializer.instance)
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        roles_de_nivel.asegurar_rol(serializer.instance)
+
+    def destroy(self, request, *args, **kwargs):
+        nivel = self.get_object()
+        respuesta = super().destroy(request, *args, **kwargs)
+        if respuesta.status_code == status.HTTP_204_NO_CONTENT:
+            roles_de_nivel.borrar_rol(nivel)
+        return respuesta
 
     def get_queryset(self):
         return NivelJerarquico.objects.order_by("orden", "nombre")
@@ -472,6 +506,11 @@ class NivelJerarquicoViewSet(_EstructuraViewSet):
 class UnidadOrganizacionalViewSet(_EstructuraViewSet):
     serializer_class = UnidadOrganizacionalSerializer
     entidad = "unidad"
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        # Si la unidad cambió de nivel, cambia el rol de quienes trabajan en ella.
+        roles_de_nivel.sincronizar(serializer.instance.empresa)
 
     def get_queryset(self):
         return UnidadOrganizacional.objects.select_related("nivel", "padre").order_by(
@@ -483,8 +522,129 @@ class CargoViewSet(_EstructuraViewSet):
     serializer_class = CargoSerializer
     entidad = "cargo"
 
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        # Si el cargo cambió de unidad, quienes lo ocupan pueden cambiar de nivel.
+        roles_de_nivel.sincronizar(serializer.instance.empresa)
+
     def get_queryset(self):
         return Cargo.objects.select_related("unidad", "jefe").order_by("nombre")
+
+
+class PerfilCargoView(APIView):
+    """El perfil de un cargo (objetivo, funciones, competencias y KPIs):
+    leerlo y, con `institucional.perfil_cargo`, escribirlo."""
+
+    permission_classes = [IsAuthenticated, PerfilCargoPermission]
+
+    def _cargo(self, pk):
+        cargo = Cargo.objects.filter(pk=pk).first()
+        if cargo is None:
+            from django.http import Http404
+
+            raise Http404("No se encontró el cargo.")
+        return cargo
+
+    def get(self, request, pk):
+        return Response(perfiles_cargo.de(self._cargo(pk), con_herramientas=True))
+
+    def put(self, request, pk):
+        cargo = self._cargo(pk)
+        entrada = PerfilCargoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        anteriores = perfiles_cargo.de(cargo, con_herramientas=True)
+        perfiles_cargo.guardar(cargo, entrada.validated_data)
+        nuevo = perfiles_cargo.de(cargo, con_herramientas=True)
+        record_audit_event(
+            actor=request.user,
+            action="institucional.cargo.perfil",
+            target=cargo,
+            module=MODULO_INSTITUCIONAL,
+            previous_values={k: anteriores[k] for k in (*perfiles_cargo.CAMPOS, "herramientas")},
+            new_values={k: nuevo[k] for k in (*perfiles_cargo.CAMPOS, "herramientas")},
+            context=get_request_context(request),
+        )
+        return Response(nuevo)
+
+
+def _xlsx(contenido, nombre):
+    from django.http import HttpResponse
+
+    respuesta = HttpResponse(
+        contenido,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    respuesta["Content-Disposition"] = f'attachment; filename="{nombre}"'
+    return respuesta
+
+
+class PlantillaPersonasView(APIView):
+    """La plantilla .xlsx de carga masiva: la estructura por unidad, sin
+    personas."""
+
+    permission_classes = [IsAuthenticated, ArmarOAsignarPermission]
+
+    def get(self, request):
+        from . import carga_personas
+
+        return _xlsx(carga_personas.construir_plantilla(), "plantilla-carga-organigrama.xlsx")
+
+
+class ExportarOrganigramaView(APIView):
+    """El organigrama completo en .xlsx: estructura, quién ocupa cada plaza
+    (con nombre y correo) y el resumen por unidad. Queda en la auditoría."""
+
+    permission_classes = [IsAuthenticated, ArmarOAsignarPermission]
+
+    def get(self, request):
+        from django.utils import timezone
+
+        from . import carga_personas
+
+        record_audit_event(
+            actor=request.user,
+            action="institucional.organigrama.exportado",
+            target=None,
+            module=MODULO_INSTITUCIONAL,
+            context=get_request_context(request),
+        )
+        return _xlsx(
+            carga_personas.construir_plantilla(con_personas=True),
+            f"organigrama-completo-{timezone.localdate():%Y-%m-%d}.xlsx",
+        )
+
+
+class CargaPersonasView(APIView):
+    """Sube la plantilla llena: sin `confirmar=true` solo valida y devuelve el
+    reporte; con él, lo aplica (todo o nada)."""
+
+    permission_classes = [IsAuthenticated, AsignarCargosPermission]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        from . import carga_personas
+
+        reporte = carga_personas.leer(request.FILES.get("archivo"))
+        confirmar = str(request.data.get("confirmar", "")).lower() == "true"
+        if not reporte["valido"]:
+            return Response(carga_personas.publico(reporte), status=status.HTTP_400_BAD_REQUEST)
+        if not confirmar:
+            return Response({**carga_personas.publico(reporte), "aplicado": False})
+        resultado = carga_personas.aplicar(reporte)
+        record_audit_event(
+            actor=request.user,
+            action="institucional.personas.carga_masiva",
+            target=None,
+            module=MODULO_INSTITUCIONAL,
+            new_values={
+                "cargos": resultado["cargos"],
+                "personas": resultado["personas"],
+                "con_cuenta": resultado["con_cuenta"],
+                "sin_cuenta": resultado["sin_cuenta"],
+            },
+            context=get_request_context(request),
+        )
+        return Response({**resultado, "aplicado": True})
 
 
 class AsignacionesView(APIView):
@@ -540,6 +700,7 @@ class AsignacionesView(APIView):
             .first()
         )
         organigrama.asignar(usuario, cargo)
+        roles_de_nivel.sincronizar(_empresa_activa(), [usuario])
         record_audit_event(
             actor=request.user,
             action="institucional.cargo.asignado",
@@ -963,3 +1124,214 @@ class VacacionesDeTodosView(APIView):
         if persona is None:
             raise Http404("Esa persona no está en esta empresa.")
         return Response(vacaciones.resumen(persona))
+
+
+def _empresa_activa():
+    actual = empresa_actual()
+    return None if actual in (None, SIN_EMPRESA) else actual
+
+
+class MiCumpleanosView(APIView):
+    """Mi cumpleaños en el calendario de Inicio: mostrarlo (aceptando que sea
+    público, con día y mes) o retirarlo, cuando quiera."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        entrada = CumpleanosSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        resultado = contacto.guardar_cumpleanos(
+            request.user, mostrar=datos["mostrar"], dia=datos.get("dia"), mes=datos.get("mes")
+        )
+        record_audit_event(
+            actor=request.user,
+            action=(
+                "organizacion.cumpleanos.publicado"
+                if datos["mostrar"]
+                else "organizacion.cumpleanos.retirado"
+            ),
+            target=request.user,
+            module="institucional",
+            new_values={"mostrar": datos["mostrar"]},
+            context=get_request_context(request),
+        )
+        return Response(resultado)
+
+
+class MiAniversarioView(APIView):
+    """Mi aniversario en la empresa en el calendario de Inicio: mostrarlo
+    (aceptando que sea público, con día y mes de ingreso y, si quiere, el
+    año) o retirarlo, cuando quiera."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        entrada = AniversarioSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        resultado = contacto.guardar_aniversario(
+            request.user,
+            mostrar=datos["mostrar"],
+            dia=datos.get("dia"),
+            mes=datos.get("mes"),
+            anio=datos.get("anio"),
+        )
+        record_audit_event(
+            actor=request.user,
+            action=(
+                "organizacion.aniversario.publicado"
+                if datos["mostrar"]
+                else "organizacion.aniversario.retirado"
+            ),
+            target=request.user,
+            module="institucional",
+            new_values={"mostrar": datos["mostrar"]},
+            context=get_request_context(request),
+        )
+        return Response(resultado)
+
+
+# --- Mis herramientas -------------------------------------------------------------------
+
+
+class HerramientaViewSet(viewsets.ModelViewSet):
+    """El catálogo de herramientas y licencias. Una con personas que la usan
+    no se borra: se desactiva."""
+
+    permission_classes = [IsAuthenticated, HerramientasPermission]
+    serializer_class = HerramientaSerializer
+    #: El catálogo completo, sin páginas: se elige de él en «Mis herramientas»
+    #: y en el perfil de cada cargo.
+    pagination_class = None
+
+    def get_queryset(self):
+        return Herramienta.objects.order_by("tipo", "orden", "nombre")
+
+    def _auditar(self, accion, objeto):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.herramienta.{accion}",
+            target=objeto,
+            module=MODULO_INSTITUCIONAL,
+            new_values={"nombre": objeto.nombre, "tipo": objeto.tipo, "activa": objeto.activa},
+            context=get_request_context(self.request),
+        )
+
+    def perform_create(self, serializer):
+        self._auditar("creada", serializer.save())
+
+    def perform_update(self, serializer):
+        self._auditar("editada", serializer.save())
+
+    @action(detail=True, methods=["get", "post"], url_path="usuarios")
+    def usuarios(self, request, pk=None):
+        """Quiénes tienen acceso a la herramienta; con POST se da acceso a
+        una persona (se refleja en sus «Mis herramientas»)."""
+        herramienta = self.get_object()
+        if request.method == "GET":
+            if not user_has_permission(request.user, "herramientas.gestionar"):
+                raise PermissionDenied("No tiene el permiso requerido: herramientas.gestionar.")
+            return Response(herramientas.usuarios_de(herramienta))
+        entrada = AccesoHerramientaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        from apps.users.models import User
+
+        usuario = User.objects.filter(pk=entrada.validated_data["usuario"]).first()
+        if usuario is None:
+            raise Http404("No se encontró la persona.")
+        lista = herramientas.dar_acceso(herramienta, usuario, entrada.validated_data["cuenta"])
+        self._auditar_acceso("dado", herramienta, usuario)
+        return Response(lista)
+
+    @action(detail=True, methods=["delete"], url_path=r"usuarios/(?P<usuario_id>\d+)")
+    def quitar_usuario(self, request, pk=None, usuario_id=None):
+        herramienta = self.get_object()
+        lista = herramientas.quitar_acceso(herramienta, int(usuario_id))
+        from apps.users.models import User
+
+        self._auditar_acceso("quitado", herramienta, User.objects.filter(pk=usuario_id).first())
+        return Response(lista)
+
+    @action(detail=False, methods=["get"], url_path="personas")
+    def personas(self, request):
+        """Personas de la empresa para darles acceso (`q` filtra)."""
+        if not user_has_permission(request.user, "herramientas.gestionar"):
+            raise PermissionDenied("No tiene el permiso requerido: herramientas.gestionar.")
+        from apps.chat.services import buscar_personas
+
+        return Response(
+            [
+                {"id": u.id, "nombre": u.get_full_name().strip() or u.username, "correo": u.email}
+                for u in buscar_personas(request.query_params.get("q", ""), limite=20)
+            ]
+        )
+
+    def _auditar_acceso(self, accion, herramienta, usuario):
+        record_audit_event(
+            actor=self.request.user,
+            action=f"institucional.herramienta.acceso_{accion}",
+            target=herramienta,
+            module=MODULO_INSTITUCIONAL,
+            new_values={
+                "herramienta": herramienta.nombre,
+                "persona": usuario.email if usuario else None,
+            },
+            context=get_request_context(self.request),
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        herramienta = self.get_object()
+        if herramienta.usos.exists():
+            return Response(
+                {"detail": "Hay personas que la usan: desactívela en vez de borrarla."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        self._auditar("borrada", herramienta)
+        return super().destroy(request, *args, **kwargs)
+
+
+class MisHerramientasView(APIView):
+    """«Mi perfil» → Mis herramientas: las que uso (con su cuenta) y el
+    catálogo para elegir."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _respuesta(self, request, mias=None):
+        cargo = herramientas.cargo_de(request.user)
+        return Response(
+            {
+                "mias": herramientas.mias(request.user) if mias is None else mias,
+                "catalogo": herramientas.catalogo(),
+                # Con las que debe venir configurado su equipo, según su cargo.
+                "cargo": {"id": cargo.id, "nombre": cargo.nombre} if cargo else None,
+                "base": herramientas.base_de(cargo),
+            }
+        )
+
+    def get(self, request):
+        return self._respuesta(request)
+
+    def put(self, request):
+        entrada = MisHerramientasSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        mias = herramientas.guardar_mias(request.user, entrada.validated_data["herramientas"])
+        record_audit_event(
+            actor=request.user,
+            action="institucional.mis_herramientas.guardadas",
+            target=request.user,
+            module=MODULO_INSTITUCIONAL,
+            new_values={"herramientas": [h["nombre"] for h in mias]},
+            context=get_request_context(request),
+        )
+        return self._respuesta(request, mias)
+
+
+class UsoHerramientasView(APIView):
+    """Quién usa cada herramienta: para las requisiciones de desactivación,
+    reasignación o licencias nuevas."""
+
+    permission_classes = [IsAuthenticated, GestionarHerramientasPermission]
+
+    def get(self, request):
+        return Response(herramientas.uso())

@@ -15,7 +15,7 @@ Lo que se protege (19/10/2026), con los dos ejemplos del pedido:
 import datetime
 
 import pytest
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APIClient
 
@@ -36,7 +36,7 @@ FLUJOS = "/api/v1/licencias/flujos/"
 SOLICITUDES = "/api/v1/licencias/solicitudes/"
 
 
-def _persona(nombre, *permisos, cargo=None):
+def _persona(nombre, *permisos, cargo=None, con_rol=True):
     usuario = User.objects.create_user(
         username=nombre,
         email=f"{nombre}@grupolaar.com",
@@ -48,7 +48,10 @@ def _persona(nombre, *permisos, cargo=None):
             content_type=ContentType.objects.get_for_model(ModulePermission), codename__in=permisos
         )
     )
-    MembresiaEmpresa.objects.create(usuario=usuario, empresa=empresa_actual())
+    membresia = MembresiaEmpresa.objects.create(usuario=usuario, empresa=empresa_actual())
+    if con_rol:
+        rol, _ = Group.objects.get_or_create(name="Colaborador")
+        membresia.roles.add(rol)
     if cargo is not None:
         with usando_empresa(empresa_actual()):
             DatosDeContacto.objects.create(usuario=usuario, cargo=cargo)
@@ -248,7 +251,10 @@ def test_las_vistas_y_la_configuracion_piden_permiso(empresa_con_organigrama):
     assert [s["id"] for s in jefa.get(SOLICITUDES, {"vista": "por_aprobar"}).json()] == [
         solicitud["id"]
     ]
-    assert jefa.get(f"{SOLICITUDES}resumen/").json() == {"por_aprobar": 1}
+    assert jefa.get(f"{SOLICITUDES}resumen/").json() == {
+        "por_aprobar": 1,
+        "puede_solicitar": True,
+    }
     assert ana.get(SOLICITUDES, {"vista": "todas"}).status_code == 403
     assert len(admin.get(SOLICITUDES, {"vista": "todas"}).json()) == 1
     assert ana.get(FLUJOS).status_code == 403

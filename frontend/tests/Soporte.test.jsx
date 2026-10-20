@@ -57,6 +57,8 @@ const MIS_DATOS = {
   telefono: "0994182273",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },
+  cargo: { id: 5, nombre: "Analista · Cobranzas" },
+  cargos: [{ id: 5, nombre: "Analista · Cobranzas" }],
   faltan: [],
 };
 

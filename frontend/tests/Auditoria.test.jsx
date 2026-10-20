@@ -26,11 +26,20 @@ vi.mock("../src/api/auditoriaService", () => ({
   auditoriaService: {
     list: (...args) => listar(...args),
     exportar: (...args) => exportar(...args),
+    modulos: () =>
+      Promise.resolve([
+        { id: "activos", nombre: "Gestión de Activos" },
+        { id: "soporte", nombre: "Mesa de ayuda" },
+      ]),
   },
 }));
 
 vi.mock("../src/hooks/usePermission", () => ({
-  usePermission: (codename) => permisos.includes(codename),
+  // El registro general se ve con `auditoria.ver`, que se da por sentado
+  // salvo que la prueba lo quite.
+  usePermission: (codename) =>
+    (codename === "auditoria.ver" && !permisos.includes("-auditoria.ver")) ||
+    permisos.includes(codename),
 }));
 
 const descargado = vi.fn();
@@ -219,6 +228,45 @@ describe("El registro de auditoría", () => {
 
     expect(
       await screen.findByText("Sin eventos para esos filtros"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Una sola auditoría, filtrada por módulo", () => {
+  it("el filtro ofrece los módulos con eventos y filtra al elegir uno", async () => {
+    pintar();
+    const selector = await screen.findByLabelText("Módulo");
+    await waitFor(() =>
+      expect(
+        within(selector).getByRole("option", { name: "Mesa de ayuda" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(selector).getByRole("option", { name: "Todos los módulos" }),
+    ).toBeInTheDocument();
+    // Sin el permiso de la Matriz no se ofrece su historial.
+    expect(
+      within(selector).queryByRole("option", { name: /Matriz/ }),
+    ).toBeNull();
+
+    fireEvent.change(selector, { target: { value: "soporte" } });
+    await waitFor(() =>
+      expect(listar).toHaveBeenLastCalledWith(
+        expect.objectContaining({ module: "soporte" }),
+      ),
+    );
+    // No hay pestañas: es una sola pantalla.
+    expect(screen.queryByRole("navigation", { name: "Auditoría" })).toBeNull();
+  });
+
+  it("con el permiso de la Matriz su historial es una opción más", async () => {
+    permisos = ["auditoria.ver", "matriz.ver_auditoria"];
+    pintar();
+    const selector = await screen.findByLabelText("Módulo");
+    expect(
+      within(selector).getByRole("option", {
+        name: "Matriz de obligaciones · historial de períodos",
+      }),
     ).toBeInTheDocument();
   });
 });

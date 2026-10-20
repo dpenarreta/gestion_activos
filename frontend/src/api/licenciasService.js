@@ -9,6 +9,13 @@ export const licenciasService = {
   tipos() {
     return apiClient.get(`${BASE}tipos/`).then((res) => res.data);
   },
+  /** Las restricciones de un tipo de permiso para esas fechas, con si se
+   * cumplen: `{ reglas: [{ clave, estado, texto, detalle }], bloquea }`. */
+  evaluar(flujo, desde, hasta) {
+    return apiClient
+      .get(`${BASE}tipos/${flujo}/evaluar/`, { params: { desde, hasta } })
+      .then((res) => res.data);
+  },
   /** `vista`: "mias", "por_aprobar" o "todas". */
   solicitudes(vista = "mias") {
     return apiClient

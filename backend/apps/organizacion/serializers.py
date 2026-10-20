@@ -11,6 +11,7 @@ from .models import (
     DocumentoInstitucional,
     Empleado,
     EventoCalendario,
+    Herramienta,
     NivelJerarquico,
     NoticiaInicio,
     Proveedor,
@@ -284,7 +285,18 @@ class MisDatosSerializer(serializers.Serializer):
     telefono = serializers.CharField(max_length=30)
     area = RelacionDeEmpresa(Departamento, {"activo": True})
     agencia = RelacionDeEmpresa(Sede, {"activa": True})
-    cargo = RelacionDeEmpresa(Cargo, {"activo": True}, required=False, allow_null=True)
+    #: Obligatorio desde el 20/10/2026, como el resto de «Mi perfil».
+    cargo = RelacionDeEmpresa(Cargo, {"activo": True})
+
+    def validate_nombres(self, valor):
+        if not valor.strip():
+            raise serializers.ValidationError("Escriba sus nombres.")
+        return valor
+
+    def validate_apellidos(self, valor):
+        if not valor.strip():
+            raise serializers.ValidationError("Escriba sus apellidos.")
+        return valor
 
     def validate_telefono(self, valor):
         digitos = [c for c in valor if c.isdigit()]
@@ -540,3 +552,111 @@ class AvisoInicioSerializer(serializers.Serializer):
         if datos.get("imagen"):
             datos["content_type"] = noticias.TIPOS[self._extension]
         return datos
+
+
+class CumpleanosSerializer(serializers.Serializer):
+    """Mostrar o no el cumpleaños en el calendario. Para mostrarlo hay que
+    aceptar que sea público y dar el día y el mes (el año no se guarda)."""
+
+    mostrar = serializers.BooleanField()
+    acepto = serializers.BooleanField(default=False)
+    dia = serializers.IntegerField(min_value=1, max_value=31, required=False, allow_null=True)
+    mes = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+
+    def validate(self, datos):
+        if not datos["mostrar"]:
+            return datos
+        if not datos.get("acepto"):
+            raise serializers.ValidationError(
+                {"acepto": "Para mostrar su cumpleaños, acepte que sea visible para la empresa."}
+            )
+        dia, mes = datos.get("dia"), datos.get("mes")
+        if not dia or not mes:
+            raise serializers.ValidationError({"dia": "Indique el día y el mes de su cumpleaños."})
+        import datetime
+
+        try:
+            datetime.date(2024, mes, dia)  # 2024 es bisiesto: el 29/02 vale
+        except ValueError:
+            raise serializers.ValidationError({"dia": "Esa fecha no existe."}) from None
+        return datos
+
+
+class AniversarioSerializer(serializers.Serializer):
+    """Mostrar o no el aniversario en la empresa en el calendario. Para
+    mostrarlo hay que aceptar que sea público y dar día y mes de ingreso; el
+    año es opcional y no puede ser futuro."""
+
+    mostrar = serializers.BooleanField()
+    acepto = serializers.BooleanField(default=False)
+    dia = serializers.IntegerField(min_value=1, max_value=31, required=False, allow_null=True)
+    mes = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+    anio = serializers.IntegerField(min_value=1950, max_value=2100, required=False, allow_null=True)
+
+    def validate(self, datos):
+        if not datos["mostrar"]:
+            return datos
+        if not datos.get("acepto"):
+            raise serializers.ValidationError(
+                {"acepto": "Para mostrar su aniversario, acepte que sea visible para la empresa."}
+            )
+        dia, mes, anio = datos.get("dia"), datos.get("mes"), datos.get("anio")
+        if not dia or not mes:
+            raise serializers.ValidationError(
+                {"dia": "Indique al menos el día y el mes de su ingreso."}
+            )
+        import datetime
+
+        from django.utils import timezone
+
+        try:
+            fecha = datetime.date(anio or 2024, mes, dia)  # 2024: el 29/02 vale
+        except ValueError:
+            raise serializers.ValidationError({"dia": "Esa fecha no existe."}) from None
+        if anio and fecha > timezone.localdate():
+            raise serializers.ValidationError({"anio": "La fecha de ingreso no puede ser futura."})
+        return datos
+
+
+class PerfilCargoSerializer(serializers.Serializer):
+    """El perfil de un cargo. Funciones, competencias y KPIs: una por línea."""
+
+    objetivo = serializers.CharField(allow_blank=True, max_length=2000, default="")
+    funciones = serializers.CharField(allow_blank=True, max_length=6000, default="")
+    competencias = serializers.CharField(allow_blank=True, max_length=4000, default="")
+    kpis = serializers.CharField(allow_blank=True, max_length=4000, default="")
+    #: Las herramientas base del cargo (ids del catálogo); sin el campo, no se tocan.
+    herramientas = serializers.ListField(
+        child=serializers.IntegerField(), required=False, allow_empty=True
+    )
+
+
+class HerramientaSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(max_length=120, validators=[])
+
+    class Meta:
+        model = Herramienta
+        fields = ["id", "nombre", "tipo", "descripcion", "activa", "orden"]
+
+    def validate_nombre(self, valor):
+        valor = valor.strip()
+        repetida = Herramienta.objects.filter(nombre__iexact=valor)
+        if self.instance is not None:
+            repetida = repetida.exclude(pk=self.instance.pk)
+        if repetida.exists():
+            raise serializers.ValidationError(f"Ya hay una herramienta «{valor}».")
+        return valor
+
+
+class MiHerramientaSerializer(serializers.Serializer):
+    herramienta = serializers.IntegerField()
+    cuenta = serializers.CharField(max_length=150, allow_blank=True, default="")
+
+
+class MisHerramientasSerializer(serializers.Serializer):
+    herramientas = MiHerramientaSerializer(many=True)
+
+
+class AccesoHerramientaSerializer(serializers.Serializer):
+    usuario = serializers.IntegerField()
+    cuenta = serializers.CharField(max_length=150, allow_blank=True, default="")

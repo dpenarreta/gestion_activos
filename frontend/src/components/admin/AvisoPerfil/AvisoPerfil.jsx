@@ -4,74 +4,79 @@ import { misDatosService } from "../../../api/misDatosService";
 import { useAuth } from "../../../hooks/useAuth";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import {
+  DATOS_OBLIGATORIOS,
   FormularioMisDatos,
-  queFalta,
 } from "../../../pages/MisDatos/MisDatosPage";
 import { Icon } from "../../common/Icon/Icon";
+import "./AvisoPerfil.css";
 
-const CLAVE = "perfil.aviso_visto";
+/** Se ignora: la ventana no se cierra con Escape ni haciendo clic fuera. */
+const NO_SE_CIERRA = () => {};
 
-function yaVisto(usuario) {
-  try {
-    return sessionStorage.getItem(`${CLAVE}.${usuario}`) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function marcarVisto(usuario) {
-  try {
-    sessionStorage.setItem(`${CLAVE}.${usuario}`, "1");
-  } catch {
-    /* Sin almacenamiento, el aviso puede volver a salir: no es grave. */
-  }
-}
-
-function Ventana({ datos, onCerrar, onGuardado }) {
-  const { panelRef, handleBackdropClick } = useModalA11y({
+function Ventana({ datos, onGuardado, onSalir }) {
+  const { panelRef } = useModalA11y({
     isOpen: true,
-    onRequestClose: onCerrar,
+    onRequestClose: NO_SE_CIERRA,
   });
+  const faltan = new Set(datos.faltan);
   return (
-    <div
-      className="mz-overlay mz-overlay--center"
-      onClick={handleBackdropClick}
-      role="presentation"
-    >
+    <div className="mz-overlay mz-overlay--center" role="presentation">
       <div
-        className="mz-modal"
+        className="mz-modal mz-modal--wide"
         role="dialog"
         aria-modal="true"
         aria-labelledby="aviso-perfil-titulo"
+        aria-describedby="aviso-perfil-desc"
         ref={panelRef}
         tabIndex={-1}
       >
         <div className="mz-panel-head">
           <div>
-            <h3 id="aviso-perfil-titulo">Complete su información</h3>
-            <p className="mz-desc">
-              Le falta: {queFalta(datos.faltan)}. Con estos datos se cargan sus
-              pedidos de soporte; luego puede cambiarlos desde su usuario, abajo
-              en el menú, en «Mi perfil».
+            <h3 id="aviso-perfil-titulo">
+              Complete su información para continuar
+            </h3>
+            <p id="aviso-perfil-desc" className="mz-desc">
+              Antes de usar el sistema, su perfil debe tener todos estos datos.
+              Es obligatorio: no podrá continuar hasta completarlos.
             </p>
           </div>
-          <button
-            type="button"
-            className="mz-close"
-            onClick={onCerrar}
-            aria-label="Completar después"
-          >
-            <Icon name="x-lg" />
-          </button>
         </div>
-        <div className="mz-panel-body">
-          <FormularioMisDatos datos={datos} onGuardado={onGuardado} />
+        <div className="mz-panel-body mz-stack">
+          <ul className="perfil-obligatorio" aria-label="Datos obligatorios">
+            {DATOS_OBLIGATORIOS.map(([clave, nombre]) => (
+              <li
+                key={clave}
+                className={
+                  faltan.has(clave)
+                    ? "perfil-obligatorio__falta"
+                    : "perfil-obligatorio__listo"
+                }
+              >
+                <Icon
+                  name={
+                    faltan.has(clave)
+                      ? "exclamation-circle-fill"
+                      : "check-circle-fill"
+                  }
+                />
+                {nombre}
+                <span className="visually-hidden">
+                  {faltan.has(clave) ? ": falta" : ": completo"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <FormularioMisDatos
+            datos={datos}
+            onGuardado={onGuardado}
+            textoBoton="Guardar y continuar"
+          />
           <button
             type="button"
-            className="btn btn-link btn-sm px-0"
-            onClick={onCerrar}
+            className="btn btn-link btn-sm px-0 align-self-start"
+            onClick={onSalir}
           >
-            Completar después
+            <Icon name="box-arrow-right" /> Cerrar sesión
           </button>
         </div>
       </div>
@@ -80,18 +85,20 @@ function Ventana({ datos, onCerrar, onGuardado }) {
 }
 
 /**
- * Al iniciar sesión, si a la persona le faltan datos de su perfil (nombre,
- * teléfono, área o agencia), se lo pide en una ventana para que los complete
- * desde el principio. Si la cierra, no vuelve a salir hasta su próximo inicio
- * de sesión; los cambios después se hacen en «Mi perfil», desde su usuario.
+ * Al entrar al sistema (y en cada carga, mientras falte algo) se revisa el
+ * perfil de la persona: nombres, apellidos, correo institucional, teléfono,
+ * área, agencia y cargo. Si falta cualquiera, el sistema queda bloqueado con
+ * esta ventana, que no se cierra: solo se sale completándolos o cerrando la
+ * sesión. El correo no lo cambia la persona; si no es institucional, lo
+ * corrige la administración.
  */
 export function AvisoPerfil() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [datos, setDatos] = useState(null);
   const usuario = user?.id;
 
   useEffect(() => {
-    if (!usuario || yaVisto(usuario)) return undefined;
+    if (!usuario) return undefined;
     let vigente = true;
     Promise.resolve(misDatosService.obtener?.())
       .then((respuesta) => {
@@ -105,18 +112,13 @@ export function AvisoPerfil() {
 
   if (!datos) return null;
 
-  function cerrar() {
-    marcarVisto(usuario);
-    setDatos(null);
-  }
-
   return (
     <Ventana
       datos={datos}
-      onCerrar={cerrar}
+      onSalir={() => logout?.()}
       onGuardado={(nuevos) => {
         if (nuevos?.faltan?.length) setDatos(nuevos);
-        else cerrar();
+        else setDatos(null);
       }}
     />
   );

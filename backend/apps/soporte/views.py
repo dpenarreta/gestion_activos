@@ -239,7 +239,11 @@ class SolicitarView(APIView):
         empresa = empresa_actual()
         datos = datos_del_formulario("" if empresa in (None, SIN_EMPRESA) else empresa.nombre)
         datos["campos"] = formulario.visibles(excluir_personales=True)
-        datos["mis_datos"] = contacto.de(request.user)
+        # Con los cargos para elegir: el cargo es obligatorio en «Mi perfil».
+        datos["mis_datos"] = {
+            **contacto.de(request.user),
+            "cargos": contacto.opciones()["cargos"],
+        }
         return Response(datos)
 
     def post(self, request):

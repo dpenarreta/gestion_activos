@@ -18,6 +18,7 @@ export function RoleForm() {
   } = usePermissionsCatalog();
 
   const [name, setName] = useState("");
+  const [nivel, setNivel] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,6 +29,7 @@ export function RoleForm() {
       return;
     }
     rolesService.get(id).then((role) => {
+      setNivel(role.nivel ?? null);
       setName(role.name);
       setSelected(new Set(role.permission_codenames));
     });
@@ -103,7 +105,16 @@ export function RoleForm() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
+                disabled={Boolean(nivel)}
               />
+              {nivel && (
+                <small className="mz-faint">
+                  Es el rol del nivel «{nivel.nombre}» del organigrama de{" "}
+                  {nivel.empresa}: se renombra con el nivel (Institucional →
+                  Estructura) y se asigna solo a quien ocupa un cargo de ese
+                  nivel. Sus permisos sí se editan aquí.
+                </small>
+              )}
             </div>
           </div>
 

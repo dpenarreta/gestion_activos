@@ -25,6 +25,9 @@ const servicio = {
   eliminar: vi.fn(),
   asignaciones: vi.fn(),
   asignar: vi.fn(),
+  plantillaPersonas: vi.fn(),
+  exportarOrganigrama: vi.fn(),
+  cargarPersonas: vi.fn(),
 };
 vi.mock("../src/api/institucionalService", () => ({
   institucionalService: servicio,
@@ -247,7 +250,10 @@ describe("El organigrama", () => {
       "institucional-organigrama",
       "institucional-permisos",
       "institucional-vacaciones",
+      "institucional-onboarding",
+      "institucional-rol-pagos",
       "institucional-codigos",
+      "institucional-sugerencias",
     ]);
   });
 
@@ -262,6 +268,28 @@ describe("El organigrama", () => {
 });
 
 describe("La estructura", () => {
+  it("desde la estructura se descargan la plantilla y el organigrama completo", async () => {
+    servicio.plantillaPersonas.mockResolvedValue(new Blob(["p"]));
+    servicio.exportarOrganigrama.mockResolvedValue(new Blob(["c"]));
+    URL.createObjectURL = vi.fn(() => "blob:x");
+    URL.revokeObjectURL = vi.fn();
+    pintar(<EstructuraPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Plantilla de carga masiva/ }),
+    );
+    await waitFor(() => expect(servicio.plantillaPersonas).toHaveBeenCalled());
+    fireEvent.click(
+      screen.getByRole("button", { name: /Organigrama completo/ }),
+    );
+    await waitFor(() =>
+      expect(servicio.exportarOrganigrama).toHaveBeenCalled(),
+    );
+    // Quien solo arma la estructura descarga, pero no carga personas.
+    expect(
+      screen.queryByRole("button", { name: /Carga masiva de personas/ }),
+    ).toBeNull();
+  });
+
   it("crea un cargo en una unidad, con su jefe y sus plazas", async () => {
     servicio.crear.mockResolvedValue({});
     pintar(<EstructuraPage />);

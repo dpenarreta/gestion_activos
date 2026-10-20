@@ -819,6 +819,7 @@
   --cal-evento: var(--mz-action);
   --cal-cumpleanos: #c2185b;
   --cal-feriado: #2e7d32;
+  --cal-aniversario: #b26a00;
 }
 
 .calendario {
@@ -932,6 +933,10 @@
   background: var(--cal-feriado);
 }
 
+.calendario__marca--aniversario {
+  background: var(--cal-aniversario);
+}
+
 .calendario__leyenda {
   display: flex;
   flex-wrap: wrap;
@@ -994,6 +999,10 @@
 
 .calendario__icono--feriado {
   background: var(--cal-feriado);
+}
+
+.calendario__icono--aniversario {
+  background: var(--cal-aniversario);
 }
 
 /* El calendario recogido: hoy y mañana en texto, y el botón para ampliarlo. */
@@ -1399,15 +1408,651 @@
   gap: 6px;
 }
 
+/* Cada destino en una sola fila: [conector] [tipo] [a quién] [quitar]. */
 .flujo-destinos__fila {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
 }
 
-.flujo-destinos__o {
+.flujo-destinos__conector {
+  flex: none;
+  width: 16px;
+  text-align: center;
   font-size: 12px;
   font-weight: 600;
   color: var(--mz-ink-faint);
+}
+
+.flujo-destinos__agregar {
+  justify-self: start;
+}
+
+.selector-destino {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.selector-destino--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Los avisos: un recuadro por resultado, uno junto al otro. */
+.flujo-avisos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.flujo-avisos__caja {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-top-width: 3px;
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.flujo-avisos__caja--aprobada {
+  border-top-color: var(--mz-ok-fg);
+}
+
+.flujo-avisos__caja--rechazada {
+  border-top-color: var(--mz-bad-fg);
+}
+
+.flujo-avisos__titulo {
+  font-size: 13px;
+}
+
+.flujo-avisos__caja--aprobada .flujo-avisos__titulo {
+  color: var(--mz-ok-fg);
+}
+
+.flujo-avisos__caja--rechazada .flujo-avisos__titulo {
+  color: var(--mz-bad-fg);
+}
+
+@media (max-width: 760px) {
+  .flujo-avisos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Solicitud de permisos: el rango Desde–Hasta marcado en el calendario. */
+.calendario-rango {
+  padding: 10px;
+  box-shadow: none;
+}
+
+.calendario-rango .calendario__dia {
+  min-height: 32px;
+  border-radius: 0;
+}
+
+.calendario-rango__dentro {
+  background: color-mix(in srgb, var(--mz-action) 14%, transparent);
+}
+
+.calendario-rango__inicio,
+.calendario-rango__fin {
+  background: var(--mz-action);
+  color: #fff;
+  font-weight: 600;
+}
+
+.calendario-rango__inicio {
+  border-radius: 8px 0 0 8px;
+}
+
+.calendario-rango__fin {
+  border-radius: 0 8px 8px 0;
+}
+
+.calendario-rango__inicio.calendario-rango__fin {
+  border-radius: 8px;
+}
+
+.calendario-rango__dentro:hover {
+  background: color-mix(in srgb, var(--mz-action) 24%, transparent);
+}
+
+.calendario-rango__inicio:hover,
+.calendario-rango__fin:hover {
+  background: var(--mz-action);
+}
+
+.calendario-rango__ayuda {
+  margin: 6px 0 0;
+  text-align: center;
+}
+
+.solicitud-dias {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Las restricciones del permiso, debajo de los días elegidos. */
+.solicitud-reglas {
+  display: grid;
+  gap: 6px;
+}
+
+.solicitud-reglas__titulo {
+  font-size: 13px;
+}
+
+.solicitud-reglas ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.solicitud-regla {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.solicitud-regla > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.solicitud-regla small {
+  color: var(--mz-ink-faint);
+}
+
+.solicitud-regla__texto {
+  font-weight: 600;
+}
+
+.solicitud-regla--ok {
+  border-left-color: var(--mz-ok-fg);
+}
+
+.solicitud-regla--ok > .bi {
+  color: var(--mz-ok-fg);
+}
+
+.solicitud-regla--falla {
+  border-left-color: var(--mz-bad-fg);
+  background: color-mix(in srgb, var(--mz-bad-fg) 6%, transparent);
+}
+
+.solicitud-regla--falla > .bi {
+  color: var(--mz-bad-fg);
+}
+
+.solicitud-regla--aviso {
+  border-left-color: #b26a00;
+  background: color-mix(in srgb, #f0a400 8%, transparent);
+}
+
+.solicitud-regla--aviso > .bi {
+  color: #b26a00;
+}
+
+.solicitud-regla--info {
+  border-left-color: var(--mz-action);
+}
+
+.solicitud-regla--info > .bi {
+  color: var(--mz-action);
+}
+
+/* Organigrama: quien está cargado sin cuenta en el sistema. */
+.org-personas__sin-cuenta {
+  color: var(--mz-ink-faint);
+  font-style: italic;
+}
+
+.org-personas__etiqueta {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Carga masiva de personas. */
+.carga-personas__pasos {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.carga-personas__archivo {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.carga-personas__lista {
+  max-height: 220px;
+  margin: 0;
+  padding: 8px 8px 8px 26px;
+  overflow: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.carga-personas__lista--errores {
+  border-color: color-mix(in srgb, var(--mz-bad-fg) 40%, transparent);
+}
+
+/* Perfiles de cargo (Editar estructura). */
+.perfil-cargo-buscar {
+  max-width: 260px;
+}
+
+.perfil-cargo-lista {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perfil-cargo-lista li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.perfil-cargo-lista li:last-child {
+  border-bottom: 0;
+}
+
+.perfil-cargo-lista__nombre {
+  flex: 1;
+  min-width: 0;
+}
+
+.perfil-cargo-estado {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.perfil-cargo-estado--completo {
+  background: color-mix(in srgb, var(--mz-ok-fg) 12%, transparent);
+  color: var(--mz-ok-fg);
+}
+
+.perfil-cargo-estado--parcial {
+  background: color-mix(in srgb, #f0a400 15%, transparent);
+  color: #8a5300;
+}
+
+.perfil-cargo-estado--vacio {
+  background: var(--mz-sunken);
+  color: var(--mz-ink-faint);
+}
+
+/* Herramientas y licencias: quién usa qué. */
+.herramientas-uso {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+/* Perfil del cargo: las herramientas y licencias que necesita. */
+.perfil-cargo-herramientas {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.perfil-cargo-herramientas legend {
+  float: none;
+  width: auto;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.perfil-cargo-herramientas__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.perfil-cargo-herramientas__grupo > .mz-small {
+  flex-basis: 100%;
+}
+
+/* Catálogo de herramientas: quién tiene acceso, en su editor. */
+.accesos-herramienta {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mz-border);
+}
+
+.accesos-herramienta h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.accesos-herramienta__agregar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.accesos-herramienta__buscar {
+  position: relative;
+}
+
+.accesos-herramienta__resultados {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  margin: 2px 0 0;
+  padding: 4px;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+}
+
+.accesos-herramienta__resultados button {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 13px;
+}
+
+.accesos-herramienta__resultados button:hover:not(:disabled) {
+  background: var(--mz-sunken);
+}
+
+.accesos-herramienta__resultados button:disabled {
+  opacity: 0.6;
+}
+
+.accesos-herramienta__elegida {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 31px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .accesos-herramienta__agregar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Sugerencias y errores. */
+.sugerencia-tipos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.sugerencia-tipos legend {
+  grid-column: 1 / -1;
+  float: none;
+}
+
+.sugerencia-tipo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.sugerencia-tipo input {
+  margin-top: 4px;
+}
+
+.sugerencia-tipo span {
+  display: grid;
+}
+
+.sugerencia-tipo.is-activo {
+  border-color: var(--mz-action);
+  background: color-mix(in srgb, var(--mz-action) 8%, transparent);
+}
+
+.sugerencia-filtro,
+.sugerencia-cambiar {
+  width: auto;
+  min-width: 200px;
+}
+
+.sugerencia-estado {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sugerencia-estado--nuevo {
+  background: color-mix(in srgb, var(--mz-action) 14%, transparent);
+  color: var(--mz-action);
+}
+
+.sugerencia-estado--en_revision,
+.sugerencia-estado--planificado {
+  background: color-mix(in srgb, #f0a400 15%, transparent);
+  color: #8a5300;
+}
+
+.sugerencia-estado--resuelto {
+  background: color-mix(in srgb, var(--mz-ok-fg) 12%, transparent);
+  color: var(--mz-ok-fg);
+}
+
+.sugerencia-estado--descartado {
+  color: var(--mz-ink-faint);
+}
+
+.sugerencia-estado--alto {
+  background: color-mix(in srgb, var(--mz-bad-fg) 12%, transparent);
+  color: var(--mz-bad-fg);
+}
+
+.sugerencia-datos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 13px;
+}
+
+.sugerencia-descripcion {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.sugerencia-captura {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}
+
+.sugerencia-comentarios {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sugerencia-comentarios li {
+  padding: 8px 10px;
+  border-left: 3px solid var(--mz-border);
+  border-radius: 6px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+}
+
+.sugerencia-comentarios p {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .sugerencia-tipos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Consultar rol de pagos. */
+.rol-pagos__periodo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 200px)) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.rol-pagos__terminos {
+  max-height: 200px;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.rol-pagos__consentimiento {
+  padding: 10px 12px;
+  border-left: 3px solid var(--mz-action);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+@media (max-width: 760px) {
+  .rol-pagos__periodo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Mi onboarding. */
+.onboarding-avance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.onboarding-avance > div:first-child {
+  flex: 1;
+  min-width: 240px;
+}
+
+.onboarding-avance__datos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.onboarding-barra {
+  height: 8px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+}
+
+.onboarding-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mz-ok-fg);
+}
+
+.onboarding-texto {
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.onboarding-pregunta {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.onboarding-pregunta legend {
+  float: none;
+  width: 100%;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.onboarding-opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-reforzar {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
 }

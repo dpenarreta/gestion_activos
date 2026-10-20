@@ -1,0 +1,218 @@
+/* «Mi perfil» → Mi cargo: objetivo, funciones, competencias y KPIs. */
+.mi-cargo h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mi-cargo__objetivo {
+  padding: 10px 12px;
+  border-left: 3px solid var(--mz-action);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.mi-cargo__grilla {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mi-cargo__bloque {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.mi-cargo__bloque ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .mi-cargo__grilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* «Mi perfil» → Mi línea de supervisión. */
+.mi-linea {
+  display: grid;
+  gap: 10px;
+}
+
+.mi-linea__cadena,
+.mi-linea__supervisa {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mi-linea__supervisa {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.mi-linea__cargo {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--mz-border);
+  border-left-width: 3px;
+  border-radius: 10px;
+}
+
+.mi-linea__cargo--arriba {
+  border-left-color: var(--mz-ink-faint);
+}
+
+.mi-linea__cargo--abajo {
+  border-left-color: var(--mz-ok-fg);
+}
+
+.mi-linea__usted {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mz-action) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mz-action) 40%, transparent);
+}
+
+.mi-linea__personas {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.mi-linea__personas .is-sin-cuenta {
+  color: var(--mz-ink-faint);
+  font-style: italic;
+}
+
+.mi-linea__etiqueta {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mi-linea__vacante {
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+}
+
+/* «Mi perfil» → Mis herramientas. */
+.mis-herramientas__vista {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mis-herramientas__lista {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.mis-herramientas__grupo {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.mis-herramientas__grupo legend {
+  float: none;
+  width: auto;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mis-herramientas__fila {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 31px;
+}
+
+@media (max-width: 900px) {
+  .mis-herramientas__vista,
+  .mis-herramientas__fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Herramientas base del cargo (Mi perfil y Herramientas y licencias). */
+.base-cargo__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.base-cargo__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.base-cargo__chip.is-lista {
+  background: color-mix(in srgb, var(--mz-ok-fg) 12%, transparent);
+  color: var(--mz-ok-fg);
+}
+
+.base-cargo__chip.is-falta {
+  background: color-mix(in srgb, #f0a400 15%, transparent);
+  color: #8a5300;
+}
+
+.mis-herramientas__base {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.mis-herramientas__faltan {
+  color: #8a5300;
+}
+
+.mis-herramientas__requerida {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mz-action) 12%, transparent);
+  color: var(--mz-action);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}

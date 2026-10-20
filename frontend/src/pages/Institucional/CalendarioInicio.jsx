@@ -13,6 +13,13 @@ export const TIPOS_DE_EVENTO = {
   feriado: { nombre: "Feriado", icono: "flag-fill" },
 };
 
+/** Lo que muestra el calendario: los tipos que se cargan a mano y los que
+ * salen solos de «Mi perfil» (los aniversarios en la empresa). */
+export const TIPOS_EN_CALENDARIO = {
+  ...TIPOS_DE_EVENTO,
+  aniversario: { nombre: "Aniversario", icono: "award-fill" },
+};
+
 /** AAAA-MM-DD de una fecha local (sin pasar por UTC, que correría el día). */
 export function iso(fecha) {
   const m = String(fecha.getMonth() + 1).padStart(2, "0");
@@ -30,7 +37,7 @@ function diaYMes(fecha) {
 /** Tipo, duración y si se repite: lo que acompaña al título de una fecha. */
 function datosDelEvento(e) {
   return [
-    TIPOS_DE_EVENTO[e.tipo]?.nombre,
+    TIPOS_EN_CALENDARIO[e.tipo]?.nombre,
     e.fecha_fin && e.fecha_fin !== e.fecha
       ? `del ${diaYMes(e.fecha)} al ${diaYMes(e.fecha_fin)}`
       : null,
@@ -42,7 +49,7 @@ function datosDelEvento(e) {
 
 /** Una línea por fecha, para el globo que sale al pasar sobre un día. */
 function detalleCorto(e) {
-  const tipo = TIPOS_DE_EVENTO[e.tipo]?.nombre ?? e.tipo;
+  const tipo = TIPOS_EN_CALENDARIO[e.tipo]?.nombre ?? e.tipo;
   return `${tipo}: ${e.titulo}${e.descripcion ? ` — ${e.descripcion}` : ""}`;
 }
 
@@ -221,7 +228,7 @@ export function CalendarioMes({ hoy = new Date() }) {
       </div>
 
       <div className="calendario__leyenda" aria-hidden="true">
-        {Object.entries(TIPOS_DE_EVENTO).map(([id, t]) => (
+        {Object.entries(TIPOS_EN_CALENDARIO).map(([id, t]) => (
           <span key={id}>
             <span className={`calendario__marca calendario__marca--${id}`} />{" "}
             {t.nombre}
@@ -246,7 +253,9 @@ export function CalendarioMes({ hoy = new Date() }) {
                 <span
                   className={`calendario__icono calendario__icono--${e.tipo}`}
                 >
-                  <Icon name={TIPOS_DE_EVENTO[e.tipo]?.icono ?? "star-fill"} />
+                  <Icon
+                    name={TIPOS_EN_CALENDARIO[e.tipo]?.icono ?? "star-fill"}
+                  />
                 </span>
                 <span>
                   <strong>{e.titulo}</strong>
@@ -283,7 +292,9 @@ function ListaDelDia({ etiqueta, fecha, eventos }) {
               <span
                 className={`calendario__icono calendario__icono--${e.tipo}`}
               >
-                <Icon name={TIPOS_DE_EVENTO[e.tipo]?.icono ?? "star-fill"} />
+                <Icon
+                  name={TIPOS_EN_CALENDARIO[e.tipo]?.icono ?? "star-fill"}
+                />
               </span>
               <span>
                 <strong>{e.titulo}</strong>

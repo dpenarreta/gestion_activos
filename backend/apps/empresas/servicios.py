@@ -214,6 +214,11 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
                 es_predeterminada=entrada["empresa_id"] == predeterminada,
             )
             membresia.roles.set([roles[rol] for rol in entrada.get("roles", [])])
+            # El rol de nivel no se elige a mano: lo pone el cargo de la
+            # persona en el organigrama (ver `organizacion.roles_de_nivel`).
+            from apps.organizacion.roles_de_nivel import ajustar_membresia
+
+            ajustar_membresia(membresia)
             elegidas = entrada.get("areas")
             if elegidas is None:
                 elegidas = areas_previas.get(entrada["empresa_id"], [])

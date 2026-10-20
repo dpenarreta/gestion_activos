@@ -14,6 +14,7 @@ import {
 } from "../AdminSidebar/SelectorEmpresa";
 import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
 import { AvisoInicioSesion } from "../AvisoInicioSesion/AvisoInicioSesion";
+import { AvisoOnboarding } from "../AvisoOnboarding/AvisoOnboarding";
 import { AvisoPerfil } from "../AvisoPerfil/AvisoPerfil";
 import { ChatProvider } from "../Chat/ChatContext";
 import { ChatDock } from "../Chat/ChatDock";
@@ -182,6 +183,7 @@ export function AdminLayout() {
                   : " mz-view--con-chat"
               }`}
             >
+              <AvisoOnboarding />
               {/* Las secciones de Configuración conservan sus rutas de
                 siempre; el marco con sus pestañas se pone aquí, según dónde
                 se esté, y no en cada pantalla. */}

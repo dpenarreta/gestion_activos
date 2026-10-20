@@ -365,6 +365,76 @@ PERMISSION_CATALOG = {
                 "Armar el organigrama: crear, editar y borrar niveles, unidades y cargos"
             ),
             "institucional.asignar": "Asignar personas a los cargos del organigrama",
+            "institucional.perfil_cargo": (
+                "Escribir el perfil de cada cargo: su objetivo, funciones, competencias "
+                "y KPIs, que ve en «Mi perfil» quien lo ocupa"
+            ),
+        },
+    },
+    "herramientas": {
+        "label": "Herramientas y licencias",
+        "description": (
+            "Las herramientas y licencias que se usan en la empresa, externas (Claude, "
+            "Gmail, Asana…) e internas (Venture, Fenix, Geolaar, Zimbra…). Cada persona "
+            "declara en «Mi perfil» las que usa, sin permiso; quien gestiona mantiene el "
+            "catálogo y ve quién usa cada una, para las requisiciones de desactivación, "
+            "reasignación o licencias nuevas."
+        ),
+        "permissions": {
+            "herramientas.gestionar": (
+                "Administrar el catálogo de herramientas y licencias (externas e internas) "
+                "y ver quién usa cada una"
+            ),
+        },
+    },
+    "capacitacion": {
+        "label": "Onboarding y capacitación",
+        "description": (
+            "El onboarding de cada persona nueva y la capacitación: materiales de la "
+            "empresa, de cada área y de cada cargo, cada uno con su evaluación. Hacer "
+            "el propio onboarding no pide permiso."
+        ),
+        "permissions": {
+            "capacitacion.gestionar": (
+                "Crear y editar los materiales de capacitación (de la empresa, de un área "
+                "o de un cargo) y sus evaluaciones"
+            ),
+            "capacitacion.resultados": (
+                "Ver los puntajes y el avance del onboarding de todos, asignarlo a cuentas "
+                "existentes y devolver intentos de evaluación"
+            ),
+        },
+    },
+    "roles_pago": {
+        "label": "Rol de pagos",
+        "description": (
+            "«Consultar rol de pagos» de Institucional. Cada persona consulta el suyo "
+            "sin permiso: el código de empleado sale de su sesión y para verlo acepta "
+            "los términos y confirma su contraseña. Estos permisos son los de Talento "
+            "Humano."
+        ),
+        "permissions": {
+            "roles_pago.consultar_todos": (
+                "Consultar el rol de pagos de cualquier persona por su código de empleado"
+            ),
+            "roles_pago.configurar": (
+                "Cambiar los términos que se aceptan al consultar el rol de pagos y el "
+                "consentimiento para guardar el correo personal"
+            ),
+        },
+    },
+    "sugerencias": {
+        "label": "Sugerencias y errores",
+        "description": (
+            "Las sugerencias y los errores del sistema que reporta cualquier persona "
+            "con cuenta desde Institucional, sin permiso. Quien gestiona los ve todos, "
+            "cambia su estado y les responde."
+        ),
+        "permissions": {
+            "sugerencias.gestionar": (
+                "Ver todas las sugerencias y errores reportados, cambiar su estado y "
+                "responderlos"
+            ),
         },
     },
     "codigos": {
@@ -538,6 +608,10 @@ MODULE_GROUPS = [
             "calendario",
             "vacaciones",
             "licencias",
+            "herramientas",
+            "sugerencias",
+            "roles_pago",
+            "capacitacion",
         ],
     },
     {

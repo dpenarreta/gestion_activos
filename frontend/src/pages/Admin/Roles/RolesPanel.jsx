@@ -81,7 +81,15 @@ export function RolesPanel() {
           <tbody>
             {roles.map((role) => (
               <tr key={role.id}>
-                <td className="mz-strong">{role.name}</td>
+                <td className="mz-strong">
+                  {role.name}
+                  {role.nivel && (
+                    <span className="d-block mz-small mz-faint fw-normal">
+                      <Icon name="diagram-3" /> Nivel del organigrama de{" "}
+                      {role.nivel.empresa}: se asigna solo según el cargo
+                    </span>
+                  )}
+                </td>
                 <td className="num">{role.permission_codenames.length}</td>
                 <td className="acciones">
                   <Link
@@ -90,7 +98,8 @@ export function RolesPanel() {
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>
-                  {puedeEditar && (
+                  {/* El de un nivel se borra al borrar el nivel. */}
+                  {puedeEditar && !role.nivel && (
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"

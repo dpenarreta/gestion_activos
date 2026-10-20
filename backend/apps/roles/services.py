@@ -4,6 +4,7 @@ reutilizable, no cuentas con historial que preservar."""
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from rest_framework import serializers
 
 from apps.core.audit import record_audit_event
 from apps.permissions.authorization import permisos_que_no_tiene
@@ -21,6 +22,10 @@ def _vigilando_gestores(cambio):
         return sin_dejar_empresas_sin_gestor(cambio)
     except EmpresaSinGestor as error:
         raise serializers.ValidationError({"detail": str(error)}) from error
+
+
+def _es_de_nivel(role: Group) -> bool:
+    return hasattr(role, "nivel_jerarquico") and role.nivel_jerarquico is not None
 
 
 class RoleService:
@@ -74,6 +79,10 @@ class RoleService:
     ) -> Group:
         previous_values = {}
         new_values = {}
+        if name is not None and name != role.name and _es_de_nivel(role):
+            raise serializers.ValidationError(
+                {"name": "Es el rol de un nivel del organigrama: se renombra con el nivel."}
+            )
         if name is not None and name != role.name:
             previous_values["name"] = role.name
             new_values["name"] = name
@@ -104,6 +113,10 @@ class RoleService:
 
     @staticmethod
     def delete_role(*, actor: User, role: Group, context: dict | None = None) -> None:
+        if _es_de_nivel(role):
+            raise serializers.ValidationError(
+                {"detail": "Es el rol de un nivel del organigrama: se borra al borrar el nivel."}
+            )
         role_id, role_name = role.id, role.name
         _vigilando_gestores(role.delete)
         record_audit_event(

@@ -49,4 +49,83 @@ def apariciones(desde: datetime.date, hasta: datetime.date) -> list[dict]:
             fin = inicio + duracion
             if inicio <= hasta and fin >= desde:
                 resultado.append(_aparicion(evento, inicio, fin))
+    resultado.extend(_cumpleanos_publicados(desde, hasta))
+    resultado.extend(_aniversarios_publicados(desde, hasta))
     return sorted(resultado, key=lambda a: (a["fecha"], a["titulo"]))
+
+
+def _cumpleanos_publicados(desde, hasta) -> list[dict]:
+    """Los cumpleaños que cada persona decidió mostrar (en «Mi perfil»), cada
+    año del rango. Solo de personas activas de la empresa."""
+    from .models import DatosDeContacto
+
+    resultado = []
+    perfiles = DatosDeContacto.objects.filter(
+        mostrar_cumpleanos=True,
+        cumpleanos_dia__isnull=False,
+        cumpleanos_mes__isnull=False,
+        usuario__is_active=True,
+    ).select_related("usuario")
+    for perfil in perfiles:
+        nombre = perfil.usuario.get_full_name().strip() or perfil.usuario.username
+        for anio in range(desde.year, hasta.year + 1):
+            try:
+                dia = datetime.date(anio, perfil.cumpleanos_mes, perfil.cumpleanos_dia)
+            except ValueError:  # 29 de febrero en un año no bisiesto
+                dia = datetime.date(anio, 2, 28)
+            if desde <= dia <= hasta:
+                resultado.append(
+                    {
+                        "id": f"cumple-{perfil.usuario_id}",
+                        "titulo": f"Cumpleaños de {nombre}",
+                        "tipo": "cumpleanos",
+                        "tipo_display": "Cumpleaños",
+                        "descripcion": "",
+                        "fecha": dia.isoformat(),
+                        "fecha_fin": dia.isoformat(),
+                        "cada_anio": True,
+                    }
+                )
+    return resultado
+
+
+def _aniversarios_publicados(desde, hasta) -> list[dict]:
+    """Los aniversarios en la empresa que cada persona decidió mostrar (en «Mi
+    perfil»), cada año del rango. Con el año de ingreso se dicen los años
+    cumplidos (y no se muestra antes de cumplir el primero)."""
+    from .models import DatosDeContacto
+
+    resultado = []
+    perfiles = DatosDeContacto.objects.filter(
+        mostrar_aniversario=True,
+        aniversario_dia__isnull=False,
+        aniversario_mes__isnull=False,
+        usuario__is_active=True,
+    ).select_related("usuario")
+    for perfil in perfiles:
+        nombre = perfil.usuario.get_full_name().strip() or perfil.usuario.username
+        for anio in range(desde.year, hasta.year + 1):
+            try:
+                dia = datetime.date(anio, perfil.aniversario_mes, perfil.aniversario_dia)
+            except ValueError:  # 29 de febrero en un año no bisiesto
+                dia = datetime.date(anio, 2, 28)
+            if not desde <= dia <= hasta:
+                continue
+            anios = anio - perfil.aniversario_anio if perfil.aniversario_anio else None
+            if anios is not None and anios < 1:
+                continue
+            resultado.append(
+                {
+                    "id": f"aniversario-{perfil.usuario_id}",
+                    "titulo": f"Aniversario de {nombre}",
+                    "tipo": "aniversario",
+                    "tipo_display": "Aniversario en la empresa",
+                    "descripcion": (
+                        f"{anios} {'año' if anios == 1 else 'años'} en la empresa" if anios else ""
+                    ),
+                    "fecha": dia.isoformat(),
+                    "fecha_fin": dia.isoformat(),
+                    "cada_anio": True,
+                }
+            )
+    return resultado

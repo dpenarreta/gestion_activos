@@ -168,12 +168,27 @@ export function UsersList() {
                       )}
                       <div className="mz-faint mz-small">
                         {empresa.roles.map((rol) => rol.name).join(", ") ||
-                          "Sin rol"}
+                          (user.is_superuser
+                            ? "Todos los permisos"
+                            : "Sin rol")}
                       </div>
                     </div>
                   ))}
                 </td>
-                <td>{user.roles.map((role) => role.name).join(", ") || "—"}</td>
+                <td>
+                  {/* Superusuario es una marca de la cuenta, no un rol: tiene
+                      todos los permisos sin necesitar ninguno. */}
+                  {user.is_superuser && (
+                    <span
+                      className="mz-pill mz-pill--ok me-1"
+                      title="Marca de la cuenta: todos los permisos en todas las empresas, sin necesitar roles"
+                    >
+                      <Icon name="shield-lock" /> Superusuario (cuenta)
+                    </span>
+                  )}
+                  {user.roles.map((role) => role.name).join(", ") ||
+                    (user.is_superuser ? "" : "—")}
+                </td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
                 <td>
                   {/* «Nunca» y no un guion: el guion se lee como un dato

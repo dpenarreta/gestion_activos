@@ -26,6 +26,10 @@ class User(AbstractUser, BaseModel):
     # exigido en cada request autenticado por SessionAuthentication.authenticate()
     # hasta que el usuario complete POST /api/auth/password/change/.
     must_change_password = models.BooleanField(default=False)
+    #: El código de empleado de la persona (nómina), p. ej. «20104758». Con él
+    #: consulta su rol de pagos: por eso lo asigna la administración y nunca
+    #: la persona. Único; vacío si la cuenta no es de un empleado.
+    codigo_empleado = models.CharField(max_length=40, null=True, blank=True, unique=True)
     created_by = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="created_users"
     )

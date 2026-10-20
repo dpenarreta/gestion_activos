@@ -1,4 +1,6 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+
+import { useSearchParams } from "react-router-dom";
 
 import { auditoriaService } from "../../../api/auditoriaService";
 import { Icon } from "../../../components/common/Icon/Icon";
@@ -8,6 +10,7 @@ import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
+import { AuditoriaMatriz } from "../../Matriz/AuditoriaMatriz";
 import "./AuditoriaList.css";
 
 const RESULTADOS = [
@@ -26,15 +29,11 @@ const FILTROS_VACIOS = {
 };
 
 /*
- * El registro de lo que se hizo en el sistema.
- *
- * No hay filtro de módulo y sí de acción: la acción ya lo lleva delante
- * —«role.created», «activo.updated»—, así que escribir «activo» acota el
- * módulo entero. Un desplegable de módulos obligaría a mantener aquí una copia
- * de la lista que vive en el catálogo de permisos del servidor, y se
- * desincronizaría con el primer módulo nuevo.
+ * El registro de lo que se hizo en el sistema, filtrado por el módulo que se
+ * elige arriba (`modulo`; vacío, todos). Las opciones del módulo las da el
+ * servidor (`/audit-logs/modulos/`), así que un módulo nuevo aparece solo.
  */
-export function AuditoriaList() {
+function RegistroDelSistema({ modulo }) {
   const puedeVerDetalle = usePermission("auditoria.ver_detalle");
   const puedeExportar = usePermission("auditoria.exportar");
   const {
@@ -45,7 +44,6 @@ export function AuditoriaList() {
     pagina,
     setPagina,
     actualizarFiltros,
-    limpiarFiltros,
     parametrosVigentes,
     isLoading,
     error,
@@ -58,14 +56,26 @@ export function AuditoriaList() {
 
   const columnas = puedeVerDetalle ? 7 : 6;
 
+  // El módulo elegido arriba se aplica al momento y se conserva al filtrar o
+  // limpiar lo demás.
+  useEffect(() => {
+    setBorrador((actual) => {
+      const siguiente = { ...actual, module: modulo };
+      actualizarFiltros(siguiente);
+      return siguiente;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulo]);
+
   function aplicar(evento) {
     evento.preventDefault();
-    actualizarFiltros(borrador);
+    actualizarFiltros({ ...borrador, module: modulo });
   }
 
   function limpiar() {
-    setBorrador(FILTROS_VACIOS);
-    limpiarFiltros();
+    const vacios = { ...FILTROS_VACIOS, module: modulo };
+    setBorrador(vacios);
+    actualizarFiltros(vacios);
   }
 
   async function exportar() {
@@ -87,30 +97,20 @@ export function AuditoriaList() {
 
   return (
     <div className="auditoria-page">
-      <div className="mz-view-head">
-        <div>
-          <h2>Auditoría</h2>
-          <p className="mz-desc">
-            Qué se hizo, quién lo hizo y cuándo. El registro no se edita ni se
-            borra: existe para reconstruir lo que pasó, así que lo que entra se
-            queda.
-          </p>
+      {puedeExportar && (
+        <div className="mz-actions justify-content-end">
+          <button
+            type="button"
+            className="btn btn-exportar btn-sm"
+            onClick={exportar}
+            disabled={isExportando || total === 0}
+            title="Exporta los eventos que coinciden con los filtros actuales"
+          >
+            <Icon name="file-earmark-spreadsheet" />{" "}
+            {isExportando ? "Exportando…" : `Exportar (${total})`}
+          </button>
         </div>
-        {puedeExportar && (
-          <div className="mz-view-actions">
-            <button
-              type="button"
-              className="btn btn-exportar btn-sm"
-              onClick={exportar}
-              disabled={isExportando || total === 0}
-              title="Exporta los eventos que coinciden con los filtros actuales"
-            >
-              <Icon name="file-earmark-spreadsheet" />{" "}
-              {isExportando ? "Exportando…" : `Exportar (${total})`}
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {errorExportacion && (
         <div className="mz-alert mz-alert--bad" role="alert">
@@ -247,7 +247,7 @@ export function AuditoriaList() {
                     {evento.actor_username || "Sistema"}
                   </td>
                   <td className="mz-mono">{evento.action}</td>
-                  <td>{evento.module || "—"}</td>
+                  <td>{evento.module_nombre || evento.module || "—"}</td>
                   <td>
                     {evento.target_type}
                     {evento.target_id ? ` #${evento.target_id}` : ""}
@@ -351,6 +351,88 @@ function Valores({ valores }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Lo que se elige en «Módulo» para ver el historial de los períodos de la
+ * Matriz, que vive aparte del registro general (y pide su propio permiso). */
+const HISTORIAL_MATRIZ = "__matriz_periodos";
+
+/**
+ * Auditoría: una sola pantalla para todo el sistema, filtrada por módulo. Las
+ * opciones salen de los módulos con eventos en el registro; «Matriz de
+ * obligaciones · historial de períodos» muestra aquí mismo el historial de la
+ * Matriz. Cada opción aparece si se tiene su permiso: `auditoria.ver` para el
+ * registro general y `matriz.ver_auditoria` para el de la Matriz.
+ */
+export function AuditoriaList() {
+  const verSistema = usePermission("auditoria.ver");
+  const verMatriz = usePermission("matriz.ver_auditoria");
+  const [parametros, setParametros] = useSearchParams();
+  const [modulos, setModulos] = useState([]);
+  const pedido = parametros.get("modulo");
+  let modulo;
+  if (pedido === "matriz") modulo = HISTORIAL_MATRIZ;
+  else if (pedido !== null) modulo = pedido;
+  else modulo = verSistema ? "" : HISTORIAL_MATRIZ;
+
+  useEffect(() => {
+    if (!verSistema) return;
+    auditoriaService
+      .modulos()
+      .then(setModulos)
+      .catch(() => setModulos([]));
+  }, [verSistema]);
+
+  function elegir(valor) {
+    if (valor === HISTORIAL_MATRIZ) setParametros({ modulo: "matriz" });
+    else if (valor) setParametros({ modulo: valor });
+    else setParametros({});
+  }
+
+  const enMatriz = modulo === HISTORIAL_MATRIZ;
+
+  return (
+    <div className="auditoria-page">
+      <div className="mz-view-head">
+        <div>
+          <h2>Auditoría</h2>
+          <p className="mz-desc">
+            Qué se hizo, quién lo hizo y cuándo, en todo el sistema. El registro
+            no se edita ni se borra: existe para reconstruir lo que pasó, así
+            que lo que entra se queda.
+          </p>
+        </div>
+      </div>
+
+      <div className="auditoria-modulo">
+        <label htmlFor="auditoria-modulo" className="form-label">
+          Módulo
+        </label>
+        <select
+          id="auditoria-modulo"
+          className="form-select form-select-sm"
+          value={modulo}
+          onChange={(e) => elegir(e.target.value)}
+        >
+          {verSistema && <option value="">Todos los módulos</option>}
+          {verSistema &&
+            modulos.map((m) => (
+              <option key={m.id || "sin-modulo"} value={m.id}>
+                {m.nombre}
+              </option>
+            ))}
+          {verMatriz && (
+            <option value={HISTORIAL_MATRIZ}>
+              Matriz de obligaciones · historial de períodos
+            </option>
+          )}
+        </select>
+      </div>
+
+      {enMatriz && <AuditoriaMatriz incrustada />}
+      {!enMatriz && verSistema && <RegistroDelSistema modulo={modulo} />}
     </div>
   );
 }

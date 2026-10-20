@@ -322,6 +322,25 @@ export const ADMIN_MENU = [
     path: `${RUTA_INSTITUCIONAL}/vacaciones`,
   },
   {
+    // Sin permiso: el plan de capacitación de cada persona (empresa, área y
+    // cargo) con sus evaluaciones.
+    id: "institucional-onboarding",
+    modulo: "institucional",
+    name: "Mi onboarding",
+    icon: "mortarboard",
+    path: `${RUTA_INSTITUCIONAL}/onboarding`,
+  },
+  {
+    // Sin permiso: cada persona consulta su rol de pagos (el código sale de su
+    // sesión; ver pide aceptar los términos y su contraseña). Talento Humano
+    // consulta otros con `roles_pago.consultar_todos`.
+    id: "institucional-rol-pagos",
+    modulo: "institucional",
+    name: "Consultar rol de pagos",
+    icon: "cash-coin",
+    path: `${RUTA_INSTITUCIONAL}/rol-pagos`,
+  },
+  {
     // Sin permiso: toda persona lee los códigos y reglamentos de la empresa.
     id: "institucional-codigos",
     modulo: "institucional",
@@ -330,6 +349,15 @@ export const ADMIN_MENU = [
     path: `${RUTA_INSTITUCIONAL}/codigos`,
     // La gestión no va en el menú: se abre con su botón, con su permiso.
     rutas: [`${RUTA_INSTITUCIONAL}/codigos`],
+  },
+  {
+    // Sin permiso: toda persona envía sugerencias o reporta errores; quien
+    // tiene `sugerencias.gestionar` ve y responde todos en la misma pantalla.
+    id: "institucional-sugerencias",
+    modulo: "institucional",
+    name: "Sugerencias y errores",
+    icon: "chat-square-heart",
+    path: `${RUTA_INSTITUCIONAL}/sugerencias`,
   },
   // --- Dashboards ---------------------------------------------------------
   //

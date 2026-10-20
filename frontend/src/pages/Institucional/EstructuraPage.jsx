@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { departamentosService } from "../../api/organizacionService";
 import { institucionalService } from "../../api/institucionalService";
@@ -8,6 +8,11 @@ import { useAuth } from "../../hooks/useAuth";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import { AsignacionCargos } from "./AsignacionCargos";
+import { CargaPersonas, descargarArchivoOrganigrama } from "./CargaPersonas";
+import { CapacitacionGestion } from "./CapacitacionGestion";
+import { CapacitacionResultados } from "./CapacitacionResultados";
+import { HerramientasPage } from "./HerramientasPage";
+import { PerfilesCargo } from "./PerfilesCargo";
 import { armarArbol, nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
 
@@ -17,6 +22,10 @@ const PESTANAS = [
   ["unidades", "Unidades", "institucional.editar"],
   ["cargos", "Cargos", "institucional.editar"],
   ["asignaciones", "Asignación de cargos", "institucional.asignar"],
+  ["perfiles", "Perfiles de cargo", "institucional.perfil_cargo"],
+  ["herramientas", "Herramientas y licencias", "herramientas.gestionar"],
+  ["capacitacion", "Capacitación", "capacitacion.gestionar"],
+  ["resultados", "Resultados de capacitación", "capacitacion.resultados"],
 ];
 
 const VACIOS = {
@@ -393,6 +402,17 @@ export function EstructuraPage() {
   const [editando, setEditando] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [cargaAbierta, setCargaAbierta] = useState(false);
+  const puedeCargar = user?.permissions?.includes("institucional.asignar");
+
+  async function descargar(tipo) {
+    setError(null);
+    try {
+      await descargarArchivoOrganigrama(tipo);
+    } catch (err) {
+      setError(mensajeDeError(err, "No se pudo descargar el archivo."));
+    }
+  }
 
   const cargar = useCallback(
     () =>
@@ -461,7 +481,38 @@ export function EstructuraPage() {
             final, quién ocupa cada cargo.
           </p>
         </div>
+        <div className="mz-actions">
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm"
+            onClick={() => descargar("plantilla")}
+          >
+            <Icon name="file-earmark-arrow-down" /> Plantilla de carga masiva
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm"
+            onClick={() => descargar("completo")}
+          >
+            <Icon name="file-earmark-spreadsheet" /> Organigrama completo
+          </button>
+          {puedeCargar && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setCargaAbierta(true)}
+            >
+              <Icon name="upload" /> Carga masiva de personas
+            </button>
+          )}
+        </div>
       </div>
+      {cargaAbierta && (
+        <CargaPersonas
+          onCerrar={() => setCargaAbierta(false)}
+          onCargado={cargar}
+        />
+      )}
 
       <div className="mz-tabs" role="tablist">
         {visibles.map(([id, texto]) => (
@@ -503,147 +554,184 @@ export function EstructuraPage() {
         <AsignacionCargos datos={datos} onAsignado={cargar} />
       )}
 
-      {datos && pestana !== "asignaciones" && (
-        <>
-          <div className="mz-actions">
-            {sinNiveles || sinUnidades ? (
-              <p className="mz-faint mb-0">
-                {sinNiveles
-                  ? "Cree primero los niveles jerárquicos."
-                  : "Cree primero las unidades."}
-              </p>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setEditando({ ...VACIOS[pestana] })}
-              >
-                <Icon name="plus-lg" /> Agregar {SINGULAR[pestana]}
-              </button>
-            )}
-          </div>
-          <div className="mz-table-wrap">
-            <table className="mz-table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  {pestana === "niveles" && <th>Orden</th>}
-                  {pestana === "unidades" && <th>Nivel</th>}
-                  {pestana === "unidades" && <th>Depende de</th>}
-                  {pestana === "cargos" && <th>Unidad</th>}
-                  {pestana === "cargos" && <th>Reporta a</th>}
-                  {pestana === "cargos" && <th className="num">Plazas</th>}
-                  <th aria-label="Acciones" />
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((fila) => (
-                  <tr key={fila.id}>
-                    <td>
+      {datos && pestana === "perfiles" && (
+        <PerfilesCargo
+          datos={datos}
+          onGuardado={async () => {
+            await cargar();
+            setAviso("Perfil del cargo guardado.");
+          }}
+        />
+      )}
+
+      {pestana === "herramientas" && <HerramientasPage />}
+      {datos && pestana === "capacitacion" && (
+        <CapacitacionGestion datos={datos} />
+      )}
+      {pestana === "resultados" && <CapacitacionResultados />}
+
+      {datos &&
+        ![
+          "asignaciones",
+          "perfiles",
+          "herramientas",
+          "capacitacion",
+          "resultados",
+        ].includes(pestana) && (
+          <>
+            <div className="mz-actions">
+              {sinNiveles || sinUnidades ? (
+                <p className="mz-faint mb-0">
+                  {sinNiveles
+                    ? "Cree primero los niveles jerárquicos."
+                    : "Cree primero las unidades."}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setEditando({ ...VACIOS[pestana] })}
+                >
+                  <Icon name="plus-lg" /> Agregar {SINGULAR[pestana]}
+                </button>
+              )}
+            </div>
+            <div className="mz-table-wrap">
+              <table className="mz-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    {pestana === "niveles" && <th>Orden</th>}
+                    {pestana === "niveles" && <th>Rol del sistema</th>}
+                    {pestana === "unidades" && <th>Nivel</th>}
+                    {pestana === "unidades" && <th>Depende de</th>}
+                    {pestana === "cargos" && <th>Unidad</th>}
+                    {pestana === "cargos" && <th>Reporta a</th>}
+                    {pestana === "cargos" && <th className="num">Plazas</th>}
+                    <th aria-label="Acciones" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((fila) => (
+                    <tr key={fila.id}>
+                      <td>
+                        {pestana === "unidades" && (
+                          <span
+                            className="org-sangria"
+                            style={{ width: fila.profundidad * 16 }}
+                          />
+                        )}
+                        {fila.nombre}
+                        {(fila.activa === false || fila.activo === false) && (
+                          <span className="mz-faint"> (inactivo)</span>
+                        )}
+                      </td>
+                      {pestana === "niveles" && <td>{fila.orden}</td>}
+                      {pestana === "niveles" && (
+                        <td className="mz-small">
+                          {/* Se asigna solo a quien ocupa un cargo de este
+                            nivel; sus permisos se editan en Roles. */}
+                          {fila.rol ? (
+                            <Link to={`/admin/roles/${fila.rol.id}`}>
+                              {fila.rol.nombre}
+                            </Link>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      )}
+                      {pestana === "unidades" && <td>{fila.nivel?.nombre}</td>}
                       {pestana === "unidades" && (
-                        <span
-                          className="org-sangria"
-                          style={{ width: fila.profundidad * 16 }}
-                        />
+                        <td>{unidadDe(fila.padre) ?? "—"}</td>
                       )}
-                      {fila.nombre}
-                      {(fila.activa === false || fila.activo === false) && (
-                        <span className="mz-faint"> (inactivo)</span>
+                      {pestana === "cargos" && <td>{unidadDe(fila.unidad)}</td>}
+                      {pestana === "cargos" && (
+                        <td>{cargoDe(fila.jefe) ?? "—"}</td>
                       )}
-                    </td>
-                    {pestana === "niveles" && <td>{fila.orden}</td>}
-                    {pestana === "unidades" && <td>{fila.nivel?.nombre}</td>}
-                    {pestana === "unidades" && (
-                      <td>{unidadDe(fila.padre) ?? "—"}</td>
-                    )}
-                    {pestana === "cargos" && <td>{unidadDe(fila.unidad)}</td>}
-                    {pestana === "cargos" && (
-                      <td>{cargoDe(fila.jefe) ?? "—"}</td>
-                    )}
-                    {pestana === "cargos" && (
-                      <td className="num">
-                        <PlazasEnLinea
-                          cargo={fila}
-                          onGuardar={(plazas) =>
+                      {pestana === "cargos" && (
+                        <td className="num">
+                          <PlazasEnLinea
+                            cargo={fila}
+                            onGuardar={(plazas) =>
+                              ejecutar(
+                                () =>
+                                  institucionalService.actualizar(
+                                    "cargos",
+                                    fila.id,
+                                    { plazas },
+                                  ),
+                                `«${fila.nombre}» ahora tiene ${plazas} plaza(s).`,
+                              )
+                            }
+                          />
+                        </td>
+                      )}
+                      <td className="num text-nowrap">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          aria-label={`Editar ${fila.nombre}`}
+                          onClick={() =>
+                            setEditando({
+                              ...VACIOS[pestana],
+                              ...fila,
+                              nivel:
+                                pestana === "unidades"
+                                  ? (fila.nivel?.id ?? "")
+                                  : undefined,
+                              departamento: fila.departamento?.id ?? "",
+                              padre: fila.padre ?? "",
+                              jefe: fila.jefe ?? "",
+                            })
+                          }
+                        >
+                          <Icon name="pencil" />
+                        </button>{" "}
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          aria-label={`Borrar ${fila.nombre}`}
+                          onClick={() =>
                             ejecutar(
                               () =>
-                                institucionalService.actualizar(
-                                  "cargos",
-                                  fila.id,
-                                  { plazas },
-                                ),
-                              `«${fila.nombre}» ahora tiene ${plazas} plaza(s).`,
+                                institucionalService.eliminar(pestana, fila.id),
+                              `«${fila.nombre}» se borró.`,
                             )
                           }
-                        />
+                        >
+                          <Icon name="trash" />
+                        </button>
                       </td>
-                    )}
-                    <td className="num text-nowrap">
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        aria-label={`Editar ${fila.nombre}`}
-                        onClick={() =>
-                          setEditando({
-                            ...VACIOS[pestana],
-                            ...fila,
-                            nivel:
-                              pestana === "unidades"
-                                ? (fila.nivel?.id ?? "")
-                                : undefined,
-                            departamento: fila.departamento?.id ?? "",
-                            padre: fila.padre ?? "",
-                            jefe: fila.jefe ?? "",
-                          })
-                        }
-                      >
-                        <Icon name="pencil" />
-                      </button>{" "}
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        aria-label={`Borrar ${fila.nombre}`}
-                        onClick={() =>
-                          ejecutar(
-                            () =>
-                              institucionalService.eliminar(pestana, fila.id),
-                            `«${fila.nombre}» se borró.`,
-                          )
-                        }
-                      >
-                        <Icon name="trash" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filas.length === 0 && (
-                  <tr className="mz-empty-row">
-                    <td colSpan={6}>Todavía no hay registros</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </tr>
+                  ))}
+                  {filas.length === 0 && (
+                    <tr className="mz-empty-row">
+                      <td colSpan={6}>Todavía no hay registros</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {editando && (
-            <Ventana
-              recurso={pestana}
-              valores={editando}
-              onCerrar={() => setEditando(null)}
-            >
-              <Formulario
-                key={`${pestana}-${editando.id ?? "nuevo"}`}
+            {editando && (
+              <Ventana
                 recurso={pestana}
-                inicial={editando}
-                datos={datos}
-                areas={areas}
-                onGuardar={guardar}
-                onCancelar={() => setEditando(null)}
-              />
-            </Ventana>
-          )}
-        </>
-      )}
+                valores={editando}
+                onCerrar={() => setEditando(null)}
+              >
+                <Formulario
+                  key={`${pestana}-${editando.id ?? "nuevo"}`}
+                  recurso={pestana}
+                  inicial={editando}
+                  datos={datos}
+                  areas={areas}
+                  onGuardar={guardar}
+                  onCancelar={() => setEditando(null)}
+                />
+              </Ventana>
+            )}
+          </>
+        )}
     </div>
   );
 }

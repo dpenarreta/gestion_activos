@@ -112,10 +112,26 @@ class FlujoSerializer(serializers.ModelSerializer):
             "activo",
             "adjunto",
             "orden",
+            "dias_minimos",
+            "dias_maximos",
+            "descuenta_vacaciones",
+            "sabados_por_periodo",
+            "domingos_por_periodo",
+            "restricciones",
+            "pide_motivo",
             "pasos",
             "avisos_aprobada",
             "avisos_rechazada",
         ]
+
+    def validate(self, datos):
+        minimos = datos.get("dias_minimos", getattr(self.instance, "dias_minimos", 0))
+        maximos = datos.get("dias_maximos", getattr(self.instance, "dias_maximos", 0))
+        if minimos and maximos and maximos < minimos:
+            raise serializers.ValidationError(
+                {"dias_maximos": "El máximo de días no puede ser menor que el mínimo."}
+            )
+        return datos
 
     def validate_nombre(self, valor):
         valor = valor.strip()
@@ -208,7 +224,7 @@ class FlujoParaSolicitarSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FlujoPermiso
-        fields = ["id", "nombre", "descripcion", "adjunto", "pasos"]
+        fields = ["id", "nombre", "descripcion", "adjunto", "pide_motivo", "pasos"]
 
     def get_pasos(self, flujo):
         return [
@@ -218,6 +234,11 @@ class FlujoParaSolicitarSerializer(serializers.ModelSerializer):
             }
             for paso in flujo.pasos.order_by("orden", "id")
         ]
+
+
+class EvaluarSerializer(serializers.Serializer):
+    desde = serializers.DateField()
+    hasta = serializers.DateField()
 
 
 class NuevaSolicitudSerializer(serializers.Serializer):

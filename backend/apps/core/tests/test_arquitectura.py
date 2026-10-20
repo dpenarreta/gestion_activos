@@ -96,6 +96,9 @@ APPS_DE_NEGOCIO = (
     "soporte",
     "chat",
     "licencias",
+    "sugerencias",
+    "nomina",
+    "capacitacion",
 )
 
 #: Y de esas, las que llevan **reglas**: dar de alta un activo emite su código
@@ -110,6 +113,9 @@ APPS_CON_SERVICIOS = (
     "soporte",
     "chat",
     "licencias",
+    "sugerencias",
+    "nomina",
+    "capacitacion",
 )
 
 

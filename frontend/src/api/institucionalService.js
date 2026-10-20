@@ -35,6 +35,37 @@ export const institucionalService = {
       .get(`${BASE}asignaciones/`, { params: q ? { q } : {} })
       .then((res) => res.data);
   },
+  /** El perfil de un cargo: objetivo, funciones, competencias y KPIs. */
+  perfilCargo(id) {
+    return apiClient.get(`${BASE}cargos/${id}/perfil/`).then((res) => res.data);
+  },
+  /** Funciones, competencias y KPIs van como texto, uno por línea. */
+  guardarPerfilCargo(id, datos) {
+    return apiClient
+      .put(`${BASE}cargos/${id}/perfil/`, datos)
+      .then((res) => res.data);
+  },
+  /** La plantilla .xlsx del organigrama por unidad, para cargar personas. */
+  plantillaPersonas() {
+    return apiClient
+      .get(`${BASE}carga-personas/plantilla/`, { responseType: "blob" })
+      .then((res) => res.data);
+  },
+  /** El organigrama completo (.xlsx): estructura, personas y resumen. */
+  exportarOrganigrama() {
+    return apiClient
+      .get(`${BASE}organigrama/exportar/`, { responseType: "blob" })
+      .then((res) => res.data);
+  },
+  /** Sube la plantilla llena: sin `confirmar` solo la valida. */
+  cargarPersonas(archivo, { confirmar = false } = {}) {
+    const datos = new FormData();
+    datos.append("archivo", archivo);
+    datos.append("confirmar", confirmar ? "true" : "false");
+    return apiClient
+      .post(`${BASE}carga-personas/`, datos)
+      .then((res) => res.data);
+  },
   // --- Códigos de conducta y reglamentos ---------------------------------
   documentos() {
     return apiClient.get(`${BASE}documentos/`).then((res) => res.data);

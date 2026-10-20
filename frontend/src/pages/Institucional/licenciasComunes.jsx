@@ -43,12 +43,13 @@ export function SelectorDestino({
   const campo = CAMPO[valor.tipo];
   const lista = opciones?.[LISTA[valor.tipo]] ?? [];
   return (
-    <div className="d-flex flex-wrap gap-2 align-items-center">
+    <div
+      className={`selector-destino${campo ? "" : " selector-destino--solo"}`}
+    >
       <select
         id={id}
         aria-label={etiqueta}
         className="form-select form-select-sm"
-        style={{ width: "auto", minWidth: 220 }}
         value={valor.tipo}
         onChange={(e) =>
           onCambio({
@@ -69,7 +70,6 @@ export function SelectorDestino({
         <select
           aria-label={`${etiqueta}: ${DESTINOS[valor.tipo].toLowerCase()}`}
           className="form-select form-select-sm"
-          style={{ width: "auto", minWidth: 220 }}
           value={valor[campo] ?? ""}
           onChange={(e) =>
             onCambio({

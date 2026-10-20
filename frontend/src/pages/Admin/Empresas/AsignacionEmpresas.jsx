@@ -187,6 +187,17 @@ export function AsignacionEmpresas({ usuarioId }) {
           hacer lo que digan los roles que tenga ahí. La predeterminada es la
           que se abre al entrar.
         </p>
+        {esSuperusuario && (
+          <div className="mz-alert mz-alert--ok" role="note">
+            <Icon name="shield-lock" />
+            <span>
+              <strong>Superusuario (cuenta).</strong> Es una marca de la cuenta,
+              no un rol: tiene todos los permisos en todas las empresas
+              marcadas, también los que se creen más adelante, sin necesitar
+              roles. Los roles que se le asignen aquí no le quitan nada.
+            </span>
+          </div>
+        )}
 
         {error && (
           <div className="mz-alert mz-alert--bad" role="alert">
@@ -272,26 +283,45 @@ export function AsignacionEmpresas({ usuarioId }) {
                     </td>
                     <td>
                       <div className="empresas-asignacion__roles">
-                        {roles.map((rol) => (
-                          <div className="form-check" key={rol.id}>
-                            <input
-                              type="checkbox"
-                              className="form-check-input"
-                              id={`rol-${empresa.id}-${rol.id}`}
-                              checked={(asignadas[empresa.id] ?? []).includes(
-                                rol.id,
-                              )}
-                              disabled={!puedeAsignar || !estaAsignada}
-                              onChange={() => alternarRol(empresa.id, rol.id)}
-                            />
-                            <label
-                              className="form-check-label"
-                              htmlFor={`rol-${empresa.id}-${rol.id}`}
-                            >
-                              {rol.name}
-                            </label>
-                          </div>
-                        ))}
+                        {/* Los roles de nivel del organigrama solo valen en
+                            su empresa y los pone el cargo: se ven, no se
+                            eligen. */}
+                        {roles
+                          .filter(
+                            (rol) =>
+                              !rol.nivel ||
+                              rol.nivel.empresa === empresa.nombre,
+                          )
+                          .map((rol) => (
+                            <div className="form-check" key={rol.id}>
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`rol-${empresa.id}-${rol.id}`}
+                                checked={(asignadas[empresa.id] ?? []).includes(
+                                  rol.id,
+                                )}
+                                disabled={
+                                  !puedeAsignar ||
+                                  !estaAsignada ||
+                                  Boolean(rol.nivel)
+                                }
+                                onChange={() => alternarRol(empresa.id, rol.id)}
+                              />
+                              <label
+                                className="form-check-label"
+                                htmlFor={`rol-${empresa.id}-${rol.id}`}
+                              >
+                                {rol.name}
+                                {rol.nivel && (
+                                  <span className="mz-faint">
+                                    {" "}
+                                    (según su cargo)
+                                  </span>
+                                )}
+                              </label>
+                            </div>
+                          ))}
                         {roles.length === 0 && (
                           <span className="mz-faint">—</span>
                         )}
@@ -363,24 +393,26 @@ export function AsignacionEmpresas({ usuarioId }) {
             los del administrador del grupo, que tiene que poder entrar a todas.
           </p>
           <div className="empresas-asignacion__roles">
-            {roles.map((rol) => (
-              <div className="form-check" key={rol.id}>
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id={`rol-global-${rol.id}`}
-                  checked={rolesGlobales.includes(rol.id)}
-                  disabled={!puedeRolesGlobales}
-                  onChange={() => alternarRolGlobal(rol.id)}
-                />
-                <label
-                  className="form-check-label"
-                  htmlFor={`rol-global-${rol.id}`}
-                >
-                  {rol.name}
-                </label>
-              </div>
-            ))}
+            {roles
+              .filter((rol) => !rol.nivel)
+              .map((rol) => (
+                <div className="form-check" key={rol.id}>
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id={`rol-global-${rol.id}`}
+                    checked={rolesGlobales.includes(rol.id)}
+                    disabled={!puedeRolesGlobales}
+                    onChange={() => alternarRolGlobal(rol.id)}
+                  />
+                  <label
+                    className="form-check-label"
+                    htmlFor={`rol-global-${rol.id}`}
+                  >
+                    {rol.name}
+                  </label>
+                </div>
+              ))}
             {roles.length === 0 && <span className="mz-faint">—</span>}
           </div>
         </div>

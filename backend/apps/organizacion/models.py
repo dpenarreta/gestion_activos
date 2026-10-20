@@ -422,6 +422,15 @@ class NivelJerarquico(ModeloDeEmpresa):
 
     nombre = models.CharField(max_length=80)
     orden = models.PositiveSmallIntegerField(default=1)
+    #: El rol del sistema de este nivel (ver `roles_de_nivel`): se crea con el
+    #: nivel, nace sin permisos y se asigna solo a quien ocupa un cargo de él.
+    rol = models.OneToOneField(
+        "auth.Group",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="nivel_jerarquico",
+    )
 
     class Meta:
         ordering = ["orden", "nombre"]
@@ -490,6 +499,12 @@ class Cargo(ModeloDeEmpresa):
     plazas = models.PositiveSmallIntegerField(default=1)
     descripcion = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
+    # El perfil del cargo (perfiles_cargo.py): lo ve quien lo ocupa en «Mi
+    # perfil». Funciones, competencias y KPIs, uno por línea.
+    objetivo = models.TextField(blank=True)
+    funciones = models.TextField(blank=True)
+    competencias = models.TextField(blank=True)
+    kpis = models.TextField(blank=True)
 
     class Meta:
         ordering = ["nombre"]
@@ -498,6 +513,91 @@ class Cargo(ModeloDeEmpresa):
 
     def __str__(self) -> str:
         return self.nombre
+
+
+class Herramienta(ModeloDeEmpresa):
+    """Una herramienta o licencia que se usa en la empresa (herramientas.py):
+    externa (Claude, Gmail…) o interna (Venture, Zimbra…)."""
+
+    class Tipo(models.TextChoices):
+        EXTERNA = "externa", "Externa"
+        INTERNA = "interna", "Interna"
+
+    nombre = models.CharField(max_length=120)
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.EXTERNA)
+    descripcion = models.CharField(max_length=300, blank=True)
+    activa = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["tipo", "orden", "nombre"]
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "nombre"], name="herramienta_unica")
+        ]
+        verbose_name = "herramienta"
+        verbose_name_plural = "herramientas"
+
+    def __str__(self) -> str:
+        return self.nombre
+
+
+class HerramientaDeUsuario(ModeloDeEmpresa):
+    """Una herramienta que usa una persona, con la cuenta o usuario de su
+    licencia. La declara ella en «Mi perfil»."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    herramienta = models.ForeignKey(Herramienta, on_delete=models.CASCADE, related_name="usos")
+    cuenta = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "usuario", "herramienta"], name="herramienta_por_usuario_unica"
+            )
+        ]
+        verbose_name = "herramienta de la persona"
+        verbose_name_plural = "herramientas de las personas"
+
+
+class HerramientaDeCargo(ModeloDeEmpresa):
+    """Una herramienta base de un cargo: con la que, como mínimo, debe venir
+    configurado el equipo de quien lo ocupa. La define TI."""
+
+    cargo = models.ForeignKey(Cargo, on_delete=models.CASCADE, related_name="herramientas_base")
+    herramienta = models.ForeignKey(
+        Herramienta, on_delete=models.CASCADE, related_name="cargos_que_la_piden"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "cargo", "herramienta"], name="herramienta_base_unica"
+            )
+        ]
+        verbose_name = "herramienta base del cargo"
+        verbose_name_plural = "herramientas base de los cargos"
+
+
+class OcupanteCargo(ModeloDeEmpresa):
+    """Quien ocupa un cargo y todavía no tiene cuenta en el sistema
+    (20/10/2026). Lo carga la plantilla masiva del organigrama
+    (carga_personas.py); cuando la persona entra a la empresa con el mismo
+    correo, recibe el cargo en su perfil y este registro se borra."""
+
+    cargo = models.ForeignKey(Cargo, on_delete=models.CASCADE, related_name="ocupantes_sin_cuenta")
+    nombres = models.CharField(max_length=150)
+    apellidos = models.CharField(max_length=150)
+    correo = models.EmailField(blank=True)
+
+    class Meta:
+        ordering = ["apellidos", "nombres"]
+        verbose_name = "ocupante sin cuenta"
+        verbose_name_plural = "ocupantes sin cuenta"
+
+    def __str__(self) -> str:
+        return f"{self.nombres} {self.apellidos}".strip()
 
 
 class DatosDeContacto(ModeloDeEmpresa):
@@ -522,6 +622,26 @@ class DatosDeContacto(ModeloDeEmpresa):
     cargo = models.ForeignKey(
         Cargo, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    #: Su cumpleaños en el calendario de Inicio, si la persona lo decide
+    #: (20/10/2026). Solo día y mes: el año no se guarda. Al dejar de
+    #: mostrarlo se borran los dos.
+    mostrar_cumpleanos = models.BooleanField(default=False)
+    cumpleanos_dia = models.PositiveSmallIntegerField(null=True, blank=True)
+    cumpleanos_mes = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: Cuándo aceptó que su cumpleaños sea visible para toda la empresa.
+    cumpleanos_aceptado_en = models.DateTimeField(null=True, blank=True)
+    #: Su correo personal, solo si lo pidió guardar y aceptó el tratamiento de
+    #: datos (nomina: enviarse su rol de pagos). Al retirarlo se borra.
+    correo_personal = models.EmailField(blank=True)
+    correo_personal_aceptado_en = models.DateTimeField(null=True, blank=True)
+    #: Su aniversario en la empresa, en el calendario de Inicio, si la persona
+    #: lo decide (20/10/2026). Día y mes de ingreso; el año es opcional (con
+    #: él se dicen los años cumplidos). Al dejar de mostrarlo se borran.
+    mostrar_aniversario = models.BooleanField(default=False)
+    aniversario_dia = models.PositiveSmallIntegerField(null=True, blank=True)
+    aniversario_mes = models.PositiveSmallIntegerField(null=True, blank=True)
+    aniversario_anio = models.PositiveSmallIntegerField(null=True, blank=True)
+    aniversario_aceptado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [

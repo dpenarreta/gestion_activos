@@ -1,0 +1,29 @@
+/* El perfil obligatorio al entrar: qué falta y qué ya está. */
+.perfil-obligatorio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perfil-obligatorio li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.perfil-obligatorio__falta {
+  background: color-mix(in srgb, var(--mz-bad-fg) 10%, transparent);
+  color: var(--mz-bad-fg);
+}
+
+.perfil-obligatorio__listo {
+  background: color-mix(in srgb, var(--mz-ok-fg) 10%, transparent);
+  color: var(--mz-ok-fg);
+}

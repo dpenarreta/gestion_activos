@@ -7,7 +7,11 @@ avanza, se rechaza o se escala, y a quién se avisa el resultado.
 - **Nadie para aprobar**: si un paso no encuentra a nadie (por ejemplo, la
   persona no tiene cargo asignado), queda en manos de quien administra los
   flujos (`licencias.configurar`), para que la solicitud no se pierda.
-- Quien solicita nunca aprueba su propia solicitud.
+- Quien solicita nunca aprueba su propia solicitud, y nadie aprueba dos pasos
+  de la misma: quien ya aprobó uno queda fuera de los siguientes (si no queda
+  nadie, pasa a quien administra los flujos).
+- No se escala a uno mismo: quien ve todas las solicitudes no puede
+  asignársela y aprobarla saltándose a los aprobadores del flujo.
 """
 
 from django.db import transaction
@@ -19,6 +23,7 @@ from apps.notificaciones import services as campana
 from apps.permissions.authorization import user_has_permission
 from apps.users.models import User
 
+from . import restricciones
 from .models import AccionSolicitud, Destino, PasoFlujo, SolicitudPermiso
 
 ENLACE = "/admin/institucional/permisos"
@@ -117,12 +122,22 @@ def _registrar(solicitud, accion, actor=None, paso=None, comentario="", detalle=
     )
 
 
+def _ya_aprobaron(solicitud) -> set:
+    return set(
+        solicitud.acciones.filter(accion=AccionSolicitud.Accion.APROBADA).values_list(
+            "actor_id", flat=True
+        )
+    )
+
+
 def _asignar(solicitud, personas, paso, detalle_extra=""):
     """Deja la solicitud pendiente de esas personas y les avisa."""
-    personas = [p for p in personas if p and p.pk != solicitud.solicitante_id]
+    # Nadie aprueba lo suyo, ni dos pasos de la misma solicitud.
+    excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
+    personas = [p for p in personas if p and p.pk not in excluidos]
     sin_nadie = not personas
     if sin_nadie:
-        personas = [p for p in administradores() if p.pk != solicitud.solicitante_id]
+        personas = [p for p in administradores() if p.pk not in excluidos]
     unicos = list({p.pk: p for p in personas}.values())
     solicitud.pendiente_de.set(unicos)
     nombres = ", ".join(_nombre(p) for p in unicos) or "nadie"
@@ -178,6 +193,8 @@ def _terminar(solicitud, estado):
     )
     if estado == SolicitudPermiso.Estado.CANCELADA:
         return
+    if estado == SolicitudPermiso.Estado.APROBADA:
+        restricciones.registrar_goce(solicitud)
     destinatarios = []
     for aviso in solicitud.flujo.avisos.filter(resultado=estado):
         destinatarios.extend(resolver(aviso, solicitud))
@@ -206,6 +223,12 @@ def crear(solicitante, flujo, *, desde, hasta, motivo="", adjunto=None, tipo_adj
         raise ValidationError(
             {"flujo": "Ese tipo de permiso todavía no tiene pasos de aprobación."}
         )
+    # Una solicitud a la vez por persona: dos envíos simultáneos no cuentan
+    # los mismos días ni se cruzan entre sí.
+    User.objects.select_for_update().filter(pk=solicitante.pk).first()
+    restricciones.exigir(solicitante, flujo, desde, hasta)
+    if not flujo.pide_motivo:
+        motivo = ""
     solicitud = SolicitudPermiso(
         flujo=flujo, solicitante=solicitante, desde=desde, hasta=hasta, motivo=motivo.strip()
     )
@@ -271,9 +294,17 @@ def escalar(solicitud, usuario, destino, comentario=""):
     )
     if not puede:
         raise PermissionDenied("Esta solicitud no está pendiente de usted.")
-    personas = [p for p in resolver(destino, solicitud) if p.pk != solicitud.solicitante_id]
+    # No se escala a uno mismo (quien ve todas no se salta así a los
+    # aprobadores), ni a quien la pidió o ya aprobó un paso.
+    excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id, usuario.pk}
+    personas = [p for p in resolver(destino, solicitud) if p.pk not in excluidos]
     if not personas:
-        raise ValidationError({"destino": "Ahí no hay nadie a quien escalar la solicitud."})
+        raise ValidationError(
+            {
+                "destino": "Ahí no hay nadie a quien escalar la solicitud (no se escala a uno "
+                "mismo, a quien la pidió ni a quien ya aprobó un paso)."
+            }
+        )
     _registrar(
         solicitud,
         AccionSolicitud.Accion.ESCALADA,

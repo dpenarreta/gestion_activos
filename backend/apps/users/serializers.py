@@ -13,6 +13,21 @@ from .models import User
 from .validators import validate_unique_email, validate_unique_username
 
 
+def validar_codigo_empleado(valor, exclude_user_id=None):
+    """Vacío es «sin código»; si se da, solo dígitos y letras, y único."""
+    valor = (valor or "").strip()
+    if not valor:
+        return None
+    if not valor.replace("-", "").isalnum():
+        raise serializers.ValidationError("Use solo letras, números o guiones.")
+    repetido = User.objects.filter(codigo_empleado__iexact=valor)
+    if exclude_user_id:
+        repetido = repetido.exclude(pk=exclude_user_id)
+    if repetido.exists():
+        raise serializers.ValidationError("Ese código de empleado ya es de otra cuenta.")
+    return valor
+
+
 def _module_permission_content_type() -> ContentType:
     return ContentType.objects.get_for_model(ModulePermission)
 
@@ -30,6 +45,7 @@ class UserPublicSerializer(serializers.ModelSerializer):
             "last_name",
             "date_joined",
             "must_change_password",
+            "codigo_empleado",
         ]
         read_only_fields = fields
 
@@ -74,6 +90,7 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "codigo_empleado",
             "status",
             "is_active",
             "is_superuser",
@@ -129,6 +146,9 @@ class UserAdminCreateSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
+    codigo_empleado = serializers.CharField(
+        max_length=40, required=False, allow_blank=True, allow_null=True
+    )
     #: Roles que valen en todas las empresas. Se conserva para el alta por API;
     #: la pantalla usa `empresas`, que es lo normal en un despliegue con varias.
     role_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
@@ -140,6 +160,9 @@ class UserAdminCreateSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         return validate_unique_email(value)
+
+    def validate_codigo_empleado(self, value):
+        return validar_codigo_empleado(value)
 
     def validate_password(self, value):
         validate_password(value)
@@ -163,6 +186,12 @@ class UserAdminUpdateSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    codigo_empleado = serializers.CharField(
+        max_length=40, required=False, allow_blank=True, allow_null=True
+    )
+
+    def validate_codigo_empleado(self, value):
+        return validar_codigo_empleado(value, exclude_user_id=self.instance.id)
 
     def validate_username(self, value):
         return validate_unique_username(value, exclude_user_id=self.instance.id)

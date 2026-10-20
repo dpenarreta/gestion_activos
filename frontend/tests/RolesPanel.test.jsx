@@ -4,10 +4,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RolesPanel } from "../src/pages/Admin/Roles/RolesPanel";
 
-const ROLES = [{ id: 1, name: "Editor", permission_codenames: ["usuarios.ver"] }];
+const ROLES = [
+  {
+    id: 1,
+    name: "Editor",
+    permission_codenames: ["usuarios.ver"],
+    nivel: null,
+  },
+  {
+    id: 2,
+    name: "LaarCourier · Gerencia / Jefatura",
+    permission_codenames: [],
+    nivel: { id: 3, nombre: "Gerencia / Jefatura", empresa: "LaarCourier" },
+  },
+];
 
 vi.mock("../src/api/rolesService", () => ({
-  rolesService: { list: vi.fn(() => Promise.resolve(ROLES)), remove: vi.fn(() => Promise.resolve()) },
+  rolesService: {
+    list: vi.fn(() => Promise.resolve(ROLES)),
+    remove: vi.fn(() => Promise.resolve()),
+  },
 }));
 
 vi.mock("../src/hooks/usePermission", () => ({
@@ -18,7 +34,7 @@ function renderPanel() {
   return render(
     <MemoryRouter>
       <RolesPanel />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -37,5 +53,14 @@ describe("RolesPanel", () => {
     renderPanel();
     await screen.findByText("Editor");
     expect(screen.getByRole("link", { name: "Nuevo rol" })).toBeInTheDocument();
+  });
+
+  it("el rol de un nivel del organigrama se marca y no se ofrece eliminarlo", async () => {
+    renderPanel();
+    const nombre = await screen.findByText("LaarCourier · Gerencia / Jefatura");
+    const fila = nombre.closest("tr");
+    expect(fila).toHaveTextContent(/Nivel del organigrama de LaarCourier/);
+    expect(fila.querySelector("button")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(1);
   });
 });

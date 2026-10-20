@@ -24,6 +24,13 @@ const NUEVO = {
   activo: true,
   adjunto: "no",
   orden: 0,
+  dias_minimos: 0,
+  dias_maximos: 0,
+  descuenta_vacaciones: false,
+  sabados_por_periodo: 0,
+  domingos_por_periodo: 0,
+  restricciones: "",
+  pide_motivo: true,
   pasos: [{ nombre: "Jefatura", aprobadores: [{ tipo: "jefe_inmediato" }] }],
   avisos_aprobada: [{ tipo: "solicitante" }],
   avisos_rechazada: [{ tipo: "solicitante" }],
@@ -31,12 +38,26 @@ const NUEVO = {
 
 /** Una lista de destinos (aprobadores de un paso o avisos), con agregar y
  * quitar. */
-function ListaDeDestinos({ prefijo, lista, tipos, opciones, onCambio, vacio }) {
+function ListaDeDestinos({
+  prefijo,
+  lista,
+  tipos,
+  opciones,
+  onCambio,
+  vacio,
+  conector,
+}) {
   return (
     <div className="flujo-destinos">
       {lista.map((destino, i) => (
         <div key={`${prefijo}-${i}`} className="flujo-destinos__fila">
-          {i > 0 && <span className="flujo-destinos__o">o</span>}
+          {/* «o» entre aprobadores (aprueba cualquiera); los avisos no llevan
+              conector: los reciben todos. */}
+          {conector && (
+            <span className="flujo-destinos__conector" aria-hidden="true">
+              {i > 0 ? conector : ""}
+            </span>
+          )}
           <SelectorDestino
             id={`${prefijo}-${i}`}
             etiqueta={`${prefijo} ${i + 1}`}
@@ -60,7 +81,7 @@ function ListaDeDestinos({ prefijo, lista, tipos, opciones, onCambio, vacio }) {
       {lista.length === 0 && <p className="mz-faint mz-small mb-1">{vacio}</p>}
       <button
         type="button"
-        className="btn btn-link btn-sm px-0"
+        className="btn btn-link btn-sm px-0 flujo-destinos__agregar"
         onClick={() => onCambio([...lista, { tipo: tipos[0] }])}
       >
         <Icon name="plus" /> Agregar
@@ -112,6 +133,17 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
         activo: flujo.activo,
         adjunto: flujo.adjunto,
         orden: Number(flujo.orden) || 0,
+        dias_minimos: Number(flujo.dias_minimos) || 0,
+        dias_maximos: Number(flujo.dias_maximos) || 0,
+        descuenta_vacaciones: Boolean(flujo.descuenta_vacaciones),
+        sabados_por_periodo: flujo.descuenta_vacaciones
+          ? Number(flujo.sabados_por_periodo) || 0
+          : 0,
+        domingos_por_periodo: flujo.descuenta_vacaciones
+          ? Number(flujo.domingos_por_periodo) || 0
+          : 0,
+        restricciones: flujo.restricciones ?? "",
+        pide_motivo: flujo.pide_motivo !== false,
         pasos: pasos.map((p) => ({
           nombre: p.nombre,
           aprobadores: limpiar(p.aprobadores),
@@ -221,8 +253,128 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
                   Activo (se puede solicitar)
                 </span>
               </label>
+              <label className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={flujo.pide_motivo !== false}
+                  onChange={fijar("pide_motivo")}
+                />{" "}
+                <span className="form-check-label">
+                  Pide un motivo a quien solicita
+                </span>
+              </label>
             </div>
           </div>
+
+          <section aria-labelledby="flujo-restricciones">
+            <h4 id="flujo-restricciones" className="inicio-titulo">
+              Restricciones
+            </h4>
+            <p className="mz-faint mz-small">
+              Quien solicita las ve al elegir las fechas, con si las cumple. Los
+              mínimos y máximos no dejan enviar la solicitud; 0 es sin
+              restricción.
+            </p>
+            <div className="row g-2">
+              <div className="col-6 col-md-3">
+                <label className="form-label mz-small" htmlFor="flujo-minimo">
+                  Mínimo de días seguidos
+                </label>
+                <input
+                  id="flujo-minimo"
+                  type="number"
+                  min={0}
+                  className="form-control form-control-sm"
+                  value={flujo.dias_minimos ?? 0}
+                  onChange={fijar("dias_minimos")}
+                />
+              </div>
+              <div className="col-6 col-md-3">
+                <label className="form-label mz-small" htmlFor="flujo-maximo">
+                  Máximo de días seguidos
+                </label>
+                <input
+                  id="flujo-maximo"
+                  type="number"
+                  min={0}
+                  className="form-control form-control-sm"
+                  value={flujo.dias_maximos ?? 0}
+                  onChange={fijar("dias_maximos")}
+                />
+              </div>
+              <div className="col-12 col-md-6 d-flex align-items-end">
+                <label className="form-check mb-1">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={Boolean(flujo.descuenta_vacaciones)}
+                    onChange={fijar("descuenta_vacaciones")}
+                  />{" "}
+                  <span className="form-check-label">
+                    Se descuenta de las vacaciones pendientes
+                  </span>
+                </label>
+              </div>
+              {flujo.descuenta_vacaciones && (
+                <>
+                  <div className="col-6 col-md-3">
+                    <label
+                      className="form-label mz-small"
+                      htmlFor="flujo-sabados"
+                    >
+                      Sábados por período
+                    </label>
+                    <input
+                      id="flujo-sabados"
+                      type="number"
+                      min={0}
+                      className="form-control form-control-sm"
+                      value={flujo.sabados_por_periodo ?? 0}
+                      onChange={fijar("sabados_por_periodo")}
+                    />
+                  </div>
+                  <div className="col-6 col-md-3">
+                    <label
+                      className="form-label mz-small"
+                      htmlFor="flujo-domingos"
+                    >
+                      Domingos por período
+                    </label>
+                    <input
+                      id="flujo-domingos"
+                      type="number"
+                      min={0}
+                      className="form-control form-control-sm"
+                      value={flujo.domingos_por_periodo ?? 0}
+                      onChange={fijar("domingos_por_periodo")}
+                    />
+                  </div>
+                  <p className="col-12 col-md-6 mz-faint mz-small mb-0 align-self-end">
+                    De cada período anual deben salir al menos esos sábados y
+                    domingos. Si al completarse el período faltan, se marcan por
+                    defecto los siguientes a la solicitud.
+                  </p>
+                </>
+              )}
+              <div className="col-12">
+                <label
+                  className="form-label mz-small"
+                  htmlFor="flujo-indicaciones"
+                >
+                  Otras indicaciones (una por línea; solo se informan)
+                </label>
+                <textarea
+                  id="flujo-indicaciones"
+                  rows={2}
+                  className="form-control form-control-sm"
+                  placeholder="Pídalas con 15 días de anticipación."
+                  value={flujo.restricciones ?? ""}
+                  onChange={fijar("restricciones")}
+                />
+              </div>
+            </div>
+          </section>
 
           <section aria-labelledby="flujo-pasos">
             <h4 id="flujo-pasos" className="inicio-titulo">
@@ -281,8 +433,11 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
                       <Icon name="trash" />
                     </button>
                   </div>
-                  <span className="mz-small mz-faint">Lo aprueba:</span>
+                  <span className="mz-small mz-faint">
+                    Lo aprueba cualquiera de:
+                  </span>
                   <ListaDeDestinos
+                    conector="o"
                     prefijo={`Aprobador del paso ${i + 1}`}
                     lista={paso.aprobadores}
                     tipos={DESTINOS_APROBADOR}
@@ -320,10 +475,14 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
             <h4 id="flujo-avisos" className="inicio-titulo">
               A quién se avisa el resultado
             </h4>
-            <div className="row g-3">
-              <div className="col-12 col-lg-6">
-                <strong className="mz-small text-success">
-                  <Icon name="check-circle" /> Si se aprueba
+            <p className="mz-faint mz-small">
+              Al terminar la solicitud, reciben el aviso en la campana{" "}
+              <strong>todos</strong> los de la lista que corresponda.
+            </p>
+            <div className="flujo-avisos">
+              <div className="flujo-avisos__caja flujo-avisos__caja--aprobada">
+                <strong className="flujo-avisos__titulo">
+                  <Icon name="check-circle" /> Si se aprueba, se avisa a:
                 </strong>
                 <ListaDeDestinos
                   prefijo="Aviso si se aprueba"
@@ -336,9 +495,9 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
                   }
                 />
               </div>
-              <div className="col-12 col-lg-6">
-                <strong className="mz-small text-danger">
-                  <Icon name="x-circle" /> Si se rechaza
+              <div className="flujo-avisos__caja flujo-avisos__caja--rechazada">
+                <strong className="flujo-avisos__titulo">
+                  <Icon name="x-circle" /> Si se rechaza, se avisa a:
                 </strong>
                 <ListaDeDestinos
                   prefijo="Aviso si se rechaza"

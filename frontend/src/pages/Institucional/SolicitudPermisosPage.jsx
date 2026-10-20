@@ -7,6 +7,7 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
+import { CalendarioDeRango } from "./CalendarioDeRango";
 import {
   DESTINOS_ESCALAR,
   ESTADOS,
@@ -58,6 +59,44 @@ function hoyIso() {
     .slice(0, 10);
 }
 
+const ESTADO_REGLA = {
+  ok: { icono: "check-circle-fill", nombre: "Cumple" },
+  falla: { icono: "x-circle-fill", nombre: "No cumple" },
+  aviso: { icono: "exclamation-triangle-fill", nombre: "Atención" },
+  info: { icono: "info-circle-fill", nombre: "Para tener en cuenta" },
+};
+
+/** Las restricciones del tipo de permiso para las fechas elegidas, cada una
+ * con si se cumple. Las que no se cumplen no dejan enviar. */
+function RestriccionesDelPermiso({ evaluacion }) {
+  if (!evaluacion?.reglas.length) return null;
+  return (
+    <section className="solicitud-reglas" aria-labelledby="sp-reglas">
+      <strong id="sp-reglas" className="solicitud-reglas__titulo">
+        Restricciones de este permiso
+      </strong>
+      <ul>
+        {evaluacion.reglas.map((regla) => {
+          const estado = ESTADO_REGLA[regla.estado] ?? ESTADO_REGLA.info;
+          return (
+            <li
+              key={regla.clave}
+              className={`solicitud-regla solicitud-regla--${regla.estado}`}
+            >
+              <Icon name={estado.icono} />
+              <div>
+                <span className="visually-hidden">{estado.nombre}: </span>
+                <span className="solicitud-regla__texto">{regla.texto}</span>
+                {regla.detalle && <small>{regla.detalle}</small>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /** Pedir un permiso: el tipo (con sus pasos a la vista), las fechas, el
  * motivo y, si lo pide, el documento. */
 function NuevaSolicitud({ onCreada, onCerrar }) {
@@ -71,6 +110,28 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   const [adjunto, setAdjunto] = useState(null);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [evaluacion, setEvaluacion] = useState(null);
+
+  // Las restricciones se recalculan al cambiar el tipo o las fechas (con una
+  // pausa corta, para no consultar en cada tecla).
+  useEffect(() => {
+    const { flujo, desde, hasta } = valores;
+    if (!flujo || !desde || !hasta || hasta < desde) {
+      setEvaluacion(null);
+      return undefined;
+    }
+    let vigente = true;
+    const espera = setTimeout(() => {
+      licenciasService
+        .evaluar(flujo, desde, hasta)
+        .then((resultado) => vigente && setEvaluacion(resultado))
+        .catch(() => vigente && setEvaluacion(null));
+    }, 250);
+    return () => {
+      vigente = false;
+      clearTimeout(espera);
+    };
+  }, [valores]);
 
   useEffect(() => {
     licenciasService
@@ -84,8 +145,27 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   }, []);
 
   const elegido = tipos?.find((t) => String(t.id) === valores.flujo);
+  const pideMotivo = elegido?.pide_motivo !== false;
   const fijar = (campo) => (e) =>
     setValores((v) => ({ ...v, [campo]: e.target.value }));
+  // Desde y Hasta, escritos o elegidos en el calendario. Si «desde» pasa a
+  // ser posterior a «hasta», «hasta» lo acompaña.
+  const fijarDesde = (e) => {
+    const desde = e.target.value;
+    setValores((v) => ({
+      ...v,
+      desde,
+      hasta: desde && v.hasta && v.hasta < desde ? desde : v.hasta,
+    }));
+  };
+  const dias =
+    valores.desde && valores.hasta && valores.desde <= valores.hasta
+      ? Math.round(
+          (new Date(`${valores.hasta}T00:00:00`) -
+            new Date(`${valores.desde}T00:00:00`)) /
+            86400000,
+        ) + 1
+      : null;
 
   async function enviar(evento) {
     evento.preventDefault();
@@ -96,7 +176,12 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
     setEnviando(true);
     setError(null);
     try {
-      onCreada(await licenciasService.solicitar(valores, adjunto));
+      onCreada(
+        await licenciasService.solicitar(
+          pideMotivo ? valores : { ...valores, motivo: "" },
+          adjunto,
+        ),
+      );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar la solicitud."));
       setEnviando(false);
@@ -104,7 +189,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   }
 
   return (
-    <Ventana titulo="Nueva solicitud de permiso" onCerrar={onCerrar}>
+    <Ventana titulo="Nueva solicitud de permiso" onCerrar={onCerrar} ancha>
       {tipos?.length === 0 ? (
         <p className="mz-faint mb-0">
           Todavía no hay tipos de permiso para solicitar.
@@ -156,45 +241,68 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
               </div>
             )}
           </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="sp-desde">
-              Desde
-            </label>
-            <input
-              id="sp-desde"
-              type="date"
-              required
-              className="form-control form-control-sm"
-              value={valores.desde}
-              onChange={fijar("desde")}
+          <div className="col-12 col-md-7">
+            <CalendarioDeRango
+              desde={valores.desde}
+              hasta={valores.hasta}
+              onCambio={(rango) => setValores((v) => ({ ...v, ...rango }))}
             />
           </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="sp-hasta">
-              Hasta
-            </label>
-            <input
-              id="sp-hasta"
-              type="date"
-              required
-              min={valores.desde}
-              className="form-control form-control-sm"
-              value={valores.hasta}
-              onChange={fijar("hasta")}
-            />
+          <div className="col-12 col-md-5 d-flex flex-column gap-2">
+            <div>
+              <label className="form-label mz-small" htmlFor="sp-desde">
+                Desde
+              </label>
+              <input
+                id="sp-desde"
+                type="date"
+                required
+                className="form-control form-control-sm"
+                value={valores.desde}
+                onChange={fijarDesde}
+              />
+            </div>
+            <div>
+              <label className="form-label mz-small" htmlFor="sp-hasta">
+                Hasta
+              </label>
+              <input
+                id="sp-hasta"
+                type="date"
+                required
+                min={valores.desde}
+                className="form-control form-control-sm"
+                value={valores.hasta}
+                onChange={fijar("hasta")}
+              />
+            </div>
+            <p className="solicitud-dias mb-0" aria-live="polite">
+              {dias
+                ? `${dias} ${dias === 1 ? "día" : "días"} en total`
+                : "Revise las fechas: «Hasta» no puede ser antes de «Desde»."}
+            </p>
           </div>
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="sp-motivo">
-              Motivo
-            </label>
-            <textarea
-              id="sp-motivo"
-              rows={3}
-              className="form-control form-control-sm"
-              value={valores.motivo}
-              onChange={fijar("motivo")}
-            />
-          </div>
+          {/* Las indicaciones del permiso van a todo el ancho; el motivo, solo
+              si el tipo lo pide (vacaciones no). */}
+          {evaluacion?.reglas.length > 0 && (
+            <div className="col-12">
+              <RestriccionesDelPermiso evaluacion={evaluacion} />
+            </div>
+          )}
+          {pideMotivo && (
+            <div className="col-12">
+              <label className="form-label mz-small" htmlFor="sp-motivo">
+                Motivo
+              </label>
+              <textarea
+                id="sp-motivo"
+                rows={3}
+                className="form-control form-control-sm"
+                value={valores.motivo}
+                onChange={fijar("motivo")}
+              />
+            </div>
+          )}
           {elegido && elegido.adjunto !== "no" && (
             <div className="col-12">
               <label className="form-label mz-small" htmlFor="sp-adjunto">
@@ -224,7 +332,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             <button
               type="submit"
               className="btn btn-primary btn-sm"
-              disabled={enviando || !elegido}
+              disabled={enviando || !elegido || evaluacion?.bloquea}
             >
               {enviando ? "Enviando…" : "Enviar solicitud"}
             </button>
@@ -471,6 +579,7 @@ export function SolicitudPermisosPage() {
   const [nueva, setNueva] = useState(false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [puedeSolicitar, setPuedeSolicitar] = useState(true);
   const abierta = parametros.get("solicitud");
 
   const cargar = useCallback(() => {
@@ -482,7 +591,10 @@ export function SolicitudPermisosPage() {
       );
     licenciasService
       .resumen()
-      .then((r) => setPorAprobar(r.por_aprobar))
+      .then((r) => {
+        setPorAprobar(r.por_aprobar);
+        setPuedeSolicitar(r.puede_solicitar !== false);
+      })
       .catch(() => null);
   }, [pestana]);
 
@@ -519,11 +631,19 @@ export function SolicitudPermisosPage() {
             type="button"
             className="btn btn-primary btn-sm"
             onClick={() => setNueva(true)}
+            disabled={!puedeSolicitar}
           >
             <Icon name="plus-lg" /> Nueva solicitud
           </button>
         </div>
       </div>
+      {!puedeSolicitar && (
+        <div className="mz-alert mz-alert--warn" role="note">
+          <Icon name="person-lock" />
+          Su cuenta no tiene un rol asignado, así que no puede solicitar
+          permisos. Pida a quien administra los usuarios que le asigne uno.
+        </div>
+      )}
 
       <div className="mz-tabs" role="tablist">
         {pestanas.map(([id, texto]) => (
