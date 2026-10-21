@@ -118,6 +118,7 @@ def validar_archivo(archivo, catalogo: CatalogoMasivo) -> ResultadoValidacion:
     referencias = _cargar_referencias(catalogo)
 
     vistas_en_archivo: dict[str, int] = {}
+    vistos_por_regla: dict = {}
     filas = hoja.iter_rows(values_only=True)
     next(filas, None)  # el encabezado
 
@@ -187,6 +188,12 @@ def validar_archivo(archivo, catalogo: CatalogoMasivo) -> ResultadoValidacion:
         elif clave:
             vistas_en_archivo[clave] = numero_fila
 
+        if catalogo.validar_fila and not errores_fila and not datos.get("_omitir"):
+            for clave_columna, mensaje in catalogo.validar_fila(datos, vistos_por_regla).items():
+                errores_fila.append(
+                    ErrorFila(numero_fila, catalogo.columna(clave_columna).etiqueta, mensaje)
+                )
+
         if errores_fila:
             resultado.errores.extend(errores_fila)
         elif datos.get("_omitir"):
@@ -231,7 +238,10 @@ def importar(filas: list[dict], catalogo: CatalogoMasivo, *, actor, context=None
     creados = []
     for fila in filas:
         valores = {k: v for k, v in fila.items() if not k.startswith("_")}
-        creados.append(Modelo.objects.create(**valores))
+        if catalogo.crear:
+            creados.append(catalogo.crear(valores, actor, context))
+        else:
+            creados.append(Modelo.objects.create(**valores))
 
     record_audit_event(
         actor=actor,

@@ -24,7 +24,14 @@ from apps.core.models import AuditLog
 from apps.empresas.contexto import empresa_actual, usando_empresa
 from apps.nomina.models import ConsultaRolPagos
 from apps.organizacion.models import DatosDeContacto
-from apps.organizacion.tests.test_carga_personas import _cuenta
+from apps.organizacion.tests.test_carga_personas import _cuenta as _cuenta_sin_permisos
+
+
+def _cuenta(nombre, *permisos):
+    """Como en producción: todo empleado trae `roles_pago.consultar` por su rol
+    de nivel."""
+    return _cuenta_sin_permisos(nombre, "roles_pago.consultar", *permisos)
+
 
 BASE = "/api/v1/nomina/rol-pagos/"
 CLAVE = "Sup3r-Secr3t!"
@@ -218,3 +225,197 @@ def test_el_codigo_lo_asigna_la_administracion_y_es_unico(db):
     admin.patch(url, {"codigo_empleado": ""}, format="json")
     rosa.refresh_from_db()
     assert rosa.codigo_empleado is None
+
+
+def test_un_mes_sin_rol_lo_dice_y_queda_registrado(db):
+    _, rosa = _con_codigo("rosa", "20100001")
+    # Los datos de ejemplo empiezan en enero de 2020 (su «ingreso»).
+    respuesta = _consultar(rosa, anio=2019, mes=12)
+    assert respuesta.status_code == 404
+    assert "No hay rol de pagos de diciembre de 2019" in str(respuesta.data)
+    assert not ConsultaRolPagos.objects.todas().exists()
+    assert AuditLog.objects.filter(action="roles_pago.consulta.rechazada").exists()
+
+
+def test_la_conformidad_con_el_rol_una_vez_y_las_observaciones_a_talento_humano(db):
+    from apps.notificaciones.models import Notificacion
+
+    _, rosa = _con_codigo("rosa", "20100001")
+    th, th_cliente = _con_codigo(
+        "tatiana", "20100099", "roles_pago.consultar_todos", "roles_pago.observaciones"
+    )
+    url = f"{BASE}conformidad/"
+
+    consulta = _consultar(rosa)["X-Consulta-Rol"]
+    conforme = rosa.post(url, {"consulta": consulta, "conformidad": "conforme"}, format="json")
+    assert conforme.status_code == 200, conforme.data
+    constancia = conforme.json()
+    assert constancia["conformidad"] == "conforme"
+    # Día, fecha, hora y la IP desde donde se pulsó.
+    assert constancia["dia"] in (
+        "lunes",
+        "martes",
+        "miércoles",
+        "jueves",
+        "viernes",
+        "sábado",
+        "domingo",
+    )
+    assert len(constancia["fecha"]) == 10 and len(constancia["hora"]) == 8
+    assert constancia["ip"] == "127.0.0.1"
+    from apps.nomina.models import ConsultaRolPagos as Consulta
+
+    guardada = Consulta.objects.todas().get(pk=consulta)
+    assert guardada.conformidad_ip == "127.0.0.1" and guardada.conformidad_en
+    # Una sola vez.
+    otra = rosa.post(url, {"consulta": consulta, "conformidad": "observacion"}, format="json")
+    assert otra.status_code == 400
+
+    # Una observación pide texto y le llega a Talento Humano (sin montos).
+    segunda = _consultar(rosa)["X-Consulta-Rol"]
+    sin_texto = rosa.post(url, {"consulta": segunda, "conformidad": "observacion"}, format="json")
+    assert sin_texto.status_code == 400
+    rosa.post(
+        url,
+        {"consulta": segunda, "conformidad": "observacion", "observacion": "Faltan horas extra."},
+        format="json",
+    )
+    aviso = Notificacion.objects.todas().get(usuario=th, tipo="roles_pago.observacion")
+    assert "Faltan horas extra." in aviso.resumen and "$" not in aviso.resumen
+
+    # Cerrar sin responder cuenta como conforme, y queda dicho así.
+    tercera = _consultar(rosa)["X-Consulta-Rol"]
+    al_cerrar = rosa.post(
+        url, {"consulta": tercera, "conformidad": "conforme_al_cerrar"}, format="json"
+    ).json()
+    assert al_cerrar["conformidad_display"] == "Aceptó al cerrar sin responder"
+
+    # Talento Humano no da conformidad por el rol de otra persona.
+    ajeno = _consultar(th_cliente, codigo="20100001")["X-Consulta-Rol"]
+    respuesta = th_cliente.post(url, {"consulta": ajeno, "conformidad": "conforme"}, format="json")
+    assert respuesta.status_code == 400
+    # Ni nadie por una consulta ajena.
+    assert (
+        th_cliente.post(
+            url, {"consulta": tercera, "conformidad": "conforme"}, format="json"
+        ).status_code
+        == 404
+    )
+
+
+def test_el_flujo_de_una_observacion_hasta_que_se_confirma(db):
+    from apps.notificaciones.models import Notificacion
+
+    rosa_usuario, rosa = _con_codigo("rosa", "20100001")
+    th, th_cliente = _con_codigo("tatiana", "20100099", "roles_pago.observaciones")
+    _, otra_th = _con_codigo("ema", "20100098", "roles_pago.observaciones")
+    _, curioso = _con_codigo("pablo", "20100097")
+    conformidad = f"{BASE}conformidad/"
+    lista = "/api/v1/nomina/observaciones/"
+
+    consulta = _consultar(rosa)["X-Consulta-Rol"]
+    rosa.post(
+        conformidad,
+        {"consulta": consulta, "conformidad": "observacion", "observacion": "Faltan horas extra."},
+        format="json",
+    )
+    # Solo quien tiene el permiso ve las observaciones.
+    assert curioso.get(lista).status_code == 403
+    filas = th_cliente.get(lista).json()
+    assert [(f["persona"]["nombre"], f["estado"], f["ultima"]) for f in filas] == [
+        ("Rosa Prueba", "abierta", "Faltan horas extra.")
+    ]
+    assert th_cliente.get(f"{lista}resumen/").json() == {"abiertas": 1}
+    assert curioso.get(f"{lista}resumen/").json() == {"abiertas": 0}
+    observacion_id = filas[0]["id"]
+
+    # Talento Humano la corrige: avisa a la persona y al resto del equipo.
+    assert (
+        curioso.post(f"{lista}{observacion_id}/corregir/", {"nota": "x"}, format="json").status_code
+        == 403
+    )
+    corregida = th_cliente.post(
+        f"{lista}{observacion_id}/corregir/",
+        {"nota": "Se sumaron las 4 horas extra."},
+        format="json",
+    ).json()
+    assert corregida["estado"] == "corregida"
+    aviso = Notificacion.objects.todas().get(usuario=rosa_usuario, tipo="roles_pago.corregido")
+    assert "corregido" in aviso.titulo and "anio=2026&mes=9" in aviso.enlace
+    assert rosa.get(BASE).json()["por_confirmar"] == [
+        {"id": observacion_id, "anio": 2026, "mes": 9, "nota": "Se sumaron las 4 horas extra."}
+    ]
+
+    # Vuelve a consultar y está de acuerdo: se cierra y se avisa a Talento Humano.
+    nueva = _consultar(rosa)["X-Consulta-Rol"]
+    rosa.post(conformidad, {"consulta": nueva, "conformidad": "conforme"}, format="json")
+    detalle = th_cliente.get(f"{lista}{observacion_id}/").json()
+    assert detalle["estado"] == "cerrada"
+    assert [m["tipo"] for m in detalle["mensajes"]] == ["observacion", "correccion", "confirmacion"]
+    assert rosa.get(BASE).json()["por_confirmar"] == []
+    titulos = set(
+        Notificacion.objects.todas()
+        .filter(tipo="roles_pago.observacion")
+        .values_list("titulo", flat=True)
+    )
+    assert "Confirmaron un rol de pagos corregido" in titulos
+    assert "Observación al rol de pagos corregida" in titulos
+
+    # Si vuelve a observar, la misma observación se reabre.
+    tercera = _consultar(rosa)["X-Consulta-Rol"]
+    rosa.post(
+        conformidad,
+        {"consulta": tercera, "conformidad": "observacion", "observacion": "Sigue mal."},
+        format="json",
+    )
+    assert th_cliente.get(f"{lista}{observacion_id}/").json()["estado"] == "abierta"
+
+
+def test_el_historial_por_codigo_solo_con_su_permiso(db):
+    _, rosa = _con_codigo("rosa", "20100001")
+    th, th_cliente = _con_codigo("tatiana", "20100099", "roles_pago.historial")
+    url = "/api/v1/nomina/historial/"
+
+    primera = _consultar(rosa, mes=8)["X-Consulta-Rol"]
+    rosa.post(
+        f"{BASE}conformidad/",
+        {"consulta": primera, "conformidad": "observacion", "observacion": "Faltan horas."},
+        format="json",
+    )
+    segunda = _consultar(rosa, mes=9)["X-Consulta-Rol"]
+    rosa.post(
+        f"{BASE}conformidad/", {"consulta": segunda, "conformidad": "conforme"}, format="json"
+    )
+
+    assert rosa.get(url, {"codigo": "20100001"}).status_code == 403
+    assert th_cliente.get(url).status_code == 400  # sin código
+    datos = th_cliente.get(url, {"codigo": "20100001"}).json()
+    assert datos["persona"]["nombre"] == "Rosa Prueba"
+    # Lo más reciente primero: septiembre (conforme) y agosto (con observación).
+    assert [(p["anio"], p["mes"]) for p in datos["periodos"]] == [(2026, 9), (2026, 8)]
+    septiembre, agosto = datos["periodos"]
+    assert (septiembre["desde"], septiembre["hasta"]) == ("01/09/2026", "30/09/2026")
+    consulta = septiembre["consultas"][0]
+    assert consulta["conformidad"] == "conforme" and consulta["propia"] is True
+    assert consulta["consultada"]["hora"] and consulta["conformidad_en"]["dia"]
+    assert consulta["ip"] == "127.0.0.1" and consulta["conformidad_ip"] == "127.0.0.1"
+    assert agosto["observacion"]["estado"] == "abierta"
+    assert agosto["observacion"]["mensajes"][0]["texto"] == "Faltan horas."
+    # Un código sin nada: vacío, sin error.
+    assert th_cliente.get(url, {"codigo": "99999999"}).json()["periodos"] == []
+
+
+def test_desde_el_historial_se_ve_el_rol_con_contrasena(db):
+    _, rosa = _con_codigo("rosa", "20100001")
+    _, th = _con_codigo("tatiana", "20100099", "roles_pago.historial")
+    url = "/api/v1/nomina/historial/rol/"
+    datos = {"codigo": "20100001", "anio": 2026, "mes": 9, "password": CLAVE}
+
+    assert rosa.post(url, datos, format="json").status_code == 403  # sin permiso
+    assert th.post(url, {**datos, "password": "otra"}, format="json").status_code == 403
+    respuesta = th.post(url, datos, format="json")
+    assert respuesta.status_code == 200
+    assert respuesta.content.startswith(b"%PDF")
+    assert respuesta["Cache-Control"] == "no-store, private"
+    assert AuditLog.objects.filter(action="roles_pago.historial.rol_visto").exists()
+    assert AuditLog.objects.filter(action="roles_pago.historial.rol_rechazado").exists()

@@ -53,7 +53,8 @@ vi.mock("../src/api/empresasService", () => ({
 }));
 vi.mock("../src/api/rolesService", () => ({
   rolesService: {
-    list: () => Promise.resolve([{ id: 20, name: "Responsable de cumplimiento" }]),
+    list: () =>
+      Promise.resolve([{ id: 20, name: "Responsable de cumplimiento" }]),
   },
 }));
 vi.mock("../src/api/adminUsersService", () => ({
@@ -341,7 +342,7 @@ describe("Las áreas de la Matriz en la ficha del usuario (§8.7)", () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 
     expect(
-      await screen.findByText(/Áreas de la Matriz \(\s*1\s*\)/),
+      await screen.findByText(/Temas de la Matriz \(\s*1\s*\)/),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Contabilidad y Tributario")).toBeChecked();
     fireEvent.click(screen.getByLabelText("Talento Humano"));

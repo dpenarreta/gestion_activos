@@ -25,6 +25,9 @@ vi.mock("../src/api/adminUsersService", () => ({
   },
 }));
 
+// Crear y deshabilitar piden su permiso: aquí, quien administra las cuentas.
+vi.mock("../src/hooks/usePermission", () => ({ usePermission: () => true }));
+
 const { UsersList } = await import("../src/pages/Admin/Users/UsersList");
 
 const USUARIOS = [

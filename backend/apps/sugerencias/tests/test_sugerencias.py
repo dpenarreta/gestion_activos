@@ -10,7 +10,13 @@ a quien reportó solo se le avisa el nuevo estado; no se editan ni se borran.
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.notificaciones.models import Notificacion
-from apps.organizacion.tests.test_carga_personas import _cuenta
+from apps.organizacion.tests.test_carga_personas import _cuenta as _cuenta_sin_permisos
+
+
+def _cuenta(nombre, *permisos):
+    """Todo empleado trae `sugerencias.reportar` por su rol de nivel."""
+    return _cuenta_sin_permisos(nombre, "sugerencias.reportar", *permisos)
+
 
 URL = "/api/v1/sugerencias/reportes/"
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32

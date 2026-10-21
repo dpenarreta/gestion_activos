@@ -5,7 +5,22 @@ import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
-import { armarArbol, nombreDeCargo, totalesDe } from "./organigrama";
+import {
+  arbolDeCargos,
+  armarArbol,
+  nombreDeCargo,
+  totalesDe,
+} from "./organigrama";
+
+const VISTA = "organigrama.vista";
+
+function vistaGuardada() {
+  try {
+    return localStorage.getItem(VISTA) === "lista" ? "lista" : "arbol";
+  } catch {
+    return "arbol";
+  }
+}
 import "./Institucional.css";
 
 const ZOOM_MIN = 0.3;
@@ -196,25 +211,95 @@ function Cargo({ cargo, cargos, conPersonas }) {
   );
 }
 
-function Unidad({ nodo, cargos, conPersonas, cerradas, alternar }) {
+/** Las personas de un cargo, en una tarjeta del árbol. */
+function PersonasDelCargo({ cargo }) {
+  return (
+    <ul className="org-nodo__personas">
+      {cargo.ocupantes.map((p) => (
+        <li
+          key={p.id}
+          className={p.sin_cuenta ? "org-personas__sin-cuenta" : undefined}
+          title={
+            p.sin_cuenta
+              ? "Cargada desde la plantilla; todavía no tiene cuenta en el sistema"
+              : undefined
+          }
+        >
+          {p.nombre}
+        </li>
+      ))}
+      {cargo.vacantes > 0 && (
+        <li className="org-personas__vacante">
+          {cargo.vacantes === 1
+            ? "1 plaza vacante"
+            : `${cargo.vacantes} plazas vacantes`}
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/** Un cargo del árbol con, debajo y uno al lado del otro, los que le
+ * reportan. El color del borde dice su nivel dentro del área. */
+function RamaCargo({ rama, conPersonas }) {
+  const { cargo, profundidad, hijos } = rama;
+  const nivel = Math.min(profundidad, 3);
+  return (
+    <li className="org-ct__rama">
+      <div
+        className={`org-nodo org-nodo--nivel-${nivel}`}
+        aria-label={`${cargo.nombre}: ${cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}`}
+      >
+        <strong className="org-nodo__cargo">{cargo.nombre}</strong>
+        {cargo.plazas > 1 && (
+          <span
+            className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
+            title={`${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`}
+          >
+            {cargo.plazas - cargo.vacantes}/{cargo.plazas}
+          </span>
+        )}
+        {conPersonas && <PersonasDelCargo cargo={cargo} />}
+      </div>
+      {hijos.length > 0 && (
+        <ul className="org-ct">
+          {hijos.map((h) => (
+            <RamaCargo key={h.cargo.id} rama={h} conPersonas={conPersonas} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
   const cerrada = cerradas.has(nodo.id);
   const totales = totalesDe(nodo);
   return (
     <li className="org-rama">
       <section
-        className={`org-unidad${nodo.activa ? "" : " org-unidad--inactiva"}`}
+        className={`org-unidad${nodo.activa ? "" : " org-unidad--inactiva"}${
+          vista === "arbol" && nodo.cargos.length ? " org-unidad--arbol" : ""
+        }`}
         aria-label={nodo.nombre}
       >
         <header className="org-unidad__cabecera">
           <small>{nodo.nivel?.nombre ?? "Sin nivel"}</small>
           <strong>{nodo.nombre}</strong>
-          {nodo.departamento && (
-            <span className="org-unidad__area">
-              Área: {nodo.departamento.nombre}
-            </span>
-          )}
         </header>
-        {nodo.cargos.length > 0 ? (
+        {nodo.cargos.length > 0 && vista === "arbol" ? (
+          <div className="org-ct__marco">
+            <ul className="org-ct org-ct--raiz">
+              {arbolDeCargos(nodo.cargos).map((rama) => (
+                <RamaCargo
+                  key={rama.cargo.id}
+                  rama={rama}
+                  conPersonas={conPersonas}
+                />
+              ))}
+            </ul>
+          </div>
+        ) : nodo.cargos.length > 0 ? (
           <ul className="org-cargos">
             {nodo.cargos.map((c) => (
               <Cargo
@@ -252,6 +337,7 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar }) {
               conPersonas={conPersonas}
               cerradas={cerradas}
               alternar={alternar}
+              vista={vista}
             />
           ))}
         </ul>
@@ -290,6 +376,18 @@ export function OrganigramaPage() {
   const [conPersonas, setConPersonas] = useState(true);
   const [cerradas, setCerradas] = useState(() => new Set());
   const [buscar, setBuscar] = useState("");
+  // Los cargos de cada unidad: árbol por niveles (como un organigrama) o
+  // lista. Se recuerda en este navegador.
+  const [vista, setVista] = useState(vistaGuardada);
+
+  function cambiarVista(nueva) {
+    setVista(nueva);
+    try {
+      localStorage.setItem(VISTA, nueva);
+    } catch {
+      /* Sin almacenamiento: vale solo en esta visita. */
+    }
+  }
 
   const cargar = () =>
     institucionalService
@@ -374,6 +472,27 @@ export function OrganigramaPage() {
             {totales.plazas - totales.vacantes} de {totales.plazas} plazas
             cubiertas
           </span>
+          <div
+            className="org-vista"
+            role="radiogroup"
+            aria-label="Cómo ver el organigrama"
+          >
+            {[
+              ["arbol", "diagram-3", "Árbol por niveles"],
+              ["lista", "list-ul", "Lista"],
+            ].map(([id, icono, texto]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={vista === id}
+                className={vista === id ? "is-activo" : undefined}
+                onClick={() => cambiarVista(id)}
+              >
+                <Icon name={icono} /> {texto}
+              </button>
+            ))}
+          </div>
           <label className="org-barra__check">
             <input
               type="checkbox"
@@ -426,22 +545,39 @@ export function OrganigramaPage() {
         </div>
       )}
 
-      {arbol.length > 0 && (
-        <Lienzo>
-          <ul className="org-arbol">
-            {arbol.map((nodo) => (
-              <Unidad
-                key={nodo.id}
-                nodo={nodo}
-                cargos={datos.cargos}
-                conPersonas={conPersonas}
-                cerradas={cerradas}
-                alternar={alternar}
-              />
-            ))}
-          </ul>
-        </Lienzo>
-      )}
+      {arbol.length > 0 &&
+        (() => {
+          const unidades = (
+            <ul className="org-arbol">
+              {arbol.map((nodo) => (
+                <Unidad
+                  key={nodo.id}
+                  nodo={nodo}
+                  cargos={datos.cargos}
+                  conPersonas={conPersonas}
+                  cerradas={cerradas}
+                  alternar={alternar}
+                  vista={vista}
+                />
+              ))}
+            </ul>
+          );
+          // Árbol: horizontal, en el lienzo con zoom. Lista: vertical e
+          // indentada por nivel, para leerla de arriba abajo sin desplazarse
+          // de lado (antes «Lista» solo cambiaba los cargos de cada unidad y
+          // el dibujo seguía siendo el árbol).
+          return vista === "lista" ? (
+            <div
+              className="org-lista"
+              role="region"
+              aria-label="Organigrama en lista"
+            >
+              {unidades}
+            </div>
+          ) : (
+            <Lienzo>{unidades}</Lienzo>
+          );
+        })()}
     </div>
   );
 }

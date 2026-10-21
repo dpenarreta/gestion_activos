@@ -1,6 +1,7 @@
 from urllib.parse import quote
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
@@ -22,11 +23,13 @@ from . import (
     calendario,
     confidencialidad,
     contacto,
+    cuentas,
+    departamentos_del_organigrama,
     herramientas,
     noticias,
     organigrama,
     perfiles_cargo,
-    roles_de_nivel,
+    roles_de_cargo,
     vacaciones,
 )
 from .models import (
@@ -103,8 +106,8 @@ class _CatalogoOrganizacionalViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
     accion_auditoria = ""
 
-    def perform_create(self, serializer):
-        instancia = serializer.save()
+    def perform_create(self, serializer, **extra):
+        instancia = serializer.save(**extra)
         record_audit_event(
             actor=self.request.user,
             action=f"{self.accion_auditoria}.created",
@@ -114,9 +117,9 @@ class _CatalogoOrganizacionalViewSet(viewsets.ModelViewSet):
             context=get_request_context(self.request),
         )
 
-    def perform_update(self, serializer):
+    def perform_update(self, serializer, **extra):
         anteriores = self.get_serializer(serializer.instance).data
-        instancia = serializer.save()
+        instancia = serializer.save(**extra)
         cambios = {
             campo: valor
             for campo, valor in serializer.data.items()
@@ -135,8 +138,14 @@ class _CatalogoOrganizacionalViewSet(viewsets.ModelViewSet):
 
 
 class DepartamentoViewSet(_CatalogoOrganizacionalViewSet):
+    """Solo lectura desde el 21/10/2026: cada departamento es una unidad del
+    organigrama y se crea, renombra o desactiva desde ahí (ver
+    `departamentos_del_organigrama.py`). Se sigue listando porque activos,
+    empleados, Mesa de ayuda y chat eligen de esta lista."""
+
     serializer_class = DepartamentoSerializer
     accion_auditoria = "departamento"
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         queryset = (
@@ -350,6 +359,34 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
     serializer_class = EmpleadoSerializer
     accion_auditoria = "empleado"
 
+    def _con_cuenta(self, serializer):
+        """Crea o ata la cuenta del empleado antes de guardarlo (ver
+        `cuentas.py`). Lo que no tenía usuario lo recibe al editarse."""
+        password = serializer.validated_data.pop("password", None)
+        instancia = serializer.instance
+        if instancia is not None and (
+            instancia.usuario_id or "correo" not in serializer.validated_data
+        ):
+            return {}
+        datos = serializer.validated_data
+        usuario = cuentas.cuenta_para_empleado(
+            actor=self.request.user,
+            nombres=datos.get("nombres", getattr(instancia, "nombres", "")),
+            apellidos=datos.get("apellidos", getattr(instancia, "apellidos", "")),
+            correo=datos["correo"],
+            password=password,
+            context=get_request_context(self.request),
+        )
+        return {"usuario": usuario}
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            super().perform_create(serializer, **self._con_cuenta(serializer))
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            super().perform_update(serializer, **self._con_cuenta(serializer))
+
     def get_queryset(self):
         queryset = (
             Empleado.objects.select_related("departamento", "usuario")
@@ -479,38 +516,36 @@ class _EstructuraViewSet(viewsets.ModelViewSet):
 
 
 class NivelJerarquicoViewSet(_EstructuraViewSet):
-    """Cada nivel lleva su rol del sistema: se crea, renombra y borra con él."""
+    """Los niveles ordenan el organigrama. Los roles ya no salen de aquí sino
+    de los cargos (ver `roles_de_cargo`)."""
 
     serializer_class = NivelJerarquicoSerializer
     entidad = "nivel"
-
-    def perform_create(self, serializer):
-        super().perform_create(serializer)
-        roles_de_nivel.asegurar_rol(serializer.instance)
-
-    def perform_update(self, serializer):
-        super().perform_update(serializer)
-        roles_de_nivel.asegurar_rol(serializer.instance)
-
-    def destroy(self, request, *args, **kwargs):
-        nivel = self.get_object()
-        respuesta = super().destroy(request, *args, **kwargs)
-        if respuesta.status_code == status.HTTP_204_NO_CONTENT:
-            roles_de_nivel.borrar_rol(nivel)
-        return respuesta
 
     def get_queryset(self):
         return NivelJerarquico.objects.order_by("orden", "nombre")
 
 
 class UnidadOrganizacionalViewSet(_EstructuraViewSet):
+    """Cada unidad es también el departamento del sistema: se crea, renombra y
+    desactiva con ella (ver `departamentos_del_organigrama.py`)."""
+
     serializer_class = UnidadOrganizacionalSerializer
     entidad = "unidad"
 
     def perform_update(self, serializer):
         super().perform_update(serializer)
-        # Si la unidad cambió de nivel, cambia el rol de quienes trabajan en ella.
-        roles_de_nivel.sincronizar(serializer.instance.empresa)
+        # El rol de un cargo con homónimos lleva el nombre de su unidad: si la
+        # unidad se renombra, se renombran con ella.
+        for cargo in serializer.instance.cargos.select_related("rol", "unidad", "empresa"):
+            roles_de_cargo.asegurar_rol(cargo, con_homonimos=False)
+
+    def destroy(self, request, *args, **kwargs):
+        unidad = self.get_object()
+        respuesta = super().destroy(request, *args, **kwargs)
+        if respuesta.status_code == status.HTTP_204_NO_CONTENT:
+            departamentos_del_organigrama.al_borrar(unidad)
+        return respuesta
 
     def get_queryset(self):
         return UnidadOrganizacional.objects.select_related("nivel", "padre").order_by(
@@ -519,13 +554,28 @@ class UnidadOrganizacionalViewSet(_EstructuraViewSet):
 
 
 class CargoViewSet(_EstructuraViewSet):
+    """Cada cargo es un rol del sistema (ver `roles_de_cargo`): se crea, se
+    renombra y se borra con él."""
+
     serializer_class = CargoSerializer
     entidad = "cargo"
 
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            super().perform_create(serializer)
+            roles_de_cargo.asegurar_rol(serializer.instance)
+
     def perform_update(self, serializer):
-        super().perform_update(serializer)
-        # Si el cargo cambió de unidad, quienes lo ocupan pueden cambiar de nivel.
-        roles_de_nivel.sincronizar(serializer.instance.empresa)
+        with transaction.atomic():
+            super().perform_update(serializer)
+            roles_de_cargo.asegurar_rol(serializer.instance)
+
+    def destroy(self, request, *args, **kwargs):
+        cargo = self.get_object()
+        respuesta = super().destroy(request, *args, **kwargs)
+        if respuesta.status_code == status.HTTP_204_NO_CONTENT:
+            roles_de_cargo.borrar_rol(cargo)
+        return respuesta
 
     def get_queryset(self):
         return Cargo.objects.select_related("unidad", "jefe").order_by("nombre")
@@ -700,7 +750,7 @@ class AsignacionesView(APIView):
             .first()
         )
         organigrama.asignar(usuario, cargo)
-        roles_de_nivel.sincronizar(_empresa_activa(), [usuario])
+        roles_de_cargo.sincronizar(_empresa_activa(), [usuario])
         record_audit_event(
             actor=request.user,
             action="institucional.cargo.asignado",

@@ -152,8 +152,10 @@ class DashboardsAuthorizedViewTests(TestCase):
         client.force_authenticate(user=usuario)
         resp = client.get('/api/v1/dashboards/authorized')
         self.assertEqual(resp.status_code, 200)
+        # El Administrador tiene `dashboard.administrar_acceso` (21/10/2026): administra el
+        # acceso de cualquier dashboard, como antes solo el superusuario.
         self.assertEqual(resp.json(), [{
-            'dashboard_id': 'cobranza', 'name': 'Cobranza', 'area': 'Cartera', 'contexto': '', 'puede_administrar_acceso': False,
+            'dashboard_id': 'cobranza', 'name': 'Cobranza', 'area': 'Cartera', 'contexto': '', 'puede_administrar_acceso': True,
         }])
 
     def test_superusuario_ve_todos_los_dashboards(self):

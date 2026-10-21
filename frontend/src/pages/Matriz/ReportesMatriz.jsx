@@ -235,7 +235,7 @@ export function ReportesMatriz() {
             />
           </div>
           <div className="mz-grid-2">
-            <Barras titulo="Por área" filas={datos.by_area} />
+            <Barras titulo="Por tema" filas={datos.by_area} />
             <Barras titulo="Por entidad de control" filas={datos.by_entity} />
           </div>
         </>

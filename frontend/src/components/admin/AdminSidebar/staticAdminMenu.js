@@ -12,10 +12,7 @@ import {
   PERMISOS_DASHBOARDS,
   RUTA_DASHBOARDS,
 } from "../../../modulos/permisosDashboards";
-import {
-  PERMISOS_SOPORTE,
-  RUTA_SOPORTE,
-} from "../../../modulos/permisosSoporte";
+import { RUTA_SOPORTE } from "../../../modulos/permisosSoporte";
 import {
   PERMISOS_ORDENES,
   RUTA_ORDENES,
@@ -78,6 +75,8 @@ export const ADMIN_MENU = [
         name: "Carga masiva",
         icon: "file-earmark-excel",
         path: "/admin/activos/importar",
+        // Cargar es crear: con solo ver, la pantalla respondería 403.
+        permission: "activos.crear",
       },
       {
         id: "activos-escaner",
@@ -240,7 +239,8 @@ export const ADMIN_MENU = [
     name: "Bandeja",
     icon: "inbox",
     path: `${RUTA_SOPORTE}/bandeja`,
-    permission: PERMISOS_SOPORTE,
+    // Sin permiso (21/10/2026): toda persona ve ahí sus solicitudes; lo del
+    // equipo (su bandeja, la cola, todos) lo decide cada pestaña.
     // La ficha de un ticket se abre desde la bandeja: la marca a ella.
     rutas: [`${RUTA_SOPORTE}/tickets`],
   },
@@ -311,6 +311,9 @@ export const ADMIN_MENU = [
     name: "Solicitud de permisos",
     icon: "calendar-check",
     path: `${RUTA_INSTITUCIONAL}/permisos`,
+    permission: ["licencias.solicitar", "licencias.ver_todas"],
+    // Cuántas solicitudes tiene por aprobar quien entra.
+    insignia: "por_aprobar",
     rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
   },
   {
@@ -329,16 +332,55 @@ export const ADMIN_MENU = [
     name: "Mi onboarding",
     icon: "mortarboard",
     path: `${RUTA_INSTITUCIONAL}/onboarding`,
+    insignia: "onboarding",
   },
   {
-    // Sin permiso: cada persona consulta su rol de pagos (el código sale de su
-    // sesión; ver pide aceptar los términos y su contraseña). Talento Humano
-    // consulta otros con `roles_pago.consultar_todos`.
+    // Un grupo (21/10/2026): consultar el propio rol y, para Talento Humano,
+    // las observaciones. Antes eran dos entradas sueltas y, como la dirección
+    // de las observaciones empieza por la del rol, al abrirlas quedaban las
+    // dos marcadas.
     id: "institucional-rol-pagos",
     modulo: "institucional",
-    name: "Consultar rol de pagos",
+    name: "Rol de pagos",
     icon: "cash-coin",
-    path: `${RUTA_INSTITUCIONAL}/rol-pagos`,
+    // Quien no atiende observaciones ve directo «Consultar rol de pagos»: un
+    // grupo de una sola entrada es un clic de más.
+    aplanarSiUno: true,
+    permission: [
+      "roles_pago.consultar",
+      "roles_pago.consultar_todos",
+      "roles_pago.historial",
+      "roles_pago.observaciones",
+    ],
+    children: [
+      {
+        // El código sale de la sesión; ver pide aceptar los términos y la
+        // contraseña. Talento Humano consulta otros con `consultar_todos`.
+        id: "institucional-rol-pagos-consultar",
+        name: "Consultar rol de pagos",
+        icon: "cash-coin",
+        path: `${RUTA_INSTITUCIONAL}/rol-pagos`,
+        // Solo esta dirección: las observaciones cuelgan de ella y no deben
+        // marcarla.
+        exacto: true,
+        permission: [
+          "roles_pago.consultar",
+          "roles_pago.consultar_todos",
+          "roles_pago.historial",
+        ],
+        // Las correcciones de Talento Humano que esperan su confirmación.
+        insignia: "rol_por_confirmar",
+      },
+      {
+        // Talento Humano: las observaciones de las personas a su rol.
+        id: "institucional-observaciones-rol",
+        name: "Observaciones",
+        icon: "chat-left-dots",
+        path: `${RUTA_INSTITUCIONAL}/rol-pagos/observaciones`,
+        permission: "roles_pago.observaciones",
+        insignia: "observaciones_rol",
+      },
+    ],
   },
   {
     // Sin permiso: toda persona lee los códigos y reglamentos de la empresa.
@@ -358,6 +400,9 @@ export const ADMIN_MENU = [
     name: "Sugerencias y errores",
     icon: "chat-square-heart",
     path: `${RUTA_INSTITUCIONAL}/sugerencias`,
+    permission: ["sugerencias.reportar", "sugerencias.gestionar"],
+    // Los reportes nuevos; el servidor devuelve 0 a quien no los gestiona.
+    insignia: "sugerencias",
   },
   // --- Dashboards ---------------------------------------------------------
   //
@@ -461,7 +506,11 @@ export function getVisibleAdminMenu(
   const delModulo = ADMIN_MENU.filter(
     (item) => item.modulo === modulo || item.modulo === "comun",
   );
-  return filterByPermission(delModulo, permissions);
+  return filterByPermission(delModulo, permissions).map((item) =>
+    item.aplanarSiUno && item.children?.length === 1
+      ? { ...item.children[0], modulo: item.modulo }
+      : item,
+  );
 }
 
 /** Los módulos en los que la persona tiene algo que abrir, sin contar lo

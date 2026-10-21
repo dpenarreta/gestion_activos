@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { capacitacionService } from "../../../api/capacitacionService";
+import { licenciasService } from "../../../api/licenciasService";
 import { matrizService } from "../../../api/matrizService";
+import { nominaService } from "../../../api/nominaService";
+import { sugerenciasService } from "../../../api/sugerenciasService";
 
 import { env } from "../../../config/env";
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
@@ -35,27 +39,72 @@ function rolDe(user) {
  * barra superior: el estado vive en el layout, que es quien dibuja ese botón.
  */
 /**
- * Los contadores de las entradas que llevan insignia. Hoy solo la Matriz: lo
- * incumplido o que vence hoy (`counts.attention`). Se vuelve a pedir al cambiar
- * de pantalla, que es cuando un cierre o un alta pudo moverlo.
+ * De dónde sale cada insignia del menú (el número a la derecha de una
+ * entrada): lo que esa pantalla tiene pendiente para quien entra.
+ */
+const FUENTES_DE_INSIGNIAS = {
+  // Matriz: lo incumplido o que vence hoy.
+  atencion: () => matrizService.resumen().then((d) => d.counts.attention),
+  // Solicitud de permisos: lo que tiene por aprobar.
+  por_aprobar: () => licenciasService.resumen().then((d) => d.por_aprobar),
+  // Sugerencias y errores: los reportes nuevos (solo quien los gestiona).
+  sugerencias: () => sugerenciasService.resumen().then((d) => d.nuevos),
+  // Consultar rol de pagos: las correcciones que esperan su confirmación.
+  rol_por_confirmar: () =>
+    nominaService.estado().then((d) => (d.por_confirmar ?? []).length),
+  // Observaciones de roles: las que Talento Humano tiene por atender.
+  observaciones_rol: () =>
+    nominaService.resumenObservaciones().then((d) => d.abiertas),
+  // Mi onboarding: los materiales que le faltan aprobar.
+  onboarding: () =>
+    capacitacionService
+      .miOnboarding()
+      .then((d) =>
+        d.asignado && !d.completado_en ? d.total - d.aprobados : 0,
+      ),
+};
+
+/** Cada cuánto se vuelven a pedir, además de al cambiar de pantalla. */
+const REFRESCO_MS = 60_000;
+
+/**
+ * Los contadores de las entradas que llevan insignia (`item.insignia`). Se
+ * vuelven a pedir al cambiar de pantalla, que es cuando una aprobación o un
+ * cierre pudo moverlos, y cada minuto por lo que llega de otros.
  */
 function useInsignias(menu, pathname) {
-  const conAtencion = menu.some((item) => item.insignia === "atencion");
+  // También las de las entradas dentro de un grupo.
+  const todas = (items) =>
+    items.flatMap((item) => [item, ...todas(item.children || [])]);
+  const claves = [
+    ...new Set(
+      todas(menu)
+        .map((item) => item.insignia)
+        .filter((clave) => clave && FUENTES_DE_INSIGNIAS[clave]),
+    ),
+  ].join(",");
   const [insignias, setInsignias] = useState({});
 
   useEffect(() => {
-    if (!conAtencion) return undefined;
+    if (!claves) return undefined;
     let vigente = true;
-    matrizService
-      .resumen()
-      .then((datos) => {
-        if (vigente) setInsignias({ atencion: datos.counts.attention });
-      })
-      .catch(() => {});
+    function pedir() {
+      claves.split(",").forEach((clave) => {
+        Promise.resolve()
+          .then(() => FUENTES_DE_INSIGNIAS[clave]())
+          .then((valor) => {
+            if (vigente) setInsignias((i) => ({ ...i, [clave]: valor ?? 0 }));
+          })
+          .catch(() => {});
+      });
+    }
+    pedir();
+    const intervalo = setInterval(pedir, REFRESCO_MS);
     return () => {
       vigente = false;
+      clearInterval(intervalo);
     };
-  }, [conAtencion, pathname]);
+  }, [claves, pathname]);
 
   return insignias;
 }
@@ -87,6 +136,7 @@ export function AdminSidebar({
         onNavigate={handleNavigate}
         accordion={accordion}
         siblingIds={menu.map((sibling) => sibling.id)}
+        insignias={insignias}
       />
     ) : (
       <AdminMenuItem
@@ -96,6 +146,7 @@ export function AdminSidebar({
         currentPath={location.pathname}
         onNavigate={handleNavigate}
         insignia={insignias[item.insignia]}
+        tipoInsignia={item.insignia}
       />
     );
   }

@@ -2,13 +2,16 @@
 
 from rest_framework import viewsets
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
+from apps.permissions.authorization import user_has_permission
 
+from . import modulos as modulos_servicio
 from .contexto import SIN_EMPRESA, empresa_actual
 from .models import Empresa
 from .permissions import EmpresasPermission
@@ -54,6 +57,45 @@ def mis_empresas(request):
         {
             "empresas": empresas,
             "activa": EmpresaSerializer(activa).data if activa else None,
+        }
+    )
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def modulos(request):
+    """Qué módulos están encendidos en la empresa activa.
+
+    Lo lee cualquiera (el menú lo necesita para esconder los apagados);
+    cambiarlo pide `configuracion.modulos`.
+    """
+    empresa = empresa_actual()
+    if empresa is SIN_EMPRESA:
+        empresa = None
+    puede = modulos_servicio.ve_apagados(request.user)
+    if request.method == "PUT":
+        if not user_has_permission(request.user, "configuracion.modulos"):
+            raise PermissionDenied("No tiene el permiso requerido: configuracion.modulos.")
+        if empresa is None:
+            raise ValidationError({"empresa": "No hay una empresa activa."})
+        clave = request.data.get("modulo")
+        activo = request.data.get("activo")
+        if not isinstance(activo, bool):
+            raise ValidationError({"activo": "Indique true o false."})
+        modulos_servicio.cambiar(empresa, clave, activo)
+        record_audit_event(
+            actor=request.user,
+            action="empresas.modulo.encendido" if activo else "empresas.modulo.apagado",
+            target=empresa,
+            module=MODULO,
+            new_values={"modulo": clave, "activo": activo},
+            context=get_request_context(request),
+        )
+    return Response(
+        {
+            "modulos": modulos_servicio.estado(empresa),
+            "ve_apagados": puede,
+            "puede_gestionar": puede,
         }
     )
 

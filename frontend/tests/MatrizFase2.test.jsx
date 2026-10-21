@@ -401,7 +401,7 @@ describe("Nueva obligación (§11.1)", () => {
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Declaración de IVA" },
     });
-    fireEvent.change(await screen.findByLabelText("Área"), {
+    fireEvent.change(await screen.findByLabelText("Tema"), {
       target: { value: "1" },
     });
     fireEvent.change(screen.getByLabelText("Entidad de control"), {

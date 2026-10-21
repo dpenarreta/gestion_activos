@@ -116,6 +116,7 @@ export function EmpleadosList() {
               <th>Nombre</th>
               <th>Cargo</th>
               <th>Departamento</th>
+              <th>Usuario</th>
               <th className="num">Activos a cargo</th>
               <th>Estado</th>
               <th aria-label="Acciones" />
@@ -128,6 +129,18 @@ export function EmpleadosList() {
                 <td className="mz-strong">{empleado.nombre_completo}</td>
                 <td>{empleado.cargo || "—"}</td>
                 <td>{empleado.departamento_nombre}</td>
+                <td>
+                  {empleado.usuario ? (
+                    <span className="mz-code">{empleado.usuario_username}</span>
+                  ) : (
+                    <span
+                      className="mz-pill mz-pill--warn"
+                      title="Todo empleado debe tener usuario: edítelo y escriba su correo institucional."
+                    >
+                      Sin usuario
+                    </span>
+                  )}
+                </td>
                 <td className="num">
                   {empleado.total_activos > 0 ? (
                     <Link to={`/admin/activos?custodio=${empleado.id}`}>
@@ -156,7 +169,7 @@ export function EmpleadosList() {
             ))}
             {!listado.isLoading && listado.resultados.length === 0 && (
               <tr className="mz-empty-row">
-                <td colSpan={7}>Sin empleados registrados</td>
+                <td colSpan={8}>Sin empleados registrados</td>
               </tr>
             )}
           </tbody>

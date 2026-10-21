@@ -44,10 +44,13 @@ class _Catalogo(BaseModel):
 
 
 class Area(_Catalogo):
-    """Área responsable de una obligación: Contabilidad, Talento Humano…
+    """Tema de la Matriz: Ambiental, Seguros y Pólizas, Talento Humano…
 
-    No es el departamento del inventario. Aquél organiza personas y equipos de
-    una empresa; éste clasifica obligaciones, y se comparte entre empresas.
+    Se llamaba «Área» y se confundía con las áreas del organigrama, que son las
+    que organizan personas y equipos de cada empresa. Desde el 21/10/2026 se
+    muestra como «Tema»: clasifica obligaciones y se comparte entre empresas.
+    El modelo y la API conservan el nombre `area` para no romper datos ni
+    enlaces.
     """
 
     nombre = models.CharField(max_length=120)
@@ -59,8 +62,8 @@ class Area(_Catalogo):
     )
 
     class Meta(_Catalogo.Meta):
-        verbose_name = "área"
-        verbose_name_plural = "áreas"
+        verbose_name = "tema"
+        verbose_name_plural = "temas"
 
 
 class EntidadControl(_Catalogo):
@@ -87,7 +90,22 @@ class Periodicidad(models.TextChoices):
     TRIMESTRAL = "trimestral", "Trimestral"
     SEMESTRAL = "semestral", "Semestral"
     ANUAL = "anual", "Anual"
+    # Permisos y contratos que se renuevan cada varios años (21/10/2026).
+    BIENAL = "bienal", "Bienal (cada 2 años)"
+    TRIENAL = "trienal", "Trienal (cada 3 años)"
+    QUINQUENAL = "quinquenal", "Quinquenal (cada 5 años)"
+    DECENAL = "decenal", "Decenal (cada 10 años)"
     UNICA = "unica", "Única"
+
+
+#: Las que vencen un día y mes fijos del año en que les toca.
+DE_DIA_Y_MES = {
+    Periodicidad.ANUAL,
+    Periodicidad.BIENAL,
+    Periodicidad.TRIENAL,
+    Periodicidad.QUINQUENAL,
+    Periodicidad.DECENAL,
+}
 
 
 class Prioridad(models.TextChoices):

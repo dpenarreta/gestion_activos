@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { departamentosService } from "../../api/organizacionService";
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useAuth } from "../../hooks/useAuth";
@@ -35,7 +34,6 @@ const VACIOS = {
     codigo: "",
     nivel: "",
     padre: "",
-    departamento: "",
     descripcion: "",
     activa: true,
   },
@@ -73,7 +71,7 @@ function Campo({ id, etiqueta, children, ancho = "col-12 col-md-6" }) {
 }
 
 /** El formulario de alta o edición de un nivel, una unidad o un cargo. */
-function Formulario({ recurso, inicial, datos, areas, onGuardar, onCancelar }) {
+function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
   const [valores, setValores] = useState(inicial);
   const fijar = (campo) => (e) =>
     setValores((v) => ({
@@ -127,6 +125,8 @@ function Formulario({ recurso, inicial, datos, areas, onGuardar, onCancelar }) {
                 id="est-codigo"
                 className="form-control form-control-sm"
                 maxLength={20}
+                placeholder="Ej.: TI"
+                title="Cada unidad es también el departamento del sistema: este código va en las etiquetas y en el código de cada empleado (TI-0001). Vacío, se toma de las iniciales."
                 value={valores.codigo}
                 onChange={fijar("codigo")}
               />
@@ -163,21 +163,6 @@ function Formulario({ recurso, inicial, datos, areas, onGuardar, onCancelar }) {
                       {u.nombre}
                     </option>
                   ))}
-              </select>
-            </Campo>
-            <Campo id="est-area" etiqueta="Área del sistema (opcional)">
-              <select
-                id="est-area"
-                className="form-select form-select-sm"
-                value={valores.departamento ?? ""}
-                onChange={fijar("departamento")}
-              >
-                <option value="">Sin enlazar</option>
-                {areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre}
-                  </option>
-                ))}
               </select>
             </Campo>
           </>
@@ -373,9 +358,7 @@ function aEnviar(recurso, valores) {
   const resto = Object.fromEntries(
     Object.keys(VACIOS[recurso]).map((campo) => [campo, valores[campo]]),
   );
-  const nulos = { unidades: ["padre", "departamento"], cargos: ["jefe"] }[
-    recurso
-  ];
+  const nulos = { unidades: ["padre"], cargos: ["jefe"] }[recurso];
   for (const campo of nulos ?? []) if (resto[campo] === "") resto[campo] = null;
   return resto;
 }
@@ -398,7 +381,6 @@ export function EstructuraPage() {
     (pedida ?? visibles[0])?.[0] ?? "niveles",
   );
   const [datos, setDatos] = useState(null);
-  const [areas, setAreas] = useState([]);
   const [editando, setEditando] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -427,10 +409,6 @@ export function EstructuraPage() {
 
   useEffect(() => {
     cargar();
-    departamentosService
-      .list({ activo: "true", page_size: 500 })
-      .then((r) => setAreas(r.results ?? r))
-      .catch(() => setAreas([]));
   }, [cargar]);
 
   async function ejecutar(accion, mensaje) {
@@ -602,12 +580,12 @@ export function EstructuraPage() {
                   <tr>
                     <th>Nombre</th>
                     {pestana === "niveles" && <th>Orden</th>}
-                    {pestana === "niveles" && <th>Rol del sistema</th>}
                     {pestana === "unidades" && <th>Nivel</th>}
                     {pestana === "unidades" && <th>Depende de</th>}
                     {pestana === "cargos" && <th>Unidad</th>}
                     {pestana === "cargos" && <th>Reporta a</th>}
                     {pestana === "cargos" && <th className="num">Plazas</th>}
+                    {pestana === "cargos" && <th>Rol del sistema</th>}
                     <th aria-label="Acciones" />
                   </tr>
                 </thead>
@@ -627,19 +605,6 @@ export function EstructuraPage() {
                         )}
                       </td>
                       {pestana === "niveles" && <td>{fila.orden}</td>}
-                      {pestana === "niveles" && (
-                        <td className="mz-small">
-                          {/* Se asigna solo a quien ocupa un cargo de este
-                            nivel; sus permisos se editan en Roles. */}
-                          {fila.rol ? (
-                            <Link to={`/admin/roles/${fila.rol.id}`}>
-                              {fila.rol.nombre}
-                            </Link>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      )}
                       {pestana === "unidades" && <td>{fila.nivel?.nombre}</td>}
                       {pestana === "unidades" && (
                         <td>{unidadDe(fila.padre) ?? "—"}</td>
@@ -666,6 +631,19 @@ export function EstructuraPage() {
                           />
                         </td>
                       )}
+                      {pestana === "cargos" && (
+                        <td className="mz-small">
+                          {/* Lo comparten quienes ocupan el cargo; sus
+                              permisos se editan en Roles. */}
+                          {fila.rol ? (
+                            <Link to={`/admin/roles/${fila.rol.id}`}>
+                              {fila.rol.nombre}
+                            </Link>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      )}
                       <td className="num text-nowrap">
                         <button
                           type="button"
@@ -679,7 +657,6 @@ export function EstructuraPage() {
                                 pestana === "unidades"
                                   ? (fila.nivel?.id ?? "")
                                   : undefined,
-                              departamento: fila.departamento?.id ?? "",
                               padre: fila.padre ?? "",
                               jefe: fila.jefe ?? "",
                             })
@@ -724,7 +701,6 @@ export function EstructuraPage() {
                   recurso={pestana}
                   inicial={editando}
                   datos={datos}
-                  areas={areas}
                   onGuardar={guardar}
                   onCancelar={() => setEditando(null)}
                 />

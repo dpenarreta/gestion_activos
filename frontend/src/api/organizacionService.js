@@ -6,20 +6,16 @@ const SEDES = "/organizacion/sedes/";
 const PROVEEDORES = "/organizacion/proveedores/";
 const CONCESIONARIOS = "/organizacion/concesionarios/";
 
+/**
+ * Solo lectura: cada departamento es una unidad del organigrama y se crea,
+ * renombra o desactiva en Editar estructura (21/10/2026).
+ */
 export const departamentosService = {
   list(params = {}) {
     return apiClient.get(DEPARTAMENTOS, { params }).then((res) => res.data);
   },
   get(id) {
     return apiClient.get(`${DEPARTAMENTOS}${id}/`).then((res) => res.data);
-  },
-  create(payload) {
-    return apiClient.post(DEPARTAMENTOS, payload).then((res) => res.data);
-  },
-  update(id, payload) {
-    return apiClient
-      .patch(`${DEPARTAMENTOS}${id}/`, payload)
-      .then((res) => res.data);
   },
 };
 

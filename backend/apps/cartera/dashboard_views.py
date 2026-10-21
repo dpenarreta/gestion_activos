@@ -2,13 +2,15 @@ from urllib.parse import quote
 
 from django.http import HttpResponse
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.cartera.compat import MODULOS_ANTERIORES, AuditEvent, detalle_de
 from apps.cartera.compat import MODULO as MODULO_AUDITORIA
 from apps.core.models import AuditLog
-from apps.cartera.compat import IsSuperuser, require_permission
+from apps.cartera.compat import require_permission
+from apps.permissions.permissions import Requiere
 
 from . import dashboard_registry, permisos
 from .exceptions import CarteraError
@@ -452,8 +454,9 @@ class DashboardAccesoView(APIView):
             return _denegado(
                 request,
                 dashboard_id,
-                "dashboard.acceso.administrar",
-                "Solo el dueño o un superusuario pueden editar el acceso de este dashboard.",
+                "dashboard.administrar_acceso",
+                "Solo el dueño o quien tenga «dashboard.administrar_acceso» pueden editar "
+                "el acceso de este dashboard.",
             )
         return Response(
             dashboards_service.actualizar_acceso(
@@ -467,11 +470,11 @@ class DashboardAccesoView(APIView):
 
 
 class DashboardDuenoView(APIView):
-    """`PATCH /api/dashboards/<dashboard_id>/dueno` — reasigna el dueño de un dashboard. Reservado
-    al superusuario, ni siquiera el dueño actual puede reasignarse a otra persona (mismo criterio
-    que conceder superusuario, ver `apps/permissions/permissions.py::IsSuperuser`)."""
+    """`PATCH /api/dashboards/<dashboard_id>/dueno` — reasigna el dueño de un dashboard. Pide
+    `dashboard.reasignar_dueno` (21/10/2026; antes, ser superusuario): ni siquiera el dueño
+    actual puede pasárselo a otra persona sin él."""
 
-    permission_classes = [IsSuperuser]
+    permission_classes = [IsAuthenticated, Requiere("dashboard.reasignar_dueno")]
 
     def patch(self, request, dashboard_id):
         dashboards_service.reasignar_dueno(

@@ -16,6 +16,11 @@ export function matchesPath(path, currentPath) {
  * título de la barra superior elija la coincidencia más específica.
  */
 export function coincidencia(item, currentPath) {
+  // `exacto`: la entrada es solo su dirección, no las que cuelgan de ella
+  // («Consultar rol de pagos» no se marca en sus observaciones).
+  if (item.exacto) {
+    return item.path && currentPath === item.path ? item.path : null;
+  }
   const candidatas = [item.path, ...(item.rutas || [])].filter((ruta) =>
     matchesPath(ruta, currentPath),
   );

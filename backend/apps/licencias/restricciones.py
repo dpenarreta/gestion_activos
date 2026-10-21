@@ -243,25 +243,18 @@ def _periodos(usuario, antes_de=None):
 
 
 SIN_ROL = (
-    "Necesita un rol asignado para solicitar permisos.",
-    "Su cuenta no tiene ningún rol. Pida a quien administra los usuarios que le asigne uno.",
+    "No tiene permiso para solicitar permisos ni vacaciones.",
+    "Su rol no incluye «Solicitar permisos y vacaciones». Pida a quien administra "
+    "los roles que se lo asigne.",
 )
 
 
 def tiene_rol(usuario) -> bool:
-    """Si la cuenta tiene algún rol: global o en su membresía de la empresa
-    actual. El superusuario no necesita uno."""
-    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
-    from apps.empresas.models import MembresiaEmpresa
+    """Si la cuenta puede solicitar: `licencias.solicitar` (21/10/2026; antes
+    bastaba con tener cualquier rol). Lo tienen todos los roles de nivel."""
+    from apps.permissions.authorization import user_has_permission
 
-    if usuario.is_superuser or usuario.groups.exists():
-        return True
-    empresa = empresa_actual()
-    if empresa in (None, SIN_EMPRESA):
-        return False
-    return MembresiaEmpresa.objects.filter(
-        usuario=usuario, empresa=empresa, roles__isnull=False
-    ).exists()
+    return user_has_permission(usuario, "licencias.solicitar")
 
 
 def _regla_dict(clave, estado, texto, detalle=""):

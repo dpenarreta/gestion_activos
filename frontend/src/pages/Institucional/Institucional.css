@@ -1955,7 +1955,7 @@
 /* Consultar rol de pagos. */
 .rol-pagos__periodo {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 200px)) auto;
+  grid-template-columns: minmax(0, 120px) minmax(0, 160px) minmax(0, 320px) auto;
   gap: 10px;
   align-items: start;
 }
@@ -2055,4 +2055,405 @@
   margin: 4px 0 0;
   padding-left: 18px;
   font-size: 13px;
+}
+
+/* ---------- Organigrama: los cargos de una unidad como árbol por niveles ---------- */
+.org-vista {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}
+
+.org-vista button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 0;
+  background: var(--mz-raised);
+  color: var(--mz-ink-soft);
+  font-size: 12.5px;
+}
+
+.org-vista button + button {
+  border-left: 1px solid var(--mz-border);
+}
+
+.org-vista button.is-activo {
+  background: var(--mz-action);
+  color: #fff;
+}
+
+.org-unidad--arbol {
+  width: max-content;
+  min-width: 240px;
+}
+
+.org-ct__marco {
+  padding: 14px 10px 12px;
+}
+
+.org-ct {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 18px 0 0;
+  list-style: none;
+}
+
+.org-ct--raiz {
+  padding-top: 0;
+}
+
+/* La línea que baja del jefe a la barra de quienes le reportan. */
+.org-ct:not(.org-ct--raiz)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 18px;
+  border-left: 2px solid var(--mz-border-strong);
+}
+
+.org-ct__rama {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 6px 0;
+}
+
+.org-ct--raiz > .org-ct__rama {
+  padding-top: 0;
+}
+
+.org-ct:not(.org-ct--raiz) > .org-ct__rama::before,
+.org-ct:not(.org-ct--raiz) > .org-ct__rama::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 18px;
+  border-top: 2px solid var(--mz-border-strong);
+}
+
+.org-ct:not(.org-ct--raiz) > .org-ct__rama::before {
+  right: 50%;
+}
+
+.org-ct:not(.org-ct--raiz) > .org-ct__rama::after {
+  left: 50%;
+  border-left: 2px solid var(--mz-border-strong);
+}
+
+.org-ct > .org-ct__rama:first-child::before,
+.org-ct > .org-ct__rama:last-child::after {
+  border-top: 0 !important;
+}
+
+.org-ct > .org-ct__rama:only-child::before {
+  display: none;
+}
+
+.org-ct > .org-ct__rama:first-child::after {
+  border-top-left-radius: 8px;
+}
+
+.org-ct > .org-ct__rama:last-child::before {
+  border-top-right-radius: 8px;
+  border-right: 2px solid var(--mz-border-strong);
+}
+
+/* Una tarjeta del árbol: el cargo y quién lo ocupa. */
+.org-nodo {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 170px;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-top: 4px solid var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  text-align: center;
+}
+
+.org-nodo__cargo {
+  font-size: 12.5px;
+  line-height: 1.25;
+}
+
+.org-nodo__personas {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px dashed var(--mz-border);
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+/* El nivel dentro del área, como en la leyenda del organigrama:
+   dirección, jefaturas, coordinaciones y equipo operativo. */
+.org-nodo--nivel-0 {
+  border-top-color: #10395f;
+  background: #10395f;
+  color: #fff;
+}
+
+.org-nodo--nivel-0 .org-nodo__personas {
+  border-top-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.org-nodo--nivel-1 {
+  border-top-color: #1f78d1;
+}
+
+.org-nodo--nivel-2 {
+  border-top-color: #2a9d8f;
+}
+
+.org-nodo--nivel-3 {
+  border-top-color: var(--mz-border-strong);
+  background: var(--mz-sunken);
+}
+
+/* Detalle de una solicitud: el calendario reducido a sus semanas. */
+.cal-solicitado {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.cal-solicitado__tabla {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 12.5px;
+}
+
+.cal-solicitado__tabla th {
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mz-ink-faint);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-solicitado__mes {
+  text-align: right !important;
+  text-transform: capitalize !important;
+}
+
+.cal-solicitado__dia {
+  width: 34px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--mz-ink-faint);
+  text-align: center;
+}
+
+.cal-solicitado__dia.is-finde {
+  background: var(--mz-sunken);
+}
+
+.cal-solicitado__dia.is-pedido {
+  background: color-mix(in srgb, var(--mz-action) 18%, transparent);
+  color: var(--mz-ink);
+  font-weight: 700;
+}
+
+/* Un fin de semana dentro del permiso salta a la vista. */
+.cal-solicitado__dia.is-pedido.is-finde {
+  background: #f0a400;
+  color: #3d2600;
+}
+
+.cal-solicitado__resumen {
+  margin: 0;
+  font-size: 13px;
+}
+
+.cal-solicitado__resumen strong {
+  color: #8a5300;
+}
+
+.rol-pagos__codigo-fijo {
+  background: var(--mz-sunken);
+  cursor: not-allowed;
+}
+
+.rol-pagos__accion {
+  display: flex;
+  flex-direction: column;
+}
+
+.rol-pagos__accion .btn {
+  align-self: flex-start;
+}
+
+@media (max-width: 760px) {
+  .rol-pagos__accion > span {
+    display: none;
+  }
+}
+
+/* La ayuda del código, en una sola línea. */
+#rol-codigo-ayuda {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rol de pagos: un mes sin rol. */
+.rol-pagos__sin-rol .mz-card-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.rol-pagos__sin-rol {
+  border-left: 4px solid #f0a400;
+}
+
+.rol-pagos__sin-rol-icono {
+  font-size: 28px;
+  color: #b26a00;
+}
+
+.rol-pagos__sin-rol ul {
+  padding-left: 18px;
+}
+
+/* Rol de pagos: la conformidad, al pie del visor. */
+.visor-rol__conformidad {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+  font-size: 14px;
+}
+
+.visor-rol__conformidad.is-pendiente {
+  background: color-mix(in srgb, var(--mz-action) 8%, var(--mz-raised));
+}
+
+.visor-rol__pregunta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.visor-rol__pregunta > span {
+  flex: 1;
+  min-width: 240px;
+}
+
+.visor-rol__aviso {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.visor-rol__aviso .mz-modal {
+  max-width: 440px;
+}
+
+/* Rol de pagos: las correcciones por confirmar. */
+.rol-pagos__por-confirmar {
+  border-left: 4px solid var(--mz-action);
+}
+
+.rol-pagos__correccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.visor-rol__correccion {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mz-action) 10%, transparent);
+  font-size: 13px;
+}
+
+/* Rol de pagos: historial por código de empleado. */
+.historial-rol {
+  max-width: min(1100px, 96vw);
+}
+
+.historial-rol__periodo {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.historial-rol__periodo h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.historial-rol__observacion {
+  display: grid;
+  gap: 6px;
+}
+
+.historial-rol {
+  position: relative;
+}
+
+.historial-rol__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---------- Organigrama en lista: vertical e indentado por nivel ---------- */
+.org-lista .org-arbol,
+.org-lista .org-hijas {
+  display: block;
+  min-width: 0;
+}
+
+.org-lista .org-hijas {
+  margin-left: 14px;
+  padding: 8px 0 0 14px;
+  border-left: 2px solid var(--mz-border);
+}
+
+.org-lista .org-hijas::before,
+.org-lista .org-hijas > .org-rama::before,
+.org-lista .org-hijas > .org-rama::after {
+  display: none;
+}
+
+.org-lista .org-rama {
+  display: block;
+  padding: 0 0 10px;
+}
+
+.org-lista .org-unidad {
+  width: auto;
+  max-width: 760px;
 }

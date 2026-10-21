@@ -1,27 +1,17 @@
-"""Crea el catálogo general de roles con sus permisos.
+"""Crea los roles que no salen del organigrama: Administrador y Superusuario.
 
-El sistema tiene un catálogo de 46 permisos y un modelo de roles configurable,
-pero una instalación recién migrada llega sin ningún rol: el primer
-administrador acaba trabajando como superusuario y, cuando entra el resto del
-equipo, o se les da superusuario también o alguien tiene que deducir a mano qué
-permisos corresponden a cada puesto. Este comando parte de la tabla del §13 del
-documento funcional y la traduce al catálogo.
+Desde el 21/10/2026 los roles del día a día son los **cargos del organigrama**
+(«Jefe TI», «Analista Programador»…; ver `apps.organizacion.roles_de_cargo`):
+cada cargo es un rol y los permisos se le marcan a él. Fuera de eso solo hacen
+falta los de administración del sistema, para poder asignárselos a alguien:
 
-Los roles son **generales del sistema**, no de un módulo: cada uno junta los
-permisos de todos los módulos que le corresponden (inventario y Matriz de
-obligaciones). Los dos de cumplimiento vienen de la especificación de la
-Matriz (§7).
+- **Administrador**: todo el catálogo; configura usuarios, roles y reglas.
+- **Superusuario**: todo el catálogo, como rol asignable (aparte de la marca
+  `is_superuser` de la cuenta de emergencia).
 
-**Es una plantilla, no una imposición.** Los roles son una decisión de cada
-empresa, así que esto no vive en una migración —que los recrearía en cada
-entorno y los impondría al arrancar—: se ejecuta una vez y a partir de ahí se
-editan desde el panel. Volver a ejecutarlo no pisa lo que se haya cambiado,
-salvo que se pida con `--actualizar`.
-
-El quinto rol, «Usuario final», lleva un único permiso —`activos.ver_asignados`—
-y ahí está todo su sentido: muestra los equipos de quien pregunta, no el
-inventario. Con `activos.ver`, que es el permiso que parece el equivalente,
-vería el parque entero, los custodios de todos y los costos.
+Volver a ejecutarlo no pisa lo que se haya cambiado, salvo con `--actualizar`.
+Antes creaba también roles plantilla por función (Técnico de mesa de ayuda,
+Talento Humano, Soporte TI…); ya no.
 """
 
 from django.contrib.auth.models import Group, Permission
@@ -43,145 +33,14 @@ ROLES = {
         # de superusuario en el día a día.
         "permisos": "*",
     },
-    "Soporte TI": {
-        "descripcion": "Registra activos, asignaciones y reparaciones. El trabajo diario.",
-        "permisos": [
-            "activos.ver",
-            "activos.ver_asignados",
-            "activos.crear",
-            "activos.editar",
-            "activos.asignar",
-            "activos.imprimir_etiqueta",
-            "activos.exportar",
-            # Sin `activos.dar_baja`: el §13 pone la aprobación de bajas en el
-            # supervisor. Quien opera el inventario a diario no debería poder
-            # sacar un equipo del parque sin que nadie más lo mire.
-            "organizacion.ver",
-            "organizacion.editar",
-            "mantenimientos.ver",
-            "mantenimientos.registrar",
-            "mantenimientos.componentes",
-            "mantenimientos.exportar",
-            "adjuntos.ver",
-            "adjuntos.subir",
-            # Sin `adjuntos.eliminar`: un adjunto es evidencia, y borrarla no es
-            # parte de la operación.
-            "politicas.ver",
-            "alertas.ver",
-            "reportes.ver",
-            "solicitudes.ver",
-            "solicitudes.crear",
-            # Es a quien se le asignan las compras: sin esto, la bandeja de
-            # «Solicitudes recibidas» no la podría atender nadie salvo el
-            # administrador.
-            "solicitudes.gestionar",
-        ],
-    },
-    "Supervisor TI": {
-        "descripcion": "Consulta reportes, aprueba bajas y define las reglas de reemplazo.",
-        "permisos": [
-            "activos.ver",
-            "activos.ver_asignados",
-            "activos.dar_baja",
-            "activos.exportar",
-            # Sin crear ni editar fichas: eso es trabajo de soporte. La
-            # separación es la que hace que la aprobación signifique algo.
-            "organizacion.ver",
-            "mantenimientos.ver",
-            "mantenimientos.exportar",
-            "politicas.ver",
-            "politicas.editar",
-            "adjuntos.ver",
-            "alertas.ver",
-            "notificaciones.configurar",
-            "reportes.ver",
-            "reportes.exportar",
-            "auditoria.ver",
-            "solicitudes.ver",
-            "solicitudes.crear",
-            # Ve y mueve las de todos, no solo las suyas: es quien tiene que
-            # notar que una lleva tres semanas parada en la bandeja de alguien.
-            "solicitudes.administrar",
-        ],
-    },
-    "Consulta / Auditoría": {
-        "descripcion": "Visualiza información histórica sin modificar datos.",
-        "permisos": [
-            "activos.ver",
-            "activos.ver_asignados",
-            "organizacion.ver",
-            "mantenimientos.ver",
-            "politicas.ver",
-            "adjuntos.ver",
-            "alertas.ver",
-            "reportes.ver",
-            "reportes.exportar",
-            "auditoria.ver",
-            "auditoria.ver_detalle",
-            "auditoria.exportar",
-            # De la Matriz, lo mismo: ver todo y exportar, sin tocar nada.
-            "matriz.ver_todas",
-            "matriz.exportar",
-            "matriz.ver_auditoria",
-            "catalogos.ver",
-            # Y los dashboards (de cualquier área), solo para verlos.
-            "dashboard.view",
-            # Las órdenes de trabajo de todas las sedes y sus reportes, sin
-            # moverlas.
-            "ordenes.ver",
-            "ordenes.ver_todas",
-            "ordenes.reportes",
-            # Los tickets de la mesa de ayuda y sus reportes, sin atenderlos.
-            "soporte.ver_todos",
-            "soporte.reportes",
-            # Sin `auditoria.ver_ubicacion`: es un dato personal de contexto y
-            # se concede aparte, a quien lo necesite y por un motivo concreto
-            # (ver docs/data-protection-review.md).
-        ],
-    },
-    "Usuario final": {
-        "descripcion": "Consulta los equipos que tiene a su cargo. Nada más.",
-        # `activos.ver_asignados` muestra los equipos de quien pregunta, no el
-        # inventario. Con `activos.ver` —el que parece el equivalente— vería el
-        # parque entero, los custodios de todos y los costos, que es lo
-        # contrario de lo que el §13 concede.
-        #
-        # Pedir sí es suyo: quien necesita una laptop es él, y dejar la
-        # solicitud solo en manos de soporte devolvería el pedido al correo,
-        # que es de donde este módulo lo saca. `solicitudes.ver` le enseña las
-        # propias y ninguna ajena.
-        "permisos": [
-            "activos.ver_asignados",
-            "solicitudes.ver",
-            "solicitudes.crear",
-        ],
-    },
-    "Responsable de cumplimiento": {
-        "descripcion": "Prepara las obligaciones a su cargo: carga la evidencia y la envía.",
-        # Sin `matriz.ver_todas`: ve y actúa solo sobre lo suyo (responsable o
-        # suplente), y crea en sus áreas.
-        "permisos": [
-            "matriz.crear",
-            "matriz.editar",
-            "matriz.cargar",
-            "matriz.enviar",
-            "matriz.recordar",
-        ],
-    },
-    "Supervisor de cumplimiento": {
-        "descripcion": "Ve todas las obligaciones, valida o devuelve los cierres y cambia fechas.",
-        # Sin cargar ni enviar: la separación de funciones es la que da valor a
-        # la validación.
-        "permisos": [
-            "matriz.ver_todas",
-            "matriz.cambiar_fecha",
-            "matriz.validar",
-            "matriz.recordar",
-            "matriz.exportar",
-            "matriz.ver_auditoria",
-        ],
+    "Superusuario": {
+        "descripcion": "Todo el sistema, para asignar a quien lo administra por completo.",
+        "permisos": "*",
     },
 }
+# Los demás roles salen de los cargos del organigrama (21/10/2026, ver
+# `apps.organizacion.roles_de_cargo`): las plantillas por función (Técnico de
+# mesa de ayuda, Talento Humano, Soporte TI…) ya no se crean.
 
 
 class Command(BaseCommand):

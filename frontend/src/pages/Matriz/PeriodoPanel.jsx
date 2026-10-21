@@ -29,6 +29,10 @@ const PERIODICIDADES = {
   trimestral: "Trimestral",
   semestral: "Semestral",
   anual: "Anual",
+  bienal: "Bienal (cada 2 años)",
+  trienal: "Trienal (cada 3 años)",
+  quinquenal: "Quinquenal (cada 5 años)",
+  decenal: "Decenal (cada 10 años)",
   unica: "Única",
 };
 
@@ -322,7 +326,7 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                     <h4>Identificación</h4>
                     <div className="mz-kv-grid">
                       <Kv etiqueta="Sucursal">{periodo.sede?.nombre}</Kv>
-                      <Kv etiqueta="Área">{periodo.obligacion.area_nombre}</Kv>
+                      <Kv etiqueta="Tema">{periodo.obligacion.area_nombre}</Kv>
                       <Kv etiqueta="Entidad de control">
                         {periodo.obligacion.entidad_nombre}
                       </Kv>

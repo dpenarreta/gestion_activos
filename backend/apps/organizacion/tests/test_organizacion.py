@@ -52,15 +52,16 @@ def _usuario_con_permisos(codenames, sufijo=""):
 # --- Catálogos -------------------------------------------------------------
 
 
-def test_crear_un_departamento_normaliza_el_codigo_a_mayusculas(cliente):
-    respuesta = cliente.post(
-        "/api/v1/organizacion/departamentos/",
-        {"nombre": "Recursos Humanos", "codigo": "rrhh"},
-        format="json",
+def test_los_departamentos_ya_no_se_crean_ni_editan_en_el_catalogo(cliente, departamento):
+    """Desde el 21/10/2026 cada departamento es una unidad del organigrama y se
+    gobierna desde ahí; el catálogo solo se consulta."""
+    url = "/api/v1/organizacion/departamentos/"
+    assert cliente.post(url, {"nombre": "RRHH", "codigo": "RH"}, format="json").status_code == 405
+    assert (
+        cliente.patch(f"{url}{departamento.id}/", {"nombre": "Otra"}, format="json").status_code
+        == 405
     )
-
-    assert respuesta.status_code == 201
-    assert respuesta.json()["codigo"] == "RRHH"
+    assert cliente.get(url).status_code == 200
 
 
 def test_el_listado_de_departamentos_informa_cuantos_activos_tiene_cada_uno(
@@ -341,46 +342,6 @@ def test_la_sede_no_se_borra_aunque_ya_no_se_use(cliente, sede):
     respuesta = cliente.delete(f"/api/v1/organizacion/sedes/{sede.id}/")
 
     assert respuesta.status_code == 405
-
-
-# --- Duplicados en el catálogo de áreas -------------------------------------
-
-
-def test_no_se_crean_dos_areas_que_solo_difieren_en_mayusculas(cliente, departamento):
-    """La restricción única de la base sí distingue: «Finanzas» y «FINANZAS»
-    pasarían las dos y quedarían dos áreas indistinguibles en el desplegable,
-    con los activos repartidos entre ambas."""
-    respuesta = cliente.post(
-        "/api/v1/organizacion/departamentos/",
-        {"nombre": "FINANZAS", "codigo": "FIN2"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-    assert "Finanzas" in str(respuesta.data["error"]["details"]["nombre"])
-
-
-def test_el_codigo_de_area_repetido_dice_quien_lo_usa(cliente, departamento):
-    """«Ya existe» no basta: hay que poder ir a corregirlo, y para eso hace
-    falta saber cuál es el otro."""
-    respuesta = cliente.post(
-        "/api/v1/organizacion/departamentos/",
-        {"nombre": "Compras", "codigo": "fin"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 400
-    assert "Finanzas" in str(respuesta.data["error"]["details"]["codigo"])
-
-
-def test_editar_un_area_sin_cambiarle_el_nombre_no_choca_consigo_misma(cliente, departamento):
-    respuesta = cliente.patch(
-        f"/api/v1/organizacion/departamentos/{departamento.id}/",
-        {"nombre": "Finanzas", "descripcion": "Área contable"},
-        format="json",
-    )
-
-    assert respuesta.status_code == 200
 
 
 # --- Catálogo de proveedores ------------------------------------------------

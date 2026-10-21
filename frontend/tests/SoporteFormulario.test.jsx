@@ -49,10 +49,12 @@ const HARDWARE = {
   id: 3,
   nombre: "Hardware",
   activa: true,
+  peso: 2,
   casos: [
     {
       id: 4,
       nombre: "No enciende",
+      peso: 1,
       prioridad: "alta",
       prioridad_display: "Alta",
       activo: true,
@@ -63,10 +65,12 @@ const ACCESOS = {
   id: 5,
   nombre: "Accesos",
   activa: true,
+  peso: 1,
   casos: [
     {
       id: 6,
       nombre: "Olvidé mi clave",
+      peso: 1,
       prioridad: "baja",
       prioridad_display: "Baja",
       activo: true,
@@ -260,5 +264,186 @@ describe("El editor del formulario", () => {
       within(vista).getByLabelText("Describa el problema"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("De «Mi perfil»").length).toBe(2);
+  });
+});
+
+const CRITICIDAD = {
+  areas: [
+    { id: 20, nombre: "Talento Humano", peso: 1 },
+    { id: 21, nombre: "Operaciones", peso: 2 },
+  ],
+  niveles: [
+    { id: 30, nombre: "Gerencia", orden: 0, peso: 2 },
+    { id: 31, nombre: "Área", orden: 1, peso: 1 },
+  ],
+};
+
+/* Las opciones de los desplegables del sistema se editan desde el propio
+   formulario (21/10/2026). */
+describe("Las opciones de los desplegables del sistema", () => {
+  const SISTEMA = [
+    campo(7, "categoria", "Categoría", { tipo: "lista" }),
+    campo(8, "caso", "Caso de ayuda", { tipo: "lista" }),
+    campo(9, "impacto", "¿A quién afecta?", {
+      tipo: "lista",
+      bloqueado: false,
+      opciones: ["Solo a mí", "A mi área", "A toda la empresa"],
+      valores: ["bajo", "medio", "alto"],
+    }),
+  ];
+
+  function pintar() {
+    servicio.config.listar.mockImplementation((recurso) =>
+      Promise.resolve(
+        recurso === "formulario"
+          ? SISTEMA
+          : recurso === "criticidad"
+            ? CRITICIDAD
+            : [HARDWARE, ACCESOS],
+      ),
+    );
+    render(
+      <MemoryRouter>
+        <FormularioEditor />
+      </MemoryRouter>,
+    );
+  }
+
+  async function editar(etiqueta) {
+    const lista = await screen.findByRole("list", {
+      name: "Campos del formulario",
+    });
+    const fila = within(lista)
+      .getAllByRole("listitem")
+      .find((li) => li.textContent.includes(etiqueta));
+    fireEvent.click(within(fila).getByRole("button", { name: "Editar" }));
+    return screen.getByRole("form", { name: `Editar «${etiqueta}»` });
+  }
+
+  it("las categorías se renombran, se ocultan y se agregan", async () => {
+    servicio.config.actualizar.mockResolvedValue({});
+    servicio.config.crear.mockResolvedValue({});
+    pintar();
+    const editor = await editar("Categoría");
+
+    fireEvent.change(
+      within(editor).getByLabelText("Nombre de la categoría «Hardware»"),
+      { target: { value: "Equipos" } },
+    );
+    const fila = within(editor)
+      .getByLabelText("Nombre de la categoría «Hardware»")
+      .closest("li");
+    fireEvent.click(within(fila).getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(servicio.config.actualizar).toHaveBeenCalledWith("categorias", 3, {
+        nombre: "Equipos",
+      }),
+    );
+
+    fireEvent.click(within(editor).getByLabelText("Mostrar «Accesos»"));
+    await waitFor(() =>
+      expect(servicio.config.actualizar).toHaveBeenCalledWith("categorias", 5, {
+        activa: false,
+      }),
+    );
+
+    fireEvent.change(within(editor).getByLabelText(/Nueva opción: categoría/), {
+      target: { value: "Impresoras" },
+    });
+    fireEvent.click(within(editor).getByRole("button", { name: /Agregar/ }));
+    await waitFor(() =>
+      expect(servicio.config.crear).toHaveBeenCalledWith("categorias", {
+        nombre: "Impresoras",
+        activa: true,
+      }),
+    );
+  });
+
+  it("los casos se agregan dentro de su categoría", async () => {
+    servicio.config.crear.mockResolvedValue({});
+    pintar();
+    const editor = await editar("Caso de ayuda");
+    expect(
+      within(editor).getByLabelText("Nombre de el caso «No enciende»"),
+    ).toBeInTheDocument();
+    fireEvent.change(
+      within(editor).getByLabelText("Nueva opción: caso en Accesos"),
+      { target: { value: "Cuenta bloqueada" } },
+    );
+    const grupo = within(editor)
+      .getByLabelText("Nueva opción: caso en Accesos")
+      .closest("div");
+    fireEvent.click(within(grupo).getByRole("button", { name: /Agregar/ }));
+    await waitFor(() =>
+      expect(servicio.config.crear).toHaveBeenCalledWith("casos", {
+        categoria: 5,
+        nombre: "Cuenta bloqueada",
+        activo: true,
+      }),
+    );
+  });
+
+  it("el texto de las opciones de impacto se cambia y se guarda", async () => {
+    servicio.config.actualizar.mockResolvedValue({});
+    pintar();
+    const editor = await editar("¿A quién afecta?");
+    fireEvent.change(
+      within(editor).getByLabelText(/Afecta a un grupo · peso 2/),
+      {
+        target: { value: "A mi equipo" },
+      },
+    );
+    fireEvent.click(within(editor).getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(servicio.config.actualizar).toHaveBeenCalledWith(
+        "formulario",
+        9,
+        expect.objectContaining({
+          opciones: ["Solo a mí", "A mi equipo", "A toda la empresa"],
+        }),
+      ),
+    );
+  });
+
+  it("las flechas cambian el peso de una categoría en la criticidad", async () => {
+    servicio.config.ponderar = vi.fn().mockResolvedValue([]);
+    pintar();
+    const editor = await editar("Categoría");
+    // Se lee de más a menos crítica: Hardware (2/2) y Accesos (1/2).
+    expect(within(editor).getByText("2/2")).toBeInTheDocument();
+    expect(
+      within(editor).getByRole("button", { name: "Más crítico: «Hardware»" }),
+    ).toBeDisabled();
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Más crítico: «Accesos»" }),
+    );
+    // Se manda de menos a más crítica: ahora Hardware vale 1 y Accesos 2.
+    await waitFor(() =>
+      expect(servicio.config.ponderar).toHaveBeenCalledWith("categorias", {
+        ids: [3, 5],
+      }),
+    );
+  });
+
+  it("las áreas se reordenan y los niveles se muestran con su peso", async () => {
+    servicio.config.crear.mockResolvedValue(CRITICIDAD);
+    pintar();
+    const panel = await screen.findByRole("region", {
+      name: "Criticidad según quien pide",
+    });
+    // De más a menos crítica: Operaciones (2/2) y Talento Humano (1/2).
+    const filas = within(panel).getAllByRole("listitem");
+    expect(filas[0]).toHaveTextContent("2/2Operaciones");
+    expect(within(panel).getByText("Gerencia")).toBeInTheDocument();
+    fireEvent.click(
+      within(panel).getByRole("button", {
+        name: "Más crítica: «Talento Humano»",
+      }),
+    );
+    await waitFor(() =>
+      expect(servicio.config.crear).toHaveBeenCalledWith("criticidad", {
+        ids: [21, 20],
+      }),
+    );
   });
 });

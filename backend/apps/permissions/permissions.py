@@ -57,3 +57,22 @@ class HasModulePermission(HasActionPermission):
 
     def get_required_permission(self, request, view) -> str | None:
         return self.view_permission if request.method in SAFE_METHODS else self.write_permission
+
+
+def Requiere(*codenames):
+    """Permiso de DRF que pasa con **cualquiera** de los permisos del catálogo
+    indicados (y audita el intento si no tiene ninguno). Para las vistas que no
+    necesitan distinguir lectura de escritura:
+
+        permission_classes = [IsAuthenticated, Requiere("roles_pago.consultar")]
+    """
+
+    class _Requiere(HasActionPermission):
+        def get_required_permission(self, request, view):
+            for codename in codenames:
+                if user_has_permission(request.user, codename):
+                    return codename
+            return codenames[0]
+
+    _Requiere.__name__ = f"Requiere({', '.join(codenames)})"
+    return _Requiere

@@ -93,4 +93,9 @@ class SessionAuthentication(JWTAuthentication):
             and request.path not in _ALLOWED_PATHS_WHEN_PASSWORD_CHANGE_REQUIRED
         ):
             raise PasswordChangeRequired()
+        # Un módulo apagado en la empresa no responde, tenga la persona los
+        # permisos que tenga (salvo superusuario y administrador).
+        from apps.empresas.modulos import exigir_encendido
+
+        exigir_encendido(request, user)
         return result

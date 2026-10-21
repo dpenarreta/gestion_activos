@@ -43,6 +43,17 @@ export function useConMouse() {
  * El panel va con `position: fixed` y coordenadas medidas: dentro de la lista
  * del menú —que tiene su propio scroll— un panel absoluto quedaría recortado.
  */
+/** Lo pendiente de todas las entradas del grupo, para su cabecera. */
+function totalDeInsignias(item, insignias) {
+  return (item.children || []).reduce(
+    (total, hijo) =>
+      total +
+      (hijo.insignia ? (insignias[hijo.insignia] ?? 0) : 0) +
+      totalDeInsignias(hijo, insignias),
+    0,
+  );
+}
+
 export function AdminMenuGroup({
   item,
   isCollapsed,
@@ -51,6 +62,7 @@ export function AdminMenuGroup({
   accordion,
   siblingIds = [],
   nivel = 1,
+  insignias = {},
 }) {
   const sublistId = useId();
   const flyoutId = useId();
@@ -67,6 +79,7 @@ export function AdminMenuGroup({
     .filter((hijo) => (hijo.children || []).length > 0)
     .map((hijo) => hijo.id);
   const isActive = hasActiveDescendant(item, currentPath);
+  const pendientes = totalDeInsignias(item, insignias);
   const isExpanded = accordion.isExpanded(item.id);
   // Solo el primer nivel flota: los de dentro ya se ven en el panel del padre.
   // Abierto en acordeón no hace falta, salvo con el menú contraído.
@@ -138,6 +151,15 @@ export function AdminMenuGroup({
       >
         <Icon name={item.icon} />
         {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
+        {!isCollapsed && pendientes > 0 && (
+          <span
+            className="mz-badge"
+            aria-label={`${pendientes} pendientes`}
+            title={`${pendientes} pendientes`}
+          >
+            {pendientes}
+          </span>
+        )}
         {!isCollapsed && (
           <Icon name="chevron-right" className="mz-nav-chevron" />
         )}
@@ -162,6 +184,7 @@ export function AdminMenuGroup({
                 accordion={accordion}
                 siblingIds={subgruposHermanos}
                 nivel={nivel + 1}
+                insignias={insignias}
               />
             ) : (
               <AdminMenuItem
@@ -170,6 +193,10 @@ export function AdminMenuGroup({
                 isCollapsed={isCollapsed}
                 currentPath={currentPath}
                 onNavigate={onNavigate}
+                insignia={
+                  child.insignia ? insignias[child.insignia] : undefined
+                }
+                tipoInsignia={child.insignia}
               />
             ),
           )}

@@ -266,7 +266,7 @@ describe('DashboardsListPage', () => {
     expect(screen.getByText(/Solo un superusuario puede reasignar/)).toBeInTheDocument()
   })
 
-  it('con superusuario, cambiar el dueño y guardar llama a reasignarDueno', async () => {
+  it('con dashboard.reasignar_dueno, cambiar el dueño y guardar llama a reasignarDueno', async () => {
     dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
       { dashboard_id: 'finanzas', name: 'Finanzas', area: '', puede_administrar_acceso: true },
     ])
@@ -276,7 +276,7 @@ describe('DashboardsListPage', () => {
     usersService.list.mockResolvedValue({ results: [{ id: 5, username: 'ana' }, { id: 7, username: 'luis' }] })
     dashboardLayoutService.actualizarAcceso.mockResolvedValue({})
     dashboardLayoutService.reasignarDueno.mockResolvedValue({})
-    renderPagina([], { is_superuser: true })
+    renderPagina(['dashboard.reasignar_dueno'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
@@ -322,7 +322,7 @@ describe('DashboardsListPage', () => {
     dashboardLayoutService.obtenerAcceso.mockResolvedValue({
       dashboard_id: 'finanzas', owner: { id: 5, username: 'ana' }, roles_editores: [], roles_lectores: [],
     })
-    renderPagina(['dashboard.editar'], { is_superuser: true })
+    renderPagina(['dashboard.editar', 'dashboard.reasignar_dueno'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))

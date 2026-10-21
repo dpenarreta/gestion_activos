@@ -9,6 +9,7 @@ import { mensajeDeError } from "../../utils/errores";
 import {
   EstadoTicket,
   IMPACTOS,
+  CriticidadTicket,
   PrioridadTicket,
   RespuestaTicket,
   SlaTicket,
@@ -261,7 +262,12 @@ export function TicketDetalle() {
                 <Dato etiqueta="Agencia">{ticket.agencia}</Dato>
               )}
               {ticket.area && <Dato etiqueta="Área">{ticket.area}</Dato>}
-              {(ticket.datos_adicionales ?? []).map((d) => (
+              {/* Lista de {clave, etiqueta, valor}; cualquier otra cosa (un
+                  registro viejo o cargado a mano) no tumba la pantalla. */}
+              {(Array.isArray(ticket.datos_adicionales)
+                ? ticket.datos_adicionales
+                : []
+              ).map((d) => (
                 <Dato key={d.clave} etiqueta={d.etiqueta}>
                   {d.valor}
                 </Dato>
@@ -273,6 +279,9 @@ export function TicketDetalle() {
                     Registrado por {ticket.registrado_por}
                   </div>
                 )}
+              </Dato>
+              <Dato etiqueta="Criticidad">
+                <CriticidadTicket ticket={ticket} />
               </Dato>
               <Dato etiqueta="Prioridad">
                 <PrioridadTicket ticket={ticket} />

@@ -118,3 +118,38 @@ describe("El buscador de la cabecera", () => {
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
   });
 });
+
+describe("Solo dentro de Gestión de Activos", () => {
+  it.each([
+    "/admin/institucional/inicio",
+    "/admin/soporte/bandeja",
+    "/admin/dashboards",
+    "/admin/ordenes/panel",
+    "/admin/users",
+    "/admin/perfil",
+  ])("en %s no hay buscador de códigos", (ruta) => {
+    permisos = ["activos.ver"];
+    render(
+      <MemoryRouter initialEntries={[ruta]}>
+        <Routes>
+          <Route path="*" element={<BusquedaGlobal />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("search")).not.toBeInTheDocument();
+  });
+
+  it("en el inventario sí", () => {
+    permisos = ["activos.ver"];
+    render(
+      <MemoryRouter initialEntries={["/admin/activos"]}>
+        <Routes>
+          <Route path="*" element={<BusquedaGlobal />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("searchbox", { name: /buscar un equipo/i }),
+    ).toBeInTheDocument();
+  });
+});

@@ -108,3 +108,15 @@ button.selector-modulo__tarjeta:focus-visible {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
+
+/* Solo lo ven el superusuario y el administrador. */
+.selector-modulo__apagado {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mz-bad, #b42318);
+  background: color-mix(in srgb, var(--mz-bad, #b42318) 12%, transparent);
+  white-space: nowrap;
+}

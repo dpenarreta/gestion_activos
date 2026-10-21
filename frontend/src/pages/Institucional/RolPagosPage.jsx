@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
 import { Icon } from "../../components/common/Icon/Icon";
-import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import "./Institucional.css";
+import { HistorialRolPagos } from "./HistorialRolPagos";
+import { VisorRolPagos } from "./VisorRolPagos";
 
 const MESES = [
   "Enero",
@@ -21,6 +22,11 @@ const MESES = [
   "Noviembre",
   "Diciembre",
 ];
+
+/** Si la consulta respondió que no hay rol de ese mes. */
+function esSinRol(err) {
+  return err?.response?.status === 404;
+}
 
 /** El detalle de un error que llega como blob (la consulta pide un PDF). */
 async function errorDeBlob(err, porDefecto) {
@@ -86,7 +92,7 @@ function Ventana({ titulo, onCerrar, children }) {
 }
 
 /** Aceptar los términos y confirmar la contraseña para ver el rol. */
-function Confirmar({ estado, periodo, onVisto, onCerrar }) {
+function Confirmar({ estado, periodo, onVisto, onSinRol, onCerrar }) {
   const [acepto, setAcepto] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -106,6 +112,10 @@ function Confirmar({ estado, periodo, onVisto, onCerrar }) {
         }),
       );
     } catch (err) {
+      if (esSinRol(err)) {
+        onSinRol(await errorDeBlob(err, "No hay rol de pagos para ese mes."));
+        return;
+      }
       setError(await errorDeBlob(err, "No se pudo consultar el rol de pagos."));
       setPassword("");
       setConsultando(false);
@@ -408,20 +418,34 @@ export function RolPagosPage() {
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   // Por defecto, el mes anterior (en enero, diciembre del año pasado).
-  const [periodo, setPeriodo] = useState(() => ({
-    anio: hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear(),
-    mes: hoy.getMonth() === 0 ? 12 : hoy.getMonth(),
-    codigo: "",
-  }));
+  const [periodo, setPeriodo] = useState(() => {
+    // Desde el aviso de «rol corregido» llega con el año y el mes.
+    const pedido = new URLSearchParams(window.location.search);
+    const anio = Number(pedido.get("anio"));
+    const mes = Number(pedido.get("mes"));
+    if (anio && mes >= 1 && mes <= 12) return { anio, mes, codigo: "" };
+    return {
+      anio: hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear(),
+      mes: hoy.getMonth() === 0 ? 12 : hoy.getMonth(),
+      codigo: "",
+    };
+  });
   const [confirmando, setConfirmando] = useState(false);
   const [visto, setVisto] = useState(null);
   const [ultima, setUltima] = useState(null);
   const [configurando, setConfigurando] = useState(false);
+  const [historial, setHistorial] = useState(false);
+  // El último mes consultado sin rol: se dice en la página, con qué revisar.
+  const [sinRol, setSinRol] = useState(null);
 
   function cargar() {
     return nominaService
       .estado()
-      .then(setEstado)
+      .then((datos) => {
+        setEstado(datos);
+        // El código se autocompleta con el de la sesión (si aún no hay otro).
+        setPeriodo((p) => (p.codigo ? p : { ...p, codigo: datos.codigo }));
+      })
       .catch((err) => setError(mensajeDeError(err, "No se pudo cargar.")));
   }
 
@@ -454,15 +478,26 @@ export function RolPagosPage() {
             sistema.
           </p>
         </div>
-        {estado?.puede_configurar && (
+        {(estado?.puede_configurar || estado?.puede_ver_historial) && (
           <div className="mz-actions">
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={() => setConfigurando(true)}
-            >
-              <Icon name="gear" /> Textos de la consulta
-            </button>
+            {estado.puede_ver_historial && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setHistorial(true)}
+              >
+                <Icon name="clock-history" /> Historial por empleado
+              </button>
+            )}
+            {estado.puede_configurar && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setConfigurando(true)}
+              >
+                <Icon name="gear" /> Textos de la consulta
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -500,6 +535,7 @@ export function RolPagosPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setAviso(null);
+              setSinRol(null);
               setConfirmando(true);
             }}
           >
@@ -554,45 +590,144 @@ export function RolPagosPage() {
                 Código de empleado
               </label>
               {estado.puede_consultar_otros ? (
-                <input
-                  id="rol-codigo"
-                  className="form-control form-control-sm"
-                  placeholder={
-                    estado.codigo ? `El suyo: ${estado.codigo}` : "Código"
-                  }
-                  maxLength={40}
-                  value={periodo.codigo}
-                  onChange={(e) =>
-                    setPeriodo((p) => ({ ...p, codigo: e.target.value }))
-                  }
-                />
+                <>
+                  <input
+                    id="rol-codigo"
+                    className="form-control form-control-sm"
+                    placeholder={
+                      estado.codigo ? `El suyo: ${estado.codigo}` : "Código"
+                    }
+                    maxLength={40}
+                    inputMode="numeric"
+                    aria-describedby="rol-codigo-ayuda"
+                    value={periodo.codigo}
+                    onChange={(e) =>
+                      setPeriodo((p) => ({ ...p, codigo: e.target.value }))
+                    }
+                  />
+                  <small id="rol-codigo-ayuda" className="mz-faint">
+                    {periodo.codigo.trim() &&
+                    periodo.codigo.trim() !== estado.codigo ? (
+                      <>
+                        Consultando a otra persona.{" "}
+                        {estado.codigo && (
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 align-baseline"
+                            onClick={() =>
+                              setPeriodo((p) => ({
+                                ...p,
+                                codigo: estado.codigo,
+                              }))
+                            }
+                          >
+                            Volver a mi código
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      "El suyo; puede escribir el de otra persona."
+                    )}
+                  </small>
+                </>
               ) : (
-                <input
-                  id="rol-codigo"
-                  className="form-control form-control-sm"
-                  value={estado.codigo}
-                  readOnly
-                  aria-describedby="rol-codigo-ayuda"
-                />
-              )}
-              {!estado.puede_consultar_otros && (
-                <small id="rol-codigo-ayuda" className="mz-faint">
-                  Sale de su sesión.
-                </small>
+                <>
+                  {/* Sin permiso no se cambia ni se borra: es el de su cuenta
+                      (el servidor tampoco acepta otro). */}
+                  <input
+                    id="rol-codigo"
+                    className="form-control form-control-sm rol-pagos__codigo-fijo"
+                    value={estado.codigo || "Sin código"}
+                    readOnly
+                    aria-readonly="true"
+                    aria-describedby="rol-codigo-ayuda"
+                  />
+                  <small id="rol-codigo-ayuda" className="mz-faint">
+                    <Icon name="lock" /> Solo su código; prohibido usar el de
+                    otra persona.
+                  </small>
+                </>
               )}
             </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm align-self-end"
-              disabled={
-                !estado.disponible ||
-                (!estado.codigo &&
-                  !(estado.puede_consultar_otros && periodo.codigo.trim()))
-              }
-            >
-              <Icon name="search" /> Consultar
-            </button>
+            {/* A la altura de los campos, no del fondo de la fila: debajo del
+                código puede haber una línea de ayuda. */}
+            <div className="rol-pagos__accion">
+              <span className="form-label mz-small" aria-hidden="true">
+                &nbsp;
+              </span>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={
+                  !estado.disponible ||
+                  (!estado.codigo &&
+                    !(estado.puede_consultar_otros && periodo.codigo.trim()))
+                }
+              >
+                <Icon name="search" /> Consultar
+              </button>
+            </div>
           </form>
+        </section>
+      )}
+
+      {estado?.por_confirmar?.length > 0 && (
+        <section
+          className="mz-card rol-pagos__por-confirmar"
+          aria-label="Correcciones por confirmar"
+        >
+          <div className="mz-card-body mz-stack">
+            <h3 className="h6 mb-0">
+              <Icon name="arrow-repeat" /> Talento Humano corrigió su rol de
+              pagos
+            </h3>
+            {estado.por_confirmar.map((c) => (
+              <div key={c.id} className="rol-pagos__correccion">
+                <span>
+                  <strong className="text-capitalize">
+                    {MESES[c.mes - 1]} {c.anio}
+                  </strong>
+                  {c.nota && <span className="mz-faint"> · {c.nota}</span>}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setPeriodo((p) => ({
+                      ...p,
+                      anio: c.anio,
+                      mes: c.mes,
+                      codigo: estado.codigo,
+                    }));
+                    setSinRol(null);
+                    setConfirmando(true);
+                  }}
+                >
+                  Revisar y confirmar
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {sinRol && (
+        <section className="mz-card rol-pagos__sin-rol" role="status">
+          <div className="mz-card-body">
+            <Icon name="calendar-x" className="rol-pagos__sin-rol-icono" />
+            <div>
+              <h3 className="h6 mb-1">
+                Sin rol de pagos para {MESES[sinRol.mes - 1].toLowerCase()} de{" "}
+                {sinRol.anio}
+              </h3>
+              <p className="mb-1">{sinRol.mensaje}</p>
+              <ul className="mz-faint mz-small mb-0">
+                <li>Puede que ese mes todavía no esté cerrado en nómina.</li>
+                <li>O que en ese período no estuviera en nómina.</li>
+                <li>Si cree que es un error, consulte con Talento Humano.</li>
+              </ul>
+            </div>
+          </div>
         </section>
       )}
 
@@ -635,12 +770,20 @@ export function RolPagosPage() {
           estado={estado}
           periodo={periodo}
           onCerrar={() => setConfirmando(false)}
+          onSinRol={(mensaje) => {
+            setConfirmando(false);
+            setSinRol({ anio: periodo.anio, mes: periodo.mes, mensaje });
+          }}
           onVisto={({ blob, consulta }) => {
+            const codigo = periodo.codigo.trim() || estado.codigo;
             const nuevo = {
               blob,
               consulta,
               anio: periodo.anio,
               mes: periodo.mes,
+              // La conformidad es solo del rol propio.
+              propio: codigo === estado.codigo,
+              conformidad: null,
             };
             setConfirmando(false);
             setUltima(nuevo);
@@ -649,13 +792,28 @@ export function RolPagosPage() {
         />
       )}
       {visto && (
-        <VisorPdf
+        <VisorRolPagos
           titulo={`Rol de pagos · ${MESES[visto.mes - 1]} ${visto.anio}`}
           blob={visto.blob}
           nombreArchivo={`rol-de-pagos-${visto.anio}-${String(visto.mes).padStart(2, "0")}.pdf`}
+          consulta={visto.consulta}
+          propio={visto.propio}
+          conformidad={visto.conformidad}
+          correccion={
+            estado?.por_confirmar?.find(
+              (c) => c.anio === visto.anio && c.mes === visto.mes,
+            ) ?? null
+          }
+          onConformidad={(respuesta) => {
+            setVisto((v) => v && { ...v, conformidad: respuesta });
+            setUltima((u) => u && { ...u, conformidad: respuesta });
+            // Confirmar (o volver a observar) cambia lo pendiente.
+            cargar();
+          }}
           onCerrar={() => setVisto(null)}
         />
       )}
+      {historial && <HistorialRolPagos onCerrar={() => setHistorial(false)} />}
       {configurando && estado && (
         <Configurar
           estado={estado}

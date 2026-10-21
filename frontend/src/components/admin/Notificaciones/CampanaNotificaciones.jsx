@@ -2,11 +2,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { notificacionesService } from "../../../api/notificacionesService";
+import {
+  fijarSonido,
+  prepararSonido,
+  sonarNotificacion,
+  sonidoActivado,
+} from "../../../utils/sonidoNotificacion";
 import { Icon } from "../../common/Icon/Icon";
 import "./CampanaNotificaciones.css";
 
-/** Cada cuánto se revisa si llegó algo (sin WebSockets: se consulta). */
-const REFRESCO_MS = 60_000;
+/** Cada cuánto se revisa si llegó algo (sin WebSockets: se consulta). Medio
+ * minuto: con sonido, un aviso que tarda un minuto en sonar ya llega tarde. */
+const REFRESCO_MS = 30_000;
+
+/** La notificación sin leer más nueva (los id crecen con el tiempo). */
+function ultimaSinLeer(recientes) {
+  return (recientes ?? [])
+    .filter((n) => !n.leida)
+    .reduce((maximo, n) => Math.max(maximo, n.id), 0);
+}
 
 /** «hace 5 min», «hace 3 h», «ayer», o la fecha. */
 export function haceCuanto(fecha, ahora = new Date()) {
@@ -68,18 +82,29 @@ export function CampanaNotificaciones() {
   const [abierta, setAbierta] = useState(false);
   const [datos, setDatos] = useState({ no_leidas: 0, recientes: [] });
   const [error, setError] = useState(false);
+  const [conSonido, setConSonido] = useState(sonidoActivado);
   const contenedor = useRef(null);
   const boton = useRef(null);
+  // La más nueva ya vista: suena solo lo que llegue después. `null` hasta la
+  // primera carga, que no suena (lo pendiente al entrar no es nuevo).
+  const vista = useRef(null);
 
   const cargar = useCallback(() => {
     notificacionesService
       .resumen()
       .then((respuesta) => {
+        const ultima = ultimaSinLeer(respuesta.recientes);
+        if (vista.current !== null && ultima > vista.current) {
+          sonarNotificacion();
+        }
+        vista.current = Math.max(vista.current ?? 0, ultima);
         setDatos(respuesta);
         setError(false);
       })
       .catch(() => setError(true));
   }, []);
+
+  useEffect(() => prepararSonido(), []);
 
   useEffect(() => {
     cargar();
@@ -172,6 +197,25 @@ export function CampanaNotificaciones() {
         >
           <div className="campana__cabecera">
             <strong>Notificaciones</strong>
+            <button
+              type="button"
+              className="btn btn-link btn-sm p-0 ms-auto"
+              aria-pressed={conSonido}
+              aria-label={
+                conSonido
+                  ? "Silenciar el sonido de las notificaciones"
+                  : "Activar el sonido de las notificaciones"
+              }
+              title={conSonido ? "Sonido activado" : "Sonido silenciado"}
+              onClick={() => {
+                const nuevo = !conSonido;
+                fijarSonido(nuevo);
+                setConSonido(nuevo);
+                if (nuevo) sonarNotificacion(); // para que oiga cómo suena
+              }}
+            >
+              <Icon name={conSonido ? "volume-up" : "volume-mute"} />
+            </button>
             {datos.no_leidas > 0 && (
               <button
                 type="button"

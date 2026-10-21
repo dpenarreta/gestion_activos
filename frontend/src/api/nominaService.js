@@ -22,6 +22,42 @@ export const nominaService = {
   enviar(datos) {
     return apiClient.post(`${BASE}enviar/`, datos).then((r) => r.data);
   },
+  /** `conformidad`: "conforme", "observacion" o "conforme_al_cerrar". */
+  conformidad(consulta, conformidad, observacion = "") {
+    return apiClient
+      .post(`${BASE}conformidad/`, { consulta, conformidad, observacion })
+      .then((r) => r.data);
+  },
+  /** Todo lo de un código de empleado, por período (Talento Humano). */
+  historial(codigo) {
+    return apiClient
+      .get("/nomina/historial/", { params: { codigo } })
+      .then((r) => r.data);
+  },
+  /** El PDF de un rol del historial (se vuelve a generar). */
+  rolDelHistorial(datos) {
+    return apiClient
+      .post("/nomina/historial/rol/", datos, { responseType: "blob" })
+      .then((r) => r.data);
+  },
+  // --- Observaciones (Talento Humano) ---------------------------------
+  /** `estado`: "abierta", "corregida", "cerrada" o vacío (todas). */
+  observaciones(estado = "") {
+    return apiClient
+      .get("/nomina/observaciones/", { params: estado ? { estado } : {} })
+      .then((r) => r.data);
+  },
+  observacion(id) {
+    return apiClient.get(`/nomina/observaciones/${id}/`).then((r) => r.data);
+  },
+  corregirObservacion(id, nota) {
+    return apiClient
+      .post(`/nomina/observaciones/${id}/corregir/`, { nota })
+      .then((r) => r.data);
+  },
+  resumenObservaciones() {
+    return apiClient.get("/nomina/observaciones/resumen/").then((r) => r.data);
+  },
   olvidarCorreo() {
     return apiClient.delete(`${BASE}correo-personal/`);
   },

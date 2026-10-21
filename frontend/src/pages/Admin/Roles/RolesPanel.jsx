@@ -83,10 +83,10 @@ export function RolesPanel() {
               <tr key={role.id}>
                 <td className="mz-strong">
                   {role.name}
-                  {role.nivel && (
+                  {role.cargo && (
                     <span className="d-block mz-small mz-faint fw-normal">
-                      <Icon name="diagram-3" /> Nivel del organigrama de{" "}
-                      {role.nivel.empresa}: se asigna solo según el cargo
+                      <Icon name="diagram-3" /> Cargo del organigrama de{" "}
+                      {role.cargo.empresa}: lo tiene quien ocupa el cargo
                     </span>
                   )}
                 </td>
@@ -98,8 +98,8 @@ export function RolesPanel() {
                   >
                     {puedeEditar ? "Editar" : "Ver"}
                   </Link>
-                  {/* El de un nivel se borra al borrar el nivel. */}
-                  {puedeEditar && !role.nivel && (
+                  {/* El de un cargo se borra al borrar el cargo. */}
+                  {puedeEditar && !role.cargo && (
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"

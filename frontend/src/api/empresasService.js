@@ -14,6 +14,16 @@ export const empresasService = {
   mias() {
     return apiClient.get(`${EMPRESAS}mias/`).then((res) => res.data);
   },
+  /** Qué módulos están encendidos en la empresa activa. */
+  modulos() {
+    return apiClient.get(`${EMPRESAS}modulos/`).then((res) => res.data);
+  },
+  /** Encender o apagar uno (`configuracion.modulos`). */
+  cambiarModulo(modulo, activo) {
+    return apiClient
+      .put(`${EMPRESAS}modulos/`, { modulo, activo })
+      .then((res) => res.data);
+  },
   list(params = {}) {
     return apiClient.get(EMPRESAS, { params }).then((res) => res.data);
   },

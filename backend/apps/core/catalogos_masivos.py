@@ -20,6 +20,7 @@ escribirlos por separado daría cinco piezas que envejecen sueltas. Es el mismo
 criterio de `apps/reportes/catalogo.py`.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from django.apps import apps
@@ -75,6 +76,12 @@ class CatalogoMasivo:
     orden: tuple[str, ...]
     filtro_vigentes: dict = field(default_factory=dict)
     nota: str = ""
+    #: Reglas propias del catálogo por fila: `(datos, vistos) -> {columna:
+    #: mensaje}`. `vistos` es un dict compartido por todo el archivo.
+    validar_fila: Callable | None = None
+    #: Cómo se crea cada registro, si no basta con `objects.create`:
+    #: `(valores, actor, context) -> objeto`.
+    crear: Callable | None = None
 
     def obtener_modelo(self):
         return apps.get_model(*self.modelo.split("."))
@@ -104,27 +111,8 @@ CATALOGOS: tuple[CatalogoMasivo, ...] = (
         filtro_vigentes={"activa": True},
         nota="La ciudad no es de adorno: es lo que se lee al preguntar dónde está un equipo.",
     ),
-    CatalogoMasivo(
-        clave="departamentos",
-        nombre="Departamentos",
-        plural="áreas",
-        modelo="organizacion.Departamento",
-        permiso="organizacion.editar",
-        columnas=(
-            Columna(
-                "codigo", "Código", obligatoria=True, ayuda="Corto y único. Ej.: «TI».", ancho=14
-            ),
-            Columna("nombre", "Nombre", obligatoria=True),
-            Columna("descripcion", "Descripción", ancho=40),
-        ),
-        identifica_por=("codigo",),
-        orden=("nombre",),
-        filtro_vigentes={"activo": True},
-        nota=(
-            "El código va delante del código de cada empleado del área "
-            "(«TI-0001»), así que conviene que sea corto."
-        ),
-    ),
+    # Los departamentos ya no se cargan aquí: son las unidades del organigrama
+    # (21/10/2026), que tiene su propia carga en Editar estructura.
     CatalogoMasivo(
         clave="proveedores",
         nombre="Proveedores",
@@ -206,6 +194,15 @@ CATALOGOS: tuple[CatalogoMasivo, ...] = (
         columnas=(
             Columna("nombres", "Nombres", obligatoria=True),
             Columna("apellidos", "Apellidos", obligatoria=True),
+            # Todo empleado tiene usuario (21/10/2026): con este correo se crea
+            # su cuenta, o se ata a la que ya existe.
+            Columna(
+                "correo",
+                "Correo institucional",
+                obligatoria=True,
+                sensible=True,
+                ayuda="@grupolaar.com. Con él se crea su usuario.",
+            ),
             Columna(
                 "departamento",
                 "Área",
@@ -218,7 +215,6 @@ CATALOGOS: tuple[CatalogoMasivo, ...] = (
                 ),
             ),
             Columna("cargo", "Cargo"),
-            Columna("correo", "Correo", sensible=True),
             Columna("telefono", "Teléfono", ancho=18, sensible=True),
             Columna(
                 "codigo_empleado",
@@ -231,10 +227,51 @@ CATALOGOS: tuple[CatalogoMasivo, ...] = (
         orden=("apellidos", "nombres"),
         filtro_vigentes={"activo": True},
         nota=(
-            "Deje el código vacío salvo que ya tenga uno propio: el sistema lo "
-            "genera con el área delante y un correlativo por área."
+            "Cada empleado recibe su usuario con el correo institucional; si ya "
+            "existe una cuenta con ese correo, se ata a ella. Las cuentas nuevas "
+            "entran con «¿Olvidó su contraseña?». Deje el código vacío salvo que "
+            "ya tenga uno propio: el sistema lo genera con el área delante."
         ),
+        validar_fila=lambda datos, vistos: _validar_empleado(datos, vistos),
+        crear=lambda valores, actor, context: _crear_empleado(valores, actor, context),
     ),
 )
+
+
+def _validar_empleado(datos: dict, vistos: dict) -> dict:
+    from rest_framework.exceptions import ValidationError
+
+    from apps.organizacion import cuentas
+
+    correo = datos.get("correo", "")
+    if not correo:
+        return {}
+    try:
+        correo = cuentas.correo_institucional(correo)
+    except ValidationError as error:
+        return {"correo": str(error.detail["correo"])}
+    if correo in vistos:
+        return {"correo": f"Repetido en la fila {vistos[correo]} de este mismo archivo."}
+    vistos[correo] = datos["_fila"]
+    problema = cuentas.problema_con_la_cuenta(correo)
+    if problema:
+        return {"correo": problema}
+    datos["correo"] = correo
+    return {}
+
+
+def _crear_empleado(valores: dict, actor, context):
+    from apps.organizacion import cuentas
+    from apps.organizacion.models import Empleado
+
+    usuario = cuentas.cuenta_para_empleado(
+        actor=actor,
+        nombres=valores["nombres"],
+        apellidos=valores["apellidos"],
+        correo=valores["correo"],
+        context=context,
+    )
+    return Empleado.objects.create(usuario=usuario, **valores)
+
 
 POR_CLAVE = {catalogo.clave: catalogo for catalogo in CATALOGOS}

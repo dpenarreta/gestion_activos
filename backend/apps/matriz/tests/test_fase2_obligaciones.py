@@ -178,6 +178,20 @@ def test_etiquetas_por_periodicidad():
     assert fechas.etiqueta("unica", dia) == "Período único"
 
 
+def test_las_de_varios_anios_se_renuevan_a_los_2_3_5_o_10_anios():
+    """Permisos y contratos que no se renuevan cada año (21/10/2026)."""
+    vence = datetime.date(2026, 4, 5)
+    for periodicidad, anios in (("bienal", 2), ("trienal", 3), ("quinquenal", 5), ("decenal", 10)):
+        obligacion = Obligacion(periodicidad=periodicidad)
+        assert fechas.siguiente_vencimiento(obligacion, vence) == datetime.date(2026 + anios, 4, 5)
+        assert fechas.etiqueta(periodicidad, vence) == "Período 2026"
+    # Con día y mes, el primer vencimiento es esa fecha este año o el siguiente.
+    bienal = Obligacion(periodicidad="bienal", dia_vencimiento=1, mes_vencimiento=3)
+    assert fechas.primer_vencimiento(bienal, datetime.date(2026, 10, 21)) == datetime.date(
+        2027, 3, 1
+    )
+
+
 def test_el_siguiente_vencimiento_respeta_el_fin_de_mes():
     plantilla = Obligacion(periodicidad="mensual", dia_vencimiento=31)
     assert fechas.siguiente_vencimiento(plantilla, datetime.date(2026, 1, 31)) == datetime.date(
@@ -286,7 +300,7 @@ def test_quien_no_ve_toda_la_empresa_crea_solo_en_sus_areas(courier, gente):
         responsable=gente["ana"].id,
     )
 
-    assert fuera.status_code == 400 and "sus áreas" in str(fuera.data)
+    assert fuera.status_code == 400 and "sus temas" in str(fuera.data)
     assert dentro.status_code == 201, dentro.data
 
 

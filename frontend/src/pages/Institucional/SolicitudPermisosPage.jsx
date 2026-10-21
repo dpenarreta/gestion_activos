@@ -8,6 +8,7 @@ import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { CalendarioDeRango } from "./CalendarioDeRango";
+import { CalendarioSolicitado } from "./CalendarioSolicitado";
 import {
   DESTINOS_ESCALAR,
   ESTADOS,
@@ -426,6 +427,10 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
             </div>
             <span className={`mz-pill ${clase}`}>{estado}</span>
           </div>
+          <CalendarioSolicitado
+            desde={solicitud.desde}
+            hasta={solicitud.hasta}
+          />
           {solicitud.motivo && <p className="mb-0">{solicitud.motivo}</p>}
           {solicitud.tiene_adjunto && (
             <button

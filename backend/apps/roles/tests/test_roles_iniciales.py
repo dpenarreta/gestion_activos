@@ -1,8 +1,8 @@
-"""Los cuatro roles del §13 y la revisión previa al despliegue.
+"""Los roles fuera del organigrama y la revisión previa al despliegue.
 
-Lo que se verifica de los roles no es que existan, sino **lo que cada uno no
-puede hacer**: un rol que lo puede todo no separa responsabilidades, y la
-separación es la única razón por la que existen cuatro y no uno.
+Desde el 21/10/2026 los roles del día a día son los cargos del organigrama; el
+comando solo crea los de administración del sistema, Administrador y
+Superusuario, con todo el catálogo, y ya no las plantillas por función.
 """
 
 import pytest
@@ -19,117 +19,53 @@ def _permisos_de(nombre: str) -> set[str]:
     return set(Group.objects.get(name=nombre).permissions.values_list("codename", flat=True))
 
 
-def test_crea_los_cuatro_roles_del_documento():
-    """Se suman a los que ya haya: el proyecto base trae su propio rol de
-    superusuario, y borrarlo dejaría sin acceso a quien lo tuviera."""
-    call_command("crear_roles_iniciales", verbosity=0)
-
-    creados = {"Administrador", "Soporte TI", "Supervisor TI", "Consulta / Auditoría"}
-    assert creados <= set(Group.objects.values_list("name", flat=True))
-
-
-def test_el_administrador_tiene_el_catalogo_completo():
-    """Existe para no depender de una cuenta de superusuario en el día a día:
-    el superusuario se salta el catálogo entero y no deja ver qué puede hacer."""
+def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
     call_command("crear_roles_iniciales", verbosity=0)
 
     assert _permisos_de("Administrador") == all_codenames()
+    assert _permisos_de("Superusuario") == all_codenames()
 
 
-def test_soporte_no_puede_dar_de_baja_un_activo():
-    """El §13 pone la aprobación de bajas en el supervisor. Quien opera el
-    inventario a diario no debería poder sacar un equipo del parque sin que
-    nadie más lo mire."""
-    call_command("crear_roles_iniciales", verbosity=0)
-    permisos = _permisos_de("Soporte TI")
-
-    assert "activos.crear" in permisos
-    assert "activos.asignar" in permisos
-    assert "activos.dar_baja" not in permisos
-
-
-def test_soporte_no_puede_borrar_evidencia():
-    """Un adjunto es evidencia: subirlo es parte de la operación, borrarlo no."""
-    call_command("crear_roles_iniciales", verbosity=0)
-    permisos = _permisos_de("Soporte TI")
-
-    assert "adjuntos.subir" in permisos
-    assert "adjuntos.eliminar" not in permisos
-
-
-def test_el_supervisor_aprueba_pero_no_opera():
-    """La separación es lo que hace que la aprobación signifique algo: si
-    quien decide la baja es también quien mantiene la ficha, no hay control."""
-    call_command("crear_roles_iniciales", verbosity=0)
-    permisos = _permisos_de("Supervisor TI")
-
-    assert "activos.dar_baja" in permisos
-    assert "politicas.editar" in permisos
-    assert "activos.crear" not in permisos
-    assert "activos.editar" not in permisos
-
-
-def test_consulta_no_puede_modificar_nada():
-    """«Visualiza información histórica sin modificar datos», dice el §13."""
-    call_command("crear_roles_iniciales", verbosity=0)
-    permisos = _permisos_de("Consulta / Auditoría")
-
-    # Todo lo que no sea leer o exportar cuenta como escritura. La lista es de
-    # sufijos y no de nombres completos para que un permiso nuevo entre solo:
-    # si alguien añade `activos.eliminar` y se lo da a este rol, la prueba lo
-    # ve sin que nadie se acuerde de actualizarla. (`.view` es el «ver» de los
-    # dashboards de Cartera, que conservan los nombres del sistema de origen;
-    # `.reportes`, ver y exportar los de las órdenes de trabajo; `.ver_aceptaciones`,
-    # quién aceptó el acuerdo de los códigos de conducta.)
-    escrituras = {
-        codename
-        for codename in permisos
-        if not codename.endswith(
-            (
-                ".ver",
-                ".ver_detalle",
-                ".ver_asignados",
-                ".exportar",
-                ".ver_todas",
-                ".ver_auditoria",
-                ".view",
-                ".reportes",
-                ".ver_todos",
-                ".ver_aceptaciones",
-            )
-        )
-    }
-    assert not escrituras, f"el rol de solo lectura tiene permisos de escritura: {escrituras}"
-
-
-def test_consulta_no_ve_la_ubicacion_de_la_auditoria():
-    """Es un dato personal de contexto: se concede aparte, a quien lo necesite
-    y por un motivo concreto."""
+def test_ya_no_crea_las_plantillas_por_funcion():
+    """Los permisos de un técnico o de Talento Humano se marcan en el rol de su
+    cargo, no en un rol aparte."""
+    Group.objects.filter(name__in=["Soporte TI", "Talento Humano"]).delete()
     call_command("crear_roles_iniciales", verbosity=0)
 
-    assert "auditoria.ver_ubicacion" not in _permisos_de("Consulta / Auditoría")
+    nombres = set(Group.objects.values_list("name", flat=True))
+    assert (
+        not {
+            "Soporte TI",
+            "Supervisor TI",
+            "Consulta / Auditoría",
+            "Usuario final",
+            "Técnico de mesa de ayuda",
+            "Talento Humano",
+        }
+        & nombres
+    )
 
 
 def test_volver_a_ejecutarlo_no_pisa_los_ajustes_hechos_a_mano():
-    """Los roles son una decisión de cada empresa: el comando es una plantilla,
-    y reescribir lo que alguien ajustó desde el panel sería peor que no correr."""
+    """Los roles se ajustan desde el panel: reescribir lo que alguien cambió
+    sería peor que no correr."""
     call_command("crear_roles_iniciales", verbosity=0)
-    soporte = Group.objects.get(name="Soporte TI")
-    soporte.permissions.clear()
+    administrador = Group.objects.get(name="Administrador")
+    administrador.permissions.clear()
 
     call_command("crear_roles_iniciales", verbosity=0)
 
-    assert soporte.permissions.count() == 0
+    assert administrador.permissions.count() == 0
 
 
 def test_con_actualizar_si_reescribe():
     call_command("crear_roles_iniciales", verbosity=0)
-    soporte = Group.objects.get(name="Soporte TI")
-    soporte.permissions.clear()
+    administrador = Group.objects.get(name="Administrador")
+    administrador.permissions.clear()
 
     call_command("crear_roles_iniciales", "--actualizar", verbosity=0)
 
-    assert soporte.permissions.count() > 0
+    assert administrador.permissions.count() > 0
 
 
 # --- Revisión previa al despliegue ---

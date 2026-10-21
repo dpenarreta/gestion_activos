@@ -84,7 +84,7 @@ describe("Lo que el menú ofrece depende del permiso", () => {
   });
 
   it("cada permiso trae su sección", () => {
-    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    permisos.lista = ["activos.ver", "activos.crear", "mantenimientos.ver"];
 
     pintar();
 
@@ -359,7 +359,7 @@ describe("Al pasar el mouse por un grupo", () => {
 
   it("despliega sus entradas al costado y navega desde ahí", () => {
     conMouse(true);
-    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    permisos.lista = ["activos.ver", "activos.crear", "mantenimientos.ver"];
     pintar({ ruta: "/admin/mantenimientos" });
 
     fireEvent.mouseEnter(
@@ -376,7 +376,7 @@ describe("Al pasar el mouse por un grupo", () => {
 
   it("pulsar el grupo lo abre en acordeón debajo y cierra el panel", () => {
     conMouse(true);
-    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    permisos.lista = ["activos.ver", "activos.crear", "mantenimientos.ver"];
     pintar({ ruta: "/admin/mantenimientos" });
 
     const grupo = screen.getByRole("button", { name: /^Activos/ });
@@ -405,7 +405,7 @@ describe("Al pasar el mouse por un grupo", () => {
 
   it("sin mouse (teléfono) no hay panel: solo el acordeón", () => {
     conMouse(false);
-    permisos.lista = ["activos.ver", "mantenimientos.ver"];
+    permisos.lista = ["activos.ver", "activos.crear", "mantenimientos.ver"];
     pintar({ ruta: "/admin/mantenimientos" });
 
     fireEvent.mouseEnter(

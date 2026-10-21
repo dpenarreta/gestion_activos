@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
 import { useAuth } from "../../../hooks/useAuth";
+import { useEstadoModulos } from "../../../modulos/EstadoModulos";
 import { MODULOS, moduloPorId, recordarModulo } from "../../../modulos/modulos";
 import { useModuloActivo } from "../../../modulos/useModuloActivo";
 import { Icon } from "../../common/Icon/Icon";
@@ -23,6 +24,9 @@ const RETARDO_CIERRE_MS = 180;
  * Solo ofrece los módulos en los que la persona tiene algo que abrir **en la
  * empresa activa**: la Matriz depende del rol de la membresía. Con un solo
  * módulo la tarjeta solo lo nombra: un selector de una opción no elige nada.
+ *
+ * Los módulos apagados en la empresa no se ofrecen; el superusuario y el
+ * administrador los ven marcados «Apagado».
  */
 export function SelectorModulo({ isCollapsed = false, onElegido }) {
   const { user } = useAuth();
@@ -37,8 +41,13 @@ export function SelectorModulo({ isCollapsed = false, onElegido }) {
   const cierre = useRef(null);
   const idMenu = useId();
 
+  const { apagados, veApagados } = useEstadoModulos();
   const disponibles = modulosConAcceso(user?.permissions || []);
-  const modulos = MODULOS.filter((modulo) => disponibles.includes(modulo.id));
+  const modulos = MODULOS.filter(
+    (modulo) =>
+      disponibles.includes(modulo.id) &&
+      (veApagados || !apagados.has(modulo.id)),
+  );
   // Con mouse (o contraído, donde no hay sitio debajo) flota al costado.
   const flotante = conMouse || isCollapsed;
 
@@ -189,6 +198,9 @@ export function SelectorModulo({ isCollapsed = false, onElegido }) {
                 {modulo.nombre}
                 <small>{modulo.descripcion}</small>
               </span>
+              {apagados.has(modulo.id) && (
+                <span className="selector-modulo__apagado">Apagado</span>
+              )}
               {modulo.id === activo.id && (
                 <Icon name="check2" className="ms-auto" />
               )}

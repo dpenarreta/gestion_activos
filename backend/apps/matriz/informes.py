@@ -134,7 +134,7 @@ COLUMNAS_MATRIZ = [
     Columna("Código", 11),
     Columna("Obligación", 34),
     Columna("Período", 14),
-    Columna("Área", 20),
+    Columna("Tema", 20),
     Columna("Entidad", 22),
     Columna("Responsable", 20),
     Columna("Prioridad", 9),
@@ -204,7 +204,7 @@ def exportar_reporte(datos, *, empresa, usuario, formato: str, filtros: str) -> 
             fila[estados.INCUMPLIDO],
             fila["total"],
         ]
-        for grupo, clave in (("Área", "by_area"), ("Entidad", "by_entity"))
+        for grupo, clave in (("Tema", "by_area"), ("Entidad", "by_entity"))
         for fila in datos[clave]
     ]
     resultado = {

@@ -5,6 +5,7 @@ import { adminUsersService } from "../../../api/adminUsersService";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
+import { usePermission } from "../../../hooks/usePermission";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
 
@@ -24,6 +25,10 @@ const STATUS_PILLS = {
 };
 
 export function UsersList() {
+  // Crear y deshabilitar tienen su propio permiso: con solo ver, el botón
+  // terminaría en un 403.
+  const puedeCrear = usePermission("usuarios.crear");
+  const puedeDeshabilitar = usePermission("usuarios.deshabilitar");
   const {
     users,
     count,
@@ -67,11 +72,13 @@ export function UsersList() {
             qué rol.
           </p>
         </div>
-        <div className="mz-view-actions">
-          <Link to="/admin/users/new" className="btn btn-primary btn-sm">
-            <Icon name="person-plus" /> Nuevo usuario
-          </Link>
-        </div>
+        {puedeCrear && (
+          <div className="mz-view-actions">
+            <Link to="/admin/users/new" className="btn btn-primary btn-sm">
+              <Icon name="person-plus" /> Nuevo usuario
+            </Link>
+          </div>
+        )}
       </div>
 
       <form
@@ -208,7 +215,7 @@ export function UsersList() {
                   >
                     Editar
                   </Link>
-                  {user.status === "active" ? (
+                  {!puedeDeshabilitar ? null : user.status === "active" ? (
                     <button
                       type="button"
                       className="btn btn-outline-warning btn-sm"

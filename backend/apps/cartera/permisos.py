@@ -191,12 +191,17 @@ def registrar_acceso_denegado(request, dashboard_id, permiso):
 
 
 def puede_administrar_acceso(request, dashboard_id, dashboard=None):
-    """Editar la configuración de acceso de un dashboard (sus 2 grupos de roles) o reasignar su
-    dueño está reservado al dueño actual o al superusuario — a propósito no cae a ningún permiso
-    global del catálogo, ni siquiera `dashboard.editar`.
+    """Editar la configuración de acceso de un dashboard (sus 2 grupos de roles): el dueño
+    actual o quien tenga `dashboard.administrar_acceso` (21/10/2026; antes, solo el
+    superusuario). A propósito no cae a otros permisos globales, ni siquiera `dashboard.editar`.
 
     `dashboard`: instancia ya cargada, para no volver a consultarla (ver `_resolver_dashboard`)."""
     dashboard = _resolver_dashboard(dashboard_id, dashboard)
     if dashboard is None:
         return False
-    return _es_dueno_o_superusuario(request, dashboard)
+    usuario = getattr(request, 'user', None)
+    if usuario and usuario.is_authenticated and dashboard.owner_id == usuario.id:
+        return True
+    from apps.permissions.authorization import user_has_permission
+
+    return user_has_permission(usuario, 'dashboard.administrar_acceso')

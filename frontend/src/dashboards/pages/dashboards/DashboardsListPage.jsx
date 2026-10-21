@@ -85,7 +85,7 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
 /**
  * "Editar dashboard" reúne, en un único modal, tanto el nombre/área (gateado por el permiso
  * global `dashboard.editar`) como el control de acceso por dashboard (gateado por
- * `d.puede_administrar_acceso` — dueño o superusuario, ver `cartera/permisos.py`). No son la misma
+ * `d.puede_administrar_acceso` — dueño o `dashboard.administrar_acceso`, ver `cartera/permisos.py`). No son la misma
  * autorización, así que cada sección solo se muestra si el usuario tiene el permiso
  * correspondiente: un dueño sin `dashboard.editar` global igual puede abrir este modal para
  * gestionar el acceso, solo que sin ver los campos de nombre/área.
@@ -93,7 +93,8 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
 function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
   const { user } = useAuth()
   const puedeEditarNombre = user?.permissions?.includes('dashboard.editar')
-  const esSuperusuario = Boolean(user?.is_superuser)
+  // Reasignar el dueño pide su permiso (21/10/2026; antes, ser superusuario).
+  const puedeReasignarDueno = Boolean(user?.permissions?.includes('dashboard.reasignar_dueno'))
   const puedeAdministrarAcceso = Boolean(dashboard?.puede_administrar_acceso)
 
   const [name, setName] = useState('')
@@ -123,7 +124,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
     if (!show || !dashboard || !dashboard.puede_administrar_acceso) return
     setCargandoAcceso(true)
     const solicitudes = [rolesService.list(), dashboardLayoutService.obtenerAcceso(dashboard.dashboard_id)]
-    if (esSuperusuario) solicitudes.push(usersService.list({ page_size: 200 }))
+    if (puedeReasignarDueno) solicitudes.push(usersService.list({ page_size: 200 }))
 
     Promise.all(solicitudes)
       .then(([rolesData, acceso, usuariosData]) => {
@@ -137,7 +138,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
       })
       .catch(() => setError('No se pudo cargar el acceso de este dashboard.'))
       .finally(() => setCargandoAcceso(false))
-  }, [show, dashboard, esSuperusuario])
+  }, [show, dashboard, puedeReasignarDueno])
 
   const marcarEditor = (rolId, marcado) => {
     setEditores((actual) => (marcado ? [...actual, rolId] : actual.filter((id) => id !== rolId)))
@@ -162,7 +163,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
       }
       if (puedeAdministrarAcceso) {
         await dashboardLayoutService.actualizarAcceso(dashboard.dashboard_id, { rolesEditores: editores, rolesLectores: lectores })
-        if (esSuperusuario && duenoId !== duenoOriginalId) {
+        if (puedeReasignarDueno && duenoId !== duenoOriginalId) {
           await dashboardLayoutService.reasignarDueno(dashboard.dashboard_id, duenoId || null)
         }
       }
@@ -272,7 +273,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                 <Accordion.Body>
                   {cargandoAcceso ? (
                     <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" /></div>
-                  ) : esSuperusuario ? (
+                  ) : puedeReasignarDueno ? (
                     <Form.Group controlId="acceso-dueno">
                       <Form.Label className="fw-bold">Dueño</Form.Label>
                       <Form.Select value={duenoId} onChange={(e) => setDuenoId(e.target.value)} disabled={guardando}>

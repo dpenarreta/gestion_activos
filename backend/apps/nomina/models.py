@@ -60,7 +60,73 @@ class ConsultaRolPagos(ModeloDeEmpresa):
     navegador = models.CharField(max_length=300, blank=True)
     envios = models.PositiveSmallIntegerField(default=0)
 
+    class Conformidad(models.TextChoices):
+        CONFORME = "conforme", "Estuvo de acuerdo"
+        AL_CERRAR = "conforme_al_cerrar", "Aceptó al cerrar sin responder"
+        OBSERVACION = "observacion", "Dejó una observación"
+
+    #: Si la persona está de acuerdo con su rol (una vez por consulta). Cerrar
+    #: el visor sin responder cuenta como conforme, y queda dicho así.
+    conformidad = models.CharField(max_length=20, choices=Conformidad.choices, blank=True)
+    conformidad_en = models.DateTimeField(null=True, blank=True)
+    #: Desde dónde se respondió (puede no ser desde donde se consultó).
+    conformidad_ip = models.GenericIPAddressField(null=True, blank=True)
+    conformidad_navegador = models.CharField(max_length=300, blank=True)
+    observacion = models.TextField(blank=True)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "consulta del rol de pagos"
         verbose_name_plural = "consultas del rol de pagos"
+
+
+class ObservacionRolPagos(ModeloDeEmpresa):
+    """Una observación de una persona a su rol de pagos de un mes: la atiende
+    Talento Humano (`roles_pago.observaciones`), que la corrige y le pide que
+    vuelva a confirmar. Se cierra cuando la persona dice que está de acuerdo;
+    si vuelve a observar, se reabre. Una por persona y período."""
+
+    class Estado(models.TextChoices):
+        ABIERTA = "abierta", "Por atender"
+        CORREGIDA = "corregida", "Corregida, por confirmar"
+        CERRADA = "cerrada", "Confirmada"
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    codigo_empleado = models.CharField(max_length=40)
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ABIERTA)
+    corregida_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    corregida_en = models.DateTimeField(null=True, blank=True)
+    cerrada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "observación al rol de pagos"
+        verbose_name_plural = "observaciones al rol de pagos"
+
+
+class MensajeObservacion(ModeloDeEmpresa):
+    """El historial de una observación: lo que dijo la persona, las
+    correcciones de Talento Humano y la confirmación."""
+
+    class Tipo(models.TextChoices):
+        OBSERVACION = "observacion", "Observación"
+        CORRECCION = "correccion", "Corrección"
+        CONFIRMACION = "confirmacion", "Confirmó que está de acuerdo"
+
+    observacion = models.ForeignKey(
+        ObservacionRolPagos, on_delete=models.CASCADE, related_name="mensajes"
+    )
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    tipo = models.CharField(max_length=12, choices=Tipo.choices)
+    texto = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

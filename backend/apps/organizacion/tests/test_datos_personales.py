@@ -65,7 +65,13 @@ def test_el_codigo_se_genera_solo_si_no_se_indica(cliente, departamento):
     """Evita que alguien use la cédula como código «porque hay que poner algo»."""
     respuesta = cliente.post(
         "/api/v1/organizacion/empleados/",
-        {"nombres": "Ana", "apellidos": "Pérez", "departamento": departamento.id},
+        {
+            "nombres": "Ana",
+            "apellidos": "Pérez",
+            "correo": "ana.perez@grupolaar.com",
+            "password": "Sup3r-Secr3t!",
+            "departamento": departamento.id,
+        },
         format="json",
     )
 
@@ -120,7 +126,8 @@ def test_la_auditoria_enmascara_correo_y_telefono(cliente, departamento):
         {
             "nombres": "Ana",
             "apellidos": "Pérez",
-            "correo": "ana.perez@empresa.com",
+            "correo": "ana.perez@grupolaar.com",
+            "password": "Sup3r-Secr3t!",
             "telefono": "0991234567",
             "departamento": departamento.id,
         },
@@ -128,6 +135,7 @@ def test_la_auditoria_enmascara_correo_y_telefono(cliente, departamento):
     )
 
     evento = AuditLog.objects.filter(action="empleado.created").get()
+    assert "password" not in evento.new_values
     assert evento.new_values["correo"] == "***"
     assert evento.new_values["telefono"] == "***"
     # Lo que la auditoría sí debe conservar: qué se creó y quién lo hizo.
@@ -206,7 +214,7 @@ def test_la_plantilla_de_carga_no_lleva_datos_de_contacto(cliente, departamento)
 
     # Las columnas existen —hay que poder llenarlas al dar de alta— pero lo ya
     # registrado no se lleva: identifica la fila, no exporta la ficha.
-    assert "Correo" in filas[0]
+    assert "Correo institucional *" in filas[0]
     assert "Teléfono" in filas[0]
     assert "EMP-0001" in texto
     assert "Ana" in texto

@@ -180,3 +180,32 @@ def test_el_formulario_tiene_su_propio_permiso(mesa):
     categorias = "/api/v1/soporte/config/categorias/"
     assert formulario.get(categorias).status_code == 200
     assert formulario.post(categorias, {"nombre": "Redes"}, format="json").status_code == 403
+
+
+def test_el_texto_de_las_opciones_de_impacto_se_puede_cambiar(mesa):
+    """El valor de cada opción lo usa la matriz de prioridad y no cambia; el
+    texto que lee quien pide, sí (21/10/2026)."""
+    cliente = _coordinador(mesa)
+    impacto = _campo(cliente, "impacto")
+    assert impacto["valores"] == ["bajo", "medio", "alto"]
+    assert impacto["opciones"][0] == "Solo a mí"
+
+    # Tienen que ser las tres.
+    corta = cliente.patch(f"{CAMPOS}{impacto['id']}/", {"opciones": ["Uno"]}, format="json")
+    assert corta.status_code == 400
+
+    nuevas = ["Solo a mí", "A mi equipo", "A toda la empresa"]
+    respuesta = cliente.patch(f"{CAMPOS}{impacto['id']}/", {"opciones": nuevas}, format="json")
+    assert respuesta.status_code == 200
+    assert respuesta.json()["opciones"] == nuevas
+
+    datos = _quien_pide(mesa).get(SOLICITAR).json()
+    textos = {o["id"]: o["nombre"] for o in datos["impactos"]}
+    assert textos == {"bajo": "Solo a mí", "medio": "A mi equipo", "alto": "A toda la empresa"}
+
+
+def test_las_demas_listas_del_sistema_no_reciben_opciones(mesa):
+    cliente = _coordinador(mesa)
+    categoria = _campo(cliente, "categoria")
+    cliente.patch(f"{CAMPOS}{categoria['id']}/", {"opciones": ["X"]}, format="json")
+    assert _campo(cliente, "categoria")["opciones"] == []

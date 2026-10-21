@@ -73,10 +73,13 @@ def confirmacion_valida(request, dashboard_id, accion):
     entregada = (request.data or {}).get(CAMPO_CONFIRMACION) or ''
     if not entregada:
         return False
-    if not getattr(usuario, 'is_superuser', False):
+    from apps.permissions.authorization import user_has_permission
+
+    # Desbloquear pide su permiso (21/10/2026; antes, ser superusuario).
+    if not user_has_permission(usuario, 'dashboard.desbloquear'):
         _fallar(
             f'El diseño de este dashboard está bloqueado: no se puede {accion}. '
-            'Solo un superusuario puede desbloquearlo.',
+            'Solo quien tiene «Desbloquear el diseño de un dashboard» puede hacerlo.',
             CODIGO_BLOQUEADO, puede_confirmar=False,
         )
 

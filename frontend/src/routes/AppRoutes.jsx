@@ -14,12 +14,14 @@ import { DocumentosMatriz } from "../pages/Matriz/DocumentosMatriz";
 import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
+import { PERMISOS_MATRIZ } from "../modulos/permisosMatriz";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { OrdenDetalle } from "../pages/Ordenes/OrdenDetalle";
 import { CodigosConductaPage } from "../pages/Institucional/CodigosConductaPage";
 import { EstructuraPage } from "../pages/Institucional/EstructuraPage";
 import { FlujosPermisoPage } from "../pages/Institucional/FlujosPermisoPage";
 import { MiOnboardingPage } from "../pages/Institucional/MiOnboardingPage";
+import { ObservacionesRolPage } from "../pages/Institucional/ObservacionesRolPage";
 import { RolPagosPage } from "../pages/Institucional/RolPagosPage";
 import { SolicitudPermisosPage } from "../pages/Institucional/SolicitudPermisosPage";
 import { SugerenciasPage as SugerenciasErroresPage } from "../pages/Institucional/SugerenciasPage";
@@ -35,6 +37,7 @@ import {
 import { OrganigramaPage } from "../pages/Institucional/OrganigramaPage";
 import { Bandeja } from "../pages/Soporte/Bandeja";
 import { AvisoInicioPage } from "../pages/Admin/Configuracion/AvisoInicioPage";
+import { ModulosPage } from "../pages/Admin/Configuracion/ModulosPage";
 import {
   CategoriasSoporte,
   EquipoSoporte,
@@ -93,8 +96,6 @@ import { AlertasPage } from "../pages/Admin/Alertas/AlertasPage";
 import { PoliticasPage } from "../pages/Admin/Politicas/PoliticasPage";
 import { SugerenciasPage } from "../pages/Admin/Politicas/SugerenciasPage";
 import { CargaCatalogosPage } from "../pages/Admin/CargaCatalogos/CargaCatalogosPage";
-import { DepartamentoForm } from "../pages/Admin/Organizacion/DepartamentoForm";
-import { DepartamentosList } from "../pages/Admin/Organizacion/DepartamentosList";
 import { ReportesPage } from "../pages/Admin/Reportes/ReportesPage";
 import { MisSolicitudes } from "../pages/Admin/Solicitudes/MisSolicitudes";
 import { SolicitudDetalle } from "../pages/Admin/Solicitudes/SolicitudDetalle";
@@ -185,7 +186,7 @@ export function AppRoutes() {
         <Route
           path="users/new"
           element={
-            <RequirePermission permission={USUARIOS_VER}>
+            <RequirePermission permission={"usuarios.crear"}>
               <UserForm />
             </RequirePermission>
           }
@@ -210,7 +211,7 @@ export function AppRoutes() {
         <Route
           path="empresas/new"
           element={
-            <RequirePermission permission={EMPRESAS_VER}>
+            <RequirePermission permission={"empresas.editar"}>
               <EmpresaForm />
             </RequirePermission>
           }
@@ -251,7 +252,7 @@ export function AppRoutes() {
         <Route
           path="roles/new"
           element={
-            <RequirePermission permission={ROLES_VER}>
+            <RequirePermission permission={"roles.editar"}>
               <RoleForm />
             </RequirePermission>
           }
@@ -320,7 +321,7 @@ export function AppRoutes() {
         <Route
           path="activos/importar"
           element={
-            <RequirePermission permission={ACTIVOS_VER}>
+            <RequirePermission permission={"activos.crear"}>
               <ImportarActivosPage seccion="cargar" />
             </RequirePermission>
           }
@@ -328,7 +329,7 @@ export function AppRoutes() {
         <Route
           path="activos/importar/columnas"
           element={
-            <RequirePermission permission={ACTIVOS_VER}>
+            <RequirePermission permission={"activos.editar"}>
               <ImportarActivosPage seccion="columnas" />
             </RequirePermission>
           }
@@ -336,7 +337,7 @@ export function AppRoutes() {
         <Route
           path="activos/new"
           element={
-            <RequirePermission permission={ACTIVOS_VER}>
+            <RequirePermission permission={"activos.crear"}>
               <ActivoForm />
             </RequirePermission>
           }
@@ -352,7 +353,7 @@ export function AppRoutes() {
         <Route
           path="activos/:id/editar"
           element={
-            <RequirePermission permission={ACTIVOS_VER}>
+            <RequirePermission permission={"activos.editar"}>
               <ActivoForm />
             </RequirePermission>
           }
@@ -377,7 +378,7 @@ export function AppRoutes() {
         <Route
           path="mantenimientos/new"
           element={
-            <RequirePermission permission={MANTENIMIENTOS_VER}>
+            <RequirePermission permission={"mantenimientos.registrar"}>
               <MantenimientoForm />
             </RequirePermission>
           }
@@ -488,11 +489,17 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
-        {/* Solicitud de permisos: pedir y aprobar, sin permiso; los flujos,
-            con el suyo. */}
+        {/* Solicitud de permisos: pedir pide `licencias.solicitar` (todos los
+            roles de nivel lo tienen); aprobar lo que a uno le toca, no. */}
         <Route
           path="institucional/permisos"
-          element={<SolicitudPermisosPage />}
+          element={
+            <RequirePermission
+              permission={["licencias.solicitar", "licencias.ver_todas"]}
+            >
+              <SolicitudPermisosPage />
+            </RequirePermission>
+          }
         />
         <Route
           path="institucional/permisos/flujos"
@@ -509,14 +516,41 @@ export function AppRoutes() {
         />
         {/* Códigos de conducta: los lee toda persona con sesión. */}
         <Route path="institucional/codigos" element={<CodigosConductaPage />} />
-        {/* Consultar rol de pagos: cada quien el suyo (términos + contraseña). */}
-        <Route path="institucional/rol-pagos" element={<RolPagosPage />} />
+        {/* Consultar rol de pagos: el suyo con `roles_pago.consultar`. */}
+        <Route
+          path="institucional/rol-pagos"
+          element={
+            <RequirePermission
+              permission={[
+                "roles_pago.consultar",
+                "roles_pago.consultar_todos",
+                "roles_pago.historial",
+              ]}
+            >
+              <RolPagosPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="institucional/rol-pagos/observaciones"
+          element={
+            <RequirePermission permission="roles_pago.observaciones">
+              <ObservacionesRolPage />
+            </RequirePermission>
+          }
+        />
         {/* Mi onboarding: toda persona, su plan de capacitación. */}
         <Route path="institucional/onboarding" element={<MiOnboardingPage />} />
-        {/* Sugerencias y errores: toda persona reporta; gestionar pide su permiso. */}
+        {/* Sugerencias y errores: reportar y gestionar, cada uno con su permiso. */}
         <Route
           path="institucional/sugerencias"
-          element={<SugerenciasErroresPage />}
+          element={
+            <RequirePermission
+              permission={["sugerencias.reportar", "sugerencias.gestionar"]}
+            >
+              <SugerenciasErroresPage />
+            </RequirePermission>
+          }
         />
         {/* Herramientas y licencias se gestiona desde Editar estructura. */}
         <Route
@@ -577,6 +611,8 @@ export function AppRoutes() {
           path="soporte"
           element={<Navigate to="/admin/soporte/bandeja" replace />}
         />
+        {/* La Bandeja es de toda persona: «Mis solicitudes» muestra lo que
+            creó; las pestañas del equipo dependen de sus permisos. */}
         <Route path="soporte/bandeja" element={<Bandeja />} />
         <Route
           path="soporte/todos"
@@ -586,7 +622,21 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
-        <Route path="soporte/tickets/:id" element={<TicketDetalle />} />
+        <Route
+          path="soporte/tickets/:id"
+          element={
+            <RequirePermission
+              permission={[
+                "soporte.atender",
+                "soporte.ver_todos",
+                "soporte.asignar",
+                "soporte.registrar",
+              ]}
+            >
+              <TicketDetalle />
+            </RequirePermission>
+          }
+        />
         <Route
           path="soporte/registrar"
           element={
@@ -603,12 +653,29 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
-        <Route path="soporte/horas" element={<HorasFuera />} />
+        <Route
+          path="soporte/horas"
+          element={
+            <RequirePermission
+              permission={["soporte.atender", "soporte.aprobar_horas"]}
+            >
+              <HorasFuera />
+            </RequirePermission>
+          }
+        />
         <Route
           path="soporte/formulario"
           element={
             <RequirePermission permission="soporte.formulario">
               <FormularioEditor />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/modulos"
+          element={
+            <RequirePermission permission="configuracion.modulos">
+              <ModulosPage />
             </RequirePermission>
           }
         />
@@ -700,10 +767,21 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
-        <Route path="dashboards/:dashboardId" element={<DashboardsDetalle />} />
+        <Route
+          path="dashboards/:dashboardId"
+          element={
+            <RequirePermission permission={"dashboard.view"}>
+              <DashboardsDetalle />
+            </RequirePermission>
+          }
+        />
         <Route
           path="dashboards/:dashboardId/historico"
-          element={<DashboardsHistorico />}
+          element={
+            <RequirePermission permission={"dashboard.view"}>
+              <DashboardsHistorico />
+            </RequirePermission>
+          }
         />
         <Route
           path="configuracion/respaldos"
@@ -758,32 +836,17 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
+        {/* Los departamentos son las unidades del organigrama (21/10/2026):
+            se gestionan en Editar estructura. */}
         <Route
-          path="organizacion/departamentos"
+          path="organizacion/departamentos/*"
           element={
-            <RequirePermission permission={ORGANIZACION_VER}>
-              <DepartamentosList />
-            </RequirePermission>
+            <Navigate
+              to="/admin/institucional/estructura?pestana=unidades"
+              replace
+            />
           }
         />
-        <Route
-          path="organizacion/departamentos/new"
-          element={
-            <RequirePermission permission={ORGANIZACION_VER}>
-              <DepartamentoForm />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="organizacion/departamentos/:id"
-          element={
-            <RequirePermission permission={ORGANIZACION_VER}>
-              <DepartamentoForm />
-            </RequirePermission>
-          }
-        />
-        {/* Reportes, uno solo para todo el sistema: inventario en su
-            dirección de siempre y la Matriz como otra pestaña. */}
         <Route
           path="reportes"
           element={
@@ -827,7 +890,7 @@ export function AppRoutes() {
         <Route
           path="organizacion/sedes/new"
           element={
-            <RequirePermission permission={ORGANIZACION_VER}>
+            <RequirePermission permission={"organizacion.editar"}>
               <SedeForm />
             </RequirePermission>
           }
@@ -851,7 +914,7 @@ export function AppRoutes() {
         <Route
           path="organizacion/proveedores/new"
           element={
-            <RequirePermission permission={ORGANIZACION_VER}>
+            <RequirePermission permission={"organizacion.editar"}>
               <ProveedorForm />
             </RequirePermission>
           }
@@ -875,7 +938,7 @@ export function AppRoutes() {
         <Route
           path="organizacion/concesionarios/new"
           element={
-            <RequirePermission permission={ORGANIZACION_VER}>
+            <RequirePermission permission={"organizacion.editar"}>
               <ConcesionarioForm />
             </RequirePermission>
           }
@@ -899,7 +962,7 @@ export function AppRoutes() {
         <Route
           path="organizacion/empleados/new"
           element={
-            <RequirePermission permission={ORGANIZACION_VER}>
+            <RequirePermission permission={"organizacion.editar"}>
               <EmpleadoForm />
             </RequirePermission>
           }
@@ -927,7 +990,14 @@ export function AppRoutes() {
           path="matriz"
           element={<Navigate to="/admin/matriz/resumen" replace />}
         />
-        <Route path="matriz/resumen" element={<ResumenMatriz />} />
+        <Route
+          path="matriz/resumen"
+          element={
+            <RequiereRolMatriz>
+              <ResumenMatriz />
+            </RequiereRolMatriz>
+          }
+        />
         <Route
           path="matriz/obligaciones"
           element={
@@ -998,7 +1068,11 @@ export function AppRoutes() {
         />
         <Route
           path="configuracion/recordatorios"
-          element={<ConfiguracionRecordatoriosPage />}
+          element={
+            <RequirePermission permission={PERMISOS_MATRIZ}>
+              <ConfiguracionRecordatoriosPage />
+            </RequirePermission>
+          }
         />
         {/* Catálogos de la Matriz: viven en Configuración → Catálogos, junto
             a los del inventario, con su propio permiso. */}

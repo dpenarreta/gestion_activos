@@ -95,7 +95,7 @@ def arbol() -> dict:
     """
     quienes = ocupantes()
     cargos = []
-    for cargo in Cargo.objects.select_related("unidad", "jefe").order_by("nombre"):
+    for cargo in Cargo.objects.select_related("unidad", "jefe", "rol").order_by("nombre"):
         en_el = quienes.get(cargo.id, [])
         cargos.append(
             {
@@ -108,6 +108,7 @@ def arbol() -> dict:
                 "activo": cargo.activo,
                 "ocupantes": en_el,
                 "vacantes": max(cargo.plazas - len(en_el), 0),
+                "rol": {"id": cargo.rol_id, "nombre": cargo.rol.name} if cargo.rol_id else None,
                 "perfil": (
                     "completo"
                     if perfiles_cargo.de(cargo)["completo"]
@@ -121,9 +122,8 @@ def arbol() -> dict:
                 "id": n.id,
                 "nombre": n.nombre,
                 "orden": n.orden,
-                "rol": {"id": n.rol_id, "nombre": n.rol.name} if n.rol_id else None,
             }
-            for n in NivelJerarquico.objects.select_related("rol").order_by("orden", "nombre")
+            for n in NivelJerarquico.objects.order_by("orden", "nombre")
         ],
         "unidades": [
             {

@@ -18,6 +18,17 @@ vi.mock("../src/api/notificacionesService", () => ({
   notificacionesService: servicio,
 }));
 
+const sonido = { activado: true };
+const sonar = vi.fn();
+vi.mock("../src/utils/sonidoNotificacion", () => ({
+  prepararSonido: () => () => {},
+  sonarNotificacion: (...args) => sonar(...args),
+  sonidoActivado: () => sonido.activado,
+  fijarSonido: (valor) => {
+    sonido.activado = valor;
+  },
+}));
+
 const { CampanaNotificaciones, haceCuanto } =
   await import("../src/components/admin/Notificaciones/CampanaNotificaciones");
 const { NotificacionesPage } =
@@ -167,5 +178,52 @@ describe("El historial", () => {
         expect.objectContaining({ estado: "no_leidas" }),
       ),
     );
+  });
+});
+
+describe("El sonido de las notificaciones", () => {
+  function revisarDeNuevo() {
+    // Al volver a la pestaña se consulta enseguida, sin esperar el intervalo.
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  it("lo pendiente al entrar no suena; lo que llega después, sí", async () => {
+    sonido.activado = true;
+    servicio.resumen.mockResolvedValue({ no_leidas: 1, recientes: [TICKET] });
+    pintar();
+    await screen.findByRole("button", { name: /1 sin leer/ });
+    expect(sonar).not.toHaveBeenCalled();
+
+    // La misma: no vuelve a sonar.
+    revisarDeNuevo();
+    await waitFor(() => expect(servicio.resumen).toHaveBeenCalledTimes(2));
+    expect(sonar).not.toHaveBeenCalled();
+
+    // Llega una nueva.
+    servicio.resumen.mockResolvedValue({
+      no_leidas: 2,
+      recientes: [{ ...TICKET, id: 7, titulo: "Otro ticket" }, TICKET],
+    });
+    revisarDeNuevo();
+    await waitFor(() => expect(sonar).toHaveBeenCalledTimes(1));
+  });
+
+  it("se silencia desde la campana", async () => {
+    sonido.activado = true;
+    servicio.resumen.mockResolvedValue({ no_leidas: 0, recientes: [] });
+    pintar();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Notificaciones/ }),
+    );
+    const boton = screen.getByRole("button", {
+      name: "Silenciar el sonido de las notificaciones",
+    });
+    fireEvent.click(boton);
+    expect(sonido.activado).toBe(false);
+    expect(
+      screen.getByRole("button", {
+        name: "Activar el sonido de las notificaciones",
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 });

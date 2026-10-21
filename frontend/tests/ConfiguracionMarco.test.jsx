@@ -69,9 +69,7 @@ describe("Las pestañas de Configuración", () => {
 
     expect(pestanas().map((p) => p.textContent)).toEqual([
       "Empresas",
-      "Usuarios",
-      "Roles",
-      "Permisos",
+      "Usuarios y roles",
       "Catálogos",
       "Notificaciones",
       "Identidad visual",
@@ -85,7 +83,7 @@ describe("Las pestañas de Configuración", () => {
 
     expect(
       screen.getByText(
-        "LaarCourier: empresas, usuarios, roles, permisos, catálogos, notificaciones, identidad visual, plantilla de dashboards y respaldos.",
+        "LaarCourier: empresas, usuarios y roles, catálogos, notificaciones, identidad visual, plantilla de dashboards y respaldos.",
       ),
     ).toBeInTheDocument();
   });
@@ -108,17 +106,30 @@ describe("Las pestañas de Configuración", () => {
     const activa = pestanas().find(
       (p) => p.getAttribute("aria-current") === "page",
     );
-    expect(activa).toHaveTextContent("Usuarios");
+    expect(activa).toHaveTextContent("Usuarios y roles");
   });
 
-  it("el catálogo de permisos es «Permisos», no «Roles»", () => {
-    /* Su dirección empieza por la de roles: gana el prefijo más largo. */
+  it("usuarios, roles y permisos son una sola pestaña con sus apartados", () => {
+    /* La dirección de permisos empieza por la de roles: gana la más larga. */
     pintar("/admin/roles/permisos");
 
     const activa = pestanas().find(
       (p) => p.getAttribute("aria-current") === "page",
     );
-    expect(activa).toHaveTextContent("Permisos");
+    expect(activa).toHaveTextContent("Usuarios y roles");
+    const apartados = within(
+      screen.getByRole("navigation", {
+        name: /Apartados de usuarios y roles/i,
+      }),
+    ).getAllByRole("link");
+    expect(apartados.map((a) => a.textContent)).toEqual([
+      "Usuarios",
+      "Roles",
+      "Permisos",
+    ]);
+    expect(
+      apartados.find((a) => a.getAttribute("aria-current") === "page"),
+    ).toHaveTextContent("Permisos");
   });
 
   it("los catálogos tienen sus apartados en una segunda fila", () => {
@@ -128,21 +139,20 @@ describe("Las pestañas de Configuración", () => {
       screen.getByRole("navigation", { name: "Apartados de catálogos" }),
     ).getAllByRole("link");
     expect(apartados.map((a) => a.textContent)).toEqual([
-      "Departamentos",
       "Sedes",
       "Proveedores",
       "Concesionarios",
       "Empleados",
       "Carga masiva",
-      "Áreas",
+      "Temas de la Matriz",
       "Entidades de control",
     ]);
-    expect(apartados[1]).toHaveAttribute("aria-current", "page");
+    expect(apartados[0]).toHaveAttribute("aria-current", "page");
   });
 
   it("cada apartado se filtra por su permiso", () => {
     /* Quien solo ve los catálogos de la Matriz entra a «Catálogos» por
-       «Áreas», no por un departamento que le respondería 403. */
+       «Temas de la Matriz», no por una sede que le respondería 403. */
     permisos.lista = ["catalogos.ver"];
 
     pintar("/admin/catalogos/areas");
@@ -153,7 +163,7 @@ describe("Las pestañas de Configuración", () => {
       screen.getByRole("navigation", { name: "Apartados de catálogos" }),
     ).getAllByRole("link");
     expect(apartados.map((a) => a.textContent)).toEqual([
-      "Áreas",
+      "Temas de la Matriz",
       "Entidades de control",
     ]);
   });
@@ -192,7 +202,7 @@ describe("La entrada del menú", () => {
     entrar();
 
     expect(
-      screen.getByText("Ruta: /admin/organizacion/departamentos"),
+      screen.getByText("Ruta: /admin/organizacion/sedes"),
     ).toBeInTheDocument();
   });
 

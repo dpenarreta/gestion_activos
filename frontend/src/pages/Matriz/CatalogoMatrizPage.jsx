@@ -9,10 +9,10 @@ import { mensajeDeError } from "../../utils/errores";
 
 const TEXTOS = {
   areas: {
-    titulo: "Áreas",
-    singular: "área",
+    titulo: "Temas",
+    singular: "tema",
     descripcion:
-      "Qué área responde por cada obligación. Compartidas por todas las empresas, así los reportes de cumplimiento suman el grupo entero.",
+      "El tema de cada obligación (Ambiental, Seguros y Pólizas…). No son las áreas del organigrama: se comparten entre todas las empresas, así los reportes de cumplimiento suman el grupo entero.",
     ejemploCodigo: "CONT",
     ejemploNombre: "Contabilidad y Tributario",
   },
@@ -27,7 +27,7 @@ const TEXTOS = {
 };
 
 /**
- * Áreas o entidades de control de la Matriz (Configuración → Catálogos).
+ * Temas o entidades de control de la Matriz (Configuración → Catálogos).
  *
  * Una sola pantalla para los dos: son el mismo catálogo —código y nombre—
  * con otro uso. Se pueden eliminar, salvo que una obligación los use: el

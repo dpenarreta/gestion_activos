@@ -257,3 +257,39 @@
   border-radius: 8px;
   background: var(--mz-sunken);
 }
+
+/* Formulario: las opciones de los desplegables del sistema. */
+.soporte-opciones {
+  border-top: 1px solid var(--mz-border);
+  padding-top: 8px;
+}
+
+.soporte-opcion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.soporte-opcion .form-control {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.soporte-opciones__grupo + .soporte-opciones__grupo {
+  margin-top: 10px;
+}
+
+.soporte-opcion__peso {
+  min-width: 34px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mz-ink-faint);
+}
+
+.soporte-criticidad {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}

@@ -106,6 +106,7 @@ function pintar(elemento, ruta = "/") {
 }
 
 beforeEach(() => {
+  localStorage.clear(); // la vista del organigrama se recuerda
   vi.clearAllMocks();
   permisos.lista = ["institucional.ver", "institucional.editar"];
   servicio.organigrama.mockResolvedValue(ORGANIGRAMA);
@@ -141,8 +142,13 @@ describe("El árbol", () => {
       "institucional",
     );
     // Es el de entrada: toda persona lo tiene, aunque solo con su «Inicio».
-    expect(modulosConAcceso(["institucional.ver"])).toEqual(["institucional"]);
-    expect(modulosConAcceso([])).toEqual(["institucional"]);
+    // La Mesa de ayuda también es de todos: su Bandeja muestra lo que cada
+    // uno creó (21/10/2026).
+    expect(modulosConAcceso(["institucional.ver"])).toEqual([
+      "soporte",
+      "institucional",
+    ]);
+    expect(modulosConAcceso([])).toEqual(["soporte", "institucional"]);
   });
 });
 
@@ -151,12 +157,24 @@ describe("El organigrama", () => {
     pintar(<OrganigramaPage />);
 
     const ti = await screen.findByRole("region", { name: "Gerencia de TI" });
-    expect(within(ti).getByText("Área: Tecnología")).toBeInTheDocument();
-    expect(within(ti).getByText("Reporta a Gerente de TI")).toBeInTheDocument();
+    // La unidad es el departamento: ya no se repite «Área: …» debajo.
+    expect(within(ti).queryByText(/^Área:/)).not.toBeInTheDocument();
+    // Árbol por niveles: el subordinado va dentro de la rama de su jefe.
+    const jefe = within(ti)
+      .getByText("Gerente de TI", { selector: "strong" })
+      .closest("li");
+    expect(within(jefe).getByText("Analista de TI")).toBeInTheDocument();
     expect(within(ti).getByText(/Rosa Vera/)).toBeInTheDocument();
     expect(within(ti).getByText("2 plazas vacantes")).toBeInTheDocument();
     expect(within(ti).getByText("1/3")).toBeInTheDocument();
     expect(screen.getByText("1 de 4 plazas cubiertas")).toBeInTheDocument();
+  });
+
+  it("también se ve en lista, con a quién reporta cada cargo", async () => {
+    pintar(<OrganigramaPage />);
+    fireEvent.click(await screen.findByRole("radio", { name: /Lista/ }));
+    const ti = screen.getByRole("region", { name: "Gerencia de TI" });
+    expect(within(ti).getByText("Reporta a Gerente de TI")).toBeInTheDocument();
   });
 
   it("una rama se contrae", async () => {
@@ -237,9 +255,44 @@ describe("El organigrama", () => {
     ).toBeNull();
   });
 
+  it("«Lista» cambia el dibujo: de árbol horizontal a lista vertical", async () => {
+    permisos.lista = ["institucional.ver"];
+    pintar(<OrganigramaPage />);
+    await screen.findByRole("region", { name: "Gerencia de TI" });
+    // De entrada, el árbol en el lienzo con zoom.
+    expect(
+      screen.getByRole("toolbar", { name: "Zoom del organigrama" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Organigrama en lista" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Lista/ }));
+    const lista = screen.getByRole("region", { name: "Organigrama en lista" });
+    expect(
+      within(lista).getByRole("region", { name: "Gerencia de TI" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("toolbar", { name: "Zoom del organigrama" }),
+    ).toBeNull();
+    expect(localStorage.getItem("organigrama.vista")).toBe("lista");
+
+    fireEvent.click(screen.getByRole("radio", { name: /Árbol por niveles/ }));
+    expect(
+      screen.queryByRole("region", { name: "Organigrama en lista" }),
+    ).toBeNull();
+  });
+
   it("la estructura no está en el menú: solo el organigrama", () => {
+    // Con los permisos de todo empleado (los de los roles de nivel).
     const menu = getVisibleAdminMenu(
-      ["institucional.editar", "institucional.asignar"],
+      [
+        "institucional.editar",
+        "institucional.asignar",
+        "licencias.solicitar",
+        "roles_pago.consultar",
+        "sugerencias.reportar",
+      ],
       "institucional",
     );
     const ids = menu
@@ -251,10 +304,20 @@ describe("El organigrama", () => {
       "institucional-permisos",
       "institucional-vacaciones",
       "institucional-onboarding",
-      "institucional-rol-pagos",
+      // Sin observaciones a cargo, el grupo «Rol de pagos» va directo a consultar.
+      "institucional-rol-pagos-consultar",
       "institucional-codigos",
       "institucional-sugerencias",
     ]);
+    // Sin esos permisos, pedir, consultar el rol y reportar no aparecen.
+    const sinBase = getVisibleAdminMenu(
+      ["institucional.ver"],
+      "institucional",
+    ).map((i) => i.id);
+    expect(sinBase).not.toContain("institucional-permisos");
+    expect(sinBase).not.toContain("institucional-rol-pagos");
+    expect(sinBase).not.toContain("institucional-rol-pagos-consultar");
+    expect(sinBase).not.toContain("institucional-sugerencias");
   });
 
   it("sin permiso de edición no ofrece editar la estructura", async () => {
@@ -426,6 +489,7 @@ describe("La asignación de cargos, pestaña de Estructura", () => {
 
 it("Estructura no tiene otra opción de menú para asignar: es su pestaña", () => {
   expect(modulosConAcceso(["institucional.asignar"])).toEqual([
+    "soporte",
     "institucional",
   ]);
 });
@@ -449,7 +513,12 @@ describe("Inicio, a donde entra toda persona", () => {
       ).toBeInTheDocument();
     }
     expect(screen.queryByRole("link", { name: /Organigrama/ })).toBeNull();
-    expect(screen.queryByText("Sus módulos")).toBeNull();
+    // Su único módulo, además de Institucional, es la Mesa de ayuda (su
+    // Bandeja con lo que creó).
+    expect(screen.getByText("Sus módulos")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Mesa de ayuda/ }),
+    ).toBeInTheDocument();
   });
 
   it("con permisos muestra su cargo y sus módulos, en el orden del selector", async () => {

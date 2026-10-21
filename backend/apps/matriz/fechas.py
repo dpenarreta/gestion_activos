@@ -7,7 +7,7 @@ el instante en UTC (`Periodo.vence_en`).
 import calendar
 import datetime
 
-from .models import Periodicidad
+from .models import DE_DIA_Y_MES, Periodicidad
 
 MESES = [
     "Enero",
@@ -33,6 +33,10 @@ _MESES_POR_PERIODICIDAD = {
     Periodicidad.TRIMESTRAL: 3,
     Periodicidad.SEMESTRAL: 6,
     Periodicidad.ANUAL: 12,
+    Periodicidad.BIENAL: 24,
+    Periodicidad.TRIENAL: 36,
+    Periodicidad.QUINQUENAL: 60,
+    Periodicidad.DECENAL: 120,
 }
 
 
@@ -46,7 +50,7 @@ def etiqueta(periodicidad: str, vencimiento: datetime.date) -> str:
         return f"T{(vencimiento.month - 1) // 3 + 1} {anio}"
     if periodicidad == Periodicidad.SEMESTRAL:
         return f"S{1 if vencimiento.month <= 6 else 2} {anio}"
-    if periodicidad == Periodicidad.ANUAL:
+    if periodicidad in DE_DIA_Y_MES:
         return f"Período {anio}"
     return "Período único"
 
@@ -69,7 +73,7 @@ def primer_vencimiento(obligacion, hoy: datetime.date) -> datetime.date:
     Sin regla → dentro de 30 días.
     """
     dia, mes = obligacion.dia_vencimiento, obligacion.mes_vencimiento
-    if obligacion.periodicidad == Periodicidad.ANUAL and dia and mes:
+    if obligacion.periodicidad in DE_DIA_Y_MES and dia and mes:
         fecha = _con_dia(hoy.year, mes, dia)
         return fecha if fecha >= hoy else _con_dia(hoy.year + 1, mes, dia)
     if dia and obligacion.periodicidad != Periodicidad.UNICA:

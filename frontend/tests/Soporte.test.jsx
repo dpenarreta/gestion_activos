@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,8 +32,17 @@ const servicio = {
   registrarHoras: vi.fn(),
   respuestas: vi.fn(),
   descargar: vi.fn(),
+  misTickets: vi.fn(),
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
+// Quien abre la bandeja: por defecto, alguien del equipo de la mesa.
+const sesion = { permisos: ["soporte.atender"] };
+vi.mock("../src/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { permissions: sesion.permisos },
+    isAuthenticated: true,
+  }),
+}));
 const misDatos = { obtener: vi.fn(), guardar: vi.fn() };
 vi.mock("../src/api/misDatosService", () => ({ misDatosService: misDatos }));
 
@@ -458,5 +473,56 @@ describe("La ficha del ticket", () => {
     expect(
       await screen.findByText(/ya no está a su cargo/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Mis solicitudes en la bandeja", () => {
+  it("quien no es del equipo ve solo lo que creó, en todos sus estados", async () => {
+    sesion.permisos = [];
+    servicio.misTickets.mockResolvedValue([
+      {
+        id: 7,
+        numero: "TCK-2026-000007",
+        categoria: "Hardware",
+        caso: "No enciende",
+        estado: "nuevo",
+        estado_display: "En cola",
+        criticidad: "alta",
+        criticidad_display: "Alta",
+        posicion: 3,
+        creado: "2026-10-21T15:00:00Z",
+        atendido_en: null,
+      },
+      {
+        id: 5,
+        numero: "TCK-2026-000005",
+        categoria: "Accesos",
+        caso: "Olvidé mi clave",
+        estado: "cerrado",
+        estado_display: "Cerrado",
+        criticidad: "baja",
+        criticidad_display: "Baja",
+        posicion: null,
+        creado: "2026-10-01T15:00:00Z",
+        atendido_en: "2026-10-01T18:00:00Z",
+      },
+    ]);
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    const tabla = await screen.findByRole("table", { name: "Mis solicitudes" });
+    expect(within(tabla).getByText("En cola")).toBeInTheDocument();
+    expect(within(tabla).getByText("Cerrado")).toBeInTheDocument();
+    expect(within(tabla).getByText("3")).toBeInTheDocument();
+    // Abre su ficha de seguimiento, no la del equipo (sin notas internas).
+    expect(
+      within(tabla).getByRole("link", { name: "TCK-2026-000007" }),
+    ).toHaveAttribute("href", "/admin/ayuda/tickets/7");
+    // Ni el estado de técnico ni las pestañas del equipo.
+    expect(servicio.bandeja).not.toHaveBeenCalled();
+    expect(servicio.tickets).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("navigation", { name: "Qué tickets ver" }),
+    ).toBeNull();
+    sesion.permisos = ["soporte.atender"];
   });
 });

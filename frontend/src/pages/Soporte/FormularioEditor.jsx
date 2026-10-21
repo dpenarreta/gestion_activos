@@ -5,6 +5,12 @@ import { soporteService } from "../../api/soporteService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { CamposFormulario } from "./Publico/CamposFormulario";
+import {
+  CriticidadPorPersona,
+  OpcionesDeCaso,
+  OpcionesDeCategoria,
+  TextosDeOpciones,
+} from "./OpcionesDelSistema";
 import "./Soporte.css";
 
 const TIPOS = [
@@ -58,13 +64,19 @@ export function FormularioEditor() {
       );
   }, []);
 
+  const cargarCategorias = useCallback(
+    () =>
+      soporteService.config
+        .listar("categorias")
+        .then(setCategorias)
+        .catch(() => setCategorias([])),
+    [],
+  );
+
   useEffect(() => {
     cargar();
-    soporteService.config
-      .listar("categorias")
-      .then(setCategorias)
-      .catch(() => setCategorias([]));
-  }, [cargar]);
+    cargarCategorias();
+  }, [cargar, cargarCategorias]);
 
   async function ejecutar(accion) {
     setTrabajando(true);
@@ -99,6 +111,9 @@ export function FormularioEditor() {
       datos.tipo = borrador.tipo;
       datos.opciones = borrador.opciones;
       datos.categorias = borrador.categorias;
+    } else if (borrador.valores) {
+      // Impacto y urgencia: el texto de cada opción.
+      datos.opciones = borrador.opciones;
     }
     const hecho = await ejecutar(() =>
       borrador.id
@@ -108,9 +123,16 @@ export function FormularioEditor() {
     if (hecho) setEditando(null);
   }
 
+  // Impacto y urgencia, con el texto que eligió la empresa.
+  const opcionesDe = (clave) => {
+    const c = campos?.find((x) => x.base && x.clave === clave);
+    return c?.valores?.map((v, i) => ({ id: v, nombre: c.opciones[i] }));
+  };
   const datosVista = {
     agencias: [],
     areas: [],
+    impactos: opcionesDe("impacto"),
+    urgencias: opcionesDe("urgencia"),
     categorias: categorias
       .filter((c) => c.activa)
       .map((c) => ({ ...c, casos: c.casos.filter((caso) => caso.activo) })),
@@ -159,6 +181,7 @@ export function FormularioEditor() {
               <EditorDeCampo
                 campo={editando}
                 categorias={categorias}
+                onCategoriasCambiaron={cargarCategorias}
                 guardando={trabajando}
                 onGuardar={guardar}
                 onCancelar={() => setEditando(null)}
@@ -178,6 +201,7 @@ export function FormularioEditor() {
                     <EditorDeCampo
                       campo={editando}
                       categorias={categorias}
+                      onCategoriasCambiaron={cargarCategorias}
                       guardando={trabajando}
                       onGuardar={guardar}
                       onCancelar={() => setEditando(null)}
@@ -302,7 +326,10 @@ export function FormularioEditor() {
             </p>
           </div>
 
-          <VistaPrevia campos={campos} datos={datosVista} />
+          <div className="mz-stack">
+            <VistaPrevia campos={campos} datos={datosVista} />
+            <CriticidadPorPersona />
+          </div>
         </div>
       )}
     </div>
@@ -312,6 +339,7 @@ export function FormularioEditor() {
 function EditorDeCampo({
   campo,
   categorias,
+  onCategoriasCambiaron,
   guardando,
   onGuardar,
   onCancelar,
@@ -330,10 +358,12 @@ function EditorDeCampo({
         e.preventDefault();
         onGuardar({
           ...borrador,
-          opciones: opciones
-            .split("\n")
-            .map((o) => o.trim())
-            .filter(Boolean),
+          opciones: borrador.valores
+            ? borrador.opciones.map((o) => o.trim())
+            : opciones
+                .split("\n")
+                .map((o) => o.trim())
+                .filter(Boolean),
         });
       }}
     >
@@ -398,6 +428,26 @@ function EditorDeCampo({
               onChange={(e) => setOpciones(e.target.value)}
             />
           </div>
+        )}
+        {borrador.base && borrador.clave === "categoria" && (
+          <OpcionesDeCategoria
+            categorias={categorias}
+            onCambio={onCategoriasCambiaron}
+          />
+        )}
+        {borrador.base && borrador.clave === "caso" && (
+          <OpcionesDeCaso
+            categorias={categorias}
+            onCambio={onCategoriasCambiaron}
+          />
+        )}
+        {borrador.base && borrador.valores && (
+          <TextosDeOpciones
+            id={id}
+            clave={borrador.clave}
+            opciones={borrador.opciones}
+            onCambio={(lista) => fijar("opciones", lista)}
+          />
         )}
         <div className="col-12 d-flex flex-wrap gap-3">
           <div className="form-check">

@@ -179,6 +179,12 @@ export const soporteService = {
     eliminar(recurso, id) {
       return apiClient.delete(`${BASE}/config/${recurso}/${id}/`);
     },
+    /** El orden de criticidad, de menos a más: el primero vale 1. */
+    ponderar(recurso, datos) {
+      return apiClient
+        .post(`${BASE}/config/${recurso}/ponderar/`, datos)
+        .then((r) => r.data);
+    },
     personas() {
       return apiClient
         .get(`${BASE}/config/tecnicos/personas/`)

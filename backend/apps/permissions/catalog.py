@@ -86,6 +86,10 @@ PERMISSION_CATALOG = {
                 "Configurar el respaldo automático: si está encendido, cada "
                 "cuánto, a qué hora, en qué carpeta y cuántos conservar"
             ),
+            "configuracion.modulos": (
+                "Encender y apagar los módulos de la empresa, y seguir viendo "
+                "y entrando a los apagados"
+            ),
         },
     },
     "activos": {
@@ -239,6 +243,16 @@ PERMISSION_CATALOG = {
         ),
         "permissions": {
             "dashboard.crear": "Crear nuevos dashboards por área",
+            # Antes reservados al superusuario (21/10/2026): todo acceso pasa
+            # por un permiso.
+            "dashboard.reasignar_dueno": "Reasignar el dueño de cualquier dashboard",
+            "dashboard.administrar_acceso": (
+                "Editar quién ve y quién edita cualquier dashboard (el dueño "
+                "siempre puede con el suyo)"
+            ),
+            "dashboard.desbloquear": (
+                "Desbloquear el diseño de un dashboard bloqueado, confirmando la contraseña"
+            ),
             "dashboard.editar": "Editar el nombre y área de un dashboard",
             "dashboard.eliminar": "Eliminar un dashboard",
             "dashboard.view": "Ver Dashboards",
@@ -409,11 +423,15 @@ PERMISSION_CATALOG = {
         "label": "Rol de pagos",
         "description": (
             "«Consultar rol de pagos» de Institucional. Cada persona consulta el suyo "
-            "sin permiso: el código de empleado sale de su sesión y para verlo acepta "
-            "los términos y confirma su contraseña. Estos permisos son los de Talento "
-            "Humano."
+            "con `roles_pago.consultar` (lo tienen todos los roles de nivel): el código "
+            "de empleado sale de su sesión y para verlo acepta los términos y confirma "
+            "su contraseña. Los demás permisos son los de Talento Humano."
         ),
         "permissions": {
+            "roles_pago.consultar": (
+                "Consultar el propio rol de pagos (con su código de empleado), "
+                "descargarlo, enviarlo a su correo y dar su conformidad"
+            ),
             "roles_pago.consultar_todos": (
                 "Consultar el rol de pagos de cualquier persona por su código de empleado"
             ),
@@ -421,16 +439,25 @@ PERMISSION_CATALOG = {
                 "Cambiar los términos que se aceptan al consultar el rol de pagos y el "
                 "consentimiento para guardar el correo personal"
             ),
+            "roles_pago.historial": (
+                "Ver, por código de empleado, todas las consultas de los roles de pagos: "
+                "cuándo se aceptaron los términos, la conformidad y las observaciones"
+            ),
+            "roles_pago.observaciones": (
+                "Ver y atender las observaciones de las personas a su rol de pagos: "
+                "corregirlas y pedirles que vuelvan a confirmar"
+            ),
         },
     },
     "sugerencias": {
         "label": "Sugerencias y errores",
         "description": (
-            "Las sugerencias y los errores del sistema que reporta cualquier persona "
-            "con cuenta desde Institucional, sin permiso. Quien gestiona los ve todos, "
-            "cambia su estado y les responde."
+            "Las sugerencias y los errores del sistema que se reportan desde "
+            "Institucional (`sugerencias.reportar`, de todos los roles de nivel). "
+            "Quien gestiona los ve todos, cambia su estado y les responde."
         ),
         "permissions": {
+            "sugerencias.reportar": "Enviar sugerencias o reportar errores del sistema",
             "sugerencias.gestionar": (
                 "Ver todas las sugerencias y errores reportados, cambiar su estado y "
                 "responderlos"
@@ -505,9 +532,13 @@ PERMISSION_CATALOG = {
         "description": (
             "Los permisos laborales (vacaciones, permiso médico…): cada tipo es un "
             "flujo con sus pasos de aprobación y a quién se avisa el resultado. "
-            "Solicitar y aprobar lo que a uno le toca no piden permiso."
+            "Solicitar pide `licencias.solicitar` (de todos los roles de nivel); "
+            "aprobar lo que a uno le toca no pide permiso."
         ),
         "permissions": {
+            "licencias.solicitar": (
+                "Solicitar permisos laborales y vacaciones, y seguir las propias solicitudes"
+            ),
             "licencias.configurar": (
                 "Crear y editar los tipos de permiso: sus pasos de aprobación, quién "
                 "aprueba cada uno y a quién se avisa el resultado"

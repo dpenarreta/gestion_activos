@@ -17,6 +17,8 @@ router.register(
 )
 
 urlpatterns = [
+    # Antes que el router: si no, «criticidad» se leería como un id.
+    path("config/criticidad/", views.CriticidadView.as_view(), name="soporte-criticidad"),
     # Quien pide soporte, con sesión (no hay formulario público desde el 20/10/2026).
     path("solicitar/", views.SolicitarView.as_view(), name="soporte-solicitar"),
     path("mis-tickets/", views.MisTicketsView.as_view(), name="soporte-mis-tickets"),

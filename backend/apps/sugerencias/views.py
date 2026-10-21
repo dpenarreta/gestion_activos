@@ -7,6 +7,7 @@ from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
 from apps.core.request_meta import get_request_context
+from apps.permissions.permissions import Requiere
 
 from . import services
 from .models import Reporte
@@ -29,6 +30,13 @@ class ReporteViewSet(viewsets.GenericViewSet):
 
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser]
+
+    def get_permissions(self):
+        # Reportar pide su permiso (21/10/2026); lo demás lo decide
+        # `sugerencias.gestionar` dentro de cada acción.
+        if self.action == "create":
+            return [IsAuthenticated(), Requiere("sugerencias.reportar", "sugerencias.gestionar")()]
+        return super().get_permissions()
 
     def get_queryset(self):
         return Reporte.objects.select_related("autor").prefetch_related("comentarios__autor")

@@ -156,14 +156,14 @@ def test_el_repetido_dentro_del_archivo_si_bloquea(cliente, db):
     """A diferencia del que ya existe: dos filas iguales en el mismo archivo son
     un error de quien lo armó, no una carga repetida."""
     archivo = _archivo(
-        POR_CLAVE["departamentos"],
+        POR_CLAVE["sedes"],
         [
-            {"codigo": "TI", "nombre": "Tecnología"},
-            {"codigo": "ti", "nombre": "Sistemas"},
+            {"nombre": "Matriz Quito", "ciudad": "Quito"},
+            {"nombre": "matriz quito", "ciudad": "Quito"},
         ],
     )
 
-    reporte = _subir(cliente, "departamentos", archivo).json()
+    reporte = _subir(cliente, "sedes", archivo).json()
 
     assert reporte["es_importable"] is False
     assert "fila 2" in reporte["errores"][0]["mensaje"]
@@ -172,7 +172,14 @@ def test_el_repetido_dentro_del_archivo_si_bloquea(cliente, db):
 def test_una_referencia_que_no_existe_dice_donde_crearla(cliente, db):
     archivo = _archivo(
         POR_CLAVE["empleados"],
-        [{"nombres": "Ana", "apellidos": "Pérez", "departamento": "NO-EXISTE"}],
+        [
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "ana1@grupolaar.com",
+                "departamento": "NO-EXISTE",
+            }
+        ],
     )
 
     reporte = _subir(cliente, "empleados", archivo).json()
@@ -190,8 +197,18 @@ def test_el_area_se_escribe_por_codigo_o_por_nombre(cliente, db):
     archivo = _archivo(
         POR_CLAVE["empleados"],
         [
-            {"nombres": "Ana", "apellidos": "Pérez", "departamento": "TI"},
-            {"nombres": "Luis", "apellidos": "Torres", "departamento": "Tecnología"},
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "ana2@grupolaar.com",
+                "departamento": "TI",
+            },
+            {
+                "nombres": "Luis",
+                "apellidos": "Torres",
+                "correo": "luis3@grupolaar.com",
+                "departamento": "Tecnología",
+            },
         ],
     )
 
@@ -206,8 +223,18 @@ def test_el_codigo_del_empleado_se_genera_al_cargar(cliente, db):
     archivo = _archivo(
         POR_CLAVE["empleados"],
         [
-            {"nombres": "Ana", "apellidos": "Pérez", "departamento": "TI"},
-            {"nombres": "Luis", "apellidos": "Torres", "departamento": "TI"},
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "ana4@grupolaar.com",
+                "departamento": "TI",
+            },
+            {
+                "nombres": "Luis",
+                "apellidos": "Torres",
+                "correo": "luis5@grupolaar.com",
+                "departamento": "TI",
+            },
         ],
     )
 
@@ -225,8 +252,18 @@ def test_la_carga_es_todo_o_nada(cliente, db):
     archivo = _archivo(
         POR_CLAVE["empleados"],
         [
-            {"nombres": "Ana", "apellidos": "Pérez", "departamento": "TI"},
-            {"nombres": "Luis", "apellidos": "", "departamento": "TI"},
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "ana6@grupolaar.com",
+                "departamento": "TI",
+            },
+            {
+                "nombres": "Luis",
+                "apellidos": "",
+                "correo": "luis7@grupolaar.com",
+                "departamento": "TI",
+            },
         ],
     )
 
@@ -270,7 +307,6 @@ def test_el_listado_dice_que_se_puede_cargar(cliente):
     claves = {c["clave"] for c in datos["catalogos"]}
     assert claves == {
         "sedes",
-        "departamentos",
         "proveedores",
         "concesionarios",
         "tipos",
@@ -306,3 +342,73 @@ def test_el_archivo_de_otro_formato_se_rechaza_con_mensaje(cliente, db):
 
     assert respuesta.status_code == 400
     assert respuesta.data["error"]["code"] == "formato_invalido"
+
+
+def test_cada_empleado_cargado_recibe_su_usuario(cliente, db):
+    """Todo empleado tiene usuario (21/10/2026): la cuenta nueva nace sin
+    contraseña utilizable —ninguna viaja en el archivo— y con cambio
+    obligatorio; un correo que ya tiene cuenta se ata a ella."""
+    Departamento.objects.create(nombre="Tecnología", codigo="TI")
+    existente = User.objects.create_user(
+        username="lt", email="luis.torres@grupolaar.com", password="Sup3r-Secr3t!"
+    )
+    archivo = _archivo(
+        POR_CLAVE["empleados"],
+        [
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "Ana.Perez@grupolaar.com",
+                "departamento": "TI",
+            },
+            {
+                "nombres": "Luis",
+                "apellidos": "Torres",
+                "correo": "luis.torres@grupolaar.com",
+                "departamento": "TI",
+            },
+        ],
+    )
+
+    assert _subir(cliente, "empleados", archivo, confirmar=True).json()["creados"] == 2
+
+    ana = Empleado.objects.get(nombres="Ana").usuario
+    assert ana.email == "ana.perez@grupolaar.com"
+    assert not ana.has_usable_password() and ana.must_change_password
+    assert Empleado.objects.get(nombres="Luis").usuario == existente
+
+
+def test_la_carga_rechaza_correos_no_institucionales_o_repetidos(cliente, db):
+    Departamento.objects.create(nombre="Tecnología", codigo="TI")
+    archivo = _archivo(
+        POR_CLAVE["empleados"],
+        [
+            {
+                "nombres": "Ana",
+                "apellidos": "Pérez",
+                "correo": "ana@gmail.com",
+                "departamento": "TI",
+            },
+            {"nombres": "Luis", "apellidos": "Torres", "correo": "", "departamento": "TI"},
+            {
+                "nombres": "Eva",
+                "apellidos": "Ruiz",
+                "correo": "eva@grupolaar.com",
+                "departamento": "TI",
+            },
+            {
+                "nombres": "Eva",
+                "apellidos": "Ruiz",
+                "correo": "EVA@grupolaar.com",
+                "departamento": "TI",
+            },
+        ],
+    )
+
+    reporte = _subir(cliente, "empleados", archivo).json()
+
+    assert reporte["es_importable"] is False
+    mensajes = " ".join(e["mensaje"] for e in reporte["errores"])
+    assert "institucional" in mensajes
+    assert "Es obligatorio" in mensajes
+    assert "Repetido en la fila 4" in mensajes

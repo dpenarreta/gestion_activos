@@ -7,6 +7,7 @@ from apps.users.models import User
 from .acceso import acciones
 from .estados import estado
 from .models import (
+    DE_DIA_Y_MES,
     Area,
     ConfiguracionRecordatorios,
     Documento,
@@ -155,9 +156,12 @@ class ObligacionSerializer(serializers.ModelSerializer):
             return getattr(self.instance, campo, None)
 
         mes, dia = valor("mes_vencimiento"), valor("dia_vencimiento")
-        if mes and valor("periodicidad") != Periodicidad.ANUAL:
+        if mes and valor("periodicidad") not in DE_DIA_Y_MES:
             raise serializers.ValidationError(
-                {"mes_vencimiento": "El mes del vencimiento solo aplica a las anuales."}
+                {
+                    "mes_vencimiento": "El mes del vencimiento solo aplica a las anuales "
+                    "y a las de varios años."
+                }
             )
         if mes and not dia:
             raise serializers.ValidationError(

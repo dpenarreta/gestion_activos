@@ -329,14 +329,14 @@ export function AsignacionEmpresas({ usuarioId }) {
                       {estaAsignada && areas !== null && areas.length > 0 && (
                         <details className="empresas-asignacion__areas">
                           <summary>
-                            Áreas de la Matriz (
+                            Temas de la Matriz (
                             {(areasAsignadas[empresa.id] ?? []).length ||
                               "todas"}
                             )
                           </summary>
                           <p className="mz-small mz-faint mb-1">
                             Quien no ve toda la empresa solo crea obligaciones
-                            de estas áreas. Sin ninguna marcada, de todas.
+                            de estos temas. Sin ninguno marcado, de todos.
                           </p>
                           <div className="empresas-asignacion__roles">
                             {areas.map((area) => (

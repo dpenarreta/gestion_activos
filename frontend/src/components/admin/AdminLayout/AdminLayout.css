@@ -30,3 +30,24 @@
 .mz-view--con-chat {
   padding-bottom: 96px;
 }
+
+/* Soporte TI en la barra superior: texto y audífono. */
+.mz-topbar__soporte {
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .mz-topbar__soporte-texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

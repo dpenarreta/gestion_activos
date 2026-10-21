@@ -9,13 +9,18 @@ const ROLES = [
     id: 1,
     name: "Editor",
     permission_codenames: ["usuarios.ver"],
-    nivel: null,
+    cargo: null,
   },
   {
     id: 2,
-    name: "LaarCourier · Gerencia / Jefatura",
+    name: "Jefe TI",
     permission_codenames: [],
-    nivel: { id: 3, nombre: "Gerencia / Jefatura", empresa: "LaarCourier" },
+    cargo: {
+      id: 3,
+      nombre: "Jefe TI",
+      unidad: "Tecnología",
+      empresa: "LaarCourier",
+    },
   },
 ];
 
@@ -55,11 +60,11 @@ describe("RolesPanel", () => {
     expect(screen.getByRole("link", { name: "Nuevo rol" })).toBeInTheDocument();
   });
 
-  it("el rol de un nivel del organigrama se marca y no se ofrece eliminarlo", async () => {
+  it("el rol de un cargo del organigrama se marca y no se ofrece eliminarlo", async () => {
     renderPanel();
-    const nombre = await screen.findByText("LaarCourier · Gerencia / Jefatura");
+    const nombre = await screen.findByText("Jefe TI");
     const fila = nombre.closest("tr");
-    expect(fila).toHaveTextContent(/Nivel del organigrama de LaarCourier/);
+    expect(fila).toHaveTextContent(/Cargo del organigrama de LaarCourier/);
     expect(fila.querySelector("button")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(1);
   });

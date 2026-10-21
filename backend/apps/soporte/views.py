@@ -31,7 +31,7 @@ from apps.organizacion import contacto
 from apps.organizacion.models import Departamento, Sede
 from apps.permissions.permissions import HasActionPermission, HasModulePermission
 
-from . import etiquetas, formulario, services, sla
+from . import criticidad, etiquetas, formulario, services, sla
 from .models import (
     AdjuntoTicket,
     AprobacionTicket,
@@ -48,6 +48,7 @@ from .models import (
     RespuestaPredefinida,
     Tecnico,
     Ticket,
+    PesoArea,
 )
 from .serializers import (
     AgendaPropiaSerializer,
@@ -133,8 +134,8 @@ def datos_del_formulario(empresa_nombre) -> dict:
             }
             for c in categorias
         ],
-        "impactos": [{"id": v, "nombre": n} for v, n in formulario.OPCIONES_IMPACTO],
-        "urgencias": [{"id": v, "nombre": n} for v, n in formulario.OPCIONES_URGENCIA],
+        "impactos": [{"id": v, "nombre": n} for v, n in formulario.opciones_de("impacto")],
+        "urgencias": [{"id": v, "nombre": n} for v, n in formulario.opciones_de("urgencia")],
     }
 
 
@@ -303,6 +304,8 @@ class MisTicketsView(APIView):
                     "caso": t.caso.nombre,
                     "estado": t.estado,
                     "estado_display": nombres["estados"][t.estado],
+                    "criticidad": t.criticidad,
+                    "criticidad_display": t.get_criticidad_display(),
                     "posicion": services.posicion_en_cola(t),
                     "creado": t.created_at,
                     "atendido_en": t.atendido_en,
@@ -430,7 +433,10 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
         if ambito == "mios":
             queryset = queryset.filter(tecnico__usuario=usuario)
         elif ambito == "cola":
-            queryset = queryset.filter(estado=Ticket.Estado.NUEVO).order_by("en_cola_desde")
+            # El más crítico primero (ver `criticidad.py`).
+            queryset = queryset.filter(estado=Ticket.Estado.NUEVO).order_by(
+                "-puntaje", "en_cola_desde"
+            )
         estado = params.get("estado")
         if estado in Ticket.Estado.values:
             queryset = queryset.filter(estado=estado)
@@ -920,9 +926,94 @@ class NivelViewSet(_Config):
         super().perform_destroy(instance)
 
 
-class CategoriaViewSet(_Config):
+class _ConPeso(_Config):
+    """Categorías y casos llevan un peso de 1 a N que ordena la criticidad de
+    los tickets (ver `criticidad.py`): al crear, borrar o reordenar se
+    renumeran y los tickets abiertos se reordenan."""
+
+    def _grupo(self, objeto):
+        raise NotImplementedError
+
+    def _reponderar(self, objeto):
+        criticidad.renumerar(self._grupo(objeto))
+        empresa_id = getattr(objeto, "empresa_id", None) or objeto.categoria.empresa_id
+        criticidad.recalcular_abiertos(empresa_id)
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            super().perform_create(serializer)
+            self._reponderar(serializer.instance)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            grupo = self._grupo(instance)
+            empresa_id = getattr(instance, "empresa_id", None) or instance.categoria.empresa_id
+            super().perform_destroy(instance)
+            criticidad.renumerar(grupo)
+            criticidad.recalcular_abiertos(empresa_id)
+
+
+class CriticidadView(APIView):
+    """Los pesos de quien pide en la criticidad: el de cada área (se
+    reordena) y el de cada nivel jerárquico (automático, por el orden del
+    organigrama). Ver `criticidad.py`."""
+
+    permission_classes = [IsAuthenticated, ConfiguracionPermission]
+
+    def _empresa_id(self):
+        from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+        empresa = empresa_actual()
+        if empresa in (None, SIN_EMPRESA):
+            raise serializers.ValidationError("No hay una empresa activa.")
+        return empresa.id
+
+    def get(self, request):
+        empresa_id = self._empresa_id()
+        return Response(
+            {"areas": criticidad.areas(empresa_id), "niveles": criticidad.niveles(empresa_id)}
+        )
+
+    def post(self, request):
+        """El orden de las áreas, de menos a más crítica (por id de área)."""
+        empresa_id = self._empresa_id()
+        ids = request.data.get("ids") or []
+        criticidad.asegurar_areas(empresa_id)
+        with transaction.atomic():
+            criticidad.ponderar(PesoArea.objects.filter(area__activo=True), ids, campo="area_id")
+            criticidad.recalcular_abiertos(empresa_id)
+        record_audit_event(
+            actor=request.user,
+            action="soporte.areas.ponderadas",
+            target_type="criticidad",
+            target_id=empresa_id,
+            module=MODULO,
+            new_values={"ids": ids},
+            context=get_request_context(request),
+        )
+        return self.get(request)
+
+
+class CategoriaViewSet(_ConPeso):
     serializer_class = CategoriaSerializer
     entidad = "categoria"
+
+    def _grupo(self, objeto):
+        return Categoria.objects.all()
+
+    @action(detail=False, methods=["post"])
+    def ponderar(self, request):
+        """El orden de menos a más crítica: la primera vale 1."""
+        ids = request.data.get("ids") or []
+        categorias = Categoria.objects.all()
+        primera = categorias.first()
+        if primera is None:
+            raise serializers.ValidationError({"ids": "No hay categorías."})
+        with transaction.atomic():
+            criticidad.ponderar(categorias, ids)
+            criticidad.recalcular_abiertos(primera.empresa_id)
+        self._auditar("ponderadas", primera, {"ids": ids})
+        return Response(self.get_serializer(self.get_queryset(), many=True).data)
 
     def get_permissions(self):
         # Ver las categorías lo necesita también quien atiende (filtros) y
@@ -942,9 +1033,25 @@ class CategoriaViewSet(_Config):
         super().perform_destroy(instance)
 
 
-class CasoViewSet(_Config):
+class CasoViewSet(_ConPeso):
     serializer_class = CasoSerializer
     entidad = "caso"
+
+    def _grupo(self, objeto):
+        return CasoAyuda.objects.filter(categoria_id=objeto.categoria_id)
+
+    @action(detail=False, methods=["post"])
+    def ponderar(self, request):
+        """El orden de los casos de una categoría, de menos a más crítico."""
+        categoria = Categoria.objects.filter(pk=request.data.get("categoria")).first()
+        if categoria is None:
+            raise serializers.ValidationError({"categoria": "Elija la categoría."})
+        ids = request.data.get("ids") or []
+        with transaction.atomic():
+            criticidad.ponderar(CasoAyuda.objects.filter(categoria=categoria), ids)
+            criticidad.recalcular_abiertos(categoria.empresa_id)
+        self._auditar("ponderados", categoria, {"categoria": categoria.id, "ids": ids})
+        return Response(CasoSerializer(categoria.casos.order_by("peso", "nombre"), many=True).data)
 
     def get_queryset(self):
         return CasoAyuda.objects.select_related("categoria")

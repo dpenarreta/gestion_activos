@@ -176,3 +176,19 @@ class ModeloDeEmpresa(BaseModel):
             if empresa is not None and empresa is not SIN_EMPRESA:
                 self.empresa = empresa
         return super().save(*args, **kwargs)
+
+
+class EstadoModulo(ModeloDeEmpresa):
+    """Si un módulo está encendido o apagado en la empresa. Sin fila, está
+    encendido: apagar es la excepción. Las reglas, en `modulos.py`."""
+
+    clave = models.CharField(max_length=40)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "clave"], name="estado_modulo_unico")
+        ]
+
+    def __str__(self):
+        return f"{self.clave}: {'encendido' if self.activo else 'apagado'}"

@@ -187,6 +187,12 @@ def _ejemplo(codigo, anio, mes, empresa) -> Rol:
 
     ultimo = calendar.monthrange(anio, mes)[1]
     local = _ejemplo_local(codigo)
+    # Como el procedimiento real: antes del ingreso no hay rol de ese mes.
+    ingreso = (local or {}).get("fecha_ingreso") or "2020-01-15"
+    if (anio, mes) < (int(ingreso[:4]), int(ingreso[5:7])):
+        raise RolNoDisponible(
+            f"No hay rol de pagos de {MESES[mes - 1].lower()} de {anio} para el código {codigo}."
+        )
     if local:
         rubros = lambda clave: [Rubro(n, Decimal(v)) for n, v in local.get(clave, [])]  # noqa: E731
         return Rol(

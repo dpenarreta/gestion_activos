@@ -107,6 +107,8 @@ class Categoria(ModeloDeEmpresa):
     nombre = models.CharField(max_length=80)
     descripcion = models.CharField(max_length=200, blank=True)
     activa = models.BooleanField(default=True)
+    #: De 1 (menos crítica) al total de categorías (ver `criticidad.py`).
+    peso = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["nombre"]
@@ -129,6 +131,8 @@ class CasoAyuda(BaseModel):
     nombre = models.CharField(max_length=120)
     tipo = models.CharField(max_length=10, choices=TipoTicket.choices, default=TipoTicket.INCIDENTE)
     prioridad = models.CharField(max_length=10, choices=Prioridad.choices, default=Prioridad.MEDIA)
+    #: De 1 (menos crítico) al total de casos de su categoría (ver `criticidad.py`).
+    peso = models.PositiveSmallIntegerField(default=0)
     #: Por dónde entra (un caso de infraestructura puede ir directo a N2).
     #: Vacío: el primer nivel.
     nivel_inicial = models.ForeignKey(
@@ -450,6 +454,31 @@ class Ticket(ModeloDeEmpresa):
     #: La del caso elegido; `prioridad` puede subir por la matriz o ajustarse.
     prioridad_base = models.CharField(max_length=10, choices=Prioridad.choices, blank=True)
     prioridad = models.CharField(max_length=10, choices=Prioridad.choices)
+    #: El nivel jerárquico del cargo de quien pide al crear el ticket: suma en
+    #: la criticidad (el de arriba pesa más). Se guarda para que un cambio de
+    #: cargo posterior no reordene la cola en silencio.
+    nivel_solicitante = models.ForeignKey(
+        "organizacion.NivelJerarquico",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    #: La suma de los pesos de lo que se eligió (ver `criticidad.py`): ordena la
+    #: cola y nunca se muestra; se ve solo `criticidad`.
+    puntaje = models.PositiveSmallIntegerField(default=0, db_index=True)
+    criticidad = models.CharField(
+        max_length=10,
+        blank=True,
+        choices=[
+            ("muy_baja", "Muy baja"),
+            ("baja", "Baja"),
+            ("media", "Media"),
+            ("alta", "Alta"),
+            ("muy_alta", "Muy alta"),
+            ("critica", "Crítica"),
+        ],
+    )
     estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.NUEVO)
     nivel = models.ForeignKey(NivelSoporte, on_delete=models.PROTECT, related_name="tickets")
     tecnico = models.ForeignKey(
@@ -642,3 +671,17 @@ class AprobacionTicket(BaseModel):
 
     class Meta:
         ordering = ["created_at"]
+
+
+class PesoArea(ModeloDeEmpresa):
+    """Cuánto pesa cada área en la criticidad de sus tickets: de 1 al total de
+    áreas (ver `criticidad.py`). Las áreas son las del organigrama."""
+
+    area = models.ForeignKey(
+        "organizacion.Departamento", on_delete=models.CASCADE, related_name="+"
+    )
+    peso = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["peso"]
+        constraints = [models.UniqueConstraint(fields=["empresa", "area"], name="peso_area_unico")]

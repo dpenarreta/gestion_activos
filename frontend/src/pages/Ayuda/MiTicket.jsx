@@ -140,6 +140,10 @@ export function MiTicket() {
                   <dd>{ticket.caso}</dd>
                 </div>
                 <div>
+                  <dt>Criticidad</dt>
+                  <dd>{ticket.criticidad_display || "—"}</dd>
+                </div>
+                <div>
                   <dt>Prioridad</dt>
                   <dd>{ticket.prioridad_display}</dd>
                 </div>

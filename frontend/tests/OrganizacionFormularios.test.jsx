@@ -40,8 +40,6 @@ vi.mock("../src/hooks/usePermission", () => ({
 }));
 
 const { SedeForm } = await import("../src/pages/Admin/Organizacion/SedeForm");
-const { DepartamentoForm } =
-  await import("../src/pages/Admin/Organizacion/DepartamentoForm");
 const { EmpleadoForm } =
   await import("../src/pages/Admin/Organizacion/EmpleadoForm");
 const { ProveedorForm } =
@@ -97,34 +95,6 @@ const FORMULARIOS = [
     esperado: { nombre: "Bodega Sur", ciudad: "Quito" },
   },
   {
-    titulo: "Departamento",
-    Pantalla: DepartamentoForm,
-    base: "/admin/organizacion/departamentos",
-    servicio: "departamentos",
-    tituloAlta: "Nuevo departamento",
-    tituloEdicion: "Editar departamento",
-    errorCarga: "No se pudo cargar el departamento.",
-    errorGuardado: "No se pudo guardar el departamento.",
-    registro: {
-      id: 2,
-      nombre: "Tecnología",
-      codigo: "TEC",
-      descripcion: "",
-      responsable: null,
-      activo: true,
-    },
-    campoPrincipal: "Nombre",
-    llenar: () => {
-      fireEvent.change(screen.getByLabelText("Nombre"), {
-        target: { value: "Contabilidad" },
-      });
-      fireEvent.change(screen.getByLabelText(/Código/), {
-        target: { value: "CON" },
-      });
-    },
-    esperado: { nombre: "Contabilidad", codigo: "CON" },
-  },
-  {
     titulo: "Empleado",
     Pantalla: EmpleadoForm,
     base: "/admin/organizacion/empleados",
@@ -138,10 +108,12 @@ const FORMULARIOS = [
       nombres: "Luis",
       apellidos: "Mora",
       codigo_empleado: "EMP-0003",
-      correo: "",
+      correo: "luis.mora@grupolaar.com",
       telefono: "",
       cargo: "Analista",
       departamento: 2,
+      usuario: 7,
+      usuario_username: "lmora",
       activo: true,
       total_activos: 0,
     },
@@ -156,8 +128,18 @@ const FORMULARIOS = [
       fireEvent.change(screen.getByLabelText("Departamento"), {
         target: { value: "2" },
       });
+      // Todo empleado tiene usuario: el alta pide el correo institucional
+      // (en la edición ya viene con el del registro).
+      fireEvent.change(screen.getByLabelText("Correo institucional"), {
+        target: { value: "ana.cevallos@grupolaar.com" },
+      });
     },
-    esperado: { nombres: "Ana", apellidos: "Cevallos", departamento: "2" },
+    esperado: {
+      nombres: "Ana",
+      apellidos: "Cevallos",
+      departamento: "2",
+      correo: "ana.cevallos@grupolaar.com",
+    },
   },
   {
     titulo: "Proveedor",
@@ -486,18 +468,6 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     expect(screen.getByLabelText("Ciudad")).toBeRequired();
   });
 
-  it("el departamento puede quedarse sin responsable asignado", async () => {
-    permisos.add("organizacion.editar");
-
-    pintar(DepartamentoForm, "/admin/organizacion/departamentos");
-
-    await screen.findByText("Nuevo departamento");
-    expect(
-      await screen.findByRole("option", { name: "Sin responsable asignado" }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Responsable del área")).not.toBeRequired();
-  });
-
   it("el proveedor lleva el RUC y a quién llamar cuando algo falla", async () => {
     permisos.add("organizacion.editar");
 
@@ -542,5 +512,59 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     expect(
       screen.getByLabelText("Condiciones de la concesión"),
     ).toBeInTheDocument();
+  });
+
+  it("el alta del empleado pide la contraseña inicial de su usuario", async () => {
+    permisos.add("organizacion.editar");
+    servicio.departamentos.list.mockResolvedValue([{ id: 2, nombre: "TI" }]);
+    servicio.empleados.create.mockResolvedValue({ id: 9 });
+    pintar(EmpleadoForm, "/admin/organizacion/empleados");
+    await screen.findByText("Nuevo empleado");
+    fireEvent.change(screen.getByLabelText("Contraseña inicial"), {
+      target: { value: "Sup3r-Secr3t!" },
+    });
+    expect(screen.getByLabelText("Correo institucional")).toBeRequired();
+    fireEvent.change(screen.getByLabelText("Nombres"), {
+      target: { value: "Ana" },
+    });
+    fireEvent.change(screen.getByLabelText("Apellidos"), {
+      target: { value: "Cevallos" },
+    });
+    fireEvent.change(await screen.findByLabelText("Departamento"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Correo institucional"), {
+      target: { value: "ana.cevallos@grupolaar.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(servicio.empleados.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          correo: "ana.cevallos@grupolaar.com",
+          password: "Sup3r-Secr3t!",
+        }),
+      ),
+    );
+  });
+
+  it("un empleado sin usuario avisa y pide completarlo", async () => {
+    servicio.empleados.get.mockResolvedValue({
+      id: 3,
+      nombres: "Luis",
+      apellidos: "Mora",
+      codigo_empleado: "EMP-0003",
+      correo: "",
+      telefono: "",
+      cargo: "",
+      departamento: 2,
+      usuario: null,
+      activo: true,
+      total_activos: 0,
+    });
+    pintar(EmpleadoForm, "/admin/organizacion/empleados", 3);
+    expect(
+      await screen.findByText(/Este empleado no tiene usuario/),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña inicial")).toBeInTheDocument();
   });
 });

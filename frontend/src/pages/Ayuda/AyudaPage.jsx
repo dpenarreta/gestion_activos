@@ -57,6 +57,11 @@ export function MisTickets() {
                 <span className="mz-pill mz-pill--neutral">
                   {t.estado_display}
                 </span>
+                {t.criticidad_display && (
+                  <div className="mz-small mz-faint">
+                    Criticidad: {t.criticidad_display}
+                  </div>
+                )}
                 {t.posicion && (
                   <div className="mz-small mz-faint">
                     Posición en la cola: {t.posicion}

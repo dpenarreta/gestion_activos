@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from apps.permissions.authorization import user_has_permission
 
-from . import avisos, sla
+from . import avisos, criticidad, sla
 from .horario import Agenda
 from .models import (
     AdjuntoTicket,
@@ -130,6 +130,10 @@ def crear_ticket(
                     **{k: v for k, v in datos.items() if k != "categoria"},
                 )
                 ticket.fuera_de_horario = not hay_quien_atienda(ticket.categoria, nivel, ahora)
+                ticket.nivel_solicitante_id = criticidad.nivel_de(
+                    solicitante, ticket.categoria.empresa_id
+                )
+                criticidad.aplicar(ticket)
                 pide_aprobacion = caso.requiere_aprobacion
                 if pide_aprobacion:
                     # No entra a la cola ni corre ningún plazo hasta el visto bueno.
@@ -278,12 +282,13 @@ def posicion_en_cola(ticket) -> int | None:
     """Cuántos pendientes van delante, más uno. `None` si ya lo atienden."""
     if ticket.estado != Estado.NUEVO:
         return None
+    # Delante va lo más crítico y, a igual criticidad, lo que llegó antes.
     delante = (
         Ticket.objects.todas()
+        .filter(empresa_id=ticket.empresa_id, estado=Estado.NUEVO)
         .filter(
-            empresa_id=ticket.empresa_id,
-            estado=Estado.NUEVO,
-            en_cola_desde__lt=ticket.en_cola_desde,
+            Q(puntaje__gt=ticket.puntaje)
+            | Q(puntaje=ticket.puntaje, en_cola_desde__lt=ticket.en_cola_desde)
         )
         .count()
     )
@@ -313,8 +318,8 @@ def _siguiente_para(tecnico):
             nivel_id=tecnico.nivel_id,
             categoria__in=tecnico.categorias.all(),
         )
-        .order_by("en_cola_desde")
-        .first()
+        # El más crítico primero; entre iguales, el que llegó antes.
+        .order_by("-puntaje", "en_cola_desde").first()
     )
 
 
@@ -634,6 +639,7 @@ def cambiar_prioridad(ticket, actor, *, prioridad, justificacion, impacto="", ur
             ticket.impacto = impacto
         if urgencia:
             ticket.urgencia = urgencia
+        criticidad.aplicar(ticket)
         sla.recalcular_por_prioridad(ticket, prioridad, timezone.now())
         ticket.save()
         _movimiento(

@@ -151,7 +151,7 @@ def guardar(usuario, *, nombres, apellidos, telefono, departamento, sede, cargo=
         propios.sede = sede
         propios.cargo = cargo
         propios.save()
-        from .roles_de_nivel import sincronizar
+        from .roles_de_cargo import sincronizar
 
         sincronizar(propios.empresa, [usuario])
     return de(usuario)

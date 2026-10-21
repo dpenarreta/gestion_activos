@@ -44,6 +44,27 @@ export function EstadoTicket({ ticket }) {
   );
 }
 
+const TONO_CRITICIDAD = {
+  muy_baja: "mz-pill--neutral",
+  baja: "mz-pill--neutral",
+  media: "mz-pill--warn",
+  alta: "mz-pill--bad",
+  muy_alta: "mz-pill--bad",
+  critica: "soporte-pill--critica",
+};
+
+/** El nivel de criticidad (el puntaje que ordena la cola nunca se muestra). */
+export function CriticidadTicket({ ticket }) {
+  if (!ticket.criticidad) return <span className="mz-faint">—</span>;
+  return (
+    <span
+      className={`mz-pill ${TONO_CRITICIDAD[ticket.criticidad] ?? "mz-pill--neutral"}`}
+    >
+      {ticket.criticidad_display}
+    </span>
+  );
+}
+
 export function PrioridadTicket({ ticket }) {
   return (
     <span

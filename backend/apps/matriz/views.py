@@ -181,8 +181,12 @@ class EntidadControlViewSet(_CatalogoViewSet):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def personas(request):
-    """Quienes trabajan en la empresa activa, para elegir responsables (§14.1)."""
-    empresa, _ = empresa_de_la_matriz(request)
+    """Quienes trabajan en la empresa activa, para elegir responsables (§14.1).
+    Lista a toda la empresa: solo para quien crea, edita o gestiona miembros
+    (21/10/2026; antes bastaba cualquier permiso de la Matriz)."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    if not {"matriz.crear", "matriz.editar", "matriz.gestionar_miembros"} & set(capacidades):
+        exigir(request, "matriz.editar", capacidades)
     if Empresa.objects.filter(activa=True).count() == 1:
         cuentas = User.objects.filter(is_active=True)
     else:
@@ -500,7 +504,7 @@ def obligaciones(request):
     )
     entrada.is_valid(raise_exception=True)
     if not _puede_crear_en(request, entrada.validated_data["area"], capacidades):
-        raise ValidationError({"area": "Solo puede crear obligaciones de sus áreas."})
+        raise ValidationError({"area": "Solo puede crear obligaciones de sus temas."})
     if _solo_propias(empresa, capacidades) and request.user.pk not in (
         getattr(entrada.validated_data.get("responsable"), "pk", None),
         getattr(entrada.validated_data.get("suplente"), "pk", None),
@@ -863,7 +867,7 @@ FORMATOS = {"xlsx", "pdf"}
 NOMBRES_DE_FILTRO = {
     "q": "búsqueda",
     "status": "estado",
-    "area": "área",
+    "area": "tema",
     "entity": "entidad",
     "responsible": "responsable",
     "priority": "prioridad",

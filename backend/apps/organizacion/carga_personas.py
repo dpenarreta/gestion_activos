@@ -462,7 +462,7 @@ def publico(reporte) -> dict:
 def aplicar(reporte) -> dict:
     """Aplica un reporte válido: asigna los cargos a quienes tienen cuenta y
     reemplaza los ocupantes sin cuenta de los cargos del archivo."""
-    from .roles_de_nivel import sincronizar
+    from .roles_de_cargo import sincronizar
 
     assert reporte["valido"]
     cuentas = reporte["_cuentas"]
@@ -495,7 +495,7 @@ def enlazar_al_entrar(sender, instance, created, **kwargs):
         ocupantes = list(OcupanteCargo.objects.filter(correo=correo).select_related("cargo"))
         if not ocupantes:
             return
-        from .roles_de_nivel import sincronizar
+        from .roles_de_cargo import sincronizar
 
         organigrama.asignar(instance.usuario, ocupantes[0].cargo)
         OcupanteCargo.objects.filter(pk__in=[o.pk for o in ocupantes]).delete()

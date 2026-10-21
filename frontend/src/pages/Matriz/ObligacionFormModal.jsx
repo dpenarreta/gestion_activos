@@ -6,6 +6,15 @@ import { ModalDialog } from "../../components/common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../utils/errores";
 import { useOpcionesMatriz } from "./useOpcionesMatriz";
 
+/** Las que vencen un día y mes fijos del año en que les toca. */
+const DE_DIA_Y_MES = new Set([
+  "anual",
+  "bienal",
+  "trienal",
+  "quinquenal",
+  "decenal",
+]);
+
 const VACIO = {
   nombre: "",
   descripcion: "",
@@ -92,7 +101,8 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
       Object.entries(valores).filter(
         ([campo, valor]) =>
           valor !== "" &&
-          (campo !== "mes_vencimiento" || valores.periodicidad === "anual"),
+          (campo !== "mes_vencimiento" ||
+            DE_DIA_Y_MES.has(valores.periodicidad)),
       ),
     );
     try {
@@ -105,7 +115,8 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
     }
   }
 
-  const anual = valores.periodicidad === "anual";
+  // Anual o de varios años: vence un día y mes fijos.
+  const anual = DE_DIA_Y_MES.has(valores.periodicidad);
   // La regla la decide el servidor (sin «ver todas» y sin permiso de la
   // empresa, quien crea tiene que figurar); aquí solo se explica.
   const soloPropias = Boolean(opciones.reglas?.solo_propias);
@@ -167,7 +178,7 @@ export function ObligacionFormModal({ onCerrar, onCreada }) {
           </Campo>
           {seleccion(
             "obl-area",
-            "Área",
+            "Tema",
             "area",
             opciones.areas.map((a) => (
               <option key={a.id} value={a.id}>

@@ -37,8 +37,6 @@ vi.mock("../src/hooks/usePermission", () => ({
 }));
 
 const { SedesList } = await import("../src/pages/Admin/Organizacion/SedesList");
-const { DepartamentosList } =
-  await import("../src/pages/Admin/Organizacion/DepartamentosList");
 const { EmpleadosList } =
   await import("../src/pages/Admin/Organizacion/EmpleadosList");
 const { ProveedoresList } =
@@ -116,17 +114,6 @@ const CATALOGOS = [
     error: "No se pudo cargar el listado de sedes.",
     identifica: "Matriz Quito",
     ruta: "/admin/organizacion/sedes/1",
-  },
-  {
-    clave: "departamentos",
-    Pantalla: DepartamentosList,
-    titulo: "Departamentos",
-    alta: "Nuevo departamento",
-    buscar: "Buscar departamentos",
-    vacio: "Sin departamentos registrados",
-    error: "No se pudo cargar el listado de departamentos.",
-    identifica: "Tecnología",
-    ruta: "/admin/organizacion/departamentos/2",
   },
   {
     clave: "empleados",
@@ -287,26 +274,6 @@ describe("Lo que cada catálogo muestra de más", () => {
     pintar(SedesList);
 
     expect(await screen.findByText("Cerrada")).toBeInTheDocument();
-  });
-
-  it("los departamentos dicen quién responde por el área", async () => {
-    pintar(DepartamentosList);
-
-    const fila = (await screen.findByText("Tecnología")).closest("tr");
-    expect(fila).toHaveTextContent("TEC");
-    expect(fila).toHaveTextContent("Ana Cevallos");
-  });
-
-  it("sin responsable asignado se marca, no se deja en blanco", async () => {
-    listar.departamentos.mockResolvedValue({
-      results: [{ ...FILAS.departamentos[0], responsable_nombre: null }],
-      count: 1,
-    });
-
-    pintar(DepartamentosList);
-
-    const fila = (await screen.findByText("Tecnología")).closest("tr");
-    expect(fila).toHaveTextContent("—");
   });
 
   it("los activos a cargo de un empleado llevan a esos equipos", async () => {

@@ -50,7 +50,14 @@ def _persona(nombre, *permisos, cargo=None, con_rol=True):
     )
     membresia = MembresiaEmpresa.objects.create(usuario=usuario, empresa=empresa_actual())
     if con_rol:
+        # Como un rol de nivel del organigrama: trae `licencias.solicitar`.
         rol, _ = Group.objects.get_or_create(name="Colaborador")
+        rol.permissions.add(
+            *Permission.objects.filter(
+                content_type=ContentType.objects.get_for_model(ModulePermission),
+                codename="licencias.solicitar",
+            )
+        )
         membresia.roles.add(rol)
     if cargo is not None:
         with usando_empresa(empresa_actual()):

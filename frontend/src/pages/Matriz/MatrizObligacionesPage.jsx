@@ -35,7 +35,7 @@ const FILTROS = [
 const COLUMNAS = [
   { clave: "code", titulo: "Código" },
   { clave: "name", titulo: "Obligación" },
-  { clave: "area", titulo: "Área" },
+  { clave: "area", titulo: "Tema" },
   { clave: "entity", titulo: "Entidad" },
   { clave: "responsible", titulo: "Responsable" },
   { clave: "priority", titulo: "Prioridad" },
@@ -46,7 +46,7 @@ const COLUMNAS = [
 
 const AGRUPACIONES = [
   ["", "Sin agrupar"],
-  ["area", "Por área"],
+  ["area", "Por tema"],
   ["entidad", "Por entidad"],
 ];
 
@@ -218,11 +218,11 @@ export function MatrizObligacionesPage() {
         </label>
         <select
           className="form-select form-select-sm"
-          aria-label="Filtrar por área"
+          aria-label="Filtrar por tema"
           value={filtros.area ?? ""}
           onChange={(e) => fijarParametro("area", e.target.value)}
         >
-          <option value="">Todas las áreas</option>
+          <option value="">Todos los temas</option>
           {opciones.areas.map((a) => (
             <option key={a.id} value={a.id}>
               {a.nombre}

@@ -4,6 +4,7 @@ from django.contrib.auth.models import Group
 from django.http import FileResponse, Http404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,7 +13,7 @@ from apps.core.audit import record_audit_event
 from apps.core.request_meta import get_request_context
 from apps.organizacion.models import Cargo
 from apps.permissions.authorization import user_has_permission
-from apps.permissions.permissions import HasModulePermission
+from apps.permissions.permissions import HasModulePermission, Requiere
 
 from . import restricciones, services
 from .models import Destino, FlujoPermiso, SolicitudPermiso
@@ -76,11 +77,23 @@ class FlujoViewSet(viewsets.ModelViewSet):
 
 
 class OpcionesView(APIView):
-    """Personas, roles y cargos para elegir en un flujo o al escalar."""
+    """Personas, roles y cargos para elegir en un flujo o al escalar. Lista a
+    toda la empresa: la ve quien configura los flujos, quien ve todas las
+    solicitudes o quien tiene alguna pendiente de aprobar (para escalarla)."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        usuario = request.user
+        puede = (
+            user_has_permission(usuario, "licencias.configurar")
+            or user_has_permission(usuario, "licencias.ver_todas")
+            or SolicitudPermiso.objects.filter(
+                estado=SolicitudPermiso.Estado.PENDIENTE, pendiente_de=usuario
+            ).exists()
+        )
+        if not puede:
+            raise PermissionDenied("No tiene el permiso requerido: licencias.configurar.")
         return Response(
             {
                 "personas": [
@@ -107,7 +120,7 @@ class OpcionesView(APIView):
 class FlujosParaSolicitarView(APIView):
     """Los tipos de permiso que se pueden solicitar."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, Requiere("licencias.solicitar")]
 
     def get(self, request):
         flujos = FlujoPermiso.objects.filter(activo=True).prefetch_related("pasos__aprobadores")

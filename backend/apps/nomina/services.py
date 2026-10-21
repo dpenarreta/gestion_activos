@@ -179,3 +179,413 @@ def enviar(usuario, consulta_id, *, correo="", guardar=False, acepto_guardar=Fal
     if guardar and acepto_guardar:
         guardar_correo(usuario, correo)
     return enmascarar(correo)
+
+
+# --- Conformidad con el rol -------------------------------------------------------------
+
+VIGENCIA_CONFORMIDAD = datetime.timedelta(hours=24)
+
+
+DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+
+def constancia_de_conformidad(consulta) -> dict:
+    """Cuándo (día, fecha y hora local) y desde dónde se respondió."""
+    if not consulta.conformidad_en:
+        return {}
+    local = timezone.localtime(consulta.conformidad_en)
+    return {
+        "conformidad": consulta.conformidad,
+        "conformidad_display": consulta.get_conformidad_display(),
+        "conformidad_en": consulta.conformidad_en,
+        "dia": DIAS_SEMANA[local.weekday()],
+        "fecha": local.strftime("%d/%m/%Y"),
+        "hora": local.strftime("%H:%M:%S"),
+        "ip": consulta.conformidad_ip,
+    }
+
+
+def registrar_conformidad(usuario, consulta_id, conformidad, observacion="", ip=None, navegador=""):
+    """La persona dice si está de acuerdo con su rol: una sola vez por
+    consulta y solo del suyo. Una observación se avisa a Talento Humano (sin
+    montos)."""
+
+    consulta = ConsultaRolPagos.objects.filter(pk=consulta_id, usuario=usuario).first()
+    if consulta is None:
+        raise NotFound("No se encontró la consulta.")
+    if consulta.codigo_empleado != codigo_de(usuario):
+        raise ValidationError({"detail": "La conformidad es solo del rol propio."})
+    if consulta.conformidad:
+        raise ValidationError({"detail": "Ya respondió sobre este rol de pagos."})
+    if timezone.now() - consulta.created_at > VIGENCIA_CONFORMIDAD:
+        raise ValidationError({"detail": "La consulta venció: vuelva a consultar su rol."})
+    if conformidad not in ConsultaRolPagos.Conformidad.values:
+        raise ValidationError({"conformidad": "Respuesta desconocida."})
+    observacion = (observacion or "").strip()
+    if conformidad == ConsultaRolPagos.Conformidad.OBSERVACION and not observacion:
+        raise ValidationError({"observacion": "Cuente qué no está correcto."})
+    consulta.conformidad = conformidad
+    consulta.conformidad_en = timezone.now()
+    consulta.conformidad_ip = ip
+    consulta.conformidad_navegador = (navegador or "")[:300]
+    consulta.observacion = observacion[:2000]
+    consulta.save(
+        update_fields=[
+            "conformidad",
+            "conformidad_en",
+            "conformidad_ip",
+            "conformidad_navegador",
+            "observacion",
+            "updated_at",
+        ]
+    )
+    if conformidad == ConsultaRolPagos.Conformidad.OBSERVACION:
+        _observar(usuario, consulta, observacion)
+    else:
+        _confirmar(usuario, consulta)
+    return consulta
+
+
+# --- Observaciones (Talento Humano) --------------------------------------------------------
+
+ENLACE_OBSERVACIONES = "/admin/institucional/rol-pagos/observaciones"
+
+
+def atiende_observaciones(usuario) -> bool:
+    return user_has_permission(usuario, "roles_pago.observaciones")
+
+
+def _talento_humano(excepto=None):
+    from apps.chat.services import personas_de_la_empresa
+
+    return [
+        u
+        for u in personas_de_la_empresa()
+        if atiende_observaciones(u) and (excepto is None or u.pk != excepto.pk)
+    ]
+
+
+def _nombre(usuario) -> str:
+    return usuario.get_full_name().strip() or usuario.username
+
+
+def _periodo(observacion) -> str:
+    from .fuente import MESES
+
+    return f"{MESES[observacion.mes - 1].lower()} {observacion.anio}"
+
+
+def _observar(usuario, consulta, texto):
+    """Crea (o reabre) la observación del período y avisa a Talento Humano."""
+    from apps.notificaciones import services as campana
+
+    from .models import MensajeObservacion, ObservacionRolPagos
+
+    observacion = (
+        ObservacionRolPagos.objects.filter(
+            usuario=usuario,
+            codigo_empleado=consulta.codigo_empleado,
+            anio=consulta.anio,
+            mes=consulta.mes,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if observacion is None:
+        observacion = ObservacionRolPagos.objects.create(
+            usuario=usuario,
+            codigo_empleado=consulta.codigo_empleado,
+            anio=consulta.anio,
+            mes=consulta.mes,
+        )
+        titulo = "Nueva observación a un rol de pagos"
+    else:
+        observacion.estado = ObservacionRolPagos.Estado.ABIERTA
+        observacion.cerrada_en = None
+        observacion.save(update_fields=["estado", "cerrada_en", "updated_at"])
+        titulo = "Reabrieron una observación al rol de pagos"
+    MensajeObservacion.objects.create(
+        observacion=observacion,
+        autor=usuario,
+        tipo=MensajeObservacion.Tipo.OBSERVACION,
+        texto=texto,
+    )
+    campana.notificar(
+        _talento_humano(excepto=usuario),
+        tipo="roles_pago.observacion",
+        titulo=titulo,
+        resumen=f"{_nombre(usuario)} · {_periodo(observacion)}: {texto[:160]}",
+        enlace=f"{ENLACE_OBSERVACIONES}?observacion={observacion.pk}",
+    )
+    return observacion
+
+
+def _confirmar(usuario, consulta):
+    """Si había una observación de ese período, la persona ya está de acuerdo:
+    se cierra y se avisa a Talento Humano."""
+    from apps.notificaciones import services as campana
+
+    from .models import MensajeObservacion, ObservacionRolPagos
+
+    observacion = (
+        ObservacionRolPagos.objects.filter(
+            usuario=usuario,
+            codigo_empleado=consulta.codigo_empleado,
+            anio=consulta.anio,
+            mes=consulta.mes,
+        )
+        .exclude(estado=ObservacionRolPagos.Estado.CERRADA)
+        .first()
+    )
+    if observacion is None:
+        return None
+    observacion.estado = ObservacionRolPagos.Estado.CERRADA
+    observacion.cerrada_en = timezone.now()
+    observacion.save(update_fields=["estado", "cerrada_en", "updated_at"])
+    MensajeObservacion.objects.create(
+        observacion=observacion,
+        autor=usuario,
+        tipo=MensajeObservacion.Tipo.CONFIRMACION,
+        texto=consulta.get_conformidad_display(),
+    )
+    campana.notificar(
+        _talento_humano(excepto=usuario),
+        tipo="roles_pago.observacion",
+        titulo="Confirmaron un rol de pagos corregido",
+        resumen=f"{_nombre(usuario)} está de acuerdo con su rol de {_periodo(observacion)}.",
+        enlace=f"{ENLACE_OBSERVACIONES}?observacion={observacion.pk}",
+    )
+    return observacion
+
+
+def corregir(actor, observacion_id, nota):
+    """Talento Humano corrigió el rol: pide a la persona que vuelva a
+    revisarlo y confirmar; avisa a ella y al resto de Talento Humano."""
+    from apps.notificaciones import services as campana
+
+    from .models import MensajeObservacion, ObservacionRolPagos
+
+    if not atiende_observaciones(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.observaciones.")
+    observacion = ObservacionRolPagos.objects.filter(pk=observacion_id).first()
+    if observacion is None:
+        raise NotFound("No se encontró la observación.")
+    if observacion.estado != ObservacionRolPagos.Estado.ABIERTA:
+        raise ValidationError({"detail": "La observación no está por atender."})
+    nota = (nota or "").strip()
+    if not nota:
+        raise ValidationError({"nota": "Cuente qué se corrigió."})
+    observacion.estado = ObservacionRolPagos.Estado.CORREGIDA
+    observacion.corregida_por = actor
+    observacion.corregida_en = timezone.now()
+    observacion.save(update_fields=["estado", "corregida_por", "corregida_en", "updated_at"])
+    MensajeObservacion.objects.create(
+        observacion=observacion, autor=actor, tipo=MensajeObservacion.Tipo.CORRECCION, texto=nota
+    )
+    campana.notificar(
+        [observacion.usuario],
+        tipo="roles_pago.corregido",
+        titulo=f"Su rol de pagos de {_periodo(observacion)} fue corregido",
+        resumen=f"{nota[:160]} Revíselo y confirme si está de acuerdo.",
+        enlace=f"/admin/institucional/rol-pagos?anio={observacion.anio}&mes={observacion.mes}",
+    )
+    campana.notificar(
+        _talento_humano(excepto=actor),
+        tipo="roles_pago.observacion",
+        titulo="Observación al rol de pagos corregida",
+        resumen=f"{_nombre(actor)} corrigió el rol de {_nombre(observacion.usuario)} "
+        f"({_periodo(observacion)}).",
+        enlace=f"{ENLACE_OBSERVACIONES}?observacion={observacion.pk}",
+    )
+    return observacion
+
+
+def _fila(observacion, con_mensajes=False) -> dict:
+    datos = {
+        "id": observacion.id,
+        "persona": {"id": observacion.usuario_id, "nombre": _nombre(observacion.usuario)},
+        "codigo": observacion.codigo_empleado,
+        "anio": observacion.anio,
+        "mes": observacion.mes,
+        "estado": observacion.estado,
+        "estado_display": observacion.get_estado_display(),
+        "actualizada": observacion.updated_at,
+        "ultima": "",
+    }
+    mensajes = list(observacion.mensajes.select_related("autor"))
+    observaciones = [m for m in mensajes if m.tipo == "observacion"]
+    if observaciones:
+        datos["ultima"] = observaciones[-1].texto
+    if con_mensajes:
+        datos["mensajes"] = [
+            {
+                "id": m.id,
+                "tipo": m.tipo,
+                "tipo_display": m.get_tipo_display(),
+                "autor": _nombre(m.autor) if m.autor_id else "",
+                "texto": m.texto,
+                "fecha": m.created_at,
+            }
+            for m in mensajes
+        ]
+    return datos
+
+
+def observaciones(actor, estado=None) -> list[dict]:
+    from .models import ObservacionRolPagos
+
+    if not atiende_observaciones(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.observaciones.")
+    consulta = ObservacionRolPagos.objects.select_related("usuario")
+    if estado:
+        consulta = consulta.filter(estado=estado)
+    return [_fila(o) for o in consulta[:300]]
+
+
+def observacion(actor, observacion_id) -> dict:
+    from .models import ObservacionRolPagos
+
+    if not atiende_observaciones(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.observaciones.")
+    encontrada = (
+        ObservacionRolPagos.objects.select_related("usuario").filter(pk=observacion_id).first()
+    )
+    if encontrada is None:
+        raise NotFound("No se encontró la observación.")
+    return _fila(encontrada, con_mensajes=True)
+
+
+def por_confirmar(usuario) -> list[dict]:
+    """Las correcciones que la persona tiene pendientes de confirmar."""
+    from .models import ObservacionRolPagos
+
+    filas = []
+    for o in ObservacionRolPagos.objects.filter(
+        usuario=usuario, estado=ObservacionRolPagos.Estado.CORREGIDA
+    ):
+        correccion = o.mensajes.filter(tipo="correccion").order_by("-created_at").first()
+        filas.append(
+            {
+                "id": o.id,
+                "anio": o.anio,
+                "mes": o.mes,
+                "nota": correccion.texto if correccion else "",
+            }
+        )
+    return filas
+
+
+# --- Historial por código de empleado (Talento Humano) -------------------------------------
+
+
+def ve_historial(usuario) -> bool:
+    return user_has_permission(usuario, "roles_pago.historial")
+
+
+def _momento(fecha):
+    if not fecha:
+        return None
+    local = timezone.localtime(fecha)
+    return {
+        "fecha_hora": fecha,
+        "dia": DIAS_SEMANA[local.weekday()],
+        "fecha": local.strftime("%d/%m/%Y"),
+        "hora": local.strftime("%H:%M:%S"),
+    }
+
+
+def historial(actor, codigo: str) -> dict:
+    """Todo lo de un código de empleado, por período (lo más reciente
+    primero): cada consulta (quién, cuándo aceptó los términos y desde dónde),
+    su conformidad (cuándo y desde dónde) y, si hubo, la observación con su
+    corrección y su confirmación. Nunca montos."""
+    from apps.users.models import User
+
+    from .models import ObservacionRolPagos
+
+    if not ve_historial(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.historial.")
+    codigo = (codigo or "").strip()
+    if not codigo:
+        raise ValidationError({"codigo": "Escriba el código de empleado."})
+    persona = User.objects.filter(codigo_empleado__iexact=codigo).first()
+
+    periodos: dict[tuple, dict] = {}
+
+    def periodo(anio, mes):
+        import calendar
+
+        ultimo = calendar.monthrange(anio, mes)[1]
+        return periodos.setdefault(
+            (anio, mes),
+            {
+                "anio": anio,
+                "mes": mes,
+                # Los días que cubre ese rol de pagos.
+                "desde": f"01/{mes:02d}/{anio}",
+                "hasta": f"{ultimo:02d}/{mes:02d}/{anio}",
+                "consultas": [],
+                "observacion": None,
+            },
+        )
+
+    for c in ConsultaRolPagos.objects.filter(codigo_empleado=codigo).select_related("usuario"):
+        periodo(c.anio, c.mes)["consultas"].append(
+            {
+                "id": c.id,
+                "por": _nombre(c.usuario),
+                "propia": c.usuario_id == getattr(persona, "pk", None),
+                "consultada": _momento(c.created_at),
+                "ip": c.ip,
+                "version_terminos": c.version_terminos,
+                "envios": c.envios,
+                "conformidad": c.conformidad,
+                "conformidad_display": c.get_conformidad_display() if c.conformidad else "",
+                "conformidad_en": _momento(c.conformidad_en),
+                "conformidad_ip": c.conformidad_ip,
+            }
+        )
+    for o in ObservacionRolPagos.objects.filter(codigo_empleado=codigo).prefetch_related(
+        "mensajes__autor"
+    ):
+        periodo(o.anio, o.mes)["observacion"] = {
+            "id": o.id,
+            "estado": o.estado,
+            "estado_display": o.get_estado_display(),
+            "mensajes": [
+                {
+                    "tipo": m.tipo,
+                    "tipo_display": m.get_tipo_display(),
+                    "autor": _nombre(m.autor) if m.autor_id else "",
+                    "texto": m.texto,
+                    "momento": _momento(m.created_at),
+                }
+                for m in o.mensajes.all()
+            ],
+        }
+    ordenados = sorted(periodos.values(), key=lambda p: (p["anio"], p["mes"]), reverse=True)
+    for p in ordenados:
+        p["consultas"].sort(key=lambda c: c["consultada"]["fecha_hora"], reverse=True)
+    return {
+        "codigo": codigo,
+        "persona": (
+            {"id": persona.id, "nombre": _nombre(persona), "correo": persona.email}
+            if persona
+            else None
+        ),
+        "periodos": ordenados,
+    }
+
+
+def rol_desde_historial(actor, codigo, anio, mes, password) -> bytes:
+    """El PDF de un rol del historial, vuelto a generar desde nómina (no se
+    guarda). Pide `roles_pago.historial` y la contraseña de quien lo abre."""
+    if not ve_historial(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.historial.")
+    if not password or not actor.check_password(password):
+        raise PermissionDenied("La contraseña no es correcta.")
+    codigo = (codigo or "").strip()
+    if not codigo:
+        raise ValidationError({"codigo": "Falta el código de empleado."})
+    _validar_periodo(anio, mes)
+    return pdf.construir(fuente.obtener(codigo, anio, mes, _nombre_empresa()))

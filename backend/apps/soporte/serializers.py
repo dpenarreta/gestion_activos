@@ -184,6 +184,8 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "categoria": ticket.categoria.nombre,
         "caso": ticket.caso.nombre,
         "prioridad_display": nombres["prioridades"][ticket.prioridad],
+        "criticidad": ticket.criticidad,
+        "criticidad_display": ticket.get_criticidad_display(),
         "tipo_display": ticket.get_tipo_display(),
         "aprobaciones": [
             {"rol": a["rol"], "estado": a["estado"], "estado_display": a["estado_display"]}
@@ -228,6 +230,8 @@ class TicketListaSerializer(serializers.ModelSerializer):
     tecnico = serializers.SerializerMethodField()
     posicion = serializers.SerializerMethodField()
     sla = serializers.SerializerMethodField()
+    #: Solo el nivel: el puntaje no sale de la base (ver `criticidad.py`).
+    criticidad_display = serializers.CharField(source="get_criticidad_display", read_only=True)
 
     class Meta:
         model = Ticket
@@ -236,6 +240,8 @@ class TicketListaSerializer(serializers.ModelSerializer):
             "numero",
             "estado",
             "estado_display",
+            "criticidad",
+            "criticidad_display",
             "prioridad",
             "prioridad_display",
             "prioridad_base",
@@ -505,7 +511,9 @@ class CasoSerializer(serializers.ModelSerializer):
             "aprueba_jefe_area",
             "aprueban",
             "activo",
+            "peso",
         ]
+        read_only_fields = ["peso"]
 
     def create(self, datos):
         aprueban = datos.pop("aprueban", [])
@@ -527,7 +535,8 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Categoria
-        fields = ["id", "nombre", "descripcion", "activa", "casos", "tecnicos"]
+        fields = ["id", "nombre", "descripcion", "activa", "peso", "casos", "tecnicos"]
+        read_only_fields = ["peso"]
 
     def get_tecnicos(self, categoria):
         return [{"id": t.id, "nombre": str(t)} for t in categoria.tecnicos.all()]
@@ -742,8 +751,17 @@ class CampoFormularioSerializer(serializers.ModelSerializer):
     def validate(self, datos):
         campo = self.instance
         if campo is not None and campo.base:
-            # Lo que el sistema decide no se toca, venga lo que venga.
-            for fijo in ("tipo", "opciones", "categorias"):
+            # Lo que el sistema decide no se toca, venga lo que venga; de
+            # impacto y urgencia se puede cambiar el texto de cada opción.
+            fijas = formulario.OPCIONES_DEL_SISTEMA.get(campo.clave)
+            if fijas and "opciones" in datos:
+                if len(datos["opciones"]) != len(fijas):
+                    raise serializers.ValidationError(
+                        {"opciones": f"Escriba las {len(fijas)} opciones, una distinta por línea."}
+                    )
+            else:
+                datos.pop("opciones", None)
+            for fijo in ("tipo", "categorias"):
                 datos.pop(fijo, None)
             if campo.bloqueado:
                 datos["activo"] = True
@@ -763,6 +781,13 @@ class CampoFormularioSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"El formulario admite hasta {formulario.MAXIMO_PROPIOS} campos propios."
                 )
+        return datos
+
+    def to_representation(self, campo):
+        datos = super().to_representation(campo)
+        if campo.base and campo.clave in formulario.OPCIONES_DEL_SISTEMA:
+            datos["opciones"] = [texto for _, texto in formulario.opciones_de(campo.clave, campo)]
+            datos["valores"] = [valor for valor, _ in formulario.opciones_de(campo.clave, campo)]
         return datos
 
     def create(self, datos):

@@ -19,6 +19,7 @@ const VACIO = {
   cargo: "",
   departamento: "",
   activo: true,
+  password: "",
 };
 
 export function EmpleadoForm() {
@@ -30,6 +31,9 @@ export function EmpleadoForm() {
   const [valores, setValores] = useState(VACIO);
   const [departamentos, setDepartamentos] = useState([]);
   const [totalActivos, setTotalActivos] = useState(0);
+  // Todo empleado tiene usuario (21/10/2026): al crearlo, o al completar uno
+  // que no lo tenía, se crea su cuenta con el correo institucional.
+  const [usuario, setUsuario] = useState(null);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -54,7 +58,13 @@ export function EmpleadoForm() {
           cargo: datos.cargo || "",
           departamento: datos.departamento,
           activo: datos.activo,
+          password: "",
         });
+        setUsuario(
+          datos.usuario
+            ? { id: datos.usuario, username: datos.usuario_username }
+            : null,
+        );
         setTotalActivos(datos.total_activos ?? 0);
       })
       .catch(() => setError("No se pudo cargar el empleado."));
@@ -68,11 +78,13 @@ export function EmpleadoForm() {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    const { password, ...resto } = valores;
+    const cuerpo = sinUsuario && password ? { ...resto, password } : resto;
     try {
       if (esEdicion) {
-        await empleadosService.update(id, valores);
+        await empleadosService.update(id, cuerpo);
       } else {
-        await empleadosService.create(valores);
+        await empleadosService.create(cuerpo);
       }
       navigate("/admin/organizacion/empleados");
     } catch (err) {
@@ -86,6 +98,7 @@ export function EmpleadoForm() {
   // evita que el usuario descubra la regla recién al guardar.
   const bloqueadoPorCustodia =
     esEdicion && valores.activo === false && totalActivos > 0;
+  const sinUsuario = !esEdicion || !usuario;
 
   return (
     <div>
@@ -93,8 +106,8 @@ export function EmpleadoForm() {
         <div>
           <h2>{esEdicion ? "Editar empleado" : "Nuevo empleado"}</h2>
           <p className="mz-desc">
-            Una persona de la empresa que puede tener equipos a su cargo, y el
-            departamento al que pertenece.
+            Una persona de la empresa, con su usuario del sistema, los equipos
+            que tiene a su cargo y el departamento al que pertenece.
           </p>
         </div>
       </div>
@@ -103,6 +116,13 @@ export function EmpleadoForm() {
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}
+        </div>
+      )}
+      {esEdicion && !usuario && valores.nombres && (
+        <div className="mz-alert mz-alert--warn" role="status">
+          <Icon name="person-exclamation" />
+          Este empleado no tiene usuario. Escriba su correo institucional (y una
+          contraseña inicial si la cuenta es nueva) para poder guardarlo.
         </div>
       )}
       {bloqueadoPorCustodia && (
@@ -164,16 +184,48 @@ export function EmpleadoForm() {
               </div>
             </div>
             <div className="mz-field">
-              <label htmlFor="correo">Correo</label>
+              <label htmlFor="correo">Correo institucional</label>
               <input
                 id="correo"
                 type="email"
                 className="form-control"
+                required
+                placeholder="nombre.apellido@grupolaar.com"
                 value={valores.correo}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("correo", event.target.value)}
               />
+              <div className="form-text">
+                {usuario ? (
+                  <>
+                    Usuario: <strong>{usuario.username}</strong>. Se administra
+                    en Configuración → Usuarios y roles.
+                  </>
+                ) : (
+                  "Con él se crea su usuario; si ya existe una cuenta con ese correo, se ata a ella."
+                )}
+              </div>
             </div>
+            {sinUsuario && (
+              <div className="mz-field">
+                <label htmlFor="password">Contraseña inicial</label>
+                <input
+                  id="password"
+                  type="password"
+                  className="form-control"
+                  autoComplete="new-password"
+                  value={valores.password}
+                  disabled={!puedeEditar}
+                  onChange={(event) =>
+                    actualizar("password", event.target.value)
+                  }
+                />
+                <div className="form-text">
+                  Solo si la cuenta es nueva. La persona la cambia al entrar por
+                  primera vez; el rol se asigna en Usuarios y roles.
+                </div>
+              </div>
+            )}
             <div className="mz-field">
               <label htmlFor="telefono">Teléfono</label>
               <input

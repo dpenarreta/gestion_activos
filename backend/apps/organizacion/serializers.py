@@ -1,9 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
 
-from . import documentos, noticias, organigrama
+from . import departamentos_del_organigrama, documentos, noticias, organigrama
 from .models import (
     Cargo,
     Concesionario,
@@ -250,6 +251,11 @@ class EmpleadoSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.CharField(read_only=True)
     departamento_nombre = serializers.CharField(source="departamento.nombre", read_only=True)
     total_activos = serializers.IntegerField(read_only=True)
+    #: Solo al crear la cuenta del empleado (ver `cuentas.py`); nunca se lee.
+    password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, trim_whitespace=False
+    )
+    usuario_username = serializers.CharField(source="usuario.username", read_only=True)
 
     class Meta:
         model = Empleado
@@ -265,16 +271,44 @@ class EmpleadoSerializer(serializers.ModelSerializer):
             "departamento",
             "departamento_nombre",
             "usuario",
+            "usuario_username",
+            "password",
             "activo",
             "total_activos",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        # El usuario no se elige ni se suelta: lo crea o lo ata el alta.
+        read_only_fields = ["id", "usuario", "created_at", "updated_at"]
         extra_kwargs = {"codigo_empleado": {"required": False, "allow_blank": True}}
 
     def validate_codigo_empleado(self, value):
         return value.strip().upper()
+
+    def validate(self, attrs):
+        """Todo empleado tiene usuario: al crearlo (o al completar uno que no
+        lo tenía) el correo institucional es obligatorio y, si la cuenta es
+        nueva, también la contraseña inicial."""
+        from . import cuentas
+
+        instancia = self.instance
+        # Desactivar a un pendiente (sin usuario) no le exige cuenta: es
+        # justamente lo que se hace con quien ya no está.
+        solo_desactiva = instancia is not None and set(attrs) == {"activo"} and not attrs["activo"]
+        if solo_desactiva:
+            return attrs
+        if instancia is None or instancia.usuario_id is None:
+            correo = cuentas.correo_institucional(
+                attrs.get("correo", getattr(instancia, "correo", ""))
+            )
+            problema = cuentas.problema_con_la_cuenta(correo, excepto=instancia)
+            if problema:
+                raise serializers.ValidationError({"correo": problema})
+            cuentas.validar_contrasena(correo, attrs.get("password"))
+            attrs["correo"] = correo
+        elif "correo" in attrs and attrs["correo"] != instancia.correo:
+            attrs["correo"] = cuentas.correo_institucional(attrs["correo"])
+        return attrs
 
 
 class MisDatosSerializer(serializers.Serializer):
@@ -328,7 +362,8 @@ class NivelJerarquicoSerializer(serializers.ModelSerializer):
 class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
     nivel = RelacionDeEmpresa(NivelJerarquico)
     padre = RelacionDeEmpresa(UnidadOrganizacional, required=False, allow_null=True)
-    departamento = RelacionDeEmpresa(Departamento, required=False, allow_null=True)
+    #: Lo crea y mantiene el sistema (la unidad es el departamento).
+    departamento = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = UnidadOrganizacional
@@ -349,6 +384,19 @@ class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
         padre = datos.get("padre", getattr(self.instance, "padre", None))
         organigrama.validar_padre(self.instance, padre, nivel)
         return datos
+
+    # La unidad es el departamento: se guarda con él, en la misma transacción.
+    @transaction.atomic
+    def create(self, datos):
+        unidad = super().create(datos)
+        departamentos_del_organigrama.sincronizar(unidad)
+        return unidad
+
+    @transaction.atomic
+    def update(self, instancia, datos):
+        unidad = super().update(instancia, datos)
+        departamentos_del_organigrama.sincronizar(unidad)
+        return unidad
 
 
 class CargoSerializer(serializers.ModelSerializer):

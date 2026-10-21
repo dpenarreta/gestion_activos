@@ -5,7 +5,7 @@ import { PERMISOS_MATRIZ } from "../../../modulos/permisosMatriz";
  * Las secciones de Configuración, en el orden de sus pestañas.
  *
  * Como en la Matriz, Configuración es **una sola entrada del menú** y lo que
- * contiene se elige con pestañas: empresas, usuarios, roles, permisos,
+ * contiene se elige con pestañas: empresas, usuarios y roles (con permisos),
  * catálogos, notificaciones, identidad visual, respaldos y auditoría. Antes eran dos grupos
  * desplegables —«Usuarios y roles» y «Configuración», este con un tercer nivel
  * para los catálogos de Organización— que ocupaban medio menú con cosas que se
@@ -32,43 +32,35 @@ export const SECCIONES_CONFIGURACION = [
     rutas: ["/admin/empresas"],
   },
   {
+    // Una sola pestaña (21/10/2026): quién entra, con qué rol y qué permite
+    // cada rol se administran juntos. Cada apartado conserva su permiso.
     id: "usuarios",
-    nombre: "Usuarios",
+    nombre: "Usuarios y roles",
     path: "/admin/users",
-    permission: "usuarios.ver",
-    rutas: ["/admin/users"],
-  },
-  {
-    id: "roles",
-    nombre: "Roles",
-    path: "/admin/roles",
-    permission: "roles.ver",
-    rutas: ["/admin/roles"],
-  },
-  {
-    // El catálogo de permisos solo se consulta —se asigna al editar un rol—,
-    // pero tiene su propio permiso y su propia pantalla.
-    id: "permisos",
-    nombre: "Permisos",
-    path: "/admin/roles/permisos",
-    permission: "permisos.ver",
-    rutas: ["/admin/roles/permisos"],
+    permission: ["usuarios.ver", "roles.ver", "permisos.ver"],
+    rutas: ["/admin/users", "/admin/roles"],
+    subsecciones: [
+      { nombre: "Usuarios", path: "/admin/users", permission: "usuarios.ver" },
+      { nombre: "Roles", path: "/admin/roles", permission: "roles.ver" },
+      {
+        // El catálogo de permisos solo se consulta —se asigna al editar un
+        // rol—, pero tiene su propio permiso y su propia pantalla.
+        nombre: "Permisos",
+        path: "/admin/roles/permisos",
+        permission: "permisos.ver",
+      },
+    ],
   },
   {
     id: "catalogos",
     nombre: "Catálogos",
-    path: "/admin/organizacion/departamentos",
+    path: "/admin/organizacion/sedes",
     // Los del inventario (organización) y los de la Matriz (áreas y
     // entidades de control) tienen permisos distintos: cada apartado declara
     // el suyo y la sección aparece con cualquiera.
     permission: ["organizacion.ver", "catalogos.ver"],
     rutas: ["/admin/organizacion", "/admin/catalogos"],
     subsecciones: [
-      {
-        nombre: "Departamentos",
-        path: "/admin/organizacion/departamentos",
-        permission: "organizacion.ver",
-      },
       {
         nombre: "Sedes",
         path: "/admin/organizacion/sedes",
@@ -100,7 +92,8 @@ export const SECCIONES_CONFIGURACION = [
       },
       // Los de la Matriz, compartidos por todas las empresas.
       {
-        nombre: "Áreas",
+        // Se llamaban «Áreas» y se confundían con las del organigrama.
+        nombre: "Temas de la Matriz",
         path: "/admin/catalogos/areas",
         permission: "catalogos.ver",
       },
@@ -172,6 +165,15 @@ export const SECCIONES_CONFIGURACION = [
       },
       { nombre: "Apariencia", path: "/admin/configuracion/apariencia" },
     ],
+  },
+  {
+    // Encender y apagar módulos de la empresa: apagado no lo ve nadie,
+    // salvo el superusuario y quien tiene este permiso.
+    id: "modulos",
+    nombre: "Módulos",
+    path: "/admin/configuracion/modulos",
+    permission: "configuracion.modulos",
+    rutas: ["/admin/configuracion/modulos"],
   },
   {
     // La ventana destacada que ve toda persona al entrar al sistema.

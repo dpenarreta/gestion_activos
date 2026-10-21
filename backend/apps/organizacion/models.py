@@ -1,12 +1,12 @@
 """Catálogos organizacionales: a qué área pertenece un activo y quién lo
 custodia (RF-01).
 
-`Empleado` es un catálogo propio y no `settings.AUTH_USER_MODEL`: la mayoría
-de las personas que reciben un equipo nunca inician sesión en el sistema, y
-obligar a crearles una cuenta solo para asignarles una laptop llenaría la
-tabla de usuarios de cuentas inertes —cada una con su superficie de
-autenticación— sin ningún beneficio. El vínculo con una cuenta real existe,
-pero es opcional (`usuario`).
+`Empleado` es un catálogo propio y no `settings.AUTH_USER_MODEL`. Hasta el
+21/10/2026 el vínculo con la cuenta era opcional; desde entonces todo
+empleado tiene usuario (pedir permisos, rol de pagos, onboarding: sin cuenta
+no sirve). El alta del empleado crea o ata la cuenta —ver `cuentas.py`—. La
+columna sigue admitiendo nulos solo por los empleados anteriores que quedan
+«Sin usuario»: no se pueden editar hasta completarlos.
 """
 
 import re
@@ -381,7 +381,8 @@ class Empleado(ModeloDeEmpresa):
         on_delete=models.PROTECT,
         related_name="empleados",
     )
-    # Opcional a propósito: ver el docstring del módulo.
+    # Obligatorio desde el 21/10/2026 (lo exige el alta, ver `cuentas.py`); la
+    # columna admite nulos solo por los empleados anteriores sin usuario.
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -422,15 +423,6 @@ class NivelJerarquico(ModeloDeEmpresa):
 
     nombre = models.CharField(max_length=80)
     orden = models.PositiveSmallIntegerField(default=1)
-    #: El rol del sistema de este nivel (ver `roles_de_nivel`): se crea con el
-    #: nivel, nace sin permisos y se asigna solo a quien ocupa un cargo de él.
-    rol = models.OneToOneField(
-        "auth.Group",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="nivel_jerarquico",
-    )
 
     class Meta:
         ordering = ["orden", "nombre"]
@@ -505,6 +497,15 @@ class Cargo(ModeloDeEmpresa):
     funciones = models.TextField(blank=True)
     competencias = models.TextField(blank=True)
     kpis = models.TextField(blank=True)
+    #: El rol del sistema de este cargo (ver `roles_de_cargo`): lo comparten
+    #: quienes lo ocupan y se crea, renombra y borra con el cargo.
+    rol = models.OneToOneField(
+        "auth.Group",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cargo_organigrama",
+    )
 
     class Meta:
         ordering = ["nombre"]

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { usePermission } from "../../../hooks/usePermission";
-import { useModuloActivo } from "../../../modulos/useModuloActivo";
+import { moduloDeRuta } from "../../../modulos/modulos";
 import "./BusquedaGlobal.css";
 
 /*
@@ -70,12 +70,18 @@ function BusquedaEnLaMatriz() {
   );
 }
 
+/**
+ * El buscador de la barra superior, según el módulo de la pantalla abierta:
+ * escanear o buscar un código solo dentro de Gestión de Activos, y buscar
+ * obligaciones dentro de la Matriz. En los demás módulos y en las pantallas
+ * comunes (Configuración, Mi perfil…) no hay buscador (21/10/2026).
+ */
 export function BusquedaGlobal() {
-  return useModuloActivo() === "matriz" ? (
-    <BusquedaEnLaMatriz />
-  ) : (
-    <BusquedaDeActivos />
-  );
+  const { pathname } = useLocation();
+  const modulo = moduloDeRuta(pathname);
+  if (modulo === "activos") return <BusquedaDeActivos />;
+  if (modulo === "matriz") return <BusquedaEnLaMatriz />;
+  return null;
 }
 
 function BusquedaDeActivos() {

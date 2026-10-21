@@ -24,8 +24,8 @@ def _vigilando_gestores(cambio):
         raise serializers.ValidationError({"detail": str(error)}) from error
 
 
-def _es_de_nivel(role: Group) -> bool:
-    return hasattr(role, "nivel_jerarquico") and role.nivel_jerarquico is not None
+def _es_de_cargo(role: Group) -> bool:
+    return hasattr(role, "cargo_organigrama") and role.cargo_organigrama is not None
 
 
 class RoleService:
@@ -79,9 +79,9 @@ class RoleService:
     ) -> Group:
         previous_values = {}
         new_values = {}
-        if name is not None and name != role.name and _es_de_nivel(role):
+        if name is not None and name != role.name and _es_de_cargo(role):
             raise serializers.ValidationError(
-                {"name": "Es el rol de un nivel del organigrama: se renombra con el nivel."}
+                {"name": "Es el rol de un cargo del organigrama: se renombra con el cargo."}
             )
         if name is not None and name != role.name:
             previous_values["name"] = role.name
@@ -113,9 +113,9 @@ class RoleService:
 
     @staticmethod
     def delete_role(*, actor: User, role: Group, context: dict | None = None) -> None:
-        if _es_de_nivel(role):
+        if _es_de_cargo(role):
             raise serializers.ValidationError(
-                {"detail": "Es el rol de un nivel del organigrama: se borra al borrar el nivel."}
+                {"detail": "Es el rol de un cargo del organigrama: se borra al borrar el cargo."}
             )
         role_id, role_name = role.id, role.name
         _vigilando_gestores(role.delete)

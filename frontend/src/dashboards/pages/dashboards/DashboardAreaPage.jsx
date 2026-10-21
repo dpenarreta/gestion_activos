@@ -193,6 +193,8 @@ export default function DashboardAreaPage() {
   // `usePermisos()` es un stub que concede todo el editor visual siempre (ver `hooks/CLAUDE.md`)
   // — para gates reales de IA se usa `user.permissions` directo, igual que el resto de la app.
   const { user } = useAuth()
+  // Desbloquear el diseño pide su permiso (21/10/2026; antes, ser superusuario).
+  const puedeDesbloquear = Boolean(user?.permissions?.includes('dashboard.desbloquear'))
   const puedeInterpretar = Boolean(user?.permissions?.includes('dashboard.interpretar'))
   const puedeHallazgosIA = Boolean(user?.permissions?.includes('dashboard.hallazgos_ia'))
 
@@ -708,7 +710,7 @@ export default function DashboardAreaPage() {
             <Alert variant="secondary" className="py-2">
               <i className="bi bi-lock-fill" aria-hidden="true"></i> El diseño de este dashboard está bloqueado: no se puede agregar, eliminar,
               reordenar, redimensionar ni ocultar componentes.{' '}
-              {user?.is_superuser
+              {puedeDesbloquear
                 ? 'Al guardar se te va a pedir tu contraseña para autorizar el cambio.'
                 : 'Los datos, títulos y colores sí se pueden seguir editando.'}
             </Alert>
@@ -737,7 +739,7 @@ export default function DashboardAreaPage() {
               onReordenar={layout.reordenarPorIds}
               permiteEstilo={permisos.tiene(PERMISOS.DASHBOARD_COMPONENT_STYLE)}
               permiteEliminar={permisos.tiene(PERMISOS.DASHBOARD_COMPONENT_DELETE)}
-              esSuperusuario={user?.is_superuser}
+              esSuperusuario={puedeDesbloquear}
               estructuraBloqueada={estructuraBloqueada}
             />
 
@@ -761,7 +763,7 @@ export default function DashboardAreaPage() {
               onCambiarAlto={(id, h) => layout.actualizarComponente(id, { height: h })}
               onActualizarConfig={(id, config) => layout.actualizarComponente(id, { config })}
               onActualizarComponente={layout.actualizarComponente}
-              esSuperusuario={user?.is_superuser}
+              esSuperusuario={puedeDesbloquear}
               estructuraBloqueada={estructuraBloqueada}
             />
           )}

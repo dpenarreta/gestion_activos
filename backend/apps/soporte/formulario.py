@@ -35,6 +35,26 @@ OPCIONES_URGENCIA = [
     ("baja", "Sí, puede esperar"),
 ]
 
+#: Las listas del sistema cuyo texto se puede cambiar (21/10/2026): el valor
+#: de cada opción lo usa la matriz de prioridad y no cambia; lo que lee quien
+#: pide, sí. Se guarda en `CampoFormulario.opciones`, en este mismo orden.
+OPCIONES_DEL_SISTEMA = {"impacto": OPCIONES_IMPACTO, "urgencia": OPCIONES_URGENCIA}
+
+
+def opciones_de(clave: str, campo=None) -> list[tuple[str, str]]:
+    """Las opciones de una lista del sistema con el texto que eligió la
+    empresa (o el de siempre)."""
+    from .models import CampoFormulario
+
+    base = OPCIONES_DEL_SISTEMA[clave]
+    if campo is None:
+        campo = CampoFormulario.objects.filter(base=True, clave=clave).first()
+    textos = list(getattr(campo, "opciones", None) or [])
+    if len(textos) != len(base):
+        textos = [nombre for _, nombre in base]
+    return [(valor, texto) for (valor, _), texto in zip(base, textos)]
+
+
 #: Clave del campo del sistema → nombre del dato que recibe el formulario.
 _DATO_DE_LA_CLAVE = {
     "impacto": "impacto",

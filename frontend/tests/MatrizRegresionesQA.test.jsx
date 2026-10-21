@@ -179,7 +179,7 @@ describe("Nueva obligación", () => {
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "IVA" },
     });
-    fireEvent.change(screen.getByLabelText("Área"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Tema"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Entidad de control"), {
       target: { value: "1" },
     });

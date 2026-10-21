@@ -76,15 +76,22 @@ describe("Cada módulo trae su menú", () => {
     /* La Matriz depende del rol en la empresa activa: sin permisos de ella, no
        se ofrece. Configuración sola no cuenta como módulo. */
     // Institucional es de todos: es a donde se entra al iniciar sesión.
+    // Y la Mesa de ayuda, también de todos: su Bandeja muestra lo que cada uno
+    // creó (21/10/2026).
     expect(modulosConAcceso(["activos.ver"]).sort()).toEqual([
       "activos",
       "institucional",
+      "soporte",
     ]);
     expect(modulosConAcceso(["matriz.ver_todas"]).sort()).toEqual([
       "institucional",
       "matriz",
+      "soporte",
     ]);
-    expect(modulosConAcceso(["usuarios.ver"])).toEqual(["institucional"]);
+    expect(modulosConAcceso(["usuarios.ver"]).sort()).toEqual([
+      "institucional",
+      "soporte",
+    ]);
   });
 
   it("el módulo sale de la ruta; las de Configuración no tienen uno propio", () => {
@@ -112,10 +119,11 @@ describe("El selector de módulos", () => {
     // Matriz, Órdenes de trabajo y Gestión de Activos.
     expect(opciones.map((o) => o.textContent)).toEqual([
       expect.stringContaining("Institucional"),
+      expect.stringContaining("Mesa de ayuda"),
       expect.stringContaining("Matriz de obligaciones"),
       expect.stringContaining("Gestión de Activos"),
     ]);
-    expect(opciones[2]).toHaveAttribute("aria-checked", "true");
+    expect(opciones[3]).toHaveAttribute("aria-checked", "true");
   });
 
   it("elegir otro lleva a su inicio", () => {
@@ -142,17 +150,21 @@ describe("El selector de módulos", () => {
     ).toBeInTheDocument();
   });
 
-  it("con un solo módulo lo nombra, pero no ofrece cambiarlo", () => {
-    /* Sin permisos queda solo Institucional, el de entrada. */
+  it("sin permisos ofrece Institucional y la Mesa de ayuda", () => {
+    /* Los dos son de todos: el de entrada y la Bandeja con lo que cada uno
+       creó. */
     permisos.lista = [];
 
     pintar("/admin/institucional/inicio");
 
-    expect(screen.getByText("Módulo activo")).toBeInTheDocument();
-    expect(screen.getByText("Institucional")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Cambiar de módulo/ }),
-    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Cambiar de módulo/ }));
+    const opciones = within(
+      screen.getByRole("menu", { name: "Módulos" }),
+    ).getAllByRole("menuitemradio");
+    expect(opciones.map((o) => o.textContent)).toEqual([
+      expect.stringContaining("Institucional"),
+      expect.stringContaining("Mesa de ayuda"),
+    ]);
   });
 
   it("con mouse, pasar por encima despliega los módulos al costado", () => {

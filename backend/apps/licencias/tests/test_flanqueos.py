@@ -288,18 +288,24 @@ def test_sin_rol_asignado_no_se_solicita_ningun_tipo(empresa_con_organigrama):
     for flujo in (e["vacaciones"], e["medico"]):
         evaluacion = _evaluar(sin_rol, flujo, "2026-11-02", "2026-11-06")
         assert evaluacion["bloquea"] is True
+        # Desde el 21/10/2026 lo decide `licencias.solicitar`, no tener un rol.
         assert evaluacion["reglas"][0]["texto"] == (
-            "Necesita un rol asignado para solicitar permisos."
+            "No tiene permiso para solicitar permisos ni vacaciones."
         )
         respuesta = _post(sin_rol, flujo, "2026-11-02", "2026-11-06")
         assert respuesta.status_code == 400
-        assert "Necesita un rol asignado" in str(respuesta.data)
+        assert "No tiene permiso para solicitar" in str(respuesta.data)
 
-    # Con un rol global también puede; y el superusuario, sin rol.
-    from django.contrib.auth.models import Group
+    # Con un rol que traiga `licencias.solicitar` puede; y el superusuario.
+    from django.contrib.auth.models import Group, Permission
 
-    usuario.groups.add(Group.objects.get_or_create(name="Colaborador")[0])
-    assert _post(sin_rol, e["medico"], "2026-11-02", "2026-11-02").status_code == 201
+    rol, _ = Group.objects.get_or_create(name="Con solicitar")
+    rol.permissions.add(Permission.objects.get(codename="licencias.solicitar"))
+    usuario.groups.add(rol)
+    # Una instancia nueva, como en cada petición real (sin la caché de permisos).
+    sin_rol.force_authenticate(user=type(usuario).objects.get(pk=usuario.pk))
+    con_rol = _post(sin_rol, e["medico"], "2026-11-02", "2026-11-02")
+    assert con_rol.status_code == 201, con_rol.data
     raiz, cliente_raiz = _persona("root", con_rol=False)
     raiz.is_superuser = True
     raiz.save()
