@@ -66,8 +66,12 @@ class Command(BaseCommand):
         catalogo = all_codenames()
 
         for nombre, definicion in ROLES.items():
+            from apps.organizacion.permisos_por_cargo import SOLO_POR_PERSONA
+
             codenames = (
-                sorted(catalogo) if definicion["permisos"] == "*" else definicion["permisos"]
+                sorted(set(catalogo) - SOLO_POR_PERSONA)
+                if definicion["permisos"] == "*"
+                else definicion["permisos"]
             )
 
             desconocidos = [c for c in codenames if c not in disponibles]

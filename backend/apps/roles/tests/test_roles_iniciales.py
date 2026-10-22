@@ -22,8 +22,11 @@ def _permisos_de(nombre: str) -> set[str]:
 def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
     call_command("crear_roles_iniciales", verbosity=0)
 
-    assert _permisos_de("Administrador") == all_codenames()
-    assert _permisos_de("Superusuario") == all_codenames()
+    # Menos lo que se da persona por persona (consultar el rol de pagos).
+    from apps.organizacion.permisos_por_cargo import SOLO_POR_PERSONA
+
+    assert _permisos_de("Administrador") == all_codenames() - SOLO_POR_PERSONA
+    assert _permisos_de("Superusuario") == all_codenames() - SOLO_POR_PERSONA
 
 
 def test_ya_no_crea_las_plantillas_por_funcion():

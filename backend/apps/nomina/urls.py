@@ -1,14 +1,18 @@
 from django.urls import path
 
 from .views import (
+    AdjuntoObservacionView,
     ConfiguracionView,
     ConformidadView,
     ConsultarView,
     CorregirObservacionView,
     CorreoPersonalView,
+    DescargaMasivaView,
     EnviarView,
     EstadoView,
+    HabilitadosView,
     HistorialView,
+    MisObservacionesView,
     ObservacionesView,
     ResumenObservacionesView,
     RolDelHistorialView,
@@ -33,6 +37,20 @@ urlpatterns = [
         CorregirObservacionView.as_view(),
         name="rol-observacion-corregir",
     ),
+    path(
+        "observaciones/adjuntos/<int:pk>/",
+        AdjuntoObservacionView.as_view(),
+        name="rol-observacion-adjunto",
+    ),
     path("rol-pagos/correo-personal/", CorreoPersonalView.as_view(), name="rol-pagos-correo"),
     path("rol-pagos/configuracion/", ConfiguracionView.as_view(), name="rol-pagos-configuracion"),
+    path(
+        "rol-pagos/descarga-masiva/", DescargaMasivaView.as_view(), name="rol-pagos-descarga-masiva"
+    ),
+    path("rol-pagos/habilitados/", HabilitadosView.as_view(), name="rol-pagos-habilitados"),
+    path(
+        "rol-pagos/mis-observaciones/",
+        MisObservacionesView.as_view(),
+        name="rol-pagos-mis-observaciones",
+    ),
 ]

@@ -46,6 +46,10 @@ class MaterialSerializer(serializers.ModelSerializer):
     archivo_es_pdf = serializers.SerializerMethodField()
     nota_minima = serializers.IntegerField(min_value=1, max_value=100, default=70)
     intentos_max = serializers.IntegerField(min_value=1, max_value=10, default=3)
+    #: Minutos; vacío, sin límite.
+    tiempo_limite = serializers.IntegerField(
+        min_value=1, max_value=600, required=False, allow_null=True
+    )
     tiene_archivo = serializers.SerializerMethodField()
     preguntas = serializers.SerializerMethodField()
     de = serializers.SerializerMethodField()
@@ -72,6 +76,7 @@ class MaterialSerializer(serializers.ModelSerializer):
             "contenido",
             "nota_minima",
             "intentos_max",
+            "tiempo_limite",
             "orden",
             "activo",
             "preguntas",
@@ -178,11 +183,17 @@ class MaterialSerializer(serializers.ModelSerializer):
 class OpcionEntradaSerializer(serializers.Serializer):
     texto = serializers.CharField(max_length=300, allow_blank=True)
     correcta = serializers.BooleanField(default=False)
+    #: En «unir»: la respuesta que va con este concepto.
+    pareja = serializers.CharField(max_length=300, allow_blank=True, required=False, default="")
 
 
 class PreguntaEntradaSerializer(serializers.Serializer):
-    texto = serializers.CharField(max_length=500, allow_blank=True)
-    opciones = OpcionEntradaSerializer(many=True)
+    tipo = serializers.ChoiceField(
+        choices=["unica", "multiple", "completar", "unir"], default="unica"
+    )
+    texto = serializers.CharField(max_length=2000, allow_blank=True)
+    puntos = serializers.DecimalField(max_digits=4, decimal_places=2)
+    opciones = OpcionEntradaSerializer(many=True, required=False, default=list)
 
 
 class PreguntasSerializer(serializers.Serializer):
@@ -190,7 +201,11 @@ class PreguntasSerializer(serializers.Serializer):
 
 
 class RespuestasSerializer(serializers.Serializer):
-    respuestas = serializers.DictField(child=serializers.IntegerField())
+    #: Por pregunta: una opción, una lista de opciones, una lista de
+    #: palabras o `{concepto_id: respuesta}`, según su tipo.
+    respuestas = serializers.DictField(child=serializers.JSONField())
+    #: Lo envía la pantalla cuando el reloj llega a cero.
+    tiempo_agotado = serializers.BooleanField(required=False, default=False)
 
 
 class AsignarSerializer(serializers.Serializer):

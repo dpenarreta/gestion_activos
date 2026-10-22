@@ -334,6 +334,10 @@ def puede_ver(solicitud, usuario) -> bool:
         or solicitud.pendiente_de.filter(pk=usuario.pk).exists()
         or solicitud.acciones.filter(actor=usuario).exists()
         or user_has_permission(usuario, "licencias.ver_todas")
+        or (
+            solicitud.estado == SolicitudPermiso.Estado.PENDIENTE
+            and user_has_permission(usuario, "licencias.ver_por_aprobar")
+        )
     )
 
 

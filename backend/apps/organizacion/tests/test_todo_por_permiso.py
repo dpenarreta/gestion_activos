@@ -56,8 +56,11 @@ def test_el_chat_y_soporte_ti_son_de_todo_usuario_aunque_no_tenga_permisos(db):
 
 def test_con_los_permisos_base_entra(db):
     _, cliente = _cuenta("empleada", *PERMISOS_BASE)
-    assert cliente.get("/api/v1/nomina/rol-pagos/").status_code == 200
     assert cliente.get("/api/v1/licencias/tipos/").status_code == 200
+    # El rol de pagos no va en lo de todo empleado: va persona por persona.
+    assert cliente.get("/api/v1/nomina/rol-pagos/").status_code == 403
+    _, habilitada = _cuenta("habilitada", "roles_pago.consultar")
+    assert habilitada.get("/api/v1/nomina/rol-pagos/").status_code == 200
     # Las opciones listan a toda la empresa: no son de todo empleado.
     assert cliente.get("/api/v1/licencias/opciones/").status_code == 403
 

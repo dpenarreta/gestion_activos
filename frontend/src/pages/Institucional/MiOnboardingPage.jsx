@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capacitacionService } from "../../api/capacitacionService";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -133,57 +133,312 @@ function RevisarMaterial({ material, onAbrirPdf, onCerrar }) {
   );
 }
 
-/** La evaluación de un material: responder y ver el puntaje con qué
- * reforzar. */
+const NOMBRE_TIPO = {
+  unica: "Marque la correcta",
+  multiple: "Marque todas las correctas",
+  completar: "Complete los espacios",
+  unir: "Una cada concepto con su respuesta",
+};
+
+/** Si la pregunta ya tiene respuesta completa, según su tipo. */
+export function respondida(p, respuesta) {
+  if (p.tipo === "multiple")
+    return Array.isArray(respuesta) && respuesta.length > 0;
+  if (p.tipo === "completar")
+    return (
+      Array.isArray(respuesta) &&
+      respuesta.filter((x) => (x ?? "").trim()).length === p.huecos
+    );
+  if (p.tipo === "unir")
+    return (
+      Boolean(respuesta) && p.izquierda.every((c) => Boolean(respuesta[c.id]))
+    );
+  return respuesta !== undefined;
+}
+
+/** Una pregunta según su tipo (22/10/2026). La respuesta que arma es la que
+ * espera el servidor: una opción, una lista de opciones, una lista de
+ * palabras o `{concepto_id: respuesta}`. */
+function Pregunta({ p, i, respuesta, onResponder }) {
+  let cuerpo;
+  if (p.tipo === "multiple") {
+    const marcadas = respuesta ?? [];
+    cuerpo = p.opciones.map((o) => (
+      <label key={o.id} className="form-check">
+        <input
+          type="checkbox"
+          className="form-check-input"
+          checked={marcadas.includes(o.id)}
+          onChange={(e) =>
+            onResponder(
+              e.target.checked
+                ? [...marcadas, o.id]
+                : marcadas.filter((x) => x !== o.id),
+            )
+          }
+        />{" "}
+        <span className="form-check-label">{o.texto}</span>
+      </label>
+    ));
+  } else if (p.tipo === "completar") {
+    const palabras = respuesta ?? Array(p.huecos).fill("");
+    let hueco = -1;
+    cuerpo = (
+      <p className="mb-0">
+        {p.segmentos.map((s, k) => {
+          if (s !== null) return <span key={k}>{s}</span>;
+          hueco += 1;
+          const n = hueco;
+          return (
+            <input
+              key={k}
+              className="form-control form-control-sm onboarding-hueco"
+              aria-label={`Espacio ${n + 1} de la pregunta ${i + 1}`}
+              maxLength={200}
+              value={palabras[n] ?? ""}
+              onChange={(e) =>
+                onResponder(
+                  palabras.map((x, m) => (m === n ? e.target.value : x)),
+                )
+              }
+            />
+          );
+        })}
+      </p>
+    );
+  } else if (p.tipo === "unir") {
+    const elegidas = respuesta ?? {};
+    cuerpo = (
+      <div className="onboarding-unir">
+        {p.izquierda.map((c) => (
+          <label key={c.id} className="contents">
+            <span>{c.texto}</span>
+            <select
+              className="form-select form-select-sm"
+              aria-label={`Respuesta para «${c.texto}»`}
+              value={elegidas[c.id] ?? ""}
+              onChange={(e) =>
+                onResponder({ ...elegidas, [c.id]: e.target.value })
+              }
+            >
+              <option value="">Elija…</option>
+              {p.derecha.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+    );
+  } else {
+    cuerpo = p.opciones.map((o) => (
+      <label key={o.id} className="form-check">
+        <input
+          type="radio"
+          className="form-check-input"
+          name={`pregunta-${p.id}`}
+          checked={respuesta === o.id}
+          onChange={() => onResponder(o.id)}
+        />{" "}
+        <span className="form-check-label">{o.texto}</span>
+      </label>
+    ));
+  }
+  return (
+    <fieldset className="onboarding-pregunta">
+      <legend>
+        {i + 1}. {p.tipo === "completar" ? NOMBRE_TIPO.completar : p.texto}
+      </legend>
+      <small className="mz-faint">
+        {NOMBRE_TIPO[p.tipo] ?? ""} · {Number(p.puntos).toLocaleString("es-EC")}{" "}
+        puntos
+      </small>
+      {cuerpo}
+    </fieldset>
+  );
+}
+
+/** `mm:ss` (o `h:mm:ss`) de unos segundos. */
+export function formatoReloj(segundos) {
+  const s = Math.max(0, Math.floor(segundos));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const dos = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${dos(m)}:${dos(s % 60)}` : `${dos(m)}:${dos(s % 60)}`;
+}
+
+/** Cada cuánto se guarda el borrador después del último cambio. */
+const ESPERA_BORRADOR = 800;
+
+/** La evaluación de un material: responder y ver la nota (sobre 10) con qué
+ * reforzar. Con tiempo límite (22/10/2026) el reloj es del servidor: corre
+ * desde «Comenzar» y no se detiene al cerrar la ventana; lo respondido se
+ * guarda solo y, al llegar a cero, se envía con lo que haya. */
 function Evaluacion({ material, onTerminada, onCerrar }) {
+  const conReloj = Boolean(material.tiempo_limite);
+  const [comenzada, setComenzada] = useState(
+    !conReloj || material.segundos_restantes != null,
+  );
   const [datos, setDatos] = useState(null);
   const [respuestas, setRespuestas] = useState({});
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [restantes, setRestantes] = useState(null);
+  const vence = useRef(null);
+  const enviada = useRef(false);
+  const cambiada = useRef(false);
+  const ultimas = useRef({});
+  ultimas.current = respuestas;
 
   useEffect(() => {
+    if (!comenzada) return;
     capacitacionService
       .evaluacion(material.id)
-      .then(setDatos)
+      .then((d) => {
+        setDatos(d);
+        setRespuestas(d.borrador ?? {});
+        if (d.segundos_restantes != null) {
+          vence.current = Date.now() + d.segundos_restantes * 1000;
+          setRestantes(d.segundos_restantes);
+        }
+      })
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudo abrir la evaluación.")),
       );
-  }, [material.id]);
+  }, [comenzada, material.id]);
 
-  async function enviar(evento) {
-    evento.preventDefault();
-    setEnviando(true);
-    setError(null);
-    try {
-      setResultado(
-        await capacitacionService.responder(material.id, respuestas),
-      );
+  const terminar = useCallback(
+    (r) => {
+      enviada.current = true;
+      setResultado(r);
       onTerminada();
-    } catch (err) {
-      setError(mensajeDeError(err, "No se pudo enviar la evaluación."));
-    } finally {
-      setEnviando(false);
-    }
+    },
+    [onTerminada],
+  );
+
+  const enviar = useCallback(
+    async (agotado = false) => {
+      if (enviada.current) return;
+      enviada.current = true;
+      setEnviando(true);
+      setError(null);
+      try {
+        terminar(
+          await capacitacionService.responder(
+            material.id,
+            ultimas.current,
+            agotado,
+          ),
+        );
+      } catch (err) {
+        enviada.current = false;
+        setError(mensajeDeError(err, "No se pudo enviar la evaluación."));
+      } finally {
+        setEnviando(false);
+      }
+    },
+    [material.id, terminar],
+  );
+
+  // El reloj: al llegar a cero se envía lo que haya.
+  const relojActivo = restantes !== null;
+  useEffect(() => {
+    if (!relojActivo || resultado) return undefined;
+    const intervalo = setInterval(() => {
+      const quedan = Math.max(
+        0,
+        Math.ceil((vence.current - Date.now()) / 1000),
+      );
+      setRestantes(quedan);
+      if (quedan === 0) {
+        clearInterval(intervalo);
+        enviar(true);
+      }
+    }, 1000);
+    return () => clearInterval(intervalo);
+  }, [relojActivo, resultado, enviar]);
+
+  // El borrador: lo respondido se guarda solo, poco después de cada cambio.
+  useEffect(() => {
+    if (!conReloj || !datos || resultado || !cambiada.current) return undefined;
+    const temporizador = setTimeout(() => {
+      capacitacionService
+        .guardarBorrador(material.id, respuestas)
+        .then((r) => {
+          if (r.cerrada) terminar(r.resultado);
+        })
+        .catch(() => {});
+    }, ESPERA_BORRADOR);
+    return () => clearTimeout(temporizador);
+  }, [conReloj, datos, resultado, respuestas, material.id, terminar]);
+
+  function responder(id, valor) {
+    cambiada.current = true;
+    setRespuestas((r) => ({ ...r, [id]: valor }));
+  }
+
+  function cerrar() {
+    // El tiempo sigue: lo último respondido no se pierde.
+    if (conReloj && datos && !resultado && cambiada.current)
+      capacitacionService
+        .guardarBorrador(material.id, ultimas.current)
+        .catch(() => {});
+    onCerrar();
   }
 
   const completas =
-    datos && datos.preguntas.every((p) => respuestas[p.id] !== undefined);
+    datos && datos.preguntas.every((p) => respondida(p, respuestas[p.id]));
 
   return (
-    <Ventana
-      titulo={`Evaluación · ${material.titulo}`}
-      onCerrar={onCerrar}
-      ancha
-    >
+    <Ventana titulo={`Evaluación · ${material.titulo}`} onCerrar={cerrar} ancha>
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}
         </div>
       )}
+      {!comenzada && (
+        <div className="mz-stack">
+          <div className="mz-alert mz-alert--warn" role="status">
+            <Icon name="stopwatch" />
+            <span>
+              Esta evaluación tiene{" "}
+              <strong>{material.tiempo_limite} minutos</strong>. El tiempo
+              empieza al pulsar «Comenzar» y no se detiene aunque cierre esta
+              ventana. Sus respuestas se guardan solas; si el tiempo se acaba,
+              se califica lo que haya respondido.
+            </span>
+          </div>
+          <div className="mz-actions justify-content-end">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onCerrar}
+            >
+              Ahora no
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setComenzada(true)}
+            >
+              <Icon name="play-fill" /> Comenzar
+            </button>
+          </div>
+        </div>
+      )}
       {resultado && (
         <div className="mz-stack">
+          {resultado.por_tiempo && (
+            <div className="mz-alert mz-alert--warn" role="alert">
+              <Icon name="stopwatch" />
+              Se acabó el tiempo. Guardamos automáticamente todo lo que había
+              respondido y con eso se calificó.
+            </div>
+          )}
           <div
             className={`mz-alert ${resultado.aprobado ? "mz-alert--ok" : "mz-alert--warn"}`}
             role="status"
@@ -192,10 +447,14 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
               name={resultado.aprobado ? "trophy" : "exclamation-triangle"}
             />
             <span>
-              Su puntaje: <strong>{resultado.puntaje} / 100</strong>.{" "}
+              Su nota:{" "}
+              <strong>
+                {Number(resultado.nota).toLocaleString("es-EC")} / 10
+              </strong>{" "}
+              ({resultado.puntaje} %).{" "}
               {resultado.aprobado
                 ? "¡Aprobó!"
-                : `Necesita ${resultado.nota_minima} para aprobar. Le quedan ${resultado.intentos_restantes} intentos.`}
+                : `Necesita el ${resultado.nota_minima} % para aprobar. Le quedan ${resultado.intentos_restantes} intentos.`}
             </span>
           </div>
           {resultado.a_reforzar.length > 0 && (
@@ -223,39 +482,47 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
         </div>
       )}
       {datos && !resultado && (
-        <form className="mz-stack" onSubmit={enviar}>
+        <form
+          className="mz-stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            enviar(false);
+          }}
+        >
+          {restantes !== null && (
+            <div
+              className={`onboarding-reloj${restantes <= 60 ? " onboarding-reloj--poco" : ""}`}
+              role="timer"
+              aria-label="Tiempo restante"
+            >
+              <Icon name="stopwatch" /> Tiempo restante:{" "}
+              <strong>{formatoReloj(restantes)}</strong>
+              {restantes <= 60 && restantes > 0 && (
+                <span> · se enviará solo al llegar a cero</span>
+              )}
+            </div>
+          )}
           <p className="mz-faint mz-small mb-0">
-            Nota mínima: {datos.material.nota_minima} / 100 · Intentos
-            restantes: {datos.intentos_restantes}
+            La nota es sobre 10 · Aprueba con el {datos.material.nota_minima} %
+            · Intentos restantes: {datos.intentos_restantes}
+            {conReloj && " · Sus respuestas se guardan solas"}
           </p>
           {datos.preguntas.map((p, i) => (
-            <fieldset key={p.id} className="onboarding-pregunta">
-              <legend>
-                {i + 1}. {p.texto}
-              </legend>
-              {p.opciones.map((o) => (
-                <label key={o.id} className="form-check">
-                  <input
-                    type="radio"
-                    className="form-check-input"
-                    name={`pregunta-${p.id}`}
-                    checked={respuestas[p.id] === o.id}
-                    onChange={() =>
-                      setRespuestas((r) => ({ ...r, [p.id]: o.id }))
-                    }
-                  />{" "}
-                  <span className="form-check-label">{o.texto}</span>
-                </label>
-              ))}
-            </fieldset>
+            <Pregunta
+              key={p.id}
+              p={p}
+              i={i}
+              respuesta={respuestas[p.id]}
+              onResponder={(valor) => responder(p.id, valor)}
+            />
           ))}
           <div className="mz-actions justify-content-end">
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
-              onClick={onCerrar}
+              onClick={cerrar}
             >
-              Cancelar
+              {conReloj ? "Cerrar (el tiempo sigue)" : "Cancelar"}
             </button>
             <button
               type="submit"
@@ -275,19 +542,19 @@ function EstadoMaterial({ m }) {
   if (m.aprobado)
     return (
       <span className="perfil-cargo-estado perfil-cargo-estado--completo">
-        Aprobado · {m.mejor_puntaje}
+        Aprobado · {m.mejor_puntaje} %
       </span>
     );
   if (m.agotado)
     return (
       <span className="sugerencia-estado sugerencia-estado--alto">
-        Sin intentos · {m.mejor_puntaje}
+        Sin intentos · {m.mejor_puntaje} %
       </span>
     );
   if (m.mejor_puntaje !== null)
     return (
       <span className="perfil-cargo-estado perfil-cargo-estado--parcial">
-        Por aprobar · {m.mejor_puntaje}
+        Por aprobar · {m.mejor_puntaje} %
       </span>
     );
   return (
@@ -457,7 +724,17 @@ export function MiOnboardingPage() {
                         }
                         onClick={() => setEvaluando(m)}
                       >
-                        <Icon name="pencil-square" /> Evaluarme
+                        {m.segundos_restantes != null ? (
+                          <>
+                            <Icon name="stopwatch" /> Continuar (quedan{" "}
+                            {formatoReloj(m.segundos_restantes)})
+                          </>
+                        ) : (
+                          <>
+                            <Icon name="pencil-square" /> Evaluarme
+                            {m.tiempo_limite ? ` · ${m.tiempo_limite} min` : ""}
+                          </>
+                        )}
                       </button>
                     </li>
                   ))}

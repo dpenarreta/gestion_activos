@@ -22,12 +22,20 @@ const servicio = {
   conformidad: vi.fn(),
   historial: vi.fn(),
   rolDelHistorial: vi.fn(),
+  misObservaciones: vi.fn(),
+  habilitados: vi.fn(),
+  habilitar: vi.fn(),
+  areasDescargaMasiva: vi.fn(),
+  descargaMasiva: vi.fn(),
 };
 vi.mock("../src/api/nominaService", () => ({ nominaService: servicio }));
 vi.mock("../src/components/common/VisorPdf/VisorPdf", () => ({
   MarcoPdf: () => <div />,
   useUrlDePdf: () => "blob:rol",
 }));
+
+vi.mock("../src/utils/descargas", () => ({ descargarBlob: vi.fn() }));
+const { descargarBlob } = await import("../src/utils/descargas");
 
 const { RolPagosPage } =
   await import("../src/pages/Institucional/RolPagosPage");
@@ -41,11 +49,15 @@ const ESTADO = {
   disponible: true,
   puede_consultar_otros: false,
   puede_configurar: false,
+  // En la lista de habilitados (22/10/2026).
+  habilitado: true,
+  puede_habilitar: false,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   servicio.estado.mockResolvedValue(ESTADO);
+  servicio.misObservaciones.mockResolvedValue([]);
 });
 
 async function consultar() {
@@ -512,5 +524,151 @@ describe("Consultar rol de pagos", () => {
     expect(
       screen.queryByRole("button", { name: /Historial por empleado/ }),
     ).toBeNull();
+  });
+
+  it("quien no está habilitado no ve la consulta y sabe por qué", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, habilitado: false });
+    render(<RolPagosPage />);
+    expect(
+      await screen.findByText(/no está habilitada para consultar/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Período a consultar" }),
+    ).toBeNull();
+  });
+
+  it("muestra sus propias observaciones, en todos sus estados", async () => {
+    servicio.misObservaciones.mockResolvedValue([
+      {
+        id: 4,
+        anio: 2026,
+        mes: 8,
+        estado: "cerrada",
+        estado_display: "Cerrada",
+        ultima: "Faltan horas.",
+        mensajes: [
+          {
+            id: 1,
+            tipo: "observacion",
+            tipo_display: "Observación",
+            autor: "Rosa",
+            texto: "Faltan horas.",
+            fecha: "2026-09-02T15:00:00Z",
+          },
+        ],
+      },
+    ]);
+    render(<RolPagosPage />);
+    const seccion = await screen.findByRole("region", {
+      name: "Mis observaciones",
+    });
+    expect(within(seccion).getByText("Cerrada")).toBeInTheDocument();
+  });
+
+  it("nómina habilita a una persona con su código", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      habilitado: false,
+      puede_habilitar: true,
+    });
+    servicio.habilitados.mockResolvedValue([
+      {
+        id: 9,
+        nombre: "Rosa Vera",
+        correo: "r@x.com",
+        codigo: "",
+        habilitado: false,
+      },
+    ]);
+    servicio.habilitar.mockResolvedValue({
+      id: 9,
+      nombre: "Rosa Vera",
+      correo: "r@x.com",
+      codigo: "20100001",
+      habilitado: true,
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Usuarios habilitados/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Usuarios habilitados",
+    });
+    fireEvent.change(
+      await within(ventana).findByLabelText("Código de empleado de Rosa Vera"),
+      { target: { value: "20100001" } },
+    );
+    fireEvent.click(within(ventana).getByLabelText("Habilitar a Rosa Vera"));
+    await waitFor(() =>
+      expect(servicio.habilitar).toHaveBeenCalledWith({
+        usuario: 9,
+        habilitado: true,
+        codigo: "20100001",
+      }),
+    );
+  });
+
+  it("sin permiso no aparece la descarga masiva", async () => {
+    render(<RolPagosPage />);
+    await screen.findByLabelText("Código de empleado");
+    expect(
+      screen.queryByRole("button", { name: /Descarga masiva/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Talento Humano descarga los roles de un área en un ZIP", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      puede_descarga_masiva: true,
+    });
+    servicio.areasDescargaMasiva.mockResolvedValue([
+      { id: 3, nombre: "Comercial", nivel: "Área", personas: 3, con_codigo: 2 },
+      { id: 4, nombre: "Bodega", nivel: "Área", personas: 1, con_codigo: 0 },
+    ]);
+    const zip = new Blob(["PK"]);
+    servicio.descargaMasiva.mockResolvedValue({
+      blob: zip,
+      incluidos: 2,
+      omitidos: 1,
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Descarga masiva/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Descarga masiva",
+    });
+    // Un área sin nadie con código no se puede elegir.
+    expect(
+      await within(ventana).findByRole("option", { name: /Bodega/ }),
+    ).toBeDisabled();
+    fireEvent.change(within(ventana).getByLabelText("Área"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Año"), {
+      target: { value: "2025" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Mes"), {
+      target: { value: "9" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
+      target: { value: "clave" },
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: /Descargar/ }));
+    await waitFor(() =>
+      expect(servicio.descargaMasiva).toHaveBeenCalledWith({
+        unidad: 3,
+        anio: 2025,
+        mes: 9,
+        password: "clave",
+      }),
+    );
+    expect(descargarBlob).toHaveBeenCalledWith(
+      zip,
+      "Roles de pago - Comercial - Septiembre 2025.zip",
+    );
+    expect(await within(ventana).findByRole("status")).toHaveTextContent(
+      "2 rol(es) de pagos · 1 sin rol",
+    );
   });
 });

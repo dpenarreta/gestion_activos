@@ -46,6 +46,7 @@ def _estructura():
 PREGUNTAS = [
     {
         "texto": "¿Qué hacer ante un correo sospechoso?",
+        "puntos": "5",
         "opciones": [
             {"texto": "Abrir el adjunto", "correcta": False},
             {"texto": "Reportarlo a TI", "correcta": True},
@@ -53,6 +54,7 @@ PREGUNTAS = [
     },
     {
         "texto": "¿Cada cuánto cambiar la contraseña?",
+        "puntos": "5",
         "opciones": [
             {"texto": "Nunca", "correcta": False},
             {"texto": "Cuando lo pida el sistema", "correcta": True},
@@ -197,7 +199,11 @@ def test_permisos_y_validaciones(db):
     material = _material(gestor, titulo="General", alcance="empresa")
     sin_correcta = gestor.put(
         f"{BASE}materiales/{material['id']}/preguntas/",
-        {"preguntas": [{"texto": "¿?", "opciones": [{"texto": "a"}, {"texto": "b"}]}]},
+        {
+            "preguntas": [
+                {"texto": "¿?", "puntos": "10", "opciones": [{"texto": "a"}, {"texto": "b"}]}
+            ]
+        },
         format="json",
     )
     assert sin_correcta.status_code == 400

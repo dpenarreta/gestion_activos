@@ -209,8 +209,28 @@ def test_el_superusuario_no_tiene_ese_tope(db):
 
     respuesta = cliente.post(
         "/api/v1/admin/roles/",
-        {"name": "Desde la raíz", "permission_codenames": sorted(all_codenames())},
+        {
+            "name": "Desde la raíz",
+            # Todo, menos lo que se da persona por persona (rol de pagos).
+            "permission_codenames": sorted(all_codenames() - {"roles_pago.consultar"}),
+        },
         format="json",
     )
 
     assert respuesta.status_code == 201
+
+
+def test_consultar_el_rol_de_pagos_no_se_da_por_rol(db):
+    """Va persona por persona, desde la lista de habilitados (22/10/2026)."""
+    raiz = User.objects.create_superuser(
+        username="raiz2", email="raiz2@example.com", password="Sup3r-Secr3t!"
+    )
+    cliente = APIClient()
+    cliente.force_authenticate(user=raiz)
+    respuesta = cliente.post(
+        "/api/v1/admin/roles/",
+        {"name": "Con rol de pagos", "permission_codenames": ["roles_pago.consultar"]},
+        format="json",
+    )
+    assert respuesta.status_code == 400
+    assert "persona por persona" in str(respuesta.json())

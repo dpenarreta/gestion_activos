@@ -2051,6 +2051,106 @@
   gap: 8px;
 }
 
+.onboarding-puntos {
+  width: 80px;
+}
+
+.onboarding-hueco {
+  display: inline-block;
+  width: 140px;
+  margin: 2px 4px;
+  vertical-align: baseline;
+}
+
+.onboarding-unir {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.onboarding-unir .contents {
+  display: contents;
+}
+
+/* ---------- Calendario de Inicio: pestañas de eventos y celebraciones ---------- */
+.calendario__pestanas {
+  margin-bottom: 8px;
+}
+
+.calendario__pestanas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendario__cuenta {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mz-border);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---------- Rol de pagos: adjuntos de la respuesta a una observación ---------- */
+.obs-adjuntos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.obs-adjunto--imagen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.obs-adjunto--imagen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.obs-elegidos {
+  margin: 6px 0 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.onboarding-reloj {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+  font-size: 14px;
+}
+
+.onboarding-reloj strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-reloj--poco {
+  border-color: var(--bs-danger, #dc3545);
+  color: var(--bs-danger, #dc3545);
+}
+
 .onboarding-reforzar {
   margin: 4px 0 0;
   padding-left: 18px;

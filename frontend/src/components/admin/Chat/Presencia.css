@@ -1,0 +1,134 @@
+/* En línea o última conexión (22/10/2026). */
+.presencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+  white-space: nowrap;
+}
+
+.presencia__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mz-border-strong);
+  flex: none;
+}
+
+.presencia--en-linea {
+  color: var(--mz-ok, #1a7f37);
+}
+
+.presencia--en-linea .presencia__punto {
+  background: var(--mz-ok, #1a7f37);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--mz-ok, #1a7f37) 25%, transparent);
+}
+
+/* ---------- Estados elegidos (22/10/2026) ---------- */
+.presencia--almuerzo {
+  color: #b26b00;
+}
+.presencia--almuerzo .presencia__punto {
+  background: #e08e0b;
+  box-shadow: none;
+}
+.presencia--reunion,
+.presencia--no_disponible {
+  color: var(--bs-danger, #c0392b);
+}
+.presencia--reunion .presencia__punto,
+.presencia--no_disponible .presencia__punto {
+  background: var(--bs-danger, #c0392b);
+  box-shadow: none;
+}
+.presencia--vacaciones {
+  color: #6f42c1;
+}
+.presencia--vacaciones .presencia__punto {
+  background: #6f42c1;
+  box-shadow: none;
+}
+
+.chat-aviso-estado {
+  margin: 0 10px 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+  font-size: 12.5px;
+}
+.chat-aviso-estado--almuerzo {
+  border-color: #e08e0b;
+}
+.chat-aviso-estado--vacaciones,
+.chat-aviso-estado--vacaciones_proximas {
+  border-color: #6f42c1;
+}
+.chat-aviso-estado--reunion,
+.chat-aviso-estado--no_disponible {
+  border-color: var(--bs-danger, #c0392b);
+}
+
+.mi-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mi-estado__boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--mz-border);
+  border-radius: 999px;
+  background: var(--mz-raised);
+  font-size: 12px;
+  color: inherit;
+}
+.mi-estado__boton--disponible {
+  color: var(--mz-ok, #1a7f37);
+}
+.mi-estado__boton--almuerzo {
+  color: #b26b00;
+}
+.mi-estado__boton--reunion,
+.mi-estado__boton--no_disponible {
+  color: var(--bs-danger, #c0392b);
+}
+.mi-estado__boton--vacaciones {
+  color: #6f42c1;
+}
+.mi-estado__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.mi-estado__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.mi-estado__opcion.is-active {
+  border-color: var(--mz-accent, #0d6efd);
+  background: color-mix(in srgb, var(--mz-accent, #0d6efd) 10%, transparent);
+  font-weight: 600;
+}
+.mi-estado__opcion:focus-within {
+  outline: 2px solid var(--mz-accent, #0d6efd);
+  outline-offset: 2px;
+}
+.chat-pagina__mi-estado {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mz-border);
+}

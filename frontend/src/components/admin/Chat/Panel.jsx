@@ -4,6 +4,7 @@ import { chatService } from "../../../api/chatService";
 import { formatearFecha } from "../../../utils/formato";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
+import { Presencia, textoPresencia, usePresencia } from "./Presencia";
 
 const ICONO = {
   general: "megaphone",
@@ -26,6 +27,10 @@ export function ListaConversaciones({
 }) {
   const { conversaciones: todas, noLeidos } = useChat();
   const conversaciones = soloGrupales ? todas.filter(esGrupal) : todas;
+  // En los directos, si la otra persona está en línea.
+  const presencia = usePresencia(
+    conversaciones.filter((c) => c.tipo === "directa").map((c) => c.otro?.id),
+  );
   if (todas.length === 0) {
     return (
       <p className="mz-small mz-faint p-3 mb-0">Cargando conversaciones…</p>
@@ -46,7 +51,12 @@ export function ListaConversaciones({
               <Icon name={ICONO[c.tipo] ?? "chat"} />
             </span>
             <span className="chat-lista__texto">
-              <strong>{c.nombre}</strong>
+              <strong>
+                {c.nombre}{" "}
+                {c.tipo === "directa" && (
+                  <Presencia estado={presencia[c.otro?.id]} />
+                )}
+              </strong>
               <span className="chat-lista__ultimo">
                 {c.ultimo
                   ? `${c.ultimo.propio ? "Usted" : c.ultimo.autor}: ${c.ultimo.texto}`
@@ -82,6 +92,7 @@ export function Directorio({ onElegida }) {
   const { iniciarDirecta } = useChat();
   const [busqueda, setBusqueda] = useState("");
   const [personas, setPersonas] = useState([]);
+  const presencia = usePresencia(personas.map((p) => p.id));
 
   useEffect(() => {
     const temporizador = setTimeout(() => {
@@ -117,9 +128,13 @@ export function Directorio({ onElegida }) {
                 <Icon name="person" />
               </span>
               <span className="chat-lista__texto">
-                <strong>{p.nombre}</strong>
+                <strong>
+                  {p.nombre} <Presencia estado={presencia[p.id]} />
+                </strong>
                 <span className="chat-lista__ultimo">
-                  {[p.area, p.correo].filter(Boolean).join(" · ")}
+                  {[textoPresencia(presencia[p.id]), p.area]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
             </button>

@@ -496,3 +496,20 @@
   padding: 10px;
   border-bottom: 1px solid var(--mz-border);
 }
+
+/* Confirmación de lectura en los mensajes propios (22/10/2026). */
+.chat-lectura {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  color: var(--mz-ink-faint);
+}
+
+.chat-lectura--leido {
+  color: var(--mz-blue-500, #2f6fed);
+}
+
+.chat-lectura__texto {
+  font-size: 11px;
+}

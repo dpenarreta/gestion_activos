@@ -149,6 +149,48 @@ def arbol() -> dict:
     }
 
 
+def unidad_de(usuario):
+    """La unidad del cargo de la persona en la empresa activa, o None."""
+    perfil = (
+        DatosDeContacto.objects.filter(usuario=usuario, cargo__unidad__isnull=False)
+        .select_related("cargo__unidad")
+        .first()
+    )
+    return perfil.cargo.unidad if perfil else None
+
+
+def arbol_de_area(usuario) -> dict:
+    """El organigrama de su área (21/10/2026): la unidad de su cargo y todas
+    las que dependen de ella, con sus cargos y quién los ocupa. Sin cargo, nada
+    más que el aviso. Se recorta aquí, en el servidor: lo que no es de su área
+    no sale de la base."""
+    unidad = unidad_de(usuario)
+    completo = arbol()
+    if unidad is None:
+        return {
+            "niveles": completo["niveles"],
+            "unidades": [],
+            "cargos": [],
+            "alcance": {"tipo": "area", "unidad": None},
+        }
+    hijas = {}
+    for u in completo["unidades"]:
+        hijas.setdefault(u["padre"], []).append(u["id"])
+    rama, pendientes = set(), [unidad.id]
+    while pendientes:
+        actual = pendientes.pop()
+        if actual in rama:
+            continue
+        rama.add(actual)
+        pendientes.extend(hijas.get(actual, []))
+    return {
+        "niveles": completo["niveles"],
+        "unidades": [u for u in completo["unidades"] if u["id"] in rama],
+        "cargos": [c for c in completo["cargos"] if c["unidad"] in rama],
+        "alcance": {"tipo": "area", "unidad": {"id": unidad.id, "nombre": unidad.nombre}},
+    }
+
+
 def linea_de_supervision(usuario, cargo) -> dict:
     """Su línea de supervisión según el organigrama (para «Mi perfil»):
 

@@ -3,8 +3,13 @@
 - **El plan** de una persona: los materiales activos de la empresa, los de su
   área (la unidad de su cargo en el organigrama) y los de su cargo.
 - **Evaluarse** pide haber abierto el material. Cada intento se califica sobre
-  100; se aprueba con la nota mínima del material; hay un máximo de intentos
-  (Talento Humano puede devolverlos). Las respuestas correctas no se revelan.
+  10 (ver `evaluacion.py`); se aprueba con el porcentaje del material; hay un
+  máximo de intentos (Talento Humano puede devolverlos). Las respuestas
+  correctas no se revelan.
+- **Tiempo límite** (opcional, por material): el reloj corre en el servidor
+  desde que se abre la evaluación y no se detiene al cerrar la ventana. Lo
+  respondido se guarda como borrador; al acabarse el tiempo se califica con lo
+  que haya y se avisa a la persona en la campana.
 - **El onboarding** se asigna al entrar a una empresa (no a las cuentas que ya
   estaban) con una fecha límite, y se completa al aprobar todo el plan.
   Talento Humano puede asignarlo a mano a quien ya tenía cuenta.
@@ -26,10 +31,22 @@ from apps.empresas.models import MembresiaEmpresa
 from apps.notificaciones import services as campana
 from apps.permissions.authorization import user_has_permission
 
-from .models import Intento, Material, Onboarding, Opcion, Pregunta, VistaMaterial
+from . import evaluacion as calificacion
+from .models import (
+    EvaluacionEnCurso,
+    Intento,
+    Material,
+    Onboarding,
+    Opcion,
+    Pregunta,
+    VistaMaterial,
+)
 from .serializers import formatos
 
 ENLACE = "/admin/institucional/onboarding"
+#: Margen para lo que viaja por la red cuando el reloj llega a cero: un envío
+#: que llega después ya no cuenta y se califica el borrador guardado.
+GRACIA = datetime.timedelta(seconds=20)
 
 
 def dias_de_plazo() -> int:
@@ -121,19 +138,32 @@ def _material(m) -> dict:
         "archivo_es_pdf": m.archivo_tipo == "application/pdf",
         "nota_minima": m.nota_minima,
         "intentos_max": m.intentos_max,
+        "tiempo_limite": m.tiempo_limite,
         "preguntas": len(m.preguntas.all()),
     }
 
 
-def progreso(usuario) -> dict:
-    """Su onboarding: el plan con el estado de cada material y el resumen."""
+def progreso(usuario, cerrar: bool = True) -> dict:
+    """Su onboarding: el plan con el estado de cada material y el resumen.
+    Antes califica las evaluaciones cuyo tiempo se acabó (`cerrar`)."""
+    if cerrar:
+        cerrar_vencidas(usuario)
     onboarding = Onboarding.objects.filter(usuario=usuario).first()
     materiales = plan_de(usuario)
     vistos = set(
         VistaMaterial.objects.filter(usuario=usuario).values_list("material_id", flat=True)
     )
     intentos = list(Intento.objects.filter(usuario=usuario, anulado=False))
-    filas = [{**_material(m), **estado_material(usuario, m, vistos, intentos)} for m in materiales]
+    ahora = timezone.now()
+    en_curso = {e.material_id: e for e in EvaluacionEnCurso.objects.filter(usuario=usuario)}
+    filas = [
+        {
+            **_material(m),
+            **estado_material(usuario, m, vistos, intentos),
+            "segundos_restantes": (_restantes(en_curso[m.pk], ahora) if m.pk in en_curso else None),
+        }
+        for m in materiales
+    ]
     aprobados = sum(1 for f in filas if f["aprobado"])
     puntajes = [f["mejor_puntaje"] for f in filas if f["mejor_puntaje"] is not None]
     hoy = timezone.localdate()
@@ -164,8 +194,12 @@ def marcar_visto(usuario, material_id) -> Material:
     return material
 
 
-def evaluacion(usuario, material_id) -> dict:
-    """Las preguntas para responder (sin decir cuál es la correcta)."""
+def _restantes(en_curso, ahora=None) -> int:
+    return max(0, int((en_curso.vence - (ahora or timezone.now())).total_seconds()))
+
+
+def _evaluable(usuario, material_id):
+    """El material y su estado, si puede evaluarse ahora."""
     material = _del_plan(usuario, material_id)
     estado = estado_material(usuario, material)
     if not estado["visto"]:
@@ -176,57 +210,138 @@ def evaluacion(usuario, material_id) -> dict:
         raise ValidationError(
             {"detail": "Usó todos sus intentos. Pida a Talento Humano que se los devuelva."}
         )
-    preguntas = material.preguntas.prefetch_related("opciones")
-    if not preguntas.exists():
+    if not material.preguntas.exists():
         raise ValidationError({"detail": "Este material todavía no tiene evaluación."})
+    return material, estado
+
+
+def evaluacion(usuario, material_id) -> dict:
+    """Las preguntas para responder (sin decir cuál es la correcta). Si el
+    material tiene tiempo límite, abrirla pone a correr el reloj; volver a
+    abrirla lo retoma donde iba, con el borrador."""
+    cerrar_vencidas(usuario)
+    material, estado = _evaluable(usuario, material_id)
+    en_curso = None
+    if material.tiempo_limite:
+        en_curso, _ = EvaluacionEnCurso.objects.get_or_create(
+            usuario=usuario,
+            material=material,
+            defaults={"vence": timezone.now() + datetime.timedelta(minutes=material.tiempo_limite)},
+        )
+    preguntas = material.preguntas.prefetch_related("opciones")
     return {
         "material": {
             "id": material.id,
             "titulo": material.titulo,
             "nota_minima": material.nota_minima,
+            "tiempo_limite": material.tiempo_limite,
         },
         "intentos_restantes": estado["intentos_restantes"],
-        "preguntas": [
-            {
-                "id": p.id,
-                "texto": p.texto,
-                "opciones": [{"id": o.id, "texto": o.texto} for o in p.opciones.all()],
-            }
-            for p in preguntas
-        ],
+        "segundos_restantes": _restantes(en_curso) if en_curso else None,
+        "borrador": en_curso.respuestas if en_curso else {},
+        "preguntas": [calificacion.presentar(p) for p in preguntas],
     }
 
 
+def guardar_borrador(usuario, material_id, respuestas: dict) -> dict:
+    """Lo respondido hasta ahora, para no perderlo si se acaba el tiempo o
+    se cierra la ventana."""
+    en_curso = EvaluacionEnCurso.objects.filter(usuario=usuario, material_id=material_id).first()
+    if en_curso is None:
+        raise ValidationError({"detail": "No tiene esta evaluación abierta."})
+    if timezone.now() > en_curso.vence + GRACIA:
+        return {"cerrada": True, "resultado": _cerrar(en_curso)}
+    en_curso.respuestas = respuestas
+    en_curso.save(update_fields=["respuestas", "updated_at"])
+    return {"cerrada": False, "segundos_restantes": _restantes(en_curso)}
+
+
+def _cerrar(en_curso) -> dict:
+    """Califica con el borrador una evaluación cuyo tiempo se acabó, y avisa."""
+    usuario, material, respuestas = en_curso.usuario, en_curso.material, en_curso.respuestas
+    with transaction.atomic():
+        en_curso.delete()
+        return _calificar(usuario, material, respuestas, por_tiempo=True)
+
+
+def cerrar_vencidas(usuario) -> int:
+    """Las evaluaciones de la persona cuyo tiempo se acabó sin que se
+    enviaran (cerró la ventana, perdió la conexión): se califican con lo que
+    alcanzó a guardar."""
+    limite = timezone.now() - GRACIA
+    vencidas = list(
+        EvaluacionEnCurso.objects.filter(usuario=usuario, vence__lt=limite).select_related(
+            "material", "usuario"
+        )
+    )
+    for en_curso in vencidas:
+        _cerrar(en_curso)
+    return len(vencidas)
+
+
 @transaction.atomic
-def responder(usuario, material_id, respuestas: dict) -> dict:
-    """Califica un intento (`{pregunta_id: opcion_id}`) sobre 100."""
-    evaluacion(usuario, material_id)  # mismas condiciones para responder
-    material = Material.objects.get(pk=material_id)
+def responder(usuario, material_id, respuestas: dict, tiempo_agotado: bool = False) -> dict:
+    """Califica un intento: cada pregunta según su tipo y sus puntos, sobre
+    10; aprueba si el porcentaje llega al del material (ver `evaluacion.py`).
+    `respuestas`: `{pregunta_id: respuesta}` (una opción, una lista de
+    opciones, una lista de palabras o un `{concepto_id: respuesta}`).
+
+    Con tiempo límite: lo que llega pasado el plazo (más la gracia) no cuenta
+    y se califica el borrador guardado."""
+    en_curso = (
+        EvaluacionEnCurso.objects.select_for_update()
+        .filter(usuario=usuario, material_id=material_id)
+        .first()
+    )
+    if en_curso is not None and timezone.now() > en_curso.vence + GRACIA:
+        return _cerrar(en_curso)
+    material, _ = _evaluable(usuario, material_id)
+    por_tiempo = bool(tiempo_agotado and en_curso is not None)
+    resultado = _calificar(usuario, material, respuestas, por_tiempo=por_tiempo)
+    if en_curso is not None:
+        en_curso.delete()
+    return resultado
+
+
+def _calificar(usuario, material, respuestas: dict, por_tiempo: bool = False) -> dict:
     preguntas = list(material.preguntas.prefetch_related("opciones"))
-    falladas = []
-    for p in preguntas:
-        elegida = respuestas.get(str(p.id)) or respuestas.get(p.id)
-        correctas = {o.id for o in p.opciones.all() if o.correcta}
-        if not elegida or int(elegida) not in correctas:
-            falladas.append(p)
-    puntaje = round(100 * (len(preguntas) - len(falladas)) / len(preguntas))
+    resultado = calificacion.calificar(preguntas, respuestas)
+    falladas = resultado["falladas"]
+    puntaje = resultado["porcentaje"]
     aprobado = puntaje >= material.nota_minima
     Intento.objects.create(
         usuario=usuario,
         material=material,
         puntaje=puntaje,
+        nota=resultado["nota"],
         aprobado=aprobado,
         falladas=",".join(str(p.id) for p in falladas),
+        por_tiempo=por_tiempo,
     )
     _revisar_si_completo(usuario)
     estado = estado_material(usuario, material)
+    if por_tiempo:
+        nota = f"{resultado['nota']:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+        campana.notificar(
+            [usuario],
+            tipo="capacitacion.tiempo_agotado",
+            titulo=f"Se acabó el tiempo de «{material.titulo}»: guardamos sus respuestas",
+            resumen=(
+                f"Nota {nota}/10 ({puntaje} %) · "
+                + ("Aprobó." if aprobado else f"Necesita el {material.nota_minima} % para aprobar.")
+            ),
+            enlace=ENLACE,
+            empresa=material.empresa,
+        )
     return {
         "puntaje": puntaje,
+        "nota": str(resultado["nota"]),
+        "por_tiempo": por_tiempo,
         "aprobado": aprobado,
         "nota_minima": material.nota_minima,
         "intentos_restantes": estado["intentos_restantes"],
         # Oportunidades de mejora: qué falló (no cuál era la correcta).
-        "a_reforzar": [p.texto for p in falladas],
+        "a_reforzar": [calificacion.texto_visible(p) for p in falladas],
     }
 
 
@@ -234,7 +349,7 @@ def _revisar_si_completo(usuario):
     onboarding = Onboarding.objects.filter(usuario=usuario, completado_en__isnull=True).first()
     if onboarding is None:
         return
-    resumen = progreso(usuario)
+    resumen = progreso(usuario, cerrar=False)
     if resumen["total"] and resumen["aprobados"] == resumen["total"]:
         onboarding.completado_en = timezone.now()
         onboarding.save(update_fields=["completado_en", "updated_at"])
@@ -277,42 +392,35 @@ def asignar_al_entrar(sender, instance, created, **kwargs):
 
 @transaction.atomic
 def guardar_preguntas(material, preguntas: list[dict]):
-    """Reemplaza la evaluación: cada pregunta con sus opciones y al menos una
-    correcta."""
-    for i, p in enumerate(preguntas, start=1):
-        opciones = [o for o in p.get("opciones", []) if (o.get("texto") or "").strip()]
-        if not (p.get("texto") or "").strip():
-            raise ValidationError({"preguntas": f"La pregunta {i} no tiene texto."})
-        if len(opciones) < 2:
-            raise ValidationError({"preguntas": f"La pregunta {i} necesita al menos dos opciones."})
-        if not any(o.get("correcta") for o in opciones):
-            raise ValidationError(
-                {"preguntas": f"Marque la respuesta correcta de la pregunta {i}."}
-            )
+    """Reemplaza la evaluación. Cada pregunta según su tipo y con sus puntos;
+    entre todas suman 10 (ver `evaluacion.validar`)."""
+    limpias = calificacion.validar(preguntas)
     material.preguntas.all().delete()
-    for i, p in enumerate(preguntas, start=1):
+    for i, p in enumerate(limpias, start=1):
         pregunta = Pregunta.objects.create(
-            material=material, texto=p["texto"].strip()[:500], orden=i
+            material=material, tipo=p["tipo"], texto=p["texto"], puntos=p["puntos"], orden=i
         )
-        for j, o in enumerate(
-            [o for o in p["opciones"] if (o.get("texto") or "").strip()], start=1
-        ):
+        for j, o in enumerate(p["opciones"], start=1):
             Opcion.objects.create(
                 pregunta=pregunta,
-                texto=o["texto"].strip()[:300],
-                correcta=bool(o.get("correcta")),
+                texto=o["texto"][:300],
+                correcta=o["correcta"],
+                pareja=o["pareja"][:300],
                 orden=j,
             )
 
 
 def preguntas_completas(material) -> list[dict]:
-    """La evaluación con las correctas, para editarla."""
+    """La evaluación con las respuestas correctas, para editarla."""
     return [
         {
             "id": p.id,
+            "tipo": p.tipo,
             "texto": p.texto,
+            "puntos": str(p.puntos),
             "opciones": [
-                {"id": o.id, "texto": o.texto, "correcta": o.correcta} for o in p.opciones.all()
+                {"id": o.id, "texto": o.texto, "correcta": o.correcta, "pareja": o.pareja}
+                for o in p.opciones.all()
             ],
         }
         for p in material.preguntas.prefetch_related("opciones")
@@ -373,7 +481,7 @@ def estadisticas() -> list[dict]:
         for i in intentos:
             for pid in filter(None, i.falladas.split(",")):
                 conteo[int(pid)] = conteo.get(int(pid), 0) + 1
-        textos = {p.id: p.texto for p in material.preguntas.all()}
+        textos = {p.id: calificacion.texto_visible(p) for p in material.preguntas.all()}
         filas.append(
             {
                 "id": material.id,

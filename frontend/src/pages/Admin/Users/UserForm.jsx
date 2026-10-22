@@ -25,6 +25,7 @@ const EMPTY_RESET_OPTIONS = {
 };
 
 export function UserForm() {
+  const puedeEditarCodigo = usePermission("roles_pago.habilitar");
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
@@ -208,6 +209,8 @@ export function UserForm() {
                   inputMode="numeric"
                   value={form.codigo_empleado}
                   onChange={handleChange}
+                  // Lo cambia solo nómina (`roles_pago.habilitar`, 22/10/2026).
+                  disabled={!puedeEditarCodigo}
                   aria-describedby="codigo-empleado-ayuda"
                 />
                 <div className="form-text" id="codigo-empleado-ayuda">

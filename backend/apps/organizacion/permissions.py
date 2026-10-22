@@ -40,7 +40,7 @@ class VerOrganigramaPermission(BasePermission):
     def has_permission(self, request, view) -> bool:
         return any(
             user_has_permission(request.user, f"institucional.{p}")
-            for p in ("ver", "editar", "asignar", "perfil_cargo")
+            for p in ("ver", "ver_area", "editar", "asignar", "perfil_cargo")
         )
 
 

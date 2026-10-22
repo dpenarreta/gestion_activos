@@ -19,6 +19,7 @@ const servicio = {
   archivo: vi.fn(),
   evaluacion: vi.fn(),
   responder: vi.fn(),
+  guardarBorrador: vi.fn(),
 };
 vi.mock("../src/api/capacitacionService", () => ({
   capacitacionService: servicio,
@@ -103,6 +104,8 @@ describe("Mi onboarding", () => {
       preguntas: [
         {
           id: 10,
+          tipo: "unica",
+          puntos: "10.00",
           texto: "¿Qué hacer con un correo sospechoso?",
           opciones: [
             { id: 100, texto: "Abrirlo" },
@@ -113,6 +116,7 @@ describe("Mi onboarding", () => {
     });
     servicio.responder.mockResolvedValue({
       puntaje: 0,
+      nota: "0.00",
       aprobado: false,
       nota_minima: 70,
       intentos_restantes: 2,
@@ -132,12 +136,218 @@ describe("Mi onboarding", () => {
     );
     fireEvent.click(enviar);
     await waitFor(() =>
-      expect(servicio.responder).toHaveBeenCalledWith(1, { 10: 100 }),
+      expect(servicio.responder).toHaveBeenCalledWith(1, { 10: 100 }, false),
     );
-    expect(await within(ventana).findByText(/0 \/ 100/)).toBeInTheDocument();
+    expect(await within(ventana).findByText(/0 \/ 10\b/)).toBeInTheDocument();
     expect(
       within(ventana).getByRole("region", { name: "Oportunidades de mejora" }),
     ).toHaveTextContent("¿Qué hacer con un correo sospechoso?");
+  });
+});
+
+describe("Tipos de pregunta", () => {
+  it("opción múltiple, completar espacios y unir arman su respuesta", async () => {
+    servicio.miOnboarding.mockResolvedValue({
+      ...PLAN,
+      materiales: [{ ...MATERIAL, visto: true }],
+      total: 1,
+    });
+    servicio.evaluacion.mockResolvedValue({
+      material: { id: 1, titulo: MATERIAL.titulo, nota_minima: 70 },
+      intentos_restantes: 3,
+      preguntas: [
+        {
+          id: 1,
+          tipo: "multiple",
+          puntos: "3.00",
+          texto: "¿Cuáles son datos sensibles?",
+          opciones: [
+            { id: 11, texto: "Contraseñas" },
+            { id: 12, texto: "Cédulas" },
+            { id: 13, texto: "El menú" },
+          ],
+        },
+        {
+          id: 2,
+          tipo: "completar",
+          puntos: "3.00",
+          texto: "El SRI exige el ____.",
+          segmentos: ["El SRI exige el ", null, "."],
+          huecos: 1,
+        },
+        {
+          id: 3,
+          tipo: "unir",
+          puntos: "4.00",
+          texto: "Una cada sigla",
+          izquierda: [
+            { id: 31, texto: "SRI" },
+            { id: 32, texto: "IESS" },
+          ],
+          derecha: ["Seguridad Social", "Rentas Internas"],
+        },
+      ],
+    });
+    servicio.responder.mockResolvedValue({
+      puntaje: 85,
+      nota: "8.50",
+      aprobado: true,
+      nota_minima: 70,
+      intentos_restantes: 2,
+      a_reforzar: [],
+    });
+    render(<MiOnboardingPage />);
+    fireEvent.click(await screen.findByRole("button", { name: /Evaluarme/ }));
+    const ventana = await screen.findByRole("dialog", {
+      name: `Evaluación · ${MATERIAL.titulo}`,
+    });
+    const enviar = within(ventana).getByRole("button", {
+      name: "Enviar respuestas",
+    });
+    fireEvent.click(
+      await within(ventana).findByRole("checkbox", { name: "Contraseñas" }),
+    );
+    fireEvent.click(within(ventana).getByRole("checkbox", { name: "Cédulas" }));
+    fireEvent.change(
+      within(ventana).getByRole("textbox", {
+        name: "Espacio 1 de la pregunta 2",
+      }),
+      { target: { value: "RUC" } },
+    );
+    fireEvent.change(
+      within(ventana).getByRole("combobox", { name: "Respuesta para «SRI»" }),
+      { target: { value: "Rentas Internas" } },
+    );
+    // Falta una pareja: todavía no se puede enviar.
+    expect(enviar).toBeDisabled();
+    fireEvent.change(
+      within(ventana).getByRole("combobox", { name: "Respuesta para «IESS»" }),
+      { target: { value: "Seguridad Social" } },
+    );
+    fireEvent.click(enviar);
+    await waitFor(() =>
+      expect(servicio.responder).toHaveBeenCalledWith(
+        1,
+        {
+          1: [11, 12],
+          2: ["RUC"],
+          3: { 31: "Rentas Internas", 32: "Seguridad Social" },
+        },
+        false,
+      ),
+    );
+    expect(await within(ventana).findByText(/8,5 \/ 10/)).toBeInTheDocument();
+    expect(within(ventana).getByText(/85 %/)).toBeInTheDocument();
+  });
+
+  it("el editor suma y reparte los 10 puntos", async () => {
+    const { sumaDePuntos, repartirPuntos } =
+      await import("../src/pages/Institucional/CapacitacionGestion");
+    expect(sumaDePuntos([{ puntos: "2.5" }, { puntos: "7.5" }])).toBe(10);
+    const tres = repartirPuntos([{}, {}, {}]).map((p) => p.puntos);
+    expect(tres).toEqual(["3.33", "3.33", "3.34"]);
+    expect(sumaDePuntos(tres.map((puntos) => ({ puntos })))).toBe(10);
+  });
+});
+
+describe("Tiempo límite", () => {
+  const PREGUNTA = {
+    id: 10,
+    tipo: "unica",
+    puntos: "10.00",
+    texto: "¿Qué hacer con un correo sospechoso?",
+    opciones: [
+      { id: 100, texto: "Abrirlo" },
+      { id: 101, texto: "Reportarlo" },
+    ],
+  };
+
+  function conReloj(material) {
+    servicio.miOnboarding.mockResolvedValue({
+      ...PLAN,
+      materiales: [{ ...MATERIAL, visto: true, tiempo_limite: 5, ...material }],
+      total: 1,
+    });
+  }
+
+  it("avisa antes de empezar y el reloj no corre hasta «Comenzar»", async () => {
+    conReloj({ segundos_restantes: null });
+    servicio.evaluacion.mockResolvedValue({
+      material: { id: 1, titulo: MATERIAL.titulo, nota_minima: 70 },
+      intentos_restantes: 3,
+      segundos_restantes: 300,
+      borrador: {},
+      preguntas: [PREGUNTA],
+    });
+    render(<MiOnboardingPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Evaluarme · 5 min/ }),
+    );
+    const ventana = await screen.findByRole("dialog");
+    expect(ventana).toHaveTextContent("5 minutos");
+    expect(servicio.evaluacion).not.toHaveBeenCalled();
+    fireEvent.click(within(ventana).getByRole("button", { name: /Comenzar/ }));
+    expect(
+      await within(ventana).findByRole("timer", { name: "Tiempo restante" }),
+    ).toHaveTextContent("05:00");
+  });
+
+  it("guarda solo lo respondido y al llegar a cero lo envía y avisa", async () => {
+    conReloj({ segundos_restantes: 2 });
+    servicio.evaluacion.mockResolvedValue({
+      material: { id: 1, titulo: MATERIAL.titulo, nota_minima: 70 },
+      intentos_restantes: 3,
+      segundos_restantes: 2,
+      borrador: {},
+      preguntas: [
+        PREGUNTA,
+        {
+          id: 20,
+          tipo: "completar",
+          puntos: "0.00",
+          texto: "El SRI exige el ____.",
+          segmentos: ["El SRI exige el ", null, "."],
+          huecos: 1,
+        },
+      ],
+    });
+    servicio.guardarBorrador.mockResolvedValue({ cerrada: false });
+    servicio.responder.mockResolvedValue({
+      puntaje: 100,
+      nota: "10.00",
+      por_tiempo: true,
+      aprobado: true,
+      nota_minima: 70,
+      intentos_restantes: 0,
+      a_reforzar: [],
+    });
+    render(<MiOnboardingPage />);
+    // Ya la había empezado: entra directo, sin el aviso.
+    fireEvent.click(await screen.findByRole("button", { name: /Continuar/ }));
+    const ventana = await screen.findByRole("dialog");
+    fireEvent.click(
+      await within(ventana).findByRole("radio", { name: "Reportarlo" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarBorrador).toHaveBeenCalledWith(1, { 10: 101 }),
+    );
+    // Sin completar todo: se envía igual al acabarse el tiempo.
+    await waitFor(
+      () =>
+        expect(servicio.responder).toHaveBeenCalledWith(1, { 10: 101 }, true),
+      { timeout: 4000 },
+    );
+    expect(
+      await within(ventana).findByText(/Se acabó el tiempo/),
+    ).toBeInTheDocument();
+  });
+
+  it("formatea el reloj", async () => {
+    const { formatoReloj } =
+      await import("../src/pages/Institucional/MiOnboardingPage");
+    expect(formatoReloj(65)).toBe("01:05");
+    expect(formatoReloj(3725)).toBe("1:02:05");
+    expect(formatoReloj(-3)).toBe("00:00");
   });
 });
 

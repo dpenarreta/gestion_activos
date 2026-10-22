@@ -6,6 +6,13 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
+import {
+  ACEPTA_ADJUNTOS,
+  AdjuntosObservacion,
+  MAXIMO_ADJUNTOS,
+  pesoLegible,
+  TAMANO_MAXIMO,
+} from "./AdjuntosObservacion";
 import "./Institucional.css";
 
 const MESES = [
@@ -50,6 +57,7 @@ function Detalle({ id, onCambio, onCerrar }) {
   });
   const [datos, setDatos] = useState(null);
   const [nota, setNota] = useState("");
+  const [archivos, setArchivos] = useState([]);
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -66,14 +74,31 @@ function Detalle({ id, onCambio, onCerrar }) {
     setGuardando(true);
     setError(null);
     try {
-      setDatos(await nominaService.corregirObservacion(id, nota));
+      setDatos(await nominaService.corregirObservacion(id, nota, archivos));
       setNota("");
+      setArchivos([]);
       onCambio();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar."));
     } finally {
       setGuardando(false);
     }
+  }
+
+  function agregar(evento) {
+    const elegidos = Array.from(evento.target.files ?? []);
+    evento.target.value = "";
+    const grandes = elegidos.filter((a) => a.size > TAMANO_MAXIMO);
+    const validos = elegidos.filter((a) => a.size <= TAMANO_MAXIMO);
+    const juntos = [...archivos, ...validos];
+    setError(
+      grandes.length
+        ? `${grandes.map((a) => `«${a.name}»`).join(", ")} pesa más de 10 MB.`
+        : juntos.length > MAXIMO_ADJUNTOS
+          ? `Adjunte hasta ${MAXIMO_ADJUNTOS} archivos.`
+          : null,
+    );
+    setArchivos(juntos.slice(0, MAXIMO_ADJUNTOS));
   }
 
   const titulo = datos
@@ -126,6 +151,7 @@ function Detalle({ id, onCambio, onCerrar }) {
                       · {m.autor} · {formatearFecha(m.fecha, true)}
                     </small>
                     {m.texto && <p className="mb-0">{m.texto}</p>}
+                    <AdjuntosObservacion adjuntos={m.adjuntos} />
                   </li>
                 ))}
               </ol>
@@ -145,6 +171,48 @@ function Detalle({ id, onCambio, onCerrar }) {
                     value={nota}
                     onChange={(e) => setNota(e.target.value)}
                   />
+                  <div>
+                    <label className="btn btn-outline-secondary btn-sm mb-0">
+                      <Icon name="paperclip" /> Adjuntar imágenes o archivos
+                      <input
+                        type="file"
+                        className="d-none"
+                        aria-label="Adjuntar imágenes o archivos"
+                        multiple
+                        accept={ACEPTA_ADJUNTOS}
+                        disabled={archivos.length >= MAXIMO_ADJUNTOS}
+                        onChange={agregar}
+                      />
+                    </label>
+                    <small className="mz-faint ms-2">
+                      Hasta {MAXIMO_ADJUNTOS}: imágenes, PDF, Word o Excel de
+                      hasta 10 MB. Quedan en el historial.
+                    </small>
+                    {archivos.length > 0 && (
+                      <ul className="obs-elegidos" aria-label="Por adjuntar">
+                        {archivos.map((a, i) => (
+                          <li key={`${a.name}-${i}`}>
+                            <Icon name="paperclip" /> {a.name}{" "}
+                            <small className="mz-faint">
+                              ({pesoLegible(a.size)})
+                            </small>
+                            <button
+                              type="button"
+                              className="btn btn-link btn-sm text-danger px-1"
+                              aria-label={`Quitar ${a.name}`}
+                              onClick={() =>
+                                setArchivos((lista) =>
+                                  lista.filter((_, j) => j !== i),
+                                )
+                              }
+                            >
+                              <Icon name="x-lg" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   <div className="mz-actions justify-content-end">
                     <button
                       type="button"

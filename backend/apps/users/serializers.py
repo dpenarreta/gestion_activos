@@ -81,6 +81,24 @@ class UserAdminListSerializer(serializers.ModelSerializer):
     empresas = MembresiaSerializer(source="membresias", many=True, read_only=True)
     created_by = _UserRefSerializer(read_only=True)
     updated_by = _UserRefSerializer(read_only=True)
+    #: Si está en línea y cuándo se conectó por última vez (22/10/2026, ver
+    #: `apps.chat.presencia`). La vista calcula la página entera de una vez.
+    en_linea = serializers.SerializerMethodField()
+    ultima_conexion = serializers.SerializerMethodField()
+
+    def _presencia(self, obj):
+        mapa = self.context.get("presencia")
+        if mapa is None:
+            from apps.chat import presencia
+
+            mapa = presencia.de([obj.pk])
+        return mapa.get(obj.pk, {})
+
+    def get_en_linea(self, obj) -> bool:
+        return bool(self._presencia(obj).get("en_linea"))
+
+    def get_ultima_conexion(self, obj):
+        return self._presencia(obj).get("ultima_conexion")
 
     class Meta:
         model = User
@@ -98,6 +116,8 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "last_login",
+            "en_linea",
+            "ultima_conexion",
             "roles",
             "empresas",
             "created_by",

@@ -20,6 +20,65 @@ export const TIPOS_EN_CALENDARIO = {
   aniversario: { nombre: "Aniversario", icono: "award-fill" },
 };
 
+/** Las pestañas del calendario (22/10/2026): los eventos importantes y los
+ * feriados por un lado, y las celebraciones de las personas (cumpleaños y
+ * aniversarios) por otro, para que estas no tapen a aquellos. */
+export const GRUPOS_DE_EVENTO = {
+  importantes: {
+    nombre: "Eventos y feriados",
+    icono: "calendar-event",
+    tipos: ["evento", "feriado"],
+  },
+  celebraciones: {
+    nombre: "Celebraciones",
+    icono: "balloon-heart",
+    tipos: ["cumpleanos", "aniversario"],
+  },
+};
+
+/** Si un evento va en la pestaña elegida («todo», en el mes, va todo). */
+function enGrupo(evento, grupo) {
+  const tipos = GRUPOS_DE_EVENTO[grupo]?.tipos;
+  return !tipos || tipos.includes(evento.tipo);
+}
+
+/** Las pestañas, cada una con cuántas fechas tiene en lo que se muestra. */
+function PestanasDeEventos({ grupo, onCambio, cuentas, conTodo = false }) {
+  const opciones = Object.entries(GRUPOS_DE_EVENTO);
+  if (conTodo) opciones.push(["todo", { nombre: "Todo", icono: "grid" }]);
+  return (
+    <div
+      className="mz-tabs calendario__pestanas"
+      role="tablist"
+      aria-label="Qué fechas ver"
+    >
+      {opciones.map(([id, g]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={grupo === id}
+          className={grupo === id ? "is-active" : undefined}
+          onClick={() => onCambio(id)}
+        >
+          <Icon name={g.icono} /> {g.nombre}
+          {cuentas?.[id] > 0 && (
+            <span className="calendario__cuenta">{cuentas[id]}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Cuántas fechas de cada pestaña hay en una lista de eventos. */
+function contar(eventos) {
+  const cuentas = { todo: eventos.length };
+  for (const id of Object.keys(GRUPOS_DE_EVENTO))
+    cuentas[id] = eventos.filter((e) => enGrupo(e, id)).length;
+  return cuentas;
+}
+
 /** AAAA-MM-DD de una fecha local (sin pasar por UTC, que correría el día). */
 export function iso(fecha) {
   const m = String(fecha.getMonth() + 1).padStart(2, "0");
@@ -88,8 +147,12 @@ function porDia(apariciones) {
  * flechas (u «Hoy» para volver); al pasar sobre un día se ve qué tiene, y al
  * tocarlo se listan sus fechas con su detalle.
  */
-export function CalendarioMes({ hoy = new Date() }) {
+export function CalendarioMes({
+  hoy = new Date(),
+  grupoInicial = "importantes",
+}) {
   const hoyIso = iso(hoy);
+  const [grupo, setGrupo] = useState(grupoInicial);
   const [mes, setMes] = useState(
     () => new Date(hoy.getFullYear(), hoy.getMonth(), 1),
   );
@@ -115,8 +178,23 @@ export function CalendarioMes({ hoy = new Date() }) {
     };
   }, [dias]);
 
-  const mapa = useMemo(() => porDia(apariciones), [apariciones]);
+  const delMes = useMemo(
+    () =>
+      apariciones.filter(
+        (a) =>
+          (a.fecha_fin || a.fecha) >= iso(dias[0]) && a.fecha <= iso(dias[41]),
+      ),
+    [apariciones, dias],
+  );
+  const visibles = useMemo(
+    () => delMes.filter((a) => enGrupo(a, grupo)),
+    [delMes, grupo],
+  );
+  const mapa = useMemo(() => porDia(visibles), [visibles]);
   const delDia = mapa[elegido] ?? [];
+  const leyenda = Object.entries(TIPOS_EN_CALENDARIO).filter(([id]) =>
+    enGrupo({ tipo: id }, grupo),
+  );
   const titulo = mes.toLocaleDateString("es-EC", {
     month: "long",
     year: "numeric",
@@ -159,6 +237,13 @@ export function CalendarioMes({ hoy = new Date() }) {
           Hoy
         </button>
       </div>
+
+      <PestanasDeEventos
+        grupo={grupo}
+        onCambio={setGrupo}
+        cuentas={contar(delMes)}
+        conTodo
+      />
 
       <div className="calendario__grilla" role="grid" aria-label={titulo}>
         <div className="calendario__fila" role="row">
@@ -228,7 +313,7 @@ export function CalendarioMes({ hoy = new Date() }) {
       </div>
 
       <div className="calendario__leyenda" aria-hidden="true">
-        {Object.entries(TIPOS_EN_CALENDARIO).map(([id, t]) => (
+        {leyenda.map(([id, t]) => (
           <span key={id}>
             <span className={`calendario__marca calendario__marca--${id}`} />{" "}
             {t.nombre}
@@ -245,7 +330,11 @@ export function CalendarioMes({ hoy = new Date() }) {
           })}
         </strong>
         {delDia.length === 0 ? (
-          <p className="mz-faint mb-0">Sin eventos este día.</p>
+          <p className="mz-faint mb-0">
+            {grupo === "celebraciones"
+              ? "Sin celebraciones este día."
+              : "Sin eventos este día."}
+          </p>
         ) : (
           <ul className="calendario__eventos">
             {delDia.map((e) => (
@@ -272,7 +361,7 @@ export function CalendarioMes({ hoy = new Date() }) {
 }
 
 /** Las fechas de un día, en texto, para el resumen. */
-function ListaDelDia({ etiqueta, fecha, eventos }) {
+function ListaDelDia({ etiqueta, fecha, eventos, vacio = "Sin eventos." }) {
   const nombre = new Date(`${fecha}T00:00:00`).toLocaleDateString("es-EC", {
     weekday: "long",
     day: "numeric",
@@ -284,7 +373,7 @@ function ListaDelDia({ etiqueta, fecha, eventos }) {
         {etiqueta} <span className="mz-faint">· {nombre}</span>
       </strong>
       {eventos.length === 0 ? (
-        <p className="mz-faint mb-0">Sin eventos.</p>
+        <p className="mz-faint mb-0">{vacio}</p>
       ) : (
         <ul className="calendario__eventos">
           {eventos.map((e) => (
@@ -309,7 +398,7 @@ function ListaDelDia({ etiqueta, fecha, eventos }) {
 }
 
 /** El calendario del mes en una ventana grande. */
-function VentanaCalendario({ hoy, onCerrar }) {
+function VentanaCalendario({ hoy, grupo, onCerrar }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -342,7 +431,7 @@ function VentanaCalendario({ hoy, onCerrar }) {
           </button>
         </div>
         <div className="mz-panel-body">
-          <CalendarioMes hoy={hoy} />
+          <CalendarioMes hoy={hoy} grupoInicial={grupo} />
         </div>
       </div>
     </div>
@@ -350,9 +439,10 @@ function VentanaCalendario({ hoy, onCerrar }) {
 }
 
 /**
- * El calendario de Inicio, recogido: en texto, lo de hoy y lo de mañana. El
- * botón «Ver calendario» lo amplía al mes completo, con los días marcados y
- * el detalle de cada fecha.
+ * El calendario de Inicio, recogido: en texto, lo de hoy y lo de mañana, en
+ * dos pestañas —eventos y feriados, y celebraciones de las personas— para que
+ * los cumpleaños no saturen lo importante. El botón «Ver calendario» lo
+ * amplía al mes completo, en la misma pestaña.
  */
 export function CalendarioInicio({ hoy = new Date() }) {
   const hoyIso = iso(hoy);
@@ -361,6 +451,7 @@ export function CalendarioInicio({ hoy = new Date() }) {
   );
   const [apariciones, setApariciones] = useState([]);
   const [ampliado, setAmpliado] = useState(false);
+  const [grupo, setGrupo] = useState("importantes");
 
   useEffect(() => {
     let vigente = true;
@@ -375,22 +466,33 @@ export function CalendarioInicio({ hoy = new Date() }) {
   }, [hoyIso, mananaIso]);
 
   const mapa = useMemo(() => porDia(apariciones), [apariciones]);
+  const deHoy = mapa[hoyIso] ?? [];
+  const deManana = mapa[mananaIso] ?? [];
+  // Cada fecha una vez, aunque caiga hoy y mañana (las de varios días).
+  const cuentas = contar([
+    ...new Map([...deHoy, ...deManana].map((e) => [e.id, e])).values(),
+  ]);
+  const vacio =
+    grupo === "celebraciones" ? "Sin celebraciones." : "Sin eventos.";
 
   return (
     <section
       className="calendario calendario-resumen"
       aria-label="Próximos eventos"
     >
-      <div className="calendario-resumen__lista">
+      <PestanasDeEventos grupo={grupo} onCambio={setGrupo} cuentas={cuentas} />
+      <div className="calendario-resumen__lista" role="tabpanel">
         <ListaDelDia
           etiqueta="Hoy"
           fecha={hoyIso}
-          eventos={mapa[hoyIso] ?? []}
+          eventos={deHoy.filter((e) => enGrupo(e, grupo))}
+          vacio={vacio}
         />
         <ListaDelDia
           etiqueta="Mañana"
           fecha={mananaIso}
-          eventos={mapa[mananaIso] ?? []}
+          eventos={deManana.filter((e) => enGrupo(e, grupo))}
+          vacio={vacio}
         />
       </div>
       <button
@@ -401,7 +503,11 @@ export function CalendarioInicio({ hoy = new Date() }) {
         <Icon name="arrows-fullscreen" /> Ver calendario
       </button>
       {ampliado && (
-        <VentanaCalendario hoy={hoy} onCerrar={() => setAmpliado(false)} />
+        <VentanaCalendario
+          hoy={hoy}
+          grupo={grupo}
+          onCerrar={() => setAmpliado(false)}
+        />
       )}
     </section>
   );

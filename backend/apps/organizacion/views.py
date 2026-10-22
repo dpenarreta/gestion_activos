@@ -469,13 +469,20 @@ MODULO_INSTITUCIONAL = "institucional"
 
 
 class OrganigramaView(APIView):
-    """Todo el organigrama de la empresa activa: niveles, unidades, cargos y
-    quién ocupa cada uno."""
+    """El organigrama de la empresa activa: niveles, unidades, cargos y quién
+    ocupa cada uno. Completo con `institucional.ver` (o quien lo arma o asigna
+    cargos); con solo `institucional.ver_area`, el de su área (21/10/2026)."""
 
     permission_classes = [IsAuthenticated, VerOrganigramaPermission]
 
     def get(self, request):
-        return Response(organigrama.arbol())
+        completo = any(
+            user_has_permission(request.user, f"institucional.{p}")
+            for p in ("ver", "editar", "asignar", "perfil_cargo")
+        )
+        if completo:
+            return Response({**organigrama.arbol(), "alcance": {"tipo": "empresa"}})
+        return Response(organigrama.arbol_de_area(request.user))
 
 
 class _EstructuraViewSet(viewsets.ModelViewSet):

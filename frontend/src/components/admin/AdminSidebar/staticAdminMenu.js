@@ -348,9 +348,11 @@ export const ADMIN_MENU = [
     aplanarSiUno: true,
     permission: [
       "roles_pago.consultar",
-      "roles_pago.consultar_todos",
+      "roles_pago.habilitar",
       "roles_pago.historial",
+      "roles_pago.configurar",
       "roles_pago.observaciones",
+      "roles_pago.descarga_masiva",
     ],
     children: [
       {
@@ -363,10 +365,14 @@ export const ADMIN_MENU = [
         // Solo esta dirección: las observaciones cuelgan de ella y no deben
         // marcarla.
         exacto: true,
+        // Quien está habilitado consulta el suyo; nómina entra a sus
+        // herramientas (historial, textos, habilitados) desde la misma pantalla.
         permission: [
           "roles_pago.consultar",
-          "roles_pago.consultar_todos",
+          "roles_pago.habilitar",
           "roles_pago.historial",
+          "roles_pago.configurar",
+          "roles_pago.descarga_masiva",
         ],
         // Las correcciones de Talento Humano que esperan su confirmación.
         insignia: "rol_por_confirmar",

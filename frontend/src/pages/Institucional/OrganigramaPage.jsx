@@ -402,6 +402,9 @@ export function OrganigramaPage() {
   }, []);
 
   const arbol = useMemo(() => (datos ? armarArbol(datos) : []), [datos]);
+  // El servidor dice qué se ve: toda la empresa o solo el área de su cargo.
+  const alcance = datos?.alcance ?? { tipo: "empresa" };
+  const deSuArea = alcance.tipo === "area";
   const totales = useMemo(
     () =>
       arbol.map(totalesDe).reduce(
@@ -440,8 +443,9 @@ export function OrganigramaPage() {
         <div>
           <h2>Organigrama</h2>
           <p className="mz-desc">
-            La estructura de la empresa: sus unidades, los cargos de cada una, a
-            quién reportan y quién los ocupa.
+            {deSuArea
+              ? `Su área: ${alcance.unidad?.nombre ?? "sin cargo asignado"}, las unidades que dependen de ella, sus cargos, a quién reportan y quién los ocupa.`
+              : "La estructura de la empresa: sus unidades, los cargos de cada una, a quién reportan y quién los ocupa."}
           </p>
         </div>
         {entrada && (
@@ -532,7 +536,11 @@ export function OrganigramaPage() {
         <div className="mz-card">
           <div className="mz-card-body mz-empty">
             <Icon name="diagram-3" />
-            <p>Todavía no hay organigrama.</p>
+            <p>
+              {deSuArea && !alcance.unidad
+                ? "Todavía no tiene un cargo asignado: el organigrama de su área aparece cuando lo elija en «Mi perfil»."
+                : "Todavía no hay organigrama."}
+            </p>
             {puedeEditar && (
               <Link
                 to="/admin/institucional/estructura"

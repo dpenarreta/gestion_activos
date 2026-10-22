@@ -168,9 +168,10 @@ class SolicitudViewSet(viewsets.GenericViewSet):
         vista = request.query_params.get("vista", "mias")
         queryset = self.get_queryset()
         if vista == "por_aprobar":
-            queryset = queryset.filter(
-                pendiente_de=request.user, estado=SolicitudPermiso.Estado.PENDIENTE
-            )
+            queryset = queryset.filter(estado=SolicitudPermiso.Estado.PENDIENTE)
+            # Gestión Humana ve todo lo pendiente; los demás, lo que les toca.
+            if not user_has_permission(request.user, "licencias.ver_por_aprobar"):
+                queryset = queryset.filter(pendiente_de=request.user)
         elif vista == "todas":
             if not user_has_permission(request.user, "licencias.ver_todas"):
                 return Response(
@@ -224,8 +225,12 @@ class SolicitudViewSet(viewsets.GenericViewSet):
     def resumen(self, request):
         return Response(
             {
-                "por_aprobar": SolicitudPermiso.objects.filter(
-                    pendiente_de=request.user, estado=SolicitudPermiso.Estado.PENDIENTE
+                "por_aprobar": (
+                    SolicitudPermiso.objects.filter(estado=SolicitudPermiso.Estado.PENDIENTE)
+                    if user_has_permission(request.user, "licencias.ver_por_aprobar")
+                    else SolicitudPermiso.objects.filter(
+                        pendiente_de=request.user, estado=SolicitudPermiso.Estado.PENDIENTE
+                    )
                 ).count(),
                 # Sin rol asignado no se solicita nada (restricciones.tiene_rol).
                 "puede_solicitar": restricciones.tiene_rol(request.user),

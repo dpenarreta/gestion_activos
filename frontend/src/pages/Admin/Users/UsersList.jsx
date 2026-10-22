@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
+import { Presencia } from "../../../components/admin/Chat/Presencia";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
@@ -202,8 +203,15 @@ export function UsersList() {
                       que falta por cargar, y aquí no falta nada —esa
                       cuenta existe y no ha entrado jamás, que es
                       exactamente lo que hay que ver—. */}
-                  {user.last_login ? (
-                    formatearFecha(user.last_login, true)
+                  {/* En línea ahora; si no, su última conexión (o el último
+                      inicio de sesión de antes de medirla). */}
+                  {user.en_linea ? (
+                    <Presencia estado={user} conTexto />
+                  ) : user.ultima_conexion || user.last_login ? (
+                    formatearFecha(
+                      user.ultima_conexion || user.last_login,
+                      true,
+                    )
                   ) : (
                     <span className="mz-faint">Nunca</span>
                   )}

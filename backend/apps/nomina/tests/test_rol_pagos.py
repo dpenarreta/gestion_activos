@@ -204,8 +204,12 @@ def test_sin_procedimiento_fuera_de_desarrollo_no_se_consulta(db):
 
 def test_el_codigo_lo_asigna_la_administracion_y_es_unico(db):
     rosa, cliente_rosa = _cuenta("rosa")
-    _, admin = _cuenta("ines", "usuarios.editar", "usuarios.ver")
+    # Sin `roles_pago.habilitar`, administrar usuarios no basta (22/10/2026).
+    _, sin_nomina = _cuenta("ana", "usuarios.editar", "usuarios.ver")
     url = f"/api/v1/admin/users/{rosa.id}/"
+    negado = sin_nomina.patch(url, {"codigo_empleado": "20100001"}, format="json")
+    assert negado.status_code == 403
+    _, admin = _cuenta("ines", "usuarios.editar", "usuarios.ver", "roles_pago.habilitar")
     asignado = admin.patch(url, {"codigo_empleado": " 20100001 "}, format="json")
     assert asignado.status_code == 200, asignado.data
     assert asignado.json()["codigo_empleado"] == "20100001"

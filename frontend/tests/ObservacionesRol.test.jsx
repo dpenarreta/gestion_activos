@@ -17,6 +17,7 @@ const servicio = {
   observaciones: vi.fn(),
   observacion: vi.fn(),
   corregirObservacion: vi.fn(),
+  adjuntoObservacion: vi.fn(),
 };
 vi.mock("../src/api/nominaService", () => ({ nominaService: servicio }));
 
@@ -86,10 +87,76 @@ describe("Observaciones a los roles de pagos", () => {
       expect(servicio.corregirObservacion).toHaveBeenCalledWith(
         "5",
         "Se sumaron las horas extra.",
+        [],
       ),
     );
     expect(
       await within(ventana).findByText(/Se le pidió a la persona que revise/),
     ).toBeInTheDocument();
+  });
+
+  it("la respuesta lleva imágenes o archivos y se ven en el historial", async () => {
+    const captura = new File(["png"], "captura.png", { type: "image/png" });
+    const detalle = new File(["pdf"], "detalle.pdf", {
+      type: "application/pdf",
+    });
+    const pesado = new File(["x"], "enorme.pdf", { type: "application/pdf" });
+    Object.defineProperty(pesado, "size", { value: 11 * 1024 * 1024 });
+    servicio.adjuntoObservacion.mockResolvedValue(new Blob(["png"]));
+    servicio.corregirObservacion.mockResolvedValue({
+      ...FILA,
+      estado: "corregida",
+      estado_display: "Corregida, por confirmar",
+      mensajes: [
+        {
+          id: 2,
+          tipo: "correccion",
+          tipo_display: "Corrección",
+          autor: "Tatiana",
+          texto: "Se sumaron las horas extra.",
+          fecha: "2026-10-22T15:00:00Z",
+          adjuntos: [
+            { id: 7, nombre: "captura.png", tamano: 2048, es_imagen: true },
+            { id: 8, nombre: "detalle.pdf", tamano: 4096, es_imagen: false },
+          ],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/?observacion=5"]}>
+        <ObservacionesRolPage />
+      </MemoryRouter>,
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Juan Diego Almachi · septiembre 2026",
+    });
+    fireEvent.change(within(ventana).getByLabelText(/Qué se corrigió/), {
+      target: { value: "Se sumaron las horas extra." },
+    });
+    const elegir = within(ventana).getByLabelText(
+      "Adjuntar imágenes o archivos",
+    );
+    fireEvent.change(elegir, { target: { files: [captura, detalle, pesado] } });
+    // El de más de 10 MB no entra.
+    expect(within(ventana).getByRole("alert")).toHaveTextContent("enorme.pdf");
+    const lista = within(ventana).getByRole("list", { name: "Por adjuntar" });
+    expect(within(lista).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: /Marcar como corregido/ }),
+    );
+    await waitFor(() =>
+      expect(servicio.corregirObservacion).toHaveBeenCalledWith(
+        "5",
+        "Se sumaron las horas extra.",
+        [captura, detalle],
+      ),
+    );
+    expect(
+      await within(ventana).findByRole("button", { name: /detalle\.pdf/ }),
+    ).toBeInTheDocument();
+    expect(
+      await within(ventana).findByAltText("captura.png"),
+    ).toBeInTheDocument();
+    expect(servicio.adjuntoObservacion).toHaveBeenCalledWith(7);
   });
 });

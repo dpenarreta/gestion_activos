@@ -28,9 +28,12 @@ from .models import Cargo, DatosDeContacto
 #: bastaba con tener sesión; ahora es un permiso, y se puede quitar.
 PERMISOS_BASE = (
     "licencias.solicitar",
-    "roles_pago.consultar",
     "sugerencias.reportar",
+    "institucional.ver_area",
 )
+# Consultar el propio rol de pagos tampoco: va persona por persona, por la
+# lista de habilitados (22/10/2026). Los permisos que da cada cargo en
+# particular están en `permisos_por_cargo`.
 # El chat y Soporte TI no están aquí a propósito: son de todo usuario, tenga el
 # rol que tenga (decisión del 21/10/2026).
 
@@ -86,6 +89,8 @@ def asegurar_rol(cargo, *, con_homonimos=True) -> Group:
     Con `con_homonimos`, también ajusta el de los cargos que se llaman igual
     (al aparecer un «Asistente» en otra unidad, el primero pasa a «Asistente ·
     TI» para que los dos se distingan)."""
+    from .permisos_por_cargo import sincronizar_rol
+
     nombre = nombre_del_rol(cargo)
     if cargo.rol_id is None:
         rol = Group.objects.create(name=nombre)
@@ -97,6 +102,8 @@ def asegurar_rol(cargo, *, con_homonimos=True) -> Group:
         if rol.name != nombre:
             rol.name = nombre
             rol.save(update_fields=["name"])
+    # Lo que da este cargo en particular (Gestión Humana, TI…).
+    sincronizar_rol(rol, cargo.nombre)
     if con_homonimos:
         for otro in (
             Cargo.objects.todas()

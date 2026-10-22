@@ -5,6 +5,7 @@ import { formatearFecha } from "../../../utils/formato";
 import { descargarBlob } from "../../../utils/descargas";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
+import { AvisoDeEstado, usePresencia } from "./Presencia";
 
 /** Las iniciales de un nombre: «Carla Ordóñez» → «CO». */
 export function iniciales(nombre) {
@@ -64,6 +65,76 @@ function Archivo({ archivo }) {
  * Mayús + Enter salta de línea. Un archivo de más de 10 MB no se sube: se
  * sugiere mandarlo por correo, con las direcciones de quienes lo recibirían.
  */
+/** Cada cuánto se vuelve a preguntar quién leyó, con la conversación abierta. */
+const REFRESCO_LECTURAS_MS = 10_000;
+
+/** Hasta dónde leyó cada una de las demás personas; se repite mientras la
+ * conversación está abierta y al llegar o enviarse un mensaje. */
+function useLecturas(conversacionId, cantidad) {
+  const [lecturas, setLecturas] = useState([]);
+  useEffect(() => {
+    let vigente = true;
+    const pedir = () =>
+      Promise.resolve()
+        .then(() => chatService.lecturas(conversacionId))
+        .then((datos) => vigente && setLecturas(datos ?? []))
+        .catch(() => {});
+    pedir();
+    const intervalo = setInterval(pedir, REFRESCO_LECTURAS_MS);
+    return () => {
+      vigente = false;
+      clearInterval(intervalo);
+    };
+  }, [conversacionId, cantidad]);
+  return lecturas;
+}
+
+function hora(fecha) {
+  return new Date(fecha).toLocaleTimeString("es-EC", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * La confirmación de lectura de un mensaje propio (22/10/2026): ✓ enviado,
+ * ✓✓ leído. En un grupo, por cuántos y quiénes.
+ */
+export function EstadoLectura({ mensaje, lecturas, grupal }) {
+  const leyeron = lecturas.filter((l) => l.ultimo_leido >= mensaje.id);
+  const total = lecturas.length;
+  if (total === 0) return null;
+  const todos = leyeron.length === total;
+  let texto;
+  let detalle;
+  if (!grupal) {
+    texto = leyeron.length ? "Leído" : "Enviado";
+    detalle = leyeron[0]?.leido_en
+      ? `Visto a las ${hora(leyeron[0].leido_en)}`
+      : texto;
+  } else {
+    texto = todos
+      ? "Leído por todos"
+      : leyeron.length
+        ? `Leído por ${leyeron.length} de ${total}`
+        : "Enviado";
+    detalle = leyeron.length
+      ? `Lo leyeron: ${leyeron.map((l) => l.nombre).join(", ")}`
+      : "Nadie lo ha leído todavía";
+  }
+  return (
+    <span
+      className={`chat-lectura${leyeron.length ? " chat-lectura--leido" : ""}${
+        todos ? " chat-lectura--todos" : ""
+      }`}
+      title={detalle}
+    >
+      <Icon name={leyeron.length ? "check2-all" : "check2"} />
+      <span className="chat-lectura__texto">{texto}</span>
+    </span>
+  );
+}
+
 export function Conversacion({ conversacion, compacta = false }) {
   const chat = useChat();
   const datos = chat.mensajes[conversacion.id];
@@ -76,6 +147,13 @@ export function Conversacion({ conversacion, compacta = false }) {
   const entradaArchivo = useRef(null);
   const cantidad = datos?.lista.length ?? 0;
   const grupal = conversacion.tipo !== "directa";
+  const lecturas = useLecturas(conversacion.id, cantidad);
+  // En un directo, si la otra persona está en almuerzo, de vacaciones…
+  const otroId = grupal ? null : conversacion.otro?.id;
+  const presenciaDelOtro = usePresencia(otroId ? [otroId] : []);
+  const estadoDelOtro = otroId ? presenciaDelOtro[otroId]?.estado : null;
+  // Al enviar, a quiénes no les llegará enseguida (los de un grupo).
+  const [avisos, setAvisos] = useState([]);
 
   const { cargarMensajes } = chat;
   useEffect(() => {
@@ -93,7 +171,8 @@ export function Conversacion({ conversacion, compacta = false }) {
     setError(null);
     setDemasiadoGrande(null);
     try {
-      await chat.enviar(conversacion.id, texto, archivo);
+      const enviado = await chat.enviar(conversacion.id, texto, archivo);
+      setAvisos(grupal ? (enviado?.avisos ?? []) : []);
       setTexto("");
       setArchivo(null);
       if (entradaArchivo.current) entradaArchivo.current.value = "";
@@ -154,6 +233,13 @@ export function Conversacion({ conversacion, compacta = false }) {
               {m.archivo && <Archivo archivo={m.archivo} />}
               <span className="chat-mensaje__hora">
                 {formatearFecha(m.fecha, true)}
+                {m.propio && (
+                  <EstadoLectura
+                    mensaje={m}
+                    lecturas={lecturas}
+                    grupal={grupal}
+                  />
+                )}
               </span>
             </div>
           );
@@ -216,6 +302,12 @@ export function Conversacion({ conversacion, compacta = false }) {
         </div>
       )}
 
+      {estadoDelOtro && (
+        <AvisoDeEstado nombre={conversacion.nombre} estado={estadoDelOtro} />
+      )}
+      {avisos.map((a) => (
+        <AvisoDeEstado key={a.usuario} nombre={a.nombre} estado={a} />
+      ))}
       <form className="chat-redactar" onSubmit={enviar}>
         {archivo && (
           <div className="chat-adjunto">

@@ -1,6 +1,8 @@
 /** Lo que abre el módulo Institucional: ver, armar o asignar el organigrama. */
 export const PERMISOS_INSTITUCIONAL = [
   "institucional.ver",
+  // El de su área (21/10/2026): lo tiene todo cargo.
+  "institucional.ver_area",
   "institucional.editar",
   "institucional.asignar",
 ];

@@ -374,7 +374,14 @@ PERMISSION_CATALOG = {
             "`editar` (y su pestaña de asignación, con `asignar`)."
         ),
         "permissions": {
-            "institucional.ver": "Ver el organigrama, sus cargos y quién ocupa cada uno",
+            "institucional.ver": (
+                "Ver el organigrama de toda la empresa, sus cargos y quién ocupa cada uno"
+            ),
+            # De todo cargo (21/10/2026): cada persona ve el organigrama de su
+            # área; el de toda la empresa pide `institucional.ver`.
+            "institucional.ver_area": (
+                "Ver el organigrama de su área: la unidad de su cargo y las que " "dependen de ella"
+            ),
             "institucional.editar": (
                 "Armar el organigrama: crear, editar y borrar niveles, unidades y cargos"
             ),
@@ -428,9 +435,16 @@ PERMISSION_CATALOG = {
             "su contraseña. Los demás permisos son los de Talento Humano."
         ),
         "permissions": {
+            # Solo persona por persona (22/10/2026): es la lista de quienes
+            # aceptaron recibir su rol de pagos virtual. No se da por rol.
             "roles_pago.consultar": (
                 "Consultar el propio rol de pagos (con su código de empleado), "
-                "descargarlo, enviarlo a su correo y dar su conformidad"
+                "descargarlo, enviarlo a su correo y dar su conformidad. Se da "
+                "persona por persona desde «Usuarios habilitados», no por rol"
+            ),
+            "roles_pago.habilitar": (
+                "Habilitar a las personas que consultan su rol de pagos y editar "
+                "su código de empleado"
             ),
             "roles_pago.consultar_todos": (
                 "Consultar el rol de pagos de cualquier persona por su código de empleado"
@@ -446,6 +460,10 @@ PERMISSION_CATALOG = {
             "roles_pago.observaciones": (
                 "Ver y atender las observaciones de las personas a su rol de pagos: "
                 "corregirlas y pedirles que vuelvan a confirmar"
+            ),
+            "roles_pago.descarga_masiva": (
+                "Descargar en un archivo comprimido los roles de pagos de todo un área "
+                "en un mes, un PDF por persona"
             ),
         },
     },
@@ -538,6 +556,10 @@ PERMISSION_CATALOG = {
         "permissions": {
             "licencias.solicitar": (
                 "Solicitar permisos laborales y vacaciones, y seguir las propias solicitudes"
+            ),
+            "licencias.ver_por_aprobar": (
+                "Ver en «Por aprobar» todas las solicitudes pendientes de la empresa, "
+                "aunque no le toque aprobarlas"
             ),
             "licencias.configurar": (
                 "Crear y editar los tipos de permiso: sus pasos de aprobación, quién "

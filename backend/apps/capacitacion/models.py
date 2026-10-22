@@ -59,6 +59,8 @@ class Material(ModeloDeEmpresa):
     contenido = models.TextField(blank=True)
     nota_minima = models.PositiveSmallIntegerField(default=70)
     intentos_max = models.PositiveSmallIntegerField(default=3)
+    #: Minutos para rendir la evaluación; vacío, sin límite (22/10/2026).
+    tiempo_limite = models.PositiveSmallIntegerField(null=True, blank=True)
     orden = models.PositiveSmallIntegerField(default=0)
     activo = models.BooleanField(default=True)
 
@@ -72,8 +74,20 @@ class Material(ModeloDeEmpresa):
 
 
 class Pregunta(ModeloDeEmpresa):
+    """Una pregunta de la evaluación, de uno de los tipos de `evaluacion.py`
+    (22/10/2026). Vale sus `puntos`; las de un material suman 10."""
+
+    class Tipo(models.TextChoices):
+        UNICA = "unica", "Marcar la correcta"
+        MULTIPLE = "multiple", "Opción múltiple"
+        COMPLETAR = "completar", "Completar espacios"
+        UNIR = "unir", "Unir con su respuesta"
+
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="preguntas")
-    texto = models.CharField(max_length=500)
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.UNICA)
+    #: En «completar», los espacios van en el texto como «[[palabra]]».
+    texto = models.TextField()
+    puntos = models.DecimalField(max_digits=4, decimal_places=2, default=0)
     orden = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -86,6 +100,8 @@ class Opcion(ModeloDeEmpresa):
     pregunta = models.ForeignKey(Pregunta, on_delete=models.CASCADE, related_name="opciones")
     texto = models.CharField(max_length=300)
     correcta = models.BooleanField(default=False)
+    #: En «unir»: la respuesta que va con este concepto.
+    pareja = models.CharField(max_length=300, blank=True)
     orden = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -138,14 +154,42 @@ class Intento(ModeloDeEmpresa):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
     )
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="intentos")
+    #: El porcentaje (0 a 100) y la nota sobre 10.
     puntaje = models.PositiveSmallIntegerField()
+    nota = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     aprobado = models.BooleanField(default=False)
     #: Ids de las preguntas falladas, separados por comas.
     falladas = models.TextField(blank=True)
     #: Si Talento Humano le devolvió los intentos, los anteriores no cuentan.
     anulado = models.BooleanField(default=False)
+    #: Se calificó solo al acabarse el tiempo, con lo que había respondido.
+    por_tiempo = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "intento de evaluación"
         verbose_name_plural = "intentos de evaluación"
+
+
+class EvaluacionEnCurso(ModeloDeEmpresa):
+    """Una evaluación con tiempo límite que alguien empezó (22/10/2026).
+
+    El reloj es del servidor: corre desde que se abre y no se detiene aunque
+    se cierre la ventana. Las respuestas se guardan como borrador mientras se
+    responde; si el tiempo se acaba, se califica lo guardado."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="en_curso")
+    vence = models.DateTimeField()
+    respuestas = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "evaluación en curso"
+        verbose_name_plural = "evaluaciones en curso"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usuario", "material"], name="capacitacion_una_evaluacion_en_curso"
+            )
+        ]

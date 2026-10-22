@@ -13,13 +13,19 @@
 """
 
 import datetime
+import io
+import re
+import zipfile
+from pathlib import PurePath
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
+from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
+from apps.core.audit import record_audit_event
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
@@ -358,12 +364,38 @@ def _confirmar(usuario, consulta):
     return observacion
 
 
-def corregir(actor, observacion_id, nota):
+#: Cuántos archivos puede llevar una respuesta a una observación.
+ADJUNTOS_POR_RESPUESTA = 5
+_IMAGENES = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _validar_adjuntos(archivos) -> list:
+    """Imágenes, PDF, Word o Excel de hasta 10 MB, con el contenido que dice
+    su extensión (las mismas reglas que los adjuntos de los activos)."""
+    from rest_framework import serializers
+
+    from apps.adjuntos.validators import validar_archivo
+
+    archivos = list(archivos or [])
+    if len(archivos) > ADJUNTOS_POR_RESPUESTA:
+        raise ValidationError(
+            {"archivos": f"Adjunte hasta {ADJUNTOS_POR_RESPUESTA} archivos por respuesta."}
+        )
+    for archivo in archivos:
+        try:
+            validar_archivo(archivo)
+        except serializers.ValidationError as error:
+            raise ValidationError({"archivos": f"«{archivo.name}»: {error.detail[0]}"}) from None
+    return archivos
+
+
+def corregir(actor, observacion_id, nota, archivos=None):
     """Talento Humano corrigió el rol: pide a la persona que vuelva a
-    revisarlo y confirmar; avisa a ella y al resto de Talento Humano."""
+    revisarlo y confirmar; avisa a ella y al resto de Talento Humano. La
+    respuesta puede llevar imágenes o archivos, que quedan en el historial."""
     from apps.notificaciones import services as campana
 
-    from .models import MensajeObservacion, ObservacionRolPagos
+    from .models import AdjuntoObservacion, MensajeObservacion, ObservacionRolPagos
 
     if not atiende_observaciones(actor):
         raise PermissionDenied("No tiene el permiso requerido: roles_pago.observaciones.")
@@ -375,13 +407,22 @@ def corregir(actor, observacion_id, nota):
     nota = (nota or "").strip()
     if not nota:
         raise ValidationError({"nota": "Cuente qué se corrigió."})
+    archivos = _validar_adjuntos(archivos)
     observacion.estado = ObservacionRolPagos.Estado.CORREGIDA
     observacion.corregida_por = actor
     observacion.corregida_en = timezone.now()
     observacion.save(update_fields=["estado", "corregida_por", "corregida_en", "updated_at"])
-    MensajeObservacion.objects.create(
+    mensaje = MensajeObservacion.objects.create(
         observacion=observacion, autor=actor, tipo=MensajeObservacion.Tipo.CORRECCION, texto=nota
     )
+    for archivo in archivos:
+        AdjuntoObservacion.objects.create(
+            mensaje=mensaje,
+            archivo=archivo,
+            nombre_original=(archivo.name or "archivo")[:255],
+            content_type=(getattr(archivo, "content_type", "") or "")[:120],
+            tamano=archivo.size,
+        )
     campana.notificar(
         [observacion.usuario],
         tipo="roles_pago.corregido",
@@ -400,6 +441,18 @@ def corregir(actor, observacion_id, nota):
     return observacion
 
 
+def _adjuntos(mensaje) -> list[dict]:
+    return [
+        {
+            "id": a.id,
+            "nombre": a.nombre_original,
+            "tamano": a.tamano,
+            "es_imagen": PurePath(a.nombre_original).suffix.lower() in _IMAGENES,
+        }
+        for a in mensaje.adjuntos.all()
+    ]
+
+
 def _fila(observacion, con_mensajes=False) -> dict:
     datos = {
         "id": observacion.id,
@@ -412,7 +465,7 @@ def _fila(observacion, con_mensajes=False) -> dict:
         "actualizada": observacion.updated_at,
         "ultima": "",
     }
-    mensajes = list(observacion.mensajes.select_related("autor"))
+    mensajes = list(observacion.mensajes.select_related("autor").prefetch_related("adjuntos"))
     observaciones = [m for m in mensajes if m.tipo == "observacion"]
     if observaciones:
         datos["ultima"] = observaciones[-1].texto
@@ -425,6 +478,7 @@ def _fila(observacion, con_mensajes=False) -> dict:
                 "autor": _nombre(m.autor) if m.autor_id else "",
                 "texto": m.texto,
                 "fecha": m.created_at,
+                "adjuntos": _adjuntos(m),
             }
             for m in mensajes
         ]
@@ -546,7 +600,7 @@ def historial(actor, codigo: str) -> dict:
             }
         )
     for o in ObservacionRolPagos.objects.filter(codigo_empleado=codigo).prefetch_related(
-        "mensajes__autor"
+        "mensajes__autor", "mensajes__adjuntos"
     ):
         periodo(o.anio, o.mes)["observacion"] = {
             "id": o.id,
@@ -559,6 +613,7 @@ def historial(actor, codigo: str) -> dict:
                     "autor": _nombre(m.autor) if m.autor_id else "",
                     "texto": m.texto,
                     "momento": _momento(m.created_at),
+                    "adjuntos": _adjuntos(m),
                 }
                 for m in o.mensajes.all()
             ],
@@ -589,3 +644,271 @@ def rol_desde_historial(actor, codigo, anio, mes, password) -> bytes:
         raise ValidationError({"codigo": "Falta el código de empleado."})
     _validar_periodo(anio, mes)
     return pdf.construir(fuente.obtener(codigo, anio, mes, _nombre_empresa()))
+
+
+# --- Lista de habilitados (22/10/2026) --------------------------------------------------
+#
+# Consultar el rol de pagos no se da por rol ni por cargo: se da a las personas
+# que aceptaron recibir y validar su rol de pagos virtual, una por una, con el
+# permiso directo `roles_pago.consultar`. Lo gestiona quien tiene
+# `roles_pago.habilitar` (nómina), que también edita el código de empleado.
+
+PERMISO_CONSULTA = "roles_pago.consultar"
+MODULO = "roles_pago"
+
+
+def habilitado(usuario) -> bool:
+    return user_has_permission(usuario, PERMISO_CONSULTA)
+
+
+def gestiona_habilitados(usuario) -> bool:
+    return user_has_permission(usuario, "roles_pago.habilitar")
+
+
+def _exigir_gestion(actor):
+    if not gestiona_habilitados(actor):
+        raise PermissionDenied("No tiene el permiso requerido: roles_pago.habilitar.")
+
+
+def _permiso_consulta():
+    from django.contrib.auth.models import Permission
+
+    return Permission.objects.get(content_type__app_label="permissions", codename=PERMISO_CONSULTA)
+
+
+def _persona_dict(usuario) -> dict:
+    return {
+        "id": usuario.id,
+        "nombre": _nombre(usuario),
+        "correo": usuario.email,
+        "codigo": usuario.codigo_empleado or "",
+        "habilitado": usuario.user_permissions.filter(codename=PERMISO_CONSULTA).exists(),
+    }
+
+
+def habilitados(actor, buscar: str = "") -> list[dict]:
+    """Las personas de la empresa: primero las habilitadas, con su código."""
+    from django.db.models import Q
+
+    from apps.chat.services import personas_de_la_empresa
+
+    _exigir_gestion(actor)
+    personas = personas_de_la_empresa().prefetch_related("user_permissions")
+    buscar = (buscar or "").strip()
+    if buscar:
+        personas = personas.filter(
+            Q(first_name__icontains=buscar)
+            | Q(last_name__icontains=buscar)
+            | Q(email__icontains=buscar)
+            | Q(codigo_empleado__icontains=buscar)
+        )
+    filas = [_persona_dict(p) for p in personas.order_by("first_name", "last_name")[:300]]
+    return sorted(filas, key=lambda f: (not f["habilitado"], f["nombre"].lower()))
+
+
+@transaction.atomic
+def habilitar(actor, usuario, *, habilitado_: bool, codigo: str | None = None) -> dict:
+    """Agrega o quita a la persona de la lista y, si se indica, fija su código."""
+    from apps.users.serializers import validar_codigo_empleado
+
+    _exigir_gestion(actor)
+    permiso = _permiso_consulta()
+    antes = _persona_dict(usuario)
+    if codigo is not None:
+        codigo = (codigo or "").strip()
+        try:
+            usuario.codigo_empleado = (
+                validar_codigo_empleado(codigo, exclude_user_id=usuario.pk) if codigo else None
+            )
+        except ValidationError as error:
+            raise ValidationError({"codigo": error.detail}) from error
+        usuario.save(update_fields=["codigo_empleado", "updated_at"])
+    if habilitado_:
+        if not (usuario.codigo_empleado or "").strip():
+            raise ValidationError({"codigo": "Para habilitarla, escriba su código de empleado."})
+        usuario.user_permissions.add(permiso)
+    else:
+        usuario.user_permissions.remove(permiso)
+    despues = _persona_dict(usuario)
+    record_audit_event(
+        actor=actor,
+        action="roles_pago.habilitados.cambiado",
+        target=usuario,
+        module=MODULO,
+        previous_values={"habilitado": antes["habilitado"], "codigo": antes["codigo"]},
+        new_values={"habilitado": despues["habilitado"], "codigo": despues["codigo"]},
+    )
+    return despues
+
+
+def adjunto_de_observacion(actor, adjunto_id):
+    """Un adjunto de una respuesta: lo abren la persona de la observación y
+    Talento Humano (quien atiende observaciones o ve el historial)."""
+    from .models import AdjuntoObservacion
+
+    adjunto = (
+        AdjuntoObservacion.objects.select_related("mensaje__observacion")
+        .filter(pk=adjunto_id)
+        .first()
+    )
+    if adjunto is None:
+        raise NotFound("No se encontró el archivo.")
+    propia = adjunto.mensaje.observacion.usuario_id == actor.pk
+    if not (propia or atiende_observaciones(actor) or ve_historial(actor)):
+        raise NotFound("No se encontró el archivo.")
+    return adjunto
+
+
+def mis_observaciones(usuario) -> list[dict]:
+    """Las observaciones de la persona a sus roles de pagos, en todos sus
+    estados y con su conversación. Solo las suyas."""
+    from .models import ObservacionRolPagos
+
+    return [
+        _fila(o, con_mensajes=True)
+        for o in ObservacionRolPagos.objects.filter(usuario=usuario).select_related("usuario")
+    ]
+
+
+# --- Descarga masiva por área (22/10/2026) ----------------------------------------------
+#
+# Talento Humano (`roles_pago.descarga_masiva`: nómina, Administrador y
+# Superusuario) elige un área del organigrama y un mes, y descarga un ZIP sin
+# clave con un PDF por persona. El área incluye las unidades que dependen de
+# ella, como el organigrama por área. Los PDF se arman al vuelo desde nómina
+# (no se guardan); quien no tiene código o no tiene rol ese mes queda en
+# «LEEME.txt» dentro del archivo. Pide la contraseña de quien descarga.
+
+PERMISO_MASIVA = "roles_pago.descarga_masiva"
+_NO_VALE_EN_ARCHIVO = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
+
+
+def descarga_masiva_permitida(usuario) -> bool:
+    return user_has_permission(usuario, PERMISO_MASIVA)
+
+
+def _exigir_masiva(actor):
+    if not descarga_masiva_permitida(actor):
+        raise PermissionDenied(f"No tiene el permiso requerido: {PERMISO_MASIVA}.")
+
+
+def _rama(unidad_id, unidades) -> set[int]:
+    hijas = {}
+    for u in unidades:
+        hijas.setdefault(u.padre_id, []).append(u.id)
+    rama, pendientes = set(), [unidad_id]
+    while pendientes:
+        actual = pendientes.pop()
+        if actual not in rama:
+            rama.add(actual)
+            pendientes.extend(hijas.get(actual, []))
+    return rama
+
+
+def _personas_de(unidades_ids) -> list:
+    """Las personas activas cuyo cargo está en esas unidades (una vez cada
+    una), ordenadas por apellido."""
+    from apps.organizacion.models import DatosDeContacto
+
+    vistas, personas = set(), []
+    filas = (
+        DatosDeContacto.objects.filter(cargo__unidad_id__in=unidades_ids, usuario__is_active=True)
+        .select_related("usuario")
+        .order_by("usuario__last_name", "usuario__first_name")
+    )
+    for fila in filas:
+        if fila.usuario_id not in vistas:
+            vistas.add(fila.usuario_id)
+            personas.append(fila.usuario)
+    return personas
+
+
+def areas_para_descarga(actor) -> list[dict]:
+    """Las áreas del organigrama, con cuántas personas tienen (con y sin
+    código de empleado), para elegir de cuál descargar."""
+    from apps.organizacion.models import UnidadOrganizacional
+
+    _exigir_masiva(actor)
+    unidades = list(UnidadOrganizacional.objects.select_related("nivel"))
+    filas = []
+    for u in sorted(unidades, key=lambda x: (x.nivel.orden, x.nombre)):
+        personas = _personas_de(_rama(u.id, unidades))
+        filas.append(
+            {
+                "id": u.id,
+                "nombre": u.nombre,
+                "nivel": u.nivel.nombre,
+                "personas": len(personas),
+                "con_codigo": sum(1 for p in personas if codigo_de(p)),
+            }
+        )
+    return filas
+
+
+def _nombre_de_archivo(texto: str) -> str:
+    limpio = _NO_VALE_EN_ARCHIVO.sub(" ", texto or "")
+    return re.sub(r"\s+", " ", limpio).strip(" .")[:120] or "sin nombre"
+
+
+def descarga_masiva(actor, unidad_id, anio, mes, password) -> dict:
+    """El ZIP con los roles de pagos del área en ese mes: `{nombre, contenido,
+    incluidos, omitidos}`."""
+    from apps.organizacion.models import UnidadOrganizacional
+
+    _exigir_masiva(actor)
+    if not password or not actor.check_password(password):
+        raise PermissionDenied("La contraseña no es correcta.")
+    _validar_periodo(anio, mes)
+    unidades = list(UnidadOrganizacional.objects.all())
+    unidad = next((u for u in unidades if u.id == unidad_id), None)
+    if unidad is None:
+        raise NotFound("Esa área no existe en el organigrama.")
+    personas = _personas_de(_rama(unidad.id, unidades))
+    if not personas:
+        raise ValidationError({"unidad": "Nadie ocupa un cargo en esa área."})
+
+    empresa = _nombre_empresa()
+    archivos, omitidos, usados = [], [], set()
+    for persona in personas:
+        nombre = persona.get_full_name().strip() or persona.username
+        codigo = codigo_de(persona)
+        if not codigo:
+            omitidos.append(f"{nombre}: no tiene código de empleado.")
+            continue
+        try:
+            rol = fuente.obtener(codigo, anio, mes, empresa)
+        except fuente.RolNoDisponible:
+            omitidos.append(f"{nombre} ({codigo}): no tiene rol de pagos en ese mes.")
+            continue
+        completo = f"{rol.apellidos} {rol.nombres}".strip() or nombre
+        base = _nombre_de_archivo(f"{codigo} - {completo}")
+        archivo, n = f"{base}.pdf", 2
+        while archivo.lower() in usados:
+            archivo, n = f"{base} ({n}).pdf", n + 1
+        usados.add(archivo.lower())
+        archivos.append((archivo, pdf.construir(rol)))
+    if not archivos:
+        raise ValidationError(
+            {"mes": "Nadie de esa área tiene rol de pagos en ese mes: no hay nada que descargar."}
+        )
+
+    periodo = f"{fuente.MESES[mes - 1].capitalize()} {anio}"
+    memoria = io.BytesIO()
+    with zipfile.ZipFile(memoria, "w", zipfile.ZIP_DEFLATED) as zip_:
+        for archivo, contenido in archivos:
+            zip_.writestr(archivo, contenido)
+        if omitidos:
+            leeme = (
+                f"Roles de pago de {unidad.nombre} - {periodo}\r\n"
+                f"Incluidos: {len(archivos)} - Sin rol de pagos: {len(omitidos)}\r\n\r\n"
+                + "\r\n".join(omitidos)
+                + "\r\n"
+            )
+            zip_.writestr("LEEME.txt", leeme.encode("utf-8-sig"))
+    return {
+        "nombre": _nombre_de_archivo(f"Roles de pago - {unidad.nombre} - {periodo}") + ".zip",
+        "contenido": memoria.getvalue(),
+        "unidad": unidad,
+        "incluidos": len(archivos),
+        "omitidos": len(omitidos),
+    }

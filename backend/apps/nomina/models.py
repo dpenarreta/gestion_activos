@@ -9,6 +9,9 @@ generar. Talento Humano consulta el de otras personas con
 `roles_pago.consultar_todos`.
 """
 
+import uuid
+from pathlib import PurePath
+
 from django.conf import settings
 from django.db import models
 
@@ -130,3 +133,28 @@ class MensajeObservacion(ModeloDeEmpresa):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+def ruta_adjunto_observacion(instance, filename: str) -> str:
+    """Nombre generado, nunca el que trajo el archivo (el original se guarda
+    aparte para la descarga)."""
+    return f"nomina/observaciones/{uuid.uuid4().hex}{PurePath(filename).suffix.lower()}"
+
+
+class AdjuntoObservacion(ModeloDeEmpresa):
+    """Una imagen o un archivo que Talento Humano adjuntó a su respuesta de
+    una observación (22/10/2026): queda en el historial con la respuesta. No
+    se sirve como archivo público: se descarga por la API, con permiso."""
+
+    mensaje = models.ForeignKey(
+        MensajeObservacion, on_delete=models.CASCADE, related_name="adjuntos"
+    )
+    archivo = models.FileField(upload_to=ruta_adjunto_observacion, max_length=255)
+    nombre_original = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=120, blank=True)
+    tamano = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "adjunto de una observación"
+        verbose_name_plural = "adjuntos de las observaciones"

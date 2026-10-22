@@ -96,7 +96,12 @@ class MiMaterialView(APIView):
         if que == "responder":
             entrada = RespuestasSerializer(data=request.data)
             entrada.is_valid(raise_exception=True)
-            resultado = services.responder(request.user, pk, entrada.validated_data["respuestas"])
+            resultado = services.responder(
+                request.user,
+                pk,
+                entrada.validated_data["respuestas"],
+                tiempo_agotado=entrada.validated_data["tiempo_agotado"],
+            )
             _auditar(
                 request,
                 "evaluacion.rendida",
@@ -105,9 +110,16 @@ class MiMaterialView(APIView):
                     "material": int(pk),
                     "puntaje": resultado["puntaje"],
                     "aprobado": resultado["aprobado"],
+                    "por_tiempo": resultado["por_tiempo"],
                 },
             )
             return Response(resultado)
+        if que == "borrador":
+            entrada = RespuestasSerializer(data=request.data)
+            entrada.is_valid(raise_exception=True)
+            return Response(
+                services.guardar_borrador(request.user, pk, entrada.validated_data["respuestas"])
+            )
         raise Http404()
 
 

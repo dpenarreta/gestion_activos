@@ -91,10 +91,30 @@ describe("El calendario del mes (ampliado)", () => {
       "2026-09-28",
       "2026-11-08",
     );
-    expect(await screen.findByText("Cumpleaños de Rosa")).toBeInTheDocument();
     // Un evento de dos días se marca en los dos.
     expect(
-      screen.getByRole("gridcell", { name: "23 de octubre: Feria de salud" }),
+      await screen.findByRole("gridcell", {
+        name: "23 de octubre: Feria de salud",
+      }),
+    ).toBeInTheDocument();
+    // Los cumpleaños van en su pestaña: no saturan lo importante.
+    expect(screen.queryByText("Cumpleaños de Rosa")).toBeNull();
+    expect(
+      screen.getByRole("gridcell", { name: "19 de octubre" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Celebraciones/ }));
+    expect(screen.getByText("Cumpleaños de Rosa")).toBeInTheDocument();
+    expect(
+      screen.getByRole("gridcell", { name: "22 de octubre" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Todo/ }));
+    expect(
+      screen.getByRole("gridcell", {
+        name: "19 de octubre: Cumpleaños de Rosa",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("gridcell", { name: "22 de octubre: Feria de salud" }),
     ).toBeInTheDocument();
   });
 
@@ -148,8 +168,18 @@ describe("El calendario recogido", () => {
       "2026-10-19",
       "2026-10-20",
     );
-    expect(await screen.findByText("Cumpleaños de Rosa")).toBeInTheDocument();
-    expect(screen.getByText("Charla de seguridad")).toBeInTheDocument();
+    // Primero lo importante; la pestaña de celebraciones dice cuántas hay.
+    expect(await screen.findByText("Charla de seguridad")).toBeInTheDocument();
+    expect(screen.queryByText("Cumpleaños de Rosa")).toBeNull();
+    const celebraciones = screen.getByRole("tab", { name: /Celebraciones/ });
+    expect(celebraciones).toHaveTextContent("1");
+    expect(
+      screen.getByRole("tab", { name: /Eventos y feriados/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(celebraciones);
+    expect(screen.getByText("Cumpleaños de Rosa")).toBeInTheDocument();
+    expect(screen.queryByText("Charla de seguridad")).toBeNull();
+    expect(screen.getByText("Sin celebraciones.")).toBeInTheDocument();
     expect(screen.getByText(/^Hoy/)).toBeInTheDocument();
     expect(screen.getByText(/^Mañana/)).toBeInTheDocument();
     // Las fechas del mes van recogidas: no se dibuja la cuadrícula.

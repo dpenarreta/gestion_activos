@@ -255,6 +255,32 @@ describe("El organigrama", () => {
     ).toBeNull();
   });
 
+  it("con solo su área dice cuál está viendo", async () => {
+    permisos.lista = ["institucional.ver_area"];
+    servicio.organigrama.mockResolvedValue({
+      ...ORGANIGRAMA,
+      alcance: { tipo: "area", unidad: { id: 11, nombre: "Gerencia de TI" } },
+    });
+    pintar(<OrganigramaPage />);
+    expect(
+      await screen.findByText(/Su área: Gerencia de TI/),
+    ).toBeInTheDocument();
+  });
+
+  it("sin cargo, su área está vacía y lo dice", async () => {
+    permisos.lista = ["institucional.ver_area"];
+    servicio.organigrama.mockResolvedValue({
+      niveles: [],
+      unidades: [],
+      cargos: [],
+      alcance: { tipo: "area", unidad: null },
+    });
+    pintar(<OrganigramaPage />);
+    expect(
+      await screen.findByText(/Todavía no tiene un cargo asignado/),
+    ).toBeInTheDocument();
+  });
+
   it("«Lista» cambia el dibujo: de árbol horizontal a lista vertical", async () => {
     permisos.lista = ["institucional.ver"];
     pintar(<OrganigramaPage />);

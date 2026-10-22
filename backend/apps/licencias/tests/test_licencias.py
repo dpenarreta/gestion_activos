@@ -287,3 +287,22 @@ def test_el_documento_obligatorio_y_las_fechas_se_validan(empresa_con_organigram
     )
     assert al_reves.status_code == 400
     assert datetime.date(2026, 11, 2)  # fechas en formato ISO
+
+
+def test_gestion_humana_ve_en_por_aprobar_todo_lo_pendiente(empresa_con_organigrama):
+    """Con `licencias.ver_por_aprobar` (Coordinador Nacional y Asistentes de
+    Gestión Humana, 22/10/2026) «Por aprobar» trae todo lo pendiente de la
+    empresa; los demás, solo lo que les toca."""
+    e = empresa_con_organigrama
+    _, ana = e["ana"]
+    _, gerente = e["gerente"]
+    solicitud = _pedir(ana, e["medico"])
+    _, gh = _persona("gaby", "licencias.ver_por_aprobar")
+
+    ids_gh = [s["id"] for s in gh.get(SOLICITUDES, {"vista": "por_aprobar"}).json()]
+    assert solicitud["id"] in ids_gh
+    assert gh.get(f"{SOLICITUDES}resumen/").json()["por_aprobar"] >= 1
+    assert gh.get(f"{SOLICITUDES}{solicitud['id']}/").status_code == 200
+    # El gerente no la tiene a su cargo: no la ve en «Por aprobar».
+    ids_gerente = [s["id"] for s in gerente.get(SOLICITUDES, {"vista": "por_aprobar"}).json()]
+    assert solicitud["id"] not in ids_gerente

@@ -20,6 +20,7 @@ const VACIO = {
   contenido: "",
   nota_minima: 70,
   intentos_max: 3,
+  tiempo_limite: "",
   orden: 0,
   activo: true,
 };
@@ -67,6 +68,7 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
     ...inicial,
     unidad: inicial.unidad ?? "",
     cargo: inicial.cargo ?? "",
+    tiempo_limite: inicial.tiempo_limite ?? "",
   });
   const [archivo, setArchivo] = useState(null);
   const [quitarArchivo, setQuitarArchivo] = useState(false);
@@ -93,6 +95,8 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
       quitar_archivo: quitarArchivo && !archivo,
       nota_minima: valores.nota_minima,
       intentos_max: valores.intentos_max,
+      // Vacío: sin límite.
+      tiempo_limite: valores.tiempo_limite,
       orden: valores.orden,
       activo: valores.activo,
     };
@@ -269,7 +273,7 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
         </div>
         <div className="col-6 col-md-3">
           <label className="form-label mz-small" htmlFor="mat-nota">
-            Nota mínima (sobre 100)
+            % para aprobar
           </label>
           <input
             id="mat-nota"
@@ -293,6 +297,21 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
             className="form-control form-control-sm"
             value={valores.intentos_max}
             onChange={fijar("intentos_max")}
+          />
+        </div>
+        <div className="col-6 col-md-3">
+          <label className="form-label mz-small" htmlFor="mat-tiempo">
+            Tiempo límite (minutos)
+          </label>
+          <input
+            id="mat-tiempo"
+            type="number"
+            min={1}
+            max={600}
+            placeholder="Sin límite"
+            className="form-control form-control-sm"
+            value={valores.tiempo_limite}
+            onChange={fijar("tiempo_limite")}
           />
         </div>
         <div className="col-12 col-md-6 d-flex align-items-end">
@@ -329,8 +348,173 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
   );
 }
 
-/** La evaluación de un material: preguntas de opción múltiple con su
- * respuesta correcta marcada. */
+/** Los tipos de pregunta (ver `apps/capacitacion/evaluacion.py`). */
+const TIPOS = [
+  ["unica", "Marcar la correcta"],
+  ["multiple", "Opción múltiple"],
+  ["completar", "Completar espacios"],
+  ["unir", "Unir con su respuesta"],
+];
+const AYUDA_TIPO = {
+  unica: "Una sola opción es la correcta.",
+  multiple:
+    "Marque todas las correctas. Se califica en proporción: cada opción errada marcada resta una acertada.",
+  completar:
+    "Escriba la frase o el párrafo y ponga entre corchetes dobles cada palabra a completar, por ejemplo: «El SRI exige el [[RUC]]». Para aceptar varias respuestas: [[electrónica|digital]].",
+  unir: "Cada concepto con su respuesta; quien rinde verá las respuestas mezcladas. Se califica en proporción por pareja.",
+};
+
+const preguntaNueva = (tipo = "unica", puntos = "") => ({
+  tipo,
+  texto: "",
+  puntos,
+  opciones:
+    tipo === "completar"
+      ? []
+      : [
+          { texto: "", pareja: "" },
+          { texto: "", pareja: "" },
+        ],
+});
+
+/** La suma de los puntos, en centésimas para no arrastrar decimales. */
+export function sumaDePuntos(preguntas) {
+  const centesimas = (preguntas ?? []).reduce(
+    (total, p) => total + Math.round((Number(p.puntos) || 0) * 100),
+    0,
+  );
+  return centesimas / 100;
+}
+
+/** Reparte los 10 puntos en partes iguales (el resto, a la última). */
+export function repartirPuntos(preguntas) {
+  const n = preguntas.length;
+  if (!n) return preguntas;
+  const parte = Math.floor(1000 / n) / 100;
+  const ultima = Math.round((10 - parte * (n - 1)) * 100) / 100;
+  return preguntas.map((p, i) => ({
+    ...p,
+    puntos: String(i === n - 1 ? ultima : parte),
+  }));
+}
+
+function Opciones({ pregunta: p, i, cambiar }) {
+  const cambiarOpcion = (k, cambio) =>
+    cambiar(i, (x) => ({
+      ...x,
+      opciones: x.opciones.map((op, m) => (m === k ? cambio(op) : op)),
+    }));
+  const quitar = (k) =>
+    cambiar(i, (x) => ({
+      ...x,
+      opciones: x.opciones.filter((_, m) => m !== k),
+    }));
+  if (p.tipo === "completar") {
+    const espacios = (p.texto.match(/\[\[[^[\]]+\]\]/g) ?? []).length;
+    return (
+      <p className="mz-small mb-0">
+        {espacios
+          ? `${espacios} espacio(s) a completar.`
+          : "Aún no hay espacios: escriba la palabra entre [[ ]]."}
+      </p>
+    );
+  }
+  const unir = p.tipo === "unir";
+  return (
+    <>
+      {p.opciones.map((o, k) => (
+        <div key={k} className="onboarding-opcion">
+          {p.tipo === "unica" && (
+            <input
+              type="radio"
+              className="form-check-input"
+              name={`correcta-${i}`}
+              aria-label={`Opción ${k + 1} de la pregunta ${i + 1} es la correcta`}
+              checked={Boolean(o.correcta)}
+              onChange={() =>
+                cambiar(i, (x) => ({
+                  ...x,
+                  opciones: x.opciones.map((op, m) => ({
+                    ...op,
+                    correcta: m === k,
+                  })),
+                }))
+              }
+            />
+          )}
+          {p.tipo === "multiple" && (
+            <input
+              type="checkbox"
+              className="form-check-input"
+              aria-label={`Opción ${k + 1} de la pregunta ${i + 1} es correcta`}
+              checked={Boolean(o.correcta)}
+              onChange={(e) =>
+                cambiarOpcion(k, (op) => ({
+                  ...op,
+                  correcta: e.target.checked,
+                }))
+              }
+            />
+          )}
+          <input
+            className="form-control form-control-sm"
+            aria-label={
+              unir
+                ? `Concepto ${k + 1} de la pregunta ${i + 1}`
+                : `Opción ${k + 1} de la pregunta ${i + 1}`
+            }
+            placeholder={unir ? "Concepto" : undefined}
+            maxLength={300}
+            value={o.texto}
+            onChange={(e) =>
+              cambiarOpcion(k, (op) => ({ ...op, texto: e.target.value }))
+            }
+          />
+          {unir && (
+            <>
+              <Icon name="arrow-right" />
+              <input
+                className="form-control form-control-sm"
+                aria-label={`Respuesta del concepto ${k + 1} de la pregunta ${i + 1}`}
+                placeholder="Su respuesta"
+                maxLength={300}
+                value={o.pareja ?? ""}
+                onChange={(e) =>
+                  cambiarOpcion(k, (op) => ({ ...op, pareja: e.target.value }))
+                }
+              />
+            </>
+          )}
+          {p.opciones.length > 2 && (
+            <button
+              type="button"
+              className="btn btn-link btn-sm text-danger px-1"
+              aria-label={`Quitar ${unir ? "el concepto" : "la opción"} ${k + 1} de la pregunta ${i + 1}`}
+              onClick={() => quitar(k)}
+            >
+              <Icon name="x-lg" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn btn-link btn-sm px-0 align-self-start"
+        onClick={() =>
+          cambiar(i, (x) => ({
+            ...x,
+            opciones: [...x.opciones, { texto: "", pareja: "" }],
+          }))
+        }
+      >
+        <Icon name="plus" /> {unir ? "Pareja" : "Opción"}
+      </button>
+    </>
+  );
+}
+
+/** La evaluación de un material (22/10/2026): preguntas de cuatro tipos,
+ * cada una con sus puntos; entre todas suman 10. */
 function EditorPreguntas({ material, onGuardado, onCerrar }) {
   const [preguntas, setPreguntas] = useState(null);
   const [error, setError] = useState(null);
@@ -342,8 +526,8 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
       .then((lista) =>
         setPreguntas(
           lista.length
-            ? lista
-            : [{ texto: "", opciones: [{ texto: "" }, { texto: "" }] }],
+            ? lista.map((p) => ({ tipo: "unica", ...p }))
+            : [preguntaNueva("unica", "10")],
         ),
       )
       .catch((err) =>
@@ -353,6 +537,9 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
 
   const cambiar = (i, cambio) =>
     setPreguntas((ps) => ps.map((p, j) => (j === i ? cambio(p) : p)));
+
+  const suma = sumaDePuntos(preguntas);
+  const cuadra = Math.abs(suma - 10) < 0.001;
 
   async function guardar() {
     setGuardando(true);
@@ -376,26 +563,59 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
           </div>
         )}
         <p className="mz-faint mz-small mb-0">
-          Cada pregunta con sus opciones; marque la correcta. El puntaje es el
-          porcentaje de preguntas acertadas.
+          Cada pregunta vale sus puntos y entre todas suman 10. La nota es sobre
+          10 y se aprueba con el porcentaje mínimo del material
+          {material.nota_minima != null ? ` (${material.nota_minima} %)` : ""}.
         </p>
         {preguntas?.map((p, i) => (
           <fieldset key={i} className="onboarding-pregunta">
-            <legend className="d-flex gap-2 align-items-center">
+            <legend className="d-flex flex-wrap gap-2 align-items-center">
               <span>{i + 1}.</span>
-              <input
-                className="form-control form-control-sm"
-                aria-label={`Pregunta ${i + 1}`}
-                maxLength={500}
-                placeholder="Escriba la pregunta"
-                value={p.texto}
-                onChange={(e) =>
-                  cambiar(i, (x) => ({ ...x, texto: e.target.value }))
-                }
-              />
+              <select
+                className="form-select form-select-sm w-auto"
+                aria-label={`Tipo de la pregunta ${i + 1}`}
+                value={p.tipo}
+                onChange={(e) => {
+                  const tipo = e.target.value;
+                  cambiar(i, (x) => ({
+                    ...x,
+                    tipo,
+                    opciones:
+                      tipo === "completar"
+                        ? []
+                        : x.opciones.length >= 2
+                          ? x.opciones.map((o) => ({
+                              ...o,
+                              correcta: tipo === "unir" ? false : o.correcta,
+                            }))
+                          : preguntaNueva(tipo).opciones,
+                  }));
+                }}
+              >
+                {TIPOS.map(([valor, nombre]) => (
+                  <option key={valor} value={valor}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+              <label className="d-flex align-items-center gap-1 mz-small">
+                <input
+                  className="form-control form-control-sm onboarding-puntos"
+                  aria-label={`Puntos de la pregunta ${i + 1}`}
+                  type="number"
+                  min="0.01"
+                  max="10"
+                  step="0.25"
+                  value={p.puntos}
+                  onChange={(e) =>
+                    cambiar(i, (x) => ({ ...x, puntos: e.target.value }))
+                  }
+                />
+                puntos
+              </label>
               <button
                 type="button"
-                className="btn btn-outline-danger btn-sm"
+                className="btn btn-outline-danger btn-sm ms-auto"
                 aria-label={`Quitar la pregunta ${i + 1}`}
                 onClick={() =>
                   setPreguntas((ps) => ps.filter((_, j) => j !== i))
@@ -404,66 +624,64 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
                 <Icon name="trash" />
               </button>
             </legend>
-            {p.opciones.map((o, k) => (
-              <div key={k} className="onboarding-opcion">
-                <input
-                  type="radio"
-                  className="form-check-input"
-                  name={`correcta-${i}`}
-                  aria-label={`Opción ${k + 1} de la pregunta ${i + 1} es la correcta`}
-                  checked={Boolean(o.correcta)}
-                  onChange={() =>
-                    cambiar(i, (x) => ({
-                      ...x,
-                      opciones: x.opciones.map((op, m) => ({
-                        ...op,
-                        correcta: m === k,
-                      })),
-                    }))
-                  }
-                />
-                <input
-                  className="form-control form-control-sm"
-                  aria-label={`Opción ${k + 1} de la pregunta ${i + 1}`}
-                  maxLength={300}
-                  value={o.texto}
-                  onChange={(e) =>
-                    cambiar(i, (x) => ({
-                      ...x,
-                      opciones: x.opciones.map((op, m) =>
-                        m === k ? { ...op, texto: e.target.value } : op,
-                      ),
-                    }))
-                  }
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              className="btn btn-link btn-sm px-0"
-              onClick={() =>
-                cambiar(i, (x) => ({
-                  ...x,
-                  opciones: [...x.opciones, { texto: "" }],
-                }))
-              }
-            >
-              <Icon name="plus" /> Opción
-            </button>
+            {p.tipo === "completar" ? (
+              <textarea
+                className="form-control form-control-sm"
+                aria-label={`Pregunta ${i + 1}`}
+                rows={3}
+                maxLength={2000}
+                placeholder="El SRI exige el [[RUC]] para facturar."
+                value={p.texto}
+                onChange={(e) =>
+                  cambiar(i, (x) => ({ ...x, texto: e.target.value }))
+                }
+              />
+            ) : (
+              <input
+                className="form-control form-control-sm"
+                aria-label={`Pregunta ${i + 1}`}
+                maxLength={2000}
+                placeholder={
+                  p.tipo === "unir"
+                    ? "Por ejemplo: Una cada sigla con su entidad"
+                    : "Escriba la pregunta"
+                }
+                value={p.texto}
+                onChange={(e) =>
+                  cambiar(i, (x) => ({ ...x, texto: e.target.value }))
+                }
+              />
+            )}
+            <small className="mz-faint d-block">{AYUDA_TIPO[p.tipo]}</small>
+            <Opciones pregunta={p} i={i} cambiar={cambiar} />
           </fieldset>
         ))}
-        <button
-          type="button"
-          className="btn btn-outline-primary btn-sm align-self-start"
-          onClick={() =>
-            setPreguntas((ps) => [
-              ...(ps ?? []),
-              { texto: "", opciones: [{ texto: "" }, { texto: "" }] },
-            ])
-          }
-        >
-          <Icon name="plus-lg" /> Agregar pregunta
-        </button>
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm"
+            onClick={() =>
+              setPreguntas((ps) => [...(ps ?? []), preguntaNueva()])
+            }
+          >
+            <Icon name="plus-lg" /> Agregar pregunta
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            disabled={!preguntas?.length}
+            onClick={() => setPreguntas((ps) => repartirPuntos(ps))}
+          >
+            <Icon name="distribute-horizontal" /> Repartir los 10 puntos por
+            igual
+          </button>
+          <span
+            className={`ms-auto mz-small ${cuadra ? "text-success" : "text-danger"}`}
+            role="status"
+          >
+            Suma: {suma.toLocaleString("es-EC")} de 10 puntos
+          </span>
+        </div>
         <div className="mz-actions justify-content-end">
           <button
             type="button"
@@ -475,7 +693,9 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={!preguntas || guardando}
+            disabled={
+              !preguntas || guardando || (preguntas.length > 0 && !cuadra)
+            }
             onClick={guardar}
           >
             {guardando ? "Guardando…" : "Guardar evaluación"}
@@ -570,8 +790,9 @@ export function CapacitacionGestion({ datos }) {
                         <strong>{m.titulo}</strong>
                         <small className="mz-faint">
                           {m.de && ` · ${m.de}`} ·{" "}
-                          {m.formatos.join(" + ") || "Sin contenido"} · nota{" "}
-                          {m.nota_minima} · {m.intentos_max} intentos
+                          {m.formatos.join(" + ") || "Sin contenido"} · aprueba
+                          con {m.nota_minima} % · {m.intentos_max} intentos
+                          {m.tiempo_limite ? ` · ${m.tiempo_limite} min` : ""}
                         </small>
                       </span>
                       {!m.activo && (

@@ -40,6 +40,27 @@ export const nominaService = {
       .post("/nomina/historial/rol/", datos, { responseType: "blob" })
       .then((r) => r.data);
   },
+  // --- Descarga masiva por área (Talento Humano) -----------------------
+  areasDescargaMasiva() {
+    return apiClient.get(`${BASE}descarga-masiva/`).then((r) => r.data);
+  },
+  /** `{ unidad, anio, mes, password }`: devuelve el ZIP y cuántos roles
+   * trae (y cuántas personas quedaron sin rol). */
+  descargaMasiva(datos) {
+    return apiClient
+      .post(`${BASE}descarga-masiva/`, datos, { responseType: "blob" })
+      .then((r) => {
+        const numero = (clave) => {
+          const valor = r.headers?.[clave];
+          return valor == null ? null : Number(valor);
+        };
+        return {
+          blob: r.data,
+          incluidos: numero("x-incluidos"),
+          omitidos: numero("x-omitidos"),
+        };
+      });
+  },
   // --- Observaciones (Talento Humano) ---------------------------------
   /** `estado`: "abierta", "corregida", "cerrada" o vacío (todas). */
   observaciones(estado = "") {
@@ -50,13 +71,36 @@ export const nominaService = {
   observacion(id) {
     return apiClient.get(`/nomina/observaciones/${id}/`).then((r) => r.data);
   },
-  corregirObservacion(id, nota) {
+  /** La respuesta de Talento Humano, con imágenes o archivos opcionales. */
+  corregirObservacion(id, nota, archivos = []) {
+    const datos = new FormData();
+    datos.append("nota", nota);
+    archivos.forEach((archivo) => datos.append("archivos", archivo));
     return apiClient
-      .post(`/nomina/observaciones/${id}/corregir/`, { nota })
+      .post(`/nomina/observaciones/${id}/corregir/`, datos)
+      .then((r) => r.data);
+  },
+  /** Un adjunto de una respuesta (para verlo o descargarlo). */
+  adjuntoObservacion(id) {
+    return apiClient
+      .get(`/nomina/observaciones/adjuntos/${id}/`, { responseType: "blob" })
       .then((r) => r.data);
   },
   resumenObservaciones() {
     return apiClient.get("/nomina/observaciones/resumen/").then((r) => r.data);
+  },
+  // --- Lista de habilitados (nómina) y mis observaciones ---------------
+  habilitados(q = "") {
+    return apiClient
+      .get(`${BASE}habilitados/`, { params: q ? { q } : {} })
+      .then((r) => r.data);
+  },
+  /** `{ usuario, habilitado, codigo }`: devuelve la fila guardada. */
+  habilitar(datos) {
+    return apiClient.post(`${BASE}habilitados/`, datos).then((r) => r.data);
+  },
+  misObservaciones() {
+    return apiClient.get(`${BASE}mis-observaciones/`).then((r) => r.data);
   },
   olvidarCorreo() {
     return apiClient.delete(`${BASE}correo-personal/`);

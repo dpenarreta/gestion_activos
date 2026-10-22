@@ -76,6 +76,8 @@ class Participante(BaseModel):
     )
     #: Hasta qué mensaje leyó (su id). Lo que viene después es «sin leer».
     ultimo_leido_id = models.BigIntegerField(default=0)
+    #: Cuándo leyó hasta ahí: la confirmación de lectura («Visto 10:32»).
+    leido_en = models.DateTimeField(null=True, blank=True)
     #: En un grupo personalizado: puede renombrarlo y cambiar sus miembros.
     administra = models.BooleanField(default=False)
 
@@ -111,3 +113,35 @@ class Mensaje(BaseModel):
     class Meta:
         ordering = ["id"]
         indexes = [models.Index(fields=["conversacion", "id"])]
+
+
+class EstadoChat(BaseModel):
+    """Cómo está una persona en el chat (22/10/2026; ver `estados.py`). Es de
+    la persona, no de una empresa: se ve igual en todas."""
+
+    class Estado(models.TextChoices):
+        DISPONIBLE = "disponible", "Disponible"
+        ALMUERZO = "almuerzo", "En almuerzo"
+        VACACIONES = "vacaciones", "De vacaciones"
+        REUNION = "reunion", "En reunión"
+        NO_DISPONIBLE = "no_disponible", "No disponible"
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="estado_chat"
+    )
+    estado = models.CharField(max_length=14, choices=Estado.choices, default=Estado.DISPONIBLE)
+    mensaje = models.CharField(max_length=140, blank=True)
+    #: Hasta cuándo dura (almuerzo, reunión, no disponible); vacío, hasta que
+    #: lo cambie.
+    hasta = models.DateTimeField(null=True, blank=True)
+    #: Las vacaciones van aparte: se programan y mandan mientras duran.
+    vacaciones_desde = models.DateField(null=True, blank=True)
+    vacaciones_hasta = models.DateField(null=True, blank=True)
+    mensaje_vacaciones = models.CharField(max_length=140, blank=True)
+    #: Su horario de almuerzo: a qué hora sale y cuánto dura.
+    almuerzo_inicio = models.TimeField(null=True, blank=True)
+    almuerzo_minutos = models.PositiveSmallIntegerField(default=60)
+
+    class Meta:
+        verbose_name = "estado en el chat"
+        verbose_name_plural = "estados en el chat"

@@ -305,7 +305,8 @@ def marcar_leido(usuario, conversacion, hasta_id=None) -> int:
     )
     if ultimo and ultimo > lugar.ultimo_leido_id:
         lugar.ultimo_leido_id = ultimo
-        lugar.save(update_fields=["ultimo_leido_id", "updated_at"])
+        lugar.leido_en = timezone.now()
+        lugar.save(update_fields=["ultimo_leido_id", "leido_en", "updated_at"])
     if not sin_leer(usuario, conversacion, lugar):
         Notificacion.objects.todas().filter(
             usuario=usuario,
@@ -314,6 +315,22 @@ def marcar_leido(usuario, conversacion, hasta_id=None) -> int:
             leida_en__isnull=True,
         ).update(leida_en=timezone.now())
     return lugar.ultimo_leido_id
+
+
+def lecturas(usuario, conversacion) -> list[dict]:
+    """Hasta dónde leyó cada una de las demás personas de la conversación y
+    cuándo (22/10/2026): con esto se marca cada mensaje propio como enviado o
+    leído, y por quién."""
+    participacion(usuario, conversacion)
+    return [
+        {
+            "id": p.usuario_id,
+            "nombre": nombre(p.usuario),
+            "ultimo_leido": p.ultimo_leido_id,
+            "leido_en": p.leido_en,
+        }
+        for p in conversacion.participantes.exclude(usuario=usuario).select_related("usuario")
+    ]
 
 
 def sin_leer(usuario, conversacion, lugar=None) -> int:

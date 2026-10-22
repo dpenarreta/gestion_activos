@@ -56,6 +56,26 @@ export const chatService = {
       })
       .then((r) => r.data);
   },
+  /** Hasta dónde leyó cada una de las demás personas (confirmación de lectura). */
+  lecturas(id) {
+    return apiClient
+      .get(`${BASE}/conversaciones/${id}/lecturas/`)
+      .then((r) => r.data);
+  },
+  /** Si cada persona está en línea y su última conexión: `{id: estado}`. */
+  presencia(ids) {
+    return apiClient
+      .get(`${BASE}/presencia/`, { params: { ids: ids.join(",") } })
+      .then((r) => r.data);
+  },
+  /** Mi estado (almuerzo, vacaciones…), mi horario de almuerzo y las
+   * vacaciones que se proponen. */
+  miEstado() {
+    return apiClient.get(`${BASE}/mi-estado/`).then((r) => r.data);
+  },
+  guardarEstado(datos) {
+    return apiClient.put(`${BASE}/mi-estado/`, datos).then((r) => r.data);
+  },
   directorio(q = "") {
     return apiClient
       .get(`${BASE}/directorio/`, { params: q ? { q } : {} })

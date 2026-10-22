@@ -5,6 +5,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { AdjuntosObservacion } from "./AdjuntosObservacion";
 
 const MESES = [
   "enero",
@@ -118,6 +119,7 @@ function Periodo({ periodo, onVer, abriendo }) {
                   · {m.autor} · {cuando(m.momento)}
                 </small>
                 {m.texto && <p className="mb-0">{m.texto}</p>}
+                <AdjuntosObservacion adjuntos={m.adjuntos} />
               </li>
             ))}
           </ol>

@@ -31,8 +31,23 @@ def _es_de_cargo(role: Group) -> bool:
 class RoleService:
     @staticmethod
     def _comprobar_alcance(actor: User, codenames: list[str]) -> None:
-        """Un rol no puede recibir permisos que quien lo edita no tenga."""
+        """Un rol no puede recibir permisos que quien lo edita no tenga, ni los
+        que se dan solo persona por persona (consultar el rol de pagos)."""
         from rest_framework import serializers
+
+        from apps.organizacion.permisos_por_cargo import SOLO_POR_PERSONA
+
+        por_persona = sorted(set(codenames) & SOLO_POR_PERSONA)
+        if por_persona:
+            raise serializers.ValidationError(
+                {
+                    "permission_codenames": [
+                        "Se da persona por persona, no por rol: "
+                        + ", ".join(por_persona)
+                        + " (Rol de pagos → Usuarios habilitados)."
+                    ]
+                }
+            )
 
         faltantes = permisos_que_no_tiene(actor, codenames)
         if faltantes:

@@ -17,8 +17,8 @@ from apps.adjuntos.validators import validar_archivo
 from apps.organizacion.models import Departamento
 from apps.permissions.authorization import user_has_permission
 
-from . import services
-from .models import Conversacion, Mensaje
+from . import estados, presencia, services
+from .models import Conversacion, EstadoChat, Mensaje
 from .serializers import (
     DirectaSerializer,
     EditarGrupoSerializer,
@@ -202,6 +202,7 @@ class MensajesView(APIView):
                 "mensajes": [mensaje_dict(m, request.user) for m in pagina],
                 "hay_mas": hay_mas,
                 "ultimo_leido": lugar.ultimo_leido_id,
+                "lecturas": services.lecturas(request.user, conversacion),
             }
         )
 
@@ -238,7 +239,10 @@ class MensajesView(APIView):
             )
         except ErrorDeModelo as error:
             raise serializers.ValidationError(_errores(error)) from error
-        return Response(mensaje_dict(mensaje, request.user), status=status.HTTP_201_CREATED)
+        return Response(
+            {**mensaje_dict(mensaje, request.user), "avisos": _avisos(conversacion, request.user)},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LeerView(APIView):
@@ -252,6 +256,17 @@ class LeerView(APIView):
             request.user, conversacion, entrada.validated_data.get("hasta")
         )
         return Response({"ultimo_leido": ultimo})
+
+
+class LecturasView(APIView):
+    """`GET`: hasta dónde leyó cada una de las demás personas, para la
+    confirmación de lectura de los mensajes propios (22/10/2026)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        conversacion = _conversacion(request, pk)
+        return Response(services.lecturas(request.user, conversacion))
 
 
 class NovedadesView(APIView):
@@ -288,6 +303,20 @@ class NovedadesView(APIView):
                 "total_no_leidos": sum(no_leidos.values()),
             }
         )
+
+
+class PresenciaView(APIView):
+    """`GET ?ids=1,2,3`: si cada persona está en línea y cuándo se conectó por
+    última vez (ver `presencia.py`). Solo de personas de la empresa activa."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        pedidos = [p for p in request.query_params.get("ids", "").split(",") if p.isdigit()]
+        de_la_empresa = set(
+            services.personas_de_la_empresa().filter(pk__in=pedidos).values_list("pk", flat=True)
+        )
+        return Response({str(pk): estado for pk, estado in presencia.de(de_la_empresa).items()})
 
 
 class DirectorioView(APIView):
@@ -331,3 +360,58 @@ class ArchivoView(APIView):
         )
         respuesta["X-Content-Type-Options"] = "nosniff"
         return respuesta
+
+
+#: En grupos más grandes no se avisa de cada estado: sería ruido.
+AVISOS_HASTA = 25
+
+
+def _avisos(conversacion, autor) -> list[dict]:
+    """Al enviar: quiénes de la conversación están en almuerzo, de vacaciones,
+    en reunión o no disponibles (o saldrán pronto de vacaciones), para
+    decírselo a quien escribe. No en el canal general."""
+    if conversacion.tipo == Conversacion.Tipo.GENERAL:
+        return []
+    ids = list(
+        conversacion.participantes.exclude(usuario=autor).values_list("usuario_id", flat=True)[
+            : AVISOS_HASTA + 1
+        ]
+    )
+    if len(ids) > AVISOS_HASTA:
+        return []
+    vigentes = {pk: e for pk, e in estados.de(ids).items() if e}
+    if not vigentes:
+        return []
+    from apps.users.models import User
+
+    nombres = {u.pk: services.nombre(u) for u in User.objects.filter(pk__in=vigentes)}
+    return [
+        {"usuario": pk, "nombre": nombres.get(pk, ""), **vigentes[pk]}
+        for pk in sorted(vigentes, key=lambda pk: nombres.get(pk, ""))
+    ]
+
+
+class _MiEstado(serializers.Serializer):
+    estado = serializers.ChoiceField(choices=EstadoChat.Estado.choices, required=False)
+    mensaje = serializers.CharField(max_length=140, required=False, allow_blank=True)
+    hasta = serializers.DateTimeField(required=False, allow_null=True)
+    vacaciones_desde = serializers.DateField(required=False, allow_null=True)
+    vacaciones_hasta = serializers.DateField(required=False, allow_null=True)
+    quitar_vacaciones = serializers.BooleanField(required=False)
+    almuerzo_inicio = serializers.TimeField(required=False, allow_null=True)
+    almuerzo_minutos = serializers.IntegerField(required=False)
+
+
+class MiEstadoView(APIView):
+    """Mi estado en el chat (22/10/2026): `GET` lo actual, con las fechas de
+    vacaciones que se proponen; `PUT` lo cambia (ver `estados.py`)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(estados.mio(request.user))
+
+    def put(self, request):
+        entrada = _MiEstado(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        return Response(estados.guardar(request.user, entrada.validated_data))

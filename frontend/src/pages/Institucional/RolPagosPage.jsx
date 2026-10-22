@@ -4,7 +4,11 @@ import { nominaService } from "../../api/nominaService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
+import { AdjuntosObservacion } from "./AdjuntosObservacion";
+import { DescargaMasivaRolPagos } from "./DescargaMasivaRolPagos";
+import { HabilitadosRolPagos } from "./HabilitadosRolPagos";
 import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
 
@@ -412,6 +416,52 @@ function Configurar({ estado, onGuardado, onCerrar }) {
  * empleado sale de la sesión), se aceptan los términos y se confirma la
  * contraseña. El PDF se ve y se descarga; se puede enviar al correo personal.
  */
+/** Las observaciones de la persona a sus roles de pagos, en todos sus
+ * estados (22/10/2026): solo las suyas, con la conversación con Talento
+ * Humano. */
+function MisObservaciones() {
+  const [lista, setLista] = useState(null);
+  useEffect(() => {
+    nominaService
+      .misObservaciones()
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, []);
+  if (!lista || lista.length === 0) return null;
+  return (
+    <section className="mz-card" aria-label="Mis observaciones">
+      <div className="mz-card-body mz-stack">
+        <h3 className="h6 mb-0">
+          <Icon name="chat-left-dots" /> Mis observaciones
+        </h3>
+        {lista.map((o) => (
+          <details key={o.id} className="rol-pagos__observacion">
+            <summary>
+              <strong className="text-capitalize">
+                {MESES[o.mes - 1]} {o.anio}
+              </strong>{" "}
+              · <span className="mz-pill">{o.estado_display}</span>
+              {o.ultima && <span className="mz-faint"> · {o.ultima}</span>}
+            </summary>
+            <ol className="sugerencia-comentarios mt-2">
+              {(o.mensajes ?? []).map((m) => (
+                <li key={m.id}>
+                  <strong>{m.tipo_display}</strong>{" "}
+                  <small className="mz-faint">
+                    · {m.autor} · {formatearFecha(m.fecha, true)}
+                  </small>
+                  {m.texto && <p className="mb-0">{m.texto}</p>}
+                  <AdjuntosObservacion adjuntos={m.adjuntos} />
+                </li>
+              ))}
+            </ol>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function RolPagosPage() {
   const hoy = new Date();
   const [estado, setEstado] = useState(null);
@@ -435,6 +485,8 @@ export function RolPagosPage() {
   const [ultima, setUltima] = useState(null);
   const [configurando, setConfigurando] = useState(false);
   const [historial, setHistorial] = useState(false);
+  const [habilitados, setHabilitados] = useState(false);
+  const [masiva, setMasiva] = useState(false);
   // El último mes consultado sin rol: se dice en la página, con qué revisar.
   const [sinRol, setSinRol] = useState(null);
 
@@ -478,8 +530,29 @@ export function RolPagosPage() {
             sistema.
           </p>
         </div>
-        {(estado?.puede_configurar || estado?.puede_ver_historial) && (
+        {(estado?.puede_configurar ||
+          estado?.puede_ver_historial ||
+          estado?.puede_habilitar ||
+          estado?.puede_descarga_masiva) && (
           <div className="mz-actions">
+            {estado.puede_descarga_masiva && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setMasiva(true)}
+              >
+                <Icon name="file-earmark-zip" /> Descarga masiva
+              </button>
+            )}
+            {estado.puede_habilitar && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setHabilitados(true)}
+              >
+                <Icon name="person-check" /> Usuarios habilitados
+              </button>
+            )}
             {estado.puede_ver_historial && (
               <button
                 type="button"
@@ -514,13 +587,23 @@ export function RolPagosPage() {
           {aviso}
         </div>
       )}
-      {estado && !estado.codigo && !estado.puede_consultar_otros && (
+      {estado && !estado.habilitado && (
         <div className="mz-alert mz-alert--warn" role="status">
-          <Icon name="person-vcard" />
-          Su cuenta todavía no tiene código de empleado, así que no puede
-          consultar su rol de pagos. Pídale a Talento Humano que se lo asigne.
+          <Icon name="person-lock" />
+          Su cuenta no está habilitada para consultar el rol de pagos. Se
+          habilita a quienes aceptaron recibirlo en forma virtual: pídaselo a
+          Talento Humano.
         </div>
       )}
+      {estado?.habilitado &&
+        !estado.codigo &&
+        !estado.puede_consultar_otros && (
+          <div className="mz-alert mz-alert--warn" role="status">
+            <Icon name="person-vcard" />
+            Su cuenta todavía no tiene código de empleado, así que no puede
+            consultar su rol de pagos. Pídale a Talento Humano que se lo asigne.
+          </div>
+        )}
       {estado && !estado.disponible && (
         <div className="mz-alert mz-alert--warn" role="status">
           <Icon name="hourglass-split" />
@@ -528,7 +611,7 @@ export function RolPagosPage() {
         </div>
       )}
 
-      {estado && (
+      {estado?.habilitado && (
         <section className="mz-card" aria-label="Período a consultar">
           <form
             className="mz-card-body rol-pagos__periodo"
@@ -813,7 +896,12 @@ export function RolPagosPage() {
           onCerrar={() => setVisto(null)}
         />
       )}
+      {estado?.habilitado && <MisObservaciones />}
       {historial && <HistorialRolPagos onCerrar={() => setHistorial(false)} />}
+      {habilitados && (
+        <HabilitadosRolPagos onCerrar={() => setHabilitados(false)} />
+      )}
+      {masiva && <DescargaMasivaRolPagos onCerrar={() => setMasiva(false)} />}
       {configurando && estado && (
         <Configurar
           estado={estado}

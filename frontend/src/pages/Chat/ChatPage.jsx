@@ -8,6 +8,8 @@ import {
   Grupos,
   ListaConversaciones,
 } from "../../components/admin/Chat/Panel";
+import { MiEstado } from "../../components/admin/Chat/MiEstado";
+import { Presencia, usePresencia } from "../../components/admin/Chat/Presencia";
 import "../../components/admin/Chat/ChatDock.css";
 import { Icon } from "../../components/common/Icon/Icon";
 
@@ -27,6 +29,9 @@ export function ChatPage() {
   const [pestana, setPestana] = useState("conversaciones");
   const activa = Number(parametros.get("c")) || null;
   const conversacion = chat?.conversaciones.find((c) => c.id === activa);
+  const presenciaDelOtro = usePresencia(
+    conversacion?.tipo === "directa" ? [conversacion.otro?.id] : [],
+  );
 
   const leer = chat?.leer;
   const pendientes = activa ? (chat?.noLeidos[activa] ?? 0) : 0;
@@ -47,6 +52,9 @@ export function ChatPage() {
   return (
     <div className={`chat-pagina${activa ? " chat-pagina--con-activa" : ""}`}>
       <aside className="chat-pagina__lateral">
+        <div className="chat-pagina__mi-estado">
+          <span className="mz-small mz-faint">Mi estado:</span> <MiEstado />
+        </div>
         <div className="chat-panel__pestanas" role="tablist">
           {PESTANAS.map(([id, texto]) => (
             <button
@@ -88,9 +96,16 @@ export function ChatPage() {
                 <Icon name="arrow-left" />
               </button>
               <strong>{conversacion.nombre}</strong>
-              {conversacion.tipo !== "directa" && (
+              {conversacion.tipo !== "directa" ? (
                 <span className="mz-small mz-faint ms-2">
                   {conversacion.miembros} persona(s)
+                </span>
+              ) : (
+                <span className="ms-2">
+                  <Presencia
+                    estado={presenciaDelOtro[conversacion.otro?.id]}
+                    conTexto
+                  />
                 </span>
               )}
             </header>

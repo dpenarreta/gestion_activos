@@ -114,6 +114,20 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             Q(membresias__empresa=empresa) | Q(membresias__isnull=True)
         ).distinct()
 
+    def list(self, request, *args, **kwargs):
+        """El listado, con la presencia de toda la página en una sola consulta."""
+        from apps.chat import presencia
+
+        queryset = self.filter_queryset(self.get_queryset())
+        pagina = self.paginate_queryset(queryset)
+        filas = pagina if pagina is not None else list(queryset)
+        contexto = {
+            **self.get_serializer_context(),
+            "presencia": presencia.de([u.pk for u in filas]),
+        }
+        datos = self.get_serializer_class()(filas, many=True, context=contexto).data
+        return self.get_paginated_response(datos) if pagina is not None else Response(datos)
+
     def get_serializer_class(self):
         if self.action == "list":
             return UserAdminListSerializer

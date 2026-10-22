@@ -64,6 +64,17 @@ class UserAdminService:
         El nombre de usuario no se recibe: se deriva del nombre de la persona
         (ver `apps.users.nomenclatura`).
         """
+        if codigo_empleado:
+            from rest_framework.exceptions import PermissionDenied
+
+            from apps.permissions.authorization import user_has_permission
+
+            # Como al editar: el código lo pone nómina (22/10/2026).
+            if not user_has_permission(actor, "roles_pago.habilitar"):
+                raise PermissionDenied(
+                    "El código de empleado lo asigna quien habilita el rol de pagos "
+                    "(roles_pago.habilitar)."
+                )
         username = generar_username(first_name, last_name)
         user = AuthenticationService.register_user(
             username=username,
@@ -101,6 +112,20 @@ class UserAdminService:
 
     @staticmethod
     def update_user(*, actor: User, user: User, context: dict | None = None, **fields) -> User:
+        # El código de empleado (con él se consulta el rol de pagos) lo cambia
+        # solo quien habilita el rol de pagos (22/10/2026).
+        if "codigo_empleado" in fields and (fields["codigo_empleado"] or None) != (
+            user.codigo_empleado or None
+        ):
+            from rest_framework.exceptions import PermissionDenied
+
+            from apps.permissions.authorization import user_has_permission
+
+            if not user_has_permission(actor, "roles_pago.habilitar"):
+                raise PermissionDenied(
+                    "El código de empleado lo cambia quien habilita el rol de pagos "
+                    "(roles_pago.habilitar)."
+                )
         previous_values = {}
         new_values = {}
         for field, value in fields.items():

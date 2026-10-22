@@ -5,7 +5,9 @@ import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { Conversacion } from "./Conversacion";
 import { Directorio, esGrupal, Grupos, ListaConversaciones } from "./Panel";
+import { Presencia, usePresencia } from "./Presencia";
 import "./ChatDock.css";
+import { MiEstado } from "./MiEstado";
 
 const PESTANAS = [
   ["conversaciones", "Chats"],
@@ -17,6 +19,9 @@ const PESTANAS = [
 function Ventana({ ventana }) {
   const chat = useChat();
   const conversacion = chat.conversaciones.find((c) => c.id === ventana.id);
+  const presencia = usePresencia(
+    conversacion?.tipo === "directa" ? [conversacion.otro?.id] : [],
+  );
   if (!conversacion) return null;
   const pendientes = chat.noLeidos[conversacion.id] ?? 0;
   return (
@@ -34,6 +39,9 @@ function Ventana({ ventana }) {
           onClick={() => chat.alternar(conversacion.id)}
         >
           <span>{conversacion.nombre}</span>
+          {conversacion.tipo === "directa" && (
+            <Presencia estado={presencia[conversacion.otro?.id]} />
+          )}
           {pendientes > 0 && (
             <span
               className="chat-contador"
@@ -124,6 +132,7 @@ export function ChatDock() {
           <section className="chat-panel" aria-label="Chat de la empresa">
             <header className="chat-panel__cabecera">
               <strong>Chat</strong>
+              <MiEstado />
               <Link
                 to="/admin/chat"
                 className="mz-small"

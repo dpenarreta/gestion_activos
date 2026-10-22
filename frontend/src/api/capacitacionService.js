@@ -24,10 +24,20 @@ export const capacitacionService = {
       .get(`${BASE}mi-onboarding/${id}/evaluacion/`)
       .then((r) => r.data);
   },
-  /** `respuestas`: `{ pregunta_id: opcion_id }`. */
-  responder(id, respuestas) {
+  /** `respuestas`: `{ pregunta_id: respuesta }` según el tipo de cada
+   * pregunta; `tiempoAgotado`, cuando el reloj llegó a cero. */
+  responder(id, respuestas, tiempoAgotado = false) {
     return apiClient
-      .post(`${BASE}mi-onboarding/${id}/responder/`, { respuestas })
+      .post(`${BASE}mi-onboarding/${id}/responder/`, {
+        respuestas,
+        tiempo_agotado: tiempoAgotado,
+      })
+      .then((r) => r.data);
+  },
+  /** Lo respondido hasta ahora en una evaluación con tiempo límite. */
+  guardarBorrador(id, respuestas) {
+    return apiClient
+      .post(`${BASE}mi-onboarding/${id}/borrador/`, { respuestas })
       .then((r) => r.data);
   },
   // --- Gestión -----------------------------------------------------------

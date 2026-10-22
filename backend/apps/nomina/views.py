@@ -1,5 +1,8 @@
-from django.http import HttpResponse
+from urllib.parse import quote
+
+from django.http import FileResponse, Http404, HttpResponse
 from rest_framework import serializers, status
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -19,16 +22,26 @@ def _ip(request):
     return get_request_context(request).get("ip_address") or None
 
 
-#: Consultar el propio rol (21/10/2026: antes bastaba la sesión). Quien
-#: consulta el de todos también puede con el suyo.
-PROPIO = Requiere("roles_pago.consultar", "roles_pago.consultar_todos")
+#: Consultar el propio rol: solo quien está en la lista de habilitados
+#: (`roles_pago.consultar`, persona por persona; 22/10/2026).
+PROPIO = Requiere("roles_pago.consultar")
+#: La pantalla la abre quien está habilitado o quien gestiona algo de ella
+#: (la lista, el historial, los textos o las observaciones).
+PANTALLA = Requiere(
+    "roles_pago.consultar",
+    "roles_pago.habilitar",
+    "roles_pago.historial",
+    "roles_pago.configurar",
+    "roles_pago.observaciones",
+    "roles_pago.descarga_masiva",
+)
 
 
 class EstadoView(APIView):
     """Lo que necesita la pantalla: el código de la sesión, los términos
     vigentes, el correo guardado (enmascarado) y qué puede hacer."""
 
-    permission_classes = [IsAuthenticated, PROPIO]
+    permission_classes = [IsAuthenticated, PANTALLA]
 
     def get(self, request):
         config = services.configuracion()
@@ -44,6 +57,12 @@ class EstadoView(APIView):
                 "puede_consultar_otros": services.consulta_otros(request.user),
                 "puede_configurar": user_has_permission(request.user, "roles_pago.configurar"),
                 "puede_ver_historial": services.ve_historial(request.user),
+                # Si está en la lista de habilitados: sin eso, la pantalla solo
+                # ofrece lo que gestiona.
+                "habilitado": services.habilitado(request.user),
+                "puede_habilitar": services.gestiona_habilitados(request.user),
+                "puede_ver_observaciones": services.atiende_observaciones(request.user),
+                "puede_descarga_masiva": services.descarga_masiva_permitida(request.user),
                 # Correcciones de Talento Humano que debe volver a confirmar.
                 "por_confirmar": services.por_confirmar(request.user),
             }
@@ -281,19 +300,61 @@ class CorregirObservacionView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    parser_classes = [JSONParser, MultiPartParser]
+
     def post(self, request, pk):
         entrada = _Correccion(data=request.data)
         entrada.is_valid(raise_exception=True)
-        observacion = services.corregir(request.user, pk, entrada.validated_data["nota"])
+        archivos = request.FILES.getlist("archivos")
+        observacion = services.corregir(request.user, pk, entrada.validated_data["nota"], archivos)
         record_audit_event(
             actor=request.user,
             action="roles_pago.observacion.corregida",
             target=observacion,
             module=MODULO,
-            new_values={"observacion": observacion.pk, "persona": observacion.usuario_id},
+            new_values={
+                "observacion": observacion.pk,
+                "persona": observacion.usuario_id,
+                "adjuntos": [a.name for a in archivos],
+            },
             context=get_request_context(request),
         )
         return Response(services.observacion(request.user, pk))
+
+
+class AdjuntoObservacionView(APIView):
+    """Descargar un adjunto de una respuesta a una observación: la persona de
+    la observación y Talento Humano. Siempre como descarga y sin adivinar el
+    tipo; queda en la auditoría."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        adjunto = services.adjunto_de_observacion(request.user, pk)
+        try:
+            fichero = adjunto.archivo.open("rb")
+        except FileNotFoundError as error:
+            raise Http404("El archivo ya no está disponible en el servidor.") from error
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.observacion.adjunto_descargado",
+            target=adjunto.mensaje.observacion,
+            module=MODULO,
+            new_values={"adjunto": adjunto.pk, "nombre": adjunto.nombre_original},
+            context=get_request_context(request),
+        )
+        respuesta = FileResponse(
+            fichero,
+            as_attachment=True,
+            filename=adjunto.nombre_original,
+            content_type=adjunto.content_type or "application/octet-stream",
+        )
+        respuesta["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{quote(adjunto.nombre_original)}"
+        )
+        respuesta["Cache-Control"] = "no-store, private"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
 
 
 class ResumenObservacionesView(APIView):
@@ -387,6 +448,120 @@ class RolDelHistorialView(APIView):
         respuesta["Content-Disposition"] = (
             f'inline; filename="rol-de-pagos-{datos["codigo"]}-{datos["anio"]}-{datos["mes"]:02d}.pdf"'
         )
+        respuesta["Cache-Control"] = "no-store, private"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
+
+
+class _Habilitar(serializers.Serializer):
+    usuario = serializers.IntegerField()
+    habilitado = serializers.BooleanField()
+    codigo = serializers.CharField(max_length=40, required=False, allow_blank=True)
+
+
+class HabilitadosView(APIView):
+    """Rol de pagos → Usuarios habilitados (`roles_pago.habilitar`): quiénes
+    consultan su rol de pagos y con qué código de empleado (22/10/2026)."""
+
+    permission_classes = [IsAuthenticated, Requiere("roles_pago.habilitar")]
+
+    def get(self, request):
+        return Response(services.habilitados(request.user, request.query_params.get("q", "")))
+
+    def post(self, request):
+        from apps.chat.services import personas_de_la_empresa
+
+        entrada = _Habilitar(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        usuario = personas_de_la_empresa().filter(pk=datos["usuario"]).first()
+        if usuario is None:
+            raise serializers.ValidationError({"usuario": "No es una persona de la empresa."})
+        return Response(
+            services.habilitar(
+                request.user,
+                usuario,
+                habilitado_=datos["habilitado"],
+                codigo=datos.get("codigo"),
+            )
+        )
+
+
+class MisObservacionesView(APIView):
+    """Las observaciones de la persona a sus roles de pagos, en todos sus
+    estados; solo las suyas (22/10/2026)."""
+
+    permission_classes = [IsAuthenticated, PROPIO]
+
+    def get(self, request):
+        return Response(services.mis_observaciones(request.user))
+
+
+class _DescargaMasiva(serializers.Serializer):
+    unidad = serializers.IntegerField()
+    anio = serializers.IntegerField()
+    mes = serializers.IntegerField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class DescargaMasivaView(APIView):
+    """Rol de pagos → Descarga masiva (`roles_pago.descarga_masiva`,
+    22/10/2026). GET: las áreas para elegir. POST: el ZIP sin clave con un PDF
+    por persona del área en ese mes; pide la contraseña y queda en la
+    auditoría."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.PERMISO_MASIVA)]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "rol_pagos"
+
+    def get_throttles(self):
+        # Ver la lista de áreas no gasta los intentos de descarga.
+        return super().get_throttles() if self.request.method == "POST" else []
+
+    def get(self, request):
+        return Response(services.areas_para_descarga(request.user))
+
+    def post(self, request):
+        entrada = _DescargaMasiva(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        periodo = {"unidad": datos["unidad"], "anio": datos["anio"], "mes": datos["mes"]}
+        try:
+            zip_ = services.descarga_masiva(
+                request.user, datos["unidad"], datos["anio"], datos["mes"], datos["password"]
+            )
+        except Exception as error:
+            record_audit_event(
+                actor=request.user,
+                action="roles_pago.descarga_masiva_rechazada",
+                target=request.user,
+                module=MODULO,
+                result="failure",
+                new_values={
+                    **periodo,
+                    "motivo": str(getattr(error, "detail", error))[:200],
+                },
+                context=get_request_context(request),
+            )
+            raise
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.descarga_masiva",
+            target=zip_["unidad"],
+            module=MODULO,
+            new_values={
+                **periodo,
+                "area": zip_["unidad"].nombre,
+                "incluidos": zip_["incluidos"],
+                "omitidos": zip_["omitidos"],
+            },
+            context=get_request_context(request),
+        )
+        respuesta = HttpResponse(zip_["contenido"], content_type="application/zip")
+        respuesta["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(zip_['nombre'])}"
+        respuesta["X-Incluidos"] = str(zip_["incluidos"])
+        respuesta["X-Omitidos"] = str(zip_["omitidos"])
+        respuesta["Access-Control-Expose-Headers"] = "X-Incluidos, X-Omitidos"
         respuesta["Cache-Control"] = "no-store, private"
         respuesta["X-Content-Type-Options"] = "nosniff"
         return respuesta
