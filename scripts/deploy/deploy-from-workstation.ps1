@@ -182,6 +182,24 @@ $salidaRemota = Invoke-Command -ComputerName $ServerHost -Credential $credencial
 
     $envFile = Join-Path $backend ".env"
     $pendiente = Select-String -Path $envFile -Pattern '^DB_PASSWORD=PENDIENTE$' -Quiet
+    $registros = Join-Path $RemoteRoot "logs\despliegue"
+    New-Item -ItemType Directory -Force -Path $registros | Out-Null
+
+    # Corre python con su salida en archivos (nunca 2>&1 sobre un ejecutable
+    # en PowerShell 5.1) y, si falla, muestra las últimas líneas: sin esto el
+    # motivo de un fallo remoto no llegaba a esta consola.
+    function Ejecutar([string]$nombre, [string]$argumentos) {
+        $out = Join-Path $registros "$nombre.out.log"
+        $err = Join-Path $registros "$nombre.err.log"
+        $p = Start-Process -FilePath $python -ArgumentList $argumentos -WorkingDirectory $backend `
+            -NoNewWindow -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+        if ($p.ExitCode -ne 0) {
+            Write-Host "   ---- últimas líneas de $nombre ----"
+            Get-Content $out -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "   $_" }
+            Get-Content $err -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "   $_" }
+        }
+        return $p.ExitCode
+    }
 
     if (-not $SkipInstall) {
         # pip no puede reemplazar archivos de paquetes que el servicio tiene
@@ -189,17 +207,17 @@ $salidaRemota = Invoke-Command -ComputerName $ServerHost -Credential $credencial
         Write-Host "-- deteniendo $ServiceName para actualizar dependencias"
         Stop-Service -Name $ServiceName -ErrorAction SilentlyContinue
         Write-Host "-- pip install"
-        & $python -m pip install -r (Join-Path $backend "requirements\prod-windows.txt") --quiet --disable-pip-version-check
-        if ($LASTEXITCODE -ne 0) { throw "pip install falló (código $LASTEXITCODE)." }
+        $codigo = Ejecutar "pip" "-m pip install -r requirements\prod-windows.txt --quiet --disable-pip-version-check"
+        if ($codigo -ne 0) { throw "pip install falló (código $codigo)." }
     }
 
     Write-Host "-- manage.py check"
-    & $python manage.py check
-    if ($LASTEXITCODE -ne 0) { throw "manage.py check falló (código $LASTEXITCODE). No se reinició nada." }
+    $codigo = Ejecutar "check" "manage.py check"
+    if ($codigo -ne 0) { throw "manage.py check falló (código $codigo). No se reinició nada." }
 
     Write-Host "-- manage.py collectstatic"
-    & $python manage.py collectstatic --noinput | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "collectstatic falló (código $LASTEXITCODE)." }
+    $codigo = Ejecutar "collectstatic" "manage.py collectstatic --noinput"
+    if ($codigo -ne 0) { throw "collectstatic falló (código $codigo)." }
 
     if ($pendiente) {
         Write-Host "-- DB_PASSWORD todavía está pendiente: no se revisan migraciones ni se inicia la API."
@@ -208,17 +226,17 @@ $salidaRemota = Invoke-Command -ComputerName $ServerHost -Credential $credencial
     else {
         if ($claveMigraciones) {
             Write-Host "-- manage.py migrate (con ga_migraciones)"
+            # Solo para este proceso: el .env sigue con ga_app.
             $env:DB_USER = "ga_migraciones"
             $env:DB_PASSWORD = $claveMigraciones
-            & $python manage.py migrate --noinput
-            $codigo = $LASTEXITCODE
+            $codigo = Ejecutar "migrate" "manage.py migrate --noinput"
             Remove-Item Env:\DB_USER, Env:\DB_PASSWORD -ErrorAction SilentlyContinue
             if ($codigo -ne 0) { throw "Las migraciones fallaron (código $codigo). ¿Está habilitado ga_migraciones?" }
         }
         Write-Host "-- manage.py migrate --check"
-        & $python manage.py migrate --check
-        if ($LASTEXITCODE -ne 0) {
-            throw "Hay migraciones pendientes. Pida al DBA habilitar ga_migraciones y despliegue con -Migrar."
+        $codigo = Ejecutar "migrate-check" "manage.py migrate --check"
+        if ($codigo -ne 0) {
+            throw "Hay migraciones pendientes (o no se pudo consultar la base). Si son migraciones: pida al DBA habilitar ga_migraciones y despliegue con -Migrar."
         }
     }
 
