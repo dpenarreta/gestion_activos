@@ -68,7 +68,7 @@ describe("Las pestañas de Configuración", () => {
     pintar("/admin/empresas");
 
     expect(pestanas().map((p) => p.textContent)).toEqual([
-      "Empresas",
+      "Empresa",
       "Usuarios y roles",
       "Catálogos",
       "Notificaciones",
@@ -83,7 +83,7 @@ describe("Las pestañas de Configuración", () => {
 
     expect(
       screen.getByText(
-        "LaarCourier: empresas, usuarios y roles, catálogos, notificaciones, identidad visual, plantilla de dashboards y respaldos.",
+        "LaarCourier: empresa, usuarios y roles, catálogos, notificaciones, identidad visual, plantilla de dashboards y respaldos.",
       ),
     ).toBeInTheDocument();
   });
@@ -95,7 +95,7 @@ describe("Las pestañas de Configuración", () => {
     pintar("/admin/empresas");
 
     expect(pestanas().map((p) => p.textContent)).toEqual([
-      "Empresas",
+      "Empresa",
       "Catálogos",
     ]);
   });

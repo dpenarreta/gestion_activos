@@ -23,8 +23,11 @@ const personas = vi.fn(() =>
   ]),
 );
 
+// Estas pruebas cubren el listado con varias empresas; la de una sola va aparte.
+const modo = { multiempresa: true };
 vi.mock("../src/api/empresasService", () => ({
   empresasService: {
+    mias: () => Promise.resolve({ empresas: [], activa: null, ...modo }),
     list: (...args) => listar(...args),
     get: (...args) => obtener(...args),
     create: (...args) => crear(...args),
@@ -155,12 +158,29 @@ describe("El listado de empresas", () => {
 
     await screen.findByText("LaarCourier");
     expect(
-      screen.getByRole("link", { name: "Nueva empresa" }),
+      await screen.findByRole("link", { name: "Nueva empresa" }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Editar" })[0]).toHaveAttribute(
       "href",
       "/admin/empresas/1",
     );
+  });
+
+  it("con una sola empresa son sus datos: sin alta de otras", async () => {
+    modo.multiempresa = false;
+    permisos.add("empresas.editar");
+    try {
+      pintarListado();
+      await screen.findByText("LaarCourier");
+      expect(
+        await screen.findByText(/El sistema trabaja con una sola empresa/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "Nueva empresa" }),
+      ).not.toBeInTheDocument();
+    } finally {
+      modo.multiempresa = true;
+    }
   });
 
   it("la búsqueda se envía al confirmar", async () => {

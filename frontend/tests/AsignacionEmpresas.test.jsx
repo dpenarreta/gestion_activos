@@ -196,11 +196,19 @@ describe("Asignación de empresas y roles a un usuario", () => {
   });
 
   // AC-EMP-017: con una sola empresa la asignación todavía no decide nada.
-  it("avisa de que con una sola empresa la asignación no decide", async () => {
+  it("con una sola empresa solo se eligen los roles", async () => {
     list.mockResolvedValue({ results: [COURIER] });
 
     render(<AsignacionEmpresas usuarioId="7" />);
 
-    expect(await screen.findByText(/Hay una sola empresa/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Roles" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "Asignada" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /Asignar LaarCourier/ }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -58,21 +58,25 @@ export function AsignacionEmpresas({ usuarioId }) {
         .catch(() => null),
     ])
       .then(([listado, usuario, catalogo, catalogoAreas]) => {
-        setEmpresas(listado.results ?? []);
+        const todas = listado.results ?? [];
+        setEmpresas(todas);
         setAreas(
           catalogoAreas?.filter((area) => area.activo !== false) ?? null,
         );
         setRoles(catalogo ?? []);
         setSinCatalogoDeRoles(catalogo === null);
         const membresias = usuario.empresas ?? [];
-        setAsignadas(
-          Object.fromEntries(
-            membresias.map((empresa) => [
-              empresa.id,
-              (empresa.roles ?? []).map((rol) => rol.id),
-            ]),
-          ),
+        const asignadasAhora = Object.fromEntries(
+          membresias.map((empresa) => [
+            empresa.id,
+            (empresa.roles ?? []).map((rol) => rol.id),
+          ]),
         );
+        // Con una sola empresa (23/10/2026) toda cuenta trabaja en ella: no
+        // se marca, solo se eligen sus roles.
+        if (todas.length === 1 && !(todas[0].id in asignadasAhora))
+          asignadasAhora[todas[0].id] = [];
+        setAsignadas(asignadasAhora);
         setAreasAsignadas(
           Object.fromEntries(
             membresias.map((empresa) => [
@@ -82,7 +86,10 @@ export function AsignacionEmpresas({ usuarioId }) {
           ),
         );
         setPredeterminada(
-          membresias.find((empresa) => empresa.es_predeterminada)?.id ?? null,
+          todas.length === 1
+            ? todas[0].id
+            : (membresias.find((empresa) => empresa.es_predeterminada)?.id ??
+                null),
         );
         setRolesGlobales((usuario.roles ?? []).map((rol) => rol.id));
         setEsSuperusuario(Boolean(usuario.is_superuser));
@@ -166,7 +173,11 @@ export function AsignacionEmpresas({ usuarioId }) {
       if (puedeRolesGlobales) {
         await adminUsersService.assignRoles(usuarioId, rolesGlobales);
       }
-      setMensaje("Empresas y roles actualizados.");
+      setMensaje(
+        empresas.length === 1
+          ? "Roles actualizados."
+          : "Empresas y roles actualizados.",
+      );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudieron guardar los accesos."));
     } finally {
@@ -175,26 +186,27 @@ export function AsignacionEmpresas({ usuarioId }) {
   }
 
   if (!puedeVer) return null;
+  const unica = empresas.length === 1;
 
   return (
     <section className="mz-card empresas-asignacion">
       <div className="mz-card-head">
-        <h3>Empresas y roles</h3>
+        <h3>{unica ? "Roles" : "Empresas y roles"}</h3>
       </div>
       <div className="mz-card-body">
         <p className="mz-faint">
-          Solo verá la información de las empresas marcadas, y en cada una podrá
-          hacer lo que digan los roles que tenga ahí. La predeterminada es la
-          que se abre al entrar.
+          {unica
+            ? "Lo que puede hacer en el sistema lo dicen sus roles. El de su cargo lo pone el organigrama."
+            : "Solo verá la información de las empresas marcadas, y en cada una podrá hacer lo que digan los roles que tenga ahí. La predeterminada es la que se abre al entrar."}
         </p>
         {esSuperusuario && (
           <div className="mz-alert mz-alert--ok" role="note">
             <Icon name="shield-lock" />
             <span>
               <strong>Superusuario (cuenta).</strong> Es una marca de la cuenta,
-              no un rol: tiene todos los permisos en todas las empresas
-              marcadas, también los que se creen más adelante, sin necesitar
-              roles. Los roles que se le asignen aquí no le quitan nada.
+              no un rol: tiene todos los permisos, también los que se creen más
+              adelante, sin necesitar roles. Los roles que se le asignen aquí no
+              le quitan nada.
             </span>
           </div>
         )}
@@ -209,20 +221,6 @@ export function AsignacionEmpresas({ usuarioId }) {
           <div className="mz-alert mz-alert--info" role="status">
             <Icon name="check2-circle" />
             {mensaje}
-          </div>
-        )}
-
-        {empresas.length === 1 && (
-          <div className="mz-alert mz-alert--info" role="status">
-            <Icon name="info-circle" />
-            {/* Con una sola empresa no hay de quién aislarse, y el backend deja
-                trabajar en ella aunque nadie haya marcado nada: decirlo aquí
-                evita que se lea como un permiso que falta. */}
-            <div>
-              Hay una sola empresa: todas las cuentas trabajan en ella aunque no
-              se marque nada. La asignación empieza a decidir en cuanto exista
-              una segunda.
-            </div>
           </div>
         )}
 
@@ -241,10 +239,14 @@ export function AsignacionEmpresas({ usuarioId }) {
           <table className="mz-table">
             <thead>
               <tr>
-                <th>Empresa</th>
-                <th className="text-center">Asignada</th>
-                <th className="text-center">Predeterminada</th>
-                <th>Roles en esta empresa</th>
+                {!unica && (
+                  <>
+                    <th>Empresa</th>
+                    <th className="text-center">Asignada</th>
+                    <th className="text-center">Predeterminada</th>
+                  </>
+                )}
+                <th>{unica ? "Roles" : "Roles en esta empresa"}</th>
               </tr>
             </thead>
             <tbody>
@@ -252,35 +254,39 @@ export function AsignacionEmpresas({ usuarioId }) {
                 const estaAsignada = empresa.id in asignadas;
                 return (
                   <tr key={empresa.id}>
-                    <td className="mz-strong">
-                      {empresa.nombre}
-                      {!empresa.activa && (
-                        <span className="mz-pill mz-pill--neutral ms-2">
-                          Inactiva
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        aria-label={`Asignar ${empresa.nombre}`}
-                        checked={estaAsignada}
-                        disabled={!puedeAsignar}
-                        onChange={() => alternarEmpresa(empresa.id)}
-                      />
-                    </td>
-                    <td className="text-center">
-                      <input
-                        type="radio"
-                        name="empresa-predeterminada"
-                        className="form-check-input"
-                        aria-label={`${empresa.nombre} como predeterminada`}
-                        checked={predeterminada === empresa.id}
-                        disabled={!puedeAsignar || !estaAsignada}
-                        onChange={() => setPredeterminada(empresa.id)}
-                      />
-                    </td>
+                    {!unica && (
+                      <>
+                        <td className="mz-strong">
+                          {empresa.nombre}
+                          {!empresa.activa && (
+                            <span className="mz-pill mz-pill--neutral ms-2">
+                              Inactiva
+                            </span>
+                          )}
+                        </td>
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            aria-label={`Asignar ${empresa.nombre}`}
+                            checked={estaAsignada}
+                            disabled={!puedeAsignar}
+                            onChange={() => alternarEmpresa(empresa.id)}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <input
+                            type="radio"
+                            name="empresa-predeterminada"
+                            className="form-check-input"
+                            aria-label={`${empresa.nombre} como predeterminada`}
+                            checked={predeterminada === empresa.id}
+                            disabled={!puedeAsignar || !estaAsignada}
+                            onChange={() => setPredeterminada(empresa.id)}
+                          />
+                        </td>
+                      </>
+                    )}
                     <td>
                       <div className="empresas-asignacion__roles">
                         {/* Los roles de nivel del organigrama solo valen en

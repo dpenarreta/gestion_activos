@@ -446,6 +446,10 @@ EXTERNAL_DB_PASSWORD = env.str("EXTERNAL_DB_PASSWORD", default="")
 EXTERNAL_DB_ENCRYPT = env.str("EXTERNAL_DB_ENCRYPT", default="yes")
 EXTERNAL_DB_TRUST_SERVER_CERTIFICATE = env.str("EXTERNAL_DB_TRUST_SERVER_CERTIFICATE", default="no")
 
+# Una sola empresa (23/10/2026; ver apps.empresas.una_sola): no se crean otras y
+# toda cuenta nueva entra a la única. True vuelve a permitir varias.
+MULTIEMPRESA = env.bool("MULTIEMPRESA", default=False)
+
 # Consultar rol de pagos (apps.nomina): el procedimiento almacenado de la base
 # externa que recibe año, mes y código de empleado. Sin él, en desarrollo se
 # usan datos de ejemplo (NOMINA_ROL_DEMO, por defecto igual a DEBUG).

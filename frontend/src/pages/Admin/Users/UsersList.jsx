@@ -9,6 +9,7 @@ import { useAdminUsers } from "../../../hooks/useAdminUsers";
 import { usePermission } from "../../../hooks/usePermission";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
+import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 
 const STATUS_LABELS = {
   active: "Activo",
@@ -26,6 +27,7 @@ const STATUS_PILLS = {
 };
 
 export function UsersList() {
+  const multiempresa = useMultiempresa();
   // Crear y deshabilitar tienen su propio permiso: con solo ver, el botón
   // terminaría en un 403.
   const puedeCrear = usePermission("usuarios.crear");
@@ -127,7 +129,7 @@ export function UsersList() {
               <th>Usuario</th>
               <th>Correo</th>
               <th>Estado</th>
-              <th>Empresas</th>
+              <th>{multiempresa ? "Empresas" : "Roles"}</th>
               {/* «Globales» porque los de cada empresa ya van en la columna
                   anterior: sin el adjetivo, un guion aquí se lee como que la
                   cuenta no tiene ningún rol en ninguna parte. */}
@@ -168,8 +170,10 @@ export function UsersList() {
                   )}
                   {(user.empresas ?? []).map((empresa) => (
                     <div key={empresa.id} className="users-list-empresa">
-                      <span className="fw-semibold">{empresa.nombre}</span>
-                      {empresa.es_predeterminada && (
+                      {multiempresa && (
+                        <span className="fw-semibold">{empresa.nombre}</span>
+                      )}
+                      {multiempresa && empresa.es_predeterminada && (
                         <span className="mz-pill mz-pill--neutral ms-1">
                           Predeterminada
                         </span>

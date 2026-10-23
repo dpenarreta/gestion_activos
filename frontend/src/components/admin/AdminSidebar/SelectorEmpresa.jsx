@@ -12,9 +12,27 @@ import { Icon } from "../../common/Icon/Icon";
  * cambia (el menú lateral dice el módulo). Saberlo antes de navegar evita el
  * error de mirar el inventario equivocado durante un rato.
  */
+/** Si el sistema trabaja con varias empresas (23/10/2026: por defecto, con
+ * una sola). */
+export function useMultiempresa() {
+  const [multiempresa, setMultiempresa] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    Promise.resolve()
+      .then(() => empresasService.mias())
+      .then((datos) => vigente && setMultiempresa(Boolean(datos?.multiempresa)))
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, []);
+  return multiempresa;
+}
+
 export function useMisEmpresas() {
   const [empresas, setEmpresas] = useState([]);
   const [activa, setActiva] = useState(null);
+  const [multiempresa, setMultiempresa] = useState(false);
 
   const [vuelta, setVuelta] = useState(0);
   // Editada una empresa (nombre, color), la barra superior lo muestra ya.
@@ -26,6 +44,7 @@ export function useMisEmpresas() {
       .then((datos) => {
         setEmpresas(datos.empresas);
         setActiva(datos.activa);
+        setMultiempresa(Boolean(datos.multiempresa));
         // El backend manda: si la cabecera pedía una empresa que ya no es
         // suya, lo que se está viendo es otra y hay que decirlo.
         if (datos.activa && String(datos.activa.id) !== getEmpresaActiva()) {
@@ -35,7 +54,7 @@ export function useMisEmpresas() {
       .catch(() => setEmpresas([]));
   }, [vuelta]);
 
-  return { empresas, activa };
+  return { empresas, activa, multiempresa };
 }
 
 /**

@@ -26,7 +26,8 @@ export const SECCIONES_CONFIGURACION = [
     // Primera: es lo que hay que crear antes que nada en un despliegue nuevo,
     // porque todo lo demás cuelga de una empresa.
     id: "empresas",
-    nombre: "Empresas",
+    // Una sola empresa (23/10/2026): sus datos, no un listado.
+    nombre: "Empresa",
     path: "/admin/empresas",
     permission: "empresas.ver",
     rutas: ["/admin/empresas"],

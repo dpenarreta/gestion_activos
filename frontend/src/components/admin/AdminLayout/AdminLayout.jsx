@@ -177,10 +177,13 @@ export function AdminLayout() {
 
                 <CampanaNotificaciones />
                 <BotonTema />
-                <SelectorEmpresa
-                  empresas={empresas.empresas}
-                  activa={empresas.activa}
-                />
+                {/* Con una sola empresa no hay nada que elegir ni mostrar. */}
+                {empresas.multiempresa && (
+                  <SelectorEmpresa
+                    empresas={empresas.empresas}
+                    activa={empresas.activa}
+                  />
+                )}
               </header>
               {/* Con el chat acoplado abajo a la derecha, el contenido deja
                 espacio al final: si no, el botón del chat tapa el último botón

@@ -12,6 +12,14 @@ def _clear_cache():
 
 
 @pytest.fixture(autouse=True)
+def _multiempresa(settings):
+    """Las pruebas siguen cubriendo la separación por empresa, que sigue por
+    dentro aunque el sistema trabaje con una sola (ver apps.empresas.una_sola,
+    que tiene sus propias pruebas con `MULTIEMPRESA = False`)."""
+    settings.MULTIEMPRESA = True
+
+
+@pytest.fixture(autouse=True)
 def _empresa_de_pruebas(request):
     """Corre cada prueba dentro de una empresa, como corre producción.
 

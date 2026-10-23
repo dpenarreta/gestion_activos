@@ -17,6 +17,7 @@ from .models import Empresa
 from .permissions import EmpresasPermission
 from .serializers import EmpresaAdminSerializer, EmpresaSerializer
 from .servicios import empresas_de
+from .una_sola import multiempresa
 
 MODULO = "empresas"
 
@@ -57,6 +58,8 @@ def mis_empresas(request):
         {
             "empresas": empresas,
             "activa": EmpresaSerializer(activa).data if activa else None,
+            # Con una sola empresa la pantalla no la muestra ni la elige.
+            "multiempresa": multiempresa(),
         }
     )
 
@@ -120,6 +123,10 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def perform_create(self, serializer):
+        if not multiempresa() and Empresa.objects.exists():
+            raise ValidationError(
+                {"detail": "El sistema trabaja con una sola empresa: no se pueden crear otras."}
+            )
         empresa = serializer.save()
         record_audit_event(
             actor=self.request.user,

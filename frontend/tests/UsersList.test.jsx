@@ -25,6 +25,14 @@ vi.mock("../src/api/adminUsersService", () => ({
   },
 }));
 
+// Con varias empresas la columna dice cuál; con una sola, solo los roles.
+const modo = { multiempresa: true };
+vi.mock("../src/api/empresasService", () => ({
+  empresasService: {
+    mias: () => Promise.resolve({ empresas: [], activa: null, ...modo }),
+  },
+}));
+
 // Crear y deshabilitar piden su permiso: aquí, quien administra las cuentas.
 vi.mock("../src/hooks/usePermission", () => ({ usePermission: () => true }));
 
@@ -122,9 +130,24 @@ describe("El listado de usuarios", () => {
     pintar();
 
     const fila = (await screen.findByText("acevallos")).closest("tr");
-    expect(fila).toHaveTextContent("LaarCourier");
+    await waitFor(() => expect(fila).toHaveTextContent("LaarCourier"));
     expect(fila).toHaveTextContent("Técnico de TI");
     expect(fila).toHaveTextContent("Predeterminada");
+  });
+
+  it("con una sola empresa la columna son los roles, sin la empresa", async () => {
+    modo.multiempresa = false;
+    try {
+      pintar();
+      const fila = (await screen.findByText("acevallos")).closest("tr");
+      expect(fila).toHaveTextContent("Técnico de TI");
+      expect(fila).not.toHaveTextContent("LaarCourier");
+      expect(
+        screen.getByRole("columnheader", { name: "Roles" }),
+      ).toBeInTheDocument();
+    } finally {
+      modo.multiempresa = true;
+    }
   });
 
   it("una empresa sin rol asignado se dice, no se deja en blanco", async () => {

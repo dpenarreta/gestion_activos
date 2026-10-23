@@ -7,6 +7,7 @@ import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Empresas.css";
+import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 
 const FILTROS_INICIALES = {};
 
@@ -20,6 +21,7 @@ const FILTROS_INICIALES = {};
  * `empresas.ver`.
  */
 export function EmpresasList() {
+  const multiempresa = useMultiempresa();
   const puedeEditar = usePermission("empresas.editar");
   const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback((params) => empresasService.list(params), []);
@@ -38,15 +40,14 @@ export function EmpresasList() {
     <div>
       <div className="mz-view-head">
         <div>
-          <h2>Empresas</h2>
+          <h2>{multiempresa ? "Empresas" : "Empresa"}</h2>
           <p className="mz-desc">
-            Todo lo que se registra pertenece a una empresa. Cambiar de empresa
-            en el selector del menú cambia de dónde salen los datos: el
-            inventario, los catálogos, el panel y los reportes pasan a ser los
-            de la otra.
+            {multiempresa
+              ? "Todo lo que se registra pertenece a una empresa. Cambiar de empresa en el selector del menú cambia de dónde salen los datos: el inventario, los catálogos, el panel y los reportes pasan a ser los de la otra."
+              : "Los datos de la empresa: su nombre, su identificación y su configuración. El sistema trabaja con una sola empresa."}
           </p>
         </div>
-        {puedeEditar && (
+        {puedeEditar && multiempresa && (
           <div className="mz-view-actions">
             <Link to="/admin/empresas/new" className="btn btn-primary btn-sm">
               <Icon name="plus-lg" /> Nueva empresa

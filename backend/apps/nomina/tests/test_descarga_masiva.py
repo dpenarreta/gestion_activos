@@ -127,22 +127,11 @@ def test_quien_no_tiene_rol_ese_mes_queda_en_el_leeme(db, monkeypatch):
     assert _descargar(nomina, ti).status_code == 400
 
 
-def test_la_regla_distingue_al_asistente_del_coordinador_nacional():
-    nacional = (
-        "Asistente de Gestión Humana · Gestión Humana y Seguridad Ocupacional · "
-        "Coordinador Nacional de Gestión Humana"
-    )
-    otro = (
-        "Asistente de Gestión Humana · Gestión Humana y Seguridad Ocupacional · "
-        "Coordinador de Gestión Humana"
-    )
-    assert "roles_pago.descarga_masiva" in permisos_del_cargo(
-        "Asistente de Gestión Humana", nacional
-    )
-    assert "roles_pago.descarga_masiva" not in permisos_del_cargo(
-        "Asistente de Gestión Humana", otro
-    )
+def test_la_regla_es_para_el_asistente_del_coordinador_nacional():
+    # Desde el organigrama GGHH 2026 los dos asistentes tienen nombres propios.
+    assert "roles_pago.descarga_masiva" in permisos_del_cargo("Asistente de GGHH")
+    assert "roles_pago.descarga_masiva" not in permisos_del_cargo("Asistente Zona Sur")
     # Lo demás de nómina sigue valiendo para los dos.
-    assert "roles_pago.historial" in permisos_del_cargo("Asistente de Gestión Humana", otro)
-    for cargo in ("Coordinador Nacional de Gestión Humana", "Asistente de Nómina"):
+    assert "roles_pago.historial" in permisos_del_cargo("Asistente Zona Sur")
+    for cargo in ("Coordinador Nacional de GGHH", "Asistente de Nómina"):
         assert "roles_pago.descarga_masiva" in permisos_del_cargo(cargo)

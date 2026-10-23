@@ -69,6 +69,11 @@ GLOBALES_A_PROPOSITO = {
         "ContentType propio."
     ),
     "authentication.Session": "La sesión es de la persona, no de la empresa en la que entra.",
+    "chat.EstadoChat": (
+        "Cómo está la persona (almuerzo, vacaciones, en reunión) es uno solo en "
+        "todas sus empresas. Solo lo ven las personas de la empresa activa: la "
+        "presencia y los avisos se piden por participantes de esa empresa."
+    ),
     "authentication.PasswordResetToken": "Recuperar la contraseña no ocurre dentro de una empresa.",
     "authentication.LoginAttempt": (
         "El bloqueo por fuerza bruta cuenta intentos contra una cuenta, antes de "

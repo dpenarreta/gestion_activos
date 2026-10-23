@@ -9,6 +9,7 @@ import { mensajeDeError } from "../../../utils/errores";
 import { baseDeUsername } from "../../../utils/nomenclatura";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
+import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 
 const EMPTY_FORM = {
   username: "",
@@ -31,6 +32,7 @@ export function UserForm() {
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
   const puedeAsignarEmpresas = usePermission("empresas.asignar");
+  const multiempresa = useMultiempresa();
   // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
   // la ficha ya está el bloque completo, con todas sus empresas.
   const [alta, setAlta] = useState({ empresaId: null, rolId: null });
@@ -155,8 +157,12 @@ export function UserForm() {
           <h2>{isEditing ? "Editar usuario" : "Nuevo usuario"}</h2>
           <p className="mz-desc">
             {isEditing
-              ? "Los datos de la cuenta, las empresas donde trabaja y su contraseña."
-              : "La cuenta nace con su nombre, su correo y, si corresponde, la empresa y el rol con los que entra."}
+              ? multiempresa
+                ? "Los datos de la cuenta, las empresas donde trabaja y su contraseña."
+                : "Los datos de la cuenta, sus roles y su contraseña."
+              : multiempresa
+                ? "La cuenta nace con su nombre, su correo y, si corresponde, la empresa y el rol con los que entra."
+                : "La cuenta nace con su nombre, su correo y el rol con el que entra."}
           </p>
         </div>
       </div>
@@ -268,7 +274,7 @@ export function UserForm() {
 
             {!isEditing && puedeAsignarEmpresas && (
               <div className="mz-section mt-3">
-                <h4>Empresa y rol</h4>
+                <h4>{multiempresa ? "Empresa y rol" : "Rol"}</h4>
                 <SeleccionEmpresaYRol
                   empresaId={alta.empresaId}
                   rolId={alta.rolId}

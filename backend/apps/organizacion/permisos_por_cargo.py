@@ -19,38 +19,34 @@ asignado persona por persona; ver `apps.nomina.services`).
 
 import unicodedata
 
+# Los cargos de Gestión Humana con los nombres del organigrama GGHH 2026
+# (23/10/2026). Cada uno es el cargo de antes, renombrado, y conserva lo que
+# tenía: Desarrollo y Capacitación de Personal era «Analista de Clima y
+# Cultura»; el Coordinador Nacional de GGHH, el «Coordinador Nacional de
+# Gestión Humana»; el Jefe de GGH y SSO, el «Jefe de Gestión Humana y
+# Seguridad Ocupacional»; el Asistente de GGHH y el Asistente Zona Sur, los dos
+# «Asistente de Gestión Humana» (el del Coordinador Nacional y el del
+# Coordinador de Gestión Humana, hoy Coordinador Zona Sur).
+CLIMA = "Desarrollo y Capacitación de Personal"
+COORDINADOR_GH = "Coordinador Nacional de GGHH"
+JEFE_GH = "Jefe de GGH y SSO"
+ASISTENTE_GH = "Asistente de GGHH"
+ASISTENTE_ZONA_SUR = "Asistente Zona Sur"
+ASISTENTE_NOMINA = "Asistente de Nómina"
+
 #: Gestión Humana: todo su personal.
-GH_FIJOS = {
-    "Coordinador Nacional de Gestión Humana",
-    "Jefe de Gestión Humana y Seguridad Ocupacional",
-    "Analista de Clima y Cultura",
-    "Asistente de Gestión Humana",
-    "Asistente de Nómina",
-}
+GH_FIJOS = {COORDINADOR_GH, JEFE_GH, CLIMA, ASISTENTE_GH, ASISTENTE_ZONA_SUR, ASISTENTE_NOMINA}
 #: Gestión Humana: quienes llevan la nómina.
-GH_NOMINA = {
-    "Coordinador Nacional de Gestión Humana",
-    "Asistente de Gestión Humana",
-    "Asistente de Nómina",
-}
+GH_NOMINA = {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_ZONA_SUR, ASISTENTE_NOMINA}
 #: Tecnología: quienes también arman la estructura del organigrama.
 TI_ESTRUCTURA = {"Coordinador TI", "Coordinador de Soporte Técnico", "Jefe TI"}
 
-CLIMA = "Analista de Clima y Cultura"
-COORDINADOR_GH = "Coordinador Nacional de Gestión Humana"
-JEFE_GH = "Jefe de Gestión Humana y Seguridad Ocupacional"
-ASISTENTE_GH = "Asistente de Gestión Humana"
-
 _ESTRUCTURA = {CLIMA, COORDINADOR_GH, JEFE_GH} | TI_ESTRUCTURA
 
-#: Descarga masiva de roles de pagos (22/10/2026): de los dos «Asistente de
-#: Gestión Humana», solo el que reporta al Coordinador Nacional.
-DESCARGA_MASIVA = {
-    COORDINADOR_GH,
-    "Asistente de Gestión Humana · Gestión Humana y Seguridad Ocupacional · "
-    "Coordinador Nacional de Gestión Humana",
-    "Asistente de Nómina",
-}
+#: Descarga masiva de roles de pagos (22/10/2026): de los dos asistentes de
+#: Gestión Humana, solo el que reportaba al Coordinador Nacional (hoy
+#: Asistente de GGHH).
+DESCARGA_MASIVA = {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_NOMINA}
 
 #: Permiso → cargos que lo llevan.
 REGLAS: dict[str, set[str]] = {
@@ -65,11 +61,11 @@ REGLAS: dict[str, set[str]] = {
     "institucional.perfil_cargo": _ESTRUCTURA,
     "herramientas.gestionar": _ESTRUCTURA,
     # Solicitud de permisos.
-    "licencias.ver_por_aprobar": {COORDINADOR_GH, ASISTENTE_GH},
+    "licencias.ver_por_aprobar": {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_ZONA_SUR},
     "licencias.ver_todas": GH_FIJOS,
     "licencias.configurar": {COORDINADOR_GH, CLIMA},
     # Mis vacaciones: consultar las de otra persona.
-    "vacaciones.ver_todas": {COORDINADOR_GH, ASISTENTE_GH, CLIMA},
+    "vacaciones.ver_todas": {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_ZONA_SUR, CLIMA},
     # Rol de pagos: la lista de habilitados y sus códigos, el historial, los
     # textos de la consulta y las observaciones.
     "roles_pago.habilitar": GH_NOMINA,
