@@ -1,0 +1,6 @@
+-r base.txt
+# Servidor de aplicaciones en Windows (SER-WEBAI, docs/despliegue-iis.md):
+# Gunicorn no corre en Windows; waitress es el servidor WSGI puro Python que
+# arranca como servicio de Windows (NSSM) detrás de IIS.
+waitress==3.0.2
+whitenoise==6.8.2
