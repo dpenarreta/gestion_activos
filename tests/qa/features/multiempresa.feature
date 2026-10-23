@@ -1,4 +1,8 @@
 Feature: Separación de la información por empresa
+  # Desde el 23/10/2026 el sistema trabaja con una sola empresa
+  # (MULTIEMPRESA=False): ver los escenarios AC-EMP-032 a AC-EMP-035. Los demás
+  # describen la separación, que sigue por dentro y vuelve a regir con
+  # MULTIEMPRESA=True.
   Como responsable de TI del grupo
   Quiero que cada empresa vea solo su propia información
   Para administrar varias empresas desde un mismo sistema sin mezclarlas
@@ -246,3 +250,32 @@ Feature: Separación de la información por empresa
     When un campo de relación lleva una consulta ya construida
     Then se exige `RelacionDeEmpresa`, que la resuelve en cada uso
     But un gestor sí vale: DRF le pide `.all()` dentro de la petición
+
+  # --- Una sola empresa (23/10/2026) -----------------------------------------
+
+  @AC-EMP-032
+  Scenario: Con una sola empresa no se crea otra
+    Given el sistema trabaja con una sola empresa
+    When alguien con permiso de editar empresas intenta crear otra
+    Then se rechaza con «El sistema trabaja con una sola empresa»
+
+  @AC-EMP-033
+  Scenario: La cuenta nueva entra sola a la única empresa
+    Given el sistema trabaja con una sola empresa
+    When se crea una cuenta
+    Then queda en esa empresa como predeterminada y recibe el rol de su cargo
+    But si quien la crea ya la puso en la empresa, no se duplica
+
+  @AC-EMP-034
+  Scenario: La pantalla no muestra ni elige empresa
+    Given el sistema trabaja con una sola empresa
+    When una persona entra al sistema
+    Then la barra superior no tiene selector de empresa
+    And Configuración muestra «Empresa» sin alta de otras
+    And la ficha y el listado de usuarios hablan de roles, no de empresas
+
+  @AC-EMP-035
+  Scenario: Volver a varias empresas es un ajuste
+    Given el sistema trabaja con una sola empresa
+    When se pone MULTIEMPRESA=True
+    Then se pueden crear empresas y las cuentas nuevas no se unen solas

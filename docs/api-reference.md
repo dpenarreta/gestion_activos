@@ -217,12 +217,16 @@ Base: `/api/v1/empresas/`
 
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
-| GET | `/empresas/mias/` | autenticado | Las empresas que la cuenta puede ver y en cuál está trabajando |
+| GET | `/empresas/mias/` | autenticado | Las empresas que la cuenta puede ver, en cuál está trabajando y `multiempresa` (si el sistema trabaja con varias) |
 | GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas |
-| POST | `/empresas/` | `empresas.editar` | Crear una empresa |
+| POST | `/empresas/` | `empresas.editar` | Crear una empresa. Con `MULTIEMPRESA=False` (el valor actual) responde 400: el sistema trabaja con una sola |
 | GET/PATCH | `/empresas/{id}/` | `empresas.ver` / `empresas.editar` | Ficha de la empresa (sin `DELETE`: se desactiva) |
 | POST | `/admin/users/` | `usuarios.crear` (+ `empresas.asignar` si lleva `empresas`) | No recibe `username`: se compone de `first_name` y `last_name` (ver `docs/roles-and-permissions.md`). Acepta `empresas` con la misma forma, para que la cuenta nazca usable |
 | POST | `/admin/users/{id}/empresas/` | `empresas.asignar` | Reemplaza en qué empresas trabaja la cuenta y con qué rol en cada una: `{"empresas": [{"empresa_id", "roles": [id], "es_predeterminada"}]}` |
+
+**El sistema trabaja hoy con una sola empresa** (`MULTIEMPRESA=False`): las
+cuentas nuevas entran solas a ella y el frontend no manda ni muestra empresa.
+Lo que sigue vale igual por dentro.
 
 **Toda la API responde dentro de una empresa.** El cliente manda la cabecera
 `X-Empresa` con el id; sin ella se usa la predeterminada de la cuenta. Pedir

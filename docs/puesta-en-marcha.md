@@ -27,21 +27,19 @@ python manage.py verificar_despliegue --settings=config.settings.production
 El comando lo avisa solo cuando no se está mirando producción, para que nadie
 aprenda a ignorar dos críticos que salen siempre.
 
-## 0. Empresas
+## 0. Empresa
 
-Todo lo que se registra pertenece a una empresa. La migración creó la primera
-con el nombre del sistema y le asignó lo que ya había, así que un despliegue de
-una sola empresa funciona sin tocar nada.
+**El sistema trabaja con una sola empresa** (`MULTIEMPRESA=False`, el valor
+por defecto). La migración la creó con el nombre del sistema; complete sus
+datos en **Configuración → Empresa** (`/admin/empresas`, permiso
+`empresas.editar`). No se pueden crear otras, y cada cuenta nueva entra sola a
+esta empresa y recibe el rol de su cargo: no hay que asignarle empresa.
 
-Para atender a varias, créelas en **Empresas** (`/admin/empresas`, permiso
-`empresas.editar`) y asigne a cada cuenta las suyas desde la ficha del usuario
-(permiso `empresas.asignar`).
-
-**En cuanto exista la segunda empresa, la asignación es obligatoria**: mientras
-hay una sola, todas las cuentas trabajan en ella sin que nadie marque nada; con
-dos, quien no tenga ninguna asignada deja de ver información. Repase los
-usuarios en el mismo momento en que cree la segunda, no después. Ver
-`docs/multiempresa.md`.
+Si algún día el despliegue debe atender a varias empresas del grupo, ponga
+`MULTIEMPRESA=True` en el `.env`, reinicie y créelas en **Configuración →
+Empresas**. Desde que exista la segunda, **la asignación es obligatoria**:
+quien no tenga ninguna asignada deja de ver información, así que repase los
+usuarios en ese mismo momento. Ver `docs/multiempresa.md`.
 
 ## 0 bis. Parque de demostración (retirar antes de producción)
 
@@ -53,9 +51,10 @@ que debe.
 python manage.py sembrar_datos_demo
 ```
 
-Siembra en **las dos empresas** —10 equipos, 8 mantenimientos, 6 personas y sus
-catálogos en LaarCourier; 5 equipos y 3 mantenimientos en LaarSeguridad— y crea
-las cuentas con su empresa y su rol.
+Siembra 10 equipos, 8 mantenimientos, 6 personas y sus catálogos en
+LaarCourier y crea las cuentas con su rol. Si existe una segunda empresa
+(LaarSeguridad, solo con `MULTIEMPRESA=True`), siembra también sus 5 equipos y
+3 mantenimientos; si no existe, la omite y lo avisa.
 
 La contraseña se genera al azar y **se imprime una sola vez** al terminar; para
 fijar una conocida, `DEMO_PASSWORD=...`. Las cuentas nacen obligadas a cambiarla
@@ -117,9 +116,9 @@ Para que sirva, **cada cuenta debe estar enlazada a su ficha de empleado**
 desde *Organización → Empleados*: es ese vínculo el que dice qué equipos son
 suyos. Sin él, la pantalla lo dice en vez de mostrarse vacía.
 
-La ficha pertenece a una empresa. Quien trabaje en dos y tenga ficha en una
-sola verá sus equipos al cambiar a esa empresa en el selector del menú; la
-pantalla dice en cuál está, para no tener que adivinarlo.
+Con varias empresas (`MULTIEMPRESA=True`), la ficha pertenece a una de ellas:
+quien trabaje en dos y tenga ficha en una sola verá sus equipos al cambiar a
+esa empresa en el selector de la barra superior.
 
 Después: cree una cuenta por persona con su rol y **deje el superusuario solo
 para emergencias**.

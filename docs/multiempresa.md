@@ -1,9 +1,44 @@
 # Separación por empresas
 
-Un mismo despliegue atiende a varias empresas del grupo y ninguna ve lo de las
-otras. Todo lo que se registra —inventario, catálogos, mantenimientos,
-políticas, adjuntos— pertenece a una empresa, y en el menú, debajo del logo, se
-elige en cuál se está trabajando.
+> **Estado actual (23/10/2026): el sistema trabaja con una sola empresa.**
+> LaarCourier es la única; LaarSeguridad y sus datos se retiraron. La
+> separación por empresa sigue intacta por dentro —todo dato tiene su empresa y
+> las consultas se acotan a ella—, pero queda dormida: ver
+> [«Una sola empresa»](#una-sola-empresa). Lo que sigue en este documento
+> describe cómo funciona la separación y vuelve a regir tal cual si se activa
+> `MULTIEMPRESA=True`.
+
+Un mismo despliegue puede atender a varias empresas del grupo sin que ninguna
+vea lo de las otras. Todo lo que se registra —inventario, catálogos,
+mantenimientos, políticas, adjuntos— pertenece a una empresa, y con varias, en
+la barra superior se elige en cuál se está trabajando.
+
+## Una sola empresa
+
+Desde el 23/10/2026 el despliegue es de una sola empresa. Lo gobierna el
+ajuste `MULTIEMPRESA` del `.env` (por defecto `False`; ver
+`apps/empresas/una_sola.py`):
+
+| | `MULTIEMPRESA=False` (actual) | `MULTIEMPRESA=True` |
+|---|---|---|
+| Crear empresas | Solo existe la que creó la migración; el alta de otra se rechaza («El sistema trabaja con una sola empresa») | Libre, con `empresas.editar` |
+| Cuentas nuevas | Entran solas a la única empresa, como predeterminada, y reciben el rol de su cargo | Hay que asignarles empresa y rol |
+| Barra superior | Sin selector ni nombre de empresa | Selector de empresa |
+| Configuración | «Empresa»: los datos de la única, sin alta de otras | «Empresas»: listado y alta |
+| Ficha del usuario | «Roles»: solo se eligen sus roles | «Empresas y roles»: a qué empresas entra y con qué rol en cada una |
+| Listado de usuarios | Columna «Roles» | Columna «Empresas» con el rol en cada una |
+
+Por dentro nada cambió: los roles siguen colgando de la membresía de la
+cuenta en la empresa (por eso cada cuenta nueva entra a la única), el
+aislamiento sigue defendido por los gestores y sus pruebas siguen corriendo
+(el `conftest.py` las ejecuta con `MULTIEMPRESA=True`; el modo de una empresa
+tiene las suyas en `apps/empresas/tests/test_una_sola_empresa.py`). Volver a
+varias empresas es cambiar el ajuste y crear la segunda.
+
+**Lo que se retiró de LaarSeguridad** (23/10/2026): sus 5 activos con sus
+mantenimientos, 2 sedes, 3 empleados, 3 departamentos, 3 unidades del
+organigrama y sus catálogos. Las cuentas que trabajaban solo ahí pasaron a
+LaarCourier. Sus 17 eventos de auditoría se conservaron, sin empresa.
 
 ## Por qué una columna y no una base por empresa
 
@@ -62,6 +97,9 @@ Dos reglas:
   hay de quién aislarse, y exigir el trámite convertiría cada alta de usuario en
   dos pasos con la cuenta sin ver nada entre uno y otro. **En cuanto se crea la
   segunda, la membresía pasa a ser obligatoria** y quien no la tenga no ve nada.
+- **Con `MULTIEMPRESA=False` la membresía se crea sola** al crear la cuenta
+  (como predeterminada en la única empresa): no hace falta para entrar, pero sí
+  para recibir el rol del cargo, que cuelga de ella.
 
 ## Quién administra y quién reparte
 

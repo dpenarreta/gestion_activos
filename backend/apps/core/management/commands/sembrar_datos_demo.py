@@ -5,10 +5,12 @@ sintéticos para medir tiempos, y este pone un inventario pequeño y verosímil
 —con nombres, áreas, sedes y averías que se parecen a las reales— para ver cómo
 se ve y cómo se comporta cada pantalla con datos dentro.
 
-Siembra en **las dos empresas** a propósito. Con una sola no se ve lo que
-importa de la separación: que al cambiar de empresa en el menú cambian el
-inventario, los catálogos, el panel y los reportes, y que un rol dado en una no
-vale en la otra.
+Siembra en LaarCourier y, si existe, también en LaarSeguridad. Desde el
+23/10/2026 el sistema trabaja con una sola empresa (`MULTIEMPRESA=False`): la
+segunda no existe y se omite con un aviso. Con `MULTIEMPRESA=True` y las dos
+creadas, se ve lo que importa de la separación: que al cambiar de empresa en
+el menú cambian el inventario, los catálogos, el panel y los reportes, y que
+un rol dado en una no vale en la otra.
 
 Todo pasa por los servicios de negocio (`ActivoService`, `MantenimientoService`)
 y no por el ORM directo: así los equipos quedan con su código de barras emitido,

@@ -188,19 +188,25 @@ acuerdo de confidencialidad (`acuerdo`) y consultar quién lo aceptó
 Auditoría). La migración `roles.0015` renombró el permiso viejo a
 `codigos.publicar` —nadie lo perdió— y sumó los otros dos a quien lo tenía.
 
-## Roles de los niveles del organigrama (2026-10-20)
+## Roles de los cargos del organigrama (2026-10-22)
 
-Cada nivel jerárquico del organigrama de una empresa tiene su propio rol
-(«LaarCourier · Gerencia / Jefatura»), que se crea, se renombra y se borra
-junto con el nivel (`organizacion.roles_de_nivel`). Nace **sin permisos**: se
-le marcan en Configuración → Roles como a cualquier otro.
+Cada **cargo** del organigrama es un rol (`organizacion.roles_de_cargo`), que
+comparten quienes lo ocupan; reemplazó a los roles por nivel del 20/10. Se crea,
+se renombra y se borra junto con el cargo. Los homónimos se distinguen por la
+unidad, después por el jefe y, si hace falta, por la empresa («Asistente de
+GGHH», «Asistente Zona Sur»).
 
-- **Se asigna solo**: quien ocupa un cargo recibe, en su membresía de esa
-  empresa, el rol del nivel de la unidad de su cargo. Si cambia de cargo (por
-  «Mi perfil» o la asignación de cargos), o el cargo cambia de unidad, o la
-  unidad de nivel, el rol cambia solo.
-- **Solo vale en su empresa**: no se ofrece ni se acepta como rol global.
+- **Permisos**: todo rol de cargo trae los básicos (`licencias.solicitar`,
+  `sugerencias.reportar`, `institucional.ver_area`) y los que su cargo lleva
+  según la tabla de `organizacion.permisos_por_cargo` (Gestión Humana, nómina,
+  TI). Una regla puede nombrar un homónimo por el nombre completo de su rol.
+- **Se asigna solo**: quien ocupa un cargo recibe su rol en su membresía de la
+  empresa. Con una sola empresa (`MULTIEMPRESA=False`, el estado actual) cada
+  cuenta nueva entra sola a ella, así que basta con asignarle el cargo.
 - **No se elige a mano**: en la ficha del usuario se ve marcado «según su
   cargo»; al guardar la ficha se recalcula desde el cargo.
-- **No se renombra ni se borra desde Roles**: se hace desde el nivel.
-- Los **roles personalizados** siguen igual y se suman al de nivel.
+- **Consultar el propio rol de pagos** (`roles_pago.consultar`) nunca va por
+  rol: se habilita persona por persona.
+- Los **roles personalizados** siguen igual y se suman al del cargo.
+- **Administrador** y **Superusuario** tienen todo el catálogo, salvo lo que va
+  persona por persona.

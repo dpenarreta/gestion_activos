@@ -696,6 +696,10 @@ alterar se cubre en la sección de autorización.
 | AC-CLI-008 | Sin almacenamiento la aplicación abre | authentication.feature | Sin almacenamiento la aplicación sigue abriendo | Sí (Vitest: `leer la empresa activa no revienta`) |
 | AC-EMP-030 | Ninguna vista congela su consulta | multiempresa.feature | Ninguna vista congela su consulta al importar | Sí (pytest: `test_ninguna_vista_congela_su_consulta_al_importar`, sobre cada vista enrutada) |
 | AC-EMP-031 | Ningún desplegable congela el suyo | multiempresa.feature | Ningún desplegable de formulario congela el suyo | Sí (pytest: `test_ningun_serializador_congela_su_desplegable`) |
+| AC-EMP-032 | Con una sola empresa no se crea otra | multiempresa.feature | Con una sola empresa no se crea otra | Sí (pytest: `test_no_se_crea_una_segunda_empresa`) |
+| AC-EMP-033 | La cuenta nueva entra sola a la única empresa | multiempresa.feature | La cuenta nueva entra sola a la única empresa | Sí (pytest: `test_la_cuenta_nueva_entra_a_la_unica_empresa`, `test_no_duplica_si_quien_la_crea_ya_la_puso`) |
+| AC-EMP-034 | La pantalla no muestra ni elige empresa | multiempresa.feature | La pantalla no muestra ni elige empresa | Sí (pytest: `test_la_pantalla_sabe_que_es_una_sola`; vitest: `Empresas.test.jsx`, `UsersList.test.jsx`, `AsignacionEmpresas.test.jsx`) |
+| AC-EMP-035 | Volver a varias empresas es un ajuste | multiempresa.feature | Volver a varias empresas es un ajuste | Sí (pytest: `test_con_varias_empresas_no_se_une_sola`) |
 
 ## Mis equipos y el rol «Usuario final» (AC-MIS-xxx)
 
