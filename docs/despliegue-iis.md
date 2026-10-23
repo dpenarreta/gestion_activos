@@ -143,12 +143,17 @@ si son reversibles.
 
 ## Primer administrador
 
-La base nace sin usuarios. En el servidor (o por WinRM), una sola vez:
+La base nace sin usuarios. Desde la máquina de desarrollo, en una ventana
+propia de PowerShell (pide los datos y la contraseña oculta, y los manda por
+WinRM; en el servidor la contraseña pasa por las reglas del sistema):
 
 ```powershell
-cd C:\intranet\backend
-.\.venv\Scripts\python.exe scripts\produccion.py manage.py createsuperuser
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy\crear-administrador.ps1 -CredentialPath "$env:USERPROFILE\.deploy\ser-webai.cred"
 ```
+
+La cuenta queda como superusuario en la única empresa. Con ella se entra a
+`http://10.0.2.33:5080` y se crean los demás usuarios desde Configuración →
+Usuarios y roles.
 
 ## Pendientes conocidos
 
