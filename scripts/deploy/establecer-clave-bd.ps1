@@ -41,7 +41,9 @@ $resultado = Invoke-Command -ComputerName $ServerHost -Credential $credencial -A
     if (-not (Test-Path $envFile)) { throw "No existe $envFile. Corra antes instalar-servidor.ps1." }
     $lineas = Get-Content $envFile -Encoding UTF8
     $nuevas = foreach ($linea in $lineas) { if ($linea -match '^DB_PASSWORD=') { "DB_PASSWORD=$clave" } else { $linea } }
-    Set-Content -Path $envFile -Value $nuevas -Encoding UTF8
+    # UTF-8 SIN BOM (con BOM, django-environ avisa «Invalid line»).
+    $nuevas = $nuevas | ForEach-Object { $_.TrimStart([char]0xFEFF) }
+    [IO.File]::WriteAllLines($envFile, [string[]]$nuevas, (New-Object Text.UTF8Encoding($false)))
 
     # Prueba la conexión con la configuración real, sin imprimir la clave.
     $python = Join-Path $backend ".venv\Scripts\python.exe"

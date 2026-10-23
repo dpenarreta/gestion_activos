@@ -130,7 +130,9 @@ $salida = Invoke-Command -ComputerName $ServerHost -Credential $credencial -Erro
             "EMAIL_BACKEND=django.core.mail.backends.dummy.EmailBackend",
             "MEDIA_ROOT=$media"
         )
-        Set-Content -Path $envFile -Value $lineas -Encoding UTF8 -ErrorAction Stop
+        # UTF-8 SIN BOM: Set-Content -Encoding UTF8 de PowerShell 5.1 agrega la
+        # marca y django-environ avisa «Invalid line» en la primera línea.
+        [IO.File]::WriteAllLines($envFile, [string[]]$lineas, (New-Object Text.UTF8Encoding($false)))
         # Solo administradores y el sistema pueden leerlo.
         # Por SID y no por nombre: el servidor está en español («Administradores»).
         & icacls $envFile /inheritance:r /grant:r "*S-1-5-32-544:F" "*S-1-5-18:F" | Out-Null
