@@ -10,6 +10,10 @@ python-json-logger==2.0.7
 drf-spectacular==0.30.0
 reportlab==5.0.1
 openpyxl==3.1.5
+# Llamadas HTTP a la API de IA (interpretación de dashboards, apps.cartera).
+# Estaba instalada en desarrollo como dependencia de otra librería y faltaba
+# aquí: el primer despliegue en el servidor no arrancaba sin ella.
+requests==2.34.2
 # Módulo de Cartera: lectura y cálculo sobre el Excel o el resultado del
 # procedimiento almacenado (mismas series que el sistema de origen).
 pandas==2.2.3
