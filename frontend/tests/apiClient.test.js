@@ -123,6 +123,31 @@ describe("Cabeceras de cada petición", () => {
   });
 });
 
+describe("Archivos (26/10/2026)", () => {
+  it("un FormData viaja tal cual, sin la cabecera JSON, para que el archivo llegue", async () => {
+    const datos = new FormData();
+    const archivo = new File(["contenido"], "plantilla.xlsx");
+    datos.append("archivo", archivo);
+
+    await apiClient.post("/organizacion/carga-personas/", datos);
+
+    // Con «application/json» axios lo convertía en JSON y el archivo se
+    // perdía; sin cabecera, el navegador pone la de multipart.
+    expect(peticiones[0].data).toBeInstanceOf(FormData);
+    expect(peticiones[0].data.get("archivo")).toBeInstanceOf(File);
+    expect(String(peticiones[0].headers["Content-Type"] ?? "")).not.toContain(
+      "application/json",
+    );
+  });
+
+  it("lo demás sigue yendo como JSON", async () => {
+    await apiClient.post("/activos/", { nombre: "Laptop" });
+
+    expect(peticiones[0].headers["Content-Type"]).toBe("application/json");
+    expect(peticiones[0].data).toBe('{"nombre":"Laptop"}');
+  });
+});
+
 describe("Cuando el navegador no deja guardar nada", () => {
   /* Ocurre de verdad: una ventana privada, datos de sitio bloqueados o un
      navegador con almacenamiento deshabilitado hacen que `localStorage` lance

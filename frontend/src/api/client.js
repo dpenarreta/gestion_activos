@@ -66,6 +66,15 @@ export function tomarEmpresaDeLaDireccion() {
 }
 
 apiClient.interceptors.request.use((config) => {
+  // Un archivo va como multipart, nunca como JSON (26/10/2026): con el
+  // «Content-Type: application/json» por defecto, axios convierte el
+  // FormData en JSON y el archivo se pierde (el servidor respondía «Tipo de
+  // medio "application/json" incompatible»). Sin cabecera, el navegador pone
+  // la de multipart con su separador.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    config.headers.delete?.("Content-Type");
+    delete config.headers["Content-Type"];
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
