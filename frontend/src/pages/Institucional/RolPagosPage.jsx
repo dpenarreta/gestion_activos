@@ -13,6 +13,7 @@ import { ConstanciaRol } from "./ConstanciaRol";
 import { SeguimientoRolPagos } from "./SeguimientoRolPagos";
 import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
+import { AuditadoRolPagos } from "./AuditadoRolPagos";
 
 const MESES = [
   "Enero",
@@ -515,6 +516,7 @@ export function RolPagosPage() {
   const [habilitados, setHabilitados] = useState(false);
   const [masiva, setMasiva] = useState(false);
   const [seguimiento, setSeguimiento] = useState(false);
+  const [auditado, setAuditado] = useState(false);
   // El último mes consultado sin rol: se dice en la página, con qué revisar.
   const [sinRol, setSinRol] = useState(null);
 
@@ -595,6 +597,15 @@ export function RolPagosPage() {
                 onClick={() => setHabilitados(true)}
               >
                 <Icon name="person-check" /> Usuarios habilitados
+              </button>
+            )}
+            {estado.puede_ver_historial && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setAuditado(true)}
+              >
+                <Icon name="file-earmark-check" /> Descargar rol auditado
               </button>
             )}
             {estado.puede_ver_historial && (
@@ -957,6 +968,7 @@ export function RolPagosPage() {
       {seguimiento && (
         <SeguimientoRolPagos onCerrar={() => setSeguimiento(false)} />
       )}
+      {auditado && <AuditadoRolPagos onCerrar={() => setAuditado(false)} />}
       {configurando && estado && (
         <Configurar
           estado={estado}

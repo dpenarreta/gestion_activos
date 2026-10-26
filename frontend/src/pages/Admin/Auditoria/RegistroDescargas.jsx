@@ -43,6 +43,16 @@ function DeQueRol({ referencia }) {
       </>
     );
   }
+  if (referencia?.tipo === "rol_pagos_auditado") {
+    const meses = (referencia.periodos ?? [])
+      .map(([anio, mes]) => `${MESES[mes - 1]} ${anio}`)
+      .join(", ");
+    return (
+      <>
+        Rol auditado · código {referencia.codigo} · {meses}
+      </>
+    );
+  }
   if (referencia?.tipo === "rol_pagos_masivo") {
     return (
       <>

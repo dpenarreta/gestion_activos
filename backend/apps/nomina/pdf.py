@@ -26,6 +26,16 @@ def construir(rol) -> bytes:
     c = canvas.Canvas(salida, pagesize=(ancho, alto))
     c.setTitle(f"Rol de pagos {rol.nombre_mes} {rol.anio} - {rol.codigo}")
     c.setAuthor(rol.empresa)
+    dibujar(c, rol, ancho, alto)
+    c.showPage()
+    c.save()
+    return salida.getvalue()
+
+
+def dibujar(c, rol, ancho, alto):
+    """El rol sobre una hoja de `ancho` × `alto` (la de A5 apaisada), desde
+    la esquina inferior izquierda del lienzo. El rol auditado lo dibuja en la
+    mitad de arriba de una A4 (`auditado.py`)."""
     m = 12 * mm
     y = alto - m
 
@@ -124,7 +134,3 @@ def construir(rol) -> bytes:
     c.drawCentredString(
         ancho - m - 40 * mm, y - 10, f"Recibí Conforme CI {rol.cedula.replace('-', '')}"
     )
-
-    c.showPage()
-    c.save()
-    return salida.getvalue()

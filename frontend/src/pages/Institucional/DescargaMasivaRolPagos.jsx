@@ -23,7 +23,7 @@ const MESES = [
 
 /** El error de una descarga llega como blob: se lee para mostrar el mensaje
  * del servidor. */
-async function mensajeDeDescarga(err) {
+export async function mensajeDeDescarga(err) {
   const datos = err?.response?.data;
   if (datos instanceof Blob) {
     try {

@@ -2750,3 +2750,53 @@
   display: grid;
   gap: 4px;
 }
+
+/* Rol de pagos → Descargar rol auditado (26/10/2026). */
+.rol-auditado__buscar,
+.rol-auditado__filtros,
+.rol-auditado__confirmar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.rol-auditado__filtros {
+  align-items: center;
+}
+
+.rol-auditado__confirmar > div {
+  flex: 1 1 220px;
+}
+
+.rol-auditado__meses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rol-auditado__mes {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rol-auditado__mes.is-elegido {
+  border-color: var(--mz-info-fg);
+  background: var(--mz-info-bg);
+}
+
+.rol-auditado__mes small {
+  grid-column: 2;
+  color: var(--mz-ink-faint);
+  font-size: 11px;
+}

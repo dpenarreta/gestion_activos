@@ -61,6 +61,24 @@ export const nominaService = {
         };
       });
   },
+  // --- Rol auditado (Talento Humano) ---------------------------------
+  /** La persona del código y los meses con movimientos. */
+  personaAuditada(codigo) {
+    return apiClient
+      .get(`${BASE}auditado/`, { params: { codigo } })
+      .then((r) => r.data);
+  },
+  /** `{ codigo, periodos: [{anio, mes}], password }`: un PDF (un mes) o un
+   * ZIP (varios), con el rol y su constancia. */
+  rolAuditado(datos) {
+    return apiClient
+      .post(`${BASE}auditado/`, datos, { responseType: "blob" })
+      .then((r) => ({
+        blob: r.data,
+        incluidos: Number(r.headers?.["x-incluidos"] ?? 0),
+        omitidos: Number(r.headers?.["x-omitidos"] ?? 0),
+      }));
+  },
   // --- Roles sin abrir (Talento Humano) -------------------------------
   /** De las personas habilitadas, quiénes abrieron o no su rol del mes. */
   seguimiento(anio, mes) {

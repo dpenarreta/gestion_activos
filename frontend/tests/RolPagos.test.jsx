@@ -28,6 +28,8 @@ const servicio = {
   areasDescargaMasiva: vi.fn(),
   descargaMasiva: vi.fn(),
   seguimiento: vi.fn(),
+  personaAuditada: vi.fn(),
+  rolAuditado: vi.fn(),
 };
 vi.mock("../src/api/nominaService", () => ({ nominaService: servicio }));
 vi.mock("../src/components/common/VisorPdf/VisorPdf", () => ({
@@ -875,5 +877,105 @@ describe("Consultar rol de pagos", () => {
     expect(
       within(lista).getByText(/Conformidad pendiente/),
     ).toBeInTheDocument();
+  });
+
+  it("Talento Humano descarga el rol auditado de varios meses en un ZIP", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_ver_historial: true });
+    servicio.personaAuditada.mockResolvedValue({
+      codigo: "100",
+      persona: { id: 3, nombre: "Ana Mora", correo: "amora@grupolaar.com" },
+      con_movimientos: [
+        { anio: 2025, mes: 6 },
+        { anio: 2025, mes: 4 },
+      ],
+    });
+    const zip = new Blob(["PK"]);
+    servicio.rolAuditado.mockResolvedValue({
+      blob: zip,
+      incluidos: 2,
+      omitidos: 0,
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Descargar rol auditado/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Descargar rol auditado",
+    });
+    fireEvent.change(within(ventana).getByLabelText("Código de empleado"), {
+      target: { value: "100" },
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: /Buscar/ }));
+    expect(await within(ventana).findByText("Ana Mora")).toBeInTheDocument();
+    // Abre en el año del último mes con movimientos y se puede filtrar.
+    expect(within(ventana).getByLabelText("Año")).toHaveValue("2025");
+    fireEvent.click(
+      within(ventana).getByLabelText("Solo meses con movimientos"),
+    );
+    expect(within(ventana).queryByLabelText("Mayo")).not.toBeInTheDocument();
+    fireEvent.click(within(ventana).getByLabelText(/Abril/));
+    fireEvent.click(within(ventana).getByLabelText(/Junio/));
+    expect(
+      within(ventana).getByText(/Abril 2025, Junio 2025/),
+    ).toBeInTheDocument();
+    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
+      target: { value: "clave" },
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: /Descargar ZIP \(2 PDF\)/ }),
+    );
+    await waitFor(() =>
+      expect(servicio.rolAuditado).toHaveBeenCalledWith({
+        codigo: "100",
+        periodos: [
+          { anio: 2025, mes: 4 },
+          { anio: 2025, mes: 6 },
+        ],
+        password: "clave",
+      }),
+    );
+    expect(descargarBlob).toHaveBeenCalledWith(
+      zip,
+      "Roles auditados - 100 - 2025-04 a 2025-06.zip",
+    );
+  });
+
+  it("un solo mes baja como PDF", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_ver_historial: true });
+    servicio.personaAuditada.mockResolvedValue({
+      codigo: "100",
+      persona: null,
+      con_movimientos: [{ anio: 2025, mes: 4 }],
+    });
+    const pdf = new Blob(["%PDF"]);
+    servicio.rolAuditado.mockResolvedValue({
+      blob: pdf,
+      incluidos: 1,
+      omitidos: 0,
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Descargar rol auditado/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Descargar rol auditado",
+    });
+    fireEvent.change(within(ventana).getByLabelText("Código de empleado"), {
+      target: { value: "100" },
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: /Buscar/ }));
+    fireEvent.click(await within(ventana).findByLabelText(/Abril/));
+    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
+      target: { value: "clave" },
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Descargar PDF" }),
+    );
+    await waitFor(() =>
+      expect(descargarBlob).toHaveBeenCalledWith(
+        pdf,
+        "Rol auditado - 100 - 2025-04 Abril.pdf",
+      ),
+    );
   });
 });

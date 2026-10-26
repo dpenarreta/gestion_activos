@@ -14,7 +14,7 @@ from apps.descargas.middleware import marcar
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
 
-from . import fuente, services
+from . import auditado, fuente, services
 
 MODULO = "roles_pago"
 #: Por qué las descargas del rol de pagos no guardan copia (apps.descargas).
@@ -626,3 +626,93 @@ class SeguimientoView(APIView):
             context=get_request_context(request),
         )
         return Response(resultado)
+
+
+class _Auditado(serializers.Serializer):
+    codigo = serializers.CharField(max_length=40)
+    periodos = serializers.ListField(child=serializers.DictField(), allow_empty=False)
+    password = serializers.CharField(trim_whitespace=False)
+
+
+class AuditadoView(APIView):
+    """Rol de pagos → Descargar rol auditado (`roles_pago.historial`,
+    26/10/2026). GET: la persona del código y los meses con movimientos. POST:
+    el PDF de un mes, o un ZIP con un PDF por mes; arriba el rol y abajo la
+    constancia de todo lo que pasó con él. Sin clave."""
+
+    permission_classes = [IsAuthenticated, Requiere("roles_pago.historial")]
+    throttle_scope = "rol_pagos"
+
+    def get_throttles(self):
+        return [ScopedRateThrottle()] if self.request.method == "POST" else super().get_throttles()
+
+    def get(self, request):
+        from apps.users.models import User
+
+        codigo = (request.query_params.get("codigo") or "").strip()
+        if not codigo:
+            raise serializers.ValidationError({"codigo": "Escriba el código de empleado."})
+        persona = User.objects.filter(codigo_empleado__iexact=codigo).first()
+        return Response(
+            {
+                "codigo": codigo,
+                "persona": (
+                    {"id": persona.id, "nombre": services._nombre(persona), "correo": persona.email}
+                    if persona
+                    else None
+                ),
+                "con_movimientos": auditado.meses_del_codigo(codigo),
+            }
+        )
+
+    def post(self, request):
+        entrada = _Auditado(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        try:
+            resultado = auditado.generar(
+                request.user, datos["codigo"], datos["periodos"], datos["password"]
+            )
+        except Exception as error:
+            record_audit_event(
+                actor=request.user,
+                action="roles_pago.auditado.rechazado",
+                target=request.user,
+                module=MODULO,
+                result="failure",
+                new_values={
+                    "codigo": datos["codigo"],
+                    "motivo": str(getattr(error, "detail", error))[:200],
+                },
+                context=get_request_context(request),
+            )
+            raise
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.auditado.descargado",
+            target=request.user,
+            module=MODULO,
+            new_values={
+                "codigo": datos["codigo"].strip(),
+                "periodos": resultado["periodos"],
+                "incluidos": resultado["incluidos"],
+            },
+            context=get_request_context(request),
+        )
+        marcar(
+            request,
+            sin_copia=SIN_COPIA,
+            tipo="rol_pagos_auditado",
+            codigo=datos["codigo"].strip(),
+            periodos=resultado["periodos"],
+        )
+        respuesta = HttpResponse(resultado["contenido"], content_type=resultado["tipo"])
+        respuesta["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{quote(resultado['nombre'])}"
+        )
+        respuesta["X-Incluidos"] = str(resultado["incluidos"])
+        respuesta["X-Omitidos"] = str(resultado["omitidos"])
+        respuesta["Access-Control-Expose-Headers"] = "X-Incluidos, X-Omitidos"
+        respuesta["Cache-Control"] = "no-store, private"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta

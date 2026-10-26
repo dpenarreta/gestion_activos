@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AdjuntoObservacionView,
+    AuditadoView,
     ConfiguracionView,
     ConformidadView,
     ConsultarView,
@@ -49,6 +50,7 @@ urlpatterns = [
         "rol-pagos/descarga-masiva/", DescargaMasivaView.as_view(), name="rol-pagos-descarga-masiva"
     ),
     path("rol-pagos/habilitados/", HabilitadosView.as_view(), name="rol-pagos-habilitados"),
+    path("rol-pagos/auditado/", AuditadoView.as_view(), name="rol-pagos-auditado"),
     path("rol-pagos/seguimiento/", SeguimientoView.as_view(), name="rol-pagos-seguimiento"),
     path(
         "rol-pagos/mis-observaciones/",
