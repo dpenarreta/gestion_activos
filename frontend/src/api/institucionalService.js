@@ -2,6 +2,14 @@ import { apiClient } from "./client";
 
 const BASE = "/organizacion/";
 
+/** El motivo de un cambio al organigrama (bitácora, 26/10/2026): va en un
+ * encabezado, codificado para que lleve tildes. */
+function conMotivo(motivo) {
+  return motivo
+    ? { headers: { "X-Motivo-Cambio": encodeURIComponent(motivo) } }
+    : {};
+}
+
 /** Lo que se arma del organigrama: niveles, unidades y cargos. */
 const RECURSOS = {
   niveles: `${BASE}niveles/`,
@@ -18,16 +26,40 @@ export const institucionalService = {
   organigrama() {
     return apiClient.get(`${BASE}organigrama/`).then((res) => res.data);
   },
-  crear(recurso, datos) {
-    return apiClient.post(RECURSOS[recurso], datos).then((res) => res.data);
-  },
-  actualizar(recurso, id, datos) {
+  crear(recurso, datos, motivo) {
     return apiClient
-      .patch(`${RECURSOS[recurso]}${id}/`, datos)
+      .post(RECURSOS[recurso], datos, conMotivo(motivo))
       .then((res) => res.data);
   },
-  eliminar(recurso, id) {
-    return apiClient.delete(`${RECURSOS[recurso]}${id}/`);
+  actualizar(recurso, id, datos, motivo) {
+    return apiClient
+      .patch(`${RECURSOS[recurso]}${id}/`, datos, conMotivo(motivo))
+      .then((res) => res.data);
+  },
+  eliminar(recurso, id, motivo) {
+    return apiClient.delete(`${RECURSOS[recurso]}${id}/`, conMotivo(motivo));
+  },
+  // --- Bitácora del organigrama (26/10/2026) ---------------------------
+  /** Las 2 últimas versiones: quién, cuándo, IP, motivo y qué cambió. */
+  versionesOrganigrama() {
+    return apiClient
+      .get(`${BASE}organigrama/versiones/`)
+      .then((res) => res.data);
+  },
+  /** Qué cambiaría al revertir esa versión. */
+  vistaPreviaRevertir(id) {
+    return apiClient
+      .get(`${BASE}organigrama/versiones/${id}/revertir/`)
+      .then((res) => res.data.cambios);
+  },
+  revertirVersion(id, motivo) {
+    return apiClient
+      .post(
+        `${BASE}organigrama/versiones/${id}/revertir/`,
+        {},
+        conMotivo(motivo),
+      )
+      .then((res) => res.data);
   },
   /** Las personas de la empresa con su cargo (`q` filtra por nombre). */
   asignaciones(q = "") {
@@ -40,9 +72,9 @@ export const institucionalService = {
     return apiClient.get(`${BASE}cargos/${id}/perfil/`).then((res) => res.data);
   },
   /** Funciones, competencias y KPIs van como texto, uno por línea. */
-  guardarPerfilCargo(id, datos) {
+  guardarPerfilCargo(id, datos, motivo) {
     return apiClient
-      .put(`${BASE}cargos/${id}/perfil/`, datos)
+      .put(`${BASE}cargos/${id}/perfil/`, datos, conMotivo(motivo))
       .then((res) => res.data);
   },
   /** La plantilla .xlsx del organigrama por unidad, para cargar personas. */
@@ -58,12 +90,12 @@ export const institucionalService = {
       .then((res) => res.data);
   },
   /** Sube la plantilla llena: sin `confirmar` solo la valida. */
-  cargarPersonas(archivo, { confirmar = false } = {}) {
+  cargarPersonas(archivo, { confirmar = false, motivo } = {}) {
     const datos = new FormData();
     datos.append("archivo", archivo);
     datos.append("confirmar", confirmar ? "true" : "false");
     return apiClient
-      .post(`${BASE}carga-personas/`, datos)
+      .post(`${BASE}carga-personas/`, datos, conMotivo(motivo))
       .then((res) => res.data);
   },
   // --- Códigos de conducta y reglamentos ---------------------------------
@@ -185,9 +217,13 @@ export const institucionalService = {
       .then((res) => res.data);
   },
   /** Pone a la persona en el cargo; `cargo` vacío la saca. */
-  asignar(usuario, cargo) {
+  asignar(usuario, cargo, motivo) {
     return apiClient
-      .post(`${BASE}asignaciones/`, { usuario, cargo: cargo || null })
+      .post(
+        `${BASE}asignaciones/`,
+        { usuario, cargo: cargo || null },
+        conMotivo(motivo),
+      )
       .then((res) => res.data);
   },
 };

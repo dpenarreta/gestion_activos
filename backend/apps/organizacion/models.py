@@ -584,6 +584,29 @@ class HerramientaDeCargo(ModeloDeEmpresa):
         verbose_name_plural = "herramientas base de los cargos"
 
 
+class VersionOrganigrama(ModeloDeEmpresa):
+    """Un cambio al organigrama (26/10/2026, `versiones.py`): quién lo hizo,
+    desde qué IP, por qué (el motivo), qué cambió en frases y el respaldo de
+    toda la estructura justo antes, para poder revertirlo. Solo se guardan
+    las 2 últimas de cada empresa: las anteriores se borran."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    motivo = models.TextField()
+    cambios = models.JSONField(default=list)
+    respaldo = models.JSONField()
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    #: Si este cambio fue revertir otra versión, cuál (su número; puede ya no
+    #: existir).
+    revierte = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "versión del organigrama"
+        verbose_name_plural = "versiones del organigrama"
+
+
 class OcupanteCargo(ModeloDeEmpresa):
     """Quien ocupa un cargo y todavía no tiene cuenta en el sistema
     (20/10/2026). Lo carga la plantilla masiva del organigrama

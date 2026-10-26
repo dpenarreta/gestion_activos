@@ -14,6 +14,8 @@ import { HerramientasPage } from "./HerramientasPage";
 import { PerfilesCargo } from "./PerfilesCargo";
 import { armarArbol, nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
+import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
+import { BitacoraOrganigrama } from "./BitacoraOrganigrama";
 
 /** Cada pestaña con el permiso que la abre: armar la estructura o asignar. */
 const PESTANAS = [
@@ -385,7 +387,10 @@ export function EstructuraPage() {
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [cargaAbierta, setCargaAbierta] = useState(false);
+  const [bitacoraAbierta, setBitacoraAbierta] = useState(false);
+  const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
   const puedeCargar = user?.permissions?.includes("institucional.asignar");
+  const puedeRevertir = user?.permissions?.includes("institucional.editar");
 
   async function descargar(tipo) {
     setError(null);
@@ -411,11 +416,14 @@ export function EstructuraPage() {
     cargar();
   }, [cargar]);
 
-  async function ejecutar(accion, mensaje) {
+  // Cada cambio pide su motivo, que queda en la bitácora (26/10/2026).
+  async function ejecutar(accion, mensaje, detalle = "") {
     setError(null);
     setAviso(null);
+    const motivo = await pedirMotivo(detalle);
+    if (!motivo) return false;
     try {
-      await accion();
+      await accion(motivo);
       await cargar();
       setAviso(mensaje);
       return true;
@@ -428,11 +436,14 @@ export function EstructuraPage() {
   async function guardar(valores) {
     const cuerpo = aEnviar(pestana, valores);
     const hecho = await ejecutar(
-      () =>
+      (motivo) =>
         valores.id
-          ? institucionalService.actualizar(pestana, valores.id, cuerpo)
-          : institucionalService.crear(pestana, cuerpo),
+          ? institucionalService.actualizar(pestana, valores.id, cuerpo, motivo)
+          : institucionalService.crear(pestana, cuerpo, motivo),
       valores.id ? "Cambios guardados." : "Agregado.",
+      valores.id
+        ? `Cambios en «${valores.nombre}».`
+        : `Nuevo: «${valores.nombre}».`,
     );
     if (hecho) setEditando(null);
   }
@@ -462,6 +473,13 @@ export function EstructuraPage() {
         <div className="mz-actions">
           <button
             type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => setBitacoraAbierta(true)}
+          >
+            <Icon name="journal-text" /> Bitácora de cambios
+          </button>
+          <button
+            type="button"
             className="btn btn-outline-primary btn-sm"
             onClick={() => descargar("plantilla")}
           >
@@ -485,6 +503,14 @@ export function EstructuraPage() {
           )}
         </div>
       </div>
+      {bitacoraAbierta && (
+        <BitacoraOrganigrama
+          puedeRevertir={puedeRevertir}
+          onCerrar={() => setBitacoraAbierta(false)}
+          onRevertido={cargar}
+        />
+      )}
+      {dialogoMotivo}
       {cargaAbierta && (
         <CargaPersonas
           onCerrar={() => setCargaAbierta(false)}
@@ -619,13 +645,15 @@ export function EstructuraPage() {
                             cargo={fila}
                             onGuardar={(plazas) =>
                               ejecutar(
-                                () =>
+                                (motivo) =>
                                   institucionalService.actualizar(
                                     "cargos",
                                     fila.id,
                                     { plazas },
+                                    motivo,
                                   ),
                                 `«${fila.nombre}» ahora tiene ${plazas} plaza(s).`,
+                                `«${fila.nombre}» pasa a ${plazas} plaza(s).`,
                               )
                             }
                           />
@@ -670,9 +698,14 @@ export function EstructuraPage() {
                           aria-label={`Borrar ${fila.nombre}`}
                           onClick={() =>
                             ejecutar(
-                              () =>
-                                institucionalService.eliminar(pestana, fila.id),
+                              (motivo) =>
+                                institucionalService.eliminar(
+                                  pestana,
+                                  fila.id,
+                                  motivo,
+                                ),
                               `«${fila.nombre}» se borró.`,
+                              `Se borra «${fila.nombre}».`,
                             )
                           }
                         >

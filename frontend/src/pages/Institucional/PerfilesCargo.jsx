@@ -5,6 +5,7 @@ import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 
 const ESTADO = {
   completo: ["Completo", "perfil-cargo-estado--completo"],
@@ -48,6 +49,7 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
   const [catalogo, setCatalogo] = useState([]);
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
   // El perfil guardado, con las listas como texto (una por línea), y el
   // catálogo de herramientas para marcar las que necesita el cargo.
@@ -82,10 +84,14 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
 
   async function guardar(evento) {
     evento.preventDefault();
+    const motivo = await pedirMotivo(
+      `Cambios en el perfil de «${cargo.nombre}».`,
+    );
+    if (!motivo) return;
     setGuardando(true);
     setError(null);
     try {
-      await institucionalService.guardarPerfilCargo(cargo.id, valores);
+      await institucionalService.guardarPerfilCargo(cargo.id, valores, motivo);
       onGuardado();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el perfil."));
@@ -99,6 +105,7 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
       onClick={handleBackdropClick}
       role="presentation"
     >
+      {dialogoMotivo}
       <div
         className="mz-modal mz-modal--wide"
         role="dialog"

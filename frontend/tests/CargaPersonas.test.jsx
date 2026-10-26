@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MOTIVO, darMotivo } from "./motivo";
 
 /*
  * Carga masiva de personas del organigrama: descargar la plantilla, subirla
@@ -82,8 +83,10 @@ describe("Carga masiva de personas", () => {
     expect(
       await screen.findByText(/Todavía no se guardó nada/),
     ).toBeInTheDocument();
+    // Validar no pide motivo: no cambia nada.
     expect(servicio.cargarPersonas).toHaveBeenCalledWith(archivo, {
       confirmar: false,
+      motivo: null,
     });
     expect(screen.getByText(/1 con cuenta/)).toBeInTheDocument();
     expect(
@@ -92,9 +95,11 @@ describe("Carga masiva de personas", () => {
     expect(onCargado).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar carga" }));
+    await darMotivo();
     expect(await screen.findByText(/Carga aplicada/)).toBeInTheDocument();
     expect(servicio.cargarPersonas).toHaveBeenLastCalledWith(archivo, {
       confirmar: true,
+      motivo: MOTIVO,
     });
     expect(onCargado).toHaveBeenCalled();
   });

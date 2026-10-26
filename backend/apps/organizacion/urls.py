@@ -33,8 +33,10 @@ from .views import (
     ProveedorViewSet,
     SedeViewSet,
     UnidadOrganizacionalViewSet,
+    RevertirVersionView,
     UsoHerramientasView,
     VacacionesDeTodosView,
+    VersionesOrganigramaView,
 )
 
 router = DefaultRouter()
@@ -68,6 +70,16 @@ urlpatterns = [
     path("mis-datos/herramientas/", MisHerramientasView.as_view(), name="mis-herramientas"),
     path("herramientas-uso/", UsoHerramientasView.as_view(), name="herramientas-uso"),
     path("organigrama/exportar/", ExportarOrganigramaView.as_view(), name="organigrama-exportar"),
+    path(
+        "organigrama/versiones/",
+        VersionesOrganigramaView.as_view(),
+        name="organigrama-versiones",
+    ),
+    path(
+        "organigrama/versiones/<int:pk>/revertir/",
+        RevertirVersionView.as_view(),
+        name="organigrama-revertir",
+    ),
     path("confidencialidad/", ConfidencialidadView.as_view(), name="confidencialidad"),
     path("carrusel/", AjustesCarruselView.as_view(), name="carrusel"),
     path("calendario/", CalendarioView.as_view(), name="calendario"),

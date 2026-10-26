@@ -5,6 +5,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { descargarBlob } from "../../utils/descargas";
 import { mensajeDeError } from "../../utils/errores";
+import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 
 /** El reporte de una carga: cuántos cargos y personas, y lo que hay que ver. */
 function Reporte({ reporte }) {
@@ -87,6 +88,7 @@ export function CargaPersonas({ onCerrar, onCargado }) {
   const [reporte, setReporte] = useState(null);
   const [error, setError] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
+  const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
   async function descargar(tipo) {
     setError(null);
@@ -99,11 +101,17 @@ export function CargaPersonas({ onCerrar, onCargado }) {
 
   async function enviar(confirmar) {
     if (!archivo) return;
+    // Aplicarla cambia el organigrama: pide el motivo (validar no).
+    const motivo = confirmar
+      ? await pedirMotivo("Se aplica la carga masiva de personas.")
+      : null;
+    if (confirmar && !motivo) return;
     setTrabajando(true);
     setError(null);
     try {
       const resultado = await institucionalService.cargarPersonas(archivo, {
         confirmar,
+        motivo,
       });
       setReporte(resultado);
       if (resultado.aplicado) onCargado?.();
@@ -121,6 +129,7 @@ export function CargaPersonas({ onCerrar, onCargado }) {
       onClick={handleBackdropClick}
       role="presentation"
     >
+      {dialogoMotivo}
       <div
         className="mz-modal mz-modal--wide"
         role="dialog"

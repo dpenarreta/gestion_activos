@@ -49,3 +49,25 @@ def _empresa_de_pruebas(request):
     )
     with usando_empresa(empresa):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _motivo_de_cambio_por_defecto(monkeypatch):
+    """Todo cambio al organigrama pide su motivo (`X-Motivo-Cambio`,
+    apps.organizacion.versiones). Los clientes de prueba lo llevan por
+    defecto, también después de `credentials(...)`; las pruebas de la
+    bitácora lo quitan (`HTTP_X_MOTIVO_CAMBIO=""`) o lo cambian a propósito."""
+    from rest_framework.test import APIClient
+
+    defecto = {"HTTP_X_MOTIVO_CAMBIO": "Prueba automatica"}
+    original_init, original_credentials = APIClient.__init__, APIClient.credentials
+
+    def con_motivo(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        self._credentials = {**defecto, **self._credentials}
+
+    def credenciales(self, **kwargs):
+        original_credentials(self, **{**defecto, **kwargs})
+
+    monkeypatch.setattr(APIClient, "__init__", con_motivo)
+    monkeypatch.setattr(APIClient, "credentials", credenciales)

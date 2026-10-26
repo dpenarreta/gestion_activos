@@ -5,6 +5,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
+import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 
 /**
  * Estructura → pestaña «Asignación de cargos»: quién ocupa cada cargo. Es el
@@ -20,6 +21,7 @@ export function AsignacionCargos({ datos, onAsignado }) {
   const [personas, setPersonas] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
   const cargarPersonas = useCallback(
     (texto) =>
@@ -40,8 +42,21 @@ export function AsignacionCargos({ datos, onAsignado }) {
   async function asignar(persona, cargo) {
     setError(null);
     setAviso(null);
+    const nombre = (datos?.cargos ?? []).find(
+      (c) => String(c.id) === String(cargo),
+    )?.nombre;
+    const motivo = await pedirMotivo(
+      cargo
+        ? `${persona.nombre} pasa al cargo «${nombre ?? cargo}».`
+        : `${persona.nombre} queda sin cargo.`,
+    );
+    if (!motivo) {
+      // Sin motivo no se cambia: la lista vuelve a mostrar el cargo de antes.
+      await cargarPersonas(buscar);
+      return;
+    }
     try {
-      await institucionalService.asignar(persona.id, cargo);
+      await institucionalService.asignar(persona.id, cargo, motivo);
       setAviso(
         cargo
           ? `${persona.nombre} quedó en su nuevo cargo.`
@@ -57,6 +72,7 @@ export function AsignacionCargos({ datos, onAsignado }) {
 
   return (
     <div className="mz-stack">
+      {dialogoMotivo}
       <p className="mz-faint mb-0">
         Quién ocupa cada cargo. Cada persona también puede elegir el suyo en «Mi
         perfil»: vale el último cambio.

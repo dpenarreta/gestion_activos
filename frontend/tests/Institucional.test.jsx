@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MOTIVO, darMotivo } from "./motivo";
 
 /*
  * Módulo Institucional: el organigrama de la empresa (niveles, unidades y
@@ -402,16 +403,23 @@ describe("La estructura", () => {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    // Cada cambio pide su motivo (bitácora del organigrama).
+    expect(servicio.crear).not.toHaveBeenCalled();
+    await darMotivo();
 
     await waitFor(() =>
-      expect(servicio.crear).toHaveBeenCalledWith("cargos", {
-        nombre: "Técnico de soporte",
-        unidad: "11",
-        jefe: "20",
-        plazas: "2",
-        descripcion: "",
-        activo: true,
-      }),
+      expect(servicio.crear).toHaveBeenCalledWith(
+        "cargos",
+        {
+          nombre: "Técnico de soporte",
+          unidad: "11",
+          jefe: "20",
+          plazas: "2",
+          descripcion: "",
+          activo: true,
+        },
+        MOTIVO,
+      ),
     );
   });
 
@@ -433,12 +441,14 @@ describe("La estructura", () => {
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Guardar cambios" }),
     );
+    await darMotivo();
 
     await waitFor(() =>
       expect(servicio.actualizar).toHaveBeenCalledWith(
         "cargos",
         21,
         expect.objectContaining({ plazas: "4", unidad: 11, jefe: 20 }),
+        MOTIVO,
       ),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -454,11 +464,15 @@ describe("La estructura", () => {
     fireEvent.change(plazas, { target: { value: "5" } });
     fireEvent.keyDown(plazas, { key: "Enter" });
     fireEvent.blur(plazas);
+    await darMotivo();
 
     await waitFor(() =>
-      expect(servicio.actualizar).toHaveBeenCalledWith("cargos", 21, {
-        plazas: 5,
-      }),
+      expect(servicio.actualizar).toHaveBeenCalledWith(
+        "cargos",
+        21,
+        { plazas: 5 },
+        MOTIVO,
+      ),
     );
     expect(servicio.actualizar).toHaveBeenCalledTimes(1);
     expect(
@@ -477,6 +491,7 @@ describe("La estructura", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Borrar Presidencia ejecutiva" }),
     );
+    await darMotivo();
     expect(
       await screen.findByText(/tiene unidades debajo/),
     ).toBeInTheDocument();
@@ -506,8 +521,11 @@ describe("La asignación de cargos, pestaña de Estructura", () => {
       }),
     ).toBeInTheDocument();
     fireEvent.change(selector, { target: { value: "20" } });
+    await darMotivo();
 
-    await waitFor(() => expect(servicio.asignar).toHaveBeenCalledWith(9, "20"));
+    await waitFor(() =>
+      expect(servicio.asignar).toHaveBeenCalledWith(9, "20", MOTIVO),
+    );
     expect(
       await screen.findByText("Beto Paz quedó en su nuevo cargo."),
     ).toBeInTheDocument();

@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MOTIVO, darMotivo } from "./motivo";
 
 /*
  * El perfil de cada cargo: se escribe en Editar estructura → Perfiles de
@@ -85,14 +86,19 @@ describe("Perfiles de cargo", () => {
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Guardar perfil" }),
     );
+    await darMotivo();
     await waitFor(() =>
-      expect(servicio.guardarPerfilCargo).toHaveBeenCalledWith(7, {
-        objetivo: "Cobrar",
-        funciones: "Gestionar cartera\nNegociar acuerdos",
-        competencias: "",
-        kpis: "Recuperación ≥ 90 %",
-        herramientas: [1, 3],
-      }),
+      expect(servicio.guardarPerfilCargo).toHaveBeenCalledWith(
+        7,
+        {
+          objetivo: "Cobrar",
+          funciones: "Gestionar cartera\nNegociar acuerdos",
+          competencias: "",
+          kpis: "Recuperación ≥ 90 %",
+          herramientas: [1, 3],
+        },
+        MOTIVO,
+      ),
     );
     expect(onGuardado).toHaveBeenCalled();
   });

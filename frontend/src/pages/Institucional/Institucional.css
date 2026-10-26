@@ -2823,3 +2823,29 @@
   gap: 6px;
   margin-left: auto;
 }
+
+/* Bitácora de cambios del organigrama (26/10/2026). */
+.bitacora-organigrama__version {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}
+
+.bitacora-organigrama__version ul {
+  padding-left: 18px;
+}
+
+.bitacora-organigrama__previa {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
+.bitacora-organigrama__previa ul {
+  padding-left: 18px;
+}

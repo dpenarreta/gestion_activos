@@ -8,7 +8,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -32,6 +32,7 @@ from . import (
     roles_de_cargo,
     textos_legales,
     vacaciones,
+    versiones,
 )
 from .models import (
     Cargo,
@@ -491,10 +492,19 @@ class OrganigramaView(APIView):
 
 class _EstructuraViewSet(viewsets.ModelViewSet):
     """Niveles, unidades y cargos: se crean, editan y borran (si nada depende
-    de ellos), y cada cambio queda en la auditoría."""
+    de ellos), y cada cambio queda en la auditoría y, con su motivo, en la
+    bitácora del organigrama (`versiones.py`)."""
 
     permission_classes = [IsAuthenticated, InstitucionalPermission]
     entidad = ""
+
+    def create(self, request, *args, **kwargs):
+        with versiones.cambio(request):
+            return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        with versiones.cambio(request):
+            return super().update(request, *args, **kwargs)
 
     def _auditar(self, accion, objeto, nuevos=None, anteriores=None):
         record_audit_event(
@@ -521,8 +531,9 @@ class _EstructuraViewSet(viewsets.ModelViewSet):
         motivo = organigrama.no_se_puede_borrar(objeto)
         if motivo:
             return Response({"detail": motivo}, status=status.HTTP_409_CONFLICT)
-        self._auditar("deleted", objeto, anteriores=self.get_serializer(objeto).data)
-        objeto.delete()
+        with versiones.cambio(request):
+            self._auditar("deleted", objeto, anteriores=self.get_serializer(objeto).data)
+            objeto.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -614,7 +625,8 @@ class PerfilCargoView(APIView):
         entrada = PerfilCargoSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         anteriores = perfiles_cargo.de(cargo, con_herramientas=True)
-        perfiles_cargo.guardar(cargo, entrada.validated_data)
+        with versiones.cambio(request):
+            perfiles_cargo.guardar(cargo, entrada.validated_data)
         nuevo = perfiles_cargo.de(cargo, con_herramientas=True)
         record_audit_event(
             actor=request.user,
@@ -691,7 +703,8 @@ class CargaPersonasView(APIView):
             return Response(carga_personas.publico(reporte), status=status.HTTP_400_BAD_REQUEST)
         if not confirmar:
             return Response({**carga_personas.publico(reporte), "aplicado": False})
-        resultado = carga_personas.aplicar(reporte)
+        with versiones.cambio(request):
+            resultado = carga_personas.aplicar(reporte)
         record_audit_event(
             actor=request.user,
             action="institucional.personas.carga_masiva",
@@ -760,8 +773,9 @@ class AsignacionesView(APIView):
             .values_list("cargo_id", flat=True)
             .first()
         )
-        organigrama.asignar(usuario, cargo)
-        roles_de_cargo.sincronizar(_empresa_activa(), [usuario])
+        with versiones.cambio(request):
+            organigrama.asignar(usuario, cargo)
+            roles_de_cargo.sincronizar(_empresa_activa(), [usuario])
         record_audit_event(
             actor=request.user,
             action="institucional.cargo.asignado",
@@ -1437,3 +1451,66 @@ class TextosLegalesView(APIView):
                 context=get_request_context(request),
             )
         return Response(textos_legales.de(clave))
+
+
+# --- Bitácora del organigrama (26/10/2026) -----------------------------------------------
+
+
+class BitacoraOrganigramaPermission(BasePermission):
+    """La ve quien cambia el organigrama; revertir es de quien lo arma."""
+
+    def has_permission(self, request, view) -> bool:
+        if request.method in SAFE_METHODS:
+            return any(
+                user_has_permission(request.user, f"institucional.{p}")
+                for p in ("editar", "asignar", "perfil_cargo")
+            )
+        return user_has_permission(request.user, "institucional.editar")
+
+
+class VersionesOrganigramaView(APIView):
+    """Las 2 últimas versiones: quién, cuándo, desde qué IP, por qué y qué
+    cambió."""
+
+    permission_classes = [IsAuthenticated, BitacoraOrganigramaPermission]
+
+    def get(self, request):
+        return Response(versiones.versiones())
+
+
+class RevertirVersionView(APIView):
+    """GET: qué cambiaría al revertir esa versión. POST (con motivo): deja la
+    estructura como estaba antes de ella."""
+
+    permission_classes = [IsAuthenticated, BitacoraOrganigramaPermission]
+
+    def _version(self, pk):
+        from .models import VersionOrganigrama
+
+        version = VersionOrganigrama.objects.filter(pk=pk).first()
+        if version is None:
+            from django.http import Http404
+
+            raise Http404("Esa versión ya no existe: solo se guardan las 2 últimas.")
+        return version
+
+    def get(self, request, pk):
+        return Response({"cambios": versiones.vista_previa(self._version(pk))})
+
+    def post(self, request, pk):
+        version = self._version(pk)
+        resultado = versiones.revertir(request, version)
+        record_audit_event(
+            actor=request.user,
+            action="institucional.organigrama.revertido",
+            target=version,
+            module=MODULO_INSTITUCIONAL,
+            new_values={
+                "version": version.id,
+                "motivo": versiones.motivo_de(request),
+                "cambios": len(resultado.get("version").cambios) if resultado.get("version") else 0,
+            },
+            context=get_request_context(request),
+        )
+        nueva = resultado.get("version")
+        return Response({"version": versiones.fila(nueva) if nueva else None})
