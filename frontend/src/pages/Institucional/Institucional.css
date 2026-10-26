@@ -2800,3 +2800,26 @@
   color: var(--mz-ink-faint);
   font-size: 11px;
 }
+
+/* Roles sin abrir: resumen por mes y recordatorio (26/10/2026). */
+.rol-seguimiento__resumen caption {
+  caption-side: top;
+  padding-top: 0;
+}
+
+.rol-seguimiento__resumen tr.is-elegido td {
+  background: var(--mz-info-bg);
+}
+
+.rol-seguimiento__alerta {
+  color: var(--mz-bad-fg);
+  font-weight: 600;
+}
+
+.rol-seguimiento__confirmar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}

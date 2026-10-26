@@ -930,19 +930,21 @@ def hace_seguimiento(usuario) -> bool:
     return user_has_permission(usuario, PERMISO_SEGUIMIENTO)
 
 
-def seguimiento(actor, anio, mes) -> dict:
-    """`{anio, mes, periodo, sin_abrir, abiertos}`: cada lista con la persona,
-    su código, su cargo y área, cómo contactarla y, para las que lo abrieron,
-    cuándo y si dio su conformidad; para las que no, el último que abrió."""
-    from django.db.models import Max
+#: Los grupos de cada mes, en el orden en que se muestran. Los dos primeros
+#: son los pendientes: a quienes hay que llamar la atención.
+ESTADOS_SEGUIMIENTO = {
+    "sin_abrir": "Sin abrir",
+    "sin_aceptar": "Abierto, sin aceptar",
+    "con_observacion": "Con observación",
+    "aceptados": "Aceptado",
+}
+PENDIENTES = ("sin_abrir", "sin_aceptar")
 
+
+def _habilitados():
     from apps.chat.services import personas_de_la_empresa
-    from apps.organizacion.contacto import para_compartir
 
-    if not hace_seguimiento(actor):
-        raise PermissionDenied(f"No tiene el permiso requerido: {PERMISO_SEGUIMIENTO}.")
-    _validar_periodo(anio, mes)
-    personas = list(
+    return list(
         personas_de_la_empresa()
         .filter(
             user_permissions__codename=PERMISO_CONSULTA,
@@ -951,49 +953,240 @@ def seguimiento(actor, anio, mes) -> dict:
         .distinct()
         .order_by("last_name", "first_name")
     )
+
+
+def _propias(personas, **filtro) -> list:
+    """Las consultas de cada persona con su propio código: quien además
+    consulta otros códigos no abre el suyo al abrir el de otra persona."""
     codigos = {p.id: codigo_de(p) for p in personas}
-    ids = list(codigos)
-    # Solo las de su propio código: quien además consulta otros códigos no
-    # abre el suyo al abrir el de otra persona.
-    propias = [
+    return [
         c
-        for c in ConsultaRolPagos.objects.filter(usuario_id__in=ids, anio=anio, mes=mes)
+        for c in ConsultaRolPagos.objects.filter(usuario_id__in=list(codigos), **filtro)
         if c.codigo_empleado == codigos[c.usuario_id]
     ]
-    # Las consultas de ese mes de cada persona: la primera es cuándo lo abrió
-    # (y aceptó los términos); la última conformidad puede estar en otra.
+
+
+def _estado(consultas) -> str:
+    if not consultas:
+        return "sin_abrir"
+    respondidas = [c for c in consultas if c.conformidad]
+    if not respondidas:
+        return "sin_aceptar"
+    ultima = max(respondidas, key=lambda c: c.conformidad_en or c.created_at)
+    if ultima.conformidad == ConsultaRolPagos.Conformidad.OBSERVACION:
+        return "con_observacion"
+    return "aceptados"
+
+
+def _exigir_seguimiento(actor):
+    if not hace_seguimiento(actor):
+        raise PermissionDenied(f"No tiene el permiso requerido: {PERMISO_SEGUIMIENTO}.")
+
+
+def seguimiento(actor, anio, mes) -> dict:
+    """`{anio, mes, periodo, habilitados, totales, sin_abrir, sin_aceptar,
+    con_observacion, aceptados}`: cada lista con la persona, su código, su
+    cargo y área, cómo contactarla y, para las que lo abrieron, la constancia
+    (cuándo y desde dónde lo abrió y respondió); para las que no, el último
+    rol que abrieron."""
+    from django.db.models import Max
+
+    from apps.organizacion.contacto import para_compartir
+
+    _exigir_seguimiento(actor)
+    _validar_periodo(anio, mes)
+    personas = _habilitados()
     del_mes: dict[int, list] = {}
-    for c in propias:
+    for c in _propias(personas, anio=anio, mes=mes):
         del_mes.setdefault(c.usuario_id, []).append(c)
-    # Para las que no lo abrieron: el último período que sí abrieron.
     ultimos = {
         fila["usuario_id"]: fila["ultimo"]
-        for fila in ConsultaRolPagos.objects.filter(usuario_id__in=ids)
+        for fila in ConsultaRolPagos.objects.filter(usuario_id__in=[p.id for p in personas])
         .values("usuario_id")
         .annotate(ultimo=Max("created_at"))
     }
-
-    sin_abrir, abiertos = [], []
+    grupos = {clave: [] for clave in ESTADOS_SEGUIMIENTO}
     for persona in personas:
-        contacto = para_compartir(persona)
-        fila = {
-            **contacto,
-            "codigo": codigo_de(persona),
-        }
-        consultas = del_mes.get(persona.id)
-        if not consultas:
+        fila = {**para_compartir(persona), "codigo": codigo_de(persona)}
+        consultas = del_mes.get(persona.id, [])
+        estado = _estado(consultas)
+        fila["estado"] = estado
+        fila["estado_display"] = ESTADOS_SEGUIMIENTO[estado]
+        if consultas:
+            fila.update(_constancias(consultas))
+        else:
             fila["ultima_apertura"] = _momento(ultimos.get(persona.id))
-            sin_abrir.append(fila)
-            continue
-        abiertos.append({**fila, **_constancias(consultas)})
+        grupos[estado].append(fila)
     return {
         "anio": anio,
         "mes": mes,
         "periodo": f"{fuente.MESES[mes - 1].capitalize()} {anio}",
         "habilitados": len(personas),
-        "sin_abrir": sin_abrir,
-        "abiertos": abiertos,
+        "totales": {clave: len(lista) for clave, lista in grupos.items()},
+        **grupos,
     }
+
+
+def resumen_seguimiento(actor, anio) -> list[dict]:
+    """Por cada mes del año (hasta el actual): cuántas personas habilitadas
+    lo abrieron, lo aceptaron, lo observaron, y cuántas no lo abrieron o no
+    lo aceptaron. Se cuenta sobre las habilitadas de hoy."""
+    _exigir_seguimiento(actor)
+    hoy = timezone.localdate()
+    if anio < 2000 or anio > hoy.year:
+        raise ValidationError({"anio": "Elija un año válido."})
+    personas = _habilitados()
+    por_mes: dict[int, dict[int, list]] = {}
+    for c in _propias(personas, anio=anio):
+        por_mes.setdefault(c.mes, {}).setdefault(c.usuario_id, []).append(c)
+    ultimo = hoy.month if anio == hoy.year else 12
+    filas = []
+    for mes in range(ultimo, 0, -1):
+        totales = dict.fromkeys(ESTADOS_SEGUIMIENTO, 0)
+        for persona in personas:
+            totales[_estado(por_mes.get(mes, {}).get(persona.id, []))] += 1
+        filas.append(
+            {
+                "anio": anio,
+                "mes": mes,
+                "periodo": f"{fuente.MESES[mes - 1].capitalize()} {anio}",
+                "habilitados": len(personas),
+                "abiertos": len(personas) - totales["sin_abrir"],
+                **totales,
+                "pendientes": totales["sin_abrir"] + totales["sin_aceptar"],
+            }
+        )
+    return filas
+
+
+def _filas_de(datos, estado) -> list[dict]:
+    if estado == "pendientes":
+        return [f for clave in PENDIENTES for f in datos[clave]]
+    if estado == "todos":
+        return [f for clave in ESTADOS_SEGUIMIENTO for f in datos[clave]]
+    if estado not in ESTADOS_SEGUIMIENTO:
+        raise ValidationError({"estado": "Elija qué lista exportar."})
+    return datos[estado]
+
+
+def exportar_seguimiento(actor, anio, mes, estado="pendientes") -> tuple[str, bytes]:
+    """El listado del mes en Excel: nombre, código, correo, teléfono (si lo
+    autorizó), cargo, área y cuándo lo abrió o el último que abrió."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    from apps.core.hojas_de_calculo import neutralizar_fila
+
+    datos = seguimiento(actor, anio, mes)
+    filas = _filas_de(datos, estado)
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Roles de pagos"
+    hoja.append([f"Rol de pagos de {datos['periodo']}"])
+    hoja["A1"].font = Font(bold=True, size=12)
+    totales = datos["totales"]
+    hoja.append(
+        [
+            f"Habilitados: {datos['habilitados']} · Sin abrir: {totales['sin_abrir']} · "
+            f"Abiertos sin aceptar: {totales['sin_aceptar']} · Con observación: "
+            f"{totales['con_observacion']} · Aceptados: {totales['aceptados']}"
+        ]
+    )
+    hoja.append([])
+    hoja.append(
+        [
+            "Estado",
+            "Nombre",
+            "Código de empleado",
+            "Correo institucional",
+            "Teléfono",
+            "Cargo",
+            "Área",
+            "Abierto el",
+            "IP al abrir",
+            "Respuesta",
+            "Último rol que abrió",
+        ]
+    )
+    for celda in hoja[4]:
+        celda.font = Font(bold=True)
+    for f in filas:
+        abierto = f.get("abierto") or {}
+        ultimo = f.get("ultima_apertura") or {}
+        hoja.append(
+            neutralizar_fila(
+                [
+                    f["estado_display"],
+                    f["nombre"],
+                    f["codigo"],
+                    f["correo"],
+                    f["telefono"],
+                    f["cargo"],
+                    f["area"],
+                    f"{abierto['fecha']} {abierto['hora']}" if abierto else "",
+                    abierto.get("ip") or "",
+                    f.get("conformidad_display", ""),
+                    "" if abierto else ultimo.get("fecha", "Nunca"),
+                ]
+            )
+        )
+    anchos = (20, 34, 18, 32, 16, 28, 24, 20, 16, 30, 20)
+    for columna, ancho in zip("ABCDEFGHIJK", anchos, strict=True):
+        hoja.column_dimensions[columna].width = ancho
+    memoria = io.BytesIO()
+    libro.save(memoria)
+    sufijo = estado.replace("_", "-")
+    return f"roles-{anio}-{mes:02d}-{sufijo}.xlsx", memoria.getvalue()
+
+
+def recordar(actor, anio, mes, estado="pendientes") -> int:
+    """Una notificación en la campana a cada persona pendiente del mes (sin
+    abrir o sin aceptar) para que abra y acepte su rol. A quien ya se le
+    recordó ese mes en las últimas 12 horas no se le repite."""
+    from apps.notificaciones import services as campana
+    from apps.notificaciones.models import Notificacion
+    from apps.users.models import User
+
+    if estado not in ("pendientes", *PENDIENTES):
+        raise ValidationError({"estado": "Solo se recuerda a quienes están pendientes."})
+    datos = seguimiento(actor, anio, mes)
+    filas = {f["id"]: f for f in _filas_de(datos, estado)}
+    enlace = f"/admin/institucional/rol-pagos?anio={anio}&mes={mes}"
+    recientes = set(
+        Notificacion.objects.filter(
+            usuario_id__in=list(filas),
+            tipo="roles_pago.recordatorio",
+            enlace=enlace,
+            created_at__gte=timezone.now() - datetime.timedelta(hours=12),
+        ).values_list("usuario_id", flat=True)
+    )
+    periodo = datos["periodo"].lower()
+    enviadas = 0
+    for persona in User.objects.filter(pk__in=[i for i in filas if i not in recientes]):
+        if filas[persona.id]["estado"] == "sin_abrir":
+            resumen = (
+                f"Todavía no ha abierto su rol de pagos de {periodo}. "
+                "Ábralo y confirme si está de acuerdo."
+            )
+        else:
+            resumen = (
+                f"Abrió su rol de pagos de {periodo} pero no ha confirmado si está de acuerdo."
+            )
+        enviadas += campana.notificar(
+            [persona],
+            tipo="roles_pago.recordatorio",
+            titulo=f"Revise su rol de pagos de {periodo}",
+            resumen=resumen,
+            enlace=enlace,
+        )
+    record_audit_event(
+        actor=actor,
+        action="roles_pago.seguimiento.recordatorio",
+        target=actor,
+        module=MODULO,
+        new_values={"anio": anio, "mes": mes, "estado": estado, "enviadas": enviadas},
+    )
+    return enviadas
 
 
 # --- Mis roles abiertos (26/10/2026) ------------------------------------------------------

@@ -28,6 +28,9 @@ const servicio = {
   areasDescargaMasiva: vi.fn(),
   descargaMasiva: vi.fn(),
   seguimiento: vi.fn(),
+  resumenSeguimiento: vi.fn(),
+  exportarSeguimiento: vi.fn(),
+  recordarPendientes: vi.fn(),
   personaAuditada: vi.fn(),
   rolAuditado: vi.fn(),
 };
@@ -35,6 +38,7 @@ vi.mock("../src/api/nominaService", () => ({ nominaService: servicio }));
 vi.mock("../src/components/common/VisorPdf/VisorPdf", () => ({
   MarcoPdf: () => <div />,
   useUrlDePdf: () => "blob:rol",
+  VisorPdf: ({ titulo }) => <div role="dialog" aria-label={titulo} />,
 }));
 
 vi.mock("../src/utils/descargas", () => ({ descargarBlob: vi.fn() }));
@@ -55,6 +59,19 @@ const ESTADO = {
   // En la lista de habilitados (22/10/2026).
   habilitado: true,
   puede_habilitar: false,
+};
+
+/** Un mes sin nadie en ninguna lista (cada prueba pone lo suyo). */
+const SEGUIMIENTO = {
+  anio: 2025,
+  mes: 9,
+  periodo: "Septiembre 2025",
+  habilitados: 0,
+  totales: { sin_abrir: 0, sin_aceptar: 0, con_observacion: 0, aceptados: 0 },
+  sin_abrir: [],
+  sin_aceptar: [],
+  con_observacion: [],
+  aceptados: [],
 };
 
 beforeEach(() => {
@@ -685,11 +702,21 @@ describe("Consultar rol de pagos", () => {
 
   it("Talento Humano ve quién no abrió su rol y cómo contactarlo", async () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
+    servicio.resumenSeguimiento.mockResolvedValue([
+      {
+        anio: 2025,
+        mes: 9,
+        habilitados: 4,
+        abiertos: 2,
+        aceptados: 1,
+        con_observacion: 0,
+        sin_aceptar: 1,
+        sin_abrir: 2,
+        pendientes: 3,
+      },
+    ]);
     servicio.seguimiento.mockResolvedValue({
-      anio: 2025,
-      mes: 9,
-      periodo: "Septiembre 2025",
-      habilitados: 3,
+      ...SEGUIMIENTO,
       sin_abrir: [
         {
           id: 1,
@@ -712,7 +739,7 @@ describe("Consultar rol de pagos", () => {
           ultima_apertura: null,
         },
       ],
-      abiertos: [
+      aceptados: [
         {
           id: 3,
           nombre: "Ana Mora",
@@ -728,16 +755,23 @@ describe("Consultar rol de pagos", () => {
             ip: "10.0.0.5",
           },
           veces: 1,
+          conformidad: "conforme",
+          conformidad_display: "Estuvo de acuerdo",
           conformidad_en: {
             dia: "jueves",
             fecha: "02/10/2025",
             hora: "09:20:00",
             ip: "10.0.0.6",
           },
-          conformidad: "conforme",
-          conformidad_display: "Estuvo de acuerdo",
         },
       ],
+      totales: {
+        sin_abrir: 2,
+        sin_aceptar: 1,
+        con_observacion: 0,
+        aceptados: 1,
+      },
+      habilitados: 4,
     });
     render(<RolPagosPage />);
     fireEvent.click(
@@ -746,13 +780,25 @@ describe("Consultar rol de pagos", () => {
     const ventana = await screen.findByRole("dialog", {
       name: "Roles sin abrir",
     });
-    expect(servicio.seguimiento).toHaveBeenCalled();
+    // El resumen del año, mes por mes.
+    const resumen = await within(ventana).findByRole("table", {
+      name: /Resumen de/,
+    });
+    const septiembre = within(resumen)
+      .getByRole("button", { name: "Septiembre" })
+      .closest("tr");
+    expect(
+      within(septiembre)
+        .getAllByRole("cell")
+        .map((c) => c.textContent),
+    ).toEqual(["Septiembre", "4", "2", "1", "0", "1", "2"]);
+
     expect(await within(ventana).findByText("Beto Paz")).toBeInTheDocument();
+    expect(within(ventana).getByText(/3 pendiente\(s\)/)).toBeInTheDocument();
     expect(
       within(ventana).getByText("Analista · Comercial"),
     ).toBeInTheDocument();
     expect(within(ventana).getByText("0999999999")).toBeInTheDocument();
-    // Sin teléfono autorizado, no aparece; quien nunca abrió uno, lo dice.
     expect(
       within(ventana).queryByRole("button", {
         name: "Copiar el teléfono de Carla Ruiz",
@@ -762,19 +808,21 @@ describe("Consultar rol de pagos", () => {
       within(ventana).getByText("Nunca ha abierto uno"),
     ).toBeInTheDocument();
     expect(within(ventana).queryByText("Ana Mora")).not.toBeInTheDocument();
+    // Sin `roles_pago.historial` no se ve el rol de cada persona.
+    expect(
+      within(ventana).queryByRole("button", { name: /Ver el rol de/ }),
+    ).not.toBeInTheDocument();
 
-    // Buscar filtra la lista.
     fireEvent.change(within(ventana).getByLabelText("Buscar"), {
       target: { value: "carla" },
     });
     expect(within(ventana).queryByText("Beto Paz")).not.toBeInTheDocument();
-
-    // Los que sí lo abrieron, con su conformidad.
     fireEvent.change(within(ventana).getByLabelText("Buscar"), {
       target: { value: "" },
     });
+
     fireEvent.click(
-      within(ventana).getByRole("button", { name: "Abiertos (1)" }),
+      within(ventana).getByRole("button", { name: "Aceptados (1)" }),
     );
     expect(within(ventana).getByText("Ana Mora")).toBeInTheDocument();
     expect(
@@ -782,23 +830,132 @@ describe("Consultar rol de pagos", () => {
         /Abierto y términos aceptados · jueves 02\/10\/2025 · 09:15 · IP 10\.0\.0\.5/,
       ),
     ).toBeInTheDocument();
-    expect(
-      within(ventana).getByText(
-        /Estuvo de acuerdo · jueves 02\/10\/2025 · 09:20 · IP 10\.0\.0\.6/,
+  });
+
+  it("exporta los pendientes a Excel y les manda un recordatorio", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
+    servicio.resumenSeguimiento.mockResolvedValue([]);
+    servicio.seguimiento.mockResolvedValue({
+      ...SEGUIMIENTO,
+      totales: {
+        sin_abrir: 2,
+        sin_aceptar: 1,
+        con_observacion: 0,
+        aceptados: 0,
+      },
+      habilitados: 3,
+    });
+    const excel = new Blob(["xlsx"]);
+    servicio.exportarSeguimiento.mockResolvedValue(excel);
+    servicio.recordarPendientes.mockResolvedValue({ enviadas: 3 });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Roles sin abrir/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Roles sin abrir",
+    });
+    fireEvent.click(
+      await within(ventana).findByRole("button", {
+        name: /Exportar pendientes \(3\)/,
+      }),
+    );
+    await waitFor(() =>
+      expect(descargarBlob).toHaveBeenCalledWith(
+        excel,
+        "roles-2026-09-pendientes.xlsx",
       ),
+    );
+    expect(servicio.exportarSeguimiento).toHaveBeenCalledWith(
+      2026,
+      9,
+      "pendientes",
+    );
+
+    // El recordatorio pide confirmación antes de salir.
+    fireEvent.click(
+      within(ventana).getByRole("button", {
+        name: /Recordar a los pendientes/,
+      }),
+    );
+    expect(servicio.recordarPendientes).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Sí, enviar" }),
+    );
+    expect(
+      await within(ventana).findByText(/Se envió el recordatorio a 3 persona/),
+    ).toBeInTheDocument();
+    expect(servicio.recordarPendientes).toHaveBeenCalledWith(2026, 9);
+  });
+
+  it("con el historial se ve el rol de cada persona para validarlo", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      puede_seguimiento: true,
+      puede_ver_historial: true,
+    });
+    servicio.resumenSeguimiento.mockResolvedValue([]);
+    servicio.seguimiento.mockResolvedValue({
+      ...SEGUIMIENTO,
+      sin_abrir: [
+        {
+          id: 1,
+          nombre: "Beto Paz",
+          codigo: "200",
+          cargo: "",
+          area: "",
+          correo: "bpaz@grupolaar.com",
+          telefono: "",
+          ultima_apertura: null,
+        },
+      ],
+      totales: {
+        sin_abrir: 1,
+        sin_aceptar: 0,
+        con_observacion: 0,
+        aceptados: 0,
+      },
+      habilitados: 1,
+    });
+    servicio.rolDelHistorial.mockResolvedValue(new Blob(["%PDF"]));
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Roles sin abrir/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Roles sin abrir",
+    });
+    fireEvent.click(
+      await within(ventana).findByRole("button", {
+        name: "Ver el rol de Beto Paz",
+      }),
+    );
+    fireEvent.change(
+      within(ventana).getByLabelText(
+        "Su contraseña para ver el rol de Beto Paz",
+      ),
+      { target: { value: "clave" } },
+    );
+    fireEvent.click(within(ventana).getByRole("button", { name: "Ver" }));
+    await waitFor(() =>
+      expect(servicio.rolDelHistorial).toHaveBeenCalledWith({
+        codigo: "200",
+        anio: 2026,
+        mes: 9,
+        password: "clave",
+      }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: /Rol de pagos · Beto Paz · Septiembre 2026/,
+      }),
     ).toBeInTheDocument();
   });
 
   it("cambiar el mes vuelve a pedir la lista", async () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
-    servicio.seguimiento.mockResolvedValue({
-      anio: 2025,
-      mes: 9,
-      periodo: "Septiembre 2025",
-      habilitados: 0,
-      sin_abrir: [],
-      abiertos: [],
-    });
+    servicio.resumenSeguimiento.mockResolvedValue([]);
+    servicio.seguimiento.mockResolvedValue(SEGUIMIENTO);
     render(<RolPagosPage />);
     fireEvent.click(
       await screen.findByRole("button", { name: /Roles sin abrir/ }),
@@ -820,6 +977,7 @@ describe("Consultar rol de pagos", () => {
     await waitFor(() =>
       expect(servicio.seguimiento).toHaveBeenLastCalledWith(2025, 3),
     );
+    expect(servicio.resumenSeguimiento).toHaveBeenCalledWith(2025);
   });
 
   it("la persona ve cuándo abrió cada rol y cuándo dio su conformidad", async () => {

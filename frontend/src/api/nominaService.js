@@ -86,6 +86,28 @@ export const nominaService = {
       .get(`${BASE}seguimiento/`, { params: { anio, mes } })
       .then((r) => r.data);
   },
+  /** Por mes del año: abiertos, aceptados, observados y pendientes. */
+  resumenSeguimiento(anio) {
+    return apiClient
+      .get(`${BASE}seguimiento/resumen/`, { params: { anio } })
+      .then((r) => r.data);
+  },
+  /** `estado`: pendientes, sin_abrir, sin_aceptar, con_observacion,
+   * aceptados o todos. */
+  exportarSeguimiento(anio, mes, estado) {
+    return apiClient
+      .get(`${BASE}seguimiento/exportar/`, {
+        params: { anio, mes, estado },
+        responseType: "blob",
+      })
+      .then((r) => r.data);
+  },
+  /** Una notificación a cada persona pendiente del mes. */
+  recordarPendientes(anio, mes, estado = "pendientes") {
+    return apiClient
+      .post(`${BASE}seguimiento/recordar/`, { anio, mes, estado })
+      .then((r) => r.data);
+  },
   // --- Observaciones (Talento Humano) ---------------------------------
   /** `estado`: "abierta", "corregida", "cerrada" o vacío (todas). */
   observaciones(estado = "") {

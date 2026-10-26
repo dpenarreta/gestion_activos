@@ -17,6 +17,9 @@ from .views import (
     ObservacionesView,
     ResumenObservacionesView,
     RolDelHistorialView,
+    SeguimientoExportarView,
+    SeguimientoRecordarView,
+    SeguimientoResumenView,
     SeguimientoView,
 )
 
@@ -52,6 +55,21 @@ urlpatterns = [
     path("rol-pagos/habilitados/", HabilitadosView.as_view(), name="rol-pagos-habilitados"),
     path("rol-pagos/auditado/", AuditadoView.as_view(), name="rol-pagos-auditado"),
     path("rol-pagos/seguimiento/", SeguimientoView.as_view(), name="rol-pagos-seguimiento"),
+    path(
+        "rol-pagos/seguimiento/resumen/",
+        SeguimientoResumenView.as_view(),
+        name="rol-pagos-seguimiento-resumen",
+    ),
+    path(
+        "rol-pagos/seguimiento/exportar/",
+        SeguimientoExportarView.as_view(),
+        name="rol-pagos-seguimiento-exportar",
+    ),
+    path(
+        "rol-pagos/seguimiento/recordar/",
+        SeguimientoRecordarView.as_view(),
+        name="rol-pagos-seguimiento-recordar",
+    ),
     path(
         "rol-pagos/mis-observaciones/",
         MisObservacionesView.as_view(),

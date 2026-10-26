@@ -966,7 +966,10 @@ export function RolPagosPage() {
       )}
       {masiva && <DescargaMasivaRolPagos onCerrar={() => setMasiva(false)} />}
       {seguimiento && (
-        <SeguimientoRolPagos onCerrar={() => setSeguimiento(false)} />
+        <SeguimientoRolPagos
+          onCerrar={() => setSeguimiento(false)}
+          puedeVerRol={Boolean(estado?.puede_ver_historial)}
+        />
       )}
       {auditado && <AuditadoRolPagos onCerrar={() => setAuditado(false)} />}
       {configurando && estado && (

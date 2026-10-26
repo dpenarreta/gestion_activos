@@ -628,6 +628,65 @@ class SeguimientoView(APIView):
         return Response(resultado)
 
 
+def _anio_mes(datos, con_mes=True):
+    try:
+        anio = int(datos.get("anio", ""))
+        mes = int(datos.get("mes", "")) if con_mes else None
+    except (TypeError, ValueError):
+        raise serializers.ValidationError({"mes": "Elija un año y un mes válidos."}) from None
+    return anio, mes
+
+
+class SeguimientoResumenView(APIView):
+    """Por mes del año: cuántos abrieron, aceptaron, observaron y cuántos
+    están pendientes (`roles_pago.seguimiento`)."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.PERMISO_SEGUIMIENTO)]
+
+    def get(self, request):
+        anio, _ = _anio_mes(request.query_params, con_mes=False)
+        return Response(services.resumen_seguimiento(request.user, anio))
+
+
+class SeguimientoExportarView(APIView):
+    """El listado del mes en Excel (`estado`: pendientes, sin_abrir,
+    sin_aceptar, con_observacion, aceptados o todos)."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.PERMISO_SEGUIMIENTO)]
+
+    def get(self, request):
+        anio, mes = _anio_mes(request.query_params)
+        estado = request.query_params.get("estado", "pendientes")
+        nombre, contenido = services.exportar_seguimiento(request.user, anio, mes, estado)
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.seguimiento.exportado",
+            target=request.user,
+            module=MODULO,
+            new_values={"anio": anio, "mes": mes, "estado": estado},
+            context=get_request_context(request),
+        )
+        respuesta = HttpResponse(
+            contenido,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        respuesta["Content-Disposition"] = f'attachment; filename="{nombre}"'
+        return respuesta
+
+
+class SeguimientoRecordarView(APIView):
+    """Una notificación en la campana a cada persona pendiente del mes."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.PERMISO_SEGUIMIENTO)]
+
+    def post(self, request):
+        anio, mes = _anio_mes(request.data)
+        enviadas = services.recordar(
+            request.user, anio, mes, request.data.get("estado", "pendientes")
+        )
+        return Response({"enviadas": enviadas})
+
+
 class _Auditado(serializers.Serializer):
     codigo = serializers.CharField(max_length=40)
     periodos = serializers.ListField(child=serializers.DictField(), allow_empty=False)

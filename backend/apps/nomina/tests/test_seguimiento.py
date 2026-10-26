@@ -7,6 +7,8 @@ Abrirlo es haberlo consultado ella misma, con su código; que Talento Humano
 lo consulte por su código no cuenta. Las no habilitadas no aparecen.
 """
 
+import io
+
 from django.utils import timezone
 
 from apps.empresas.contexto import empresa_actual, usando_empresa
@@ -64,7 +66,13 @@ def test_lista_quienes_no_abrieron_su_rol_y_como_contactarlas(db):
     assert sin_abrir["Beto Prueba"]["ultima_apertura"] is not None
     assert sin_abrir["Carla Prueba"]["telefono"] == ""
     assert sin_abrir["Carla Prueba"]["ultima_apertura"] is None
-    (abierta,) = datos["abiertos"]
+    (abierta,) = datos["aceptados"]
+    assert datos["totales"] == {
+        "sin_abrir": 3,
+        "sin_aceptar": 0,
+        "con_observacion": 0,
+        "aceptados": 1,
+    }
     assert abierta["nombre"] == "Ana Prueba" and abierta["codigo"] == "100"
     assert abierta["conformidad_display"] == "Estuvo de acuerdo"
     assert abierta["abierto"]["fecha"]
@@ -124,7 +132,82 @@ def test_talento_humano_ve_la_ip_de_apertura_y_de_conformidad(db):
         conformidad_en=timezone.now(),
         conformidad_ip="10.0.0.9",
     )
-    (fila,) = th.get(URL, {"anio": 2026, "mes": 9}).json()["abiertos"]
+    (fila,) = th.get(URL, {"anio": 2026, "mes": 9}).json()["con_observacion"]
     assert fila["abierto"]["ip"] == "10.0.0.5"
     assert fila["conformidad_en"]["ip"] == "10.0.0.9"
     assert fila["conformidad_display"] == "Dejó una observación"
+
+
+def _mes_variado():
+    """Septiembre: Ana aceptó, Beto lo abrió sin responder, Carla observó y
+    Dario no lo abrió."""
+    ana, _ = _habilitada("ana", "100")
+    beto, _ = _habilitada("beto", "200")
+    carla, _ = _habilitada("carla", "300")
+    dario, _ = _habilitada("dario", "400")
+    _, th = _cuenta("th", "roles_pago.seguimiento")
+    ahora = timezone.now()
+    _consulta(ana, "100", conformidad="conforme", conformidad_en=ahora)
+    _consulta(beto, "200")
+    _consulta(carla, "300", conformidad="observacion", conformidad_en=ahora)
+    _consulta(ana, "100", mes=8, conformidad="conforme", conformidad_en=ahora)
+    return th, dario
+
+
+def test_cada_mes_separa_sin_abrir_sin_aceptar_observados_y_aceptados(db):
+    th, _ = _mes_variado()
+    datos = th.get(URL, {"anio": 2026, "mes": 9}).json()
+    assert [f["nombre"] for f in datos["sin_abrir"]] == ["Dario Prueba"]
+    assert [f["nombre"] for f in datos["sin_aceptar"]] == ["Beto Prueba"]
+    assert [f["nombre"] for f in datos["con_observacion"]] == ["Carla Prueba"]
+    assert [f["nombre"] for f in datos["aceptados"]] == ["Ana Prueba"]
+
+
+def test_el_resumen_cuenta_por_mes(db):
+    th, _ = _mes_variado()
+    filas = th.get(f"{URL}resumen/", {"anio": 2026}).json()
+    por_mes = {f["mes"]: f for f in filas}
+    assert por_mes[9]["habilitados"] == 4
+    assert por_mes[9]["abiertos"] == 3 and por_mes[9]["aceptados"] == 1
+    assert por_mes[9]["sin_abrir"] == 1 and por_mes[9]["pendientes"] == 2
+    assert por_mes[8]["aceptados"] == 1 and por_mes[8]["sin_abrir"] == 3
+    assert filas[0]["mes"] > filas[-1]["mes"]  # lo más reciente primero
+
+
+def test_el_listado_se_exporta_a_excel(db):
+    from openpyxl import load_workbook
+
+    th, _ = _mes_variado()
+    respuesta = th.get(f"{URL}exportar/", {"anio": 2026, "mes": 9})
+    assert respuesta.status_code == 200
+    assert "roles-2026-09-pendientes.xlsx" in respuesta["Content-Disposition"]
+    hoja = load_workbook(io.BytesIO(respuesta.content)).active
+    filas = list(hoja.iter_rows(min_row=5, values_only=True))
+    assert [(f[0], f[1], f[2], f[3]) for f in filas] == [
+        ("Sin abrir", "Dario Prueba", "400", "dario@grupolaar.com"),
+        ("Abierto, sin aceptar", "Beto Prueba", "200", "beto@grupolaar.com"),
+    ]
+    todos = th.get(f"{URL}exportar/", {"anio": 2026, "mes": 9, "estado": "todos"})
+    assert len(list(load_workbook(io.BytesIO(todos.content)).active.iter_rows(min_row=5))) == 4
+    assert th.get(f"{URL}exportar/", {"anio": 2026, "mes": 9, "estado": "x"}).status_code == 400
+
+
+def test_el_recordatorio_llega_a_los_pendientes_una_vez(db):
+    from apps.notificaciones.models import Notificacion
+
+    th, dario = _mes_variado()
+    respuesta = th.post(f"{URL}recordar/", {"anio": 2026, "mes": 9}, format="json")
+    assert respuesta.json() == {"enviadas": 2}
+    aviso = Notificacion.objects.get(usuario=dario)
+    assert "no ha abierto" in aviso.resumen
+    assert aviso.enlace == "/admin/institucional/rol-pagos?anio=2026&mes=9"
+    # Repetirlo enseguida no vuelve a avisar.
+    assert th.post(f"{URL}recordar/", {"anio": 2026, "mes": 9}, format="json").json() == {
+        "enviadas": 0
+    }
+    assert (
+        th.post(
+            f"{URL}recordar/", {"anio": 2026, "mes": 9, "estado": "aceptados"}, format="json"
+        ).status_code
+        == 400
+    )
