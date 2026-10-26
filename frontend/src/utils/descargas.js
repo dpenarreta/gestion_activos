@@ -1,5 +1,10 @@
+import { registrarDescarga } from "./registroDescargas";
+
+export { registrarDescarga };
+
 /**
- * Descarga un blob como archivo.
+ * Descarga un blob como archivo. **Toda** descarga del sistema pasa por aquí:
+ * guarda el archivo en el equipo y lo registra (`registrarDescarga`).
  *
  * La API se autentica con `Authorization: Bearer` y una navegación directa del
  * navegador no lleva ese encabezado; poner el token en la query para sortearlo
@@ -14,6 +19,8 @@ export function descargarBlob(blob, nombreArchivo) {
   document.body.appendChild(enlace);
   enlace.click();
   enlace.remove();
-  // Sin esto el blob queda retenido en memoria mientras viva la pestaña.
-  URL.revokeObjectURL(url);
+  // Sin esto el blob queda retenido en memoria mientras viva la pestaña. Se
+  // libera después: algunos navegadores leen la dirección tras el clic.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  registrarDescarga(blob, nombreArchivo);
 }

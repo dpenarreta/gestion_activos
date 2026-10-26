@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { descargarBlob } from "../utils/descargas";
 
 const BASE = "/proyectos/";
 
@@ -101,12 +102,7 @@ export const proyectosService = {
   },
 };
 
-/** Descarga un blob con su nombre. */
+/** Descarga un blob con su nombre (y lo registra: `descargarBlob`). */
 export function guardarArchivo(blob, nombre) {
-  const url = URL.createObjectURL(blob);
-  const enlace = document.createElement("a");
-  enlace.href = url;
-  enlace.download = nombre;
-  enlace.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  descargarBlob(blob, nombre);
 }

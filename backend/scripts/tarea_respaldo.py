@@ -96,6 +96,7 @@ def main() -> int:
         ("ciclo_soporte", []),
         ("limpiar_notificaciones", []),
         ("limpiar_chat", []),
+        ("ciclo_descargas", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

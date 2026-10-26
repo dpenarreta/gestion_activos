@@ -5,6 +5,7 @@ import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
 import "./EtiquetaDialog.css";
+import { descargarBlob } from "../../../utils/descargas";
 
 const FORMATOS_TERMICOS = [
   { valor: "zpl", etiqueta: "ZPL — Zebra y compatibles" },
@@ -105,17 +106,6 @@ export function EtiquetaDialog({ activo, onCerrar }) {
       cargarTermico();
     }
   }, [mostrarTermico, cargarTermico]);
-
-  function descargarBlob(blob, nombre) {
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement("a");
-    enlace.href = url;
-    enlace.download = nombre;
-    document.body.appendChild(enlace);
-    enlace.click();
-    enlace.remove();
-    URL.revokeObjectURL(url);
-  }
 
   async function handleDescargarPdf() {
     try {

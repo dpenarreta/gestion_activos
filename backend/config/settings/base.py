@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     "apps.soporte",
     "apps.licencias",
     "apps.proyectos",
+    "apps.descargas",
     "apps.sugerencias",
     "apps.nomina",
     "apps.capacitacion",
@@ -123,6 +124,9 @@ MIDDLEWARE = [
     "apps.core.csp.ContentSecurityPolicyMiddleware",
     "apps.core.middleware.RequestIDMiddleware",
     "apps.core.middleware.AccessLogMiddleware",
+    # La huella de cada archivo que entrega la API, para cotejar las
+    # descargas (apps.descargas).
+    "apps.descargas.middleware.ArchivosServidosMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -309,6 +313,9 @@ REST_FRAMEWORK = {
         # limita como el inicio de sesión. Y los envíos al correo personal.
         "rol_pagos": env.str("ROL_PAGOS_THROTTLE_RATE", default="10/min"),
         "rol_pagos_envio": env.str("ROL_PAGOS_ENVIO_THROTTLE_RATE", default="10/hour"),
+        # Registro de descargas: cada «Descargar» manda su copia. Holgado para
+        # quien baja muchos adjuntos seguidos; frena a quien lo use de bodega.
+        "descargas": env.str("DESCARGAS_THROTTLE_RATE", default="120/min"),
         # Lo que la pantalla consulta sola cada pocos segundos (novedades del
         # chat, la campana): va aparte del límite general por persona. Si no,
         # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000

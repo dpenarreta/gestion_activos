@@ -9,6 +9,7 @@ import {
 import "../../components/common/VisorPdf/VisorPdf.css";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { descargarBlob } from "../../utils/descargas";
 
 /**
  * El visor del rol de pagos con su conformidad: la persona dice si está de
@@ -96,13 +97,13 @@ export function VisorRolPagos({
           <Icon name="file-earmark-pdf" className="visor-pdf__icono" />
           <h3 id="visor-rol-titulo">{titulo}</h3>
           {url && (
-            <a
+            <button
+              type="button"
               className="btn btn-outline-secondary btn-sm"
-              href={url}
-              download={nombreArchivo}
+              onClick={() => descargarBlob(blob, nombreArchivo)}
             >
               <Icon name="download" /> Descargar
-            </a>
+            </button>
           )}
           <button
             type="button"

@@ -30,6 +30,7 @@ import * as dashboardLayoutService from '../../services/dashboardLayoutService'
 import * as historicoService from '../../services/historicoService'
 import { construirOverride, datosDesdeComponente } from '../../utils/datosDesdeComponente'
 import { generarPDFDesdeElemento } from '../../utils/pdfExport'
+import { descargarBlob } from '../../../utils/descargas'
 
 // Tipos de la paleta sin datos (se crean de inmediato al soltar/elegir, sin pasar por
 // `AgregarComponentePersonalModal`) — mapea el vocabulario de `ComponentPaletteSidebar` al
@@ -393,14 +394,7 @@ export default function DashboardAreaPage() {
     setErrorDescarga('')
     try {
       const { blob, nombre } = await dashboardLayoutService.descargarDatos(dashboardId)
-      const url = URL.createObjectURL(blob)
-      const enlace = document.createElement('a')
-      enlace.href = url
-      enlace.download = nombre
-      document.body.appendChild(enlace)
-      enlace.click()
-      enlace.remove()
-      URL.revokeObjectURL(url)
+      descargarBlob(blob, nombre)
     } catch (e) {
       // El cuerpo del error viaja como blob (la petición pide `responseType: 'blob'`), así que
       // el mensaje del backend no se puede leer directo: se muestra uno propio.

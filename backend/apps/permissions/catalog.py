@@ -605,6 +605,10 @@ PERMISSION_CATALOG = {
             "auditoria.ver_detalle": "Ver el detalle (valores anteriores y nuevos) de un evento",
             "auditoria.ver_ubicacion": "Ver la ubicación aproximada asociada a un evento",
             "auditoria.exportar": "Exportar el registro de auditoría",
+            "auditoria.descargas": (
+                "Ver quién descargó cada archivo del sistema, cuándo y desde qué IP, abrir la "
+                "copia de lo descargado y recibir el resumen diario de descargas"
+            ),
         },
     },
 }

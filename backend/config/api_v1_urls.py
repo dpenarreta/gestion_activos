@@ -41,6 +41,7 @@ urlpatterns = [
     path("chat/", include("apps.chat.urls")),
     path("licencias/", include("apps.licencias.urls")),
     path("proyectos/", include("apps.proyectos.urls")),
+    path("descargas/", include("apps.descargas.urls")),
     path("sugerencias/", include("apps.sugerencias.urls")),
     path("nomina/", include("apps.nomina.urls")),
     path("capacitacion/", include("apps.capacitacion.urls")),

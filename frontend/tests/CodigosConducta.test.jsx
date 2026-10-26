@@ -133,9 +133,10 @@ describe("Códigos de conducta: una pestaña por documento", () => {
     expect(
       await screen.findByText(/no se puede mostrar en el navegador/),
     ).toBeInTheDocument();
+    // Descargarlo pasa por `descargarBlob`, que lo registra (26/10/2026).
     expect(
-      await screen.findByRole("link", { name: /Descargar/ }),
-    ).toHaveAttribute("download", "reglamento.docx");
+      await screen.findByRole("button", { name: /Descargar/ }),
+    ).toBeInTheDocument();
 
     // Volver a una pestaña ya vista no pide el archivo de nuevo.
     fireEvent.click(screen.getByRole("tab", { name: /Código de conducta/ }));

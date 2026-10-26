@@ -196,3 +196,9 @@ Usuarios y roles.
   *Configuración → Respaldos* debe quedar apagado (los adjuntos de
   `C:\intranet\media` se respaldan con el servidor).
 - **Correo apagado** hasta definir el buzón del sistema.
+- **Copias de las descargas** (26/10/2026): cada archivo que alguien guarda
+  queda copiado en `C:\intranet\media\descargas` (uno por huella), para
+  Auditoría → Descargas de archivos. Se borran solas un año después de la
+  última vez que alguien descargó ese archivo (`ciclo_descargas`, en
+  Intranet-Ciclo). Vigilar el espacio del disco; los roles de pagos no se
+  copian.

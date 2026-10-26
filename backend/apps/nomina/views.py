@@ -10,12 +10,15 @@ from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
 from apps.core.request_meta import get_request_context
+from apps.descargas.middleware import marcar
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
 
 from . import fuente, services
 
 MODULO = "roles_pago"
+#: Por qué las descargas del rol de pagos no guardan copia (apps.descargas).
+SIN_COPIA = "Rol de pagos: no se guarda; se vuelve a generar desde nómina"
 
 
 def _ip(request):
@@ -136,6 +139,17 @@ class ConsultarView(APIView):
                 "version_terminos": consulta.version_terminos,
             },
             context=get_request_context(request),
+        )
+        # Si lo descarga, queda el registro pero no la copia (los términos
+        # dicen que el documento no se guarda); se vuelve a generar.
+        marcar(
+            request,
+            sin_copia=SIN_COPIA,
+            tipo="rol_pagos",
+            consulta=consulta.pk,
+            codigo=consulta.codigo_empleado,
+            anio=consulta.anio,
+            mes=consulta.mes,
         )
         respuesta = HttpResponse(contenido, content_type="application/pdf")
         respuesta["Content-Disposition"] = (
@@ -449,6 +463,14 @@ class RolDelHistorialView(APIView):
             new_values={"codigo": datos["codigo"], "anio": datos["anio"], "mes": datos["mes"]},
             context=get_request_context(request),
         )
+        marcar(
+            request,
+            sin_copia=SIN_COPIA,
+            tipo="rol_pagos",
+            codigo=datos["codigo"],
+            anio=datos["anio"],
+            mes=datos["mes"],
+        )
         respuesta = HttpResponse(contenido, content_type="application/pdf")
         respuesta["Content-Disposition"] = (
             f'inline; filename="rol-de-pagos-{datos["codigo"]}-{datos["anio"]}-{datos["mes"]:02d}.pdf"'
@@ -561,6 +583,15 @@ class DescargaMasivaView(APIView):
                 "omitidos": zip_["omitidos"],
             },
             context=get_request_context(request),
+        )
+        marcar(
+            request,
+            sin_copia=SIN_COPIA,
+            tipo="rol_pagos_masivo",
+            area=zip_["unidad"].nombre,
+            anio=datos["anio"],
+            mes=datos["mes"],
+            incluidos=zip_["incluidos"],
         )
         respuesta = HttpResponse(zip_["contenido"], content_type="application/zip")
         respuesta["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(zip_['nombre'])}"

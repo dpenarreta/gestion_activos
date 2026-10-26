@@ -12,6 +12,7 @@ import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import { AuditoriaMatriz } from "../../Matriz/AuditoriaMatriz";
 import "./AuditoriaList.css";
+import { RegistroDescargas } from "./RegistroDescargas";
 
 const RESULTADOS = [
   { valor: "", etiqueta: "Todos los resultados" },
@@ -358,6 +359,8 @@ function Valores({ valores }) {
 /** Lo que se elige en «Módulo» para ver el historial de los períodos de la
  * Matriz, que vive aparte del registro general (y pide su propio permiso). */
 const HISTORIAL_MATRIZ = "__matriz_periodos";
+/** Y para el registro de descargas de archivos (`auditoria.descargas`). */
+const DESCARGAS = "__descargas";
 
 /**
  * Auditoría: una sola pantalla para todo el sistema, filtrada por módulo. Las
@@ -369,13 +372,16 @@ const HISTORIAL_MATRIZ = "__matriz_periodos";
 export function AuditoriaList() {
   const verSistema = usePermission("auditoria.ver");
   const verMatriz = usePermission("matriz.ver_auditoria");
+  const verDescargas = usePermission("auditoria.descargas");
   const [parametros, setParametros] = useSearchParams();
   const [modulos, setModulos] = useState([]);
   const pedido = parametros.get("modulo");
   let modulo;
   if (pedido === "matriz") modulo = HISTORIAL_MATRIZ;
+  else if (pedido === "descargas") modulo = DESCARGAS;
   else if (pedido !== null) modulo = pedido;
-  else modulo = verSistema ? "" : HISTORIAL_MATRIZ;
+  else if (verSistema) modulo = "";
+  else modulo = verMatriz ? HISTORIAL_MATRIZ : DESCARGAS;
 
   useEffect(() => {
     if (!verSistema) return;
@@ -387,11 +393,13 @@ export function AuditoriaList() {
 
   function elegir(valor) {
     if (valor === HISTORIAL_MATRIZ) setParametros({ modulo: "matriz" });
+    else if (valor === DESCARGAS) setParametros({ modulo: "descargas" });
     else if (valor) setParametros({ modulo: valor });
     else setParametros({});
   }
 
   const enMatriz = modulo === HISTORIAL_MATRIZ;
+  const enDescargas = modulo === DESCARGAS;
 
   return (
     <div className="auditoria-page">
@@ -428,11 +436,17 @@ export function AuditoriaList() {
               Matriz de obligaciones · historial de períodos
             </option>
           )}
+          {verDescargas && (
+            <option value={DESCARGAS}>Descargas de archivos</option>
+          )}
         </select>
       </div>
 
       {enMatriz && <AuditoriaMatriz incrustada />}
-      {!enMatriz && verSistema && <RegistroDelSistema modulo={modulo} />}
+      {enDescargas && verDescargas && <RegistroDescargas />}
+      {!enMatriz && !enDescargas && verSistema && (
+        <RegistroDelSistema modulo={modulo} />
+      )}
     </div>
   );
 }

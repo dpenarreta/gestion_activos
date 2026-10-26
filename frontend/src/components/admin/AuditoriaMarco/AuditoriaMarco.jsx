@@ -25,6 +25,13 @@ export const SECCIONES_AUDITORIA = [
     path: "/admin/auditoria/matriz",
     permission: ["matriz.ver_auditoria"],
   },
+  {
+    // Quién descargó cada archivo (26/10/2026).
+    id: "descargas",
+    nombre: "Descargas",
+    path: "/admin/auditoria?modulo=descargas",
+    permission: ["auditoria.descargas"],
+  },
 ];
 
 /** Todos los permisos que abren alguna pestaña: los del menú. */

@@ -3,17 +3,12 @@ import { useState } from "react";
 import { matrizService } from "../../api/matrizService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
+import { descargarBlob } from "../../utils/descargas";
 
-/** Entrega un archivo ya descargado como si fuera un enlace normal. */
+/** Entrega un archivo ya descargado como si fuera un enlace normal (y lo
+ * registra: `descargarBlob`). */
 export function guardarBlob(blob, nombre) {
-  const url = URL.createObjectURL(blob);
-  const enlace = document.createElement("a");
-  enlace.href = url;
-  enlace.download = nombre;
-  document.body.appendChild(enlace);
-  enlace.click();
-  enlace.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  descargarBlob(blob, nombre);
 }
 
 function hoy() {

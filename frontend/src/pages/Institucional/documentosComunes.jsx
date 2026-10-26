@@ -5,6 +5,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { descargarBlob } from "../../utils/descargas";
 
 /*
  * Lo que comparten las dos pantallas de los códigos de conducta: la de leer
@@ -271,12 +272,7 @@ export function useAbrirDocumento() {
       if (documento.es_pdf) {
         setAbierto({ documento, blob });
       } else {
-        const url = URL.createObjectURL(blob);
-        const enlace = document.createElement("a");
-        enlace.href = url;
-        enlace.download = documento.nombre_original;
-        enlace.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        descargarBlob(blob, documento.nombre_original);
       }
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo abrir el documento."));

@@ -16,6 +16,7 @@ import {
   fechas,
 } from "./licenciasComunes";
 import "./Institucional.css";
+import { descargarBlob } from "../../utils/descargas";
 
 function Ventana({ titulo, onCerrar, children, ancha = false }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
@@ -396,12 +397,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
 
   async function verAdjunto() {
     const blob = await licenciasService.adjunto(id);
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement("a");
-    enlace.href = url;
-    enlace.download = solicitud.adjunto_nombre;
-    enlace.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    descargarBlob(blob, solicitud.adjunto_nombre);
   }
 
   const [estado, clase] = ESTADOS[solicitud?.estado] ?? ["", ""];

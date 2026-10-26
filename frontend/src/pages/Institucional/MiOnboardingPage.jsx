@@ -7,6 +7,7 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
+import { descargarBlob } from "../../utils/descargas";
 
 const GRUPOS = [
   ["empresa", "De la empresa", "building"],
@@ -63,12 +64,7 @@ function RevisarMaterial({ material, onAbrirPdf, onCerrar }) {
         onAbrirPdf(blob);
         return;
       }
-      const url = URL.createObjectURL(blob);
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = material.archivo_nombre || `${material.titulo}.pptx`;
-      enlace.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      descargarBlob(blob, material.archivo_nombre || `${material.titulo}.pptx`);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo abrir el archivo."));
     }

@@ -16,6 +16,7 @@ MODULOS = {
     "chat": ("Chat", "chat-dots"),
     "licencias": ("Solicitud de permisos", "calendar-check"),
     "capacitacion": ("Onboarding y capacitación", "mortarboard"),
+    "descargas": ("Auditoría · Descargas", "download"),
 }
 
 SISTEMA = ("Sistema", "bell")

@@ -1156,8 +1156,9 @@ describe('DashboardAreaPage — descargar el archivo completo', () => {
     await waitFor(() => expect(dashboardLayoutService.descargarDatos).toHaveBeenCalledWith('finanzas'))
     expect(crear).toHaveBeenCalledWith(blob)
     expect(clic).toHaveBeenCalled()
-    // El objeto URL se libera: sin esto, cada descarga deja el blob retenido en memoria.
-    expect(revocar).toHaveBeenCalledWith('blob:x')
+    // El objeto URL se libera (un segundo después del clic): sin esto, cada descarga deja el
+    // blob retenido en memoria.
+    await waitFor(() => expect(revocar).toHaveBeenCalledWith('blob:x'), { timeout: 2000 })
     clic.mockRestore()
   })
 

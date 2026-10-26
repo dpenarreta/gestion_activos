@@ -7,6 +7,7 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { ColumnasPlantillaPanel } from "./ColumnasPlantillaPanel";
 import { mensajeDeError } from "../../../utils/errores";
 import "./ImportarActivos.css";
+import { descargarBlob } from "../../../utils/descargas";
 
 /**
  * Carga masiva de activos desde una hoja de cálculo.
@@ -82,14 +83,7 @@ function PanelCarga() {
     setError(null);
     try {
       const blob = await importacionActivosService.descargarPlantilla();
-      const url = URL.createObjectURL(blob);
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = "plantilla-carga-activos.xlsx";
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-      URL.revokeObjectURL(url);
+      descargarBlob(blob, "plantilla-carga-activos.xlsx");
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo descargar la plantilla."));
     }

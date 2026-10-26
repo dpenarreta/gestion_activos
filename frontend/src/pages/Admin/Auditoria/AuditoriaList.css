@@ -41,3 +41,37 @@
 .auditoria-detalle__valor {
   overflow-wrap: anywhere;
 }
+
+/* Descargas de archivos (26/10/2026). */
+.descargas-archivo {
+  overflow-wrap: anywhere;
+}
+
+.descargas-detalle {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.descargas-detalle dt {
+  color: var(--mz-ink-faint);
+  font-weight: 600;
+}
+
+.descargas-detalle dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.descargas-regenerar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 260px;
+}
+
+.descargas-regenerar input {
+  flex: 1 1 120px;
+}

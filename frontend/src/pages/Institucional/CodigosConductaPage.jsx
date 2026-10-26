@@ -13,6 +13,7 @@ import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { CATEGORIAS, VentanaAcuerdo, tamano } from "./documentosComunes";
 import "./Institucional.css";
+import { descargarBlob } from "../../utils/descargas";
 
 const NOMBRE_CATEGORIA = Object.fromEntries(CATEGORIAS);
 
@@ -52,13 +53,13 @@ function PanelDelDocumento({
           {documento.descripcion && <p>{documento.descripcion}</p>}
         </div>
         {!bloqueado && urlDescarga && (
-          <a
+          <button
+            type="button"
             className="btn btn-outline-secondary btn-sm"
-            href={urlDescarga}
-            download={documento.nombre_original}
+            onClick={() => descargarBlob(blob, documento.nombre_original)}
           >
             <Icon name="download" /> Descargar
-          </a>
+          </button>
         )}
       </div>
       <div className="docs-panel__cuerpo">

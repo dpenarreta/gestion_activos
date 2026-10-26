@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { Icon } from "../Icon/Icon";
 import "./VisorPdf.css";
+import { descargarBlob } from "../../../utils/descargas";
 
 /**
  * El visor de PDF del sistema: abre el documento dentro de la herramienta, en
@@ -39,13 +40,13 @@ export function VisorPdf({ titulo, blob, nombreArchivo, onCerrar }) {
           <Icon name="file-earmark-pdf" className="visor-pdf__icono" />
           <h3 id="visor-pdf-titulo">{titulo}</h3>
           {url && (
-            <a
+            <button
+              type="button"
               className="btn btn-outline-secondary btn-sm"
-              href={url}
-              download={nombreArchivo}
+              onClick={() => descargarBlob(blob, nombreArchivo)}
             >
               <Icon name="download" /> Descargar
-            </a>
+            </button>
           )}
           <button
             type="button"
