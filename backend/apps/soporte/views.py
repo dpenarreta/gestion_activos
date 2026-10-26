@@ -186,7 +186,7 @@ def datos_de_la_persona(usuario, extra=None):
         contacto.ETIQUETAS[clave]
         for clave, valor in (
             ("nombre", persona["nombre"]),
-            ("telefono", persona["telefono"]),
+            # El teléfono es opcional desde el 26/10/2026 (contacto.py).
             ("area", area),
             ("agencia", sede),
         )

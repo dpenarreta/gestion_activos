@@ -643,6 +643,12 @@ class DatosDeContacto(ModeloDeEmpresa):
     aniversario_mes = models.PositiveSmallIntegerField(null=True, blank=True)
     aniversario_anio = models.PositiveSmallIntegerField(null=True, blank=True)
     aniversario_aceptado_en = models.DateTimeField(null=True, blank=True)
+    #: Autorización para guardar su teléfono y que otras personas de la
+    #: empresa lo usen para contactarlo (23/10/2026, LOPDP): cuándo, desde qué
+    #: IP y el texto exacto que aceptó. Sin ella el teléfono no se guarda.
+    telefono_aceptado_en = models.DateTimeField(null=True, blank=True)
+    telefono_aceptado_ip = models.GenericIPAddressField(null=True, blank=True)
+    telefono_aceptado_texto = models.TextField(blank=True)
 
     class Meta:
         constraints = [

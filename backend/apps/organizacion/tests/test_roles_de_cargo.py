@@ -125,6 +125,7 @@ def test_quienes_ocupan_el_cargo_comparten_su_rol_y_lo_cambian_solos(db):
             departamento=None,
             sede=None,
             cargo=Cargo.objects.get(pk=e["analista"]["id"]),
+            acepta_telefono=True,
         )
     assert "Analista" in _roles_de(rosa)
 

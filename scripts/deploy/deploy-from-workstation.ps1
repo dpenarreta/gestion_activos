@@ -34,7 +34,14 @@
   antes de tiempo). Úselo si el cambio no toca backend\requirements.
 
 .PARAMETER Migrar
-  Aplica las migraciones pendientes con ga_migraciones (pide su clave).
+  Aplica las migraciones pendientes con ga_migraciones. Toma la clave de
+  -CredencialMigraciones si existe; si no, la pide.
+
+.PARAMETER CredencialMigraciones
+  Archivo cifrado con la credencial de ga_migraciones (por defecto
+  $env:USERPROFILE\.deploy\ga-migraciones.cred), creado una vez con:
+    Get-Credential ga_migraciones | Export-CliXml "$env:USERPROFILE\.deploy\ga-migraciones.cred"
+  Solo funciona en esta máquina y con este usuario de Windows.
 
 .PARAMETER OmitirVerificacionGit
   Despliega aunque la rama no sea main o tenga cambios sin subir. Solo para
@@ -58,6 +65,7 @@ param(
 
     [switch]$SkipInstall,
     [switch]$Migrar,
+    [string]$CredencialMigraciones = "$env:USERPROFILE\.deploy\ga-migraciones.cred",
     [switch]$OmitirVerificacionGit
 )
 
@@ -98,8 +106,16 @@ if (-not $OmitirVerificacionGit) {
 
 $claveMigraciones = $null
 if ($Migrar) {
-    $cm = Get-Credential -UserName "ga_migraciones" -Message "Clave de ga_migraciones (el DBA debe haberlo habilitado)"
+    # Con -CredencialMigraciones se lee de un archivo cifrado con el usuario de
+    # Windows de esta máquina (como la credencial del servidor); si no, se pide.
+    if ($CredencialMigraciones -and (Test-Path $CredencialMigraciones)) {
+        $cm = Import-CliXml $CredencialMigraciones
+    }
+    else {
+        $cm = Get-Credential -UserName "ga_migraciones" -Message "Clave de ga_migraciones (el DBA debe haberlo habilitado)"
+    }
     $claveMigraciones = $cm.GetNetworkCredential().Password
+    if (-not $claveMigraciones) { throw "No se obtuvo la clave de ga_migraciones." }
 }
 
 # --- 2. Compilar el frontend aquí -------------------------------------------------------------

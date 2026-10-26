@@ -316,11 +316,14 @@ class MisDatosSerializer(serializers.Serializer):
 
     nombres = serializers.CharField(max_length=150)
     apellidos = serializers.CharField(max_length=150)
-    telefono = serializers.CharField(max_length=30)
+    #: Opcional (26/10/2026); si viene, con su autorización (acepta_telefono).
+    telefono = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     area = RelacionDeEmpresa(Departamento, {"activo": True})
     agencia = RelacionDeEmpresa(Sede, {"activa": True})
     #: Obligatorio desde el 20/10/2026, como el resto de «Mi perfil».
     cargo = RelacionDeEmpresa(Cargo, {"activo": True})
+    #: Autoriza guardar su teléfono y que la empresa lo use para contactarlo.
+    acepta_telefono = serializers.BooleanField(default=False)
 
     def validate_nombres(self, valor):
         if not valor.strip():
@@ -333,6 +336,8 @@ class MisDatosSerializer(serializers.Serializer):
         return valor
 
     def validate_telefono(self, valor):
+        if not valor.strip():
+            return ""
         digitos = [c for c in valor if c.isdigit()]
         if not 7 <= len(digitos) <= 15:
             raise serializers.ValidationError("Escriba un teléfono de 7 a 15 dígitos.")

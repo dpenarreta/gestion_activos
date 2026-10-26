@@ -136,6 +136,7 @@ def _carla(mesa):
             DatosDeContacto.objects.create(
                 usuario=carla,
                 telefono="099 418 2273",
+                telefono_aceptado_en=timezone.now(),
                 departamento=mesa["area"],
                 sede=mesa["sede"],
             )
@@ -212,7 +213,7 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
     nuevo.first_name = ""  # sin nombre ni «Mis datos»
     nuevo.save()
     cliente = _equipo(nuevo)
-    assert {"nombres", "telefono", "area", "agencia"} <= set(
+    assert {"nombres", "area", "agencia"} <= set(
         cliente.get(SOLICITAR).json()["mis_datos"]["faltan"]
     )
     respuesta = cliente.post(SOLICITAR, _formulario(mesa), format="json")
@@ -229,6 +230,7 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
             "nombres": "Marta",
             "apellidos": "Mora",
             "telefono": "0991234567",
+            "acepta_telefono": True,
             "area": mesa["area"].id,
             "agencia": mesa["sede"].id,
             "cargo": cargo.id,

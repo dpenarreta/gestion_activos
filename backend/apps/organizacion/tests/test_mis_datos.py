@@ -51,8 +51,10 @@ def test_la_ficha_de_empleado_da_los_valores_iniciales(db):
     assert datos["telefono"] == "0991112222"
     assert datos["area"]["nombre"] == "Operaciones"
     assert datos["en_nomina"] is True
-    # La ficha de empleado no guarda la agencia; el cargo se elige.
+    # La ficha de empleado no guarda la agencia; el cargo se elige. El
+    # teléfono es opcional (26/10/2026) y no está autorizado todavía.
     assert datos["faltan"] == ["agencia", "cargo"]
+    assert datos["telefono_autorizacion"]["aceptado"] is False
 
 
 def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
@@ -65,7 +67,7 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
         cargo = Cargo.objects.create(nombre="Asesor comercial")
     usuario, cliente = _persona(empresa)
     inicial = cliente.get(URL).json()
-    assert inicial["faltan"] == ["nombres", "apellidos", "telefono", "area", "agencia", "cargo"]
+    assert inicial["faltan"] == ["nombres", "apellidos", "area", "agencia", "cargo"]
     assert [a["nombre"] for a in inicial["areas"]] == ["Comercial"]
 
     malo = cliente.put(
@@ -86,6 +88,7 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
             "nombres": "Rosa",
             "apellidos": "Vera",
             "telefono": "0991112222",
+            "acepta_telefono": True,
             "area": area.id,
             "agencia": sede.id,
             "cargo": cargo.id,
@@ -116,6 +119,7 @@ def test_el_cargo_se_elige_del_catalogo_y_es_obligatorio(db):
         "nombres": "Rosa",
         "apellidos": "Vera",
         "telefono": "0991112222",
+        "acepta_telefono": True,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -182,6 +186,7 @@ def test_el_cargo_lo_elige_una_sola_vez_y_despues_lo_cambia_ti(db):
         "nombres": "Rosa",
         "apellidos": "Vera",
         "telefono": "0991112222",
+        "acepta_telefono": True,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -199,3 +204,100 @@ def test_el_cargo_lo_elige_una_sola_vez_y_despues_lo_cambia_ti(db):
     )
     assert mismo.status_code == 200, mismo.data
     assert mismo.json()["telefono"] == "0993334444"
+
+
+def test_el_telefono_se_guarda_solo_con_autorizacion_y_queda_la_constancia(db):
+    """Para guardar el teléfono hay que autorizar que la empresa lo guarde y que
+    otras personas lo usen para contactarlo (23/10/2026). Queda cuándo, desde
+    qué IP y el texto exacto aceptado; volver a guardar no la reemplaza."""
+    from apps.empresas.contexto import empresa_actual
+    from apps.organizacion.models import DatosDeContacto
+
+    empresa = empresa_actual()
+    with usando_empresa(empresa):
+        area = Departamento.objects.create(nombre="Comercial", codigo="COM")
+        sede = Sede.objects.create(nombre="Matriz Quito", ciudad="Quito")
+        cargo = Cargo.objects.create(nombre="Asesor comercial")
+    usuario, cliente = _persona(empresa, first_name="Rosa", last_name="Vera")
+    datos = cliente.get(URL).json()
+    texto = datos["telefono_autorizacion"]["texto"]
+    assert "personal o empresarial" in texto and "contactarme" in texto
+    base = {
+        "nombres": "Rosa",
+        "apellidos": "Vera",
+        "telefono": "0991112222",
+        "area": area.id,
+        "agencia": sede.id,
+        "cargo": cargo.id,
+    }
+    sin = cliente.put(URL, base, format="json")
+    assert sin.status_code == 400
+    assert "autoriza" in str(sin.json()["error"]["details"]["acepta_telefono"])
+    with usando_empresa(empresa):
+        assert not DatosDeContacto.objects.filter(usuario=usuario, telefono="0991112222").exists()
+
+    con = cliente.put(
+        URL, {**base, "acepta_telefono": True}, format="json", REMOTE_ADDR="10.0.5.21"
+    )
+    assert con.status_code == 200, con.data
+    assert con.json()["faltan"] == []
+    assert con.json()["telefono_autorizacion"]["aceptado"] is True
+    with usando_empresa(empresa):
+        propios = DatosDeContacto.objects.get(usuario=usuario)
+    assert propios.telefono_aceptado_ip == "10.0.5.21"
+    assert propios.telefono_aceptado_texto == texto
+    primera = propios.telefono_aceptado_en
+    assert primera is not None
+
+    # Volver a guardar conserva la constancia original.
+    cliente.put(
+        URL,
+        {**base, "telefono": "0993334444", "acepta_telefono": True},
+        format="json",
+        REMOTE_ADDR="10.0.9.9",
+    )
+    with usando_empresa(empresa):
+        propios = DatosDeContacto.objects.get(usuario=usuario)
+    assert propios.telefono == "0993334444"
+    assert propios.telefono_aceptado_en == primera
+    assert propios.telefono_aceptado_ip == "10.0.5.21"
+
+
+def test_el_telefono_es_opcional_pero_si_se_escribe_pide_autorizacion(db):
+    """Sin teléfono se guarda y se puede continuar (26/10/2026); con teléfono,
+    solo con la autorización. Dejarlo vacío lo borra."""
+    from apps.empresas.contexto import empresa_actual
+    from apps.organizacion.models import DatosDeContacto
+
+    empresa = empresa_actual()
+    with usando_empresa(empresa):
+        area = Departamento.objects.create(nombre="Comercial", codigo="COM")
+        sede = Sede.objects.create(nombre="Matriz Quito", ciudad="Quito")
+        cargo = Cargo.objects.create(nombre="Asesor comercial")
+    usuario, cliente = _persona(empresa, first_name="Rosa", last_name="Vera")
+    base = {
+        "nombres": "Rosa",
+        "apellidos": "Vera",
+        "area": area.id,
+        "agencia": sede.id,
+        "cargo": cargo.id,
+    }
+
+    sin_telefono = cliente.put(URL, {**base, "telefono": ""}, format="json")
+    assert sin_telefono.status_code == 200, sin_telefono.data
+    assert sin_telefono.json()["faltan"] == []
+    assert cliente.put(URL, base, format="json").status_code == 200  # ni siquiera el campo
+
+    sin_autorizar = cliente.put(URL, {**base, "telefono": "0991112222"}, format="json")
+    assert sin_autorizar.status_code == 400
+    assert "acepta_telefono" in sin_autorizar.json()["error"]["details"]
+
+    con = cliente.put(
+        URL, {**base, "telefono": "0991112222", "acepta_telefono": True}, format="json"
+    )
+    assert con.json()["telefono"] == "0991112222"
+    borrado = cliente.put(URL, {**base, "telefono": ""}, format="json").json()
+    assert borrado["telefono"] == "" and borrado["faltan"] == []
+    with usando_empresa(empresa):
+        # La constancia de la autorización se conserva aunque se borre el número.
+        assert DatosDeContacto.objects.get(usuario=usuario).telefono_aceptado_en is not None

@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
 from apps.core.pagination import DefaultPagination
-from apps.core.request_meta import get_request_context
+from apps.core.request_meta import get_client_ip, get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
@@ -459,6 +459,8 @@ class MisDatosView(APIView):
             departamento=datos["area"],
             sede=datos["agencia"],
             cargo=datos["cargo"],
+            acepta_telefono=datos["acepta_telefono"],
+            ip=get_client_ip(request),
         )
         return Response({**contacto.de(request.user), **contacto.opciones()})
 

@@ -16,9 +16,17 @@ Desde el 20/10/2026 los siete datos de `OBLIGATORIOS` son obligatorios para
 usar el sistema: mientras falte alguno, al entrar se bloquea con una ventana
 que los pide (frontend `AvisoPerfil`). El correo debe ser institucional y no
 lo cambia la persona: lo corrige la administración.
+
+**El teléfono es opcional y pide autorización** (26/10/2026, Ley Orgánica de
+Protección de Datos Personales). No es obligatorio para usar el sistema. Si la
+persona lo escribe, antes de guardar marca que autoriza a la empresa a guardar
+su número de contacto —personal o empresarial— y a que otras personas de la
+empresa lo usen para contactarla. Se guarda cuándo, desde qué IP y el texto
+exacto que aceptó.
 """
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
@@ -28,7 +36,8 @@ from .models import Cargo, DatosDeContacto, Departamento, Sede
 from .organigrama import linea_de_supervision, nombre_con_unidad
 
 #: Lo que toda persona debe tener completo para usar el sistema.
-OBLIGATORIOS = ("nombres", "apellidos", "correo", "telefono", "area", "agencia", "cargo")
+#: El teléfono no está: es opcional desde el 26/10/2026 (ver arriba).
+OBLIGATORIOS = ("nombres", "apellidos", "correo", "area", "agencia", "cargo")
 
 #: Los dominios del correo institucional.
 DOMINIOS_INSTITUCIONALES = ("grupolaar.com",)
@@ -44,6 +53,19 @@ ETIQUETAS = {
     "cargo": "Cargo",
 }
 
+
+#: Lo que la persona autoriza para guardar su teléfono. Si se cambia, quien ya
+#: aceptó el texto anterior conserva su constancia con ese texto.
+CONSENTIMIENTO_TELEFONO = (
+    "Autorizo a la empresa a guardar mi número de teléfono de contacto, sea personal "
+    "o empresarial, y a que otras personas de la empresa lo usen para contactarme, "
+    "conforme a la Ley Orgánica de Protección de Datos Personales. Puedo retirar esta "
+    "autorización en cualquier momento."
+)
+SIN_AUTORIZACION = (
+    "Para guardar su teléfono, marque que autoriza a la empresa a guardarlo y a que "
+    "otras personas de la empresa lo usen para contactarlo."
+)
 
 CARGO_FIJO = (
     "Su cargo ya está elegido y no puede cambiarlo usted. "
@@ -96,6 +118,11 @@ def de(usuario) -> dict:
         "agencia": {"id": sede.id, "nombre": sede.nombre} if sede else None,
         "cargo": {"id": cargo.id, "nombre": nombre_con_unidad(cargo)} if cargo else None,
         "en_nomina": empleado is not None,
+        "telefono_autorizacion": {
+            "texto": CONSENTIMIENTO_TELEFONO,
+            "aceptado": bool(propios and propios.telefono_aceptado_en),
+            "aceptado_en": propios.telefono_aceptado_en if propios else None,
+        },
         "cumpleanos": cumpleanos(usuario),
         "aniversario": aniversario(usuario),
         # Lo que se espera de su cargo (perfiles_cargo.py).
@@ -135,9 +162,23 @@ def opciones() -> dict:
     }
 
 
-def guardar(usuario, *, nombres, apellidos, telefono, departamento, sede, cargo=None) -> dict:
+def guardar(
+    usuario,
+    *,
+    nombres,
+    apellidos,
+    telefono,
+    departamento,
+    sede,
+    cargo=None,
+    acepta_telefono=False,
+    ip=None,
+) -> dict:
     """Actualiza su nombre (en la cuenta) y su teléfono, área, agencia y cargo
-    (en «Mi perfil»)."""
+    (en «Mi perfil»). El teléfono es opcional; si lo escribe, solo se guarda
+    con su autorización (`acepta_telefono`): la primera vez se guarda cuándo,
+    desde qué `ip` y qué texto aceptó. Dejarlo vacío lo borra (la constancia
+    de la autorización se conserva)."""
     with transaction.atomic():
         usuario.first_name = nombres.strip()[:150]
         usuario.last_name = apellidos.strip()[:150]
@@ -146,7 +187,15 @@ def guardar(usuario, *, nombres, apellidos, telefono, departamento, sede, cargo=
         # El cargo se elige una sola vez: si ya tiene uno, no lo cambia ella.
         if propios.cargo_id and getattr(cargo, "pk", None) != propios.cargo_id:
             raise ValidationError({"cargo": [CARGO_FIJO]})
-        propios.telefono = telefono.strip()[:30]
+        telefono = (telefono or "").strip()[:30]
+        if telefono:
+            if not acepta_telefono:
+                raise ValidationError({"acepta_telefono": [SIN_AUTORIZACION]})
+            if not propios.telefono_aceptado_en:
+                propios.telefono_aceptado_en = timezone.now()
+                propios.telefono_aceptado_ip = ip
+                propios.telefono_aceptado_texto = CONSENTIMIENTO_TELEFONO
+        propios.telefono = telefono
         propios.departamento = departamento
         propios.sede = sede
         propios.cargo = cargo

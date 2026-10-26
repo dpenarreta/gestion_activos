@@ -191,7 +191,7 @@ describe("Soporte TI: nuevo ticket", () => {
           ...MIS_DATOS,
           telefono: "",
           agencia: null,
-          faltan: ["telefono", "agencia"],
+          faltan: ["agencia"],
         },
       })
       .mockResolvedValue(FORMULARIO);
@@ -199,13 +199,12 @@ describe("Soporte TI: nuevo ticket", () => {
     pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
 
     expect(await screen.findByText("Complete sus datos")).toBeInTheDocument();
-    expect(
-      screen.getByText(/complete: teléfono y agencia/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/complete: agencia/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Describa el problema")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Teléfono"), {
+    fireEvent.change(screen.getByLabelText(/^Teléfono/), {
       target: { value: "0994182273" },
     });
+    fireEvent.click(screen.getByLabelText(/Autorizo a la empresa/));
     fireEvent.change(screen.getByLabelText("Agencia"), {
       target: { value: "1" },
     });

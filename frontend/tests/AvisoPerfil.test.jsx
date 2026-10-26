@@ -47,7 +47,7 @@ const INCOMPLETOS = {
   telefono: "",
   agencia: null,
   cargo: null,
-  faltan: ["telefono", "agencia", "cargo"],
+  faltan: ["agencia", "cargo"],
 };
 
 beforeEach(() => {
@@ -86,16 +86,16 @@ describe("Perfil obligatorio al entrar", () => {
       "Nombres: completo",
       "Apellidos: completo",
       "Correo institucional: completo",
-      "Teléfono: falta",
       "Área: completo",
       "Agencia: falta",
       "Cargo: falta",
     ]);
     expect(within(dialogo).getByLabelText("Cargo")).toBeRequired();
 
-    fireEvent.change(within(dialogo).getByLabelText("Teléfono"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono/), {
       target: { value: "0994182273" },
     });
+    fireEvent.click(within(dialogo).getByLabelText(/Autorizo a la empresa/));
     fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
       target: { value: "1" },
     });
@@ -109,10 +109,62 @@ describe("Perfil obligatorio al entrar", () => {
     expect(misDatos.guardar).toHaveBeenCalledWith(
       expect.objectContaining({
         telefono: "0994182273",
+        acepta_telefono: true,
         agencia: "1",
         cargo: "5",
       }),
     );
+  });
+
+  it("el teléfono es opcional: sin él se continúa, y si se escribe pide la autorización", async () => {
+    misDatos.obtener.mockResolvedValue({
+      ...INCOMPLETOS,
+      telefono_autorizacion: {
+        texto:
+          "Autorizo a la empresa a guardar mi número de teléfono de contacto, sea personal o empresarial, y a que otras personas de la empresa lo usen para contactarme.",
+        aceptado: false,
+        aceptado_en: null,
+      },
+    });
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    const telefono = within(dialogo).getByLabelText(/^Teléfono/);
+    expect(telefono).not.toBeRequired();
+    expect(telefono).toBeEnabled();
+    expect(
+      within(dialogo).getByText(/es opcional, no es obligatorio/),
+    ).toBeInTheDocument();
+    // Sin teléfono no se pide autorización.
+    expect(
+      within(dialogo).queryByLabelText(/personal o empresarial/),
+    ).toBeNull();
+    fireEvent.change(telefono, { target: { value: "0994182273" } });
+    const autorizo = within(dialogo).getByLabelText(/personal o empresarial/);
+    expect(autorizo).toBeRequired();
+    expect(autorizo).not.toBeChecked();
+    // Si lo borra, la autorización deja de pedirse.
+    fireEvent.change(telefono, { target: { value: "" } });
+    expect(
+      within(dialogo).queryByLabelText(/personal o empresarial/),
+    ).toBeNull();
+  });
+
+  it("si ya autorizó, lo dice con la fecha", async () => {
+    misDatos.obtener.mockResolvedValue({
+      ...INCOMPLETOS,
+      telefono: "0994182273",
+      telefono_autorizacion: {
+        texto: "Autorizo a la empresa a guardar mi número de teléfono.",
+        aceptado: true,
+        aceptado_en: "2026-10-23T15:30:00Z",
+      },
+    });
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    expect(
+      within(dialogo).getByLabelText(/Autorizo a la empresa/),
+    ).toBeChecked();
+    expect(within(dialogo).getByText(/Autorizado el/)).toBeInTheDocument();
   });
 
   it("el cargo se elige una sola vez: al elegirlo se advierte, y si ya tiene uno no se cambia", async () => {
@@ -132,7 +184,8 @@ describe("Perfil obligatorio al entrar", () => {
     misDatos.obtener.mockResolvedValue({
       ...COMPLETOS,
       telefono: "",
-      faltan: ["telefono"],
+      agencia: null,
+      faltan: ["agencia"],
     });
     render(<AvisoPerfil />);
     dialogo = await ventana();
@@ -165,9 +218,10 @@ describe("Perfil obligatorio al entrar", () => {
     });
     render(<AvisoPerfil />);
     const dialogo = await ventana();
-    fireEvent.change(within(dialogo).getByLabelText("Teléfono"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono/), {
       target: { value: "0994182273" },
     });
+    fireEvent.click(within(dialogo).getByLabelText(/Autorizo a la empresa/));
     fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
       target: { value: "1" },
     });

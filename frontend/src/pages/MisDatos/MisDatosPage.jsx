@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { misDatosService } from "../../api/misDatosService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
+import { formatearFecha } from "../../utils/formato";
 import { MiAniversario } from "./MiAniversario";
 import { MiCargo } from "./MiCargo";
 import { MiCumpleanos } from "./MiCumpleanos";
@@ -25,7 +26,6 @@ export const DATOS_OBLIGATORIOS = [
   ["nombres", "Nombres"],
   ["apellidos", "Apellidos"],
   ["correo", "Correo institucional"],
-  ["telefono", "Teléfono"],
   ["area", "Área"],
   ["agencia", "Agencia"],
   ["cargo", "Cargo"],
@@ -48,6 +48,9 @@ export function FormularioMisDatos({
     area: datos.area?.id ?? "",
     agencia: datos.agencia?.id ?? "",
     cargo: datos.cargo?.id ?? "",
+    // Autoriza guardar su teléfono y que la empresa lo use para contactarlo
+    // (LOPDP). Solo hace falta si escribe un teléfono.
+    acepta_telefono: Boolean(datos.telefono_autorizacion?.aceptado),
   });
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
@@ -55,6 +58,10 @@ export function FormularioMisDatos({
   const cargoFijo = Boolean(datos.cargo);
   const fijar = (campo) => (e) =>
     setValores((actual) => ({ ...actual, [campo]: e.target.value }));
+  const autorizacion = datos.telefono_autorizacion;
+  // El teléfono es opcional (26/10/2026): la autorización aparece y se exige
+  // solo cuando se escribe uno.
+  const conTelefono = valores.telefono.trim() !== "";
 
   async function guardar(evento) {
     evento.preventDefault();
@@ -144,18 +151,51 @@ export function FormularioMisDatos({
       </div>
       <div className="col-12 col-md-6">
         <label className="form-label" htmlFor="md-telefono">
-          Teléfono
+          Teléfono <span className="mz-faint">(opcional)</span>
         </label>
         <input
           id="md-telefono"
           className="form-control"
-          required
           inputMode="tel"
           autoComplete="tel"
+          aria-describedby="md-telefono-ayuda"
           value={valores.telefono}
           onChange={fijar("telefono")}
         />
+        <div id="md-telefono-ayuda" className="form-text">
+          Ingresar su teléfono es opcional, no es obligatorio. Si lo ingresa,
+          antes de guardar deberá aceptar el tratamiento de sus datos
+          personales.
+        </div>
       </div>
+      {conTelefono && (
+        <div className="col-12">
+          <div className="form-check mis-datos__autorizacion">
+            <input
+              id="md-acepta-telefono"
+              type="checkbox"
+              className="form-check-input"
+              required
+              checked={valores.acepta_telefono}
+              onChange={(e) =>
+                setValores((actual) => ({
+                  ...actual,
+                  acepta_telefono: e.target.checked,
+                }))
+              }
+            />
+            <label className="form-check-label" htmlFor="md-acepta-telefono">
+              {autorizacion?.texto ??
+                "Autorizo a la empresa a guardar mi número de teléfono de contacto, sea personal o empresarial, y a que otras personas de la empresa lo usen para contactarme."}
+            </label>
+            {autorizacion?.aceptado && autorizacion.aceptado_en && (
+              <div className="form-text">
+                Autorizado el {formatearFecha(autorizacion.aceptado_en, true)}.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="col-12 col-md-4">
         <label className="form-label" htmlFor="md-area">
           Área
