@@ -317,6 +317,18 @@ export const ADMIN_MENU = [
     rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
   },
   {
+    // Sin permiso: toda persona pide proyectos con su plantilla llena y
+    // atiende los que le tocan; configurar los tipos cuelga de aquí.
+    id: "institucional-proyectos",
+    modulo: "institucional",
+    name: "Solicitud de proyectos",
+    icon: "kanban",
+    path: `${RUTA_INSTITUCIONAL}/proyectos`,
+    // Cuántas solicitudes tiene por atender quien entra.
+    insignia: "proyectos_por_atender",
+    rutas: [`${RUTA_INSTITUCIONAL}/proyectos`],
+  },
+  {
     // Sin permiso: cada persona ve sus días de vacaciones.
     id: "institucional-vacaciones",
     modulo: "institucional",

@@ -575,6 +575,24 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    "proyectos": {
+        "label": "Solicitud de proyectos",
+        "description": (
+            "Los proyectos que se piden con una plantilla: cada tipo tiene su "
+            "plantilla, su formulario y sus pasos (aprobación, autorización, "
+            "revisión…). Solicitar y decidir lo que a uno le toca no piden permiso."
+        ),
+        "permissions": {
+            "proyectos.configurar": (
+                "Crear y editar los tipos de proyecto: su plantilla, los campos de su "
+                "formulario (obligatorios u opcionales) y sus pasos con quién decide cada uno"
+            ),
+            "proyectos.ver_todas": (
+                "Ver todas las solicitudes de proyecto de la empresa y escalar cualquiera "
+                "que esté en curso"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -665,6 +683,7 @@ MODULE_GROUPS = [
             "calendario",
             "vacaciones",
             "licencias",
+            "proyectos",
             "herramientas",
             "sugerencias",
             "roles_pago",

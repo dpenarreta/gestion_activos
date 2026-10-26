@@ -38,7 +38,7 @@ const NUEVO = {
 
 /** Una lista de destinos (aprobadores de un paso o avisos), con agregar y
  * quitar. */
-function ListaDeDestinos({
+export function ListaDeDestinos({
   prefijo,
   lista,
   tipos,

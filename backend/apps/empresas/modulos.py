@@ -21,7 +21,13 @@ from apps.permissions.authorization import user_has_permission
 MODULOS = {
     "institucional": (
         "Institucional",
-        ("/api/v1/licencias/", "/api/v1/sugerencias/", "/api/v1/nomina/", "/api/v1/capacitacion/"),
+        (
+            "/api/v1/licencias/",
+            "/api/v1/proyectos/",
+            "/api/v1/sugerencias/",
+            "/api/v1/nomina/",
+            "/api/v1/capacitacion/",
+        ),
     ),
     "dashboards": ("Dashboards", ("/api/v1/cartera/", "/api/v1/dashboards/")),
     "soporte": ("Mesa de ayuda", ("/api/v1/soporte/",)),

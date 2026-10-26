@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { capacitacionService } from "../../../api/capacitacionService";
 import { licenciasService } from "../../../api/licenciasService";
+import { proyectosService } from "../../../api/proyectosService";
 import { matrizService } from "../../../api/matrizService";
 import { nominaService } from "../../../api/nominaService";
 import { sugerenciasService } from "../../../api/sugerenciasService";
@@ -47,6 +48,9 @@ const FUENTES_DE_INSIGNIAS = {
   atencion: () => matrizService.resumen().then((d) => d.counts.attention),
   // Solicitud de permisos: lo que tiene por aprobar.
   por_aprobar: () => licenciasService.resumen().then((d) => d.por_aprobar),
+  // Solicitud de proyectos: lo que tiene por atender.
+  proyectos_por_atender: () =>
+    proyectosService.resumen().then((d) => d.por_atender),
   // Sugerencias y errores: los reportes nuevos (solo quien los gestiona).
   sugerencias: () => sugerenciasService.resumen().then((d) => d.nuevos),
   // Consultar rol de pagos: las correcciones que esperan su confirmación.

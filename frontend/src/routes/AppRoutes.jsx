@@ -24,6 +24,8 @@ import { MiOnboardingPage } from "../pages/Institucional/MiOnboardingPage";
 import { ObservacionesRolPage } from "../pages/Institucional/ObservacionesRolPage";
 import { RolPagosPage } from "../pages/Institucional/RolPagosPage";
 import { SolicitudPermisosPage } from "../pages/Institucional/SolicitudPermisosPage";
+import { SolicitudProyectosPage } from "../pages/Institucional/SolicitudProyectosPage";
+import { TiposProyectoPage } from "../pages/Institucional/TiposProyectoPage";
 import { SugerenciasPage as SugerenciasErroresPage } from "../pages/Institucional/SugerenciasPage";
 import { GestionCalendarioPage } from "../pages/Institucional/GestionCalendarioPage";
 import { GestionDocumentosPage } from "../pages/Institucional/GestionDocumentosPage";
@@ -507,6 +509,20 @@ export function AppRoutes() {
           element={
             <RequirePermission permission="licencias.configurar">
               <FlujosPermisoPage />
+            </RequirePermission>
+          }
+        />
+        {/* Solicitud de proyectos: pedir y atender lo que a uno le toca no
+            piden permiso; configurar los tipos, sí. */}
+        <Route
+          path="institucional/proyectos"
+          element={<SolicitudProyectosPage />}
+        />
+        <Route
+          path="institucional/proyectos/tipos"
+          element={
+            <RequirePermission permission="proyectos.configurar">
+              <TiposProyectoPage />
             </RequirePermission>
           }
         />

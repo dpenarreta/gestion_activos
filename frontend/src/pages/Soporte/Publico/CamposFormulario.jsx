@@ -183,7 +183,7 @@ function ControlBase({ campo, id, datos, valores, onBase }) {
 }
 
 /** El control de un campo propio, según su tipo. */
-function ControlPropio({ campo, id, valor, onCambiar }) {
+export function ControlPropio({ campo, id, valor, onCambiar }) {
   const comun = {
     id,
     required: campo.obligatorio,

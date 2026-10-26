@@ -102,6 +102,7 @@ INSTALLED_APPS = [
     "apps.chat",
     "apps.soporte",
     "apps.licencias",
+    "apps.proyectos",
     "apps.sugerencias",
     "apps.nomina",
     "apps.capacitacion",

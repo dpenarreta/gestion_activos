@@ -328,6 +328,7 @@ describe("El organigrama", () => {
       "institucional-inicio",
       "institucional-organigrama",
       "institucional-permisos",
+      "institucional-proyectos",
       "institucional-vacaciones",
       "institucional-onboarding",
       // Sin observaciones a cargo, el grupo «Rol de pagos» va directo a consultar.
