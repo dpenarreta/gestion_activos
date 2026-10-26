@@ -232,3 +232,16 @@ def test_una_constancia_larga_sigue_en_otra_hoja(db):
     texto = _texto(contenido)
     assert "Evento 0" in texto and "Evento 39" in texto
     assert contenido.count(b"/Type /Page\n") >= 2 or contenido.count(b"/Type /Page ") >= 2
+
+
+def test_si_nomina_no_responde_sale_la_constancia(db):
+    _, _, cliente, _ = _historia(db)
+    with override_settings(NOMINA_ROL_PROCEDIMIENTO="", NOMINA_ROL_DEMO=False):
+        respuesta = cliente.post(
+            URL,
+            {"codigo": "100", "periodos": [{"anio": 2026, "mes": 9}], "password": CLAVE},
+            format="json",
+        )
+    assert respuesta.status_code == 200
+    texto = _texto(respuesta.content)
+    assert "la consulta a n" in texto and "Constancia de auditor" in texto

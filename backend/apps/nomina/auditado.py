@@ -58,6 +58,8 @@ class Constancia:
     eventos: list = field(default_factory=list)
     estado_observacion: str = ""
     rol: object = None
+    #: Por qué no está el rol arriba, si no es que nómina no lo tiene.
+    sin_rol: str = ""
 
 
 def _nombre(usuario) -> str:
@@ -301,7 +303,8 @@ def construir(constancia: Constancia, generado_por: str, empresa: str) -> bytes:
         c.drawString(
             14 * mm,
             alto - 30 * mm,
-            f"Nómina no tiene el rol de pagos de este mes para el código {constancia.codigo}.",
+            constancia.sin_rol
+            or f"Nómina no tiene el rol de pagos de este mes para el código {constancia.codigo}.",
         )
         c.drawString(
             14 * mm, alto - 36 * mm, "Abajo queda la constancia de lo registrado en el sistema."
@@ -405,10 +408,15 @@ def generar(actor, codigo, periodos, password) -> dict:
 
     archivos, omitidos = [], []
     for anio, mes in elegidos:
+        sin_rol = ""
         try:
             rol = fuente.obtener(codigo, anio, mes, empresa)
         except fuente.RolNoDisponible:
             rol = None
+        except fuente.FuenteNoConfigurada:
+            # Nómina no responde (o aún no está conectada): sale la constancia.
+            rol = None
+            sin_rol = "No se pudo generar el rol: la consulta a nómina no está disponible."
         eventos = eventos_del_periodo(codigo, anio, mes, persona)
         if rol is None and not eventos:
             omitidos.append(f"{_nombre_mes(mes)} {anio}: sin rol en nómina ni movimientos.")
@@ -426,6 +434,7 @@ def generar(actor, codigo, periodos, password) -> dict:
             eventos=eventos,
             estado_observacion=observacion.get_estado_display() if observacion else "",
             rol=rol,
+            sin_rol=sin_rol,
         )
         archivos.append(
             (_nombre_archivo(codigo, anio, mes), construir(constancia, generado_por, empresa))
