@@ -9,6 +9,7 @@ import "./Institucional.css";
 import { AdjuntosObservacion } from "./AdjuntosObservacion";
 import { DescargaMasivaRolPagos } from "./DescargaMasivaRolPagos";
 import { HabilitadosRolPagos } from "./HabilitadosRolPagos";
+import { ConstanciaRol } from "./ConstanciaRol";
 import { SeguimientoRolPagos } from "./SeguimientoRolPagos";
 import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
@@ -463,6 +464,31 @@ function MisObservaciones() {
   );
 }
 
+/** Sus roles de pagos abiertos (26/10/2026): por período, cuándo lo abrió
+ * y aceptó los términos, y cuándo dio su conformidad, con fecha, hora e IP. */
+function MisRolesAbiertos({ roles }) {
+  if (!roles?.length) return null;
+  return (
+    <section className="mz-card" aria-label="Mis roles abiertos">
+      <div className="mz-card-body mz-stack">
+        <h3 className="h6 mb-0">
+          <Icon name="envelope-open" /> Mis roles abiertos
+        </h3>
+        <ul className="rol-constancia__lista">
+          {roles.map((r) => (
+            <li key={`${r.anio}-${r.mes}`}>
+              <strong>
+                {MESES[r.mes - 1]} {r.anio}
+              </strong>
+              <ConstanciaRol rol={r} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export function RolPagosPage() {
   const hoy = new Date();
   const [estado, setEstado] = useState(null);
@@ -508,6 +534,12 @@ export function RolPagosPage() {
   }, []);
 
   const anios = Array.from({ length: 6 }, (_, i) => hoy.getFullYear() - i);
+  // La constancia del período elegido, si ya abrió su propio rol de ese mes.
+  const elegido =
+    (!periodo.codigo.trim() || periodo.codigo.trim() === estado?.codigo) &&
+    (estado?.mis_roles ?? []).find(
+      (r) => r.anio === periodo.anio && r.mes === periodo.mes,
+    );
   const mesesDelAnio =
     Number(periodo.anio) === hoy.getFullYear() ? hoy.getMonth() + 1 : 12;
 
@@ -763,6 +795,11 @@ export function RolPagosPage() {
               </button>
             </div>
           </form>
+          {elegido && (
+            <div className="mz-card-body pt-0">
+              <ConstanciaRol rol={elegido} />
+            </div>
+          )}
         </section>
       )}
 
@@ -883,6 +920,8 @@ export function RolPagosPage() {
             setConfirmando(false);
             setUltima(nuevo);
             setVisto(nuevo);
+            // Queda la constancia de que lo abrió (fecha, hora e IP).
+            cargar();
           }}
         />
       )}
@@ -908,6 +947,7 @@ export function RolPagosPage() {
           onCerrar={() => setVisto(null)}
         />
       )}
+      {estado?.habilitado && <MisRolesAbiertos roles={estado.mis_roles} />}
       {estado?.habilitado && <MisObservaciones />}
       {historial && <HistorialRolPagos onCerrar={() => setHistorial(false)} />}
       {habilitados && (

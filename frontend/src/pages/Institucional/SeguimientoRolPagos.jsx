@@ -5,6 +5,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { copiarTexto } from "../../utils/copiar";
 import { mensajeDeError } from "../../utils/errores";
+import { ConstanciaRol } from "./ConstanciaRol";
 
 const MESES = [
   "Enero",
@@ -78,13 +79,6 @@ function Contacto({ persona }) {
     </>
   );
 }
-
-/** Las mismas insignias del historial por empleado. */
-const CONFORMIDAD = {
-  conforme: "perfil-cargo-estado--completo",
-  conforme_al_cerrar: "perfil-cargo-estado--parcial",
-  observacion: "sugerencia-estado--alto",
-};
 
 /**
  * Rol de pagos → Roles sin abrir (`roles_pago.seguimiento`, 26/10/2026): de
@@ -332,14 +326,7 @@ export function SeguimientoRolPagos({ onCerrar }) {
                               </span>
                             )
                           ) : (
-                            <>
-                              {p.abierto.fecha} {p.abierto.hora.slice(0, 5)}
-                              <span
-                                className={`perfil-cargo-estado d-table mt-1 ${CONFORMIDAD[p.conformidad] ?? "perfil-cargo-estado--vacio"}`}
-                              >
-                                {p.conformidad_display || "Sin responder"}
-                              </span>
-                            </>
+                            <ConstanciaRol rol={p} />
                           )}
                         </td>
                       </tr>

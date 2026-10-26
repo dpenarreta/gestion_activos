@@ -719,7 +719,19 @@ describe("Consultar rol de pagos", () => {
           area: "",
           correo: "amora@grupolaar.com",
           telefono: "",
-          abierto: { fecha: "02/10/2025", hora: "09:15:00" },
+          abierto: {
+            dia: "jueves",
+            fecha: "02/10/2025",
+            hora: "09:15:00",
+            ip: "10.0.0.5",
+          },
+          veces: 1,
+          conformidad_en: {
+            dia: "jueves",
+            fecha: "02/10/2025",
+            hora: "09:20:00",
+            ip: "10.0.0.6",
+          },
           conformidad: "conforme",
           conformidad_display: "Estuvo de acuerdo",
         },
@@ -763,8 +775,16 @@ describe("Consultar rol de pagos", () => {
       within(ventana).getByRole("button", { name: "Abiertos (1)" }),
     );
     expect(within(ventana).getByText("Ana Mora")).toBeInTheDocument();
-    expect(within(ventana).getByText("Estuvo de acuerdo")).toBeInTheDocument();
-    expect(within(ventana).getByText("02/10/2025 09:15")).toBeInTheDocument();
+    expect(
+      within(ventana).getByText(
+        /Abierto y términos aceptados · jueves 02\/10\/2025 · 09:15 · IP 10\.0\.0\.5/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByText(
+        /Estuvo de acuerdo · jueves 02\/10\/2025 · 09:20 · IP 10\.0\.0\.6/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("cambiar el mes vuelve a pedir la lista", async () => {
@@ -798,5 +818,62 @@ describe("Consultar rol de pagos", () => {
     await waitFor(() =>
       expect(servicio.seguimiento).toHaveBeenLastCalledWith(2025, 3),
     );
+  });
+
+  it("la persona ve cuándo abrió cada rol y cuándo dio su conformidad", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      mis_roles: [
+        {
+          anio: 2026,
+          mes: 9,
+          veces: 2,
+          abierto: {
+            dia: "lunes",
+            fecha: "26/10/2026",
+            hora: "14:43:10",
+            ip: "10.0.2.80",
+          },
+          conformidad: "conforme",
+          conformidad_display: "Estuvo de acuerdo",
+          conformidad_en: {
+            dia: "lunes",
+            fecha: "26/10/2026",
+            hora: "14:45:00",
+            ip: "10.0.2.80",
+          },
+        },
+        {
+          anio: 2026,
+          mes: 8,
+          veces: 1,
+          abierto: {
+            dia: "martes",
+            fecha: "01/09/2026",
+            hora: "08:00:00",
+            ip: "10.0.2.81",
+          },
+          conformidad: "",
+          conformidad_display: "",
+          conformidad_en: null,
+        },
+      ],
+    });
+    render(<RolPagosPage />);
+    const lista = await screen.findByRole("region", {
+      name: "Mis roles abiertos",
+    });
+    expect(within(lista).getByText("Septiembre 2026")).toBeInTheDocument();
+    expect(
+      within(lista).getByText(
+        /Abierto y términos aceptados · martes 01\/09\/2026 · 08:00 · IP 10\.0\.2\.81/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(lista).getByText(/Estuvo de acuerdo · lunes 26\/10\/2026 · 14:45/),
+    ).toBeInTheDocument();
+    expect(
+      within(lista).getByText(/Conformidad pendiente/),
+    ).toBeInTheDocument();
   });
 });

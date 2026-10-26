@@ -960,16 +960,11 @@ def seguimiento(actor, anio, mes) -> dict:
         for c in ConsultaRolPagos.objects.filter(usuario_id__in=ids, anio=anio, mes=mes)
         if c.codigo_empleado == codigos[c.usuario_id]
     ]
-    # La primera consulta de ese mes (cuándo lo abrió) y la última
-    # conformidad que dio (puede estar en otra consulta).
-    del_mes: dict[int, ConsultaRolPagos] = {}
-    for c in sorted(propias, key=lambda c: c.created_at):
-        del_mes.setdefault(c.usuario_id, c)
-    conformidades = {}
-    for c in sorted(
-        (c for c in propias if c.conformidad), key=lambda c: c.conformidad_en or c.created_at
-    ):
-        conformidades[c.usuario_id] = c
+    # Las consultas de ese mes de cada persona: la primera es cuándo lo abrió
+    # (y aceptó los términos); la última conformidad puede estar en otra.
+    del_mes: dict[int, list] = {}
+    for c in propias:
+        del_mes.setdefault(c.usuario_id, []).append(c)
     # Para las que no lo abrieron: el último período que sí abrieron.
     ultimos = {
         fila["usuario_id"]: fila["ultimo"]
@@ -985,16 +980,12 @@ def seguimiento(actor, anio, mes) -> dict:
             **contacto,
             "codigo": codigo_de(persona),
         }
-        consulta = del_mes.get(persona.id)
-        if consulta is None:
+        consultas = del_mes.get(persona.id)
+        if not consultas:
             fila["ultima_apertura"] = _momento(ultimos.get(persona.id))
             sin_abrir.append(fila)
             continue
-        conforme = conformidades.get(persona.id)
-        fila["abierto"] = _momento(consulta.created_at)
-        fila["conformidad"] = conforme.conformidad if conforme else ""
-        fila["conformidad_display"] = conforme.get_conformidad_display() if conforme else ""
-        abiertos.append(fila)
+        abiertos.append({**fila, **_constancias(consultas)})
     return {
         "anio": anio,
         "mes": mes,
@@ -1003,3 +994,50 @@ def seguimiento(actor, anio, mes) -> dict:
         "sin_abrir": sin_abrir,
         "abiertos": abiertos,
     }
+
+
+# --- Mis roles abiertos (26/10/2026) ------------------------------------------------------
+#
+# La constancia que ve la propia persona, por período: cuándo lo abrió por
+# primera vez —que es cuando aceptó los términos— con su día, fecha, hora e IP,
+# y cuándo dio su conformidad, también con fecha, hora e IP. Solo de su código.
+
+
+def _constancias(consultas) -> dict:
+    """De las consultas de un período (en cualquier orden): la apertura (la
+    primera) y la última conformidad, con fecha, hora e IP."""
+    ordenadas = sorted(consultas, key=lambda c: c.created_at)
+    primera = ordenadas[0]
+    respondidas = [c for c in ordenadas if c.conformidad]
+    conforme = (
+        max(respondidas, key=lambda c: c.conformidad_en or c.created_at) if respondidas else None
+    )
+    abierto = _momento(primera.created_at)
+    abierto["ip"] = primera.ip
+    datos = {
+        "abierto": abierto,
+        "veces": len(ordenadas),
+        "version_terminos": primera.version_terminos,
+        "conformidad": conforme.conformidad if conforme else "",
+        "conformidad_display": conforme.get_conformidad_display() if conforme else "",
+        "conformidad_en": None,
+    }
+    if conforme and conforme.conformidad_en:
+        datos["conformidad_en"] = {
+            **_momento(conforme.conformidad_en),
+            "ip": conforme.conformidad_ip,
+        }
+    return datos
+
+
+def mis_roles(usuario, limite: int = 12) -> list[dict]:
+    """Los últimos períodos que la persona abrió con su código, lo más
+    reciente primero, con la constancia de cada uno."""
+    codigo = codigo_de(usuario)
+    if not codigo:
+        return []
+    por_periodo: dict[tuple, list] = {}
+    for c in ConsultaRolPagos.objects.filter(usuario=usuario, codigo_empleado=codigo):
+        por_periodo.setdefault((c.anio, c.mes), []).append(c)
+    periodos = sorted(por_periodo, reverse=True)[:limite]
+    return [{"anio": a, "mes": m, **_constancias(por_periodo[(a, m)])} for a, m in periodos]

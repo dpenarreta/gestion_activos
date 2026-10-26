@@ -65,6 +65,9 @@ class EstadoView(APIView):
                 "puede_ver_observaciones": services.atiende_observaciones(request.user),
                 "puede_descarga_masiva": services.descarga_masiva_permitida(request.user),
                 "puede_seguimiento": services.hace_seguimiento(request.user),
+                # Cuándo abrió cada uno de sus roles y cuándo dio su
+                # conformidad, con fecha, hora e IP.
+                "mis_roles": services.mis_roles(request.user),
                 # Correcciones de Talento Humano que debe volver a confirmar.
                 "por_confirmar": services.por_confirmar(request.user),
             }

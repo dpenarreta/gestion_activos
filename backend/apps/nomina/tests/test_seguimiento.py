@@ -83,3 +83,48 @@ def test_la_pantalla_dice_si_puede_hacer_seguimiento(db):
     estado = th.get("/api/v1/nomina/rol-pagos/")
     assert estado.status_code == 200
     assert estado.json()["puede_seguimiento"] is True
+
+
+def test_la_persona_ve_cuando_abrio_su_rol_y_cuando_dio_su_conformidad(db):
+    """Abrirlo es aceptar los términos: queda con fecha, hora e IP; la
+    conformidad, con las suyas. Lo que consultó con otro código no es suyo."""
+    ana, cliente = _habilitada("ana", "100", "roles_pago.consultar_todos")
+    _consulta(ana, "100", ip="10.0.0.5")
+    _consulta(
+        ana,
+        "100",
+        ip="10.0.0.6",
+        conformidad="conforme",
+        conformidad_en=timezone.now(),
+        conformidad_ip="10.0.0.7",
+    )
+    _consulta(ana, "100", mes=8, ip="10.0.0.5")
+    _consulta(ana, "999", mes=7)  # el de otra persona
+
+    mis = cliente.get("/api/v1/nomina/rol-pagos/").json()["mis_roles"]
+
+    assert [(r["anio"], r["mes"]) for r in mis] == [(2026, 9), (2026, 8)]
+    septiembre, agosto = mis
+    assert septiembre["abierto"]["ip"] == "10.0.0.5"  # la primera vez
+    assert septiembre["abierto"]["fecha"] and septiembre["abierto"]["hora"]
+    assert septiembre["veces"] == 2
+    assert septiembre["conformidad_display"] == "Estuvo de acuerdo"
+    assert septiembre["conformidad_en"]["ip"] == "10.0.0.7"
+    assert agosto["conformidad"] == "" and agosto["conformidad_en"] is None
+
+
+def test_talento_humano_ve_la_ip_de_apertura_y_de_conformidad(db):
+    ana, _ = _habilitada("ana", "100")
+    _, th = _cuenta("th", "roles_pago.seguimiento")
+    _consulta(
+        ana,
+        "100",
+        ip="10.0.0.5",
+        conformidad="observacion",
+        conformidad_en=timezone.now(),
+        conformidad_ip="10.0.0.9",
+    )
+    (fila,) = th.get(URL, {"anio": 2026, "mes": 9}).json()["abiertos"]
+    assert fila["abierto"]["ip"] == "10.0.0.5"
+    assert fila["conformidad_en"]["ip"] == "10.0.0.9"
+    assert fila["conformidad_display"] == "Dejó una observación"

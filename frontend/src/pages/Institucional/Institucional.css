@@ -2714,3 +2714,39 @@
   user-select: all;
   overflow-wrap: anywhere;
 }
+
+/* La constancia de un rol: abierto y conformidad (26/10/2026). */
+.rol-constancia {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rol-constancia__etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rol-constancia__etiqueta--abierto {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.rol-constancia__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.rol-constancia__lista li {
+  display: grid;
+  gap: 4px;
+}
