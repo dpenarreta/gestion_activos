@@ -15,8 +15,6 @@ El rol no se elige aquí: se asigna en Configuración → Usuarios y roles. No s
 envía ningún correo.
 """
 
-import secrets
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
@@ -60,10 +58,16 @@ def problema_con_la_cuenta(correo: str, *, excepto=None) -> str | None:
 
 
 def validar_contrasena(correo: str, password: str | None):
-    """Una cuenta nueva necesita contraseña inicial; una existente, no."""
+    """La contraseña inicial de una cuenta nueva, si se escribe, cumple las
+    reglas; vacía, la cuenta nace con la clave temporal. Una existente no la
+    necesita."""
+    from apps.authentication.validators import clave_temporal
+
     if usuario_existente(correo):
         return
     if not password:
+        if clave_temporal():
+            return
         raise ValidationError(
             {"password": "Escriba la contraseña inicial: la persona la cambiará al entrar."}
         )
@@ -106,7 +110,9 @@ def cuenta_para_empleado(*, actor, nombres, apellidos, correo, password=None, co
     usuario = UserAdminService.create_user(
         actor=actor,
         email=correo,
-        password=password or secrets.token_urlsafe(32) + "Aa1!",
+        # Vacía, la clave temporal (`CLAVE_INICIAL_USUARIOS`); en los dos
+        # casos la persona la cambia al entrar por primera vez.
+        password=password or "",
         first_name=nombres.strip(),
         last_name=apellidos.strip(),
         empresas=(
@@ -116,8 +122,4 @@ def cuenta_para_empleado(*, actor, nombres, apellidos, correo, password=None, co
         ),
         context=context,
     )
-    if not password:
-        usuario.set_unusable_password()
-    usuario.must_change_password = True
-    usuario.save(update_fields=["password", "must_change_password"])
     return usuario

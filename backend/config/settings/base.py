@@ -178,15 +178,27 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
 ]
 
+# Reglas de las contraseñas (26/10/2026): mínimo 8 caracteres, con al menos
+# una mayúscula, un número y un signo especial, y que no sea la clave temporal
+# (ver apps/authentication/validators.py).
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 10},
+        "OPTIONS": {"min_length": 8},
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "apps.authentication.validators.ComplejidadValidator"},
+    {"NAME": "apps.authentication.validators.NoClaveTemporalValidator"},
 ]
+
+# La clave temporal con la que nacen las cuentas que se crean sin escribir
+# contraseña (26/10/2026). Solo sirve para el primer inicio de sesión: toda
+# cuenta nueva queda obligada a cambiarla por una propia. Va **solo** en el
+# .env de cada entorno, nunca en el código: quien lee el repositorio no debe
+# conocerla. Sin ella, el alta vuelve a pedir que se escriba una.
+CLAVE_INICIAL_USUARIOS = env.str("CLAVE_INICIAL_USUARIOS", default="")
 
 # --- Internacionalización ---
 LANGUAGE_CODE = env.str("LANGUAGE_CODE", default="es")

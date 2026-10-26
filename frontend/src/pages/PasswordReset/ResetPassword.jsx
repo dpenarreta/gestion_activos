@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { ReglasContrasena } from "../../components/common/ReglasContrasena/ReglasContrasena";
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -79,10 +80,13 @@ export function ResetPassword() {
             name="new_password"
             type="password"
             className="form-control"
+            autoComplete="new-password"
+            aria-describedby="reglas-nueva"
             value={form.new_password}
             onChange={handleChange}
             required
           />
+          <ReglasContrasena id="reglas-nueva" clave={form.new_password} />
         </div>
         <div className="mb-3">
           <label className="form-label" htmlFor="new_password_confirm">

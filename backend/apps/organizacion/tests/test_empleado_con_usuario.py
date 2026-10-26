@@ -66,10 +66,24 @@ def test_sin_correo_institucional_no_hay_empleado(cliente, departamento):
     assert not Empleado.objects.exists()
 
 
-def test_una_cuenta_nueva_pide_contrasena_valida(cliente, departamento):
-    assert cliente.post(URL, _datos(departamento, password=""), format="json").status_code == 400
-    assert cliente.post(URL, _datos(departamento, password="123"), format="json").status_code == 400
+def test_una_contrasena_inicial_escrita_debe_cumplir_las_reglas(cliente, departamento):
+    for mala in ("123", "sinmayuscula1!", "SinNumero!", "SinSigno123"):
+        respuesta = cliente.post(URL, _datos(departamento, password=mala), format="json")
+        assert respuesta.status_code == 400, mala
     assert not User.objects.filter(email="rosa.prueba@grupolaar.com").exists()
+
+
+def test_sin_contrasena_la_cuenta_nace_con_la_clave_temporal(cliente, departamento, settings):
+    """26/10/2026: la clave temporal (del .env) sirve solo para el primer
+    ingreso. Sin clave temporal configurada, se pide escribir una."""
+    settings.CLAVE_INICIAL_USUARIOS = ""
+    assert cliente.post(URL, _datos(departamento, password=""), format="json").status_code == 400
+    settings.CLAVE_INICIAL_USUARIOS = "Clave-De-Prueba9!"
+    respuesta = cliente.post(URL, _datos(departamento, password=""), format="json")
+    assert respuesta.status_code == 201, respuesta.json()
+    usuario = User.objects.get(email="rosa.prueba@grupolaar.com")
+    assert usuario.check_password("Clave-De-Prueba9!")
+    assert usuario.must_change_password is True
 
 
 def test_si_el_usuario_ya_existe_se_ata_sin_contrasena(cliente, departamento):

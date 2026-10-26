@@ -62,7 +62,7 @@ function rellenarDatosMinimos() {
   fireEvent.change(screen.getByLabelText("Correo"), {
     target: { value: "nueva@example.com" },
   });
-  fireEvent.change(screen.getByLabelText("Contraseña"), {
+  fireEvent.change(screen.getByLabelText(/Contraseña inicial/), {
     target: { value: "Sup3r-Secr3t!" },
   });
 }

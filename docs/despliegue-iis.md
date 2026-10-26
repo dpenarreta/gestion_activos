@@ -91,6 +91,22 @@ Set-Item WSMan:\localhost\Client\TrustedHosts -Value "10.0.2.33" -Force
 `instalar-servidor.ps1` es idempotente: lo que ya existe no se toca y el
 `.env` nunca se sobrescribe.
 
+### Clave temporal de las cuentas nuevas (26/10/2026)
+
+Las cuentas que se crean sin escribir contraseña nacen con la clave temporal
+`CLAVE_INICIAL_USUARIOS`, que solo sirve para el primer ingreso: el sistema
+obliga a cambiarla. Va **solo** en el `.env` (nunca en el código). Para
+fijarla o cambiarla, en una ventana propia:
+
+```powershell
+.\scripts\deploy\establecer-clave-temporal.ps1 -CredentialPath "$env:USERPROFILE\.deploy\ser-webai.cred" -TambienLocal
+```
+
+La pide oculta dos veces, comprueba que cumpla las reglas (8 caracteres, una
+mayúscula, un número y un signo especial), la escribe en el `.env` del
+servidor (y con `-TambienLocal`, en el de esta máquina) y reinicia
+IntranetBackend. Sin ella, el alta de usuarios pide escribir una contraseña.
+
 ## Desplegar
 
 ```powershell

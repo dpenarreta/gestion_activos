@@ -520,7 +520,7 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     servicio.empleados.create.mockResolvedValue({ id: 9 });
     pintar(EmpleadoForm, "/admin/organizacion/empleados");
     await screen.findByText("Nuevo empleado");
-    fireEvent.change(screen.getByLabelText("Contraseña inicial"), {
+    fireEvent.change(screen.getByLabelText(/Contraseña inicial/), {
       target: { value: "Sup3r-Secr3t!" },
     });
     expect(screen.getByLabelText("Correo institucional")).toBeRequired();
@@ -565,6 +565,6 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     expect(
       await screen.findByText(/Este empleado no tiene usuario/),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Contraseña inicial")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Contraseña inicial/)).toBeInTheDocument();
   });
 });

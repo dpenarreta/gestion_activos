@@ -163,7 +163,11 @@ class UserAdminCreateSerializer(serializers.Serializer):
     """
 
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    #: Vacía, la cuenta nace con la clave temporal (`CLAVE_INICIAL_USUARIOS`).
+    #: Con o sin ella, la persona la cambia al entrar por primera vez.
+    password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, trim_whitespace=False, default=""
+    )
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     codigo_empleado = serializers.CharField(
@@ -185,7 +189,14 @@ class UserAdminCreateSerializer(serializers.Serializer):
         return validar_codigo_empleado(value)
 
     def validate_password(self, value):
-        validate_password(value)
+        from apps.authentication.validators import clave_temporal
+
+        if value:
+            validate_password(value)
+        elif not clave_temporal():
+            raise serializers.ValidationError(
+                "Escriba la contraseña inicial: no hay una clave temporal configurada."
+            )
         return value
 
     def validate_role_ids(self, value):

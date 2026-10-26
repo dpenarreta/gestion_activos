@@ -243,7 +243,7 @@ describe("El cambio de contraseña obligatorio", () => {
   const RUTA = "/change-password-required";
 
   function llenar() {
-    fireEvent.change(screen.getByLabelText("Contraseña actual"), {
+    fireEvent.change(screen.getByLabelText(/Contraseña actual/), {
       target: { value: "la-temporal" },
     });
     fireEvent.change(screen.getByLabelText("Nueva contraseña"), {
@@ -260,7 +260,7 @@ describe("El cambio de contraseña obligatorio", () => {
     pintar(<ChangePasswordRequired />, RUTA);
 
     expect(
-      screen.getByText(/Un administrador solicitó que establezca una nueva/),
+      screen.getByText(/reemplace la clave temporal por una contraseña propia/),
     ).toBeInTheDocument();
   });
 

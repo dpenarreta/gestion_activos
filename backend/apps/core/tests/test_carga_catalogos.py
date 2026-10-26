@@ -344,10 +344,12 @@ def test_el_archivo_de_otro_formato_se_rechaza_con_mensaje(cliente, db):
     assert respuesta.data["error"]["code"] == "formato_invalido"
 
 
-def test_cada_empleado_cargado_recibe_su_usuario(cliente, db):
-    """Todo empleado tiene usuario (21/10/2026): la cuenta nueva nace sin
-    contraseña utilizable —ninguna viaja en el archivo— y con cambio
-    obligatorio; un correo que ya tiene cuenta se ata a ella."""
+def test_cada_empleado_cargado_recibe_su_usuario(cliente, db, settings):
+    """Todo empleado tiene usuario (21/10/2026): la cuenta nueva nace con la
+    clave temporal —ninguna contraseña viaja en el archivo; desde el
+    26/10/2026— y con cambio obligatorio; un correo que ya tiene cuenta se ata
+    a ella sin tocar su contraseña."""
+    settings.CLAVE_INICIAL_USUARIOS = "Clave-De-Prueba9!"
     Departamento.objects.create(nombre="Tecnología", codigo="TI")
     existente = User.objects.create_user(
         username="lt", email="luis.torres@grupolaar.com", password="Sup3r-Secr3t!"
@@ -374,8 +376,10 @@ def test_cada_empleado_cargado_recibe_su_usuario(cliente, db):
 
     ana = Empleado.objects.get(nombres="Ana").usuario
     assert ana.email == "ana.perez@grupolaar.com"
-    assert not ana.has_usable_password() and ana.must_change_password
+    assert ana.check_password("Clave-De-Prueba9!") and ana.must_change_password
     assert Empleado.objects.get(nombres="Luis").usuario == existente
+    existente.refresh_from_db()
+    assert existente.check_password("Sup3r-Secr3t!")
 
 
 def test_la_carga_rechaza_correos_no_institucionales_o_repetidos(cliente, db):

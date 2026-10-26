@@ -208,7 +208,7 @@ export function EmpleadoForm() {
             </div>
             {sinUsuario && (
               <div className="mz-field">
-                <label htmlFor="password">Contraseña inicial</label>
+                <label htmlFor="password">Contraseña inicial (opcional)</label>
                 <input
                   id="password"
                   type="password"
@@ -221,8 +221,9 @@ export function EmpleadoForm() {
                   }
                 />
                 <div className="form-text">
-                  Solo si la cuenta es nueva. La persona la cambia al entrar por
-                  primera vez; el rol se asigna en Usuarios y roles.
+                  Solo si la cuenta es nueva. Vacía, nace con la clave temporal;
+                  con una u otra, la persona la cambia al entrar por primera
+                  vez. El rol se asigna en Usuarios y roles.
                 </div>
               </div>
             )}

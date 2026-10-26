@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { ReglasContrasena } from "../../../components/common/ReglasContrasena/ReglasContrasena";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
@@ -258,16 +259,25 @@ export function UserForm() {
 
               {!isEditing && (
                 <div className="mz-field">
-                  <label htmlFor="password">Contraseña</label>
+                  <label htmlFor="password">
+                    Contraseña inicial (opcional)
+                  </label>
                   <input
                     id="password"
                     name="password"
                     type="password"
                     className="form-control"
+                    autoComplete="new-password"
+                    aria-describedby="password-ayuda"
                     value={form.password}
                     onChange={handleChange}
-                    required
                   />
+                  <div id="password-ayuda" className="form-text">
+                    Si la deja vacía, la cuenta nace con la clave temporal. Con
+                    una u otra, la persona debe cambiarla al entrar por primera
+                    vez.
+                  </div>
+                  {form.password && <ReglasContrasena clave={form.password} />}
                 </div>
               )}
             </div>

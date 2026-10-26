@@ -137,7 +137,7 @@ describe("Editar una cuenta", () => {
     pintar();
 
     await screen.findByText("Editar usuario");
-    expect(screen.queryByLabelText("Contraseña")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Contraseña inicial/)).not.toBeInTheDocument();
   });
 
   it("guardar actualiza la cuenta abierta, sin crear otra", async () => {

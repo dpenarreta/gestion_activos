@@ -5,6 +5,7 @@ import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { ReglasContrasena } from "../../components/common/ReglasContrasena/ReglasContrasena";
 import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
 
 const EMPTY_FORM = {
@@ -47,7 +48,7 @@ export function ChangePasswordRequired() {
   return (
     <PantallaAcceso
       titulo="Debe cambiar su contraseña"
-      subtitulo="Un administrador solicitó que establezca una nueva contraseña antes de continuar."
+      subtitulo="Es su primer ingreso o un administrador lo pidió: antes de continuar, reemplace la clave temporal por una contraseña propia."
     >
       <form onSubmit={handleSubmit}>
         {error && (
@@ -58,7 +59,7 @@ export function ChangePasswordRequired() {
         )}
         <div className="mb-3">
           <label className="form-label" htmlFor="current_password">
-            Contraseña actual
+            Contraseña actual (la temporal que le dieron)
           </label>
           <input
             id="current_password"
@@ -79,10 +80,13 @@ export function ChangePasswordRequired() {
             name="new_password"
             type="password"
             className="form-control"
+            autoComplete="new-password"
+            aria-describedby="reglas-nueva"
             value={form.new_password}
             onChange={handleChange}
             required
           />
+          <ReglasContrasena id="reglas-nueva" clave={form.new_password} />
         </div>
         <div className="mb-3">
           <label className="form-label" htmlFor="new_password_confirm">

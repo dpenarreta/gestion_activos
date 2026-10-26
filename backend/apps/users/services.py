@@ -45,7 +45,7 @@ class UserAdminService:
         *,
         actor: User,
         email: str,
-        password: str,
+        password: str = "",
         first_name: str = "",
         last_name: str = "",
         codigo_empleado: str | None = None,
@@ -63,7 +63,15 @@ class UserAdminService:
 
         El nombre de usuario no se recibe: se deriva del nombre de la persona
         (ver `apps.users.nomenclatura`).
+
+        Sin contraseña, la cuenta nace con la clave temporal
+        (`CLAVE_INICIAL_USUARIOS`, del .env); si tampoco hay clave temporal,
+        sin contraseña utilizable. Toda cuenta nueva queda obligada a cambiar
+        su contraseña en el primer inicio de sesión (26/10/2026).
         """
+        from apps.authentication.validators import clave_temporal
+
+        password = password or clave_temporal()
         if codigo_empleado:
             from rest_framework.exceptions import PermissionDenied
 
@@ -86,7 +94,18 @@ class UserAdminService:
         user.created_by = actor
         user.updated_by = actor
         user.codigo_empleado = codigo_empleado or None
-        user.save(update_fields=["created_by", "updated_by", "codigo_empleado"])
+        user.must_change_password = True
+        if not password:
+            user.set_unusable_password()
+        user.save(
+            update_fields=[
+                "created_by",
+                "updated_by",
+                "codigo_empleado",
+                "must_change_password",
+                "password",
+            ]
+        )
 
         if role_ids:
             # Los roles de cargo del organigrama no son globales: van por empresa.
