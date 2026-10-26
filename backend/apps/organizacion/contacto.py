@@ -132,6 +132,26 @@ def de(usuario) -> dict:
     return datos
 
 
+def para_compartir(usuario) -> dict:
+    """Lo que otra persona de la empresa ve de alguien para contactarlo
+    (26/10/2026, desde el chat): su correo, solo si es institucional, y su
+    teléfono, solo si lo cargó en «Mi perfil» y autorizó que la contacten por
+    él. El teléfono de la ficha de nómina no se muestra: no tiene esa
+    autorización. Lo que no hay viene vacío y no se dibuja."""
+    propios = _propios(usuario)
+    autorizado = bool(propios and propios.telefono and propios.telefono_aceptado_en)
+    cargo = propios.cargo if propios and propios.cargo_id else None
+    area = propios.departamento if propios and propios.departamento_id else None
+    return {
+        "id": usuario.id,
+        "nombre": usuario.get_full_name().strip() or usuario.username,
+        "correo": usuario.email if es_institucional(usuario.email) else "",
+        "telefono": propios.telefono if autorizado else "",
+        "cargo": cargo.nombre if cargo else "",
+        "area": area.nombre if area else "",
+    }
+
+
 def _autorizacion_telefono(propios) -> dict:
     """El texto vigente y si la persona aceptó esa versión. Si aceptó una
     anterior, `aceptado` es falso y lo vuelve a aceptar al guardar."""

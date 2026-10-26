@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.adjuntos.models import TAMANO_MAXIMO_BYTES
 from apps.adjuntos.validators import validar_archivo
+from apps.organizacion.contacto import para_compartir
 from apps.organizacion.models import Departamento
 from apps.permissions.authorization import user_has_permission
 
@@ -327,6 +328,17 @@ class DirectorioView(APIView):
     def get(self, request):
         personas = services.buscar_personas(request.query_params.get("q", ""))
         return Response([persona_dict(p) for p in personas if p.pk != request.user.pk])
+
+
+class ContactoView(APIView):
+    """El contacto de una persona de la empresa (su correo institucional y,
+    si lo autorizó, su teléfono), para verlo y copiarlo desde el chat."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        persona = get_object_or_404(services.personas_de_la_empresa(), pk=pk)
+        return Response(para_compartir(persona))
 
 
 class AreasView(APIView):

@@ -4,6 +4,7 @@ import { chatService } from "../../../api/chatService";
 import { formatearFecha } from "../../../utils/formato";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
+import { TarjetaContacto } from "./Contacto";
 import { Presencia, textoPresencia, usePresencia } from "./Presencia";
 
 const ICONO = {
@@ -92,6 +93,8 @@ export function Directorio({ onElegida }) {
   const { iniciarDirecta } = useChat();
   const [busqueda, setBusqueda] = useState("");
   const [personas, setPersonas] = useState([]);
+  // De quién se está viendo el contacto.
+  const [contacto, setContacto] = useState(null);
   const presencia = usePresencia(personas.map((p) => p.id));
 
   useEffect(() => {
@@ -115,29 +118,44 @@ export function Directorio({ onElegida }) {
       />
       <ul className="chat-lista" aria-label="Personas">
         {personas.map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              className="chat-lista__item"
-              onClick={async () => {
-                const conversacion = await iniciarDirecta(p.id);
-                onElegida?.(conversacion.id);
-              }}
-            >
-              <span className="chat-lista__icono" aria-hidden="true">
-                <Icon name="person" />
-              </span>
-              <span className="chat-lista__texto">
-                <strong>
-                  {p.nombre} <Presencia estado={presencia[p.id]} />
-                </strong>
-                <span className="chat-lista__ultimo">
-                  {[textoPresencia(presencia[p.id]), p.area]
-                    .filter(Boolean)
-                    .join(" · ")}
+          <li key={p.id} className="chat-persona">
+            <div className="chat-persona__fila">
+              <button
+                type="button"
+                className="chat-lista__item"
+                onClick={async () => {
+                  const conversacion = await iniciarDirecta(p.id);
+                  onElegida?.(conversacion.id);
+                }}
+              >
+                <span className="chat-lista__icono" aria-hidden="true">
+                  <Icon name="person" />
                 </span>
-              </span>
-            </button>
+                <span className="chat-lista__texto">
+                  <strong>
+                    {p.nombre} <Presencia estado={presencia[p.id]} />
+                  </strong>
+                  <span className="chat-lista__ultimo">
+                    {[textoPresencia(presencia[p.id]), p.area]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
+              </button>
+              {/* Ver su contacto (correo y, si lo autorizó, teléfono) sin
+                  abrir el chat. */}
+              <button
+                type="button"
+                className={`chat-persona__contacto${contacto === p.id ? " is-active" : ""}`}
+                aria-label={`Ver contacto de ${p.nombre}`}
+                aria-expanded={contacto === p.id}
+                title="Ver contacto"
+                onClick={() => setContacto(contacto === p.id ? null : p.id)}
+              >
+                <Icon name="person-vcard" />
+              </button>
+            </div>
+            {contacto === p.id && <TarjetaContacto persona={p} />}
           </li>
         ))}
         {personas.length === 0 && (

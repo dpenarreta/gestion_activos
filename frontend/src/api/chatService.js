@@ -81,6 +81,13 @@ export const chatService = {
       .get(`${BASE}/directorio/`, { params: q ? { q } : {} })
       .then((r) => r.data);
   },
+  /** El contacto de una persona: su correo institucional y, si lo
+   * autorizó, su teléfono (vacíos si no hay). */
+  contacto(id) {
+    return apiClient
+      .get(`${BASE}/personas/${id}/contacto/`)
+      .then((r) => r.data);
+  },
   areas() {
     return apiClient.get(`${BASE}/areas/`).then((r) => r.data);
   },

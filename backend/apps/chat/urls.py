@@ -12,6 +12,7 @@ urlpatterns = [
     path("conversaciones/<int:pk>/lecturas/", views.LecturasView.as_view(), name="chat-lecturas"),
     path("novedades/", views.NovedadesView.as_view(), name="chat-novedades"),
     path("directorio/", views.DirectorioView.as_view(), name="chat-directorio"),
+    path("personas/<int:pk>/contacto/", views.ContactoView.as_view(), name="chat-contacto"),
     path("presencia/", views.PresenciaView.as_view(), name="chat-presencia"),
     path("mi-estado/", views.MiEstadoView.as_view(), name="chat-mi-estado"),
     path("areas/", views.AreasView.as_view(), name="chat-areas"),

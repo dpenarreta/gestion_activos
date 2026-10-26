@@ -271,3 +271,43 @@ def test_el_sondeo_no_gasta_el_limite_general_de_la_persona(db):
     assert [type(t) for t in vista.get_throttles()] == [ScopedRateThrottle]
     vista.action = "list"
     assert UserRateThrottle in [type(t) for t in vista.get_throttles()]
+
+
+# --- El contacto de una persona (26/10/2026) ---------------------------------------------
+
+
+def _con_telefono(usuario, empresa, telefono, autorizado):
+    from apps.organizacion.models import DatosDeContacto
+
+    with usando_empresa(empresa):
+        DatosDeContacto.objects.create(
+            usuario=usuario,
+            telefono=telefono,
+            telefono_aceptado_en=timezone.now() if autorizado else None,
+        )
+
+
+def test_el_contacto_muestra_el_correo_institucional_y_el_telefono_autorizado(empresa):
+    ana, beto = _persona("ana", empresa), _persona("beto", empresa)
+    _con_telefono(beto, empresa, "0991112222", autorizado=True)
+    contacto = _cliente(ana, empresa).get(f"{URL}personas/{beto.id}/contacto/").json()
+    assert contacto["correo"] == "beto@grupolaar.com"
+    assert contacto["telefono"] == "0991112222"
+    assert contacto["nombre"] == "Beto"
+
+
+def test_sin_autorizacion_o_sin_correo_institucional_no_se_muestran(empresa):
+    ana, beto = _persona("ana", empresa), _persona("beto", empresa)
+    _con_telefono(beto, empresa, "0991112222", autorizado=False)
+    beto.email = "beto@gmail.com"
+    beto.save(update_fields=["email"])
+    contacto = _cliente(ana, empresa).get(f"{URL}personas/{beto.id}/contacto/").json()
+    assert contacto["correo"] == ""
+    assert contacto["telefono"] == ""
+
+
+def test_no_se_ve_el_contacto_de_alguien_de_otra_empresa(empresa):
+    otra = Empresa.objects.create(nombre="LaarSeguridad", codigo="LS")
+    ana, zoe = _persona("ana", empresa), _persona("zoe", otra)
+    respuesta = _cliente(ana, empresa).get(f"{URL}personas/{zoe.id}/contacto/")
+    assert respuesta.status_code == 404

@@ -513,3 +513,66 @@
 .chat-lectura__texto {
   font-size: 11px;
 }
+
+/* --- El contacto de una persona, desde el buscador (26/10/2026) -------- */
+
+.chat-persona {
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.chat-persona__fila {
+  display: flex;
+  align-items: stretch;
+}
+
+.chat-persona .chat-lista__item {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.chat-persona__contacto {
+  flex: none;
+  width: 44px;
+  border: 0;
+  background: none;
+  color: var(--mz-ink-soft);
+  font-size: 18px;
+}
+
+.chat-persona__contacto:hover,
+.chat-persona__contacto.is-active {
+  background: var(--mz-sunken);
+  color: var(--mz-action);
+}
+
+.chat-contacto {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 12px 14px;
+  background: var(--mz-sunken);
+}
+
+.chat-contacto__etiqueta {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.chat-contacto__fila {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-contacto__valor {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  /* Un clic lo selecciona entero, para copiarlo a mano. */
+  user-select: all;
+  -webkit-user-select: all;
+  cursor: text;
+}
