@@ -177,6 +177,15 @@ export const SECCIONES_CONFIGURACION = [
     rutas: ["/admin/configuracion/modulos"],
   },
   {
+    // Los textos de tratamiento de datos personales que aceptan las personas
+    // (26/10/2026): parametrizables y con versión.
+    id: "textos-legales",
+    nombre: "Textos legales",
+    path: "/admin/configuracion/textos-legales",
+    permission: "configuracion.textos_legales",
+    rutas: ["/admin/configuracion/textos-legales"],
+  },
+  {
     // La ventana destacada que ve toda persona al entrar al sistema.
     id: "aviso-inicio",
     nombre: "Aviso al iniciar sesión",

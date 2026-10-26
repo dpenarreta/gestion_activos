@@ -90,6 +90,10 @@ PERMISSION_CATALOG = {
                 "Encender y apagar los módulos de la empresa, y seguir viendo "
                 "y entrando a los apagados"
             ),
+            "configuracion.textos_legales": (
+                "Editar los textos de tratamiento de datos personales que aceptan las "
+                "personas (por ejemplo, la autorización para guardar su teléfono)"
+            ),
         },
     },
     "activos": {

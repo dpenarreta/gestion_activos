@@ -21,8 +21,10 @@ lo cambia la persona: lo corrige la administración.
 Protección de Datos Personales). No es obligatorio para usar el sistema. Si la
 persona lo escribe, antes de guardar marca que autoriza a la empresa a guardar
 su número de contacto —personal o empresarial— y a que otras personas de la
-empresa lo usen para contactarla. Se guarda cuándo, desde qué IP y el texto
-exacto que aceptó.
+empresa lo usen para contactarla. El texto es parametrizable
+(`textos_legales.py`); se guarda cuándo, desde qué IP, el texto exacto y su
+versión. Si el texto cambia, lo vuelve a aceptar la próxima vez que guarde su
+teléfono.
 """
 
 from django.db import transaction
@@ -31,7 +33,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
-from . import perfiles_cargo
+from . import perfiles_cargo, textos_legales
 from .models import Cargo, DatosDeContacto, Departamento, Sede
 from .organigrama import linea_de_supervision, nombre_con_unidad
 
@@ -54,14 +56,7 @@ ETIQUETAS = {
 }
 
 
-#: Lo que la persona autoriza para guardar su teléfono. Si se cambia, quien ya
-#: aceptó el texto anterior conserva su constancia con ese texto.
-CONSENTIMIENTO_TELEFONO = (
-    "Autorizo a la empresa a guardar mi número de teléfono de contacto, sea personal "
-    "o empresarial, y a que otras personas de la empresa lo usen para contactarme, "
-    "conforme a la Ley Orgánica de Protección de Datos Personales. Puedo retirar esta "
-    "autorización en cualquier momento."
-)
+TELEFONO = "autorizacion_telefono"
 SIN_AUTORIZACION = (
     "Para guardar su teléfono, marque que autoriza a la empresa a guardarlo y a que "
     "otras personas de la empresa lo usen para contactarlo."
@@ -118,11 +113,7 @@ def de(usuario) -> dict:
         "agencia": {"id": sede.id, "nombre": sede.nombre} if sede else None,
         "cargo": {"id": cargo.id, "nombre": nombre_con_unidad(cargo)} if cargo else None,
         "en_nomina": empleado is not None,
-        "telefono_autorizacion": {
-            "texto": CONSENTIMIENTO_TELEFONO,
-            "aceptado": bool(propios and propios.telefono_aceptado_en),
-            "aceptado_en": propios.telefono_aceptado_en if propios else None,
-        },
+        "telefono_autorizacion": _autorizacion_telefono(propios),
         "cumpleanos": cumpleanos(usuario),
         "aniversario": aniversario(usuario),
         # Lo que se espera de su cargo (perfiles_cargo.py).
@@ -139,6 +130,20 @@ def de(usuario) -> dict:
     }
     datos["faltan"] = [clave for clave in OBLIGATORIOS if not presentes[clave]]
     return datos
+
+
+def _autorizacion_telefono(propios) -> dict:
+    """El texto vigente y si la persona aceptó esa versión. Si aceptó una
+    anterior, `aceptado` es falso y lo vuelve a aceptar al guardar."""
+    vigente = textos_legales.actual(TELEFONO)
+    aceptada = propios.telefono_aceptado_version if propios else None
+    return {
+        "texto": vigente.texto,
+        "version": vigente.version,
+        "aceptado": bool(propios and propios.telefono_aceptado_en and aceptada == vigente.version),
+        "aceptado_en": propios.telefono_aceptado_en if propios else None,
+        "version_aceptada": aceptada,
+    }
 
 
 def opciones() -> dict:
@@ -191,10 +196,17 @@ def guardar(
         if telefono:
             if not acepta_telefono:
                 raise ValidationError({"acepta_telefono": [SIN_AUTORIZACION]})
-            if not propios.telefono_aceptado_en:
+            vigente = textos_legales.actual(TELEFONO)
+            # Una constancia por versión del texto: si ya aceptó la vigente, se
+            # conserva la original; si cambió, se registra la nueva.
+            if (
+                propios.telefono_aceptado_version != vigente.version
+                or not propios.telefono_aceptado_en
+            ):
                 propios.telefono_aceptado_en = timezone.now()
                 propios.telefono_aceptado_ip = ip
-                propios.telefono_aceptado_texto = CONSENTIMIENTO_TELEFONO
+                propios.telefono_aceptado_texto = vigente.texto
+                propios.telefono_aceptado_version = vigente.version
         propios.telefono = telefono
         propios.departamento = departamento
         propios.sede = sede

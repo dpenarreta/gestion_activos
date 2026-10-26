@@ -122,3 +122,11 @@ class HerramientasPermission(BasePermission):
 class GestionarHerramientasPermission(BasePermission):
     def has_permission(self, request, view) -> bool:
         return user_has_permission(request.user, "herramientas.gestionar")
+
+
+class TextosLegalesPermission(HasModulePermission):
+    """Ver y cambiar los textos de tratamiento de datos personales pide
+    `configuracion.textos_legales` (las personas los leen en su perfil)."""
+
+    view_permission = "configuracion.textos_legales"
+    write_permission = "configuracion.textos_legales"

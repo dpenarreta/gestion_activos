@@ -6,7 +6,7 @@ from django.db.models import Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -30,6 +30,7 @@ from . import (
     organigrama,
     perfiles_cargo,
     roles_de_cargo,
+    textos_legales,
     vacaciones,
 )
 from .models import (
@@ -53,6 +54,7 @@ from .permissions import (
     ArmarOAsignarPermission,
     AsignarCargosPermission,
     AvisoInicioPermission,
+    TextosLegalesPermission,
     CalendarioPermission,
     DocumentosPermission,
     GestionarHerramientasPermission,
@@ -1394,3 +1396,39 @@ class UsoHerramientasView(APIView):
 
     def get(self, request):
         return Response(herramientas.uso())
+
+
+class TextosLegalesView(APIView):
+    """Configuración → Textos legales (26/10/2026): los textos de tratamiento
+    de datos personales que aceptan las personas. Cambiar uno sube su versión
+    y queda en la auditoría con el texto anterior y el nuevo."""
+
+    permission_classes = [IsAuthenticated, TextosLegalesPermission]
+
+    def get(self, request, clave=None):
+        if clave is None:
+            return Response(textos_legales.todos())
+        if clave not in textos_legales.TEXTOS:
+            raise Http404()
+        return Response(textos_legales.de(clave))
+
+    def put(self, request, clave=None):
+        if clave not in textos_legales.TEXTOS:
+            raise Http404()
+        texto = (request.data.get("texto") or "").strip()
+        if len(texto) < 20:
+            raise ValidationError({"texto": "Escriba el texto completo (al menos 20 caracteres)."})
+        if len(texto) > 4000:
+            raise ValidationError({"texto": "Como máximo 4000 caracteres."})
+        vigente, anterior = textos_legales.guardar(clave, texto)
+        if vigente.texto != anterior:
+            record_audit_event(
+                actor=request.user,
+                action="configuracion.texto_legal.actualizado",
+                target=vigente,
+                module="configuracion",
+                previous_values={"texto": anterior, "version": vigente.version - 1},
+                new_values={"texto": vigente.texto, "version": vigente.version},
+                context=get_request_context(request),
+            )
+        return Response(textos_legales.de(clave))

@@ -7,6 +7,7 @@ from .views import (
     AjustesCarruselView,
     AsignacionesView,
     AvisoInicioView,
+    TextosLegalesView,
     CalendarioView,
     CargaPersonasView,
     CargoViewSet,
@@ -73,6 +74,8 @@ urlpatterns = [
     path("vacaciones/mias/", MisVacacionesView.as_view(), name="mis-vacaciones"),
     path("vacaciones/", VacacionesDeTodosView.as_view(), name="vacaciones"),
     path("aviso-inicio/", AvisoInicioView.as_view(), name="aviso-inicio"),
+    path("textos-legales/", TextosLegalesView.as_view(), name="textos-legales"),
+    path("textos-legales/<str:clave>/", TextosLegalesView.as_view(), name="texto-legal"),
     path("aviso-inicio/imagen/", ImagenAvisoInicioView.as_view(), name="aviso-inicio-imagen"),
     path(
         "confidencialidad/aceptar/",

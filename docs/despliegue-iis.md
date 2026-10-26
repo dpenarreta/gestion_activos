@@ -126,13 +126,26 @@ escriben ahí aunque terminen bien).
 
 `ga_app` **no puede cambiar la estructura** de la base (ver el script de
 creación de la base). Si un despliegue trae migraciones nuevas, el paso 4 se
-detiene con «Hay migraciones pendientes» antes de reiniciar. Entonces:
+detiene con «Hay migraciones pendientes» antes de reiniciar. Entonces se
+despliega con `-Migrar`:
 
-1. El DBA habilita `ga_migraciones`: `ALTER LOGIN [ga_migraciones] ENABLE;`
-2. `.\scripts\deploy\deploy-from-workstation.ps1 -CredentialPath … -Migrar`
-   — pide la clave de `ga_migraciones` en esta máquina y la usa solo para
-   `manage.py migrate`; no se guarda.
-3. El DBA lo deshabilita: `ALTER LOGIN [ga_migraciones] DISABLE;`
+```powershell
+.\scripts\deploy\deploy-from-workstation.ps1 -CredentialPath "$env:USERPROFILE\.deploy\ser-webai.cred" -Migrar
+```
+
+`-Migrar` usa la clave de `ga_migraciones` solo para `manage.py migrate`. La
+toma de `%USERPROFILE%\.deploy\ga-migraciones.cred`, un archivo cifrado con el
+usuario de Windows de quien despliega, creado una vez con:
+
+```powershell
+Get-Credential ga_migraciones | Export-CliXml "$env:USERPROFILE\.deploy\ga-migraciones.cred"
+```
+
+Si el archivo no existe, la pide en una ventana. **Decisión del 26/10/2026:**
+el inicio de sesión `ga_migraciones` queda **siempre habilitado** (antes se
+habilitaba solo durante cada despliegue). Como puede cambiar la estructura de
+la base, su clave se trata como crítica: solo en ese archivo cifrado y rotada
+periódicamente.
 
 ### Volver atrás
 

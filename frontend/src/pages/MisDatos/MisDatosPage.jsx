@@ -193,6 +193,12 @@ export function FormularioMisDatos({
                 Autorizado el {formatearFecha(autorizacion.aceptado_en, true)}.
               </div>
             )}
+            {!autorizacion?.aceptado && autorizacion?.version_aceptada && (
+              <div className="form-text">
+                El texto cambió desde que lo aceptó: para guardar su teléfono,
+                acéptelo de nuevo.
+              </div>
+            )}
           </div>
         </div>
       )}

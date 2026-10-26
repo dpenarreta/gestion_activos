@@ -37,6 +37,7 @@ import {
 import { OrganigramaPage } from "../pages/Institucional/OrganigramaPage";
 import { Bandeja } from "../pages/Soporte/Bandeja";
 import { AvisoInicioPage } from "../pages/Admin/Configuracion/AvisoInicioPage";
+import { TextosLegalesPage } from "../pages/Admin/Configuracion/TextosLegalesPage";
 import { ModulosPage } from "../pages/Admin/Configuracion/ModulosPage";
 import {
   CategoriasSoporte,
@@ -678,6 +679,14 @@ export function AppRoutes() {
           element={
             <RequirePermission permission="configuracion.modulos">
               <ModulosPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="configuracion/textos-legales"
+          element={
+            <RequirePermission permission="configuracion.textos_legales">
+              <TextosLegalesPage />
             </RequirePermission>
           }
         />

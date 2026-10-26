@@ -649,6 +649,8 @@ class DatosDeContacto(ModeloDeEmpresa):
     telefono_aceptado_en = models.DateTimeField(null=True, blank=True)
     telefono_aceptado_ip = models.GenericIPAddressField(null=True, blank=True)
     telefono_aceptado_texto = models.TextField(blank=True)
+    #: Qué versión del texto (TextoLegal) aceptó: si cambia, lo vuelve a aceptar.
+    telefono_aceptado_version = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -912,3 +914,26 @@ class GoceVacaciones(ModeloDeEmpresa):
         ordering = ["desde"]
         verbose_name = "goce de vacaciones"
         verbose_name_plural = "goces de vacaciones"
+
+
+class TextoLegal(ModeloDeEmpresa):
+    """Un texto de tratamiento de datos personales que aceptan las personas,
+    parametrizable (26/10/2026; ver `textos_legales.py`). Uno por clave y
+    empresa; `version` sube con cada cambio."""
+
+    class Clave(models.TextChoices):
+        AUTORIZACION_TELEFONO = "autorizacion_telefono", "Autorización para guardar el teléfono"
+
+    clave = models.CharField(max_length=40, choices=Clave.choices)
+    texto = models.TextField()
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "clave"], name="un_texto_legal_por_clave")
+        ]
+        verbose_name = "texto legal"
+        verbose_name_plural = "textos legales"
+
+    def __str__(self) -> str:
+        return f"{self.get_clave_display()} (v{self.version})"
