@@ -74,6 +74,9 @@ REGLAS: dict[str, set[str]] = {
     "roles_pago.observaciones": GH_NOMINA,
     # Descarga masiva por área (22/10/2026): un ZIP con un PDF por persona.
     "roles_pago.descarga_masiva": DESCARGA_MASIVA,
+    # Roles sin abrir (26/10/2026): todo Gestión Humana, para acercarse a
+    # quienes no han abierto su rol de pagos.
+    "roles_pago.seguimiento": GH_FIJOS,
     # Códigos de conducta: gestionar los documentos.
     "codigos.publicar": {CLIMA},
 }

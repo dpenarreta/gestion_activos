@@ -544,6 +544,7 @@ export function AppRoutes() {
                 "roles_pago.historial",
                 "roles_pago.configurar",
                 "roles_pago.descarga_masiva",
+                "roles_pago.seguimiento",
               ]}
             >
               <RolPagosPage />

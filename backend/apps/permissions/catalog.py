@@ -469,6 +469,10 @@ PERMISSION_CATALOG = {
                 "Descargar en un archivo comprimido los roles de pagos de todo un área "
                 "en un mes, un PDF por persona"
             ),
+            "roles_pago.seguimiento": (
+                "Ver, de las personas habilitadas, quiénes no han abierto su rol de "
+                "pagos de un mes, con su correo y su teléfono para contactarlas"
+            ),
         },
     },
     "sugerencias": {

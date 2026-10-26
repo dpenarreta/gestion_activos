@@ -34,6 +34,7 @@ PANTALLA = Requiere(
     "roles_pago.configurar",
     "roles_pago.observaciones",
     "roles_pago.descarga_masiva",
+    "roles_pago.seguimiento",
 )
 
 
@@ -63,6 +64,7 @@ class EstadoView(APIView):
                 "puede_habilitar": services.gestiona_habilitados(request.user),
                 "puede_ver_observaciones": services.atiende_observaciones(request.user),
                 "puede_descarga_masiva": services.descarga_masiva_permitida(request.user),
+                "puede_seguimiento": services.hace_seguimiento(request.user),
                 # Correcciones de Talento Humano que debe volver a confirmar.
                 "por_confirmar": services.por_confirmar(request.user),
             }
@@ -565,3 +567,28 @@ class DescargaMasivaView(APIView):
         respuesta["Cache-Control"] = "no-store, private"
         respuesta["X-Content-Type-Options"] = "nosniff"
         return respuesta
+
+
+class SeguimientoView(APIView):
+    """Rol de pagos → Roles sin abrir (`roles_pago.seguimiento`, 26/10/2026):
+    de las personas habilitadas, quiénes no han abierto su rol de un mes, con
+    cómo contactarlas."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.PERMISO_SEGUIMIENTO)]
+
+    def get(self, request):
+        try:
+            anio = int(request.query_params.get("anio", ""))
+            mes = int(request.query_params.get("mes", ""))
+        except ValueError:
+            raise serializers.ValidationError({"mes": "Elija un año y un mes válidos."}) from None
+        resultado = services.seguimiento(request.user, anio, mes)
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.seguimiento.consultado",
+            target=request.user,
+            module=MODULO,
+            new_values={"anio": anio, "mes": mes, "sin_abrir": len(resultado["sin_abrir"])},
+            context=get_request_context(request),
+        )
+        return Response(resultado)

@@ -365,6 +365,7 @@ export const ADMIN_MENU = [
       "roles_pago.configurar",
       "roles_pago.observaciones",
       "roles_pago.descarga_masiva",
+      "roles_pago.seguimiento",
     ],
     children: [
       {
@@ -385,6 +386,7 @@ export const ADMIN_MENU = [
           "roles_pago.historial",
           "roles_pago.configurar",
           "roles_pago.descarga_masiva",
+          "roles_pago.seguimiento",
         ],
         // Las correcciones de Talento Humano que esperan su confirmación.
         insignia: "rol_por_confirmar",

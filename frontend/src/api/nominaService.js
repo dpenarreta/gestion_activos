@@ -61,6 +61,13 @@ export const nominaService = {
         };
       });
   },
+  // --- Roles sin abrir (Talento Humano) -------------------------------
+  /** De las personas habilitadas, quiénes abrieron o no su rol del mes. */
+  seguimiento(anio, mes) {
+    return apiClient
+      .get(`${BASE}seguimiento/`, { params: { anio, mes } })
+      .then((r) => r.data);
+  },
   // --- Observaciones (Talento Humano) ---------------------------------
   /** `estado`: "abierta", "corregida", "cerrada" o vacío (todas). */
   observaciones(estado = "") {

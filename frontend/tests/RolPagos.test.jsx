@@ -27,6 +27,7 @@ const servicio = {
   habilitar: vi.fn(),
   areasDescargaMasiva: vi.fn(),
   descargaMasiva: vi.fn(),
+  seguimiento: vi.fn(),
 };
 vi.mock("../src/api/nominaService", () => ({ nominaService: servicio }));
 vi.mock("../src/components/common/VisorPdf/VisorPdf", () => ({
@@ -669,6 +670,133 @@ describe("Consultar rol de pagos", () => {
     );
     expect(await within(ventana).findByRole("status")).toHaveTextContent(
       "2 rol(es) de pagos · 1 sin rol",
+    );
+  });
+
+  it("sin permiso no aparece «Roles sin abrir»", async () => {
+    render(<RolPagosPage />);
+    await screen.findByLabelText("Código de empleado");
+    expect(
+      screen.queryByRole("button", { name: /Roles sin abrir/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Talento Humano ve quién no abrió su rol y cómo contactarlo", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
+    servicio.seguimiento.mockResolvedValue({
+      anio: 2025,
+      mes: 9,
+      periodo: "Septiembre 2025",
+      habilitados: 3,
+      sin_abrir: [
+        {
+          id: 1,
+          nombre: "Beto Paz",
+          codigo: "200",
+          cargo: "Analista",
+          area: "Comercial",
+          correo: "bpaz@grupolaar.com",
+          telefono: "0999999999",
+          ultima_apertura: { fecha: "05/08/2025" },
+        },
+        {
+          id: 2,
+          nombre: "Carla Ruiz",
+          codigo: "300",
+          cargo: "",
+          area: "",
+          correo: "cruiz@grupolaar.com",
+          telefono: "",
+          ultima_apertura: null,
+        },
+      ],
+      abiertos: [
+        {
+          id: 3,
+          nombre: "Ana Mora",
+          codigo: "100",
+          cargo: "",
+          area: "",
+          correo: "amora@grupolaar.com",
+          telefono: "",
+          abierto: { fecha: "02/10/2025", hora: "09:15:00" },
+          conformidad: "conforme",
+          conformidad_display: "Estuvo de acuerdo",
+        },
+      ],
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Roles sin abrir/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Roles sin abrir",
+    });
+    expect(servicio.seguimiento).toHaveBeenCalled();
+    expect(await within(ventana).findByText("Beto Paz")).toBeInTheDocument();
+    expect(
+      within(ventana).getByText("Analista · Comercial"),
+    ).toBeInTheDocument();
+    expect(within(ventana).getByText("0999999999")).toBeInTheDocument();
+    // Sin teléfono autorizado, no aparece; quien nunca abrió uno, lo dice.
+    expect(
+      within(ventana).queryByRole("button", {
+        name: "Copiar el teléfono de Carla Ruiz",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(ventana).getByText("Nunca ha abierto uno"),
+    ).toBeInTheDocument();
+    expect(within(ventana).queryByText("Ana Mora")).not.toBeInTheDocument();
+
+    // Buscar filtra la lista.
+    fireEvent.change(within(ventana).getByLabelText("Buscar"), {
+      target: { value: "carla" },
+    });
+    expect(within(ventana).queryByText("Beto Paz")).not.toBeInTheDocument();
+
+    // Los que sí lo abrieron, con su conformidad.
+    fireEvent.change(within(ventana).getByLabelText("Buscar"), {
+      target: { value: "" },
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Abiertos (1)" }),
+    );
+    expect(within(ventana).getByText("Ana Mora")).toBeInTheDocument();
+    expect(within(ventana).getByText("Estuvo de acuerdo")).toBeInTheDocument();
+    expect(within(ventana).getByText("02/10/2025 09:15")).toBeInTheDocument();
+  });
+
+  it("cambiar el mes vuelve a pedir la lista", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
+    servicio.seguimiento.mockResolvedValue({
+      anio: 2025,
+      mes: 9,
+      periodo: "Septiembre 2025",
+      habilitados: 0,
+      sin_abrir: [],
+      abiertos: [],
+    });
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Roles sin abrir/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Roles sin abrir",
+    });
+    expect(
+      await within(ventana).findByText(
+        /Todas las personas habilitadas ya abrieron/,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.change(within(ventana).getByLabelText("Año"), {
+      target: { value: "2025" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Mes"), {
+      target: { value: "3" },
+    });
+    await waitFor(() =>
+      expect(servicio.seguimiento).toHaveBeenLastCalledWith(2025, 3),
     );
   });
 });

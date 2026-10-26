@@ -9,6 +9,7 @@ import "./Institucional.css";
 import { AdjuntosObservacion } from "./AdjuntosObservacion";
 import { DescargaMasivaRolPagos } from "./DescargaMasivaRolPagos";
 import { HabilitadosRolPagos } from "./HabilitadosRolPagos";
+import { SeguimientoRolPagos } from "./SeguimientoRolPagos";
 import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
 
@@ -487,6 +488,7 @@ export function RolPagosPage() {
   const [historial, setHistorial] = useState(false);
   const [habilitados, setHabilitados] = useState(false);
   const [masiva, setMasiva] = useState(false);
+  const [seguimiento, setSeguimiento] = useState(false);
   // El último mes consultado sin rol: se dice en la página, con qué revisar.
   const [sinRol, setSinRol] = useState(null);
 
@@ -533,8 +535,18 @@ export function RolPagosPage() {
         {(estado?.puede_configurar ||
           estado?.puede_ver_historial ||
           estado?.puede_habilitar ||
-          estado?.puede_descarga_masiva) && (
+          estado?.puede_descarga_masiva ||
+          estado?.puede_seguimiento) && (
           <div className="mz-actions">
+            {estado.puede_seguimiento && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setSeguimiento(true)}
+              >
+                <Icon name="envelope-exclamation" /> Roles sin abrir
+              </button>
+            )}
             {estado.puede_descarga_masiva && (
               <button
                 type="button"
@@ -902,6 +914,9 @@ export function RolPagosPage() {
         <HabilitadosRolPagos onCerrar={() => setHabilitados(false)} />
       )}
       {masiva && <DescargaMasivaRolPagos onCerrar={() => setMasiva(false)} />}
+      {seguimiento && (
+        <SeguimientoRolPagos onCerrar={() => setSeguimiento(false)} />
+      )}
       {configurando && estado && (
         <Configurar
           estado={estado}

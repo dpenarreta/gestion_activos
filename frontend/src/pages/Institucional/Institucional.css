@@ -2693,3 +2693,24 @@
   color: var(--mz-ink-soft);
   white-space: pre-wrap;
 }
+
+/* Rol de pagos → Roles sin abrir (26/10/2026). */
+.rol-seguimiento__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.rol-seguimiento__dato {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.rol-seguimiento__valor {
+  user-select: all;
+  overflow-wrap: anywhere;
+}

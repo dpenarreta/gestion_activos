@@ -912,3 +912,94 @@ def descarga_masiva(actor, unidad_id, anio, mes, password) -> dict:
         "incluidos": len(archivos),
         "omitidos": len(omitidos),
     }
+
+
+# --- Seguimiento: quién no ha abierto su rol (26/10/2026) ---------------------------------
+#
+# Talento Humano (`roles_pago.seguimiento`) elige un mes y ve, de las personas
+# habilitadas, quiénes todavía no abrieron su rol de pagos de ese mes, para
+# acercarse a ellas y que lo confirmen. Abrirlo es haberlo consultado ella
+# misma (las consultas de Talento Humano por su código no cuentan). Muestra
+# cómo contactarla: el correo institucional y el teléfono solo si autorizó
+# que la contacten por él. Nunca montos.
+
+PERMISO_SEGUIMIENTO = "roles_pago.seguimiento"
+
+
+def hace_seguimiento(usuario) -> bool:
+    return user_has_permission(usuario, PERMISO_SEGUIMIENTO)
+
+
+def seguimiento(actor, anio, mes) -> dict:
+    """`{anio, mes, periodo, sin_abrir, abiertos}`: cada lista con la persona,
+    su código, su cargo y área, cómo contactarla y, para las que lo abrieron,
+    cuándo y si dio su conformidad; para las que no, el último que abrió."""
+    from django.db.models import Max
+
+    from apps.chat.services import personas_de_la_empresa
+    from apps.organizacion.contacto import para_compartir
+
+    if not hace_seguimiento(actor):
+        raise PermissionDenied(f"No tiene el permiso requerido: {PERMISO_SEGUIMIENTO}.")
+    _validar_periodo(anio, mes)
+    personas = list(
+        personas_de_la_empresa()
+        .filter(
+            user_permissions__codename=PERMISO_CONSULTA,
+            user_permissions__content_type__app_label="permissions",
+        )
+        .distinct()
+        .order_by("last_name", "first_name")
+    )
+    codigos = {p.id: codigo_de(p) for p in personas}
+    ids = list(codigos)
+    # Solo las de su propio código: quien además consulta otros códigos no
+    # abre el suyo al abrir el de otra persona.
+    propias = [
+        c
+        for c in ConsultaRolPagos.objects.filter(usuario_id__in=ids, anio=anio, mes=mes)
+        if c.codigo_empleado == codigos[c.usuario_id]
+    ]
+    # La primera consulta de ese mes (cuándo lo abrió) y la última
+    # conformidad que dio (puede estar en otra consulta).
+    del_mes: dict[int, ConsultaRolPagos] = {}
+    for c in sorted(propias, key=lambda c: c.created_at):
+        del_mes.setdefault(c.usuario_id, c)
+    conformidades = {}
+    for c in sorted(
+        (c for c in propias if c.conformidad), key=lambda c: c.conformidad_en or c.created_at
+    ):
+        conformidades[c.usuario_id] = c
+    # Para las que no lo abrieron: el último período que sí abrieron.
+    ultimos = {
+        fila["usuario_id"]: fila["ultimo"]
+        for fila in ConsultaRolPagos.objects.filter(usuario_id__in=ids)
+        .values("usuario_id")
+        .annotate(ultimo=Max("created_at"))
+    }
+
+    sin_abrir, abiertos = [], []
+    for persona in personas:
+        contacto = para_compartir(persona)
+        fila = {
+            **contacto,
+            "codigo": codigo_de(persona),
+        }
+        consulta = del_mes.get(persona.id)
+        if consulta is None:
+            fila["ultima_apertura"] = _momento(ultimos.get(persona.id))
+            sin_abrir.append(fila)
+            continue
+        conforme = conformidades.get(persona.id)
+        fila["abierto"] = _momento(consulta.created_at)
+        fila["conformidad"] = conforme.conformidad if conforme else ""
+        fila["conformidad_display"] = conforme.get_conformidad_display() if conforme else ""
+        abiertos.append(fila)
+    return {
+        "anio": anio,
+        "mes": mes,
+        "periodo": f"{fuente.MESES[mes - 1].capitalize()} {anio}",
+        "habilitados": len(personas),
+        "sin_abrir": sin_abrir,
+        "abiertos": abiertos,
+    }
