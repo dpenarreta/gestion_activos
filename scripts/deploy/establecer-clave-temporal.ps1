@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Escribe la clave temporal de las cuentas nuevas (CLAVE_INICIAL_USUARIOS) en
   el backend\.env del servidor y, con -TambienLocal, en el de esta máquina,
