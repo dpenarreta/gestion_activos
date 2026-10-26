@@ -40,6 +40,7 @@ export function FormularioMisDatos({
   datos,
   onGuardado,
   textoBoton = "Guardar",
+  accionExtra = null,
 }) {
   const [valores, setValores] = useState({
     nombres: datos.nombres ?? "",
@@ -285,6 +286,7 @@ export function FormularioMisDatos({
         </div>
       )}
       <div className="col-12 mz-actions justify-content-end">
+        {accionExtra}
         <button type="submit" className="btn btn-primary" disabled={guardando}>
           {guardando ? "Guardando…" : textoBoton}
         </button>

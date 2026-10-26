@@ -70,14 +70,16 @@ function Ventana({ datos, onGuardado, onSalir }) {
             datos={datos}
             onGuardado={onGuardado}
             textoBoton="Guardar y continuar"
+            accionExtra={
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={onSalir}
+              >
+                <Icon name="box-arrow-right" /> Cerrar sesión
+              </button>
+            }
           />
-          <button
-            type="button"
-            className="btn btn-link btn-sm px-0 align-self-start"
-            onClick={onSalir}
-          >
-            <Icon name="box-arrow-right" /> Cerrar sesión
-          </button>
         </div>
       </div>
     </div>
