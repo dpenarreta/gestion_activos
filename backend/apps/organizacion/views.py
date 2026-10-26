@@ -1301,7 +1301,12 @@ class HerramientaViewSet(viewsets.ModelViewSet):
         usuario = User.objects.filter(pk=entrada.validated_data["usuario"]).first()
         if usuario is None:
             raise Http404("No se encontró la persona.")
-        lista = herramientas.dar_acceso(herramienta, usuario, entrada.validated_data["cuenta"])
+        lista = herramientas.dar_acceso(
+            herramienta,
+            usuario,
+            entrada.validated_data["cuenta"],
+            entrada.validated_data["detalle"],
+        )
         self._auditar_acceso("dado", herramienta, usuario)
         return Response(lista)
 

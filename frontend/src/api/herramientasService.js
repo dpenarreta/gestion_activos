@@ -17,9 +17,9 @@ export const herramientasService = {
     return apiClient.get(`${BASE}${id}/usuarios/`).then((r) => r.data);
   },
   /** Da acceso a una persona (se ve en sus «Mis herramientas»). */
-  darAcceso(id, usuario, cuenta = "") {
+  darAcceso(id, usuario, cuenta = "", detalle = "") {
     return apiClient
-      .post(`${BASE}${id}/usuarios/`, { usuario, cuenta })
+      .post(`${BASE}${id}/usuarios/`, { usuario, cuenta, detalle })
       .then((r) => r.data);
   },
   quitarAcceso(id, usuario) {

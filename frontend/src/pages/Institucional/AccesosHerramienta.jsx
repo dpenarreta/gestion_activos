@@ -14,6 +14,7 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
   const [resultados, setResultados] = useState([]);
   const [elegida, setElegida] = useState(null);
   const [cuenta, setCuenta] = useState("");
+  const [detalle, setDetalle] = useState("");
   const [error, setError] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
 
@@ -64,12 +65,18 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
   async function agregar() {
     if (!elegida) return;
     const hecho = await hacer(() =>
-      herramientasService.darAcceso(herramienta.id, elegida.id, cuenta),
+      herramientasService.darAcceso(
+        herramienta.id,
+        elegida.id,
+        cuenta,
+        detalle,
+      ),
     );
     if (hecho) {
       setElegida(null);
       setBuscar("");
       setCuenta("");
+      setDetalle("");
     }
   }
 
@@ -100,7 +107,12 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
                 {u.nombre}
                 <small className="mz-faint"> · {u.correo}</small>
                 {u.cuenta && (
-                  <small className="mz-faint"> · cuenta: {u.cuenta}</small>
+                  <small className="mz-faint"> · usuario: {u.cuenta}</small>
+                )}
+                {u.detalle && (
+                  <small className="mis-herramientas__detalle">
+                    {u.detalle}
+                  </small>
                 )}
                 {!u.activo && (
                   <span className="perfil-cargo-estado perfil-cargo-estado--vacio ms-2">
@@ -183,20 +195,34 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
         </div>
         <div>
           <label className="form-label mz-small" htmlFor="accesos-cuenta">
-            Cuenta o usuario (opcional)
+            Usuario en la herramienta <span className="text-danger">*</span>
           </label>
           <input
             id="accesos-cuenta"
             className="form-control form-control-sm"
+            required
             maxLength={150}
+            placeholder="Nombre de usuario"
             value={cuenta}
             onChange={(e) => setCuenta(e.target.value)}
+          />
+        </div>
+        <div className="accesos-herramienta__detalle">
+          <label className="form-label mz-small" htmlFor="accesos-detalle">
+            Detalle o descripción (opcional)
+          </label>
+          <input
+            id="accesos-detalle"
+            className="form-control form-control-sm"
+            maxLength={500}
+            value={detalle}
+            onChange={(e) => setDetalle(e.target.value)}
           />
         </div>
         <button
           type="button"
           className="btn btn-primary btn-sm align-self-end"
-          disabled={!elegida || trabajando}
+          disabled={!elegida || !cuenta.trim() || trabajando}
           onClick={agregar}
         >
           <Icon name="person-plus" /> Agregar

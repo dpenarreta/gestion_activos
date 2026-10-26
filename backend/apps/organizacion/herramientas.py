@@ -4,6 +4,10 @@ Geolaar, Zimbra…).
 
 - El **catálogo** lo mantiene quien tiene `herramientas.gestionar`.
 - Cada persona declara en «Mi perfil» cuáles usa y con qué cuenta.
+- Al cargar una herramienta a una persona (ella misma o quien gestiona) se
+  pide **el nombre de usuario** que tiene en esa herramienta, obligatorio, y
+  un **detalle** opcional (26/10/2026). Los registros anteriores sin usuario
+  se conservan, pero no se vuelven a guardar sin él.
 - Quien gestiona ve **quién usa cada herramienta**: es lo que se necesita al
   hacer una requisición para desactivar, reasignar o pedir licencias nuevas.
   Desde el catálogo también da y quita el acceso a cada persona: es el mismo
@@ -38,9 +42,18 @@ def catalogo(solo_activas=True) -> list[dict]:
     return [_herramienta(h) for h in consulta.order_by("tipo", "orden", "nombre")]
 
 
+LARGO_CUENTA = 150
+LARGO_DETALLE = 500
+FALTA_CUENTA = "Escriba el nombre de usuario de la persona en la herramienta."
+
+
+def _limpio(texto, largo) -> str:
+    return (texto or "").strip()[:largo]
+
+
 def mias(usuario) -> list[dict]:
     return [
-        {**_herramienta(u.herramienta), "cuenta": u.cuenta}
+        {**_herramienta(u.herramienta), "cuenta": u.cuenta, "detalle": u.detalle}
         for u in HerramientaDeUsuario.objects.filter(usuario=usuario)
         .select_related("herramienta")
         .order_by("herramienta__tipo", "herramienta__orden", "herramienta__nombre")
@@ -49,7 +62,8 @@ def mias(usuario) -> list[dict]:
 
 def guardar_mias(usuario, elegidas: list[dict]) -> list[dict]:
     """Reemplaza las herramientas de la persona por las elegidas
-    (`[{herramienta: id, cuenta: str}]`). Solo del catálogo activo."""
+    (`[{herramienta: id, cuenta: str, detalle: str}]`). Solo del catálogo
+    activo, y cada una con su nombre de usuario."""
     ids = [e["herramienta"] for e in elegidas]
     if len(ids) != len(set(ids)):
         raise ValidationError({"herramientas": "Una herramienta aparece dos veces."})
@@ -57,6 +71,15 @@ def guardar_mias(usuario, elegidas: list[dict]) -> list[dict]:
     faltan = set(ids) - set(validas)
     if faltan:
         raise ValidationError({"herramientas": "Alguna herramienta no está en el catálogo."})
+    sin_cuenta = [
+        validas[e["herramienta"]].nombre
+        for e in elegidas
+        if not _limpio(e.get("cuenta"), LARGO_CUENTA)
+    ]
+    if sin_cuenta:
+        raise ValidationError(
+            {"herramientas": f"Escriba su nombre de usuario en: {', '.join(sin_cuenta)}."}
+        )
     with transaction.atomic():
         actuales = {
             u.herramienta_id: u for u in HerramientaDeUsuario.objects.filter(usuario=usuario)
@@ -65,15 +88,19 @@ def guardar_mias(usuario, elegidas: list[dict]) -> list[dict]:
             if herramienta_id not in validas:
                 registro.delete()
         for e in elegidas:
-            cuenta = (e.get("cuenta") or "").strip()[:150]
+            cuenta = _limpio(e.get("cuenta"), LARGO_CUENTA)
+            detalle = _limpio(e.get("detalle"), LARGO_DETALLE)
             registro = actuales.get(e["herramienta"])
             if registro is None:
                 HerramientaDeUsuario.objects.create(
-                    usuario=usuario, herramienta=validas[e["herramienta"]], cuenta=cuenta
+                    usuario=usuario,
+                    herramienta=validas[e["herramienta"]],
+                    cuenta=cuenta,
+                    detalle=detalle,
                 )
-            elif registro.cuenta != cuenta:
-                registro.cuenta = cuenta
-                registro.save(update_fields=["cuenta", "updated_at"])
+            elif (registro.cuenta, registro.detalle) != (cuenta, detalle):
+                registro.cuenta, registro.detalle = cuenta, detalle
+                registro.save(update_fields=["cuenta", "detalle", "updated_at"])
     return mias(usuario)
 
 
@@ -89,6 +116,7 @@ def uso() -> list[dict]:
                 "nombre": u.usuario.get_full_name().strip() or u.usuario.username,
                 "correo": u.usuario.email,
                 "cuenta": u.cuenta,
+                "detalle": u.detalle,
                 "activo": u.usuario.is_active,
             }
         )
@@ -141,6 +169,7 @@ def _persona(u) -> dict:
         "nombre": u.usuario.get_full_name().strip() or u.usuario.username,
         "correo": u.usuario.email,
         "cuenta": u.cuenta,
+        "detalle": u.detalle,
         "activo": u.usuario.is_active,
     }
 
@@ -154,21 +183,26 @@ def usuarios_de(herramienta) -> list[dict]:
     ]
 
 
-def dar_acceso(herramienta, usuario, cuenta="") -> list[dict]:
+def dar_acceso(herramienta, usuario, cuenta="", detalle="") -> list[dict]:
     """Da (o actualiza) el acceso de una persona de la empresa a la
-    herramienta; se refleja en sus «Mis herramientas»."""
+    herramienta, con su nombre de usuario en ella (obligatorio) y un detalle
+    opcional; se refleja en sus «Mis herramientas»."""
     from apps.chat.services import personas_de_la_empresa
 
     if not personas_de_la_empresa().filter(pk=usuario.pk).exists():
         raise ValidationError({"usuario": "Esa persona no trabaja en esta empresa."})
     if not herramienta.activa:
         raise ValidationError({"herramienta": "La herramienta está desactivada."})
+    cuenta = _limpio(cuenta, LARGO_CUENTA)
+    detalle = _limpio(detalle, LARGO_DETALLE)
+    if not cuenta:
+        raise ValidationError({"cuenta": FALTA_CUENTA})
     registro, creado = HerramientaDeUsuario.objects.get_or_create(
-        usuario=usuario, herramienta=herramienta, defaults={"cuenta": cuenta.strip()[:150]}
+        usuario=usuario, herramienta=herramienta, defaults={"cuenta": cuenta, "detalle": detalle}
     )
-    if not creado and registro.cuenta != cuenta.strip()[:150]:
-        registro.cuenta = cuenta.strip()[:150]
-        registro.save(update_fields=["cuenta", "updated_at"])
+    if not creado and (registro.cuenta, registro.detalle) != (cuenta, detalle):
+        registro.cuenta, registro.detalle = cuenta, detalle
+        registro.save(update_fields=["cuenta", "detalle", "updated_at"])
     return usuarios_de(herramienta)
 
 

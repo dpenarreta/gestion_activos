@@ -60,19 +60,28 @@ describe("Mis herramientas", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Editar/ }));
     const ventana = screen.getByRole("dialog", { name: "Mis herramientas" });
-    expect(
-      within(ventana).getByLabelText("Cuenta o usuario en Claude"),
-    ).toHaveValue("rosa@grupolaar.com");
-    fireEvent.click(within(ventana).getByRole("checkbox", { name: "Zimbra" }));
-    fireEvent.change(
-      within(ventana).getByLabelText("Cuenta o usuario en Zimbra"),
-      { target: { value: "rvera" } },
+    expect(within(ventana).getByLabelText("Su usuario en Claude")).toHaveValue(
+      "rosa@grupolaar.com",
     );
+    fireEvent.click(within(ventana).getByRole("checkbox", { name: "Zimbra" }));
+    // El usuario es obligatorio; el detalle, no.
+    expect(
+      within(ventana).getByLabelText("Su usuario en Zimbra"),
+    ).toBeRequired();
+    expect(
+      within(ventana).getByLabelText("Detalle de Zimbra"),
+    ).not.toBeRequired();
+    fireEvent.change(within(ventana).getByLabelText("Su usuario en Zimbra"), {
+      target: { value: "rvera" },
+    });
+    fireEvent.change(within(ventana).getByLabelText("Detalle de Zimbra"), {
+      target: { value: "Correo interno" },
+    });
     fireEvent.click(within(ventana).getByRole("button", { name: "Guardar" }));
     await waitFor(() =>
       expect(misDatos.guardarHerramientas).toHaveBeenCalledWith([
-        { herramienta: 1, cuenta: "rosa@grupolaar.com" },
-        { herramienta: 3, cuenta: "rvera" },
+        { herramienta: 1, cuenta: "rosa@grupolaar.com", detalle: "" },
+        { herramienta: 3, cuenta: "rvera", detalle: "Correo interno" },
       ]),
     );
     expect(
@@ -201,15 +210,26 @@ describe("Personas con acceso, desde el catálogo", () => {
     fireEvent.click(
       within(ventana).getByRole("option", { name: /Pedro Mora/ }),
     );
+    // Sin su usuario en la herramienta no se agrega.
+    const agregar = within(ventana).getByRole("button", { name: /Agregar$/ });
+    expect(agregar).toBeDisabled();
     fireEvent.change(
-      within(ventana).getByLabelText("Cuenta o usuario (opcional)"),
-      {
-        target: { value: "pmora" },
-      },
+      within(ventana).getByLabelText(/Usuario en la herramienta/),
+      { target: { value: "pmora" } },
     );
-    fireEvent.click(within(ventana).getByRole("button", { name: /Agregar$/ }));
+    fireEvent.change(
+      within(ventana).getByLabelText("Detalle o descripción (opcional)"),
+      { target: { value: "Licencia Pro" } },
+    );
+    expect(agregar).toBeEnabled();
+    fireEvent.click(agregar);
     await waitFor(() =>
-      expect(servicio.darAcceso).toHaveBeenCalledWith(1, 12, "pmora"),
+      expect(servicio.darAcceso).toHaveBeenCalledWith(
+        1,
+        12,
+        "pmora",
+        "Licencia Pro",
+      ),
     );
     expect(
       await within(ventana).findByText("Personas con acceso (2)"),

@@ -216,3 +216,23 @@
   font-weight: 600;
   text-transform: uppercase;
 }
+
+/* Su usuario en la herramienta (obligatorio) y un detalle (opcional). */
+.mis-herramientas__datos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .mis-herramientas__datos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mis-herramientas__detalle {
+  display: block;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+  white-space: pre-wrap;
+}

@@ -17,9 +17,15 @@ function Editor({ catalogo, mias, base = [], onGuardado, onCerrar }) {
     isOpen: true,
     onRequestClose: onCerrar,
   });
-  // herramienta id → cuenta, para las marcadas.
+  // herramienta id → { cuenta, detalle }, para las marcadas.
   const [elegidas, setElegidas] = useState(
-    () => new Map(mias.map((h) => [h.id, h.cuenta ?? ""])),
+    () =>
+      new Map(
+        mias.map((h) => [
+          h.id,
+          { cuenta: h.cuenta ?? "", detalle: h.detalle ?? "" },
+        ]),
+      ),
   );
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
@@ -28,9 +34,15 @@ function Editor({ catalogo, mias, base = [], onGuardado, onCerrar }) {
     setElegidas((actual) => {
       const nuevas = new Map(actual);
       if (nuevas.has(id)) nuevas.delete(id);
-      else nuevas.set(id, "");
+      else nuevas.set(id, { cuenta: "", detalle: "" });
       return nuevas;
     });
+  }
+
+  function cambiar(id, campo, valor) {
+    setElegidas((actual) =>
+      new Map(actual).set(id, { ...actual.get(id), [campo]: valor }),
+    );
   }
 
   async function guardar(evento) {
@@ -40,9 +52,10 @@ function Editor({ catalogo, mias, base = [], onGuardado, onCerrar }) {
     try {
       onGuardado(
         await misDatosService.guardarHerramientas(
-          [...elegidas].map(([herramienta, cuenta]) => ({
+          [...elegidas].map(([herramienta, { cuenta, detalle }]) => ({
             herramienta,
             cuenta,
+            detalle,
           })),
         ),
       );
@@ -70,8 +83,8 @@ function Editor({ catalogo, mias, base = [], onGuardado, onCerrar }) {
           <div>
             <h3 id="mis-herramientas-titulo">Mis herramientas</h3>
             <p className="mz-desc">
-              Marque las que usa para su trabajo y, si tiene, con qué cuenta o
-              usuario.
+              Marque las que usa para su trabajo y escriba su nombre de usuario
+              en cada una. El detalle es opcional.
             </p>
           </div>
           <button
@@ -119,18 +132,29 @@ function Editor({ catalogo, mias, base = [], onGuardado, onCerrar }) {
                         </span>
                       </label>
                       {marcada && (
-                        <input
-                          className="form-control form-control-sm"
-                          aria-label={`Cuenta o usuario en ${h.nombre}`}
-                          placeholder="Cuenta o usuario (opcional)"
-                          maxLength={150}
-                          value={elegidas.get(h.id)}
-                          onChange={(e) =>
-                            setElegidas((actual) =>
-                              new Map(actual).set(h.id, e.target.value),
-                            )
-                          }
-                        />
+                        <div className="mis-herramientas__datos">
+                          <input
+                            className="form-control form-control-sm"
+                            aria-label={`Su usuario en ${h.nombre}`}
+                            placeholder="Su usuario en la herramienta (obligatorio)"
+                            required
+                            maxLength={150}
+                            value={elegidas.get(h.id).cuenta}
+                            onChange={(e) =>
+                              cambiar(h.id, "cuenta", e.target.value)
+                            }
+                          />
+                          <input
+                            className="form-control form-control-sm"
+                            aria-label={`Detalle de ${h.nombre}`}
+                            placeholder="Detalle o descripción (opcional)"
+                            maxLength={500}
+                            value={elegidas.get(h.id).detalle}
+                            onChange={(e) =>
+                              cambiar(h.id, "detalle", e.target.value)
+                            }
+                          />
+                        </div>
                       )}
                     </div>
                   );
@@ -272,8 +296,18 @@ export function MisHerramientas() {
                       {lista.map((h) => (
                         <li key={h.id}>
                           <strong>{h.nombre}</strong>
-                          {h.cuenta && (
+                          {h.cuenta ? (
                             <small className="mz-faint"> · {h.cuenta}</small>
+                          ) : (
+                            <small className="text-danger">
+                              {" "}
+                              · falta su usuario
+                            </small>
+                          )}
+                          {h.detalle && (
+                            <small className="mis-herramientas__detalle">
+                              {h.detalle}
+                            </small>
                           )}
                         </li>
                       ))}

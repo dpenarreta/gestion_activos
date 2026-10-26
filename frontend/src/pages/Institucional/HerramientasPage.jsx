@@ -306,7 +306,12 @@ export function HerramientasPage() {
                           </span>
                           {u.cuenta && (
                             <small className="mz-faint">
-                              Cuenta: {u.cuenta}
+                              Usuario: {u.cuenta}
+                            </small>
+                          )}
+                          {u.detalle && (
+                            <small className="mis-herramientas__detalle">
+                              {u.detalle}
                             </small>
                           )}
                         </li>

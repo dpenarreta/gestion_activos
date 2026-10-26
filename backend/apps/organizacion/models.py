@@ -544,13 +544,16 @@ class Herramienta(ModeloDeEmpresa):
 
 class HerramientaDeUsuario(ModeloDeEmpresa):
     """Una herramienta que usa una persona, con la cuenta o usuario de su
-    licencia. La declara ella en «Mi perfil»."""
+    licencia (obligatorio desde el 26/10/2026) y, si hace falta, un detalle.
+    La declara ella en «Mi perfil» o se la da quien gestiona el catálogo."""
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
     )
     herramienta = models.ForeignKey(Herramienta, on_delete=models.CASCADE, related_name="usos")
     cuenta = models.CharField(max_length=150, blank=True)
+    #: Para qué la usa, el tipo de licencia u otra aclaración (opcional).
+    detalle = models.CharField(max_length=500, blank=True)
 
     class Meta:
         constraints = [

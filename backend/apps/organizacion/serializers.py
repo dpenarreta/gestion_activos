@@ -704,6 +704,7 @@ class HerramientaSerializer(serializers.ModelSerializer):
 class MiHerramientaSerializer(serializers.Serializer):
     herramienta = serializers.IntegerField()
     cuenta = serializers.CharField(max_length=150, allow_blank=True, default="")
+    detalle = serializers.CharField(max_length=500, allow_blank=True, default="")
 
 
 class MisHerramientasSerializer(serializers.Serializer):
@@ -713,3 +714,4 @@ class MisHerramientasSerializer(serializers.Serializer):
 class AccesoHerramientaSerializer(serializers.Serializer):
     usuario = serializers.IntegerField()
     cuenta = serializers.CharField(max_length=150, allow_blank=True, default="")
+    detalle = serializers.CharField(max_length=500, allow_blank=True, default="")

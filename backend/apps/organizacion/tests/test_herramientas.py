@@ -121,3 +121,70 @@ def test_desde_el_catalogo_se_da_y_quita_el_acceso_y_se_ve_en_mis_herramientas(d
     quitado = ti.delete(f"{url}{rosa.id}/")
     assert quitado.status_code == 200 and quitado.json() == []
     assert cliente_rosa.get(f"{BASE}mis-datos/herramientas/").json()["mias"] == []
+
+
+# --- El usuario en la herramienta es obligatorio; el detalle, no (26/10/2026) ----------
+
+
+def test_desde_el_catalogo_sin_usuario_no_se_da_el_acceso(db):
+    _, ti = _cuenta("ti", "herramientas.gestionar")
+    ids = _catalogo(ti)
+    rosa, cliente_rosa = _cuenta("rosa")
+    url = f"{BASE}herramientas/{ids['Claude']}/usuarios/"
+
+    for cuenta in ("", "   "):
+        sin = ti.post(url, {"usuario": rosa.id, "cuenta": cuenta}, format="json")
+        assert sin.status_code == 400
+        assert "nombre de usuario" in str(sin.data)
+    assert ti.get(url).json() == []
+
+    dado = ti.post(
+        url,
+        {"usuario": rosa.id, "cuenta": "rvera", "detalle": "Licencia Pro para el área"},
+        format="json",
+    )
+    assert dado.status_code == 200, dado.data
+    assert [(p["cuenta"], p["detalle"]) for p in dado.json()] == [
+        ("rvera", "Licencia Pro para el área")
+    ]
+    mias = cliente_rosa.get(f"{BASE}mis-datos/herramientas/").json()["mias"]
+    assert [(h["cuenta"], h["detalle"]) for h in mias] == [("rvera", "Licencia Pro para el área")]
+    uso = {h["nombre"]: h["usuarios"] for h in ti.get(f"{BASE}herramientas-uso/").json()}
+    assert uso["Claude"][0]["detalle"] == "Licencia Pro para el área"
+
+
+def test_en_mis_herramientas_cada_una_pide_su_usuario(db):
+    _, ti = _cuenta("ti", "herramientas.gestionar")
+    ids = _catalogo(ti)
+    _, cliente = _cuenta("rosa")
+    url = f"{BASE}mis-datos/herramientas/"
+
+    sin = cliente.put(
+        url,
+        {
+            "herramientas": [
+                {"herramienta": ids["Claude"], "cuenta": "rvera"},
+                {"herramienta": ids["Zimbra"], "cuenta": ""},
+            ]
+        },
+        format="json",
+    )
+    assert sin.status_code == 400
+    assert "Escriba su nombre de usuario en: Zimbra." in str(sin.data)
+    assert cliente.get(url).json()["mias"] == []
+
+    con = cliente.put(
+        url,
+        {
+            "herramientas": [
+                {"herramienta": ids["Claude"], "cuenta": "rvera", "detalle": ""},
+                {"herramienta": ids["Zimbra"], "cuenta": "rvera", "detalle": " Correo interno "},
+            ]
+        },
+        format="json",
+    )
+    assert con.status_code == 200, con.data
+    assert [(h["nombre"], h["detalle"]) for h in con.json()["mias"]] == [
+        ("Claude", ""),
+        ("Zimbra", "Correo interno"),
+    ]
