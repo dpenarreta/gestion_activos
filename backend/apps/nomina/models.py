@@ -5,7 +5,8 @@ sale de su sesión (no se escribe). Para verlo acepta, en cada consulta, unos
 términos parametrizables («soy el propietario de este rol…») y confirma con la
 contraseña de su cuenta. El PDF se arma al vuelo desde un procedimiento
 almacenado y **no se guarda**; si lo envía a su correo personal, se vuelve a
-generar. Talento Humano consulta el de otras personas con
+generar. Cuando la persona acepta su rol, sus datos sí quedan guardados como
+constancia (`RolAceptado`, 26/10/2026) y ese mes ya sale de ahí. Talento Humano consulta el de otras personas con
 `roles_pago.consultar_todos`.
 """
 
@@ -18,6 +19,15 @@ from django.db import models
 from apps.empresas.models import ModeloDeEmpresa
 
 TERMINOS_POR_DEFECTO = (
+    "Declaro que soy el titular del rol de pagos que voy a consultar y que la "
+    "información que contiene es personal y confidencial. Me comprometo a no "
+    "compartirla con terceros. Entiendo que esta consulta queda registrada con "
+    "su fecha, hora y dirección de red, y que, si acepto mi rol de pagos, el rol "
+    "que acepté queda guardado como constancia."
+)
+#: El texto por defecto hasta el 26/10/2026, cuando el rol aceptado empezó a
+#: guardarse (la migración 0006 lo cambia si nadie lo había personalizado).
+TERMINOS_ANTERIORES = (
     "Declaro que soy el titular del rol de pagos que voy a consultar y que la "
     "información que contiene es personal y confidencial. Me comprometo a no "
     "compartirla con terceros. Entiendo que esta consulta queda registrada con "
@@ -62,6 +72,9 @@ class ConsultaRolPagos(ModeloDeEmpresa):
     ip = models.GenericIPAddressField(null=True, blank=True)
     navegador = models.CharField(max_length=300, blank=True)
     envios = models.PositiveSmallIntegerField(default=0)
+    #: La huella de los datos del rol que mostró (no el rol): al aceptarlo se
+    #: comprueba que nómina no lo cambió desde entonces (`aceptado.py`).
+    huella_rol = models.CharField(max_length=64, blank=True)
 
     class Conformidad(models.TextChoices):
         CONFORME = "conforme", "Estuvo de acuerdo"
@@ -81,6 +94,35 @@ class ConsultaRolPagos(ModeloDeEmpresa):
         ordering = ["-created_at"]
         verbose_name = "consulta del rol de pagos"
         verbose_name_plural = "consultas del rol de pagos"
+
+
+class RolAceptado(ModeloDeEmpresa):
+    """El rol de pagos que la persona aceptó (26/10/2026): sus datos —rubros
+    y montos, no el PDF— tal como los vio. Desde entonces ese mes sale de
+    aquí y no de nómina, y la aceptación es definitiva. Uno por código y mes.
+    Lo ven la persona y Talento Humano con permiso (`aceptado.py`)."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    codigo_empleado = models.CharField(max_length=40)
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    consulta = models.OneToOneField(
+        ConsultaRolPagos, on_delete=models.PROTECT, related_name="rol_aceptado"
+    )
+    datos = models.JSONField()
+    huella = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "codigo_empleado", "anio", "mes"],
+                name="un_rol_aceptado_por_codigo_y_mes",
+            )
+        ]
+        verbose_name = "rol de pagos aceptado"
+        verbose_name_plural = "roles de pagos aceptados"
 
 
 class ObservacionRolPagos(ModeloDeEmpresa):

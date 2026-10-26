@@ -150,6 +150,13 @@ export function VisorRolPagos({
                   </span>
                 )}
                 .
+                {conformidad.conformidad !== "observacion" && (
+                  <span className="d-block mz-small mz-faint">
+                    La aceptación es definitiva: este es el rol que aceptó y
+                    queda guardado como constancia. Si encuentra algo, coméntelo
+                    con Talento Humano.
+                  </span>
+                )}
               </p>
             ) : observando ? (
               <div className="visor-rol__observacion">

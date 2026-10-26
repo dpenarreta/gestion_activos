@@ -1136,4 +1136,43 @@ describe("Consultar rol de pagos", () => {
       ),
     );
   });
+
+  it("si ya aceptó ese mes, ve la aceptación y no se le vuelve a preguntar", async () => {
+    servicio.consultar.mockResolvedValue({
+      blob: new Blob(["%PDF"]),
+      consulta: 50,
+      aceptado: {
+        conformidad: "conforme",
+        conformidad_display: "Estuvo de acuerdo",
+        dia: "lunes",
+        fecha: "05/10/2026",
+        hora: "09:10:00",
+        ip: "10.0.2.80",
+      },
+    });
+    const ventana = await consultar();
+    fireEvent.click(within(ventana).getByRole("checkbox"));
+    fireEvent.change(
+      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      {
+        target: { value: "secreta" },
+      },
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Ver rol de pagos" }),
+    );
+    const visor = await screen.findByRole("dialog", {
+      name: "Rol de pagos · Septiembre 2026",
+    });
+    expect(within(visor).getByText("Estuvo de acuerdo")).toBeInTheDocument();
+    expect(
+      within(visor).getByText(/La aceptación es definitiva/),
+    ).toBeInTheDocument();
+    expect(
+      within(visor).queryByRole("button", { name: /Estoy de acuerdo/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(visor).queryByRole("button", { name: /Tengo una observación/ }),
+    ).not.toBeInTheDocument();
+  });
 });

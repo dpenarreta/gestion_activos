@@ -563,7 +563,8 @@ export function RolPagosPage() {
           <p className="mz-desc">
             Elija el año y el mes. Para verlo, acepte los términos y confirme
             con la contraseña de su cuenta. El documento no se guarda en el
-            sistema.
+            sistema; cuando acepta su rol, ese rol queda guardado como
+            constancia y es el que verá desde entonces.
           </p>
         </div>
         {(estado?.puede_configurar ||
@@ -917,16 +918,17 @@ export function RolPagosPage() {
             setConfirmando(false);
             setSinRol({ anio: periodo.anio, mes: periodo.mes, mensaje });
           }}
-          onVisto={({ blob, consulta }) => {
+          onVisto={({ blob, consulta, aceptado }) => {
             const codigo = periodo.codigo.trim() || estado.codigo;
             const nuevo = {
               blob,
               consulta,
               anio: periodo.anio,
               mes: periodo.mes,
-              // La conformidad es solo del rol propio.
+              // La conformidad es solo del rol propio. Si ya lo aceptó,
+              // es definitivo: se muestra la aceptación y no se pregunta.
               propio: codigo === estado.codigo,
-              conformidad: null,
+              conformidad: aceptado,
             };
             setConfirmando(false);
             setUltima(nuevo);

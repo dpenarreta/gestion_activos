@@ -14,6 +14,7 @@ Lo que se protege, y cómo se intenta saltarlo:
 """
 
 import datetime
+import json
 
 import pytest
 from django.core import mail
@@ -274,9 +275,23 @@ def test_la_conformidad_con_el_rol_una_vez_y_las_observaciones_a_talento_humano(
     # Una sola vez.
     otra = rosa.post(url, {"consulta": consulta, "conformidad": "observacion"}, format="json")
     assert otra.status_code == 400
+    # Y la aceptación es definitiva: volver a abrir ese mes trae la constancia
+    # y ya no se puede responder (26/10/2026).
+    reabierta = _consultar(rosa)
+    assert json.loads(reabierta["X-Rol-Aceptado"])["conformidad"] == "conforme"
+    tarde = rosa.post(
+        url,
+        {
+            "consulta": reabierta["X-Consulta-Rol"],
+            "conformidad": "observacion",
+            "observacion": "Me di cuenta tarde.",
+        },
+        format="json",
+    )
+    assert tarde.status_code == 400 and "definitiva" in str(tarde.data)
 
     # Una observación pide texto y le llega a Talento Humano (sin montos).
-    segunda = _consultar(rosa)["X-Consulta-Rol"]
+    segunda = _consultar(rosa, mes=8)["X-Consulta-Rol"]
     sin_texto = rosa.post(url, {"consulta": segunda, "conformidad": "observacion"}, format="json")
     assert sin_texto.status_code == 400
     rosa.post(
@@ -288,7 +303,7 @@ def test_la_conformidad_con_el_rol_una_vez_y_las_observaciones_a_talento_humano(
     assert "Faltan horas extra." in aviso.resumen and "$" not in aviso.resumen
 
     # Cerrar sin responder cuenta como conforme, y queda dicho así.
-    tercera = _consultar(rosa)["X-Consulta-Rol"]
+    tercera = _consultar(rosa, mes=7)["X-Consulta-Rol"]
     al_cerrar = rosa.post(
         url, {"consulta": tercera, "conformidad": "conforme_al_cerrar"}, format="json"
     ).json()
@@ -365,14 +380,15 @@ def test_el_flujo_de_una_observacion_hasta_que_se_confirma(db):
     assert "Confirmaron un rol de pagos corregido" in titulos
     assert "Observación al rol de pagos corregida" in titulos
 
-    # Si vuelve a observar, la misma observación se reabre.
+    # Ya aceptó el rol corregido: es definitivo, no puede volver a observar.
     tercera = _consultar(rosa)["X-Consulta-Rol"]
-    rosa.post(
+    otra_vez = rosa.post(
         conformidad,
         {"consulta": tercera, "conformidad": "observacion", "observacion": "Sigue mal."},
         format="json",
     )
-    assert th_cliente.get(f"{lista}{observacion_id}/").json()["estado"] == "abierta"
+    assert otra_vez.status_code == 400
+    assert th_cliente.get(f"{lista}{observacion_id}/").json()["estado"] == "cerrada"
 
 
 def test_el_historial_por_codigo_solo_con_su_permiso(db):

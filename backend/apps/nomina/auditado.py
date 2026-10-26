@@ -29,7 +29,7 @@ from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from . import fuente, pdf
+from . import aceptado, fuente, pdf
 from .models import ConsultaRolPagos, MensajeObservacion, ObservacionRolPagos
 
 #: Cuántos meses se pueden pedir de una vez.
@@ -60,6 +60,8 @@ class Constancia:
     rol: object = None
     #: Por qué no está el rol arriba, si no es que nómina no lo tiene.
     sin_rol: str = ""
+    #: De dónde sale el rol de arriba (el aceptado o nómina).
+    nota_rol: str = ""
 
 
 def _nombre(usuario) -> str:
@@ -332,7 +334,8 @@ def construir(constancia: Constancia, generado_por: str, empresa: str) -> bytes:
     dia, hora = _momento(timezone.now())
     for linea in (
         f"Persona: {constancia.persona} · Código de empleado: {constancia.codigo}",
-        f"Generada por {generado_por} el {dia} a las {hora}. Rol vuelto a generar desde nómina.",
+        f"Generada por {generado_por} el {dia} a las {hora}.",
+        constancia.nota_rol or "Rol vuelto a generar desde nómina.",
         (
             f"Observación del período: {constancia.estado_observacion}."
             if constancia.estado_observacion
@@ -382,6 +385,22 @@ def _periodos(periodos) -> list[tuple[int, int]]:
     return sorted(elegidos)
 
 
+def _nota(rol_aceptado, codigo, anio, mes, empresa) -> str:
+    """De dónde sale el rol de arriba. Si es el aceptado y nómina hoy dice
+    otra cosa, se avisa."""
+    if rol_aceptado is None:
+        return "Rol vuelto a generar desde nómina."
+    dia, hora = _momento(rol_aceptado.created_at)
+    nota = f"Es el rol que la persona aceptó el {dia} a las {hora}, guardado como constancia."
+    try:
+        actual = fuente.obtener(codigo, anio, mes, empresa)
+    except (fuente.RolNoDisponible, fuente.FuenteNoConfigurada):
+        return nota
+    if aceptado.huella(actual) != rol_aceptado.huella:
+        nota += " Atención: hoy nómina tiene valores distintos para este mes."
+    return nota
+
+
 def _nombre_archivo(codigo, anio, mes) -> str:
     return f"Rol auditado - {codigo} - {anio}-{mes:02d} {_nombre_mes(mes)}.pdf"
 
@@ -409,8 +428,9 @@ def generar(actor, codigo, periodos, password) -> dict:
     archivos, omitidos = [], []
     for anio, mes in elegidos:
         sin_rol = ""
+        rol_aceptado = None
         try:
-            rol = fuente.obtener(codigo, anio, mes, empresa)
+            rol, rol_aceptado = aceptado.rol_del_periodo(codigo, anio, mes, empresa)
         except fuente.RolNoDisponible:
             rol = None
         except fuente.FuenteNoConfigurada:
@@ -435,6 +455,7 @@ def generar(actor, codigo, periodos, password) -> dict:
             estado_observacion=observacion.get_estado_display() if observacion else "",
             rol=rol,
             sin_rol=sin_rol,
+            nota_rol=_nota(rol_aceptado, codigo, anio, mes, empresa),
         )
         archivos.append(
             (_nombre_archivo(codigo, anio, mes), construir(constancia, generado_por, empresa))

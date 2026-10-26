@@ -8,15 +8,27 @@ export const nominaService = {
   estado() {
     return apiClient.get(BASE).then((r) => r.data);
   },
-  /** Devuelve `{ blob, consulta }`: el PDF y el número de la consulta (para
-   * enviarlo después al correo). */
+  /** Devuelve `{ blob, consulta, aceptado }`: el PDF, el número de la
+   * consulta (para enviarlo después al correo) y, si ese mes ya lo aceptó, la
+   * constancia de la aceptación (es el rol guardado y no se vuelve a
+   * preguntar). */
   consultar(datos) {
     return apiClient
       .post(`${BASE}consultar/`, datos, { responseType: "blob" })
-      .then((r) => ({
-        blob: r.data,
-        consulta: Number(r.headers["x-consulta-rol"]),
-      }));
+      .then((r) => {
+        let aceptado = null;
+        try {
+          const valor = r.headers?.["x-rol-aceptado"];
+          aceptado = valor ? JSON.parse(valor) : null;
+        } catch {
+          aceptado = null;
+        }
+        return {
+          blob: r.data,
+          consulta: Number(r.headers["x-consulta-rol"]),
+          aceptado,
+        };
+      });
   },
   /** `correo` vacío usa el guardado; `guardar` + `acepto_guardar` lo guarda. */
   enviar(datos) {

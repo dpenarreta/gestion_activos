@@ -1,3 +1,4 @@
+import json
 from urllib.parse import quote
 
 from django.http import FileResponse, Http404, HttpResponse
@@ -156,7 +157,12 @@ class ConsultarView(APIView):
             f'inline; filename="rol-de-pagos-{consulta.anio}-{consulta.mes:02d}.pdf"'
         )
         respuesta["X-Consulta-Rol"] = str(consulta.pk)
-        respuesta["Access-Control-Expose-Headers"] = "X-Consulta-Rol"
+        respuesta["Access-Control-Expose-Headers"] = "X-Consulta-Rol, X-Rol-Aceptado"
+        # Ya lo aceptó: es el rol guardado y la pantalla no vuelve a preguntar.
+        if consulta.aceptacion is not None:
+            constancia = services.constancia_de_conformidad(consulta.aceptacion.consulta)
+            constancia.pop("conformidad_en", None)
+            respuesta["X-Rol-Aceptado"] = json.dumps(constancia, ensure_ascii=True)
         respuesta["Cache-Control"] = "no-store, private"
         respuesta["X-Content-Type-Options"] = "nosniff"
         return respuesta

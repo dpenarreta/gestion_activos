@@ -29,7 +29,7 @@ from apps.core.audit import record_audit_event
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
-from . import fuente, pdf
+from . import aceptado, fuente, pdf
 from .models import ConfiguracionRolPagos, ConsultaRolPagos
 
 VIGENCIA_ENVIO = datetime.timedelta(minutes=15)
@@ -97,7 +97,7 @@ def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=
     if codigo != propio and not consulta_otros(usuario):
         raise PermissionDenied("Solo puede consultar su propio rol de pagos.")
     _validar_periodo(anio, mes)
-    rol = fuente.obtener(codigo, anio, mes, _nombre_empresa())
+    rol, rol_aceptado = aceptado.rol_del_periodo(codigo, anio, mes, _nombre_empresa())
     contenido = pdf.construir(rol)
     consulta = ConsultaRolPagos.objects.create(
         usuario=usuario,
@@ -108,7 +108,11 @@ def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=
         terminos_aceptados=config.terminos,
         ip=ip,
         navegador=(navegador or "")[:300],
+        huella_rol=aceptado.huella(rol),
     )
+    # Si ya lo aceptó, la pantalla muestra la aceptación y no vuelve a
+    # preguntar (no es un campo: va con la respuesta).
+    consulta.aceptacion = rol_aceptado
     return consulta, contenido
 
 
@@ -166,7 +170,9 @@ def enviar(usuario, consulta_id, *, correo="", guardar=False, acepto_guardar=Fal
         if not correo:
             raise ValidationError({"correo": "Escriba el correo al que quiere enviarlo."})
 
-    rol = fuente.obtener(consulta.codigo_empleado, consulta.anio, consulta.mes, _nombre_empresa())
+    rol, _ = aceptado.rol_del_periodo(
+        consulta.codigo_empleado, consulta.anio, consulta.mes, _nombre_empresa()
+    )
     contenido = pdf.construir(rol)
     nombre = f"rol-de-pagos-{consulta.anio}-{consulta.mes:02d}.pdf"
     mensaje = EmailMessage(
@@ -223,6 +229,18 @@ def registrar_conformidad(usuario, consulta_id, conformidad, observacion="", ip=
         raise ValidationError({"detail": "La conformidad es solo del rol propio."})
     if consulta.conformidad:
         raise ValidationError({"detail": "Ya respondió sobre este rol de pagos."})
+    anterior = aceptado.de_periodo(consulta.codigo_empleado, consulta.anio, consulta.mes)
+    if anterior is not None:
+        cuando = constancia_de_conformidad(anterior.consulta)
+        raise ValidationError(
+            {
+                "detail": (
+                    f"Ya aceptó su rol de pagos de este mes el {cuando.get('fecha', '')}: "
+                    "la aceptación es definitiva. Si encuentra algo, coméntelo con "
+                    "Talento Humano."
+                )
+            }
+        )
     if timezone.now() - consulta.created_at > VIGENCIA_CONFORMIDAD:
         raise ValidationError({"detail": "La consulta venció: vuelva a consultar su rol."})
     if conformidad not in ConsultaRolPagos.Conformidad.values:
@@ -230,6 +248,15 @@ def registrar_conformidad(usuario, consulta_id, conformidad, observacion="", ip=
     observacion = (observacion or "").strip()
     if conformidad == ConsultaRolPagos.Conformidad.OBSERVACION and not observacion:
         raise ValidationError({"observacion": "Cuente qué no está correcto."})
+    with transaction.atomic():
+        return _responder(consulta, usuario, conformidad, observacion, ip, navegador)
+
+
+def _responder(consulta, usuario, conformidad, observacion, ip, navegador):
+    # Aceptarlo guarda el rol que aceptó (`aceptado.py`); si nómina lo cambió
+    # desde que lo abrió, se niega aquí y no queda nada a medias.
+    if conformidad != ConsultaRolPagos.Conformidad.OBSERVACION:
+        aceptado.guardar(consulta, _nombre_empresa())
     consulta.conformidad = conformidad
     consulta.conformidad_en = timezone.now()
     consulta.conformidad_ip = ip
@@ -643,7 +670,8 @@ def rol_desde_historial(actor, codigo, anio, mes, password) -> bytes:
     if not codigo:
         raise ValidationError({"codigo": "Falta el código de empleado."})
     _validar_periodo(anio, mes)
-    return pdf.construir(fuente.obtener(codigo, anio, mes, _nombre_empresa()))
+    rol, _ = aceptado.rol_del_periodo(codigo, anio, mes, _nombre_empresa())
+    return pdf.construir(rol)
 
 
 # --- Lista de habilitados (22/10/2026) --------------------------------------------------
@@ -876,7 +904,7 @@ def descarga_masiva(actor, unidad_id, anio, mes, password) -> dict:
             omitidos.append(f"{nombre}: no tiene código de empleado.")
             continue
         try:
-            rol = fuente.obtener(codigo, anio, mes, empresa)
+            rol, _ = aceptado.rol_del_periodo(codigo, anio, mes, empresa)
         except fuente.RolNoDisponible:
             omitidos.append(f"{nombre} ({codigo}): no tiene rol de pagos en ese mes.")
             continue
