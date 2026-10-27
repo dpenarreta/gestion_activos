@@ -25,7 +25,8 @@ function unlockBodyScroll() {
 
 /**
  * Accesibilidad genérica de overlay: foco inicial dentro del panel, trap de
- * Tab/Shift+Tab, cierre con Escape, cierre al hacer click en el backdrop,
+ * Tab/Shift+Tab, cierre con Escape, cierre al hacer click en el backdrop
+ * (solo si se pide con `closeOnBackdrop`),
  * bloqueo de scroll del body mientras está abierto, y retorno de foco al
  * elemento disparador al cerrar. Reutilizado por el sidebar móvil y por
  * cualquier modal/diálogo del panel administrativo.
@@ -34,7 +35,9 @@ export function useModalA11y({
   isOpen,
   onRequestClose,
   closeOnEscape = true,
-  closeOnBackdrop = true,
+  // Un clic fuera de la ventana no la cierra: se perdía lo escrito hasta el
+  // momento (27/10/2026). Solo el menú lateral del teléfono lo pide.
+  closeOnBackdrop = false,
   triggerRef,
   guardClose,
 }) {
@@ -116,9 +119,27 @@ export function useModalA11y({
   }, [isOpen]);
 
   function handleBackdropClick(event) {
-    if (closeOnBackdrop && event.target === event.currentTarget) {
-      requestGuardedClose();
+    if (event.target !== event.currentTarget) {
+      return;
     }
+    if (closeOnBackdrop) {
+      requestGuardedClose();
+      return;
+    }
+    // La ventana no se cierra, pero responde (un rebote breve, como el de
+    // Bootstrap) y el foco no se queda en <body> (auditoría UX/UI, 27/10/2026).
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (!panel.contains(document.activeElement)) panel.focus();
+    panel.classList.remove("mz-modal--rebote");
+    // Forzar el reflujo para que la animación vuelva a empezar.
+    void panel.offsetWidth;
+    panel.classList.add("mz-modal--rebote");
+    panel.addEventListener(
+      "animationend",
+      () => panel.classList.remove("mz-modal--rebote"),
+      { once: true },
+    );
   }
 
   return { panelRef, handleBackdropClick, requestClose: requestGuardedClose };

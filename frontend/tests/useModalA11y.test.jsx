@@ -88,6 +88,46 @@ describe("useModalA11y", () => {
   });
 });
 
+describe("useModalA11y y el clic fuera de la ventana", () => {
+  function ConFondo({ onCerrar, ...opciones }) {
+    const { panelRef, handleBackdropClick } = useModalA11y({
+      isOpen: true,
+      onRequestClose: onCerrar,
+      ...opciones,
+    });
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+      <div data-testid="fondo" onClick={handleBackdropClick}>
+        <div role="dialog" aria-label="Formulario" ref={panelRef} tabIndex={-1}>
+          <input aria-label="Nombre" />
+        </div>
+      </div>
+    );
+  }
+
+  it("no cierra la ventana: se perdería lo escrito", () => {
+    const cerrar = vi.fn();
+    render(<ConFondo onCerrar={cerrar} />);
+    const nombre = screen.getByRole("textbox", { name: "Nombre" });
+    fireEvent.change(nombre, { target: { value: "Algo escrito" } });
+    nombre.blur();
+    fireEvent.click(screen.getByTestId("fondo"));
+    expect(cerrar).not.toHaveBeenCalled();
+    expect(nombre).toHaveValue("Algo escrito");
+    // Responde con un rebote y el foco vuelve a la ventana, no a <body>.
+    const ventana = screen.getByRole("dialog");
+    expect(ventana).toHaveClass("mz-modal--rebote");
+    expect(ventana).toHaveFocus();
+  });
+
+  it("cierra si se pide (el menú lateral del teléfono)", () => {
+    const cerrar = vi.fn();
+    render(<ConFondo onCerrar={cerrar} closeOnBackdrop />);
+    fireEvent.click(screen.getByTestId("fondo"));
+    expect(cerrar).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("useModalA11y con una grilla de foco itinerante", () => {
   it("Tab no se escapa por los botones con tabindex=-1", () => {
     render(

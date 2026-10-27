@@ -84,7 +84,7 @@ export default function InterpretacionDashboardModal({ show, onHide, dashboardId
   }, [show])
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
+    <Modal backdrop="static" show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>Interpretación completa del dashboard</Modal.Title>
       </Modal.Header>

@@ -206,7 +206,7 @@ export default function AgregarComponentePersonalModal({ show, onHide, dashboard
   const tituloValido = titulo.trim().length > 0
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
+    <Modal backdrop="static" show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>Agregar a la Zona Personal</Modal.Title>
       </Modal.Header>

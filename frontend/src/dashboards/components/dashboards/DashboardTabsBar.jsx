@@ -31,7 +31,7 @@ function ModalCrearPestana({ show, onHide, onCreada }) {
   }
 
   return (
-    <Modal show={show} onHide={limpiarYCerrar}>
+    <Modal backdrop="static" show={show} onHide={limpiarYCerrar}>
       <Modal.Header closeButton>
         <Modal.Title>Nueva pestaña</Modal.Title>
       </Modal.Header>
@@ -86,7 +86,7 @@ function ModalEditarPestana({ show, pestana, onHide, onEditada }) {
   }
 
   return (
-    <Modal show={show} onHide={cerrar}>
+    <Modal backdrop="static" show={show} onHide={cerrar}>
       <Modal.Header closeButton>
         <Modal.Title>Editar pestaña</Modal.Title>
       </Modal.Header>
@@ -132,7 +132,7 @@ function ModalEliminarPestana({ show, pestana, onHide, onEliminada }) {
   }
 
   return (
-    <Modal show={show} onHide={cerrar}>
+    <Modal backdrop="static" show={show} onHide={cerrar}>
       <Modal.Header closeButton>
         <Modal.Title>Eliminar pestaña</Modal.Title>
       </Modal.Header>

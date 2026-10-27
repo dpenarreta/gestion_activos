@@ -1053,6 +1053,31 @@ body {
   width: min(880px, 96vw);
 }
 
+/* Clic fuera de la ventana: no se cierra (se perdería lo escrito), rebota. */
+.mz-modal--rebote {
+  animation: mz-rebote 180ms ease-out;
+}
+
+@keyframes mz-rebote {
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-modal--rebote {
+    animation: mz-realce 400ms ease-out;
+  }
+
+  @keyframes mz-realce {
+    50% {
+      box-shadow:
+        0 0 0 3px var(--mz-action),
+        var(--mz-shadow-3);
+    }
+  }
+}
+
 @keyframes mz-slidein {
   from {
     transform: translateX(24px);

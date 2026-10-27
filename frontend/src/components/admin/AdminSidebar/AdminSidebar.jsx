@@ -159,6 +159,7 @@ export function AdminSidebar({
     isOpen: isMobileOpen,
     onRequestClose: onMobileClose,
     triggerRef: mobileTriggerRef,
+    closeOnBackdrop: true,
   });
 
   function handleNavigate(event, path) {

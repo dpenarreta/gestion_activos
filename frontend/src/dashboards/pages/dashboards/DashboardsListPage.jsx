@@ -39,7 +39,7 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
   }
 
   return (
-    <Modal show={show} onHide={limpiarYCerrar}>
+    <Modal backdrop="static" show={show} onHide={limpiarYCerrar}>
       <Modal.Header closeButton>
         <Modal.Title>Crear dashboard</Modal.Title>
       </Modal.Header>
@@ -183,7 +183,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
   ].filter(Boolean)
 
   return (
-    <Modal show={show} onHide={cerrar} size={puedeAdministrarAcceso ? 'lg' : undefined}>
+    <Modal backdrop="static" show={show} onHide={cerrar} size={puedeAdministrarAcceso ? 'lg' : undefined}>
       <Modal.Header closeButton>
         <Modal.Title>Editar dashboard</Modal.Title>
       </Modal.Header>
@@ -327,7 +327,7 @@ function ModalEliminarDashboard({ show, dashboard, onHide, onEliminado }) {
   }
 
   return (
-    <Modal show={show} onHide={cerrar}>
+    <Modal backdrop="static" show={show} onHide={cerrar}>
       <Modal.Header closeButton>
         <Modal.Title>Eliminar dashboard</Modal.Title>
       </Modal.Header>

@@ -248,7 +248,7 @@ export default function DashboardHistoricoPage() {
         )}
       </ConfirmModal>
 
-      <Modal show={Boolean(cargaAVer)} onHide={() => setCargaAVer(null)} size="xl" centered scrollable>
+      <Modal backdrop="static" show={Boolean(cargaAVer)} onHide={() => setCargaAVer(null)} size="xl" centered scrollable>
         <Modal.Header closeButton>
           <Modal.Title>{cargaAVer?.nombre_original}</Modal.Title>
         </Modal.Header>

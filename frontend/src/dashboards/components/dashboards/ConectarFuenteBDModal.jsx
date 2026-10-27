@@ -180,7 +180,7 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
   }
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal backdrop="static" show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>Conectar vista de base de datos</Modal.Title>
       </Modal.Header>

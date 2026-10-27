@@ -43,7 +43,7 @@ export default function ConfirmarClaveModal({ show, accion, onConfirmar, onCance
   }
 
   return (
-    <Modal show={show} onHide={onCancelar} centered>
+    <Modal backdrop="static" show={show} onHide={onCancelar} centered>
       <Form onSubmit={confirmar}>
         <Modal.Header closeButton>
           <Modal.Title>Confirmá tu contraseña</Modal.Title>
