@@ -681,8 +681,9 @@
   box-shadow: var(--mz-shadow-1);
 }
 
-/* Siempre 16:5, en cualquier pantalla: así la imagen hecha a la medida
-   publicada (1920 × 600) se ve completa, sin recortes. */
+/* Por defecto 16:5; en Inicio va a 16:10 (`.inicio-destacados`), la medida
+   publicada en MEDIDAS_CARRUSEL (1600 × 1000), para que la imagen hecha a
+   esa medida se vea completa, sin recortes. */
 .carrusel__diapositiva {
   position: relative;
   aspect-ratio: 16 / 5;
@@ -700,10 +701,18 @@
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
   align-items: center;
   justify-content: center;
   font-size: 32px;
   color: var(--mz-ink-faint);
+}
+
+.carrusel__cargando--fallo span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
 }
 
 .carrusel__texto {
@@ -714,8 +723,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 28px 20px 30px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  padding: 28px 20px 34px;
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72) 24px);
   color: #fff;
 }
 
@@ -725,15 +734,14 @@
 
 .carrusel__texto span {
   font-size: 13.5px;
-  opacity: 0.9;
 }
 
 .carrusel__flecha {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
   display: inline-flex;
@@ -762,26 +770,66 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 10px;
+  bottom: 4px;
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
 }
 
+/* El punto se ve de 10 px, pero se toca en 24 × 24 (WCAG 2.5.8). */
 .carrusel__punto {
-  width: 10px;
-  height: 10px;
-  padding: 0;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
   cursor: pointer;
 }
 
-.carrusel__punto.is-active {
-  background: #fff;
+.carrusel__punto::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.carrusel__punto.is-active::before {
   width: 22px;
   border-radius: 999px;
+  background: #fff;
+}
+
+/* Pausar o reanudar: el primer control del carrusel. */
+.carrusel__pausa {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 18px;
+}
+
+.carrusel__pausa:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.carrusel__pausa:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--mz-action);
 }
 
 .carrusel__punto:focus-visible,
@@ -920,6 +968,8 @@
 .inicio-destacados__vacio {
   aspect-ratio: 16 / 10;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
   align-items: center;
   justify-content: center;
   border: 1px dashed var(--mz-border-strong);
@@ -1006,9 +1056,9 @@
   background: var(--mz-sunken);
 }
 
+/* Sin transparencia: con ella quedaban en 2.4:1 (auditoría UX/UI). */
 .calendario__dia--fuera {
   color: var(--mz-ink-faint);
-  opacity: 0.6;
 }
 
 .calendario__dia--hoy span:first-child {
@@ -3129,4 +3179,71 @@
 
 .bitacora-organigrama__previa ul {
   padding-left: 18px;
+}
+
+/* Esqueletos mientras carga (auditoría UX/UI, 27/10/2026). */
+.inicio-esqueleto {
+  border-radius: 14px;
+  background: var(--mz-sunken);
+}
+
+.inicio-esqueleto--carrusel {
+  aspect-ratio: 16 / 10;
+  animation: inicio-esqueleto 1.4s ease-in-out infinite;
+}
+
+.inicio-esqueleto--lineas {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: transparent;
+}
+
+.inicio-esqueleto--lineas > span:not(.visually-hidden) {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--mz-sunken);
+  animation: inicio-esqueleto 1.4s ease-in-out infinite;
+}
+
+.inicio-esqueleto--lineas > span:nth-child(2) {
+  width: 75%;
+}
+
+.inicio-esqueleto--lineas > span:nth-child(3) {
+  width: 55%;
+}
+
+@keyframes inicio-esqueleto {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inicio-esqueleto--carrusel,
+  .inicio-esqueleto--lineas > span {
+    animation: none;
+  }
+}
+
+/* Un aviso con su botón (Reintentar): todo centrado en una línea. */
+.mz-alert--accion {
+  align-items: center;
+}
+
+.carrusel__cargando--fallo small {
+  max-width: 80%;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--mz-ink-soft);
+}
+
+.calendario__grilla[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.inicio-destacados__columna:focus,
+.calendario-resumen__lista:focus {
+  outline: none;
 }

@@ -45,7 +45,13 @@ const { UnsavedChangesProvider } =
   await import("../src/context/UnsavedChangesContext");
 
 const NOTICIAS = [
-  { id: 1, titulo: "Aniversario", descripcion: "20 años", orden: 0 },
+  {
+    id: 1,
+    titulo: "Aniversario",
+    descripcion: "20 años",
+    texto_alternativo: "Afiche del aniversario: 27 de octubre",
+    orden: 0,
+  },
   { id: 2, titulo: "Vacunación", descripcion: "", orden: 1 },
   { id: 3, titulo: "Fiesta de fin de año", descripcion: "", orden: 2 },
 ];
@@ -88,12 +94,12 @@ describe("El carrusel", () => {
 
   it("anterior, siguiente y un punto por imagen", () => {
     pintar(<CarruselNoticias noticias={NOTICIAS} segundos={5} />);
-    fireEvent.click(screen.getByRole("button", { name: "Imagen anterior" }));
+    fireEvent.click(screen.getByRole("button", { name: "Noticia anterior" }));
     expect(diapositiva()).toHaveAccessibleName("3 de 3: Fiesta de fin de año");
-    fireEvent.click(screen.getByRole("button", { name: "Imagen siguiente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Noticia siguiente" }));
     expect(diapositiva()).toHaveAccessibleName("1 de 3: Aniversario");
 
-    const puntos = screen.getAllByRole("button", { name: /Ir a la imagen/ });
+    const puntos = screen.getAllByRole("button", { name: /Ir a la noticia/ });
     expect(puntos).toHaveLength(3);
     fireEvent.click(puntos[1]);
     expect(diapositiva()).toHaveAccessibleName("2 de 3: Vacunación");
@@ -108,6 +114,64 @@ describe("El carrusel", () => {
       vi.advanceTimersByTime(15000);
     });
     expect(diapositiva()).toHaveAccessibleName("1 de 3: Aniversario");
+  });
+
+  it("se pausa con su botón y se reanuda (auditoría UX/UI)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    pintar(<CarruselNoticias noticias={NOTICIAS} segundos={5} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pausar noticias" }));
+    await act(async () => {
+      vi.advanceTimersByTime(15000);
+    });
+    expect(diapositiva()).toHaveAccessibleName("1 de 3: Aniversario");
+    fireEvent.click(screen.getByRole("button", { name: "Reanudar noticias" }));
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(diapositiva()).toHaveAccessibleName("2 de 3: Vacunación");
+  });
+
+  it("no cambia más rápido que cada 5 segundos", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    pintar(<CarruselNoticias noticias={NOTICIAS} segundos={2} />);
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(diapositiva()).toHaveAccessibleName("1 de 3: Aniversario");
+  });
+
+  it("con «reducir movimiento» no avanza solo", async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({ matches: true }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    pintar(<CarruselNoticias noticias={NOTICIAS} segundos={5} />);
+    expect(
+      screen.getByRole("button", { name: "Reanudar noticias" }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      vi.advanceTimersByTime(15000);
+    });
+    expect(diapositiva()).toHaveAccessibleName("1 de 3: Aniversario");
+    window.matchMedia = original;
+  });
+
+  it("si la imagen no carga lo dice, y sin texto alternativo es decorativa", async () => {
+    servicio.imagenNoticia.mockRejectedValueOnce(new Error("404"));
+    pintar(
+      <CarruselNoticias
+        noticias={[{ ...NOTICIAS[0] }, { ...NOTICIAS[1] }]}
+        segundos={5}
+      />,
+    );
+    expect(await screen.findByText("Imagen no disponible")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Noticia siguiente" }));
+    // Sin texto alternativo: alt="" (el título ya se lee en el texto).
+    await waitFor(() =>
+      expect(document.querySelector(".carrusel img")).toHaveAttribute(
+        "alt",
+        "",
+      ),
+    );
   });
 });
 
@@ -126,7 +190,9 @@ describe("En el Inicio", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      await within(carrusel).findByRole("img", { name: "Aniversario" }),
+      await within(carrusel).findByRole("img", {
+        name: "Afiche del aniversario: 27 de octubre",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /Gestionar noticias/ }),
@@ -141,6 +207,23 @@ describe("En el Inicio", () => {
       await screen.findByRole("link", { name: /Gestionar noticias/ }),
     ).toHaveAttribute("href", "/admin/institucional/noticias");
     expect(screen.queryByRole("region", { name: /Noticias/ })).toBeNull();
+    // El vacío ofrece publicar a quien gestiona.
+    expect(
+      screen.getByRole("link", { name: /Publicar una noticia/ }),
+    ).toHaveAttribute("href", "/admin/institucional/noticias");
+  });
+
+  it("si las noticias no cargan lo dice y se puede reintentar", async () => {
+    servicio.noticias.mockRejectedValueOnce(new Error("caída"));
+    pintar(<InicioInstitucional />);
+    expect(
+      await screen.findByText("No pudimos cargar las noticias."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No hay noticias publicadas/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(
+      await screen.findByRole("region", { name: /Noticias/ }),
+    ).toBeInTheDocument();
   });
 });
 

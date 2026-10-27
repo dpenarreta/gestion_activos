@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -67,6 +67,24 @@ function PestanasDeEventos({ grupo, onCambio, cuentas, conTodo = false }) {
           )}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Si las fechas no cargaron: decirlo, y no «sin eventos», que sería falso
+ * (auditoría UX/UI, 27/10/2026). */
+function ErrorDelCalendario({ onReintentar }) {
+  return (
+    <div className="mz-alert mz-alert--bad mz-alert--accion" role="alert">
+      <Icon name="x-octagon" />
+      <span>No pudimos cargar el calendario.</span>
+      <button
+        type="button"
+        className="btn btn-sm btn-outline-danger ms-auto"
+        onClick={onReintentar}
+      >
+        <Icon name="arrow-clockwise" /> Reintentar
+      </button>
     </div>
   );
 }
@@ -158,25 +176,35 @@ export function CalendarioMes({
   );
   const [elegido, setElegido] = useState(hoyIso);
   const [apariciones, setApariciones] = useState([]);
+  const [estado, setEstado] = useState("cargando");
 
   const dias = useMemo(
     () => semanasDelMes(mes.getFullYear(), mes.getMonth()),
     [mes],
   );
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     let vigente = true;
+    setEstado("cargando");
     Promise.resolve(
       institucionalService.calendario?.(iso(dias[0]), iso(dias[41])),
     )
-      .then(
-        (lista) => vigente && setApariciones(Array.isArray(lista) ? lista : []),
-      )
-      .catch(() => vigente && setApariciones([]));
+      .then((lista) => {
+        if (!vigente) return;
+        setApariciones(Array.isArray(lista) ? lista : []);
+        setEstado("listo");
+      })
+      .catch(() => {
+        if (!vigente) return;
+        setApariciones([]);
+        setEstado("error");
+      });
     return () => {
       vigente = false;
     };
   }, [dias]);
+
+  useEffect(() => cargar(), [cargar]);
 
   const delMes = useMemo(
     () =>
@@ -244,8 +272,14 @@ export function CalendarioMes({
         cuentas={contar(delMes)}
         conTodo
       />
+      {estado === "error" && <ErrorDelCalendario onReintentar={cargar} />}
 
-      <div className="calendario__grilla" role="grid" aria-label={titulo}>
+      <div
+        className="calendario__grilla"
+        role="grid"
+        aria-label={titulo}
+        aria-busy={estado === "cargando"}
+      >
         <div className="calendario__fila" role="row">
           {DIAS.map((d) => (
             <span
@@ -274,6 +308,7 @@ export function CalendarioMes({
                   type="button"
                   role="gridcell"
                   aria-selected={clave === elegido}
+                  aria-current={clave === hoyIso ? "date" : undefined}
                   aria-label={`${nombreDia}${
                     eventos.length
                       ? `: ${eventos.map((e) => e.titulo).join(", ")}`
@@ -329,7 +364,11 @@ export function CalendarioMes({
             month: "long",
           })}
         </strong>
-        {delDia.length === 0 ? (
+        {estado === "cargando" ? (
+          <p className="mz-faint mb-0">Cargando fechas…</p>
+        ) : estado === "error" ? (
+          <p className="mz-faint mb-0">No se pudieron cargar las fechas.</p>
+        ) : delDia.length === 0 ? (
           <p className="mz-faint mb-0">
             {grupo === "celebraciones"
               ? "Sin celebraciones este día."
@@ -450,20 +489,35 @@ export function CalendarioInicio({ hoy = new Date() }) {
     new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1),
   );
   const [apariciones, setApariciones] = useState([]);
+  const [estado, setEstado] = useState("cargando");
   const [ampliado, setAmpliado] = useState(false);
+  const lista = useRef(null);
+  const [reintento, setReintento] = useState(false);
   const [grupo, setGrupo] = useState("importantes");
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     let vigente = true;
+    setEstado("cargando");
     Promise.resolve(institucionalService.calendario?.(hoyIso, mananaIso))
-      .then(
-        (lista) => vigente && setApariciones(Array.isArray(lista) ? lista : []),
-      )
-      .catch(() => vigente && setApariciones([]));
+      .then((lista) => {
+        if (!vigente) return;
+        setApariciones(Array.isArray(lista) ? lista : []);
+        setEstado("listo");
+      })
+      .catch(() => vigente && setEstado("error"));
     return () => {
       vigente = false;
     };
   }, [hoyIso, mananaIso]);
+
+  useEffect(() => cargar(), [cargar]);
+
+  useEffect(() => {
+    if (reintento && estado !== "cargando") {
+      lista.current?.focus();
+      setReintento(false);
+    }
+  }, [reintento, estado]);
 
   const mapa = useMemo(() => porDia(apariciones), [apariciones]);
   const deHoy = mapa[hoyIso] ?? [];
@@ -481,19 +535,45 @@ export function CalendarioInicio({ hoy = new Date() }) {
       aria-label="Próximos eventos"
     >
       <PestanasDeEventos grupo={grupo} onCambio={setGrupo} cuentas={cuentas} />
-      <div className="calendario-resumen__lista" role="tabpanel">
-        <ListaDelDia
-          etiqueta="Hoy"
-          fecha={hoyIso}
-          eventos={deHoy.filter((e) => enGrupo(e, grupo))}
-          vacio={vacio}
-        />
-        <ListaDelDia
-          etiqueta="Mañana"
-          fecha={mananaIso}
-          eventos={deManana.filter((e) => enGrupo(e, grupo))}
-          vacio={vacio}
-        />
+      <div
+        className="calendario-resumen__lista"
+        role="tabpanel"
+        ref={lista}
+        tabIndex={-1}
+      >
+        {estado === "cargando" ? (
+          <div
+            className="inicio-esqueleto inicio-esqueleto--lineas"
+            role="status"
+          >
+            <span />
+            <span />
+            <span />
+            <span className="visually-hidden">Cargando el calendario…</span>
+          </div>
+        ) : estado === "error" ? (
+          <ErrorDelCalendario
+            onReintentar={() => {
+              setReintento(true);
+              cargar();
+            }}
+          />
+        ) : (
+          <>
+            <ListaDelDia
+              etiqueta="Hoy"
+              fecha={hoyIso}
+              eventos={deHoy.filter((e) => enGrupo(e, grupo))}
+              vacio={vacio}
+            />
+            <ListaDelDia
+              etiqueta="Mañana"
+              fecha={mananaIso}
+              eventos={deManana.filter((e) => enGrupo(e, grupo))}
+              vacio={vacio}
+            />
+          </>
+        )}
       </div>
       <button
         type="button"

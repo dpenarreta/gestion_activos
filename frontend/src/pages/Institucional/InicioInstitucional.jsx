@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
@@ -63,10 +63,18 @@ export function InicioInstitucional() {
   const [perfil, setPerfil] = useState(null);
   const [noticias, setNoticias] = useState([]);
   const [segundos, setSegundos] = useState(6);
+  // «cargando», «listo» o «error»: mientras carga o si falla no se dice «no
+  // hay noticias», que sería falso (auditoría UX/UI, 27/10/2026).
+  const [estadoNoticias, setEstadoNoticias] = useState("cargando");
+  // Tras «Reintentar» el botón desaparece: el foco vuelve a la sección y no
+  // cae al principio de la página.
+  const columnaNoticias = useRef(null);
+  const [reintento, setReintento] = useState(false);
 
   // El carrusel: las noticias vigentes hoy y cada cuántos segundos cambia.
-  useEffect(() => {
+  const cargarNoticias = useCallback(() => {
     let vigente = true;
+    setEstadoNoticias("cargando");
     Promise.all([
       Promise.resolve(institucionalService.noticias?.()),
       Promise.resolve(institucionalService.carrusel?.()),
@@ -75,12 +83,22 @@ export function InicioInstitucional() {
         if (!vigente) return;
         setNoticias(Array.isArray(lista) ? lista : []);
         if (ajustes?.segundos) setSegundos(ajustes.segundos);
+        setEstadoNoticias("listo");
       })
-      .catch(() => null);
+      .catch(() => vigente && setEstadoNoticias("error"));
     return () => {
       vigente = false;
     };
   }, []);
+
+  useEffect(() => cargarNoticias(), [cargarNoticias]);
+
+  useEffect(() => {
+    if (reintento && estadoNoticias !== "cargando") {
+      columnaNoticias.current?.focus();
+      setReintento(false);
+    }
+  }, [reintento, estadoNoticias]);
 
   useEffect(() => {
     let vigente = true;
@@ -131,7 +149,11 @@ export function InicioInstitucional() {
           accesos: es lo primero que se ve al entrar. Cada uno con su botón
           para gestionarlo (y su permiso). */}
       <div className="inicio-destacados">
-        <div className="inicio-destacados__columna">
+        <div
+          className="inicio-destacados__columna"
+          ref={columnaNoticias}
+          tabIndex={-1}
+        >
           <div className="inicio-destacados__cabecera">
             <h3 className="inicio-titulo">Noticias y eventos</h3>
             {gestionaNoticias && (
@@ -143,11 +165,44 @@ export function InicioInstitucional() {
               </Link>
             )}
           </div>
-          {noticias.length > 0 ? (
+          {estadoNoticias === "cargando" ? (
+            <div
+              className="inicio-esqueleto inicio-esqueleto--carrusel"
+              role="status"
+            >
+              <span className="visually-hidden">Cargando noticias…</span>
+            </div>
+          ) : estadoNoticias === "error" ? (
+            <div
+              className="mz-alert mz-alert--bad mz-alert--accion"
+              role="alert"
+            >
+              <Icon name="x-octagon" />
+              <span>No pudimos cargar las noticias.</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger ms-auto"
+                onClick={() => {
+                  setReintento(true);
+                  cargarNoticias();
+                }}
+              >
+                <Icon name="arrow-clockwise" /> Reintentar
+              </button>
+            </div>
+          ) : noticias.length > 0 ? (
             <CarruselNoticias noticias={noticias} segundos={segundos} />
           ) : (
             <div className="inicio-destacados__vacio">
-              No hay noticias publicadas por ahora.
+              <p className="mb-0">No hay noticias publicadas por ahora.</p>
+              {gestionaNoticias && (
+                <Link
+                  to="/admin/institucional/noticias"
+                  className="btn btn-primary btn-sm"
+                >
+                  <Icon name="plus-lg" /> Publicar una noticia
+                </Link>
+              )}
             </div>
           )}
         </div>

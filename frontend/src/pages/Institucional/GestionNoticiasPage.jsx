@@ -55,10 +55,23 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
     setGuardando(true);
     setError(null);
     try {
-      const { titulo, descripcion, publicar_desde, publicar_hasta, orden } =
-        valores;
+      const {
+        titulo,
+        descripcion,
+        texto_alternativo,
+        publicar_desde,
+        publicar_hasta,
+        orden,
+      } = valores;
       await onGuardar(
-        { titulo, descripcion, publicar_desde, publicar_hasta, orden },
+        {
+          titulo,
+          descripcion,
+          texto_alternativo: texto_alternativo ?? "",
+          publicar_desde,
+          publicar_hasta,
+          orden,
+        },
         imagen,
       );
     } catch (err) {
@@ -171,6 +184,26 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
               onChange={fijar("descripcion")}
             />
           </div>
+          <div className="col-12">
+            <label className="form-label mz-small" htmlFor="noticia-alt">
+              Texto alternativo de la imagen (opcional)
+            </label>
+            <textarea
+              id="noticia-alt"
+              className="form-control form-control-sm"
+              rows={2}
+              maxLength={300}
+              aria-describedby="noticia-alt-ayuda"
+              value={valores.texto_alternativo ?? ""}
+              onChange={fijar("texto_alternativo")}
+            />
+            <div id="noticia-alt-ayuda" className="form-text">
+              Escriba lo que dice la imagen (fechas, lugares, horarios) para
+              quien no puede verla. Si la imagen solo decora y el título y la
+              descripción ya lo dicen todo, déjelo vacío. Mejor aún: no deje
+              datos importantes solo dentro de la imagen.
+            </div>
+          </div>
           <div className="col-6">
             <label className="form-label mz-small" htmlFor="noticia-desde">
               Publicar desde
@@ -260,7 +293,7 @@ function AjusteSegundos() {
           <input
             id="carrusel-segundos"
             type="number"
-            min={2}
+            min={5}
             max={60}
             required
             className="form-control form-control-sm"
@@ -286,8 +319,8 @@ function AjusteSegundos() {
           </span>
         )}
         <span className="mz-faint mz-small ms-auto">
-          Entre 2 y 60 segundos. El carrusel se detiene mientras alguien tiene
-          el mouse encima.
+          Entre 5 y 60 segundos. Se detiene con el mouse o el foco encima, o con
+          el botón «Pausar».
         </span>
       </div>
     </form>
@@ -374,7 +407,7 @@ export function GestionNoticiasPage() {
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [editando, setEditando] = useState(null);
-  const miniaturas = useImagenesDeNoticias(noticias ?? []);
+  const { urls: miniaturas } = useImagenesDeNoticias(noticias ?? []);
 
   const cargar = useCallback(
     () =>
@@ -434,6 +467,7 @@ export function GestionNoticiasPage() {
               setEditando({
                 titulo: "",
                 descripcion: "",
+                texto_alternativo: "",
                 publicar_desde: hoyIso(),
                 publicar_hasta: hoyIso(),
                 orden: 0,
@@ -516,6 +550,7 @@ export function GestionNoticiasPage() {
                           id: n.id,
                           titulo: n.titulo,
                           descripcion: n.descripcion,
+                          texto_alternativo: n.texto_alternativo ?? "",
                           publicar_desde: n.publicar_desde,
                           publicar_hasta: n.publicar_hasta,
                           orden: n.orden,

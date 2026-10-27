@@ -301,3 +301,30 @@ describe("Gestionar calendario", () => {
     );
   });
 });
+
+describe("Si el calendario no carga (auditoría UX/UI)", () => {
+  it("el resumen lo dice en vez de «Sin eventos» y se reintenta", async () => {
+    servicio.calendario.mockRejectedValueOnce(new Error("caída"));
+    pintar(<CalendarioInicio hoy={HOY} />);
+    expect(
+      await screen.findByText("No pudimos cargar el calendario."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Sin eventos.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    // Ya cargó: ahora sí puede decir que hoy no hay eventos importantes.
+    expect(await screen.findAllByText("Sin eventos.")).toHaveLength(2);
+    expect(screen.queryByText("No pudimos cargar el calendario.")).toBeNull();
+  });
+
+  it("en el mes, tampoco dice «sin eventos» si no cargó; hoy va marcado", async () => {
+    servicio.calendario.mockRejectedValueOnce(new Error("caída"));
+    pintar(<CalendarioMes hoy={HOY} />);
+    expect(
+      await screen.findByText("No pudimos cargar el calendario."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Sin eventos este día.")).toBeNull();
+    expect(
+      screen.getByRole("gridcell", { name: "19 de octubre" }),
+    ).toHaveAttribute("aria-current", "date");
+  });
+});

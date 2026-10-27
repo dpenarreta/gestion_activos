@@ -542,6 +542,7 @@ class NoticiaInicioSerializer(serializers.ModelSerializer):
             "id",
             "titulo",
             "descripcion",
+            "texto_alternativo",
             "imagen",
             "nombre_original",
             "tamano_bytes",

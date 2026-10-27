@@ -94,4 +94,20 @@ def test_se_borra_y_se_ajusta_la_velocidad(db):
     # Una que ya no se muestra también se puede borrar.
     assert th.delete(f"{URL}{vencida.json()['id']}/").status_code == 204
     assert th.put(CARRUSEL, {"segundos": 1}, format="json").status_code == 400
+    assert th.put(CARRUSEL, {"segundos": 4}, format="json").status_code == 400
     assert th.put(CARRUSEL, {"segundos": 10}, format="json").json() == {"segundos": 10}
+
+
+def test_la_noticia_lleva_su_texto_alternativo(db):
+    """Lo que dice la imagen, para quien no la ve (auditoría UX/UI,
+    27/10/2026). Vacío: la imagen es decorativa."""
+    _, th = _cuenta("tania", "noticias.gestionar")
+    respuesta = _subir(
+        th, HOY, HOY, texto_alternativo="Afiche: feria de salud, 20 al 24 de octubre"
+    )
+    assert respuesta.status_code == 201, respuesta.data
+    _, empleado = _cuenta("ema")
+    (noticia,) = empleado.get(URL).json()
+    assert noticia["texto_alternativo"] == "Afiche: feria de salud, 20 al 24 de octubre"
+    sin_texto = _subir(th, HOY, HOY, titulo="Otra")
+    assert sin_texto.data["texto_alternativo"] == ""

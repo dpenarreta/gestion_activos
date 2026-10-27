@@ -814,6 +814,10 @@ class NoticiaInicio(ModeloDeEmpresa):
 
     titulo = models.CharField(max_length=150, blank=True)
     descripcion = models.CharField(max_length=300, blank=True)
+    #: Lo que dice la imagen, para quien no la ve (auditoría UX/UI,
+    #: 27/10/2026). Vacío = la imagen es decorativa: el título y la
+    #: descripción ya dicen lo importante.
+    texto_alternativo = models.CharField(max_length=300, blank=True)
     imagen = models.FileField(upload_to=ruta_noticia, max_length=255)
     nombre_original = models.CharField(max_length=255)
     tamano_bytes = models.PositiveIntegerField()

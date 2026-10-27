@@ -17,7 +17,8 @@ from .models import AjustesCarrusel, NoticiaInicio
 EXTENSIONES = {".jpg", ".jpeg", ".png", ".webp"}
 TAMANO_MAXIMO_BYTES = 5 * 1024 * 1024
 TIPOS = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-SEGUNDOS_MIN, SEGUNDOS_MAX = 2, 60
+# 5 como mínimo: menos no alcanza para leer una noticia (auditoría UX/UI).
+SEGUNDOS_MIN, SEGUNDOS_MAX = 5, 60
 
 
 def validar_imagen(archivo) -> str:

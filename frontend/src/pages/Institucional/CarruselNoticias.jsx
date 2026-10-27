@@ -17,12 +17,19 @@ export const MEDIDAS_CARRUSEL = {
   minimoAlto: 750,
 };
 
+/** Lo mínimo que se deja una noticia antes de pasar a la siguiente: menos
+ * no alcanza para leerla (auditoría UX/UI, 27/10/2026). */
+export const SEGUNDOS_MINIMOS = 5;
+
 /**
  * Trae las imágenes como blobs (no tienen URL pública) y devuelve sus
- * direcciones `blob:` locales, que se liberan al desmontar.
+ * direcciones `blob:` locales (`urls`, que se liberan al desmontar) y las que
+ * no se pudieron traer (`fallidas`, para no dejar el «cargando» para
+ * siempre).
  */
 export function useImagenesDeNoticias(noticias) {
   const [urls, setUrls] = useState({});
+  const [fallidas, setFallidas] = useState({});
   const clave = noticias.map((n) => n.id).join(",");
 
   useEffect(() => {
@@ -40,7 +47,9 @@ export function useImagenesDeNoticias(noticias) {
             creadas.push(url);
             setUrls((actual) => ({ ...actual, [id]: url }));
           })
-          .catch(() => null);
+          .catch(() => {
+            if (vigente) setFallidas((actual) => ({ ...actual, [id]: true }));
+          });
       });
     return () => {
       vigente = false;
@@ -48,22 +57,33 @@ export function useImagenesDeNoticias(noticias) {
     };
   }, [clave]);
 
-  return urls;
+  return { urls, fallidas };
+}
+
+/** Si la persona pidió menos movimiento en su sistema. */
+function prefiereMenosMovimiento() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true
+  );
 }
 
 /**
  * El carrusel de noticias de Inicio: una imagen a la vez, que cambia sola cada
- * `segundos`, con botones de anterior y siguiente y un punto por imagen.
+ * `segundos` (5 como mínimo), con anterior y siguiente, un punto por imagen y
+ * un botón para pausarlo (patrón de carrusel de WAI-ARIA).
  *
- * Se detiene mientras el mouse o el foco están encima (para poder leer), y se
- * maneja con las flechas del teclado.
+ * También se detiene mientras el mouse o el foco están encima, y no avanza
+ * solo si la persona pidió menos movimiento en su sistema.
  */
 export function CarruselNoticias({ noticias, segundos = 6 }) {
   const [actual, setActual] = useState(0);
-  const [pausado, setPausado] = useState(false);
-  const urls = useImagenesDeNoticias(noticias);
+  const [encima, setEncima] = useState(false);
+  const [detenido, setDetenido] = useState(prefiereMenosMovimiento);
+  const { urls, fallidas } = useImagenesDeNoticias(noticias);
   const total = noticias.length;
   const marco = useRef(null);
+  const pausado = detenido || encima;
 
   const ir = useCallback(
     (indice) => setActual(((indice % total) + total) % total),
@@ -78,13 +98,15 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
     if (pausado || total < 2) return undefined;
     const reloj = setInterval(
       () => setActual((i) => (i + 1) % total),
-      Math.max(2, segundos) * 1000,
+      Math.max(SEGUNDOS_MINIMOS, segundos) * 1000,
     );
     return () => clearInterval(reloj);
   }, [pausado, total, segundos]);
 
   if (total === 0) return null;
   const noticia = noticias[Math.min(actual, total - 1)];
+  const url = urls[noticia.id];
+  const fallo = fallidas[noticia.id];
 
   return (
     // Patrón de carrusel de WAI-ARIA: la región se detiene con el mouse o el
@@ -95,40 +117,65 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
       ref={marco}
       className="carrusel"
       aria-roledescription="carrusel"
-      aria-label="Noticias y eventos"
-      onMouseEnter={() => setPausado(true)}
-      onMouseLeave={() => setPausado(false)}
-      onFocus={() => setPausado(true)}
+      aria-label="Noticias"
+      onMouseEnter={() => setEncima(true)}
+      onMouseLeave={() => setEncima(false)}
+      onFocus={() => setEncima(true)}
       onBlur={(e) => {
-        if (!marco.current?.contains(e.relatedTarget)) setPausado(false);
+        if (!marco.current?.contains(e.relatedTarget)) setEncima(false);
       }}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft") ir(actual - 1);
         if (e.key === "ArrowRight") ir(actual + 1);
       }}
     >
-      <div
-        className="carrusel__diapositiva"
-        role="group"
-        aria-roledescription="diapositiva"
-        aria-label={`${actual + 1} de ${total}${noticia.titulo ? `: ${noticia.titulo}` : ""}`}
-      >
-        {urls[noticia.id] ? (
-          <img
-            src={urls[noticia.id]}
-            alt={noticia.titulo || noticia.descripcion || "Noticia"}
-          />
-        ) : (
-          <div className="carrusel__cargando" aria-hidden="true">
-            <Icon name="image" />
-          </div>
-        )}
-        {(noticia.titulo || noticia.descripcion) && (
-          <div className="carrusel__texto">
-            {noticia.titulo && <strong>{noticia.titulo}</strong>}
-            {noticia.descripcion && <span>{noticia.descripcion}</span>}
-          </div>
-        )}
+      {total > 1 && (
+        <button
+          type="button"
+          className="carrusel__pausa"
+          aria-label={detenido ? "Reanudar noticias" : "Pausar noticias"}
+          onClick={() => setDetenido((d) => !d)}
+        >
+          <Icon name={detenido ? "play-fill" : "pause-fill"} />
+        </button>
+      )}
+      {/* Detenido, el cambio de noticia se anuncia; rotando solo, no (sería
+          ruido cada pocos segundos). */}
+      <div className="carrusel__marco" aria-live={pausado ? "polite" : "off"}>
+        <div
+          className="carrusel__diapositiva"
+          role="group"
+          aria-roledescription="diapositiva"
+          aria-label={`${actual + 1} de ${total}${noticia.titulo ? `: ${noticia.titulo}` : ""}`}
+        >
+          {url ? (
+            // Sin texto alternativo, la imagen es decorativa: el título y la
+            // descripción, que se leen debajo, dicen lo importante.
+            <img src={url} alt={noticia.texto_alternativo || ""} />
+          ) : fallo ? (
+            <div className="carrusel__cargando carrusel__cargando--fallo">
+              <Icon name="image" />
+              <span>Imagen no disponible</span>
+              {noticia.texto_alternativo && (
+                <small>{noticia.texto_alternativo}</small>
+              )}
+            </div>
+          ) : (
+            <div className="carrusel__cargando" role="status">
+              <span
+                className="spinner-border spinner-border-sm"
+                aria-hidden="true"
+              />
+              <span className="visually-hidden">Cargando imagen…</span>
+            </div>
+          )}
+          {(noticia.titulo || noticia.descripcion) && (
+            <div className="carrusel__texto">
+              {noticia.titulo && <strong>{noticia.titulo}</strong>}
+              {noticia.descripcion && <span>{noticia.descripcion}</span>}
+            </div>
+          )}
+        </div>
       </div>
 
       {total > 1 && (
@@ -136,7 +183,7 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
           <button
             type="button"
             className="carrusel__flecha carrusel__flecha--anterior"
-            aria-label="Imagen anterior"
+            aria-label="Noticia anterior"
             onClick={() => ir(actual - 1)}
           >
             <Icon name="chevron-left" />
@@ -144,7 +191,7 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
           <button
             type="button"
             className="carrusel__flecha carrusel__flecha--siguiente"
-            aria-label="Imagen siguiente"
+            aria-label="Noticia siguiente"
             onClick={() => ir(actual + 1)}
           >
             <Icon name="chevron-right" />
@@ -155,7 +202,7 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
                 key={n.id}
                 type="button"
                 className={`carrusel__punto${i === actual ? " is-active" : ""}`}
-                aria-label={`Ir a la imagen ${i + 1}`}
+                aria-label={`Ir a la noticia ${i + 1}${n.titulo ? `: ${n.titulo}` : ""}`}
                 aria-current={i === actual ? "true" : undefined}
                 onClick={() => ir(i)}
               />
