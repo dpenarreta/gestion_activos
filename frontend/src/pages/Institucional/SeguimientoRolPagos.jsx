@@ -268,6 +268,8 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
+    // Ventana de consulta y descarga: buscar no es un cambio que se pierda.
+    confirmarAlDescartar: false,
   });
   const hoy = new Date();
   const inicial = mesAnterior(hoy);

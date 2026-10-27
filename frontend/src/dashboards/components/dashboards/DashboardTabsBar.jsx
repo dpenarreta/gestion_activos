@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Form, Modal, Nav, Spinner } from 'react-bootstrap'
+import ModalConCambios from '../common/ModalConCambios'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import * as dashboardLayoutService from '../../services/dashboardLayoutService'
@@ -31,8 +32,8 @@ function ModalCrearPestana({ show, onHide, onCreada }) {
   }
 
   return (
-    <Modal backdrop="static" show={show} onHide={limpiarYCerrar}>
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={limpiarYCerrar}>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Nueva pestaña</Modal.Title>
       </Modal.Header>
       <Form onSubmit={enviar}>
@@ -50,7 +51,7 @@ function ModalCrearPestana({ show, onHide, onCreada }) {
           </Button>
         </Modal.Footer>
       </Form>
-    </Modal>
+    </ModalConCambios>
   )
 }
 
@@ -86,8 +87,8 @@ function ModalEditarPestana({ show, pestana, onHide, onEditada }) {
   }
 
   return (
-    <Modal backdrop="static" show={show} onHide={cerrar}>
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={cerrar}>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Editar pestaña</Modal.Title>
       </Modal.Header>
       <Form onSubmit={enviar}>
@@ -105,7 +106,7 @@ function ModalEditarPestana({ show, pestana, onHide, onEditada }) {
           </Button>
         </Modal.Footer>
       </Form>
-    </Modal>
+    </ModalConCambios>
   )
 }
 
@@ -133,7 +134,7 @@ function ModalEliminarPestana({ show, pestana, onHide, onEliminada }) {
 
   return (
     <Modal backdrop="static" show={show} onHide={cerrar}>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Eliminar pestaña</Modal.Title>
       </Modal.Header>
       <Modal.Body>

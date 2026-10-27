@@ -45,6 +45,8 @@ export function AuditadoRolPagos({ onCerrar }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
+    // Ventana de consulta y descarga: buscar no es un cambio que se pierda.
+    confirmarAlDescartar: false,
   });
   const hoy = new Date();
   const [codigo, setCodigo] = useState("");

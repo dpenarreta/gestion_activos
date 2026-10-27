@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap'
+import ModalConCambios from '../common/ModalConCambios'
 import * as carteraService from '../../services/carteraService'
 import * as historicoService from '../../services/historicoService'
 import { CamposParaSlot, SelectorColumna } from '../dashboard-generic/SlotFields'
@@ -206,8 +207,8 @@ export default function AgregarComponentePersonalModal({ show, onHide, dashboard
   const tituloValido = titulo.trim().length > 0
 
   return (
-    <Modal backdrop="static" show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={onHide} centered size="lg">
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Agregar a la Zona Personal</Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -286,6 +287,6 @@ export default function AgregarComponentePersonalModal({ show, onHide, dashboard
           </Button>
         )}
       </Modal.Footer>
-    </Modal>
+    </ModalConCambios>
   )
 }

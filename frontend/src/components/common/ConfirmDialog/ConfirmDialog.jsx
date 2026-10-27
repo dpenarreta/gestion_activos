@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { Button } from "../Button/Button";
@@ -18,11 +18,13 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   confirmLabel = "Confirmar",
+  cancelLabel = "Cancelar",
   // `danger` para lo que no tiene vuelta atrás (borrar): el botón rojo es lo
   // último que se ve antes de confirmar, y un azul neutro lo disimularía.
   confirmVariant = "primary",
 }) {
   const triggerRef = useRef(null);
+  const id = useId();
   const { panelRef, handleBackdropClick, requestClose } = useModalA11y({
     isOpen,
     onRequestClose: onCancel,
@@ -47,14 +49,17 @@ export function ConfirmDialog({
         className="mz-modal mz-modal--confirmar"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={`${id}-titulo`}
+        aria-describedby={`${id}-mensaje`}
         tabIndex={-1}
       >
         <div className="mz-panel-head">
-          <h3 id="confirm-dialog-title">{title}</h3>
+          <h3 id={`${id}-titulo`}>{title}</h3>
         </div>
         <div className="mz-panel-body">
-          <p className="mb-0">{message}</p>
+          <p id={`${id}-mensaje`} className="mb-0">
+            {message}
+          </p>
         </div>
         <div className="mz-panel-foot">
           <button
@@ -62,7 +67,7 @@ export function ConfirmDialog({
             className="btn btn-cancelar btn-sm"
             onClick={() => requestClose()}
           >
-            Cancelar
+            {cancelLabel}
           </button>
           <Button
             variant={confirmVariant}

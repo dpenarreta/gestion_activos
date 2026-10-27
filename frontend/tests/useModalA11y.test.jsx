@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -148,5 +148,126 @@ describe("useModalA11y con una grilla de foco itinerante", () => {
     expect(screen.getByRole("button", { name: "Cerrar" })).toHaveFocus();
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(dia).toHaveFocus();
+  });
+});
+
+describe("useModalA11y con datos sin guardar", () => {
+  function Formulario({ onCerrar }) {
+    const { panelRef } = useModalA11y({
+      isOpen: true,
+      onRequestClose: onCerrar,
+    });
+    return (
+      <div role="dialog" aria-label="Formulario" ref={panelRef} tabIndex={-1}>
+        <div className="mz-panel-head">
+          <button
+            type="button"
+            className="mz-close"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+          />
+        </div>
+        <form>
+          <input aria-label="Nombre" />
+          <button type="button" onClick={onCerrar}>
+            Cancelar
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  it("sin cambios, Escape y Cancelar cierran sin preguntar", () => {
+    const cerrar = vi.fn();
+    render(<Formulario onCerrar={cerrar} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(cerrar).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("¿Descartar los cambios?")).toBeNull();
+  });
+
+  it("con algo escrito, Escape pregunta y «Seguir editando» lo conserva", async () => {
+    const cerrar = vi.fn();
+    render(<Formulario onCerrar={cerrar} />);
+    const nombre = screen.getByRole("textbox", { name: "Nombre" });
+    fireEvent.input(nombre, { target: { value: "Algo" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      await screen.findByText("¿Descartar los cambios?"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    await waitFor(() =>
+      expect(screen.queryByText("¿Descartar los cambios?")).toBeNull(),
+    );
+    expect(cerrar).not.toHaveBeenCalled();
+    expect(nombre).toHaveValue("Algo");
+  });
+
+  it("con algo escrito, Cancelar y la X preguntan; «Descartar» cierra", async () => {
+    const cerrar = vi.fn();
+    render(<Formulario onCerrar={cerrar} />);
+    fireEvent.input(screen.getByRole("textbox", { name: "Nombre" }), {
+      target: { value: "Algo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(cerrar).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Descartar" }));
+    await waitFor(() => expect(cerrar).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("useModalA11y: lo que no es cerrar la ventana", () => {
+  function ConPasos({ onCerrar, onQuitar, onVolver }) {
+    const { panelRef } = useModalA11y({
+      isOpen: true,
+      onRequestClose: onCerrar,
+    });
+    return (
+      <div role="dialog" aria-label="Pasos" ref={panelRef} tabIndex={-1}>
+        <form>
+          <input aria-label="Nombre" />
+          <input aria-label="Buscar" data-sin-descarte />
+          <button
+            type="button"
+            className="mz-close"
+            aria-label="Quitar a Luis Torres"
+            onClick={onQuitar}
+          />
+          <div className="mz-panel-foot">
+            <button type="button" data-no-descarta onClick={onVolver}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  it("quitar a alguien de una lista o volver de paso no preguntan", () => {
+    const quitar = vi.fn();
+    const volver = vi.fn();
+    render(
+      <ConPasos onCerrar={() => {}} onQuitar={quitar} onVolver={volver} />,
+    );
+    fireEvent.input(screen.getByRole("textbox", { name: "Nombre" }), {
+      target: { value: "Algo" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Quitar a Luis Torres" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(quitar).toHaveBeenCalledTimes(1);
+    expect(volver).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("¿Descartar los cambios?")).toBeNull();
+  });
+
+  it("escribir en un buscador no cuenta como cambio", () => {
+    const cerrar = vi.fn();
+    render(<ConPasos onCerrar={cerrar} />);
+    fireEvent.input(screen.getByRole("textbox", { name: "Buscar" }), {
+      target: { value: "Luis" },
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(cerrar).toHaveBeenCalledTimes(1);
   });
 });

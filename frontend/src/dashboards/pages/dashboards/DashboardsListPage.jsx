@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Accordion, Alert, Button, Form, Modal, Spinner } from 'react-bootstrap'
+import ModalConCambios from '../../components/common/ModalConCambios'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import * as dashboardLayoutService from '../../services/dashboardLayoutService'
@@ -39,8 +40,8 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
   }
 
   return (
-    <Modal backdrop="static" show={show} onHide={limpiarYCerrar}>
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={limpiarYCerrar}>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Crear dashboard</Modal.Title>
       </Modal.Header>
       <Form onSubmit={enviar}>
@@ -78,7 +79,7 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
           </Button>
         </Modal.Footer>
       </Form>
-    </Modal>
+    </ModalConCambios>
   )
 }
 
@@ -183,8 +184,8 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
   ].filter(Boolean)
 
   return (
-    <Modal backdrop="static" show={show} onHide={cerrar} size={puedeAdministrarAcceso ? 'lg' : undefined}>
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={cerrar} size={puedeAdministrarAcceso ? 'lg' : undefined}>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Editar dashboard</Modal.Title>
       </Modal.Header>
       <Form onSubmit={enviar}>
@@ -300,7 +301,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
           </Button>
         </Modal.Footer>
       </Form>
-    </Modal>
+    </ModalConCambios>
   )
 }
 
@@ -328,7 +329,7 @@ function ModalEliminarDashboard({ show, dashboard, onHide, onEliminado }) {
 
   return (
     <Modal backdrop="static" show={show} onHide={cerrar}>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Eliminar dashboard</Modal.Title>
       </Modal.Header>
       <Modal.Body>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap'
+import ModalConCambios from '../common/ModalConCambios'
 import * as dashboardLayoutService from '../../services/dashboardLayoutService'
 
 const SIN_FUENTE = ''
@@ -180,8 +181,8 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
   }
 
   return (
-    <Modal backdrop="static" show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
+    <ModalConCambios show={show} onHide={onHide} centered>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Conectar vista de base de datos</Modal.Title>
       </Modal.Header>
       {errorConexion ? (
@@ -210,10 +211,11 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
               disabled={borrando}
               autoFocus
               aria-label="Confirmar nombre del dashboard"
+              data-sin-descarte
             />
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="outline-secondary" onClick={cancelarBorrado} disabled={borrando} type="button">Cancelar</Button>
+            <Button variant="outline-secondary" onClick={cancelarBorrado} disabled={borrando} type="button" data-no-descarta>Cancelar</Button>
             <Button variant="danger" disabled={!coincideConfirmacionBorrado || borrando} onClick={borrarDatos}>
               {borrando ? <Spinner size="sm" animation="border" className="me-2" /> : null}
               Borrar todo
@@ -351,6 +353,6 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
           </Modal.Footer>
         </Form>
       )}
-    </Modal>
+    </ModalConCambios>
   )
 }

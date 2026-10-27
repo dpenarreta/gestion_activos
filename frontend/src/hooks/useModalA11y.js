@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 
+import { confirmarDescarte } from "../components/common/ConfirmarDescarte/confirmarDescarte";
+import { vigilarDescarte } from "./vigilarDescarte";
+
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -38,10 +41,14 @@ export function useModalA11y({
   // Un clic fuera de la ventana no la cierra: se perdía lo escrito hasta el
   // momento (27/10/2026). Solo el menú lateral del teléfono lo pide.
   closeOnBackdrop = false,
+  // Con datos escritos en un formulario de la ventana, Escape, la X y
+  // «Cancelar» preguntan antes de descartarlos.
+  confirmarAlDescartar = true,
   triggerRef,
   guardClose,
 }) {
   const panelRef = useRef(null);
+  const vigilanciaRef = useRef(null);
   const guardCloseRef = useRef(guardClose);
   guardCloseRef.current = guardClose;
 
@@ -75,13 +82,26 @@ export function useModalA11y({
           )
         : [];
     (enfocables()[0] || panel)?.focus();
+    const vigilancia =
+      confirmarAlDescartar && panel
+        ? vigilarDescarte(panel, { preguntar: confirmarDescarte })
+        : null;
+    vigilanciaRef.current = vigilancia;
 
     function handleKeyDown(event) {
       if (pila[pila.length - 1] !== marca) {
         return;
       }
       if (event.key === "Escape") {
-        if (closeOnEscape) {
+        if (!closeOnEscape) return;
+        if (vigilancia?.estaSucio()) {
+          confirmarDescarte().then((descartar) => {
+            if (descartar) {
+              vigilancia.olvidar();
+              requestGuardedClose();
+            }
+          });
+        } else {
           requestGuardedClose();
         }
         return;
@@ -107,6 +127,7 @@ export function useModalA11y({
     const trigger = triggerRef?.current;
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      vigilancia?.desmontar();
       const posicion = pila.indexOf(marca);
       if (posicion >= 0) pila.splice(posicion, 1);
       unlockBodyScroll();
@@ -142,5 +163,16 @@ export function useModalA11y({
     );
   }
 
-  return { panelRef, handleBackdropClick, requestClose: requestGuardedClose };
+  // Tras guardar con éxito sin cerrar la ventana: lo escrito ya no se pierde.
+  const marcarGuardado = useCallback(
+    () => vigilanciaRef.current?.olvidar(),
+    [],
+  );
+
+  return {
+    panelRef,
+    handleBackdropClick,
+    requestClose: requestGuardedClose,
+    marcarGuardado,
+  };
 }

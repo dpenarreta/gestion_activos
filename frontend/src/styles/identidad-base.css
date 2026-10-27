@@ -2085,3 +2085,13 @@ body {
 .login-card .app-button {
   width: 100%;
 }
+
+/* Una confirmación de react-bootstrap sobre otra ventana: su fondo oscurece
+   también la de abajo. */
+.modal-backdrop.modal-backdrop--sobre {
+  z-index: var(--z-modal-backdrop);
+}
+
+.modal.modal--sobre {
+  z-index: var(--z-modal);
+}
