@@ -36,6 +36,7 @@ export function confirmarDescarte() {
         message={MENSAJE_DESCARTE}
         confirmLabel="Descartar"
         cancelLabel="Seguir editando"
+        cancelClassName="btn-outline-secondary"
         confirmVariant="danger"
         onConfirm={() => terminar(true)}
         onCancel={() => terminar(false)}

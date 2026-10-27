@@ -19,6 +19,8 @@ export function ConfirmDialog({
   onCancel,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
+  // El rojo de «Cancelar» compite con un «Descartar» rojo: ahí, neutro.
+  cancelClassName = "btn-cancelar",
   // `danger` para lo que no tiene vuelta atrás (borrar): el botón rojo es lo
   // último que se ve antes de confirmar, y un azul neutro lo disimularía.
   confirmVariant = "primary",
@@ -64,7 +66,7 @@ export function ConfirmDialog({
         <div className="mz-panel-foot">
           <button
             type="button"
-            className="btn btn-cancelar btn-sm"
+            className={`btn ${cancelClassName} btn-sm`}
             onClick={() => requestClose()}
           >
             {cancelLabel}
