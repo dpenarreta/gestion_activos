@@ -13,17 +13,33 @@ const ESTADO = {
   vacio: ["Sin perfil", "perfil-cargo-estado--vacio"],
 };
 
-/** Las listas del perfil: campo, título, cómo se llama cada entrada y un
- * ejemplo. Se escriben una por fila y «Mi cargo» las muestra numeradas. */
+/** Las listas del perfil. Se escriben una por fila y «Mi cargo» las
+ * muestra numeradas. */
 const LISTAS = [
-  ["funciones", "Funciones", "función", "Gestionar la cartera vencida"],
-  ["competencias", "Competencias", "competencia", "Negociación"],
-  [
-    "kpis",
-    "KPIs o métricas de medición",
-    "KPI o métrica",
-    "Recuperación de cartera ≥ 90 % mensual",
-  ],
+  {
+    campo: "funciones",
+    titulo: "Funciones",
+    nombre: "función",
+    icono: "list-check",
+    descripcion: "Qué hace quien ocupa el cargo.",
+    ejemplo: "Gestionar la cartera vencida",
+  },
+  {
+    campo: "competencias",
+    titulo: "Competencias",
+    nombre: "competencia",
+    icono: "stars",
+    descripcion: "Qué habilidades y conocimientos necesita.",
+    ejemplo: "Negociación",
+  },
+  {
+    campo: "kpis",
+    titulo: "KPIs o métricas de medición",
+    nombre: "KPI o métrica",
+    icono: "graph-up-arrow",
+    descripcion: "Cómo se mide su trabajo, con su meta.",
+    ejemplo: "Recuperación de cartera ≥ 90 % mensual",
+  },
 ];
 
 let siguienteId = 0;
@@ -32,7 +48,16 @@ const entrada = (texto = "") => ({ id: ++siguienteId, texto });
 /** Una lista del perfil editable fila por fila (27/10/2026): Enter agrega
  * la siguiente, Retroceso en una fila vacía la quita, las flechas cambian el
  * orden y pegar varias líneas crea una fila por línea. */
-function ListaEditable({ campo, titulo, nombre, ejemplo, items, onChange }) {
+function ListaEditable({
+  campo,
+  titulo,
+  nombre,
+  icono,
+  descripcion,
+  ejemplo,
+  items,
+  onChange,
+}) {
   const filas = useRef(new Map());
   const [enfocar, setEnfocar] = useState(null);
 
@@ -111,17 +136,36 @@ function ListaEditable({ campo, titulo, nombre, ejemplo, items, onChange }) {
     setEnfocar(nuevas[nuevas.length - 1].id);
   }
 
+  const escritas = items.filter((i) => i.texto.trim()).length;
+
   return (
-    <fieldset
-      className="perfil-lista"
-      aria-describedby={`perfil-${campo}-ayuda`}
+    <section
+      className="perfil-bloque"
+      role="group"
+      aria-labelledby={`perfil-${campo}-titulo`}
+      aria-describedby={`perfil-${campo}-descripcion`}
     >
-      <legend className="form-label mz-small">{titulo}</legend>
+      <header className="perfil-bloque__cabecera">
+        <span className="perfil-bloque__icono" aria-hidden="true">
+          <Icon name={icono} />
+        </span>
+        <div className="perfil-bloque__textos">
+          <h4 id={`perfil-${campo}-titulo`} className="perfil-bloque__titulo">
+            {titulo}
+          </h4>
+          <p id={`perfil-${campo}-descripcion`} className="perfil-bloque__desc">
+            {descripcion}
+          </p>
+        </div>
+        <span className="mz-pill perfil-bloque__cuenta">
+          {escritas} {escritas === 1 ? "entrada" : "entradas"}
+        </span>
+      </header>
       <ol className="perfil-lista__filas">
         {items.map((item, i) => (
           <li key={item.id}>
             <span className="perfil-lista__numero" aria-hidden="true">
-              {i + 1}.
+              {i + 1}
             </span>
             <input
               ref={(nodo) =>
@@ -170,20 +214,14 @@ function ListaEditable({ campo, titulo, nombre, ejemplo, items, onChange }) {
           </li>
         ))}
       </ol>
-      <div className="d-flex flex-wrap gap-2 align-items-center">
-        <button
-          type="button"
-          className="btn btn-outline-primary btn-sm"
-          onClick={() => insertar(items[items.length - 1]?.id)}
-        >
-          <Icon name="plus-lg" /> Agregar {nombre}
-        </button>
-        <span id={`perfil-${campo}-ayuda`} className="form-text m-0">
-          Una entrada por fila; Enter agrega la siguiente. Quien ocupe el cargo
-          las ve numeradas, en este orden.
-        </span>
-      </div>
-    </fieldset>
+      <button
+        type="button"
+        className="perfil-lista__agregar"
+        onClick={() => insertar(items[items.length - 1]?.id)}
+      >
+        <Icon name="plus-lg" /> Agregar {nombre}
+      </button>
+    </section>
   );
 }
 
@@ -299,10 +337,23 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
           )}
           {!valores && !error && <p className="mz-faint">Cargando…</p>}
           {valores && (
-            <div>
-              <label className="form-label mz-small" htmlFor="perfil-objetivo">
-                Objetivo del cargo
-              </label>
+            <section className="perfil-bloque">
+              <header className="perfil-bloque__cabecera">
+                <span className="perfil-bloque__icono" aria-hidden="true">
+                  <Icon name="bullseye" />
+                </span>
+                <div className="perfil-bloque__textos">
+                  <label
+                    htmlFor="perfil-objetivo"
+                    className="perfil-bloque__titulo"
+                  >
+                    Objetivo del cargo
+                  </label>
+                  <p id="perfil-objetivo-ayuda" className="perfil-bloque__desc">
+                    Para qué existe el cargo, en una o dos frases.
+                  </p>
+                </div>
+              </header>
               <textarea
                 id="perfil-objetivo"
                 rows={3}
@@ -313,32 +364,52 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
                   setValores((v) => ({ ...v, objetivo: e.target.value }))
                 }
               />
-              <div id="perfil-objetivo-ayuda" className="form-text">
-                Para qué existe el cargo, en una o dos frases.
-              </div>
-            </div>
+            </section>
+          )}
+          {valores && (
+            <p className="perfil-listas__ayuda">
+              <Icon name="info-circle" /> En las listas, cada fila es una
+              entrada: <kbd>Enter</kbd> agrega la siguiente y las flechas
+              cambian el orden. Quien ocupe el cargo las verá numeradas, en este
+              orden.
+            </p>
           )}
           {valores &&
-            LISTAS.map(([campo, titulo, nombre, ejemplo]) => (
+            LISTAS.map((lista) => (
               <ListaEditable
-                key={campo}
-                campo={campo}
-                titulo={titulo}
-                nombre={nombre}
-                ejemplo={ejemplo}
-                items={valores[campo]}
+                key={lista.campo}
+                {...lista}
+                items={valores[lista.campo]}
                 onChange={(items) =>
-                  setValores((v) => ({ ...v, [campo]: items }))
+                  setValores((v) => ({ ...v, [lista.campo]: items }))
                 }
               />
             ))}
           {valores && (
-            <fieldset className="perfil-cargo-herramientas">
-              <legend>Herramientas y licencias</legend>
-              <p className="form-text mt-0">
-                Las que necesita el cargo: con ellas debe venir configurado el
-                equipo de quien lo ocupa.
-              </p>
+            <fieldset
+              className="perfil-bloque perfil-cargo-herramientas"
+              aria-describedby="perfil-herramientas-desc"
+            >
+              <legend className="visually-hidden">
+                Herramientas y licencias
+              </legend>
+              <div className="perfil-bloque__cabecera">
+                <span className="perfil-bloque__icono" aria-hidden="true">
+                  <Icon name="tools" />
+                </span>
+                <div className="perfil-bloque__textos">
+                  <span className="perfil-bloque__titulo" aria-hidden="true">
+                    Herramientas y licencias
+                  </span>
+                  <p
+                    id="perfil-herramientas-desc"
+                    className="perfil-bloque__desc"
+                  >
+                    Las que necesita el cargo: con ellas debe venir configurado
+                    el equipo de quien lo ocupa.
+                  </p>
+                </div>
+              </div>
               {catalogo.length === 0 ? (
                 <p className="mz-faint mb-0">
                   Todavía no hay herramientas en el catálogo: agréguelas en la

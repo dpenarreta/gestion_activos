@@ -1722,20 +1722,86 @@
 }
 
 /* Perfil del cargo: las herramientas y licencias que necesita. */
-/* Funciones, competencias y KPIs del perfil: una fila por entrada,
-   numeradas (27/10/2026). */
-.perfil-lista {
+/* El perfil del cargo en tarjetas (27/10/2026): objetivo, funciones,
+   competencias y KPIs, cada uno con su cabecera; en las listas, una fila
+   numerada por entrada y «Agregar» como último renglón de la tarjeta. */
+.perfil-bloque {
   display: grid;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.perfil-bloque__cabecera {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.perfil-bloque__icono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  font-size: 16px;
+}
+
+.perfil-bloque__textos {
+  flex: 1;
+  min-width: 0;
+}
+
+.perfil-bloque__titulo {
+  display: block;
   margin: 0;
-  padding: 0;
-  border: 0;
+  color: var(--mz-ink);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.perfil-bloque__desc {
+  margin: 2px 0 0;
+  color: var(--mz-ink-faint);
+  font-size: 12.5px;
+}
+
+.perfil-bloque__cuenta {
+  flex: none;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+}
+
+.perfil-listas__ayuda {
+  margin: 0;
+  color: var(--mz-ink-soft);
+  font-size: 12.5px;
+}
+
+.perfil-listas__ayuda .bi {
+  margin-right: 4px;
+}
+
+.perfil-listas__ayuda kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 4px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 11px;
 }
 
 .perfil-lista__filas {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1743,33 +1809,83 @@
 
 .perfil-lista__filas li {
   display: grid;
-  grid-template-columns: 2.2em minmax(0, 1fr) auto;
-  gap: 6px;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
   align-items: center;
 }
 
 .perfil-lista__numero {
-  color: var(--mz-ink-faint);
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
 .perfil-lista__acciones {
   display: flex;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.perfil-lista__filas li:hover .perfil-lista__acciones,
+.perfil-lista__filas li:focus-within .perfil-lista__acciones {
+  opacity: 1;
 }
 
 .perfil-lista__acciones .btn {
   padding: 2px 6px;
+  color: var(--mz-ink-soft);
+}
+
+.perfil-lista__acciones .btn.text-danger {
+  color: var(--mz-bad-fg) !important;
+}
+
+.perfil-lista__agregar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px dashed var(--mz-border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mz-action);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.perfil-lista__agregar:hover,
+.perfil-lista__agregar:focus-visible {
+  border-color: var(--mz-action);
+  background: rgba(var(--mz-action-rgb), 0.06);
+}
+
+@media (max-width: 576px) {
+  .perfil-bloque {
+    padding: 12px;
+  }
+
+  .perfil-lista__acciones {
+    opacity: 1;
+  }
 }
 
 .perfil-cargo-herramientas {
   display: grid;
   gap: 8px;
-  margin: 0;
-  padding: 10px 12px;
+  padding: 14px 16px;
   border: 1px solid var(--mz-border);
-  border-radius: 10px;
+  border-radius: 12px;
+  background: var(--mz-raised);
 }
 
 .perfil-cargo-herramientas legend {
