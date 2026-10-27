@@ -32,6 +32,22 @@ import { registrarServiceWorker } from "./pwa/registrarServiceWorker";
 document.title = env.appName;
 tomarEmpresaDeLaDireccion();
 
+// Una pestaña abierta durante un despliegue pide piezas de la versión anterior
+// que ya no están en el servidor, y la página quedaba en blanco (27/10/2026):
+// se recarga una vez para tomar la versión nueva. Si vuelve a fallar enseguida
+// no insiste, para no entrar en un bucle.
+window.addEventListener("vite:preloadError", (event) => {
+  try {
+    const ultima = Number(sessionStorage.getItem("recarga-por-version") || 0);
+    if (Date.now() - ultima < 10_000) return;
+    sessionStorage.setItem("recarga-por-version", String(Date.now()));
+  } catch {
+    // Sin sessionStorage: recargar igual.
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />

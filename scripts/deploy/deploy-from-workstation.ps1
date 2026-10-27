@@ -61,6 +61,7 @@ param(
     [int]$PublicPort = 5080,
     [int]$BackendPort = 8010,
     [string]$ServiceName = "IntranetBackend",
+    [string]$AppPool = "Intranet",
     [string]$LocalRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
 
     [switch]$SkipInstall,
@@ -187,9 +188,9 @@ finally {
 Write-Paso "Instalando y reiniciando en el servidor"
 $MARCADOR_OK = "INTRANET_DESPLIEGUE_OK"
 $salidaRemota = Invoke-Command -ComputerName $ServerHost -Credential $credencial -ErrorAction Continue `
-    -ArgumentList $RemoteRoot, $SkipInstall.IsPresent, $ServiceName, $BackendPort, $claveMigraciones, $commit `
+    -ArgumentList $RemoteRoot, $SkipInstall.IsPresent, $ServiceName, $BackendPort, $claveMigraciones, $commit, $AppPool `
     -ScriptBlock {
-    param($RemoteRoot, $SkipInstall, $ServiceName, $BackendPort, $claveMigraciones, $commit)
+    param($RemoteRoot, $SkipInstall, $ServiceName, $BackendPort, $claveMigraciones, $commit, $AppPool)
     $ErrorActionPreference = "Continue"
     $backend = Join-Path $RemoteRoot "backend"
     $python = Join-Path $backend ".venv\Scripts\python.exe"
@@ -264,6 +265,15 @@ $salidaRemota = Invoke-Command -ComputerName $ServerHost -Credential $credencial
     if (Test-Path $viejo) { Remove-Item $viejo -Recurse -Force -ErrorAction Stop }
     if (Test-Path $web) { Rename-Item $web "web.anterior" -ErrorAction Stop }
     Rename-Item $nuevo "web" -ErrorAction Stop
+    # La caché de archivos de IIS (dentro del proceso del sitio, aparte de la
+    # de salida que web.config ya apaga para los .html) sigue atada al
+    # index.html de la carpeta renombrada a web.anterior: servía el index
+    # anterior, que pide un JS que ya no existe, y la página quedaba en blanco
+    # (27/10/2026). Reciclar el grupo de aplicaciones la vacía; las peticiones
+    # en curso terminan en el proceso viejo.
+    $appcmd = Join-Path $env:windir "system32\inetsrv\appcmd.exe"
+    & $appcmd recycle apppool /apppool.name:$AppPool | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "No se pudo reciclar el grupo de aplicaciones $AppPool de IIS." }
 
     if ($pendiente) {
         "INTRANET_DESPLIEGUE_OK"
