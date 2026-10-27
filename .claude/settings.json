@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*git*commit*)",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/auditoria-ux.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Revisando si hay cambios de interfaz sin auditar…"
+          }
+        ]
+      }
+    ]
+  }
+}

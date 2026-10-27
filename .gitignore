@@ -57,3 +57,6 @@ frontend/blob-report/
 
 # Datos reales de prueba que no se versionan (p. ej. el rol de pagos de ejemplo).
 backend/datos_locales/
+
+# Claude Code: las preferencias personales no van al repositorio.
+.claude/settings.local.json
