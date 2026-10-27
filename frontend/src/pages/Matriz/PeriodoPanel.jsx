@@ -7,10 +7,12 @@ import { mensajeDeError } from "../../utils/errores";
 import {
   ICONO_DEL_GRUPO,
   PILDORA_DEL_GRUPO,
+  PERIODICIDADES,
   PRIORIDADES,
   diaCorto,
   fechaHora,
 } from "./formatoMatriz";
+import { FichaObligacion } from "./FichaObligacion";
 import { CambiarFechaModal } from "./CambiarFechaModal";
 import { CargarEvidenciaModal } from "./CargarEvidenciaModal";
 import { DocumentosDelPeriodo } from "./DocumentosDelPeriodo";
@@ -23,17 +25,6 @@ const TIPOS = {
   regulatoria: "Regulatoria",
   contractual: "Contractual",
   interna: "Interna",
-};
-const PERIODICIDADES = {
-  mensual: "Mensual",
-  trimestral: "Trimestral",
-  semestral: "Semestral",
-  anual: "Anual",
-  bienal: "Bienal (cada 2 años)",
-  trienal: "Trienal (cada 3 años)",
-  quinquenal: "Quinquenal (cada 5 años)",
-  decenal: "Decenal (cada 10 años)",
-  unica: "Única",
 };
 
 function Kv({ etiqueta, children, completo }) {
@@ -358,6 +349,12 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                       )}
                     </div>
                   </div>
+
+                  <FichaObligacion
+                    obligacion={periodo.obligacion}
+                    puedeEditar={periodo.acciones?.includes("edit")}
+                    onGuardada={() => despuesDeCambiar("Ficha guardada.")}
+                  />
 
                   <div className="mz-section">
                     <h4>Fechas</h4>

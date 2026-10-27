@@ -6,6 +6,10 @@ const FOCUSABLE_SELECTOR =
 // Contador a nivel de módulo (no por instancia): con overlays anidados el
 // body debe seguir bloqueado hasta que se cierre el último.
 let openModalCount = 0;
+// Los overlays abiertos, del más viejo al más nuevo: Escape cierra solo el de
+// arriba (27/10/2026: con la ficha abierta sobre el panel del período, un
+// Escape cerraba los dos).
+const pila = [];
 
 function lockBodyScroll() {
   openModalCount += 1;
@@ -51,18 +55,30 @@ export function useModalA11y({
     }
 
     lockBodyScroll();
+    const marca = {};
+    pila.push(marca);
+    // Quien tenía el foco al abrir lo recupera al cerrar, aunque no se pase
+    // `triggerRef`: si no, el foco caía en <body>.
+    const anterior = document.activeElement;
 
     const panel = panelRef.current;
-    const focusable = panel ? Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR)) : [];
-    (focusable[0] || panel)?.focus();
+    const enfocables = () =>
+      panel ? Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR)) : [];
+    (enfocables()[0] || panel)?.focus();
 
     function handleKeyDown(event) {
+      if (pila[pila.length - 1] !== marca) {
+        return;
+      }
       if (event.key === "Escape") {
         if (closeOnEscape) {
           requestGuardedClose();
         }
         return;
       }
+      // Se calculan en cada Tab: los botones que se habilitan después de abrir
+      // («Importar» tras simular) también entran en el ciclo.
+      const focusable = enfocables();
       if (event.key !== "Tab" || focusable.length === 0) {
         return;
       }
@@ -81,8 +97,13 @@ export function useModalA11y({
     const trigger = triggerRef?.current;
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      const posicion = pila.indexOf(marca);
+      if (posicion >= 0) pila.splice(posicion, 1);
       unlockBodyScroll();
-      trigger?.focus();
+      const destino = trigger ?? anterior;
+      if (destino && destino !== document.body && document.contains(destino)) {
+        destino.focus();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -18,9 +18,10 @@ from apps.core.request_meta import get_request_context
 from apps.empresas.models import Empresa, MembresiaEmpresa
 from apps.empresas.servicios import empresas_de
 from apps.organizacion.models import Sede
+from apps.permissions.authorization import user_has_permission
 from apps.users.models import User
 
-from . import cierre, estados, informes, recordatorios, servicios
+from . import cierre, estados, importacion, informes, recordatorios, servicios
 from .acceso import (
     capacidades_en,
     empresa_de_la_matriz,
@@ -37,6 +38,7 @@ from .models import (
     EstadoNotificacion,
     Etapa,
     EventoPeriodo,
+    FichaObligacion,
     Notificacion,
     Obligacion,
     Periodicidad,
@@ -54,6 +56,7 @@ from .serializers import (
     EntidadControlSerializer,
     EventoAuditoriaSerializer,
     EventoSerializer,
+    FichaSerializer,
     MotivoSerializer,
     NotificacionSerializer,
     ObligacionAltaSerializer,
@@ -558,6 +561,73 @@ def obligacion(request, pk):
                 context=get_request_context(request),
             )
     return Response(ObligacionSerializer(actual).data)
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def ficha(request, pk):
+    """La ficha de la obligación (27/10/2026); con `PUT`, se crea o se
+    reemplaza (necesita editar la matriz). Queda en la auditoría."""
+    _, capacidades = empresa_de_la_matriz(request)
+    actual = get_object_or_404(Obligacion.objects.all(), pk=pk)
+    existente = FichaObligacion.objects.filter(obligacion=actual).first()
+    if request.method == "PUT":
+        exigir(request, "matriz.editar", capacidades)
+        anteriores = FichaSerializer(existente).data if existente else {}
+        entrada = FichaSerializer(existente, data=request.data)
+        entrada.is_valid(raise_exception=True)
+        existente = entrada.save(obligacion=actual, empresa=actual.empresa)
+        nuevos = FichaSerializer(existente).data
+        cambios = {k: v for k, v in nuevos.items() if anteriores.get(k) != v}
+        if cambios:
+            record_audit_event(
+                actor=request.user,
+                action="obligation.ficha_updated",
+                target=actual,
+                module=MODULO,
+                previous_values={k: anteriores.get(k) for k in cambios},
+                new_values=cambios,
+                context=get_request_context(request),
+            )
+    return Response(FichaSerializer(existente).data if existente else None)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def importar(request):
+    """Importar la matriz legal desde el Excel de Administración (27/10/2026).
+
+    `multipart/form-data` con `archivo` (.xlsx). Sin `aplicar=true` solo
+    simula: dice qué obligaciones se crean y cuáles se actualizan, con qué
+    tema, entidad, sede y vencimiento, y los errores que impiden importar.
+    Con `aplicar=true` lo guarda (en una sola transacción). Necesita crear y
+    editar obligaciones y editar los catálogos (crea entidades y sedes)."""
+    empresa, capacidades = empresa_de_la_matriz(request)
+    exigir(request, "matriz.crear", capacidades)
+    exigir(request, "matriz.editar", capacidades)
+    if not user_has_permission(request.user, "catalogos.editar"):
+        raise PermissionDenied("Importar crea entidades y sedes: necesita editar los catálogos.")
+    archivo = request.FILES.get("archivo")
+    if archivo is None or not archivo.name.lower().endswith(".xlsx"):
+        raise ValidationError({"archivo": "Adjunte el Excel de la matriz legal (.xlsx)."})
+    try:
+        filas, avisos = importacion.leer(archivo)
+    except ValueError as error:
+        raise ValidationError({"archivo": str(error)}) from error
+    except Exception as error:  # un archivo que no es un Excel válido
+        raise ValidationError({"archivo": "No se pudo leer el Excel."}) from error
+    plan = importacion.planificar(filas, empresa)
+    plan.avisos[:0] = avisos
+    respuesta = plan.resumen()
+    aplicar = str(request.data.get("aplicar", "")).lower() in {"1", "true", "si", "sí"}
+    respuesta["aplicado"] = None
+    if aplicar:
+        if plan.errores:
+            return Response(respuesta, status=status.HTTP_400_BAD_REQUEST)
+        respuesta["aplicado"] = importacion.aplicar(
+            plan, empresa, request.user, get_request_context(request)
+        )
+    return Response(respuesta)
 
 
 # --- Evidencias y cierre (fase 3) ---------------------------------------------------

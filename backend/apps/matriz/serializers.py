@@ -13,6 +13,7 @@ from .models import (
     Documento,
     EntidadControl,
     EventoPeriodo,
+    FichaObligacion,
     Notificacion,
     Obligacion,
     Periodicidad,
@@ -100,11 +101,59 @@ class _SedeDeLaEmpresa(serializers.PrimaryKeyRelatedField):
 # --- Obligación -----------------------------------------------------------------
 
 
+class FichaSerializer(serializers.ModelSerializer):
+    """La ficha de la obligación (27/10/2026): emisión y detalle del seguro o
+    del arriendo. Todo opcional."""
+
+    class Meta:
+        model = FichaObligacion
+        fields = [
+            "tipo",
+            "emitido_en",
+            "tipo_seguro",
+            "aseguradora",
+            "broker",
+            "poliza",
+            "asegurado",
+            "propietario",
+            "vigencia_desde",
+            "vigencia_hasta",
+            "prima",
+            "prima_detalle",
+            "valor_asegurado",
+            "detalle",
+            "marca",
+            "modelo",
+            "tipo_vehiculo",
+            "placa",
+            "canon",
+            "garantia",
+            "duracion",
+            "incremento",
+            "renovado",
+            "notas",
+        ]
+
+    def validate(self, attrs):
+        desde = attrs.get("vigencia_desde", getattr(self.instance, "vigencia_desde", None))
+        hasta = attrs.get("vigencia_hasta", getattr(self.instance, "vigencia_hasta", None))
+        if desde and hasta and desde > hasta:
+            raise serializers.ValidationError(
+                {"vigencia_hasta": "La vigencia no puede terminar antes de empezar."}
+            )
+        return attrs
+
+
 class ObligacionSerializer(serializers.ModelSerializer):
     """La plantilla: lectura y edición (§11.2). No toca los períodos creados."""
 
     area_nombre = serializers.CharField(source="area.nombre", read_only=True)
     entidad_nombre = serializers.CharField(source="entidad.nombre", read_only=True)
+    ficha = serializers.SerializerMethodField()
+
+    def get_ficha(self, obj):
+        ficha = getattr(obj, "ficha", None)
+        return FichaSerializer(ficha).data if ficha is not None else None
 
     class Meta:
         model = Obligacion
@@ -126,6 +175,7 @@ class ObligacionSerializer(serializers.ModelSerializer):
             "hora_vencimiento",
             "prioridad_defecto",
             "activa",
+            "ficha",
         ]
 
     def validate_nombre(self, value: str) -> str:

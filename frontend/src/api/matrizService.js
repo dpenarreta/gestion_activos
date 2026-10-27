@@ -43,6 +43,24 @@ export const matrizService = {
   personas() {
     return apiClient.get(`${BASE}/personas/`).then((res) => res.data);
   },
+  /** La matriz legal desde el Excel de Administración (27/10/2026). Sin
+   * `aplicar` solo simula y devuelve qué haría; con él, lo guarda. */
+  importar(archivo, aplicar = false) {
+    const datos = new FormData();
+    datos.append("archivo", archivo);
+    if (aplicar) datos.append("aplicar", "true");
+    return apiClient
+      .post(`${BASE}/importar/`, datos, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((res) => res.data);
+  },
+  /** La ficha de la obligación (emisión, seguro o arriendo). */
+  guardarFicha(obligacionId, datos) {
+    return apiClient
+      .put(`${BASE}/obligaciones/${obligacionId}/ficha/`, datos)
+      .then((res) => res.data);
+  },
   catalogos() {
     return apiClient.get(`${BASE}/catalogos/`).then((res) => res.data);
   },

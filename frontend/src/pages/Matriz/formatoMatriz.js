@@ -104,3 +104,16 @@ export function textoDeDias(estado) {
 }
 
 export const PRIORIDADES = { alta: "Alta", media: "Media", baja: "Baja" };
+
+/** Las periodicidades, como se leen en pantalla. */
+export const PERIODICIDADES = {
+  mensual: "Mensual",
+  trimestral: "Trimestral",
+  semestral: "Semestral",
+  anual: "Anual",
+  bienal: "Bienal (cada 2 años)",
+  trienal: "Trienal (cada 3 años)",
+  quinquenal: "Quinquenal (cada 5 años)",
+  decenal: "Decenal (cada 10 años)",
+  unica: "Única",
+};

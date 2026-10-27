@@ -16,7 +16,9 @@ from .views import (
     documentos,
     documentos_resumen,
     enviar,
+    ficha,
     historial,
+    importar,
     mis_empresas,
     notificacion_reintentar,
     notificaciones,
@@ -95,4 +97,6 @@ urlpatterns = [
     ),
     path("obligaciones/", obligaciones, name="matriz-obligaciones"),
     path("obligaciones/<int:pk>/", obligacion, name="matriz-obligacion"),
+    path("obligaciones/<int:pk>/ficha/", ficha, name="matriz-obligacion-ficha"),
+    path("importar/", importar, name="matriz-importar"),
 ] + router.urls

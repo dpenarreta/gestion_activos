@@ -493,3 +493,61 @@ class Notificacion(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.get_tipo_display()} a {self.correo} ({self.periodo.codigo})"
+
+
+# --- Ficha de la obligación (27/10/2026) -------------------------------------
+
+
+class TipoFicha(models.TextChoices):
+    GENERAL = "general", "General"
+    SEGURO = "seguro", "Seguro"
+    ARRIENDO = "arriendo", "Arriendo"
+
+
+class FichaObligacion(ModeloDeEmpresa):
+    """Los datos propios de una obligación que no son su vencimiento: cuándo
+    se emitió el documento y, si es un seguro o un arriendo, su detalle
+    (placa, aseguradora, prima, canon, garantía…). Llegó con la matriz legal
+    de Administración, que los llevaba en columnas del Excel. Uno a uno con la
+    obligación: describe a la plantilla, no a cada período."""
+
+    obligacion = models.OneToOneField(Obligacion, on_delete=models.CASCADE, related_name="ficha")
+    tipo = models.CharField(max_length=10, choices=TipoFicha.choices, default=TipoFicha.GENERAL)
+    emitido_en = models.DateField(null=True, blank=True)
+
+    # Seguros
+    tipo_seguro = models.CharField(max_length=80, blank=True)
+    aseguradora = models.CharField(max_length=120, blank=True)
+    broker = models.CharField(max_length=120, blank=True)
+    poliza = models.CharField(max_length=60, blank=True)
+    asegurado = models.CharField(max_length=120, blank=True, help_text="La empresa asegurada.")
+    propietario = models.CharField(max_length=120, blank=True)
+    vigencia_desde = models.DateField(null=True, blank=True)
+    vigencia_hasta = models.DateField(null=True, blank=True)
+    prima = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    prima_detalle = models.CharField(
+        max_length=120, blank=True, help_text="Cuando la prima no es un monto: «2.80 por persona»."
+    )
+    valor_asegurado = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    detalle = models.CharField(max_length=200, blank=True)
+    # … de un vehículo
+    marca = models.CharField(max_length=60, blank=True)
+    modelo = models.CharField(max_length=120, blank=True)
+    tipo_vehiculo = models.CharField(max_length=60, blank=True)
+    placa = models.CharField(max_length=20, blank=True)
+
+    # Arriendos
+    canon = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    garantia = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    duracion = models.CharField(max_length=40, blank=True, help_text="Ej.: «2 años».")
+    incremento = models.CharField(max_length=300, blank=True)
+    renovado = models.BooleanField(null=True, blank=True)
+
+    notas = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "ficha de la obligación"
+        verbose_name_plural = "fichas de las obligaciones"
+
+    def __str__(self) -> str:
+        return f"Ficha de {self.obligacion}"

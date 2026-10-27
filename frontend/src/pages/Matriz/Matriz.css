@@ -153,3 +153,131 @@
   min-width: 0;
   margin-right: auto;
 }
+
+/* Ficha de la obligación (27/10/2026): el título con su botón. */
+.mz-section-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.mz-section-head h4 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mz-ficha-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.mz-ficha-form__completo {
+  grid-column: 1 / -1;
+}
+
+/* Importar matriz legal (27/10/2026). */
+.mz-import-input {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.mz-import-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.mz-import-cifra {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.mz-import-cifra strong {
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--mz-ink);
+}
+
+.mz-import-cifra span {
+  color: var(--mz-ink-soft);
+  font-size: 12.5px;
+}
+
+.mz-import-cifra--ok {
+  border-color: var(--mz-ok-line);
+  background: var(--mz-ok-bg);
+}
+
+.mz-import-cifra--warn {
+  border-color: var(--mz-warn-line);
+  background: var(--mz-warn-bg);
+}
+
+.mz-import-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.mz-import-datos dt {
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mz-import-datos dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.mz-import-avisos summary {
+  cursor: pointer;
+  color: var(--mz-warn-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mz-import-avisos ul {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
+
+.mz-import-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mz-import-tabla {
+  max-height: 46vh;
+  overflow: auto;
+}
+
+.mz-import-confirmar {
+  color: var(--mz-warn-fg);
+  font-weight: 600;
+}
+
+@media (max-width: 576px) {
+  .mz-ficha-form,
+  .mz-import-datos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mz-section-head__titulo {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

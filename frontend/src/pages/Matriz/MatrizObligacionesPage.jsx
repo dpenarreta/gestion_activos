@@ -15,6 +15,7 @@ import {
   textoDeDias,
 } from "./formatoMatriz";
 import { BotonesExportar } from "./BotonesExportar";
+import { ImportarMatrizModal } from "./ImportarMatrizModal";
 import { ObligacionFormModal } from "./ObligacionFormModal";
 import { PeriodoPanel } from "./PeriodoPanel";
 import { useOpcionesMatriz } from "./useOpcionesMatriz";
@@ -76,6 +77,7 @@ export function MatrizObligacionesPage() {
   const [error, setError] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [creando, setCreando] = useState(false);
+  const [importando, setImportando] = useState(false);
 
   const orden = params.get("sort") || "urgency";
   const filtros = useMemo(
@@ -165,6 +167,9 @@ export function MatrizObligacionesPage() {
   const zona = empresa?.zona_horaria;
   const puedeCrear = empresa?.capacidades.includes("matriz.crear");
   const puedeExportar = empresa?.capacidades.includes("matriz.exportar");
+  // Importar crea y actualiza obligaciones (27/10/2026).
+  const puedeImportar =
+    puedeCrear && empresa?.capacidades.includes("matriz.editar");
 
   return (
     <div className="matriz-page">
@@ -184,6 +189,15 @@ export function MatrizObligacionesPage() {
                 params={{ ...filtros, sort: orden }}
                 nombre="matriz"
               />
+            )}
+            {puedeImportar && (
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => setImportando(true)}
+              >
+                <Icon name="file-earmark-spreadsheet" /> Importar matriz legal
+              </button>
             )}
             {puedeCrear && (
               <button
@@ -460,6 +474,12 @@ export function MatrizObligacionesPage() {
           id={panel.abierto}
           onCerrar={panel.cerrar}
           onCambio={cargar}
+        />
+      )}
+      {importando && (
+        <ImportarMatrizModal
+          onCerrar={() => setImportando(false)}
+          onImportado={cargar}
         />
       )}
       {creando && (
