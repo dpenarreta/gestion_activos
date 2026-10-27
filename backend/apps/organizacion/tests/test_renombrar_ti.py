@@ -1,5 +1,5 @@
-"""La migración 0035 renombra «Innovación y Transformación Digital» a «TI»
-(27/10/2026): la unidad, su departamento y los roles que llevan su nombre."""
+"""Las migraciones 0035 (Innovación y Transformación Digital pasa a «TI»)
+y 0036 (el nivel «Departamento» pasa a «Área»), del 27/10/2026."""
 
 import importlib
 
@@ -42,3 +42,32 @@ def test_renombra_unidad_departamento_y_roles(db):
     # Repetirla no hace nada.
     migracion.aplicar(None, None)
     assert VersionOrganigrama.objects.count() == 1
+
+
+nivel_a_area = importlib.import_module(
+    "apps.organizacion.migrations.0036_nivel_departamento_a_area"
+)
+
+
+def test_el_nivel_departamento_pasa_a_area(db):
+    nivel = NivelJerarquico.objects.create(nombre="Departamento", orden=2)
+
+    nivel_a_area.aplicar(None, None)
+
+    nivel.refresh_from_db()
+    assert nivel.nombre == "Área"
+    (version,) = VersionOrganigrama.objects.all()
+    assert version.cambios
+    nivel_a_area.aplicar(None, None)
+    assert VersionOrganigrama.objects.count() == 1
+
+
+def test_si_ya_hay_un_nivel_area_no_se_toca(db):
+    NivelJerarquico.objects.create(nombre="Área", orden=3)
+    departamento = NivelJerarquico.objects.create(nombre="Departamento", orden=2)
+
+    nivel_a_area.aplicar(None, None)
+
+    departamento.refresh_from_db()
+    assert departamento.nombre == "Departamento"
+    assert not VersionOrganigrama.objects.exists()
