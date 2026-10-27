@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
@@ -21,6 +21,7 @@ function vistaGuardada() {
     return "arbol";
   }
 }
+import { NivelDeCargo, NivelesDeCargo } from "./NivelDeCargo";
 import "./Institucional.css";
 
 const ZOOM_MIN = 0.3;
@@ -171,7 +172,10 @@ function Cargo({ cargo, cargos, conPersonas }) {
   return (
     <li className="org-cargo">
       <div className="org-cargo__cabecera">
-        <strong>{cargo.nombre}</strong>
+        <span className="org-cargo__titulo">
+          <strong>{cargo.nombre}</strong>
+          <NivelDeCargo valor={cargo.nivel} compacto />
+        </span>
         <span
           className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
           title={`${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`}
@@ -244,13 +248,17 @@ function PersonasDelCargo({ cargo }) {
 function RamaCargo({ rama, conPersonas }) {
   const { cargo, profundidad, hijos } = rama;
   const nivel = Math.min(profundidad, 3);
+  const nivelDelCargo = useContext(NivelesDeCargo).find(
+    (n) => n.valor === cargo.nivel,
+  )?.nombre;
   return (
     <li className="org-ct__rama">
       <div
         className={`org-nodo org-nodo--nivel-${nivel}`}
-        aria-label={`${cargo.nombre}: ${cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}`}
+        aria-label={`${cargo.nombre}${nivelDelCargo ? ` (${nivelDelCargo})` : ""}: ${cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}`}
       >
         <strong className="org-nodo__cargo">{cargo.nombre}</strong>
+        <NivelDeCargo valor={cargo.nivel} compacto />
         {cargo.plazas > 1 && (
           <span
             className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
@@ -556,19 +564,21 @@ export function OrganigramaPage() {
       {arbol.length > 0 &&
         (() => {
           const unidades = (
-            <ul className="org-arbol">
-              {arbol.map((nodo) => (
-                <Unidad
-                  key={nodo.id}
-                  nodo={nodo}
-                  cargos={datos.cargos}
-                  conPersonas={conPersonas}
-                  cerradas={cerradas}
-                  alternar={alternar}
-                  vista={vista}
-                />
-              ))}
-            </ul>
+            <NivelesDeCargo.Provider value={datos.niveles_cargo ?? []}>
+              <ul className="org-arbol">
+                {arbol.map((nodo) => (
+                  <Unidad
+                    key={nodo.id}
+                    nodo={nodo}
+                    cargos={datos.cargos}
+                    conPersonas={conPersonas}
+                    cerradas={cerradas}
+                    alternar={alternar}
+                    vista={vista}
+                  />
+                ))}
+              </ul>
+            </NivelesDeCargo.Provider>
           );
           // Árbol: horizontal, en el lienzo con zoom. Lista: vertical e
           // indentada por nivel, para leerla de arriba abajo sin desplazarse

@@ -12,6 +12,7 @@ import { CapacitacionGestion } from "./CapacitacionGestion";
 import { CapacitacionResultados } from "./CapacitacionResultados";
 import { HerramientasPage } from "./HerramientasPage";
 import { PerfilesCargo } from "./PerfilesCargo";
+import { NivelDeCargo } from "./NivelDeCargo";
 import { armarArbol, nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
@@ -19,7 +20,7 @@ import { BitacoraOrganigrama } from "./BitacoraOrganigrama";
 
 /** Cada pestaña con el permiso que la abre: armar la estructura o asignar. */
 const PESTANAS = [
-  ["niveles", "Niveles jerárquicos", "institucional.editar"],
+  ["niveles", "Niveles de unidad", "institucional.editar"],
   ["unidades", "Unidades", "institucional.editar"],
   ["cargos", "Cargos", "institucional.editar"],
   ["asignaciones", "Asignación de cargos", "institucional.asignar"],
@@ -44,6 +45,7 @@ const VACIOS = {
     unidad: "",
     jefe: "",
     plazas: 1,
+    nivel: "",
     descripcion: "",
     activo: true,
   },
@@ -206,6 +208,33 @@ function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
                   ))}
               </select>
             </Campo>
+            <Campo
+              id="est-nivel-cargo"
+              etiqueta="Nivel jerárquico"
+              ancho="col-6 col-md-4"
+            >
+              <select
+                id="est-nivel-cargo"
+                className="form-select form-select-sm"
+                aria-describedby="est-nivel-cargo-ayuda"
+                value={valores.nivel ?? ""}
+                onChange={fijar("nivel")}
+              >
+                {!editando && (
+                  <option value="">Según el nombre del cargo</option>
+                )}
+                {(datos.niveles_cargo ?? []).map((n) => (
+                  <option key={n.valor} value={n.valor}>
+                    {n.nombre}
+                  </option>
+                ))}
+              </select>
+              <div id="est-nivel-cargo-ayuda" className="form-text">
+                Gerencia General › Gerencia de Área › Jefatura › Coordinación ›
+                Operativo › Asistente. No puede reportar a un cargo de nivel más
+                bajo.
+              </div>
+            </Campo>
             <Campo id="est-plazas" etiqueta="Plazas" ancho="col-6 col-md-2">
               <input
                 id="est-plazas"
@@ -362,6 +391,8 @@ function aEnviar(recurso, valores) {
   );
   const nulos = { unidades: ["padre"], cargos: ["jefe"] }[recurso];
   for (const campo of nulos ?? []) if (resto[campo] === "") resto[campo] = null;
+  // Un cargo sin nivel elegido toma el de su nombre (lo decide el servidor).
+  if (recurso === "cargos" && !resto.nivel) delete resto.nivel;
   return resto;
 }
 
@@ -465,7 +496,7 @@ export function EstructuraPage() {
         <div>
           <h2>Estructura del organigrama</h2>
           <p className="mz-desc">
-            Primero los niveles jerárquicos, luego las unidades (cada una dentro
+            Primero los niveles de unidad, luego las unidades (cada una dentro
             de otra de un nivel superior), los cargos de cada unidad y, al
             final, quién ocupa cada cargo.
           </p>
@@ -606,9 +637,10 @@ export function EstructuraPage() {
                   <tr>
                     <th>Nombre</th>
                     {pestana === "niveles" && <th>Orden</th>}
-                    {pestana === "unidades" && <th>Nivel</th>}
+                    {pestana === "unidades" && <th>Nivel de unidad</th>}
                     {pestana === "unidades" && <th>Depende de</th>}
                     {pestana === "cargos" && <th>Unidad</th>}
+                    {pestana === "cargos" && <th>Nivel jerárquico</th>}
                     {pestana === "cargos" && <th>Reporta a</th>}
                     {pestana === "cargos" && <th className="num">Plazas</th>}
                     {pestana === "cargos" && <th>Rol del sistema</th>}
@@ -636,6 +668,11 @@ export function EstructuraPage() {
                         <td>{unidadDe(fila.padre) ?? "—"}</td>
                       )}
                       {pestana === "cargos" && <td>{unidadDe(fila.unidad)}</td>}
+                      {pestana === "cargos" && (
+                        <td>
+                          <NivelDeCargo valor={fila.nivel} datos={datos} />
+                        </td>
+                      )}
                       {pestana === "cargos" && (
                         <td>{cargoDe(fila.jefe) ?? "—"}</td>
                       )}
@@ -684,7 +721,9 @@ export function EstructuraPage() {
                               nivel:
                                 pestana === "unidades"
                                   ? (fila.nivel?.id ?? "")
-                                  : undefined,
+                                  : pestana === "cargos"
+                                    ? (fila.nivel ?? "")
+                                    : undefined,
                               padre: fila.padre ?? "",
                               jefe: fila.jefe ?? "",
                             })

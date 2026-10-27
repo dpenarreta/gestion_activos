@@ -5,16 +5,17 @@ Gestión Humana pasó su organigrama estructural:
     Gerente Gestión Humana (Cristina Granda) · jefe: Gerente General
     └ Jefe Nacional de Talento Humano y SSO
       ├ Salud Ocupacional (apoyo: María del Mar ZS, Martha Quintana ZN)
+      ├ Jefe de Nómina (asesor externo en LCE; en la imagen colgaba del
+      │ Coordinador Nacional, pero una Jefatura no reporta a una Coordinación)
+      │ └ Asistente de Nómina
       └ Coordinador Nacional de GGHH
         ├ Analista de Selección
         │ ├ Asistente de GGHH (Melanie Bermello y Farid Maldonado)
         │ └ Asistente de Selección
         ├ Analista Clima y Cultura
         ├ Trabajo Social
-        ├ Coordinador Gestión Humana Zona Sur
-        │ └ Asistente Gestión Humana Zona Sur
-        └ Jefe de Nómina (asesor externo en LCE)
-          └ Asistente de Nómina
+        └ Coordinador Gestión Humana Zona Sur
+          └ Asistente Gestión Humana Zona Sur
 
 Donde el área ya existía (organigrama GGHH 2026) los cargos se renombran y
 conservan su rol, sus permisos, su perfil y quienes los ocupan; donde no
@@ -105,11 +106,13 @@ CARGOS = {
         [("Coordinador Zona Sur", "Coordinador Nacional de GGHH")],
         [("Fernando Leonardo", "Peralta Ramírez")],
     ),
+    # Una Jefatura no reporta a una Coordinación (niveles por cargo,
+    # 27/10/2026): reporta al Jefe Nacional.
     "nomina": _cargo(
         "Jefe de Nómina",
-        "coordinador",
+        "jefe",
         1,
-        [],
+        [("Jefe de Nómina", "Coordinador Nacional de GGHH")],
         [("Elsi", "Maldonado")],
     ),
     "asistente": _cargo(

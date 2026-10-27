@@ -34,6 +34,7 @@ from .models import (
     Cargo,
     DatosDeContacto,
     HerramientaDeCargo,
+    NivelCargo,
     NivelJerarquico,
     OcupanteCargo,
     UnidadOrganizacional,
@@ -63,6 +64,7 @@ CAMPOS_CARGO = (
     "unidad_id",
     "jefe_id",
     "plazas",
+    "nivel",
     "descripcion",
     "activo",
     "objetivo",
@@ -84,6 +86,7 @@ ETIQUETAS = {
     "unidad_id": "unidad",
     "jefe_id": "jefe inmediato",
     "plazas": "plazas",
+    "nivel": "nivel jerárquico",
 }
 
 
@@ -159,6 +162,8 @@ def _valor(campo, valor, nombres) -> str:
     tipo = {"nivel_id": "nivel", "padre_id": "unidad", "unidad_id": "unidad", "jefe_id": "cargo"}
     if campo in tipo:
         return nombres[tipo[campo]].get(valor, f"#{valor}")
+    if campo == "nivel":
+        return dict(NivelCargo.choices).get(valor, valor)
     texto = str(valor)
     return texto if len(texto) <= 60 else texto[:57] + "…"
 
@@ -385,7 +390,8 @@ def restaurar(respaldo: dict, empresa) -> None:
             cargo = Cargo(empresa=empresa)
             recreados.append((cargo, datos["permisos"]))
         for campo in CAMPOS_CARGO:
-            if campo not in ("jefe_id", "unidad_id"):
+            # Los respaldos de antes del nivel por cargo no lo traen.
+            if campo not in ("jefe_id", "unidad_id") and campo in datos:
                 setattr(cargo, campo, datos[campo])
         cargo.unidad_id = _remapear(datos["unidad_id"], mapa_unidad)
         cargo.jefe_id = None

@@ -260,6 +260,78 @@
   color: var(--mz-ink-faint);
 }
 
+/* El nivel jerárquico del cargo (27/10/2026), con un tono por nivel. */
+.org-nivel {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--mz-sunken);
+  box-shadow: inset 0 0 0 1px var(--mz-border);
+  color: var(--mz-ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.org-nivel--compacto {
+  padding: 0 6px;
+  font-size: 10.5px;
+}
+
+.org-nivel--gerencia_general {
+  background: var(--mz-ink);
+  color: var(--mz-raised);
+}
+
+.org-nivel--gerencia_area {
+  background: var(--mz-blue-100);
+  color: var(--mz-blue-700);
+}
+
+/* El nodo raíz del árbol tiene fondo oscuro fijo: la etiqueta, sobre claro. */
+.org-nodo--nivel-0 .org-nivel {
+  box-shadow: none;
+}
+
+.org-nodo--nivel-0 .org-nivel--operativo,
+.org-nodo--nivel-0 .org-nivel--gerencia_area {
+  background: #fff;
+}
+
+.org-nodo--nivel-0 .org-nivel--gerencia_area {
+  color: #164b86;
+}
+
+.org-nodo--nivel-0 .org-nivel--operativo {
+  color: #3c4a5c;
+}
+
+/* En la Lista, el nombre y su nivel juntos; las plazas a la derecha. */
+.org-cargo__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.org-nivel--jefatura {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.org-nivel--coordinacion {
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+}
+
+.org-nivel--asistente {
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
 .org-plazas {
   flex: none;
   padding: 1px 6px;

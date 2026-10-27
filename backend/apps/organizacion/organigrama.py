@@ -15,7 +15,7 @@ Lo que se protege:
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from . import perfiles_cargo
+from . import niveles_cargo, perfiles_cargo
 
 from .models import (
     Cargo,
@@ -104,6 +104,7 @@ def arbol() -> dict:
                 "unidad": cargo.unidad_id,
                 "jefe": cargo.jefe_id,
                 "plazas": cargo.plazas,
+                "nivel": cargo.nivel,
                 "descripcion": cargo.descripcion,
                 "activo": cargo.activo,
                 "ocupantes": en_el,
@@ -117,6 +118,7 @@ def arbol() -> dict:
             }
         )
     return {
+        "niveles_cargo": niveles_cargo.lista(),
         "niveles": [
             {
                 "id": n.id,
@@ -168,6 +170,7 @@ def arbol_de_area(usuario) -> dict:
     completo = arbol()
     if unidad is None:
         return {
+            "niveles_cargo": completo["niveles_cargo"],
             "niveles": completo["niveles"],
             "unidades": [],
             "cargos": [],
@@ -184,6 +187,7 @@ def arbol_de_area(usuario) -> dict:
         rama.add(actual)
         pendientes.extend(hijas.get(actual, []))
     return {
+        "niveles_cargo": completo["niveles_cargo"],
         "niveles": completo["niveles"],
         "unidades": [u for u in completo["unidades"] if u["id"] in rama],
         "cargos": [c for c in completo["cargos"] if c["unidad"] in rama],

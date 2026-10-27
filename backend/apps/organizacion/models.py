@@ -467,6 +467,18 @@ class UnidadOrganizacional(ModeloDeEmpresa):
         return self.nombre
 
 
+class NivelCargo(models.TextChoices):
+    """Los niveles jerárquicos de los cargos, de arriba hacia abajo
+    (27/10/2026). Los mismos para toda la empresa."""
+
+    GERENCIA_GENERAL = "gerencia_general", "Gerencia General"
+    GERENCIA_AREA = "gerencia_area", "Gerencia de Área"
+    JEFATURA = "jefatura", "Jefatura"
+    COORDINACION = "coordinacion", "Coordinación"
+    OPERATIVO = "operativo", "Operativo de área"
+    ASISTENTE = "asistente", "Asistente de área"
+
+
 class Cargo(ModeloDeEmpresa):
     """Un cargo del organigrama: pertenece a una unidad, reporta a otro cargo
     (su jefe inmediato) y tiene un número de plazas. Cada persona lo elige en
@@ -489,6 +501,12 @@ class Cargo(ModeloDeEmpresa):
         "self", on_delete=models.PROTECT, null=True, blank=True, related_name="subordinados"
     )
     plazas = models.PositiveSmallIntegerField(default=1)
+    #: Su nivel jerárquico (27/10/2026, ver `niveles_cargo.py`): Gerencia
+    #: General › Gerencia de Área › Jefatura › Coordinación › Operativo de área
+    #: › Asistente de área. Es del cargo, no de su unidad.
+    nivel = models.CharField(
+        max_length=20, choices=NivelCargo.choices, default=NivelCargo.OPERATIVO
+    )
     descripcion = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
     # El perfil del cargo (perfiles_cargo.py): lo ve quien lo ocupa en «Mi

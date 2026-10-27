@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
 
-from . import departamentos_del_organigrama, documentos, noticias, organigrama
+from . import departamentos_del_organigrama, documentos, niveles_cargo, noticias, organigrama
 from .models import (
     Cargo,
     Concesionario,
@@ -411,12 +411,37 @@ class CargoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cargo
-        fields = ["id", "nombre", "unidad", "jefe", "plazas", "descripcion", "activo"]
+        fields = ["id", "nombre", "unidad", "jefe", "plazas", "nivel", "descripcion", "activo"]
+        extra_kwargs = {"nivel": {"required": False}}
 
     def validate(self, datos):
         nombre = datos.get("nombre", getattr(self.instance, "nombre", "")).strip()
         unidad = datos.get("unidad", getattr(self.instance, "unidad", None))
         jefe = datos.get("jefe", getattr(self.instance, "jefe", None))
+        # Nivel jerárquico (niveles_cargo.py). Un cargo nuevo sin nivel toma el
+        # de su nombre (Jefe… → Jefatura), nunca por encima del de su jefe. Si
+        # se elige el nivel o se cambia el jefe, no puede reportar a un cargo de
+        # nivel más bajo.
+        if self.instance is None and not datos.get("nivel"):
+            nivel = niveles_cargo.sugerido(nombre, jefe)
+        else:
+            nivel = datos.get("nivel") or self.instance.nivel
+        if self.instance is not None and "nivel" in datos:
+            mas_altos = [
+                s.nombre
+                for s in self.instance.subordinados.filter(activo=True)
+                if niveles_cargo.ORDEN[s.nivel] < niveles_cargo.ORDEN[nivel]
+            ]
+            if mas_altos:
+                raise serializers.ValidationError(
+                    {
+                        "nivel": (
+                            f"Le reportan cargos de nivel superior ({', '.join(mas_altos)}): "
+                            "cámbieles el jefe o el nivel antes."
+                        )
+                    }
+                )
+        datos["nivel"] = nivel
         # El mismo nombre se repite en una unidad bajo jefes distintos («Asesor
         # Comercial» del coordinador y del jefe de ventas), no bajo el mismo.
         repetido = Cargo.objects.filter(nombre__iexact=nombre, unidad=unidad, jefe=jefe)
@@ -428,6 +453,8 @@ class CargoSerializer(serializers.ModelSerializer):
                 {"nombre": f"«{unidad}» ya tiene un cargo «{nombre}»{bajo}."}
             )
         organigrama.validar_jefe(self.instance, jefe)
+        if "nivel" in datos or "jefe" in datos:
+            niveles_cargo.validar_jefe(nivel, jefe)
         datos["nombre"] = nombre
         return datos
 

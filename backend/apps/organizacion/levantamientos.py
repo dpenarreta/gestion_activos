@@ -14,7 +14,7 @@ homónimos) y quiénes lo ocupan. `levantar`:
 Se puede repetir: lo que ya está como dice el organigrama no se toca.
 """
 
-from . import departamentos_del_organigrama, roles_de_cargo
+from . import departamentos_del_organigrama, niveles_cargo, roles_de_cargo
 from .models import (
     Cargo,
     DatosDeContacto,
@@ -140,7 +140,10 @@ def levantar(
         cargo = por_clave.get(clave)
         if cargo is None:
             por_clave[clave] = Cargo.objects.create(
-                nombre=datos["nombre"], unidad=unidad, plazas=datos["plazas"]
+                nombre=datos["nombre"],
+                unidad=unidad,
+                plazas=datos["plazas"],
+                nivel=niveles_cargo.sugerido(datos["nombre"]),
             )
         elif cargo.nombre != datos["nombre"] or not cargo.activo:
             cargo.nombre = datos["nombre"]
