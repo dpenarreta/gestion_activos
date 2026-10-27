@@ -27,12 +27,17 @@
   border-radius: 10px;
 }
 
-.mi-cargo__bloque ul {
+.mi-cargo__bloque ol {
   display: grid;
   gap: 4px;
   margin: 0;
-  padding-left: 18px;
+  padding-left: 22px;
   font-size: 13px;
+}
+
+.mi-cargo__bloque li::marker {
+  color: var(--mz-ink-faint);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 900px) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { herramientasService } from "../../api/herramientasService";
 import { institucionalService } from "../../api/institucionalService";
@@ -13,32 +13,183 @@ const ESTADO = {
   vacio: ["Sin perfil", "perfil-cargo-estado--vacio"],
 };
 
-const CAMPOS = [
-  [
-    "objetivo",
-    "Objetivo del cargo",
-    "Para qué existe el cargo, en una o dos frases.",
-    3,
-  ],
-  [
-    "funciones",
-    "Funciones",
-    "Una por línea. Ej.: Gestionar la cartera vencida.",
-    6,
-  ],
-  [
-    "competencias",
-    "Competencias",
-    "Una por línea. Ej.: Negociación, Orientación a resultados.",
-    4,
-  ],
+/** Las listas del perfil: campo, título, cómo se llama cada entrada y un
+ * ejemplo. Se escriben una por fila y «Mi cargo» las muestra numeradas. */
+const LISTAS = [
+  ["funciones", "Funciones", "función", "Gestionar la cartera vencida"],
+  ["competencias", "Competencias", "competencia", "Negociación"],
   [
     "kpis",
     "KPIs o métricas de medición",
-    "Uno por línea, con su meta. Ej.: Recuperación de cartera ≥ 90 % mensual.",
-    4,
+    "KPI o métrica",
+    "Recuperación de cartera ≥ 90 % mensual",
   ],
 ];
+
+let siguienteId = 0;
+const entrada = (texto = "") => ({ id: ++siguienteId, texto });
+
+/** Una lista del perfil editable fila por fila (27/10/2026): Enter agrega
+ * la siguiente, Retroceso en una fila vacía la quita, las flechas cambian el
+ * orden y pegar varias líneas crea una fila por línea. */
+function ListaEditable({ campo, titulo, nombre, ejemplo, items, onChange }) {
+  const filas = useRef(new Map());
+  const [enfocar, setEnfocar] = useState(null);
+
+  useEffect(() => {
+    if (enfocar === null) return;
+    filas.current.get(enfocar)?.focus();
+    setEnfocar(null);
+  }, [enfocar, items]);
+
+  function cambiar(id, texto) {
+    onChange(items.map((i) => (i.id === id ? { ...i, texto } : i)));
+  }
+
+  function insertar(despuesDe, textos = [""]) {
+    const nuevas = textos.map((t) => entrada(t));
+    const posicion = items.findIndex((i) => i.id === despuesDe) + 1;
+    onChange([
+      ...items.slice(0, posicion),
+      ...nuevas,
+      ...items.slice(posicion),
+    ]);
+    setEnfocar(nuevas[nuevas.length - 1].id);
+  }
+
+  function quitar(id) {
+    const posicion = items.findIndex((i) => i.id === id);
+    const quedan = items.filter((i) => i.id !== id);
+    onChange(quedan.length ? quedan : [entrada()]);
+    const vecina = quedan[Math.max(posicion - 1, 0)];
+    if (vecina) setEnfocar(vecina.id);
+  }
+
+  function mover(id, paso) {
+    const posicion = items.findIndex((i) => i.id === id);
+    const destino = posicion + paso;
+    if (destino < 0 || destino >= items.length) return;
+    const copia = [...items];
+    [copia[posicion], copia[destino]] = [copia[destino], copia[posicion]];
+    onChange(copia);
+    setEnfocar(id);
+  }
+
+  function teclas(evento, item) {
+    if (evento.key === "Enter") {
+      evento.preventDefault();
+      insertar(item.id);
+    } else if (
+      evento.key === "Backspace" &&
+      item.texto === "" &&
+      items.length > 1
+    ) {
+      evento.preventDefault();
+      quitar(item.id);
+    }
+  }
+
+  function pegar(evento, item) {
+    const lineas = evento.clipboardData
+      .getData("text")
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^\s*(?:[-•·*]|\d+[.)])\s*/, "").trim())
+      .filter(Boolean);
+    if (lineas.length < 2) return;
+    evento.preventDefault();
+    const [primera, ...resto] = lineas;
+    const conPrimera = items.map((i) =>
+      i.id === item.id ? { ...i, texto: `${i.texto}${primera}` } : i,
+    );
+    const posicion = conPrimera.findIndex((i) => i.id === item.id) + 1;
+    const nuevas = resto.map((t) => entrada(t));
+    onChange([
+      ...conPrimera.slice(0, posicion),
+      ...nuevas,
+      ...conPrimera.slice(posicion),
+    ]);
+    setEnfocar(nuevas[nuevas.length - 1].id);
+  }
+
+  return (
+    <fieldset
+      className="perfil-lista"
+      aria-describedby={`perfil-${campo}-ayuda`}
+    >
+      <legend className="form-label mz-small">{titulo}</legend>
+      <ol className="perfil-lista__filas">
+        {items.map((item, i) => (
+          <li key={item.id}>
+            <span className="perfil-lista__numero" aria-hidden="true">
+              {i + 1}.
+            </span>
+            <input
+              ref={(nodo) =>
+                nodo
+                  ? filas.current.set(item.id, nodo)
+                  : filas.current.delete(item.id)
+              }
+              type="text"
+              className="form-control form-control-sm"
+              aria-label={`${titulo}: ${nombre} ${i + 1}`}
+              placeholder={i === 0 ? `Ej.: ${ejemplo}` : ""}
+              value={item.texto}
+              maxLength={500}
+              onChange={(e) => cambiar(item.id, e.target.value)}
+              onKeyDown={(e) => teclas(e, item)}
+              onPaste={(e) => pegar(e, item)}
+            />
+            <div className="perfil-lista__acciones">
+              <button
+                type="button"
+                className="btn btn-link btn-sm"
+                aria-label={`Subir ${nombre} ${i + 1}`}
+                disabled={i === 0}
+                onClick={() => mover(item.id, -1)}
+              >
+                <Icon name="arrow-up" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-link btn-sm"
+                aria-label={`Bajar ${nombre} ${i + 1}`}
+                disabled={i === items.length - 1}
+                onClick={() => mover(item.id, 1)}
+              >
+                <Icon name="arrow-down" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-link btn-sm text-danger"
+                aria-label={`Quitar ${nombre} ${i + 1}`}
+                onClick={() => quitar(item.id)}
+              >
+                <Icon name="x-lg" />
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="d-flex flex-wrap gap-2 align-items-center">
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-sm"
+          onClick={() => insertar(items[items.length - 1]?.id)}
+        >
+          <Icon name="plus-lg" /> Agregar {nombre}
+        </button>
+        <span id={`perfil-${campo}-ayuda`} className="form-text m-0">
+          Una entrada por fila; Enter agrega la siguiente. Quien ocupe el cargo
+          las ve numeradas, en este orden.
+        </span>
+      </div>
+    </fieldset>
+  );
+}
+
+const aFilas = (lista) =>
+  lista?.length ? lista.map((t) => entrada(t)) : [entrada()];
+const aLista = (filas) => filas.map((f) => f.texto.trim()).filter(Boolean);
 
 function EditorPerfil({ cargo, onGuardado, onCerrar }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
@@ -51,17 +202,17 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
   const [guardando, setGuardando] = useState(false);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
-  // El perfil guardado, con las listas como texto (una por línea), y el
-  // catálogo de herramientas para marcar las que necesita el cargo.
+  // El perfil guardado, con cada lista en filas, y el catálogo de
+  // herramientas para marcar las que necesita el cargo.
   useEffect(() => {
     institucionalService
       .perfilCargo(cargo.id)
       .then((p) =>
         setValores({
           objetivo: p.objetivo,
-          funciones: p.funciones.join("\n"),
-          competencias: p.competencias.join("\n"),
-          kpis: p.kpis.join("\n"),
+          funciones: aFilas(p.funciones),
+          competencias: aFilas(p.competencias),
+          kpis: aFilas(p.kpis),
           herramientas: p.herramientas ?? [],
         }),
       )
@@ -91,7 +242,16 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
     setGuardando(true);
     setError(null);
     try {
-      await institucionalService.guardarPerfilCargo(cargo.id, valores, motivo);
+      await institucionalService.guardarPerfilCargo(
+        cargo.id,
+        {
+          ...valores,
+          funciones: aLista(valores.funciones),
+          competencias: aLista(valores.competencias),
+          kpis: aLista(valores.kpis),
+        },
+        motivo,
+      );
       onGuardado();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el perfil."));
@@ -138,29 +298,39 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
             </div>
           )}
           {!valores && !error && <p className="mz-faint">Cargando…</p>}
-          {valores &&
-            CAMPOS.map(([campo, etiqueta, ayuda, filas]) => (
-              <div key={campo}>
-                <label
-                  className="form-label mz-small"
-                  htmlFor={`perfil-${campo}`}
-                >
-                  {etiqueta}
-                </label>
-                <textarea
-                  id={`perfil-${campo}`}
-                  rows={filas}
-                  className="form-control form-control-sm"
-                  aria-describedby={`perfil-${campo}-ayuda`}
-                  value={valores[campo]}
-                  onChange={(e) =>
-                    setValores((v) => ({ ...v, [campo]: e.target.value }))
-                  }
-                />
-                <div id={`perfil-${campo}-ayuda`} className="form-text">
-                  {ayuda}
-                </div>
+          {valores && (
+            <div>
+              <label className="form-label mz-small" htmlFor="perfil-objetivo">
+                Objetivo del cargo
+              </label>
+              <textarea
+                id="perfil-objetivo"
+                rows={3}
+                className="form-control form-control-sm"
+                aria-describedby="perfil-objetivo-ayuda"
+                value={valores.objetivo}
+                onChange={(e) =>
+                  setValores((v) => ({ ...v, objetivo: e.target.value }))
+                }
+              />
+              <div id="perfil-objetivo-ayuda" className="form-text">
+                Para qué existe el cargo, en una o dos frases.
               </div>
+            </div>
+          )}
+          {valores &&
+            LISTAS.map(([campo, titulo, nombre, ejemplo]) => (
+              <ListaEditable
+                key={campo}
+                campo={campo}
+                titulo={titulo}
+                nombre={nombre}
+                ejemplo={ejemplo}
+                items={valores[campo]}
+                onChange={(items) =>
+                  setValores((v) => ({ ...v, [campo]: items }))
+                }
+              />
             ))}
           {valores && (
             <fieldset className="perfil-cargo-herramientas">

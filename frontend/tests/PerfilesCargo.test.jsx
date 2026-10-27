@@ -66,13 +66,19 @@ describe("Perfiles de cargo", () => {
     const ventana = await screen.findByRole("dialog", {
       name: "Perfil de «Gestor de cobranzas»",
     });
-    const funciones = await within(ventana).findByLabelText("Funciones");
-    expect(funciones).toHaveValue("Gestionar cartera");
-    fireEvent.change(funciones, {
-      target: { value: "Gestionar cartera\nNegociar acuerdos" },
-    });
+    // Cada lista se escribe fila por fila: Enter agrega la siguiente.
+    const funcion = await within(ventana).findByLabelText(
+      "Funciones: función 1",
+    );
+    expect(funcion).toHaveValue("Gestionar cartera");
+    fireEvent.keyDown(funcion, { key: "Enter" });
+    const segunda = within(ventana).getByLabelText("Funciones: función 2");
+    await waitFor(() => expect(segunda).toHaveFocus());
+    fireEvent.change(segunda, { target: { value: "Negociar acuerdos" } });
     fireEvent.change(
-      within(ventana).getByLabelText("KPIs o métricas de medición"),
+      within(ventana).getByLabelText(
+        "KPIs o métricas de medición: KPI o métrica 1",
+      ),
       { target: { value: "Recuperación ≥ 90 %" } },
     );
     // Las herramientas que necesita el cargo (solo las activas del catálogo).
@@ -92,15 +98,120 @@ describe("Perfiles de cargo", () => {
         7,
         {
           objetivo: "Cobrar",
-          funciones: "Gestionar cartera\nNegociar acuerdos",
-          competencias: "",
-          kpis: "Recuperación ≥ 90 %",
+          funciones: ["Gestionar cartera", "Negociar acuerdos"],
+          competencias: [],
+          kpis: ["Recuperación ≥ 90 %"],
           herramientas: [1, 3],
         },
         MOTIVO,
       ),
     );
     expect(onGuardado).toHaveBeenCalled();
+  });
+});
+
+describe("Listas del perfil, fila por fila", () => {
+  async function abrir(funciones) {
+    servicio.perfilCargo.mockResolvedValue({
+      objetivo: "",
+      funciones,
+      competencias: [],
+      kpis: [],
+      herramientas: [],
+    });
+    herramientas.catalogo.mockResolvedValue([]);
+    servicio.guardarPerfilCargo.mockResolvedValue({});
+    render(<PerfilesCargo datos={DATOS} onGuardado={() => {}} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Editar perfil de Gestor de cobranzas",
+      }),
+    );
+    return screen.findByRole("dialog", {
+      name: "Perfil de «Gestor de cobranzas»",
+    });
+  }
+
+  function valores(ventana) {
+    return within(within(ventana).getByRole("group", { name: "Funciones" }))
+      .getAllByRole("textbox")
+      .map((c) => c.value);
+  }
+
+  it("se reordena, se quita y pegar varias líneas crea una fila por línea", async () => {
+    const ventana = await abrir(["Cobrar", "Llamar", "Visitar"]);
+    await within(ventana).findByLabelText("Funciones: función 1");
+
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Subir función 3" }),
+    );
+    expect(valores(ventana)).toEqual(["Cobrar", "Visitar", "Llamar"]);
+    expect(
+      within(ventana).getByRole("button", { name: "Subir función 1" }),
+    ).toBeDisabled();
+
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Quitar función 1" }),
+    );
+    expect(valores(ventana)).toEqual(["Visitar", "Llamar"]);
+
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Agregar función" }),
+    );
+    fireEvent.paste(within(ventana).getByLabelText("Funciones: función 3"), {
+      clipboardData: {
+        getData: () => "1. Negociar\n- Registrar acuerdos\n\n• Reportar",
+      },
+    });
+    expect(valores(ventana)).toEqual([
+      "Visitar",
+      "Llamar",
+      "Negociar",
+      "Registrar acuerdos",
+      "Reportar",
+    ]);
+
+    // Retroceso en una fila vacía la quita; las vacías no se guardan.
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Agregar función" }),
+    );
+    fireEvent.keyDown(within(ventana).getByLabelText("Funciones: función 6"), {
+      key: "Backspace",
+    });
+    expect(valores(ventana)).toHaveLength(5);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Agregar función" }),
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar perfil" }),
+    );
+    await darMotivo();
+    await waitFor(() =>
+      expect(servicio.guardarPerfilCargo).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({
+          funciones: [
+            "Visitar",
+            "Llamar",
+            "Negociar",
+            "Registrar acuerdos",
+            "Reportar",
+          ],
+        }),
+        MOTIVO,
+      ),
+    );
+  });
+
+  it("una lista vacía empieza con una fila para escribir", async () => {
+    const ventana = await abrir([]);
+    const fila = await within(ventana).findByLabelText("Funciones: función 1");
+    expect(fila).toHaveValue("");
+    // Quitar la única fila deja otra vacía.
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Quitar función 1" }),
+    );
+    expect(valores(ventana)).toEqual([""]);
   });
 });
 
@@ -126,7 +237,14 @@ describe("Mi cargo en «Mi perfil»", () => {
       screen.getByRole("heading", { name: /Mi cargo: Gestor de cobranzas/ }),
     ).toBeInTheDocument();
     expect(screen.getByText("Asegurar la cobranza")).toBeInTheDocument();
-    expect(screen.getByText("Negociar acuerdos")).toBeInTheDocument();
+    // Cada lista sale numerada, en su orden.
+    const funciones = screen.getByText("Negociar acuerdos").closest("ol");
+    expect(funciones).not.toBeNull();
+    expect(
+      within(funciones)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Gestionar cartera", "Negociar acuerdos"]);
     expect(screen.getByText("Negociación")).toBeInTheDocument();
     expect(screen.getByText("Recuperación ≥ 90 %")).toBeInTheDocument();
   });

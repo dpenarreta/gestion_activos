@@ -1722,6 +1722,47 @@
 }
 
 /* Perfil del cargo: las herramientas y licencias que necesita. */
+/* Funciones, competencias y KPIs del perfil: una fila por entrada,
+   numeradas (27/10/2026). */
+.perfil-lista {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.perfil-lista__filas {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perfil-lista__filas li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.perfil-lista__numero {
+  color: var(--mz-ink-faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.perfil-lista__acciones {
+  display: flex;
+}
+
+.perfil-lista__acciones .btn {
+  padding: 2px 6px;
+}
+
 .perfil-cargo-herramientas {
   display: grid;
   gap: 8px;

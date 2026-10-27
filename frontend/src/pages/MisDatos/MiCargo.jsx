@@ -8,11 +8,11 @@ function Lista({ titulo, icono, items }) {
         <Icon name={icono} /> {titulo}
       </h4>
       {items.length > 0 ? (
-        <ul>
-          {items.map((item) => (
-            <li key={item}>{item}</li>
+        <ol>
+          {items.map((item, i) => (
+            <li key={`${i}-${item}`}>{item}</li>
           ))}
-        </ul>
+        </ol>
       ) : (
         <p className="mz-faint mb-0">Todavía no se ha definido.</p>
       )}
