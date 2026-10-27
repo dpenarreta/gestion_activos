@@ -140,6 +140,32 @@ describe("Niveles jerárquicos por cargo", () => {
     );
   });
 
+  it("la pestaña «Niveles jerárquicos» lista los seis niveles con sus cargos", async () => {
+    pintar(<EstructuraPage />);
+    const pestana = await screen.findByRole("tab", {
+      name: /Niveles jerárquicos/,
+    });
+    expect(pestana).not.toHaveTextContent("(");
+    const tabla = within(
+      screen.getByRole("region", {
+        name: "Niveles jerárquicos de los cargos",
+      }),
+    ).getByRole("table");
+    const filas = within(tabla).getAllByRole("row").slice(1);
+    expect(filas).toHaveLength(6);
+    expect(filas[0]).toHaveTextContent("Gerencia General");
+    expect(filas[2]).toHaveTextContent("Jefatura");
+    expect(filas[2]).toHaveTextContent("Jefe TI");
+    expect(filas[5]).toHaveTextContent("Asistente de Sistemas");
+    // Los niveles de unidad siguen debajo, con su propio botón.
+    expect(
+      screen.getByRole("heading", { name: "Niveles de unidad" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Agregar nivel de unidad" }),
+    ).toBeInTheDocument();
+  });
+
   it("un cargo nuevo puede dejar el nivel según su nombre", async () => {
     servicio.crear.mockResolvedValue({});
     pintar(<EstructuraPage />);
