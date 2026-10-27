@@ -14,8 +14,14 @@ homónimos) y quiénes lo ocupan. `levantar`:
 Se puede repetir: lo que ya está como dice el organigrama no se toca.
 """
 
-from . import roles_de_cargo
-from .models import Cargo, DatosDeContacto, OcupanteCargo, UnidadOrganizacional
+from . import departamentos_del_organigrama, roles_de_cargo
+from .models import (
+    Cargo,
+    DatosDeContacto,
+    NivelJerarquico,
+    OcupanteCargo,
+    UnidadOrganizacional,
+)
 from .permisos_por_cargo import normalizar as _normal
 
 
@@ -52,18 +58,58 @@ def _poner_persona(cargo, nombres, apellidos, unidad) -> None:
         ocupante.save(update_fields=["cargo", "updated_at"])
 
 
-def levantar(nombre_unidad: str, cargos: dict) -> None:
-    """Deja la unidad como dice su organigrama (`cargos`, ver
-    `laarbox_2026.cargos`). No anota en la bitácora: lo hace quien llama,
-    dentro de `versiones.sin_peticion`. Sin la unidad no hace nada."""
+def _unidad(nombre_unidad, nombres_anteriores, padre):
+    """La unidad del área (con su nombre de antes, si cambió). Si no existe
+    se crea bajo `padre`, en el nivel de sus otras unidades: así se levantó
+    en producción, donde el área todavía no estaba. Sin `padre` no se crea."""
+    buscados = {_normal(n) for n in (nombre_unidad, *nombres_anteriores)}
     unidad = next(
+        (u for u in UnidadOrganizacional.objects.all() if _normal(u.nombre) in buscados),
+        None,
+    )
+    if unidad is not None:
+        if unidad.nombre != nombre_unidad:
+            unidad.nombre = nombre_unidad
+            unidad.save(update_fields=["nombre", "updated_at"])
+            departamentos_del_organigrama.sincronizar(unidad)
+        return unidad
+    superior = next(
         (
             u
-            for u in UnidadOrganizacional.objects.all()
-            if _normal(u.nombre) == _normal(nombre_unidad)
+            for u in UnidadOrganizacional.objects.select_related("nivel")
+            if _normal(u.nombre) == _normal(padre)
         ),
         None,
     )
+    if superior is None:
+        return None
+    hermana = superior.hijas.select_related("nivel").order_by("orden", "id").first()
+    nivel = (
+        hermana.nivel
+        if hermana is not None
+        else NivelJerarquico.objects.filter(orden__gt=superior.nivel.orden)
+        .order_by("orden")
+        .first()
+        or superior.nivel
+    )
+    unidad = UnidadOrganizacional.objects.create(
+        nombre=nombre_unidad, nivel=nivel, padre=superior, orden=superior.hijas.count()
+    )
+    departamentos_del_organigrama.sincronizar(unidad)
+    return unidad
+
+
+def levantar(
+    nombre_unidad: str,
+    cargos: dict,
+    *,
+    nombres_anteriores=(),
+    padre: str = "Gerencia General",
+) -> None:
+    """Deja la unidad como dice su organigrama (`cargos`, ver
+    `laarbox_2026.CARGOS`), y la crea bajo `padre` si no existe. No anota en
+    la bitácora: lo hace quien llama, dentro de `versiones.sin_peticion`."""
+    unidad = _unidad(nombre_unidad, nombres_anteriores, padre)
     if unidad is None:
         return
     existentes = list(Cargo.objects.filter(unidad=unidad).select_related("jefe"))
