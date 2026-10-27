@@ -27,11 +27,17 @@ import unicodedata
 # Seguridad Ocupacional»; el Asistente de GGHH y el Asistente Zona Sur, los dos
 # «Asistente de Gestión Humana» (el del Coordinador Nacional y el del
 # Coordinador de Gestión Humana, hoy Coordinador Zona Sur).
-CLIMA = "Desarrollo y Capacitación de Personal"
+#
+# Con el organigrama «Gestión de Talento Humano LCE 2026» (27/10/2026,
+# `talento_humano_2026.py`) se renombraron otra vez, con lo mismo: Desarrollo y
+# Capacitación de Personal es el Analista Clima y Cultura; el Jefe de GGH y SSO,
+# el Jefe Nacional de Talento Humano y SSO; el Asistente Zona Sur, el Asistente
+# Gestión Humana Zona Sur.
+CLIMA = "Analista Clima y Cultura"
 COORDINADOR_GH = "Coordinador Nacional de GGHH"
-JEFE_GH = "Jefe de GGH y SSO"
+JEFE_GH = "Jefe Nacional de Talento Humano y SSO"
 ASISTENTE_GH = "Asistente de GGHH"
-ASISTENTE_ZONA_SUR = "Asistente Zona Sur"
+ASISTENTE_ZONA_SUR = "Asistente Gestión Humana Zona Sur"
 ASISTENTE_NOMINA = "Asistente de Nómina"
 
 #: Gestión Humana: todo su personal.

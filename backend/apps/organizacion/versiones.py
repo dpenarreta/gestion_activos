@@ -290,6 +290,23 @@ def cambio(request, motivo=None):
         _podar()
 
 
+@contextmanager
+def sin_peticion(motivo):
+    """Como `cambio`, para lo que se aplica sin una persona detrás (una
+    migración que levanta el organigrama de un área): la versión queda sin
+    usuario ni IP. `resultado["lineas"]` dice qué cambió."""
+    with transaction.atomic():
+        antes = foto()
+        resultado = {"lineas": []}
+        yield resultado
+        resultado["lineas"] = diferencias(antes, foto())
+        if resultado["lineas"]:
+            resultado["version"] = VersionOrganigrama.objects.create(
+                usuario=None, motivo=motivo, cambios=resultado["lineas"], respaldo=antes
+            )
+            _podar()
+
+
 def fila(version) -> dict:
     local = timezone.localtime(version.created_at)
     return {

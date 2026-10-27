@@ -130,8 +130,10 @@ def test_quien_no_tiene_rol_ese_mes_queda_en_el_leeme(db, monkeypatch):
 def test_la_regla_es_para_el_asistente_del_coordinador_nacional():
     # Desde el organigrama GGHH 2026 los dos asistentes tienen nombres propios.
     assert "roles_pago.descarga_masiva" in permisos_del_cargo("Asistente de GGHH")
-    assert "roles_pago.descarga_masiva" not in permisos_del_cargo("Asistente Zona Sur")
+    assert "roles_pago.descarga_masiva" not in permisos_del_cargo(
+        "Asistente Gestión Humana Zona Sur"
+    )
     # Lo demás de nómina sigue valiendo para los dos.
-    assert "roles_pago.historial" in permisos_del_cargo("Asistente Zona Sur")
+    assert "roles_pago.historial" in permisos_del_cargo("Asistente Gestión Humana Zona Sur")
     for cargo in ("Coordinador Nacional de GGHH", "Asistente de Nómina"):
         assert "roles_pago.descarga_masiva" in permisos_del_cargo(cargo)

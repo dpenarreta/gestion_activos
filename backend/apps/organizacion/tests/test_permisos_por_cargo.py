@@ -31,7 +31,7 @@ def test_el_cargo_da_sus_permisos_y_los_cambia_al_renombrarse(db):
     _, admin = _cuenta("ines", "ver", "editar", "asignar")
     nivel = _crear(admin, "niveles", nombre="Área", orden=1)
     gh = _crear(admin, "unidades", nombre="Gestión Humana", nivel=nivel["id"])
-    cargo = _crear(admin, "cargos", nombre="Desarrollo y Capacitación de Personal", unidad=gh["id"])
+    cargo = _crear(admin, "cargos", nombre="Analista Clima y Cultura", unidad=gh["id"])
 
     permisos = _codenames(cargo["id"])
     assert {"noticias.gestionar", "codigos.publicar", "institucional.editar"} <= permisos
