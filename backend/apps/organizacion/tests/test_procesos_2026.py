@@ -1,12 +1,10 @@
-"""El organigrama de Procesos y Proyectos (27/10/2026): el Gerente General
-lleva la gerencia, así que el Jefe de Procesos le reporta directamente y el
-cargo aparte de gerente se desactiva si nadie lo ocupa."""
+"""El organigrama de Procesos y Proyectos (27/10/2026): el Gerente de Procesos
+y Proyectos reporta al Gerente General y el Jefe de Procesos, a él."""
 
 from apps.organizacion import procesos_2026
 from apps.organizacion.models import (
     Cargo,
     NivelJerarquico,
-    OcupanteCargo,
     UnidadOrganizacional,
 )
 from apps.organizacion.roles_de_cargo import asegurar_rol
@@ -34,21 +32,22 @@ def _area_como_estaba():
     return procesos, gg, gerente, jefe, analista
 
 
-def test_el_jefe_reporta_al_gerente_general(db):
+def test_gerente_al_gerente_general_y_jefe_al_gerente(db):
     procesos, gg, gerente, jefe, analista = _area_como_estaba()
 
     assert procesos_2026.aplicar()
 
-    jefe.refresh_from_db()
-    assert jefe.jefe == gg
     gerente.refresh_from_db()
-    assert gerente.activo is False
+    assert gerente.activo is True and gerente.jefe == gg
+    jefe.refresh_from_db()
+    assert jefe.jefe == gerente
     analista.refresh_from_db()
     assert analista.nombre == "Analista de Procesos y Mejora Continua"
     activos = set(
         Cargo.objects.filter(unidad=procesos, activo=True).values_list("nombre", flat=True)
     )
     assert activos == {
+        "Gerente de Procesos y Proyectos",
         "Jefe de Procesos y Mejora Continua",
         "Analista de Procesos y Mejora Continua",
         "Asistente de Procesos y Mejora Continua",
@@ -58,11 +57,13 @@ def test_el_jefe_reporta_al_gerente_general(db):
     assert procesos_2026.aplicar() == []
 
 
-def test_si_alguien_ocupa_el_cargo_de_gerente_se_queda(db):
-    _, _, gerente, _, _ = _area_como_estaba()
-    OcupanteCargo.objects.create(cargo=gerente, nombres="Ana", apellidos="Prueba")
+def test_corrige_la_version_que_colgo_al_jefe_del_gerente_general(db):
+    _, gg, gerente, jefe, _ = _area_como_estaba()
+    Cargo.objects.filter(pk=jefe.pk).update(jefe=gg)
+    Cargo.objects.filter(pk=gerente.pk).update(activo=False)
 
     procesos_2026.aplicar()
 
     gerente.refresh_from_db()
-    assert gerente.activo is True
+    jefe.refresh_from_db()
+    assert gerente.activo is True and jefe.jefe == gerente

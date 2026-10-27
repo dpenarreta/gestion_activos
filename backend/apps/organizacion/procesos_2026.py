@@ -1,16 +1,13 @@
 """El organigrama del área de Procesos y Proyectos (27/10/2026).
 
-    Gerencia de Procesos y Proyectos: la lleva el Gerente General
-    └ Jefe de Procesos y Mejora Continua · jefe: Gerente General
+    Gerente de Procesos y Proyectos · jefe: Gerente General
+    └ Jefe de Procesos y Mejora Continua
       ├ Analista de Procesos y Mejora Continua
       ├ Asistente de Procesos y Mejora Continua
       ├ Auditor de Procesos Zona Norte
       └ Auditor de Procesos Zona Sur
 
-El Gerente de Procesos y Proyectos es siempre el Gerente General: como una
-persona ocupa un solo cargo, el Jefe de Procesos le reporta directamente y el
-cargo aparte «Gerente de Procesos y Proyectos» se desactiva (si nadie lo
-ocupa). Ver `levantamientos.levantar`.
+Ver `levantamientos.levantar`.
 """
 
 from . import versiones
@@ -19,17 +16,25 @@ from .levantamientos import levantar
 UNIDAD = "Procesos y Proyectos"
 
 MOTIVO = (
-    "Organigrama del área de Procesos y Proyectos: la gerencia la lleva el "
-    "Gerente General, a quien reporta el Jefe de Procesos y Mejora Continua; "
-    "entran los auditores de procesos de las zonas norte y sur."
+    "Organigrama del área de Procesos y Proyectos: el Gerente de Procesos y "
+    "Proyectos reporta al Gerente General y el Jefe de Procesos y Mejora "
+    "Continua, a él; entran los auditores de procesos de las zonas norte y sur."
 )
 
 CARGOS = {
-    "jefe": {
-        "nombre": "Jefe de Procesos y Mejora Continua",
+    "gerente": {
+        "nombre": "Gerente de Procesos y Proyectos",
         "jefe": "Gerente General",
         "plazas": 1,
-        "antes": [("Jefe de Procesos y Mejora Continua", "Gerente de Procesos y Proyectos")],
+        "antes": [],
+        "personas": [],
+    },
+    "jefe": {
+        "nombre": "Jefe de Procesos y Mejora Continua",
+        "jefe": "gerente",
+        "plazas": 1,
+        # Una versión anterior de este levantamiento lo colgó del Gerente General.
+        "antes": [("Jefe de Procesos y Mejora Continua", "Gerente General")],
         "personas": [],
     },
     "analista": {

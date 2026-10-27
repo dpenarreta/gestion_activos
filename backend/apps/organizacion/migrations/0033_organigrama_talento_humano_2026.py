@@ -9,7 +9,7 @@ from django.db import migrations
 MOTIVO = (
     "Organigramas enviados por las áreas el 27/10/2026: «Gestión de Talento "
     "Humano LCE 2026» (el Gerente General es jefe del Gerente Gestión Humana) "
-    "LaarBox y Procesos y Proyectos (la gerencia la lleva el Gerente General). Cargos con sus nombres nuevos, sus jefes y las personas de cada "
+    "LaarBox y Procesos y Proyectos (su gerente reporta al Gerente General). Cargos con sus nombres nuevos, sus jefes y las personas de cada "
     "uno; se desactivan los que ya no están y nadie ocupa."
 )
 
