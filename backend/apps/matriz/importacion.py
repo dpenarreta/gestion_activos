@@ -129,6 +129,16 @@ TEMAS_POR_CONCEPTO = [
     ("mantenimiento", "INF"),
     ("contrato proveedor", "INF"),
 ]
+#: Los temas que usa la importación, con su nombre (los del catálogo sembrado):
+#: si faltan —en producción el catálogo estaba vacío— se crean.
+NOMBRES_DE_TEMAS = {
+    "CONT": "Contabilidad y Tributario",
+    "SST": "Seguridad y Salud en el Trabajo",
+    "AMB": "Ambiental",
+    "LEG": "Legal y Permisos",
+    "SEG": "Seguros y Pólizas",
+    "INF": "Arriendos e Infraestructura",
+}
 TEMAS_POR_AREA = {
     "legal": "LEG",
     "salud y seguridad ocupacional": "SST",
@@ -423,6 +433,7 @@ class Propuesta:
 class Plan:
     propuestas: list[Propuesta]
     temas: dict
+    temas_nuevos: list[str]
     entidades_nuevas: list[str]
     sedes_nuevas: list[str]
     responsable: User | None
@@ -438,6 +449,7 @@ class Plan:
             "actualizar": len(self.propuestas) - len(nuevas),
             "por_confirmar": sum(1 for p in self.propuestas if p.por_confirmar),
             "vencidas": sum(1 for p in nuevas if p.vencimiento < datetime.date.today()),
+            "temas_nuevos": [f"{c} — {NOMBRES_DE_TEMAS[c]}" for c in self.temas_nuevos],
             "entidades_nuevas": self.entidades_nuevas,
             "sedes_nuevas": self.sedes_nuevas,
             "responsable": _persona(self.responsable),
@@ -568,7 +580,7 @@ def planificar(filas: list[Fila], empresa) -> Plan:
     existentes = {clave(o.nombre): o for o in Obligacion.objects.filter(empresa=empresa)}
 
     propuestas, vistos = [], {}
-    entidades_nuevas, sedes_nuevas = [], []
+    entidades_nuevas, sedes_nuevas, temas_nuevos = [], [], []
     for f in filas:
         sede = None
         if f.regional and normal(f.regional) not in VACIOS:
@@ -578,8 +590,8 @@ def planificar(filas: list[Fila], empresa) -> Plan:
             if sede_obj is None and buscada not in sedes_nuevas:
                 sedes_nuevas.append(buscada)
         tema = _tema(f)
-        if tema not in temas:
-            errores.append(f"{f.donde}: el tema {tema} no existe en el catálogo.")
+        if tema not in temas and tema not in temas_nuevos:
+            temas_nuevos.append(tema)
         entidad = _entidad(f)
         if normal(entidad) not in entidades and entidad not in entidades_nuevas:
             entidades_nuevas.append(entidad)
@@ -615,6 +627,7 @@ def planificar(filas: list[Fila], empresa) -> Plan:
     return Plan(
         propuestas=propuestas,
         temas=temas,
+        temas_nuevos=temas_nuevos,
         entidades_nuevas=entidades_nuevas,
         sedes_nuevas=sedes_nuevas,
         responsable=responsable,
@@ -666,6 +679,10 @@ def aplicar(plan: Plan, empresa, actor, contexto=None) -> dict:
     """Guarda el plan. No se puede aplicar con errores."""
     if plan.errores:
         raise ValueError("El plan tiene errores: corríjalos antes de importar.")
+    for codigo in plan.temas_nuevos:
+        plan.temas[codigo], _ = Area.objects.get_or_create(
+            codigo=codigo, defaults={"nombre": NOMBRES_DE_TEMAS[codigo]}
+        )
     entidades = {normal(limpiar(e.nombre)): e for e in EntidadControl.objects.all()}
     usados = set(EntidadControl.objects.values_list("codigo", flat=True))
     for nombre in plan.entidades_nuevas:
@@ -741,6 +758,7 @@ def aplicar(plan: Plan, empresa, actor, contexto=None) -> dict:
     resumen = {
         "creadas": creadas,
         "actualizadas": actualizadas,
+        "temas_nuevos": len(plan.temas_nuevos),
         "entidades_nuevas": len(plan.entidades_nuevas),
         "sedes_nuevas": len(plan.sedes_nuevas),
     }

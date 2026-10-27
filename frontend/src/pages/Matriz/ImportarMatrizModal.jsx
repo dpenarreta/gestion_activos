@@ -123,6 +123,7 @@ export function ImportarMatrizModal({ onCerrar, onImportado }) {
                 ? `, ${hecho.entidades_nuevas} entidades nuevas`
                 : ""}
               {hecho.sedes_nuevas ? `, ${hecho.sedes_nuevas} sedes nuevas` : ""}
+              {hecho.temas_nuevos ? `, ${hecho.temas_nuevos} temas nuevos` : ""}
               .
             </div>
           )}
@@ -235,6 +236,14 @@ export function ImportarMatrizModal({ onCerrar, onImportado }) {
                     {plan.sedes_nuevas?.length
                       ? plan.sedes_nuevas.join(" · ")
                       : "Ninguna"}
+                  </dd>
+                </div>
+                <div className="mz-import-datos__ancho">
+                  <dt>Temas nuevos</dt>
+                  <dd>
+                    {plan.temas_nuevos?.length
+                      ? plan.temas_nuevos.join(" · ")
+                      : "Ninguno"}
                   </dd>
                 </div>
               </dl>

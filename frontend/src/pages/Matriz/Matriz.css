@@ -281,3 +281,7 @@
   gap: 8px;
   align-items: center;
 }
+
+.mz-import-datos__ancho {
+  grid-column: 1 / -1;
+}

@@ -345,6 +345,7 @@ def test_repetir_la_importacion_actualiza_y_no_duplica(courier, gente):
     assert segunda.data["aplicado"] == {
         "creadas": 0,
         "actualizadas": 7,
+        "temas_nuevos": 0,
         "entidades_nuevas": 0,
         "sedes_nuevas": 0,
     }
@@ -425,3 +426,18 @@ def test_la_ficha_se_ve_con_la_obligacion_y_se_edita(courier, gente):
         format="json",
     )
     assert malo.status_code == 400
+
+
+def test_si_faltan_los_temas_se_crean(courier, gente):
+    """En producción el catálogo de temas estaba vacío (27/10/2026)."""
+    Area.objects.filter(codigo__in=["SEG", "INF"]).delete()
+    cliente = _cliente(gente["admin"], courier)
+    simulado = cliente.post(URL, {"archivo": _archivo()})
+    assert simulado.data["errores"] == []
+    assert simulado.data["temas_nuevos"] == [
+        "SEG — Seguros y Pólizas",
+        "INF — Arriendos e Infraestructura",
+    ]
+    aplicado = cliente.post(URL, {"archivo": _archivo(), "aplicar": "true"})
+    assert aplicado.data["aplicado"]["temas_nuevos"] == 2
+    assert Area.objects.get(codigo="SEG").nombre == "Seguros y Pólizas"
