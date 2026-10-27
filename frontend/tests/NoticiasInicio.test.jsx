@@ -109,7 +109,7 @@ describe("El carrusel", () => {
   it("con el mouse encima no cambia, para poder leer", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     pintar(<CarruselNoticias noticias={NOTICIAS} segundos={5} />);
-    fireEvent.mouseEnter(screen.getByRole("region", { name: /Noticias/ }));
+    fireEvent.mouseEnter(screen.getByRole("region", { name: "Noticias" }));
     await act(async () => {
       vi.advanceTimersByTime(15000);
     });
@@ -178,7 +178,7 @@ describe("El carrusel", () => {
 describe("En el Inicio", () => {
   it("va entre el saludo y «Para todos»", async () => {
     pintar(<InicioInstitucional />);
-    const carrusel = await screen.findByRole("region", { name: /Noticias/ });
+    const carrusel = await screen.findByRole("region", { name: "Noticias" });
     const saludo = screen.getByRole("heading", { name: "Hola, Ana" });
     const paraTodos = screen.getByRole("heading", { name: "Para todos" });
     expect(
@@ -206,7 +206,7 @@ describe("En el Inicio", () => {
     expect(
       await screen.findByRole("link", { name: /Gestionar noticias/ }),
     ).toHaveAttribute("href", "/admin/institucional/noticias");
-    expect(screen.queryByRole("region", { name: /Noticias/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Noticias" })).toBeNull();
     // El vacío ofrece publicar a quien gestiona.
     expect(
       screen.getByRole("link", { name: /Publicar una noticia/ }),
@@ -222,7 +222,7 @@ describe("En el Inicio", () => {
     expect(screen.queryByText(/No hay noticias publicadas/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(
-      await screen.findByRole("region", { name: /Noticias/ }),
+      await screen.findByRole("region", { name: "Noticias" }),
     ).toBeInTheDocument();
   });
 });

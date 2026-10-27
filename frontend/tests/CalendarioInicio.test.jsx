@@ -84,7 +84,7 @@ describe("El calendario del mes (ampliado)", () => {
   it("muestra el mes con sus fechas marcadas y lo de hoy", async () => {
     pintar(<CalendarioMes hoy={HOY} />);
     expect(
-      screen.getByRole("heading", { name: /octubre de 2026/ }),
+      screen.getByRole("heading", { name: /octubre de 2026/i }),
     ).toBeInTheDocument();
     // Pide las 6 semanas que dibuja: del lunes 28/09 al domingo 08/11.
     expect(servicio.calendario).toHaveBeenCalledWith(
@@ -135,7 +135,7 @@ describe("El calendario del mes (ampliado)", () => {
     pintar(<CalendarioMes hoy={HOY} />);
     fireEvent.click(screen.getByRole("button", { name: "Mes siguiente" }));
     expect(
-      screen.getByRole("heading", { name: /noviembre de 2026/ }),
+      screen.getByRole("heading", { name: /noviembre de 2026/i }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(servicio.calendario).toHaveBeenLastCalledWith(
@@ -145,7 +145,7 @@ describe("El calendario del mes (ampliado)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Hoy" }));
     expect(
-      screen.getByRole("heading", { name: /octubre de 2026/ }),
+      screen.getByRole("heading", { name: /octubre de 2026/i }),
     ).toBeInTheDocument();
   });
 });
@@ -164,9 +164,10 @@ describe("El calendario recogido", () => {
       },
     ]);
     pintar(<CalendarioInicio hoy={HOY} />);
+    // Treinta días: hoy y mañana, y lo que viene si están vacíos.
     expect(servicio.calendario).toHaveBeenCalledWith(
       "2026-10-19",
-      "2026-10-20",
+      "2026-11-18",
     );
     // Primero lo importante; la pestaña de celebraciones dice cuántas hay.
     expect(await screen.findByText("Charla de seguridad")).toBeInTheDocument();
@@ -195,7 +196,7 @@ describe("El calendario recogido", () => {
     const ventana = screen.getByRole("dialog", { name: "Calendario" });
     expect(within(ventana).getByRole("grid")).toBeInTheDocument();
     expect(
-      within(ventana).getByRole("heading", { name: /octubre de 2026/ }),
+      within(ventana).getByRole("heading", { name: /octubre de 2026/i }),
     ).toBeInTheDocument();
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Cerrar calendario" }),
@@ -203,15 +204,13 @@ describe("El calendario recogido", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("en el mes ampliado, el día dice qué tiene al pasar sobre él", async () => {
+  it("en el mes ampliado, el día dice qué tiene al tocarlo (sin globo)", async () => {
     pintar(<CalendarioMes hoy={HOY} />);
     const dia = await screen.findByRole("gridcell", {
       name: "22 de octubre: Feria de salud",
     });
-    expect(dia).toHaveAttribute(
-      "title",
-      "Evento: Feria de salud — En el patio",
-    );
+    // El globo nativo no se ve con teclado ni con el dedo: se quitó.
+    expect(dia).not.toHaveAttribute("title");
     fireEvent.click(dia);
     expect(
       screen.getByText(/del 22 de octubre al 23 de octubre/),
@@ -233,13 +232,13 @@ describe("En el Inicio", () => {
       screen.getByText("No hay noticias publicadas por ahora."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Próximos eventos" }),
+      screen.getByRole("region", { name: "Calendario" }),
     ).toBeInTheDocument();
   });
 
   it("sin permiso no se ofrece gestionar el calendario", async () => {
     pintar(<InicioInstitucional />);
-    await screen.findByRole("region", { name: "Próximos eventos" });
+    await screen.findByRole("region", { name: "Calendario" });
     expect(
       screen.queryByRole("link", { name: /Gestionar calendario/ }),
     ).toBeNull();
@@ -326,5 +325,66 @@ describe("Si el calendario no carga (auditoría UX/UI)", () => {
     expect(
       screen.getByRole("gridcell", { name: "19 de octubre" }),
     ).toHaveAttribute("aria-current", "date");
+  });
+});
+
+describe("Con el teclado (auditoría UX/UI)", () => {
+  it("la grilla es una sola parada de Tab y se recorre con las flechas", async () => {
+    pintar(<CalendarioMes hoy={HOY} />);
+    const hoy = await screen.findByRole("gridcell", { name: "19 de octubre" });
+    const conTab = screen
+      .getAllByRole("gridcell")
+      .filter((d) => d.getAttribute("tabindex") === "0");
+    expect(conTab).toEqual([hoy]);
+
+    hoy.focus();
+    fireEvent.keyDown(hoy, { key: "ArrowRight" });
+    expect(
+      screen.getByRole("gridcell", { name: "20 de octubre" }),
+    ).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: "ArrowDown" });
+    expect(
+      screen.getByRole("gridcell", { name: "27 de octubre" }),
+    ).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: "Home" });
+    expect(
+      screen.getByRole("gridcell", { name: "26 de octubre" }),
+    ).toHaveFocus();
+    // AvPág: el mismo día del mes siguiente.
+    fireEvent.keyDown(document.activeElement, { key: "PageDown" });
+    expect(
+      await screen.findByRole("heading", { name: /noviembre de 2026/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("gridcell", { name: "26 de noviembre" }),
+    ).toHaveFocus();
+  });
+
+  it("las pestañas se cambian con las flechas y dicen qué panel controlan", async () => {
+    pintar(<CalendarioMes hoy={HOY} />);
+    const eventos = await screen.findByRole("tab", {
+      name: /Eventos y feriados/,
+    });
+    expect(eventos).toHaveAttribute("tabindex", "0");
+    const panel = screen.getByRole("tabpanel");
+    expect(eventos).toHaveAttribute("aria-controls", panel.id);
+    expect(panel).toHaveAttribute("aria-labelledby", eventos.id);
+    eventos.focus();
+    fireEvent.keyDown(eventos, { key: "ArrowRight" });
+    const celebraciones = screen.getByRole("tab", { name: /Celebraciones/ });
+    expect(celebraciones).toHaveFocus();
+    expect(celebraciones).toHaveAttribute("aria-selected", "true");
+    // El contador se lee con su palabra.
+    expect(celebraciones).toHaveTextContent(/fechas?/);
+  });
+});
+
+describe("Hoy y mañana vacíos", () => {
+  it("muestra las próximas fechas del mes", async () => {
+    pintar(<CalendarioInicio hoy={HOY} />);
+    // OCTUBRE: el 19 solo hay un cumpleaños (otra pestaña); la feria es el 22.
+    expect(await screen.findByText("Próximas fechas")).toBeInTheDocument();
+    expect(screen.getByText("Feria de salud")).toBeInTheDocument();
+    expect(screen.getByText(/Jueves, 22 de octubre/)).toBeInTheDocument();
   });
 });

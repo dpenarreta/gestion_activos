@@ -87,3 +87,26 @@ describe("useModalA11y", () => {
     expect(simular).toHaveFocus();
   });
 });
+
+describe("useModalA11y con una grilla de foco itinerante", () => {
+  it("Tab no se escapa por los botones con tabindex=-1", () => {
+    render(
+      <Ventana nombre="Calendario" onCerrar={() => {}}>
+        <button type="button">Cerrar</button>
+        <button type="button" tabIndex={0}>
+          Día con foco
+        </button>
+        <button type="button" tabIndex={-1}>
+          Otro día
+        </button>
+      </Ventana>,
+    );
+    const dia = screen.getByRole("button", { name: "Día con foco" });
+    dia.focus();
+    // El último que recibe Tab es el día con foco: Tab vuelve a «Cerrar».
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Cerrar" })).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(dia).toHaveFocus();
+  });
+});

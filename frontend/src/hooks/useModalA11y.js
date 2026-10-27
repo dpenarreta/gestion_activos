@@ -62,8 +62,15 @@ export function useModalA11y({
     const anterior = document.activeElement;
 
     const panel = panelRef.current;
+    // Solo lo que de verdad recibe Tab: una grilla con foco itinerante tiene
+    // botones con tabindex="-1" que no cuentan (auditoría UX/UI, 27/10/2026:
+    // el foco se escapaba de la ventana del calendario).
     const enfocables = () =>
-      panel ? Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR)) : [];
+      panel
+        ? Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+            (el) => el.tabIndex >= 0 && !el.closest("[inert],[hidden]"),
+          )
+        : [];
     (enfocables()[0] || panel)?.focus();
 
     function handleKeyDown(event) {

@@ -446,7 +446,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--mz-ink-faint);
+  color: var(--mz-ink);
 }
 
 .inicio-grilla {
@@ -994,6 +994,19 @@
   --cal-cumpleanos: #c2185b;
   --cal-feriado: #2e7d32;
   --cal-aniversario: #b26a00;
+  /* Las marcas van sobre el fondo de la tarjeta: en oscuro, más claras. */
+  --cal-marca-evento: var(--cal-evento);
+  --cal-marca-cumpleanos: var(--cal-cumpleanos);
+  --cal-marca-feriado: var(--cal-feriado);
+  --cal-marca-aniversario: var(--cal-aniversario);
+}
+
+:root[data-theme="dark"] .institucional-page,
+:root[data-theme="dark"] .calendario {
+  --cal-marca-evento: #8ab4f8;
+  --cal-marca-cumpleanos: #f48fb1;
+  --cal-marca-feriado: #81c784;
+  --cal-marca-aniversario: #ffb74d;
 }
 
 .calendario {
@@ -1016,7 +1029,6 @@
   margin: 0;
   text-align: center;
   font-size: 15px;
-  text-transform: capitalize;
 }
 
 .calendario__fila {
@@ -1088,27 +1100,30 @@
   gap: 3px;
 }
 
+/* Cada tipo con su ícono, no solo su color (WCAG 1.4.1). */
 .calendario__marca {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+  font-size: 9px;
+  line-height: 1;
 }
 
 .calendario__marca--evento {
-  background: var(--cal-evento);
+  color: var(--cal-marca-evento);
 }
 
 .calendario__marca--cumpleanos {
-  background: var(--cal-cumpleanos);
+  color: var(--cal-marca-cumpleanos);
 }
 
 .calendario__marca--feriado {
-  background: var(--cal-feriado);
+  color: var(--cal-marca-feriado);
 }
 
 .calendario__marca--aniversario {
-  background: var(--cal-aniversario);
+  color: var(--cal-marca-aniversario);
+}
+
+.calendario__leyenda .calendario__marca {
+  font-size: 11px;
 }
 
 .calendario__leyenda {
@@ -1129,7 +1144,6 @@
 .calendario__detalle > strong {
   display: block;
   margin-bottom: 4px;
-  text-transform: capitalize;
 }
 
 .calendario__eventos {
@@ -3246,4 +3260,84 @@
 .inicio-destacados__columna:focus,
 .calendario-resumen__lista:focus {
   outline: none;
+}
+
+/* --- Auditoría UX/UI de Inicio, tandas 3 y 4 (27/10/2026) --- */
+
+/* Próximas fechas, cuando hoy y mañana no tienen nada. */
+.calendario-resumen__proximas {
+  border-top: 1px dashed var(--mz-border);
+  padding-top: 8px;
+}
+
+/* El día de hoy sigue viéndose aunque sea el inicio o el fin de un rango. */
+.calendario-rango__inicio.calendario__dia--hoy span:first-child,
+.calendario-rango__fin.calendario__dia--hoy span:first-child {
+  background: #fff;
+  color: var(--mz-action);
+}
+
+/* Áreas táctiles de 44 px en lo que se toca con el dedo. */
+.calendario__cabecera .btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (pointer: coarse) {
+  .calendario__dia {
+    min-height: 44px;
+  }
+}
+
+/* El carrusel en el teléfono: el texto ocupa menos y las flechas bajan junto
+   a los puntos, para no tapar la imagen. */
+@media (max-width: 560px) {
+  .carrusel__texto {
+    padding: 16px 12px 30px;
+  }
+
+  .carrusel__texto span {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .carrusel__flecha {
+    top: auto;
+    bottom: 0;
+    transform: none;
+  }
+
+  .carrusel__flecha--anterior {
+    left: 4px;
+  }
+
+  .carrusel__flecha--siguiente {
+    right: 4px;
+  }
+}
+
+/* Re-auditoría final (27/10/2026). */
+/* El contador de las pestañas: 4.07:1 → con el gris suave, más de 4.5:1. */
+.calendario__cuenta {
+  color: var(--mz-ink-soft);
+}
+
+@media (pointer: coarse) {
+  .calendario-rango .calendario__dia {
+    min-height: 44px;
+  }
+
+  .mz-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* En el teléfono, el texto del carrusel deja libre la franja de las flechas. */
+@media (max-width: 560px) {
+  .carrusel__texto {
+    padding-bottom: 50px;
+  }
 }

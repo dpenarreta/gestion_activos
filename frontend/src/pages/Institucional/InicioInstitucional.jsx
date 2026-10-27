@@ -149,13 +149,16 @@ export function InicioInstitucional() {
           accesos: es lo primero que se ve al entrar. Cada uno con su botón
           para gestionarlo (y su permiso). */}
       <div className="inicio-destacados">
-        <div
+        <section
           className="inicio-destacados__columna"
+          aria-labelledby="inicio-noticias"
           ref={columnaNoticias}
           tabIndex={-1}
         >
           <div className="inicio-destacados__cabecera">
-            <h3 className="inicio-titulo">Noticias y eventos</h3>
+            <h3 id="inicio-noticias" className="inicio-titulo">
+              Noticias y eventos
+            </h3>
             {gestionaNoticias && (
               <Link
                 to="/admin/institucional/noticias"
@@ -205,10 +208,15 @@ export function InicioInstitucional() {
               )}
             </div>
           )}
-        </div>
-        <div className="inicio-destacados__columna inicio-destacados__columna--calendario">
+        </section>
+        <section
+          className="inicio-destacados__columna inicio-destacados__columna--calendario"
+          aria-labelledby="inicio-calendario"
+        >
           <div className="inicio-destacados__cabecera">
-            <h3 className="inicio-titulo">Calendario</h3>
+            <h3 id="inicio-calendario" className="inicio-titulo">
+              Calendario
+            </h3>
             {gestionaCalendario && (
               <Link
                 to="/admin/institucional/calendario"
@@ -219,7 +227,7 @@ export function InicioInstitucional() {
             )}
           </div>
           <CalendarioInicio />
-        </div>
+        </section>
       </div>
 
       <section aria-labelledby="inicio-accesos">

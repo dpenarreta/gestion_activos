@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { conMayuscula, fechaPorTecla } from "./navegacionCalendario";
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -42,10 +50,42 @@ function enGrupo(evento, grupo) {
   return !tipos || tipos.includes(evento.tipo);
 }
 
-/** Las pestañas, cada una con cuántas fechas tiene en lo que se muestra. */
-function PestanasDeEventos({ grupo, onCambio, cuentas, conTodo = false }) {
+/** El id de la pestaña de un grupo, para que su panel la nombre. */
+const idDePestana = (base, grupo) => `${base}-pestana-${grupo}`;
+
+/**
+ * Las pestañas, cada una con cuántas fechas tiene en lo que se muestra.
+ * Patrón Tabs de WAI-ARIA (auditoría UX/UI, 27/10/2026): una sola parada de
+ * Tab, las flechas (e Inicio / Fin) cambian de pestaña y cada una dice qué
+ * panel controla.
+ */
+function PestanasDeEventos({
+  grupo,
+  onCambio,
+  cuentas,
+  conTodo = false,
+  idBase,
+  panelId,
+}) {
   const opciones = Object.entries(GRUPOS_DE_EVENTO);
   if (conTodo) opciones.push(["todo", { nombre: "Todo", icono: "grid" }]);
+  const ids = opciones.map(([id]) => id);
+  const botones = useRef({});
+
+  function teclas(evento) {
+    const actual = ids.indexOf(grupo);
+    const destino = {
+      ArrowRight: (actual + 1) % ids.length,
+      ArrowLeft: (actual - 1 + ids.length) % ids.length,
+      Home: 0,
+      End: ids.length - 1,
+    }[evento.key];
+    if (destino === undefined) return;
+    evento.preventDefault();
+    onCambio(ids[destino]);
+    botones.current[ids[destino]]?.focus();
+  }
+
   return (
     <div
       className="mz-tabs calendario__pestanas"
@@ -55,15 +95,27 @@ function PestanasDeEventos({ grupo, onCambio, cuentas, conTodo = false }) {
       {opciones.map(([id, g]) => (
         <button
           key={id}
+          ref={(nodo) => {
+            botones.current[id] = nodo;
+          }}
+          id={idDePestana(idBase, id)}
           type="button"
           role="tab"
           aria-selected={grupo === id}
+          aria-controls={panelId}
+          tabIndex={grupo === id ? 0 : -1}
           className={grupo === id ? "is-active" : undefined}
           onClick={() => onCambio(id)}
+          onKeyDown={teclas}
         >
           <Icon name={g.icono} /> {g.nombre}
           {cuentas?.[id] > 0 && (
-            <span className="calendario__cuenta">{cuentas[id]}</span>
+            <span className="calendario__cuenta">
+              {cuentas[id]}
+              <span className="visually-hidden">
+                {cuentas[id] === 1 ? " fecha" : " fechas"}
+              </span>
+            </span>
           )}
         </button>
       ))}
@@ -124,12 +176,6 @@ function datosDelEvento(e) {
     .join(" · ");
 }
 
-/** Una línea por fecha, para el globo que sale al pasar sobre un día. */
-function detalleCorto(e) {
-  const tipo = TIPOS_EN_CALENDARIO[e.tipo]?.nombre ?? e.tipo;
-  return `${tipo}: ${e.titulo}${e.descripcion ? ` — ${e.descripcion}` : ""}`;
-}
-
 /** Las 6 semanas que se dibujan para un mes, empezando el lunes. */
 function semanasDelMes(anio, mes) {
   const primero = new Date(anio, mes, 1);
@@ -159,11 +205,29 @@ function porDia(apariciones) {
   return mapa;
 }
 
+/** Lo que tiene un día, con el ícono de cada tipo: en la grilla del mes los
+ * tipos no se distinguen solo por el color (auditoría UX/UI, 27/10/2026). */
+function MarcasDelDia({ tipos }) {
+  if (!tipos.length) return null;
+  return (
+    <span className="calendario__marcas" aria-hidden="true">
+      {tipos.map((t) => (
+        <Icon
+          key={t}
+          name={TIPOS_EN_CALENDARIO[t]?.icono ?? "star-fill"}
+          className={`calendario__marca calendario__marca--${t}`}
+        />
+      ))}
+    </span>
+  );
+}
+
 /**
  * El calendario del mes, ampliado: los días con eventos importantes,
- * cumpleaños y feriados marcados con puntos de color. Se cambia de mes con las
- * flechas (u «Hoy» para volver); al pasar sobre un día se ve qué tiene, y al
- * tocarlo se listan sus fechas con su detalle.
+ * cumpleaños y feriados marcados con el ícono de su tipo. Se cambia de mes con
+ * los botones (u «Hoy» para volver); al tocar un día se listan sus fechas con
+ * su detalle. Con el teclado la grilla es una sola parada de Tab y se recorre
+ * con las flechas (ver `navegacionCalendario.js`).
  */
 export function CalendarioMes({
   hoy = new Date(),
@@ -177,11 +241,41 @@ export function CalendarioMes({
   const [elegido, setElegido] = useState(hoyIso);
   const [apariciones, setApariciones] = useState([]);
   const [estado, setEstado] = useState("cargando");
+  const idBase = useId();
+  const panelId = `${idBase}-panel`;
+  const botones = useRef(new Map());
+  const enfocar = useRef(false);
 
   const dias = useMemo(
     () => semanasDelMes(mes.getFullYear(), mes.getMonth()),
     [mes],
   );
+  // El día que recibe el Tab: el elegido si está a la vista; si no, el 1.
+  const enfocable = dias.some((d) => iso(d) === elegido) ? elegido : iso(mes);
+
+  // Tras moverse con el teclado, el foco sigue al día (aunque cambie el mes).
+  useEffect(() => {
+    if (!enfocar.current) return;
+    enfocar.current = false;
+    botones.current.get(elegido)?.focus();
+  }, [elegido, dias]);
+
+  function teclaEnDia(evento, dia) {
+    const nueva = fechaPorTecla(dia, evento.key);
+    if (!nueva) return;
+    evento.preventDefault();
+    if (
+      nueva.getMonth() !== mes.getMonth() ||
+      nueva.getFullYear() !== mes.getFullYear()
+    ) {
+      const aLaVista = dias.some((d) => iso(d) === iso(nueva));
+      if (!aLaVista || evento.key.startsWith("Page")) {
+        setMes(new Date(nueva.getFullYear(), nueva.getMonth(), 1));
+      }
+    }
+    enfocar.current = true;
+    setElegido(iso(nueva));
+  }
 
   const cargar = useCallback(() => {
     let vigente = true;
@@ -223,10 +317,9 @@ export function CalendarioMes({
   const leyenda = Object.entries(TIPOS_EN_CALENDARIO).filter(([id]) =>
     enGrupo({ tipo: id }, grupo),
   );
-  const titulo = mes.toLocaleDateString("es-EC", {
-    month: "long",
-    year: "numeric",
-  });
+  const titulo = conMayuscula(
+    mes.toLocaleDateString("es-EC", { month: "long", year: "numeric" }),
+  );
 
   function cambiarMes(delta) {
     setMes((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
@@ -243,9 +336,9 @@ export function CalendarioMes({
         >
           <Icon name="chevron-left" />
         </button>
-        <h3 id="calendario-titulo" className="calendario__mes">
+        <h4 id="calendario-titulo" className="calendario__mes">
           {titulo}
-        </h3>
+        </h4>
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
@@ -271,129 +364,135 @@ export function CalendarioMes({
         onCambio={setGrupo}
         cuentas={contar(delMes)}
         conTodo
+        idBase={idBase}
+        panelId={panelId}
       />
       {estado === "error" && <ErrorDelCalendario onReintentar={cargar} />}
 
       <div
-        className="calendario__grilla"
-        role="grid"
-        aria-label={titulo}
-        aria-busy={estado === "cargando"}
+        id={panelId}
+        role="tabpanel"
+        aria-labelledby={idDePestana(idBase, grupo)}
       >
-        <div className="calendario__fila" role="row">
-          {DIAS.map((d) => (
-            <span
-              key={d}
-              className="calendario__dia-semana"
-              role="columnheader"
-            >
-              {d}
+        <div
+          className="calendario__grilla"
+          role="grid"
+          aria-label={titulo}
+          aria-busy={estado === "cargando"}
+        >
+          <div className="calendario__fila" role="row">
+            {DIAS.map((d) => (
+              <span
+                key={d}
+                className="calendario__dia-semana"
+                role="columnheader"
+              >
+                {d}
+              </span>
+            ))}
+          </div>
+          {Array.from({ length: 6 }, (_, semana) => (
+            <div className="calendario__fila" role="row" key={semana}>
+              {dias.slice(semana * 7, semana * 7 + 7).map((dia) => {
+                const clave = iso(dia);
+                const eventos = mapa[clave] ?? [];
+                const tipos = [...new Set(eventos.map((e) => e.tipo))];
+                const fuera = dia.getMonth() !== mes.getMonth();
+                const nombreDia = dia.toLocaleDateString("es-EC", {
+                  day: "numeric",
+                  month: "long",
+                });
+                return (
+                  <button
+                    key={clave}
+                    ref={(nodo) =>
+                      nodo
+                        ? botones.current.set(clave, nodo)
+                        : botones.current.delete(clave)
+                    }
+                    type="button"
+                    role="gridcell"
+                    tabIndex={clave === enfocable ? 0 : -1}
+                    aria-selected={clave === elegido}
+                    aria-current={clave === hoyIso ? "date" : undefined}
+                    aria-label={`${nombreDia}${
+                      eventos.length
+                        ? `: ${eventos.map((e) => e.titulo).join(", ")}`
+                        : ""
+                    }`}
+                    className={[
+                      "calendario__dia",
+                      fuera && "calendario__dia--fuera",
+                      clave === hoyIso && "calendario__dia--hoy",
+                      clave === elegido && "calendario__dia--elegido",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={() => setElegido(clave)}
+                    onKeyDown={(e) => teclaEnDia(e, dia)}
+                  >
+                    <span>{dia.getDate()}</span>
+                    <MarcasDelDia tipos={tipos} />
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div className="calendario__leyenda" aria-hidden="true">
+          {leyenda.map(([id, t]) => (
+            <span key={id}>
+              <Icon
+                name={t.icono}
+                className={`calendario__marca calendario__marca--${id}`}
+              />{" "}
+              {t.nombre}
             </span>
           ))}
         </div>
-        {Array.from({ length: 6 }, (_, semana) => (
-          <div className="calendario__fila" role="row" key={semana}>
-            {dias.slice(semana * 7, semana * 7 + 7).map((dia) => {
-              const clave = iso(dia);
-              const eventos = mapa[clave] ?? [];
-              const tipos = [...new Set(eventos.map((e) => e.tipo))];
-              const fuera = dia.getMonth() !== mes.getMonth();
-              const nombreDia = dia.toLocaleDateString("es-EC", {
+
+        <div className="calendario__detalle" aria-live="polite">
+          <strong>
+            {conMayuscula(
+              new Date(`${elegido}T00:00:00`).toLocaleDateString("es-EC", {
+                weekday: "long",
                 day: "numeric",
                 month: "long",
-              });
-              return (
-                <button
-                  key={clave}
-                  type="button"
-                  role="gridcell"
-                  aria-selected={clave === elegido}
-                  aria-current={clave === hoyIso ? "date" : undefined}
-                  aria-label={`${nombreDia}${
-                    eventos.length
-                      ? `: ${eventos.map((e) => e.titulo).join(", ")}`
-                      : ""
-                  }`}
-                  className={[
-                    "calendario__dia",
-                    fuera && "calendario__dia--fuera",
-                    clave === hoyIso && "calendario__dia--hoy",
-                    clave === elegido && "calendario__dia--elegido",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  title={
-                    eventos.length
-                      ? eventos.map((e) => detalleCorto(e)).join("\n")
-                      : undefined
-                  }
-                  onClick={() => setElegido(clave)}
-                >
-                  <span>{dia.getDate()}</span>
-                  {tipos.length > 0 && (
-                    <span className="calendario__marcas" aria-hidden="true">
-                      {tipos.map((t) => (
-                        <span
-                          key={t}
-                          className={`calendario__marca calendario__marca--${t}`}
-                        />
-                      ))}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      <div className="calendario__leyenda" aria-hidden="true">
-        {leyenda.map(([id, t]) => (
-          <span key={id}>
-            <span className={`calendario__marca calendario__marca--${id}`} />{" "}
-            {t.nombre}
-          </span>
-        ))}
-      </div>
-
-      <div className="calendario__detalle" aria-live="polite">
-        <strong>
-          {new Date(`${elegido}T00:00:00`).toLocaleDateString("es-EC", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </strong>
-        {estado === "cargando" ? (
-          <p className="mz-faint mb-0">Cargando fechas…</p>
-        ) : estado === "error" ? (
-          <p className="mz-faint mb-0">No se pudieron cargar las fechas.</p>
-        ) : delDia.length === 0 ? (
-          <p className="mz-faint mb-0">
-            {grupo === "celebraciones"
-              ? "Sin celebraciones este día."
-              : "Sin eventos este día."}
-          </p>
-        ) : (
-          <ul className="calendario__eventos">
-            {delDia.map((e) => (
-              <li key={`${e.id}-${e.fecha}`}>
-                <span
-                  className={`calendario__icono calendario__icono--${e.tipo}`}
-                >
-                  <Icon
-                    name={TIPOS_EN_CALENDARIO[e.tipo]?.icono ?? "star-fill"}
-                  />
-                </span>
-                <span>
-                  <strong>{e.titulo}</strong>
-                  <small>{datosDelEvento(e)}</small>
-                  {e.descripcion && <small>{e.descripcion}</small>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+              }),
+            )}
+          </strong>
+          {estado === "cargando" ? (
+            <p className="mz-faint mb-0">Cargando fechas…</p>
+          ) : estado === "error" ? (
+            <p className="mz-faint mb-0">No se pudieron cargar las fechas.</p>
+          ) : delDia.length === 0 ? (
+            <p className="mz-faint mb-0">
+              {grupo === "celebraciones"
+                ? "Sin celebraciones este día."
+                : "Sin eventos este día."}
+            </p>
+          ) : (
+            <ul className="calendario__eventos">
+              {delDia.map((e) => (
+                <li key={`${e.id}-${e.fecha}`}>
+                  <span
+                    className={`calendario__icono calendario__icono--${e.tipo}`}
+                  >
+                    <Icon
+                      name={TIPOS_EN_CALENDARIO[e.tipo]?.icono ?? "star-fill"}
+                    />
+                  </span>
+                  <span>
+                    <strong>{e.titulo}</strong>
+                    <small>{datosDelEvento(e)}</small>
+                    {e.descripcion && <small>{e.descripcion}</small>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -432,6 +531,38 @@ function ListaDelDia({ etiqueta, fecha, eventos, vacio = "Sin eventos." }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Si hoy y mañana no tienen nada: lo que viene en los próximos 30 días,
+ * para que la columna no quede en blanco (auditoría UX/UI, 27/10/2026). */
+function ProximasFechas({ eventos }) {
+  if (!eventos.length) return null;
+  return (
+    <div className="calendario-resumen__dia calendario-resumen__proximas">
+      <strong>Próximas fechas</strong>
+      <ul className="calendario__eventos">
+        {eventos.map((e) => (
+          <li key={`${e.id}-${e.fecha}`}>
+            <span className={`calendario__icono calendario__icono--${e.tipo}`}>
+              <Icon name={TIPOS_EN_CALENDARIO[e.tipo]?.icono ?? "star-fill"} />
+            </span>
+            <span>
+              <strong>{e.titulo}</strong>
+              <small>
+                {conMayuscula(
+                  new Date(`${e.fecha}T00:00:00`).toLocaleDateString("es-EC", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  }),
+                )}
+              </small>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -488,7 +619,13 @@ export function CalendarioInicio({ hoy = new Date() }) {
   const mananaIso = iso(
     new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1),
   );
+  // Se piden 30 días: hoy y mañana, y lo que viene si estos están vacíos.
+  const limiteIso = iso(
+    new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 30),
+  );
   const [apariciones, setApariciones] = useState([]);
+  const idBase = useId();
+  const panelId = `${idBase}-panel`;
   const [estado, setEstado] = useState("cargando");
   const [ampliado, setAmpliado] = useState(false);
   const lista = useRef(null);
@@ -498,7 +635,7 @@ export function CalendarioInicio({ hoy = new Date() }) {
   const cargar = useCallback(() => {
     let vigente = true;
     setEstado("cargando");
-    Promise.resolve(institucionalService.calendario?.(hoyIso, mananaIso))
+    Promise.resolve(institucionalService.calendario?.(hoyIso, limiteIso))
       .then((lista) => {
         if (!vigente) return;
         setApariciones(Array.isArray(lista) ? lista : []);
@@ -508,7 +645,7 @@ export function CalendarioInicio({ hoy = new Date() }) {
     return () => {
       vigente = false;
     };
-  }, [hoyIso, mananaIso]);
+  }, [hoyIso, limiteIso]);
 
   useEffect(() => cargar(), [cargar]);
 
@@ -528,16 +665,30 @@ export function CalendarioInicio({ hoy = new Date() }) {
   ]);
   const vacio =
     grupo === "celebraciones" ? "Sin celebraciones." : "Sin eventos.";
+  const deHoyEnGrupo = deHoy.filter((e) => enGrupo(e, grupo));
+  const deMananaEnGrupo = deManana.filter((e) => enGrupo(e, grupo));
+  const proximas =
+    deHoyEnGrupo.length || deMananaEnGrupo.length
+      ? []
+      : apariciones
+          .filter((a) => a.fecha > mananaIso && enGrupo(a, grupo))
+          .sort((a, b) => a.fecha.localeCompare(b.fecha))
+          .slice(0, 3);
 
   return (
-    <section
-      className="calendario calendario-resumen"
-      aria-label="Próximos eventos"
-    >
-      <PestanasDeEventos grupo={grupo} onCambio={setGrupo} cuentas={cuentas} />
+    <div className="calendario calendario-resumen">
+      <PestanasDeEventos
+        grupo={grupo}
+        onCambio={setGrupo}
+        cuentas={cuentas}
+        idBase={idBase}
+        panelId={panelId}
+      />
       <div
+        id={panelId}
         className="calendario-resumen__lista"
         role="tabpanel"
+        aria-labelledby={idDePestana(idBase, grupo)}
         ref={lista}
         tabIndex={-1}
       >
@@ -563,15 +714,23 @@ export function CalendarioInicio({ hoy = new Date() }) {
             <ListaDelDia
               etiqueta="Hoy"
               fecha={hoyIso}
-              eventos={deHoy.filter((e) => enGrupo(e, grupo))}
+              eventos={deHoyEnGrupo}
               vacio={vacio}
             />
             <ListaDelDia
               etiqueta="Mañana"
               fecha={mananaIso}
-              eventos={deManana.filter((e) => enGrupo(e, grupo))}
+              eventos={deMananaEnGrupo}
               vacio={vacio}
             />
+            <ProximasFechas eventos={proximas} />
+            {!deHoyEnGrupo.length &&
+              !deMananaEnGrupo.length &&
+              !proximas.length && (
+                <p className="mz-faint mz-small mb-0">
+                  Nada en los próximos 30 días.
+                </p>
+              )}
           </>
         )}
       </div>
@@ -589,6 +748,6 @@ export function CalendarioInicio({ hoy = new Date() }) {
           onCerrar={() => setAmpliado(false)}
         />
       )}
-    </section>
+    </div>
   );
 }

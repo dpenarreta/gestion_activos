@@ -199,7 +199,7 @@ describe("Solicitud de permisos", () => {
         .getAllByRole("gridcell")
         .filter((c) => c.getAttribute("aria-selected") === "true")
         .map((c) => c.textContent);
-    expect(within(ventana).getByText(/diciembre de 2026/)).toBeInTheDocument();
+    expect(within(ventana).getByText(/diciembre de 2026/i)).toBeInTheDocument();
     expect(marcados()).toEqual(["7", "8", "9"]);
     expect(within(ventana).getByText("3 días en total")).toBeInTheDocument();
 
