@@ -146,9 +146,13 @@ def levantar(
                 nivel=niveles_cargo.sugerido(datos["nombre"]),
             )
         elif cargo.nombre != datos["nombre"] or not cargo.activo:
+            # Un cargo que cambia de nombre puede cambiar de nivel (el Asesor
+            # Comercial que encabezaba un equipo pasa a Jefe Comercial).
+            if _normal(cargo.nombre) != _normal(datos["nombre"]):
+                cargo.nivel = niveles_cargo.sugerido(datos["nombre"])
             cargo.nombre = datos["nombre"]
             cargo.activo = True
-            cargo.save(update_fields=["nombre", "activo", "updated_at"])
+            cargo.save(update_fields=["nombre", "nivel", "activo", "updated_at"])
 
     for clave, datos in cargos.items():
         cargo = por_clave[clave]
