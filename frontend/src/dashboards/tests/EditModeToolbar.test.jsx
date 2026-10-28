@@ -153,6 +153,21 @@ describe('EditModeToolbar', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Diseño guardado.')
     })
 
+    it('la región role="status" es la misma al salir del modo edición (revisión final UX/UI)', async () => {
+      // Si se montara una región nueva que ya llega con el texto, el lector de pantalla no la
+      // anuncia: tiene que ser el mismo nodo, que cambia de vacío a «Diseño guardado.».
+      const onGuardar = vi.fn().mockResolvedValue({ ok: true })
+      const { props, rerender } = renderToolbar({ modoEdicion: true, onGuardar })
+      const region = screen.getByRole('status')
+      expect(region).toBeEmptyDOMElement()
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+      rerender(<EditModeToolbar {...props} modoEdicion={false} />)
+      expect(screen.getByRole('status')).toBe(region)
+      expect(region).toHaveTextContent('Diseño guardado.')
+      expect(screen.getAllByRole('status')).toHaveLength(1)
+    })
+
     it('cancelar la edición no anuncia que se guardó', async () => {
       const { props, rerender } = renderToolbar({ modoEdicion: true })
       await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))

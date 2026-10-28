@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { catalogosMasivosService } from "../../../api/catalogosService";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../../components/common/Pestanas/Pestanas";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import "./CargaCatalogos.css";
@@ -18,11 +23,14 @@ import "./CargaCatalogos.css";
  * nuevo aparece en esta pantalla sin tocar el frontend, igual que un reporte.
  */
 export function CargaCatalogosPage() {
-  const [catalogos, setCatalogos] = useState([]);
+  // null mientras carga: con una lista vacía de arranque no se distinguía
+  // «cargando» de «no hay ninguno» (revisión final UX/UI, 28/10/2026).
+  const [catalogos, setCatalogos] = useState(null);
   const [elegido, setElegido] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
     catalogosMasivosService
       .listar()
       .then((datos) => {
@@ -37,6 +45,10 @@ export function CargaCatalogosPage() {
       );
   }, []);
 
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   return (
     <div className="carga-catalogos-page">
       <div className="mz-view-head">
@@ -50,29 +62,38 @@ export function CargaCatalogosPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
+      {/* Carga, error con reintento y vacío; y pestañas con flechas y su
+          panel asociado, como en el resto del sistema (revisión final
+          UX/UI, 28/10/2026). */}
+      <EstadoDeCarga
+        cargando={catalogos === null}
+        error={error}
+        onReintentar={cargar}
+        vacio={catalogos?.length === 0}
+        textoVacio="No tiene catálogos que pueda cargar: pídale a un administrador el permiso de alta del catálogo que necesite."
+      />
+
+      {!error && catalogos?.length > 0 && (
+        <>
+          <Pestanas
+            etiqueta="Catálogos"
+            idBase="carga-catalogos"
+            valor={elegido?.clave}
+            onCambio={(clave) =>
+              setElegido(catalogos.find((c) => c.clave === clave) ?? null)
+            }
+            opciones={catalogos.map((catalogo) => ({
+              id: catalogo.clave,
+              etiqueta: catalogo.nombre,
+            }))}
+          />
+          {elegido && (
+            <PanelDePestana idBase="carga-catalogos" valor={elegido.clave}>
+              <PanelCatalogo catalogo={elegido} key={elegido.clave} />
+            </PanelDePestana>
+          )}
+        </>
       )}
-
-      <div className="mz-tabs" role="tablist">
-        {catalogos.map((catalogo) => (
-          <button
-            key={catalogo.clave}
-            type="button"
-            role="tab"
-            aria-selected={elegido?.clave === catalogo.clave}
-            className={elegido?.clave === catalogo.clave ? "is-active" : ""}
-            onClick={() => setElegido(catalogo)}
-          >
-            {catalogo.nombre}
-          </button>
-        ))}
-      </div>
-
-      {elegido && <PanelCatalogo catalogo={elegido} key={elegido.clave} />}
     </div>
   );
 }

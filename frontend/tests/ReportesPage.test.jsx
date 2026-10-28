@@ -141,3 +141,20 @@ describe("Pantalla de reportes", () => {
     expect(screen.getByRole("button", { name: /Excel/ })).toBeDisabled();
   });
 });
+
+describe("Si los catálogos de los filtros no cargan", () => {
+  it("lo dice junto a los filtros en vez de callarlo", async () => {
+    /* Antes los desplegables quedaban con solo «Todos», sin explicación
+       (revisión final UX/UI, 28/10/2026). */
+    const { sedesService } = await import("../src/api/organizacionService");
+    sedesService.list.mockReturnValueOnce(Promise.reject(new Error("500")));
+
+    render(<ReportesPage />);
+
+    expect(
+      await screen.findByText(/No se pudieron cargar las áreas, sedes/),
+    ).toBeInTheDocument();
+    // Y la vista previa sigue sirviendo.
+    expect(await screen.findByText("GA-LAP-000001")).toBeInTheDocument();
+  });
+});

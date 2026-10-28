@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { descargarBlob } from "../../utils/descargas";
 import { formatearFecha } from "../../utils/formato";
@@ -10,6 +11,8 @@ import "../Soporte/Soporte.css";
 
 /** Cada cuánto se refresca: la posición en la cola baja sola. */
 const REFRESCO_MS = 30_000;
+/** Cuántos archivos acepta el servidor por mensaje. */
+const MAX_ADJUNTOS = 3;
 
 /**
  * La ficha de un ticket propio en «Soporte TI» (`/admin/ayuda/tickets/:id`).
@@ -24,22 +27,39 @@ const REFRESCO_MS = 30_000;
 export function MiTicket() {
   const { id } = useParams();
   const [ticket, setTicket] = useState(null);
+  // Revisión final UX/UI (28/10/2026): la carga inicial y el refresco cada
+  // 30 s fallan distinto. Si falla la primera, no hay nada que mostrar y se
+  // ofrece reintentar; si falla un refresco, el ticket ya está a la vista y
+  // se conserva con un aviso discreto (antes salía «No encontramos este
+  // ticket» encima del ticket). `error` queda para las acciones.
+  const [errorCarga, setErrorCarga] = useState(null);
+  const [refrescoFallido, setRefrescoFallido] = useState(false);
   const [error, setError] = useState(null);
   const [texto, setTexto] = useState("");
   const [archivos, setArchivos] = useState([]);
+  const [omitidos, setOmitidos] = useState(0);
   const [enviando, setEnviando] = useState(false);
+  const cargado = useRef(false);
 
   const cargar = useCallback(() => {
     soporteService
       .miTicket(id)
       .then((datos) => {
+        cargado.current = true;
         setTicket(datos);
-        setError(null);
+        setErrorCarga(null);
+        setRefrescoFallido(false);
       })
-      .catch((err) =>
-        setError(mensajeDeError(err, "No encontramos este ticket.")),
-      );
+      .catch((err) => {
+        if (cargado.current) setRefrescoFallido(true);
+        else setErrorCarga(mensajeDeError(err, "No encontramos este ticket."));
+      });
   }, [id]);
+
+  function reintentar() {
+    setErrorCarga(null);
+    cargar();
+  }
 
   useEffect(() => {
     cargar();
@@ -54,6 +74,7 @@ export function MiTicket() {
       setTicket(await accion());
       setTexto("");
       setArchivos([]);
+      setOmitidos(0);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar."));
     } finally {
@@ -82,17 +103,35 @@ export function MiTicket() {
           )}
         </div>
         <div className="mz-view-actions">
-          <Link className="btn btn-outline-secondary btn-sm" to="/admin/ayuda">
+          <Link
+            className="btn btn-outline-secondary btn-sm"
+            to="/admin/ayuda?vista=mios"
+          >
             Volver a Soporte TI
           </Link>
         </div>
       </div>
+
+      {!ticket && (
+        <EstadoDeCarga
+          cargando={!errorCarga}
+          error={errorCarga}
+          onReintentar={reintentar}
+        />
+      )}
 
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}
         </div>
+      )}
+
+      {ticket && refrescoFallido && (
+        <p className="mz-small mz-faint mb-0" role="status">
+          No se pudo actualizar el ticket; se muestra la última información y se
+          volverá a intentar en unos segundos.
+        </p>
       )}
 
       {ticket && (
@@ -251,11 +290,16 @@ export function MiTicket() {
                       multiple
                       aria-label="Adjuntar archivos"
                       accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-                      onChange={(e) =>
-                        setArchivos(
-                          Array.from(e.target.files ?? []).slice(0, 3),
-                        )
+                      aria-describedby={
+                        omitidos > 0 ? "sg-adjuntos-aviso" : undefined
                       }
+                      onChange={(e) => {
+                        const elegidos = Array.from(e.target.files ?? []);
+                        setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
+                        setOmitidos(
+                          Math.max(0, elegidos.length - MAX_ADJUNTOS),
+                        );
+                      }}
                     />
                     <button
                       type="submit"
@@ -265,6 +309,17 @@ export function MiTicket() {
                       {enviando ? "Enviando…" : "Enviar"}
                     </button>
                   </div>
+                  {/* Antes se recortaba a tres en silencio (revisión final
+                      UX/UI, 28/10/2026). */}
+                  {omitidos > 0 && (
+                    <div
+                      id="sg-adjuntos-aviso"
+                      className="mz-small mz-faint mt-1"
+                      role="status"
+                    >
+                      Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
+                    </div>
+                  )}
                 </form>
               )}
             </div>
@@ -280,6 +335,11 @@ function Encuesta({ ticket, onResponder, enviando }) {
   const [calificacion, setCalificacion] = useState(0);
   const [resuelto, setResuelto] = useState("");
   const [comentario, setComentario] = useState("");
+  const falta = !calificacion
+    ? "Elija una calificación."
+    : !resuelto
+      ? "Indique si su requerimiento se resolvió."
+      : null;
 
   if (ticket.encuesta) {
     return (
@@ -314,19 +374,30 @@ function Encuesta({ ticket, onResponder, enviando }) {
           <legend className="form-label">
             ¿Qué tan satisfecho está con la atención recibida?
           </legend>
-          <div className="soporte-estrellas" role="radiogroup">
+          {/* Radios nativos con aspecto de estrella (revisión final UX/UI,
+              28/10/2026): una sola parada de Tab, las flechas cambian la
+              calificación y cada estrella mide 44 px. */}
+          <div
+            className="soporte-estrellas"
+            role="radiogroup"
+            aria-label="Calificación del servicio"
+          >
             {[1, 2, 3, 4, 5].map((n) => (
-              <button
+              <label
                 key={n}
-                type="button"
-                role="radio"
-                aria-checked={calificacion === n}
-                aria-label={`${n} de 5`}
-                className={n <= calificacion ? "activa" : undefined}
-                onClick={() => setCalificacion(n)}
+                className={`soporte-estrella${n <= calificacion ? " activa" : ""}`}
               >
+                <input
+                  type="radio"
+                  name="calificacion"
+                  value={n}
+                  className="visually-hidden"
+                  checked={calificacion === n}
+                  onChange={() => setCalificacion(n)}
+                />
                 <Icon name={n <= calificacion ? "star-fill" : "star"} />
-              </button>
+                <span className="visually-hidden">{n} de 5</span>
+              </label>
             ))}
           </div>
         </fieldset>
@@ -367,13 +438,22 @@ function Encuesta({ ticket, onResponder, enviando }) {
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
         />
-        <button
-          type="submit"
-          className="btn btn-primary mt-2"
-          disabled={enviando || !calificacion || !resuelto}
-        >
-          Enviar encuesta
-        </button>
+        <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={enviando || Boolean(falta)}
+            aria-describedby={falta ? "enc-falta" : undefined}
+          >
+            Enviar encuesta
+          </button>
+          {/* El botón ya no se queda deshabilitado sin decir por qué. */}
+          {falta && (
+            <span id="enc-falta" className="mz-small mz-faint">
+              {falta}
+            </span>
+          )}
+        </div>
       </form>
     </section>
   );

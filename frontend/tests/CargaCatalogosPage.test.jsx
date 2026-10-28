@@ -152,6 +152,56 @@ describe("La lista de catálogos", () => {
     ).toBeInTheDocument();
   });
 
+  it("mientras carga lo anuncia, y si falla deja reintentar", async () => {
+    /* Revisión final UX/UI, 28/10/2026: antes no había estado de carga ni
+       reintento. */
+    listarCatalogos.mockRejectedValueOnce(new Error("500"));
+    pintar();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo cargar la lista de catálogos.",
+    );
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByRole("tab", { name: "Empleados" }),
+    ).toBeInTheDocument();
+  });
+
+  it("si no puede cargar ninguno, lo dice en vez de dejar la pantalla vacía", async () => {
+    listarCatalogos.mockResolvedValue({
+      catalogos: CATALOGOS.catalogos.map((c) => ({ ...c, puede: false })),
+    });
+    pintar();
+
+    expect(
+      await screen.findByText(/No tiene catálogos que pueda cargar/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("las pestañas se mueven con las flechas y dicen qué panel controlan", async () => {
+    pintar();
+
+    const empleados = await screen.findByRole("tab", { name: "Empleados" });
+    expect(
+      screen.getByRole("tablist", { name: "Catálogos" }),
+    ).toBeInTheDocument();
+    const panel = screen.getByRole("tabpanel");
+    expect(empleados).toHaveAttribute("aria-controls", panel.id);
+    expect(panel).toHaveAccessibleName("Empleados");
+
+    fireEvent.keyDown(empleados, { key: "ArrowRight" });
+    const proveedores = screen.getByRole("tab", { name: "Proveedores" });
+    expect(proveedores).toHaveAttribute("aria-selected", "true");
+    expect(proveedores).toHaveFocus();
+    expect(
+      screen.getByText("Descargue el archivo de proveedores"),
+    ).toBeInTheDocument();
+  });
+
   it("si la lista no carga, lo dice", async () => {
     listarCatalogos.mockRejectedValue(new Error("500"));
 

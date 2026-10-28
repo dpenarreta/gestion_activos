@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Las empresas del grupo: la administración de la separación por empresa.
@@ -109,6 +115,41 @@ beforeEach(() => {
 });
 
 // --- El listado -------------------------------------------------------------
+
+/*
+ * En el teléfono cada empresa va en una tarjeta: siete columnas a 375 px solo
+ * se leían desplazándose de lado (revisión final UX/UI, 28/10/2026).
+ */
+describe("Las empresas en el teléfono", () => {
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada empresa es una tarjeta, y la que no ve nadie se señala", async () => {
+    pintarListado();
+
+    const lista = await screen.findByRole("list", { name: "Empresas" });
+    const tarjetas = within(lista).getAllByRole("listitem");
+    expect(tarjetas).toHaveLength(2);
+    expect(tarjetas[0]).toHaveTextContent("LaarCourier");
+    expect(tarjetas[0]).toHaveTextContent("1790012345001");
+    expect(tarjetas[1]).toHaveTextContent("Sin usuarios");
+    expect(
+      within(tarjetas[0]).getByRole("link", { name: "Ver LaarCourier" }),
+    ).toHaveAttribute("href", "/admin/empresas/1");
+  });
+});
 
 describe("El listado de empresas", () => {
   it("las muestra con su código y su identificación", async () => {

@@ -65,6 +65,19 @@ beforeEach(() => {
 
 // --- Pedir el enlace --------------------------------------------------------
 
+describe("El título de la pestaña", () => {
+  /* Revisión final UX/UI, 28/10/2026: antes todas decían solo el nombre del
+     sitio. */
+  it("dice en qué paso de la recuperación se está", () => {
+    const { unmount } = pintar(<ForgotPassword />, "/forgot-password");
+    expect(document.title).toContain("Recuperar contraseña");
+    unmount();
+
+    pintar(<ResetPassword />, "/reset-password?token=abc");
+    expect(document.title).toContain("Nueva contraseña");
+  });
+});
+
 describe("Pedir un enlace de recuperación", () => {
   it("responde lo mismo exista o no la cuenta", async () => {
     /* Es una regla de seguridad, no una preferencia de redacción: dos

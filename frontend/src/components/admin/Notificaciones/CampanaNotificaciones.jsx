@@ -56,7 +56,13 @@ export function ElementoNotificacion({ notificacion, onAbrir }) {
         </span>
       </span>
       {!notificacion.leida && (
-        <span className="campana-item__punto" aria-label="Sin leer" />
+        // Un aria-label sobre un <span> no lo lee ningún lector de pantalla:
+        // el punto se ve y el texto oculto se oye (revisión final UX/UI,
+        // 28/10/2026).
+        <>
+          <span className="campana-item__punto" aria-hidden="true" />
+          <span className="visually-hidden">Sin leer</span>
+        </>
       )}
     </>
   );

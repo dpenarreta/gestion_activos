@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { tiposDispositivoService } from "../../../api/activosService";
 import { depreciacionService } from "../../../api/politicasService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -37,6 +38,7 @@ export function DepreciacionPanel() {
   const [tipos, setTipos] = useState([]);
   const [enEdicion, setEnEdicion] = useState(null);
   const [aEliminar, setAEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
   const [errorAccion, setErrorAccion] = useState(null);
 
   const cargar = useCallback((params) => depreciacionService.list(params), []);
@@ -54,6 +56,7 @@ export function DepreciacionPanel() {
   }, []);
 
   async function confirmarEliminacion() {
+    setEliminando(true);
     try {
       await depreciacionService.remove(aEliminar.id);
       setAEliminar(null);
@@ -61,6 +64,8 @@ export function DepreciacionPanel() {
     } catch (err) {
       setErrorAccion(mensajeDeError(err, "No se pudo eliminar la política."));
       setAEliminar(null);
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -91,19 +96,13 @@ export function DepreciacionPanel() {
           usando un equipo ya depreciado es lo normal.
         </p>
 
-        {listado.error && (
-          <div className="mz-alert mz-alert--bad" role="alert">
-            <Icon name="x-octagon" />
-            {listado.error}
-          </div>
-        )}
         {errorAccion && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
             {errorAccion}
           </div>
         )}
-        {!listado.isLoading && !hayGlobal && (
+        {!listado.isLoading && !listado.error && !hayGlobal && (
           <div className="mz-alert mz-alert--warn">
             <Icon name="exclamation-triangle" />
             No hay una política global. Los tipos de dispositivo sin política
@@ -126,65 +125,71 @@ export function DepreciacionPanel() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((politica) => (
-              <tr key={politica.id}>
-                <td className="mz-strong">{politica.nombre}</td>
-                <td>
-                  {politica.es_global ? (
-                    <span className="mz-pill mz-pill--neutral">Global</span>
-                  ) : (
-                    politica.tipo_dispositivo_nombre
-                  )}
-                </td>
-                <td className="num">
-                  {formatearMeses(politica.meses_vida_contable)}
-                </td>
-                <td className="num">
-                  {Number(politica.porcentaje_residual) > 0 ? (
-                    `${politica.porcentaje_residual} %`
-                  ) : (
-                    // Cero es el caso normal en equipo de cómputo: se
-                    // deprecia por completo.
-                    <span className="mz-faint mz-small">Sin residual</span>
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {politica.activa ? "Activa" : "Inactiva"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  {puedeEditar && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => setEnEdicion(politica)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => setAEliminar(politica)}
-                      >
-                        Eliminar
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={6}>
-                  Sin políticas de depreciación. Ningún equipo mostrará valor en
-                  libros.
-                </td>
-              </tr>
-            )}
+            {/* Cargando, error con reintento y vacío dentro de la tabla: antes
+                un fallo mostraba a la vez el error y «Sin políticas de
+                depreciación» (revisión final UX/UI, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={6}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Sin políticas de depreciación. Ningún equipo mostrará valor en libros."
+            />
+            {!listado.error &&
+              listado.resultados.map((politica) => (
+                <tr key={politica.id}>
+                  <td className="mz-strong">{politica.nombre}</td>
+                  <td>
+                    {politica.es_global ? (
+                      <span className="mz-pill mz-pill--neutral">Global</span>
+                    ) : (
+                      politica.tipo_dispositivo_nombre
+                    )}
+                  </td>
+                  <td className="num">
+                    {formatearMeses(politica.meses_vida_contable)}
+                  </td>
+                  <td className="num">
+                    {Number(politica.porcentaje_residual) > 0 ? (
+                      `${politica.porcentaje_residual} %`
+                    ) : (
+                      // Cero es el caso normal en equipo de cómputo: se
+                      // deprecia por completo.
+                      <span className="mz-faint mz-small">Sin residual</span>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {politica.activa ? "Activa" : "Inactiva"}
+                    </span>
+                  </td>
+                  <td className="acciones">
+                    {puedeEditar && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => setEnEdicion(politica)}
+                          aria-label={`Editar ${politica.nombre}`}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => setAEliminar(politica)}
+                          aria-label={`Eliminar ${politica.nombre}`}
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -204,7 +209,11 @@ export function DepreciacionPanel() {
 
       <ConfirmDialog
         isOpen={Boolean(aEliminar)}
-        title="Eliminar política de depreciación"
+        title="¿Eliminar la regla de depreciación?"
+        confirmLabel="Eliminar regla"
+        confirmVariant="danger"
+        cancelClassName="btn-outline-secondary"
+        isLoading={eliminando}
         message={
           aEliminar
             ? aEliminar.es_global

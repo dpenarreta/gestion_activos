@@ -115,7 +115,8 @@ describe('BuscadorDeudor', () => {
     obtenerDetalleDeudor.mockResolvedValue(DETALLE)
     pintar()
     await consultar()
-    await waitFor(() => expect(screen.getByText('NÚMERO DE DOCUMENTO')).toBeInTheDocument())
+    // El encabezado lleva el texto de la columna; las mayúsculas las pone el CSS.
+    await waitFor(() => expect(screen.getByRole('columnheader', { name: 'Número de Documento' })).toBeInTheDocument())
     expect(obtenerDetalleDeudor).toHaveBeenCalledWith('directorio-cartera', expect.objectContaining({
       columnasDetalle: ['Número de Documento', 'Saldo'],
     }))

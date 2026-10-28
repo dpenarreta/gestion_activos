@@ -164,8 +164,21 @@ describe("El listado de políticas de depreciación", () => {
       screen.queryByRole("button", { name: "Nueva política de depreciación" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Editar" }),
+      screen.queryByRole("button", { name: /^Editar / }),
     ).not.toBeInTheDocument();
+  });
+
+  it("un fallo no se confunde con «sin políticas» y se puede reintentar", async () => {
+    /* Revisión final UX/UI, 28/10/2026: salían a la vez el error y el vacío. */
+    listar.mockRejectedValueOnce(new Error("500"));
+
+    pintar();
+
+    const aviso = await screen.findByRole("alert");
+    expect(screen.queryByText(/Sin políticas de depreciación/)).toBeNull();
+    fireEvent.click(within(aviso).getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("Servidores")).toBeInTheDocument();
   });
 
   it("si no cargan, lo dice", async () => {
@@ -263,7 +276,7 @@ describe("Al definir una política de depreciación", () => {
 
     await screen.findByText("Equipos de cómputo");
     const llamadasPrevias = listar.mock.calls.length;
-    fireEvent.click(screen.getAllByRole("button", { name: "Editar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Editar / })[0]);
 
     const dialogo = await screen.findByRole("dialog");
     fireEvent.change(within(dialogo).getByLabelText("Vida contable (meses)"), {
@@ -305,18 +318,37 @@ describe("Al definir una política de depreciación", () => {
     pintar();
 
     await screen.findByText("Servidores");
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[1]);
 
     expect(
       await screen.findByText(/Los activos de Servidor pasarán a depreciarse/),
     ).toBeInTheDocument();
   });
 
+  it("la pregunta de eliminar es destructiva", async () => {
+    /* Revisión final UX/UI, 28/10/2026. */
+    pintar();
+
+    await screen.findByText("Servidores");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Eliminar Servidores" }),
+    );
+
+    const pregunta = await screen.findByRole("dialog");
+    expect(
+      within(pregunta).getByRole("button", { name: "Eliminar regla" }),
+    ).toHaveClass("btn-danger");
+    fireEvent.click(
+      within(pregunta).getByRole("button", { name: "Eliminar regla" }),
+    );
+    await waitFor(() => expect(eliminar).toHaveBeenCalledWith(2));
+  });
+
   it("eliminar la global advierte que nadie mostrará valor en libros", async () => {
     pintar();
 
     await screen.findByText("Equipos de cómputo");
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[0]);
 
     expect(
       await screen.findByText(/dejarán de mostrar valor en libros/),

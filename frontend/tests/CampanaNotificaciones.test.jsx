@@ -96,7 +96,7 @@ describe("La campana", () => {
     expect(panel).toHaveTextContent("Mesa de ayuda");
     expect(panel).toHaveTextContent("Matriz de obligaciones");
     expect(panel).toHaveTextContent("TCK-2026-000042 · No enciende (Alta)");
-    expect(screen.getAllByLabelText("Sin leer")).toHaveLength(1);
+    expect(screen.getAllByText("Sin leer")).toHaveLength(1);
   });
 
   it("al hacer clic la marca como leída y lleva directo a su origen", async () => {

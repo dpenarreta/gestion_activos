@@ -1,19 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
+import {
+  Campo,
+  enfocarPrimerError,
+} from "../../../components/common/Campo/Campo";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { PermissionsCheckboxGroup } from "../../../components/common/PermissionsCheckboxGroup/PermissionsCheckboxGroup";
 import { usePermission } from "../../../hooks/usePermission";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  erroresPorCampo,
+  hayErroresGenerales,
+  mensajeDeError,
+} from "../../../utils/errores";
 
 export function RoleForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const formRef = useRef(null);
   // Quien solo puede ver los roles llega aquí por «Ver» del listado: ve el
   // rol sin poder cambiarlo ni encontrar un «Guardar» que el servidor
   // rechazaría (auditoría UX/UI, fase 2, 28/10/2026).
@@ -30,6 +40,11 @@ export function RoleForm() {
   const [cargo, setCargo] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
+  // Al terminar se dice qué se guardó: antes el diálogo se cerraba y nada
+  // confirmaba que el rol hubiera quedado guardado (revisión final UX/UI,
+  // 28/10/2026). Al crear, el aviso viaja con la navegación a la ficha nueva.
+  const [aviso, setAviso] = useState(location.state?.aviso ?? null);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [cargandoRol, setCargandoRol] = useState(isEditing);
@@ -66,16 +81,31 @@ export function RoleForm() {
     if (soloLectura) {
       return;
     }
+    // El nombre vacío se avisa antes de pedir confirmación: confirmar para
+    // que después lo rechace el servidor era un paso inútil (revisión final
+    // UX/UI, 28/10/2026).
+    if (!name.trim()) {
+      setErrores({ name: "Escriba el nombre del rol." });
+      setError(null);
+      enfocarPrimerError(formRef.current);
+      return;
+    }
     setIsConfirmOpen(true);
   }
 
   async function handleConfirmSave() {
     setIsSaving(true);
     setError(null);
+    setErrores({});
+    setAviso(null);
+    const textoAviso = `Rol «${name}» guardado con ${selected.size} ${
+      selected.size === 1 ? "permiso" : "permisos"
+    }.`;
     try {
       const payload = { name, permission_codenames: Array.from(selected) };
       if (isEditing) {
         await rolesService.update(id, payload);
+        setAviso(textoAviso);
       } else {
         // Al crear, se pasa a la URL de edición del rol recién creado
         // (`replace` para que "atrás" no vuelva al formulario de alta ya
@@ -84,12 +114,28 @@ export function RoleForm() {
         // navegar: hay que cerrar el diálogo explícitamente en esta rama
         // también, o quedaría abierto sobre la vista de edición.
         const created = await rolesService.create(payload);
-        navigate(`/admin/roles/${created.id}`, { replace: true });
+        setAviso(textoAviso);
+        navigate(`/admin/roles/${created.id}`, {
+          replace: true,
+          state: { aviso: textoAviso },
+        });
       }
       setIsConfirmOpen(false);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el rol."));
+      // El error del nombre va bajo el campo; el resto, en el aviso de arriba
+      // completo (revisión final UX/UI, 28/10/2026).
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErrores(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => clave === "name") &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el rol."),
+      );
       setIsConfirmOpen(false);
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -119,6 +165,12 @@ export function RoleForm() {
           {error}
         </div>
       )}
+      {aviso && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
+          {aviso}
+        </div>
+      )}
 
       <EstadoDeCarga
         cargando={isCatalogLoading || cargandoRol}
@@ -134,29 +186,41 @@ export function RoleForm() {
           <div className="mz-card-head">
             <h3>Datos del rol</h3>
           </div>
-          <form onSubmit={handleSubmit} className="mz-card-body">
+          <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
             <fieldset disabled={soloLectura}>
               <div className="mz-field-grid">
-                <div className="mz-field">
-                  <label htmlFor="name">Nombre del rol</label>
+                <Campo
+                  id="name"
+                  etiqueta="Nombre del rol"
+                  obligatorio={!soloLectura && !cargo}
+                  ayuda={
+                    cargo ? (
+                      <>
+                        Es el rol del cargo «{cargo.nombre}»
+                        {cargo.unidad && ` (${cargo.unidad})`} del organigrama
+                        de {cargo.empresa}: se renombra con el cargo
+                        (Institucional → Estructura) y lo tiene quien ocupa ese
+                        cargo. Sus permisos sí se editan aquí.
+                      </>
+                    ) : null
+                  }
+                  error={errores.name}
+                  className="mz-field"
+                >
                   <input
-                    id="name"
                     className="form-control"
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    required
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      setErrores((actuales) =>
+                        actuales.name
+                          ? { ...actuales, name: undefined }
+                          : actuales,
+                      );
+                    }}
                     disabled={Boolean(cargo)}
                   />
-                  {cargo && (
-                    <small className="mz-faint">
-                      Es el rol del cargo «{cargo.nombre}»
-                      {cargo.unidad && ` (${cargo.unidad})`} del organigrama de{" "}
-                      {cargo.empresa}: se renombra con el cargo (Institucional →
-                      Estructura) y lo tiene quien ocupa ese cargo. Sus permisos
-                      sí se editan aquí.
-                    </small>
-                  )}
-                </div>
+                </Campo>
               </div>
             </fieldset>
 

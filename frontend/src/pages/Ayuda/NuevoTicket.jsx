@@ -8,6 +8,9 @@ import { FormularioMisDatos, queFalta } from "../MisDatos/MisDatosPage";
 import { aplica, CamposFormulario } from "../Soporte/Publico/CamposFormulario";
 import "../Soporte/Soporte.css";
 
+/** Cuántos archivos acepta el servidor por ticket. */
+const MAX_ADJUNTOS = 3;
+
 const VACIO = {
   categoria: "",
   caso: "",
@@ -67,6 +70,7 @@ export function NuevoTicket() {
   const [valores, setValores] = useState(VACIO);
   const [adicionales, setAdicionales] = useState({});
   const [archivos, setArchivos] = useState([]);
+  const [omitidos, setOmitidos] = useState(0);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [creado, setCreado] = useState(null);
@@ -165,6 +169,7 @@ export function NuevoTicket() {
                 setValores(VACIO);
                 setAdicionales({});
                 setArchivos([]);
+                setOmitidos(0);
               }}
             >
               Crear otro
@@ -251,14 +256,33 @@ export function NuevoTicket() {
                   className="form-control"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-                  onChange={(e) =>
-                    setArchivos(Array.from(e.target.files ?? []).slice(0, 3))
+                  aria-describedby={
+                    omitidos > 0
+                      ? "sp-adjuntos-ayuda sp-adjuntos-aviso"
+                      : "sp-adjuntos-ayuda"
                   }
+                  onChange={(e) => {
+                    const elegidos = Array.from(e.target.files ?? []);
+                    setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
+                    setOmitidos(Math.max(0, elegidos.length - MAX_ADJUNTOS));
+                  }}
                 />
-                <div className="form-text">
+                <div id="sp-adjuntos-ayuda" className="form-text">
                   Capturas de pantalla, fotos o documentos; hasta 10 MB cada
                   uno.
                 </div>
+                {/* Antes se recortaba a tres en silencio: se dice cuántos
+                    quedaron fuera, como en la ficha del equipo (revisión
+                    final UX/UI, 28/10/2026). */}
+                {omitidos > 0 && (
+                  <div
+                    id="sp-adjuntos-aviso"
+                    className="mz-small mz-faint mt-1"
+                    role="status"
+                  >
+                    Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
+                  </div>
+                )}
               </div>
               <div className="col-12 mz-actions justify-content-end">
                 <button

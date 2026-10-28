@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -13,14 +13,17 @@ import {
 } from "../../../api/organizacionService";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
-import { EscanerInput } from "../../../components/activos/EscanerInput/EscanerInput";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/NivelRenovacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
+import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
-import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { mensajeDeError } from "../../../utils/errores";
 import { describirFiltros } from "./filtrosAplicados";
 import "./Activos.css";
@@ -74,6 +77,8 @@ export function ActivosList() {
   const puedeCambiarEstado = usePermission("activos.dar_baja");
   const puedeImprimir = usePermission("activos.imprimir_etiqueta");
   const navigate = useNavigate();
+  const enTarjetas = useVistaDeTarjetas();
+  const campoBusqueda = useRef(null);
   const [errorExportacion, setErrorExportacion] = useState(null);
   const [isExportando, setIsExportando] = useState(false);
   const [searchParams] = useSearchParams();
@@ -147,7 +152,12 @@ export function ActivosList() {
 
   function handleBuscar(event) {
     event.preventDefault();
-    listado.actualizarFiltros({ q: busqueda });
+    listado.actualizarFiltros({ q: busqueda.trim() });
+    // La pistola teclea el código y cierra con Enter. El texto queda a la
+    // vista —se sabe qué se buscó— pero seleccionado, así la lectura
+    // siguiente lo reemplaza en vez de pegarse detrás (lo que antes hacía
+    // el campo aparte del escáner al vaciarse).
+    campoBusqueda.current?.select();
   }
 
   const chips = describirFiltros(listado.filtros, {
@@ -169,6 +179,47 @@ export function ActivosList() {
       Object.fromEntries(
         Object.keys(listado.filtros).map((clave) => [clave, ""]),
       ),
+    );
+  }
+
+  const hayAccionesRapidas =
+    puedeAsignar || puedeCambiarEstado || puedeImprimir;
+
+  // Las mismas acciones en la fila de la tabla y en la tarjeta del teléfono.
+  function accionesRapidas(activo) {
+    return (
+      <>
+        {puedeAsignar && activo.esta_operativo && (
+          <Link
+            to={`/admin/activos/${activo.id}?accion=asignar`}
+            className="btn btn-outline-primary btn-sm"
+            title={`Asignar o trasladar ${activo.nombre}`}
+            aria-label={`Asignar o trasladar ${activo.nombre}`}
+          >
+            <Icon name="person-check" />
+          </Link>
+        )}
+        {puedeCambiarEstado && (
+          <Link
+            to={`/admin/activos/${activo.id}?accion=estado`}
+            className="btn btn-outline-warning btn-sm"
+            title={`Cambiar el estado de ${activo.nombre}`}
+            aria-label={`Cambiar el estado de ${activo.nombre}`}
+          >
+            <Icon name="arrow-repeat" />
+          </Link>
+        )}
+        {puedeImprimir && (
+          <Link
+            to={`/admin/activos/${activo.id}?accion=etiqueta`}
+            className="btn btn-outline-secondary btn-sm"
+            title={`Imprimir la etiqueta de ${activo.nombre}`}
+            aria-label={`Imprimir la etiqueta de ${activo.nombre}`}
+          >
+            <Icon name="printer" />
+          </Link>
+        )}
+      </>
     );
   }
 
@@ -238,28 +289,31 @@ export function ActivosList() {
         </div>
       </div>
 
-      <EscanerInput
-        className="mb-3"
-        placeholder="Escanee una etiqueta o escriba código, serie, marca o responsable"
-        onEscanear={(valor) => {
-          setBusqueda(valor);
-          listado.actualizarFiltros({ q: valor });
-        }}
-      />
-
+      {/* Un solo buscador: el del escáner y el de la barra hacían lo mismo
+          (los dos aplicaban `q`) y no se sabía cuál usar (revisión final
+          UX/UI, 28/10/2026). Acepta un código escaneado o texto. */}
       <form
         className="mz-filter-bar"
         onSubmit={handleBuscar}
         role="search"
-        aria-label="Filtrar el inventario"
+        aria-label="Buscar en el inventario"
       >
         <label className="mz-fb-search">
-          <Icon name="search" />
-          <span className="visually-hidden">Buscar activos</span>
+          <Icon name="upc-scan" />
+          <span className="visually-hidden">
+            Buscar en el inventario o escanear un código
+          </span>
           <input
+            ref={campoBusqueda}
             type="search"
-            placeholder="Buscar"
+            placeholder="Escanee una etiqueta o escriba código, serie, marca o responsable"
             value={busqueda}
+            // Una lectora no necesita corrección ni mayúsculas automáticas
+            // del móvil, que además corromperían el código.
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
             onChange={(event) => setBusqueda(event.target.value)}
           />
         </label>
@@ -286,7 +340,27 @@ export function ActivosList() {
               type="button"
               className="activos-filtros__chip"
               title={`Quitar el filtro ${chip.titulo}`}
-              onClick={() => quitarFiltro(chip.claves)}
+              // El nombre dice que el botón quita el filtro: «Tipo: Laptop»
+              // a secas se oía como un dato (revisión final UX/UI,
+              // 28/10/2026). El ícono es decorativo.
+              aria-label={`Quitar filtro ${chip.titulo}: ${chip.texto}`}
+              onClick={(e) => {
+                // El chip desaparece: el foco pasa al chip siguiente o, si
+                // no queda ninguno, al buscador (revisión final UX/UI).
+                const contenedor = e.currentTarget.parentElement;
+                const indice = [...contenedor.children].indexOf(
+                  e.currentTarget,
+                );
+                quitarFiltro(chip.claves);
+                requestAnimationFrame(() => {
+                  const siguiente =
+                    contenedor.isConnected &&
+                    contenedor.querySelectorAll(".activos-filtros__chip")[
+                      indice
+                    ];
+                  (siguiente || campoBusqueda.current)?.focus();
+                });
+              }}
             >
               <span className="activos-filtros__chip-titulo">
                 {chip.titulo}:
@@ -506,7 +580,10 @@ export function ActivosList() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      {/* En el teléfono, cada equipo en una tarjeta con sus acciones a 44 px:
+          la tabla mide 1100 px y a 375 px solo se leía desplazándose de lado
+          (revisión final UX/UI, 28/10/2026). */}
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table mz-table--ancha mz-table--clicable">
           <thead>
             <tr>
@@ -584,36 +661,7 @@ export function ActivosList() {
                       un clic en vez de tres, y la acción se confirma donde
                       está todo el contexto del equipo. */}
                   <div className="activos-tabla__acciones">
-                    {puedeAsignar && activo.esta_operativo && (
-                      <Link
-                        to={`/admin/activos/${activo.id}?accion=asignar`}
-                        className="btn btn-outline-primary btn-sm"
-                        title={`Asignar o trasladar ${activo.nombre}`}
-                        aria-label={`Asignar o trasladar ${activo.nombre}`}
-                      >
-                        <Icon name="person-check" />
-                      </Link>
-                    )}
-                    {puedeCambiarEstado && (
-                      <Link
-                        to={`/admin/activos/${activo.id}?accion=estado`}
-                        className="btn btn-outline-warning btn-sm"
-                        title={`Cambiar el estado de ${activo.nombre}`}
-                        aria-label={`Cambiar el estado de ${activo.nombre}`}
-                      >
-                        <Icon name="arrow-repeat" />
-                      </Link>
-                    )}
-                    {puedeImprimir && (
-                      <Link
-                        to={`/admin/activos/${activo.id}?accion=etiqueta`}
-                        className="btn btn-outline-secondary btn-sm"
-                        title={`Imprimir la etiqueta de ${activo.nombre}`}
-                        aria-label={`Imprimir la etiqueta de ${activo.nombre}`}
-                      >
-                        <Icon name="printer" />
-                      </Link>
-                    )}
+                    {accionesRapidas(activo)}
                   </div>
                 </td>
               </tr>
@@ -634,6 +682,60 @@ export function ActivosList() {
           </tbody>
         </table>
       </div>
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            error={listado.error}
+            onReintentar={listado.refresh}
+            cargando={listado.isLoading && listado.resultados.length === 0}
+            vacio={listado.resultados.length === 0}
+            textoVacio="Todavía no hay activos registrados."
+            hayFiltros={chips.length > 0}
+            onLimpiarFiltros={limpiarFiltros}
+          />
+          {listado.resultados.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Activos">
+              {listado.resultados.map((activo) => (
+                <li key={activo.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <code className="codigo-barras">
+                      {activo.codigo_barras}
+                    </code>
+                    <EstadoActivo
+                      estado={activo.estado}
+                      etiqueta={activo.estado_display}
+                    />
+                  </div>
+                  <div className="mz-card-row__titulo">
+                    <Link
+                      to={`/admin/activos/${activo.id}`}
+                      className="activos-tabla__nombre"
+                    >
+                      {activo.nombre}
+                    </Link>
+                  </div>
+                  <div className="mz-card-meta">
+                    <span>
+                      Custodio: {activo.responsables_resumen || "Sin asignar"}
+                    </span>
+                    <span>
+                      Ubicación:{" "}
+                      {[activo.sede_nombre, activo.departamento_nombre]
+                        .filter(Boolean)
+                        .join(" · ") || "Sin registrar"}
+                    </span>
+                  </div>
+                  {hayAccionesRapidas && (
+                    <div className="mz-card-acciones activos-tarjeta__acciones">
+                      {accionesRapidas(activo)}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <Paginacion
         total={listado.total}

@@ -195,3 +195,10 @@
   color: var(--mz-link);
   font-size: 11.5px;
 }
+
+/* En la tarjeta del teléfono las acciones son solo un ícono: sin ancho mínimo
+   quedaban en 44 px de alto pero ~32 de ancho (revisión final UX/UI,
+   28/10/2026). */
+.activos-tarjeta__acciones .btn {
+  min-width: 44px;
+}

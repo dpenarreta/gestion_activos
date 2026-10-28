@@ -525,6 +525,10 @@ describe("Consultar rol de pagos", () => {
       ],
     });
     render(<RolPagosPage />);
+    // La primera acción queda a la vista; el resto, en «Gestión de roles».
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Gestión de roles/ }),
+    );
     fireEvent.click(
       await screen.findByRole("button", { name: /Historial por empleado/ }),
     );
@@ -558,6 +562,65 @@ describe("Consultar rol de pagos", () => {
     expect(
       screen.queryByRole("button", { name: /Historial por empleado/ }),
     ).toBeNull();
+    // Tampoco el menú donde iría.
+    expect(
+      screen.queryByRole("button", { name: /Gestión de roles/ }),
+    ).toBeNull();
+  });
+
+  it("Talento Humano: «Roles sin abrir» a la vista y el resto en un menú", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      puede_seguimiento: true,
+      puede_descarga_masiva: true,
+      puede_habilitar: true,
+      puede_ver_historial: true,
+      puede_configurar: true,
+    });
+    servicio.areasDescargaMasiva.mockResolvedValue([]);
+    render(<RolPagosPage />);
+    const principal = await screen.findByRole("button", {
+      name: /Roles sin abrir/,
+    });
+    expect(principal).toHaveClass("btn-outline-primary");
+    expect(
+      screen.queryByRole("button", { name: /Descarga masiva/ }),
+    ).toBeNull();
+
+    const menu = screen.getByRole("button", { name: /Gestión de roles/ });
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+    const lista = screen.getByRole("list", { name: "Gestión de roles" });
+    expect(menu).toHaveAttribute("aria-controls", lista.id);
+    expect(
+      within(lista)
+        .getAllByRole("button")
+        .map((b) => b.textContent.trim()),
+    ).toEqual([
+      "Descarga masiva",
+      "Usuarios habilitados",
+      "Descargar rol auditado",
+      "Historial por empleado",
+      "Textos de la consulta",
+    ]);
+
+    // Escape la cierra y el foco vuelve al botón.
+    within(lista)
+      .getByRole("button", { name: /Descarga masiva/ })
+      .focus();
+    fireEvent.keyDown(document.activeElement, { key: "Escape" });
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("list", { name: "Gestión de roles" })).toBeNull();
+    expect(menu).toHaveFocus();
+
+    // Elegir una opción la cierra y abre su ventana.
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByRole("button", { name: /Descarga masiva/ }));
+    expect(
+      await screen.findByRole("dialog", { name: "Descarga masiva" }),
+    ).toBeInTheDocument();
+    expect(menu).toHaveAttribute("aria-expanded", "false");
   });
 
   it("quien no está habilitado no ve la consulta y sabe por qué", async () => {

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -195,7 +195,11 @@ describe("Panel principal", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Cargando…")).toBeInTheDocument();
+    // Se anuncia y deja la cabecera a la vista.
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+    expect(
+      screen.getByRole("heading", { name: "Panel principal" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Activos registrados")).not.toBeInTheDocument();
   });
 
@@ -211,6 +215,27 @@ describe("Panel principal", () => {
     expect(
       await screen.findByText("No se pudieron cargar los indicadores."),
     ).toBeInTheDocument();
+  });
+
+  it("si fallan, conserva el título y deja reintentar sin recargar", async () => {
+    /* Antes el fallo pintaba solo el aviso: sin título ni salida (revisión
+       final UX/UI, 28/10/2026). */
+    indicadores.mockRejectedValueOnce(new Error("500"));
+    pintar();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudieron cargar los indicadores.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Panel principal" }),
+    ).toBeInTheDocument();
+
+    indicadores.mockResolvedValueOnce(DATOS);
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("Activos registrados")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(indicadores).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -143,6 +143,23 @@ describe("Códigos de conducta: una pestaña por documento", () => {
     expect(servicio.archivoDocumento).toHaveBeenCalledTimes(2);
   });
 
+  it("las pestañas se recorren con las flechas (revisión final UX/UI)", async () => {
+    pintar();
+    const primera = await screen.findByRole("tab", {
+      name: /Código de conducta/,
+    });
+    expect(primera).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(primera, { key: "ArrowRight" });
+    const segunda = screen.getByRole("tab", { name: /Reglamento interno/ });
+    expect(segunda).toHaveAttribute("aria-selected", "true");
+    expect(segunda).toHaveFocus();
+    expect(primera).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute(
+      "aria-labelledby",
+      segunda.id,
+    );
+  });
+
   it("un documento borrado o retirado no tiene pestaña", async () => {
     servicio.documentos.mockResolvedValue([
       CODIGO,

@@ -66,20 +66,26 @@ export default function EditModeToolbar({
 
   if (!permisos.tiene(PERMISOS.DASHBOARD_VIEW)) return null
 
+  if (!modoEdicion && !permisos.tiene(PERMISOS.DASHBOARD_EDIT)) return null
+
+  // Revisión final UX/UI, 28/10/2026: una sola región role="status", siempre montada y en el
+  // mismo lugar del árbol en los dos modos. Antes cada modo pintaba la suya, así que al salir de
+  // la edición se montaba una nueva que ya traía «Diseño guardado.» y el lector no la anunciaba.
   const regionAviso = (
     <span role="status" className="small text-success">
       {avisoGuardado && <><i className="bi bi-check-circle me-1" aria-hidden="true"></i>{avisoGuardado}</>}
     </span>
   )
 
+  // Fuera de la edición, el mismo contenedor con la región en la misma posición (segundo hijo):
+  // React la conserva al cambiar de modo y el lector anuncia el cambio de su texto.
   if (!modoEdicion) {
-    if (!permisos.tiene(PERMISOS.DASHBOARD_EDIT)) return null
     return (
       <div className="d-flex flex-wrap align-items-center gap-2">
-        {regionAviso}
         <Button variant="outline-primary" size="sm" onClick={onActivarEdicion}>
           {activarBoton}
         </Button>
+        {regionAviso}
       </div>
     )
   }
@@ -106,23 +112,25 @@ export default function EditModeToolbar({
   // por quien guarda el layout permitía firmar el cambio con el nombre de otra persona — y era
   // esa la atribución que mostraba el historial de versiones.
   return (
-    <div className="d-flex flex-wrap align-items-center gap-2" role="toolbar" aria-label="Herramientas de edición del dashboard">
-      <Button size="sm" variant="outline-secondary" onClick={onAlternarVistaPrevia}>
-        {vistaPrevia ? 'Volver a editar' : 'Vista previa'}
-      </Button>
-      {permisos.tiene(PERMISOS.DASHBOARD_CONFIGURATION_RESET) && (
-        <Button size="sm" variant="outline-danger" onClick={() => setConfirmando('restablecer')} disabled={cargando}>
-          {restablecerBoton}
+    <div className="d-flex flex-wrap align-items-center gap-2">
+      <div className="d-flex flex-wrap align-items-center gap-2" role="toolbar" aria-label="Herramientas de edición del dashboard">
+        <Button size="sm" variant="outline-secondary" onClick={onAlternarVistaPrevia}>
+          {vistaPrevia ? 'Volver a editar' : 'Vista previa'}
         </Button>
-      )}
-      <Button size="sm" variant="outline-secondary" onClick={pedirCancelar} disabled={cargando}>
-        Cancelar
-      </Button>
-      <Button size="sm" variant="primary" onClick={guardar} disabled={cargando || guardando}>
-        {guardando ? (
-          <><Spinner animation="border" size="sm" className="me-1" aria-hidden="true" />Guardando…</>
-        ) : 'Guardar cambios'}
-      </Button>
+        {permisos.tiene(PERMISOS.DASHBOARD_CONFIGURATION_RESET) && (
+          <Button size="sm" variant="outline-danger" onClick={() => setConfirmando('restablecer')} disabled={cargando}>
+            {restablecerBoton}
+          </Button>
+        )}
+        <Button size="sm" variant="outline-secondary" onClick={pedirCancelar} disabled={cargando}>
+          Cancelar
+        </Button>
+        <Button size="sm" variant="primary" onClick={guardar} disabled={cargando || guardando}>
+          {guardando ? (
+            <><Spinner animation="border" size="sm" className="me-1" aria-hidden="true" />Guardando…</>
+          ) : 'Guardar cambios'}
+        </Button>
+      </div>
       {regionAviso}
 
       <ConfirmModal

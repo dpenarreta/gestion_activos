@@ -330,7 +330,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 id="custodio"
                 className="form-select"
                 aria-describedby={
-                  fallos.empleados ? "custodio-fallo" : undefined
+                  [
+                    fallos.empleados && "custodio-fallo",
+                    elegidos[0] && "custodio-ayuda",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
                 }
                 value={responsables[0] || ""}
                 onChange={(event) => elegirUnico(event.target.value)}
@@ -346,7 +351,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 {fallos.empleados}
               </FalloCatalogo>
               {elegidos[0] && (
-                <div className="form-text">
+                <div id="custodio-ayuda" className="form-text">
                   {elegidos[0].nombre_completo} pertenece a{" "}
                   <strong>{elegidos[0].departamento_nombre}</strong>.
                 </div>
@@ -357,9 +362,12 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           {/* Como aviso y no como nota al pie: que el equipo se quede sin
               nadie que responda por él es la consecuencia que hay que leer
               antes de confirmar. Quien devuelve un equipo lo sabe; quien
-              quitaba a la última persona de un turno, no siempre. */}
+              quitaba a la última persona de un turno, no siempre. Como
+              nota y no como alerta: aparece al elegir «sin custodio» y no
+              debe interrumpir al lector de pantalla (revisión final UX/UI,
+              28/10/2026). */}
           {esDevolucion && (
-            <div className="mz-alert mz-alert--warn" role="alert">
+            <div className="mz-alert mz-alert--warn" role="note">
               <Icon name="exclamation-triangle" />
               <div>
                 <strong>Aviso:</strong> El equipo quedará{" "}
@@ -378,6 +386,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               aria-describedby={
                 [
                   fallos.sedes && "sede-entrega-fallo",
+                  "sede-entrega-ayuda",
                   fallos.departamentos && "area-fallo",
                 ]
                   .filter(Boolean)
@@ -405,7 +414,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 <strong>{donde(sedeElegida) || "Sin sede"}</strong>
               </p>
             )}
-            <div className="form-text">
+            <div id="sede-entrega-ayuda" className="form-text">
               {/* El área no se pregunta: es la de quien recibe el equipo. Pero
                   tampoco se cambia en silencio, así que se dice aquí. */}
               {areaDeDestino
@@ -438,7 +447,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
             <select
               id="sede"
               className="form-select"
-              aria-describedby={fallos.sedes ? "sede-fallo" : undefined}
+              aria-describedby={[fallos.sedes && "sede-fallo", "sede-ayuda"]
+                .filter(Boolean)
+                .join(" ")}
               value={sede}
               onChange={(event) => setSede(event.target.value)}
             >
@@ -460,7 +471,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 <strong>{donde(sedeElegida) || "Sin sede"}</strong>
               </p>
             )}
-            <div className="form-text">
+            <div id="sede-ayuda" className="form-text">
               Quien lo tuviera seguirá figurando en el historial del equipo.
             </div>
           </div>
@@ -472,6 +483,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         <textarea
           id="motivo"
           className="form-control"
+          aria-describedby="motivo-ayuda"
           rows={2}
           placeholder={
             modo === MODOS.TRASLADAR
@@ -481,7 +493,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           value={motivo}
           onChange={(event) => setMotivo(event.target.value)}
         />
-        <div className="form-text">
+        <div id="motivo-ayuda" className="form-text">
           Queda registrado en el historial del equipo.
         </div>
       </div>

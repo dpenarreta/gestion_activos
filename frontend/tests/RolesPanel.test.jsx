@@ -66,6 +66,12 @@ describe("RolesPanel", () => {
     const fila = nombre.closest("tr");
     expect(fila).toHaveTextContent(/Cargo del organigrama de LaarCourier/);
     expect(fila.querySelector("button")).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Eliminar / })).toHaveLength(
+      1,
+    );
+    // El botón dice qué rol elimina (revisión final UX/UI, 28/10/2026).
+    expect(
+      screen.getByRole("button", { name: "Eliminar Editor" }),
+    ).toBeInTheDocument();
   });
 });

@@ -128,16 +128,23 @@
   gap: 4px 14px;
 }
 
-/* La encuesta de satisfacción: cinco estrellas. */
+/* La encuesta de satisfacción: cinco estrellas. Son radios nativos ocultos
+   dentro de su etiqueta, de 44 × 44 px (revisión final UX/UI, 28/10/2026). */
 .soporte-estrellas {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
-.soporte-estrellas button {
-  border: 0;
-  background: none;
-  padding: 2px;
+.soporte-estrella {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 6px;
+  cursor: pointer;
   font-size: 26px;
   line-height: 1;
   /* Contraste ≥ 3:1 en claro y oscuro, con los tokens del tema: el gris de
@@ -146,6 +153,12 @@
   color: var(--mz-ink-faint);
 }
 
-.soporte-estrellas button.activa {
+.soporte-estrella.activa {
   color: var(--mz-warn-fg);
+}
+
+/* El radio está oculto: el foco del teclado se ve en la estrella. */
+.soporte-estrella:has(input:focus-visible) {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
 }

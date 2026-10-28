@@ -551,7 +551,8 @@ export default function DashboardAreaPage() {
               destacaba. Quedan a la vista las dos acciones frecuentes —cargar datos e imprimir,
               que además muestra su progreso— y el resto pasa a «Más acciones». */}
           {!mostrarConstructor && (
-            <Button variant="outline-secondary" size="sm" onClick={() => setMostrarConstructor(true)}><i className="bi bi-upload" aria-hidden="true"></i> Cargar otro archivo</Button>
+            // Revisión final UX/UI, 28/10/2026: la acción frecuente, en primario.
+            <Button variant="primary" size="sm" onClick={() => setMostrarConstructor(true)}><i className="bi bi-upload" aria-hidden="true"></i> Cargar otro archivo</Button>
           )}
           <Button variant="outline-secondary" size="sm" onClick={imprimirComoPDF} disabled={generandoPDF}>
             {generandoPDF ? <Spinner size="sm" animation="border" className="me-1" aria-hidden="true" /> : <i className="bi bi-printer" aria-hidden="true"></i>}

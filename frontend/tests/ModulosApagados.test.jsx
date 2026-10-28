@@ -137,9 +137,12 @@ describe("Módulos apagados", () => {
     servicio.modulos.mockResolvedValue(estado([], true));
     servicio.cambiarModulo.mockResolvedValue(estado(["soporte"], true));
     pintar(<ModulosPage />, "/admin/configuracion/modulos");
+    // El nombre es solo el del módulo; el estado lo da el propio interruptor
+    // (revisión final UX/UI, 28/10/2026).
     const interruptor = await screen.findByRole("switch", {
-      name: "Mesa de ayuda: encendido",
+      name: "Mesa de ayuda",
     });
+    expect(interruptor).toBeChecked();
     servicio.modulos.mockResolvedValue(estado(["soporte"], true));
     fireEvent.click(interruptor);
     // Apagar un módulo pide confirmación.
@@ -151,8 +154,14 @@ describe("Módulos apagados", () => {
     await waitFor(() =>
       expect(servicio.cambiarModulo).toHaveBeenCalledWith("soporte", false),
     );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Mesa de ayuda" }),
+      ).not.toBeChecked(),
+    );
+    // Y lo dice al terminar.
     expect(
-      await screen.findByRole("switch", { name: "Mesa de ayuda: apagado" }),
-    ).not.toBeChecked();
+      await screen.findByText(/Mesa de ayuda quedó apagado/),
+    ).toHaveAttribute("role", "status");
   });
 });

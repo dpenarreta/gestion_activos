@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { soporteService } from "../../api/soporteService";
 import { Icon } from "../../components/common/Icon/Icon";
@@ -17,6 +17,7 @@ export function AprobacionesPage() {
   const [pendientes, setPendientes] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const avisoRef = useRef(null);
 
   const cargar = useCallback(() => {
     setError(null);
@@ -33,6 +34,13 @@ export function AprobacionesPage() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Tras decidir, la tarjeta desaparece y el foco caía en el <body>: se
+  // lleva al aviso de éxito, que dice qué pasó (revisión final UX/UI,
+  // 28/10/2026).
+  useEffect(() => {
+    if (aviso) avisoRef.current?.focus();
+  }, [aviso]);
 
   /* Devuelve el mensaje de error, o null si salió bien: el error se muestra
      en la propia tarjeta, junto a los botones, y no arriba de la página lejos
@@ -65,7 +73,12 @@ export function AprobacionesPage() {
         </div>
       </div>
       {aviso && (
-        <div className="mz-alert mz-alert--ok" role="status">
+        <div
+          ref={avisoRef}
+          tabIndex={-1}
+          className="mz-alert mz-alert--ok"
+          role="status"
+        >
           <Icon name="check2-circle" />
           {aviso}
         </div>

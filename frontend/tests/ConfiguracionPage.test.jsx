@@ -328,6 +328,10 @@ describe("Restaurar los valores por defecto", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Nombre del sitio")).toHaveValue("Sistema"),
     );
+    // Y lo dice al terminar (revisión final UX/UI, 28/10/2026).
+    expect(
+      await screen.findByText(/Se restauraron los valores por defecto/),
+    ).toBeInTheDocument();
   });
 });
 

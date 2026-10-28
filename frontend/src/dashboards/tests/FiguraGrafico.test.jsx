@@ -34,10 +34,10 @@ describe('FiguraGrafico (alternativa textual de los gráficos)', () => {
     expect(within(filas[0]).getByRole('cell')).toHaveTextContent('1.500')
 
     // Cada «Ver datos» dice de qué gráfico es (hay varios en un dashboard).
-    const boton = screen.getByRole('button', { name: 'Ver los datos de «Cartera vencida»' })
+    const boton = screen.getByRole('button', { name: 'Ver datos de «Cartera vencida»' })
     await user.click(boton)
     expect(tabla.parentElement).not.toHaveClass('visually-hidden')
-    expect(screen.getByRole('button', { name: 'Ocultar los datos de «Cartera vencida»' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ocultar datos de «Cartera vencida»' })).toBeInTheDocument()
   })
 
   it('en un gráfico de varias series, hay una columna por serie con su título de leyenda', () => {

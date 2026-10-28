@@ -147,7 +147,9 @@ test.describe("Consulta por escáner", () => {
     page,
   }) => {
     await page.goto("/admin/activos");
-    const campo = page.getByLabel("Buscar activos");
+    const campo = page.getByLabel(
+      "Buscar en el inventario o escanear un código",
+    );
     await campo.fill(codigo.replaceAll("-", "'"));
     await page.getByRole("button", { name: "Buscar" }).last().click();
 

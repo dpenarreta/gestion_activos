@@ -69,8 +69,10 @@ export default function FiguraGrafico({ titulo, descripcion, override, style, co
               className="px-0"
               // Con nombre propio: hay un «Ver datos» por gráfico. Sin
               // aria-expanded: la tabla está siempre al alcance del lector y
-              // el botón solo la muestra en pantalla.
-              aria-label={`${verDatos ? 'Ocultar' : 'Ver'} los datos de «${nombre}»`}
+              // el botón solo la muestra en pantalla. El nombre empieza con
+              // el texto visible, para quien lo dicta por voz (WCAG 2.5.3,
+              // revisión final UX/UI, 28/10/2026).
+              aria-label={`${verDatos ? 'Ocultar' : 'Ver'} datos de «${nombre}»`}
               onClick={() => setVerDatos((v) => !v)}
             >
               <i className={`bi ${verDatos ? 'bi-eye-slash' : 'bi-table'} me-1`} aria-hidden="true" />

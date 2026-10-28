@@ -206,9 +206,12 @@ describe("Asignar o trasladar un activo", () => {
       target: { value: "" },
     });
 
-    const aviso = await screen.findByRole("alert");
+    // Como nota y no como alerta: aparece por lo que se eligió y no debe
+    // interrumpir al lector de pantalla (revisión final UX/UI, 28/10/2026).
+    const aviso = await screen.findByRole("note");
     expect(aviso).toHaveTextContent(/sin responsable/);
     expect(aviso).toHaveTextContent(/Nadie responderá por él/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("mientras tenga responsable no hay aviso que leer", async () => {
@@ -220,6 +223,7 @@ describe("Asignar o trasladar un activo", () => {
     });
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
   it("no deja confirmar si no hay nada que cambiar", async () => {
@@ -291,9 +295,25 @@ describe("Traslado de sede", () => {
         screen.getByLabelText("Nuevo responsable"),
       ).toHaveAccessibleDescription("No se pudo cargar la lista de empleados."),
     );
+    // El fallo va primero; detrás, la ayuda del campo.
     expect(
       screen.getByLabelText("Sede donde queda el equipo"),
-    ).toHaveAccessibleDescription("No se pudo cargar la lista de sedes.");
+    ).toHaveAccessibleDescription(
+      /^No se pudo cargar la lista de sedes\. El área a la que está adscrito no cambia\./,
+    );
+  });
+
+  it("las ayudas bajo los campos quedan asociadas a ellos", async () => {
+    // Revisión final UX/UI, 28/10/2026: eran `form-text` sueltos.
+    abrir();
+    await screen.findByText("Situación actual");
+
+    expect(screen.getByLabelText("Motivo")).toHaveAccessibleDescription(
+      "Queda registrado en el historial del equipo.",
+    );
+    expect(
+      screen.getByLabelText("Sede donde queda el equipo"),
+    ).toHaveAccessibleDescription(/área/);
   });
 
   it("arranca en la sede donde está el equipo", async () => {
@@ -449,7 +469,7 @@ describe("Un equipo compartido", () => {
     );
 
     expect(screen.getByText("Nadie responde por él")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(/sin responsable/);
+    expect(screen.getByRole("note")).toHaveTextContent(/sin responsable/);
   });
 
   it("no deja confirmar si la lista quedó igual", async () => {

@@ -2,12 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 
 import { tiposDispositivoService } from "../../../api/activosService";
 import { politicasService } from "../../../api/politicasService";
+import {
+  Campo,
+  enfocarPrimerError,
+} from "../../../components/common/Campo/Campo";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  erroresPorCampo,
+  hayErroresGenerales,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Politicas.css";
 
 const VACIO = {
@@ -33,6 +42,18 @@ const UMBRALES_SUGERIDOS = {
   ventana_mantenimientos_meses: "12",
 };
 
+// Un error del servidor sobre estos campos va bajo el campo; sobre otra cosa,
+// en el aviso de arriba con su detalle.
+const CAMPOS_POLITICA = new Set([
+  "nombre",
+  "tipo_dispositivo",
+  "max_mantenimientos",
+  "ventana_mantenimientos_meses",
+  "max_componentes_criticos",
+  "vida_util_meses",
+  "vida_util_critica_meses",
+]);
+
 /**
  * Parametrización de los criterios de sustitución (RF-06, §11).
  *
@@ -52,6 +73,8 @@ export function PoliticasList() {
   const [tipos, setTipos] = useState([]);
   const [enEdicion, setEnEdicion] = useState(null);
   const [aEliminar, setAEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [reevaluando, setReevaluando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [errorAccion, setErrorAccion] = useState(null);
 
@@ -69,8 +92,13 @@ export function PoliticasList() {
       .catch(() => setTipos([]));
   }, []);
 
+  // Reevaluar recorre todo el inventario y tarda: el botón se apaga y dice
+  // que está trabajando, para que no se pulse dos veces creyendo que no
+  // respondió (revisión final UX/UI, 28/10/2026).
   async function handleReevaluar() {
     setErrorAccion(null);
+    setAviso(null);
+    setReevaluando(true);
     try {
       const resultado = await politicasService.reevaluar();
       const { recomendado = 0, evaluar = 0 } = resultado.por_nivel ?? {};
@@ -83,10 +111,13 @@ export function PoliticasList() {
       setErrorAccion(
         mensajeDeError(err, "No se pudo reevaluar el inventario."),
       );
+    } finally {
+      setReevaluando(false);
     }
   }
 
   async function confirmarEliminacion() {
+    setEliminando(true);
     try {
       await politicasService.remove(aEliminar.id);
       setAEliminar(null);
@@ -94,6 +125,8 @@ export function PoliticasList() {
     } catch (err) {
       setErrorAccion(mensajeDeError(err, "No se pudo eliminar la política."));
       setAEliminar(null);
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -109,8 +142,21 @@ export function PoliticasList() {
               type="button"
               className="btn btn-outline-primary btn-sm"
               onClick={handleReevaluar}
+              disabled={reevaluando}
             >
-              <Icon name="arrow-repeat" /> Reevaluar inventario
+              {reevaluando ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm"
+                    aria-hidden="true"
+                  />{" "}
+                  Reevaluando…
+                </>
+              ) : (
+                <>
+                  <Icon name="arrow-repeat" /> Reevaluar inventario
+                </>
+              )}
             </button>
             <button
               type="button"
@@ -131,7 +177,7 @@ export function PoliticasList() {
         </p>
 
         {aviso && (
-          <div className="mz-alert mz-alert--info" role="status">
+          <div className="mz-alert mz-alert--ok" role="status">
             <Icon name="check2-circle" />
             <div className="flex-grow-1">{aviso}</div>
             <button
@@ -144,25 +190,23 @@ export function PoliticasList() {
             </button>
           </div>
         )}
-        {listado.error && (
-          <div className="mz-alert mz-alert--bad" role="alert">
-            <Icon name="x-octagon" />
-            {listado.error}
-          </div>
-        )}
         {errorAccion && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
             {errorAccion}
           </div>
         )}
-        {!listado.isLoading && !hayGlobal && listado.resultados.length > 0 && (
-          <div className="mz-alert mz-alert--warn">
-            <Icon name="exclamation-triangle" />
-            No hay una política global. Los tipos de dispositivo sin política
-            propia no se evalúan y nunca mostrarán una sugerencia de renovación.
-          </div>
-        )}
+        {!listado.isLoading &&
+          !listado.error &&
+          !hayGlobal &&
+          listado.resultados.length > 0 && (
+            <div className="mz-alert mz-alert--warn">
+              <Icon name="exclamation-triangle" />
+              No hay una política global. Los tipos de dispositivo sin política
+              propia no se evalúan y nunca mostrarán una sugerencia de
+              renovación.
+            </div>
+          )}
       </div>
 
       <div className="mz-table-wrap">
@@ -180,67 +224,73 @@ export function PoliticasList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((politica) => (
-              <tr key={politica.id}>
-                <td className="mz-strong">{politica.nombre}</td>
-                <td>
-                  {politica.es_global ? (
-                    <span className="mz-pill mz-pill--neutral">Global</span>
-                  ) : (
-                    politica.tipo_dispositivo_nombre
-                  )}
-                </td>
-                <Umbral
-                  valor={politica.max_mantenimientos}
-                  nota={
-                    politica.ventana_mantenimientos_meses
-                      ? `en ${politica.ventana_mantenimientos_meses} meses`
-                      : "histórico"
-                  }
-                />
-                <Umbral valor={politica.max_componentes_criticos} />
-                <Umbral valor={politica.vida_util_meses} sufijo=" meses" />
-                <Umbral
-                  valor={politica.vida_util_critica_meses}
-                  sufijo=" meses"
-                />
-                <td className="ps-4">
-                  <span
-                    className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {politica.activa ? "Activa" : "Inactiva"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  {puedeEditar && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => setEnEdicion(politica)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => setAEliminar(politica)}
-                      >
-                        Eliminar
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>
-                  Sin políticas configuradas. Ningún equipo mostrará sugerencias
-                  de renovación.
-                </td>
-              </tr>
-            )}
+            {/* Cargando, error con reintento y vacío dentro de la tabla: antes
+                un fallo mostraba a la vez el error y «Sin políticas
+                configuradas» (revisión final UX/UI, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={8}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Sin políticas configuradas. Ningún equipo mostrará sugerencias de renovación."
+            />
+            {!listado.error &&
+              listado.resultados.map((politica) => (
+                <tr key={politica.id}>
+                  <td className="mz-strong">{politica.nombre}</td>
+                  <td>
+                    {politica.es_global ? (
+                      <span className="mz-pill mz-pill--neutral">Global</span>
+                    ) : (
+                      politica.tipo_dispositivo_nombre
+                    )}
+                  </td>
+                  <Umbral
+                    valor={politica.max_mantenimientos}
+                    nota={
+                      politica.ventana_mantenimientos_meses
+                        ? `en ${politica.ventana_mantenimientos_meses} meses`
+                        : "histórico"
+                    }
+                  />
+                  <Umbral valor={politica.max_componentes_criticos} />
+                  <Umbral valor={politica.vida_util_meses} sufijo=" meses" />
+                  <Umbral
+                    valor={politica.vida_util_critica_meses}
+                    sufijo=" meses"
+                  />
+                  <td className="ps-4">
+                    <span
+                      className={`mz-pill ${politica.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {politica.activa ? "Activa" : "Inactiva"}
+                    </span>
+                  </td>
+                  <td className="acciones">
+                    {puedeEditar && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => setEnEdicion(politica)}
+                          aria-label={`Editar ${politica.nombre}`}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => setAEliminar(politica)}
+                          aria-label={`Eliminar ${politica.nombre}`}
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -260,7 +310,11 @@ export function PoliticasList() {
 
       <ConfirmDialog
         isOpen={Boolean(aEliminar)}
-        title="Eliminar política"
+        title="¿Eliminar la política?"
+        confirmLabel="Eliminar política"
+        confirmVariant="danger"
+        cancelClassName="btn-outline-secondary"
+        isLoading={eliminando}
         message={
           aEliminar
             ? aEliminar.es_global
@@ -307,7 +361,16 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
     activa: politica.activa ?? true,
   });
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+
+  /** Cambia un valor y borra el error de ese campo, que ya se está corrigiendo. */
+  function actualizar(campo, valor) {
+    setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    setErrores((actuales) =>
+      actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+    );
+  }
 
   const sinUmbrales =
     valores.max_mantenimientos === "" &&
@@ -331,8 +394,10 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const formulario = event.currentTarget;
     setIsSaving(true);
     setError(null);
+    setErrores({});
     try {
       const payload = {
         nombre: valores.nombre,
@@ -368,8 +433,20 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
       }
       onGuardado();
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar la política."));
+      // Cada error bajo su campo; el aviso de arriba lleva el detalle si hay
+      // alguno que no es de un campo (revisión final UX/UI, 28/10/2026).
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErrores(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS_POLITICA.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar la política."),
+      );
       setIsSaving(false);
+      enfocarPrimerError(formulario);
     }
   }
 
@@ -391,29 +468,34 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
       )}
 
       <div className="mz-field-grid mb-3">
-        <div className="mz-field">
-          <label htmlFor="pol-nombre">Nombre</label>
+        <Campo
+          id="pol-nombre"
+          etiqueta="Nombre"
+          obligatorio
+          error={errores.nombre}
+          className="mz-field"
+        >
           <input
-            id="pol-nombre"
             className="form-control"
-            required
             maxLength={120}
             placeholder="Laptops corporativas"
             value={valores.nombre}
-            onChange={(event) =>
-              setValores({ ...valores, nombre: event.target.value })
-            }
+            onChange={(event) => actualizar("nombre", event.target.value)}
           />
-        </div>
+        </Campo>
 
-        <div className="mz-field">
-          <label htmlFor="pol-tipo">Se aplica a</label>
+        <Campo
+          id="pol-tipo"
+          etiqueta="Se aplica a"
+          ayuda="La política de un tipo específico tiene prioridad sobre la global."
+          error={errores.tipo_dispositivo}
+          className="mz-field"
+        >
           <select
-            id="pol-tipo"
             className="form-select"
             value={valores.tipo_dispositivo}
             onChange={(event) =>
-              setValores({ ...valores, tipo_dispositivo: event.target.value })
+              actualizar("tipo_dispositivo", event.target.value)
             }
           >
             <option value="" disabled={!puedeSerGlobal}>
@@ -426,10 +508,7 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
               </option>
             ))}
           </select>
-          <div className="form-text">
-            La política de un tipo específico tiene prioridad sobre la global.
-          </div>
-        </div>
+        </Campo>
       </div>
 
       {/* Se conserva `row g-3`: los umbrales de mantenimiento van de tres en
@@ -446,109 +525,96 @@ function PoliticaDialog({ politica, tipos, hayGlobal, onCerrar, onGuardado }) {
         </div>
 
         <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label" htmlFor="pol-vida">
-              Evaluar reemplazo a los (meses)
-            </label>
+          <Campo
+            id="pol-vida"
+            etiqueta="Evaluar reemplazo a los (meses)"
+            ayuda="Primer aviso: conviene empezar a mirarlo."
+            error={errores.vida_util_meses}
+            className="col-md-6"
+          >
             <input
-              id="pol-vida"
               type="number"
               min="0"
               className="form-control"
               placeholder="Sin límite"
               value={valores.vida_util_meses}
               onChange={(event) =>
-                setValores({ ...valores, vida_util_meses: event.target.value })
+                actualizar("vida_util_meses", event.target.value)
               }
             />
-            <div className="form-text">
-              Primer aviso: conviene empezar a mirarlo.
-            </div>
-          </div>
-          <div className="col-md-6">
-            <label className="form-label" htmlFor="pol-vida-critica">
-              Recomendar reemplazo a los (meses)
-            </label>
+          </Campo>
+          <Campo
+            id="pol-vida-critica"
+            etiqueta="Recomendar reemplazo a los (meses)"
+            ayuda="Segundo aviso: ya toca presupuestarlo."
+            error={errores.vida_util_critica_meses}
+            className="col-md-6"
+          >
             <input
-              id="pol-vida-critica"
               type="number"
               min="0"
               className="form-control"
               placeholder="Sin segundo nivel"
               value={valores.vida_util_critica_meses}
               onChange={(event) =>
-                setValores({
-                  ...valores,
-                  vida_util_critica_meses: event.target.value,
-                })
+                actualizar("vida_util_critica_meses", event.target.value)
               }
             />
-            <div className="form-text">
-              Segundo aviso: ya toca presupuestarlo.
-            </div>
-          </div>
-          <div className="col-md-4">
-            <label className="form-label" htmlFor="pol-mant">
-              Máx. mantenimientos
-            </label>
+          </Campo>
+          <Campo
+            id="pol-mant"
+            etiqueta="Máx. mantenimientos"
+            error={errores.max_mantenimientos}
+            className="col-md-4"
+          >
             <input
-              id="pol-mant"
               type="number"
               min="0"
               className="form-control"
               placeholder="Sin límite"
               value={valores.max_mantenimientos}
               onChange={(event) =>
-                setValores({
-                  ...valores,
-                  max_mantenimientos: event.target.value,
-                })
+                actualizar("max_mantenimientos", event.target.value)
               }
             />
-          </div>
-          <div className="col-md-4">
-            <label className="form-label" htmlFor="pol-ventana">
-              Contados en los últimos (meses)
-            </label>
+          </Campo>
+          {/* Sin ventana el contador solo sube: un equipo que falló mucho
+              hace seis años queda marcado para siempre. */}
+          <Campo
+            id="pol-ventana"
+            etiqueta="Contados en los últimos (meses)"
+            ayuda="Vacío = todo el historial del equipo."
+            error={errores.ventana_mantenimientos_meses}
+            className="col-md-4"
+          >
             <input
-              id="pol-ventana"
               type="number"
               min="1"
               className="form-control"
               placeholder="Todo el historial"
               value={valores.ventana_mantenimientos_meses}
               onChange={(event) =>
-                setValores({
-                  ...valores,
-                  ventana_mantenimientos_meses: event.target.value,
-                })
+                actualizar("ventana_mantenimientos_meses", event.target.value)
               }
             />
-            <div className="form-text">
-              {/* Sin ventana el contador solo sube: un equipo que falló mucho
-                  hace seis años queda marcado para siempre. */}
-              Vacío = todo el historial del equipo.
-            </div>
-          </div>
-          <div className="col-md-4">
-            <label className="form-label" htmlFor="pol-criticas">
-              Máx. piezas críticas
-            </label>
+          </Campo>
+          <Campo
+            id="pol-criticas"
+            etiqueta="Máx. piezas críticas"
+            error={errores.max_componentes_criticos}
+            className="col-md-4"
+          >
             <input
-              id="pol-criticas"
               type="number"
               min="0"
               className="form-control"
               placeholder="Sin límite"
               value={valores.max_componentes_criticos}
               onChange={(event) =>
-                setValores({
-                  ...valores,
-                  max_componentes_criticos: event.target.value,
-                })
+                actualizar("max_componentes_criticos", event.target.value)
               }
             />
-          </div>
+          </Campo>
         </div>
 
         {!esEdicion && (

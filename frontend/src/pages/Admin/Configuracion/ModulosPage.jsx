@@ -17,13 +17,16 @@ export function ModulosPage() {
   const { modulos, cargado, recargar } = useEstadoModulos();
   const [cambiando, setCambiando] = useState(null);
   const [error, setError] = useState(null);
+  // Al terminar se dice qué cambió: antes el interruptor se movía sin ningún
+  // aviso (revisión final UX/UI, 28/10/2026).
+  const [aviso, setAviso] = useState(null);
 
   async function cambiar(id, activo) {
+    const nombre = MODULOS.find((m) => m.id === id)?.nombre;
     // Apagar un módulo lo oculta a toda la empresa: se confirma.
     if (!activo) {
-      const nombre = MODULOS.find((m) => m.id === id)?.nombre ?? "este módulo";
       const si = await confirmar({
-        titulo: `¿Apagar ${nombre}?`,
+        titulo: `¿Apagar ${nombre ?? "este módulo"}?`,
         mensaje:
           "Nadie de esta empresa lo verá, aunque tenga sus permisos; solo el superusuario y el administrador siguen entrando.",
         accion: "Apagar",
@@ -32,11 +35,17 @@ export function ModulosPage() {
     }
     setCambiando(id);
     setError(null);
+    setAviso(null);
     try {
       // El cliente HTTP avisa del cambio y el estado se vuelve a pedir; se
       // pide también aquí para no depender de ese aviso.
       await empresasService.cambiarModulo(id, activo);
       await recargar();
+      setAviso(
+        activo
+          ? `${nombre ?? "El módulo"} quedó encendido para esta empresa.`
+          : `${nombre ?? "El módulo"} quedó apagado: nadie de esta empresa lo verá.`,
+      );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo cambiar el módulo."));
     } finally {
@@ -61,6 +70,12 @@ export function ModulosPage() {
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}
+        </div>
+      )}
+      {aviso && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
+          {aviso}
         </div>
       )}
 
@@ -88,9 +103,10 @@ export function ModulosPage() {
                     type="checkbox"
                     role="switch"
                     className="form-check-input"
-                    aria-label={`${modulo?.nombre ?? estado.nombre}: ${
-                      estado.activo ? "encendido" : "apagado"
-                    }`}
+                    // Solo el nombre: el estado ya lo anuncia el interruptor, y
+                    // repetirlo se oía «encendido, activado» (revisión final
+                    // UX/UI, 28/10/2026).
+                    aria-label={modulo?.nombre ?? estado.nombre}
                     checked={estado.activo}
                     disabled={cambiando === estado.id}
                     onChange={(e) => cambiar(estado.id, e.target.checked)}

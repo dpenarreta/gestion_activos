@@ -1,99 +1,42 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
-import { soporteService } from "../../api/soporteService";
-import { Icon } from "../../components/common/Icon/Icon";
-import { formatearFecha } from "../../utils/formato";
-import { mensajeDeError } from "../../utils/errores";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
+import { MisSolicitudes } from "../Soporte/Bandeja";
 import { NuevoTicket } from "./NuevoTicket";
 import "../Soporte/Soporte.css";
 
-/** Los tickets que pidió quien entra, lo más reciente primero. */
-export function MisTickets() {
-  const [tickets, setTickets] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    soporteService
-      .misTickets()
-      .then(setTickets)
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron cargar sus tickets.")),
-      );
-  }, []);
-
-  if (error) {
-    return (
-      <div className="mz-alert mz-alert--bad" role="alert">
-        <Icon name="x-octagon" />
-        {error}
-      </div>
-    );
-  }
-  return (
-    <div className="mz-table-wrap">
-      <table className="mz-table">
-        <thead>
-          <tr>
-            <th>Ticket</th>
-            <th>Caso</th>
-            <th>Estado</th>
-            <th>Creado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(tickets ?? []).map((t) => (
-            <tr key={t.id}>
-              <td>
-                <Link to={`/admin/ayuda/tickets/${t.id}`} className="mz-mono">
-                  {t.numero}
-                </Link>
-              </td>
-              <td>
-                {t.caso}
-                <div className="mz-small mz-faint">{t.categoria}</div>
-              </td>
-              <td>
-                <span className="mz-pill mz-pill--neutral">
-                  {t.estado_display}
-                </span>
-                {t.criticidad_display && (
-                  <div className="mz-small mz-faint">
-                    Criticidad: {t.criticidad_display}
-                  </div>
-                )}
-                {t.posicion && (
-                  <div className="mz-small mz-faint">
-                    Posición en la cola: {t.posicion}
-                  </div>
-                )}
-              </td>
-              <td>{formatearFecha(t.creado, true)}</td>
-            </tr>
-          ))}
-          {tickets?.length === 0 && (
-            <tr className="mz-empty-row">
-              <td colSpan={4}>Todavía no ha pedido soporte</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
+/*
+ * «Mis tickets» es la misma lista que «Mis solicitudes» de la bandeja
+ * (revisión final UX/UI, 28/10/2026): antes era una tabla propia que se veía
+ * vacía mientras cargaba, mostraba el error sin reintentar y apretaba cuatro
+ * columnas en el teléfono. La lista común tiene cargando, error con
+ * «Reintentar», vacío y tarjetas en móvil.
+ */
 const PESTANAS = [
-  ["nuevo", "Nuevo ticket"],
-  ["mios", "Mis tickets"],
+  { id: "nuevo", etiqueta: "Nuevo ticket" },
+  { id: "mios", etiqueta: "Mis tickets" },
 ];
 
 /**
  * «Soporte TI»: para toda persona con sesión, sin permisos. Pide soporte con
  * sus datos de «Mi perfil» y sigue sus tickets. (Desde el 20/10/2026 no hay
  * formulario público.)
+ *
+ * La pestaña va en la dirección (`?vista=mios`): así el enlace «Pedir ayuda
+ * en Soporte TI» de la lista vacía, que lleva a `/admin/ayuda`, vuelve a
+ * «Nuevo ticket» en vez de no hacer nada.
  */
 export function AyudaPage() {
-  const [pestana, setPestana] = useState("nuevo");
+  const [parametros, setParametros] = useSearchParams();
+  const pestana = parametros.get("vista") === "mios" ? "mios" : "nuevo";
+
+  function cambiar(id) {
+    setParametros(id === "mios" ? { vista: "mios" } : {}, { replace: true });
+  }
+
   return (
     <div className="soporte-page mz-stack">
       <div className="mz-view-head">
@@ -104,21 +47,18 @@ export function AyudaPage() {
           </p>
         </div>
       </div>
-      <div className="mz-tabs" role="tablist">
-        {PESTANAS.map(([id, texto]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            className={pestana === id ? "is-active" : undefined}
-            onClick={() => setPestana(id)}
-          >
-            {texto}
-          </button>
-        ))}
-      </div>
-      {pestana === "nuevo" ? <NuevoTicket /> : <MisTickets />}
+      {/* Pestañas comunes: flechas, una parada de Tab y panel asociado
+          (revisión final UX/UI, 28/10/2026). */}
+      <Pestanas
+        etiqueta="Soporte TI"
+        idBase="ayuda"
+        valor={pestana}
+        onCambio={cambiar}
+        opciones={PESTANAS}
+      />
+      <PanelDePestana idBase="ayuda" valor={pestana}>
+        {pestana === "nuevo" ? <NuevoTicket /> : <MisSolicitudes />}
+      </PanelDePestana>
     </div>
   );
 }

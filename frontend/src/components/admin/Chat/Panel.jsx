@@ -20,6 +20,13 @@ export function esGrupal(conversacion) {
   return conversacion?.tipo !== "directa";
 }
 
+/** «1 mensaje sin leer», «3 mensajes sin leer»: lo que oye el lector de
+ * pantalla en lugar del número de la insignia (revisión final UX/UI,
+ * 28/10/2026). */
+export function textoSinLeer(cantidad) {
+  return `${cantidad} ${cantidad === 1 ? "mensaje" : "mensajes"} sin leer`;
+}
+
 /** Mis conversaciones: el canal general primero, luego lo más reciente. */
 export function ListaConversaciones({
   onElegir,
@@ -73,11 +80,11 @@ export function ListaConversaciones({
                 </span>
               )}
               {noLeidos[c.id] > 0 && (
-                <span
-                  className="chat-contador"
-                  aria-label={`${noLeidos[c.id]} sin leer`}
-                >
-                  {noLeidos[c.id]}
+                <span className="chat-contador">
+                  <span aria-hidden="true">{noLeidos[c.id]}</span>
+                  <span className="visually-hidden">
+                    {textoSinLeer(noLeidos[c.id])}
+                  </span>
                 </span>
               )}
             </span>

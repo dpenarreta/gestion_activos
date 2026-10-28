@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
 
 // El mensaje que muestra la vista viene siempre del backend
 // (PASSWORD_RESET_GENERIC_MESSAGE): nunca revela si la cuenta existe.
 export function ForgotPassword() {
+  // La pestaña dice en qué pantalla se está, no solo el nombre del sitio
+  // (revisión final UX/UI, 28/10/2026).
+  useEffect(() => {
+    fijarTituloDePantalla("Recuperar contraseña");
+    return () => fijarTituloDePantalla(null);
+  }, []);
   const [identifier, setIdentifier] = useState("");
   const [message, setMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);

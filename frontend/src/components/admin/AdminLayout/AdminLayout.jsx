@@ -83,7 +83,27 @@ export function tituloDeRuta(menu, pathname) {
     }
   }
   recorrer(menu);
-  return mejor?.name || "";
+  return mejor?.name || tituloDeRespaldo(pathname);
+}
+
+/**
+ * Pantallas a las que se llega desde la barra superior y no desde el menú:
+ * sin esto el h1 quedaba vacío y la pestaña decía solo el nombre del sitio
+ * (revisión final UX/UI, 28/10/2026). Incluye las subrutas
+ * (`/admin/ayuda/tickets/12` es «Soporte TI»).
+ */
+const TITULOS_DE_RESPALDO = [
+  ["/admin/perfil", "Mi perfil"],
+  ["/admin/ayuda", "Soporte TI"],
+  ["/admin/notificaciones", "Notificaciones"],
+  ["/admin/chat", "Chat"],
+];
+
+function tituloDeRespaldo(pathname) {
+  const encontrado = TITULOS_DE_RESPALDO.find(
+    ([ruta]) => pathname === ruta || pathname.startsWith(`${ruta}/`),
+  );
+  return encontrado ? encontrado[1] : "";
 }
 
 /** Claro u oscuro con un clic, como en la identidad base. La opción «según el

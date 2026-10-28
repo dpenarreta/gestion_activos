@@ -273,7 +273,7 @@ describe("Realizar una solicitud", () => {
     await screen.findByRole("option", { name: "Laptop" });
     expect(screen.queryByLabelText(/RAM/)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
 
@@ -290,7 +290,7 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Laptop" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
 
@@ -302,7 +302,7 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Impresora" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "2" },
     });
 
@@ -317,7 +317,7 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Luis Torres" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
     fireEvent.change(await screen.findByLabelText(/RAM \(GB\)/), {
@@ -326,10 +326,10 @@ describe("Realizar una solicitud", () => {
     fireEvent.change(screen.getByLabelText(/Tipo de disco/), {
       target: { value: "NVMe" },
     });
-    fireEvent.change(screen.getByLabelText("Quién realizará la compra"), {
+    fireEvent.change(screen.getByLabelText(/^Quién realizará la compra/), {
       target: { value: "9" },
     });
-    fireEvent.change(screen.getByLabelText("Para qué hace falta"), {
+    fireEvent.change(screen.getByLabelText(/^Para qué hace falta/), {
       target: { value: "Entra un analista." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
@@ -347,19 +347,19 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Laptop" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
     fireEvent.change(await screen.findByLabelText(/RAM \(GB\)/), {
       target: { value: "32" },
     });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "2" },
     });
-    fireEvent.change(screen.getByLabelText("Quién realizará la compra"), {
+    fireEvent.change(screen.getByLabelText(/^Quién realizará la compra/), {
       target: { value: "9" },
     });
-    fireEvent.change(screen.getByLabelText("Para qué hace falta"), {
+    fireEvent.change(screen.getByLabelText(/^Para qué hace falta/), {
       target: { value: "La bodega imprime a mano." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
@@ -372,13 +372,13 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Luis Torres" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "2" },
     });
-    fireEvent.change(screen.getByLabelText("Quién realizará la compra"), {
+    fireEvent.change(screen.getByLabelText(/^Quién realizará la compra/), {
       target: { value: "9" },
     });
-    fireEvent.change(screen.getByLabelText("Para qué hace falta"), {
+    fireEvent.change(screen.getByLabelText(/^Para qué hace falta/), {
       target: { value: "La bodega imprime a mano." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
@@ -403,7 +403,84 @@ describe("Realizar una solicitud", () => {
     expect(
       screen.queryByLabelText("Qué se necesita exactamente"),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Tipo de dispositivo")).toBeRequired();
+    expect(screen.getByLabelText(/^Tipo de dispositivo/)).toBeRequired();
+  });
+
+  it("marca los obligatorios y, si faltan, lo dice bajo cada campo", async () => {
+    /* Sin marca y con la burbuja del navegador como único aviso (revisión
+       final UX/UI, 28/10/2026). */
+    pintar(SolicitudForm);
+
+    await screen.findByRole("option", { name: "Luis Torres" });
+    expect(screen.getByText("Obligatorio")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/^Para qué hace falta/),
+    ).toHaveAccessibleDescription(
+      "Es lo que sostiene la compra ante quien la autoriza.",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "revise los campos marcados",
+    );
+    expect(crear).not.toHaveBeenCalled();
+    const tipo = screen.getByLabelText(/^Tipo de dispositivo/);
+    expect(tipo).toHaveAttribute("aria-invalid", "true");
+    expect(tipo).toHaveAccessibleDescription(
+      expect.stringContaining("Elija el tipo de dispositivo."),
+    );
+    expect(screen.getByText("Elija a quién le llega.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Explique para qué hace falta."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(tipo).toHaveFocus());
+  });
+
+  it("si el catálogo no carga, lo dice junto al campo en vez de callarlo", async () => {
+    catalogo.mockRejectedValue(new Error("500"));
+    pintar(SolicitudForm);
+
+    expect(
+      await screen.findByText(/No se pudo cargar el catálogo/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/^Tipo de dispositivo/),
+    ).toHaveAccessibleDescription(
+      expect.stringContaining("No se pudo cargar el catálogo"),
+    );
+  });
+
+  it("el error del servidor de un campo aparece bajo ese campo", async () => {
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { justificacion: ["Sea más específico."] },
+          },
+        },
+      },
+    });
+    pintar(SolicitudForm);
+
+    await screen.findByRole("option", { name: "Luis Torres" });
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Quién realizará la compra/), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Para qué hace falta/), {
+      target: { value: "Bodega" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
+
+    expect(await screen.findByText("Sea más específico.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Para qué hace falta/)).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
   });
 
   it("si al encargado no se le pudo avisar, se dice antes de salir", async () => {
@@ -417,13 +494,13 @@ describe("Realizar una solicitud", () => {
     pintar(SolicitudForm);
 
     await screen.findByRole("option", { name: "Luis Torres" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "2" },
     });
-    fireEvent.change(screen.getByLabelText("Quién realizará la compra"), {
+    fireEvent.change(screen.getByLabelText(/^Quién realizará la compra/), {
       target: { value: "9" },
     });
-    fireEvent.change(screen.getByLabelText("Para qué hace falta"), {
+    fireEvent.change(screen.getByLabelText(/^Para qué hace falta/), {
       target: { value: "Sala de juntas" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));

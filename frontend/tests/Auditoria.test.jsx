@@ -50,6 +50,10 @@ vi.mock("../src/utils/descargas", () => ({
 const { AuditoriaList } =
   await import("../src/pages/Admin/Auditoria/AuditoriaList");
 
+/* «Activo modificado» también es una opción del filtro «Acción»: se busca en
+   la celda de la tabla (revisión final UX/UI, 28/10/2026). */
+const EN_LA_TABLA = { selector: "td" };
+
 const EVENTOS = [
   {
     id: 1,
@@ -111,7 +115,9 @@ describe("El registro de auditoría", () => {
   it("lista qué se hizo, quién lo hizo y con qué resultado", async () => {
     pintar();
 
-    const fila = (await screen.findByText("Activo modificado")).closest("tr");
+    const fila = (
+      await screen.findByText("Activo modificado", EN_LA_TABLA)
+    ).closest("tr");
     expect(fila).toHaveTextContent("dpenarreta");
     expect(fila).toHaveTextContent("activos");
     expect(fila).toHaveTextContent("Activo #42");
@@ -124,12 +130,11 @@ describe("El registro de auditoría", () => {
        (auditoría UX/UI, fase 2). */
     pintar();
 
-    const celda = await screen.findByText("Activo modificado");
+    const celda = await screen.findByText("Activo modificado", EN_LA_TABLA);
     expect(celda).toHaveAttribute("title", "activo.updated");
-    expect(screen.getByText("Inicio de sesión fallido")).toHaveAttribute(
-      "title",
-      "login.failed",
-    );
+    expect(
+      screen.getByText("Inicio de sesión fallido", EN_LA_TABLA),
+    ).toHaveAttribute("title", "login.failed");
     const fila = celda.closest("tr");
     expect(fila).not.toHaveTextContent("activo.updated");
   });
@@ -139,9 +144,9 @@ describe("El registro de auditoría", () => {
        válida. Una celda vacía se leería como un dato que falta. */
     pintar();
 
-    const fila = (await screen.findByText("Inicio de sesión fallido")).closest(
-      "tr",
-    );
+    const fila = (
+      await screen.findByText("Inicio de sesión fallido", EN_LA_TABLA)
+    ).closest("tr");
     expect(fila).toHaveTextContent("Sistema");
     expect(fila).toHaveTextContent("Fallido");
   });
@@ -149,8 +154,14 @@ describe("El registro de auditoría", () => {
   it("el detalle enseña el antes y el después del cambio", async () => {
     pintar();
 
-    const fila = (await screen.findByText("Activo modificado")).closest("tr");
-    fireEvent.click(within(fila).getByRole("button", { name: "Ver" }));
+    const fila = (
+      await screen.findByText("Activo modificado", EN_LA_TABLA)
+    ).closest("tr");
+    fireEvent.click(
+      within(fila).getByRole("button", {
+        name: /^Ver detalle de Activo modificado/,
+      }),
+    );
 
     expect(await screen.findByText("Antes")).toBeInTheDocument();
     expect(screen.getByText("Después")).toBeInTheDocument();
@@ -164,9 +175,9 @@ describe("El registro de auditoría", () => {
     permisos = ["auditoria.ver"];
     pintar();
 
-    await screen.findByText("Activo modificado");
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
     expect(
-      screen.queryByRole("button", { name: "Ver" }),
+      screen.queryByRole("button", { name: /^Ver/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -174,13 +185,56 @@ describe("El registro de auditoría", () => {
     permisos = ["auditoria.ver"];
     pintar();
 
-    await screen.findByText("Activo modificado");
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
     expect(screen.queryByText(/Exportar/)).not.toBeInTheDocument();
+  });
+
+  it("la acción se filtra eligiéndola por su nombre y se envía el código", async () => {
+    /* Antes había que escribir `activo.updated` (revisión final UX/UI,
+       28/10/2026). */
+    pintar();
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
+    listar.mockClear();
+
+    const accion = screen.getByLabelText("Acción");
+    expect(accion.tagName).toBe("SELECT");
+    expect(
+      within(accion).getByRole("option", { name: "Rol creado" }),
+    ).toHaveValue("role.created");
+
+    fireEvent.change(accion, { target: { value: "role.created" } });
+    fireEvent.click(screen.getByRole("button", { name: "Filtrar" }));
+
+    await waitFor(() =>
+      expect(listar).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "role.created" }),
+      ),
+    );
+  });
+
+  it("el detalle nombra los campos en palabras y conserva el código", async () => {
+    pintar();
+
+    const fila = (
+      await screen.findByText("Activo modificado", EN_LA_TABLA)
+    ).closest("tr");
+    const ver = within(fila).getByRole("button", {
+      name: /^Ver detalle de Activo modificado, dpenarreta/,
+    });
+    expect(ver).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(ver);
+
+    const detalle = document.getElementById(ver.getAttribute("aria-controls"));
+    expect(detalle).not.toBeNull();
+    expect(ver).toHaveAttribute("aria-expanded", "true");
+    const etiquetas = within(detalle).getAllByText("Estado");
+    expect(etiquetas).toHaveLength(2);
+    expect(etiquetas[0]).toHaveAttribute("title", "estado");
   });
 
   it("los filtros se envían al confirmar, no en cada tecla", async () => {
     pintar();
-    await screen.findByText("Activo modificado");
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
     listar.mockClear();
 
     fireEvent.change(screen.getByLabelText("Usuario"), {
@@ -199,7 +253,7 @@ describe("El registro de auditoría", () => {
 
   it("lo que se exporta es lo que se está viendo", async () => {
     pintar();
-    await screen.findByText("Activo modificado");
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
 
     fireEvent.change(screen.getByLabelText("Resultado"), {
       target: { value: "failure" },
@@ -242,7 +296,9 @@ describe("El registro de auditoría", () => {
       previous: null,
     });
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
-    expect(await screen.findByText("Activo modificado")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Activo modificado", EN_LA_TABLA),
+    ).toBeInTheDocument();
   });
 
   it("sin eventos lo dice", async () => {
@@ -263,7 +319,7 @@ describe("El registro de auditoría", () => {
 
   it("si los filtros no encuentran nada, lo distingue y deja limpiarlos", async () => {
     pintar();
-    await screen.findByText("Activo modificado");
+    await screen.findByText("Activo modificado", EN_LA_TABLA);
     listar.mockResolvedValue({
       results: [],
       count: 0,
@@ -288,7 +344,9 @@ describe("El registro de auditoría", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
 
-    expect(await screen.findByText("Activo modificado")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Activo modificado", EN_LA_TABLA),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Usuario")).toHaveValue("");
   });
 });

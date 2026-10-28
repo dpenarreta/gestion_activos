@@ -130,7 +130,9 @@ test.describe("Un equipo, de su alta a su baja", () => {
     // Y deja de contarse entre los operativos: el inventario sin filtros ya no
     // lo muestra, que es lo que separa «dado de baja» de «apagado».
     await page.goto("/admin/activos");
-    await page.getByLabel("Buscar activos").fill(SERIE);
+    await page
+      .getByLabel("Buscar en el inventario o escanear un código")
+      .fill(SERIE);
     await page.getByRole("button", { name: "Buscar" }).last().click();
     await expect(page.locator("tr", { hasText: codigoDeBarras })).toHaveCount(
       1,

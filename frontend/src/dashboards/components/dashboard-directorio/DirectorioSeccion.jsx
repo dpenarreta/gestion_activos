@@ -133,10 +133,12 @@ function TablaCumplimiento({ componente, hallazgoIA }) {
       <table className="directorio-tabla">
         <thead>
           <tr>
-            <th>EDAD DE CARTERA</th>
-            <th className="text-end">META (MÍN./MÁX.)</th>
-            <th className="text-end">VALOR ACUMULADO</th>
-            <th className="text-end">RESULTADO</th>
+            {/* Revisión final UX/UI, 28/10/2026: el texto va en minúsculas y las mayúsculas las
+                pone el CSS (`.directorio-tabla th`); escritas a mano, el lector las deletreaba. */}
+            <th>Edad de cartera</th>
+            <th className="text-end">Meta (mín./máx.)</th>
+            <th className="text-end">Valor acumulado</th>
+            <th className="text-end">Resultado</th>
           </tr>
         </thead>
         <tbody>
@@ -205,11 +207,12 @@ function SeccionConcentracion({ componente, hallazgoIA }) {
           <tr>
             {/* Los dos primeros encabezados siguen a las columnas elegidas en el mapeo (son
                 parametrizables); los de porcentaje llevan el nombre del informe, que dice qué
-                miden: "% sobre total" y "% acumulado (calculado)". */}
-            <th>{String(content?.columnas?.[0] ?? '').toUpperCase()}</th>
-            <th className="text-end">{String(content?.columnas?.[1] ?? '').toUpperCase()}</th>
-            <th className="text-end">% SOBRE TOTAL</th>
-            <th className="text-end">% ACUMULADO (CALCULADO)</th>
+                miden: "% sobre total" y "% acumulado (calculado)". Las mayúsculas las pone el CSS
+                (revisión final UX/UI, 28/10/2026). */}
+            <th>{String(content?.columnas?.[0] ?? '')}</th>
+            <th className="text-end">{String(content?.columnas?.[1] ?? '')}</th>
+            <th className="text-end">% sobre total</th>
+            <th className="text-end">% acumulado (calculado)</th>
           </tr>
         </thead>
         <tbody>

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
@@ -61,7 +62,8 @@ export function PanelOrdenes() {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
     ordenesService
       .resumen()
       .then(setDatos)
@@ -69,6 +71,10 @@ export function PanelOrdenes() {
         setError(mensajeDeError(err, "No se pudo cargar el panel.")),
       );
   }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   return (
     <div className="ordenes-page">
@@ -92,13 +98,9 @@ export function PanelOrdenes() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {!datos && !error && <div className="mz-empty">Cargando…</div>}
+      {/* Con reintento y una carga que se anuncia (revisión final UX/UI,
+          28/10/2026). */}
+      <EstadoDeCarga cargando={!datos} error={error} onReintentar={cargar} />
 
       {datos && (
         <>

@@ -4,7 +4,13 @@ import { Link, useLocation } from "react-router-dom";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { Conversacion } from "./Conversacion";
-import { Directorio, esGrupal, Grupos, ListaConversaciones } from "./Panel";
+import {
+  Directorio,
+  esGrupal,
+  Grupos,
+  ListaConversaciones,
+  textoSinLeer,
+} from "./Panel";
 import { Presencia, usePresencia } from "./Presencia";
 import "./ChatDock.css";
 import { MiEstado } from "./MiEstado";
@@ -42,19 +48,24 @@ function Ventana({ ventana }) {
           {conversacion.tipo === "directa" && (
             <Presencia estado={presencia[conversacion.otro?.id]} />
           )}
+          {/* El número se ve; el lector oye la frase completa. Un aria-label
+              sobre un <span> no lo lee ningún lector de pantalla (revisión
+              final UX/UI, 28/10/2026). */}
           {pendientes > 0 && (
-            <span
-              className="chat-contador"
-              aria-label={`${pendientes} sin leer`}
-            >
-              {pendientes}
+            <span className="chat-contador">
+              <span aria-hidden="true">{pendientes}</span>
+              <span className="visually-hidden">
+                {textoSinLeer(pendientes)}
+              </span>
             </span>
           )}
         </button>
+        {/* Con varias ventanas abiertas, «Cerrar» a secas no decía cuál
+            (revisión final UX/UI, 28/10/2026). */}
         <button
           type="button"
           className="chat-ventana__accion"
-          aria-label={ventana.abierta ? "Minimizar" : "Abrir"}
+          aria-label={`${ventana.abierta ? "Minimizar" : "Abrir"} chat con ${conversacion.nombre}`}
           onClick={() => chat.alternar(conversacion.id)}
         >
           <Icon name={ventana.abierta ? "dash-lg" : "chevron-up"} />
@@ -62,7 +73,7 @@ function Ventana({ ventana }) {
         <button
           type="button"
           className="chat-ventana__accion"
-          aria-label="Cerrar"
+          aria-label={`Cerrar chat con ${conversacion.nombre}`}
           onClick={() => chat.cerrar(conversacion.id)}
         >
           <Icon name="x-lg" />
@@ -170,7 +181,7 @@ export function ChatDock() {
           aria-expanded={panel}
           aria-label={
             chat.totalNoLeidos > 0
-              ? `Chat: ${chat.totalNoLeidos} mensajes sin leer`
+              ? `Chat: ${textoSinLeer(chat.totalNoLeidos)}`
               : "Chat"
           }
           onClick={() => {

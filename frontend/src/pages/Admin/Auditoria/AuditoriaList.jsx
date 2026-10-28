@@ -17,7 +17,12 @@ import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import { AuditoriaMatriz } from "../../Matriz/AuditoriaMatriz";
 import "./AuditoriaList.css";
-import { etiquetaDeAccion, etiquetaDeObjeto } from "./etiquetasAuditoria";
+import {
+  etiquetaDeAccion,
+  etiquetaDeCampo,
+  etiquetaDeObjeto,
+  OPCIONES_DE_ACCION,
+} from "./etiquetasAuditoria";
 import { RegistroDescargas } from "./RegistroDescargas";
 
 const RESULTADOS = [
@@ -156,15 +161,31 @@ function RegistroDelSistema({ modulo }) {
           <label htmlFor="auditoria-accion" className="form-label">
             Acción
           </label>
-          <input
+          {/* Se elige por su nombre y se envía el código: antes había que
+              escribir `role.created` (revisión final UX/UI, 28/10/2026). */}
+          <select
             id="auditoria-accion"
-            className="form-control form-control-sm"
-            placeholder="activo, role.created…"
+            className="form-select form-select-sm"
             value={borrador.action}
             onChange={(e) =>
               setBorrador({ ...borrador, action: e.target.value })
             }
-          />
+          >
+            <option value="">Todas las acciones</option>
+            {borrador.action &&
+              !OPCIONES_DE_ACCION.some(
+                (opcion) => opcion.codigo === borrador.action,
+              ) && (
+                <option value={borrador.action}>
+                  {etiquetaDeAccion(borrador.action)}
+                </option>
+              )}
+            {OPCIONES_DE_ACCION.map((opcion) => (
+              <option key={opcion.codigo} value={opcion.codigo}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label htmlFor="auditoria-resultado" className="form-label">
@@ -270,8 +291,8 @@ function RegistroDelSistema({ modulo }) {
                     <td className="mz-strong">
                       {evento.actor_username || "Sistema"}
                     </td>
-                    {/* Legible, con el código en el `title`: es lo que se
-                      escribe en el filtro «Acción». */}
+                    {/* Legible, con el código en el `title` para quien lo
+                      busque en el servidor. */}
                     <td title={evento.action}>
                       {etiquetaDeAccion(evento.action)}
                     </td>
@@ -297,17 +318,29 @@ function RegistroDelSistema({ modulo }) {
                           type="button"
                           className="btn btn-outline-secondary btn-sm"
                           aria-expanded={abierto === evento.id}
+                          aria-controls={`auditoria-detalle-fila-${evento.id}`}
                           onClick={() =>
                             setAbierto(abierto === evento.id ? null : evento.id)
                           }
                         >
                           {abierto === evento.id ? "Ocultar" : "Ver"}
+                          {/* Con varios «Ver» en la tabla, el lector decía
+                              solo eso (revisión final UX/UI, 28/10/2026). */}
+                          <span className="visually-hidden">
+                            {" "}
+                            detalle de {etiquetaDeAccion(evento.action)},{" "}
+                            {evento.actor_username || "Sistema"},{" "}
+                            {formatearFecha(evento.created_at_local, true)}
+                          </span>
                         </button>
                       </td>
                     )}
                   </tr>
                   {puedeVerDetalle && abierto === evento.id && (
-                    <tr className="auditoria-detalle">
+                    <tr
+                      className="auditoria-detalle"
+                      id={`auditoria-detalle-fila-${evento.id}`}
+                    >
                       <td colSpan={columnas}>
                         <DetalleDelEvento evento={evento} />
                       </td>
@@ -454,7 +487,14 @@ function Valores({ valores }) {
     <div className="mz-kv-grid">
       {entradas.map(([campo, valor]) => (
         <div key={campo} className="mz-kv mz-kv--full">
-          <span className="mz-kv-label mz-mono">{campo}</span>
+          {/* El nombre legible si se conoce; el código, en el `title`
+              (revisión final UX/UI, 28/10/2026). */}
+          <span
+            className={`mz-kv-label${etiquetaDeCampo(campo) === campo ? " mz-mono" : ""}`}
+            title={campo}
+          >
+            {etiquetaDeCampo(campo)}
+          </span>
           <span className="auditoria-detalle__valor">
             {valor === null || valor === "" ? "—" : String(valor)}
           </span>

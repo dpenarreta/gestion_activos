@@ -119,7 +119,9 @@ export async function registrarEquipo(
  */
 export async function buscarEnElInventario(page, texto) {
   await page.goto("/admin/activos");
-  await page.getByLabel("Buscar activos").fill(texto);
+  await page
+    .getByLabel("Buscar en el inventario o escanear un código")
+    .fill(texto);
 
   await Promise.all([
     page.waitForResponse(

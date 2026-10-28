@@ -201,6 +201,41 @@ describe("El listado de políticas", () => {
       await screen.findByText("No se pudo cargar el listado de políticas."),
     ).toBeInTheDocument();
   });
+
+  it("un fallo no se confunde con «sin políticas» y se puede reintentar", async () => {
+    /* Antes salían a la vez el error y «Sin políticas configuradas»: no se
+       sabía si no había ninguna o si no habían cargado (revisión final
+       UX/UI, 28/10/2026). */
+    listar.mockRejectedValueOnce(new Error("500"));
+
+    pintar();
+
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent(
+      "No se pudo cargar el listado de políticas.",
+    );
+    expect(
+      screen.queryByText(/Sin políticas configuradas/),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(aviso).getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("Política general")).toBeInTheDocument();
+    expect(
+      screen.queryByText("No se pudo cargar el listado de políticas."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("mientras carga lo dice, en vez de una tabla vacía", async () => {
+    listar.mockReturnValue(new Promise(() => {}));
+
+    pintar();
+
+    expect(await screen.findByText("Cargando…")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Sin políticas configuradas/),
+    ).not.toBeInTheDocument();
+  });
 });
 
 // --- Permisos ---------------------------------------------------------------
@@ -214,7 +249,7 @@ describe("Quién puede tocarlas", () => {
       screen.queryByRole("button", { name: "Nueva política" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Editar" }),
+      screen.queryByRole("button", { name: /^Editar / }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Reevaluar inventario" }),
@@ -230,7 +265,7 @@ describe("Quién puede tocarlas", () => {
     expect(
       screen.getByRole("button", { name: "Nueva política" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^Editar / })).toHaveLength(2);
   });
 });
 
@@ -327,7 +362,7 @@ describe("Al definir una política", () => {
     pintar();
     const dialogo = await abrirAlta();
 
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
       target: { value: "Impresoras" },
     });
     fireEvent.change(screen.getByLabelText("Se aplica a"), {
@@ -367,7 +402,7 @@ describe("Al definir una política", () => {
     pintar();
 
     await screen.findByText("Política general");
-    fireEvent.click(screen.getAllByRole("button", { name: "Editar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Editar / })[0]);
 
     expect(
       await screen.findByRole("option", {
@@ -381,7 +416,7 @@ describe("Al definir una política", () => {
 
     await screen.findByText("Política general");
     const llamadasPrevias = listar.mock.calls.length;
-    fireEvent.click(screen.getAllByRole("button", { name: "Editar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Editar / })[0]);
 
     const dialogo = await screen.findByRole("dialog");
     fireEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }));
@@ -403,7 +438,7 @@ describe("Al definir una política", () => {
     pintar();
     const dialogo = await abrirAlta();
 
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
       target: { value: "Impresoras" },
     });
     fireEvent.change(screen.getByLabelText("Evaluar reemplazo a los (meses)"), {
@@ -414,7 +449,40 @@ describe("Al definir una política", () => {
     expect(
       await screen.findByText("Ya existe una para ese tipo."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Impresoras");
+    expect(screen.getByLabelText(/^Nombre/)).toHaveValue("Impresoras");
+  });
+
+  it("el error de un campo va bajo ese campo y lo marca", async () => {
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { nombre: ["Ya existe una política con ese nombre."] },
+          },
+        },
+      },
+    });
+
+    pintar();
+    const dialogo = await abrirAlta();
+
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
+      target: { value: "Impresoras" },
+    });
+    fireEvent.change(screen.getByLabelText("Evaluar reemplazo a los (meses)"), {
+      target: { value: "48" },
+    });
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }));
+
+    const nombre = screen.getByLabelText(/^Nombre/);
+    await waitFor(() => expect(nombre).toHaveAttribute("aria-invalid", "true"));
+    expect(nombre).toHaveAccessibleDescription(
+      "Ya existe una política con ese nombre.",
+    );
+    expect(within(dialogo).getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
+    );
   });
 });
 
@@ -427,7 +495,7 @@ describe("Las acciones que cambian el inventario", () => {
     pintar();
 
     await screen.findByText("Política general");
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[0]);
 
     expect(
       await screen.findByText(/sus alertas se apagarán/),
@@ -438,7 +506,7 @@ describe("Las acciones que cambian el inventario", () => {
     pintar();
 
     await screen.findByText("Laptops corporativas");
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[1]);
 
     expect(
       await screen.findByText(/Los activos de Laptop pasarán a regirse/),
@@ -450,12 +518,50 @@ describe("Las acciones que cambian el inventario", () => {
 
     await screen.findByText("Laptops corporativas");
     const llamadasPrevias = listar.mock.calls.length;
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[1]);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Eliminar política" }),
+    );
 
     await waitFor(() => expect(eliminar).toHaveBeenCalledWith(2));
     await waitFor(() =>
       expect(listar.mock.calls.length).toBeGreaterThan(llamadasPrevias),
+    );
+  });
+
+  it("la pregunta de eliminar es destructiva y dice qué se elimina", async () => {
+    /* Un «Confirmar» azul junto a un «Cancelar» rojo invertía los colores:
+       el botón de borrar tiene que ser el rojo (revisión final UX/UI,
+       28/10/2026). */
+    let resolver;
+    eliminar.mockReturnValue(
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+    );
+
+    pintar();
+
+    await screen.findByText("Laptops corporativas");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Eliminar Laptops corporativas" }),
+    );
+
+    const pregunta = await screen.findByRole("dialog");
+    const borrar = within(pregunta).getByRole("button", {
+      name: "Eliminar política",
+    });
+    expect(borrar).toHaveClass("btn-danger");
+    expect(
+      within(pregunta).getByRole("button", { name: "Cancelar" }),
+    ).toHaveClass("btn-outline-secondary");
+
+    fireEvent.click(borrar);
+    // Mientras el servidor responde, el botón no se puede volver a pulsar.
+    await waitFor(() => expect(borrar).toBeDisabled());
+    resolver({});
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
   });
 
@@ -465,8 +571,10 @@ describe("Las acciones que cambian el inventario", () => {
     pintar();
 
     await screen.findByText("Laptops corporativas");
-    fireEvent.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /^Eliminar / })[1]);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Eliminar política" }),
+    );
 
     expect(
       await screen.findByText("No se pudo eliminar la política."),
@@ -487,6 +595,38 @@ describe("Las acciones que cambian el inventario", () => {
         /16 activo\(s\) evaluados; 5 con sugerencia \(2 con reemplazo recomendado, 3 a evaluar\)/,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("mientras reevalúa, el botón lo dice y no se puede volver a pulsar", async () => {
+    let resolver;
+    reevaluar.mockReturnValue(
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+    );
+
+    pintar();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reevaluar inventario" }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /Reevaluando…/ }),
+    ).toBeDisabled();
+
+    resolver({
+      activos_evaluados: 16,
+      con_sugerencia: 5,
+      por_nivel: { recomendado: 2, evaluar: 3 },
+    });
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /16 activo\(s\) evaluados/,
+    );
+    expect(
+      screen.getByRole("button", { name: "Reevaluar inventario" }),
+    ).toBeEnabled();
   });
 
   it("el resumen se puede cerrar", async () => {

@@ -437,7 +437,11 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
             Valen en cualquier empresa, incluidas las que se creen después. Son
             los del administrador del grupo, que tiene que poder entrar a todas.
           </p>
-          <div className="empresas-asignacion__roles">
+          {/* Un grupo con nombre: el lector decía cada casilla suelta, sin
+              saber que eran los roles globales (revisión final UX/UI,
+              28/10/2026). */}
+          <fieldset className="empresas-asignacion__roles">
+            <legend className="visually-hidden">Roles globales</legend>
             {roles
               .filter((rol) => !rol.nivel)
               .map((rol) => (
@@ -459,7 +463,7 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
                 </div>
               ))}
             {roles.length === 0 && <span className="mz-faint">—</span>}
-          </div>
+          </fieldset>
         </div>
 
         {(puedeAsignar || puedeRolesGlobales) && (

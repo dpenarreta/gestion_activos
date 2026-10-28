@@ -230,11 +230,25 @@
   text-overflow: ellipsis;
 }
 
+/* Minimizar y cerrar medían menos de 24 px: al menos eso con ratón y 44 px
+   con el dedo (revisión final UX/UI, 28/10/2026). */
 .chat-ventana__accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
   border: 0;
   background: none;
   color: inherit;
   padding: 2px 6px;
+}
+
+@media (pointer: coarse) {
+  .chat-ventana__accion {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* --- Una conversación --------------------------------------------------- */

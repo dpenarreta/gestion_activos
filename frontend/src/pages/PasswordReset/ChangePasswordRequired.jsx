@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { authService } from "../../api/authService";
@@ -7,6 +7,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 import { ReglasContrasena } from "../../components/common/ReglasContrasena/ReglasContrasena";
 import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
+import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
 
 const EMPTY_FORM = {
   current_password: "",
@@ -15,6 +16,12 @@ const EMPTY_FORM = {
 };
 
 export function ChangePasswordRequired() {
+  // La pestaña dice en qué pantalla se está, no solo el nombre del sitio
+  // (revisión final UX/UI, 28/10/2026).
+  useEffect(() => {
+    fijarTituloDePantalla("Cambiar contraseña");
+    return () => fijarTituloDePantalla(null);
+  }, []);
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(EMPTY_FORM);

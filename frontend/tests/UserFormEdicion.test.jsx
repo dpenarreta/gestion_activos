@@ -315,9 +315,11 @@ describe("Restablecer la contraseña de otra persona", () => {
     await screen.findByText("Restablecer contraseña");
     await ejecutarRestablecimiento("Cerrar sesiones activas");
 
-    expect(
-      await screen.findByText("La acción se ejecutó correctamente."),
-    ).toBeInTheDocument();
+    // Dice qué se hizo, no solo que «se ejecutó» (revisión final UX/UI,
+    // 28/10/2026).
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Listo: se cerraron todas sus sesiones.",
+    );
     expect(screen.getByLabelText("Cerrar sesiones activas")).not.toBeChecked();
     expect(
       screen.getByRole("button", { name: "Aplicar restablecimiento" }),

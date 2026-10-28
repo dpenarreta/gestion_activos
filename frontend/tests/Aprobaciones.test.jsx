@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
@@ -117,5 +123,42 @@ describe("Las aprobaciones", () => {
     expect(
       await screen.findByText("No tiene aprobaciones pendientes."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("El foco tras decidir", () => {
+  it("va al aviso de éxito, no se pierde en la página", async () => {
+    /* La tarjeta desaparece al decidir y el foco caía en el <body>
+       (revisión final UX/UI, 28/10/2026). */
+    const OTRA = {
+      ...PENDIENTE,
+      id: 8,
+      ticket: { ...PENDIENTE.ticket, numero: "TCK-2026-000051" },
+    };
+    servicio.aprobaciones
+      .mockResolvedValueOnce([PENDIENTE, OTRA])
+      .mockResolvedValue([OTRA]);
+    servicio.decidirAprobacion.mockResolvedValue({});
+    render(<AprobacionesPage />);
+
+    const tarjeta = await screen.findByRole("region", {
+      name: "Aprobación de TCK-2026-000050",
+    });
+    const aprobar = within(tarjeta).getByRole("button", { name: "Aprobar" });
+    aprobar.focus();
+    fireEvent.click(aprobar);
+
+    const aviso = await screen.findByText(/TCK-2026-000050 aprobado/);
+    await waitFor(() => expect(aviso).toHaveFocus());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", {
+          name: "Aprobación de TCK-2026-000050",
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    // Sigue en el aviso cuando la tarjeta ya no está.
+    expect(aviso).toHaveFocus();
+    expect(aviso).toHaveAttribute("tabindex", "-1");
   });
 });

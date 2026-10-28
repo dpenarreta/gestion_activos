@@ -167,6 +167,23 @@ function Lienzo({ children }) {
   );
 }
 
+/** «3/4»: se lee «3 de 4 plazas cubiertas»; la cifra sola no dice nada al
+ * lector de pantalla (revisión final UX/UI, 28/10/2026). */
+function Plazas({ cargo }) {
+  const texto = `${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`;
+  return (
+    <span
+      className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
+      title={texto}
+    >
+      <span aria-hidden="true">
+        {cargo.plazas - cargo.vacantes}/{cargo.plazas}
+      </span>
+      <span className="visually-hidden">{texto}</span>
+    </span>
+  );
+}
+
 function Cargo({ cargo, cargos, conPersonas }) {
   const jefe = cargos.find((c) => c.id === cargo.jefe);
   return (
@@ -176,12 +193,7 @@ function Cargo({ cargo, cargos, conPersonas }) {
           <strong>{cargo.nombre}</strong>
           <NivelDeCargo valor={cargo.nivel} compacto />
         </span>
-        <span
-          className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
-          title={`${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`}
-        >
-          {cargo.plazas - cargo.vacantes}/{cargo.plazas}
-        </span>
+        <Plazas cargo={cargo} />
       </div>
       {jefe && <span className="org-cargo__jefe">Reporta a {jefe.nombre}</span>}
       {conPersonas && (
@@ -253,20 +265,18 @@ function RamaCargo({ rama, conPersonas }) {
   )?.nombre;
   return (
     <li className="org-ct__rama">
-      <div
-        className={`org-nodo org-nodo--nivel-${nivel}`}
-        aria-label={`${cargo.nombre}${nivelDelCargo ? ` (${nivelDelCargo})` : ""}: ${cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}`}
-      >
+      {/* Un aria-label sobre un div genérico no se lee: va como texto oculto
+          lo que no está a la vista (revisión final UX/UI, 28/10/2026). */}
+      <div className={`org-nodo org-nodo--nivel-${nivel}`}>
         <strong className="org-nodo__cargo">{cargo.nombre}</strong>
         <NivelDeCargo valor={cargo.nivel} compacto />
-        {cargo.plazas > 1 && (
-          <span
-            className={`org-plazas${cargo.vacantes > 0 ? " org-plazas--vacante" : ""}`}
-            title={`${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`}
-          >
-            {cargo.plazas - cargo.vacantes}/{cargo.plazas}
+        {!conPersonas && (
+          <span className="visually-hidden">
+            {nivelDelCargo ? ` (${nivelDelCargo})` : ""}:{" "}
+            {cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}
           </span>
         )}
+        {cargo.plazas > 1 && <Plazas cargo={cargo} />}
         {conPersonas && <PersonasDelCargo cargo={cargo} />}
       </div>
       {hijos.length > 0 && (
@@ -329,9 +339,19 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
             onClick={() => alternar(nodo.id)}
           >
             <Icon name={cerrada ? "plus-square" : "dash-square"} />
-            {cerrada
-              ? `Ver ${nodo.hijas.length} unidad(es) · ${totales.plazas} plazas`
-              : "Contraer"}
+            {/* El nombre del botón dice de qué unidad es (revisión final
+                UX/UI, 28/10/2026): había un «Contraer» por unidad. */}
+            {cerrada ? (
+              <span>
+                Ver {nodo.hijas.length} unidad(es) · {totales.plazas} plazas
+                <span className="visually-hidden">, en {nodo.nombre}</span>
+              </span>
+            ) : (
+              <span>
+                Contraer
+                <span className="visually-hidden"> {nodo.nombre}</span>
+              </span>
+            )}
           </button>
         )}
       </section>
@@ -517,6 +537,9 @@ export function OrganigramaPage() {
             {totales.plazas - totales.vacantes} de {totales.plazas} plazas
             cubiertas
           </span>
+          {/* Radios nativos (revisión final UX/UI, 28/10/2026): una sola
+              parada de Tab y las flechas cambian de vista, como pide el
+              patrón de radiogroup; antes eran dos botones con role="radio". */}
           <div
             className="org-vista"
             role="radiogroup"
@@ -526,16 +549,20 @@ export function OrganigramaPage() {
               ["arbol", "diagram-3", "Árbol por niveles"],
               ["lista", "list-ul", "Lista"],
             ].map(([id, icono, texto]) => (
-              <button
+              <label
                 key={id}
-                type="button"
-                role="radio"
-                aria-checked={vista === id}
                 className={vista === id ? "is-activo" : undefined}
-                onClick={() => cambiarVista(id)}
               >
+                <input
+                  type="radio"
+                  name="org-vista"
+                  value={id}
+                  className="visually-hidden"
+                  checked={vista === id}
+                  onChange={() => cambiarVista(id)}
+                />
                 <Icon name={icono} /> {texto}
-              </button>
+              </label>
             ))}
           </div>
           <label className="org-barra__check">

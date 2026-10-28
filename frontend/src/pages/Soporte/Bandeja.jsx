@@ -455,7 +455,7 @@ export function Bandeja({ todos = false }) {
  * su posición en la cola. Solo los suyos (el servidor no devuelve otros) y
  * abren su ficha de seguimiento, la de quien pide —sin notas internas—.
  */
-function MisSolicitudes() {
+export function MisSolicitudes() {
   const [tickets, setTickets] = useState(null);
   const [error, setError] = useState(null);
   const enTarjetas = useVistaDeTarjetas();

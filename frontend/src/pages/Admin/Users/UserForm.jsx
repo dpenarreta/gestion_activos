@@ -34,6 +34,26 @@ const EMPTY_FORM = {
 // ellos va bajo el campo; uno sobre otra cosa (p. ej. `empresas`), arriba.
 const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(EMPTY_FORM));
 const EMPTY_ALTA = { empresaId: null, rolId: null };
+/**
+ * Qué se hizo de verdad al restablecer, en vez de «La acción se ejecutó
+ * correctamente»: quien lo pidió necesita saber si el enlace salió o si las
+ * sesiones se cerraron (revisión final UX/UI, 28/10/2026).
+ */
+function textoDelRestablecimiento(opciones) {
+  const hechos = [];
+  if (opciones.send_link) hechos.push("se envió el enlace de restablecimiento");
+  if (opciones.force_change_on_next_login) {
+    hechos.push("deberá cambiar la contraseña en su próximo ingreso");
+  }
+  if (opciones.revoke_sessions) hechos.push("se cerraron todas sus sesiones");
+  if (hechos.length === 0) return "Restablecimiento aplicado.";
+  const lista =
+    hechos.length === 1
+      ? hechos[0]
+      : `${hechos.slice(0, -1).join(", ")} y ${hechos[hechos.length - 1]}`;
+  return `Listo: ${lista}.`;
+}
+
 const EMPTY_RESET_OPTIONS = {
   send_link: false,
   force_change_on_next_login: false,
@@ -198,7 +218,7 @@ export function UserForm() {
     setResetError(null);
     try {
       await adminUsersService.resetPassword(id, resetOptions);
-      setResetMessage("La acción se ejecutó correctamente.");
+      setResetMessage(textoDelRestablecimiento(resetOptions));
       setResetOptions(EMPTY_RESET_OPTIONS);
     } catch (err) {
       setResetError(

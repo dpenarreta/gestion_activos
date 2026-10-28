@@ -59,6 +59,9 @@ export function ConfiguracionPage() {
   const [options, setOptions] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [error, setError] = useState(null);
+  // Qué éxito mostrar: «guardado» o «restaurado». Restaurar no avisaba al
+  // terminar y no se sabía si había pasado (revisión final UX/UI,
+  // 28/10/2026).
   const [guardado, setGuardado] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
@@ -127,11 +130,13 @@ export function ConfiguracionPage() {
   async function handleConfirmReset() {
     setIsResetting(true);
     setError(null);
+    setGuardado(false);
     try {
       const response = await themeService.reset();
       setForm(pickEditableFields(response));
       setWarnings([]);
       setIsDirty(false);
+      setGuardado("restaurado");
     } catch (err) {
       setError(mensajeDeError(err, "No se pudieron restaurar los valores."));
     } finally {
@@ -192,7 +197,9 @@ export function ConfiguracionPage() {
       {guardado && (
         <div className="mz-alert mz-alert--ok" role="status">
           <Icon name="check2-circle" />
-          Cambios guardados. Ya se ven en todo el sistema.
+          {guardado === "restaurado"
+            ? "Se restauraron los valores por defecto. Ya se ven en todo el sistema."
+            : "Cambios guardados. Ya se ven en todo el sistema."}
         </div>
       )}
 

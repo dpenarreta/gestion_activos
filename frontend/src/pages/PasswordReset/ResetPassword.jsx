@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { authService } from "../../api/authService";
 import { Button } from "../../components/common/Button/Button";
 import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
 import { ReglasContrasena } from "../../components/common/ReglasContrasena/ReglasContrasena";
+import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
 
 export function ResetPassword() {
+  // La pestaña dice en qué pantalla se está, no solo el nombre del sitio
+  // (revisión final UX/UI, 28/10/2026).
+  useEffect(() => {
+    fijarTituloDePantalla("Nueva contraseña");
+    return () => fijarTituloDePantalla(null);
+  }, []);
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const [form, setForm] = useState({

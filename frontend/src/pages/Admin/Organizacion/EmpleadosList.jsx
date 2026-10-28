@@ -5,10 +5,14 @@ import {
   departamentosService,
   empleadosService,
 } from "../../../api/organizacionService";
-import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
+import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
@@ -18,6 +22,7 @@ export function EmpleadosList() {
   const puedeEditar = usePermission("organizacion.editar");
   const [busqueda, setBusqueda] = useState("");
   const [departamentos, setDepartamentos] = useState([]);
+  const enTarjetas = useVistaDeTarjetas();
   const cargar = useCallback((params) => empleadosService.list(params), []);
   const listado = useListadoPaginado(
     cargar,
@@ -111,7 +116,10 @@ export function EmpleadosList() {
         </button>
       </form>
 
-      <div className="mz-table-wrap">
+      {/* En el teléfono, cada empleado en una tarjeta: ocho columnas a 375 px
+          solo se leían desplazándose de lado (revisión final UX/UI,
+          28/10/2026). */}
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table">
           <thead>
             <tr>
@@ -190,6 +198,79 @@ export function EmpleadosList() {
           </tbody>
         </table>
       </div>
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={listado.isLoading && listado.resultados.length === 0}
+            error={listado.error}
+            onReintentar={listado.refresh}
+            vacio={!listado.isLoading && listado.resultados.length === 0}
+            textoVacio="Todavía no hay empleados registrados."
+            hayFiltros={hayFiltros}
+            onLimpiarFiltros={limpiarFiltros}
+          />
+          {!listado.error && listado.resultados.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Empleados">
+              {listado.resultados.map((empleado) => (
+                <li key={empleado.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <strong className="mz-card-row__titulo">
+                      {empleado.nombre_completo}
+                    </strong>
+                    <span
+                      className={`mz-pill ${empleado.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {empleado.activo ? "Activo" : "Inactivo"}
+                    </span>
+                  </div>
+                  <div className="mz-card-row__titulo mz-small">
+                    {[empleado.cargo, empleado.departamento_nombre]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                  <div className="mz-card-meta">
+                    <span>
+                      Código:{" "}
+                      <span className="mz-code">
+                        {empleado.codigo_empleado}
+                      </span>
+                    </span>
+                    {empleado.usuario ? (
+                      <span>
+                        Usuario:{" "}
+                        <span className="mz-code">
+                          {empleado.usuario_username}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="mz-pill mz-pill--warn">Sin usuario</span>
+                    )}
+                    <span>
+                      Activos a cargo:{" "}
+                      {empleado.total_activos > 0 ? (
+                        <Link to={`/admin/activos?custodio=${empleado.id}`}>
+                          {empleado.total_activos}
+                        </Link>
+                      ) : (
+                        0
+                      )}
+                    </span>
+                  </div>
+                  <div className="mz-card-acciones">
+                    <Link
+                      to={`/admin/organizacion/empleados/${empleado.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${empleado.nombre_completo}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <Paginacion
         total={listado.total}

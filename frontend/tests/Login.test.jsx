@@ -84,6 +84,14 @@ beforeEach(() => {
 });
 
 describe("Iniciar sesión", () => {
+  it("la pestaña dice que es la pantalla de acceso", () => {
+    /* Revisión final UX/UI, 28/10/2026: antes la pestaña decía solo el nombre
+       del sitio. */
+    pintar();
+
+    expect(document.title).toContain("Iniciar sesión");
+  });
+
   it("pide un identificador, no un nombre de usuario específico", () => {
     /* El nombre de usuario se compone solo y no todo el mundo lo recuerda; el
        correo sí. */

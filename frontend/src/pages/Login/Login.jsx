@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "../../components/common/Button/Button";
@@ -9,8 +9,15 @@ import {
   RUTA_DE_ENTRADA,
   recordarModulo,
 } from "../../modulos/modulos";
+import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
 
 export function Login() {
+  // La pestaña dice en qué pantalla se está, no solo el nombre del sitio
+  // (revisión final UX/UI, 28/10/2026).
+  useEffect(() => {
+    fijarTituloDePantalla("Iniciar sesión");
+    return () => fijarTituloDePantalla(null);
+  }, []);
   const { login, isLoading, error } = useAuth();
   const navigate = useNavigate();
   // Quien llega aquí de vuelta merece saber por qué: encontrarse la pantalla

@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
 import { EspecificacionesDelTipo } from "../../../components/activos/EspecificacionesDelTipo/EspecificacionesDelTipo";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  erroresPorCampo,
+  hayErroresGenerales,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Solicitudes.css";
 
 const VACIA = {
@@ -38,7 +47,11 @@ export function SolicitudForm() {
   const [encargados, setEncargados] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [componentes, setComponentes] = useState([]);
+  const contenedorRef = useRef(null);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
+  const [errorEncargados, setErrorEncargados] = useState(null);
+  const [errorCatalogo, setErrorCatalogo] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -46,9 +59,14 @@ export function SolicitudForm() {
     solicitudesService
       .encargados()
       .then(setEncargados)
-      .catch(() =>
-        setError(
-          "No se pudo cargar a quién asignarle la solicitud. Inténtelo de nuevo.",
+      // Junto al campo que queda vacío, no arriba (revisión final UX/UI,
+      // 28/10/2026).
+      .catch((err) =>
+        setErrorEncargados(
+          mensajeDeError(
+            err,
+            "No se pudo cargar a quién asignarle la solicitud. Inténtelo de nuevo.",
+          ),
         ),
       );
     solicitudesService
@@ -57,13 +75,28 @@ export function SolicitudForm() {
         setTipos(datos.tipos_dispositivo ?? []);
         setComponentes(datos.componentes ?? []);
       })
-      // Sin catálogo se puede pedir igual, escribiéndolo: es peor bloquear la
-      // solicitud que ofrecer un desplegable vacío.
-      .catch(() => {});
+      // Antes fallaba en silencio y el desplegable quedaba vacío sin
+      // explicación: ahora lo dice junto al campo (revisión final UX/UI,
+      // 28/10/2026).
+      .catch((err) =>
+        setErrorCatalogo(
+          mensajeDeError(
+            err,
+            "No se pudo cargar el catálogo. Recargue la página para volver a intentarlo.",
+          ),
+        ),
+      );
   }, []);
 
   function fijar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    // Al corregir el campo, su error deja de valer.
+    setErrores((actuales) => {
+      if (!actuales[campo]) return actuales;
+      const resto = { ...actuales };
+      delete resto[campo];
+      return resto;
+    });
   }
 
   function cambiarClase(clase) {
@@ -91,8 +124,32 @@ export function SolicitudForm() {
 
   async function guardar(evento) {
     evento.preventDefault();
-    setIsSaving(true);
     setError(null);
+    setErrores({});
+    // Los obligatorios se revisan aquí y no con `required`: la burbuja del
+    // navegador tapaba el error del campo (revisión final UX/UI,
+    // 28/10/2026). Las características del tipo siguen con el suyo.
+    const faltan = {};
+    if (valores.clase === "dispositivo" && !valores.tipo_dispositivo) {
+      faltan.tipo_dispositivo = "Elija el tipo de dispositivo.";
+    }
+    if (valores.clase === "componente" && !valores.componente) {
+      faltan.componente = "Elija el componente.";
+    }
+    if (!(Number(valores.cantidad) >= 1)) {
+      faltan.cantidad = "Indique al menos 1.";
+    }
+    if (!valores.encargado) faltan.encargado = "Elija a quién le llega.";
+    if (!valores.justificacion.trim()) {
+      faltan.justificacion = "Explique para qué hace falta.";
+    }
+    if (Object.keys(faltan).length > 0) {
+      setErrores(faltan);
+      setError("No se pudo enviar la solicitud: revise los campos marcados.");
+      enfocarPrimerError(contenedorRef.current);
+      return;
+    }
+    setIsSaving(true);
     try {
       const creada = await solicitudesService.create({
         encargado: Number(valores.encargado),
@@ -117,8 +174,21 @@ export function SolicitudForm() {
       }
       navegar(`/admin/solicitudes/${creada.id}`);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo registrar la solicitud."));
+      const porCampo = erroresPorCampo(err);
+      setErrores(porCampo);
+      // Si todo quedó bajo su campo, arriba basta con decir que se revisen;
+      // si no, el aviso lleva el motivo completo.
+      const todoEnSuCampo =
+        Object.keys(porCampo).length > 0 &&
+        Object.keys(porCampo).every((campo) => campo in VACIA) &&
+        !hayErroresGenerales(err);
+      setError(
+        todoEnSuCampo
+          ? "No se pudo enviar la solicitud: revise los campos marcados."
+          : mensajeDeError(err, "No se pudo registrar la solicitud."),
+      );
       setIsSaving(false);
+      enfocarPrimerError(contenedorRef.current);
     }
   }
 
@@ -164,7 +234,7 @@ export function SolicitudForm() {
   const nombreDelTipo = tipoElegido ? `«${tipoElegido.nombre}»` : "el tipo";
 
   return (
-    <div className="solicitudes-page">
+    <div className="solicitudes-page" ref={contenedorRef}>
       <div className="mz-view-head">
         <div>
           <h2>Realizar solicitud</h2>
@@ -187,15 +257,16 @@ export function SolicitudForm() {
       <section className="mz-card solicitud-form">
         <div className="mz-card-head">
           <h3>Datos de la solicitud</h3>
+          <LeyendaObligatorios />
         </div>
         <form onSubmit={guardar} className="mz-card-body">
           <div className="row g-3">
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="sol-clase">
-                Qué necesita
-              </label>
+            <Campo
+              id="sol-clase"
+              etiqueta="Qué necesita"
+              className="col-12 col-md-6"
+            >
               <select
-                id="sol-clase"
                 className="form-select"
                 value={valores.clase}
                 onChange={(evento) => cambiarClase(evento.target.value)}
@@ -203,14 +274,28 @@ export function SolicitudForm() {
                 <option value="dispositivo">Un dispositivo</option>
                 <option value="componente">Un componente o repuesto</option>
               </select>
-            </div>
+            </Campo>
 
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="sol-catalogo">
-                {esDispositivo ? "Tipo de dispositivo" : "Componente"}
-              </label>
+            <Campo
+              id="sol-catalogo"
+              etiqueta={esDispositivo ? "Tipo de dispositivo" : "Componente"}
+              obligatorio
+              ayuda={
+                esDispositivo
+                  ? "Si el equipo que necesita no está en la lista, pídale a Sistemas que cree el tipo: es lo que trae sus características."
+                  : "Si el repuesto no está en la lista, pídale a Sistemas que lo añada al catálogo de componentes."
+              }
+              // Si el catálogo no carga, se dice aquí: antes el desplegable
+              // quedaba vacío sin explicación (revisión final UX/UI,
+              // 28/10/2026).
+              error={
+                (esDispositivo
+                  ? errores.tipo_dispositivo
+                  : errores.componente) || errorCatalogo
+              }
+              className="col-12 col-md-6"
+            >
               <select
-                id="sol-catalogo"
                 className="form-select"
                 value={
                   esDispositivo ? valores.tipo_dispositivo : valores.componente
@@ -220,7 +305,6 @@ export function SolicitudForm() {
                     ? cambiarTipo(evento.target.value)
                     : fijar("componente", evento.target.value)
                 }
-                required
               >
                 <option value="">
                   Elija {esDispositivo ? "el tipo" : "el componente"}
@@ -231,12 +315,7 @@ export function SolicitudForm() {
                   </option>
                 ))}
               </select>
-              <div className="form-text">
-                {esDispositivo
-                  ? "Si el equipo que necesita no está en la lista, pídale a Sistemas que cree el tipo: es lo que trae sus características."
-                  : "Si el repuesto no está en la lista, pídale a Sistemas que lo añada al catálogo de componentes."}
-              </div>
-            </div>
+            </Campo>
 
             {caracteristicasDelTipo.length > 0 && (
               <div className="col-12">
@@ -253,30 +332,37 @@ export function SolicitudForm() {
                     fijar("especificaciones", especificaciones)
                   }
                 />
+                {errores.especificaciones && (
+                  <div className="mz-field-error">
+                    {errores.especificaciones}
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="col-6 col-md-3">
-              <label className="form-label" htmlFor="sol-cantidad">
-                Cantidad
-              </label>
+            <Campo
+              id="sol-cantidad"
+              etiqueta="Cantidad"
+              obligatorio
+              error={errores.cantidad}
+              className="col-6 col-md-3"
+            >
               <input
-                id="sol-cantidad"
                 type="number"
                 min="1"
                 className="form-control"
-                required
                 value={valores.cantidad}
                 onChange={(evento) => fijar("cantidad", evento.target.value)}
               />
-            </div>
+            </Campo>
 
-            <div className="col-6 col-md-3">
-              <label className="form-label" htmlFor="sol-prioridad">
-                Prioridad
-              </label>
+            <Campo
+              id="sol-prioridad"
+              etiqueta="Prioridad"
+              error={errores.prioridad}
+              className="col-6 col-md-3"
+            >
               <select
-                id="sol-prioridad"
                 className="form-select"
                 value={valores.prioridad}
                 onChange={(evento) => fijar("prioridad", evento.target.value)}
@@ -285,14 +371,16 @@ export function SolicitudForm() {
                 <option value="media">Media</option>
                 <option value="alta">Alta</option>
               </select>
-            </div>
+            </Campo>
 
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="sol-fecha">
-                Se necesita para
-              </label>
+            <Campo
+              id="sol-fecha"
+              etiqueta="Se necesita para"
+              ayuda="Opcional. Vacío significa que no hay fecha comprometida."
+              error={errores.fecha_necesaria}
+              className="col-12 col-md-6"
+            >
               <input
-                id="sol-fecha"
                 type="date"
                 className="form-control"
                 value={valores.fecha_necesaria}
@@ -300,19 +388,18 @@ export function SolicitudForm() {
                   fijar("fecha_necesaria", evento.target.value)
                 }
               />
-              <div className="form-text">
-                Opcional. Vacío significa que no hay fecha comprometida.
-              </div>
-            </div>
+            </Campo>
 
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="sol-encargado">
-                Quién realizará la compra
-              </label>
+            <Campo
+              id="sol-encargado"
+              etiqueta="Quién realizará la compra"
+              obligatorio
+              ayuda="Solo aparecen quienes pueden gestionar compras: le llegará un aviso y la verá en sus «Solicitudes recibidas»."
+              error={errores.encargado || errorEncargados}
+              className="col-12 col-md-6"
+            >
               <select
-                id="sol-encargado"
                 className="form-select"
-                required
                 value={valores.encargado}
                 onChange={(evento) => fijar("encargado", evento.target.value)}
               >
@@ -323,31 +410,26 @@ export function SolicitudForm() {
                   </option>
                 ))}
               </select>
-              <div className="form-text">
-                Solo aparecen quienes pueden gestionar compras: le llegará un
-                aviso y la verá en sus «Solicitudes recibidas».
-              </div>
-            </div>
+            </Campo>
 
-            <div className="col-12">
-              <label className="form-label" htmlFor="sol-justificacion">
-                Para qué hace falta
-              </label>
+            <Campo
+              id="sol-justificacion"
+              etiqueta="Para qué hace falta"
+              obligatorio
+              ayuda="Es lo que sostiene la compra ante quien la autoriza."
+              error={errores.justificacion}
+              className="col-12"
+            >
               <textarea
-                id="sol-justificacion"
                 className="form-control"
                 rows={3}
-                required
                 placeholder="Entra un analista el 1 de octubre y no hay equipo libre."
                 value={valores.justificacion}
                 onChange={(evento) =>
                   fijar("justificacion", evento.target.value)
                 }
               />
-              <div className="form-text">
-                Es lo que sostiene la compra ante quien la autoriza.
-              </div>
-            </div>
+            </Campo>
 
             <div className="col-12 mz-actions justify-content-end">
               <button

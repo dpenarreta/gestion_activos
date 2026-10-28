@@ -204,7 +204,7 @@ describe("Guardar un rol", () => {
     pintar();
 
     await screen.findByLabelText("Activos");
-    fireEvent.change(screen.getByLabelText("Nombre del rol"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
       target: { value: "Consulta" },
     });
     fireEvent.click(screen.getByLabelText(/Ver activos/));
@@ -220,7 +220,7 @@ describe("Guardar un rol", () => {
     pintar();
 
     await screen.findByLabelText("Activos");
-    fireEvent.change(screen.getByLabelText("Nombre del rol"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
       target: { value: "Consulta" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -229,11 +229,24 @@ describe("Guardar un rol", () => {
     expect(crear).not.toHaveBeenCalled();
   });
 
+  it("sin nombre, lo dice bajo el campo sin pedir confirmación", async () => {
+    pintar();
+
+    await screen.findByLabelText("Activos");
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const nombre = screen.getByLabelText(/^Nombre del rol/);
+    expect(nombre).toHaveAttribute("aria-invalid", "true");
+    expect(nombre).toHaveAccessibleDescription(/Escriba el nombre del rol/);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
   it("confirmado, se crea con los permisos elegidos y se abre su ficha", async () => {
     pintar();
 
     await screen.findByLabelText("Activos");
-    fireEvent.change(screen.getByLabelText("Nombre del rol"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
       target: { value: "Consulta" },
     });
     fireEvent.click(screen.getByLabelText(/Ver activos/));
@@ -263,7 +276,7 @@ describe("Guardar un rol", () => {
     pintar();
 
     await screen.findByLabelText("Activos");
-    fireEvent.change(screen.getByLabelText("Nombre del rol"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
       target: { value: "Consulta" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -273,6 +286,55 @@ describe("Guardar un rol", () => {
       await screen.findByText("No puede conceder permisos que no tiene."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Destino:/)).not.toBeInTheDocument();
+  });
+
+  it("un nombre repetido se dice bajo el campo y lo marca", async () => {
+    /* Revisión final UX/UI, 28/10/2026: antes el error llegaba arriba, lejos
+       del campo y sin asociarse a él. */
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { name: ["Ya existe un rol con este nombre."] },
+          },
+        },
+      },
+    });
+
+    pintar();
+
+    await screen.findByLabelText("Activos");
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
+      target: { value: "Consulta" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+
+    const nombre = screen.getByLabelText(/^Nombre del rol/);
+    await waitFor(() => expect(nombre).toHaveAttribute("aria-invalid", "true"));
+    expect(nombre).toHaveAccessibleDescription(
+      "Ya existe un rol con este nombre.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
+    );
+  });
+
+  it("creado, la ficha nueva confirma lo que se guardó", async () => {
+    pintar();
+
+    await screen.findByLabelText("Activos");
+    fireEvent.change(screen.getByLabelText(/^Nombre del rol/), {
+      target: { value: "Consulta" },
+    });
+    fireEvent.click(screen.getByLabelText(/Ver activos/));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Rol «Consulta» guardado con 1 permiso.",
+    );
   });
 });
 
@@ -284,7 +346,7 @@ describe("Editar un rol", () => {
 
     expect(await screen.findByText("Editar rol")).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del rol/)).toHaveValue(
         "Técnico de TI",
       ),
     );
@@ -300,7 +362,7 @@ describe("Editar un rol", () => {
 
     await screen.findByText("Editar rol");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del rol/)).toHaveValue(
         "Técnico de TI",
       ),
     );
@@ -314,6 +376,10 @@ describe("Editar un rol", () => {
       "activos.dar_baja",
     );
     expect(crear).not.toHaveBeenCalled();
+    // Y lo dice al terminar (revisión final UX/UI, 28/10/2026).
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Rol «Técnico de TI» guardado con 3 permisos.",
+    );
   });
 
   it("quitar un permiso lo saca de lo que se envía", async () => {
@@ -372,11 +438,11 @@ describe("Quien solo puede ver los roles", () => {
       await screen.findByRole("heading", { name: "Ver rol" }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del rol/)).toHaveValue(
         "Técnico de TI",
       ),
     );
-    expect(screen.getByLabelText("Nombre del rol")).toBeDisabled();
+    expect(screen.getByLabelText(/^Nombre del rol/)).toBeDisabled();
     expect(screen.getByLabelText(/Ver activos/)).toBeChecked();
     expect(screen.getByLabelText(/Ver activos/)).toBeDisabled();
     expect(screen.getByLabelText("Activos")).toBeDisabled();
@@ -416,7 +482,7 @@ describe("Si el rol no carga", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del rol/)).toHaveValue(
         "Técnico de TI",
       ),
     );

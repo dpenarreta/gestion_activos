@@ -135,6 +135,23 @@ describe("El título de la pestaña", () => {
 
     expect(document.title).toBe("Gestión de Activos");
   });
+
+  it.each([
+    ["/admin/perfil", "Mi perfil"],
+    ["/admin/ayuda", "Soporte TI"],
+    ["/admin/ayuda/tickets/12", "Soporte TI"],
+    ["/admin/notificaciones", "Notificaciones"],
+    ["/admin/chat", "Chat"],
+  ])("%s, fuera del menú, también tiene título (%s)", (ruta, esperado) => {
+    /* Antes el h1 quedaba vacío y la pestaña decía solo el nombre del
+         sitio (revisión final UX/UI, 28/10/2026). */
+    pintarLayout(ruta);
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      esperado,
+    );
+    expect(document.title).toBe(`${esperado} · Gestión de Activos`);
+  });
 });
 
 describe("En una pantalla táctil", () => {

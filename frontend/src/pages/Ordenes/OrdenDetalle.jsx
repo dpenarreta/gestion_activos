@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
@@ -41,6 +42,7 @@ export function OrdenDetalle() {
   const [isSaving, setIsSaving] = useState(false);
 
   const cargar = useCallback(() => {
+    setError(null);
     ordenesService
       .get(id)
       .then(setOrden)
@@ -74,17 +76,26 @@ export function OrdenDetalle() {
     }
   }
 
+  // Mientras carga o si falla, con su cabecera, la salida al listado y un
+  // reintento: antes quedaba solo el aviso (revisión final UX/UI,
+  // 28/10/2026).
   if (!orden) {
     return (
       <div className="ordenes-page">
-        {error ? (
-          <div className="mz-alert mz-alert--bad" role="alert">
-            <Icon name="x-octagon" />
-            {error}
+        <div className="mz-view-head">
+          <div>
+            <h2>Orden de trabajo</h2>
           </div>
-        ) : (
-          <div className="mz-empty">Cargando…</div>
-        )}
+          <div className="mz-view-actions">
+            <Link
+              className="btn btn-outline-secondary btn-sm"
+              to="/admin/ordenes/lista"
+            >
+              Volver al listado
+            </Link>
+          </div>
+        </div>
+        <EstadoDeCarga cargando error={error} onReintentar={cargar} />
       </div>
     );
   }

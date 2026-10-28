@@ -311,8 +311,9 @@ function ResultadoDeudor({ detalle, onVolver, hayVarias }) {
           <table className="directorio-tabla directorio-tabla--compacta">
             <thead>
               <tr>
-                <th>TRAMO</th>
-                <th className="text-end">SALDO</th>
+                {/* Mayúsculas por CSS, no escritas (revisión final UX/UI, 28/10/2026). */}
+                <th>Tramo</th>
+                <th className="text-end">Saldo</th>
                 <th className="text-end">%</th>
               </tr>
             </thead>
@@ -339,7 +340,7 @@ function ResultadoDeudor({ detalle, onVolver, hayVarias }) {
               <thead>
                 <tr>
                   {columnas.map((columna) => (
-                    <th key={columna}>{String(columna).toUpperCase()}</th>
+                    <th key={columna}>{String(columna)}</th>
                   ))}
                 </tr>
               </thead>

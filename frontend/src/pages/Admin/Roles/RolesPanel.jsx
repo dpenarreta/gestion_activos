@@ -127,6 +127,7 @@ export function RolesPanel() {
                         type="button"
                         className="btn btn-outline-danger btn-sm"
                         onClick={() => setAEliminar(role)}
+                        aria-label={`Eliminar ${role.name}`}
                       >
                         Eliminar
                       </button>

@@ -151,6 +151,9 @@ export function UsersList() {
 
       {actionAviso && (
         <div className="mz-alert mz-alert--ok" role="status">
+          {/* Con su ícono, como el resto de los avisos de éxito (revisión
+              final UX/UI, 28/10/2026). */}
+          <Icon name="check2-circle" />
           {actionAviso}
         </div>
       )}

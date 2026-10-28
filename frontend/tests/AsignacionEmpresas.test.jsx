@@ -181,6 +181,16 @@ describe("Asignación de empresas y roles a un usuario", () => {
     expect(await screen.findByText(/Sin rol aquí/)).toBeInTheDocument();
   });
 
+  it("los roles globales van en un grupo con nombre", async () => {
+    /* Revisión final UX/UI, 28/10/2026: el lector decía cada casilla suelta. */
+    render(<AsignacionEmpresas usuarioId="7" />);
+
+    const grupo = await screen.findByRole("group", { name: "Roles globales" });
+    expect(
+      await within(grupo).findByRole("checkbox", { name: "Soporte TI" }),
+    ).toHaveAttribute("id", "rol-global-10");
+  });
+
   it("los roles globales se guardan por su propio camino", async () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 

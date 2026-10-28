@@ -4,6 +4,10 @@ import { Link } from "react-router-dom";
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
+import {
   MarcoPdf,
   useUrlDePdf,
 } from "../../components/common/VisorPdf/VisorPdf";
@@ -234,35 +238,22 @@ export function CodigosConductaPage() {
 
       {documentos?.length > 0 && (
         <>
-          <div
-            className="mz-tabs docs-pestanas"
-            role="tablist"
-            aria-label="Documentos"
-          >
-            {documentos.map((d) => (
-              <button
-                key={d.id}
-                id={`doc-pestana-${d.id}`}
-                type="button"
-                role="tab"
-                aria-selected={d.id === activo}
-                aria-controls="doc-panel"
-                className={d.id === activo ? "is-active" : undefined}
-                onClick={() => setActivo(d.id)}
-              >
-                <Icon
-                  name={d.es_pdf ? "file-earmark-pdf" : "file-earmark-word"}
-                />{" "}
-                {d.titulo}
-              </button>
-            ))}
-          </div>
+          {/* Pestañas comunes: flechas, Inicio/Fin y una sola parada de Tab
+              (revisión final UX/UI, 28/10/2026). */}
+          <Pestanas
+            etiqueta="Documentos"
+            idBase="doc"
+            valor={activo}
+            onCambio={setActivo}
+            className="docs-pestanas"
+            opciones={documentos.map((d) => ({
+              id: d.id,
+              etiqueta: d.titulo,
+              icono: d.es_pdf ? "file-earmark-pdf" : "file-earmark-word",
+            }))}
+          />
           {elegido && (
-            <div
-              id="doc-panel"
-              role="tabpanel"
-              aria-labelledby={`doc-pestana-${elegido.id}`}
-            >
+            <PanelDePestana idBase="doc" valor={elegido.id}>
               <PanelDelDocumento
                 key={elegido.id}
                 documento={elegido}
@@ -271,7 +262,7 @@ export function CodigosConductaPage() {
                 bloqueado={!aceptado}
                 onVerAcuerdo={() => setVerAcuerdo(true)}
               />
-            </div>
+            </PanelDePestana>
           )}
         </>
       )}

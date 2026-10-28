@@ -34,6 +34,7 @@ vi.mock("../src/api/ordenesService", () => ({ ordenesService: servicio }));
 const { PanelOrdenes } = await import("../src/pages/Ordenes/PanelOrdenes");
 const { OrdenesList } = await import("../src/pages/Ordenes/OrdenesList");
 const { OrdenDetalle } = await import("../src/pages/Ordenes/OrdenDetalle");
+const { OrdenForm } = await import("../src/pages/Ordenes/OrdenForm");
 const { ReportesOrdenes } =
   await import("../src/pages/Ordenes/ReportesOrdenes");
 
@@ -145,7 +146,67 @@ describe("El panel", () => {
   });
 });
 
+describe("El panel cuando falla", () => {
+  it("conserva el título y deja reintentar sin recargar", async () => {
+    /* Revisión final UX/UI, 28/10/2026: la carga se anuncia y el fallo
+       ofrece reintento. */
+    servicio.resumen.mockRejectedValueOnce(new Error("500"));
+    pintar(<PanelOrdenes />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo cargar el panel.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Panel de mantenimiento" }),
+    ).toBeInTheDocument();
+
+    servicio.resumen.mockResolvedValueOnce({
+      kpis: KPIS,
+      atencion: [],
+      actividad: [],
+      alcance: "Todas las sedes de la empresa.",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("Órdenes registradas")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("la ficha que no carga conserva la salida al listado y el reintento", async () => {
+    servicio.get.mockRejectedValueOnce(new Error("500"));
+    pintar(<OrdenDetalle />, "/admin/ordenes/lista/118");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo cargar la orden.",
+    );
+    expect(
+      screen.getByRole("link", { name: "Volver al listado" }),
+    ).toBeInTheDocument();
+
+    servicio.get.mockResolvedValueOnce(detalle());
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByText("Sin luz en el área de cajas"),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("El listado", () => {
+  it("si los filtros no cargan, lo dice junto a ellos", async () => {
+    servicio.catalogos.mockRejectedValue(new Error("500"));
+    servicio.list.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+    pintar(<OrdenesList />);
+
+    expect(
+      await screen.findByText(/No se pudieron cargar los filtros\./),
+    ).toBeInTheDocument();
+  });
+
   it("dice el alcance, enmascara el contacto y no ofrece crear sin permiso", async () => {
     servicio.list.mockResolvedValue({
       results: [ORDEN],
@@ -391,6 +452,98 @@ describe("La reportería", () => {
         region: "sierra",
         categoria: "",
       }),
+    );
+  });
+});
+
+describe("La nueva orden", () => {
+  /* Antes los obligatorios no se marcaban y el único aviso era la burbuja
+     del navegador (revisión final UX/UI, 28/10/2026). */
+  it("marca los obligatorios y asocia la ayuda al campo", async () => {
+    pintar(<OrdenForm />);
+
+    await screen.findByRole("option", { name: /Quito · Matriz/ });
+    expect(screen.getByText("Obligatorio")).toBeInTheDocument();
+    for (const etiqueta of [/^Sede/, /^Categoría/, /^Qué hay que hacer/]) {
+      expect(screen.getByLabelText(etiqueta)).toHaveAttribute(
+        "aria-required",
+        "true",
+      );
+      expect(screen.getByLabelText(etiqueta)).not.toHaveAttribute("required");
+    }
+    expect(screen.getByLabelText(/^Prioridad/)).not.toHaveAttribute(
+      "aria-required",
+    );
+    expect(
+      screen.getByLabelText(/^Teléfono de contacto/),
+    ).toHaveAccessibleDescription(/Para que el técnico coordine la visita/);
+  });
+
+  it("si faltan, lo dice bajo cada campo y lleva el foco al primero", async () => {
+    pintar(<OrdenForm />);
+
+    await screen.findByRole("option", { name: /Quito · Matriz/ });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar orden" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "revise los campos marcados",
+    );
+    expect(servicio.create).not.toHaveBeenCalled();
+    const sede = screen.getByLabelText(/^Sede/);
+    expect(sede).toHaveAttribute("aria-invalid", "true");
+    expect(sede).toHaveAccessibleDescription("Elija la sede.");
+    expect(screen.getByText("Elija la categoría.")).toBeInTheDocument();
+    expect(screen.getByText("Diga qué hay que hacer.")).toBeInTheDocument();
+    await waitFor(() => expect(sede).toHaveFocus());
+
+    // Al corregirlo, su error se va.
+    fireEvent.change(sede, { target: { value: "1" } });
+    expect(sede).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("el error del servidor de un campo aparece bajo ese campo", async () => {
+    servicio.create.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { titulo: ["Demasiado corto."] },
+          },
+        },
+      },
+    });
+    pintar(<OrdenForm />);
+
+    await screen.findByRole("option", { name: /Quito · Matriz/ });
+    fireEvent.change(screen.getByLabelText(/^Sede/), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
+      target: { value: "electrico" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Qué hay que hacer/), {
+      target: { value: "Luz" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar orden" }));
+
+    expect(await screen.findByText("Demasiado corto.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "revise los campos marcados",
+    );
+    const titulo = screen.getByLabelText(/^Qué hay que hacer/);
+    expect(titulo).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(titulo).toHaveFocus());
+  });
+
+  it("si las sedes no cargan, lo dice junto al campo", async () => {
+    servicio.catalogos.mockRejectedValue(new Error("500"));
+    pintar(<OrdenForm />);
+
+    expect(
+      await screen.findByText("No se pudieron cargar las sedes."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Sede/)).toHaveAccessibleDescription(
+      "No se pudieron cargar las sedes.",
     );
   });
 });

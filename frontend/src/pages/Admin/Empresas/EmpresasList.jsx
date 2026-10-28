@@ -2,10 +2,14 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { empresasService } from "../../../api/empresasService";
-import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
+import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Empresas.css";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
@@ -25,6 +29,7 @@ export function EmpresasList() {
   const multiempresa = useMultiempresa();
   const puedeEditar = usePermission("empresas.editar");
   const [busqueda, setBusqueda] = useState("");
+  const enTarjetas = useVistaDeTarjetas();
   const cargar = useCallback((params) => empresasService.list(params), []);
   const listado = useListadoPaginado(
     cargar,
@@ -78,7 +83,10 @@ export function EmpresasList() {
         </button>
       </form>
 
-      <div className="mz-table-wrap">
+      {/* En el teléfono, cada empresa en una tarjeta: siete columnas a 375 px
+          solo se leían desplazándose de lado (revisión final UX/UI,
+          28/10/2026). */}
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table">
           <thead>
             <tr>
@@ -152,6 +160,73 @@ export function EmpresasList() {
           </tbody>
         </table>
       </div>
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={listado.isLoading && listado.resultados.length === 0}
+            error={listado.error}
+            onReintentar={listado.refresh}
+            vacio={!listado.isLoading && listado.resultados.length === 0}
+            textoVacio="Todavía no hay empresas registradas."
+            hayFiltros={Boolean(listado.filtros.q)}
+            onLimpiarFiltros={limpiarFiltros}
+          />
+          {!listado.error && listado.resultados.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Empresas">
+              {listado.resultados.map((empresa) => (
+                <li key={empresa.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <strong className="mz-card-row__titulo">
+                      <span
+                        className="empresas-punto"
+                        style={{ background: empresa.color }}
+                        aria-hidden="true"
+                      />
+                      {empresa.nombre}
+                    </strong>
+                    <span
+                      className={`mz-pill ${empresa.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {empresa.activa ? "Activa" : "Inactiva"}
+                    </span>
+                  </div>
+                  <div className="mz-card-meta">
+                    <span>
+                      Código: <span className="mz-code">{empresa.codigo}</span>
+                    </span>
+                    {empresa.identificacion && (
+                      <span>
+                        Identificación:{" "}
+                        <span className="mz-mono">
+                          {empresa.identificacion}
+                        </span>
+                      </span>
+                    )}
+                    <span>{empresa.zona_horaria}</span>
+                    <span>
+                      Usuarios: {empresa.usuarios}
+                      {empresa.usuarios === 0 && (
+                        <span className="mz-pill mz-pill--warn ms-2">
+                          Sin usuarios
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="mz-card-acciones">
+                    <Link
+                      to={`/admin/empresas/${empresa.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${empresa.nombre}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <Paginacion
         total={listado.total}

@@ -65,6 +65,7 @@ export function ReportesPage() {
     tipo: [],
     custodio: [],
   });
+  const [errorOpciones, setErrorOpciones] = useState(null);
 
   useEffect(() => {
     reportesService
@@ -97,7 +98,16 @@ export function ReportesPage() {
           ]),
         }),
       )
-      .catch(() => undefined);
+      // Antes fallaba en silencio y los filtros quedaban con solo «Todos»:
+      // ahora se dice junto a ellos (revisión final UX/UI, 28/10/2026).
+      .catch((err) =>
+        setErrorOpciones(
+          mensajeDeError(
+            err,
+            "No se pudieron cargar las áreas, sedes, tipos y custodios.",
+          ),
+        ),
+      );
   }, []);
 
   const cargarVista = useCallback((reporte, filtrosActuales) => {
@@ -221,6 +231,7 @@ export function ReportesPage() {
                   parametros={seleccionado.parametros}
                   valores={filtros}
                   opciones={opciones}
+                  errorOpciones={errorOpciones}
                   onCambiar={actualizarFiltro}
                   onAplicar={() => cargarVista(seleccionado, filtros)}
                 />
@@ -286,6 +297,7 @@ function FiltrosReporte({
   parametros,
   valores,
   opciones,
+  errorOpciones,
   onCambiar,
   onAplicar,
 }) {
@@ -398,6 +410,14 @@ function FiltrosReporte({
       <button type="submit" className="btn btn-outline-secondary btn-sm">
         Aplicar filtros
       </button>
+      {/* Solo si el reporte usa alguno de esos desplegables. */}
+      {errorOpciones &&
+        parametros.some((parametro) => parametro in opciones) && (
+          <p className="mz-field-error w-100 mb-0" role="alert">
+            {errorOpciones} Esos filtros quedan sin opciones; recargue la página
+            para volver a intentarlo.
+          </p>
+        )}
     </form>
   );
 }

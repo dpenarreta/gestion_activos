@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * El inventario: la pantalla que más se abre y desde la que se llega a todo.
@@ -199,14 +205,14 @@ describe("El listado de activos", () => {
     );
   });
 
-  it("las dos búsquedas se distinguen por su nombre", async () => {
+  it("hay un solo buscador, para el código escaneado y para el texto", async () => {
+    /* Eran dos campos que aplicaban lo mismo y no se sabía cuál usar
+       (revisión final UX/UI, 28/10/2026). */
     pintar();
 
+    expect(screen.getAllByRole("search")).toHaveLength(1);
     expect(
-      screen.getByRole("search", { name: "Buscar por código con el escáner" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("search", { name: "Filtrar el inventario" }),
+      screen.getByRole("search", { name: "Buscar en el inventario" }),
     ).toBeInTheDocument();
     await screen.findAllByRole("row");
   });
@@ -323,7 +329,9 @@ describe("Los filtros", () => {
     await screen.findByText("Laptop Jefatura TI");
     const llamadasPrevias = listarActivos.mock.calls.length;
 
-    const campo = screen.getByLabelText("Buscar activos");
+    const campo = screen.getByLabelText(
+      "Buscar en el inventario o escanear un código",
+    );
     fireEvent.change(campo, { target: { value: "DL5440" } });
     expect(listarActivos.mock.calls).toHaveLength(llamadasPrevias);
 
@@ -346,6 +354,11 @@ describe("Los filtros", () => {
     await waitFor(() =>
       expect(ultimaConsulta()).toMatchObject({ q: "GA-LAP-000007" }),
     );
+    // El código queda a la vista y seleccionado: la lectura siguiente lo
+    // reemplaza en vez de pegarse detrás.
+    expect(campo).toHaveValue("GA-LAP-000007");
+    expect(campo.selectionStart).toBe(0);
+    expect(campo.selectionEnd).toBe("GA-LAP-000007".length);
   });
 
   it("los desplegables se llenan con los catálogos", async () => {
@@ -615,6 +628,11 @@ describe("Los filtros se pliegan y dicen qué se aplicó", () => {
       "Asignado",
     );
 
+    // El nombre accesible dice que el botón quita el filtro.
+    expect(
+      screen.getByRole("button", { name: "Quitar filtro Garantía: Vencida" }),
+    ).toBe(screen.getByTitle("Quitar el filtro Garantía"));
+
     fireEvent.click(screen.getByTitle("Quitar el filtro Garantía"));
 
     await waitFor(() =>
@@ -645,5 +663,97 @@ describe("Los filtros se pliegan y dicen qué se aplicó", () => {
     expect(
       screen.queryByRole("button", { name: "Limpiar todo" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// --- En el teléfono -----------------------------------------------------------
+
+describe("El inventario en un teléfono", () => {
+  /* La tabla mide 1100 px: a 375 px solo se leía desplazándose de lado. A
+     ≤880 px cada equipo va en una tarjeta (revisión final UX/UI,
+     28/10/2026). */
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada equipo es una tarjeta con código, estado, custodio y ubicación", async () => {
+    permisos.add("activos.asignar");
+    listarActivos.mockResolvedValue({
+      results: [{ ...ACTIVOS[0], sede_nombre: "Matriz Quito" }, ACTIVOS[1]],
+      count: 2,
+    });
+    pintar();
+
+    const lista = await screen.findByRole("list", { name: "Activos" });
+    const tarjetas = within(lista).getAllByRole("listitem");
+    expect(tarjetas).toHaveLength(2);
+
+    const primera = tarjetas[0];
+    expect(within(primera).getByText("GA-LAP-000007")).toBeInTheDocument();
+    expect(within(primera).getByText("Asignado")).toBeInTheDocument();
+    expect(
+      within(primera).getByRole("link", { name: "Laptop Jefatura TI" }),
+    ).toHaveAttribute("href", "/admin/activos/7");
+    expect(
+      within(primera).getByText(/Custodio: María Fernanda Salazar Ruiz/),
+    ).toBeInTheDocument();
+    expect(
+      within(primera).getByText(/Ubicación: Matriz Quito · Tecnología/),
+    ).toBeInTheDocument();
+    expect(
+      within(primera).getByRole("link", {
+        name: "Asignar o trasladar Laptop Jefatura TI",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(tarjetas[1]).getByText(/Custodio: Sin asignar/),
+    ).toBeInTheDocument();
+    // La tabla queda oculta por CSS en ese ancho: sigue en el documento.
+    expect(
+      screen.getByRole("table", { hidden: true }).closest("div"),
+    ).toHaveClass("mz-table-wrap--con-tarjetas");
+  });
+
+  it("si falla lo dice también en la vista de tarjetas, con reintento", async () => {
+    listarActivos.mockRejectedValue(new Error("500"));
+    pintar();
+
+    // Una vez en la tabla (oculta) y otra en las tarjetas.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("No se pudo cargar el inventario."),
+      ).toHaveLength(2),
+    );
+    expect(screen.queryByRole("list", { name: "Activos" })).toBeNull();
+
+    listarActivos.mockResolvedValue({ results: ACTIVOS, count: 2 });
+    fireEvent.click(screen.getAllByRole("button", { name: "Reintentar" })[1]);
+    expect(
+      await screen.findByRole("list", { name: "Activos" }),
+    ).toBeInTheDocument();
+  });
+
+  it("en un escritorio no se dibujan las tarjetas", async () => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: false,
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    expect(screen.queryByRole("list", { name: "Activos" })).toBeNull();
   });
 });

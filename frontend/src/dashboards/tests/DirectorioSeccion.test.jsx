@@ -272,16 +272,17 @@ describe('DirectorioSeccion — nomenclatura del informe', () => {
 
   it('los encabezados de porcentaje dicen qué miden', () => {
     render(<DirectorioSeccion componente={concentracionConResto()} />)
-    expect(screen.getByText('% SOBRE TOTAL')).toBeInTheDocument()
-    expect(screen.getByText('% ACUMULADO (CALCULADO)')).toBeInTheDocument()
+    // El texto va en minúsculas; las mayúsculas las pone el CSS (revisión final UX/UI).
+    expect(screen.getByRole('columnheader', { name: '% sobre total' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: '% acumulado (calculado)' })).toBeInTheDocument()
   })
 
   it('los dos primeros encabezados siguen a las columnas elegidas, que son parametrizables', () => {
     const componente = concentracionConResto()
     componente.content.columnas = ['Recuperador', 'Importe', 'x', 'y']
     render(<DirectorioSeccion componente={componente} />)
-    expect(screen.getByText('RECUPERADOR')).toBeInTheDocument()
-    expect(screen.getByText('IMPORTE')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Recuperador' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Importe' })).toBeInTheDocument()
   })
 
   it('el título de deudores toma la cantidad del mapeo y el mes del corte', () => {

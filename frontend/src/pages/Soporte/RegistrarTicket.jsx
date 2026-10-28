@@ -8,6 +8,9 @@ import { mensajeDeError } from "../../utils/errores";
 import { aplica, CamposFormulario } from "./Publico/CamposFormulario";
 import "./Soporte.css";
 
+/** Cuántos archivos acepta el servidor por ticket. */
+const MAX_ADJUNTOS = 3;
+
 const VACIO = {
   categoria: "",
   caso: "",
@@ -39,6 +42,7 @@ export function RegistrarTicket() {
   });
   const [asignarme, setAsignarme] = useState(false);
   const [archivos, setArchivos] = useState([]);
+  const [omitidos, setOmitidos] = useState(0);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [creado, setCreado] = useState(null);
@@ -337,10 +341,26 @@ export function RegistrarTicket() {
                 className="form-control"
                 multiple
                 accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-                onChange={(e) =>
-                  setArchivos(Array.from(e.target.files ?? []).slice(0, 3))
+                aria-describedby={
+                  omitidos > 0 ? "rt-adjuntos-aviso" : undefined
                 }
+                onChange={(e) => {
+                  const elegidos = Array.from(e.target.files ?? []);
+                  setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
+                  setOmitidos(Math.max(0, elegidos.length - MAX_ADJUNTOS));
+                }}
               />
+              {/* Antes se recortaba a tres en silencio (revisión final
+                  UX/UI, 28/10/2026). */}
+              {omitidos > 0 && (
+                <div
+                  id="rt-adjuntos-aviso"
+                  className="mz-small mz-faint mt-1"
+                  role="status"
+                >
+                  Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
+                </div>
+              )}
             </div>
             {datos.soy_tecnico && (
               <div className="col-12">

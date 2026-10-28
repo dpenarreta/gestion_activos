@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Los cinco catálogos de la organización: sedes, departamentos, empleados,
@@ -398,5 +404,57 @@ describe("Concesionarios", () => {
     expect(
       screen.getByRole("columnheader", { name: "Equipos suyos" }),
     ).toBeInTheDocument();
+  });
+});
+
+// --- En el teléfono ----------------------------------------------------------
+
+/*
+ * Ocho columnas a 375 px solo se leían desplazándose de lado: en el teléfono
+ * cada empleado va en una tarjeta (revisión final UX/UI, 28/10/2026).
+ */
+describe("Empleados en el teléfono", () => {
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada empleado es una tarjeta con sus datos clave y su acción", async () => {
+    permisos.add("organizacion.editar");
+    pintar(EmpleadosList);
+
+    const lista = await screen.findByRole("list", { name: "Empleados" });
+    const [tarjeta] = within(lista).getAllByRole("listitem");
+    expect(tarjeta).toHaveTextContent("Luis Mora");
+    expect(tarjeta).toHaveTextContent("Analista · Tecnología");
+    expect(tarjeta).toHaveTextContent("EMP-0003");
+    expect(tarjeta).toHaveTextContent("Activo");
+    expect(within(tarjeta).getByRole("link", { name: "2" })).toHaveAttribute(
+      "href",
+      "/admin/activos?custodio=3",
+    );
+    expect(
+      within(tarjeta).getByRole("link", { name: "Editar Luis Mora" }),
+    ).toHaveAttribute("href", "/admin/organizacion/empleados/3");
+  });
+
+  it("en el escritorio no se dibujan las tarjetas", async () => {
+    window.matchMedia = original;
+    pintar(EmpleadosList);
+
+    await screen.findByRole("table");
+    expect(
+      screen.queryByRole("list", { name: "Empleados" }),
+    ).not.toBeInTheDocument();
   });
 });

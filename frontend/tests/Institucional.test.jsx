@@ -168,7 +168,26 @@ describe("El organigrama", () => {
     expect(within(ti).getByText(/Rosa Vera/)).toBeInTheDocument();
     expect(within(ti).getByText("2 plazas vacantes")).toBeInTheDocument();
     expect(within(ti).getByText("1/3")).toBeInTheDocument();
+    // La cifra se lee entera: «1 de 3 plazas cubiertas».
+    expect(within(ti).getByText("1/3")).toHaveAttribute("aria-hidden", "true");
+    expect(within(ti).getByText("1 de 3 plazas cubiertas")).toBeInTheDocument();
     expect(screen.getByText("1 de 4 plazas cubiertas")).toBeInTheDocument();
+  });
+
+  it("las vistas son radios nativos: una parada de Tab y flechas", async () => {
+    pintar(<OrganigramaPage />);
+    const grupo = await screen.findByRole("radiogroup", {
+      name: "Cómo ver el organigrama",
+    });
+    const radios = within(grupo).getAllByRole("radio");
+    expect(radios).toHaveLength(2);
+    for (const radio of radios) {
+      expect(radio.tagName).toBe("INPUT");
+      expect(radio).toHaveAttribute("name", "org-vista");
+    }
+    expect(
+      within(grupo).getByRole("radio", { name: /Árbol por niveles/ }),
+    ).toBeChecked();
   });
 
   it("también se ve en lista, con a quién reporta cada cargo", async () => {
@@ -183,10 +202,20 @@ describe("El organigrama", () => {
     const raiz = await screen.findByRole("region", {
       name: "Presidencia ejecutiva",
     });
-    fireEvent.click(within(raiz).getByRole("button", { name: "Contraer" }));
+    // El botón dice de qué unidad es (revisión final UX/UI, 28/10/2026).
+    fireEvent.click(
+      within(raiz).getByRole("button", {
+        name: "Contraer Presidencia ejecutiva",
+      }),
+    );
     expect(
       screen.queryByRole("region", { name: "Gerencia de TI" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(raiz).getByRole("button", {
+        name: /^Ver 1 unidad\(es\) · \d+ plazas\s?, en Presidencia ejecutiva$/,
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 
   it("busca un cargo o una persona", async () => {

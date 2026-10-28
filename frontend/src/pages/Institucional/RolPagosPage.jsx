@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
 import {
@@ -511,6 +511,78 @@ function MisRolesAbiertos({ roles }) {
   );
 }
 
+/**
+ * Un botón que despliega una lista de acciones (patrón de divulgación:
+ * `aria-expanded` y la lista a continuación, sin `role="menu"`, para que Tab
+ * recorra las opciones). Escape, un clic fuera o salir con Tab la cierran, y
+ * Escape devuelve el foco al botón. Al elegir una, el foco vuelve al botón
+ * antes de abrir su ventana: así, al cerrarla, regresa a un lugar que existe
+ * (revisión final UX/UI, 28/10/2026).
+ */
+function MenuDeGestion({ etiqueta, acciones }) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef(null);
+  const boton = useRef(null);
+  const idLista = useId();
+
+  // Mientras está abierta: un clic o el foco fuera la cierran, y Escape
+  // también, devolviendo el foco al botón.
+  useEffect(() => {
+    if (!abierto) return undefined;
+    function fuera(evento) {
+      if (!caja.current?.contains(evento.target)) setAbierto(false);
+    }
+    function escape(evento) {
+      if (evento.key !== "Escape") return;
+      evento.stopPropagation();
+      setAbierto(false);
+      boton.current?.focus();
+    }
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("focusin", fuera);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("focusin", fuera);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [abierto]);
+
+  return (
+    <div className="rol-gestion" ref={caja}>
+      <button
+        ref={boton}
+        type="button"
+        className="btn btn-outline-secondary btn-sm"
+        aria-expanded={abierto}
+        aria-controls={abierto ? idLista : undefined}
+        onClick={() => setAbierto((actual) => !actual)}
+      >
+        {etiqueta} <Icon name={abierto ? "chevron-up" : "chevron-down"} />
+      </button>
+      {abierto && (
+        <ul id={idLista} className="rol-gestion__lista" aria-label={etiqueta}>
+          {acciones.map((accion) => (
+            <li key={accion.id}>
+              <button
+                type="button"
+                className="rol-gestion__opcion"
+                onClick={() => {
+                  setAbierto(false);
+                  boton.current?.focus();
+                  accion.abrir();
+                }}
+              >
+                <Icon name={accion.icono} /> {accion.texto}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function RolPagosPage() {
   const hoy = new Date();
   const [estado, setEstado] = useState(null);
@@ -567,6 +639,46 @@ export function RolPagosPage() {
   const mesesDelAnio =
     Number(periodo.anio) === hoy.getFullYear() ? hoy.getMonth() + 1 : 12;
 
+  // Las acciones de gestión, de la más usada a la menos.
+  const [principal, ...resto] = [
+    estado?.puede_seguimiento && {
+      id: "seguimiento",
+      icono: "envelope-exclamation",
+      texto: "Roles sin abrir",
+      abrir: () => setSeguimiento(true),
+    },
+    estado?.puede_descarga_masiva && {
+      id: "masiva",
+      icono: "file-earmark-zip",
+      texto: "Descarga masiva",
+      abrir: () => setMasiva(true),
+    },
+    estado?.puede_habilitar && {
+      id: "habilitados",
+      icono: "person-check",
+      texto: "Usuarios habilitados",
+      abrir: () => setHabilitados(true),
+    },
+    estado?.puede_ver_historial && {
+      id: "auditado",
+      icono: "file-earmark-check",
+      texto: "Descargar rol auditado",
+      abrir: () => setAuditado(true),
+    },
+    estado?.puede_ver_historial && {
+      id: "historial",
+      icono: "clock-history",
+      texto: "Historial por empleado",
+      abrir: () => setHistorial(true),
+    },
+    estado?.puede_configurar && {
+      id: "textos",
+      icono: "gear",
+      texto: "Textos de la consulta",
+      abrir: () => setConfigurando(true),
+    },
+  ].filter(Boolean);
+
   async function olvidar() {
     if (
       !(await confirmar({
@@ -598,65 +710,21 @@ export function RolPagosPage() {
             constancia y es el que verá desde entonces.
           </p>
         </div>
-        {(estado?.puede_configurar ||
-          estado?.puede_ver_historial ||
-          estado?.puede_habilitar ||
-          estado?.puede_descarga_masiva ||
-          estado?.puede_seguimiento) && (
+        {/* Revisión final UX/UI (28/10/2026): eran hasta seis botones
+            iguales. Queda a la vista la primera acción de gestión a la que
+            tiene acceso (en Talento Humano, «Roles sin abrir») y el resto va
+            en el menú «Gestión de roles». */}
+        {principal && (
           <div className="mz-actions">
-            {estado.puede_seguimiento && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setSeguimiento(true)}
-              >
-                <Icon name="envelope-exclamation" /> Roles sin abrir
-              </button>
-            )}
-            {estado.puede_descarga_masiva && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setMasiva(true)}
-              >
-                <Icon name="file-earmark-zip" /> Descarga masiva
-              </button>
-            )}
-            {estado.puede_habilitar && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setHabilitados(true)}
-              >
-                <Icon name="person-check" /> Usuarios habilitados
-              </button>
-            )}
-            {estado.puede_ver_historial && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setAuditado(true)}
-              >
-                <Icon name="file-earmark-check" /> Descargar rol auditado
-              </button>
-            )}
-            {estado.puede_ver_historial && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setHistorial(true)}
-              >
-                <Icon name="clock-history" /> Historial por empleado
-              </button>
-            )}
-            {estado.puede_configurar && (
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setConfigurando(true)}
-              >
-                <Icon name="gear" /> Textos de la consulta
-              </button>
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm"
+              onClick={principal.abrir}
+            >
+              <Icon name={principal.icono} /> {principal.texto}
+            </button>
+            {resto.length > 0 && (
+              <MenuDeGestion etiqueta="Gestión de roles" acciones={resto} />
             )}
           </div>
         )}

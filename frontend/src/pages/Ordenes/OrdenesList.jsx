@@ -6,6 +6,7 @@ import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarg
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
+import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import {
   CumplimientoOrden,
@@ -41,6 +42,7 @@ function hayFiltrosActivos(filtros, iniciales) {
 
 export function OrdenesList() {
   const [catalogos, setCatalogos] = useState(null);
+  const [errorCatalogos, setErrorCatalogos] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback((params) => ordenesService.list(params), []);
   const listado = useListadoPaginado(
@@ -58,7 +60,14 @@ export function OrdenesList() {
     ordenesService
       .catalogos()
       .then(setCatalogos)
-      .catch(() => setCatalogos(null));
+      .catch((err) => {
+        setCatalogos(null);
+        // Sin catálogos los filtros quedan vacíos: se dice junto a ellos en
+        // vez de fallar en silencio (revisión final UX/UI, 28/10/2026).
+        setErrorCatalogos(
+          mensajeDeError(err, "No se pudieron cargar los filtros."),
+        );
+      });
   }, []);
 
   const puede = catalogos?.puede ?? {};
@@ -147,6 +156,12 @@ export function OrdenesList() {
           Buscar
         </button>
       </form>
+      {errorCatalogos && (
+        <p className="mz-field-error" role="alert">
+          {errorCatalogos} Los filtros de estado, prioridad y región quedan sin
+          opciones; recargue la página para volver a intentarlo.
+        </p>
+      )}
 
       <div className="mz-table-wrap">
         <table className="mz-table">

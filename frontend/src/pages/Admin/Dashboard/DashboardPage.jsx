@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { dashboardService } from "../../../api/activosService";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { mensajeDeError } from "../../../utils/errores";
 import { formatearDias, formatearMoneda } from "../../../utils/formato";
 import "./Dashboard.css";
 
@@ -32,23 +34,43 @@ export function DashboardPage() {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
+    setDatos(null);
     dashboardService
       .indicadores()
       .then(setDatos)
-      .catch(() => setError("No se pudieron cargar los indicadores."));
+      .catch((err) =>
+        setError(mensajeDeError(err, "No se pudieron cargar los indicadores.")),
+      );
   }, []);
 
-  if (error) {
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  const cabecera = (
+    <div className="mz-view-head">
+      <div>
+        <h2>Panel principal</h2>
+        <p className="mz-desc">
+          El estado del parque de un vistazo. Cada indicador abre el inventario
+          ya filtrado.
+        </p>
+      </div>
+    </div>
+  );
+
+  // Mientras carga o si falla, la cabecera se queda: antes el fallo pintaba
+  // solo el aviso, sin título ni forma de reintentar, y «Cargando…» no se
+  // anunciaba (revisión final UX/UI, 28/10/2026).
+  if (error || !datos) {
     return (
-      <div className="mz-alert mz-alert--bad" role="alert">
-        <Icon name="x-octagon" />
-        {error}
+      <div className="dashboard-page">
+        {cabecera}
+        <EstadoDeCarga cargando={!datos} error={error} onReintentar={cargar} />
       </div>
     );
-  }
-  if (!datos) {
-    return <div className="mz-empty">Cargando…</div>;
   }
 
   const {
@@ -61,15 +83,7 @@ export function DashboardPage() {
 
   return (
     <div className="dashboard-page">
-      <div className="mz-view-head">
-        <div>
-          <h2>Panel principal</h2>
-          <p className="mz-desc">
-            El estado del parque de un vistazo. Cada indicador abre el
-            inventario ya filtrado.
-          </p>
-        </div>
-      </div>
+      {cabecera}
 
       <section className="mz-kpi-grid">
         <Indicador

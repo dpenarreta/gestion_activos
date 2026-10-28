@@ -1,9 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
 import { Icon } from "../../components/common/Icon/Icon";
-import { mensajeDeError } from "../../utils/errores";
+import {
+  erroresPorCampo,
+  hayErroresGenerales,
+  mensajeDeError,
+} from "../../utils/errores";
 import "./Ordenes.css";
 
 const VACIO = {
@@ -21,9 +30,12 @@ const VACIO = {
  */
 export function OrdenForm() {
   const navegar = useNavigate();
+  const contenedorRef = useRef(null);
   const [catalogos, setCatalogos] = useState(null);
+  const [errorCatalogos, setErrorCatalogos] = useState(null);
   const [valores, setValores] = useState(VACIO);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -31,29 +43,65 @@ export function OrdenForm() {
       .catalogos()
       .then(setCatalogos)
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron cargar las sedes.")),
+        setErrorCatalogos(
+          mensajeDeError(err, "No se pudieron cargar las sedes."),
+        ),
       );
   }, []);
 
   function fijar(campo, valor) {
     setValores((actual) => ({ ...actual, [campo]: valor }));
+    // Al corregir el campo, su error deja de valer.
+    setErrores((actuales) => {
+      if (!actuales[campo]) return actuales;
+      const resto = { ...actuales };
+      delete resto[campo];
+      return resto;
+    });
   }
 
   async function guardar(evento) {
     evento.preventDefault();
-    setIsSaving(true);
     setError(null);
+    setErrores({});
+    // Los obligatorios se revisan aquí y no con `required`: la burbuja del
+    // navegador tapaba el error del campo y se veía distinta en cada
+    // formulario (revisión final UX/UI, 28/10/2026).
+    const faltan = {};
+    if (!valores.sede) faltan.sede = "Elija la sede.";
+    if (!valores.categoria) faltan.categoria = "Elija la categoría.";
+    if (!valores.titulo.trim()) faltan.titulo = "Diga qué hay que hacer.";
+    if (Object.keys(faltan).length > 0) {
+      setErrores(faltan);
+      setError("No se pudo registrar la orden: revise los campos marcados.");
+      enfocarPrimerError(contenedorRef.current);
+      return;
+    }
+    setIsSaving(true);
     try {
       const orden = await ordenesService.create(valores);
       navegar(`/admin/ordenes/lista/${orden.id}`);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo registrar la orden."));
+      const porCampo = erroresPorCampo(err);
+      setErrores(porCampo);
+      // Si todo quedó bajo su campo, arriba basta con decir que se revisen;
+      // si no, el aviso lleva el motivo completo.
+      const todoEnSuCampo =
+        Object.keys(porCampo).length > 0 &&
+        Object.keys(porCampo).every((campo) => campo in VACIO) &&
+        !hayErroresGenerales(err);
+      setError(
+        todoEnSuCampo
+          ? "No se pudo registrar la orden: revise los campos marcados."
+          : mensajeDeError(err, "No se pudo registrar la orden."),
+      );
       setIsSaving(false);
+      enfocarPrimerError(contenedorRef.current);
     }
   }
 
   return (
-    <div className="ordenes-page">
+    <div className="ordenes-page" ref={contenedorRef}>
       <div className="mz-view-head">
         <div>
           <h2>Nueva orden de trabajo</h2>
@@ -74,17 +122,21 @@ export function OrdenForm() {
       <section className="mz-card">
         <div className="mz-card-head">
           <h3>Datos de la orden</h3>
+          <LeyendaObligatorios />
         </div>
-        <form onSubmit={guardar} className="mz-card-body">
+        <form onSubmit={guardar} className="mz-card-body" noValidate>
           <div className="row g-3">
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="ot-sede">
-                Sede
-              </label>
+            <Campo
+              id="ot-sede"
+              etiqueta="Sede"
+              obligatorio
+              // Si los catálogos no cargan, se dice junto al campo que queda
+              // vacío y no como un fallo del formulario.
+              error={errores.sede || errorCatalogos}
+              className="col-12 col-md-6"
+            >
               <select
-                id="ot-sede"
                 className="form-select"
-                required
                 value={valores.sede}
                 onChange={(evento) => fijar("sede", evento.target.value)}
               >
@@ -96,15 +148,16 @@ export function OrdenForm() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="col-6 col-md-3">
-              <label className="form-label" htmlFor="ot-categoria">
-                Categoría
-              </label>
+            </Campo>
+            <Campo
+              id="ot-categoria"
+              etiqueta="Categoría"
+              obligatorio
+              error={errores.categoria}
+              className="col-6 col-md-3"
+            >
               <select
-                id="ot-categoria"
                 className="form-select"
-                required
                 value={valores.categoria}
                 onChange={(evento) => fijar("categoria", evento.target.value)}
               >
@@ -115,13 +168,14 @@ export function OrdenForm() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="col-6 col-md-3">
-              <label className="form-label" htmlFor="ot-prioridad">
-                Prioridad
-              </label>
+            </Campo>
+            <Campo
+              id="ot-prioridad"
+              etiqueta="Prioridad"
+              error={errores.prioridad}
+              className="col-6 col-md-3"
+            >
               <select
-                id="ot-prioridad"
                 className="form-select"
                 value={valores.prioridad}
                 onChange={(evento) => fijar("prioridad", evento.target.value)}
@@ -132,40 +186,44 @@ export function OrdenForm() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="ot-titulo">
-                Qué hay que hacer
-              </label>
+            </Campo>
+            <Campo
+              id="ot-titulo"
+              etiqueta="Qué hay que hacer"
+              obligatorio
+              error={errores.titulo}
+              className="col-12"
+            >
               <input
-                id="ot-titulo"
                 className="form-control"
-                required
                 maxLength={150}
                 placeholder="Sin luz en el área de cajas"
                 value={valores.titulo}
                 onChange={(evento) => fijar("titulo", evento.target.value)}
               />
-            </div>
-            <div className="col-12">
-              <label className="form-label" htmlFor="ot-descripcion">
-                Descripción
-              </label>
+            </Campo>
+            <Campo
+              id="ot-descripcion"
+              etiqueta="Descripción"
+              error={errores.descripcion}
+              className="col-12"
+            >
               <textarea
-                id="ot-descripcion"
                 className="form-control"
                 rows={3}
                 placeholder="Desde cuándo pasa, dónde exactamente y qué se ha intentado."
                 value={valores.descripcion}
                 onChange={(evento) => fijar("descripcion", evento.target.value)}
               />
-            </div>
-            <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="ot-telefono">
-                Teléfono de contacto
-              </label>
+            </Campo>
+            <Campo
+              id="ot-telefono"
+              etiqueta="Teléfono de contacto"
+              ayuda="Para que el técnico coordine la visita. Se muestra enmascarado a quien no lo necesita completo."
+              error={errores.telefono_contacto}
+              className="col-12 col-md-6"
+            >
               <input
-                id="ot-telefono"
                 className="form-control"
                 inputMode="tel"
                 placeholder="099 000 0000"
@@ -174,11 +232,7 @@ export function OrdenForm() {
                   fijar("telefono_contacto", evento.target.value)
                 }
               />
-              <div className="form-text">
-                Para que el técnico coordine la visita. Se muestra enmascarado a
-                quien no lo necesita completo.
-              </div>
-            </div>
+            </Campo>
             <div className="col-12 mz-actions justify-content-end">
               <button
                 type="button"

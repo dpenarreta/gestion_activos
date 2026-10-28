@@ -161,12 +161,12 @@ describe("La barra de chat", () => {
     });
     const ventana = await screen.findByRole("region", { name: "Chat: Beto" });
     expect(
-      within(ventana).getByRole("button", { name: "Abrir" }),
+      within(ventana).getByRole("button", { name: "Abrir chat con Beto" }),
     ).toBeInTheDocument();
     expect(within(ventana).queryByLabelText("Mensaje para Beto")).toBeNull();
-    expect(within(ventana).getByLabelText("1 sin leer")).toBeInTheDocument();
+    expect(within(ventana).getByText("1 mensaje sin leer")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Chat: 1 mensajes sin leer" }),
+      screen.getByRole("button", { name: "Chat: 1 mensaje sin leer" }),
     ).toBeInTheDocument();
   });
 
@@ -214,7 +214,7 @@ describe("La barra de chat", () => {
     // Dentro del chat no se minimiza nada.
     fireEvent.mouseDown(within(ventana).getByLabelText("Mensaje para Beto"));
     expect(
-      within(ventana).getByRole("button", { name: "Minimizar" }),
+      within(ventana).getByRole("button", { name: "Minimizar chat con Beto" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Chat de la empresa" }),
@@ -226,9 +226,33 @@ describe("La barra de chat", () => {
       screen.queryByRole("region", { name: "Chat de la empresa" }),
     ).toBeNull();
     expect(
-      within(ventana).getByRole("button", { name: "Abrir" }),
+      within(ventana).getByRole("button", { name: "Abrir chat con Beto" }),
     ).toBeInTheDocument();
     expect(within(ventana).queryByLabelText("Mensaje para Beto")).toBeNull();
+  });
+});
+
+describe("Los botones de cada ventana", () => {
+  it("minimizar y cerrar dicen de qué conversación son", async () => {
+    /* Con varias ventanas abiertas, «Cerrar» a secas no decía cuál
+       (revisión final UX/UI, 28/10/2026). */
+    sessionStorage.setItem(
+      "chat.ventanas",
+      JSON.stringify([{ id: 2, abierta: true }]),
+    );
+    pintar();
+    const ventana = await screen.findByRole("region", { name: "Chat: Beto" });
+    expect(
+      within(ventana).getByRole("button", { name: "Minimizar chat con Beto" }),
+    ).toHaveClass("chat-ventana__accion");
+
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Cerrar chat con Beto" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Chat: Beto" })).toBeNull(),
+    );
   });
 });
 

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { alertasService } from "../../../api/alertasService";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
+import { mensajeDeError } from "../../../utils/errores";
 import "./Alertas.css";
 
 const SEVERIDADES = {
@@ -46,10 +48,13 @@ export function AlertasPage() {
 
   const cargar = useCallback(() => {
     setIsLoading(true);
+    setError(null);
     alertasService
       .resumen()
       .then(setDatos)
-      .catch(() => setError("No se pudieron cargar las alertas."))
+      .catch((err) =>
+        setError(mensajeDeError(err, "No se pudieron cargar las alertas.")),
+      )
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -85,14 +90,13 @@ export function AlertasPage() {
         )}
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-
-      {isLoading && <div className="mz-empty">Cargando…</div>}
+      {/* Con reintento y una carga que se anuncia (revisión final UX/UI,
+          28/10/2026). */}
+      <EstadoDeCarga
+        cargando={isLoading && !datos}
+        error={error}
+        onReintentar={cargar}
+      />
 
       {datos && conPendientes.length === 0 && (
         <div className="mz-alert mz-alert--info" role="status">
