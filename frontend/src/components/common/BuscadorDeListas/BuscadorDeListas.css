@@ -1,0 +1,92 @@
+/* La lista con buscador que reemplaza a la del navegador (ver
+   BuscadorDeListas.jsx). Encima de toda ventana: se abre desde ellas. */
+.buscador-listas {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  box-shadow: var(--mz-shadow-3);
+  overflow: hidden;
+  font-family: var(--mz-font-body);
+}
+
+.buscador-listas__buscar.form-control {
+  border: 0;
+  border-bottom: 1px solid var(--mz-border);
+  border-radius: 0;
+  padding: 10px 12px;
+  min-height: 44px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+}
+
+.buscador-listas__buscar.form-control:focus {
+  box-shadow: inset 0 -2px 0 var(--mz-action);
+}
+
+.buscador-listas__lista {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.buscador-listas__opcion {
+  padding: 8px 12px;
+  min-height: 36px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+/* La activa (teclado o mouse) con una barra de 3 px además del fondo: el
+   fondo solo no llegaba a 3:1 (auditoría UX/UI, 28/10/2026). */
+.buscador-listas__opcion.is-activa {
+  background: var(--mz-sunken);
+  box-shadow: inset 3px 0 0 var(--mz-action);
+}
+
+/* La elegida, en el color del texto: el azul de acción no aseguraba 4.5:1. */
+.buscador-listas__opcion.is-elegida {
+  font-weight: 600;
+}
+
+.buscador-listas__opcion.is-elegida::after {
+  content: "✓" / "";
+  float: right;
+  margin-left: 8px;
+}
+
+.buscador-listas__opcion.is-deshabilitada {
+  color: var(--mz-ink-faint);
+  cursor: default;
+}
+
+.buscador-listas__grupo {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mz-ink-soft);
+}
+
+.buscador-listas__vacio {
+  margin: 0;
+  padding: 12px;
+  color: var(--mz-ink-soft);
+  font-size: 14px;
+}
+
+@media (pointer: coarse) {
+  .buscador-listas__opcion {
+    min-height: 44px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+}
