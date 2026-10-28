@@ -248,4 +248,22 @@ describe("Asignación de empresas y roles a un usuario", () => {
       screen.queryByRole("checkbox", { name: /Asignar LaarCourier/ }),
     ).not.toBeInTheDocument();
   });
+
+  it("no deja guardar si los accesos no cargaron (enviaría listas vacías)", async () => {
+    get.mockRejectedValueOnce(new Error("caída"));
+    render(<AsignacionEmpresas usuarioId="7" />);
+    expect(
+      await screen.findByText(/No se pudieron cargar los accesos/),
+    ).toBeInTheDocument();
+    const boton = screen.getByRole("button", { name: "Cargando accesos…" });
+    expect(boton).toBeDisabled();
+    fireEvent.click(boton);
+    expect(assignEmpresas).not.toHaveBeenCalled();
+    expect(assignRoles).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByRole("button", { name: "Guardar accesos" }),
+    ).toBeEnabled();
+  });
 });

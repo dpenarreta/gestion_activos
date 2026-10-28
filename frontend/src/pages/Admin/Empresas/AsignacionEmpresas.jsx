@@ -47,6 +47,11 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
   // Hay algo marcado o desmarcado que todavía no se guardó: la ficha lo usa
   // para avisar al salir (auditoría UX/UI, fase 2, 28/10/2026).
   const [sinGuardar, setSinGuardar] = useState(false);
+  // Guardar solo después de cargar bien lo que la persona tiene: antes, con
+  // la carga en curso o fallida, «Guardar accesos» enviaba listas vacías y le
+  // quitaba todas sus empresas y roles (revisión final UX/UI, 28/10/2026).
+  const [cargado, setCargado] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     onCambiosSinGuardar?.(sinGuardar);
@@ -59,6 +64,8 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
 
   useEffect(() => {
     if (!puedeVer || !usuarioId) return;
+    setCargado(false);
+    setError(null);
     Promise.all([
       empresasService.list({ page_size: 100 }),
       adminUsersService.get(usuarioId),
@@ -105,9 +112,14 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
         );
         setRolesGlobales((usuario.roles ?? []).map((rol) => rol.id));
         setEsSuperusuario(Boolean(usuario.is_superuser));
+        setCargado(true);
       })
-      .catch(() => setError("No se pudieron cargar las empresas."));
-  }, [usuarioId, puedeVer]);
+      .catch(() =>
+        setError(
+          "No se pudieron cargar los accesos de esta persona. No se puede guardar hasta que carguen.",
+        ),
+      );
+  }, [usuarioId, puedeVer, intento]);
 
   function alternarEmpresa(empresaId) {
     cambiar();
@@ -165,6 +177,7 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
   }
 
   async function guardar() {
+    if (!cargado) return;
     setIsSaving(true);
     setError(null);
     setMensaje(null);
@@ -454,11 +467,24 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={isSaving}
+              disabled={isSaving || !cargado}
               onClick={guardar}
             >
-              {isSaving ? "Guardando…" : "Guardar accesos"}
+              {isSaving
+                ? "Guardando…"
+                : cargado
+                  ? "Guardar accesos"
+                  : "Cargando accesos…"}
             </button>
+            {!cargado && error && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setIntento((n) => n + 1)}
+              >
+                Reintentar
+              </button>
+            )}
           </div>
         )}
       </div>
