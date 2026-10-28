@@ -92,25 +92,25 @@ function pintar(id = null) {
 
 /** Llena lo obligatorio de un alta. */
 function llenarMinimo() {
-  fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+  fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
     target: { value: "1" },
   });
-  fireEvent.change(screen.getByLabelText("Nombre del activo"), {
+  fireEvent.change(screen.getByLabelText(/^Nombre del activo/), {
     target: { value: "Laptop Contabilidad 02" },
   });
-  fireEvent.change(screen.getByLabelText("Marca"), {
+  fireEvent.change(screen.getByLabelText(/^Marca/), {
     target: { value: "HP" },
   });
-  fireEvent.change(screen.getByLabelText("Modelo"), {
+  fireEvent.change(screen.getByLabelText(/^Modelo/), {
     target: { value: "ProBook 450" },
   });
-  fireEvent.change(screen.getByLabelText("Número de serie"), {
+  fireEvent.change(screen.getByLabelText(/^Número de serie/), {
     target: { value: "HP450-0033" },
   });
-  fireEvent.change(screen.getByLabelText("Departamento"), {
+  fireEvent.change(screen.getByLabelText(/^Departamento/), {
     target: { value: "2" },
   });
-  fireEvent.change(screen.getByLabelText("Fecha de adquisición"), {
+  fireEvent.change(screen.getByLabelText(/^Fecha de adquisición/), {
     target: { value: "2026-03-01" },
   });
 }
@@ -252,7 +252,7 @@ describe("Las características dependen del tipo elegido", () => {
     pintar();
 
     await screen.findByRole("option", { name: "Laptop (LAP)" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
 
@@ -271,7 +271,7 @@ describe("Las características dependen del tipo elegido", () => {
     pintar();
 
     await screen.findByRole("option", { name: "Laptop (LAP)" });
-    fireEvent.change(screen.getByLabelText("Tipo de dispositivo"), {
+    fireEvent.change(screen.getByLabelText(/^Tipo de dispositivo/), {
       target: { value: "1" },
     });
 
@@ -319,7 +319,7 @@ describe("Registrar un activo", () => {
     pintar();
 
     await screen.findByRole("option", { name: "Laptop (LAP)" });
-    fireEvent.change(screen.getByLabelText("Fecha de adquisición"), {
+    fireEvent.change(screen.getByLabelText(/^Fecha de adquisición/), {
       target: { value: "2026-03-01" },
     });
 
@@ -369,11 +369,13 @@ describe("Editar la ficha", () => {
 
     expect(await screen.findByText("Editar ficha técnica")).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del activo")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del activo/)).toHaveValue(
         "Laptop Jefatura TI",
       ),
     );
-    expect(screen.getByLabelText("Número de serie")).toHaveValue("DL5440-0011");
+    expect(screen.getByLabelText(/^Número de serie/)).toHaveValue(
+      "DL5440-0011",
+    );
   });
 
   it("quién responde y el departamento no se cambian aquí, y explica dónde sí", async () => {
@@ -385,7 +387,7 @@ describe("Editar la ficha", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Custodio")).toBeDisabled(),
     );
-    expect(screen.getByLabelText("Departamento")).toBeDisabled();
+    expect(screen.getByLabelText(/^Departamento/)).toBeDisabled();
     expect(
       screen.getByText(/se cambian desde la ficha, con la acción «Asignar/),
     ).toBeInTheDocument();
@@ -396,7 +398,7 @@ describe("Editar la ficha", () => {
 
     await screen.findByText("Editar ficha técnica");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre del activo")).toHaveValue(
+      expect(screen.getByLabelText(/^Nombre del activo/)).toHaveValue(
         "Laptop Jefatura TI",
       ),
     );
@@ -527,7 +529,7 @@ describe("Propio o puesto por un partner", () => {
     pintar();
 
     await screen.findByRole("option", { name: "Laptop (LAP)" });
-    expect(screen.queryByLabelText("Concesionario")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Concesionario/)).not.toBeInTheDocument();
   });
 
   it("al marcarlo en concesión se pide de quién es", async () => {
@@ -551,7 +553,7 @@ describe("Propio o puesto por un partner", () => {
     fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
       target: { value: "concesion" },
     });
-    fireEvent.change(await screen.findByLabelText("Concesionario"), {
+    fireEvent.change(await screen.findByLabelText(/^Concesionario/), {
       target: { value: "6" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
@@ -573,7 +575,7 @@ describe("Propio o puesto por un partner", () => {
     fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
       target: { value: "concesion" },
     });
-    fireEvent.change(await screen.findByLabelText("Concesionario"), {
+    fireEvent.change(await screen.findByLabelText(/^Concesionario/), {
       target: { value: "6" },
     });
     fireEvent.change(screen.getByLabelText("De quién es el equipo"), {
@@ -607,7 +609,7 @@ describe("Propio o puesto por un partner", () => {
 
     await screen.findByText("Editar ficha técnica");
     await waitFor(() =>
-      expect(screen.getByLabelText("Concesionario")).toHaveValue("6"),
+      expect(screen.getByLabelText(/^Concesionario/)).toHaveValue("6"),
     );
   });
 });
@@ -728,5 +730,88 @@ describe("El equipo que alguien pidió", () => {
 
     await screen.findByText("Editar ficha técnica");
     expect(screen.getByLabelText("Lo pidió")).toBeDisabled();
+  });
+});
+
+// --- Obligatorios y errores junto al campo (auditoría UX/UI, fase 2) --------
+
+describe("Lo obligatorio y los errores van junto a su campo", () => {
+  it("marca los siete obligatorios del alta y explica la marca", async () => {
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    for (const etiqueta of [
+      "Tipo de dispositivo",
+      "Nombre del activo",
+      "Marca",
+      "Modelo",
+      "Número de serie",
+      "Departamento",
+      "Fecha de adquisición",
+    ]) {
+      const control = screen.getByLabelText(new RegExp(`^${etiqueta}`));
+      // Quien usa lector de pantalla oye «(obligatorio)»; el asterisco se ve.
+      expect(control).toHaveAccessibleName(
+        expect.stringContaining("(obligatorio)"),
+      );
+      expect(control).toBeRequired();
+      expect(control).toHaveAttribute("aria-required", "true");
+    }
+    // Lo opcional no lleva la marca.
+    expect(screen.getByLabelText("Sede")).not.toBeRequired();
+    expect(screen.getByText("Obligatorio")).toBeInTheDocument();
+  });
+
+  it("la ayuda del campo queda asociada al control", async () => {
+    pintar();
+
+    const serie = await screen.findByLabelText(/^Número de serie/);
+    expect(serie).toHaveAccessibleDescription("Único en todo el inventario.");
+  });
+
+  it("una serie duplicada se dice bajo la serie y el foco va allí", async () => {
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { numero_serie: ["Ya existe un activo con esa serie."] },
+          },
+        },
+      },
+    });
+
+    pintar();
+
+    await screen.findByRole("option", { name: "Laptop (LAP)" });
+    llenarMinimo();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar activo" }));
+
+    const serie = screen.getByLabelText(/^Número de serie/);
+    await waitFor(() => expect(serie).toHaveAttribute("aria-invalid", "true"));
+    expect(serie).toHaveAccessibleDescription(
+      /Ya existe un activo con esa serie\./,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "revise los campos marcados",
+    );
+    await waitFor(() => expect(serie).toHaveFocus());
+
+    // Al corregirla, el error deja de valer.
+    fireEvent.change(serie, { target: { value: "HP450-0034" } });
+    expect(serie).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("un catálogo que no carga lo dice junto a su lista", async () => {
+    listarSedes.mockRejectedValue(new Error("500"));
+
+    pintar();
+
+    const sede = screen.getByLabelText("Sede");
+    await waitFor(() =>
+      expect(sede).toHaveAccessibleDescription(
+        /No se pudieron cargar las sedes\./,
+      ),
+    );
   });
 });

@@ -6,6 +6,7 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
 import { EditorDeAgenda } from "../EditorDeAgenda";
 import "../Soporte.css";
+import { confirmar } from "../../../components/common/Confirmar/confirmar";
 
 /*
  * Configuración → Mesa de ayuda. Cinco apartados: equipo (niveles y
@@ -347,11 +348,17 @@ function FilaNivel({ nivel, personas, recurso }) {
           <button
             type="button"
             className="btn btn-outline-danger btn-sm"
-            onClick={() =>
-              recurso.ejecutar(() =>
-                soporteService.config.eliminar("niveles", nivel.id),
-              )
-            }
+            onClick={async () => {
+              const si = await confirmar({
+                titulo: `¿Quitar el nivel «${nivel.nombre}»?`,
+                accion: "Quitar",
+              });
+              if (si) {
+                recurso.ejecutar(() =>
+                  soporteService.config.eliminar("niveles", nivel.id),
+                );
+              }
+            }}
           >
             Quitar
           </button>
@@ -948,11 +955,17 @@ export function SlaSoporte() {
                   <button
                     type="button"
                     className="btn btn-outline-danger btn-sm"
-                    onClick={() =>
-                      reglas.ejecutar(() =>
-                        soporteService.config.eliminar("sla", r.id),
-                      )
-                    }
+                    onClick={async () => {
+                      const si = await confirmar({
+                        titulo: "¿Quitar esta regla de tiempo?",
+                        accion: "Quitar",
+                      });
+                      if (si) {
+                        reglas.ejecutar(() =>
+                          soporteService.config.eliminar("sla", r.id),
+                        );
+                      }
+                    }}
                   >
                     Quitar
                   </button>
@@ -1332,11 +1345,17 @@ export function RespuestasSoporte() {
                   <button
                     type="button"
                     className="btn btn-outline-danger btn-sm"
-                    onClick={() =>
-                      respuestas.ejecutar(() =>
-                        soporteService.config.eliminar("respuestas", r.id),
-                      )
-                    }
+                    onClick={async () => {
+                      const si = await confirmar({
+                        titulo: `¿Quitar la respuesta «${r.titulo}»?`,
+                        accion: "Quitar",
+                      });
+                      if (si) {
+                        respuestas.ejecutar(() =>
+                          soporteService.config.eliminar("respuestas", r.id),
+                        );
+                      }
+                    }}
                   >
                     Quitar
                   </button>

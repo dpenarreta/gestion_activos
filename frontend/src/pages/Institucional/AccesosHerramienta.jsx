@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { herramientasService } from "../../api/herramientasService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 
@@ -39,7 +40,13 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
       herramientasService
         .personas(texto)
         .then((lista) => vigente && setResultados(lista))
-        .catch(() => vigente && setResultados([]));
+        // Antes un fallo se veía como «nadie coincide» (auditoría UX/UI,
+        // fase 2, 28/10/2026).
+        .catch((err) => {
+          if (!vigente) return;
+          setResultados([]);
+          setError(mensajeDeError(err, "No se pudo buscar personas."));
+        });
     }, 250);
     return () => {
       vigente = false;
@@ -96,6 +103,8 @@ export function AccesosHerramienta({ herramienta, onCambio }) {
           {error}
         </div>
       )}
+      {/* Mientras llega quién la usa (antes, la lista quedaba en blanco). */}
+      {usuarios === null && !error && <EstadoDeCarga cargando />}
       {usuarios && usuarios.length === 0 && (
         <p className="mz-faint mb-0">Nadie la usa todavía.</p>
       )}

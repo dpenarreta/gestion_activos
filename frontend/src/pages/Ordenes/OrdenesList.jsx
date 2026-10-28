@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
@@ -23,15 +24,35 @@ import "./Ordenes.css";
  * faltan órdenes. El teléfono del solicitante llega enmascarado del servidor
  * a quien no lo necesita completo.
  */
+const FILTROS_INICIALES = {
+  q: "",
+  estado: "",
+  prioridad: "",
+  region: "",
+  abiertas: "true",
+};
+
+/** Si algún filtro se aparta de cómo arranca el listado. */
+function hayFiltrosActivos(filtros, iniciales) {
+  return Object.entries(filtros).some(
+    ([clave, valor]) => (valor ?? "") !== (iniciales[clave] ?? ""),
+  );
+}
+
 export function OrdenesList() {
   const [catalogos, setCatalogos] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback((params) => ordenesService.list(params), []);
   const listado = useListadoPaginado(
     cargar,
-    { q: "", estado: "", prioridad: "", region: "", abiertas: "true" },
+    FILTROS_INICIALES,
     "No se pudieron cargar las órdenes.",
   );
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
+  }
 
   useEffect(() => {
     ordenesService
@@ -127,13 +148,6 @@ export function OrdenesList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -186,13 +200,19 @@ export function OrdenesList() {
                 <td className="num mz-mono">{moneda(orden.total)}</td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={10}>
-                  No hay órdenes en su alcance con estos filtros
-                </td>
-              </tr>
-            )}
+            {/* Error, carga y vacío dentro de la tabla; el vacío distingue «no hay
+                nada» de «los filtros no encuentran nada» y ofrece quitarlos
+                (auditoría UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={10}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              vacio={listado.resultados.length === 0}
+              textoVacio="No hay órdenes abiertas en su alcance."
+              hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
+              onLimpiarFiltros={limpiarFiltros}
+            />
           </tbody>
         </table>
       </div>

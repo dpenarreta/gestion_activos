@@ -323,14 +323,18 @@ describe("La matriz (§15.3)", () => {
     expect(screen.getByText("Talento Humano · 1")).toBeInTheDocument();
   });
 
-  it("una fila abre el detalle en el panel lateral", async () => {
+  // Auditoría UX/UI, fase 2 (28/10/2026): el nombre es un botón real; la
+  // fila ya no es enfocable ni tapa sus celdas con un aria-label.
+  it("el nombre de la obligación abre el detalle en el panel lateral", async () => {
     pintar(<MatrizObligacionesPage />, "/admin/matriz/obligaciones");
 
-    fireEvent.click(
-      await screen.findByRole("row", {
-        name: /Abrir OBL-0001 Declaración de IVA/,
-      }),
-    );
+    const boton = await screen.findByRole("button", {
+      name: "Declaración de IVA",
+    });
+    const fila = boton.closest("tr");
+    expect(fila).not.toHaveAttribute("tabindex");
+    expect(fila).not.toHaveAttribute("aria-label");
+    fireEvent.click(boton);
 
     const panel = await screen.findByRole("dialog");
     expect(screen.getByTestId("ruta")).toHaveTextContent("periodo=1");
@@ -338,6 +342,18 @@ describe("La matriz (§15.3)", () => {
       await within(panel).findByText("Formulario 104"),
     ).toBeInTheDocument();
     expect(within(panel).getByText("Sara Ruiz")).toBeInTheDocument();
+  });
+
+  it("el clic en la fila sigue abriendo el detalle (atajo de ratón)", async () => {
+    pintar(<MatrizObligacionesPage />, "/admin/matriz/obligaciones");
+
+    const boton = await screen.findByRole("button", {
+      name: "Declaración de IVA",
+    });
+    fireEvent.click(boton.closest("tr").querySelector("td"));
+
+    await screen.findByRole("dialog");
+    expect(screen.getByTestId("ruta")).toHaveTextContent("periodo=1");
   });
 });
 
@@ -366,6 +382,37 @@ describe("El detalle del período (§15.4)", () => {
       await within(panel).findByText("Cambio de responsable"),
     ).toBeInTheDocument();
     expect(within(panel).getByText("Beto → Ana Pérez")).toBeInTheDocument();
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026).
+  it("un historial que no carga avisa el error, no se ve vacío", async () => {
+    svc.historial.mockRejectedValueOnce({ response: { status: 500 } });
+    pintar(<MatrizObligacionesPage />, "/admin/matriz/obligaciones?periodo=1");
+
+    const panel = await screen.findByRole("dialog");
+    const pestana = await within(panel).findByRole("tab", {
+      name: "Historial",
+    });
+    fireEvent.click(pestana);
+    expect(within(panel).getByRole("tabpanel")).toHaveAccessibleName(
+      "Historial",
+    );
+    expect(
+      await within(panel).findByText("No se pudo cargar el historial."),
+    ).toBeInTheDocument();
+  });
+
+  it("un historial sin eventos dice «Sin movimientos»", async () => {
+    svc.historial.mockResolvedValueOnce([]);
+    pintar(<MatrizObligacionesPage />, "/admin/matriz/obligaciones?periodo=1");
+
+    const panel = await screen.findByRole("dialog");
+    fireEvent.click(
+      await within(panel).findByRole("tab", { name: "Historial" }),
+    );
+    expect(
+      await within(panel).findByText("Sin movimientos."),
+    ).toBeInTheDocument();
   });
 
   it("editar el seguimiento guarda y recarga el detalle", async () => {
@@ -398,19 +445,25 @@ describe("Nueva obligación (§11.1)", () => {
     pintar(<ObligacionFormModal onCerrar={vi.fn()} onCreada={onCreada} />, "/");
 
     await waitFor(() => expect(svc.catalogos).toHaveBeenCalled());
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText("Nombre * (obligatorio)"), {
       target: { value: "Declaración de IVA" },
     });
-    fireEvent.change(await screen.findByLabelText("Tema"), {
+    fireEvent.change(await screen.findByLabelText("Tema * (obligatorio)"), {
       target: { value: "1" },
     });
-    fireEvent.change(screen.getByLabelText("Entidad de control"), {
-      target: { value: "1" },
-    });
-    fireEvent.change(screen.getByLabelText("Evidencia esperada"), {
-      target: { value: "Formulario 104" },
-    });
-    fireEvent.change(screen.getByLabelText("Responsable"), {
+    fireEvent.change(
+      screen.getByLabelText("Entidad de control * (obligatorio)"),
+      {
+        target: { value: "1" },
+      },
+    );
+    fireEvent.change(
+      screen.getByLabelText("Evidencia esperada * (obligatorio)"),
+      {
+        target: { value: "Formulario 104" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Responsable * (obligatorio)"), {
       target: { value: "7" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Crear obligación" }));
@@ -452,6 +505,13 @@ describe("Nueva obligación (§11.1)", () => {
     expect(
       await screen.findAllByText(/Ya existe una obligación con ese nombre/),
     ).not.toHaveLength(0);
+    // El error queda ligado a su campo y el foco va a él (fase 2).
+    const nombre = screen.getByLabelText("Nombre * (obligatorio)");
+    expect(nombre).toHaveAttribute("aria-invalid", "true");
+    expect(nombre).toHaveAccessibleDescription(
+      /Ya existe una obligación con ese nombre/,
+    );
+    await waitFor(() => expect(nombre).toHaveFocus());
   });
 });
 

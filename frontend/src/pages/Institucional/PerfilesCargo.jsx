@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { herramientasService } from "../../api/herramientasService";
 import { institucionalService } from "../../api/institucionalService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
@@ -235,7 +236,10 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
     onRequestClose: onCerrar,
   });
   const [valores, setValores] = useState(null);
-  const [catalogo, setCatalogo] = useState([]);
+  const [catalogo, setCatalogo] = useState(null);
+  // Antes un fallo del catálogo se veía como «todavía no hay herramientas en
+  // el catálogo» (auditoría UX/UI, fase 2, 28/10/2026).
+  const [errorCatalogo, setErrorCatalogo] = useState(null);
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
@@ -259,7 +263,11 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
       );
     Promise.resolve(herramientasService.catalogo?.())
       .then((lista) => setCatalogo((lista ?? []).filter((h) => h.activa)))
-      .catch(() => setCatalogo([]));
+      .catch((err) =>
+        setErrorCatalogo(
+          mensajeDeError(err, "No se pudo cargar el catálogo de herramientas."),
+        ),
+      );
   }, [cargo.id]);
 
   function alternarHerramienta(id) {
@@ -335,7 +343,7 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
               {error}
             </div>
           )}
-          {!valores && !error && <p className="mz-faint">Cargando…</p>}
+          {!valores && !error && <EstadoDeCarga cargando />}
           {valores && (
             <section className="perfil-bloque">
               <header className="perfil-bloque__cabecera">
@@ -410,7 +418,9 @@ function EditorPerfil({ cargo, onGuardado, onCerrar }) {
                   </p>
                 </div>
               </div>
-              {catalogo.length === 0 ? (
+              {catalogo === null ? (
+                <EstadoDeCarga cargando error={errorCatalogo} />
+              ) : catalogo.length === 0 ? (
                 <p className="mz-faint mb-0">
                   Todavía no hay herramientas en el catálogo: agréguelas en la
                   pestaña «Herramientas y licencias».

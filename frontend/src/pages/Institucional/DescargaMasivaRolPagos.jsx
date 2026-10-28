@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { descargarBlob } from "../../utils/descargas";
@@ -62,6 +67,7 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
   const [descargando, setDescargando] = useState(false);
   const [error, setError] = useState(null);
   const [listo, setListo] = useState(null);
+  const formulario = useRef(null);
 
   useEffect(() => {
     nominaService
@@ -97,6 +103,9 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
     } catch (err) {
       setError(await mensajeDeDescarga(err));
       if (err?.response?.status === 403) setClave("");
+      // El foco va al aviso, para que se lea qué falló (auditoría UX/UI,
+      // fase 2, 28/10/2026).
+      enfocarPrimerError(formulario.current);
     } finally {
       setDescargando(false);
     }
@@ -127,7 +136,11 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body mz-stack" onSubmit={descargar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body mz-stack"
+          onSubmit={descargar}
+        >
           <p className="mz-small mz-faint mb-0">
             Descarga un archivo comprimido (sin clave) con el rol de pagos de
             cada persona del área en el mes elegido, un PDF por persona. Incluye
@@ -150,18 +163,19 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
               .
             </div>
           )}
-          <div>
-            <label className="form-label mz-small" htmlFor="masiva-area">
-              Área
-            </label>
+          <LeyendaObligatorios />
+          {/* Obligatorios marcados; mientras llegan las áreas, el campo lo
+              dice (antes la lista quedaba vacía sin explicación). */}
+          <Campo id="masiva-area" etiqueta="Área" obligatorio>
             <select
-              id="masiva-area"
               className="form-select form-select-sm"
-              required
+              disabled={areas === null}
               value={unidad}
               onChange={(e) => setUnidad(e.target.value)}
             >
-              <option value="">Elija un área…</option>
+              <option value="">
+                {areas === null ? "Cargando áreas…" : "Elija un área…"}
+              </option>
               {(areas ?? []).map((a) => (
                 <option key={a.id} value={a.id} disabled={!a.con_codigo}>
                   {a.nombre} · {a.nivel} ({a.con_codigo} con código de{" "}
@@ -169,7 +183,7 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
           <div className="row g-2">
             <div className="col-6">
               <label className="form-label mz-small" htmlFor="masiva-anio">
@@ -211,20 +225,19 @@ export function DescargaMasivaRolPagos({ onCerrar }) {
               </select>
             </div>
           </div>
-          <div>
-            <label className="form-label mz-small" htmlFor="masiva-clave">
-              Confirme su contraseña
-            </label>
+          <Campo
+            id="masiva-clave"
+            etiqueta="Confirme su contraseña"
+            obligatorio
+          >
             <input
-              id="masiva-clave"
               type="password"
               autoComplete="current-password"
               className="form-control form-control-sm"
-              required
               value={clave}
               onChange={(e) => setClave(e.target.value)}
             />
-          </div>
+          </Campo>
           <div className="mz-actions justify-content-end">
             <button
               type="button"

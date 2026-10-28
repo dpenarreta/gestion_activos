@@ -159,14 +159,18 @@ describe("La pestaña de identidad", () => {
     expect(actualizarTema.mock.calls[0][0].font_size_base).toBe(16);
   });
 
-  it("al guardar confirma que se guardó, junto al botón", async () => {
-    /* Sin señal, guardar parecía no haber hecho nada. */
+  it("al guardar confirma que se guardó, una sola vez", async () => {
+    /* Sin señal, guardar parecía no haber hecho nada; y con dos («Cambios
+       guardados» arriba y «Guardado» junto al botón) sobraba una (auditoría
+       UX/UI, fase 2). */
     pintar();
     await screen.findByLabelText("Nombre del sitio");
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Guardado");
-    expect(screen.getByText(/Cambios guardados/)).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Cambios guardados. Ya se ven en todo el sistema.",
+    );
+    expect(screen.getAllByText(/guardad/i)).toHaveLength(1);
 
     // Al volver a cambiar algo, la confirmación desaparece.
     fireEvent.change(screen.getByLabelText("Nombre del sitio"), {

@@ -149,6 +149,39 @@ describe("Mis vacaciones", () => {
     expect(screen.queryByRole("region", { name: /^Período/ })).toBeNull();
   });
 
+  // Cargando y error (auditoría UX/UI, fase 2, 28/10/2026).
+  it("dice «Cargando…» mientras llegan sus vacaciones", async () => {
+    servicio.misVacaciones.mockReturnValue(new Promise(() => {}));
+    render(<MisVacacionesPage />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+  });
+
+  it("si no cargan, lo dice y «Reintentar» las vuelve a pedir", async () => {
+    servicio.misVacaciones.mockRejectedValueOnce({});
+    render(<MisVacacionesPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudieron cargar sus vacaciones.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByText("Días pendientes de gozar"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("un fallo al buscar personas no se confunde con «nadie coincide»", async () => {
+    permisos.lista = ["vacaciones.ver_todas"];
+    servicio.personasVacaciones.mockRejectedValue({});
+    render(<MisVacacionesPage />);
+    fireEvent.click(
+      await screen.findByText(/Consultar las vacaciones de otra persona/),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo buscar a las personas.",
+    );
+    expect(screen.queryByText(/Ningún resultado/)).toBeNull();
+  });
+
   it("con permiso se consultan las de otra persona", async () => {
     permisos.lista = ["vacaciones.ver_todas"];
     servicio.personasVacaciones.mockResolvedValue([

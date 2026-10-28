@@ -25,7 +25,7 @@ import "./Empresas.css";
  * en todas las empresas, incluidas las que se creen mañana, así que conceder uno
  * no es lo mismo que dar acceso a una empresa concreta.
  */
-export function AsignacionEmpresas({ usuarioId }) {
+export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
   const puedeVer = usePermission("empresas.ver");
   const puedeAsignar = usePermission("empresas.asignar");
   const puedeRolesGlobales = usePermission("usuarios.editar");
@@ -44,6 +44,18 @@ export function AsignacionEmpresas({ usuarioId }) {
   const [error, setError] = useState(null);
   const [mensaje, setMensaje] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Hay algo marcado o desmarcado que todavía no se guardó: la ficha lo usa
+  // para avisar al salir (auditoría UX/UI, fase 2, 28/10/2026).
+  const [sinGuardar, setSinGuardar] = useState(false);
+
+  useEffect(() => {
+    onCambiosSinGuardar?.(sinGuardar);
+  }, [sinGuardar, onCambiosSinGuardar]);
+
+  function cambiar() {
+    setMensaje(null);
+    setSinGuardar(true);
+  }
 
   useEffect(() => {
     if (!puedeVer || !usuarioId) return;
@@ -98,7 +110,7 @@ export function AsignacionEmpresas({ usuarioId }) {
   }, [usuarioId, puedeVer]);
 
   function alternarEmpresa(empresaId) {
-    setMensaje(null);
+    cambiar();
     setAsignadas((actuales) => {
       const siguiente = { ...actuales };
       if (empresaId in siguiente) {
@@ -118,7 +130,7 @@ export function AsignacionEmpresas({ usuarioId }) {
   }
 
   function alternarRol(empresaId, rolId) {
-    setMensaje(null);
+    cambiar();
     setAsignadas((actuales) => {
       const propios = actuales[empresaId] ?? [];
       return {
@@ -131,7 +143,7 @@ export function AsignacionEmpresas({ usuarioId }) {
   }
 
   function alternarArea(empresaId, areaId) {
-    setMensaje(null);
+    cambiar();
     setAreasAsignadas((actuales) => {
       const propias = actuales[empresaId] ?? [];
       return {
@@ -144,7 +156,7 @@ export function AsignacionEmpresas({ usuarioId }) {
   }
 
   function alternarRolGlobal(rolId) {
-    setMensaje(null);
+    cambiar();
     setRolesGlobales((actuales) =>
       actuales.includes(rolId)
         ? actuales.filter((id) => id !== rolId)
@@ -178,6 +190,7 @@ export function AsignacionEmpresas({ usuarioId }) {
           ? "Roles actualizados."
           : "Empresas y roles actualizados.",
       );
+      setSinGuardar(false);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudieron guardar los accesos."));
     } finally {
@@ -200,7 +213,7 @@ export function AsignacionEmpresas({ usuarioId }) {
             : "Solo verá la información de las empresas marcadas, y en cada una podrá hacer lo que digan los roles que tenga ahí. La predeterminada es la que se abre al entrar."}
         </p>
         {esSuperusuario && (
-          <div className="mz-alert mz-alert--ok" role="note">
+          <div className="mz-alert mz-alert--info" role="note">
             <Icon name="shield-lock" />
             <span>
               <strong>Superusuario (cuenta).</strong> Es una marca de la cuenta,
@@ -218,7 +231,7 @@ export function AsignacionEmpresas({ usuarioId }) {
           </div>
         )}
         {mensaje && (
-          <div className="mz-alert mz-alert--info" role="status">
+          <div className="mz-alert mz-alert--ok" role="status">
             <Icon name="check2-circle" />
             {mensaje}
           </div>
@@ -282,13 +295,23 @@ export function AsignacionEmpresas({ usuarioId }) {
                             aria-label={`${empresa.nombre} como predeterminada`}
                             checked={predeterminada === empresa.id}
                             disabled={!puedeAsignar || !estaAsignada}
-                            onChange={() => setPredeterminada(empresa.id)}
+                            onChange={() => {
+                              setPredeterminada(empresa.id);
+                              cambiar();
+                            }}
                           />
                         </td>
                       </>
                     )}
                     <td>
-                      <div className="empresas-asignacion__roles">
+                      {/* Cada grupo de casillas dice de qué empresa es: sin
+                          eso, un lector de pantalla oye «Soporte TI» una vez
+                          por empresa sin saber cuál (auditoría UX/UI, fase 2,
+                          28/10/2026). */}
+                      <fieldset className="empresas-asignacion__roles">
+                        <legend className="visually-hidden">
+                          Roles en {empresa.nombre}
+                        </legend>
                         {/* Los roles de nivel del organigrama solo valen en
                             su empresa y los pone el cargo: se ven, no se
                             eligen. */}
@@ -331,7 +354,7 @@ export function AsignacionEmpresas({ usuarioId }) {
                         {roles.length === 0 && (
                           <span className="mz-faint">—</span>
                         )}
-                      </div>
+                      </fieldset>
                       {estaAsignada && areas !== null && areas.length > 0 && (
                         <details className="empresas-asignacion__areas">
                           <summary>
@@ -344,7 +367,10 @@ export function AsignacionEmpresas({ usuarioId }) {
                             Quien no ve toda la empresa solo crea obligaciones
                             de estos temas. Sin ninguno marcado, de todos.
                           </p>
-                          <div className="empresas-asignacion__roles">
+                          <fieldset className="empresas-asignacion__roles">
+                            <legend className="visually-hidden">
+                              Temas de la Matriz en {empresa.nombre}
+                            </legend>
                             {areas.map((area) => (
                               <div className="form-check" key={area.id}>
                                 <input
@@ -367,7 +393,7 @@ export function AsignacionEmpresas({ usuarioId }) {
                                 </label>
                               </div>
                             ))}
-                          </div>
+                          </fieldset>
                         </details>
                       )}
                       {/* Sin rol ve la empresa en el selector pero no puede
@@ -427,11 +453,11 @@ export function AsignacionEmpresas({ usuarioId }) {
           <div className="mz-actions justify-content-end">
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary"
               disabled={isSaving}
               onClick={guardar}
             >
-              {isSaving ? "Guardando…" : "Guardar empresas y roles"}
+              {isSaving ? "Guardando…" : "Guardar accesos"}
             </button>
           </div>
         )}

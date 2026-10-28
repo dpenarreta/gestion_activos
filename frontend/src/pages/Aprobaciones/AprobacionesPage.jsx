@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { soporteService } from "../../api/soporteService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import "../Soporte/Soporte.css";
@@ -18,6 +19,7 @@ export function AprobacionesPage() {
   const [aviso, setAviso] = useState(null);
 
   const cargar = useCallback(() => {
+    setError(null);
     soporteService
       .aprobaciones()
       .then(setPendientes)
@@ -32,8 +34,10 @@ export function AprobacionesPage() {
     cargar();
   }, [cargar]);
 
+  /* Devuelve el mensaje de error, o null si salió bien: el error se muestra
+     en la propia tarjeta, junto a los botones, y no arriba de la página lejos
+     de lo que se intentó (auditoría UX/UI, fase 2, 28/10/2026). */
   async function decidir(aprobacion, aprobar, nota) {
-    setError(null);
     setAviso(null);
     try {
       await soporteService.decidirAprobacion(aprobacion.id, aprobar, nota);
@@ -43,10 +47,9 @@ export function AprobacionesPage() {
           : `${aprobacion.ticket.numero} no aprobado: se le avisó a quien lo pidió.`,
       );
       cargar();
-      return true;
+      return null;
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo registrar la decisión."));
-      return false;
+      return mensajeDeError(err, "No se pudo registrar la decisión.");
     }
   }
 
@@ -61,19 +64,20 @@ export function AprobacionesPage() {
           </p>
         </div>
       </div>
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
       {aviso && (
-        <div className="mz-alert mz-alert--info" role="status">
+        <div className="mz-alert mz-alert--ok" role="status">
           <Icon name="check2-circle" />
           {aviso}
         </div>
       )}
-      {pendientes?.length === 0 && (
+      {/* Mientras `pendientes` es null la página quedaba en blanco: ahora
+          dice que carga, y si falla ofrece reintentar (fase 2). */}
+      <EstadoDeCarga
+        cargando={pendientes === null}
+        error={error}
+        onReintentar={cargar}
+      />
+      {!error && pendientes?.length === 0 && (
         <div className="mz-empty">
           <Icon name="check2-all" /> No tiene aprobaciones pendientes.
         </div>
@@ -87,13 +91,20 @@ export function AprobacionesPage() {
 
 function TarjetaAprobacion({ aprobacion, onDecidir }) {
   const [nota, setNota] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  // Qué decisión se está enviando («aprobar» / «rechazar»), para que el
+  // botón pulsado diga «Enviando…» y los dos queden quietos mientras tanto.
+  const [enviando, setEnviando] = useState(null);
+  const [error, setError] = useState(null);
   const { ticket } = aprobacion;
+  const idNota = `ap-nota-${aprobacion.id}`;
+  const sinNota = nota.trim() === "";
 
   async function decidir(aprobar) {
-    setEnviando(true);
-    await onDecidir(aprobacion, aprobar, nota);
-    setEnviando(false);
+    setError(null);
+    setEnviando(aprobar ? "aprobar" : "rechazar");
+    const fallo = await onDecidir(aprobacion, aprobar, nota);
+    setEnviando(null);
+    if (fallo) setError(fallo);
   }
 
   return (
@@ -140,33 +151,48 @@ function TarjetaAprobacion({ aprobacion, onDecidir }) {
           ))}
         </div>
         <p className="soporte-publico__descripcion">{ticket.descripcion}</p>
-        <label className="form-label" htmlFor={`ap-nota-${aprobacion.id}`}>
+        <label className="form-label" htmlFor={idNota}>
           Nota (obligatoria si no aprueba)
         </label>
         <textarea
-          id={`ap-nota-${aprobacion.id}`}
+          id={idNota}
           className="form-control form-control-sm"
           rows={2}
           maxLength={500}
           value={nota}
+          aria-describedby={sinNota ? `${idNota}-ayuda` : undefined}
           onChange={(e) => setNota(e.target.value)}
         />
+        {/* «No aprobar» sin nota lo rechazaba el servidor después del clic:
+            ahora el botón espera a la nota y dice por qué (fase 2). */}
+        {sinNota && (
+          <div id={`${idNota}-ayuda`} className="form-text">
+            Escriba una nota para poder no aprobarla.
+          </div>
+        )}
+        {error && (
+          <div className="mz-alert mz-alert--bad mt-2" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
         <div className="mz-actions justify-content-end mt-2">
           <button
             type="button"
             className="btn btn-outline-danger btn-sm"
-            disabled={enviando}
+            disabled={enviando !== null || sinNota}
+            aria-describedby={sinNota ? `${idNota}-ayuda` : undefined}
             onClick={() => decidir(false)}
           >
-            No aprobar
+            {enviando === "rechazar" ? "Enviando…" : "No aprobar"}
           </button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={enviando}
+            disabled={enviando !== null}
             onClick={() => decidir(true)}
           >
-            Aprobar
+            {enviando === "aprobar" ? "Enviando…" : "Aprobar"}
           </button>
         </div>
       </div>

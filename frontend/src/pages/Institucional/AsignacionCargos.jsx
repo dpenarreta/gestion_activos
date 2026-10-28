@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { nombreDeCargo } from "./organigrama";
@@ -20,24 +21,34 @@ export function AsignacionCargos({ datos, onAsignado }) {
   const [buscar, setBuscar] = useState("");
   const [personas, setPersonas] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar la lista va en la tabla, con «Reintentar» (auditoría
+  // UX/UI, fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
-  const cargarPersonas = useCallback(
-    (texto) =>
-      institucionalService
-        .asignaciones(texto)
-        .then(setPersonas)
-        .catch((err) =>
-          setError(mensajeDeError(err, "No se pudieron cargar las personas.")),
+  const cargarPersonas = useCallback((texto) => {
+    setErrorCarga(null);
+    return institucionalService
+      .asignaciones(texto)
+      .then(setPersonas)
+      .catch((err) =>
+        setErrorCarga(
+          mensajeDeError(err, "No se pudieron cargar las personas."),
         ),
-    [],
-  );
+      );
+  }, []);
+
+  // Al cambiar la búsqueda, «Cargando…» en vez de la lista anterior.
+  const buscarPersonas = useCallback(() => {
+    setPersonas(null);
+    return cargarPersonas(buscar);
+  }, [buscar, cargarPersonas]);
 
   useEffect(() => {
-    const espera = setTimeout(() => cargarPersonas(buscar), 250);
+    const espera = setTimeout(buscarPersonas, 250);
     return () => clearTimeout(espera);
-  }, [buscar, cargarPersonas]);
+  }, [buscarPersonas]);
 
   async function asignar(persona, cargo) {
     setError(null);
@@ -141,11 +152,16 @@ export function AsignacionCargos({ datos, onAsignado }) {
                 </td>
               </tr>
             ))}
-            {personas?.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={3}>Ninguna persona coincide</td>
-              </tr>
-            )}
+            <FilaDeEstado
+              columnas={3}
+              cargando={personas === null}
+              error={errorCarga}
+              onReintentar={buscarPersonas}
+              vacio={personas?.length === 0}
+              textoVacio="Todavía no hay personas."
+              hayFiltros={buscar.trim() !== ""}
+              onLimpiarFiltros={() => setBuscar("")}
+            />
           </tbody>
         </table>
       </div>

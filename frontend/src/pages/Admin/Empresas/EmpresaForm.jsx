@@ -1,11 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { empresasService } from "../../../api/empresasService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Empresas.css";
+
+// Un error del servidor sobre estos campos va bajo el campo; sobre otra cosa,
+// en el aviso de arriba con su detalle.
+const CAMPOS = new Set([
+  "nombre",
+  "codigo",
+  "identificacion",
+  "activa",
+  "zona_horaria",
+  "color",
+  "gerente_general",
+  "base_cumplimiento",
+  "matriz_crear_para_otros",
+]);
 
 const VACIO = {
   nombre: "",
@@ -42,7 +65,9 @@ export function EmpresaForm() {
   const [usuarios, setUsuarios] = useState(0);
   const [personas, setPersonas] = useState([]);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     if (!esEdicion) return;
@@ -71,12 +96,16 @@ export function EmpresaForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    setErrores((actuales) =>
+      actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+    );
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErrores({});
     // Sin gerente se manda `null`, no la cadena vacía del desplegable.
     const datos = {
       ...valores,
@@ -90,7 +119,19 @@ export function EmpresaForm() {
       }
       navigate("/admin/empresas");
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar la empresa."));
+      // Cada error bajo su campo (auditoría UX/UI, fase 2, 28/10/2026); el
+      // aviso de arriba lleva el detalle si alguno no es de un campo visible.
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErrores(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar la empresa."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -133,45 +174,52 @@ export function EmpresaForm() {
         <div className="mz-card-head">
           <h3>Datos de la empresa</h3>
         </div>
-        <form onSubmit={handleSubmit} className="mz-card-body">
+        <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
+          {/* Obligatorios marcados y cada error bajo su campo (auditoría
+              UX/UI, fase 2, 28/10/2026). */}
           <div className="mz-field-grid">
-            <div className="mz-field">
-              <label htmlFor="nombre">Nombre</label>
+            <Campo
+              id="nombre"
+              etiqueta="Nombre"
+              obligatorio
+              ayuda="Es lo que se lee en el selector del menú, así que conviene que se distinga de un vistazo de las demás."
+              error={errores.nombre}
+              className="mz-field"
+            >
               <input
-                id="nombre"
                 className="form-control"
-                required
                 maxLength={120}
                 placeholder="LaarCourier"
                 value={valores.nombre}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("nombre", event.target.value)}
               />
-              <div className="form-text">
-                Es lo que se lee en el selector del menú, así que conviene que
-                se distinga de un vistazo de las demás.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="codigo">Código</label>
+            </Campo>
+            <Campo
+              id="codigo"
+              etiqueta="Código"
+              obligatorio
+              ayuda="Identificador corto. Es lo que se muestra en el menú contraído."
+              error={errores.codigo}
+              className="mz-field"
+            >
               <input
-                id="codigo"
                 className="form-control"
-                required
                 maxLength={10}
                 placeholder="LC"
                 value={valores.codigo}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("codigo", event.target.value)}
               />
-              <div className="form-text">
-                Identificador corto. Es lo que se muestra en el menú contraído.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="identificacion">Identificación</label>
+            </Campo>
+            <Campo
+              id="identificacion"
+              etiqueta="Identificación"
+              ayuda="RUC o identificación tributaria."
+              error={errores.identificacion}
+              className="mz-field"
+            >
               <input
-                id="identificacion"
                 className="form-control"
                 maxLength={20}
                 placeholder="1790012345001"
@@ -181,8 +229,7 @@ export function EmpresaForm() {
                   actualizar("identificacion", event.target.value)
                 }
               />
-              <div className="form-text">RUC o identificación tributaria.</div>
-            </div>
+            </Campo>
             <div className="mz-field--full">
               <div className="form-check">
                 <input
@@ -215,27 +262,30 @@ export function EmpresaForm() {
           <div className="mz-section mt-3">
             <h4>Matriz de obligaciones</h4>
             <div className="mz-field-grid">
-              <div className="mz-field">
-                <label htmlFor="zona_horaria">Zona horaria</label>
-                <input
+              <div>
+                <Campo
                   id="zona_horaria"
-                  className="form-control"
-                  required
-                  list="zonas-horarias"
-                  value={valores.zona_horaria}
-                  disabled={!puedeEditar}
-                  onChange={(event) =>
-                    actualizar("zona_horaria", event.target.value)
-                  }
-                />
+                  etiqueta="Zona horaria"
+                  obligatorio
+                  ayuda="Los vencimientos y recordatorios se calculan en esta hora."
+                  error={errores.zona_horaria}
+                  className="mz-field"
+                >
+                  <input
+                    className="form-control"
+                    list="zonas-horarias"
+                    value={valores.zona_horaria}
+                    disabled={!puedeEditar}
+                    onChange={(event) =>
+                      actualizar("zona_horaria", event.target.value)
+                    }
+                  />
+                </Campo>
                 <datalist id="zonas-horarias">
                   {ZONAS.map((zona) => (
                     <option key={zona} value={zona} />
                   ))}
                 </datalist>
-                <div className="form-text">
-                  Los vencimientos y recordatorios se calculan en esta hora.
-                </div>
               </div>
               <div className="mz-field">
                 <label htmlFor="color">Color</label>
@@ -255,11 +305,22 @@ export function EmpresaForm() {
                 <div className="form-text">
                   Distingue la empresa en el selector y en el menú.
                 </div>
+                {errores.color && (
+                  <div className="mz-field-error">{errores.color}</div>
+                )}
               </div>
-              <div className="mz-field">
-                <label htmlFor="gerente_general">Gerente general</label>
+              <Campo
+                id="gerente_general"
+                etiqueta="Gerente general"
+                ayuda={
+                  esEdicion
+                    ? "Aprueba por defecto los cierres. Debe trabajar en la empresa."
+                    : "Se elige después de guardar, entre quienes trabajan en ella."
+                }
+                error={errores.gerente_general}
+                className="mz-field"
+              >
                 <select
-                  id="gerente_general"
                   className="form-select"
                   value={valores.gerente_general}
                   disabled={!puedeEditar || !esEdicion}
@@ -274,16 +335,15 @@ export function EmpresaForm() {
                     </option>
                   ))}
                 </select>
-                <div className="form-text">
-                  {esEdicion
-                    ? "Aprueba por defecto los cierres. Debe trabajar en la empresa."
-                    : "Se elige después de guardar, entre quienes trabajan en ella."}
-                </div>
-              </div>
-              <div className="mz-field">
-                <label htmlFor="base_cumplimiento">Cuenta como cumplida</label>
+              </Campo>
+              <Campo
+                id="base_cumplimiento"
+                etiqueta="Cuenta como cumplida"
+                ayuda="Qué fecha decide si una obligación se cumplió a tiempo."
+                error={errores.base_cumplimiento}
+                className="mz-field"
+              >
                 <select
-                  id="base_cumplimiento"
                   className="form-select"
                   value={valores.base_cumplimiento}
                   disabled={!puedeEditar}
@@ -294,10 +354,7 @@ export function EmpresaForm() {
                   <option value="validacion">Cuando se valida el cierre</option>
                   <option value="envio">Cuando se envía a validación</option>
                 </select>
-                <div className="form-text">
-                  Qué fecha decide si una obligación se cumplió a tiempo.
-                </div>
-              </div>
+              </Campo>
               <div className="mz-field mz-field--full">
                 <div className="form-check form-switch">
                   <input
@@ -330,7 +387,12 @@ export function EmpresaForm() {
             </div>
           </div>
 
-          <div className="mz-actions justify-content-end mt-3">
+          <div className="mz-actions justify-content-end align-items-center mt-3">
+            {puedeEditar && (
+              <div className="me-auto">
+                <LeyendaObligatorios />
+              </div>
+            )}
             <button
               type="button"
               className="btn btn-cancelar"

@@ -20,6 +20,7 @@ import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/Niv
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { mensajeDeError } from "../../../utils/errores";
 import { describirFiltros } from "./filtrosAplicados";
 import "./Activos.css";
@@ -246,7 +247,12 @@ export function ActivosList() {
         }}
       />
 
-      <form className="mz-filter-bar" onSubmit={handleBuscar} role="search">
+      <form
+        className="mz-filter-bar"
+        onSubmit={handleBuscar}
+        role="search"
+        aria-label="Filtrar el inventario"
+      >
         <label className="mz-fb-search">
           <Icon name="search" />
           <span className="visually-hidden">Buscar activos</span>
@@ -493,12 +499,6 @@ export function ActivosList() {
           </div>
         </div>
       )}
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
       {errorExportacion && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
@@ -618,11 +618,19 @@ export function ActivosList() {
                 </td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={10}>Sin activos que coincidan con los filtros</td>
-              </tr>
-            )}
+            {/* Error, carga y vacío dentro de la tabla, y el vacío distingue
+                «no hay activos» de «los filtros no encuentran nada», con la
+                salida a mano (auditoría UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={10}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              vacio={listado.resultados.length === 0}
+              textoVacio="Todavía no hay activos registrados."
+              hayFiltros={chips.length > 0}
+              onLimpiarFiltros={limpiarFiltros}
+            />
           </tbody>
         </table>
       </div>

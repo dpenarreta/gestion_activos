@@ -271,6 +271,13 @@ describe("Gestionar documentos", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Borrar Reglamento interno" }),
     );
+    // Borrar pide confirmación (auditoría UX/UI).
+    expect(servicio.eliminarDocumento).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: /Borrar el documento/ }),
+      ).getByRole("button", { name: "Borrar" }),
+    );
     await waitFor(() =>
       expect(servicio.eliminarDocumento).toHaveBeenCalledWith(2),
     );
@@ -306,7 +313,7 @@ describe("Gestionar documentos", () => {
     fireEvent.click(
       await screen.findByRole("tab", { name: "Acuerdo de confidencialidad" }),
     );
-    fireEvent.change(await screen.findByLabelText("Título"), {
+    fireEvent.change(await screen.findByLabelText(/^Título/), {
       target: { value: "Compromiso de reserva" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar acuerdo" }));
@@ -343,7 +350,7 @@ describe("Gestionar documentos", () => {
     servicio.aceptacionesConfidencialidad.mockResolvedValue([]);
     pintar(<GestionDocumentosPage />);
     const pestanas = await screen.findAllByRole("tab");
-    expect(pestanas.map((p) => p.textContent)).toEqual(["Aceptaciones"]);
+    expect(pestanas.map((p) => p.textContent.trim())).toEqual(["Aceptaciones"]);
     expect(pestanas[0]).toHaveAttribute("aria-selected", "true");
     expect(
       await screen.findByText("Nadie ha aceptado el acuerdo todavía"),

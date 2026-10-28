@@ -1,7 +1,7 @@
 import { useState } from "react";
 
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { GrupoDePermisos } from "../../../components/common/GrupoDePermisos/GrupoDePermisos";
-import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
 import { agruparCatalogo } from "../../../utils/gruposDePermisos";
 import "./PermissionsPanel.css";
@@ -22,7 +22,7 @@ import "./PermissionsPanel.css";
  * donde los permisos efectivamente se asignan.
  */
 export function PermissionsPanel() {
-  const { catalog, isLoading, error } = usePermissionsCatalog();
+  const { catalog, isLoading, error, recargar } = usePermissionsCatalog();
   const [abiertos, setAbiertos] = useState(() => new Set());
 
   const grupos = agruparCatalogo(catalog);
@@ -73,13 +73,12 @@ export function PermissionsPanel() {
         )}
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {isLoading && <div className="mz-empty">Cargando…</div>}
+      {/* Cargando y error como en el resto (auditoría UX/UI, fase 2). */}
+      <EstadoDeCarga
+        cargando={isLoading}
+        error={error}
+        onReintentar={recargar}
+      />
 
       {grupos.map((grupo) => {
         const permisos = grupo.modulos.reduce(

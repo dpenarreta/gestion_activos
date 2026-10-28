@@ -37,6 +37,15 @@ vi.mock("../src/api/client", () => ({
   getEmpresaActiva: () => "3",
 }));
 
+// La ficha avisa al salir con cambios sin guardar (auditoría UX/UI, fase 2).
+const marcarSinGuardar = vi.fn();
+vi.mock("../src/context/UnsavedChangesContext", () => ({
+  useUnsavedChanges: () => ({
+    setIsDirty: marcarSinGuardar,
+    guardedNavigate: vi.fn(),
+  }),
+}));
+
 const permisos = new Set();
 vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codename) => permisos.has(codename),
@@ -53,13 +62,13 @@ function pintar() {
 }
 
 function rellenarDatosMinimos() {
-  fireEvent.change(screen.getByLabelText("Nombres"), {
+  fireEvent.change(screen.getByLabelText(/^Nombres/), {
     target: { value: "Nueva" },
   });
-  fireEvent.change(screen.getByLabelText("Apellidos"), {
+  fireEvent.change(screen.getByLabelText(/^Apellidos/), {
     target: { value: "Peñarreta" },
   });
-  fireEvent.change(screen.getByLabelText("Correo"), {
+  fireEvent.change(screen.getByLabelText(/^Correo/), {
     target: { value: "nueva@example.com" },
   });
   fireEvent.change(screen.getByLabelText(/Contraseña inicial/), {
@@ -104,7 +113,7 @@ describe("Alta de usuario", () => {
       target: { value: "10" },
     });
     rellenarDatosMinimos();
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
 
     await waitFor(() =>
       expect(crear).toHaveBeenCalledWith(
@@ -132,7 +141,7 @@ describe("Alta de usuario", () => {
 
     pintar();
     rellenarDatosMinimos();
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
 
     await waitFor(() => expect(crear).toHaveBeenCalled());
     expect(crear.mock.calls[0][0].empresas).toBeUndefined();
@@ -143,10 +152,10 @@ describe("Alta de usuario", () => {
   it("muestra el nombre de usuario que le va a tocar, sin tildes ni eñes", async () => {
     pintar();
 
-    fireEvent.change(await screen.findByLabelText("Nombres"), {
+    fireEvent.change(await screen.findByLabelText(/^Nombres/), {
       target: { value: "Diego" },
     });
-    fireEvent.change(screen.getByLabelText("Apellidos"), {
+    fireEvent.change(screen.getByLabelText(/^Apellidos/), {
       target: { value: "Peñarreta" },
     });
 
@@ -162,7 +171,7 @@ describe("Alta de usuario", () => {
       target: { value: "10" },
     });
     rellenarDatosMinimos();
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
 
     await waitFor(() => expect(crear).toHaveBeenCalled());
     expect(crear.mock.calls[0][0].username).toBeUndefined();

@@ -147,7 +147,10 @@ describe("Solicitud de proyectos", () => {
     pagina();
     expect(await screen.findByText("Nuevo CRM")).toBeInTheDocument();
     expect(screen.getByText("PRY-2026-0009")).toBeInTheDocument();
-    expect(screen.getByLabelText("1 por atender")).toBeInTheDocument();
+    // La cuenta va dentro de la pestaña y se lee «1 por atender».
+    expect(
+      screen.getByRole("tab", { name: /Por atender\s*1\s*por atender/ }),
+    ).toBeInTheDocument();
     // Sin permiso no se ven «Todas» ni la configuración.
     expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
     expect(screen.queryByText("Tipos de proyecto")).toBeNull();
@@ -189,12 +192,18 @@ describe("Solicitud de proyectos", () => {
     });
     expect(within(ventana).getByText("(opcional)")).toBeInTheDocument();
 
-    // Sin la plantilla llena no se envía.
+    // Sin la plantilla llena no se envía: el aviso va en su campo.
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Enviar solicitud" }),
     );
-    expect(await within(ventana).findByRole("alert")).toHaveTextContent(
+    const campoArchivo = within(ventana).getByLabelText(
       /Cargue la plantilla llena/,
+    );
+    await waitFor(() =>
+      expect(campoArchivo).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(campoArchivo).toHaveAccessibleDescription(
+      /Cargue la plantilla llena: descárguela, complétela y súbala aquí/,
     );
     expect(servicio.solicitar).not.toHaveBeenCalled();
 

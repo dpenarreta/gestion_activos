@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
@@ -149,12 +150,6 @@ export function HabilitadosRolPagos({ onCerrar }) {
             value={buscar}
             onChange={(e) => setBuscar(e.target.value)}
           />
-          {error && (
-            <div className="mz-alert mz-alert--bad" role="alert">
-              <Icon name="x-octagon" />
-              {error}
-            </div>
-          )}
           {personas && (
             <p className="mz-small mb-0">
               {habilitadas} habilitada(s) de {personas.length} en la lista.
@@ -182,13 +177,18 @@ export function HabilitadosRolPagos({ onCerrar }) {
                     }
                   />
                 ))}
-                {personas && personas.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="mz-faint">
-                      Nadie con ese nombre.
-                    </td>
-                  </tr>
-                )}
+                {/* Cargando, error con «Reintentar» y vacío en la tabla
+                    (auditoría UX/UI, fase 2, 28/10/2026). */}
+                <FilaDeEstado
+                  columnas={4}
+                  cargando={personas === null}
+                  error={error}
+                  onReintentar={() => cargar(buscar)}
+                  vacio={personas?.length === 0}
+                  textoVacio="Todavía no hay personas en la lista."
+                  hayFiltros={Boolean(buscar.trim())}
+                  onLimpiarFiltros={() => setBuscar("")}
+                />
               </tbody>
             </table>
           </div>

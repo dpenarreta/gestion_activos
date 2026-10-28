@@ -111,11 +111,27 @@ describe("El registro de auditoría", () => {
   it("lista qué se hizo, quién lo hizo y con qué resultado", async () => {
     pintar();
 
-    const fila = (await screen.findByText("activo.updated")).closest("tr");
+    const fila = (await screen.findByText("Activo modificado")).closest("tr");
     expect(fila).toHaveTextContent("dpenarreta");
     expect(fila).toHaveTextContent("activos");
     expect(fila).toHaveTextContent("Activo #42");
     expect(fila).toHaveTextContent("Éxito");
+  });
+
+  it("la acción se lee en palabras y conserva su código a mano", async () => {
+    /* `role.created` en crudo solo lo entiende quien lee código; el código
+       sigue en el `title` porque es lo que se escribe en el filtro «Acción»
+       (auditoría UX/UI, fase 2). */
+    pintar();
+
+    const celda = await screen.findByText("Activo modificado");
+    expect(celda).toHaveAttribute("title", "activo.updated");
+    expect(screen.getByText("Inicio de sesión fallido")).toHaveAttribute(
+      "title",
+      "login.failed",
+    );
+    const fila = celda.closest("tr");
+    expect(fila).not.toHaveTextContent("activo.updated");
   });
 
   it("un evento sin autor se atribuye al sistema, no se deja en blanco", async () => {
@@ -123,7 +139,9 @@ describe("El registro de auditoría", () => {
        válida. Una celda vacía se leería como un dato que falta. */
     pintar();
 
-    const fila = (await screen.findByText("login.failed")).closest("tr");
+    const fila = (await screen.findByText("Inicio de sesión fallido")).closest(
+      "tr",
+    );
     expect(fila).toHaveTextContent("Sistema");
     expect(fila).toHaveTextContent("Fallido");
   });
@@ -131,7 +149,7 @@ describe("El registro de auditoría", () => {
   it("el detalle enseña el antes y el después del cambio", async () => {
     pintar();
 
-    const fila = (await screen.findByText("activo.updated")).closest("tr");
+    const fila = (await screen.findByText("Activo modificado")).closest("tr");
     fireEvent.click(within(fila).getByRole("button", { name: "Ver" }));
 
     expect(await screen.findByText("Antes")).toBeInTheDocument();
@@ -146,7 +164,7 @@ describe("El registro de auditoría", () => {
     permisos = ["auditoria.ver"];
     pintar();
 
-    await screen.findByText("activo.updated");
+    await screen.findByText("Activo modificado");
     expect(
       screen.queryByRole("button", { name: "Ver" }),
     ).not.toBeInTheDocument();
@@ -156,13 +174,13 @@ describe("El registro de auditoría", () => {
     permisos = ["auditoria.ver"];
     pintar();
 
-    await screen.findByText("activo.updated");
+    await screen.findByText("Activo modificado");
     expect(screen.queryByText(/Exportar/)).not.toBeInTheDocument();
   });
 
   it("los filtros se envían al confirmar, no en cada tecla", async () => {
     pintar();
-    await screen.findByText("activo.updated");
+    await screen.findByText("Activo modificado");
     listar.mockClear();
 
     fireEvent.change(screen.getByLabelText("Usuario"), {
@@ -181,7 +199,7 @@ describe("El registro de auditoría", () => {
 
   it("lo que se exporta es lo que se está viendo", async () => {
     pintar();
-    await screen.findByText("activo.updated");
+    await screen.findByText("Activo modificado");
 
     fireEvent.change(screen.getByLabelText("Resultado"), {
       target: { value: "failure" },
@@ -215,9 +233,19 @@ describe("El registro de auditoría", () => {
     pintar();
 
     expect(await screen.findByText("No autorizado.")).toBeInTheDocument();
+
+    // Se reintenta sin recargar la página.
+    listar.mockResolvedValue({
+      results: EVENTOS,
+      count: 2,
+      next: null,
+      previous: null,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("Activo modificado")).toBeInTheDocument();
   });
 
-  it("sin eventos para esos filtros lo dice", async () => {
+  it("sin eventos lo dice", async () => {
     listar.mockResolvedValue({
       results: [],
       count: 0,
@@ -227,8 +255,41 @@ describe("El registro de auditoría", () => {
     pintar();
 
     expect(
-      await screen.findByText("Sin eventos para esos filtros"),
+      await screen.findByText(
+        "Todavía no hay eventos registrados en este módulo.",
+      ),
     ).toBeInTheDocument();
+  });
+
+  it("si los filtros no encuentran nada, lo distingue y deja limpiarlos", async () => {
+    pintar();
+    await screen.findByText("Activo modificado");
+    listar.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+
+    fireEvent.change(screen.getByLabelText("Usuario"), {
+      target: { value: "nadie" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Filtrar" }));
+
+    expect(
+      await screen.findByText("Ningún resultado con estos filtros."),
+    ).toBeInTheDocument();
+
+    listar.mockResolvedValue({
+      results: EVENTOS,
+      count: 2,
+      next: null,
+      previous: null,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+    expect(await screen.findByText("Activo modificado")).toBeInTheDocument();
+    expect(screen.getByLabelText("Usuario")).toHaveValue("");
   });
 });
 

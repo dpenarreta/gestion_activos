@@ -148,7 +148,7 @@ describe("El listado de empresas", () => {
     expect(
       screen.queryByRole("link", { name: "Nueva empresa" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Ver" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /^Ver / })).toHaveLength(2);
   });
 
   it("con permiso aparecen el alta y la edición", async () => {
@@ -160,10 +160,9 @@ describe("El listado de empresas", () => {
     expect(
       await screen.findByRole("link", { name: "Nueva empresa" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Editar" })[0]).toHaveAttribute(
-      "href",
-      "/admin/empresas/1",
-    );
+    expect(
+      screen.getByRole("link", { name: "Editar LaarCourier" }),
+    ).toHaveAttribute("href", "/admin/empresas/1");
   });
 
   it("con una sola empresa son sus datos: sin alta de otras", async () => {
@@ -202,8 +201,30 @@ describe("El listado de empresas", () => {
     pintarListado();
 
     expect(
-      await screen.findByText("Sin empresas registradas"),
+      await screen.findByText("Todavía no hay empresas registradas."),
     ).toBeInTheDocument();
+  });
+
+  it("si la búsqueda no encuentra nada, lo distingue y deja limpiarla", async () => {
+    /* «Sin empresas registradas» tras una búsqueda hacía creer que no había
+       ninguna (auditoría UX/UI, fase 2). */
+    pintarListado();
+
+    await screen.findByText("LaarCourier");
+    listar.mockResolvedValue({ results: [], count: 0 });
+    const campo = screen.getByLabelText("Buscar empresas");
+    fireEvent.change(campo, { target: { value: "nada" } });
+    fireEvent.submit(campo.closest("form"));
+
+    expect(
+      await screen.findByText("Ningún resultado con estos filtros."),
+    ).toBeInTheDocument();
+
+    listar.mockResolvedValue({ results: EMPRESAS, count: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+    expect(await screen.findByText("LaarCourier")).toBeInTheDocument();
+    expect(screen.getByLabelText("Buscar empresas")).toHaveValue("");
   });
 
   it("si el listado falla lo dice", async () => {
@@ -270,8 +291,10 @@ describe("Crear o editar una empresa", () => {
     pintarFormulario(1);
 
     await screen.findByText("Editar empresa");
-    await waitFor(() => expect(screen.getByLabelText("Nombre")).toBeDisabled());
-    expect(screen.getByLabelText("Código")).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Nombre/)).toBeDisabled(),
+    );
+    expect(screen.getByLabelText(/^Código/)).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "Guardar" }),
     ).not.toBeInTheDocument();
@@ -283,10 +306,10 @@ describe("Crear o editar una empresa", () => {
     pintarFormulario();
 
     await screen.findByText("Nueva empresa");
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
       target: { value: "LaarCargo" },
     });
-    fireEvent.change(screen.getByLabelText("Código"), {
+    fireEvent.change(screen.getByLabelText(/^Código/), {
       target: { value: "LG" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -309,7 +332,7 @@ describe("Crear o editar una empresa", () => {
 
     await screen.findByText("Editar empresa");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre")).toHaveValue("LaarCourier"),
+      expect(screen.getByLabelText(/^Nombre/)).toHaveValue("LaarCourier"),
     );
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
@@ -326,9 +349,9 @@ describe("Crear o editar una empresa", () => {
     pintarFormulario(1);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombre")).toHaveValue("LaarCourier"),
+      expect(screen.getByLabelText(/^Nombre/)).toHaveValue("LaarCourier"),
     );
-    expect(screen.getByLabelText("Zona horaria")).toHaveValue(
+    expect(screen.getByLabelText(/^Zona horaria/)).toHaveValue(
       "America/Guayaquil",
     );
     await screen.findByRole("option", { name: "Luis Mora" });
@@ -367,10 +390,10 @@ describe("Crear o editar una empresa", () => {
     pintarFormulario();
 
     await screen.findByText("Nueva empresa");
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
       target: { value: "LaarCargo" },
     });
-    fireEvent.change(screen.getByLabelText("Código"), {
+    fireEvent.change(screen.getByLabelText(/^Código/), {
       target: { value: "LC" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -378,6 +401,41 @@ describe("Crear o editar una empresa", () => {
     expect(
       await screen.findByText("Ese código ya está en uso."),
     ).toBeInTheDocument();
+  });
+
+  it("el error de un campo va bajo ese campo", async () => {
+    permisos.add("empresas.editar");
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: { details: { codigo: ["Ese código ya está en uso."] } },
+        },
+      },
+    });
+
+    pintarFormulario();
+
+    await screen.findByText("Nueva empresa");
+    expect(screen.getByLabelText(/^Nombre/)).toBeRequired();
+    fireEvent.change(screen.getByLabelText(/^Nombre/), {
+      target: { value: "LaarCargo" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Código/), {
+      target: { value: "LC" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await screen.findByText("Ese código ya está en uso.");
+    expect(screen.getByLabelText(/^Código/)).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByLabelText(/^Código/)).toHaveAccessibleDescription(
+      /Ese código ya está en uso\./,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
+    );
   });
 
   it("si la empresa no carga lo dice", async () => {

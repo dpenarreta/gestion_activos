@@ -130,7 +130,10 @@ describe("Solicitud de permisos", () => {
     pintar(<SolicitudPermisosPage />);
     expect(await screen.findByText("Vacaciones")).toBeInTheDocument();
     expect(screen.getByText("Jefatura · Julia Paz")).toBeInTheDocument();
-    expect(screen.getByLabelText("1 por aprobar")).toBeInTheDocument();
+    // La cuenta va dentro de la pestaña y se lee «1 por aprobar».
+    expect(
+      screen.getByRole("tab", { name: /Por aprobar\s*1\s*por aprobar/ }),
+    ).toBeInTheDocument();
     // Sin permisos: ni «Todas» ni configurar.
     expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
     expect(
@@ -149,13 +152,13 @@ describe("Solicitud de permisos", () => {
     });
     expect(await within(ventana).findByText("Jefatura")).toBeInTheDocument();
     expect(within(ventana).getByText("Talento Humano")).toBeInTheDocument();
-    fireEvent.change(within(ventana).getByLabelText("Desde"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Desde/), {
       target: { value: "2026-11-02" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Hasta"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Hasta/), {
       target: { value: "2026-11-06" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Motivo"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Motivo/), {
       target: { value: "Viaje familiar" },
     });
     fireEvent.click(
@@ -188,10 +191,10 @@ describe("Solicitud de permisos", () => {
     await within(ventana).findByText("Jefatura");
 
     // Escribir las fechas las marca en el calendario (y lo lleva a ese mes).
-    fireEvent.change(within(ventana).getByLabelText("Desde"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Desde/), {
       target: { value: "2026-12-07" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Hasta"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Hasta/), {
       target: { value: "2026-12-09" },
     });
     const marcados = () =>
@@ -210,14 +213,14 @@ describe("Solicitud de permisos", () => {
         name: "14 de diciembre de 2026",
       }),
     );
-    expect(within(ventana).getByLabelText("Desde")).toHaveValue("2026-12-14");
-    expect(within(ventana).getByLabelText("Hasta")).toHaveValue("2026-12-14");
+    expect(within(ventana).getByLabelText(/^Desde/)).toHaveValue("2026-12-14");
+    expect(within(ventana).getByLabelText(/^Hasta/)).toHaveValue("2026-12-14");
     fireEvent.click(
       within(ventana).getByRole("gridcell", {
         name: "18 de diciembre de 2026",
       }),
     );
-    expect(within(ventana).getByLabelText("Hasta")).toHaveValue("2026-12-18");
+    expect(within(ventana).getByLabelText(/^Hasta/)).toHaveValue("2026-12-18");
     expect(marcados()).toEqual(["14", "15", "16", "17", "18"]);
     expect(within(ventana).getByText("5 días en total")).toBeInTheDocument();
   });
@@ -249,10 +252,10 @@ describe("Solicitud de permisos", () => {
       name: "Nueva solicitud de permiso",
     });
     await within(ventana).findByText("Jefatura");
-    fireEvent.change(within(ventana).getByLabelText("Desde"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Desde/), {
       target: { value: "2026-11-02" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Hasta"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Hasta/), {
       target: { value: "2026-11-04" },
     });
     const restricciones = await within(ventana).findByRole("region", {
@@ -355,6 +358,177 @@ describe("Solicitud de permisos", () => {
   });
 });
 
+/*
+ * Cargando, error y pestañas (auditoría UX/UI, fase 2, 28/10/2026): la tabla
+ * decía nada mientras cargaba, al cambiar de pestaña pintaba las filas viejas
+ * con las columnas corridas y un error viejo quedaba a la vista.
+ */
+describe("Solicitud de permisos: cargando, error y pestañas", () => {
+  it("muestra «Cargando…» en la tabla mientras llega la lista", async () => {
+    let entregar;
+    servicio.solicitudes.mockReturnValue(
+      new Promise((resolver) => {
+        entregar = resolver;
+      }),
+    );
+    pintar(<SolicitudPermisosPage />);
+    const tabla = screen.getByRole("table");
+    expect(within(tabla).getByRole("status")).toHaveTextContent("Cargando…");
+    entregar([SOLICITUD]);
+    expect(await within(tabla).findByText("Vacaciones")).toBeInTheDocument();
+    expect(within(tabla).queryByRole("status")).toBeNull();
+  });
+
+  it("un error se muestra en la tabla y «Reintentar» vuelve a pedir y lo borra", async () => {
+    servicio.solicitudes.mockRejectedValueOnce({
+      response: {
+        data: { error: { message: "Sin conexión con el servidor." } },
+      },
+    });
+    pintar(<SolicitudPermisosPage />);
+    const tabla = screen.getByRole("table");
+    expect(await within(tabla).findByRole("alert")).toHaveTextContent(
+      "Sin conexión con el servidor.",
+    );
+    fireEvent.click(within(tabla).getByRole("button", { name: "Reintentar" }));
+    expect(await within(tabla).findByText("Vacaciones")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(servicio.solicitudes).toHaveBeenCalledTimes(2);
+  });
+
+  it("al cambiar de pestaña no deja las filas viejas mientras carga", async () => {
+    pintar(<SolicitudPermisosPage />);
+    const tabla = screen.getByRole("table");
+    expect(await within(tabla).findByText("Vacaciones")).toBeInTheDocument();
+    servicio.solicitudes.mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getByRole("tab", { name: /Por aprobar/ }));
+    expect(within(tabla).queryByText("Vacaciones")).toBeNull();
+    expect(within(tabla).getByRole("status")).toHaveTextContent("Cargando…");
+    expect(servicio.solicitudes).toHaveBeenLastCalledWith("por_aprobar");
+  });
+
+  it("las pestañas se recorren con las flechas y controlan su panel", async () => {
+    pintar(<SolicitudPermisosPage />);
+    await screen.findByText("Vacaciones");
+    const mias = screen.getByRole("tab", { name: "Mis solicitudes" });
+    expect(mias).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute(
+      "aria-labelledby",
+      mias.id,
+    );
+    fireEvent.keyDown(mias, { key: "ArrowRight" });
+    const porAprobar = screen.getByRole("tab", { name: /Por aprobar/ });
+    expect(porAprobar).toHaveAttribute("aria-selected", "true");
+    expect(porAprobar).toHaveFocus();
+  });
+
+  it("el empty de «Por aprobar» lo dice", async () => {
+    servicio.solicitudes.mockResolvedValue([]);
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(screen.getByRole("tab", { name: /Por aprobar/ }));
+    expect(
+      await screen.findByText("No tiene solicitudes por aprobar."),
+    ).toBeInTheDocument();
+  });
+
+  it("el detalle dice «Cargando…» hasta que llegan los datos", async () => {
+    servicio.solicitud.mockReturnValue(new Promise(() => {}));
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Solicitud de permiso",
+    });
+    expect(within(ventana).getByRole("status")).toHaveTextContent("Cargando…");
+  });
+
+  it("si el documento no se puede descargar, lo avisa", async () => {
+    servicio.solicitud.mockResolvedValue({
+      ...DETALLE,
+      tiene_adjunto: true,
+      adjunto_nombre: "certificado.pdf",
+    });
+    servicio.adjunto.mockRejectedValue({
+      response: { data: { error: { message: "El archivo ya no existe." } } },
+    });
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Solicitud de permiso",
+    });
+    fireEvent.click(
+      await within(ventana).findByRole("button", { name: /certificado.pdf/ }),
+    );
+    expect(await within(ventana).findByRole("alert")).toHaveTextContent(
+      "El archivo ya no existe.",
+    );
+  });
+
+  it("si no se puede cargar a quién escalar, lo avisa", async () => {
+    servicio.opciones.mockRejectedValue({});
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Solicitud de permiso",
+    });
+    fireEvent.click(
+      await within(ventana).findByRole("button", { name: /^Escalar/ }),
+    );
+    expect(await within(ventana).findByRole("alert")).toHaveTextContent(
+      "No se pudo cargar a quién escalar.",
+    );
+  });
+
+  it("el documento obligatorio que falta se marca en su campo", async () => {
+    servicio.tipos.mockResolvedValue([
+      { ...VACACIONES, adjunto: "obligatorio" },
+    ]);
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    const campo = within(ventana).getByLabelText(/Documento de respaldo/);
+    expect(campo).toHaveAttribute("aria-invalid", "true");
+    expect(campo).toHaveAccessibleDescription(
+      /Este permiso pide un documento de respaldo/,
+    );
+    expect(servicio.solicitar).not.toHaveBeenCalled();
+  });
+
+  it("los errores del servidor van bajo su campo", async () => {
+    servicio.solicitar.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: { hasta: ["Supera el máximo de días seguidos."] },
+          },
+        },
+      },
+    });
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    const hasta = within(ventana).getByLabelText(/^Hasta/);
+    await waitFor(() => expect(hasta).toHaveAttribute("aria-invalid", "true"));
+    expect(hasta).toHaveAccessibleDescription(
+      "Supera el máximo de días seguidos.",
+    );
+  });
+});
+
 describe("Configurar flujos", () => {
   it("crea un flujo con sus pasos y a quién se avisa", async () => {
     permisos.lista = ["licencias.configurar"];
@@ -367,7 +541,7 @@ describe("Configurar flujos", () => {
     const ventana = screen.getByRole("dialog", {
       name: "Nuevo tipo de permiso",
     });
-    fireEvent.change(within(ventana).getByLabelText("Nombre del permiso"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Nombre del permiso/), {
       target: { value: "Permiso médico" },
     });
     fireEvent.change(

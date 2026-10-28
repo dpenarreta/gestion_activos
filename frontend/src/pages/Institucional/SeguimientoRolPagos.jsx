@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
@@ -181,10 +185,14 @@ function VerRol({ persona, anio, mes, onVer }) {
 function ResumenPorMes({ anio, mesElegido, onElegir }) {
   const [filas, setFilas] = useState(null);
   const [error, setError] = useState(null);
+  // Cada «Reintentar» lo suma y vuelve a pedir (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vigente = true;
     setFilas(null);
+    setError(null);
     nominaService
       .resumenSeguimiento(anio)
       .then((d) => vigente && setFilas(d))
@@ -196,10 +204,16 @@ function ResumenPorMes({ anio, mesElegido, onElegir }) {
     return () => {
       vigente = false;
     };
-  }, [anio]);
+  }, [anio, intento]);
 
-  if (error) return <p className="text-danger mz-small mb-0">{error}</p>;
-  if (!filas) return <p className="mz-faint mz-small mb-0">Cargando…</p>;
+  if (error || !filas)
+    return (
+      <EstadoDeCarga
+        cargando
+        error={error}
+        onReintentar={() => setIntento((n) => n + 1)}
+      />
+    );
   return (
     <div className="table-responsive">
       <table className="table table-sm align-middle mb-0 rol-seguimiento__resumen">
@@ -284,6 +298,8 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
   const [confirmandoAviso, setConfirmandoAviso] = useState(false);
   const [viendo, setViendo] = useState(null);
 
+  // «Reintentar» la lista del mes (auditoría UX/UI, fase 2, 28/10/2026).
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vigente = true;
     setDatos(null);
@@ -299,7 +315,7 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
     return () => {
       vigente = false;
     };
-  }, [anio, mes]);
+  }, [anio, mes, intento]);
 
   const filas = useMemo(() => {
     const lista = datos?.[vista] ?? [];
@@ -455,19 +471,19 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
 
             <ResumenPorMes anio={anio} mesElegido={mes} onElegir={setMes} />
 
-            {error && (
-              <div className="mz-alert mz-alert--bad" role="alert">
-                <Icon name="x-octagon" />
-                {error}
-              </div>
-            )}
+            {/* Sin la lista, el error trae «Reintentar»; con ella, el error es
+                de una acción (exportar, recordar). */}
+            <EstadoDeCarga
+              cargando={!datos}
+              error={error}
+              onReintentar={datos ? undefined : () => setIntento((n) => n + 1)}
+            />
             {aviso && (
               <div className="mz-alert mz-alert--ok" role="status">
                 <Icon name="check-circle" />
                 {aviso}
               </div>
             )}
-            {!datos && !error && <p className="mz-faint mb-0">Cargando…</p>}
 
             {datos && (
               <>
@@ -623,18 +639,13 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
                           )}
                         </tr>
                       ))}
-                      {filas.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={puedeVerRol ? 5 : 4}
-                            className="mz-faint"
-                          >
-                            {buscar.trim()
-                              ? "Nadie con ese nombre."
-                              : VACIO[vista]}
-                          </td>
-                        </tr>
-                      )}
+                      <FilaDeEstado
+                        columnas={puedeVerRol ? 5 : 4}
+                        vacio={filas.length === 0}
+                        textoVacio={VACIO[vista]}
+                        hayFiltros={Boolean(buscar.trim())}
+                        onLimpiarFiltros={() => setBuscar("")}
+                      />
                     </tbody>
                   </table>
                 </div>

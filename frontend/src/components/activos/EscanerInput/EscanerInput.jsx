@@ -35,6 +35,11 @@ export function EscanerInput({
   enfocarAlMontar = false,
   mantenerFoco = false,
   disabled = false,
+  // Nombre de la región de búsqueda. En el inventario conviven esta y la
+  // barra de filtros, y dos regiones «search» sin nombre no se distinguen
+  // en la lista de regiones del lector de pantalla (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  etiquetaRegion = "Buscar por código con el escáner",
 }) {
   const [valor, setValor] = useState("");
   const inputRef = useRef(null);
@@ -63,6 +68,7 @@ export function EscanerInput({
       className={`escaner-input ${className}`}
       onSubmit={handleSubmit}
       role="search"
+      aria-label={etiquetaRegion}
     >
       <div className="input-group">
         <span className="input-group-text">

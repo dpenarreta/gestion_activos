@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { nominaService } from "../../api/nominaService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
@@ -29,11 +34,12 @@ const MESES = [
   "noviembre",
   "diciembre",
 ];
+// «todas» se pide al servidor sin estado.
 const PESTANAS = [
-  ["abierta", "Por atender"],
-  ["corregida", "Por confirmar"],
-  ["cerrada", "Confirmadas"],
-  ["", "Todas"],
+  { id: "abierta", etiqueta: "Por atender" },
+  { id: "corregida", etiqueta: "Por confirmar" },
+  { id: "cerrada", etiqueta: "Confirmadas" },
+  { id: "todas", etiqueta: "Todas" },
 ];
 const CLASES = {
   abierta: "sugerencia-estado--nuevo",
@@ -255,18 +261,20 @@ export function ObservacionesRolPage() {
   const [error, setError] = useState(null);
   const abierta = parametros.get("observacion");
 
-  const cargar = useCallback(
-    () =>
-      nominaService
-        .observaciones(estado)
-        .then(setLista)
-        .catch((err) =>
-          setError(
-            mensajeDeError(err, "No se pudieron cargar las observaciones."),
-          ),
+  const cargar = useCallback(() => {
+    // Se vacía antes de pedir: «Cargando…» en vez de la lista de la pestaña
+    // anterior, y sin el error viejo (auditoría UX/UI, fase 2, 28/10/2026).
+    setLista(null);
+    setError(null);
+    return nominaService
+      .observaciones(estado)
+      .then(setLista)
+      .catch((err) =>
+        setError(
+          mensajeDeError(err, "No se pudieron cargar las observaciones."),
         ),
-    [estado],
-  );
+      );
+  }, [estado]);
 
   useEffect(() => {
     cargar();
@@ -290,71 +298,64 @@ export function ObservacionesRolPage() {
           </p>
         </div>
       </div>
-      <div className="mz-tabs" role="tablist">
-        {PESTANAS.map(([id, texto]) => (
-          <button
-            key={id || "todas"}
-            type="button"
-            role="tab"
-            aria-selected={estado === id}
-            className={estado === id ? "is-active" : undefined}
-            onClick={() => setEstado(id)}
-          >
-            {texto}
-          </button>
-        ))}
-      </div>
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {lista && lista.length === 0 && (
-        <p className="mz-faint">No hay observaciones aquí.</p>
-      )}
-      {lista && lista.length > 0 && (
-        <div className="mz-card">
-          <div className="table-responsive">
-            <table className="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Persona</th>
-                  <th>Código</th>
-                  <th>Período</th>
-                  <th>Observación</th>
-                  <th>Estado</th>
-                  <th>Actualizada</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((f) => (
-                  <tr key={f.id}>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-link btn-sm p-0 text-start"
-                        onClick={() => abrir(f.id)}
-                      >
-                        {f.persona.nombre}
-                      </button>
-                    </td>
-                    <td>{f.codigo}</td>
-                    <td className="text-capitalize">
-                      {MESES[f.mes - 1]} {f.anio}
-                    </td>
-                    <td className="mz-small">{f.ultima}</td>
-                    <td>
-                      <Estado fila={f} />
-                    </td>
-                    <td>{formatearFecha(f.actualizada)}</td>
+      <Pestanas
+        etiqueta="Observaciones por estado"
+        idBase="obs"
+        valor={estado || "todas"}
+        onCambio={(id) => setEstado(id === "todas" ? "" : id)}
+        opciones={PESTANAS}
+      />
+      <PanelDePestana idBase="obs" valor={estado || "todas"}>
+        <EstadoDeCarga
+          cargando={lista === null}
+          error={error}
+          onReintentar={cargar}
+          vacio={lista?.length === 0}
+          textoVacio="No hay observaciones aquí."
+        />
+        {lista && lista.length > 0 && (
+          <div className="mz-card">
+            <div className="table-responsive">
+              <table className="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Persona</th>
+                    <th>Código</th>
+                    <th>Período</th>
+                    <th>Observación</th>
+                    <th>Estado</th>
+                    <th>Actualizada</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {lista.map((f) => (
+                    <tr key={f.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-start"
+                          onClick={() => abrir(f.id)}
+                        >
+                          {f.persona.nombre}
+                        </button>
+                      </td>
+                      <td>{f.codigo}</td>
+                      <td className="text-capitalize">
+                        {MESES[f.mes - 1]} {f.anio}
+                      </td>
+                      <td className="mz-small">{f.ultima}</td>
+                      <td>
+                        <Estado fila={f} />
+                      </td>
+                      <td>{formatearFecha(f.actualizada)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </PanelDePestana>
       {abierta && (
         <Detalle id={abierta} onCambio={cargar} onCerrar={() => abrir(null)} />
       )}

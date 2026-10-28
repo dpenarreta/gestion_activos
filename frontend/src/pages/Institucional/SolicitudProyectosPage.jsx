@@ -1,11 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { guardarArchivo, proyectosService } from "../../api/proyectosService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { usePermission } from "../../hooks/usePermission";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { ControlPropio } from "../Soporte/Publico/CamposFormulario";
 import { DESTINOS_ESCALAR, SelectorDestino } from "./licenciasComunes";
@@ -61,16 +74,27 @@ function Ventana({ titulo, onCerrar, children }) {
   );
 }
 
-/** Los errores por campo que devuelve el servidor (clave → mensajes). */
+/** Los errores por campo que devuelve el servidor (clave → mensajes): los de
+ * los campos propios del tipo vienen dentro de `respuestas`; los del
+ * formulario (nombre, plantilla…), sueltos, con el prefijo `_` para no chocar
+ * con la clave de un campo propio (auditoría UX/UI, fase 2, 28/10/2026). */
 function erroresDeCampos(err) {
   const detalles = err?.response?.data?.error?.details?.respuestas;
-  if (!detalles || typeof detalles !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(detalles).map(([clave, v]) => [
-      clave,
-      Array.isArray(v) ? v.join(" ") : String(v),
-    ]),
+  const propios =
+    detalles && typeof detalles === "object"
+      ? Object.fromEntries(
+          Object.entries(detalles).map(([clave, v]) => [
+            clave,
+            Array.isArray(v) ? v.join(" ") : String(v),
+          ]),
+        )
+      : {};
+  const generales = Object.fromEntries(
+    Object.entries(erroresPorCampo(err))
+      .filter(([campo]) => campo !== "respuestas")
+      .map(([campo, mensaje]) => [`_${campo}`, mensaje]),
   );
+  return { ...propios, ...generales };
 }
 
 /** Pedir un proyecto: el tipo (con su plantilla y sus pasos a la vista), el
@@ -84,6 +108,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const formulario = useRef(null);
 
   useEffect(() => {
     proyectosService
@@ -92,7 +117,13 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
         setTipos(lista);
         if (lista.length) setTipoId(String(lista[0].id));
       })
-      .catch(() => setTipos([]));
+      .catch((err) => {
+        // Antes un fallo se veía como «no hay tipos» (auditoría UX/UI, fase 2).
+        setError(
+          mensajeDeError(err, "No se pudieron cargar los tipos de proyecto."),
+        );
+        setTipos([]);
+      });
   }, []);
 
   const elegido = tipos?.find((t) => String(t.id) === tipoId);
@@ -110,10 +141,17 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
 
   async function enviar(evento) {
     evento.preventDefault();
-    if (!archivo) {
-      setError(
-        "Cargue la plantilla llena: descárguela, complétela y súbala aquí.",
-      );
+    // Lo que falta se dice junto a cada campo y el foco va al primero
+    // (auditoría UX/UI, fase 2, 28/10/2026).
+    const faltan = {};
+    if (!archivo)
+      faltan._archivo =
+        "Cargue la plantilla llena: descárguela, complétela y súbala aquí.";
+    if (!titulo.trim()) faltan._titulo = "Escriba el nombre del proyecto.";
+    if (Object.keys(faltan).length) {
+      setError(null);
+      setErrores(faltan);
+      enfocarPrimerError(formulario.current);
       return;
     }
     setEnviando(true);
@@ -130,17 +168,26 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
       setErrores(erroresDeCampos(err));
       setError(mensajeDeError(err, "No se pudo enviar la solicitud."));
       setEnviando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
   return (
     <Ventana titulo="Nueva solicitud de proyecto" onCerrar={onCerrar}>
-      {tipos?.length === 0 ? (
-        <p className="mz-faint mb-0">
-          Todavía no hay tipos de proyecto para solicitar.
-        </p>
+      {tipos === null ? (
+        <EstadoDeCarga cargando />
+      ) : tipos.length === 0 ? (
+        error ? (
+          <EstadoDeCarga error={error} />
+        ) : (
+          <p className="mz-faint mb-0">
+            Todavía no hay tipos de proyecto para solicitar.
+          </p>
+        )
       ) : (
-        <form className="row g-2" onSubmit={enviar}>
+        // noValidate: lo obligatorio se revisa aquí y en el servidor, y el
+        // error se muestra junto a cada campo.
+        <form ref={formulario} className="row g-2" onSubmit={enviar} noValidate>
           {error && (
             <div className="col-12">
               <div className="mz-alert mz-alert--bad" role="alert">
@@ -150,25 +197,31 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             </div>
           )}
           <div className="col-12">
-            <label className="form-label mz-small" htmlFor="pr-tipo">
-              Tipo de proyecto
-            </label>
-            <select
+            <LeyendaObligatorios />
+          </div>
+          <div className="col-12">
+            <Campo
               id="pr-tipo"
-              className="form-select form-select-sm"
-              value={tipoId}
-              onChange={(e) => {
-                setTipoId(e.target.value);
-                setRespuestas({});
-                setErrores({});
-              }}
+              etiqueta="Tipo de proyecto"
+              obligatorio
+              error={errores._tipo_proyecto}
             >
-              {(tipos ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                </option>
-              ))}
-            </select>
+              <select
+                className="form-select form-select-sm"
+                value={tipoId}
+                onChange={(e) => {
+                  setTipoId(e.target.value);
+                  setRespuestas({});
+                  setErrores({});
+                }}
+              >
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
             {elegido && (
               <div className="solicitud-ruta mt-2">
                 {elegido.descripcion && (
@@ -209,21 +262,21 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
               </div>
               <div className="proyecto-plantilla">
                 <span className="proyecto-plantilla__numero">2</span>
-                <div className="flex-grow-1">
-                  <label className="form-label mb-1" htmlFor="pr-archivo">
-                    <strong>Cargue la plantilla llena</strong> (obligatorio)
-                  </label>
+                <Campo
+                  id="pr-archivo"
+                  etiqueta={<strong>Cargue la plantilla llena</strong>}
+                  obligatorio
+                  ayuda="Word, Excel o PDF, hasta 10 MB."
+                  error={errores._archivo}
+                  className="flex-grow-1"
+                >
                   <input
-                    id="pr-archivo"
                     type="file"
                     accept=".docx,.xlsx,.pdf"
                     className="form-control form-control-sm"
                     onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
                   />
-                  <small className="mz-faint">
-                    Word, Excel o PDF, hasta 10 MB.
-                  </small>
-                </div>
+                </Campo>
               </div>
               <div className="proyecto-plantilla">
                 <span className="proyecto-plantilla__numero">3</span>
@@ -232,19 +285,20 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             </div>
           )}
 
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="pr-titulo">
-              Nombre del proyecto <span className="text-danger">*</span>
-            </label>
+          <Campo
+            id="pr-titulo"
+            etiqueta="Nombre del proyecto"
+            obligatorio
+            error={errores._titulo}
+            className="col-12"
+          >
             <input
-              id="pr-titulo"
               className="form-control form-control-sm"
-              required
               maxLength={200}
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
             />
-          </div>
+          </Campo>
           {elegido?.campos.map((campo) => {
             const id = `pr-${campo.clave}`;
             const mensaje = errores[campo.clave];
@@ -262,12 +316,14 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
                     />
                     <label className="form-check-label" htmlFor={id}>
                       {campo.etiqueta}
-                      {campo.obligatorio && (
-                        <span className="text-danger"> *</span>
-                      )}
+                      {campo.obligatorio && <MarcaObligatorio />}
                     </label>
                   </div>
-                  {mensaje && <small className="text-danger">{mensaje}</small>}
+                  {mensaje && (
+                    <div className="mz-field-error" role="alert">
+                      {mensaje}
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -281,7 +337,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
                 <label className="form-label mz-small" htmlFor={id}>
                   {campo.etiqueta}{" "}
                   {campo.obligatorio ? (
-                    <span className="text-danger">*</span>
+                    <MarcaObligatorio />
                   ) : (
                     <span className="mz-faint">(opcional)</span>
                   )}
@@ -295,7 +351,11 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
                 {campo.ayuda && (
                   <small className="mz-faint d-block">{campo.ayuda}</small>
                 )}
-                {mensaje && <small className="text-danger">{mensaje}</small>}
+                {mensaje && (
+                  <div className="mz-field-error" role="alert">
+                    {mensaje}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -318,6 +378,21 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
         </form>
       )}
     </Ventana>
+  );
+}
+
+/* La marca de obligatorio de `Campo`, para los campos propios del tipo: su
+ * control (ControlPropio, de Soporte) no recibe los atributos que pone
+ * `Campo`, así que su error se anuncia como alerta junto al campo. */
+function MarcaObligatorio() {
+  return (
+    <>
+      <span className="mz-campo__obligatorio" aria-hidden="true">
+        {" "}
+        *
+      </span>
+      <span className="visually-hidden"> (obligatorio)</span>
+    </>
   );
 }
 
@@ -357,7 +432,11 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       proyectosService
         .opciones()
         .then(setOpciones)
-        .catch(() => null);
+        // Sin las opciones no hay a quién escalar: se avisa en vez de dejar
+        // el selector vacío (auditoría UX/UI, fase 2, 28/10/2026).
+        .catch((err) =>
+          setError(mensajeDeError(err, "No se pudo cargar a quién escalar.")),
+        );
     }
   }, [escalando, opciones]);
 
@@ -402,6 +481,8 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           {error}
         </div>
       )}
+      {/* Mientras llegan los datos, la ventana no queda en blanco. */}
+      {!solicitud && !error && <EstadoDeCarga cargando />}
       {solicitud && (
         <div className="mz-stack">
           <div className="solicitud-cabecera">
@@ -617,9 +698,9 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
 }
 
 const PESTANAS = [
-  ["mias", "Mis solicitudes"],
-  ["por_atender", "Por atender"],
-  ["todas", "Todas"],
+  { id: "mias", etiqueta: "Mis solicitudes" },
+  { id: "por_atender", etiqueta: "Por atender", unidad: "por atender" },
+  { id: "todas", etiqueta: "Todas" },
 ];
 
 /**
@@ -641,6 +722,11 @@ export function SolicitudProyectosPage() {
   const abierta = parametros.get("solicitud");
 
   const cargar = useCallback(() => {
+    // Se vacía antes de pedir: así se ve «Cargando…» y no las filas de la
+    // pestaña anterior con sus columnas corridas, ni el error viejo
+    // (auditoría UX/UI, fase 2, 28/10/2026).
+    setLista(null);
+    setError(null);
     proyectosService
       .solicitudes(pestana)
       .then(setLista)
@@ -657,7 +743,9 @@ export function SolicitudProyectosPage() {
     cargar();
   }, [cargar]);
 
-  const pestanas = PESTANAS.filter(([id]) => id !== "todas" || verTodas);
+  const pestanas = PESTANAS.filter((p) => p.id !== "todas" || verTodas).map(
+    (p) => (p.id === "por_atender" ? { ...p, cuenta: porAtender } : p),
+  );
 
   function abrir(id) {
     setParametros(id ? { solicitud: String(id) } : {});
@@ -692,35 +780,14 @@ export function SolicitudProyectosPage() {
         </div>
       </div>
 
-      <div className="mz-tabs" role="tablist">
-        {pestanas.map(([id, texto]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            className={pestana === id ? "is-active" : undefined}
-            onClick={() => setPestana(id)}
-          >
-            {texto}
-            {id === "por_atender" && porAtender > 0 && (
-              <span
-                className="solicitud-contador"
-                aria-label={`${porAtender} por atender`}
-              >
-                {porAtender}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Pestanas
+        etiqueta="Solicitudes de proyecto"
+        idBase="pr"
+        valor={pestana}
+        onCambio={setPestana}
+        opciones={pestanas}
+      />
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
       {aviso && (
         <div className="mz-alert mz-alert--ok" role="status">
           <Icon name="check-circle" />
@@ -728,7 +795,7 @@ export function SolicitudProyectosPage() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      <PanelDePestana idBase="pr" valor={pestana} className="mz-table-wrap">
         <table className="mz-table solicitudes-tabla">
           <thead>
             <tr>
@@ -772,18 +839,21 @@ export function SolicitudProyectosPage() {
                 </tr>
               );
             })}
-            {lista?.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={7}>
-                  {pestana === "por_atender"
-                    ? "No tiene solicitudes por atender"
-                    : "No hay solicitudes"}
-                </td>
-              </tr>
-            )}
+            <FilaDeEstado
+              columnas={pestana === "mias" ? 6 : 7}
+              cargando={lista === null}
+              error={error}
+              onReintentar={cargar}
+              vacio={lista?.length === 0}
+              textoVacio={
+                pestana === "por_atender"
+                  ? "No tiene solicitudes por atender."
+                  : "No hay solicitudes."
+              }
+            />
           </tbody>
         </table>
-      </div>
+      </PanelDePestana>
 
       {nueva && (
         <NuevaSolicitud

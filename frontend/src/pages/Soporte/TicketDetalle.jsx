@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { descargarBlob } from "../../utils/descargas";
 import { formatearFecha } from "../../utils/formato";
@@ -17,6 +18,11 @@ import {
   useEtiquetas,
 } from "./comunes";
 import "./Soporte.css";
+
+/* Pasos que piden «Nota o motivo» antes de enviarse: al esperar al usuario es
+ * lo que le llega; al escalar, lo que lee el nivel siguiente. */
+const PASOS_CON_NOTA = new Set(["esperando_usuario"]);
+const MAX_ADJUNTOS = 3;
 
 const TEXTO_DEL_PASO = {
   en_curso: "Poner en curso",
@@ -39,6 +45,11 @@ export function TicketDetalle() {
   const [tecnicos, setTecnicos] = useState([]);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
+  /* Dónde se muestra el resultado de la última acción: el de los pasos,
+   * escalar y asignar va dentro de «Qué se puede hacer», junto a los botones
+   * (auditoría UX/UI, fase 2, 28/10/2026: salía arriba de la página, lejos de
+   * la columna derecha donde se hizo clic). */
+  const [origen, setOrigen] = useState("pagina");
   const [ocupado, setOcupado] = useState(false);
   const [pedirHoras, setPedirHoras] = useState(false);
 
@@ -68,7 +79,8 @@ export function TicketDetalle() {
     }
   }, [ticket, tecnicos.length]);
 
-  async function hacer(accion, mensaje) {
+  async function hacer(accion, mensaje, donde = "pagina") {
+    setOrigen(donde);
     setOcupado(true);
     setError(null);
     setAviso(null);
@@ -96,6 +108,7 @@ export function TicketDetalle() {
   }
 
   async function descargar(adjunto) {
+    setOrigen("pagina");
     try {
       const respuesta = await soporteService.descargar(adjunto.url);
       descargarBlob(respuesta.data, adjunto.nombre);
@@ -105,17 +118,24 @@ export function TicketDetalle() {
   }
 
   if (!ticket) {
-    return error ? (
-      <div className="mz-alert mz-alert--bad" role="alert">
-        <Icon name="x-octagon" />
-        {error}
-      </div>
-    ) : (
-      <div className="mz-empty">Cargando…</div>
+    return (
+      <EstadoDeCarga
+        cargando
+        error={error}
+        onReintentar={() => {
+          setError(null);
+          cargar();
+        }}
+      />
     );
   }
 
   const permisos = ticket.permisos ?? { acciones: [] };
+  const hayAcciones =
+    permisos.acciones.length > 0 || permisos.escalar || permisos.asignar;
+  // Si tras la acción la tarjeta desaparece (escalado: ya no es suyo), el
+  // aviso sube a la página para que no se pierda.
+  const resultadoEnAcciones = origen === "acciones" && hayAcciones;
 
   return (
     <div className="soporte-page">
@@ -144,22 +164,14 @@ export function TicketDetalle() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {aviso && (
-        <div className="mz-alert mz-alert--info" role="status">
-          <Icon name="check2-circle" />
-          {aviso}
-        </div>
-      )}
+      {!resultadoEnAcciones && <Resultado error={error} aviso={aviso} />}
       {pedirHoras && (
         <RegistrarHoras
           onCancelar={() => setPedirHoras(false)}
           onGuardar={async (datos) => {
+            setOrigen("pagina");
+            setError(null);
+            setAviso(null);
             try {
               await soporteService.registrarHoras(ticket.id, datos);
               setPedirHoras(false);
@@ -320,29 +332,35 @@ export function TicketDetalle() {
             </div>
           </section>
 
-          {(permisos.acciones.length > 0 ||
-            permisos.escalar ||
-            permisos.asignar) && (
+          {hayAcciones && (
             <Acciones
               ticket={ticket}
               tecnicos={tecnicos}
               ocupado={ocupado}
+              resultado={
+                origen === "acciones" && (
+                  <Resultado error={error} aviso={aviso} />
+                )
+              }
               onPaso={(estado, nota) =>
                 hacer(
                   () => soporteService.cambiarEstado(ticket.id, estado, nota),
                   "Estado actualizado.",
+                  "acciones",
                 )
               }
               onEscalar={(motivo) =>
                 hacer(
                   () => soporteService.escalar(ticket.id, motivo),
                   "Ticket escalado al siguiente nivel.",
+                  "acciones",
                 )
               }
               onAsignar={(tecnico, nota) =>
                 hacer(
                   () => soporteService.asignar(ticket.id, tecnico, nota),
                   "Ticket asignado.",
+                  "acciones",
                 )
               }
             />
@@ -401,23 +419,68 @@ export function TicketDetalle() {
               <h3>Historial</h3>
             </div>
             <div className="mz-card-body">
-              <ul className="mz-timeline soporte-historial">
-                {ticket.movimientos.map((m) => (
-                  <li key={m.id} className="mz-tl-item">
-                    <strong className="mz-tl-what">{m.descripcion}</strong>
-                    <div className="mz-tl-when">
-                      {formatearFecha(m.created_at, true)} · {m.actor}
-                    </div>
-                    {m.nota && <div className="mz-tl-why">{m.nota}</div>}
-                  </li>
-                ))}
-              </ul>
+              {ticket.movimientos?.length ? (
+                <ul className="mz-timeline soporte-historial">
+                  {ticket.movimientos.map((m) => (
+                    <li key={m.id} className="mz-tl-item">
+                      <strong className="mz-tl-what">{m.descripcion}</strong>
+                      <div className="mz-tl-when">
+                        {formatearFecha(m.created_at, true)} · {m.actor}
+                      </div>
+                      {m.nota && <div className="mz-tl-why">{m.nota}</div>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EstadoDeCarga vacio textoVacio="Sin movimientos." />
+              )}
             </div>
           </section>
         </div>
       </div>
     </div>
   );
+}
+
+/** El aviso o el error de la última acción. Si el botón pulsado desapareció
+ * (cambió el estado del ticket) y el foco quedó perdido, el foco viene aquí:
+ * quien usa teclado oye y ve el resultado en vez de volver al inicio
+ * (auditoría UX/UI, fase 2). */
+function Resultado({ error, aviso }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const activo = document.activeElement;
+    const perdido =
+      !activo || activo === document.body || activo.id === "contenido";
+    if ((error || aviso) && perdido) ref.current?.focus();
+  }, [error, aviso]);
+  if (error) {
+    return (
+      <div
+        className="mz-alert mz-alert--bad"
+        role="alert"
+        ref={ref}
+        tabIndex={-1}
+      >
+        <Icon name="x-octagon" />
+        {error}
+      </div>
+    );
+  }
+  if (aviso) {
+    return (
+      <div
+        className="mz-alert mz-alert--ok"
+        role="status"
+        ref={ref}
+        tabIndex={-1}
+      >
+        <Icon name="check2-circle" />
+        {aviso}
+      </div>
+    );
+  }
+  return null;
 }
 
 function Dato({ etiqueta, children }) {
@@ -449,15 +512,24 @@ function ListaDeAdjuntos({ lista, onDescargar }) {
 }
 
 /** La caja de respuesta. Escribir «/» al inicio sugiere las respuestas
- * predefinidas; elegir una la inserta con los datos del ticket. */
+ * predefinidas; elegir una la inserta con los datos del ticket.
+ *
+ * Auditoría UX/UI, fase 2 (28/10/2026): «Responder al usuario» o «Nota
+ * interna» se elige antes de escribir, con un control segmentado encima del
+ * campo; antes era una casilla apagada debajo y era fácil mandarle al
+ * solicitante un texto que era interno. La nota interna pinta el campo de
+ * aviso y el botón dice qué hará. */
 function Responder({ respuestas, ticket, ocupado, onEnviar }) {
   const [texto, setTexto] = useState("");
   const [interno, setInterno] = useState(false);
   const [archivos, setArchivos] = useState([]);
+  const [omitidos, setOmitidos] = useState(0);
+  const [cerradas, setCerradas] = useState(false);
+  const caja = useRef(null);
 
   const consulta = texto.startsWith("/") ? texto.slice(1).toLowerCase() : null;
   const sugerencias =
-    consulta === null
+    consulta === null || cerradas
       ? []
       : respuestas.filter(
           (r) =>
@@ -478,6 +550,15 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         (_, clave) => datos[clave] ?? "",
       ),
     );
+    caja.current?.focus();
+  }
+
+  /* Escape cierra las sugerencias, desde el campo o desde la lista. */
+  function cerrarConEscape(evento) {
+    if (evento.key !== "Escape" || sugerencias.length === 0) return;
+    evento.preventDefault();
+    setCerradas(true);
+    caja.current?.focus();
   }
 
   async function enviar(evento) {
@@ -485,34 +566,75 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
     if (await onEnviar({ texto, interno }, archivos)) {
       setTexto("");
       setArchivos([]);
+      setOmitidos(0);
     }
   }
 
   return (
     <form className="mt-3" onSubmit={enviar}>
-      <label className="form-label" htmlFor="td-texto">
+      <div
+        className="btn-group btn-group-sm mb-2"
+        role="group"
+        aria-label="A quién va el mensaje"
+      >
+        <button
+          type="button"
+          className={`btn ${interno ? "btn-outline-secondary" : "btn-primary"}`}
+          aria-pressed={!interno}
+          onClick={() => setInterno(false)}
+        >
+          Responder al usuario
+        </button>
+        <button
+          type="button"
+          className={`btn ${interno ? "btn-warning" : "btn-outline-secondary"}`}
+          aria-pressed={interno}
+          onClick={() => setInterno(true)}
+        >
+          <Icon name="lock" /> Nota interna
+        </button>
+      </div>
+      <label className="form-label d-block" htmlFor="td-texto">
         {interno
           ? "Nota interna (el usuario no la ve)"
           : "Respuesta al usuario"}
       </label>
       <textarea
         id="td-texto"
-        className="form-control"
+        ref={caja}
+        className={`form-control${interno ? " soporte-respuesta--interna" : ""}`}
         rows={4}
         required
         maxLength={10000}
         placeholder="Escriba «/» para usar una respuesta predefinida"
         value={texto}
-        onChange={(e) => setTexto(e.target.value)}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          setCerradas(false);
+        }}
+        onKeyDown={cerrarConEscape}
       />
+      <div className="visually-hidden" aria-live="polite">
+        {sugerencias.length > 0
+          ? `${sugerencias.length} respuestas sugeridas`
+          : ""}
+      </div>
       {sugerencias.length > 0 && (
+        // Una lista de botones, no un listbox: sus opciones eran botones
+        // dentro de role="option", que el lector no deja usar (auditoría
+        // UX/UI, fase 2).
         <ul
+          id="td-sugerencias"
           className="soporte-sugerencias"
           aria-label="Respuestas predefinidas"
         >
           {sugerencias.map((r) => (
             <li key={r.id}>
-              <button type="button" onClick={() => usar(r)}>
+              <button
+                type="button"
+                onClick={() => usar(r)}
+                onKeyDown={cerrarConEscape}
+              >
                 <span className="mz-mono">/{r.atajo}</span> · {r.titulo}
               </button>
             </li>
@@ -520,44 +642,69 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         </ul>
       )}
       <div className="d-flex flex-wrap gap-3 align-items-center mt-2">
-        <div className="form-check mb-0">
-          <input
-            id="td-interno"
-            type="checkbox"
-            className="form-check-input"
-            checked={interno}
-            onChange={(e) => setInterno(e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="td-interno">
-            Nota interna
-          </label>
-        </div>
         <input
           type="file"
           className="form-control form-control-sm soporte-publico__archivos"
           multiple
           aria-label="Adjuntar archivos"
+          aria-describedby={omitidos > 0 ? "td-adjuntos-aviso" : undefined}
           accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-          onChange={(e) =>
-            setArchivos(Array.from(e.target.files ?? []).slice(0, 3))
-          }
+          onChange={(e) => {
+            const elegidos = Array.from(e.target.files ?? []);
+            setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
+            setOmitidos(Math.max(0, elegidos.length - MAX_ADJUNTOS));
+          }}
         />
         <button
           type="submit"
-          className="btn btn-primary btn-sm ms-auto"
+          className={`btn btn-sm ms-auto ${interno ? "btn-warning" : "btn-primary"}`}
           disabled={ocupado}
         >
-          {interno ? "Guardar nota" : "Enviar respuesta"}
+          {interno ? "Guardar nota interna" : "Responder"}
         </button>
       </div>
+      {omitidos > 0 && (
+        <div
+          id="td-adjuntos-aviso"
+          className="mz-small mz-faint mt-1"
+          role="status"
+        >
+          Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
+        </div>
+      )}
     </form>
   );
 }
 
-function Acciones({ ticket, tecnicos, ocupado, onPaso, onEscalar, onAsignar }) {
+/* Auditoría UX/UI, fase 2 (28/10/2026): la nota es obligatoria para esperar
+ * al usuario y para escalar, y antes se mandaba vacía y el servidor la
+ * rechazaba arriba de la página. Se valida aquí, bajo el campo, y el aviso o
+ * el error de la acción salen dentro de esta tarjeta. */
+function Acciones({
+  ticket,
+  tecnicos,
+  ocupado,
+  resultado,
+  onPaso,
+  onEscalar,
+  onAsignar,
+}) {
   const [nota, setNota] = useState("");
+  const [errorNota, setErrorNota] = useState(null);
   const [tecnico, setTecnico] = useState("");
+  const campoNota = useRef(null);
   const permisos = ticket.permisos;
+
+  /** true si hay nota; si no, marca el campo con `mensaje` y lo enfoca. */
+  function notaLista(mensaje) {
+    if (nota.trim()) {
+      setErrorNota(null);
+      return true;
+    }
+    setErrorNota(mensaje);
+    campoNota.current?.focus();
+    return false;
+  }
 
   return (
     <section className="mz-card">
@@ -565,18 +712,30 @@ function Acciones({ ticket, tecnicos, ocupado, onPaso, onEscalar, onAsignar }) {
         <h3>Qué se puede hacer</h3>
       </div>
       <div className="mz-card-body">
+        {resultado}
         <div className="mz-field">
           <label htmlFor="ta-nota">Nota o motivo</label>
           <textarea
             id="ta-nota"
-            className="form-control form-control-sm"
+            ref={campoNota}
+            className={`form-control form-control-sm${errorNota ? " is-invalid" : ""}`}
             rows={2}
             value={nota}
-            onChange={(e) => setNota(e.target.value)}
+            aria-invalid={errorNota ? true : undefined}
+            aria-describedby={`ta-nota-ayuda${errorNota ? " ta-nota-error" : ""}`}
+            onChange={(e) => {
+              setNota(e.target.value);
+              if (errorNota && e.target.value.trim()) setErrorNota(null);
+            }}
           />
-          <div className="form-text">
+          <div id="ta-nota-ayuda" className="form-text">
             Obligatorio al esperar al usuario (es lo que le llega) y al escalar.
           </div>
+          {errorNota && (
+            <div id="ta-nota-error" className="mz-field-error">
+              {errorNota}
+            </div>
+          )}
         </div>
         <div className="mz-actions">
           {permisos.acciones.map((destino) => (
@@ -585,7 +744,19 @@ function Acciones({ ticket, tecnicos, ocupado, onPaso, onEscalar, onAsignar }) {
               type="button"
               className={`btn btn-sm ${destino === "atendido" ? "btn-primary" : "btn-outline-primary"}`}
               disabled={ocupado}
-              onClick={async () => (await onPaso(destino, nota)) && setNota("")}
+              onClick={async () => {
+                if (PASOS_CON_NOTA.has(destino)) {
+                  if (
+                    !notaLista(
+                      "Escriba qué necesita del usuario: es lo que le llega.",
+                    )
+                  )
+                    return;
+                } else {
+                  setErrorNota(null);
+                }
+                if (await onPaso(destino, nota)) setNota("");
+              }}
             >
               {destino === "en_curso" && ticket.estado === "atendido"
                 ? "Reabrir"
@@ -597,7 +768,11 @@ function Acciones({ ticket, tecnicos, ocupado, onPaso, onEscalar, onAsignar }) {
               type="button"
               className="btn btn-sm btn-outline-danger"
               disabled={ocupado}
-              onClick={async () => (await onEscalar(nota)) && setNota("")}
+              onClick={async () => {
+                if (!notaLista("Escriba el motivo para escalar el ticket."))
+                  return;
+                if (await onEscalar(nota)) setNota("");
+              }}
             >
               Escalar al siguiente nivel
             </button>
@@ -675,32 +850,37 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
             setValores((actual) => ({ ...actual, justificacion: "" }));
         }}
       >
-        <div className="d-flex gap-3 mb-2">
-          <div className="form-check">
-            <input
-              id="cp-matriz"
-              type="radio"
-              className="form-check-input"
-              checked={modo === "matriz"}
-              onChange={() => setModo("matriz")}
-            />
-            <label className="form-check-label" htmlFor="cp-matriz">
-              Por impacto y urgencia
-            </label>
+        <fieldset className="mb-2">
+          <legend className="form-label fs-6 mb-1">Cómo se calcula</legend>
+          <div className="d-flex gap-3">
+            <div className="form-check">
+              <input
+                id="cp-matriz"
+                name="cp-modo"
+                type="radio"
+                className="form-check-input"
+                checked={modo === "matriz"}
+                onChange={() => setModo("matriz")}
+              />
+              <label className="form-check-label" htmlFor="cp-matriz">
+                Por impacto y urgencia
+              </label>
+            </div>
+            <div className="form-check">
+              <input
+                id="cp-directa"
+                name="cp-modo"
+                type="radio"
+                className="form-check-input"
+                checked={modo === "directa"}
+                onChange={() => setModo("directa")}
+              />
+              <label className="form-check-label" htmlFor="cp-directa">
+                Elegir la prioridad
+              </label>
+            </div>
           </div>
-          <div className="form-check">
-            <input
-              id="cp-directa"
-              type="radio"
-              className="form-check-input"
-              checked={modo === "directa"}
-              onChange={() => setModo("directa")}
-            />
-            <label className="form-check-label" htmlFor="cp-directa">
-              Elegir la prioridad
-            </label>
-          </div>
-        </div>
+        </fieldset>
         {modo === "matriz" ? (
           <>
             <div className="mz-field">
@@ -785,6 +965,9 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
 
 /** Se ofrece cuando quien atiende está fuera de su horario. */
 function RegistrarHoras({ onGuardar, onCancelar }) {
+  // Deshabilita «Registrar» mientras guarda: un doble clic registraba dos
+  // veces las mismas horas (auditoría UX/UI, fase 2, 28/10/2026).
+  const [guardando, setGuardando] = useState(false);
   const hoy = new Date();
   const [valores, setValores] = useState({
     fecha: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`,
@@ -803,7 +986,10 @@ function RegistrarHoras({ onGuardar, onCancelar }) {
         className="mz-card-body row g-2 align-items-end"
         onSubmit={(e) => {
           e.preventDefault();
-          onGuardar(valores);
+          setGuardando(true);
+          Promise.resolve(onGuardar(valores)).finally(() =>
+            setGuardando(false),
+          );
         }}
       >
         <p className="col-12 mz-small mz-faint mb-1">
@@ -853,8 +1039,12 @@ function RegistrarHoras({ onGuardar, onCancelar }) {
           />
         </div>
         <div className="col-12 col-md-2 d-flex gap-2">
-          <button type="submit" className="btn btn-primary btn-sm">
-            Registrar
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={guardando}
+          >
+            {guardando ? "Registrando…" : "Registrar"}
           </button>
           <button
             type="button"

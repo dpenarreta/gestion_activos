@@ -93,16 +93,16 @@ describe("Sugerencias y errores", () => {
     fireEvent.click(
       within(ventana).getByRole("radio", { name: /error del sistema/ }),
     );
-    fireEvent.change(within(ventana).getByLabelText("Módulo"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Módulo/), {
       target: { value: "chat" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Título"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Título/), {
       target: { value: "No envía mensajes" },
     });
     fireEvent.change(within(ventana).getByLabelText(/Qué pasó/), {
       target: { value: "Al enviar un mensaje no aparece." },
     });
-    fireEvent.change(within(ventana).getByLabelText("¿Cuánto le afecta?"), {
+    fireEvent.change(within(ventana).getByLabelText(/^¿Cuánto le afecta?/), {
       target: { value: "alto" },
     });
     fireEvent.click(
@@ -124,7 +124,7 @@ describe("Sugerencias y errores", () => {
       await screen.findByText(/su reporte #8 quedó registrado/),
     ).toBeInTheDocument();
     // El formulario queda en blanco para otro reporte.
-    expect(screen.getByLabelText("Título")).toHaveValue("");
+    expect(screen.getByLabelText(/^Título/)).toHaveValue("");
   });
 
   it("quien gestiona ve todos y cambia el estado desde el detalle", async () => {

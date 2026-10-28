@@ -2,8 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useAuth } from "../../hooks/useAuth";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
 import { PERMISOS_SOPORTE } from "../../modulos/permisosSoporte";
@@ -20,6 +25,7 @@ import "./Soporte.css";
 
 /** Cada cuánto se refresca la bandeja: los tickets llegan solos. */
 const REFRESCO_MS = 30_000;
+const SIN_COLA = "No hay tickets en la cola que usted pueda atender.";
 
 /**
  * Bandeja de la mesa de ayuda.
@@ -44,6 +50,7 @@ export function Bandeja({ todos = false }) {
   const [busqueda, setBusqueda] = useState("");
   const [aviso, setAviso] = useState(null);
   const [error, setError] = useState(null);
+  const [tomando, setTomando] = useState(false);
 
   const cargar = useCallback(
     (params) =>
@@ -79,19 +86,28 @@ export function Bandeja({ todos = false }) {
     return () => clearInterval(intervalo);
   }, [cargarCabecera, refresh]);
 
+  /* Auditoría UX/UI, fase 2 (28/10/2026): cualquier fallo salía como «No hay
+   * tickets en la cola»; un error de red o de permisos parecía una cola vacía.
+   * La cola vacía (404 del servidor) es un aviso; lo demás, un error. */
   async function tomarSiguiente() {
     setError(null);
     setAviso(null);
+    setTomando(true);
     try {
       const ticket = await soporteService.tomarSiguiente();
+      if (!ticket?.id) {
+        setAviso(SIN_COLA);
+        return;
+      }
       navegar(`/admin/soporte/tickets/${ticket.id}`);
     } catch (err) {
-      setAviso(
-        mensajeDeError(
-          err,
-          "No hay tickets en la cola que usted pueda atender.",
-        ),
-      );
+      if (err?.response?.status === 404) {
+        setAviso(mensajeDeError(err, SIN_COLA));
+      } else {
+        setError(mensajeDeError(err, "No se pudo tomar el siguiente ticket."));
+      }
+    } finally {
+      setTomando(false);
     }
   }
 
@@ -135,8 +151,10 @@ export function Bandeja({ todos = false }) {
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={tomarSiguiente}
+                disabled={tomando}
               >
-                <Icon name="inbox-fill" /> Tomar siguiente
+                <Icon name="inbox-fill" />{" "}
+                {tomando ? "Tomando…" : "Tomar siguiente"}
               </button>
             )}
           </div>
@@ -182,161 +200,183 @@ export function Bandeja({ todos = false }) {
           {aviso}
         </div>
       )}
-      {(error || listado.error) && (
+      {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
-          {error || listado.error}
+          {error}
         </div>
       )}
 
+      {/* Pestañas de verdad (auditoría UX/UI, fase 2, 28/10/2026): antes era
+          un <nav> con aria-current en botones que no navegan. */}
       {ambitos.length > 1 && !todos && (
-        <nav className="mz-tabs mz-config-tabs" aria-label="Qué tickets ver">
-          {ambitos.map(([clave, etiqueta]) => (
-            <button
-              key={clave}
-              type="button"
-              className={ambito === clave ? "is-active" : undefined}
-              aria-current={ambito === clave ? "page" : undefined}
-              onClick={() => setAmbito(clave)}
+        <Pestanas
+          className="mz-config-tabs"
+          etiqueta="Qué tickets ver"
+          idBase="sb-ambito"
+          valor={ambito}
+          onCambio={setAmbito}
+          opciones={ambitos.map(([id, etiqueta]) => ({ id, etiqueta }))}
+        />
+      )}
+
+      <PanelDePestana
+        idBase="sb-ambito"
+        valor={ambito}
+        // Sin pestañas a la vista, el panel no se presenta como tal.
+        sinPestanas={!(ambitos.length > 1 && !todos)}
+      >
+        {ambito === "creados" ? (
+          <MisSolicitudes />
+        ) : (
+          <>
+            <form
+              className="mz-filter-bar"
+              role="search"
+              onSubmit={(e) => {
+                e.preventDefault();
+                listado.actualizarFiltros({ q: busqueda });
+              }}
             >
-              {etiqueta}
-            </button>
-          ))}
-        </nav>
-      )}
+              <label className="mz-fb-search" htmlFor="sb-buscar">
+                <Icon name="search" />
+                <span className="visually-hidden">Buscar</span>
+                <input
+                  id="sb-buscar"
+                  type="search"
+                  placeholder="N.º de ticket, solicitante o descripción"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+              </label>
+              {ambito !== "cola" && (
+                <div className="mz-inline-field">
+                  <label htmlFor="sb-estado">Estado</label>
+                  <select
+                    id="sb-estado"
+                    className="form-select form-select-sm"
+                    value={listado.filtros.estado}
+                    onChange={(e) =>
+                      listado.actualizarFiltros({ estado: e.target.value })
+                    }
+                  >
+                    <option value="">Abiertos</option>
+                    {etiquetas.estados.map(([valor, etiqueta]) => (
+                      <option key={valor} value={valor}>
+                        {etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button
+                type="submit"
+                className="btn btn-outline-secondary btn-sm"
+              >
+                Buscar
+              </button>
+            </form>
 
-      {ambito === "creados" ? (
-        <MisSolicitudes />
-      ) : (
-        <>
-          <form
-            className="mz-filter-bar"
-            role="search"
-            onSubmit={(e) => {
-              e.preventDefault();
-              listado.actualizarFiltros({ q: busqueda });
-            }}
-          >
-            <label className="mz-fb-search" htmlFor="sb-buscar">
-              <Icon name="search" />
-              <span className="visually-hidden">Buscar</span>
-              <input
-                id="sb-buscar"
-                type="search"
-                placeholder="N.º de ticket, solicitante o descripción"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-            </label>
-            {ambito !== "cola" && (
-              <div className="mz-inline-field">
-                <label htmlFor="sb-estado">Estado</label>
-                <select
-                  id="sb-estado"
-                  className="form-select form-select-sm"
-                  value={listado.filtros.estado}
-                  onChange={(e) =>
-                    listado.actualizarFiltros({ estado: e.target.value })
-                  }
-                >
-                  <option value="">Abiertos</option>
-                  {etiquetas.estados.map(([valor, etiqueta]) => (
-                    <option key={valor} value={valor}>
-                      {etiqueta}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <button type="submit" className="btn btn-outline-secondary btn-sm">
-              Buscar
-            </button>
-          </form>
-
-          <div className="mz-table-wrap">
-            <table className="mz-table">
-              <thead>
-                <tr>
-                  <th>Ticket</th>
-                  <th>Solicitante</th>
-                  <th>Caso</th>
-                  <th>Criticidad</th>
-                  <th>Prioridad</th>
-                  <th>Estado</th>
-                  <th>{ambito === "cola" ? "Posición" : "Atiende"}</th>
-                  <th>SLA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listado.resultados.map((t) => (
-                  <tr key={t.id}>
-                    <td className="mz-mono">
-                      <Link to={`/admin/soporte/tickets/${t.id}`}>
-                        {t.numero}
-                      </Link>
-                      <div className="mz-small mz-faint">
-                        {formatearFecha(t.created_at, true)}
-                      </div>
-                    </td>
-                    <td>
-                      {t.solicitante_nombre}
-                      <div className="mz-small mz-faint">
-                        {[t.agencia, t.area].filter(Boolean).join(" · ")}
-                      </div>
-                    </td>
-                    <td>
-                      {t.caso}
-                      <div className="mz-small mz-faint">
-                        {t.categoria} · {t.nivel}
-                      </div>
-                    </td>
-                    <td>
-                      <CriticidadTicket ticket={t} />
-                    </td>
-                    <td>
-                      <PrioridadTicket ticket={t} />
-                    </td>
-                    <td>
-                      <EstadoTicket ticket={t} />
-                      {t.escalado_por_sla && (
-                        <div className="mz-small text-danger">
-                          Escalado por SLA
+            <div className="mz-table-wrap">
+              <table className="mz-table">
+                <thead>
+                  <tr>
+                    <th>Ticket</th>
+                    <th>Solicitante</th>
+                    <th>Caso</th>
+                    <th>Criticidad</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
+                    <th>{ambito === "cola" ? "Posición" : "Atiende"}</th>
+                    <th>SLA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listado.resultados.map((t) => (
+                    <tr key={t.id}>
+                      <td className="mz-mono">
+                        <Link to={`/admin/soporte/tickets/${t.id}`}>
+                          {t.numero}
+                        </Link>
+                        <div className="mz-small mz-faint">
+                          {formatearFecha(t.created_at, true)}
                         </div>
-                      )}
-                    </td>
-                    <td>
-                      {ambito === "cola"
-                        ? t.posicion
-                        : t.tecnico?.nombre || "—"}
-                    </td>
-                    <td>
-                      <SlaTicket sla={t.sla} />
-                    </td>
-                  </tr>
-                ))}
-                {!listado.isLoading && listado.resultados.length === 0 && (
-                  <tr className="mz-empty-row">
-                    <td colSpan={7}>
-                      {ambito === "mios"
-                        ? "No tiene tickets en atención"
-                        : "No hay tickets"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                      <td>
+                        {t.solicitante_nombre}
+                        <div className="mz-small mz-faint">
+                          {[t.agencia, t.area].filter(Boolean).join(" · ")}
+                        </div>
+                      </td>
+                      <td>
+                        {t.caso}
+                        <div className="mz-small mz-faint">
+                          {t.categoria} · {t.nivel}
+                        </div>
+                      </td>
+                      <td>
+                        <CriticidadTicket ticket={t} />
+                      </td>
+                      <td>
+                        <PrioridadTicket ticket={t} />
+                      </td>
+                      <td>
+                        <EstadoTicket ticket={t} />
+                        {t.escalado_por_sla && (
+                          <div className="mz-small text-danger">
+                            Escalado por SLA
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {ambito === "cola"
+                          ? t.posicion
+                          : t.tecnico?.nombre || "—"}
+                      </td>
+                      <td>
+                        <SlaTicket sla={t.sla} />
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Auditoría UX/UI, fase 2 (28/10/2026): cargando, error y
+                    vacío dentro de la tabla, en sus 8 columnas (antes
+                    colSpan={7}). */}
+                  <FilaDeEstado
+                    columnas={8}
+                    cargando={
+                      listado.isLoading && listado.resultados.length === 0
+                    }
+                    error={listado.error}
+                    onReintentar={listado.refresh}
+                    vacio={listado.resultados.length === 0}
+                    hayFiltros={Boolean(
+                      listado.filtros.q || listado.filtros.estado,
+                    )}
+                    onLimpiarFiltros={() => {
+                      setBusqueda("");
+                      listado.actualizarFiltros({ q: "", estado: "" });
+                    }}
+                    textoVacio={
+                      ambito === "mios"
+                        ? "No tiene tickets en atención."
+                        : "No hay tickets."
+                    }
+                  />
+                </tbody>
+              </table>
+            </div>
 
-          <Paginacion
-            total={listado.total}
-            pagina={listado.pagina}
-            hasNext={listado.hasNext}
-            hasPrevious={listado.hasPrevious}
-            onCambiarPagina={listado.setPagina}
-            etiqueta="tickets"
-          />
-        </>
-      )}
+            <Paginacion
+              total={listado.total}
+              pagina={listado.pagina}
+              hasNext={listado.hasNext}
+              hasPrevious={listado.hasPrevious}
+              onCambiarPagina={listado.setPagina}
+              etiqueta="tickets"
+            />
+          </>
+        )}
+      </PanelDePestana>
     </div>
   );
 }
@@ -351,6 +391,8 @@ function MisSolicitudes() {
   const [error, setError] = useState(null);
 
   const cargar = useCallback(() => {
+    // El error se borra al cargar bien: se consulta cada 30 s y, si se
+    // borrara antes, el aviso se anunciaría de nuevo en cada vuelta.
     soporteService
       .misTickets()
       .then((datos) => {
@@ -370,12 +412,6 @@ function MisSolicitudes() {
 
   return (
     <>
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
       <div className="mz-table-wrap">
         <table className="mz-table" aria-label="Mis solicitudes">
           <thead>
@@ -413,14 +449,20 @@ function MisSolicitudes() {
                 </td>
               </tr>
             ))}
-            {tickets && tickets.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={6}>
-                  Todavía no ha creado solicitudes.{" "}
-                  <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
-                </td>
-              </tr>
-            )}
+            {/* Mientras carga ya no se ve una tabla vacía, y un fallo no se
+                confunde con «no ha creado solicitudes» (auditoría UX/UI,
+                fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={6}
+              cargando={tickets === null}
+              error={error}
+              onReintentar={cargar}
+              vacio={tickets?.length === 0}
+              textoVacio="Todavía no ha creado solicitudes."
+              accionVacio={
+                <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
+              }
+            />
           </tbody>
         </table>
       </div>

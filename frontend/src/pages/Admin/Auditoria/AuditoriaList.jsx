@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { auditoriaService } from "../../../api/auditoriaService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAuditoria } from "../../../hooks/useAuditoria";
@@ -12,6 +13,7 @@ import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import { AuditoriaMatriz } from "../../Matriz/AuditoriaMatriz";
 import "./AuditoriaList.css";
+import { etiquetaDeAccion, etiquetaDeObjeto } from "./etiquetasAuditoria";
 import { RegistroDescargas } from "./RegistroDescargas";
 
 const RESULTADOS = [
@@ -48,6 +50,7 @@ function RegistroDelSistema({ modulo }) {
     parametrosVigentes,
     isLoading,
     error,
+    refrescar,
   } = useAuditoria();
 
   const [borrador, setBorrador] = useState(FILTROS_VACIOS);
@@ -56,6 +59,11 @@ function RegistroDelSistema({ modulo }) {
   const [errorExportacion, setErrorExportacion] = useState(null);
 
   const columnas = puedeVerDetalle ? 7 : 6;
+  // El módulo elegido arriba no cuenta como filtro: «Limpiar filtros» lo
+  // conserva, igual que el botón «Limpiar».
+  const hayFiltros = Object.entries(parametrosVigentes()).some(
+    ([clave]) => clave !== "module",
+  );
 
   // El módulo elegido arriba se aplica al momento y se conserva al filtrar o
   // limpiar lo demás.
@@ -214,13 +222,6 @@ function RegistroDelSistema({ modulo }) {
         </div>
       </form>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -235,91 +236,107 @@ function RegistroDelSistema({ modulo }) {
             </tr>
           </thead>
           <tbody>
-            {eventos.map((evento) => (
-              <Fragment key={evento.id}>
-                <tr>
-                  <td className="mz-mono">
-                    {formatearFecha(evento.created_at_local, true)}
-                  </td>
-                  {/* Un evento puede no tener autor —lo dispara una tarea del
+            {/* Cargando, error con reintento y un vacío que distingue «no hay
+                eventos» de «el filtro no encuentra nada» (auditoría UX/UI,
+                fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={columnas}
+              cargando={isLoading && eventos.length === 0}
+              error={error}
+              onReintentar={refrescar}
+              vacio={!isLoading && eventos.length === 0}
+              textoVacio="Todavía no hay eventos registrados en este módulo."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiar}
+            />
+            {!error &&
+              eventos.map((evento) => (
+                <Fragment key={evento.id}>
+                  <tr>
+                    <td className="mz-mono">
+                      {formatearFecha(evento.created_at_local, true)}
+                    </td>
+                    {/* Un evento puede no tener autor —lo dispara una tarea del
                       sistema, o el intento llegó sin sesión válida—, y ahí
                       «Sistema» dice más que una celda en blanco. */}
-                  <td className="mz-strong">
-                    {evento.actor_username || "Sistema"}
-                  </td>
-                  <td className="mz-mono">{evento.action}</td>
-                  <td>{evento.module_nombre || evento.module || "—"}</td>
-                  <td>
-                    {evento.target_type}
-                    {evento.target_id ? ` #${evento.target_id}` : ""}
-                  </td>
-                  <td>
-                    <span
-                      className={`mz-pill ${
-                        evento.result === "success"
-                          ? "mz-pill--ok"
-                          : "mz-pill--bad"
-                      }`}
-                    >
-                      {evento.result === "success" ? "Éxito" : "Fallido"}
-                    </span>
-                  </td>
-                  {puedeVerDetalle && (
-                    <td className="acciones">
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        aria-expanded={abierto === evento.id}
-                        onClick={() =>
-                          setAbierto(abierto === evento.id ? null : evento.id)
-                        }
+                    <td className="mz-strong">
+                      {evento.actor_username || "Sistema"}
+                    </td>
+                    {/* Legible, con el código en el `title`: es lo que se
+                      escribe en el filtro «Acción». */}
+                    <td title={evento.action}>
+                      {etiquetaDeAccion(evento.action)}
+                    </td>
+                    <td>{evento.module_nombre || evento.module || "—"}</td>
+                    <td title={evento.target_type || undefined}>
+                      {etiquetaDeObjeto(evento.target_type)}
+                      {evento.target_id ? ` #${evento.target_id}` : ""}
+                    </td>
+                    <td>
+                      <span
+                        className={`mz-pill ${
+                          evento.result === "success"
+                            ? "mz-pill--ok"
+                            : "mz-pill--bad"
+                        }`}
                       >
-                        {abierto === evento.id ? "Ocultar" : "Ver"}
-                      </button>
+                        {evento.result === "success" ? "Éxito" : "Fallido"}
+                      </span>
                     </td>
-                  )}
-                </tr>
-                {puedeVerDetalle && abierto === evento.id && (
-                  <tr className="auditoria-detalle">
-                    <td colSpan={columnas}>
-                      <div className="auditoria-detalle__columnas">
-                        <div className="mz-section">
-                          <h4>Antes</h4>
-                          <Valores valores={evento.previous_values} />
-                        </div>
-                        <div className="mz-section">
-                          <h4>Después</h4>
-                          <Valores valores={evento.new_values} />
-                        </div>
-                      </div>
-                      <p className="mz-small mz-faint mb-0">
-                        Desde {evento.ip_address || "origen desconocido"}
-                        {evento.browser ? ` · ${evento.browser}` : ""}
-                        {evento.operating_system
-                          ? ` · ${evento.operating_system}`
-                          : ""}
-                        {evento.location ? ` · ${evento.location}` : ""}
-                      </p>
-                    </td>
+                    {puedeVerDetalle && (
+                      <td className="acciones">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          aria-expanded={abierto === evento.id}
+                          onClick={() =>
+                            setAbierto(abierto === evento.id ? null : evento.id)
+                          }
+                        >
+                          {abierto === evento.id ? "Ocultar" : "Ver"}
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                )}
-              </Fragment>
-            ))}
-            {!isLoading && eventos.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={columnas}>Sin eventos para esos filtros</td>
-              </tr>
-            )}
+                  {puedeVerDetalle && abierto === evento.id && (
+                    <tr className="auditoria-detalle">
+                      <td colSpan={columnas}>
+                        <div className="auditoria-detalle__columnas">
+                          <div className="mz-section">
+                            <h4>Antes</h4>
+                            <Valores valores={evento.previous_values} />
+                          </div>
+                          <div className="mz-section">
+                            <h4>Después</h4>
+                            <Valores valores={evento.new_values} />
+                          </div>
+                        </div>
+                        <p className="mz-small mz-faint mb-0">
+                          Desde {evento.ip_address || "origen desconocido"}
+                          {evento.browser ? ` · ${evento.browser}` : ""}
+                          {evento.operating_system
+                            ? ` · ${evento.operating_system}`
+                            : ""}
+                          {evento.location ? ` · ${evento.location}` : ""}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
           </tbody>
         </table>
       </div>
 
-      {/* Mientras carga, el pie lo dice; `Paginacion` no se pinta con cero
-          eventos, y la fila vacía de la tabla ya lo explica. */}
+      {/* Al cambiar de página, el pie dice que carga; la primera carga ya la
+          dice la fila de estado de la tabla. `Paginacion` no se pinta con
+          cero eventos. */}
       {isLoading ? (
-        <div className="mz-pager">
-          <span className="mz-small mz-faint">Cargando…</span>
-        </div>
+        eventos.length > 0 && (
+          <div className="mz-pager">
+            <span className="mz-small mz-faint">Cargando…</span>
+          </div>
+        )
       ) : (
         <Paginacion
           total={total}

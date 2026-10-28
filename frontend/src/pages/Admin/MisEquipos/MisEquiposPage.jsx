@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { misEquiposService } from "../../../api/activosService";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { formatearDias, formatearFecha } from "../../../utils/formato";
 import { mensajeDeError } from "../../../utils/errores";
 import "./MisEquipos.css";
@@ -34,7 +35,9 @@ export function MisEquiposPage() {
   const [error, setError] = useState(null);
   const [isCargando, setIsCargando] = useState(true);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
+    setIsCargando(true);
     misEquiposService
       .consultar()
       .then(setDatos)
@@ -43,6 +46,10 @@ export function MisEquiposPage() {
       )
       .finally(() => setIsCargando(false));
   }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   return (
     <div className="mis-equipos-page">
@@ -58,12 +65,14 @@ export function MisEquiposPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
+      {/* Antes no había indicador mientras cargaba: la pantalla quedaba
+          vacía hasta que llegaban los equipos (auditoría UX/UI, fase 2,
+          28/10/2026). */}
+      <EstadoDeCarga
+        cargando={isCargando}
+        error={error}
+        onReintentar={cargar}
+      />
 
       {/* La cuenta sin ficha de empleado no es una lista vacía: el sistema no
           sabe qué equipos son suyos, y eso lo arregla un administrador. */}

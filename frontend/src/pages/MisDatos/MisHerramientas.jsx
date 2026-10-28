@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { misDatosService } from "../../api/misDatosService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
@@ -230,14 +231,38 @@ export function MisHerramientas() {
   const [datos, setDatos] = useState(null);
   const [editando, setEditando] = useState(false);
   const [aviso, setAviso] = useState(null);
+  // Antes un fallo se veía como «todavía no ha indicado qué herramientas
+  // usa», que era falso, y mientras cargaba la sección no aparecía
+  // (auditoría UX/UI, fase 2, 28/10/2026).
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
     Promise.resolve(misDatosService.herramientas?.())
       .then((r) => setDatos(r ?? { mias: [], catalogo: [] }))
-      .catch(() => setDatos({ mias: [], catalogo: [] }));
+      .catch((err) =>
+        setError(
+          mensajeDeError(err, "No se pudieron cargar sus herramientas."),
+        ),
+      );
   }, []);
 
-  if (!datos) return null;
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  if (!datos) {
+    return (
+      <section className="mz-card mi-cargo" aria-labelledby="mis-herr-titulo">
+        <div className="mz-card-body mz-stack">
+          <h3 id="mis-herr-titulo" className="h6 mb-0">
+            <Icon name="tools" /> Mis herramientas
+          </h3>
+          <EstadoDeCarga cargando error={error} onReintentar={cargar} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mz-card mi-cargo" aria-labelledby="mis-herr-titulo">
@@ -264,7 +289,7 @@ export function MisHerramientas() {
           </button>
         </div>
         {aviso && (
-          <div className="mz-alert mz-alert--info" role="status">
+          <div className="mz-alert mz-alert--ok" role="status">
             <Icon name="check2-circle" />
             {aviso}
           </div>

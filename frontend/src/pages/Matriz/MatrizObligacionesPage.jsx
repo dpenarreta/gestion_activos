@@ -395,21 +395,25 @@ export function MatrizObligacionesPage() {
               ),
               ...grupo.filas.map((fila) => {
                 const dias = textoDeDias(fila.estado);
+                /* Auditoría UX/UI, fase 2 (28/10/2026): la fila era un
+                   tr con tabIndex y un aria-label que tapaba sus celdas, y
+                   no respondía al Espacio. Ahora el nombre es un botón real
+                   (Tab, Enter y Espacio) y el clic en la fila queda como
+                   atajo de ratón. */
                 return (
-                  <tr
-                    key={fila.id}
-                    tabIndex={0}
-                    onClick={() => panel.abrir(fila.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") panel.abrir(fila.id);
-                    }}
-                    aria-label={`Abrir ${fila.codigo} ${fila.obligacion.nombre}`}
-                  >
+                  <tr key={fila.id} onClick={() => panel.abrir(fila.id)}>
                     <td className="mz-code">{fila.codigo}</td>
                     <td>
-                      <span className="mz-strong d-block">
+                      <button
+                        type="button"
+                        className="mz-celda-enlace mz-strong d-block"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          panel.abrir(fila.id);
+                        }}
+                      >
                         {fila.obligacion.nombre}
-                      </span>
+                      </button>
                       <span className="mz-small mz-faint">{fila.etiqueta}</span>
                     </td>
                     <td>{fila.area}</td>

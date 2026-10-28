@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { misDatosService } from "../../api/misDatosService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
@@ -57,6 +58,7 @@ export function FormularioMisDatos({
   const [guardando, setGuardando] = useState(false);
   // Ya tiene cargo: lo eligió (o se lo asignaron) y no lo cambia desde aquí.
   const cargoFijo = Boolean(datos.cargo);
+  const avisoCargo = !cargoFijo && valores.cargo !== "";
   const fijar = (campo) => (e) =>
     setValores((actual) => ({ ...actual, [campo]: e.target.value }));
   const autorizacion = datos.telefono_autorizacion;
@@ -252,7 +254,9 @@ export function FormularioMisDatos({
           className="form-select"
           required
           disabled={cargoFijo}
-          aria-describedby="md-cargo-ayuda"
+          aria-describedby={
+            avisoCargo ? "md-cargo-ayuda md-cargo-aviso" : "md-cargo-ayuda"
+          }
           value={valores.cargo}
           onChange={fijar("cargo")}
         >
@@ -273,11 +277,14 @@ export function FormularioMisDatos({
             : "Lo elige una sola vez."}
         </div>
       </div>
-      {!cargoFijo && valores.cargo !== "" && (
+      {/* No es una alerta: no es un error, y anunciarla interrumpía al elegir
+          el cargo. Es la descripción del campo, que el lector de pantalla lee
+          al llegar a él (auditoría UX/UI, fase 2, 28/10/2026). */}
+      {avisoCargo && (
         <div className="col-12">
-          <div className="mz-alert mz-alert--warn" role="alert">
+          <div className="mz-alert mz-alert--warn">
             <Icon name="exclamation-triangle" />
-            <span>
+            <span id="md-cargo-aviso">
               <strong>Revise que su cargo sea el correcto.</strong> Una vez
               guardado, no podrá cambiarlo usted: solo TI o la administración
               del sistema pueden modificarlo.
@@ -312,7 +319,8 @@ export function MisDatosPage() {
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
     misDatosService
       .obtener()
       .then(setDatos)
@@ -320,6 +328,10 @@ export function MisDatosPage() {
         setError(mensajeDeError(err, "No se pudieron cargar sus datos.")),
       );
   }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   return (
     <div className="mz-stack">
@@ -332,14 +344,16 @@ export function MisDatosPage() {
           </p>
         </div>
       </div>
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
+      {/* Cargando y error con «Reintentar»; antes la pantalla quedaba en
+          blanco mientras llegaban los datos (auditoría UX/UI, fase 2,
+          28/10/2026). */}
+      <EstadoDeCarga
+        cargando={datos === null}
+        error={error}
+        onReintentar={cargar}
+      />
       {aviso && (
-        <div className="mz-alert mz-alert--info" role="status">
+        <div className="mz-alert mz-alert--ok" role="status">
           <Icon name="check2-circle" />
           {aviso}
         </div>

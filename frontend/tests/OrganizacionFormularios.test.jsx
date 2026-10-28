@@ -83,12 +83,13 @@ const FORMULARIOS = [
       activa: true,
       total_activos: 0,
     },
-    campoPrincipal: "Nombre",
+    campoPrincipal: /^Nombre/,
+    clavePrincipal: "nombre",
     llenar: () => {
-      fireEvent.change(screen.getByLabelText("Nombre"), {
+      fireEvent.change(screen.getByLabelText(/^Nombre/), {
         target: { value: "Bodega Sur" },
       });
-      fireEvent.change(screen.getByLabelText("Ciudad"), {
+      fireEvent.change(screen.getByLabelText(/^Ciudad/), {
         target: { value: "Quito" },
       });
     },
@@ -117,20 +118,21 @@ const FORMULARIOS = [
       activo: true,
       total_activos: 0,
     },
-    campoPrincipal: "Nombres",
+    campoPrincipal: /^Nombres/,
+    clavePrincipal: "nombres",
     llenar: () => {
-      fireEvent.change(screen.getByLabelText("Nombres"), {
+      fireEvent.change(screen.getByLabelText(/^Nombres/), {
         target: { value: "Ana" },
       });
-      fireEvent.change(screen.getByLabelText("Apellidos"), {
+      fireEvent.change(screen.getByLabelText(/^Apellidos/), {
         target: { value: "Cevallos" },
       });
-      fireEvent.change(screen.getByLabelText("Departamento"), {
+      fireEvent.change(screen.getByLabelText(/^Departamento/), {
         target: { value: "2" },
       });
       // Todo empleado tiene usuario: el alta pide el correo institucional
       // (en la edición ya viene con el del registro).
-      fireEvent.change(screen.getByLabelText("Correo institucional"), {
+      fireEvent.change(screen.getByLabelText(/^Correo institucional/), {
         target: { value: "ana.cevallos@grupolaar.com" },
       });
     },
@@ -161,9 +163,10 @@ const FORMULARIOS = [
       activo: true,
       total_activos: 0,
     },
-    campoPrincipal: "Nombre",
+    campoPrincipal: /^Nombre/,
+    clavePrincipal: "nombre",
     llenar: () => {
-      fireEvent.change(screen.getByLabelText("Nombre"), {
+      fireEvent.change(screen.getByLabelText(/^Nombre/), {
         target: { value: "Compumundo" },
       });
     },
@@ -189,9 +192,10 @@ const FORMULARIOS = [
       activo: true,
       total_activos: 0,
     },
-    campoPrincipal: "Nombre",
+    campoPrincipal: /^Nombre/,
+    clavePrincipal: "nombre",
     llenar: () => {
-      fireEvent.change(screen.getByLabelText("Nombre"), {
+      fireEvent.change(screen.getByLabelText(/^Nombre/), {
         target: { value: "Laar Partners" },
       });
     },
@@ -233,6 +237,7 @@ describe.each(FORMULARIOS)(
     errorGuardado,
     registro,
     campoPrincipal,
+    clavePrincipal,
     llenar,
     esperado,
   }) => {
@@ -310,6 +315,84 @@ describe.each(FORMULARIOS)(
       expect(
         await screen.findByText("Ya existe uno con ese nombre."),
       ).toBeInTheDocument();
+    });
+
+    it("el error de un campo va bajo ese campo, y el foco a él", async () => {
+      /* Arriba, lejos del campo y sin decir cuál era, obligaba a adivinar qué
+         corregir (auditoría UX/UI, fase 2). */
+      permisos.add("organizacion.editar");
+      servicio[clave].create.mockRejectedValue({
+        response: {
+          data: {
+            error: {
+              message: "Error en la solicitud.",
+              details: { [clavePrincipal]: ["Ya existe uno con ese nombre."] },
+            },
+          },
+        },
+      });
+
+      pintar(Pantalla, base);
+
+      await screen.findByText(tituloAlta);
+      llenar();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+      const campo = screen.getByLabelText(campoPrincipal);
+      await waitFor(() =>
+        expect(campo).toHaveAttribute("aria-invalid", "true"),
+      );
+      expect(campo).toHaveAccessibleDescription(
+        expect.stringContaining("Ya existe uno con ese nombre."),
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Revise los campos marcados.",
+      );
+      await waitFor(() => expect(campo).toHaveFocus());
+
+      // Al corregirlo deja de marcarse.
+      fireEvent.change(campo, { target: { value: "Otro nombre" } });
+      expect(campo).not.toHaveAttribute("aria-invalid");
+    });
+
+    it("un error de algo que el formulario no muestra va arriba, completo", async () => {
+      permisos.add("organizacion.editar");
+      servicio[clave].create.mockRejectedValue({
+        response: {
+          data: {
+            error: {
+              message: "Error en la solicitud.",
+              details: { empresa: ["La empresa no está habilitada."] },
+            },
+          },
+        },
+      });
+
+      pintar(Pantalla, base);
+
+      await screen.findByText(tituloAlta);
+      llenar();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "empresa: La empresa no está habilitada.",
+      );
+      expect(screen.getByLabelText(campoPrincipal)).not.toHaveAttribute(
+        "aria-invalid",
+      );
+    });
+
+    it("marca los obligatorios y lo explica junto al botón", async () => {
+      permisos.add("organizacion.editar");
+
+      pintar(Pantalla, base);
+
+      await screen.findByText(tituloAlta);
+      expect(screen.getByLabelText(campoPrincipal)).toBeRequired();
+      expect(screen.getByLabelText(campoPrincipal)).toHaveAccessibleName(
+        expect.stringContaining("(obligatorio)"),
+      );
+      expect(screen.getByText("Obligatorio")).toBeInTheDocument();
     });
 
     it("y sin motivo, uno genérico en vez del silencio", async () => {
@@ -465,7 +548,7 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     pintar(SedeForm, "/admin/organizacion/sedes");
 
     await screen.findByText("Nueva sede");
-    expect(screen.getByLabelText("Ciudad")).toBeRequired();
+    expect(screen.getByLabelText(/^Ciudad/)).toBeRequired();
   });
 
   it("el proveedor lleva el RUC y a quién llamar cuando algo falla", async () => {
@@ -523,17 +606,17 @@ describe("Lo que el formulario advierte antes de intentarlo", () => {
     fireEvent.change(screen.getByLabelText(/Contraseña inicial/), {
       target: { value: "Sup3r-Secr3t!" },
     });
-    expect(screen.getByLabelText("Correo institucional")).toBeRequired();
-    fireEvent.change(screen.getByLabelText("Nombres"), {
+    expect(screen.getByLabelText(/^Correo institucional/)).toBeRequired();
+    fireEvent.change(screen.getByLabelText(/^Nombres/), {
       target: { value: "Ana" },
     });
-    fireEvent.change(screen.getByLabelText("Apellidos"), {
+    fireEvent.change(screen.getByLabelText(/^Apellidos/), {
       target: { value: "Cevallos" },
     });
-    fireEvent.change(await screen.findByLabelText("Departamento"), {
+    fireEvent.change(await screen.findByLabelText(/^Departamento/), {
       target: { value: "2" },
     });
-    fireEvent.change(screen.getByLabelText("Correo institucional"), {
+    fireEvent.change(screen.getByLabelText(/^Correo institucional/), {
       target: { value: "ana.cevallos@grupolaar.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));

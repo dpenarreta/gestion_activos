@@ -57,7 +57,7 @@ function pintar(props = {}) {
 
 /** Teclea en el campo, como haría una persona o una pistola. */
 function teclear(texto) {
-  fireEvent.change(screen.getByLabelText("Activo intervenido"), {
+  fireEvent.change(screen.getByLabelText(/^Activo intervenido/), {
     target: { value: texto },
   });
 }
@@ -79,7 +79,7 @@ describe("Disparar la pistola sobre la etiqueta", () => {
 
     pintar();
     teclear("GA-LAP-000007");
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 
@@ -98,7 +98,7 @@ describe("Disparar la pistola sobre la etiqueta", () => {
       </form>,
     );
     teclear("GA-LAP-000007");
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 
@@ -111,7 +111,7 @@ describe("Disparar la pistola sobre la etiqueta", () => {
 
     pintar();
     teclear("GA-LAP-000007");
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 
@@ -155,7 +155,7 @@ describe("Escribir unas letras", () => {
     teclear("laptop");
     await screen.findByText("Laptop Jefatura TI");
 
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 
@@ -176,7 +176,7 @@ describe("Escribir unas letras", () => {
     teclear("laptop");
     await screen.findByText("Laptop Bodega");
 
-    const campo = screen.getByLabelText("Activo intervenido");
+    const campo = screen.getByLabelText(/^Activo intervenido/);
     fireEvent.keyDown(campo, { key: "ArrowDown" });
     fireEvent.keyDown(campo, { key: "Enter" });
 
@@ -230,7 +230,7 @@ describe("Cuando ya hay un equipo elegido", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
 
     expect(onChange).toHaveBeenCalledWith("", null);
-    expect(screen.getByLabelText("Activo intervenido")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Activo intervenido/)).toBeInTheDocument();
   });
 
   it("bloqueado no ofrece cambiarlo", async () => {
@@ -310,7 +310,7 @@ describe("Cuando el lector envía otra distribución de teclado", () => {
 
     pintar();
     teclear("GA'LAP'000007");
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 
@@ -343,7 +343,7 @@ describe("El Enter de la pistola y la búsqueda que el tecleo dejó pendiente", 
 
     pintar();
     teclear("GA-LAP-000007");
-    fireEvent.keyDown(screen.getByLabelText("Activo intervenido"), {
+    fireEvent.keyDown(screen.getByLabelText(/^Activo intervenido/), {
       key: "Enter",
     });
 

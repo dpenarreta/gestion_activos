@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { MEDIDAS_CARRUSEL, useImagenesDeNoticias } from "./CarruselNoticias";
 import "./Institucional.css";
@@ -28,6 +34,10 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
   const [imagen, setImagen] = useState(null);
   const [vista, setVista] = useState(null);
   const [error, setError] = useState(null);
+  // Errores junto a su campo y foco al primero (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errores, setErrores] = useState({});
+  const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
   const editando = Boolean(inicial.id);
   const { panelRef, handleBackdropClick } = useModalA11y({
@@ -50,11 +60,14 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
   async function enviar(evento) {
     evento.preventDefault();
     if (!editando && !imagen) {
-      setError("Adjunte la imagen.");
+      setError(null);
+      setErrores({ imagen: "Adjunte la imagen." });
+      enfocarPrimerError(formulario.current);
       return;
     }
     setGuardando(true);
     setError(null);
+    setErrores({});
     try {
       const {
         titulo,
@@ -77,7 +90,9 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
       );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar la imagen."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -108,7 +123,12 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body row g-2" onSubmit={enviar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body row g-2"
+          onSubmit={enviar}
+          noValidate
+        >
           {error && (
             <div className="col-12">
               <div className="mz-alert mz-alert--bad" role="alert">
@@ -118,21 +138,23 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
             </div>
           )}
           <div className="col-12">
-            <label className="form-label mz-small" htmlFor="noticia-imagen">
-              {editando ? "Reemplazar imagen (opcional)" : "Imagen"}
-            </label>
-            <input
+            <LeyendaObligatorios />
+          </div>
+          <div className="col-12">
+            <Campo
               id="noticia-imagen"
-              type="file"
-              className="form-control form-control-sm"
-              accept=".jpg,.jpeg,.png,.webp"
-              onChange={(e) => setImagen(e.target.files?.[0] ?? null)}
-            />
-            <small className="mz-faint">
-              JPG, PNG o WebP, hasta 5 MB. Medida: {MEDIDAS_CARRUSEL.ancho} ×{" "}
-              {MEDIDAS_CARRUSEL.alto} px (proporción{" "}
-              {MEDIDAS_CARRUSEL.proporcion}).
-            </small>
+              etiqueta={editando ? "Reemplazar imagen (opcional)" : "Imagen"}
+              obligatorio={!editando}
+              ayuda={`JPG, PNG o WebP, hasta 5 MB. Medida: ${MEDIDAS_CARRUSEL.ancho} × ${MEDIDAS_CARRUSEL.alto} px (proporción ${MEDIDAS_CARRUSEL.proporcion}).`}
+              error={errores.imagen}
+            >
+              <input
+                type="file"
+                className="form-control form-control-sm"
+                accept=".jpg,.jpeg,.png,.webp"
+                onChange={(e) => setImagen(e.target.files?.[0] ?? null)}
+              />
+            </Campo>
             {vista && (
               <img
                 src={vista}
@@ -142,96 +164,90 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
               />
             )}
           </div>
-          <div className="col-12 col-md-8">
-            <label
-              className="form-label mz-small"
-              htmlFor="noticia-titulo-campo"
-            >
-              Título (opcional)
-            </label>
+          <Campo
+            id="noticia-titulo-campo"
+            etiqueta="Título (opcional)"
+            error={errores.titulo}
+            className="col-12 col-md-8"
+          >
             <input
-              id="noticia-titulo-campo"
               className="form-control form-control-sm"
               maxLength={150}
               value={valores.titulo}
               onChange={fijar("titulo")}
             />
-          </div>
-          <div className="col-6 col-md-4">
-            <label className="form-label mz-small" htmlFor="noticia-orden">
-              Orden
-            </label>
+          </Campo>
+          <Campo
+            id="noticia-orden"
+            etiqueta="Orden"
+            error={errores.orden}
+            className="col-6 col-md-4"
+          >
             <input
-              id="noticia-orden"
               type="number"
               min={0}
               className="form-control form-control-sm"
               value={valores.orden}
               onChange={fijar("orden")}
             />
-          </div>
-          <div className="col-12">
-            <label
-              className="form-label mz-small"
-              htmlFor="noticia-descripcion"
-            >
-              Descripción (opcional)
-            </label>
+          </Campo>
+          <Campo
+            id="noticia-descripcion"
+            etiqueta="Descripción (opcional)"
+            error={errores.descripcion}
+            className="col-12"
+          >
             <input
-              id="noticia-descripcion"
               className="form-control form-control-sm"
               maxLength={300}
               value={valores.descripcion}
               onChange={fijar("descripcion")}
             />
-          </div>
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="noticia-alt">
-              Texto alternativo de la imagen (opcional)
-            </label>
+          </Campo>
+          <Campo
+            id="noticia-alt"
+            etiqueta="Texto alternativo de la imagen (opcional)"
+            ayuda="Escriba lo que dice la imagen (fechas, lugares, horarios) para quien no puede verla. Si la imagen solo decora y el título y la descripción ya lo dicen todo, déjelo vacío. Mejor aún: no deje datos importantes solo dentro de la imagen."
+            error={errores.texto_alternativo}
+            className="col-12"
+          >
             <textarea
-              id="noticia-alt"
               className="form-control form-control-sm"
               rows={2}
               maxLength={300}
-              aria-describedby="noticia-alt-ayuda"
               value={valores.texto_alternativo ?? ""}
               onChange={fijar("texto_alternativo")}
             />
-            <div id="noticia-alt-ayuda" className="form-text">
-              Escriba lo que dice la imagen (fechas, lugares, horarios) para
-              quien no puede verla. Si la imagen solo decora y el título y la
-              descripción ya lo dicen todo, déjelo vacío. Mejor aún: no deje
-              datos importantes solo dentro de la imagen.
-            </div>
-          </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="noticia-desde">
-              Publicar desde
-            </label>
+          </Campo>
+          <Campo
+            id="noticia-desde"
+            etiqueta="Publicar desde"
+            obligatorio
+            error={errores.publicar_desde}
+            className="col-6"
+          >
             <input
-              id="noticia-desde"
               type="date"
-              required
               className="form-control form-control-sm"
               value={valores.publicar_desde}
               onChange={fijar("publicar_desde")}
             />
-          </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="noticia-hasta">
-              Publicar hasta
-            </label>
+          </Campo>
+          <Campo
+            id="noticia-hasta"
+            etiqueta="Publicar hasta"
+            obligatorio
+            error={errores.publicar_hasta}
+            className="col-6"
+          >
             <input
-              id="noticia-hasta"
               type="date"
-              required
               min={valores.publicar_desde || undefined}
               className="form-control form-control-sm"
               value={valores.publicar_hasta}
               onChange={fijar("publicar_hasta")}
             />
-          </div>
+          </Campo>
           <div className="col-12 mz-actions justify-content-end">
             <button
               type="button"
@@ -268,7 +284,16 @@ function AjusteSegundos() {
     institucionalService
       .carrusel()
       .then((a) => setSegundos(String(a.segundos)))
-      .catch(() => null);
+      // Antes el campo quedaba vacío sin decir por qué (auditoría UX/UI,
+      // fase 2, 28/10/2026).
+      .catch((err) =>
+        setError(
+          mensajeDeError(
+            err,
+            "No se pudo cargar cada cuánto cambia la imagen.",
+          ),
+        ),
+      );
   }, []);
 
   async function guardar(evento) {
@@ -406,20 +431,24 @@ function MedidasDeLasImagenes() {
 export function GestionNoticiasPage() {
   const [noticias, setNoticias] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va en la tabla, con «Reintentar» (auditoría UX/UI,
+  // fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [editando, setEditando] = useState(null);
   const { urls: miniaturas } = useImagenesDeNoticias(noticias ?? []);
 
-  const cargar = useCallback(
-    () =>
-      institucionalService
-        .noticias(true)
-        .then(setNoticias)
-        .catch((err) =>
-          setError(mensajeDeError(err, "No se pudieron cargar las noticias.")),
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return institucionalService
+      .noticias(true)
+      .then(setNoticias)
+      .catch((err) =>
+        setErrorCarga(
+          mensajeDeError(err, "No se pudieron cargar las noticias."),
         ),
-    [],
-  );
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
@@ -579,11 +608,14 @@ export function GestionNoticiasPage() {
                 </tr>
               );
             })}
-            {noticias?.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={7}>Todavía no hay imágenes en el carrusel</td>
-              </tr>
-            )}
+            <FilaDeEstado
+              columnas={7}
+              cargando={noticias === null}
+              error={errorCarga}
+              onReintentar={cargar}
+              vacio={noticias?.length === 0}
+              textoVacio="Todavía no hay imágenes en el carrusel."
+            />
           </tbody>
         </table>
       </div>

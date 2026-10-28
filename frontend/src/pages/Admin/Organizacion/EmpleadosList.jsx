@@ -5,6 +5,7 @@ import {
   departamentosService,
   empleadosService,
 } from "../../../api/organizacionService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -31,9 +32,18 @@ export function EmpleadosList() {
       .catch(() => setDepartamentos([]));
   }, []);
 
+  const hayFiltros = Object.values(listado.filtros).some(Boolean);
+
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
+  // próximo «Buscar» volvería a filtrar por él.
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
   return (
@@ -101,13 +111,6 @@ export function EmpleadosList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -123,55 +126,67 @@ export function EmpleadosList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((empleado) => (
-              <tr key={empleado.id}>
-                <td className="mz-code">{empleado.codigo_empleado}</td>
-                <td className="mz-strong">{empleado.nombre_completo}</td>
-                <td>{empleado.cargo || "—"}</td>
-                <td>{empleado.departamento_nombre}</td>
-                <td>
-                  {empleado.usuario ? (
-                    <span className="mz-code">{empleado.usuario_username}</span>
-                  ) : (
+            {/* Cargando, error con reintento y un vacío que distingue «no
+                hay registros» de «el filtro no encuentra nada» (auditoría
+                UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={8}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Todavía no hay empleados registrados."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!listado.error &&
+              listado.resultados.map((empleado) => (
+                <tr key={empleado.id}>
+                  <td className="mz-code">{empleado.codigo_empleado}</td>
+                  <td className="mz-strong">{empleado.nombre_completo}</td>
+                  <td>{empleado.cargo || "—"}</td>
+                  <td>{empleado.departamento_nombre}</td>
+                  <td>
+                    {empleado.usuario ? (
+                      <span className="mz-code">
+                        {empleado.usuario_username}
+                      </span>
+                    ) : (
+                      <span
+                        className="mz-pill mz-pill--warn"
+                        title="Todo empleado debe tener usuario: edítelo y escriba su correo institucional."
+                      >
+                        Sin usuario
+                      </span>
+                    )}
+                  </td>
+                  <td className="num">
+                    {empleado.total_activos > 0 ? (
+                      <Link to={`/admin/activos?custodio=${empleado.id}`}>
+                        {empleado.total_activos}
+                      </Link>
+                    ) : (
+                      0
+                    )}
+                  </td>
+                  <td>
                     <span
-                      className="mz-pill mz-pill--warn"
-                      title="Todo empleado debe tener usuario: edítelo y escriba su correo institucional."
+                      className={`mz-pill ${empleado.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                     >
-                      Sin usuario
+                      {empleado.activo ? "Activo" : "Inactivo"}
                     </span>
-                  )}
-                </td>
-                <td className="num">
-                  {empleado.total_activos > 0 ? (
-                    <Link to={`/admin/activos?custodio=${empleado.id}`}>
-                      {empleado.total_activos}
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/organizacion/empleados/${empleado.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${empleado.nombre_completo}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
                     </Link>
-                  ) : (
-                    0
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`mz-pill ${empleado.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {empleado.activo ? "Activo" : "Inactivo"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/organizacion/empleados/${empleado.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>Sin empleados registrados</td>
-              </tr>
-            )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

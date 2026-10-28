@@ -291,3 +291,28 @@
 .mz-import-datos__ancho {
   grid-column: 1 / -1;
 }
+
+/* El nombre de la obligación abre el período: un botón con aspecto de texto
+   que se alcanza con Tab y responde a Enter y Espacio (auditoría UX/UI,
+   fase 2, 28/10/2026). */
+.mz-celda-enlace {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.mz-celda-enlace:hover {
+  text-decoration: underline;
+}
+
+.mz-celda-enlace:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

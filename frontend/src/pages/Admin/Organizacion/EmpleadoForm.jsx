@@ -1,13 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
   departamentosService,
   empleadosService,
 } from "../../../api/organizacionService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Organizacion.css";
 
 const VACIO = {
@@ -21,6 +30,9 @@ const VACIO = {
   activo: true,
   password: "",
 };
+// Un error del servidor sobre uno de estos campos va bajo el campo; sobre
+// otra cosa, en el aviso de arriba con el detalle completo.
+const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(VACIO));
 
 export function EmpleadoForm() {
   const { id } = useParams();
@@ -35,7 +47,9 @@ export function EmpleadoForm() {
   // que no lo tenía, se crea su cuenta con el correo institucional.
   const [usuario, setUsuario] = useState(null);
   const [error, setError] = useState(null);
+  const [erroresCampo, setErroresCampo] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     departamentosService
@@ -72,12 +86,17 @@ export function EmpleadoForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    // Lo corregido deja de marcarse como error.
+    setErroresCampo((actuales) =>
+      actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+    );
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErroresCampo({});
     const { password, ...resto } = valores;
     const cuerpo = sinUsuario && password ? { ...resto, password } : resto;
     try {
@@ -88,7 +107,20 @@ export function EmpleadoForm() {
       }
       navigate("/admin/organizacion/empleados");
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el empleado."));
+      // Cada error bajo su campo y, arriba, un aviso general; si alguno no es
+      // de un campo del formulario, el aviso lleva el detalle completo
+      // (auditoría UX/UI, fase 2, 28/10/2026).
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErroresCampo(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS_DEL_FORMULARIO.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el empleado."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -112,12 +144,6 @@ export function EmpleadoForm() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
       {esEdicion && !usuario && valores.nombres && (
         <div className="mz-alert mz-alert--warn" role="status">
           <Icon name="person-exclamation" />
@@ -137,26 +163,42 @@ export function EmpleadoForm() {
         <div className="mz-card-head">
           <h3>Datos del empleado</h3>
         </div>
-        <form onSubmit={handleSubmit} className="mz-card-body">
+        <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
+          {/* Dentro del formulario: tras un error, el foco puede ir aquí si
+              ningún campo quedó marcado. */}
+          {error && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          {/* Obligatorios marcados y cada error del servidor bajo su campo
+              (auditoría UX/UI, fase 2, 28/10/2026). */}
           <div className="mz-field-grid">
-            <div className="mz-field">
-              <label htmlFor="nombres">Nombres</label>
+            <Campo
+              id="nombres"
+              etiqueta="Nombres"
+              obligatorio
+              error={erroresCampo.nombres}
+              className="mz-field"
+            >
               <input
-                id="nombres"
                 className="form-control"
-                required
                 maxLength={120}
                 value={valores.nombres}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("nombres", event.target.value)}
               />
-            </div>
-            <div className="mz-field">
-              <label htmlFor="apellidos">Apellidos</label>
+            </Campo>
+            <Campo
+              id="apellidos"
+              etiqueta="Apellidos"
+              obligatorio
+              error={erroresCampo.apellidos}
+              className="mz-field"
+            >
               <input
-                id="apellidos"
                 className="form-control"
-                required
                 maxLength={120}
                 value={valores.apellidos}
                 disabled={!puedeEditar}
@@ -164,11 +206,15 @@ export function EmpleadoForm() {
                   actualizar("apellidos", event.target.value)
                 }
               />
-            </div>
-            <div className="mz-field">
-              <label htmlFor="codigo">Código de empleado</label>
+            </Campo>
+            <Campo
+              id="codigo"
+              etiqueta="Código de empleado"
+              ayuda="Identificador interno. Es el que se usa en la carga masiva de activos. Déjelo vacío para que el sistema lo genere."
+              error={erroresCampo.codigo_empleado}
+              className="mz-field"
+            >
               <input
-                id="codigo"
                 className="form-control text-uppercase font-monospace"
                 maxLength={30}
                 placeholder={esEdicion ? "" : "Se genera solo (EMP-0001)"}
@@ -178,39 +224,42 @@ export function EmpleadoForm() {
                   actualizar("codigo_empleado", event.target.value)
                 }
               />
-              <div className="form-text">
-                Identificador interno. Es el que se usa en la carga masiva de
-                activos. Déjelo vacío para que el sistema lo genere.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="correo">Correo institucional</label>
-              <input
-                id="correo"
-                type="email"
-                className="form-control"
-                required
-                placeholder="nombre.apellido@grupolaar.com"
-                value={valores.correo}
-                disabled={!puedeEditar}
-                onChange={(event) => actualizar("correo", event.target.value)}
-              />
-              <div className="form-text">
-                {usuario ? (
+            </Campo>
+            <Campo
+              id="correo"
+              etiqueta="Correo institucional"
+              obligatorio
+              ayuda={
+                usuario ? (
                   <>
                     Usuario: <strong>{usuario.username}</strong>. Se administra
                     en Configuración → Usuarios y roles.
                   </>
                 ) : (
                   "Con él se crea su usuario; si ya existe una cuenta con ese correo, se ata a ella."
-                )}
-              </div>
-            </div>
+                )
+              }
+              error={erroresCampo.correo}
+              className="mz-field"
+            >
+              <input
+                type="email"
+                className="form-control"
+                placeholder="nombre.apellido@grupolaar.com"
+                value={valores.correo}
+                disabled={!puedeEditar}
+                onChange={(event) => actualizar("correo", event.target.value)}
+              />
+            </Campo>
             {sinUsuario && (
-              <div className="mz-field">
-                <label htmlFor="password">Contraseña inicial (opcional)</label>
+              <Campo
+                id="password"
+                etiqueta="Contraseña inicial (opcional)"
+                ayuda="Solo si la cuenta es nueva. Vacía, nace con la clave temporal; con una u otra, la persona la cambia al entrar por primera vez. El rol se asigna en Usuarios y roles."
+                error={erroresCampo.password}
+                className="mz-field"
+              >
                 <input
-                  id="password"
                   type="password"
                   className="form-control"
                   autoComplete="new-password"
@@ -220,41 +269,45 @@ export function EmpleadoForm() {
                     actualizar("password", event.target.value)
                   }
                 />
-                <div className="form-text">
-                  Solo si la cuenta es nueva. Vacía, nace con la clave temporal;
-                  con una u otra, la persona la cambia al entrar por primera
-                  vez. El rol se asigna en Usuarios y roles.
-                </div>
-              </div>
+              </Campo>
             )}
-            <div className="mz-field">
-              <label htmlFor="telefono">Teléfono</label>
+            <Campo
+              id="telefono"
+              etiqueta="Teléfono"
+              error={erroresCampo.telefono}
+              className="mz-field"
+            >
               <input
-                id="telefono"
                 className="form-control"
                 maxLength={30}
                 value={valores.telefono}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("telefono", event.target.value)}
               />
-            </div>
-            <div className="mz-field">
-              <label htmlFor="cargo">Cargo</label>
+            </Campo>
+            <Campo
+              id="cargo"
+              etiqueta="Cargo"
+              error={erroresCampo.cargo}
+              className="mz-field"
+            >
               <input
-                id="cargo"
                 className="form-control"
                 maxLength={120}
                 value={valores.cargo}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("cargo", event.target.value)}
               />
-            </div>
-            <div className="mz-field">
-              <label htmlFor="departamento">Departamento</label>
+            </Campo>
+            <Campo
+              id="departamento"
+              etiqueta="Departamento"
+              obligatorio
+              error={erroresCampo.departamento}
+              className="mz-field"
+            >
               <select
-                id="departamento"
                 className="form-select"
-                required
                 value={valores.departamento}
                 disabled={!puedeEditar}
                 onChange={(event) =>
@@ -268,15 +321,19 @@ export function EmpleadoForm() {
                   </option>
                 ))}
               </select>
-            </div>
+            </Campo>
             <div className="mz-field--full">
               <div className="form-check">
                 <input
                   id="activo"
                   type="checkbox"
-                  className="form-check-input"
+                  className={`form-check-input${erroresCampo.activo ? " is-invalid" : ""}`}
                   checked={valores.activo}
                   disabled={!puedeEditar}
+                  aria-invalid={erroresCampo.activo ? true : undefined}
+                  aria-describedby={
+                    erroresCampo.activo ? "activo-error" : undefined
+                  }
                   onChange={(event) =>
                     actualizar("activo", event.target.checked)
                   }
@@ -290,26 +347,34 @@ export function EmpleadoForm() {
                   Custodia actualmente {totalActivos} activo(s).
                 </div>
               )}
+              {erroresCampo.activo && (
+                <div id="activo-error" className="mz-field-error">
+                  {erroresCampo.activo}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="mz-actions justify-content-end mt-3">
-            <button
-              type="button"
-              className="btn btn-cancelar"
-              onClick={() => navigate("/admin/organizacion/empleados")}
-            >
-              Volver
-            </button>
-            {puedeEditar && (
+          <div className="mz-actions justify-content-between align-items-center mt-3">
+            <LeyendaObligatorios />
+            <div className="d-flex flex-wrap gap-2">
               <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSaving}
+                type="button"
+                className="btn btn-cancelar"
+                onClick={() => navigate("/admin/organizacion/empleados")}
               >
-                {isSaving ? "Guardando…" : "Guardar"}
+                Volver
               </button>
-            )}
+              {puedeEditar && (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Guardando…" : "Guardar"}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </section>

@@ -1,9 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { avisoInicioService } from "../../../api/avisoInicioService";
 import { VentanaAviso } from "../../../components/admin/AvisoInicioSesion/AvisoInicioSesion";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 
 /**
@@ -21,7 +30,9 @@ export function AvisoInicioPage() {
   const [actualizado, setActualizado] = useState(null);
   const [vistaPrevia, setVistaPrevia] = useState(false);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [guardado, setGuardado] = useState(false);
+  const formRef = useRef(null);
   const [guardando, setGuardando] = useState(false);
 
   function cargarImagen(tiene) {
@@ -65,6 +76,9 @@ export function AvisoInicioPage() {
   function fijar(campo) {
     return (e) => {
       setGuardado(false);
+      setErrores((actuales) =>
+        actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+      );
       setValores((v) => ({
         ...v,
         [campo]:
@@ -77,6 +91,7 @@ export function AvisoInicioPage() {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     setGuardado(false);
     try {
       const datos = await avisoInicioService.guardar(
@@ -94,7 +109,21 @@ export function AvisoInicioPage() {
       cargarImagen(datos.tiene_imagen);
       setGuardado(true);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el aviso."));
+      // Cada error bajo su campo (auditoría UX/UI, fase 2, 28/10/2026): «el
+      // aviso encendido necesita título» se lee junto al título.
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErrores(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) =>
+            ["titulo", "contenido", "imagen"].includes(clave),
+          ) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el aviso."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setGuardando(false);
     }
@@ -131,7 +160,7 @@ export function AvisoInicioPage() {
         </div>
       )}
 
-      <form className="mz-card" onSubmit={guardar}>
+      <form ref={formRef} className="mz-card" onSubmit={guardar}>
         <div className="mz-card-body row g-3">
           <div className="col-12">
             <label className="form-check form-switch">
@@ -151,52 +180,58 @@ export function AvisoInicioPage() {
               </span>
             </label>
           </div>
-          <div className="col-12">
-            <label className="form-label" htmlFor="aviso-titulo">
-              Título
-            </label>
+          {/* El título es obligatorio con el aviso encendido: es lo que el
+              servidor exige (auditoría UX/UI, fase 2, 28/10/2026). */}
+          <Campo
+            id="aviso-titulo"
+            etiqueta="Título"
+            obligatorio={valores.activo}
+            error={errores.titulo}
+            className="col-12"
+          >
             <input
-              id="aviso-titulo"
               className="form-control"
               maxLength={150}
               value={valores.titulo}
               onChange={fijar("titulo")}
             />
-          </div>
-          <div className="col-12">
-            <label className="form-label" htmlFor="aviso-contenido">
-              Contenido
-            </label>
+          </Campo>
+          <Campo
+            id="aviso-contenido"
+            etiqueta="Contenido"
+            ayuda="Se respetan los saltos de línea con que se escriba."
+            error={errores.contenido}
+            className="col-12"
+          >
             <textarea
-              id="aviso-contenido"
               className="form-control"
               rows={6}
               value={valores.contenido}
               onChange={fijar("contenido")}
             />
-            <small className="mz-faint">
-              Se respetan los saltos de línea con que se escriba.
-            </small>
-          </div>
+          </Campo>
           <div className="col-12 col-md-8">
-            <label className="form-label" htmlFor="aviso-imagen">
-              Imagen (opcional)
-            </label>
-            <input
+            <Campo
               id="aviso-imagen"
-              type="file"
-              className="form-control"
-              accept=".jpg,.jpeg,.png,.webp"
-              onChange={(e) => {
-                setImagen(e.target.files?.[0] ?? null);
-                setQuitarImagen(false);
-                setGuardado(false);
-              }}
-            />
-            <small className="mz-faint">
-              JPG, PNG o WebP, hasta 5 MB. Se muestra arriba, a todo el ancho de
-              la ventana: medida recomendada 1200 × 600 px.
-            </small>
+              etiqueta="Imagen (opcional)"
+              ayuda="JPG, PNG o WebP, hasta 5 MB. Se muestra arriba, a todo el ancho de la ventana: medida recomendada 1200 × 600 px."
+              error={errores.imagen}
+            >
+              <input
+                type="file"
+                className="form-control"
+                accept=".jpg,.jpeg,.png,.webp"
+                onChange={(e) => {
+                  setImagen(e.target.files?.[0] ?? null);
+                  setQuitarImagen(false);
+                  setGuardado(false);
+                  setErrores((actuales) => ({
+                    ...actuales,
+                    imagen: undefined,
+                  }));
+                }}
+              />
+            </Campo>
             {imagenParaMostrar && (
               <div className="mt-2 d-flex align-items-start gap-2">
                 <img
@@ -218,17 +253,25 @@ export function AvisoInicioPage() {
               </div>
             )}
           </div>
-          <div className="col-12 mz-actions justify-content-end">
-            {guardado && (
-              <span className="mz-small text-success me-auto" role="status">
-                <Icon name="check-circle" /> Guardado
-              </span>
-            )}
-            {!guardado && actualizado && (
-              <span className="mz-small mz-faint me-auto">
-                Última modificación: {formatearFecha(actualizado, true)}
-              </span>
-            )}
+          {/* El éxito, con el aviso del sistema y no con `text-success`
+              (auditoría UX/UI, fase 2). */}
+          {guardado && (
+            <div className="col-12">
+              <div className="mz-alert mz-alert--ok mb-0" role="status">
+                <Icon name="check2-circle" />
+                Guardado.
+              </div>
+            </div>
+          )}
+          <div className="col-12 mz-actions justify-content-end align-items-center">
+            <div className="me-auto">
+              {valores.activo && <LeyendaObligatorios />}
+              {actualizado && (
+                <span className="mz-small mz-faint">
+                  Última modificación: {formatearFecha(actualizado, true)}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               className="btn btn-outline-secondary"

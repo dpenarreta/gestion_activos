@@ -113,7 +113,7 @@ describe("Consultar rol de pagos", () => {
     expect(ver).toBeDisabled();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -151,7 +151,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "mala" },
       },
@@ -163,7 +163,7 @@ describe("Consultar rol de pagos", () => {
       await within(ventana).findByText("La contraseña no es correcta."),
     ).toBeInTheDocument();
     expect(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
     ).toHaveValue("");
   });
 
@@ -176,7 +176,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -259,7 +259,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -302,7 +302,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -346,7 +346,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -413,7 +413,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -676,7 +676,7 @@ describe("Consultar rol de pagos", () => {
     expect(
       await within(ventana).findByRole("option", { name: /Bodega/ }),
     ).toBeDisabled();
-    fireEvent.change(within(ventana).getByLabelText("Área"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Área/), {
       target: { value: "3" },
     });
     fireEvent.change(within(ventana).getByLabelText("Año"), {
@@ -685,9 +685,12 @@ describe("Consultar rol de pagos", () => {
     fireEvent.change(within(ventana).getByLabelText("Mes"), {
       target: { value: "9" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
-      target: { value: "clave" },
-    });
+    fireEvent.change(
+      within(ventana).getByLabelText(/^Confirme su contraseña/),
+      {
+        target: { value: "clave" },
+      },
+    );
     fireEvent.click(within(ventana).getByRole("button", { name: /Descargar/ }));
     await waitFor(() =>
       expect(servicio.descargaMasiva).toHaveBeenCalledWith({
@@ -1090,9 +1093,12 @@ describe("Consultar rol de pagos", () => {
     expect(
       within(ventana).getByText(/Abril 2025, Junio 2025/),
     ).toBeInTheDocument();
-    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
-      target: { value: "clave" },
-    });
+    fireEvent.change(
+      within(ventana).getByLabelText(/^Confirme su contraseña/),
+      {
+        target: { value: "clave" },
+      },
+    );
     fireEvent.click(
       within(ventana).getByRole("button", { name: /Descargar ZIP \(2 PDF\)/ }),
     );
@@ -1137,9 +1143,12 @@ describe("Consultar rol de pagos", () => {
     });
     fireEvent.click(within(ventana).getByRole("button", { name: /Buscar/ }));
     fireEvent.click(await within(ventana).findByLabelText(/Abril/));
-    fireEvent.change(within(ventana).getByLabelText("Confirme su contraseña"), {
-      target: { value: "clave" },
-    });
+    fireEvent.change(
+      within(ventana).getByLabelText(/^Confirme su contraseña/),
+      {
+        target: { value: "clave" },
+      },
+    );
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Descargar PDF" }),
     );
@@ -1167,7 +1176,7 @@ describe("Consultar rol de pagos", () => {
     const ventana = await consultar();
     fireEvent.click(within(ventana).getByRole("checkbox"));
     fireEvent.change(
-      within(ventana).getByLabelText("Contraseña de su cuenta"),
+      within(ventana).getByLabelText(/^Contraseña de su cuenta/),
       {
         target: { value: "secreta" },
       },
@@ -1188,5 +1197,73 @@ describe("Consultar rol de pagos", () => {
     expect(
       within(visor).queryByRole("button", { name: /Tengo una observación/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Cargando y error con «Reintentar» (auditoría UX/UI, fase 2, 28/10/2026):
+ * antes la página quedaba en blanco mientras cargaba y un fallo en «Mis
+ * observaciones» se veía como si no tuviera ninguna.
+ */
+describe("Rol de pagos: cargando y error", () => {
+  it("muestra «Cargando…» mientras llega el estado", async () => {
+    servicio.estado.mockReturnValue(new Promise(() => {}));
+    render(<RolPagosPage />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+  });
+
+  it("si el estado falla, lo dice y «Reintentar» vuelve a pedirlo", async () => {
+    servicio.estado.mockRejectedValueOnce({
+      response: { data: { error: { message: "Servicio no disponible." } } },
+    });
+    render(<RolPagosPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Servicio no disponible.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByLabelText("Código de empleado")).toHaveValue(
+      "20104758",
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(servicio.estado).toHaveBeenCalledTimes(2);
+  });
+
+  it("si sus observaciones no cargan, lo dice en vez de ocultarlas", async () => {
+    servicio.misObservaciones.mockRejectedValue({});
+    render(<RolPagosPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudieron cargar sus observaciones.",
+    );
+  });
+
+  it("la lista de habilitados muestra el error en la tabla con «Reintentar»", async () => {
+    servicio.estado.mockResolvedValue({
+      ...ESTADO,
+      habilitado: false,
+      puede_habilitar: true,
+    });
+    servicio.habilitados.mockRejectedValueOnce({}).mockResolvedValue([
+      {
+        id: 9,
+        nombre: "Rosa Vera",
+        correo: "r@x.com",
+        codigo: "",
+        habilitado: false,
+      },
+    ]);
+    render(<RolPagosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Usuarios habilitados/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Usuarios habilitados",
+    });
+    const tabla = within(ventana).getByRole("table");
+    expect(within(tabla).getByRole("status")).toHaveTextContent("Cargando…");
+    expect(await within(tabla).findByRole("alert")).toHaveTextContent(
+      "No se pudo cargar la lista.",
+    );
+    fireEvent.click(within(tabla).getByRole("button", { name: "Reintentar" }));
+    expect(await within(tabla).findByText("Rosa Vera")).toBeInTheDocument();
   });
 });

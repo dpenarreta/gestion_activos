@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
@@ -8,9 +8,18 @@ import {
 } from "../../../api/mantenimientosService";
 import { proveedoresService } from "../../../api/organizacionService";
 import { BuscadorDeActivo } from "../../../components/activos/BuscadorDeActivo/BuscadorDeActivo";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { LineasComponentes } from "../../../components/mantenimientos/LineasComponentes/LineasComponentes";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Mantenimientos.css";
 import { formatearDias } from "../../../utils/formato";
 
@@ -75,7 +84,11 @@ export function MantenimientoForm() {
   const [proveedores, setProveedores] = useState([]);
   const [activoSeleccionado, setActivoSeleccionado] = useState(null);
   const [error, setError] = useState(null);
+  // Auditoría UX/UI, fase 2 (28/10/2026): el error del servidor va bajo el
+  // campo que lo causó, no solo en el aviso de arriba.
+  const [errores, setErrores] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const contenedorRef = useRef(null);
 
   useEffect(() => {
     componentesService
@@ -150,12 +163,19 @@ export function MantenimientoForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    setErrores((actuales) => {
+      if (!actuales[campo]) return actuales;
+      const resto = { ...actuales };
+      delete resto[campo];
+      return resto;
+    });
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErrores({});
     try {
       const payload = {
         ...valores,
@@ -185,14 +205,27 @@ export function MantenimientoForm() {
           : "/admin/mantenimientos",
       );
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar la intervención."));
+      const porCampo = erroresPorCampo(err);
+      setErrores(porCampo);
+      // Lo que no es de un campo visible (las piezas, por ejemplo) sigue
+      // diciéndose completo arriba.
+      const todoEnSuCampo =
+        Object.keys(porCampo).length > 0 &&
+        Object.keys(porCampo).every((campo) => campo in VACIO) &&
+        !hayErroresGenerales(err);
+      setError(
+        todoEnSuCampo
+          ? "No se pudo guardar la intervención: revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar la intervención."),
+      );
+      enfocarPrimerError(contenedorRef.current);
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <div className="mantenimientos-page">
+    <div className="mantenimientos-page" ref={contenedorRef}>
       <div className="mz-view-head">
         <div>
           <h2>
@@ -217,6 +250,7 @@ export function MantenimientoForm() {
           la identidad no reproduce. */}
       <form onSubmit={handleSubmit} className="mz-card mantenimiento-form">
         <div className="mz-card-body">
+          <LeyendaObligatorios />
           <div className="mz-section">
             <h4>Intervención</h4>
             <div className="row g-3">
@@ -234,20 +268,22 @@ export function MantenimientoForm() {
                   }}
                   disabled={esEdicion}
                   requerido
+                  errorCampo={errores.activo}
                   ayuda={
                     esEdicion
-                      ? "Una intervención no cambia de activo. Si se capturó sobre el equipo equivocado, elimínela y regístrela de nuevo."
+                      ? "Una intervención no cambia de activo: si el equipo era otro, elimínela y regístrela de nuevo."
                       : undefined
                   }
                 />
                 <AvisoDeNotificacion activo={activoSeleccionado} />
               </div>
-              <div className="col-md-3">
-                <label className="form-label" htmlFor="tipo">
-                  Tipo
-                </label>
+              <Campo
+                id="tipo"
+                etiqueta="Tipo"
+                error={errores.tipo}
+                className="col-md-3"
+              >
                 <select
-                  id="tipo"
                   className="form-select"
                   value={valores.tipo}
                   onChange={(event) => actualizar("tipo", event.target.value)}
@@ -255,16 +291,22 @@ export function MantenimientoForm() {
                   <option value="correctivo">Correctivo</option>
                   <option value="preventivo">Preventivo</option>
                 </select>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label" htmlFor="fecha">
-                  Fecha de ingreso
-                </label>
+              </Campo>
+              <Campo
+                id="fecha"
+                etiqueta="Fecha de ingreso"
+                obligatorio
+                ayuda={
+                  activoSeleccionado
+                    ? `El equipo se adquirió el ${activoSeleccionado.fecha_adquisicion}.`
+                    : undefined
+                }
+                error={errores.fecha_intervencion}
+                className="col-md-3"
+              >
                 <input
-                  id="fecha"
                   type="date"
                   className="form-control"
-                  required
                   max={hoy()}
                   min={activoSeleccionado?.fecha_adquisicion}
                   value={valores.fecha_intervencion}
@@ -272,19 +314,19 @@ export function MantenimientoForm() {
                     actualizar("fecha_intervencion", event.target.value)
                   }
                 />
-                {activoSeleccionado && (
-                  <div className="form-text">
-                    El equipo se adquirió el{" "}
-                    {activoSeleccionado.fecha_adquisicion}.
-                  </div>
-                )}
-              </div>
-              <div className="col-md-3">
-                <label className="form-label" htmlFor="fecha_salida">
-                  Fecha de salida
-                </label>
+              </Campo>
+              <Campo
+                id="fecha_salida"
+                etiqueta="Fecha de salida"
+                ayuda={
+                  valores.fecha_salida
+                    ? `${formatearDias(diasFuera(valores))} fuera de operación.`
+                    : "Vacío mientras el equipo siga fuera de operación."
+                }
+                error={errores.fecha_salida}
+                className="col-md-3"
+              >
                 <input
-                  id="fecha_salida"
                   type="date"
                   className="form-control"
                   max={hoy()}
@@ -294,12 +336,7 @@ export function MantenimientoForm() {
                     actualizar("fecha_salida", event.target.value)
                   }
                 />
-                <div className="form-text">
-                  {valores.fecha_salida
-                    ? `${formatearDias(diasFuera(valores))} fuera de operación.`
-                    : "Vacío mientras el equipo siga fuera de operación."}
-                </div>
-              </div>
+              </Campo>
               <div className="col-md-4">
                 <label className="form-label" htmlFor="tipo_responsable">
                   A cargo de
@@ -316,21 +353,22 @@ export function MantenimientoForm() {
                   <option value="proveedor_externo">Proveedor externo</option>
                 </select>
               </div>
-              <div className="col-md-8">
-                <label className="form-label" htmlFor="responsable">
-                  Nombre del técnico o proveedor
-                </label>
+              <Campo
+                id="responsable"
+                etiqueta="Nombre del técnico o proveedor"
+                obligatorio
+                error={errores.responsable}
+                className="col-md-8"
+              >
                 <input
-                  id="responsable"
                   className="form-control"
-                  required
                   maxLength={150}
                   value={valores.responsable}
                   onChange={(event) =>
                     actualizar("responsable", event.target.value)
                   }
                 />
-              </div>
+              </Campo>
               <div className="col-md-6">
                 <label className="form-label" htmlFor="causa">
                   Causa de la falla
@@ -387,21 +425,22 @@ export function MantenimientoForm() {
                   </label>
                 </div>
               </div>
-              <div className="col-12">
-                <label className="form-label" htmlFor="descripcion">
-                  Trabajo realizado
-                </label>
+              <Campo
+                id="descripcion"
+                etiqueta="Trabajo realizado"
+                obligatorio
+                error={errores.descripcion}
+                className="col-12"
+              >
                 <textarea
-                  id="descripcion"
                   className="form-control"
                   rows={2}
-                  required
                   value={valores.descripcion}
                   onChange={(event) =>
                     actualizar("descripcion", event.target.value)
                   }
                 />
-              </div>
+              </Campo>
               <div className="col-12">
                 <label className="form-label" htmlFor="diagnostico">
                   Diagnóstico
@@ -430,12 +469,13 @@ export function MantenimientoForm() {
                   }
                 />
               </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="costo_mano_obra">
-                  Costo de mano de obra
-                </label>
+              <Campo
+                id="costo_mano_obra"
+                etiqueta="Costo de mano de obra"
+                error={errores.costo_mano_obra}
+                className="col-md-4"
+              >
                 <input
-                  id="costo_mano_obra"
                   type="number"
                   step="0.01"
                   min="0"
@@ -445,7 +485,7 @@ export function MantenimientoForm() {
                     actualizar("costo_mano_obra", event.target.value)
                   }
                 />
-              </div>
+              </Campo>
             </div>
           </div>
 

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { exportacionService } from "../../../api/activosService";
 import { mantenimientosService } from "../../../api/mantenimientosService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -14,6 +15,13 @@ import { formatearFecha, formatearMoneda } from "../../../utils/formato";
 import "./Mantenimientos.css";
 
 const FILTROS_INICIALES = { q: "", tipo: "", desde: "", hasta: "" };
+
+/** Si algún filtro se aparta de cómo arranca el listado. */
+function hayFiltrosActivos(filtros, iniciales) {
+  return Object.entries(filtros).some(
+    ([clave, valor]) => (valor ?? "") !== (iniciales[clave] ?? ""),
+  );
+}
 
 export function MantenimientosList() {
   const puedeRegistrar = usePermission("mantenimientos.registrar");
@@ -33,6 +41,11 @@ export function MantenimientosList() {
     FILTROS_INICIALES,
     "No se pudo cargar la bitácora de mantenimientos.",
   );
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
+  }
 
   async function handleExportar() {
     setIsExportando(true);
@@ -183,12 +196,6 @@ export function MantenimientosList() {
           </div>
         </div>
       )}
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
       {errorAccion && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
@@ -289,13 +296,19 @@ export function MantenimientosList() {
                 </td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>
-                  Sin intervenciones que coincidan con los filtros
-                </td>
-              </tr>
-            )}
+            {/* Error, carga y vacío dentro de la tabla; el vacío distingue «no hay
+                nada» de «los filtros no encuentran nada» y ofrece quitarlos
+                (auditoría UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={8}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              vacio={listado.resultados.length === 0}
+              textoVacio="Todavía no hay intervenciones registradas."
+              hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
+              onLimpiarFiltros={limpiarFiltros}
+            />
           </tbody>
         </table>
       </div>

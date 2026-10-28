@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
@@ -20,16 +21,22 @@ export function RolesPanel() {
   const puedeEditar = usePermission("roles.editar");
   const [roles, setRoles] = useState([]);
   const [error, setError] = useState(null);
+  const [errorCarga, setErrorCarga] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [eliminando, setEliminando] = useState(false);
   const [aEliminar, setAEliminar] = useState(null);
 
   function loadRoles() {
     setIsLoading(true);
+    setErrorCarga(null);
     rolesService
       .list()
       .then(setRoles)
-      .catch(() => setError("No se pudo cargar el listado de roles."))
+      .catch((err) =>
+        setErrorCarga(
+          mensajeDeError(err, "No se pudo cargar el listado de roles."),
+        ),
+      )
       .finally(() => setIsLoading(false));
   }
 
@@ -83,43 +90,50 @@ export function RolesPanel() {
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => (
-              <tr key={role.id}>
-                <td className="mz-strong">
-                  {role.name}
-                  {role.cargo && (
-                    <span className="d-block mz-small mz-faint fw-normal">
-                      <Icon name="diagram-3" /> Cargo del organigrama de{" "}
-                      {role.cargo.empresa}: lo tiene quien ocupa el cargo
-                    </span>
-                  )}
-                </td>
-                <td className="num">{role.permission_codenames.length}</td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/roles/${role.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                  {/* El de un cargo se borra al borrar el cargo. */}
-                  {puedeEditar && !role.cargo && (
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => setAEliminar(role)}
+            {/* Cargando, error con reintento y vacío dentro de la tabla
+                (auditoría UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={3}
+              cargando={isLoading && roles.length === 0}
+              error={errorCarga}
+              onReintentar={loadRoles}
+              vacio={!isLoading && roles.length === 0}
+              textoVacio="Todavía no hay roles registrados."
+            />
+            {!errorCarga &&
+              roles.map((role) => (
+                <tr key={role.id}>
+                  <td className="mz-strong">
+                    {role.name}
+                    {role.cargo && (
+                      <span className="d-block mz-small mz-faint fw-normal">
+                        <Icon name="diagram-3" /> Cargo del organigrama de{" "}
+                        {role.cargo.empresa}: lo tiene quien ocupa el cargo
+                      </span>
+                    )}
+                  </td>
+                  <td className="num">{role.permission_codenames.length}</td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/roles/${role.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${role.name}`}
                     >
-                      Eliminar
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!isLoading && roles.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={3}>Sin roles registrados</td>
-              </tr>
-            )}
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                    {/* El de un cargo se borra al borrar el cargo. */}
+                    {puedeEditar && !role.cargo && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => setAEliminar(role)}
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

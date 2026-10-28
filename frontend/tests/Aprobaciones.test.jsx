@@ -54,7 +54,9 @@ describe("Las aprobaciones", () => {
     await waitFor(() =>
       expect(servicio.decidirAprobacion).toHaveBeenCalledWith(7, true, ""),
     );
-    expect(await screen.findByText(/entra a la cola/)).toBeInTheDocument();
+    expect(await screen.findByText(/entra a la cola/)).toHaveClass(
+      "mz-alert--ok",
+    );
     expect(
       await screen.findByText("No tiene aprobaciones pendientes."),
     ).toBeInTheDocument();
@@ -75,5 +77,45 @@ describe("Las aprobaciones", () => {
         "No corresponde a su cargo",
       ),
     );
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026).
+  it("no aprobar espera a la nota", async () => {
+    servicio.aprobaciones.mockResolvedValue([PENDIENTE]);
+    render(<AprobacionesPage />);
+    const boton = await screen.findByRole("button", { name: "No aprobar" });
+    expect(boton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Nota/), {
+      target: { value: "No corresponde" },
+    });
+    expect(boton).toBeEnabled();
+  });
+
+  it("el éxito es un aviso de estado y el fallo queda en la tarjeta", async () => {
+    servicio.aprobaciones.mockResolvedValue([PENDIENTE]);
+    servicio.decidirAprobacion.mockRejectedValue({
+      response: { data: { error: { message: "Ya fue decidida." } } },
+    });
+    render(<AprobacionesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Aprobar" }));
+    const tarjeta = screen.getByRole("region", {
+      name: "Aprobación de TCK-2026-000050",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ya fue decidida.",
+    );
+    expect(tarjeta).toContainElement(screen.getByRole("alert"));
+  });
+
+  it("mientras carga lo dice y si falla deja reintentar", async () => {
+    servicio.aprobaciones
+      .mockRejectedValueOnce(new Error("500"))
+      .mockResolvedValue([]);
+    render(<AprobacionesPage />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    fireEvent.click(await screen.findByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByText("No tiene aprobaciones pendientes."),
+    ).toBeInTheDocument();
   });
 });

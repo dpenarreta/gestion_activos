@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { AsignarCustodioDialog } from "../../../components/activos/AsignarCustodioDialog/AsignarCustodioDialog";
@@ -54,6 +55,7 @@ export function ActivoDetalle() {
   const [adjuntosRecargados, setAdjuntosRecargados] = useState(0);
 
   const cargar = useCallback(() => {
+    setError(null);
     activosService
       .historial(id)
       .then(setFicha)
@@ -64,16 +66,31 @@ export function ActivoDetalle() {
     cargar();
   }, [cargar]);
 
-  if (error) {
+  /* Mientras carga o si falla, la pantalla conserva su encabezado y una
+     salida al inventario: antes quedaba en blanco al cargar y, al fallar,
+     mostraba un aviso suelto sin forma de reintentar ni de volver
+     (auditoría UX/UI, fase 2, 28/10/2026). */
+  // Con la ficha ya cargada, un fallo al recargar (tras una acción) se avisa
+  // encima sin cambiar la pantalla ni cerrar lo que esté abierto.
+  if (!ficha) {
     return (
-      <div className="mz-alert mz-alert--bad" role="alert">
-        <Icon name="x-octagon" />
-        {error}
+      <div className="activos-page activo-detalle">
+        <div className="mz-view-head">
+          <div>
+            <h2>Ficha del activo</h2>
+          </div>
+          <div className="mz-view-actions">
+            <Link
+              to="/admin/activos"
+              className="btn btn-outline-secondary btn-sm"
+            >
+              <Icon name="arrow-left" /> Volver al inventario
+            </Link>
+          </div>
+        </div>
+        <EstadoDeCarga cargando={!ficha} error={error} onReintentar={cargar} />
       </div>
     );
-  }
-  if (!ficha) {
-    return null;
   }
 
   const { activo, movimientos, mantenimientos, costos } = ficha;
@@ -87,6 +104,19 @@ export function ActivoDetalle() {
 
   return (
     <div className="activos-page activo-detalle">
+      {error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          <span className="flex-grow-1">{error}</span>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={cargar}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <div className="mz-view-head">
         <div>
           <h2>{activo.nombre}</h2>

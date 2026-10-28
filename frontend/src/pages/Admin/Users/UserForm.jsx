@@ -1,12 +1,22 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { ReglasContrasena } from "../../../components/common/ReglasContrasena/ReglasContrasena";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import { baseDeUsername } from "../../../utils/nomenclatura";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
@@ -20,6 +30,10 @@ const EMPTY_FORM = {
   last_name: "",
   codigo_empleado: "",
 };
+// Los campos que el formulario muestra: un error del servidor sobre uno de
+// ellos va bajo el campo; uno sobre otra cosa (p. ej. `empresas`), arriba.
+const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(EMPTY_FORM));
+const EMPTY_ALTA = { empresaId: null, rolId: null };
 const EMPTY_RESET_OPTIONS = {
   send_link: false,
   force_change_on_next_login: false,
@@ -34,20 +48,27 @@ export function UserForm() {
   const canResetPassword = usePermission("usuarios.restablecer_password");
   const puedeAsignarEmpresas = usePermission("empresas.asignar");
   const multiempresa = useMultiempresa();
+  const { setIsDirty, guardedNavigate } = useUnsavedChanges();
   // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
   // la ficha ya está el bloque completo, con todas sus empresas.
-  const [alta, setAlta] = useState({ empresaId: null, rolId: null });
+  const [alta, setAlta] = useState(EMPTY_ALTA);
   const [form, setForm] = useState(EMPTY_FORM);
+  // Lo último cargado o guardado: con él se sabe si hay cambios sin guardar.
+  const [original, setOriginal] = useState(EMPTY_FORM);
   // Con qué nombre entrará: se enseña mientras se escribe, para que no haya
   // que descubrirlo después de guardar.
   const usernamePropuesto = baseDeUsername(form.first_name, form.last_name);
   const [error, setError] = useState(null);
+  const [erroresCampo, setErroresCampo] = useState({});
+  const [mensajeDatos, setMensajeDatos] = useState(null);
+  const [accesosSinGuardar, setAccesosSinGuardar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resetOptions, setResetOptions] = useState(EMPTY_RESET_OPTIONS);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState(null);
   const [resetError, setResetError] = useState(null);
+  const formRef = useRef(null);
 
   useEffect(() => {
     if (!isEditing) {
@@ -56,27 +77,49 @@ export function UserForm() {
     setIsLoading(true);
     adminUsersService
       .get(id)
-      .then((data) =>
-        setForm({
+      .then((data) => {
+        const cargado = {
           username: data.username,
           email: data.email,
           password: "",
           first_name: data.first_name,
           last_name: data.last_name,
           codigo_empleado: data.codigo_empleado ?? "",
-        }),
-      )
+        };
+        setForm(cargado);
+        setOriginal(cargado);
+      })
       .catch(() => setError("No se pudo cargar el usuario."))
       .finally(() => setIsLoading(false));
   }, [id, isEditing]);
 
+  // Cada tarjeta guarda por separado, así que se avisa al salir si cualquiera
+  // de las dos tiene cambios pendientes (auditoría UX/UI, fase 2, 28/10/2026).
+  // El restablecimiento de contraseña no cuenta: es una acción, no un dato.
+  const datosSinGuardar =
+    Object.keys(EMPTY_FORM).some((campo) => form[campo] !== original[campo]) ||
+    (!isEditing && (alta.empresaId !== null || alta.rolId !== null));
+
+  useEffect(() => {
+    setIsDirty(datosSinGuardar || accesosSinGuardar);
+  }, [datosSinGuardar, accesosSinGuardar, setIsDirty]);
+
+  useEffect(() => () => setIsDirty(false), [setIsDirty]);
+
   function handleChange(event) {
-    setForm({ ...form, [event.target.name]: event.target.value });
+    const { name, value } = event.target;
+    setForm({ ...form, [name]: value });
+    setMensajeDatos(null);
+    if (erroresCampo[name]) {
+      setErroresCampo({ ...erroresCampo, [name]: undefined });
+    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
+    setErroresCampo({});
+    setMensajeDatos(null);
     setIsLoading(true);
     try {
       if (isEditing) {
@@ -93,6 +136,8 @@ export function UserForm() {
           last_name: lastName,
           codigo_empleado: form.codigo_empleado.trim(),
         });
+        setOriginal(form);
+        setMensajeDatos("Datos guardados.");
       } else {
         // Al crear, se pasa a la URL de edición del usuario recién creado
         // (`replace` para que "atrás" no vuelva al formulario de alta ya
@@ -118,12 +163,27 @@ export function UserForm() {
               }
             : {}),
         });
+        // Ya guardado: no queda nada que perder al pasar a su ficha.
+        setOriginal(form);
+        setAlta(EMPTY_ALTA);
         navigate(`/admin/users/${created.id}`, { replace: true });
       }
     } catch (err) {
-      // `mensajeDeError` antepone el detalle de validación al mensaje genérico:
-      // «Roles inexistentes» dice qué corregir, «No se pudo guardar» no.
-      setError(mensajeDeError(err, "No se pudo guardar el usuario."));
+      // Cada error bajo su campo y, arriba, un aviso general. Si alguno es de
+      // algo que el formulario no muestra, el aviso lleva el detalle completo
+      // (`mensajeDeError`): «Roles inexistentes» dice qué corregir, «No se
+      // pudo guardar» no.
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErroresCampo(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS_DEL_FORMULARIO.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el usuario."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsLoading(false);
     }
@@ -142,8 +202,10 @@ export function UserForm() {
       setResetOptions(EMPTY_RESET_OPTIONS);
     } catch (err) {
       setResetError(
-        err.response?.data?.error?.message ||
+        mensajeDeError(
+          err,
           "No se pudo ejecutar la acción de restablecimiento.",
+        ),
       );
     } finally {
       setIsResetting(false);
@@ -153,6 +215,17 @@ export function UserForm() {
 
   return (
     <div className="user-form-page">
+      {/* Pasa por la pregunta de cambios sin guardar, como el menú. */}
+      <Link
+        to="/admin/users"
+        className="mz-small d-inline-flex align-items-center gap-1 mb-2"
+        onClick={(event) => {
+          event.preventDefault();
+          guardedNavigate("/admin/users");
+        }}
+      >
+        <Icon name="arrow-left" /> Volver a usuarios
+      </Link>
       <div className="mz-view-head">
         <div>
           <h2>{isEditing ? "Editar usuario" : "Nuevo usuario"}</h2>
@@ -173,43 +246,61 @@ export function UserForm() {
           <div className="mz-card-head">
             <h3>Datos de la cuenta</h3>
           </div>
-          <form onSubmit={handleSubmit} className="mz-card-body">
+          <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
             {error && (
               <div className="mz-alert mz-alert--bad" role="alert">
                 <Icon name="x-octagon" />
                 {error}
               </div>
             )}
+            {mensajeDatos && (
+              <div className="mz-alert mz-alert--ok" role="status">
+                <Icon name="check2-circle" />
+                {mensajeDatos}
+              </div>
+            )}
 
+            {/* Obligatorios marcados y cada error del servidor bajo su campo
+                (auditoría UX/UI, fase 2, 28/10/2026). */}
             <div className="mz-field-grid">
-              <div className="mz-field">
-                <label htmlFor="first_name">Nombres</label>
+              <Campo
+                id="first_name"
+                etiqueta="Nombres"
+                obligatorio
+                error={erroresCampo.first_name}
+                className="mz-field"
+              >
                 <input
-                  id="first_name"
                   name="first_name"
                   className="form-control"
                   value={form.first_name}
                   onChange={handleChange}
-                  required
                 />
-              </div>
+              </Campo>
 
-              <div className="mz-field">
-                <label htmlFor="last_name">Apellidos</label>
+              <Campo
+                id="last_name"
+                etiqueta="Apellidos"
+                obligatorio
+                error={erroresCampo.last_name}
+                className="mz-field"
+              >
                 <input
-                  id="last_name"
                   name="last_name"
                   className="form-control"
                   value={form.last_name}
                   onChange={handleChange}
-                  required
                 />
-              </div>
+              </Campo>
 
-              <div className="mz-field">
-                <label htmlFor="codigo_empleado">Código de empleado</label>
+              <Campo
+                id="codigo_empleado"
+                etiqueta="Código de empleado"
+                ayuda="El de nómina (p. ej. 20104758). Con él la persona consulta su rol de pagos: solo lo asigna la administración. Déjelo vacío si la cuenta no es de un empleado."
+                error={erroresCampo.codigo_empleado}
+                className="mz-field"
+              >
                 <input
-                  id="codigo_empleado"
                   name="codigo_empleado"
                   className="form-control"
                   maxLength={40}
@@ -218,65 +309,62 @@ export function UserForm() {
                   onChange={handleChange}
                   // Lo cambia solo nómina (`roles_pago.habilitar`, 22/10/2026).
                   disabled={!puedeEditarCodigo}
-                  aria-describedby="codigo-empleado-ayuda"
                 />
-                <div className="form-text" id="codigo-empleado-ayuda">
-                  El de nómina (p. ej. 20104758). Con él la persona consulta su
-                  rol de pagos: solo lo asigna la administración. Déjelo vacío
-                  si la cuenta no es de un empleado.
-                </div>
-              </div>
+              </Campo>
 
-              <div className="mz-field">
-                <label htmlFor="username">Nombre de usuario</label>
+              <Campo
+                id="username"
+                etiqueta="Nombre de usuario"
+                ayuda={
+                  isEditing
+                    ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
+                    : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."
+                }
+                error={erroresCampo.username}
+                className="mz-field"
+              >
                 <input
-                  id="username"
                   name="username"
                   className="form-control"
                   value={isEditing ? form.username : usernamePropuesto}
                   readOnly
-                  aria-describedby="username-ayuda"
                 />
-                <div className="form-text" id="username-ayuda">
-                  {isEditing
-                    ? "Se compuso al crear la cuenta y no cambia: es con lo que entra y con lo que aparece en la auditoría."
-                    : "Se compone solo: inicial del nombre y apellido completo, sin tildes ni eñes. Si ya está en uso, se le añade un número."}
-                </div>
-              </div>
+              </Campo>
 
-              <div className="mz-field">
-                <label htmlFor="email">Correo</label>
+              <Campo
+                id="email"
+                etiqueta="Correo"
+                obligatorio
+                error={erroresCampo.email}
+                className="mz-field"
+              >
                 <input
-                  id="email"
                   name="email"
                   type="email"
                   className="form-control"
                   value={form.email}
                   onChange={handleChange}
-                  required
                 />
-              </div>
+              </Campo>
 
               {!isEditing && (
-                <div className="mz-field">
-                  <label htmlFor="password">
-                    Contraseña inicial (opcional)
-                  </label>
-                  <input
+                <div>
+                  <Campo
                     id="password"
-                    name="password"
-                    type="password"
-                    className="form-control"
-                    autoComplete="new-password"
-                    aria-describedby="password-ayuda"
-                    value={form.password}
-                    onChange={handleChange}
-                  />
-                  <div id="password-ayuda" className="form-text">
-                    Si la deja vacía, la cuenta nace con la clave temporal. Con
-                    una u otra, la persona debe cambiarla al entrar por primera
-                    vez.
-                  </div>
+                    etiqueta="Contraseña inicial (opcional)"
+                    ayuda="Si la deja vacía, la cuenta nace con la clave temporal. Con una u otra, la persona debe cambiarla al entrar por primera vez."
+                    error={erroresCampo.password}
+                    className="mz-field"
+                  >
+                    <input
+                      name="password"
+                      type="password"
+                      className="form-control"
+                      autoComplete="new-password"
+                      value={form.password}
+                      onChange={handleChange}
+                    />
+                  </Campo>
                   {form.password && <ReglasContrasena clave={form.password} />}
                 </div>
               )}
@@ -293,19 +381,31 @@ export function UserForm() {
               </div>
             )}
 
-            <div className="mz-actions justify-content-end mt-3">
+            {/* Cada tarjeta guarda lo suyo: el botón dice qué (auditoría
+                UX/UI, fase 2). */}
+            <div className="mz-actions justify-content-between align-items-center mt-3">
+              <LeyendaObligatorios />
               <button
                 type="submit"
                 className="btn btn-primary"
                 disabled={isLoading}
               >
-                {isLoading ? "Procesando..." : "Guardar"}
+                {isLoading
+                  ? "Guardando…"
+                  : isEditing
+                    ? "Guardar datos"
+                    : "Crear usuario"}
               </button>
             </div>
           </form>
         </section>
 
-        {isEditing && <AsignacionEmpresas usuarioId={id} />}
+        {isEditing && (
+          <AsignacionEmpresas
+            usuarioId={id}
+            onCambiosSinGuardar={setAccesosSinGuardar}
+          />
+        )}
 
         {isEditing && canResetPassword && (
           <section className="mz-card">
@@ -314,7 +414,7 @@ export function UserForm() {
             </div>
             <div className="mz-card-body">
               {resetMessage && (
-                <div className="mz-alert mz-alert--info" role="status">
+                <div className="mz-alert mz-alert--ok" role="status">
                   <Icon name="check2-circle" />
                   {resetMessage}
                 </div>
@@ -369,11 +469,11 @@ export function UserForm() {
               <div className="mz-actions justify-content-end mt-3">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary btn-sm"
+                  className="btn btn-primary"
                   disabled={!Object.values(resetOptions).some(Boolean)}
                   onClick={() => setIsConfirmResetOpen(true)}
                 >
-                  <Icon name="key" /> Ejecutar
+                  <Icon name="key" /> Aplicar restablecimiento
                 </button>
               </div>
             </div>

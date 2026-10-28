@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const COURIER = { id: 1, nombre: "LaarCourier", codigo: "LC", activa: true };
@@ -89,9 +95,7 @@ describe("Asignación de empresas y roles a un usuario", () => {
     fireEvent.click(
       screen.getByLabelText("Solo consulta", { selector: "#rol-2-11" }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Guardar empresas y roles/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar accesos" }));
 
     await waitFor(() =>
       expect(assignEmpresas).toHaveBeenCalledWith("7", [
@@ -99,6 +103,41 @@ describe("Asignación de empresas y roles a un usuario", () => {
         { empresa_id: 2, roles: [11], es_predeterminada: false },
       ]),
     );
+  });
+
+  it("cada grupo de roles dice de qué empresa es", async () => {
+    /* Sin eso, un lector de pantalla oye «Soporte TI» una vez por empresa sin
+       saber cuál (auditoría UX/UI, fase 2). */
+    render(<AsignacionEmpresas usuarioId="7" />);
+
+    const grupo = await screen.findByRole("group", {
+      name: "Roles en LaarSeguridad",
+    });
+    expect(
+      within(grupo).getByRole("checkbox", { name: "Solo consulta" }),
+    ).toHaveAttribute("id", "rol-2-11");
+  });
+
+  it("avisa de cambios sin guardar hasta que se guardan", async () => {
+    const onCambiosSinGuardar = vi.fn();
+    render(
+      <AsignacionEmpresas
+        usuarioId="7"
+        onCambiosSinGuardar={onCambiosSinGuardar}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "Asignar LaarSeguridad" }),
+    );
+    expect(onCambiosSinGuardar).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar accesos" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Empresas y roles actualizados.",
+    );
+    expect(onCambiosSinGuardar).toHaveBeenLastCalledWith(false);
   });
 
   it("los roles de una empresa no asignada no se pueden tocar", async () => {
@@ -150,9 +189,7 @@ describe("Asignación de empresas y roles a un usuario", () => {
         selector: "#rol-global-10",
       }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Guardar empresas y roles/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar accesos" }));
 
     await waitFor(() => expect(assignRoles).toHaveBeenCalledWith("7", [10]));
   });
@@ -168,7 +205,7 @@ describe("Asignación de empresas y roles a un usuario", () => {
       await screen.findByRole("checkbox", { name: "Asignar LaarCourier" }),
     ).toBeDisabled();
     expect(
-      screen.queryByRole("button", { name: /Guardar empresas y roles/ }),
+      screen.queryByRole("button", { name: "Guardar accesos" }),
     ).not.toBeInTheDocument();
   });
 

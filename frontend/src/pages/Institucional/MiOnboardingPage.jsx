@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capacitacionService } from "../../api/capacitacionService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
@@ -288,6 +289,10 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
   const cambiada = useRef(false);
   const ultimas = useRef({});
   ultimas.current = respuestas;
+  // Si el borrador no se guarda, se dice (antes fallaba en silencio y la
+  // persona creía que sus respuestas estaban a salvo); se reintenta con el
+  // próximo cambio (auditoría UX/UI, fase 2, 28/10/2026).
+  const [borradorFallo, setBorradorFallo] = useState(false);
 
   useEffect(() => {
     if (!comenzada) return;
@@ -364,9 +369,10 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
       capacitacionService
         .guardarBorrador(material.id, respuestas)
         .then((r) => {
+          setBorradorFallo(false);
           if (r.cerrada) terminar(r.resultado);
         })
-        .catch(() => {});
+        .catch(() => setBorradorFallo(true));
     }, ESPERA_BORRADOR);
     return () => clearTimeout(temporizador);
   }, [conReloj, datos, resultado, respuestas, material.id, terminar]);
@@ -396,6 +402,8 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
           {error}
         </div>
       )}
+      {/* Mientras llegan las preguntas, la ventana no queda en blanco. */}
+      {comenzada && !datos && !error && <EstadoDeCarga cargando />}
       {!comenzada && (
         <div className="mz-stack">
           <div className="mz-alert mz-alert--warn" role="status">
@@ -503,6 +511,14 @@ function Evaluacion({ material, onTerminada, onCerrar }) {
             · Intentos restantes: {datos.intentos_restantes}
             {conReloj && " · Sus respuestas se guardan solas"}
           </p>
+          {borradorFallo && (
+            <div className="mz-alert mz-alert--warn" role="status">
+              <Icon name="exclamation-triangle" />
+              No se pudieron guardar sus últimas respuestas. Se volverá a
+              intentar con su próximo cambio; no cierre la ventana hasta
+              enviarlas.
+            </div>
+          )}
           {datos.preguntas.map((p, i) => (
             <Pregunta
               key={p.id}
@@ -568,20 +584,22 @@ function EstadoMaterial({ m }) {
 export function MiOnboardingPage() {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va aparte, con «Reintentar»; antes la pantalla quedaba
+  // en blanco mientras cargaba (auditoría UX/UI, fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [leyendo, setLeyendo] = useState(null);
   const [pdf, setPdf] = useState(null);
   const [evaluando, setEvaluando] = useState(null);
 
-  const cargar = useCallback(
-    () =>
-      capacitacionService
-        .miOnboarding()
-        .then(setDatos)
-        .catch((err) =>
-          setError(mensajeDeError(err, "No se pudo cargar su onboarding.")),
-        ),
-    [],
-  );
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return capacitacionService
+      .miOnboarding()
+      .then(setDatos)
+      .catch((err) =>
+        setErrorCarga(mensajeDeError(err, "No se pudo cargar su onboarding.")),
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
@@ -622,11 +640,13 @@ export function MiOnboardingPage() {
         </div>
       )}
 
-      {datos && datos.total === 0 && (
-        <p className="mz-faint">
-          Todavía no hay materiales de capacitación para usted.
-        </p>
-      )}
+      <EstadoDeCarga
+        cargando={datos === null}
+        error={errorCarga}
+        onReintentar={cargar}
+        vacio={datos?.total === 0}
+        textoVacio="Todavía no hay materiales de capacitación para usted."
+      />
 
       {datos && datos.total > 0 && (
         <section className="mz-card" aria-label="Su avance">

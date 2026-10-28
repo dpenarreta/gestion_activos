@@ -61,6 +61,10 @@ export function InicioInstitucional() {
   const { user } = useAuth();
   const { guardedNavigate } = useUnsavedChanges();
   const [perfil, setPerfil] = useState(null);
+  // El perfil solo adorna el saludo: si falla no se avisa, pero tampoco se
+  // dice «no tiene un cargo» mientras carga o tras el fallo, que sería falso
+  // (auditoría UX/UI, fase 2, 28/10/2026).
+  const [perfilListo, setPerfilListo] = useState(false);
   const [noticias, setNoticias] = useState([]);
   const [segundos, setSegundos] = useState(6);
   // «cargando», «listo» o «error»: mientras carga o si falla no se dice «no
@@ -103,7 +107,11 @@ export function InicioInstitucional() {
   useEffect(() => {
     let vigente = true;
     Promise.resolve(misDatosService.obtener?.())
-      .then((datos) => vigente && setPerfil(datos ?? null))
+      .then((datos) => {
+        if (!vigente) return;
+        setPerfil(datos ?? null);
+        setPerfilListo(true);
+      })
       .catch(() => null);
     return () => {
       vigente = false;
@@ -134,14 +142,16 @@ export function InicioInstitucional() {
       <div className="mz-view-head">
         <div>
           <h2>{nombre ? `Hola, ${nombre}` : "Bienvenido"}</h2>
-          <p className="mz-desc">
-            {perfil?.cargo
-              ? `${perfil.cargo.nombre}.`
-              : "Todavía no tiene un cargo asignado en el organigrama."}{" "}
-            {!perfil?.cargo && (
-              <Link to="/admin/perfil">Elegirlo en Mi perfil</Link>
-            )}
-          </p>
+          {perfilListo && (
+            <p className="mz-desc">
+              {perfil?.cargo
+                ? `${perfil.cargo.nombre}.`
+                : "Todavía no tiene un cargo asignado en el organigrama."}{" "}
+              {!perfil?.cargo && (
+                <Link to="/admin/perfil">Elegirlo en Mi perfil</Link>
+              )}
+            </p>
+          )}
         </div>
       </div>
 

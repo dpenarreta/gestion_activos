@@ -174,11 +174,22 @@ describe("El listado de usuarios", () => {
     expect(fila).toHaveTextContent("—");
   });
 
-  it("marca a los administradores del sistema", async () => {
+  it("marca al superusuario una sola vez", async () => {
+    /* Llevaba «Administrador» junto al nombre y «Superusuario (cuenta)» en
+       los roles globales: dos marcas para lo mismo (auditoría UX/UI, fase 2). */
     pintar();
 
     const fila = (await screen.findByText("dpenarreta")).closest("tr");
-    expect(fila).toHaveTextContent("Administrador");
+    expect(within(fila).getAllByText(/Superusuario/)).toHaveLength(1);
+    expect(fila.querySelector("td").textContent).toBe("dpenarreta");
+  });
+
+  it("cada «Editar» dice de quién es", async () => {
+    pintar();
+
+    expect(
+      await screen.findByRole("link", { name: "Editar acevallos" }),
+    ).toHaveAttribute("href", "/admin/users/1");
   });
 
   it("el superusuario se marca como tal aunque no tenga roles", async () => {
@@ -286,12 +297,37 @@ describe("El listado de usuarios", () => {
     ).toBeInTheDocument();
   });
 
-  it("sin resultados lo dice", async () => {
+  it("sin cuentas lo dice", async () => {
     listar.mockResolvedValue({ results: [], count: 0 });
 
     pintar();
 
-    expect(await screen.findByText("Sin resultados")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Todavía no hay usuarios registrados."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Limpiar filtros" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("si el filtro no encuentra nada, lo distingue y deja limpiarlo", async () => {
+    pintar();
+
+    await screen.findByText("acevallos");
+    listar.mockResolvedValue({ results: [], count: 0 });
+    fireEvent.change(screen.getByLabelText("Filtrar por estado"), {
+      target: { value: "disabled" },
+    });
+
+    expect(
+      await screen.findByText("Ningún resultado con estos filtros."),
+    ).toBeInTheDocument();
+
+    listar.mockResolvedValue({ results: USUARIOS, count: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+    expect(await screen.findByText("acevallos")).toBeInTheDocument();
+    expect(listar.mock.calls.at(-1)[0]).not.toHaveProperty("status");
   });
 
   it("si el listado falla lo dice", async () => {
@@ -302,6 +338,10 @@ describe("El listado de usuarios", () => {
     expect(
       await screen.findByText("No se pudo cargar el listado de usuarios."),
     ).toBeInTheDocument();
+    // Se puede reintentar sin recargar la página.
+    listar.mockResolvedValue({ results: USUARIOS, count: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("acevallos")).toBeInTheDocument();
   });
 
   it("la paginación solo se ofrece cuando hay a dónde ir", async () => {

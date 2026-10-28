@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { concesionariosService } from "../../../api/organizacionService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -35,9 +36,18 @@ export function ConcesionariosList() {
     "No se pudo cargar el listado de concesionarios.",
   );
 
+  const hayFiltros = Object.values(listado.filtros).some(Boolean);
+
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
+  // próximo «Buscar» volvería a filtrar por él.
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
   return (
@@ -92,13 +102,6 @@ export function ConcesionariosList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -112,55 +115,65 @@ export function ConcesionariosList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((concesionario) => (
-              <tr key={concesionario.id}>
-                <td className="mz-strong">{concesionario.nombre}</td>
-                <td className="mz-mono mz-faint">
-                  {concesionario.identificacion || "—"}
-                </td>
-                <td>
-                  {concesionario.contacto || (
-                    <span className="mz-faint">—</span>
-                  )}
-                  {concesionario.telefono && (
-                    <div className="mz-faint mz-small">
-                      {concesionario.telefono}
-                    </div>
-                  )}
-                </td>
-                <td className="num">
-                  {concesionario.total_activos > 0 ? (
-                    <Link
-                      to={`/activos?propiedad=concesion&concesionario=${concesionario.id}`}
+            {/* Cargando, error con reintento y un vacío que distingue «no
+                hay registros» de «el filtro no encuentra nada» (auditoría
+                UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={6}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Todavía no hay concesionarios registrados."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!listado.error &&
+              listado.resultados.map((concesionario) => (
+                <tr key={concesionario.id}>
+                  <td className="mz-strong">{concesionario.nombre}</td>
+                  <td className="mz-mono mz-faint">
+                    {concesionario.identificacion || "—"}
+                  </td>
+                  <td>
+                    {concesionario.contacto || (
+                      <span className="mz-faint">—</span>
+                    )}
+                    {concesionario.telefono && (
+                      <div className="mz-faint mz-small">
+                        {concesionario.telefono}
+                      </div>
+                    )}
+                  </td>
+                  <td className="num">
+                    {concesionario.total_activos > 0 ? (
+                      <Link
+                        to={`/activos?propiedad=concesion&concesionario=${concesionario.id}`}
+                      >
+                        {concesionario.total_activos}
+                      </Link>
+                    ) : (
+                      0
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`mz-pill ${concesionario.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
                     >
-                      {concesionario.total_activos}
+                      {concesionario.activo ? "Activo" : "De baja"}
+                    </span>
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/organizacion/concesionarios/${concesionario.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${concesionario.nombre}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
                     </Link>
-                  ) : (
-                    0
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`mz-pill ${concesionario.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {concesionario.activo ? "Activo" : "De baja"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/organizacion/concesionarios/${concesionario.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={6}>Sin concesionarios registrados</td>
-              </tr>
-            )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

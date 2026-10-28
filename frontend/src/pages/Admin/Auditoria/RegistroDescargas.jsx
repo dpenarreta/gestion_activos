@@ -374,7 +374,7 @@ export function RegistroDescargas() {
                   </small>
                   <small className="d-block">
                     {d.verificada ? (
-                      <span className="text-success">
+                      <span className="mz-ok">
                         <Icon name="patch-check" /> Comprobado: es lo que
                         entregó el servidor
                       </span>

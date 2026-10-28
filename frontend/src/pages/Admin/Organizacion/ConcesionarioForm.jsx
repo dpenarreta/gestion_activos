@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { concesionariosService } from "../../../api/organizacionService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Organizacion.css";
 
 const VACIO = {
@@ -16,6 +25,9 @@ const VACIO = {
   observaciones: "",
   activo: true,
 };
+// Un error del servidor sobre uno de estos campos va bajo el campo; sobre
+// otra cosa, en el aviso de arriba con el detalle completo.
+const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(VACIO));
 
 /**
  * Ficha del partner dueño de los equipos en concesión.
@@ -33,7 +45,9 @@ export function ConcesionarioForm() {
   const [valores, setValores] = useState(VACIO);
   const [totalActivos, setTotalActivos] = useState(0);
   const [error, setError] = useState(null);
+  const [erroresCampo, setErroresCampo] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     if (!esEdicion) return;
@@ -56,12 +70,17 @@ export function ConcesionarioForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    // Lo corregido deja de marcarse como error.
+    setErroresCampo((actuales) =>
+      actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+    );
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErroresCampo({});
     try {
       if (esEdicion) {
         await concesionariosService.update(id, valores);
@@ -70,7 +89,20 @@ export function ConcesionarioForm() {
       }
       navigate("/admin/organizacion/concesionarios");
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el concesionario."));
+      // Cada error bajo su campo y, arriba, un aviso general; si alguno no es
+      // de un campo del formulario, el aviso lleva el detalle completo
+      // (auditoría UX/UI, fase 2, 28/10/2026).
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErroresCampo(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS_DEL_FORMULARIO.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el concesionario."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -88,40 +120,47 @@ export function ConcesionarioForm() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-
       <section className="mz-card organizacion-ficha">
         <div className="mz-card-head">
           <h3>Datos del concesionario</h3>
         </div>
-        <form onSubmit={handleSubmit} className="mz-card-body">
+        <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
+          {/* Dentro del formulario: tras un error, el foco puede ir aquí si
+              ningún campo quedó marcado. */}
+          {error && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          {/* Obligatorios marcados y cada error del servidor bajo su campo
+              (auditoría UX/UI, fase 2, 28/10/2026). */}
           <div className="mz-field-grid">
-            <div className="mz-field">
-              <label htmlFor="nombre">Nombre</label>
+            <Campo
+              id="nombre"
+              etiqueta="Nombre"
+              obligatorio
+              ayuda="Como aparece en el contrato. Escrito de dos formas distintas serían dos partners, con sus equipos repartidos entre ambos."
+              error={erroresCampo.nombre}
+              className="mz-field"
+            >
               <input
-                id="nombre"
                 className="form-control"
-                required
                 maxLength={150}
                 placeholder="Servientrega Andina"
                 value={valores.nombre}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("nombre", event.target.value)}
               />
-              <div className="form-text">
-                Como aparece en el contrato. Escrito de dos formas distintas
-                serían dos partners, con sus equipos repartidos entre ambos.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="identificacion">Identificación</label>
+            </Campo>
+            <Campo
+              id="identificacion"
+              etiqueta="Identificación"
+              ayuda="RUC o identificación tributaria."
+              error={erroresCampo.identificacion}
+              className="mz-field"
+            >
               <input
-                id="identificacion"
                 className="form-control"
                 maxLength={20}
                 placeholder="0992222333001"
@@ -131,13 +170,15 @@ export function ConcesionarioForm() {
                   actualizar("identificacion", event.target.value)
                 }
               />
-              <div className="form-text">RUC o identificación tributaria.</div>
-            </div>
+            </Campo>
 
-            <div className="mz-field">
-              <label htmlFor="contacto">Contacto</label>
+            <Campo
+              id="contacto"
+              etiqueta="Contacto"
+              error={erroresCampo.contacto}
+              className="mz-field"
+            >
               <input
-                id="contacto"
                 className="form-control"
                 maxLength={120}
                 placeholder="Quién atiende la relación"
@@ -145,37 +186,44 @@ export function ConcesionarioForm() {
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("contacto", event.target.value)}
               />
-            </div>
-            <div className="mz-field">
-              <label htmlFor="telefono">Teléfono</label>
+            </Campo>
+            <Campo
+              id="telefono"
+              etiqueta="Teléfono"
+              ayuda="A quién llamar para coordinar una devolución o un reemplazo."
+              error={erroresCampo.telefono}
+              className="mz-field"
+            >
               <input
-                id="telefono"
                 className="form-control"
                 maxLength={30}
                 value={valores.telefono}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("telefono", event.target.value)}
               />
-              <div className="form-text">
-                A quién llamar para coordinar una devolución o un reemplazo.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="correo">Correo</label>
+            </Campo>
+            <Campo
+              id="correo"
+              etiqueta="Correo"
+              error={erroresCampo.correo}
+              className="mz-field"
+            >
               <input
-                id="correo"
                 type="email"
                 className="form-control"
                 value={valores.correo}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("correo", event.target.value)}
               />
-            </div>
+            </Campo>
 
-            <div className="mz-field mz-field--full">
-              <label htmlFor="observaciones">Condiciones de la concesión</label>
+            <Campo
+              id="observaciones"
+              etiqueta="Condiciones de la concesión"
+              error={erroresCampo.observaciones}
+              className="mz-field mz-field--full"
+            >
               <textarea
-                id="observaciones"
                 className="form-control"
                 rows={2}
                 placeholder="Qué cubre cada parte y hasta cuándo"
@@ -185,16 +233,20 @@ export function ConcesionarioForm() {
                   actualizar("observaciones", event.target.value)
                 }
               />
-            </div>
+            </Campo>
 
             <div className="mz-field--full">
               <div className="form-check">
                 <input
                   id="activo"
                   type="checkbox"
-                  className="form-check-input"
+                  className={`form-check-input${erroresCampo.activo ? " is-invalid" : ""}`}
                   checked={valores.activo}
                   disabled={!puedeEditar}
+                  aria-invalid={erroresCampo.activo ? true : undefined}
+                  aria-describedby={
+                    erroresCampo.activo ? "activo-error" : undefined
+                  }
                   onChange={(event) =>
                     actualizar("activo", event.target.checked)
                   }
@@ -212,26 +264,34 @@ export function ConcesionarioForm() {
                   cámbieles el concesionario primero.
                 </div>
               )}
+              {erroresCampo.activo && (
+                <div id="activo-error" className="mz-field-error">
+                  {erroresCampo.activo}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="mz-actions justify-content-end mt-3">
-            <button
-              type="button"
-              className="btn btn-cancelar"
-              onClick={() => navigate("/admin/organizacion/concesionarios")}
-            >
-              Volver
-            </button>
-            {puedeEditar && (
+          <div className="mz-actions justify-content-between align-items-center mt-3">
+            <LeyendaObligatorios />
+            <div className="d-flex flex-wrap gap-2">
               <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSaving}
+                type="button"
+                className="btn btn-cancelar"
+                onClick={() => navigate("/admin/organizacion/concesionarios")}
               >
-                {isSaving ? "Guardando…" : "Guardar"}
+                Volver
               </button>
-            )}
+              {puedeEditar && (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Guardando…" : "Guardar"}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </section>

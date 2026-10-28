@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
 import { AdjuntosObservacion } from "./AdjuntosObservacion";
@@ -164,20 +170,17 @@ function Confirmar({ estado, periodo, onVisto, onSinRol, onCerrar }) {
             pagos.
           </span>
         </label>
-        <div>
-          <label className="form-label mz-small" htmlFor="rol-password">
-            Contraseña de su cuenta
-          </label>
+        {/* Obligatoria y marcada como tal (auditoría UX/UI, fase 2,
+            28/10/2026). */}
+        <Campo id="rol-password" etiqueta="Contraseña de su cuenta" obligatorio>
           <input
-            id="rol-password"
             type="password"
             autoComplete="current-password"
-            required
             className="form-control form-control-sm"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </div>
+        </Campo>
         <div className="mz-actions justify-content-end">
           <button
             type="button"
@@ -247,7 +250,7 @@ function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
           </p>
         </div>
         {aviso && (
-          <div className="mz-alert mz-alert--info" role="status">
+          <div className="mz-alert mz-alert--ok" role="status">
             <Icon name="check2-circle" />
             {aviso}
           </div>
@@ -335,12 +338,17 @@ function Configurar({ estado, onGuardado, onCerrar }) {
     estado.consentimiento_correo,
   );
   const [error, setError] = useState(null);
+  // Errores del servidor junto a su campo (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const formulario = useRef(null);
 
   async function guardar(evento) {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     try {
       await nominaService.configurar({
         terminos,
@@ -349,51 +357,51 @@ function Configurar({ estado, onGuardado, onCerrar }) {
       onGuardado();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
   return (
     <Ventana titulo="Textos de la consulta" onCerrar={onCerrar}>
-      <form className="mz-stack" onSubmit={guardar}>
+      <form ref={formulario} className="mz-stack" onSubmit={guardar}>
         {error && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
             {error}
           </div>
         )}
-        <div>
-          <label className="form-label mz-small" htmlFor="rol-cfg-terminos">
-            Términos que se aceptan en cada consulta
-          </label>
+        <LeyendaObligatorios />
+        <Campo
+          id="rol-cfg-terminos"
+          etiqueta="Términos que se aceptan en cada consulta"
+          obligatorio
+          ayuda={`Si los cambia, quien consulte después los aceptará de nuevo. Versión actual: ${estado.version}.`}
+          error={errores.terminos}
+        >
           <textarea
-            id="rol-cfg-terminos"
             rows={6}
-            required
             maxLength={4000}
             className="form-control form-control-sm"
             value={terminos}
             onChange={(e) => setTerminos(e.target.value)}
           />
-          <small className="mz-faint">
-            Si los cambia, quien consulte después los aceptará de nuevo. Versión
-            actual: {estado.version}.
-          </small>
-        </div>
-        <div>
-          <label className="form-label mz-small" htmlFor="rol-cfg-correo">
-            Consentimiento para guardar el correo personal
-          </label>
+        </Campo>
+        <Campo
+          id="rol-cfg-correo"
+          etiqueta="Consentimiento para guardar el correo personal"
+          obligatorio
+          error={errores.consentimiento_correo}
+        >
           <textarea
-            id="rol-cfg-correo"
             rows={4}
-            required
             maxLength={2000}
             className="form-control form-control-sm"
             value={consentimiento}
             onChange={(e) => setConsentimiento(e.target.value)}
           />
-        </div>
+        </Campo>
         <div className="mz-actions justify-content-end">
           <button
             type="button"
@@ -425,12 +433,24 @@ function Configurar({ estado, onGuardado, onCerrar }) {
  * Humano. */
 function MisObservaciones() {
   const [lista, setLista] = useState(null);
-  useEffect(() => {
+  const [error, setError] = useState(null);
+  function cargar() {
+    setError(null);
     nominaService
       .misObservaciones()
       .then(setLista)
-      .catch(() => setLista([]));
+      // Antes un fallo se veía como «no tiene observaciones» (auditoría
+      // UX/UI, fase 2, 28/10/2026).
+      .catch((err) =>
+        setError(
+          mensajeDeError(err, "No se pudieron cargar sus observaciones."),
+        ),
+      );
+  }
+  useEffect(() => {
+    cargar();
   }, []);
+  if (error) return <EstadoDeCarga error={error} onReintentar={cargar} />;
   if (!lista || lista.length === 0) return null;
   return (
     <section className="mz-card" aria-label="Mis observaciones">
@@ -522,6 +542,7 @@ export function RolPagosPage() {
   const [sinRol, setSinRol] = useState(null);
 
   function cargar() {
+    setError(null);
     return nominaService
       .estado()
       .then((datos) => {
@@ -641,7 +662,12 @@ export function RolPagosPage() {
         )}
       </div>
 
-      {error && (
+      {/* Mientras llega el estado, «Cargando…»; si falla, con «Reintentar»
+          (auditoría UX/UI, fase 2, 28/10/2026). */}
+      {estado === null && (
+        <EstadoDeCarga cargando error={error} onReintentar={cargar} />
+      )}
+      {estado && error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
           {error}

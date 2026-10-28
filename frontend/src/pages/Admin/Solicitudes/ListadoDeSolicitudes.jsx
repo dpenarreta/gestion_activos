@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -31,6 +32,17 @@ const TONO_DEL_ESTADO = {
   rechazada: "mz-pill--bad",
   cancelada: "mz-pill--neutral",
 };
+
+// Abiertas primero: una bandeja que arrastra lo entregado hace seis meses
+// deja de leerse, y lo cerrado se consulta cuando se busca algo concreto.
+const FILTROS_INICIALES = { q: "", estado: "", abiertas: "true" };
+
+/** Si algún filtro se aparta de cómo arranca el listado. */
+function hayFiltrosActivos(filtros, iniciales) {
+  return Object.entries(filtros).some(
+    ([clave, valor]) => (valor ?? "") !== (iniciales[clave] ?? ""),
+  );
+}
 
 export function EstadoDeSolicitud({ solicitud }) {
   const tono = TONO_DEL_ESTADO[solicitud.estado] ?? "mz-pill--neutral";
@@ -62,11 +74,14 @@ export function ListadoDeSolicitudes({
   );
   const listado = useListadoPaginado(
     cargar,
-    // Abiertas primero: una bandeja que arrastra lo entregado hace seis meses
-    // deja de leerse, y lo cerrado se consulta cuando se busca algo concreto.
-    { q: "", estado: "", abiertas: "true" },
+    FILTROS_INICIALES,
     "No se pudieron cargar las solicitudes.",
   );
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
+  }
 
   const esRecibidas = ambito === "recibidas";
 
@@ -137,13 +152,6 @@ export function ListadoDeSolicitudes({
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -195,15 +203,23 @@ export function ListadoDeSolicitudes({
                 </td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>
-                  {esRecibidas
-                    ? "No tiene solicitudes por gestionar"
-                    : "Todavía no ha realizado ninguna solicitud"}
-                </td>
-              </tr>
-            )}
+            {/* Error, carga y vacío dentro de la tabla; el vacío distingue «no hay
+                nada» de «los filtros no encuentran nada» y ofrece quitarlos
+                (auditoría UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={8}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              vacio={listado.resultados.length === 0}
+              textoVacio={
+                esRecibidas
+                  ? "No tiene solicitudes por gestionar"
+                  : "Todavía no ha realizado ninguna solicitud"
+              }
+              hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
+              onLimpiarFiltros={limpiarFiltros}
+            />
           </tbody>
         </table>
       </div>

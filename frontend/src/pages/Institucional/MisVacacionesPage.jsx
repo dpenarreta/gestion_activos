@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
@@ -186,28 +187,47 @@ export function MisVacacionesPage() {
   const [buscar, setBuscar] = useState("");
   const [otra, setOtra] = useState(null);
   const [error, setError] = useState(null);
+  // Cargando y error de cada lista por separado, con «Reintentar»; antes la
+  // pantalla quedaba en blanco mientras cargaba y un fallo al buscar
+  // personas se veía como «Nadie coincide» (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errorMias, setErrorMias] = useState(null);
+  const [errorPersonas, setErrorPersonas] = useState(null);
 
-  useEffect(() => {
+  const cargarMias = useCallback(() => {
+    setErrorMias(null);
     institucionalService
       .misVacaciones()
       .then(setMias)
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron cargar sus vacaciones.")),
+        setErrorMias(
+          mensajeDeError(err, "No se pudieron cargar sus vacaciones."),
+        ),
       );
   }, []);
 
   useEffect(() => {
+    cargarMias();
+  }, [cargarMias]);
+
+  const cargarPersonas = useCallback(() => {
+    setPersonas(null);
+    setErrorPersonas(null);
+    institucionalService
+      .personasVacaciones(buscar)
+      .then(setPersonas)
+      .catch((err) =>
+        setErrorPersonas(
+          mensajeDeError(err, "No se pudo buscar a las personas."),
+        ),
+      );
+  }, [buscar]);
+
+  useEffect(() => {
     if (!verTodas) return undefined;
-    const espera = setTimeout(
-      () =>
-        institucionalService
-          .personasVacaciones(buscar)
-          .then(setPersonas)
-          .catch(() => setPersonas([])),
-      250,
-    );
+    const espera = setTimeout(cargarPersonas, 250);
     return () => clearTimeout(espera);
-  }, [verTodas, buscar]);
+  }, [verTodas, cargarPersonas]);
 
   async function verDe(persona) {
     setError(null);
@@ -259,6 +279,15 @@ export function MisVacacionesPage() {
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
             />
+            <EstadoDeCarga
+              cargando={personas === null}
+              error={errorPersonas}
+              onReintentar={cargarPersonas}
+              vacio={personas?.length === 0}
+              textoVacio="Todavía no hay personas con vacaciones cargadas."
+              hayFiltros={buscar.trim() !== ""}
+              onLimpiarFiltros={() => setBuscar("")}
+            />
             <ul className="vacaciones-personas">
               {(personas ?? []).map((p) => (
                 <li key={p.id}>
@@ -276,9 +305,6 @@ export function MisVacacionesPage() {
                   </button>
                 </li>
               ))}
-              {personas?.length === 0 && (
-                <li className="mz-faint mz-small">Nadie coincide.</li>
-              )}
             </ul>
           </div>
         </details>
@@ -291,6 +317,13 @@ export function MisVacacionesPage() {
         </div>
       )}
 
+      {!otra && (
+        <EstadoDeCarga
+          cargando={mias === null}
+          error={errorMias}
+          onReintentar={cargarMias}
+        />
+      )}
       {mostradas && <Vacaciones datos={mostradas} />}
     </div>
   );

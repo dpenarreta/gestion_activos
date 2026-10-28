@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { soporteService } from "../../api/soporteService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import "./Soporte.css";
@@ -56,15 +57,33 @@ export function ReportesSoporte() {
   const [periodo, setPeriodo] = useState("");
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [intento, setIntento] = useState(0);
 
+  /* Auditoría UX/UI, fase 2 (28/10/2026): no decía «Cargando» y el error de
+   * un período seguía a la vista al elegir otro. Cada consulta limpia el
+   * error y una respuesta vieja no pisa la del período vigente. */
   useEffect(() => {
+    let vigente = true;
+    setError(null);
+    setCargando(true);
     soporteService
       .reportes({ periodo })
-      .then(setDatos)
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron calcular los reportes.")),
-      );
-  }, [periodo]);
+      .then((respuesta) => {
+        if (vigente) setDatos(respuesta);
+      })
+      .catch((err) => {
+        if (!vigente) return;
+        setDatos(null);
+        setError(mensajeDeError(err, "No se pudieron calcular los reportes."));
+      })
+      .finally(() => {
+        if (vigente) setCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [periodo, intento]);
 
   const hoy = new Date();
   const meses = Array.from({ length: 12 }, (_, i) => {
@@ -77,6 +96,14 @@ export function ReportesSoporte() {
 
   return (
     <div className="soporte-page mz-stack">
+      <div className="mz-view-head">
+        <div>
+          <h2>Reportes de la mesa de ayuda</h2>
+          <p className="mz-desc">
+            Indicadores del período, con su meta, y desempeño por técnico.
+          </p>
+        </div>
+      </div>
       <div className="mz-filter-bar">
         <div className="mz-inline-field">
           <label htmlFor="rs-periodo">Periodo</label>
@@ -98,12 +125,11 @@ export function ReportesSoporte() {
           </select>
         </div>
       </div>
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
+      <EstadoDeCarga
+        cargando={cargando}
+        error={error}
+        onReintentar={() => setIntento((n) => n + 1)}
+      />
       {datos && (
         <>
           <div className="mz-kpi-grid soporte-kpis">

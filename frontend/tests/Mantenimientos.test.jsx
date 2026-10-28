@@ -216,10 +216,30 @@ describe("La bitácora de mantenimientos", () => {
     pintar(MantenimientosList);
 
     expect(
-      await screen.findByText(
-        "Sin intervenciones que coincidan con los filtros",
-      ),
+      await screen.findByText("Todavía no hay intervenciones registradas."),
     ).toBeInTheDocument();
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026): el vacío por filtros se distingue
+  // y ofrece quitarlos.
+  it("vacío por los filtros lo dice y deja limpiarlos", async () => {
+    listarMantenimientos.mockResolvedValue({ results: [], count: 0 });
+
+    pintar(MantenimientosList);
+
+    await screen.findByText("Todavía no hay intervenciones registradas.");
+    fireEvent.change(screen.getByLabelText("Tipo"), {
+      target: { value: "preventivo" },
+    });
+    expect(
+      await screen.findByText("Ningún resultado con estos filtros."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+    expect(
+      await screen.findByText("Todavía no hay intervenciones registradas."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo")).toHaveValue("");
   });
 
   it("si la bitácora no carga lo dice", async () => {
@@ -231,6 +251,9 @@ describe("La bitácora de mantenimientos", () => {
       await screen.findByText(
         "No se pudo cargar la bitácora de mantenimientos.",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reintentar" }),
     ).toBeInTheDocument();
   });
 

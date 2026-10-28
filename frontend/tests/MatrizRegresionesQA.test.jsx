@@ -176,17 +176,25 @@ describe("Nueva obligación", () => {
       target: { value: "5" },
     });
     fireEvent.change(periodicidad, { target: { value: "mensual" } });
-    fireEvent.change(screen.getByLabelText("Nombre"), {
+    fireEvent.change(screen.getByLabelText("Nombre * (obligatorio)"), {
       target: { value: "IVA" },
     });
-    fireEvent.change(screen.getByLabelText("Tema"), { target: { value: "1" } });
-    fireEvent.change(screen.getByLabelText("Entidad de control"), {
+    fireEvent.change(screen.getByLabelText("Tema * (obligatorio)"), {
       target: { value: "1" },
     });
-    fireEvent.change(screen.getByLabelText("Evidencia esperada"), {
-      target: { value: "Formulario" },
-    });
-    fireEvent.change(screen.getByLabelText("Responsable"), {
+    fireEvent.change(
+      screen.getByLabelText("Entidad de control * (obligatorio)"),
+      {
+        target: { value: "1" },
+      },
+    );
+    fireEvent.change(
+      screen.getByLabelText("Evidencia esperada * (obligatorio)"),
+      {
+        target: { value: "Formulario" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Responsable * (obligatorio)"), {
       target: { value: "7" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Crear obligación" }));
@@ -210,7 +218,9 @@ describe("La regla de crear sin «ver todas»", () => {
       await screen.findByText(/tiene que figurar en una de las dos/),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Responsable")).toHaveValue("7"),
+      expect(screen.getByLabelText("Responsable * (obligatorio)")).toHaveValue(
+        "7",
+      ),
     );
   });
 
@@ -226,7 +236,9 @@ describe("La regla de crear sin «ver todas»", () => {
     expect(
       screen.queryByText(/tiene que figurar en una de las dos/),
     ).toBeNull();
-    expect(screen.getByLabelText("Responsable")).toHaveValue("");
+    expect(screen.getByLabelText("Responsable * (obligatorio)")).toHaveValue(
+      "",
+    );
   });
 });
 

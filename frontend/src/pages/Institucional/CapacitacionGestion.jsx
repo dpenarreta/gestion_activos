@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capacitacionService } from "../../api/capacitacionService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const ALCANCES = [
@@ -74,7 +80,11 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
   const [archivo, setArchivo] = useState(null);
   const [quitarArchivo, setQuitarArchivo] = useState(false);
   const [error, setError] = useState(null);
+  // Errores del servidor junto a su campo y foco al primero (auditoría
+  // UX/UI, fase 2, 28/10/2026).
+  const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const formulario = useRef(null);
   const fijar = (campo) => (e) =>
     setValores((v) => ({
       ...v,
@@ -85,6 +95,7 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     const campos = {
       titulo: valores.titulo,
       descripcion: valores.descripcion,
@@ -110,7 +121,9 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
       onGuardado(guardado);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el material."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -119,7 +132,7 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
       titulo={inicial.id ? `Editar «${inicial.titulo}»` : "Nuevo material"}
       onCerrar={onCerrar}
     >
-      <form className="row g-2" onSubmit={guardar}>
+      <form ref={formulario} className="row g-2" onSubmit={guardar}>
         {error && (
           <div className="col-12">
             <div className="mz-alert mz-alert--bad" role="alert">
@@ -129,29 +142,34 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
           </div>
         )}
         <div className="col-12">
-          <label className="form-label mz-small" htmlFor="mat-titulo">
-            Título
-          </label>
+          <LeyendaObligatorios />
+        </div>
+        <Campo
+          id="mat-titulo"
+          etiqueta="Título"
+          obligatorio
+          error={errores.titulo}
+          className="col-12"
+        >
           <input
-            id="mat-titulo"
-            required
             maxLength={150}
             className="form-control form-control-sm"
             value={valores.titulo}
             onChange={fijar("titulo")}
           />
-        </div>
-        <div className="col-12">
-          <label className="form-label mz-small" htmlFor="mat-descripcion">
-            Descripción (opcional)
-          </label>
+        </Campo>
+        <Campo
+          id="mat-descripcion"
+          etiqueta="Descripción (opcional)"
+          error={errores.descripcion}
+          className="col-12"
+        >
           <input
-            id="mat-descripcion"
             className="form-control form-control-sm"
             value={valores.descripcion}
             onChange={fijar("descripcion")}
           />
-        </div>
+        </Campo>
         <div className="col-12 col-md-4">
           <label className="form-label mz-small" htmlFor="mat-alcance">
             Para quién
@@ -170,13 +188,14 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
           </select>
         </div>
         {valores.alcance === "unidad" && (
-          <div className="col-12 col-md-8">
-            <label className="form-label mz-small" htmlFor="mat-unidad">
-              Área
-            </label>
+          <Campo
+            id="mat-unidad"
+            etiqueta="Área"
+            obligatorio
+            error={errores.unidad}
+            className="col-12 col-md-8"
+          >
             <select
-              id="mat-unidad"
-              required
               className="form-select form-select-sm"
               value={valores.unidad}
               onChange={fijar("unidad")}
@@ -188,16 +207,17 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
         )}
         {valores.alcance === "cargo" && (
-          <div className="col-12 col-md-8">
-            <label className="form-label mz-small" htmlFor="mat-cargo">
-              Cargo
-            </label>
+          <Campo
+            id="mat-cargo"
+            etiqueta="Cargo"
+            obligatorio
+            error={errores.cargo}
+            className="col-12 col-md-8"
+          >
             <select
-              id="mat-cargo"
-              required
               className="form-select form-select-sm"
               value={valores.cargo}
               onChange={fijar("cargo")}
@@ -212,24 +232,25 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
         )}
-        <div className="col-12">
-          <p className="mz-faint mz-small mb-1">
-            El material puede combinar texto, un archivo y un video: llene lo
-            que necesite (al menos uno).
-          </p>
-          <label className="form-label mz-small" htmlFor="mat-contenido">
-            Contenido (texto)
-          </label>
+        <p className="col-12 mz-faint mz-small mb-0">
+          El material puede combinar texto, un archivo y un video: llene lo que
+          necesite (al menos uno).
+        </p>
+        <Campo
+          id="mat-contenido"
+          etiqueta="Contenido (texto)"
+          error={errores.contenido}
+          className="col-12"
+        >
           <textarea
-            id="mat-contenido"
             rows={7}
             className="form-control form-control-sm"
             value={valores.contenido}
             onChange={fijar("contenido")}
           />
-        </div>
+        </Campo>
         <div className="col-12 col-md-6">
           <label className="form-label mz-small" htmlFor="mat-archivo">
             Archivo: PDF o presentación (.ppt, .pptx)
@@ -259,19 +280,20 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
           )}
           <small className="mz-faint d-block">Hasta 50 MB.</small>
         </div>
-        <div className="col-12 col-md-6">
-          <label className="form-label mz-small" htmlFor="mat-url">
-            Enlace a un video (opcional)
-          </label>
+        <Campo
+          id="mat-url"
+          etiqueta="Enlace a un video (opcional)"
+          error={errores.url}
+          className="col-12 col-md-6"
+        >
           <input
-            id="mat-url"
             type="url"
             placeholder="https://…"
             className="form-control form-control-sm"
             value={valores.url}
             onChange={fijar("url")}
           />
-        </div>
+        </Campo>
         <div className="col-6 col-md-3">
           <label className="form-label mz-small" htmlFor="mat-nota">
             % para aprobar
@@ -568,6 +590,8 @@ function EditorPreguntas({ material, onGuardado, onCerrar }) {
           10 y se aprueba con el porcentaje mínimo del material
           {material.nota_minima != null ? ` (${material.nota_minima} %)` : ""}.
         </p>
+        {/* Mientras llegan las preguntas (auditoría UX/UI, fase 2). */}
+        {preguntas === null && !error && <EstadoDeCarga cargando />}
         {preguntas?.map((p, i) => (
           <fieldset key={i} className="onboarding-pregunta">
             <legend className="d-flex flex-wrap gap-2 align-items-center">
@@ -717,19 +741,21 @@ export function CapacitacionGestion({ datos }) {
   const [preguntas, setPreguntas] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va aparte, con «Reintentar» (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
 
-  const cargar = useCallback(
-    () =>
-      capacitacionService
-        .materiales()
-        .then(setMateriales)
-        .catch((err) =>
-          setError(
-            mensajeDeError(err, "No se pudieron cargar los materiales."),
-          ),
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return capacitacionService
+      .materiales()
+      .then(setMateriales)
+      .catch((err) =>
+        setErrorCarga(
+          mensajeDeError(err, "No se pudieron cargar los materiales."),
         ),
-    [],
-  );
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
@@ -780,9 +806,13 @@ export function CapacitacionGestion({ datos }) {
           {error}
         </div>
       )}
-      {materiales && materiales.length === 0 && (
-        <p className="mz-faint">Todavía no hay materiales de capacitación.</p>
-      )}
+      <EstadoDeCarga
+        cargando={materiales === null}
+        error={errorCarga}
+        onReintentar={cargar}
+        vacio={materiales?.length === 0}
+        textoVacio="Todavía no hay materiales de capacitación."
+      />
       {materiales &&
         ALCANCES.map(([alcance, titulo]) => {
           const lista = materiales.filter((m) => m.alcance === alcance);

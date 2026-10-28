@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -231,6 +231,52 @@ describe("La ficha del activo", () => {
       await screen.findByText("No se pudo cargar la ficha del activo."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Ficha técnica")).not.toBeInTheDocument();
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026): el fallo conserva el encabezado,
+  // ofrece volver al inventario y reintentar, y al reintentar se recupera.
+  it("si la ficha falla deja volver al inventario y reintentar", async () => {
+    historial.mockRejectedValueOnce(new Error("500"));
+    historial.mockResolvedValueOnce(FICHA);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/activos/7"]}>
+        <Routes>
+          <Route path="/admin/activos/:id" element={<ActivoDetalle />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent("No se pudo cargar la ficha del activo.");
+    expect(
+      screen.getByRole("heading", { name: "Ficha del activo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Volver al inventario/ }),
+    ).toHaveAttribute("href", "/admin/activos");
+
+    fireEvent.click(within(aviso).getByRole("button", { name: "Reintentar" }));
+
+    expect(await screen.findByText("Laptop Jefatura TI")).toBeInTheDocument();
+    expect(historial).toHaveBeenCalledTimes(2);
+  });
+
+  it("mientras carga dice que está cargando, no deja la pantalla en blanco", () => {
+    historial.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <MemoryRouter initialEntries={["/admin/activos/7"]}>
+        <Routes>
+          <Route path="/admin/activos/:id" element={<ActivoDetalle />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando");
+    expect(
+      screen.getByRole("link", { name: /Volver al inventario/ }),
+    ).toBeInTheDocument();
   });
 });
 

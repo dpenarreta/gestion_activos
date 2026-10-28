@@ -20,6 +20,10 @@
 
 .ordenes-pill--critica {
   background: var(--mz-bad-line);
+  /* Blanco fijo a propósito (auditoría UX/UI, fase 2, 28/10/2026): es el
+     texto sobre el relleno rojo, que no cambia con el tema, igual que
+     `.mz-badge` en la identidad. Con `--mz-raised` el modo oscuro pondría
+     azul marino sobre rojo y el contraste caería de 5,4:1 a unos 3:1. */
   color: #ffffff;
 }
 

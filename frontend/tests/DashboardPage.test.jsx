@@ -327,11 +327,30 @@ describe("Los listados del panel", () => {
   it("dibuja la tendencia de los últimos meses", async () => {
     pintar();
 
-    const grafico = await screen.findByRole("img", {
+    // El dibujo, para la vista; oculto al lector de pantalla.
+    const grafico = (await screen.findByText("ago 26")).closest(
+      ".grafico-mensual",
+    );
+    expect(grafico).toHaveAttribute("aria-hidden", "true");
+    expect(within(grafico).getByText("sep 26")).toBeInTheDocument();
+  });
+
+  it("los datos del gráfico también van en una tabla para el lector de pantalla", async () => {
+    // Auditoría UX/UI, fase 2 (28/10/2026): con role="img" solo se oía el
+    // título, sin una sola cifra.
+    pintar();
+
+    const tabla = await screen.findByRole("table", {
       name: "Reparaciones por mes",
     });
-    expect(within(grafico).getByText("ago 26")).toBeInTheDocument();
-    expect(within(grafico).getByText("sep 26")).toBeInTheDocument();
+    expect(
+      within(tabla).getByRole("columnheader", { name: "Mes" }),
+    ).toBeInTheDocument();
+    const filas = within(tabla).getAllByRole("row").slice(1);
+    expect(filas.length).toBe(DATOS.mantenimientos.por_mes.length);
+    expect(
+      within(tabla).getByRole("rowheader", { name: "ago 2026" }),
+    ).toBeInTheDocument();
   });
 
   it("sin reparaciones en el periodo lo dice en vez de un gráfico vacío", async () => {

@@ -1,9 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
-const UnsavedChangesContext = createContext(null);
+import { confirmarDescarte } from "../components/common/ConfirmarDescarte/confirmarDescarte";
 
-const CONFIRM_MESSAGE = "Hay cambios sin guardar. ¿Desea continuar sin guardar?";
+const UnsavedChangesContext = createContext(null);
 
 /**
  * Contexto único para todo `/admin/*` (montado por AdminLayout): rastrea si
@@ -29,18 +36,23 @@ export function UnsavedChangesProvider({ children }) {
   }, []);
 
   const guardedNavigate = useCallback(
-    (to, options) => {
-      if (isDirtyRef.current && !window.confirm(CONFIRM_MESSAGE)) {
-        return;
+    async (to, options) => {
+      // La misma pregunta que las ventanas, no la del navegador (auditoría
+      // UX/UI, fase 2).
+      if (isDirtyRef.current && !(await confirmarDescarte())) {
+        return false;
       }
       setIsDirty(false);
       navigate(to, options);
+      return true;
     },
-    [navigate]
+    [navigate],
   );
 
   return (
-    <UnsavedChangesContext.Provider value={{ isDirty, setIsDirty, guardedNavigate }}>
+    <UnsavedChangesContext.Provider
+      value={{ isDirty, setIsDirty, guardedNavigate }}
+    >
       {children}
     </UnsavedChangesContext.Provider>
   );
@@ -49,7 +61,9 @@ export function UnsavedChangesProvider({ children }) {
 export function useUnsavedChanges() {
   const context = useContext(UnsavedChangesContext);
   if (!context) {
-    throw new Error("useUnsavedChanges debe usarse dentro de un <UnsavedChangesProvider>.");
+    throw new Error(
+      "useUnsavedChanges debe usarse dentro de un <UnsavedChangesProvider>.",
+    );
   }
   return context;
 }

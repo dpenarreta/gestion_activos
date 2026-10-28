@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { empresasService } from "../../../api/empresasService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -34,6 +35,11 @@ export function EmpresasList() {
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros({ q: "" });
   }
 
   return (
@@ -72,13 +78,6 @@ export function EmpresasList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -93,53 +92,63 @@ export function EmpresasList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((empresa) => (
-              <tr key={empresa.id}>
-                <td className="mz-strong">{empresa.nombre}</td>
-                <td className="mz-code">
-                  <span
-                    className="empresas-punto"
-                    style={{ background: empresa.color }}
-                    aria-hidden="true"
-                  />
-                  {empresa.codigo}
-                </td>
-                <td className="mz-mono mz-faint">
-                  {empresa.identificacion || "—"}
-                </td>
-                <td className="mz-faint">{empresa.zona_horaria}</td>
-                <td className="num">
-                  {empresa.usuarios}
-                  {/* Una empresa sin nadie asignado no la ve nadie, y desde
+            {/* Cargando, error con reintento y un vacío que distingue «no hay
+                empresas» de «la búsqueda no encuentra nada» (auditoría UX/UI,
+                fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={7}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Todavía no hay empresas registradas."
+              hayFiltros={Boolean(listado.filtros.q)}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!listado.error &&
+              listado.resultados.map((empresa) => (
+                <tr key={empresa.id}>
+                  <td className="mz-strong">{empresa.nombre}</td>
+                  <td className="mz-code">
+                    <span
+                      className="empresas-punto"
+                      style={{ background: empresa.color }}
+                      aria-hidden="true"
+                    />
+                    {empresa.codigo}
+                  </td>
+                  <td className="mz-mono mz-faint">
+                    {empresa.identificacion || "—"}
+                  </td>
+                  <td className="mz-faint">{empresa.zona_horaria}</td>
+                  <td className="num">
+                    {empresa.usuarios}
+                    {/* Una empresa sin nadie asignado no la ve nadie, y desde
                       fuera parece que el sistema perdió los datos. */}
-                  {empresa.usuarios === 0 && (
-                    <span className="mz-pill mz-pill--warn ms-2">
-                      Sin usuarios
+                    {empresa.usuarios === 0 && (
+                      <span className="mz-pill mz-pill--warn ms-2">
+                        Sin usuarios
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`mz-pill ${empresa.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {empresa.activa ? "Activa" : "Inactiva"}
                     </span>
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`mz-pill ${empresa.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {empresa.activa ? "Activa" : "Inactiva"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/empresas/${empresa.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={7}>Sin empresas registradas</td>
-              </tr>
-            )}
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/empresas/${empresa.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${empresa.nombre}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

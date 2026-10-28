@@ -21,6 +21,7 @@ const obtener = vi.fn();
 const crear = vi.fn();
 const actualizar = vi.fn();
 const catalogo = vi.fn();
+let puedeEditar = true;
 
 vi.mock("../src/api/rolesService", () => ({
   rolesService: {
@@ -32,6 +33,10 @@ vi.mock("../src/api/rolesService", () => ({
 
 vi.mock("../src/api/permissionsService", () => ({
   permissionsService: { catalog: (...args) => catalogo(...args) },
+}));
+
+vi.mock("../src/hooks/usePermission", () => ({
+  usePermission: (codigo) => codigo === "roles.editar" && puedeEditar,
 }));
 
 const { RoleForm } = await import("../src/pages/Admin/Roles/RoleForm");
@@ -86,6 +91,7 @@ function modulo(etiqueta) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  puedeEditar = true;
   catalogo.mockResolvedValue(CATALOGO);
   obtener.mockResolvedValue({
     id: 5,
@@ -348,5 +354,91 @@ describe("Editar un rol", () => {
       "indeterminate",
       false,
     );
+  });
+});
+
+// --- Solo ver ---------------------------------------------------------------
+
+describe("Quien solo puede ver los roles", () => {
+  /* El listado le ofrece «Ver»: llega a la ficha y no debe encontrar un
+     formulario que parece editable ni un «Guardar» que el servidor rechazaría
+     (auditoría UX/UI, fase 2). */
+  it("ve el rol con todo apagado y sin botón de guardar", async () => {
+    puedeEditar = false;
+
+    pintar(5);
+
+    expect(
+      await screen.findByRole("heading", { name: "Ver rol" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+        "Técnico de TI",
+      ),
+    );
+    expect(screen.getByLabelText("Nombre del rol")).toBeDisabled();
+    expect(screen.getByLabelText(/Ver activos/)).toBeChecked();
+    expect(screen.getByLabelText(/Ver activos/)).toBeDisabled();
+    expect(screen.getByLabelText("Activos")).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Guardar" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("puede seguir buscando entre los permisos del rol", async () => {
+    /* Las casillas se apagan, pero no el buscador: ver un rol es también
+       poder encontrar qué concede. */
+    puedeEditar = false;
+
+    pintar(5);
+
+    await screen.findByRole("heading", { name: "Ver rol" });
+    const buscador = screen.getByRole("searchbox", { name: "Buscar permiso" });
+    expect(buscador).toBeEnabled();
+    fireEvent.change(buscador, { target: { value: "baja" } });
+    expect(screen.queryByText(/Ver la bitácora/)).not.toBeInTheDocument();
+  });
+});
+
+// --- Carga ------------------------------------------------------------------
+
+describe("Si el rol no carga", () => {
+  it("lo dice y deja reintentar", async () => {
+    obtener.mockRejectedValueOnce(new Error("500"));
+
+    pintar(5);
+
+    expect(
+      await screen.findByText("No se pudo cargar el rol."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nombre del rol")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Nombre del rol")).toHaveValue(
+        "Técnico de TI",
+      ),
+    );
+    expect(obtener).toHaveBeenCalledTimes(2);
+  });
+});
+
+// --- Buscador sin resultados -----------------------------------------------
+
+describe("El buscador de permisos", () => {
+  it("tiene nombre propio y dice cuando nada coincide", async () => {
+    pintar();
+
+    await screen.findByLabelText("Activos");
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Buscar permiso" }),
+      { target: { value: "inexistente" } },
+    );
+
+    expect(
+      screen.getByText("Ningún permiso coincide con “inexistente”."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Activos")).not.toBeInTheDocument();
   });
 });

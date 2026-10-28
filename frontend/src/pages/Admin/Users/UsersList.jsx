@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
 import { Presencia } from "../../../components/admin/Chat/Presencia";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
 import { usePermission } from "../../../hooks/usePermission";
+import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
@@ -51,9 +53,16 @@ export function UsersList() {
   const [actionAviso, setActionAviso] = useState(null);
   const [procesando, setProcesando] = useState(null);
 
+  const hayFiltros = Object.values(filters).some(Boolean);
+
   function handleSearchSubmit(event) {
     event.preventDefault();
     updateFilters({ q: searchInput });
+  }
+
+  function limpiarFiltros() {
+    setSearchInput("");
+    updateFilters({ q: "", status: "" });
   }
 
   async function runAction(user, action) {
@@ -79,9 +88,7 @@ export function UsersList() {
       );
       refresh();
     } catch (err) {
-      setActionError(
-        err.response?.data?.error?.message || "No se pudo ejecutar la acción.",
-      );
+      setActionError(mensajeDeError(err, "No se pudo ejecutar la acción."));
     } finally {
       setProcesando(null);
     }
@@ -142,10 +149,10 @@ export function UsersList() {
           {actionAviso}
         </div>
       )}
-      {(error || actionError) && (
+      {actionError && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
-          {error || actionError}
+          {actionError}
         </div>
       )}
 
@@ -170,117 +177,123 @@ export function UsersList() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="mz-strong">
-                  {user.username}
-                  {user.is_superuser && (
-                    <span className="mz-pill mz-pill--neutral ms-2">
-                      Administrador
+            {/* Cargando, error con reintento y un vacío que distingue «no hay
+                cuentas» de «el filtro no encuentra nada» (auditoría UX/UI,
+                fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={8}
+              cargando={isLoading && users.length === 0}
+              error={error}
+              onReintentar={refresh}
+              vacio={!isLoading && users.length === 0}
+              textoVacio="Todavía no hay usuarios registrados."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!error &&
+              users.map((user) => (
+                <tr key={user.id}>
+                  {/* El superusuario lleva una sola marca, la de «Roles
+                    globales»: aquí repetía «Administrador» (auditoría UX/UI,
+                    fase 2). */}
+                  <td className="mz-strong">{user.username}</td>
+                  <td>{user.email}</td>
+                  <td>
+                    <span
+                      className={`mz-pill ${STATUS_PILLS[user.status] || "mz-pill--neutral"}`}
+                    >
+                      {STATUS_LABELS[user.status] || user.status}
                     </span>
-                  )}
-                </td>
-                <td>{user.email}</td>
-                <td>
-                  <span
-                    className={`mz-pill ${STATUS_PILLS[user.status] || "mz-pill--neutral"}`}
-                  >
-                    {STATUS_LABELS[user.status] || user.status}
-                  </span>
-                </td>
-                <td>
-                  {/* A qué organización pertenece y qué hace en cada una: es
+                  </td>
+                  <td>
+                    {/* A qué organización pertenece y qué hace en cada una: es
                       la primera pregunta al revisar por qué alguien no ve una
                       pantalla, y abrir ficha por ficha la vuelve impracticable. */}
-                  {(user.empresas ?? []).length === 0 && (
-                    <span className="mz-faint">—</span>
-                  )}
-                  {(user.empresas ?? []).map((empresa) => (
-                    <div key={empresa.id} className="users-list-empresa">
-                      {multiempresa && (
-                        <span className="fw-semibold">{empresa.nombre}</span>
-                      )}
-                      {multiempresa && empresa.es_predeterminada && (
-                        <span className="mz-pill mz-pill--neutral ms-1">
-                          Predeterminada
-                        </span>
-                      )}
-                      <div className="mz-faint mz-small">
-                        {empresa.roles.map((rol) => rol.name).join(", ") ||
-                          (user.is_superuser
-                            ? "Todos los permisos"
-                            : "Sin rol")}
+                    {(user.empresas ?? []).length === 0 && (
+                      <span className="mz-faint">—</span>
+                    )}
+                    {(user.empresas ?? []).map((empresa) => (
+                      <div key={empresa.id} className="users-list-empresa">
+                        {multiempresa && (
+                          <span className="fw-semibold">{empresa.nombre}</span>
+                        )}
+                        {multiempresa && empresa.es_predeterminada && (
+                          <span className="mz-pill mz-pill--neutral ms-1">
+                            Predeterminada
+                          </span>
+                        )}
+                        <div className="mz-faint mz-small">
+                          {empresa.roles.map((rol) => rol.name).join(", ") ||
+                            (user.is_superuser
+                              ? "Todos los permisos"
+                              : "Sin rol")}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </td>
-                <td>
-                  {/* Superusuario es una marca de la cuenta, no un rol: tiene
+                    ))}
+                  </td>
+                  <td>
+                    {/* Superusuario es una marca de la cuenta, no un rol: tiene
                       todos los permisos sin necesitar ninguno. */}
-                  {user.is_superuser && (
-                    <span
-                      className="mz-pill mz-pill--ok me-1"
-                      title="Marca de la cuenta: todos los permisos en todas las empresas, sin necesitar roles"
-                    >
-                      <Icon name="shield-lock" /> Superusuario (cuenta)
-                    </span>
-                  )}
-                  {user.roles.map((role) => role.name).join(", ") ||
-                    (user.is_superuser ? "" : "—")}
-                </td>
-                <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                <td>
-                  {/* «Nunca» y no un guion: el guion se lee como un dato
+                    {user.is_superuser && (
+                      <span
+                        className="mz-pill mz-pill--ok me-1"
+                        title="Marca de la cuenta: todos los permisos en todas las empresas, sin necesitar roles"
+                      >
+                        <Icon name="shield-lock" /> Superusuario (cuenta)
+                      </span>
+                    )}
+                    {user.roles.map((role) => role.name).join(", ") ||
+                      (user.is_superuser ? "" : "—")}
+                  </td>
+                  <td>{formatearFecha(user.created_at)}</td>
+                  <td>
+                    {/* «Nunca» y no un guion: el guion se lee como un dato
                       que falta por cargar, y aquí no falta nada —esa
                       cuenta existe y no ha entrado jamás, que es
                       exactamente lo que hay que ver—. */}
-                  {/* En línea ahora; si no, su última conexión (o el último
+                    {/* En línea ahora; si no, su última conexión (o el último
                       inicio de sesión de antes de medirla). */}
-                  {user.en_linea ? (
-                    <Presencia estado={user} conTexto />
-                  ) : user.ultima_conexion || user.last_login ? (
-                    formatearFecha(
-                      user.ultima_conexion || user.last_login,
-                      true,
-                    )
-                  ) : (
-                    <span className="mz-faint">Nunca</span>
-                  )}
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/users/${user.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    Editar
-                  </Link>
-                  {!puedeDeshabilitar ? null : user.status === "active" ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline-warning btn-sm"
-                      disabled={procesando === user.id}
-                      onClick={() => runAction(user, "disable")}
+                    {user.en_linea ? (
+                      <Presencia estado={user} conTexto />
+                    ) : user.ultima_conexion || user.last_login ? (
+                      formatearFecha(
+                        user.ultima_conexion || user.last_login,
+                        true,
+                      )
+                    ) : (
+                      <span className="mz-faint">Nunca</span>
+                    )}
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`Editar ${user.username}`}
                     >
-                      Deshabilitar
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-outline-success btn-sm"
-                      disabled={procesando === user.id}
-                      onClick={() => runAction(user, "enable")}
-                    >
-                      Habilitar
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {!isLoading && users.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>Sin resultados</td>
-              </tr>
-            )}
+                      Editar
+                    </Link>
+                    {!puedeDeshabilitar ? null : user.status === "active" ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline-warning btn-sm"
+                        disabled={procesando === user.id}
+                        onClick={() => runAction(user, "disable")}
+                      >
+                        Deshabilitar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-outline-success btn-sm"
+                        disabled={procesando === user.id}
+                        onClick={() => runAction(user, "enable")}
+                      >
+                        Habilitar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

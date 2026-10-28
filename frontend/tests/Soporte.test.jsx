@@ -347,6 +347,60 @@ describe("La bandeja", () => {
     fireEvent.click(screen.getByRole("button", { name: /Tomar siguiente/ }));
     expect(await screen.findByText("Ruta cambiada")).toBeInTheDocument();
   });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026): un fallo no es una cola vacía.
+  it("«Tomar siguiente» distingue la cola vacía de un error", async () => {
+    servicio.bandeja.mockResolvedValue({
+      tecnico: {
+        id: 1,
+        nivel: "N1 · Mesa de ayuda",
+        categorias: [],
+        capacidad: 1,
+        en_horario: true,
+        abiertos: 0,
+        cola_para_mi: 0,
+      },
+      cola_total: 0,
+      puede: {
+        ver_todos: false,
+        asignar: false,
+        registrar: false,
+        aprobar_horas: false,
+      },
+    });
+    servicio.tickets.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+    servicio.tomarSiguiente.mockRejectedValueOnce({
+      response: {
+        status: 404,
+        data: { detail: "No hay tickets en la cola que usted pueda atender." },
+      },
+    });
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    const boton = await screen.findByRole("button", {
+      name: /Tomar siguiente/,
+    });
+    fireEvent.click(boton);
+    expect(
+      await screen.findByText(
+        "No hay tickets en la cola que usted pueda atender.",
+      ),
+    ).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    servicio.tomarSiguiente.mockRejectedValueOnce({
+      response: { status: 500, data: null },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Tomar siguiente/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "No se pudo tomar el siguiente ticket.",
+    );
+  });
 });
 
 function ticket(extra = {}) {
@@ -472,6 +526,138 @@ describe("La ficha del ticket", () => {
     expect(
       await screen.findByText(/ya no está a su cargo/),
     ).toBeInTheDocument();
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026).
+  it("sin motivo no escala: marca el campo y le lleva el foco", async () => {
+    servicio.ticket.mockResolvedValue(ticket());
+    servicio.escalar.mockReset();
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+
+    const nota = await screen.findByLabelText("Nota o motivo");
+    fireEvent.change(nota, { target: { value: "   " } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Escalar al siguiente nivel" }),
+    );
+    expect(servicio.escalar).not.toHaveBeenCalled();
+    expect(nota).toHaveAttribute("aria-invalid", "true");
+    expect(nota).toHaveAccessibleDescription(
+      /Escriba el motivo para escalar el ticket/,
+    );
+    expect(nota).toHaveFocus();
+
+    // Al escribirlo, el error se va.
+    fireEvent.change(nota, { target: { value: "Falla de placa" } });
+    expect(nota).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("esperar al usuario también pide la nota; marcar atendido no", async () => {
+    servicio.ticket.mockResolvedValue(ticket());
+    servicio.cambiarEstado.mockReset();
+    servicio.cambiarEstado.mockResolvedValue(
+      ticket({ estado: "atendido", estado_display: "Atendido" }),
+    );
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Esperar al usuario" }),
+    );
+    expect(servicio.cambiarEstado).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Nota o motivo")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Marcar como atendido" }),
+    );
+    await waitFor(() =>
+      expect(servicio.cambiarEstado).toHaveBeenCalledWith(42, "atendido", ""),
+    );
+    // El aviso sale en la tarjeta de las acciones, no arriba de la página.
+    const tarjeta = screen
+      .getByRole("heading", { name: "Qué se puede hacer" })
+      .closest("section");
+    expect(
+      await within(tarjeta).findByText("Estado actualizado."),
+    ).toBeInTheDocument();
+  });
+
+  it("elige antes de escribir si responde al usuario o deja una nota interna", async () => {
+    servicio.ticket.mockResolvedValue(ticket());
+    servicio.respuestas.mockResolvedValue([]);
+    servicio.responder.mockReset();
+    servicio.responder.mockResolvedValue(ticket());
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+
+    const responder = await screen.findByRole("button", {
+      name: "Responder al usuario",
+    });
+    const interna = screen.getByRole("button", { name: "Nota interna" });
+    // Por defecto, responder al usuario.
+    expect(responder).toHaveAttribute("aria-pressed", "true");
+    expect(interna).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Responder" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
+
+    fireEvent.click(interna);
+    expect(interna).toHaveAttribute("aria-pressed", "true");
+    expect(responder).toHaveAttribute("aria-pressed", "false");
+    const caja = screen.getByLabelText("Nota interna (el usuario no la ve)");
+    expect(caja).toHaveClass("soporte-respuesta--interna");
+    fireEvent.change(caja, { target: { value: "Revisar la placa" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar nota interna" }),
+    );
+    await waitFor(() =>
+      expect(servicio.responder).toHaveBeenCalledWith(
+        42,
+        { texto: "Revisar la placa", interno: true },
+        [],
+      ),
+    );
+    expect(
+      await screen.findByText("Nota interna guardada."),
+    ).toBeInTheDocument();
+  });
+
+  it("las sugerencias «/» son una lista de opciones que Escape cierra", async () => {
+    servicio.ticket.mockResolvedValue(ticket());
+    servicio.respuestas.mockResolvedValue([
+      { id: 1, atajo: "reinicio", titulo: "Pedir reinicio", texto: "Hola" },
+    ]);
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+
+    const caja = await screen.findByLabelText("Respuesta al usuario");
+    fireEvent.change(caja, { target: { value: "/rei" } });
+    // Una lista de botones (no un listbox con botones adentro).
+    const lista = await screen.findByRole("list", {
+      name: "Respuestas predefinidas",
+    });
+    expect(within(lista).getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByText("1 respuestas sugeridas")).toBeInTheDocument();
+    fireEvent.keyDown(caja, { key: "Escape" });
+    expect(
+      screen.queryByRole("list", { name: "Respuestas predefinidas" }),
+    ).toBeNull();
   });
 });
 

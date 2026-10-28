@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { matrizService } from "../../api/matrizService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import {
@@ -150,6 +155,7 @@ function BarraDeAcciones({ acciones, onAccion }) {
 export function PeriodoPanel({ id, onCerrar, onCambio }) {
   const [periodo, setPeriodo] = useState(null);
   const [historial, setHistorial] = useState(null);
+  const [errorHistorial, setErrorHistorial] = useState(null);
   const [error, setError] = useState(null);
   const [pestana, setPestana] = useState("general");
   // La ventana abierta: seguimiento, fecha, carga, devolver, enviar o validar.
@@ -171,10 +177,18 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudo abrir el período.")),
       );
+    // Un fallo del historial ya no se muestra como un historial vacío
+    // (auditoría UX/UI, fase 2, 28/10/2026).
+    setErrorHistorial(null);
     matrizService
       .historial(id)
       .then(setHistorial)
-      .catch(() => setHistorial([]));
+      .catch((err) => {
+        setHistorial(null);
+        setErrorHistorial(
+          mensajeDeError(err, "No se pudo cargar el historial."),
+        );
+      });
   }, [id]);
 
   useEffect(() => {
@@ -280,203 +294,202 @@ export function PeriodoPanel({ id, onCerrar, onCambio }) {
                 acciones={periodo.acciones}
                 onAccion={setVentana}
               />
-              <div
-                className="mz-tabs"
-                role="tablist"
-                aria-label="Detalle del período"
-              >
-                {[
-                  ["general", "General"],
-                  ["documentos", "Documentos"],
-                  ["recordatorios", "Recordatorios"],
-                  ["historial", "Historial"],
-                ].map(([clave, nombre]) => (
-                  <button
-                    key={clave}
-                    type="button"
-                    role="tab"
-                    aria-selected={pestana === clave}
-                    className={pestana === clave ? "is-active" : undefined}
-                    onClick={() => setPestana(clave)}
-                  >
-                    {nombre}
-                  </button>
-                ))}
-              </div>
+              {/* Pestañas comunes: flechas, Inicio y Fin, y el panel ligado
+                  a su pestaña (auditoría UX/UI, fase 2, 28/10/2026). */}
+              <Pestanas
+                etiqueta="Detalle del período"
+                idBase="pp-detalle"
+                valor={pestana}
+                onCambio={setPestana}
+                opciones={[
+                  { id: "general", etiqueta: "General" },
+                  { id: "documentos", etiqueta: "Documentos" },
+                  { id: "recordatorios", etiqueta: "Recordatorios" },
+                  { id: "historial", etiqueta: "Historial" },
+                ]}
+              />
 
-              {pestana === "general" && (
-                <div role="tabpanel" aria-label="General">
-                  {periodo.recordatorios_suspendidos && (
-                    <div className="mz-alert mz-alert--info" role="status">
-                      <Icon name="bell-slash" />
-                      Los recordatorios de este período están suspendidos.
-                    </div>
-                  )}
+              <PanelDePestana idBase="pp-detalle" valor={pestana}>
+                {pestana === "general" && (
+                  <div>
+                    {periodo.recordatorios_suspendidos && (
+                      <div className="mz-alert mz-alert--info" role="status">
+                        <Icon name="bell-slash" />
+                        Los recordatorios de este período están suspendidos.
+                      </div>
+                    )}
 
-                  <div className="mz-section">
-                    <h4>Identificación</h4>
-                    <div className="mz-kv-grid">
-                      <Kv etiqueta="Sucursal">{periodo.sede?.nombre}</Kv>
-                      <Kv etiqueta="Tema">{periodo.obligacion.area_nombre}</Kv>
-                      <Kv etiqueta="Entidad de control">
-                        {periodo.obligacion.entidad_nombre}
-                      </Kv>
-                      <Kv etiqueta="Periodicidad">
-                        {PERIODICIDADES[periodo.obligacion.periodicidad]}
-                      </Kv>
-                      <Kv etiqueta="Evidencia esperada" completo>
-                        {periodo.obligacion.evidencia_esperada}
-                      </Kv>
-                      {periodo.obligacion.descripcion && (
-                        <Kv etiqueta="Descripción" completo>
-                          {periodo.obligacion.descripcion}
+                    <div className="mz-section">
+                      <h4>Identificación</h4>
+                      <div className="mz-kv-grid">
+                        <Kv etiqueta="Sucursal">{periodo.sede?.nombre}</Kv>
+                        <Kv etiqueta="Tema">
+                          {periodo.obligacion.area_nombre}
                         </Kv>
-                      )}
-                      {(periodo.obligacion.fundamento_legal ||
-                        periodo.obligacion.fundamento_url) && (
-                        <Kv etiqueta="Fundamento legal" completo>
-                          {periodo.obligacion.fundamento_legal}{" "}
-                          {periodo.obligacion.fundamento_url && (
-                            <a
-                              href={periodo.obligacion.fundamento_url}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                            >
-                              Ver fuente <Icon name="box-arrow-up-right" />
-                            </a>
-                          )}
+                        <Kv etiqueta="Entidad de control">
+                          {periodo.obligacion.entidad_nombre}
                         </Kv>
-                      )}
-                    </div>
-                  </div>
-
-                  <FichaObligacion
-                    obligacion={periodo.obligacion}
-                    puedeEditar={periodo.acciones?.includes("edit")}
-                    onGuardada={() => despuesDeCambiar("Ficha guardada.")}
-                  />
-
-                  <div className="mz-section">
-                    <h4>Fechas</h4>
-                    <div className="mz-kv-grid">
-                      <Kv etiqueta="Inicio">
-                        {diaCorto(periodo.fecha_inicio)}
-                      </Kv>
-                      <Kv etiqueta="Preparación">
-                        {diaCorto(periodo.fecha_preparacion)}
-                      </Kv>
-                      <Kv etiqueta="Vencimiento">
-                        {fechaHora(periodo.vence_en, zona)}
-                      </Kv>
-                      {periodo.cerrado && (
-                        <>
-                          <Kv etiqueta="Cumplimiento">
-                            {fechaHora(periodo.cumplido_en, zona)}
+                        <Kv etiqueta="Periodicidad">
+                          {PERIODICIDADES[periodo.obligacion.periodicidad]}
+                        </Kv>
+                        <Kv etiqueta="Evidencia esperada" completo>
+                          {periodo.obligacion.evidencia_esperada}
+                        </Kv>
+                        {periodo.obligacion.descripcion && (
+                          <Kv etiqueta="Descripción" completo>
+                            {periodo.obligacion.descripcion}
                           </Kv>
-                          <Kv etiqueta="Validación">
-                            {fechaHora(periodo.validado_en, zona)}
-                            {periodo.validado_por &&
-                              ` · ${periodo.validado_por.nombre}`}
+                        )}
+                        {(periodo.obligacion.fundamento_legal ||
+                          periodo.obligacion.fundamento_url) && (
+                          <Kv etiqueta="Fundamento legal" completo>
+                            {periodo.obligacion.fundamento_legal}{" "}
+                            {periodo.obligacion.fundamento_url && (
+                              <a
+                                href={periodo.obligacion.fundamento_url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                              >
+                                Ver fuente <Icon name="box-arrow-up-right" />
+                              </a>
+                            )}
                           </Kv>
-                        </>
-                      )}
+                        )}
+                      </div>
+                    </div>
+
+                    <FichaObligacion
+                      obligacion={periodo.obligacion}
+                      puedeEditar={periodo.acciones?.includes("edit")}
+                      onGuardada={() => despuesDeCambiar("Ficha guardada.")}
+                    />
+
+                    <div className="mz-section">
+                      <h4>Fechas</h4>
+                      <div className="mz-kv-grid">
+                        <Kv etiqueta="Inicio">
+                          {diaCorto(periodo.fecha_inicio)}
+                        </Kv>
+                        <Kv etiqueta="Preparación">
+                          {diaCorto(periodo.fecha_preparacion)}
+                        </Kv>
+                        <Kv etiqueta="Vencimiento">
+                          {fechaHora(periodo.vence_en, zona)}
+                        </Kv>
+                        {periodo.cerrado && (
+                          <>
+                            <Kv etiqueta="Cumplimiento">
+                              {fechaHora(periodo.cumplido_en, zona)}
+                            </Kv>
+                            <Kv etiqueta="Validación">
+                              {fechaHora(periodo.validado_en, zona)}
+                              {periodo.validado_por &&
+                                ` · ${periodo.validado_por.nombre}`}
+                            </Kv>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mz-section">
+                      <h4>Responsables</h4>
+                      <div className="mz-kv-grid">
+                        <Kv etiqueta="Responsable">
+                          <Persona persona={periodo.responsable} />
+                        </Kv>
+                        <Kv etiqueta="Suplente">
+                          <Persona persona={periodo.suplente} />
+                        </Kv>
+                        <Kv etiqueta="Supervisor">
+                          <Persona persona={periodo.supervisor} />
+                        </Kv>
+                        <Kv etiqueta="Aprobador">
+                          <Persona persona={periodo.aprobador} />
+                        </Kv>
+                      </div>
+                    </div>
+
+                    <div className="mz-section">
+                      <h4>Seguimiento</h4>
+                      <div className="mz-kv-grid">
+                        <Kv etiqueta="Prioridad">
+                          <span className={`mz-prio--${periodo.prioridad}`}>
+                            {PRIORIDADES[periodo.prioridad]}
+                          </span>
+                        </Kv>
+                        <Kv etiqueta="Avance">
+                          {periodo.avance} %
+                          <div
+                            className="mz-progress"
+                            role="progressbar"
+                            aria-valuenow={periodo.avance}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label="Avance"
+                          >
+                            <div style={{ width: `${periodo.avance}%` }} />
+                          </div>
+                        </Kv>
+                        <Kv etiqueta="Observaciones" completo>
+                          {periodo.observaciones || "—"}
+                        </Kv>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="mz-section">
-                    <h4>Responsables</h4>
-                    <div className="mz-kv-grid">
-                      <Kv etiqueta="Responsable">
-                        <Persona persona={periodo.responsable} />
-                      </Kv>
-                      <Kv etiqueta="Suplente">
-                        <Persona persona={periodo.suplente} />
-                      </Kv>
-                      <Kv etiqueta="Supervisor">
-                        <Persona persona={periodo.supervisor} />
-                      </Kv>
-                      <Kv etiqueta="Aprobador">
-                        <Persona persona={periodo.aprobador} />
-                      </Kv>
-                    </div>
-                  </div>
-
-                  <div className="mz-section">
-                    <h4>Seguimiento</h4>
-                    <div className="mz-kv-grid">
-                      <Kv etiqueta="Prioridad">
-                        <span className={`mz-prio--${periodo.prioridad}`}>
-                          {PRIORIDADES[periodo.prioridad]}
-                        </span>
-                      </Kv>
-                      <Kv etiqueta="Avance">
-                        {periodo.avance} %
-                        <div
-                          className="mz-progress"
-                          role="progressbar"
-                          aria-valuenow={periodo.avance}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-label="Avance"
-                        >
-                          <div style={{ width: `${periodo.avance}%` }} />
-                        </div>
-                      </Kv>
-                      <Kv etiqueta="Observaciones" completo>
-                        {periodo.observaciones || "—"}
-                      </Kv>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {pestana === "documentos" && (
-                <div role="tabpanel" aria-label="Documentos">
+                {pestana === "documentos" && (
                   <DocumentosDelPeriodo
                     periodo={periodo}
                     version={version}
                     onCambio={() => despuesDeCambiar()}
                   />
-                </div>
-              )}
+                )}
 
-              {pestana === "recordatorios" && (
-                <div role="tabpanel" aria-label="Recordatorios">
+                {pestana === "recordatorios" && (
                   <RecordatoriosDelPeriodo
                     periodo={periodo}
                     version={version}
                   />
-                </div>
-              )}
+                )}
 
-              {pestana === "historial" && (
-                <div role="tabpanel" aria-label="Historial">
-                  {historial === null ? (
-                    <div className="mz-empty">Cargando…</div>
-                  ) : (
-                    <div className="mz-timeline">
-                      {historial.map((evento) => (
-                        <div key={evento.id} className="mz-tl-item">
-                          <div className="mz-tl-when">
-                            {fechaHora(evento.created_at, zona)} ·{" "}
-                            {evento.actor}
-                          </div>
-                          <div className="mz-tl-what">{evento.descripcion}</div>
-                          {(evento.valor_anterior || evento.valor_nuevo) && (
-                            <div className="mz-tl-why">
-                              {evento.valor_anterior || "—"} →{" "}
-                              {evento.valor_nuevo || "—"}
+                {pestana === "historial" && (
+                  <div>
+                    {historial === null || historial.length === 0 ? (
+                      <EstadoDeCarga
+                        cargando={historial === null}
+                        error={errorHistorial}
+                        onReintentar={cargar}
+                        vacio={historial?.length === 0}
+                        textoVacio="Sin movimientos."
+                      />
+                    ) : (
+                      <div className="mz-timeline">
+                        {historial.map((evento) => (
+                          <div key={evento.id} className="mz-tl-item">
+                            <div className="mz-tl-when">
+                              {fechaHora(evento.created_at, zona)} ·{" "}
+                              {evento.actor}
                             </div>
-                          )}
-                          {evento.motivo && (
-                            <div className="mz-tl-why">{evento.motivo}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                            <div className="mz-tl-what">
+                              {evento.descripcion}
+                            </div>
+                            {(evento.valor_anterior || evento.valor_nuevo) && (
+                              <div className="mz-tl-why">
+                                {evento.valor_anterior || "—"} →{" "}
+                                {evento.valor_nuevo || "—"}
+                              </div>
+                            )}
+                            {evento.motivo && (
+                              <div className="mz-tl-why">{evento.motivo}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </PanelDePestana>
             </>
           )}
         </div>

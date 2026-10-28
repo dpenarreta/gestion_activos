@@ -58,20 +58,38 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Qué catálogo no cargó. Antes una lista que fallaba quedaba vacía, sin
+  // aviso, como si no hubiera nadie a quien entregar el equipo (auditoría
+  // UX/UI, fase 2, 28/10/2026); ahora se dice junto al campo.
+  const [fallos, setFallos] = useState({});
 
   useEffect(() => {
+    const fallo = (catalogo, mensaje) =>
+      setFallos((actuales) => ({ ...actuales, [catalogo]: mensaje }));
     empleadosService
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setEmpleados(datos.results ?? datos))
-      .catch(() => setEmpleados([]));
+      .catch(() => {
+        setEmpleados([]);
+        fallo("empleados", "No se pudo cargar la lista de empleados.");
+      });
     departamentosService
       .list({ activo: "true", page_size: 100 })
       .then((datos) => setDepartamentos(datos.results ?? datos))
-      .catch(() => setDepartamentos([]));
+      .catch(() => {
+        setDepartamentos([]);
+        fallo(
+          "departamentos",
+          "No se pudieron cargar las áreas: no se puede mostrar a cuál quedará adscrito.",
+        );
+      });
     sedesService
       .list({ activa: "true", page_size: 200 })
       .then((datos) => setSedes(datos.results ?? datos))
-      .catch(() => setSedes([]));
+      .catch(() => {
+        setSedes([]);
+        fallo("sedes", "No se pudo cargar la lista de sedes.");
+      });
   }, []);
 
   const elegidos = useMemo(
@@ -288,6 +306,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               <select
                 id="sumar-responsable"
                 className="form-select"
+                aria-describedby={
+                  fallos.empleados ? "sumar-responsable-fallo" : undefined
+                }
                 value=""
                 onChange={(event) => sumar(event.target.value)}
               >
@@ -298,6 +319,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                   </option>
                 ))}
               </select>
+              <FalloCatalogo id="sumar-responsable-fallo">
+                {fallos.empleados}
+              </FalloCatalogo>
             </div>
           ) : (
             <div className="mz-field mb-3">
@@ -305,6 +329,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               <select
                 id="custodio"
                 className="form-select"
+                aria-describedby={
+                  fallos.empleados ? "custodio-fallo" : undefined
+                }
                 value={responsables[0] || ""}
                 onChange={(event) => elegirUnico(event.target.value)}
               >
@@ -315,6 +342,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                   </option>
                 ))}
               </select>
+              <FalloCatalogo id="custodio-fallo">
+                {fallos.empleados}
+              </FalloCatalogo>
               {elegidos[0] && (
                 <div className="form-text">
                   {elegidos[0].nombre_completo} pertenece a{" "}
@@ -345,6 +375,14 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
             <select
               id="sede-entrega"
               className="form-select"
+              aria-describedby={
+                [
+                  fallos.sedes && "sede-entrega-fallo",
+                  fallos.departamentos && "area-fallo",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
               value={sede}
               onChange={(event) => setSede(event.target.value)}
             >
@@ -356,6 +394,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 </option>
               ))}
             </select>
+            <FalloCatalogo id="sede-entrega-fallo">
+              {fallos.sedes}
+            </FalloCatalogo>
             {cambioDeSede && (
               // En ciudades, que es como se cuenta un movimiento de sitio:
               // «pasó de Quito a Guayaquil».
@@ -371,6 +412,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 ? `Quedará adscrito a ${areaDeDestino.nombre}, el área de quien lo recibe.`
                 : "El área a la que está adscrito no cambia."}
             </div>
+            <FalloCatalogo id="area-fallo">
+              {fallos.departamentos}
+            </FalloCatalogo>
           </div>
         </>
       ) : (
@@ -378,8 +422,10 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           {/* Arriba y como alerta, no como nota al pie de un campo: es la
               consecuencia menos evidente del traslado —el equipo cambia de
               sitio *y* deja de tener responsable— y hay que leerla antes de
-              elegir el destino, no después. */}
-          <div className="mz-alert mz-alert--warn" role="alert">
+              elegir el destino, no después. Sin role="alert": está siempre
+              que se elige trasladar y no es un hecho nuevo que interrumpa
+              al lector de pantalla (auditoría UX/UI, fase 2). */}
+          <div className="mz-alert mz-alert--warn">
             <Icon name="exclamation-triangle" />
             <div>
               <strong>Aviso:</strong> El equipo quedará sin responsable y se
@@ -392,6 +438,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
             <select
               id="sede"
               className="form-select"
+              aria-describedby={fallos.sedes ? "sede-fallo" : undefined}
               value={sede}
               onChange={(event) => setSede(event.target.value)}
             >
@@ -403,6 +450,7 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
                 </option>
               ))}
             </select>
+            <FalloCatalogo id="sede-fallo">{fallos.sedes}</FalloCatalogo>
             {hayCambio && (
               // En ciudades, que es como se cuenta un traslado: «pasó de Quito
               // a Guayaquil». El nombre interno de la sede no le dice nada a
@@ -438,5 +486,15 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         </div>
       </div>
     </ModalDialog>
+  );
+}
+
+/** El aviso de que un catálogo no cargó, bajo el campo que lo usa. */
+function FalloCatalogo({ id, children }) {
+  if (!children) return null;
+  return (
+    <div id={id} className="mz-field-error">
+      {children}
+    </div>
   );
 }

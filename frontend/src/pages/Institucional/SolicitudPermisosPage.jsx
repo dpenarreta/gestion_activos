@@ -1,11 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { licenciasService } from "../../api/licenciasService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { usePermission } from "../../hooks/usePermission";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { CalendarioDeRango } from "./CalendarioDeRango";
 import { CalendarioSolicitado } from "./CalendarioSolicitado";
@@ -112,8 +125,10 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   });
   const [adjunto, setAdjunto] = useState(null);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [evaluacion, setEvaluacion] = useState(null);
+  const formulario = useRef(null);
 
   // Las restricciones se recalculan al cambiar el tipo o las fechas (con una
   // pausa corta, para no consultar en cada tecla).
@@ -144,7 +159,14 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
         if (lista.length)
           setValores((v) => ({ ...v, flujo: String(lista[0].id) }));
       })
-      .catch(() => setTipos([]));
+      .catch((err) => {
+        // Antes un fallo se veía como «no hay tipos de permiso» (auditoría
+        // UX/UI, fase 2, 28/10/2026): ahora se dice que no se pudo cargar.
+        setError(
+          mensajeDeError(err, "No se pudieron cargar los tipos de permiso."),
+        );
+        setTipos([]);
+      });
   }, []);
 
   const elegido = tipos?.find((t) => String(t.id) === valores.flujo);
@@ -173,11 +195,15 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   async function enviar(evento) {
     evento.preventDefault();
     if (elegido?.adjunto === "obligatorio" && !adjunto) {
-      setError("Este permiso pide un documento de respaldo.");
+      // El error va junto al campo y el foco a él (auditoría UX/UI, fase 2).
+      setError(null);
+      setErrores({ adjunto: "Este permiso pide un documento de respaldo." });
+      enfocarPrimerError(formulario.current);
       return;
     }
     setEnviando(true);
     setError(null);
+    setErrores({});
     try {
       onCreada(
         await licenciasService.solicitar(
@@ -187,18 +213,28 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
       );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar la solicitud."));
+      setErrores(erroresPorCampo(err));
       setEnviando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
   return (
     <Ventana titulo="Nueva solicitud de permiso" onCerrar={onCerrar} ancha>
-      {tipos?.length === 0 ? (
-        <p className="mz-faint mb-0">
-          Todavía no hay tipos de permiso para solicitar.
-        </p>
+      {tipos === null ? (
+        <EstadoDeCarga cargando />
+      ) : tipos.length === 0 ? (
+        error ? (
+          <EstadoDeCarga error={error} />
+        ) : (
+          <p className="mz-faint mb-0">
+            Todavía no hay tipos de permiso para solicitar.
+          </p>
+        )
       ) : (
-        <form className="row g-2" onSubmit={enviar}>
+        // noValidate: lo obligatorio se revisa aquí y en el servidor, y el
+        // error se muestra junto a cada campo.
+        <form ref={formulario} className="row g-2" onSubmit={enviar} noValidate>
           {error && (
             <div className="col-12">
               <div className="mz-alert mz-alert--bad" role="alert">
@@ -208,21 +244,27 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             </div>
           )}
           <div className="col-12">
-            <label className="form-label mz-small" htmlFor="sp-tipo">
-              Tipo de permiso
-            </label>
-            <select
+            <LeyendaObligatorios />
+          </div>
+          <div className="col-12">
+            <Campo
               id="sp-tipo"
-              className="form-select form-select-sm"
-              value={valores.flujo}
-              onChange={fijar("flujo")}
+              etiqueta="Tipo de permiso"
+              obligatorio
+              error={errores.flujo}
             >
-              {(tipos ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                </option>
-              ))}
-            </select>
+              <select
+                className="form-select form-select-sm"
+                value={valores.flujo}
+                onChange={fijar("flujo")}
+              >
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
             {elegido && (
               <div className="solicitud-ruta mt-2">
                 {elegido.descripcion && (
@@ -252,33 +294,33 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             />
           </div>
           <div className="col-12 col-md-5 d-flex flex-column gap-2">
-            <div>
-              <label className="form-label mz-small" htmlFor="sp-desde">
-                Desde
-              </label>
+            <Campo
+              id="sp-desde"
+              etiqueta="Desde"
+              obligatorio
+              error={errores.desde}
+            >
               <input
-                id="sp-desde"
                 type="date"
-                required
                 className="form-control form-control-sm"
                 value={valores.desde}
                 onChange={fijarDesde}
               />
-            </div>
-            <div>
-              <label className="form-label mz-small" htmlFor="sp-hasta">
-                Hasta
-              </label>
+            </Campo>
+            <Campo
+              id="sp-hasta"
+              etiqueta="Hasta"
+              obligatorio
+              error={errores.hasta}
+            >
               <input
-                id="sp-hasta"
                 type="date"
-                required
                 min={valores.desde}
                 className="form-control form-control-sm"
                 value={valores.hasta}
                 onChange={fijar("hasta")}
               />
-            </div>
+            </Campo>
             <p className="solicitud-dias mb-0" aria-live="polite">
               {dias
                 ? `${dias} ${dias === 1 ? "día" : "días"} en total`
@@ -293,36 +335,40 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
             </div>
           )}
           {pideMotivo && (
-            <div className="col-12">
-              <label className="form-label mz-small" htmlFor="sp-motivo">
-                Motivo
-              </label>
+            <Campo
+              id="sp-motivo"
+              etiqueta="Motivo"
+              error={errores.motivo}
+              className="col-12"
+            >
               <textarea
-                id="sp-motivo"
                 rows={3}
                 className="form-control form-control-sm"
                 value={valores.motivo}
                 onChange={fijar("motivo")}
               />
-            </div>
+            </Campo>
           )}
           {elegido && elegido.adjunto !== "no" && (
-            <div className="col-12">
-              <label className="form-label mz-small" htmlFor="sp-adjunto">
-                Documento de respaldo{" "}
-                {elegido.adjunto === "obligatorio"
-                  ? "(obligatorio)"
-                  : "(opcional)"}
-              </label>
+            <Campo
+              id="sp-adjunto"
+              etiqueta={
+                elegido.adjunto === "obligatorio"
+                  ? "Documento de respaldo"
+                  : "Documento de respaldo (opcional)"
+              }
+              obligatorio={elegido.adjunto === "obligatorio"}
+              ayuda="PDF o imagen, hasta 10 MB."
+              error={errores.adjunto}
+              className="col-12"
+            >
               <input
-                id="sp-adjunto"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 className="form-control form-control-sm"
                 onChange={(e) => setAdjunto(e.target.files?.[0] ?? null)}
               />
-              <small className="mz-faint">PDF o imagen, hasta 10 MB.</small>
-            </div>
+            </Campo>
           )}
           <div className="col-12 mz-actions justify-content-end">
             <button
@@ -376,7 +422,11 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       licenciasService
         .opciones()
         .then(setOpciones)
-        .catch(() => null);
+        // Sin las opciones no hay a quién escalar: se avisa en vez de dejar
+        // el selector vacío (auditoría UX/UI, fase 2, 28/10/2026).
+        .catch((err) =>
+          setError(mensajeDeError(err, "No se pudo cargar a quién escalar.")),
+        );
     }
   }, [escalando, opciones]);
 
@@ -397,8 +447,14 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
   }
 
   async function verAdjunto() {
-    const blob = await licenciasService.adjunto(id);
-    descargarBlob(blob, solicitud.adjunto_nombre);
+    setError(null);
+    try {
+      const blob = await licenciasService.adjunto(id);
+      descargarBlob(blob, solicitud.adjunto_nombre);
+    } catch (err) {
+      // Antes fallaba sin avisar (auditoría UX/UI, fase 2, 28/10/2026).
+      setError(mensajeDeError(err, "No se pudo descargar el documento."));
+    }
   }
 
   const [estado, clase] = ESTADOS[solicitud?.estado] ?? ["", ""];
@@ -411,6 +467,8 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           {error}
         </div>
       )}
+      {/* Mientras llegan los datos, la ventana no queda en blanco. */}
+      {!solicitud && !error && <EstadoDeCarga cargando />}
       {solicitud && (
         <div className="mz-stack">
           <div className="solicitud-cabecera">
@@ -588,9 +646,9 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
 }
 
 const PESTANAS = [
-  ["mias", "Mis solicitudes"],
-  ["por_aprobar", "Por aprobar"],
-  ["todas", "Todas"],
+  { id: "mias", etiqueta: "Mis solicitudes" },
+  { id: "por_aprobar", etiqueta: "Por aprobar", unidad: "por aprobar" },
+  { id: "todas", etiqueta: "Todas" },
 ];
 
 /**
@@ -613,6 +671,11 @@ export function SolicitudPermisosPage() {
   const abierta = parametros.get("solicitud");
 
   const cargar = useCallback(() => {
+    // Se vacía antes de pedir: así se ve «Cargando…» y no las filas de la
+    // pestaña anterior con sus columnas corridas, ni el error viejo
+    // (auditoría UX/UI, fase 2, 28/10/2026).
+    setLista(null);
+    setError(null);
     licenciasService
       .solicitudes(pestana)
       .then(setLista)
@@ -632,7 +695,9 @@ export function SolicitudPermisosPage() {
     cargar();
   }, [cargar]);
 
-  const pestanas = PESTANAS.filter(([id]) => id !== "todas" || verTodas);
+  const pestanas = PESTANAS.filter((p) => p.id !== "todas" || verTodas).map(
+    (p) => (p.id === "por_aprobar" ? { ...p, cuenta: porAprobar } : p),
+  );
 
   function abrir(id) {
     setParametros(id ? { solicitud: String(id) } : {});
@@ -675,35 +740,14 @@ export function SolicitudPermisosPage() {
         </div>
       )}
 
-      <div className="mz-tabs" role="tablist">
-        {pestanas.map(([id, texto]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            className={pestana === id ? "is-active" : undefined}
-            onClick={() => setPestana(id)}
-          >
-            {texto}
-            {id === "por_aprobar" && porAprobar > 0 && (
-              <span
-                className="solicitud-contador"
-                aria-label={`${porAprobar} por aprobar`}
-              >
-                {porAprobar}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Pestanas
+        etiqueta="Solicitudes de permiso"
+        idBase="sp"
+        valor={pestana}
+        onCambio={setPestana}
+        opciones={pestanas}
+      />
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
       {aviso && (
         <div className="mz-alert mz-alert--ok" role="status">
           <Icon name="check-circle" />
@@ -711,7 +755,7 @@ export function SolicitudPermisosPage() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      <PanelDePestana idBase="sp" valor={pestana} className="mz-table-wrap">
         <table className="mz-table solicitudes-tabla">
           <thead>
             <tr>
@@ -755,18 +799,21 @@ export function SolicitudPermisosPage() {
                 </tr>
               );
             })}
-            {lista?.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={7}>
-                  {pestana === "por_aprobar"
-                    ? "No tiene solicitudes por aprobar"
-                    : "No hay solicitudes"}
-                </td>
-              </tr>
-            )}
+            <FilaDeEstado
+              columnas={pestana === "mias" ? 6 : 7}
+              cargando={lista === null}
+              error={error}
+              onReintentar={cargar}
+              vacio={lista?.length === 0}
+              textoVacio={
+                pestana === "por_aprobar"
+                  ? "No tiene solicitudes por aprobar."
+                  : "No hay solicitudes."
+              }
+            />
           </tbody>
         </table>
-      </div>
+      </PanelDePestana>
 
       {nueva && (
         <NuevaSolicitud

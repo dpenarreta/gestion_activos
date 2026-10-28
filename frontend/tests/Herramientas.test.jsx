@@ -122,10 +122,10 @@ describe("Herramientas y licencias", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Nueva herramienta/ }));
     const ventana = screen.getByRole("dialog", { name: "Nueva herramienta" });
-    fireEvent.change(within(ventana).getByLabelText("Nombre"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Nombre/), {
       target: { value: "Fenix" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Tipo"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Tipo/), {
       target: { value: "interna" },
     });
     fireEvent.click(within(ventana).getByRole("button", { name: "Guardar" }));

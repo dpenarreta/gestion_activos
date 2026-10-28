@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { aplica, CamposFormulario } from "./Publico/CamposFormulario";
@@ -137,241 +138,237 @@ export function RegistrarTicket() {
           Ticket <strong className="mz-mono">{creado.numero}</strong>{" "}
           registrado; quedó en la cola.
         </div>
-      ) : (
-        datos &&
-        (!persona ? (
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>¿Quién pide?</h3>
-            </div>
-            <div className="mz-card-body">
-              <input
-                className="form-control"
-                placeholder="Buscar por nombre o correo"
-                aria-label="Buscar a la persona"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-              <ul
-                className="soporte-personas"
-                aria-label="Personas registradas"
-              >
-                {personas.map((p) => (
-                  <li key={p.id}>
-                    <button type="button" onClick={() => setPersona(p)}>
-                      <strong>{p.nombre || p.correo}</strong>
-                      <span className="mz-small mz-faint">
-                        {[p.area?.nombre, p.agencia?.nombre, p.correo]
-                          .filter(Boolean)
-                          .join(" · ")}
+      ) : !datos ? (
+        // Mientras llega el formulario, «Cargando…» y no una página vacía
+        // (auditoría UX/UI, fase 2, 28/10/2026); su error ya sale arriba.
+        <EstadoDeCarga cargando={!error} />
+      ) : !persona ? (
+        <section className="mz-card">
+          <div className="mz-card-head">
+            <h3>¿Quién pide?</h3>
+          </div>
+          <div className="mz-card-body">
+            <input
+              className="form-control"
+              placeholder="Buscar por nombre o correo"
+              aria-label="Buscar a la persona"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+            <ul className="soporte-personas" aria-label="Personas registradas">
+              {personas.map((p) => (
+                <li key={p.id}>
+                  <button type="button" onClick={() => setPersona(p)}>
+                    <strong>{p.nombre || p.correo}</strong>
+                    <span className="mz-small mz-faint">
+                      {[p.area?.nombre, p.agencia?.nombre, p.correo]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                    {p.faltan.length > 0 && (
+                      <span className="mz-pill mz-pill--warn">
+                        Datos incompletos
                       </span>
-                      {p.faltan.length > 0 && (
-                        <span className="mz-pill mz-pill--warn">
-                          Datos incompletos
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-                {personas.length === 0 && (
-                  <li className="mz-small mz-faint p-2">
-                    Nadie con ese nombre.
-                  </li>
-                )}
-              </ul>
-              <p className="mz-small mz-faint mb-0">
-                Solo personas registradas. Si quien llama no tiene cuenta, pida
-                a la administración que la cree.
-              </p>
-            </div>
-          </section>
-        ) : (
-          <form className="mz-card" onSubmit={enviar}>
-            <div className="mz-card-body row g-3">
-              <div className="col-12">
-                <div className="soporte-persona-elegida">
-                  <div className="mz-kv-grid">
-                    <div className="mz-kv">
-                      <span className="mz-kv-label">Pide</span>
-                      {persona.nombre || persona.correo}
-                    </div>
-                    <div className="mz-kv">
-                      <span className="mz-kv-label">Correo</span>
-                      {persona.correo}
-                    </div>
-                    {persona.telefono && (
-                      <div className="mz-kv">
-                        <span className="mz-kv-label">Teléfono</span>
-                        {persona.telefono}
-                      </div>
                     )}
-                    {persona.area && (
-                      <div className="mz-kv">
-                        <span className="mz-kv-label">Área</span>
-                        {persona.area.nombre}
-                      </div>
-                    )}
-                    {persona.agencia && (
-                      <div className="mz-kv">
-                        <span className="mz-kv-label">Agencia</span>
-                        {persona.agencia.nombre}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm"
-                    onClick={() => setPersona(null)}
-                  >
-                    Cambiar de persona
                   </button>
+                </li>
+              ))}
+              {personas.length === 0 && (
+                <li className="mz-small mz-faint p-2">Nadie con ese nombre.</li>
+              )}
+            </ul>
+            <p className="mz-small mz-faint mb-0">
+              Solo personas registradas. Si quien llama no tiene cuenta, pida a
+              la administración que la cree.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <form className="mz-card" onSubmit={enviar}>
+          <div className="mz-card-body row g-3">
+            <div className="col-12">
+              <div className="soporte-persona-elegida">
+                <div className="mz-kv-grid">
+                  <div className="mz-kv">
+                    <span className="mz-kv-label">Pide</span>
+                    {persona.nombre || persona.correo}
+                  </div>
+                  <div className="mz-kv">
+                    <span className="mz-kv-label">Correo</span>
+                    {persona.correo}
+                  </div>
+                  {persona.telefono && (
+                    <div className="mz-kv">
+                      <span className="mz-kv-label">Teléfono</span>
+                      {persona.telefono}
+                    </div>
+                  )}
+                  {persona.area && (
+                    <div className="mz-kv">
+                      <span className="mz-kv-label">Área</span>
+                      {persona.area.nombre}
+                    </div>
+                  )}
+                  {persona.agencia && (
+                    <div className="mz-kv">
+                      <span className="mz-kv-label">Agencia</span>
+                      {persona.agencia.nombre}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm"
+                  onClick={() => setPersona(null)}
+                >
+                  Cambiar de persona
+                </button>
+              </div>
+            </div>
+            {faltan.some((f) =>
+              ["telefono", "area", "agencia"].includes(f),
+            ) && (
+              <div className="col-12">
+                <div className="mz-alert mz-alert--warn mb-0" role="status">
+                  <Icon name="exclamation-triangle" />A esta persona le faltan
+                  datos: complételos para este ticket. Pídale que actualice «Mi
+                  perfil».
                 </div>
               </div>
-              {faltan.some((f) =>
-                ["telefono", "area", "agencia"].includes(f),
-              ) && (
-                <div className="col-12">
-                  <div className="mz-alert mz-alert--warn mb-0" role="status">
-                    <Icon name="exclamation-triangle" />A esta persona le faltan
-                    datos: complételos para este ticket. Pídale que actualice
-                    «Mi perfil».
-                  </div>
-                </div>
-              )}
-              {faltan.includes("telefono") && (
-                <div className="col-12 col-md-4">
-                  <label className="form-label" htmlFor="rt-telefono">
-                    Teléfono
-                  </label>
-                  <input
-                    id="rt-telefono"
-                    className="form-control"
-                    required
-                    inputMode="tel"
-                    value={completar.telefono}
-                    onChange={(e) =>
-                      setCompletar((v) => ({ ...v, telefono: e.target.value }))
-                    }
-                  />
-                </div>
-              )}
-              {faltan.includes("area") && (
-                <div className="col-12 col-md-4">
-                  <label className="form-label" htmlFor="rt-area">
-                    Área
-                  </label>
-                  <select
-                    id="rt-area"
-                    className="form-select"
-                    required
-                    value={completar.area}
-                    onChange={(e) =>
-                      setCompletar((v) => ({ ...v, area: e.target.value }))
-                    }
-                  >
-                    <option value="">Elija el área</option>
-                    {datos.areas.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {faltan.includes("agencia") && (
-                <div className="col-12 col-md-4">
-                  <label className="form-label" htmlFor="rt-sede">
-                    Agencia
-                  </label>
-                  <select
-                    id="rt-sede"
-                    className="form-select"
-                    required
-                    value={completar.sede}
-                    onChange={(e) =>
-                      setCompletar((v) => ({ ...v, sede: e.target.value }))
-                    }
-                  >
-                    <option value="">Elija la agencia</option>
-                    {datos.agencias.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="col-12 col-md-6">
-                <label className="form-label" htmlFor="rt-canal">
-                  ¿Por dónde llegó?
+            )}
+            {faltan.includes("telefono") && (
+              <div className="col-12 col-md-4">
+                <label className="form-label" htmlFor="rt-telefono">
+                  Teléfono
+                </label>
+                <input
+                  id="rt-telefono"
+                  className="form-control"
+                  required
+                  inputMode="tel"
+                  value={completar.telefono}
+                  onChange={(e) =>
+                    setCompletar((v) => ({ ...v, telefono: e.target.value }))
+                  }
+                />
+              </div>
+            )}
+            {faltan.includes("area") && (
+              <div className="col-12 col-md-4">
+                <label className="form-label" htmlFor="rt-area">
+                  Área
                 </label>
                 <select
-                  id="rt-canal"
+                  id="rt-area"
                   className="form-select"
-                  value={canal}
-                  onChange={(e) => setCanal(e.target.value)}
+                  required
+                  value={completar.area}
+                  onChange={(e) =>
+                    setCompletar((v) => ({ ...v, area: e.target.value }))
+                  }
                 >
-                  {datos.canales.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
+                  <option value="">Elija el área</option>
+                  {datos.areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre}
                     </option>
                   ))}
                 </select>
               </div>
-              <CamposFormulario
-                campos={datos.campos}
-                datos={datos}
-                valores={valores}
-                onBase={fijar}
-                adicionales={adicionales}
-                onAdicional={(clave, valor) =>
-                  setAdicionales((actual) => ({ ...actual, [clave]: valor }))
-                }
-                prefijo="rt"
-              />
-              <div className="col-12">
-                <label className="form-label" htmlFor="rt-adjuntos">
-                  Adjuntos (opcional, hasta 3)
+            )}
+            {faltan.includes("agencia") && (
+              <div className="col-12 col-md-4">
+                <label className="form-label" htmlFor="rt-sede">
+                  Agencia
                 </label>
-                <input
-                  id="rt-adjuntos"
-                  type="file"
-                  className="form-control"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
+                <select
+                  id="rt-sede"
+                  className="form-select"
+                  required
+                  value={completar.sede}
                   onChange={(e) =>
-                    setArchivos(Array.from(e.target.files ?? []).slice(0, 3))
+                    setCompletar((v) => ({ ...v, sede: e.target.value }))
                   }
-                />
-              </div>
-              {datos.soy_tecnico && (
-                <div className="col-12">
-                  <div className="form-check">
-                    <input
-                      id="rt-asignarme"
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={asignarme}
-                      onChange={(e) => setAsignarme(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="rt-asignarme">
-                      Me lo asigno (lo atiendo ahora)
-                    </label>
-                  </div>
-                </div>
-              )}
-              <div className="col-12 mz-actions justify-content-end">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={enviando}
                 >
-                  {enviando ? "Registrando…" : "Registrar ticket"}
-                </button>
+                  <option value="">Elija la agencia</option>
+                  {datos.agencias.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="rt-canal">
+                ¿Por dónde llegó?
+              </label>
+              <select
+                id="rt-canal"
+                className="form-select"
+                value={canal}
+                onChange={(e) => setCanal(e.target.value)}
+              >
+                {datos.canales.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
-          </form>
-        ))
+            <CamposFormulario
+              campos={datos.campos}
+              datos={datos}
+              valores={valores}
+              onBase={fijar}
+              adicionales={adicionales}
+              onAdicional={(clave, valor) =>
+                setAdicionales((actual) => ({ ...actual, [clave]: valor }))
+              }
+              prefijo="rt"
+            />
+            <div className="col-12">
+              <label className="form-label" htmlFor="rt-adjuntos">
+                Adjuntos (opcional, hasta 3)
+              </label>
+              <input
+                id="rt-adjuntos"
+                type="file"
+                className="form-control"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
+                onChange={(e) =>
+                  setArchivos(Array.from(e.target.files ?? []).slice(0, 3))
+                }
+              />
+            </div>
+            {datos.soy_tecnico && (
+              <div className="col-12">
+                <div className="form-check">
+                  <input
+                    id="rt-asignarme"
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={asignarme}
+                    onChange={(e) => setAsignarme(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="rt-asignarme">
+                    Me lo asigno (lo atiendo ahora)
+                  </label>
+                </div>
+              </div>
+            )}
+            <div className="col-12 mz-actions justify-content-end">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={enviando}
+              >
+                {enviando ? "Registrando…" : "Registrar ticket"}
+              </button>
+            </div>
+          </div>
+        </form>
       )}
     </div>
   );

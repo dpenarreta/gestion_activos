@@ -360,29 +360,52 @@ function GraficoMensual({ series }) {
     );
   }
   const maximo = Math.max(...series.map((s) => s.total), 1);
+  const puntos = series.map((punto) => {
+    const fecha = new Date(`${punto.mes}T00:00:00`);
+    return {
+      ...punto,
+      etiqueta: `${MESES[fecha.getMonth()]} ${String(fecha.getFullYear()).slice(2)}`,
+      etiquetaLarga: `${MESES[fecha.getMonth()]} ${fecha.getFullYear()}`,
+    };
+  });
 
+  /* Con role="img" el lector de pantalla solo oía «Reparaciones por mes»,
+     sin una sola cifra. Ahora el dibujo queda oculto para él y los mismos
+     datos van en una tabla que solo él lee (auditoría UX/UI, fase 2,
+     28/10/2026). */
   return (
-    <div
-      className="grafico-mensual"
-      role="img"
-      aria-label="Reparaciones por mes"
-    >
-      {series.map((punto) => {
-        const fecha = new Date(`${punto.mes}T00:00:00`);
-        const etiqueta = `${MESES[fecha.getMonth()]} ${String(fecha.getFullYear()).slice(2)}`;
-        return (
+    <>
+      <div className="grafico-mensual" aria-hidden="true">
+        {puntos.map((punto) => (
           <div className="grafico-mensual__columna" key={punto.mes}>
             <span className="grafico-mensual__valor">{punto.total}</span>
             <div
               className="grafico-mensual__barra"
               style={{ height: `${(punto.total / maximo) * 100}%` }}
-              title={`${etiqueta}: ${punto.total}`}
+              title={`${punto.etiqueta}: ${punto.total}`}
             />
-            <span className="grafico-mensual__mes">{etiqueta}</span>
+            <span className="grafico-mensual__mes">{punto.etiqueta}</span>
           </div>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+      <table className="visually-hidden">
+        <caption>Reparaciones por mes</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mes</th>
+            <th scope="col">Reparaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {puntos.map((punto) => (
+            <tr key={punto.mes}>
+              <th scope="row">{punto.etiquetaLarga}</th>
+              <td>{punto.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 

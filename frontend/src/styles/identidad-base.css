@@ -2211,3 +2211,37 @@ body {
     min-height: 44px;
   }
 }
+
+/* --- Fase 2 de la auditoría UX/UI (28/10/2026) --------------------------- */
+
+/* Cargando / vacío de las listas (EstadoDeCarga). */
+.mz-estado {
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.mz-estado-fila > td {
+  padding: 0;
+}
+
+.mz-estado__error {
+  margin: 8px;
+}
+
+/* La marca de obligatorio (Campo). */
+.mz-campo__obligatorio {
+  color: var(--mz-bad-fg);
+  font-weight: 700;
+}
+
+/* El contador de una pestaña (Pestanas). */
+.mz-tabs__cuenta {
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+}

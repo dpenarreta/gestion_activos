@@ -25,7 +25,9 @@ export function useListadoPaginado(
     next: null,
     previous: null,
   });
-  const [isLoading, setIsLoading] = useState(false);
+  // Empieza cargando: con `false`, cada lista decía un instante «Todavía no
+  // hay registros» antes de la primera respuesta (auditoría UX/UI, fase 2).
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Cuál es la consulta vigente. Dos peticiones pueden estar en vuelo a la vez
@@ -37,7 +39,6 @@ export function useListadoPaginado(
 
   const consultar = useCallback(() => {
     setIsLoading(true);
-    setError(null);
     const esta = ++vigente.current;
     const params = { page: pagina };
     Object.entries(filtros).forEach(([clave, valor]) => {
@@ -48,6 +49,10 @@ export function useListadoPaginado(
     return cargar(params)
       .then((respuesta) => {
         if (esta !== vigente.current) return;
+        // El error se borra al cargar bien, no antes de pedir: con los
+        // listados que se refrescan solos, el aviso se volvía a anunciar en
+        // cada vuelta mientras durara el fallo (auditoría UX/UI, fase 2).
+        setError(null);
         // Un endpoint sin paginar devuelve una lista pelada; se normaliza para
         // que la vista no tenga que distinguir los dos casos.
         setDatos(

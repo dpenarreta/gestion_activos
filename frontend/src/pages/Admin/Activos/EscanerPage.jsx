@@ -118,8 +118,11 @@ export function EscanerPage() {
         disabled={isLoading}
       />
 
+      {/* role="status" y no "alert": «no se encontró» es el resultado de la
+          lectura, se anuncia sin interrumpir y sin robar el foco que el campo
+          mantiene para la siguiente (auditoría UX/UI, fase 2, 28/10/2026). */}
       {error && (
-        <div className="mz-alert mz-alert--warn" role="alert">
+        <div className="mz-alert mz-alert--warn" role="status">
           <Icon name="exclamation-triangle" />
           {error}
         </div>

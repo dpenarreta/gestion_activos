@@ -122,6 +122,39 @@ export function AdminLayout() {
     setIsCollapsed((value) => !value);
   }
 
+  // Al borrar una fila, el botón que tenía el foco desaparece y el foco caía
+  // en <body>: quien navega con teclado tenía que empezar de nuevo desde el
+  // menú (auditoría UX/UI, fase 2). Si pasa, el foco vuelve al contenido.
+  useEffect(() => {
+    let ultimo = null;
+    const alEnfocar = (e) => {
+      ultimo = e.target;
+    };
+    const observador = new MutationObserver(() => {
+      if (
+        ultimo &&
+        !document.contains(ultimo) &&
+        (document.activeElement === document.body || !document.activeElement)
+      ) {
+        ultimo = null;
+        document.getElementById("contenido")?.focus({ preventScroll: true });
+      }
+    });
+    // Un clic en otro lado olvida el último foco: si después desaparece ese
+    // nodo, no hay por qué mover el foco.
+    const alPresionar = () => {
+      ultimo = null;
+    };
+    document.addEventListener("pointerdown", alPresionar, true);
+    document.addEventListener("focusin", alEnfocar);
+    observador.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      document.removeEventListener("pointerdown", alPresionar, true);
+      document.removeEventListener("focusin", alEnfocar);
+      observador.disconnect();
+    };
+  }, []);
+
   return (
     <UnsavedChangesProvider>
       <EstadoModulosProvider>

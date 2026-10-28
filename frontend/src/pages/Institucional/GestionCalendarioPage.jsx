@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { TIPOS_DE_EVENTO, iso } from "./CalendarioInicio";
 import "./Institucional.css";
@@ -14,6 +20,10 @@ import { confirmar } from "../../components/common/Confirmar/confirmar";
 function FormularioEvento({ inicial, onGuardar, onCerrar }) {
   const [valores, setValores] = useState(inicial);
   const [error, setError] = useState(null);
+  // Errores junto a su campo y foco al primero (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errores, setErrores] = useState({});
+  const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
   const editando = Boolean(inicial.id);
   const { panelRef, handleBackdropClick } = useModalA11y({
@@ -35,6 +45,7 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     try {
       await onGuardar({
         titulo: valores.titulo,
@@ -46,7 +57,9 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
       });
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -77,7 +90,11 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body row g-2" onSubmit={enviar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body row g-2"
+          onSubmit={enviar}
+        >
           {error && (
             <div className="col-12">
               <div className="mz-alert mz-alert--bad" role="alert">
@@ -87,28 +104,31 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
             </div>
           )}
           <div className="col-12">
-            <label
-              className="form-label mz-small"
-              htmlFor="evento-titulo-campo"
-            >
-              Título
-            </label>
+            <LeyendaObligatorios />
+          </div>
+          <Campo
+            id="evento-titulo-campo"
+            etiqueta="Título"
+            obligatorio
+            error={errores.titulo}
+            className="col-12"
+          >
             <input
-              id="evento-titulo-campo"
               className="form-control form-control-sm"
-              required
               maxLength={150}
               placeholder="Cumpleaños de Rosa Vera"
               value={valores.titulo}
               onChange={fijar("titulo")}
             />
-          </div>
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="evento-tipo">
-              Tipo
-            </label>
+          </Campo>
+          <Campo
+            id="evento-tipo"
+            etiqueta="Tipo"
+            obligatorio
+            error={errores.tipo}
+            className="col-12"
+          >
             <select
-              id="evento-tipo"
               className="form-select form-select-sm"
               value={valores.tipo}
               onChange={fijar("tipo")}
@@ -119,45 +139,48 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="evento-fecha">
-              Fecha
-            </label>
+          </Campo>
+          <Campo
+            id="evento-fecha"
+            etiqueta="Fecha"
+            obligatorio
+            error={errores.fecha}
+            className="col-6"
+          >
             <input
-              id="evento-fecha"
               type="date"
-              required
               className="form-control form-control-sm"
               value={valores.fecha}
               onChange={fijar("fecha")}
             />
-          </div>
-          <div className="col-6">
-            <label className="form-label mz-small" htmlFor="evento-fin">
-              Hasta (si dura varios días)
-            </label>
+          </Campo>
+          <Campo
+            id="evento-fin"
+            etiqueta="Hasta (si dura varios días)"
+            error={errores.fecha_fin}
+            className="col-6"
+          >
             <input
-              id="evento-fin"
               type="date"
               min={valores.fecha || undefined}
               className="form-control form-control-sm"
               value={valores.fecha_fin ?? ""}
               onChange={fijar("fecha_fin")}
             />
-          </div>
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="evento-descripcion">
-              Descripción (opcional)
-            </label>
+          </Campo>
+          <Campo
+            id="evento-descripcion"
+            etiqueta="Descripción (opcional)"
+            error={errores.descripcion}
+            className="col-12"
+          >
             <input
-              id="evento-descripcion"
               className="form-control form-control-sm"
               maxLength={300}
               value={valores.descripcion}
               onChange={fijar("descripcion")}
             />
-          </div>
+          </Campo>
           <div className="col-12">
             <label className="form-check">
               <input
@@ -205,19 +228,21 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
 export function GestionCalendarioPage() {
   const [eventos, setEventos] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va en la tabla, con «Reintentar» (auditoría UX/UI,
+  // fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [editando, setEditando] = useState(null);
 
-  const cargar = useCallback(
-    () =>
-      institucionalService
-        .eventos()
-        .then(setEventos)
-        .catch((err) =>
-          setError(mensajeDeError(err, "No se pudo cargar el calendario.")),
-        ),
-    [],
-  );
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return institucionalService
+      .eventos()
+      .then(setEventos)
+      .catch((err) =>
+        setErrorCarga(mensajeDeError(err, "No se pudo cargar el calendario.")),
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
@@ -357,11 +382,14 @@ export function GestionCalendarioPage() {
                 </td>
               </tr>
             ))}
-            {eventos?.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={5}>Todavía no hay fechas en el calendario</td>
-              </tr>
-            )}
+            <FilaDeEstado
+              columnas={5}
+              cargando={eventos === null}
+              error={errorCarga}
+              onReintentar={cargar}
+              vacio={eventos?.length === 0}
+              textoVacio="Todavía no hay fechas en el calendario."
+            />
           </tbody>
         </table>
       </div>

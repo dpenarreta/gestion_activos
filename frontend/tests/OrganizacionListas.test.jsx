@@ -110,7 +110,7 @@ const CATALOGOS = [
     titulo: "Sedes",
     alta: "Nueva sede",
     buscar: "Buscar sedes",
-    vacio: "Sin sedes registradas",
+    vacio: "Todavía no hay sedes registradas.",
     error: "No se pudo cargar el listado de sedes.",
     identifica: "Matriz Quito",
     ruta: "/admin/organizacion/sedes/1",
@@ -121,7 +121,7 @@ const CATALOGOS = [
     titulo: "Empleados",
     alta: "Nuevo empleado",
     buscar: "Buscar empleados",
-    vacio: "Sin empleados registrados",
+    vacio: "Todavía no hay empleados registrados.",
     error: "No se pudo cargar el listado de empleados.",
     identifica: "Luis Mora",
     ruta: "/admin/organizacion/empleados/3",
@@ -132,7 +132,7 @@ const CATALOGOS = [
     titulo: "Proveedores",
     alta: "Nuevo proveedor",
     buscar: "Buscar proveedores",
-    vacio: "Sin proveedores registrados",
+    vacio: "Todavía no hay proveedores registrados.",
     error: "No se pudo cargar el listado de proveedores.",
     identifica: "Tecnomega C.A.",
     ruta: "/admin/organizacion/proveedores/4",
@@ -143,7 +143,7 @@ const CATALOGOS = [
     titulo: "Concesionarios",
     alta: "Nuevo concesionario",
     buscar: "Buscar concesionarios",
-    vacio: "Sin concesionarios registrados",
+    vacio: "Todavía no hay concesionarios registrados.",
     error: "No se pudo cargar el listado de concesionarios.",
     identifica: "Servientrega Andina",
     ruta: "/admin/organizacion/concesionarios/5",
@@ -186,10 +186,9 @@ describe.each(CATALOGOS)(
       expect(
         screen.queryByRole("link", { name: alta }),
       ).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Ver" })).toHaveAttribute(
-        "href",
-        ruta,
-      );
+      expect(
+        screen.getByRole("link", { name: `Ver ${identifica}` }),
+      ).toHaveAttribute("href", ruta);
     });
 
     it("con permiso aparecen el alta y la edición", async () => {
@@ -199,10 +198,9 @@ describe.each(CATALOGOS)(
 
       await screen.findByText(identifica);
       expect(screen.getByRole("link", { name: alta })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute(
-        "href",
-        ruta,
-      );
+      expect(
+        screen.getByRole("link", { name: `Editar ${identifica}` }),
+      ).toHaveAttribute("href", ruta);
     });
 
     it("la búsqueda se envía al confirmar", async () => {
@@ -241,14 +239,63 @@ describe.each(CATALOGOS)(
       pintar(Pantalla);
 
       expect(await screen.findByText(vacio)).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Limpiar filtros" }),
+      ).not.toBeInTheDocument();
     });
 
-    it("si no carga lo dice", async () => {
+    it("vacío por los filtros lo distingue y los limpia, búsqueda incluida", async () => {
+      /* «No hay registros» con un filtro puesto hace creer que el catálogo
+         está vacío; lo que pasa es que el filtro no encuentra nada. */
+      pintar(Pantalla);
+
+      await screen.findByText(identifica);
+      listar[clave].mockResolvedValue({ results: [], count: 0 });
+      const campo = screen.getByLabelText(buscar);
+      fireEvent.change(campo, { target: { value: "zzz" } });
+      fireEvent.submit(campo.closest("form"));
+
+      expect(
+        await screen.findByText("Ningún resultado con estos filtros."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(vacio)).not.toBeInTheDocument();
+
+      listar[clave].mockResolvedValue({
+        results: FILAS[clave],
+        count: FILAS[clave].length,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+      expect(await screen.findByText(identifica)).toBeInTheDocument();
+      expect(campo).toHaveValue("");
+      expect(listar[clave].mock.calls.at(-1)[0]).not.toHaveProperty("q");
+    });
+
+    it("si no carga lo dice, sin filas a medias, y deja reintentar", async () => {
       listar[clave].mockRejectedValue(new Error("500"));
 
       pintar(Pantalla);
 
-      expect(await screen.findByText(error)).toBeInTheDocument();
+      expect(await screen.findByRole("alert")).toHaveTextContent(error);
+      expect(screen.queryByText(vacio)).not.toBeInTheDocument();
+
+      listar[clave].mockResolvedValue({
+        results: FILAS[clave],
+        count: FILAS[clave].length,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+      expect(await screen.findByText(identifica)).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("mientras carga lo dice, en vez de «no hay registros»", async () => {
+      listar[clave].mockReturnValue(new Promise(() => {}));
+
+      pintar(Pantalla);
+
+      expect(await screen.findByText("Cargando…")).toBeInTheDocument();
+      expect(screen.queryByText(vacio)).not.toBeInTheDocument();
     });
   },
 );

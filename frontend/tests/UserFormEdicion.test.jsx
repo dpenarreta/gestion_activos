@@ -42,6 +42,15 @@ vi.mock("../src/api/rolesService", () => ({
 
 vi.mock("../src/api/client", () => ({ getEmpresaActiva: () => "1" }));
 
+// La ficha avisa al salir con cambios sin guardar (auditoría UX/UI, fase 2).
+const marcarSinGuardar = vi.fn();
+vi.mock("../src/context/UnsavedChangesContext", () => ({
+  useUnsavedChanges: () => ({
+    setIsDirty: marcarSinGuardar,
+    guardedNavigate: vi.fn(),
+  }),
+}));
+
 const permisos = new Set();
 vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codename) => permisos.has(codename),
@@ -73,7 +82,9 @@ function pintar() {
 /** Marca una opción de restablecimiento y confirma el diálogo. */
 async function ejecutarRestablecimiento(etiqueta) {
   fireEvent.click(screen.getByLabelText(etiqueta));
-  fireEvent.click(screen.getByRole("button", { name: "Ejecutar" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+  );
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
 }
 
@@ -93,9 +104,9 @@ describe("Editar una cuenta", () => {
 
     expect(await screen.findByText("Editar usuario")).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombres")).toHaveValue("Ana"),
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
     );
-    expect(screen.getByLabelText("Correo")).toHaveValue("ana@example.com");
+    expect(screen.getByLabelText(/^Correo/)).toHaveValue("ana@example.com");
   });
 
   it("el nombre de usuario no cambia, y explica por qué", async () => {
@@ -124,9 +135,9 @@ describe("Editar una cuenta", () => {
 
     await screen.findByText("Editar usuario");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombres")).toHaveValue("Ana"),
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
     );
-    fireEvent.change(screen.getByLabelText("Apellidos"), {
+    fireEvent.change(screen.getByLabelText(/^Apellidos/), {
       target: { value: "Cevallos Ruiz" },
     });
 
@@ -137,7 +148,9 @@ describe("Editar una cuenta", () => {
     pintar();
 
     await screen.findByText("Editar usuario");
-    expect(screen.queryByLabelText(/Contraseña inicial/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Contraseña inicial/),
+    ).not.toBeInTheDocument();
   });
 
   it("guardar actualiza la cuenta abierta, sin crear otra", async () => {
@@ -145,9 +158,9 @@ describe("Editar una cuenta", () => {
 
     await screen.findByText("Editar usuario");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombres")).toHaveValue("Ana"),
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar datos" }));
 
     await waitFor(() => expect(actualizar).toHaveBeenCalled());
     expect(actualizar.mock.calls[0][0]).toBe("7");
@@ -166,11 +179,63 @@ describe("Editar una cuenta", () => {
 
     await screen.findByText("Editar usuario");
     await waitFor(() =>
-      expect(screen.getByLabelText("Nombres")).toHaveValue("Ana"),
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar datos" }));
 
     expect(await screen.findByText(/Ya está registrado/)).toBeInTheDocument();
+    // Bajo su campo, que queda marcado, y no solo en un aviso lejano.
+    expect(screen.getByLabelText(/^Correo/)).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByLabelText(/^Correo/)).toHaveAccessibleDescription(
+      "Ya está registrado.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
+    );
+  });
+
+  it("marca los obligatorios", async () => {
+    pintar();
+
+    await screen.findByText("Editar usuario");
+    expect(screen.getByLabelText(/^Nombres/)).toBeRequired();
+    expect(screen.getByLabelText(/^Correo/)).toBeRequired();
+    expect(screen.getByLabelText(/^Código de empleado/)).not.toBeRequired();
+    expect(screen.getByText("Obligatorio")).toBeInTheDocument();
+  });
+
+  it("avisa de cambios sin guardar y deja de hacerlo al guardar", async () => {
+    /* Cada tarjeta guarda por separado: salir tras tocar una sin guardarla
+       perdía el cambio sin decir nada (auditoría UX/UI, fase 2). */
+    pintar();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
+    );
+    expect(marcarSinGuardar).not.toHaveBeenLastCalledWith(true);
+
+    fireEvent.change(screen.getByLabelText(/^Apellidos/), {
+      target: { value: "Cevallos Mora" },
+    });
+    expect(marcarSinGuardar).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar datos" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Datos guardados.",
+    );
+    expect(marcarSinGuardar).toHaveBeenLastCalledWith(false);
+  });
+
+  it("ofrece volver al listado de usuarios", async () => {
+    pintar();
+
+    expect(
+      await screen.findByRole("link", { name: /Volver a usuarios/ }),
+    ).toHaveAttribute("href", "/admin/users");
   });
 
   it("si la cuenta no carga lo dice", async () => {
@@ -195,13 +260,15 @@ describe("Restablecer la contraseña de otra persona", () => {
   });
 
   it("sin elegir ninguna opción no se puede ejecutar", async () => {
-    /* Ejecutar sin opciones no haría nada y parecería que sí. */
+    /* Aplicar sin opciones no haría nada y parecería que sí. */
     permisos.add("usuarios.restablecer_password");
 
     pintar();
 
     await screen.findByText("Restablecer contraseña");
-    expect(screen.getByRole("button", { name: "Ejecutar" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+    ).toBeDisabled();
   });
 
   it("pregunta antes: las tres acciones son irreversibles", async () => {
@@ -211,7 +278,9 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     await screen.findByText("Restablecer contraseña");
     fireEvent.click(screen.getByLabelText("Cerrar sesiones activas"));
-    fireEvent.click(screen.getByRole("button", { name: "Ejecutar" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+    );
 
     expect(
       await screen.findByText(/Esta acción no puede deshacerse/),
@@ -250,7 +319,9 @@ describe("Restablecer la contraseña de otra persona", () => {
       await screen.findByText("La acción se ejecutó correctamente."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Cerrar sesiones activas")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "Ejecutar" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+    ).toBeDisabled();
   });
 
   it("si falla, lo dice con el motivo del servidor", async () => {

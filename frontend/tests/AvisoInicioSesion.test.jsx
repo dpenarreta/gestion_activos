@@ -95,7 +95,7 @@ describe("En Configuración", () => {
     servicio.guardar.mockResolvedValue({ ...AVISO, titulo: "Nuevo horario" });
     render(<AvisoInicioPage />);
 
-    const titulo = await screen.findByLabelText("Título");
+    const titulo = await screen.findByLabelText(/^Título/);
     expect(titulo).toHaveValue("Mantenimiento del sistema");
     expect(screen.getByRole("switch", { name: /Encendido/ })).toBeChecked();
 
@@ -115,7 +115,7 @@ describe("En Configuración", () => {
         null,
       ),
     );
-    expect(await screen.findByText("Guardado")).toBeInTheDocument();
+    expect(await screen.findByText("Guardado.")).toBeInTheDocument();
   });
 
   it("la imagen se puede quitar", async () => {
@@ -130,6 +130,34 @@ describe("En Configuración", () => {
         expect.objectContaining({ quitar_imagen: true }),
         null,
       ),
+    );
+  });
+
+  it("el título es obligatorio encendido y su error va bajo el campo", async () => {
+    /* Auditoría UX/UI, fase 2: el error del servidor salía arriba, sin decir
+       qué campo corregir. */
+    servicio.guardar.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            details: { titulo: ["Un aviso encendido necesita título."] },
+          },
+        },
+      },
+    });
+    render(<AvisoInicioPage />);
+
+    const titulo = await screen.findByLabelText(/^Título/);
+    expect(titulo).toBeRequired();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await screen.findByText("Un aviso encendido necesita título.");
+    expect(titulo).toHaveAttribute("aria-invalid", "true");
+    expect(titulo).toHaveAccessibleDescription(
+      "Un aviso encendido necesita título.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
     );
   });
 });

@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { licenciasService } from "../../api/licenciasService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import {
   DESTINOS_APROBADOR,
   DESTINOS_AVISO,
@@ -95,6 +101,11 @@ export function ListaDeDestinos({
 function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
   const [flujo, setFlujo] = useState(inicial);
   const [error, setError] = useState(null);
+  // Errores de los campos de arriba junto a cada uno, y foco al primero
+  // (auditoría UX/UI, fase 2, 28/10/2026). Los de los pasos y avisos siguen
+  // en el aviso general.
+  const [errores, setErrores] = useState({});
+  const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -120,6 +131,7 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     const limpiar = (lista) =>
       lista.map(({ tipo, usuario, rol, cargo }) => ({
         tipo,
@@ -154,7 +166,9 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
       });
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el flujo."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -189,34 +203,41 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body mz-stack" onSubmit={guardar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body mz-stack"
+          onSubmit={guardar}
+        >
           {error && (
             <div className="mz-alert mz-alert--bad" role="alert">
               <Icon name="x-octagon" />
               {error}
             </div>
           )}
+          <LeyendaObligatorios />
           <div className="row g-2">
-            <div className="col-12 col-md-6">
-              <label className="form-label mz-small" htmlFor="flujo-nombre">
-                Nombre del permiso
-              </label>
+            <Campo
+              id="flujo-nombre"
+              etiqueta="Nombre del permiso"
+              obligatorio
+              error={errores.nombre}
+              className="col-12 col-md-6"
+            >
               <input
-                id="flujo-nombre"
                 className="form-control form-control-sm"
-                required
                 maxLength={120}
                 placeholder="Vacaciones"
                 value={flujo.nombre}
                 onChange={fijar("nombre")}
               />
-            </div>
-            <div className="col-12 col-md-6">
-              <label className="form-label mz-small" htmlFor="flujo-adjunto">
-                Documento de respaldo
-              </label>
+            </Campo>
+            <Campo
+              id="flujo-adjunto"
+              etiqueta="Documento de respaldo"
+              error={errores.adjunto}
+              className="col-12 col-md-6"
+            >
               <select
-                id="flujo-adjunto"
                 className="form-select form-select-sm"
                 value={flujo.adjunto}
                 onChange={fijar("adjunto")}
@@ -227,21 +248,19 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="col-12">
-              <label
-                className="form-label mz-small"
-                htmlFor="flujo-descripcion"
-              >
-                Descripción (la ve quien solicita)
-              </label>
+            </Campo>
+            <Campo
+              id="flujo-descripcion"
+              etiqueta="Descripción (la ve quien solicita)"
+              error={errores.descripcion}
+              className="col-12"
+            >
               <input
-                id="flujo-descripcion"
                 className="form-control form-control-sm"
                 value={flujo.descripcion}
                 onChange={fijar("descripcion")}
               />
-            </div>
+            </Campo>
             <div className="col-12">
               <label className="form-check">
                 <input
@@ -278,32 +297,34 @@ function EditorFlujo({ inicial, opciones, onGuardado, onCerrar }) {
               restricción.
             </p>
             <div className="row g-2">
-              <div className="col-6 col-md-3">
-                <label className="form-label mz-small" htmlFor="flujo-minimo">
-                  Mínimo de días seguidos
-                </label>
+              <Campo
+                id="flujo-minimo"
+                etiqueta="Mínimo de días seguidos"
+                error={errores.dias_minimos}
+                className="col-6 col-md-3"
+              >
                 <input
-                  id="flujo-minimo"
                   type="number"
                   min={0}
                   className="form-control form-control-sm"
                   value={flujo.dias_minimos ?? 0}
                   onChange={fijar("dias_minimos")}
                 />
-              </div>
-              <div className="col-6 col-md-3">
-                <label className="form-label mz-small" htmlFor="flujo-maximo">
-                  Máximo de días seguidos
-                </label>
+              </Campo>
+              <Campo
+                id="flujo-maximo"
+                etiqueta="Máximo de días seguidos"
+                error={errores.dias_maximos}
+                className="col-6 col-md-3"
+              >
                 <input
-                  id="flujo-maximo"
                   type="number"
                   min={0}
                   className="form-control form-control-sm"
                   value={flujo.dias_maximos ?? 0}
                   onChange={fijar("dias_maximos")}
                 />
-              </div>
+              </Campo>
               <div className="col-12 col-md-6 d-flex align-items-end">
                 <label className="form-check mb-1">
                   <input
@@ -546,25 +567,36 @@ export function FlujosPermisoPage() {
   const [opciones, setOpciones] = useState(null);
   const [editando, setEditando] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va junto a la lista, con «Reintentar» (auditoría
+  // UX/UI, fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
 
-  const cargar = useCallback(
-    () =>
-      licenciasService
-        .flujos()
-        .then(setFlujos)
-        .catch((err) =>
-          setError(mensajeDeError(err, "No se pudieron cargar los flujos.")),
-        ),
-    [],
-  );
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return licenciasService
+      .flujos()
+      .then(setFlujos)
+      .catch((err) =>
+        setErrorCarga(mensajeDeError(err, "No se pudieron cargar los flujos.")),
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
     licenciasService
       .opciones()
       .then(setOpciones)
-      .catch(() => null);
+      // Sin las opciones no se pueden elegir aprobadores: se avisa en vez de
+      // dejar los selectores vacíos.
+      .catch((err) =>
+        setError(
+          mensajeDeError(
+            err,
+            "No se pudieron cargar las personas, roles y cargos para elegir aprobadores.",
+          ),
+        ),
+      );
   }, [cargar]);
 
   async function guardar(datos) {
@@ -633,6 +665,13 @@ export function FlujosPermisoPage() {
         </div>
       )}
 
+      <EstadoDeCarga
+        cargando={flujos === null}
+        error={errorCarga}
+        onReintentar={cargar}
+        vacio={flujos?.length === 0}
+        textoVacio="Todavía no hay tipos de permiso."
+      />
       <div className="flujos-lista">
         {(flujos ?? []).map((f) => (
           <section
@@ -689,9 +728,6 @@ export function FlujosPermisoPage() {
             </div>
           </section>
         ))}
-        {flujos?.length === 0 && (
-          <p className="mz-faint">Todavía no hay tipos de permiso.</p>
-        )}
       </div>
 
       {editando && (

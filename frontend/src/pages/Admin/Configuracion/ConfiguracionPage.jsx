@@ -187,9 +187,11 @@ export function ConfiguracionPage() {
           {error}
         </div>
       )}
+      {/* Un solo aviso de éxito, anunciado (auditoría UX/UI, fase 2,
+          28/10/2026): el pie repetía «Guardado» en verde suelto. */}
       {guardado && (
-        <div className="mz-alert mz-alert--ok">
-          <Icon name="check-circle" />
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
           Cambios guardados. Ya se ven en todo el sistema.
         </div>
       )}
@@ -245,11 +247,6 @@ export function ConfiguracionPage() {
             {/* Un solo pie para las dos pestañas: editan el mismo tema y se
                 guardan juntas. */}
             <div className="mz-actions justify-content-end mt-3">
-              {guardado && (
-                <span className="mz-small text-success me-auto" role="status">
-                  <Icon name="check-circle" /> Guardado
-                </span>
-              )}
               <button
                 type="button"
                 className="btn btn-outline-secondary"
@@ -263,7 +260,7 @@ export function ConfiguracionPage() {
                 className="btn btn-primary"
                 disabled={isSaving || hasInvalidHex}
               >
-                {isSaving ? "Procesando..." : "Guardar"}
+                {isSaving ? "Guardando…" : "Guardar"}
               </button>
             </div>
           </form>

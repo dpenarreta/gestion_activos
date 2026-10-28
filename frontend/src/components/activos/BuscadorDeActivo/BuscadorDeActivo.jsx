@@ -37,9 +37,14 @@ export function BuscadorDeActivo({
   ayuda,
   disabled = false,
   requerido = false,
+  // El error que el servidor devolvió para este campo (auditoría UX/UI,
+  // fase 2, 28/10/2026): va bajo el buscador, no solo arriba del formulario.
+  errorCampo,
 }) {
   const idCampo = useId();
   const idLista = `${idCampo}-lista`;
+  const idAyuda = `${idCampo}-ayuda`;
+  const idError = `${idCampo}-error`;
 
   const [elegido, setElegido] = useState(null);
   const [texto, setTexto] = useState("");
@@ -217,11 +222,30 @@ export function BuscadorDeActivo({
   }
 
   const hayQueEscribirMas = abierta && texto.trim().length < 2;
+  const mensajeError = error || errorCampo;
+  const textoAyuda = hayQueEscribirMas
+    ? "Escriba al menos dos caracteres, o dispare la pistola sobre la etiqueta."
+    : !mensajeError && ayuda;
+  const describe =
+    [textoAyuda && idAyuda, mensajeError && idError]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <div className="buscador-activo">
+      {/* La marca de obligatorio y la ayuda asociada, como en `Campo`
+          (auditoría UX/UI, fase 2). */}
       <label className="form-label" htmlFor={idCampo}>
         {etiqueta}
+        {requerido && (
+          <>
+            <span className="mz-campo__obligatorio" aria-hidden="true">
+              {" "}
+              *
+            </span>
+            <span className="visually-hidden"> (obligatorio)</span>
+          </>
+        )}
       </label>
       <input
         id={idCampo}
@@ -241,6 +265,9 @@ export function BuscadorDeActivo({
         placeholder="Escanee la etiqueta o escriba código, serie o nombre"
         disabled={disabled}
         required={requerido}
+        aria-required={requerido || undefined}
+        aria-invalid={mensajeError ? true : undefined}
+        aria-describedby={describe}
         value={texto}
         onChange={(evento) => {
           setTexto(evento.target.value);
@@ -250,15 +277,15 @@ export function BuscadorDeActivo({
         onKeyDown={alTeclear}
       />
 
-      {error && <div className="mz-field-error">{error}</div>}
-      {hayQueEscribirMas && (
-        <div className="form-text">
-          Escriba al menos dos caracteres, o dispare la pistola sobre la
-          etiqueta.
+      {mensajeError && (
+        <div id={idError} className="mz-field-error">
+          {mensajeError}
         </div>
       )}
-      {!error && !hayQueEscribirMas && ayuda && (
-        <div className="form-text">{ayuda}</div>
+      {textoAyuda && (
+        <div id={idAyuda} className="form-text">
+          {textoAyuda}
+        </div>
       )}
 
       {abierta && (resultados.length > 0 || buscando) && (

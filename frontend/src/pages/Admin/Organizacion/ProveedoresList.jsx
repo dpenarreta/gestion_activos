@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { proveedoresService } from "../../../api/organizacionService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -31,9 +32,18 @@ export function ProveedoresList() {
     "No se pudo cargar el listado de proveedores.",
   );
 
+  const hayFiltros = Object.values(listado.filtros).some(Boolean);
+
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
+  // próximo «Buscar» volvería a filtrar por él.
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
   return (
@@ -86,13 +96,6 @@ export function ProveedoresList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -107,44 +110,54 @@ export function ProveedoresList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((proveedor) => (
-              <tr key={proveedor.id}>
-                <td className="mz-strong">{proveedor.nombre}</td>
-                <td className="mz-mono mz-faint">
-                  {proveedor.identificacion || "—"}
-                </td>
-                <td>
-                  {proveedor.contacto || <span className="mz-faint">—</span>}
-                  {proveedor.telefono && (
-                    <div className="mz-faint mz-small">
-                      {proveedor.telefono}
-                    </div>
-                  )}
-                </td>
-                <td className="num">{proveedor.total_activos}</td>
-                <td className="num">{proveedor.total_repuestos}</td>
-                <td>
-                  <span
-                    className={`mz-pill ${proveedor.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {proveedor.activo ? "Activo" : "De baja"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/organizacion/proveedores/${proveedor.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={7}>Sin proveedores registrados</td>
-              </tr>
-            )}
+            {/* Cargando, error con reintento y un vacío que distingue «no
+                hay registros» de «el filtro no encuentra nada» (auditoría
+                UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={7}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Todavía no hay proveedores registrados."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!listado.error &&
+              listado.resultados.map((proveedor) => (
+                <tr key={proveedor.id}>
+                  <td className="mz-strong">{proveedor.nombre}</td>
+                  <td className="mz-mono mz-faint">
+                    {proveedor.identificacion || "—"}
+                  </td>
+                  <td>
+                    {proveedor.contacto || <span className="mz-faint">—</span>}
+                    {proveedor.telefono && (
+                      <div className="mz-faint mz-small">
+                        {proveedor.telefono}
+                      </div>
+                    )}
+                  </td>
+                  <td className="num">{proveedor.total_activos}</td>
+                  <td className="num">{proveedor.total_repuestos}</td>
+                  <td>
+                    <span
+                      className={`mz-pill ${proveedor.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {proveedor.activo ? "Activo" : "De baja"}
+                    </span>
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/organizacion/proveedores/${proveedor.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${proveedor.nombre}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

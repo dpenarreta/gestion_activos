@@ -20,8 +20,17 @@ import "./PermissionsCheckboxGroup.css";
  * `catalog`: { [moduloKey]: { label, description, grupo, permissions: { codename: nombre } } }
  * `selected`: Set<string> de codenames seleccionados.
  * `onChange`: (nextSelectedSet) => void
+ * `soloLectura`: las casillas se ven pero no se cambian; el buscador, el
+ *   filtro y los acordeones siguen funcionando, para que quien solo puede ver
+ *   un rol pueda recorrer sus permisos (auditoría UX/UI, fase 2, 28/10/2026:
+ *   un `<fieldset disabled>` alrededor apagaba también los acordeones).
  */
-export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
+export function PermissionsCheckboxGroup({
+  catalog,
+  selected,
+  onChange,
+  soloLectura = false,
+}) {
   const [searchTerm, setSearchTerm] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
   const [abiertos, setAbiertos] = useState(() => new Set());
@@ -33,6 +42,25 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
   ).length;
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filtrando = Boolean(normalizedSearch || moduleFilter);
+
+  const gruposVisibles = grupos
+    .map((grupo) => ({
+      grupo,
+      bloques: grupo.modulos
+        .filter(([moduleKey]) => !moduleFilter || moduleKey === moduleFilter)
+        .map(([moduleKey, module]) => [
+          moduleKey,
+          module,
+          Object.entries(module.permissions).filter(
+            ([codename, name]) =>
+              !normalizedSearch ||
+              codename.toLowerCase().includes(normalizedSearch) ||
+              name.toLowerCase().includes(normalizedSearch),
+          ),
+        ])
+        .filter(([, , entradas]) => entradas.length > 0),
+    }))
+    .filter(({ bloques }) => bloques.length > 0);
 
   function toggleCodenames(codenames, shouldSelect) {
     const next = new Set(selected);
@@ -64,8 +92,10 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
       <div className="mz-filter-bar permissions-checkbox-group__filtros">
         <div>
           <input
+            type="search"
             className="form-control form-control-sm"
             placeholder="Buscar permiso"
+            aria-label="Buscar permiso"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
@@ -95,24 +125,17 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
         {selectedCount} de {allCodenames.length} permisos seleccionados
       </p>
 
-      {grupos.map((grupo) => {
-        const bloques = grupo.modulos
-          .filter(([moduleKey]) => !moduleFilter || moduleKey === moduleFilter)
-          .map(([moduleKey, module]) => [
-            moduleKey,
-            module,
-            Object.entries(module.permissions).filter(
-              ([codename, name]) =>
-                !normalizedSearch ||
-                codename.toLowerCase().includes(normalizedSearch) ||
-                name.toLowerCase().includes(normalizedSearch),
-            ),
-          ])
-          .filter(([, , entradas]) => entradas.length > 0);
-        if (bloques.length === 0) {
-          return null;
-        }
+      {/* Sin coincidencias, se dice en vez de dejar el hueco en blanco
+          (auditoría UX/UI, fase 2, 28/10/2026). */}
+      {gruposVisibles.length === 0 && (
+        <p className="mz-empty" role="status">
+          {normalizedSearch
+            ? `Ningún permiso coincide con “${searchTerm.trim()}”.`
+            : "Ningún permiso en este módulo."}
+        </p>
+      )}
 
+      {gruposVisibles.map(({ grupo, bloques }) => {
         const codigos = codigosDelGrupo(grupo);
         const enGrupo = codigos.filter((c) => selected.has(c)).length;
 
@@ -129,6 +152,7 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
                 etiqueta={`Todo ${grupo.label}`}
                 todos={enGrupo === codigos.length}
                 ninguno={enGrupo === 0}
+                disabled={soloLectura}
                 onChange={(marcar) => toggleCodenames(codigos, marcar)}
               />
             }
@@ -148,6 +172,7 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
                   allSelected={selectedInModule === moduleCodenames.length}
                   noneSelected={selectedInModule === 0}
                   selected={selected}
+                  soloLectura={soloLectura}
                   onToggleModule={(shouldSelect) =>
                     toggleCodenames(moduleCodenames, shouldSelect)
                   }
@@ -163,7 +188,7 @@ export function PermissionsCheckboxGroup({ catalog, selected, onChange }) {
 }
 
 /** Casilla de «todos o ninguno», con estado indeterminado si hay algunos. */
-function CasillaDeTodos({ id, etiqueta, todos, ninguno, onChange }) {
+function CasillaDeTodos({ id, etiqueta, todos, ninguno, disabled, onChange }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -178,6 +203,7 @@ function CasillaDeTodos({ id, etiqueta, todos, ninguno, onChange }) {
       type="checkbox"
       className="form-check-input mt-0"
       checked={todos}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.checked)}
       id={id}
       aria-label={etiqueta}
@@ -192,6 +218,7 @@ function ModuleSection({
   allSelected,
   noneSelected,
   selected,
+  soloLectura,
   onToggleModule,
   onTogglePermission,
 }) {
@@ -212,6 +239,7 @@ function ModuleSection({
             type="checkbox"
             className="form-check-input"
             checked={allSelected}
+            disabled={soloLectura}
             onChange={(event) => onToggleModule(event.target.checked)}
             id={`module-${moduleKey}`}
           />
@@ -232,6 +260,7 @@ function ModuleSection({
               className="form-check-input"
               id={`permission-${codename}`}
               checked={selected.has(codename)}
+              disabled={soloLectura}
               onChange={(event) =>
                 onTogglePermission(codename, event.target.checked)
               }

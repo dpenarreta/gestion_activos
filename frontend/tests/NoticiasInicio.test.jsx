@@ -283,16 +283,16 @@ describe("Gestionar noticias", () => {
     );
     const ventana = screen.getByRole("dialog", { name: "Agregar imagen" });
     const archivo = new File(["x"], "evento.png", { type: "image/png" });
-    fireEvent.change(within(ventana).getByLabelText("Imagen"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Imagen/), {
       target: { files: [archivo] },
     });
     fireEvent.change(within(ventana).getByLabelText("Título (opcional)"), {
       target: { value: "Torneo" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Publicar desde"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Publicar desde/), {
       target: { value: "2026-10-20" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Publicar hasta"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Publicar hasta/), {
       target: { value: "2026-10-25" },
     });
     fireEvent.click(within(ventana).getByRole("button", { name: "Agregar" }));

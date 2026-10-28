@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { sugerenciasService } from "../../api/sugerenciasService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
 
@@ -70,7 +80,11 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
   });
   const [captura, setCaptura] = useState(null);
   const [error, setError] = useState(null);
+  // Errores del servidor junto a su campo (auditoría UX/UI, fase 2,
+  // 28/10/2026).
+  const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const formulario = useRef(null);
   const fijar = (campo) => (e) =>
     setValores((v) => ({ ...v, [campo]: e.target.value }));
   const esError = valores.tipo === "error";
@@ -79,6 +93,7 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
     evento.preventDefault();
     setEnviando(true);
     setError(null);
+    setErrores({});
     try {
       onCreado(
         await sugerenciasService.reportar(
@@ -88,19 +103,22 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
       );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar el reporte."));
+      setErrores(erroresPorCampo(err));
       setEnviando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
   return (
     <Envoltura enLinea={enLinea} onCerrar={onCerrar}>
-      <form className="mz-stack" onSubmit={enviar}>
+      <form ref={formulario} className="mz-stack" onSubmit={enviar}>
         {error && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
             {error}
           </div>
         )}
+        <LeyendaObligatorios />
         <fieldset className="sugerencia-tipos">
           <legend className="form-label mz-small">¿Qué quiere reportar?</legend>
           {Object.entries(TIPOS).map(([id, t]) => (
@@ -129,13 +147,13 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
             </label>
           ))}
         </fieldset>
-        <div>
-          <label className="form-label mz-small" htmlFor="sug-modulo">
-            Módulo
-          </label>
+        <Campo
+          id="sug-modulo"
+          etiqueta="Módulo"
+          obligatorio
+          error={errores.modulo}
+        >
           <select
-            id="sug-modulo"
-            required
             className="form-select form-select-sm"
             value={valores.modulo}
             onChange={fijar("modulo")}
@@ -147,14 +165,14 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="form-label mz-small" htmlFor="sug-titulo">
-            Título
-          </label>
+        </Campo>
+        <Campo
+          id="sug-titulo"
+          etiqueta="Título"
+          obligatorio
+          error={errores.titulo}
+        >
           <input
-            id="sug-titulo"
-            required
             maxLength={150}
             className="form-control form-control-sm"
             placeholder={
@@ -165,31 +183,33 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
             value={valores.titulo}
             onChange={fijar("titulo")}
           />
-        </div>
-        <div>
-          <label className="form-label mz-small" htmlFor="sug-descripcion">
-            {esError
+        </Campo>
+        <Campo
+          id="sug-descripcion"
+          etiqueta={
+            esError
               ? "¿Qué pasó? ¿Qué estaba haciendo y qué esperaba que pasara?"
-              : "Cuéntenos su idea"}
-          </label>
+              : "Cuéntenos su idea"
+          }
+          obligatorio
+          error={errores.descripcion}
+        >
           <textarea
-            id="sug-descripcion"
-            required
             rows={5}
             maxLength={4000}
             className="form-control form-control-sm"
             value={valores.descripcion}
             onChange={fijar("descripcion")}
           />
-        </div>
+        </Campo>
         {esError && (
-          <div>
-            <label className="form-label mz-small" htmlFor="sug-impacto">
-              ¿Cuánto le afecta?
-            </label>
+          <Campo
+            id="sug-impacto"
+            etiqueta="¿Cuánto le afecta?"
+            obligatorio
+            error={errores.impacto}
+          >
             <select
-              id="sug-impacto"
-              required
               className="form-select form-select-sm"
               value={valores.impacto}
               onChange={fijar("impacto")}
@@ -201,21 +221,21 @@ function NuevoReporte({ opciones, onCreado, onCerrar, enLinea = false }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
         )}
-        <div>
-          <label className="form-label mz-small" htmlFor="sug-captura">
-            Captura de pantalla (opcional)
-          </label>
+        <Campo
+          id="sug-captura"
+          etiqueta="Captura de pantalla (opcional)"
+          ayuda="PNG o JPG, hasta 5 MB."
+          error={errores.captura}
+        >
           <input
-            id="sug-captura"
             type="file"
             accept=".png,.jpg,.jpeg"
             className="form-control form-control-sm"
             onChange={(e) => setCaptura(e.target.files?.[0] ?? null)}
           />
-          <small className="mz-faint">PNG o JPG, hasta 5 MB.</small>
-        </div>
+        </Campo>
         <div className="mz-actions justify-content-end">
           {!enLinea && (
             <button
@@ -281,7 +301,11 @@ function DetalleReporte({ id, opciones, onCambio, onCerrar }) {
         url = URL.createObjectURL(blob);
         setImagen(url);
       })
-      .catch(() => setImagen(null));
+      .catch((err) => {
+        // Antes la captura simplemente no aparecía (auditoría UX/UI, fase 2).
+        setImagen(null);
+        setError(mensajeDeError(err, "No se pudo cargar la captura."));
+      });
     return () => url && URL.revokeObjectURL(url);
   }, [reporte?.id, reporte?.tiene_captura]);
 
@@ -312,6 +336,8 @@ function DetalleReporte({ id, opciones, onCambio, onCerrar }) {
           {error}
         </div>
       )}
+      {/* Mientras llegan los datos, la ventana no queda en blanco. */}
+      {!reporte && !error && <EstadoDeCarga cargando />}
       {reporte && (
         <div className="mz-stack">
           <div className="sugerencia-datos">
@@ -455,25 +481,41 @@ export function SugerenciasPage() {
   const abierto = parametros.get("reporte");
   const gestiona = Boolean(opciones?.gestiona);
 
-  useEffect(() => {
+  // El error de la lista va aparte del de las opciones: «Reintentar» vuelve a
+  // pedir la lista (auditoría UX/UI, fase 2, 28/10/2026).
+  const [errorLista, setErrorLista] = useState(null);
+
+  const cargarOpciones = useCallback(() => {
+    setError(null);
     sugerenciasService
       .opciones()
       .then(setOpciones)
       .catch((err) => setError(mensajeDeError(err, "No se pudo cargar.")));
   }, []);
 
+  useEffect(() => {
+    cargarOpciones();
+  }, [cargarOpciones]);
+
   const cargar = useCallback(() => {
     if (!gestiona) return;
     const activos = Object.fromEntries(
       Object.entries(filtros).filter(([, v]) => v),
     );
+    // Se vacía antes de pedir: «Cargando…» y no la lista anterior con otras
+    // columnas.
+    setLista(null);
+    setErrorLista(null);
     sugerenciasService
       .listar(vista, activos)
       .then(setLista)
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron cargar los reportes.")),
+        setErrorLista(
+          mensajeDeError(err, "No se pudieron cargar los reportes."),
+        ),
       );
   }, [vista, filtros, gestiona]);
+  const hayFiltros = Boolean(filtros.estado || filtros.tipo);
 
   useEffect(() => {
     cargar();
@@ -512,23 +554,16 @@ export function SugerenciasPage() {
       </div>
 
       {gestiona && (
-        <div className="mz-tabs" role="tablist">
-          {[
-            ["mios", "Mis reportes"],
-            ["todos", "Todos"],
-          ].map(([id, texto]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={vista === id}
-              className={vista === id ? "is-active" : undefined}
-              onClick={() => setVista(id)}
-            >
-              {texto}
-            </button>
-          ))}
-        </div>
+        <Pestanas
+          etiqueta="Reportes"
+          idBase="sug"
+          valor={vista}
+          onCambio={setVista}
+          opciones={[
+            { id: "mios", etiqueta: "Mis reportes" },
+            { id: "todos", etiqueta: "Todos" },
+          ]}
+        />
       )}
 
       {aviso && (
@@ -537,12 +572,11 @@ export function SugerenciasPage() {
           {aviso}
         </div>
       )}
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
+      <EstadoDeCarga
+        cargando={opciones === null}
+        error={error}
+        onReintentar={cargarOpciones}
+      />
 
       {opciones && !gestiona && (
         <NuevoReporte
@@ -559,93 +593,101 @@ export function SugerenciasPage() {
       )}
 
       {gestiona && (
-        <div className="d-flex flex-wrap gap-2">
-          <select
-            aria-label="Filtrar por tipo"
-            className="form-select form-select-sm sugerencia-filtro"
-            value={filtros.tipo}
-            onChange={(e) =>
-              setFiltros((f) => ({ ...f, tipo: e.target.value }))
-            }
-          >
-            <option value="">Sugerencias y errores</option>
-            <option value="sugerencia">Solo sugerencias</option>
-            <option value="error">Solo errores</option>
-          </select>
-          <select
-            aria-label="Filtrar por estado"
-            className="form-select form-select-sm sugerencia-filtro"
-            value={filtros.estado}
-            onChange={(e) =>
-              setFiltros((f) => ({ ...f, estado: e.target.value }))
-            }
-          >
-            <option value="">Todos los estados</option>
-            {opciones.estados.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {gestiona && lista && lista.length === 0 && (
-        <p className="mz-faint">
-          {vista === "mios"
-            ? "Todavía no ha enviado reportes."
-            : "No hay reportes con esos filtros."}
-        </p>
-      )}
-      {gestiona && lista && lista.length > 0 && (
-        <div className="mz-card">
-          <div className="table-responsive">
-            <table className="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Tipo</th>
-                  <th>Título</th>
-                  <th>Módulo</th>
-                  {vista === "todos" && <th>Reportó</th>}
-                  <th>Estado</th>
-                  <th>Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.id}</td>
-                    <td>
-                      <Icon name={TIPOS[r.tipo]?.icono} />{" "}
-                      {TIPOS[r.tipo]?.nombre}
-                      {r.impacto === "alto" && (
-                        <span className="sugerencia-estado sugerencia-estado--alto ms-1">
-                          Alto
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-link btn-sm p-0 text-start"
-                        onClick={() => abrir(r.id)}
-                      >
-                        {r.titulo}
-                      </button>
-                    </td>
-                    <td>{r.modulo_display}</td>
-                    {vista === "todos" && <td>{r.autor.nombre}</td>}
-                    <td>
-                      <Estado estado={r.estado} texto={r.estado_display} />
-                    </td>
-                    <td>{formatearFecha(r.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <PanelDePestana idBase="sug" valor={vista} className="mz-stack">
+          <div className="d-flex flex-wrap gap-2">
+            <select
+              aria-label="Filtrar por tipo"
+              className="form-select form-select-sm sugerencia-filtro"
+              value={filtros.tipo}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, tipo: e.target.value }))
+              }
+            >
+              <option value="">Sugerencias y errores</option>
+              <option value="sugerencia">Solo sugerencias</option>
+              <option value="error">Solo errores</option>
+            </select>
+            <select
+              aria-label="Filtrar por estado"
+              className="form-select form-select-sm sugerencia-filtro"
+              value={filtros.estado}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, estado: e.target.value }))
+              }
+            >
+              <option value="">Todos los estados</option>
+              {opciones.estados.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+
+          <EstadoDeCarga
+            cargando={lista === null}
+            error={errorLista}
+            onReintentar={cargar}
+            vacio={lista?.length === 0}
+            textoVacio={
+              vista === "mios"
+                ? "Todavía no ha enviado reportes."
+                : "Todavía no hay reportes."
+            }
+            hayFiltros={hayFiltros}
+            onLimpiarFiltros={() => setFiltros({ estado: "", tipo: "" })}
+          />
+          {lista && lista.length > 0 && (
+            <div className="mz-card">
+              <div className="table-responsive">
+                <table className="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Tipo</th>
+                      <th>Título</th>
+                      <th>Módulo</th>
+                      {vista === "todos" && <th>Reportó</th>}
+                      <th>Estado</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lista.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.id}</td>
+                        <td>
+                          <Icon name={TIPOS[r.tipo]?.icono} />{" "}
+                          {TIPOS[r.tipo]?.nombre}
+                          {r.impacto === "alto" && (
+                            <span className="sugerencia-estado sugerencia-estado--alto ms-1">
+                              Alto
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 text-start"
+                            onClick={() => abrir(r.id)}
+                          >
+                            {r.titulo}
+                          </button>
+                        </td>
+                        <td>{r.modulo_display}</td>
+                        {vista === "todos" && <td>{r.autor.nombre}</td>}
+                        <td>
+                          <Estado estado={r.estado} texto={r.estado_display} />
+                        </td>
+                        <td>{formatearFecha(r.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </PanelDePestana>
       )}
 
       {nuevo && opciones && (

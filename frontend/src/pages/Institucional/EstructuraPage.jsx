@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useAuth } from "../../hooks/useAuth";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
@@ -550,280 +558,285 @@ export function EstructuraPage() {
         />
       )}
 
-      <div className="mz-tabs" role="tablist">
-        {visibles.map(([id, texto]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            className={pestana === id ? "is-active" : undefined}
-            onClick={() => {
-              setPestana(id);
-              setEditando(null);
-              setAviso(null);
-              setError(null);
+      {/* Pestañas con flechas y su panel (auditoría UX/UI, fase 2,
+          28/10/2026). */}
+      <Pestanas
+        etiqueta="Estructura del organigrama"
+        idBase="estr"
+        valor={pestana}
+        onCambio={(id) => {
+          setPestana(id);
+          setEditando(null);
+          setAviso(null);
+          setError(null);
+        }}
+        opciones={visibles.map(([id, etiqueta]) => ({
+          id,
+          etiqueta,
+          cuenta: id !== "niveles" ? datos?.[id]?.length : undefined,
+          unidad: "registros",
+        }))}
+      />
+
+      <PanelDePestana idBase="estr" valor={pestana} className="mz-stack">
+        {/* Mientras llega el organigrama (antes, la pestaña quedaba en blanco). */}
+        {datos === null && !error && <EstadoDeCarga cargando />}
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
+        {aviso && (
+          <div className="mz-alert mz-alert--ok" role="status">
+            <Icon name="check-circle" />
+            {aviso}
+          </div>
+        )}
+
+        {datos && pestana === "asignaciones" && (
+          <AsignacionCargos datos={datos} onAsignado={cargar} />
+        )}
+
+        {datos && pestana === "perfiles" && (
+          <PerfilesCargo
+            datos={datos}
+            onGuardado={async () => {
+              await cargar();
+              setAviso("Perfil del cargo guardado.");
             }}
-          >
-            {texto}
-            {datos && id !== "niveles" && datos[id] && (
-              <span className="mz-faint"> ({datos[id].length})</span>
-            )}
-          </button>
-        ))}
-      </div>
+          />
+        )}
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {aviso && (
-        <div className="mz-alert mz-alert--ok" role="status">
-          <Icon name="check-circle" />
-          {aviso}
-        </div>
-      )}
+        {pestana === "herramientas" && <HerramientasPage />}
+        {datos && pestana === "capacitacion" && (
+          <CapacitacionGestion datos={datos} />
+        )}
+        {pestana === "resultados" && <CapacitacionResultados />}
 
-      {datos && pestana === "asignaciones" && (
-        <AsignacionCargos datos={datos} onAsignado={cargar} />
-      )}
-
-      {datos && pestana === "perfiles" && (
-        <PerfilesCargo
-          datos={datos}
-          onGuardado={async () => {
-            await cargar();
-            setAviso("Perfil del cargo guardado.");
-          }}
-        />
-      )}
-
-      {pestana === "herramientas" && <HerramientasPage />}
-      {datos && pestana === "capacitacion" && (
-        <CapacitacionGestion datos={datos} />
-      )}
-      {pestana === "resultados" && <CapacitacionResultados />}
-
-      {datos &&
-        ![
-          "asignaciones",
-          "perfiles",
-          "herramientas",
-          "capacitacion",
-          "resultados",
-        ].includes(pestana) && (
-          <>
-            {pestana === "niveles" && <NivelesJerarquicos datos={datos} />}
-            <section
-              className={
-                pestana === "niveles"
-                  ? "mz-card estructura-seccion"
-                  : "estructura-seccion"
-              }
-              aria-labelledby={
-                pestana === "niveles" ? "niveles-unidad-titulo" : undefined
-              }
-            >
-              <div
+        {datos &&
+          ![
+            "asignaciones",
+            "perfiles",
+            "herramientas",
+            "capacitacion",
+            "resultados",
+          ].includes(pestana) && (
+            <>
+              {pestana === "niveles" && <NivelesJerarquicos datos={datos} />}
+              <section
                 className={
-                  pestana === "niveles" ? "mz-card-body mz-stack" : "mz-stack"
+                  pestana === "niveles"
+                    ? "mz-card estructura-seccion"
+                    : "estructura-seccion"
+                }
+                aria-labelledby={
+                  pestana === "niveles" ? "niveles-unidad-titulo" : undefined
                 }
               >
-                {pestana === "niveles" && (
-                  <div>
-                    <h3
-                      id="niveles-unidad-titulo"
-                      className="inicio-titulo mb-1"
-                    >
-                      Niveles de unidad
-                    </h3>
-                    <p className="estructura-desc mb-0">
-                      Ordenan las unidades del organigrama (la Gerencia General
-                      arriba y las áreas debajo); no son los niveles de los
-                      cargos.
-                    </p>
-                  </div>
-                )}
-                <div className="mz-actions">
-                  {sinNiveles || sinUnidades ? (
-                    <p className="mz-faint mb-0">
-                      {sinNiveles
-                        ? "Cree primero los niveles de unidad."
-                        : "Cree primero las unidades."}
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setEditando({ ...VACIOS[pestana] })}
-                    >
-                      <Icon name="plus-lg" /> Agregar{" "}
-                      {pestana === "niveles"
-                        ? "nivel de unidad"
-                        : SINGULAR[pestana]}
-                    </button>
+                <div
+                  className={
+                    pestana === "niveles" ? "mz-card-body mz-stack" : "mz-stack"
+                  }
+                >
+                  {pestana === "niveles" && (
+                    <div>
+                      <h3
+                        id="niveles-unidad-titulo"
+                        className="inicio-titulo mb-1"
+                      >
+                        Niveles de unidad
+                      </h3>
+                      <p className="estructura-desc mb-0">
+                        Ordenan las unidades del organigrama (la Gerencia
+                        General arriba y las áreas debajo); no son los niveles
+                        de los cargos.
+                      </p>
+                    </div>
                   )}
-                </div>
-                <div className="mz-table-wrap">
-                  <table className="mz-table">
-                    <thead>
-                      <tr>
-                        <th>Nombre</th>
-                        {pestana === "niveles" && <th>Orden</th>}
-                        {pestana === "unidades" && <th>Nivel de unidad</th>}
-                        {pestana === "unidades" && <th>Depende de</th>}
-                        {pestana === "cargos" && <th>Unidad</th>}
-                        {pestana === "cargos" && <th>Nivel jerárquico</th>}
-                        {pestana === "cargos" && <th>Reporta a</th>}
-                        {pestana === "cargos" && (
-                          <th className="num">Plazas</th>
-                        )}
-                        {pestana === "cargos" && <th>Rol del sistema</th>}
-                        <th aria-label="Acciones" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filas.map((fila) => (
-                        <tr key={fila.id}>
-                          <td>
-                            {pestana === "unidades" && (
-                              <span
-                                className="org-sangria"
-                                style={{ width: fila.profundidad * 16 }}
-                              />
-                            )}
-                            {fila.nombre}
-                            {(fila.activa === false ||
-                              fila.activo === false) && (
-                              <span className="mz-faint"> (inactivo)</span>
-                            )}
-                          </td>
-                          {pestana === "niveles" && <td>{fila.orden}</td>}
-                          {pestana === "unidades" && (
-                            <td>{fila.nivel?.nombre}</td>
-                          )}
-                          {pestana === "unidades" && (
-                            <td>{unidadDe(fila.padre) ?? "—"}</td>
-                          )}
+                  <div className="mz-actions">
+                    {sinNiveles || sinUnidades ? (
+                      <p className="mz-faint mb-0">
+                        {sinNiveles
+                          ? "Cree primero los niveles de unidad."
+                          : "Cree primero las unidades."}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setEditando({ ...VACIOS[pestana] })}
+                      >
+                        <Icon name="plus-lg" /> Agregar{" "}
+                        {pestana === "niveles"
+                          ? "nivel de unidad"
+                          : SINGULAR[pestana]}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mz-table-wrap">
+                    <table className="mz-table">
+                      <thead>
+                        <tr>
+                          <th>Nombre</th>
+                          {pestana === "niveles" && <th>Orden</th>}
+                          {pestana === "unidades" && <th>Nivel de unidad</th>}
+                          {pestana === "unidades" && <th>Depende de</th>}
+                          {pestana === "cargos" && <th>Unidad</th>}
+                          {pestana === "cargos" && <th>Nivel jerárquico</th>}
+                          {pestana === "cargos" && <th>Reporta a</th>}
                           {pestana === "cargos" && (
-                            <td>{unidadDe(fila.unidad)}</td>
+                            <th className="num">Plazas</th>
                           )}
-                          {pestana === "cargos" && (
+                          {pestana === "cargos" && <th>Rol del sistema</th>}
+                          <th aria-label="Acciones" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filas.map((fila) => (
+                          <tr key={fila.id}>
                             <td>
-                              <NivelDeCargo valor={fila.nivel} datos={datos} />
-                            </td>
-                          )}
-                          {pestana === "cargos" && (
-                            <td>{cargoDe(fila.jefe) ?? "—"}</td>
-                          )}
-                          {pestana === "cargos" && (
-                            <td className="num">
-                              <PlazasEnLinea
-                                cargo={fila}
-                                onGuardar={(plazas) =>
-                                  ejecutar(
-                                    (motivo) =>
-                                      institucionalService.actualizar(
-                                        "cargos",
-                                        fila.id,
-                                        { plazas },
-                                        motivo,
-                                      ),
-                                    `«${fila.nombre}» ahora tiene ${plazas} plaza(s).`,
-                                    `«${fila.nombre}» pasa a ${plazas} plaza(s).`,
-                                  )
-                                }
-                              />
-                            </td>
-                          )}
-                          {pestana === "cargos" && (
-                            <td className="mz-small">
-                              {/* Lo comparten quienes ocupan el cargo; sus
-                              permisos se editan en Roles. */}
-                              {fila.rol ? (
-                                <Link to={`/admin/roles/${fila.rol.id}`}>
-                                  {fila.rol.nombre}
-                                </Link>
-                              ) : (
-                                "—"
+                              {pestana === "unidades" && (
+                                <span
+                                  className="org-sangria"
+                                  style={{ width: fila.profundidad * 16 }}
+                                />
+                              )}
+                              {fila.nombre}
+                              {(fila.activa === false ||
+                                fila.activo === false) && (
+                                <span className="mz-faint"> (inactivo)</span>
                               )}
                             </td>
-                          )}
-                          <td className="num text-nowrap">
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary btn-sm"
-                              aria-label={`Editar ${fila.nombre}`}
-                              onClick={() =>
-                                setEditando({
-                                  ...VACIOS[pestana],
-                                  ...fila,
-                                  nivel:
-                                    pestana === "unidades"
-                                      ? (fila.nivel?.id ?? "")
-                                      : pestana === "cargos"
-                                        ? (fila.nivel ?? "")
-                                        : undefined,
-                                  padre: fila.padre ?? "",
-                                  jefe: fila.jefe ?? "",
-                                })
-                              }
-                            >
-                              <Icon name="pencil" />
-                            </button>{" "}
-                            <button
-                              type="button"
-                              className="btn btn-outline-danger btn-sm"
-                              aria-label={`Borrar ${fila.nombre}`}
-                              onClick={() =>
-                                ejecutar(
-                                  (motivo) =>
-                                    institucionalService.eliminar(
-                                      pestana,
-                                      fila.id,
-                                      motivo,
-                                    ),
-                                  `«${fila.nombre}» se borró.`,
-                                  `Se borra «${fila.nombre}».`,
-                                )
-                              }
-                            >
-                              <Icon name="trash" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {filas.length === 0 && (
-                        <tr className="mz-empty-row">
-                          <td colSpan={6}>Todavía no hay registros</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                            {pestana === "niveles" && <td>{fila.orden}</td>}
+                            {pestana === "unidades" && (
+                              <td>{fila.nivel?.nombre}</td>
+                            )}
+                            {pestana === "unidades" && (
+                              <td>{unidadDe(fila.padre) ?? "—"}</td>
+                            )}
+                            {pestana === "cargos" && (
+                              <td>{unidadDe(fila.unidad)}</td>
+                            )}
+                            {pestana === "cargos" && (
+                              <td>
+                                <NivelDeCargo
+                                  valor={fila.nivel}
+                                  datos={datos}
+                                />
+                              </td>
+                            )}
+                            {pestana === "cargos" && (
+                              <td>{cargoDe(fila.jefe) ?? "—"}</td>
+                            )}
+                            {pestana === "cargos" && (
+                              <td className="num">
+                                <PlazasEnLinea
+                                  cargo={fila}
+                                  onGuardar={(plazas) =>
+                                    ejecutar(
+                                      (motivo) =>
+                                        institucionalService.actualizar(
+                                          "cargos",
+                                          fila.id,
+                                          { plazas },
+                                          motivo,
+                                        ),
+                                      `«${fila.nombre}» ahora tiene ${plazas} plaza(s).`,
+                                      `«${fila.nombre}» pasa a ${plazas} plaza(s).`,
+                                    )
+                                  }
+                                />
+                              </td>
+                            )}
+                            {pestana === "cargos" && (
+                              <td className="mz-small">
+                                {/* Lo comparten quienes ocupan el cargo; sus
+                              permisos se editan en Roles. */}
+                                {fila.rol ? (
+                                  <Link to={`/admin/roles/${fila.rol.id}`}>
+                                    {fila.rol.nombre}
+                                  </Link>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                            )}
+                            <td className="num text-nowrap">
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                aria-label={`Editar ${fila.nombre}`}
+                                onClick={() =>
+                                  setEditando({
+                                    ...VACIOS[pestana],
+                                    ...fila,
+                                    nivel:
+                                      pestana === "unidades"
+                                        ? (fila.nivel?.id ?? "")
+                                        : pestana === "cargos"
+                                          ? (fila.nivel ?? "")
+                                          : undefined,
+                                    padre: fila.padre ?? "",
+                                    jefe: fila.jefe ?? "",
+                                  })
+                                }
+                              >
+                                <Icon name="pencil" />
+                              </button>{" "}
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                aria-label={`Borrar ${fila.nombre}`}
+                                onClick={() =>
+                                  ejecutar(
+                                    (motivo) =>
+                                      institucionalService.eliminar(
+                                        pestana,
+                                        fila.id,
+                                        motivo,
+                                      ),
+                                    `«${fila.nombre}» se borró.`,
+                                    `Se borra «${fila.nombre}».`,
+                                  )
+                                }
+                              >
+                                <Icon name="trash" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        <FilaDeEstado
+                          columnas={
+                            { niveles: 3, unidades: 4, cargos: 7 }[pestana]
+                          }
+                          vacio={filas.length === 0}
+                        />
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            {editando && (
-              <Ventana
-                recurso={pestana}
-                valores={editando}
-                onCerrar={() => setEditando(null)}
-              >
-                <Formulario
-                  key={`${pestana}-${editando.id ?? "nuevo"}`}
+              {editando && (
+                <Ventana
                   recurso={pestana}
-                  inicial={editando}
-                  datos={datos}
-                  onGuardar={guardar}
-                  onCancelar={() => setEditando(null)}
-                />
-              </Ventana>
-            )}
-          </>
-        )}
+                  valores={editando}
+                  onCerrar={() => setEditando(null)}
+                >
+                  <Formulario
+                    key={`${pestana}-${editando.id ?? "nuevo"}`}
+                    recurso={pestana}
+                    inicial={editando}
+                    datos={datos}
+                    onGuardar={guardar}
+                    onCancelar={() => setEditando(null)}
+                  />
+                </Ventana>
+              )}
+            </>
+          )}
+      </PanelDePestana>
     </div>
   );
 }

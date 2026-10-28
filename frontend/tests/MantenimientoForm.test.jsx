@@ -95,7 +95,7 @@ function pintar(ruta = "/admin/mantenimientos/new") {
  * Enter. Con una sola coincidencia queda elegido.
  */
 async function elegirEquipo(codigo = "GA-LAP-000007") {
-  const campo = screen.getByLabelText("Activo intervenido");
+  const campo = screen.getByLabelText(/^Activo intervenido/);
   fireEvent.change(campo, { target: { value: codigo } });
   fireEvent.keyDown(campo, { key: "Enter" });
   await screen.findByRole("button", { name: "Cambiar" });
@@ -103,10 +103,10 @@ async function elegirEquipo(codigo = "GA-LAP-000007") {
 
 /** Llena los campos obligatorios que el formulario exige para guardar. */
 function llenarMinimo() {
-  fireEvent.change(screen.getByLabelText("Nombre del técnico o proveedor"), {
+  fireEvent.change(screen.getByLabelText(/^Nombre del técnico o proveedor/), {
     target: { value: "Jorge Andrade" },
   });
-  fireEvent.change(screen.getByLabelText("Trabajo realizado"), {
+  fireEvent.change(screen.getByLabelText(/^Trabajo realizado/), {
     target: { value: "Cambio de disco" },
   });
 }
@@ -132,7 +132,7 @@ describe("Registrar una intervención", () => {
        llenado el formulario entero. */
     pintar();
 
-    const campo = await screen.findByLabelText("Activo intervenido");
+    const campo = await screen.findByLabelText(/^Activo intervenido/);
     fireEvent.change(campo, { target: { value: "laptop" } });
 
     await waitFor(() => expect(listarActivos).toHaveBeenCalled());
@@ -159,7 +159,7 @@ describe("Registrar una intervención", () => {
     expect(
       await screen.findByText(/El equipo se adquirió el 2025-07-01/),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Fecha de ingreso")).toHaveAttribute(
+    expect(screen.getByLabelText(/^Fecha de ingreso/)).toHaveAttribute(
       "min",
       "2025-07-01",
     );
@@ -170,7 +170,7 @@ describe("Registrar una intervención", () => {
        ofreciéndola reabre el uso de algo que se decidió descontinuar. */
     pintar();
 
-    await screen.findByLabelText("Activo intervenido");
+    await screen.findByLabelText(/^Activo intervenido/);
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
 
     expect(
@@ -198,8 +198,8 @@ describe("La fecha de salida", () => {
   it("con salida muestra el tiempo fuera de operación en meses", async () => {
     pintar();
 
-    await screen.findByLabelText("Activo intervenido");
-    fireEvent.change(screen.getByLabelText("Fecha de ingreso"), {
+    await screen.findByLabelText(/^Activo intervenido/);
+    fireEvent.change(screen.getByLabelText(/^Fecha de ingreso/), {
       target: { value: "2026-07-01" },
     });
     fireEvent.change(screen.getByLabelText("Fecha de salida"), {
@@ -214,8 +214,8 @@ describe("La fecha de salida", () => {
   it("no permite una salida anterior al ingreso", async () => {
     pintar();
 
-    await screen.findByLabelText("Activo intervenido");
-    fireEvent.change(screen.getByLabelText("Fecha de ingreso"), {
+    await screen.findByLabelText(/^Activo intervenido/);
+    fireEvent.change(screen.getByLabelText(/^Fecha de ingreso/), {
       target: { value: "2026-07-01" },
     });
 
@@ -304,7 +304,7 @@ describe("Al guardar", () => {
        después de que el equipo apareció como «reemplazo recomendado». */
     pintar();
 
-    await screen.findByLabelText("Activo intervenido");
+    await screen.findByLabelText(/^Activo intervenido/);
     fireEvent.click(screen.getByRole("button", { name: /Agregar componente/ }));
     fireEvent.change(screen.getByLabelText("Componente"), {
       target: { value: "11" },
@@ -384,9 +384,9 @@ describe("Editar una intervención", () => {
     pintar("/admin/mantenimientos/5");
 
     expect(await screen.findByText("Editar intervención")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre del técnico o proveedor")).toHaveValue(
-      "Tecnomega C.A.",
-    );
+    expect(
+      screen.getByLabelText(/^Nombre del técnico o proveedor/),
+    ).toHaveValue("Tecnomega C.A.");
     expect(screen.getByLabelText("Causa de la falla")).toHaveValue(
       "Disco fallando",
     );
@@ -407,7 +407,7 @@ describe("Editar una intervención", () => {
     // para cambiarlo.
     expect(await screen.findByText("GA-LAP-000007")).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Activo intervenido"),
+      screen.queryByLabelText(/^Activo intervenido/),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Cambiar" }),
@@ -517,5 +517,57 @@ describe("El aviso de quién será notificado", () => {
 
     await screen.findByText(/Se avisará por correo a Ana Pérez/);
     expect(document.body.textContent).not.toMatch(/@/);
+  });
+});
+
+// --- Obligatorios y errores junto al campo (auditoría UX/UI, fase 2) --------
+
+describe("Lo obligatorio y los errores van junto a su campo", () => {
+  it("marca los obligatorios", async () => {
+    pintar();
+
+    for (const etiqueta of [
+      "Activo intervenido",
+      "Fecha de ingreso",
+      "Nombre del técnico o proveedor",
+      "Trabajo realizado",
+    ]) {
+      const control = await screen.findByLabelText(new RegExp(`^${etiqueta}`));
+      expect(control).toHaveAccessibleName(
+        expect.stringContaining("(obligatorio)"),
+      );
+      expect(control).toBeRequired();
+    }
+    expect(screen.getByLabelText("Causa de la falla")).not.toBeRequired();
+  });
+
+  it("el error de un campo va bajo el campo y el foco va allí", async () => {
+    crear.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            message: "Error en la solicitud.",
+            details: {
+              fecha_intervencion: ["No puede ser anterior a la compra."],
+            },
+          },
+        },
+      },
+    });
+
+    pintar();
+
+    await elegirEquipo();
+    llenarMinimo();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Registrar intervención" }),
+    );
+
+    const fecha = screen.getByLabelText(/^Fecha de ingreso/);
+    await waitFor(() => expect(fecha).toHaveAttribute("aria-invalid", "true"));
+    expect(fecha).toHaveAccessibleDescription(
+      /No puede ser anterior a la compra\./,
+    );
+    await waitFor(() => expect(fecha).toHaveFocus());
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -15,8 +15,17 @@ import {
 } from "../../../api/organizacionService";
 import { EspecificacionesDelTipo } from "../../../components/activos/EspecificacionesDelTipo/EspecificacionesDelTipo";
 import { EspecificacionesEditor } from "../../../components/activos/EspecificacionesEditor/EspecificacionesEditor";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Activos.css";
 import "./ActivoForm.css";
 
@@ -45,6 +54,14 @@ const VACIO = {
   fecha_fin_garantia: "",
 };
 
+/** Anota (o borra, con null) el fallo al cargar el catálogo de un campo. */
+function conFallo(campo, mensaje) {
+  return (actuales) => ({ ...actuales, [campo]: mensaje });
+}
+
+/** Los campos que el formulario muestra, para saber qué error va bajo cuál. */
+const CAMPOS = [...Object.keys(VACIO)];
+
 export function ActivoForm() {
   const { id } = useParams();
   const esEdicion = Boolean(id);
@@ -61,7 +78,19 @@ export function ActivoForm() {
   const [proveedores, setProveedores] = useState([]);
   const [concesionarios, setConcesionarios] = useState([]);
   const [error, setError] = useState(null);
+  // Auditoría UX/UI, fase 2 (28/10/2026): el error del servidor va bajo el
+  // campo que lo causó (una serie duplicada, bajo la serie) y no solo arriba;
+  // y un catálogo que no carga lo dice junto a su lista, en vez de dejarla
+  // vacía como si no hubiera nada que elegir.
+  const [errores, setErrores] = useState({});
+  const [fallosCatalogo, setFallosCatalogo] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const contenedorRef = useRef(null);
+
+  /** El error que se muestra bajo un campo: el del servidor o el de su catálogo. */
+  function errorDe(campo) {
+    return errores[campo] || fallosCatalogo[campo];
+  }
 
   // Las características del tipo elegido. Se piden al backend y no se deducen
   // de lo ya guardado: un equipo puede no tener todavía ninguna, y aun así el
@@ -73,8 +102,19 @@ export function ActivoForm() {
     }
     caracteristicasService
       .delTipo(valores.tipo)
-      .then(setCaracteristicas)
-      .catch(() => setCaracteristicas([]));
+      .then((datos) => {
+        setCaracteristicas(datos);
+        setFallosCatalogo(conFallo("especificaciones", null));
+      })
+      .catch(() => {
+        setCaracteristicas([]);
+        setFallosCatalogo(
+          conFallo(
+            "especificaciones",
+            "No se pudieron cargar las características de este tipo.",
+          ),
+        );
+      });
   }, [valores.tipo]);
 
   useEffect(() => {
@@ -83,11 +123,21 @@ export function ActivoForm() {
       .then((datos) =>
         setTipos((datos.results ?? datos).filter((tipo) => tipo.activo)),
       )
-      .catch(() => setTipos([]));
+      .catch(() => {
+        setTipos([]);
+        setFallosCatalogo(
+          conFallo("tipo", "No se pudieron cargar los tipos de dispositivo."),
+        );
+      });
     departamentosService
       .list({ activo: "true", page_size: 100 })
       .then((datos) => setDepartamentos(datos.results ?? datos))
-      .catch(() => setDepartamentos([]));
+      .catch(() => {
+        setDepartamentos([]);
+        setFallosCatalogo(
+          conFallo("departamento", "No se pudieron cargar los departamentos."),
+        );
+      });
     // Sin filtrar por «activo»: esa marca no la mantiene ninguna integración,
     // y el campo de quién pidió el equipo tiene que poder nombrar a cualquiera.
     // El custodio sí se acota, más abajo, porque entregar un equipo a alguien
@@ -95,7 +145,15 @@ export function ActivoForm() {
     empleadosService
       .list({ page_size: 300 })
       .then((datos) => setEmpleados(datos.results ?? datos))
-      .catch(() => setEmpleados([]));
+      .catch(() => {
+        setEmpleados([]);
+        setFallosCatalogo(
+          conFallo("responsables", "No se pudieron cargar los empleados."),
+        );
+        setFallosCatalogo(
+          conFallo("solicitado_por", "No se pudieron cargar los empleados."),
+        );
+      });
     // Solo sedes abiertas: dejar un equipo en una sede cerrada lo deja
     // registrado en un sitio donde nadie va a buscarlo.
     // Solo proveedores activos: uno dado de baja ya no vende ni atiende un
@@ -103,15 +161,31 @@ export function ActivoForm() {
     proveedoresService
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setProveedores(datos.results ?? datos))
-      .catch(() => setProveedores([]));
+      .catch(() => {
+        setProveedores([]);
+        setFallosCatalogo(
+          conFallo("proveedor", "No se pudieron cargar los proveedores."),
+        );
+      });
     concesionariosService
       .list({ activo: "true", page_size: 200 })
       .then((datos) => setConcesionarios(datos.results ?? datos))
-      .catch(() => setConcesionarios([]));
+      .catch(() => {
+        setConcesionarios([]);
+        setFallosCatalogo(
+          conFallo(
+            "concesionario",
+            "No se pudieron cargar los concesionarios.",
+          ),
+        );
+      });
     sedesService
       .list({ activa: "true", page_size: 100 })
       .then((datos) => setSedes(datos.results ?? datos))
-      .catch(() => setSedes([]));
+      .catch(() => {
+        setSedes([]);
+        setFallosCatalogo(conFallo("sede", "No se pudieron cargar las sedes."));
+      });
   }, []);
 
   useEffect(() => {
@@ -149,12 +223,20 @@ export function ActivoForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    // Al corregir el campo, su error del servidor deja de valer.
+    setErrores((actuales) => {
+      if (!actuales[campo]) return actuales;
+      const resto = { ...actuales };
+      delete resto[campo];
+      return resto;
+    });
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErrores({});
     try {
       const payload = {
         tipo: valores.tipo,
@@ -202,14 +284,27 @@ export function ActivoForm() {
         navigate(`/admin/activos/${creado.id}`);
       }
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el activo."));
+      const porCampo = erroresPorCampo(err);
+      setErrores(porCampo);
+      // Si todo lo que dijo el servidor quedó bajo algún campo, arriba basta
+      // con decir que se revisen; si no, el aviso lleva el motivo completo.
+      const todoEnSuCampo =
+        Object.keys(porCampo).length > 0 &&
+        Object.keys(porCampo).every((campo) => CAMPOS.includes(campo)) &&
+        !hayErroresGenerales(err);
+      setError(
+        todoEnSuCampo
+          ? "No se pudo guardar el activo: revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el activo."),
+      );
+      enfocarPrimerError(contenedorRef.current);
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <div className="activo-form">
+    <div className="activo-form" ref={contenedorRef}>
       <div className="mz-view-head">
         <div>
           <h2>{esEdicion ? "Editar ficha técnica" : "Nuevo activo"}</h2>
@@ -232,19 +327,21 @@ export function ActivoForm() {
       <section className="mz-card">
         <div className="mz-card-head">
           <h3>Ficha del equipo</h3>
+          <LeyendaObligatorios />
         </div>
         <form onSubmit={handleSubmit} className="mz-card-body">
           <section className="mz-section">
             <h4>Identificación</h4>
             <div className="row g-3">
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="tipo">
-                  Tipo de dispositivo
-                </label>
+              <Campo
+                id="tipo"
+                etiqueta="Tipo de dispositivo"
+                obligatorio
+                error={errorDe("tipo")}
+                className="col-md-4"
+              >
                 <select
-                  id="tipo"
                   className="form-select"
-                  required
                   value={valores.tipo}
                   onChange={(event) => actualizar("tipo", event.target.value)}
                 >
@@ -255,66 +352,68 @@ export function ActivoForm() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="col-md-8">
-                <label className="form-label" htmlFor="nombre">
-                  Nombre del activo
-                </label>
+              </Campo>
+              <Campo
+                id="nombre"
+                etiqueta="Nombre del activo"
+                obligatorio
+                ayuda="Se imprime en la etiqueta, junto al código de barras."
+                error={errorDe("nombre")}
+                className="col-md-8"
+              >
                 <input
-                  id="nombre"
                   className="form-control"
-                  required
                   maxLength={150}
                   placeholder="Laptop Contabilidad 01"
                   value={valores.nombre}
                   onChange={(event) => actualizar("nombre", event.target.value)}
                 />
-                <div className="form-text">
-                  Se imprime en la etiqueta, junto al código de barras.
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="marca">
-                  Marca
-                </label>
+              </Campo>
+              <Campo
+                id="marca"
+                etiqueta="Marca"
+                obligatorio
+                error={errorDe("marca")}
+                className="col-md-4"
+              >
                 <input
-                  id="marca"
                   className="form-control"
-                  required
                   maxLength={80}
                   value={valores.marca}
                   onChange={(event) => actualizar("marca", event.target.value)}
                 />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="modelo">
-                  Modelo
-                </label>
+              </Campo>
+              <Campo
+                id="modelo"
+                etiqueta="Modelo"
+                obligatorio
+                error={errorDe("modelo")}
+                className="col-md-4"
+              >
                 <input
-                  id="modelo"
                   className="form-control"
-                  required
                   maxLength={120}
                   value={valores.modelo}
                   onChange={(event) => actualizar("modelo", event.target.value)}
                 />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="numero_serie">
-                  Número de serie
-                </label>
+              </Campo>
+              <Campo
+                id="numero_serie"
+                etiqueta="Número de serie"
+                obligatorio
+                ayuda="Único en todo el inventario."
+                error={errorDe("numero_serie")}
+                className="col-md-4"
+              >
                 <input
-                  id="numero_serie"
                   className="form-control mz-mono"
-                  required
                   maxLength={120}
                   value={valores.numero_serie}
                   onChange={(event) =>
                     actualizar("numero_serie", event.target.value)
                   }
                 />
-                <div className="form-text">Único en todo el inventario.</div>
-              </div>
+              </Campo>
             </div>
           </section>
 
@@ -324,6 +423,11 @@ export function ActivoForm() {
                 ? "Características del equipo"
                 : "Especificaciones del hardware"}
             </h4>
+            {errorDe("especificaciones") && (
+              <div className="mz-field-error mb-2">
+                {errorDe("especificaciones")}
+              </div>
+            )}
             {/* Con características declaradas se piden esas y no otras; sin
               ellas, el tipo todavía no se describió y siguen valiendo los pares
               libres de antes. */}
@@ -354,15 +458,17 @@ export function ActivoForm() {
           <section className="mz-section">
             <h4>Custodia y ubicación</h4>
             <div className="row g-3">
-              <div className="col-md-6">
-                <label className="form-label" htmlFor="departamento">
-                  Departamento
-                </label>
+              <Campo
+                id="departamento"
+                etiqueta="Departamento"
+                obligatorio={!esEdicion}
+                error={errorDe("departamento")}
+                className="col-md-6"
+              >
                 <select
-                  id="departamento"
                   className="form-select"
-                  required={!esEdicion}
                   disabled={esEdicion}
+                  aria-describedby={esEdicion ? "custodia-ayuda" : undefined}
                   value={valores.departamento}
                   onChange={(event) =>
                     actualizar("departamento", event.target.value)
@@ -375,15 +481,26 @@ export function ActivoForm() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label" htmlFor="custodio">
-                  Custodio
-                </label>
+              </Campo>
+              {/* El alta entrega a una sola persona incluso en un equipo
+                compartido: sumar al resto del turno es una entrega más, y
+                cada una deja su movimiento y su acta. Se hace desde la ficha,
+                con «Asignar / trasladar». */}
+              <Campo
+                id="custodio"
+                etiqueta="Custodio"
+                ayuda={
+                  valores.compartido
+                    ? "A los demás se los suma desde la ficha, con «Asignar / trasladar»: cada entrega deja su acta."
+                    : undefined
+                }
+                error={errorDe("responsables")}
+                className="col-md-6"
+              >
                 <select
-                  id="custodio"
                   className="form-select"
                   disabled={esEdicion}
+                  aria-describedby={esEdicion ? "custodia-ayuda" : undefined}
                   value={valores.responsables[0] || ""}
                   onChange={(event) =>
                     actualizar(
@@ -401,23 +518,21 @@ export function ActivoForm() {
                       </option>
                     ))}
                 </select>
-                {/* El alta entrega a una sola persona incluso en un equipo
-                  compartido: sumar al resto del turno es una entrega más, y
-                  cada una deja su movimiento y su acta. Se hace desde la ficha,
-                  con «Asignar / trasladar». */}
-                {valores.compartido && (
-                  <div className="form-text">
-                    A los demás se los suma desde la ficha, con «Asignar /
-                    trasladar»: cada entrega deja su acta.
-                  </div>
-                )}
-              </div>
-              <div className="col-md-6">
-                <label className="form-label" htmlFor="solicitado_por">
-                  Lo pidió
-                </label>
+              </Campo>
+              {/* Un correo por cada equipo que entra al inventario es ruido,
+                y del que se aprende a ignorar. */}
+              <Campo
+                id="solicitado_por"
+                etiqueta="Lo pidió"
+                ayuda={
+                  valores.solicitado_por
+                    ? "Se le avisará por correo de que el equipo ya llegó."
+                    : "Si alguien lo pidió, anótelo y se le avisará al registrarlo."
+                }
+                error={errorDe("solicitado_por")}
+                className="col-md-6"
+              >
                 <select
-                  id="solicitado_por"
                   className="form-select"
                   disabled={esEdicion}
                   value={valores.solicitado_por}
@@ -435,20 +550,14 @@ export function ActivoForm() {
                     </option>
                   ))}
                 </select>
-                <div className="form-text">
-                  {/* Un correo por cada equipo que entra al inventario es ruido,
-                    y del que se aprende a ignorar. */}
-                  {valores.solicitado_por
-                    ? "Se le avisará por correo de que el equipo ya llegó."
-                    : "Si el equipo vino por pedido de alguien, dígalo aquí y se le avisará al registrarlo. Si el pedido fue de un área, anote a quien lo pidió en su nombre."}
-                </div>
-              </div>
+              </Campo>
               <div className="col-12">
                 <div className="form-check">
                   <input
                     id="compartido"
                     type="checkbox"
                     className="form-check-input"
+                    aria-describedby="compartido-ayuda"
                     checked={valores.compartido}
                     onChange={(event) =>
                       actualizar("compartido", event.target.checked)
@@ -458,30 +567,34 @@ export function ActivoForm() {
                     Varias personas responden por él
                   </label>
                 </div>
-                <div className="form-text">
+                <div id="compartido-ayuda" className="form-text">
                   {/* Repartir la responsabilidad de una laptop personal entre
                     tres nombres es lo que hace que después nadie responda por
                     ella: la marca es una decisión, no un efecto lateral. */}
-                  Márquelo solo si es un equipo de turno —un escáner de andén,
-                  una impresora de mostrador—, del que varias personas responden
-                  en igualdad.
+                  Solo para equipos de turno, como un escáner de andén o una
+                  impresora de mostrador.
                 </div>
               </div>
               {esEdicion && (
                 <div className="col-12">
-                  <div className="form-text">
+                  <div id="custodia-ayuda" className="form-text">
                     Quién responde y el departamento se cambian desde la ficha,
                     con la acción «Asignar / trasladar»: así el cambio queda
                     registrado en el historial.
                   </div>
                 </div>
               )}
-              <div className="col-md-6">
-                <label className="form-label" htmlFor="sede">
-                  Sede
-                </label>
+              {/* El catálogo es lo que hace que el filtro por sede devuelva
+                todos los equipos que están ahí y no solo los que alguien
+                escribió igual. */}
+              <Campo
+                id="sede"
+                etiqueta="Sede"
+                ayuda="Se administra en Organización → Sedes."
+                error={errorDe("sede")}
+                className="col-md-6"
+              >
                 <select
-                  id="sede"
                   className="form-select"
                   value={valores.sede}
                   onChange={(event) => actualizar("sede", event.target.value)}
@@ -494,19 +607,15 @@ export function ActivoForm() {
                     </option>
                   ))}
                 </select>
-                <div className="form-text">
-                  {/* El catálogo es lo que hace que el filtro por sede devuelva
-                    todos los equipos que están ahí y no solo los que alguien
-                    escribió igual. */}
-                  Se administra en Organización → Sedes.
-                </div>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label" htmlFor="criticidad">
-                  Criticidad
-                </label>
+              </Campo>
+              <Campo
+                id="criticidad"
+                etiqueta="Criticidad"
+                ayuda="Qué tan urgente es reponerlo si falla."
+                error={errorDe("criticidad")}
+                className="col-md-3"
+              >
                 <select
-                  id="criticidad"
                   className="form-select"
                   value={valores.criticidad}
                   onChange={(event) =>
@@ -518,16 +627,15 @@ export function ActivoForm() {
                   <option value="alta">Alta</option>
                   <option value="critica">Crítica</option>
                 </select>
-                <div className="form-text">
-                  Qué tan urgente es reponerlo si falla.
-                </div>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label" htmlFor="uso">
-                  Uso
-                </label>
+              </Campo>
+              <Campo
+                id="uso"
+                etiqueta="Uso"
+                ayuda="La función que cumple, no cuánto se usa."
+                error={errorDe("uso")}
+                className="col-md-3"
+              >
                 <select
-                  id="uso"
                   className="form-select"
                   value={valores.uso}
                   onChange={(event) => actualizar("uso", event.target.value)}
@@ -541,40 +649,41 @@ export function ActivoForm() {
                   <option value="bodega">Bodega</option>
                   <option value="infraestructura">Infraestructura</option>
                 </select>
-                <div className="form-text">
-                  La función que cumple, no cuánto se usa.
-                </div>
-              </div>
+              </Campo>
             </div>
           </section>
 
           <section className="mz-section">
             <h4>Adquisición</h4>
             <div className="row g-3">
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="fecha_adquisicion">
-                  Fecha de adquisición
-                </label>
+              <Campo
+                id="fecha_adquisicion"
+                etiqueta="Fecha de adquisición"
+                obligatorio
+                ayuda="Base del cálculo de vida útil del equipo."
+                error={errorDe("fecha_adquisicion")}
+                className="col-md-4"
+              >
                 <input
-                  id="fecha_adquisicion"
                   type="date"
                   className="form-control"
-                  required
                   value={valores.fecha_adquisicion}
                   onChange={(event) =>
                     actualizar("fecha_adquisicion", event.target.value)
                   }
                 />
-                <div className="form-text">
-                  Base del cálculo de vida útil del equipo.
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="fecha_ingreso">
-                  Fecha de ingreso
-                </label>
+              </Campo>
+              {/* La garantía corre desde la compra y la custodia desde el
+                ingreso: un equipo comprado en diciembre puede entrar en
+                marzo. */}
+              <Campo
+                id="fecha_ingreso"
+                etiqueta="Fecha de ingreso"
+                ayuda="Cuándo entró al inventario, si es distinta de la compra."
+                error={errorDe("fecha_ingreso")}
+                className="col-md-4"
+              >
                 <input
-                  id="fecha_ingreso"
                   type="date"
                   className="form-control"
                   value={valores.fecha_ingreso}
@@ -582,19 +691,14 @@ export function ActivoForm() {
                     actualizar("fecha_ingreso", event.target.value)
                   }
                 />
-                <div className="form-text">
-                  {/* La garantía corre desde la compra y la custodia desde el
-                    ingreso: un equipo comprado en diciembre puede entrar en
-                    marzo. */}
-                  Cuándo entró al inventario, si es distinta de la compra.
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="costo_adquisicion">
-                  Costo de compra
-                </label>
+              </Campo>
+              <Campo
+                id="costo_adquisicion"
+                etiqueta="Costo de compra"
+                error={errorDe("costo_adquisicion")}
+                className="col-md-4"
+              >
                 <input
-                  id="costo_adquisicion"
                   type="number"
                   step="0.01"
                   min="0"
@@ -604,13 +708,17 @@ export function ActivoForm() {
                     actualizar("costo_adquisicion", event.target.value)
                   }
                 />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="condicion">
-                  Condición al adquirirlo
-                </label>
+              </Campo>
+              {/* Un equipo usado llega con parte de su vida ya gastada: sus
+                mismos meses de antigüedad no significan lo mismo. */}
+              <Campo
+                id="condicion"
+                etiqueta="Condición al adquirirlo"
+                ayuda="Si se compró nuevo o se adquirió de segunda mano."
+                error={errorDe("condicion")}
+                className="col-md-4"
+              >
                 <select
-                  id="condicion"
                   className="form-select"
                   value={valores.condicion}
                   onChange={(event) =>
@@ -625,18 +733,17 @@ export function ActivoForm() {
                   <option value="nuevo">Nuevo</option>
                   <option value="usado">Usado</option>
                 </select>
-                <div className="form-text">
-                  {/* Un equipo usado llega con parte de su vida ya gastada: sus
-                    mismos meses de antigüedad no significan lo mismo. */}
-                  Si se compró nuevo o se adquirió de segunda mano.
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="proveedor">
-                  Proveedor
-                </label>
+              </Campo>
+              {/* Escrito a mano, «Tecnomega» y «TECNOMEGA» serían dos
+                proveedores y las compras quedarían repartidas. */}
+              <Campo
+                id="proveedor"
+                etiqueta="Proveedor"
+                ayuda="Se administra en Organización → Proveedores."
+                error={errorDe("proveedor")}
+                className="col-md-4"
+              >
                 <select
-                  id="proveedor"
                   className="form-select"
                   value={valores.proveedor}
                   onChange={(event) =>
@@ -650,18 +757,17 @@ export function ActivoForm() {
                     </option>
                   ))}
                 </select>
-                <div className="form-text">
-                  {/* Escrito a mano, «Tecnomega» y «TECNOMEGA» serían dos
-                    proveedores y las compras quedarían repartidas. */}
-                  Se administra en Organización → Proveedores.
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="propiedad">
-                  De quién es el equipo
-                </label>
+              </Campo>
+              {/* No es lo mismo que tener proveedor: al proveedor se le
+                compró, y entonces el equipo sí es de la empresa. */}
+              <Campo
+                id="propiedad"
+                etiqueta="De quién es el equipo"
+                ayuda="En concesión: lo compró un partner y lo mantenemos nosotros."
+                error={errorDe("propiedad")}
+                className="col-md-4"
+              >
                 <select
-                  id="propiedad"
                   className="form-select"
                   value={valores.propiedad}
                   onChange={(event) =>
@@ -674,22 +780,20 @@ export function ActivoForm() {
                   <option value="propia">De la empresa</option>
                   <option value="concesion">En concesión</option>
                 </select>
-                <div className="form-text">
-                  {/* No es lo mismo que tener proveedor: al proveedor se le
-                    compró, y entonces el equipo sí es de la empresa. */}
-                  «En concesión» es un equipo que pone un partner: lo compró él
-                  y lo mantenemos nosotros.
-                </div>
-              </div>
+              </Campo>
+              {/* Sin el dueño, «en concesión» no responde ni a qué hay que
+                devolver ni a quién. */}
               {valores.propiedad === "concesion" && (
-                <div className="col-md-4">
-                  <label className="form-label" htmlFor="concesionario">
-                    Concesionario
-                  </label>
+                <Campo
+                  id="concesionario"
+                  etiqueta="Concesionario"
+                  obligatorio
+                  ayuda="Se administra en Organización → Concesionarios."
+                  error={errorDe("concesionario")}
+                  className="col-md-4"
+                >
                   <select
-                    id="concesionario"
                     className="form-select"
-                    required
                     value={valores.concesionario}
                     onChange={(event) =>
                       actualizar("concesionario", event.target.value)
@@ -702,19 +806,16 @@ export function ActivoForm() {
                       </option>
                     ))}
                   </select>
-                  <div className="form-text">
-                    {/* Sin el dueño, «en concesión» no responde ni a qué hay que
-                      devolver ni a quién. */}
-                    Se administra en Organización → Concesionarios.
-                  </div>
-                </div>
+                </Campo>
               )}
-              <div className="col-md-4">
-                <label className="form-label" htmlFor="fecha_fin_garantia">
-                  Fin de garantía
-                </label>
+              <Campo
+                id="fecha_fin_garantia"
+                etiqueta="Fin de garantía"
+                ayuda="Déjelo vacío si el equipo no tiene garantía registrada."
+                error={errorDe("fecha_fin_garantia")}
+                className="col-md-4"
+              >
                 <input
-                  id="fecha_fin_garantia"
                   type="date"
                   className="form-control"
                   min={valores.fecha_adquisicion || undefined}
@@ -723,16 +824,14 @@ export function ActivoForm() {
                     actualizar("fecha_fin_garantia", event.target.value)
                   }
                 />
-                <div className="form-text">
-                  Déjelo vacío si el equipo no tiene garantía registrada.
-                </div>
-              </div>
-              <div className="col-12">
-                <label className="form-label" htmlFor="observaciones">
-                  Observaciones
-                </label>
+              </Campo>
+              <Campo
+                id="observaciones"
+                etiqueta="Observaciones"
+                error={errorDe("observaciones")}
+                className="col-12"
+              >
                 <textarea
-                  id="observaciones"
                   className="form-control"
                   rows={2}
                   value={valores.observaciones}
@@ -740,7 +839,7 @@ export function ActivoForm() {
                     actualizar("observaciones", event.target.value)
                   }
                 />
-              </div>
+              </Campo>
             </div>
           </section>
 

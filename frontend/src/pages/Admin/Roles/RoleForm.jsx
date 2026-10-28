@@ -1,20 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { PermissionsCheckboxGroup } from "../../../components/common/PermissionsCheckboxGroup/PermissionsCheckboxGroup";
+import { usePermission } from "../../../hooks/usePermission";
 import { usePermissionsCatalog } from "../../../hooks/usePermissionsCatalog";
+import { mensajeDeError } from "../../../utils/errores";
 
 export function RoleForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
+  // Quien solo puede ver los roles llega aquí por «Ver» del listado: ve el
+  // rol sin poder cambiarlo ni encontrar un «Guardar» que el servidor
+  // rechazaría (auditoría UX/UI, fase 2, 28/10/2026).
+  const puedeEditar = usePermission("roles.editar");
+  const soloLectura = !puedeEditar;
   const {
     catalog,
     isLoading: isCatalogLoading,
     error: catalogError,
+    recargar: recargarCatalogo,
   } = usePermissionsCatalog();
 
   const [name, setName] = useState("");
@@ -23,20 +32,40 @@ export function RoleForm() {
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [cargandoRol, setCargandoRol] = useState(isEditing);
+  const [errorRol, setErrorRol] = useState(null);
 
-  useEffect(() => {
+  // Si el rol no carga, se dice y se puede reintentar: antes la promesa no
+  // tenía catch y quedaba un formulario vacío como si el rol no tuviera
+  // permisos (auditoría UX/UI, fase 2, 28/10/2026).
+  const cargarRol = useCallback(() => {
     if (!isEditing) {
       return;
     }
-    rolesService.get(id).then((role) => {
-      setCargo(role.cargo ?? null);
-      setName(role.name);
-      setSelected(new Set(role.permission_codenames));
-    });
+    setCargandoRol(true);
+    setErrorRol(null);
+    rolesService
+      .get(id)
+      .then((role) => {
+        setCargo(role.cargo ?? null);
+        setName(role.name);
+        setSelected(new Set(role.permission_codenames));
+      })
+      .catch((err) =>
+        setErrorRol(mensajeDeError(err, "No se pudo cargar el rol.")),
+      )
+      .finally(() => setCargandoRol(false));
   }, [id, isEditing]);
+
+  useEffect(() => {
+    cargarRol();
+  }, [cargarRol]);
 
   function handleSubmit(event) {
     event.preventDefault();
+    if (soloLectura) {
+      return;
+    }
     setIsConfirmOpen(true);
   }
 
@@ -59,24 +88,24 @@ export function RoleForm() {
       }
       setIsConfirmOpen(false);
     } catch (err) {
-      setError(
-        err.response?.data?.error?.message || "No se pudo guardar el rol.",
-      );
+      setError(mensajeDeError(err, "No se pudo guardar el rol."));
       setIsConfirmOpen(false);
     } finally {
       setIsSaving(false);
     }
   }
 
-  if (isCatalogLoading) {
-    return null;
-  }
+  const titulo = soloLectura
+    ? "Ver rol"
+    : isEditing
+      ? "Editar rol"
+      : "Nuevo rol";
 
   return (
     <div className="role-form-page">
       <div className="mz-view-head">
         <div>
-          <h2>{isEditing ? "Editar rol" : "Nuevo rol"}</h2>
+          <h2>{titulo}</h2>
           <p className="mz-desc">
             Un rol agrupa permisos; quien lo reciba podrá hacer exactamente lo
             que se marque aquí.
@@ -84,59 +113,75 @@ export function RoleForm() {
         </div>
       </div>
 
-      {(error || catalogError) && (
+      {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
-          {error || catalogError}
+          {error}
         </div>
       )}
 
-      <section className="mz-card">
-        <div className="mz-card-head">
-          <h3>Datos del rol</h3>
-        </div>
-        <form onSubmit={handleSubmit} className="mz-card-body">
-          <div className="mz-field-grid">
-            <div className="mz-field">
-              <label htmlFor="name">Nombre del rol</label>
-              <input
-                id="name"
-                className="form-control"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                disabled={Boolean(cargo)}
-              />
-              {cargo && (
-                <small className="mz-faint">
-                  Es el rol del cargo «{cargo.nombre}»
-                  {cargo.unidad && ` (${cargo.unidad})`} del organigrama de{" "}
-                  {cargo.empresa}: se renombra con el cargo (Institucional →
-                  Estructura) y lo tiene quien ocupa ese cargo. Sus permisos sí
-                  se editan aquí.
-                </small>
-              )}
-            </div>
-          </div>
+      <EstadoDeCarga
+        cargando={isCatalogLoading || cargandoRol}
+        error={errorRol || catalogError}
+        onReintentar={() => {
+          if (errorRol) cargarRol();
+          if (catalogError) recargarCatalogo();
+        }}
+      />
 
-          {catalog && (
-            <div className="mz-section mt-3">
-              <h4>Permisos</h4>
-              <PermissionsCheckboxGroup
-                catalog={catalog}
-                selected={selected}
-                onChange={setSelected}
-              />
-            </div>
-          )}
-
-          <div className="mz-actions justify-content-end mt-3">
-            <button type="submit" className="btn btn-primary">
-              Guardar
-            </button>
+      {!isCatalogLoading && !cargandoRol && !errorRol && !catalogError && (
+        <section className="mz-card">
+          <div className="mz-card-head">
+            <h3>Datos del rol</h3>
           </div>
-        </form>
-      </section>
+          <form onSubmit={handleSubmit} className="mz-card-body">
+            <fieldset disabled={soloLectura}>
+              <div className="mz-field-grid">
+                <div className="mz-field">
+                  <label htmlFor="name">Nombre del rol</label>
+                  <input
+                    id="name"
+                    className="form-control"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    disabled={Boolean(cargo)}
+                  />
+                  {cargo && (
+                    <small className="mz-faint">
+                      Es el rol del cargo «{cargo.nombre}»
+                      {cargo.unidad && ` (${cargo.unidad})`} del organigrama de{" "}
+                      {cargo.empresa}: se renombra con el cargo (Institucional →
+                      Estructura) y lo tiene quien ocupa ese cargo. Sus permisos
+                      sí se editan aquí.
+                    </small>
+                  )}
+                </div>
+              </div>
+            </fieldset>
+
+            {catalog && (
+              <div className="mz-section mt-3">
+                <h4>Permisos</h4>
+                <PermissionsCheckboxGroup
+                  catalog={catalog}
+                  selected={selected}
+                  onChange={setSelected}
+                  soloLectura={soloLectura}
+                />
+              </div>
+            )}
+
+            {!soloLectura && (
+              <div className="mz-actions justify-content-end mt-3">
+                <button type="submit" className="btn btn-primary">
+                  Guardar
+                </button>
+              </div>
+            )}
+          </form>
+        </section>
+      )}
 
       <ConfirmDialog
         isOpen={isConfirmOpen}

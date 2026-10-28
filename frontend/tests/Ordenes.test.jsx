@@ -180,7 +180,7 @@ describe("El listado", () => {
       await screen.findByRole("link", { name: /Nueva orden/ }),
     ).toHaveAttribute("href", "/admin/ordenes/lista/nueva");
     expect(
-      screen.getByText(/No hay órdenes en su alcance/),
+      await screen.findByText("No hay órdenes abiertas en su alcance."),
     ).toBeInTheDocument();
   });
 });

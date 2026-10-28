@@ -145,6 +145,30 @@ describe("Mi onboarding", () => {
   });
 });
 
+/* Cargando y error con «Reintentar» (auditoría UX/UI, fase 2, 28/10/2026). */
+describe("Mi onboarding: cargando y error", () => {
+  it("dice «Cargando…» mientras llega el plan", async () => {
+    servicio.miOnboarding.mockReturnValue(new Promise(() => {}));
+    render(<MiOnboardingPage />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+  });
+
+  it("un fallo se avisa y «Reintentar» vuelve a pedirlo", async () => {
+    servicio.miOnboarding.mockRejectedValueOnce({
+      response: { data: { error: { message: "Servidor no disponible." } } },
+    });
+    render(<MiOnboardingPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Servidor no disponible.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByText("0 de 2 materiales aprobados"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("Tipos de pregunta", () => {
   it("opción múltiple, completar espacios y unir arman su respuesta", async () => {
     servicio.miOnboarding.mockResolvedValue({

@@ -166,7 +166,9 @@
 
 .soporte-campo--oculto .soporte-campo__fila {
   background: var(--mz-sunken);
-  opacity: 0.75;
+  /* Antes opacity .75: bajaba el contraste del texto por debajo de 4.5:1
+     (auditoría UX/UI, fase 2, 28/10/2026). */
+  color: var(--mz-ink-soft);
 }
 
 .soporte-campo__orden {
@@ -292,4 +294,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+}
+
+/* La nota interna se ve distinta de una respuesta al usuario desde que se
+   elige, antes de escribir (auditoría UX/UI, fase 2, 28/10/2026). */
+.soporte-respuesta--interna,
+.soporte-respuesta--interna:focus {
+  background: var(--mz-warn-bg);
+  border-color: var(--mz-warn-fg);
 }

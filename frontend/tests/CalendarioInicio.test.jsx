@@ -263,13 +263,13 @@ describe("Gestionar calendario", () => {
     const ventana = screen.getByRole("dialog", {
       name: "Agregar al calendario",
     });
-    fireEvent.change(within(ventana).getByLabelText("Título"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Título/), {
       target: { value: "Cumpleaños de Beto" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Tipo"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Tipo/), {
       target: { value: "cumpleanos" },
     });
-    fireEvent.change(within(ventana).getByLabelText("Fecha"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Fecha/), {
       target: { value: "2026-11-03" },
     });
     // Elegir «Cumpleaños» marca «se repite cada año».

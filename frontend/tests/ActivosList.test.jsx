@@ -176,8 +176,39 @@ describe("El listado de activos", () => {
     pintar();
 
     expect(
-      await screen.findByText("Sin activos que coincidan con los filtros"),
+      await screen.findByText("Todavía no hay activos registrados."),
     ).toBeInTheDocument();
+  });
+
+  // Auditoría UX/UI, fase 2 (28/10/2026): con filtros, el vacío es de los
+  // filtros y se ofrece quitarlos ahí mismo.
+  it("vacío por los filtros lo dice y deja limpiarlos", async () => {
+    listarActivos.mockResolvedValue({ results: [], count: 0 });
+
+    pintar("/admin/activos?estado=en_reparacion");
+
+    expect(
+      await screen.findByText("Ningún resultado con estos filtros."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+    await waitFor(() =>
+      expect(listarActivos).toHaveBeenLastCalledWith(
+        expect.not.objectContaining({ estado: "en_reparacion" }),
+      ),
+    );
+  });
+
+  it("las dos búsquedas se distinguen por su nombre", async () => {
+    pintar();
+
+    expect(
+      screen.getByRole("search", { name: "Buscar por código con el escáner" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("search", { name: "Filtrar el inventario" }),
+    ).toBeInTheDocument();
+    await screen.findAllByRole("row");
   });
 
   it("si el inventario no carga lo dice", async () => {
@@ -187,6 +218,12 @@ describe("El listado de activos", () => {
 
     expect(
       await screen.findByText("No se pudo cargar el inventario."),
+    ).toBeInTheDocument();
+    // Y deja reintentar sin recargar la página.
+    listarActivos.mockResolvedValue({ results: [], count: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByText("Todavía no hay activos registrados."),
     ).toBeInTheDocument();
   });
 });

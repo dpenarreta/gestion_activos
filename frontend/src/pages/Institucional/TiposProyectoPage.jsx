@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { guardarArchivo, proyectosService } from "../../api/proyectosService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { ListaDeDestinos } from "./FlujosPermisoPage";
 import { DESTINOS_APROBADOR } from "./licenciasComunes";
 import "./Institucional.css";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 export const TIPOS_DE_CAMPO = [
   ["texto", "Texto corto"],
@@ -195,6 +202,11 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
   const [tipo, setTipo] = useState(inicial);
   const [plantilla, setPlantilla] = useState(null);
   const [error, setError] = useState(null);
+  // Errores de los campos de arriba junto a cada uno, y foco al primero
+  // (auditoría UX/UI, fase 2, 28/10/2026). Los de los campos y pasos siguen
+  // en el aviso general.
+  const [errores, setErrores] = useState({});
+  const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -213,6 +225,7 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
     evento.preventDefault();
     setGuardando(true);
     setError(null);
+    setErrores({});
     const limpiar = (lista) =>
       lista.map(({ tipo: t, usuario, rol, cargo }) => ({
         tipo: t,
@@ -249,7 +262,9 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
       );
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el tipo de proyecto."));
+      setErrores(erroresPorCampo(err));
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -284,40 +299,47 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body mz-stack" onSubmit={guardar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body mz-stack"
+          onSubmit={guardar}
+        >
           {error && (
             <div className="mz-alert mz-alert--bad" role="alert">
               <Icon name="x-octagon" />
               {error}
             </div>
           )}
+          <LeyendaObligatorios />
           <div className="row g-2">
-            <div className="col-12">
-              <label className="form-label mz-small" htmlFor="tp-nombre">
-                Nombre del tipo de proyecto
-              </label>
+            <Campo
+              id="tp-nombre"
+              etiqueta="Nombre del tipo de proyecto"
+              obligatorio
+              error={errores.nombre}
+              className="col-12"
+            >
               <input
-                id="tp-nombre"
                 className="form-control form-control-sm"
-                required
                 maxLength={120}
                 placeholder="Proyecto de TI"
                 value={tipo.nombre}
                 onChange={fijar("nombre")}
               />
-            </div>
-            <div className="col-12">
-              <label className="form-label mz-small" htmlFor="tp-descripcion">
-                Indicaciones (las ve quien solicita)
-              </label>
+            </Campo>
+            <Campo
+              id="tp-descripcion"
+              etiqueta="Indicaciones (las ve quien solicita)"
+              error={errores.descripcion}
+              className="col-12"
+            >
               <textarea
-                id="tp-descripcion"
                 rows={2}
                 className="form-control form-control-sm"
                 value={tipo.descripcion ?? ""}
                 onChange={fijar("descripcion")}
               />
-            </div>
+            </Campo>
           </div>
 
           <section aria-labelledby="tp-plantilla">
@@ -334,18 +356,22 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
                 <strong>{tipo.plantilla_nombre}</strong>
               </p>
             )}
-            <label className="form-label mz-small" htmlFor="tp-archivo">
-              {tipo.tiene_plantilla
-                ? "Reemplazar por otra (opcional)"
-                : "Cargar la plantilla"}
-            </label>
-            <input
+            <Campo
               id="tp-archivo"
-              type="file"
-              accept={ACEPTA}
-              className="form-control form-control-sm"
-              onChange={(e) => setPlantilla(e.target.files?.[0] ?? null)}
-            />
+              etiqueta={
+                tipo.tiene_plantilla
+                  ? "Reemplazar por otra (opcional)"
+                  : "Cargar la plantilla"
+              }
+              error={errores.plantilla ?? errores.archivo}
+            >
+              <input
+                type="file"
+                accept={ACEPTA}
+                className="form-control form-control-sm"
+                onChange={(e) => setPlantilla(e.target.files?.[0] ?? null)}
+              />
+            </Campo>
             <label className="form-check mt-2">
               <input
                 type="checkbox"
@@ -487,27 +513,38 @@ export function TiposProyectoPage() {
   const [opciones, setOpciones] = useState(null);
   const [editando, setEditando] = useState(null);
   const [error, setError] = useState(null);
+  // El fallo al cargar va junto a la lista, con «Reintentar» (auditoría
+  // UX/UI, fase 2, 28/10/2026).
+  const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
 
-  const cargar = useCallback(
-    () =>
-      proyectosService
-        .tiposConfigurados()
-        .then(setTipos)
-        .catch((err) =>
-          setError(
-            mensajeDeError(err, "No se pudieron cargar los tipos de proyecto."),
-          ),
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
+    return proyectosService
+      .tiposConfigurados()
+      .then(setTipos)
+      .catch((err) =>
+        setErrorCarga(
+          mensajeDeError(err, "No se pudieron cargar los tipos de proyecto."),
         ),
-    [],
-  );
+      );
+  }, []);
 
   useEffect(() => {
     cargar();
     proyectosService
       .opciones()
       .then(setOpciones)
-      .catch(() => null);
+      // Sin las opciones no se pueden elegir aprobadores: se avisa en vez de
+      // dejar los selectores vacíos.
+      .catch((err) =>
+        setError(
+          mensajeDeError(
+            err,
+            "No se pudieron cargar las personas, roles y cargos para elegir aprobadores.",
+          ),
+        ),
+      );
   }, [cargar]);
 
   async function guardar(datos, plantilla, activar) {
@@ -590,6 +627,13 @@ export function TiposProyectoPage() {
         </div>
       )}
 
+      <EstadoDeCarga
+        cargando={tipos === null}
+        error={errorCarga}
+        onReintentar={cargar}
+        vacio={tipos?.length === 0}
+        textoVacio="Todavía no hay tipos de proyecto."
+      />
       <div className="flujos-lista">
         {(tipos ?? []).map((t) => (
           <section
@@ -616,12 +660,18 @@ export function TiposProyectoPage() {
                   type="button"
                   className="btn btn-outline-danger btn-sm"
                   aria-label={`Borrar ${t.nombre}`}
-                  onClick={() =>
-                    hacer(
-                      () => proyectosService.eliminarTipo(t.id),
-                      `«${t.nombre}» se borró.`,
-                    )
-                  }
+                  onClick={async () => {
+                    const si = await confirmar({
+                      titulo: `¿Borrar el tipo de proyecto «${t.nombre}»?`,
+                      accion: "Borrar",
+                    });
+                    if (si) {
+                      hacer(
+                        () => proyectosService.eliminarTipo(t.id),
+                        `«${t.nombre}» se borró.`,
+                      );
+                    }
+                  }}
                 >
                   <Icon name="trash" />
                 </button>
@@ -674,9 +724,6 @@ export function TiposProyectoPage() {
             </ol>
           </section>
         ))}
-        {tipos?.length === 0 && (
-          <p className="mz-faint">Todavía no hay tipos de proyecto.</p>
-        )}
       </div>
 
       {editando && (

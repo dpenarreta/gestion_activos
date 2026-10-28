@@ -139,9 +139,12 @@
   padding: 2px;
   font-size: 26px;
   line-height: 1;
-  color: var(--mz-border-strong);
+  /* Contraste ≥ 3:1 en claro y oscuro, con los tokens del tema: el gris de
+     borde y el amarillo #e0a800 se perdían sobre el fondo (auditoría UX/UI,
+     fase 2, 28/10/2026). */
+  color: var(--mz-ink-faint);
 }
 
 .soporte-estrellas button.activa {
-  color: #e0a800;
+  color: var(--mz-warn-fg);
 }

@@ -171,13 +171,17 @@ describe("Perfil obligatorio al entrar", () => {
     misDatos.obtener.mockResolvedValue(INCOMPLETOS);
     const { unmount } = render(<AvisoPerfil />);
     let dialogo = await ventana();
-    expect(within(dialogo).queryByRole("alert")).toBeNull();
-    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+    const cargo = within(dialogo).getByLabelText("Cargo");
+    expect(cargo).not.toHaveAccessibleDescription(/no podrá cambiarlo/);
+    fireEvent.change(cargo, {
       target: { value: "5" },
     });
-    expect(within(dialogo).getByRole("alert")).toHaveTextContent(
+    // La advertencia es la descripción del campo, no una alerta (auditoría
+    // UX/UI, fase 2, 28/10/2026).
+    expect(cargo).toHaveAccessibleDescription(
       /no podrá cambiarlo usted: solo TI o la administración/,
     );
+    expect(within(dialogo).queryByRole("alert")).toBeNull();
     unmount();
 
     // Con cargo ya elegido, el campo queda fijo y dice quién lo cambia.

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { capacitacionService } from "../../api/capacitacionService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
@@ -122,7 +127,12 @@ function Asignar({ onAsignado, onCerrar }) {
       capacitacionService
         .personas(buscar.trim())
         .then(setResultados)
-        .catch(() => setResultados([]));
+        // Antes un fallo se veía como «nadie coincide» (auditoría UX/UI,
+        // fase 2, 28/10/2026).
+        .catch((err) => {
+          setResultados([]);
+          setError(mensajeDeError(err, "No se pudo buscar personas."));
+        });
     }, 250);
     return () => clearTimeout(espera);
   }, [buscar]);
@@ -236,6 +246,7 @@ export function CapacitacionResultados() {
       capacitacionService
         .resultados()
         .then((d) => {
+          setError(null);
           setDatos(d);
           setDetalle((actual) =>
             actual
@@ -259,23 +270,18 @@ export function CapacitacionResultados() {
   return (
     <div className="mz-stack">
       <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-        <div className="mz-tabs" role="tablist">
-          {[
-            ["personas", "Por persona"],
-            ["materiales", "Por material"],
-          ].map(([id, texto]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={vista === id}
-              className={vista === id ? "is-active" : undefined}
-              onClick={() => setVista(id)}
-            >
-              {texto}
-            </button>
-          ))}
-        </div>
+        {/* Pestañas con flechas y su panel (auditoría UX/UI, fase 2,
+            28/10/2026). */}
+        <Pestanas
+          etiqueta="Resultados de capacitación"
+          idBase="cap-res"
+          valor={vista}
+          onCambio={setVista}
+          opciones={[
+            { id: "personas", etiqueta: "Por persona" },
+            { id: "materiales", etiqueta: "Por material" },
+          ]}
+        />
         <button
           type="button"
           className="btn btn-outline-primary btn-sm"
@@ -290,105 +296,116 @@ export function CapacitacionResultados() {
           {aviso}
         </div>
       )}
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
+      <PanelDePestana idBase="cap-res" valor={vista} className="mz-stack">
+        <EstadoDeCarga
+          cargando={datos === null}
+          error={error}
+          onReintentar={cargar}
+          vacio={
+            datos !== null &&
+            (vista === "personas" ? datos.personas : datos.materiales)
+              .length === 0
+          }
+          textoVacio={
+            vista === "personas"
+              ? "Todavía nadie tiene onboarding asignado."
+              : "Todavía no hay materiales de capacitación."
+          }
+        />
 
-      {datos && vista === "personas" && (
-        <div className="mz-card">
-          <div className="table-responsive">
-            <table className="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Persona</th>
-                  <th>Avance</th>
-                  <th>Promedio</th>
-                  <th>Estado</th>
-                  <th>Por reforzar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datos.personas.map((p) => (
-                  <tr key={p.usuario.id}>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-link btn-sm p-0 text-start"
-                        onClick={() => setDetalle(p)}
-                      >
-                        {p.usuario.nombre}
-                      </button>
-                    </td>
-                    <td>
-                      {p.aprobados} / {p.total}
-                    </td>
-                    <td>{p.promedio ?? "—"}</td>
-                    <td>
-                      {p.completado_en ? (
-                        <span className="perfil-cargo-estado perfil-cargo-estado--completo">
-                          Completo
-                        </span>
-                      ) : p.vencido ? (
-                        <span className="sugerencia-estado sugerencia-estado--alto">
-                          Vencido ({formatearFecha(p.fecha_limite)})
-                        </span>
-                      ) : (
-                        <span className="perfil-cargo-estado perfil-cargo-estado--parcial">
-                          Hasta {formatearFecha(p.fecha_limite)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="mz-small">
-                      {p.a_reforzar.join(", ") || "—"}
-                    </td>
+        {datos?.personas.length > 0 && vista === "personas" && (
+          <div className="mz-card">
+            <div className="table-responsive">
+              <table className="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Persona</th>
+                    <th>Avance</th>
+                    <th>Promedio</th>
+                    <th>Estado</th>
+                    <th>Por reforzar</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {datos.personas.map((p) => (
+                    <tr key={p.usuario.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-start"
+                          onClick={() => setDetalle(p)}
+                        >
+                          {p.usuario.nombre}
+                        </button>
+                      </td>
+                      <td>
+                        {p.aprobados} / {p.total}
+                      </td>
+                      <td>{p.promedio ?? "—"}</td>
+                      <td>
+                        {p.completado_en ? (
+                          <span className="perfil-cargo-estado perfil-cargo-estado--completo">
+                            Completo
+                          </span>
+                        ) : p.vencido ? (
+                          <span className="sugerencia-estado sugerencia-estado--alto">
+                            Vencido ({formatearFecha(p.fecha_limite)})
+                          </span>
+                        ) : (
+                          <span className="perfil-cargo-estado perfil-cargo-estado--parcial">
+                            Hasta {formatearFecha(p.fecha_limite)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="mz-small">
+                        {p.a_reforzar.join(", ") || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {datos && vista === "materiales" && (
-        <div className="herramientas-uso">
-          {datos.materiales.map((m) => (
-            <section key={m.id} className="mz-card">
-              <div className="mz-card-body">
-                <h4 className="inicio-titulo">
-                  {m.titulo}{" "}
-                  <span className="mz-faint mz-small">
-                    · {m.alcance_display}
-                  </span>
-                </h4>
-                <p className="mz-small mb-2">
-                  {m.personas} personas · {m.aprobaron} aprobaron · promedio{" "}
-                  {m.promedio ?? "—"}
-                </p>
-                {m.mas_falladas.length > 0 ? (
-                  <>
-                    <strong className="mz-small">Lo que más se falla</strong>
-                    <ul className="onboarding-reforzar">
-                      {m.mas_falladas.map((f) => (
-                        <li key={f.pregunta}>
-                          {f.pregunta}{" "}
-                          <small className="mz-faint">({f.veces})</small>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="mz-faint mz-small mb-0">
-                    Sin fallos registrados.
+        {datos?.materiales.length > 0 && vista === "materiales" && (
+          <div className="herramientas-uso">
+            {datos.materiales.map((m) => (
+              <section key={m.id} className="mz-card">
+                <div className="mz-card-body">
+                  <h4 className="inicio-titulo">
+                    {m.titulo}{" "}
+                    <span className="mz-faint mz-small">
+                      · {m.alcance_display}
+                    </span>
+                  </h4>
+                  <p className="mz-small mb-2">
+                    {m.personas} personas · {m.aprobaron} aprobaron · promedio{" "}
+                    {m.promedio ?? "—"}
                   </p>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+                  {m.mas_falladas.length > 0 ? (
+                    <>
+                      <strong className="mz-small">Lo que más se falla</strong>
+                      <ul className="onboarding-reforzar">
+                        {m.mas_falladas.map((f) => (
+                          <li key={f.pregunta}>
+                            {f.pregunta}{" "}
+                            <small className="mz-faint">({f.veces})</small>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="mz-faint mz-small mb-0">
+                      Sin fallos registrados.
+                    </p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </PanelDePestana>
 
       {detalle && (
         <DetallePersona

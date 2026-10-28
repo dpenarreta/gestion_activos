@@ -346,7 +346,7 @@ describe("Las áreas de la Matriz en la ficha del usuario (§8.7)", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Contabilidad y Tributario")).toBeChecked();
     fireEvent.click(screen.getByLabelText("Talento Humano"));
-    fireEvent.click(screen.getByRole("button", { name: /Guardar empresas/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar accesos" }));
 
     await waitFor(() =>
       expect(assignEmpresas).toHaveBeenCalledWith("7", [
@@ -369,7 +369,7 @@ describe("Las áreas de la Matriz en la ficha del usuario (§8.7)", () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: /Guardar empresas/ }),
+      await screen.findByRole("button", { name: "Guardar accesos" }),
     );
     await waitFor(() =>
       expect(assignEmpresas).toHaveBeenCalledWith("7", [

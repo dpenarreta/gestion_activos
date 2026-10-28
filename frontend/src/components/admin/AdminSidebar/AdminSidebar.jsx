@@ -16,6 +16,7 @@ import { useMenuAccordion } from "../../../hooks/useMenuAccordion";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
 import { iniciales } from "../../../utils/iniciales";
+import { confirmarDescarte } from "../../common/ConfirmarDescarte/confirmarDescarte";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
 import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
@@ -176,8 +177,11 @@ export function AdminSidebar({
       return;
     }
     event.preventDefault();
-    guardedNavigate(path);
-    onMobileClose();
+    // Se cierra el menú solo si de verdad se navegó: con «Seguir editando»
+    // el menú tiene que seguir abierto donde estaba.
+    guardedNavigate(path).then((navego) => {
+      if (navego !== false) onMobileClose();
+    });
   }
 
   const [menuUsuario, setMenuUsuario] = useState(false);
@@ -198,11 +202,8 @@ export function AdminSidebar({
     };
   }, [menuUsuario]);
 
-  function handleLogout() {
-    if (
-      isDirty &&
-      !window.confirm("Hay cambios sin guardar. ¿Desea continuar sin guardar?")
-    ) {
+  async function handleLogout() {
+    if (isDirty && !(await confirmarDescarte())) {
       return;
     }
     setIsDirty(false);

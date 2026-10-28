@@ -256,16 +256,44 @@ describe("Traslado de sede", () => {
     await screen.findByText("Situación actual");
     await trasladar();
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    const aviso = screen
+      .getByText(/se asignará únicamente a la nueva ubicación/)
+      .closest(".mz-alert");
+    expect(aviso).toHaveTextContent(
       "Aviso: El equipo quedará sin responsable y se asignará únicamente a la nueva ubicación",
     );
+    // Auditoría UX/UI, fase 2: el aviso está siempre en este modo, no es un
+    // hecho nuevo; no debe interrumpir al lector de pantalla como alerta.
+    expect(aviso).not.toHaveAttribute("role", "alert");
   });
 
   it("el aviso no aparece al entregar, que no cambia de sitio el equipo", async () => {
     abrir();
     await screen.findByText("Situación actual");
 
+    expect(
+      screen.queryByText(/se asignará únicamente a la nueva ubicación/),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("si una lista no carga lo dice junto a su campo", async () => {
+    // Auditoría UX/UI, fase 2 (28/10/2026): antes quedaba vacía sin aviso.
+    const { empleadosService, sedesService } =
+      await import("../src/api/organizacionService");
+    empleadosService.list.mockRejectedValueOnce(new Error("500"));
+    sedesService.list.mockRejectedValueOnce(new Error("500"));
+    abrir();
+    await screen.findByText("Situación actual");
+
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Nuevo responsable"),
+      ).toHaveAccessibleDescription("No se pudo cargar la lista de empleados."),
+    );
+    expect(
+      screen.getByLabelText("Sede donde queda el equipo"),
+    ).toHaveAccessibleDescription("No se pudo cargar la lista de sedes.");
   });
 
   it("arranca en la sede donde está el equipo", async () => {

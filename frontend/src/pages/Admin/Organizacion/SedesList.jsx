@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { sedesService } from "../../../api/organizacionService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
@@ -30,9 +31,18 @@ export function SedesList() {
     "No se pudo cargar el listado de sedes.",
   );
 
+  const hayFiltros = Object.values(listado.filtros).some(Boolean);
+
   function handleBuscar(event) {
     event.preventDefault();
     listado.actualizarFiltros({ q: busqueda });
+  }
+
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
+  // próximo «Buscar» volvería a filtrar por él.
+  function limpiarFiltros() {
+    setBusqueda("");
+    listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
   return (
@@ -85,13 +95,6 @@ export function SedesList() {
         </button>
       </form>
 
-      {listado.error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {listado.error}
-        </div>
-      )}
-
       <div className="mz-table-wrap">
         <table className="mz-table">
           <thead>
@@ -105,34 +108,44 @@ export function SedesList() {
             </tr>
           </thead>
           <tbody>
-            {listado.resultados.map((sede) => (
-              <tr key={sede.id}>
-                <td className="mz-strong">{sede.nombre}</td>
-                <td>{sede.ciudad || "—"}</td>
-                <td className="mz-faint">{sede.direccion || "—"}</td>
-                <td className="num">{sede.total_activos}</td>
-                <td>
-                  <span
-                    className={`mz-pill ${sede.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
-                  >
-                    {sede.activa ? "Abierta" : "Cerrada"}
-                  </span>
-                </td>
-                <td className="acciones">
-                  <Link
-                    to={`/admin/organizacion/sedes/${sede.id}`}
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    {puedeEditar ? "Editar" : "Ver"}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={6}>Sin sedes registradas</td>
-              </tr>
-            )}
+            {/* Cargando, error con reintento y un vacío que distingue «no
+                hay registros» de «el filtro no encuentra nada» (auditoría
+                UX/UI, fase 2, 28/10/2026). */}
+            <FilaDeEstado
+              columnas={6}
+              cargando={listado.isLoading && listado.resultados.length === 0}
+              error={listado.error}
+              onReintentar={listado.refresh}
+              vacio={!listado.isLoading && listado.resultados.length === 0}
+              textoVacio="Todavía no hay sedes registradas."
+              hayFiltros={hayFiltros}
+              onLimpiarFiltros={limpiarFiltros}
+            />
+            {!listado.error &&
+              listado.resultados.map((sede) => (
+                <tr key={sede.id}>
+                  <td className="mz-strong">{sede.nombre}</td>
+                  <td>{sede.ciudad || "—"}</td>
+                  <td className="mz-faint">{sede.direccion || "—"}</td>
+                  <td className="num">{sede.total_activos}</td>
+                  <td>
+                    <span
+                      className={`mz-pill ${sede.activa ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                    >
+                      {sede.activa ? "Abierta" : "Cerrada"}
+                    </span>
+                  </td>
+                  <td className="acciones">
+                    <Link
+                      to={`/admin/organizacion/sedes/${sede.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`${puedeEditar ? "Editar" : "Ver"} ${sede.nombre}`}
+                    >
+                      {puedeEditar ? "Editar" : "Ver"}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { sedesService } from "../../../api/organizacionService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
-import { mensajeDeError } from "../../../utils/errores";
+import {
+  hayErroresGenerales,
+  erroresPorCampo,
+  mensajeDeError,
+} from "../../../utils/errores";
 import "./Organizacion.css";
 
 const VACIO = {
@@ -16,6 +25,9 @@ const VACIO = {
   responsables: [],
   activa: true,
 };
+// Un error del servidor sobre uno de estos campos va bajo el campo; sobre
+// otra cosa, en el aviso de arriba con el detalle completo.
+const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(VACIO));
 
 const REGIONES = [
   ["sierra", "Sierra"],
@@ -34,7 +46,9 @@ export function SedeForm() {
   const [totalActivos, setTotalActivos] = useState(0);
   const [personas, setPersonas] = useState([]);
   const [error, setError] = useState(null);
+  const [erroresCampo, setErroresCampo] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     sedesService
@@ -64,12 +78,17 @@ export function SedeForm() {
 
   function actualizar(campo, valor) {
     setValores((actuales) => ({ ...actuales, [campo]: valor }));
+    // Lo corregido deja de marcarse como error.
+    setErroresCampo((actuales) =>
+      actuales[campo] ? { ...actuales, [campo]: undefined } : actuales,
+    );
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+    setErroresCampo({});
     try {
       if (esEdicion) {
         await sedesService.update(id, valores);
@@ -78,7 +97,20 @@ export function SedeForm() {
       }
       navigate("/admin/organizacion/sedes");
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar la sede."));
+      // Cada error bajo su campo y, arriba, un aviso general; si alguno no es
+      // de un campo del formulario, el aviso lleva el detalle completo
+      // (auditoría UX/UI, fase 2, 28/10/2026).
+      const porCampo = erroresPorCampo(err);
+      const claves = Object.keys(porCampo);
+      setErroresCampo(porCampo);
+      setError(
+        claves.length > 0 &&
+          claves.every((clave) => CAMPOS_DEL_FORMULARIO.has(clave)) &&
+          !hayErroresGenerales(err)
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar la sede."),
+      );
+      enfocarPrimerError(formRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -96,60 +128,67 @@ export function SedeForm() {
         </div>
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-
       <section className="mz-card organizacion-ficha">
         <div className="mz-card-head">
           <h3>Datos de la sede</h3>
         </div>
-        <form onSubmit={handleSubmit} className="mz-card-body">
+        <form ref={formRef} onSubmit={handleSubmit} className="mz-card-body">
+          {/* Dentro del formulario: tras un error, el foco puede ir aquí si
+              ningún campo quedó marcado. */}
+          {error && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          {/* Obligatorios marcados y cada error del servidor bajo su campo
+              (auditoría UX/UI, fase 2, 28/10/2026). */}
           <div className="mz-field-grid">
-            <div className="mz-field">
-              <label htmlFor="nombre">Nombre</label>
+            <Campo
+              id="nombre"
+              etiqueta="Nombre"
+              obligatorio
+              ayuda="Como se la nombra internamente. Es lo que se lee al trasladar un equipo, así que conviene que se distinga de un vistazo de las demás."
+              error={erroresCampo.nombre}
+              className="mz-field"
+            >
               <input
-                id="nombre"
                 className="form-control"
-                required
                 maxLength={120}
                 placeholder="Sede Quito Norte"
                 value={valores.nombre}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("nombre", event.target.value)}
               />
-              <div className="form-text">
-                Como se la nombra internamente. Es lo que se lee al trasladar un
-                equipo, así que conviene que se distinga de un vistazo de las
-                demás.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="ciudad">Ciudad</label>
+            </Campo>
+            {/* La ayuda es lo que se lee al preguntar dónde está un equipo:
+                «está en Quito». El nombre interno de la sede no le dice nada
+                a quien tiene que ir a buscarlo. */}
+            <Campo
+              id="ciudad"
+              etiqueta="Ciudad"
+              obligatorio
+              ayuda="Es lo que se muestra al decir dónde está un equipo."
+              error={erroresCampo.ciudad}
+              className="mz-field"
+            >
               <input
-                id="ciudad"
                 className="form-control"
-                required
                 maxLength={120}
                 placeholder="Quito"
                 value={valores.ciudad}
                 disabled={!puedeEditar}
                 onChange={(event) => actualizar("ciudad", event.target.value)}
               />
-              <div className="form-text">
-                {/* Es lo que se lee al preguntar dónde está un equipo: «está en
-                    Quito». El nombre interno de la sede no le dice nada a quien
-                    tiene que ir a buscarlo. */}
-                Es lo que se muestra al decir dónde está un equipo.
-              </div>
-            </div>
-            <div className="mz-field mz-field--full">
-              <label htmlFor="direccion">Dirección</label>
+            </Campo>
+            <Campo
+              id="direccion"
+              etiqueta="Dirección"
+              ayuda="Para quien tenga que ir a buscar el equipo."
+              error={erroresCampo.direccion}
+              className="mz-field mz-field--full"
+            >
               <input
-                id="direccion"
                 className="form-control"
                 maxLength={200}
                 placeholder="Av. Amazonas y Naciones Unidas"
@@ -159,14 +198,15 @@ export function SedeForm() {
                   actualizar("direccion", event.target.value)
                 }
               />
-              <div className="form-text">
-                Para quien tenga que ir a buscar el equipo.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="region">Región</label>
+            </Campo>
+            <Campo
+              id="region"
+              etiqueta="Región"
+              ayuda="El mantenimiento de sedes reporta por región."
+              error={erroresCampo.region}
+              className="mz-field"
+            >
               <select
-                id="region"
                 className="form-select"
                 value={valores.region}
                 disabled={!puedeEditar}
@@ -179,14 +219,14 @@ export function SedeForm() {
                   </option>
                 ))}
               </select>
-              <div className="form-text">
-                El mantenimiento de sedes reporta por región.
-              </div>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="provincia">Provincia</label>
+            </Campo>
+            <Campo
+              id="provincia"
+              etiqueta="Provincia"
+              error={erroresCampo.provincia}
+              className="mz-field"
+            >
               <input
-                id="provincia"
                 className="form-control"
                 maxLength={80}
                 placeholder="Pichincha"
@@ -196,8 +236,13 @@ export function SedeForm() {
                   actualizar("provincia", event.target.value)
                 }
               />
-            </div>
-            <fieldset className="mz-field mz-field--full">
+            </Campo>
+            <fieldset
+              className="mz-field mz-field--full"
+              aria-describedby={
+                erroresCampo.responsables ? "responsables-error" : undefined
+              }
+            >
               <legend className="form-label">Responsables de la sede</legend>
               <div className="form-text mt-0 mb-2">
                 Ven las órdenes de trabajo de esta sede y aceptan el trabajo
@@ -238,15 +283,24 @@ export function SedeForm() {
                   ))}
                 </div>
               )}
+              {erroresCampo.responsables && (
+                <div id="responsables-error" className="mz-field-error">
+                  {erroresCampo.responsables}
+                </div>
+              )}
             </fieldset>
             <div className="mz-field--full">
               <div className="form-check">
                 <input
                   id="activa"
                   type="checkbox"
-                  className="form-check-input"
+                  className={`form-check-input${erroresCampo.activa ? " is-invalid" : ""}`}
                   checked={valores.activa}
                   disabled={!puedeEditar}
+                  aria-invalid={erroresCampo.activa ? true : undefined}
+                  aria-describedby={
+                    erroresCampo.activa ? "activa-error" : undefined
+                  }
                   onChange={(event) =>
                     actualizar("activa", event.target.checked)
                   }
@@ -264,26 +318,34 @@ export function SedeForm() {
                   primero.
                 </div>
               )}
+              {erroresCampo.activa && (
+                <div id="activa-error" className="mz-field-error">
+                  {erroresCampo.activa}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="mz-actions justify-content-end mt-3">
-            <button
-              type="button"
-              className="btn btn-cancelar"
-              onClick={() => navigate("/admin/organizacion/sedes")}
-            >
-              Volver
-            </button>
-            {puedeEditar && (
+          <div className="mz-actions justify-content-between align-items-center mt-3">
+            <LeyendaObligatorios />
+            <div className="d-flex flex-wrap gap-2">
               <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSaving}
+                type="button"
+                className="btn btn-cancelar"
+                onClick={() => navigate("/admin/organizacion/sedes")}
               >
-                {isSaving ? "Guardando…" : "Guardar"}
+                Volver
               </button>
-            )}
+              {puedeEditar && (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Guardando…" : "Guardar"}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </section>
