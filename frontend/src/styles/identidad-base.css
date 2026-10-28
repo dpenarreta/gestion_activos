@@ -2095,3 +2095,119 @@ body {
 .modal.modal--sobre {
   z-index: var(--z-modal);
 }
+
+/* --- Fase 1 de la auditoría UX/UI (28/10/2026) --------------------------- */
+
+/* Foco visible en todo el sistema (WCAG 2.4.7): no había regla común y el
+   anillo del navegador se perdía sobre el menú oscuro. El color: el de acción
+   en claro; en oscuro, uno claro que llega a 3:1 sobre los fondos oscuros sea
+   cual sea el color institucional. */
+:root {
+  --mz-foco: var(--mz-action);
+}
+
+:root[data-theme="dark"] {
+  --mz-foco: #8ab4f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mz-foco: #8ab4f8;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.mz-sidebar :focus-visible {
+  outline-color: var(--mz-side-fg);
+}
+
+/* Bootstrap quita el contorno de sus botones y deja una sombra que en los
+   claros es casi invisible (rgba gris al 50 %): el mismo contorno para todos. */
+.btn:focus-visible,
+.nav-link:focus-visible,
+.page-link:focus-visible,
+.form-check-input:focus-visible,
+.accordion-button:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* Los buscadores quitan el contorno del input: lo muestra su caja. */
+.mz-search:focus-within,
+.mz-fb-search:focus-within {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 1px;
+}
+
+/* Las filas que se abren con el teclado muestran el foco, no solo el fondo. */
+.mz-table tbody tr:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+/* El contenido recibe el foco desde «Saltar al contenido» sin dibujar un marco. */
+#contenido:focus {
+  outline: none;
+}
+
+/* «Saltar al contenido» (WCAG 2.4.1): fuera de la vista hasta recibir foco. */
+.mz-saltar {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  left: 8px;
+  z-index: 2100;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--mz-action);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.mz-saltar:focus {
+  transform: none;
+}
+
+/* Áreas táctiles (WCAG 2.5.8): 24 px como piso siempre… */
+.mz-icon-btn,
+.mz-close,
+.mz-logout,
+.mz-sidebar-close,
+.mz-chips button,
+.mz-doc-actions button,
+.mz-tab-accion {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+/* …y 44 px en pantallas táctiles (Apple HIG 44 pt, Material 48 dp). */
+@media (pointer: coarse) {
+  .mz-icon-btn,
+  .mz-close,
+  .mz-logout,
+  .mz-sidebar-close,
+  .mz-doc-actions button,
+  .btn-sm,
+  .mz-tab-accion {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Con alto mínimo, el texto de un botón en línea quedaba pegado arriba. */
+  .btn-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mz-chips button,
+  .form-control-sm,
+  .form-select-sm {
+    min-height: 44px;
+  }
+}

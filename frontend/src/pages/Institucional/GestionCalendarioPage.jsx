@@ -8,6 +8,7 @@ import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { TIPOS_DE_EVENTO, iso } from "./CalendarioInicio";
 import "./Institucional.css";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 /** Agregar o editar una fecha del calendario, en una ventana. */
 function FormularioEvento({ inicial, onGuardar, onCerrar }) {
@@ -230,6 +231,13 @@ export function GestionCalendarioPage() {
   }
 
   async function borrar(evento) {
+    if (
+      !(await confirmar({
+        titulo: `¿Quitar «${evento.titulo}» del calendario?`,
+        accion: "Quitar",
+      }))
+    )
+      return;
     setError(null);
     setAviso(null);
     try {

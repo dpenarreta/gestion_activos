@@ -5,6 +5,7 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { useEstadoModulos } from "../../../modulos/EstadoModulos";
 import { MODULOS } from "../../../modulos/modulos";
 import { mensajeDeError } from "../../../utils/errores";
+import { confirmar } from "../../../components/common/Confirmar/confirmar";
 
 /**
  * Configuración → Módulos: encender y apagar los módulos de la empresa
@@ -18,6 +19,17 @@ export function ModulosPage() {
   const [error, setError] = useState(null);
 
   async function cambiar(id, activo) {
+    // Apagar un módulo lo oculta a toda la empresa: se confirma.
+    if (!activo) {
+      const nombre = MODULOS.find((m) => m.id === id)?.nombre ?? "este módulo";
+      const si = await confirmar({
+        titulo: `¿Apagar ${nombre}?`,
+        mensaje:
+          "Nadie de esta empresa lo verá, aunque tenga sus permisos; solo el superusuario y el administrador siguen entrando.",
+        accion: "Apagar",
+      });
+      if (!si) return;
+    }
     setCambiando(id);
     setError(null);
     try {

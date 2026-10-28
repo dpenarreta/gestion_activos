@@ -364,10 +364,24 @@ describe("Consultar rol de pagos", () => {
       name: /Cerrar sin responder/,
     });
     expect(aviso).toHaveTextContent(/acepta que su rol de pagos es correcto/);
+    // La opción por defecto es volver: tiene el foco, y Escape cierra solo el
+    // aviso (no el visor) sin registrar nada.
+    expect(
+      within(aviso).getByRole("button", { name: "Volver al rol" }),
+    ).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(visor).toBeInTheDocument();
+    fireEvent.click(
+      within(visor).getByRole("button", { name: "Cerrar visor" }),
+    );
     // Volver no cierra ni registra nada.
     fireEvent.click(
-      within(aviso).getByRole("button", { name: "Volver al rol" }),
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Volver al rol",
+      }),
     );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(servicio.conformidad).not.toHaveBeenCalled();
     fireEvent.click(
       within(visor).getByRole("button", { name: "Cerrar visor" }),

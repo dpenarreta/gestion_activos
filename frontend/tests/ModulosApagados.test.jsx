@@ -142,6 +142,12 @@ describe("Módulos apagados", () => {
     });
     servicio.modulos.mockResolvedValue(estado(["soporte"], true));
     fireEvent.click(interruptor);
+    // Apagar un módulo pide confirmación.
+    const pregunta = await screen.findByRole("dialog", {
+      name: /Apagar Mesa de ayuda/,
+    });
+    expect(servicio.cambiarModulo).not.toHaveBeenCalled();
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Apagar" }));
     await waitFor(() =>
       expect(servicio.cambiarModulo).toHaveBeenCalledWith("soporte", false),
     );

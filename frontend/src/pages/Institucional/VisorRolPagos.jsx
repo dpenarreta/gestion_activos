@@ -223,44 +223,74 @@ export function VisorRolPagos({
         )}
 
         {advirtiendo && (
-          <div className="visor-rol__aviso" role="presentation">
-            <div
-              className="mz-modal"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="visor-rol-aviso"
-              aria-describedby="visor-rol-aviso-texto"
-            >
-              <div className="mz-panel-body mz-stack">
-                <h3 id="visor-rol-aviso" className="h6 mb-0">
-                  <Icon name="exclamation-triangle" /> ¿Cerrar sin responder?
-                </h3>
-                <p id="visor-rol-aviso-texto" className="mb-0">
-                  Si cierra ahora, se registrará que{" "}
-                  <strong>acepta que su rol de pagos es correcto</strong>. Si
-                  algo no está bien, vuelva y deje una observación.
-                </p>
-                <div className="mz-actions justify-content-end">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => setAdvirtiendo(false)}
-                  >
-                    Volver al rol
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={guardando}
-                    onClick={() => responder("conforme_al_cerrar", true)}
-                  >
-                    Cerrar y aceptar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AvisoCerrarSinResponder
+            guardando={guardando}
+            error={error}
+            onVolver={() => setAdvirtiendo(false)}
+            onAceptar={() => responder("conforme_al_cerrar", true)}
+          />
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * «¿Cerrar sin responder?»: cerrar registra una aceptación del rol, así que la
+ * opción por defecto (foco y botón principal) es volver; Escape también
+ * vuelve, sin cerrar el visor (auditoría UX/UI, 28/10/2026).
+ */
+function AvisoCerrarSinResponder({ guardando, error, onVolver, onAceptar }) {
+  const { panelRef } = useModalA11y({
+    isOpen: true,
+    onRequestClose: onVolver,
+    confirmarAlDescartar: false,
+  });
+  return (
+    <div className="visor-rol__aviso" role="presentation">
+      <div
+        className="mz-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="visor-rol-aviso"
+        aria-describedby="visor-rol-aviso-texto"
+        ref={panelRef}
+        tabIndex={-1}
+      >
+        <div className="mz-panel-body mz-stack">
+          <h3 id="visor-rol-aviso" className="h6 mb-0">
+            <Icon name="exclamation-triangle" /> ¿Cerrar sin responder?
+          </h3>
+          <p id="visor-rol-aviso-texto" className="mb-0">
+            Si cierra ahora, se registrará que{" "}
+            <strong>acepta que su rol de pagos es correcto</strong>. Si algo no
+            está bien, vuelva y deje una observación.
+          </p>
+          {/* Si falla, se dice aquí: el aviso tapa el resto del visor. */}
+          {error && (
+            <div className="mz-alert mz-alert--bad mb-0" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          <div className="mz-actions justify-content-end">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onVolver}
+            >
+              Volver al rol
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              disabled={guardando}
+              onClick={onAceptar}
+            >
+              {guardando ? "Guardando…" : "Cerrar y aceptar"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -364,3 +364,19 @@ describe("La pestaña de apariencia", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Si la configuración no carga (auditoría UX/UI)", () => {
+  it("dice qué pasó y deja reintentar, en vez de quedar en blanco", async () => {
+    obtenerTema.mockRejectedValueOnce(new Error("caída"));
+    obtenerOpciones.mockResolvedValue(OPCIONES);
+    pintar();
+    expect(
+      await screen.findByText("No se pudo cargar la identidad visual."),
+    ).toBeInTheDocument();
+    obtenerTema.mockResolvedValue(TEMA);
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByDisplayValue("Gestión de Activos"),
+    ).toBeInTheDocument();
+  });
+});

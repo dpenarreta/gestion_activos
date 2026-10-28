@@ -14,6 +14,7 @@ import { SeguimientoRolPagos } from "./SeguimientoRolPagos";
 import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
 import { AuditadoRolPagos } from "./AuditadoRolPagos";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const MESES = [
   "Enero",
@@ -546,6 +547,15 @@ export function RolPagosPage() {
     Number(periodo.anio) === hoy.getFullYear() ? hoy.getMonth() + 1 : 12;
 
   async function olvidar() {
+    if (
+      !(await confirmar({
+        titulo: "¿Eliminar su correo personal guardado?",
+        mensaje:
+          "Tendrá que escribirlo de nuevo para recibir el rol por correo.",
+        accion: "Eliminar",
+      }))
+    )
+      return;
     try {
       await nominaService.olvidarCorreo();
       setAviso("Su correo personal guardado se eliminó.");

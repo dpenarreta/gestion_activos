@@ -63,10 +63,26 @@ export function ConfiguracionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [errorDeCarga, setErrorDeCarga] = useState(null);
+
+  // Si falla, la página decía nada y quedaba en blanco (auditoría UX/UI,
+  // 28/10/2026): ahora muestra el error y deja reintentar.
+  function cargar() {
+    setErrorDeCarga(null);
+    Promise.all([themeService.getAdmin(), themeService.getOptions()])
+      .then(([data, opciones]) => {
+        setForm(pickEditableFields(data));
+        setOptions(opciones);
+      })
+      .catch((err) =>
+        setErrorDeCarga(
+          mensajeDeError(err, "No se pudo cargar la identidad visual."),
+        ),
+      );
+  }
 
   useEffect(() => {
-    themeService.getAdmin().then((data) => setForm(pickEditableFields(data)));
-    themeService.getOptions().then(setOptions);
+    cargar();
   }, []);
 
   const activeTab = location.pathname.endsWith("colores-tipografia")
@@ -110,11 +126,14 @@ export function ConfiguracionPage() {
 
   async function handleConfirmReset() {
     setIsResetting(true);
+    setError(null);
     try {
       const response = await themeService.reset();
       setForm(pickEditableFields(response));
       setWarnings([]);
       setIsDirty(false);
+    } catch (err) {
+      setError(mensajeDeError(err, "No se pudieron restaurar los valores."));
     } finally {
       setIsResetting(false);
       setIsConfirmResetOpen(false);
@@ -122,7 +141,32 @@ export function ConfiguracionPage() {
   }
 
   if (!form || !options) {
-    return null;
+    return (
+      <div className="configuracion-page">
+        <div className="mz-view-head">
+          <div>
+            <h2>Identidad visual</h2>
+          </div>
+        </div>
+        {errorDeCarga ? (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            <span className="flex-grow-1">{errorDeCarga}</span>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={cargar}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : (
+          <p className="mz-faint" role="status">
+            Cargando…
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (

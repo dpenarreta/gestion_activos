@@ -126,6 +126,17 @@ export function AdminLayout() {
     <UnsavedChangesProvider>
       <EstadoModulosProvider>
         <ChatProvider>
+          {/* Saltar el menú (WCAG 2.4.1): se ve solo al recibir el foco. */}
+          <a
+            className="mz-saltar"
+            href="#contenido"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("contenido")?.focus();
+            }}
+          >
+            Saltar al contenido
+          </a>
           <div
             className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
             style={
@@ -189,6 +200,8 @@ export function AdminLayout() {
                 espacio al final: si no, el botón del chat tapa el último botón
                 de la pantalla (el «Guardar» de Configuración). */}
               <main
+                id="contenido"
+                tabIndex={-1}
                 className={`mz-view${
                   location.pathname.startsWith("/admin/chat")
                     ? ""

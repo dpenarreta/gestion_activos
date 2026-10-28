@@ -218,34 +218,32 @@ export default function DashboardTabsBar({ dashboardId, modoEdicion = false }) {
     <>
       <Nav variant="tabs" className="mb-3">
         {pestanas.map((p) => (
-          <Nav.Item key={p.dashboard_id}>
-            <Nav.Link as={Link} to={`/admin/dashboards/${p.dashboard_id}`} active={p.dashboard_id === dashboardId} className="d-flex align-items-center gap-2">
+          <Nav.Item key={p.dashboard_id} className="d-flex align-items-center">
+            <Nav.Link as={Link} to={`/admin/dashboards/${p.dashboard_id}`} active={p.dashboard_id === dashboardId}>
               {p.name}
-              {modoEdicion && p.dashboard_id === dashboardId && (
-                <>
-                  {puedeEditar && (
-                    <span
-                      role="button"
-                      aria-label="Editar nombre de la pestaña"
-                      className="text-secondary"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMostrarModalEditar(true) }}
-                    >
-                      <i className="bi bi-pencil" aria-hidden="true"></i>
-                    </span>
-                  )}
-                  {puedeEliminar && (
-                    <span
-                      role="button"
-                      aria-label="Eliminar pestaña"
-                      className="text-danger"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMostrarModalEliminar(true) }}
-                    >
-                      <i className="bi bi-trash" aria-hidden="true"></i>
-                    </span>
-                  )}
-                </>
-              )}
             </Nav.Link>
+            {/* Botones reales, fuera del enlace: con <span role="button"> dentro
+                del enlace no se alcanzaban con el teclado (auditoría UX/UI). */}
+            {modoEdicion && p.dashboard_id === dashboardId && puedeEditar && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm text-secondary mz-tab-accion"
+                aria-label={`Editar el nombre de la pestaña «${p.name}»`}
+                onClick={() => setMostrarModalEditar(true)}
+              >
+                <i className="bi bi-pencil" aria-hidden="true"></i>
+              </button>
+            )}
+            {modoEdicion && p.dashboard_id === dashboardId && puedeEliminar && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm text-danger mz-tab-accion"
+                aria-label={`Eliminar la pestaña «${p.name}»`}
+                onClick={() => setMostrarModalEliminar(true)}
+              >
+                <i className="bi bi-trash" aria-hidden="true"></i>
+              </button>
+            )}
           </Nav.Item>
         ))}
         {puedeCrear && pestanas.length < LIMITE_PESTANAS && (

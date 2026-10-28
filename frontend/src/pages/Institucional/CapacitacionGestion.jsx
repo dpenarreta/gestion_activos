@@ -4,6 +4,7 @@ import { capacitacionService } from "../../api/capacitacionService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { mensajeDeError } from "../../utils/errores";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const ALCANCES = [
   ["empresa", "De la empresa (todos)"],
@@ -735,6 +736,13 @@ export function CapacitacionGestion({ datos }) {
   }, [cargar]);
 
   async function eliminar(m) {
+    if (
+      !(await confirmar({
+        titulo: `¿Eliminar el material «${m.titulo}»?`,
+        accion: "Eliminar",
+      }))
+    )
+      return;
     setError(null);
     try {
       await capacitacionService.eliminarMaterial(m.id);

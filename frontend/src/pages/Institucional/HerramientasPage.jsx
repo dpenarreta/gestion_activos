@@ -6,6 +6,7 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 import { AccesosHerramienta } from "./AccesosHerramienta";
 import { mensajeDeError } from "../../utils/errores";
 import "./Institucional.css";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const TIPOS = { externa: "Externa", interna: "Interna" };
 const VACIA = {
@@ -195,6 +196,13 @@ export function HerramientasPage() {
   }
 
   async function borrar(h) {
+    if (
+      !(await confirmar({
+        titulo: `¿Borrar «${h.nombre}» del catálogo?`,
+        accion: "Borrar",
+      }))
+    )
+      return;
     setError(null);
     try {
       await herramientasService.eliminar(h.id);

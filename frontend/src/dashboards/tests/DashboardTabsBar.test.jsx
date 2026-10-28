@@ -112,7 +112,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.editar'], false)
 
     await screen.findByRole('link', { name: 'Finanzas' })
-    expect(screen.queryByRole('button', { name: 'Editar nombre de la pestaña' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Editar el nombre de la pestaña/ })).not.toBeInTheDocument()
   })
 
   it('en modo edición sin el permiso dashboard.editar, no muestra el lápiz', async () => {
@@ -122,7 +122,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas', ['dashboard.crear'], true)
 
     await screen.findByRole('link', { name: 'Finanzas' })
-    expect(screen.queryByRole('button', { name: 'Editar nombre de la pestaña' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Editar el nombre de la pestaña/ })).not.toBeInTheDocument()
   })
 
   it('en modo edición con el permiso, el lápiz solo aparece en la pestaña activa', async () => {
@@ -133,7 +133,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas-2', ['dashboard.crear', 'dashboard.editar'], true)
 
     await screen.findByText('Vista regional')
-    expect(screen.getAllByRole('button', { name: 'Editar nombre de la pestaña' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^Editar el nombre de la pestaña/ })).toHaveLength(1)
   })
 
   it('renombrar la pestaña activa llama al servicio conservando el área y refresca la lista', async () => {
@@ -147,7 +147,7 @@ describe('DashboardTabsBar', () => {
     dashboardLayoutService.actualizarDashboard.mockResolvedValue({})
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.editar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Editar nombre de la pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Editar el nombre de la pestaña/ }))
     const nombreInput = await screen.findByLabelText('Nombre')
     expect(nombreInput).toHaveValue('Finanzas')
 
@@ -166,7 +166,7 @@ describe('DashboardTabsBar', () => {
     dashboardLayoutService.actualizarDashboard.mockRejectedValue({ response: { data: { mensaje: 'No se pudo editar la pestaña.' } } })
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.editar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Editar nombre de la pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Editar el nombre de la pestaña/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByText('No se pudo editar la pestaña.')).toBeInTheDocument()
@@ -179,7 +179,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.eliminar'], false)
 
     await screen.findByRole('link', { name: 'Finanzas' })
-    expect(screen.queryByRole('button', { name: 'Eliminar pestaña' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Eliminar la pestaña/ })).not.toBeInTheDocument()
   })
 
   it('en modo edición sin el permiso dashboard.eliminar, no muestra la papelera', async () => {
@@ -189,7 +189,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas', ['dashboard.crear'], true)
 
     await screen.findByRole('link', { name: 'Finanzas' })
-    expect(screen.queryByRole('button', { name: 'Eliminar pestaña' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Eliminar la pestaña/ })).not.toBeInTheDocument()
   })
 
   it('en modo edición con el permiso, la papelera solo aparece en la pestaña activa', async () => {
@@ -200,7 +200,7 @@ describe('DashboardTabsBar', () => {
     renderBarra('finanzas-2', ['dashboard.crear', 'dashboard.eliminar'], true)
 
     await screen.findByText('Vista regional')
-    expect(screen.getAllByRole('button', { name: 'Eliminar pestaña' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^Eliminar la pestaña/ })).toHaveLength(1)
   })
 
   it('el lápiz y la papelera pueden aparecer juntos, cada uno gateado por su propio permiso', async () => {
@@ -209,8 +209,8 @@ describe('DashboardTabsBar', () => {
     ])
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.editar', 'dashboard.eliminar'], true)
 
-    expect(await screen.findByRole('button', { name: 'Editar nombre de la pestaña' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Eliminar pestaña' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Editar el nombre de la pestaña/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Eliminar la pestaña/ })).toBeInTheDocument()
   })
 
   it('el botón Eliminar exige escribir el nombre exacto de la pestaña y muestra ese nombre en un <span>', async () => {
@@ -219,7 +219,7 @@ describe('DashboardTabsBar', () => {
     ])
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.eliminar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar la pestaña/ }))
 
     const dialogo = await screen.findByRole('dialog')
     const spanNombre = within(dialogo).getByText('Finanzas', { selector: 'span' })
@@ -240,7 +240,7 @@ describe('DashboardTabsBar', () => {
     dashboardLayoutService.eliminarDashboard.mockResolvedValue({})
     renderBarra('finanzas-2', ['dashboard.crear', 'dashboard.eliminar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar la pestaña/ }))
     const dialogo = await screen.findByRole('dialog')
     await userEvent.type(within(dialogo).getByLabelText('Confirmar nombre de la pestaña'), 'Vista regional')
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }))
@@ -257,7 +257,7 @@ describe('DashboardTabsBar', () => {
     dashboardLayoutService.eliminarDashboard.mockResolvedValue({})
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.eliminar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar la pestaña/ }))
     const dialogo = await screen.findByRole('dialog')
     await userEvent.type(within(dialogo).getByLabelText('Confirmar nombre de la pestaña'), 'Finanzas')
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }))
@@ -273,7 +273,7 @@ describe('DashboardTabsBar', () => {
     dashboardLayoutService.eliminarDashboard.mockRejectedValue({ response: { data: { mensaje: 'No se pudo eliminar la pestaña.' } } })
     renderBarra('finanzas', ['dashboard.crear', 'dashboard.eliminar'], true)
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar pestaña' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar la pestaña/ }))
     const dialogo = await screen.findByRole('dialog')
     await userEvent.type(within(dialogo).getByLabelText('Confirmar nombre de la pestaña'), 'Finanzas')
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }))

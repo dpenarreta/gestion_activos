@@ -210,6 +210,22 @@ export function AdminSidebar({
     logout();
   }
 
+  // En el teléfono el menú cerrado solo se corre a un lado: sin `inert`,
+  // el Tab recorría sus ~30 entradas invisibles antes del contenido
+  // (auditoría UX/UI, 28/10/2026).
+  useEffect(() => {
+    const nav = panelRef.current;
+    const consulta = window.matchMedia?.("(max-width: 880px)");
+    if (!nav || !consulta) return undefined;
+    const aplicar = () => {
+      if (consulta.matches && !isMobileOpen) nav.setAttribute("inert", "");
+      else nav.removeAttribute("inert");
+    };
+    aplicar();
+    consulta.addEventListener?.("change", aplicar);
+    return () => consulta.removeEventListener?.("change", aplicar);
+  }, [isMobileOpen, panelRef]);
+
   const siteName = theme?.site_name || env.appName;
   const nombreCompleto =
     [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||

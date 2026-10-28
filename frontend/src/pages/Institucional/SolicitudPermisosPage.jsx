@@ -17,6 +17,7 @@ import {
 } from "./licenciasComunes";
 import "./Institucional.css";
 import { descargarBlob } from "../../utils/descargas";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 function Ventana({ titulo, onCerrar, children, ancha = false }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
@@ -475,7 +476,17 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                 className="form-control form-control-sm"
                 value={comentario}
                 onChange={(e) => setComentario(e.target.value)}
+                aria-describedby={
+                  solicitud.puedo.resolver && !comentario.trim()
+                    ? "sp-comentario-ayuda"
+                    : undefined
+                }
               />
+              {solicitud.puedo.resolver && !comentario.trim() && (
+                <small id="sp-comentario-ayuda" className="mz-faint d-block">
+                  Para rechazar, escriba el motivo.
+                </small>
+              )}
               {escalando && (
                 <div className="mt-2">
                   <span className="mz-small mz-faint">Escalar a:</span>
@@ -495,9 +506,17 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                     type="button"
                     className="btn btn-outline-secondary btn-sm me-auto"
                     disabled={trabajando}
-                    onClick={() =>
-                      hacer(() => licenciasService.cancelar(id, comentario))
-                    }
+                    onClick={async () => {
+                      const si = await confirmar({
+                        titulo: "¿Cancelar la solicitud?",
+                        mensaje:
+                          "La solicitud se retira y ya no sigue su aprobación.",
+                        accion: "Cancelar solicitud",
+                        cancelar: "Volver",
+                      });
+                      if (si)
+                        hacer(() => licenciasService.cancelar(id, comentario));
+                    }}
                   >
                     Cancelar solicitud
                   </button>
@@ -530,10 +549,20 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"
-                      disabled={trabajando}
-                      onClick={() =>
-                        hacer(() => licenciasService.rechazar(id, comentario))
-                      }
+                      disabled={trabajando || !comentario.trim()}
+                      onClick={async () => {
+                        // Rechazar termina la solicitud: se confirma.
+                        const si = await confirmar({
+                          titulo: "¿Rechazar la solicitud?",
+                          mensaje:
+                            "La solicitud termina aquí y se avisa a quien la hizo con su comentario.",
+                          accion: "Rechazar",
+                        });
+                        if (si)
+                          hacer(() =>
+                            licenciasService.rechazar(id, comentario),
+                          );
+                      }}
                     >
                       <Icon name="x-circle" /> Rechazar
                     </button>

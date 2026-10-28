@@ -52,6 +52,13 @@ export default function FileUploadZone({ onValidar, cargando, error }) {
         onDragLeave={() => setArrastrando(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
+        // Con foco, Enter o Espacio abren el selector, como un botón.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            inputRef.current?.click()
+          }
+        }}
         role="button"
         tabIndex={0}
         aria-label="Zona de carga de archivo Excel"
@@ -62,9 +69,11 @@ export default function FileUploadZone({ onValidar, cargando, error }) {
           accept=".xlsx,.xls"
           data-testid="input-archivo"
           style={{ display: 'none' }}
+          // Su clic no vuelve a la zona (que lo abriría otra vez).
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => seleccionarArchivo(e.target.files?.[0])}
         />
-        <p className="mb-1">Arrastra aquí tu archivo Excel o haz clic para seleccionarlo</p>
+        <p className="mb-1">Arrastre aquí su archivo Excel o haga clic para seleccionarlo</p>
         <p className="chart-panel__subtitle mb-0">Formatos permitidos: .xlsx, .xls</p>
       </div>
 

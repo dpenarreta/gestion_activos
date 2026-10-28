@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FileUploadZone from '../components/upload/FileUploadZone'
 
@@ -39,5 +39,14 @@ describe('FileUploadZone', () => {
   it('muestra el error del servidor cuando se provee', () => {
     render(<FileUploadZone onValidar={vi.fn()} cargando={false} error="El archivo está corrupto." />)
     expect(screen.getByText('El archivo está corrupto.')).toBeInTheDocument()
+  })
+
+  it('con el teclado, Enter y Espacio abren el selector de archivo', () => {
+    render(<FileUploadZone onValidar={vi.fn()} cargando={false} error={null} />)
+    const abrir = vi.spyOn(screen.getByTestId('input-archivo'), 'click')
+    const zona = screen.getByRole('button', { name: /zona de carga/i })
+    fireEvent.keyDown(zona, { key: 'Enter' })
+    fireEvent.keyDown(zona, { key: ' ' })
+    expect(abrir).toHaveBeenCalledTimes(2)
   })
 })

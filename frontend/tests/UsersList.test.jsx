@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  within,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -246,6 +252,12 @@ describe("El listado de usuarios", () => {
 
     await screen.findByText("acevallos");
     fireEvent.click(screen.getByRole("button", { name: "Deshabilitar" }));
+    // Deshabilitar pide confirmación con el nombre de la persona.
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: /Deshabilitar a acevallos/ }),
+      ).getByRole("button", { name: "Deshabilitar" }),
+    );
 
     await waitFor(() => expect(deshabilitar).toHaveBeenCalledWith(1));
     await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
@@ -262,6 +274,12 @@ describe("El listado de usuarios", () => {
 
     await screen.findByText("acevallos");
     fireEvent.click(screen.getByRole("button", { name: "Deshabilitar" }));
+    // Deshabilitar pide confirmación con el nombre de la persona.
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: /Deshabilitar a acevallos/ }),
+      ).getByRole("button", { name: "Deshabilitar" }),
+    );
 
     expect(
       await screen.findByText("No puede deshabilitarse a sí mismo."),

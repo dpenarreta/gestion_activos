@@ -10,6 +10,7 @@ import { usePermission } from "../../../hooks/usePermission";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
+import { confirmar } from "../../../components/common/Confirmar/confirmar";
 
 const STATUS_LABELS = {
   active: "Activo",
@@ -47,6 +48,8 @@ export function UsersList() {
   } = useAdminUsers();
   const [searchInput, setSearchInput] = useState("");
   const [actionError, setActionError] = useState(null);
+  const [actionAviso, setActionAviso] = useState(null);
+  const [procesando, setProcesando] = useState(null);
 
   function handleSearchSubmit(event) {
     event.preventDefault();
@@ -55,13 +58,32 @@ export function UsersList() {
 
   async function runAction(user, action) {
     setActionError(null);
+    setActionAviso(null);
+    // Deshabilitar cierra el acceso de una persona: se confirma con su nombre.
+    if (
+      action === "disable" &&
+      !(await confirmar({
+        titulo: `¿Deshabilitar a ${user.full_name || user.username}?`,
+        mensaje:
+          "No podrá entrar al sistema hasta que se vuelva a habilitar la cuenta.",
+        accion: "Deshabilitar",
+      }))
+    ) {
+      return;
+    }
+    setProcesando(user.id);
     try {
       await adminUsersService[action](user.id);
+      setActionAviso(
+        `La cuenta de ${user.full_name || user.username} quedó ${action === "disable" ? "deshabilitada" : "habilitada"}.`,
+      );
       refresh();
     } catch (err) {
       setActionError(
         err.response?.data?.error?.message || "No se pudo ejecutar la acción.",
       );
+    } finally {
+      setProcesando(null);
     }
   }
 
@@ -115,6 +137,11 @@ export function UsersList() {
         </button>
       </form>
 
+      {actionAviso && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          {actionAviso}
+        </div>
+      )}
       {(error || actionError) && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
@@ -231,6 +258,7 @@ export function UsersList() {
                     <button
                       type="button"
                       className="btn btn-outline-warning btn-sm"
+                      disabled={procesando === user.id}
                       onClick={() => runAction(user, "disable")}
                     >
                       Deshabilitar
@@ -239,6 +267,7 @@ export function UsersList() {
                     <button
                       type="button"
                       className="btn btn-outline-success btn-sm"
+                      disabled={procesando === user.id}
                       onClick={() => runAction(user, "enable")}
                     >
                       Habilitar

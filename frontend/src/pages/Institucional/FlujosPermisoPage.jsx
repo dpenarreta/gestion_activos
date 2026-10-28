@@ -11,6 +11,7 @@ import {
   SelectorDestino,
 } from "./licenciasComunes";
 import "./Institucional.css";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const ADJUNTOS = [
   ["no", "No se pide documento"],
@@ -574,6 +575,13 @@ export function FlujosPermisoPage() {
   }
 
   async function borrar(flujo) {
+    if (
+      !(await confirmar({
+        titulo: `¿Borrar el tipo de permiso «${flujo.nombre}»?`,
+        accion: "Borrar",
+      }))
+    )
+      return;
     setError(null);
     setAviso(null);
     try {

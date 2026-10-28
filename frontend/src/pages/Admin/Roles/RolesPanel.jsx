@@ -21,6 +21,7 @@ export function RolesPanel() {
   const [roles, setRoles] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [eliminando, setEliminando] = useState(false);
   const [aEliminar, setAEliminar] = useState(null);
 
   function loadRoles() {
@@ -37,6 +38,7 @@ export function RolesPanel() {
   }, []);
 
   async function confirmarEliminacion() {
+    setEliminando(true);
     try {
       await rolesService.remove(aEliminar.id);
       setAEliminar(null);
@@ -45,6 +47,8 @@ export function RolesPanel() {
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo eliminar el rol."));
       setAEliminar(null);
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -122,7 +126,11 @@ export function RolesPanel() {
 
       <ConfirmDialog
         isOpen={Boolean(aEliminar)}
-        title="Eliminar rol"
+        title="¿Eliminar el rol?"
+        confirmLabel="Eliminar rol"
+        confirmVariant="danger"
+        cancelClassName="btn-outline-secondary"
+        isLoading={eliminando}
         message={
           aEliminar
             ? `Se eliminará el rol "${aEliminar.name}". Los usuarios que lo tengan asignado perderán los ${aEliminar.permission_codenames.length} permisos que otorga.`

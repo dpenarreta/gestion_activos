@@ -187,7 +187,9 @@
 /* Va dentro de `.mz-chips` pero no es un chip: sin esto heredaría su borde de
    píldora y se leería como un filtro más. */
 .mz-chips .activos-filtros__limpiar {
-  padding: 0 4px;
+  /* Con un relleno de 4 px quedaba en ~20 px de alto (auditoría UX/UI). */
+  padding: 4px 10px;
+  min-height: 32px;
   border: none;
   background: none;
   color: var(--mz-link);

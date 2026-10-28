@@ -318,6 +318,11 @@ describe("Gestionar noticias", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Borrar Aniversario" }),
     );
+    // Borrar pide confirmación (auditoría UX/UI, 28/10/2026).
+    const pregunta = await screen.findByRole("dialog", {
+      name: /Borrar «Aniversario»/,
+    });
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Borrar" }));
     await waitFor(() =>
       expect(servicio.eliminarNoticia).toHaveBeenCalledWith(1),
     );

@@ -295,6 +295,12 @@ describe("Gestionar calendario", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Borrar Cumpleaños de Rosa" }),
     );
+    expect(servicio.eliminarEvento).not.toHaveBeenCalled();
+    // Borrar pide confirmación (auditoría UX/UI, 28/10/2026).
+    const pregunta = await screen.findByRole("dialog", {
+      name: /Quitar «Cumpleaños de Rosa»/,
+    });
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Quitar" }));
     await waitFor(() =>
       expect(servicio.eliminarEvento).toHaveBeenCalledWith(1),
     );

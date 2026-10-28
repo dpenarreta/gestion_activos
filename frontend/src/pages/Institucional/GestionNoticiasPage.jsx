@@ -8,6 +8,7 @@ import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { MEDIDAS_CARRUSEL, useImagenesDeNoticias } from "./CarruselNoticias";
 import "./Institucional.css";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 const ESTADOS = {
   publicada: ["Publicada", "mz-pill--ok"],
@@ -432,6 +433,13 @@ export function GestionNoticiasPage() {
   }
 
   async function borrar(noticia) {
+    if (
+      !(await confirmar({
+        titulo: `¿Borrar «${noticia.titulo || noticia.nombre_original}» del carrusel?`,
+        accion: "Borrar",
+      }))
+    )
+      return;
     setError(null);
     setAviso(null);
     try {
