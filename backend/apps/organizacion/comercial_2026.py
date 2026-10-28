@@ -12,8 +12,9 @@ Lo pasó el área en una imagen:
     ├ Jefe Comercial Cuenca (Patricia Delgado)
     │ ├ Asesor Comercial (5, con Santo Domingo)
     │ └ Gestora Comercial (1)
-    ├ Internacional UPS, reporte directo a la Gerencia:
-    │ Asesor Comercial UPS Quito (3) y Asesor Comercial UPS Guayaquil (1)
+    ├ Internacional UPS, reporte directo a la Gerencia (corregido por el
+    │ usuario el 28/10/2026): Ejecutivo de Negocios UPS Quito (3), Ejecutiva
+    │ de Negocios UPS Guayaquil (1) y Asistente Comercial UPS Guayaquil (1)
     └ Televentas, reporte directo: Asesora de Televentas (2, Quito y Cuenca)
 
 La División UPS (su Coordinador, operaciones, SAC y facturación) no es del
@@ -25,7 +26,7 @@ Comercial Guayaquil y el Asesor Comercial que encabezaba un equipo a Jefe
 Comercial Cuenca; sus asistentes pasan a Gestora Comercial. Los que ya no
 están (un Televendedor) se desactivan si nadie los ocupa.
 
-Lo aplica la migración 0040 (y la 0041 lo corrige) y deja el cambio en la
+Lo aplica la migración 0040 (y la 0041 y la 0042 lo corrigen) y deja el cambio en la
 bitácora del organigrama, con su respaldo para revertirlo. Repetirlo no
 cambia nada.
 """
@@ -119,18 +120,31 @@ CARGOS = {
         "personas": [],
     },
     # Internacional UPS: reporte directo a la Gerencia
-    "asesor_ups_uio": {
-        "nombre": "Asesor Comercial UPS Quito",
+    "ejecutivo_ups_uio": {
+        "nombre": "Ejecutivo de Negocios UPS Quito",
         "jefe": "gerente",
         "plazas": 3,
-        "antes": [("Asesor Comercial UPS", "Gerente Comercial")],
+        "antes": [
+            ("Asesor Comercial UPS Quito", "Gerente Comercial"),
+            ("Asesor Comercial UPS", "Gerente Comercial"),
+        ],
         "personas": [],
     },
-    "asesor_ups_gye": {
-        "nombre": "Asesor Comercial UPS Guayaquil",
+    "ejecutiva_ups_gye": {
+        "nombre": "Ejecutiva de Negocios UPS Guayaquil",
         "jefe": "gerente",
         "plazas": 1,
-        "antes": [("Asesor Comercial UPS (GYE)", "Gerente Comercial")],
+        "antes": [],
+        "personas": [],
+    },
+    "asistente_ups_gye": {
+        "nombre": "Asistente Comercial UPS Guayaquil",
+        "jefe": "gerente",
+        "plazas": 1,
+        "antes": [
+            ("Asesor Comercial UPS Guayaquil", "Gerente Comercial"),
+            ("Asesor Comercial UPS (GYE)", "Gerente Comercial"),
+        ],
         "personas": [],
     },
     # Televentas: nueva estructura, reporte directo

@@ -10,13 +10,12 @@ Lo pasó el área en una imagen:
     ├ Supervisor Operaciones UPS Guayaquil (División OPE)
     │ └ Auxiliar Operativo UPS Guayaquil (3)
     ├ Asesora de Servicio al Cliente UPS (5, SAC)
-    ├ Asistente de Facturación y Cartera UPS (3, Financiero)
-    └ Asistente Comercial UPS Guayaquil (1, apoyo al comercial)
+    └ Asistente de Facturación y Cartera UPS (3, Financiero)
 
-Los ejecutivos de negocios de UPS no van aquí: son los asesores de
-Internacional UPS del área Comercial (`comercial_2026`), que reportan directo
-al Gerente Comercial; en la imagen, el Gerente Comercial queda aparte, con
-línea punteada solo hacia ellos.
+El equipo comercial de UPS (ejecutivos de negocios y su asistente) no va
+aquí: es Internacional UPS del área Comercial (`comercial_2026`), que
+reporta directo al Gerente Comercial; en la imagen, el Gerente Comercial
+queda aparte, con línea punteada solo hacia ellos.
 
 La división vivía dentro del área Comercial (el usuario la quiso fuera el
 28/10/2026: el área Comercial es solo lo de su imagen). `cambiar` crea la
@@ -33,8 +32,8 @@ from .permisos_por_cargo import normalizar as _normal
 UNIDAD = "División UPS"
 
 #: Los cargos que estaban en el área Comercial y son de la división: el
-#: Coordinador (con todo lo que le reporta) y la asistente comercial de apoyo.
-DE_COMERCIAL = ("Coordinador Servicio UPS", "Asistente Comercial UPS Guayaquil")
+#: Coordinador, con todo lo que le reporta.
+DE_COMERCIAL = ("Coordinador Servicio UPS",)
 
 MOTIVO = (
     "Organigrama de la División UPS enviado por el área: se separa del área "
@@ -109,13 +108,6 @@ CARGOS = {
         "antes": [],
         "personas": [],
     },
-    "asistente_comercial": {
-        "nombre": "Asistente Comercial UPS Guayaquil",
-        "jefe": "coordinador",
-        "plazas": 1,
-        "antes": [("Asistente Comercial UPS Guayaquil", "Gerente Comercial")],
-        "personas": [],
-    },
 }
 
 
@@ -129,7 +121,7 @@ def aplicar() -> list[str]:
 
 def _traer_de_comercial(unidad) -> None:
     """Pasa a la división los cargos que estaban en el área Comercial: el
-    Coordinador con todo lo que le reporta, y la asistente comercial."""
+    Coordinador con todo lo que le reporta."""
     buscados = {_normal(n) for n in DE_COMERCIAL}
     pendientes = [
         c

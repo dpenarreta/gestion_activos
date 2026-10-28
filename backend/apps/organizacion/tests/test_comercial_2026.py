@@ -79,8 +79,11 @@ def test_queda_como_el_organigrama(db):
     assert activos[("Gestora Comercial", "Jefe Comercial Guayaquil")].plazas == 2
 
     # Internacional UPS y Televentas reportan directo a la Gerencia.
-    assert activos[("Asesor Comercial UPS Quito", "Gerente Comercial")].id == cargos["ups"].id
-    assert ("Asesor Comercial UPS Guayaquil", "Gerente Comercial") in activos
+    ejecutivo = activos[("Ejecutivo de Negocios UPS Quito", "Gerente Comercial")]
+    assert ejecutivo.id == cargos["ups"].id and ejecutivo.plazas == 3
+    assert ("Ejecutiva de Negocios UPS Guayaquil", "Gerente Comercial") in activos
+    asistente = activos[("Asistente Comercial UPS Guayaquil", "Gerente Comercial")]
+    assert asistente.nivel == NivelCargo.ASISTENTE
     televentas = activos[("Asesora de Televentas", "Gerente Comercial")]
     assert televentas.id == cargos["televendedor"].id and televentas.plazas == 2
 

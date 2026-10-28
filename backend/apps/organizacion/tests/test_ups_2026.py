@@ -38,12 +38,14 @@ def _como_quedo_la_0040():
     cargo("general", "Gerente General", unidad=general)
     cargo("gerente", "Gerente Comercial", "general")
     cargo("asesor_ups", "Asesor Comercial UPS Quito", "gerente", plazas=3)
-    cargo("asistente", "Asistente Comercial UPS Guayaquil", "gerente")
+    cargo("asesor_ups_gye", "Asesor Comercial UPS Guayaquil", "gerente")
     cargo("coordinador", "Coordinador Servicio UPS", "gerente")
     cargo("supervisor", "Supervisor Operaciones UPS Quito", "coordinador")
     cargo("courier", "Courier UPS", "supervisor", plazas=3)
     cargo("motorizado", "Courier Motorizado", "supervisor", activo=False)
     cargo("sac", "Asesora de Servicio al Cliente UPS", "coordinador", plazas=5)
+    # Como la dejó la 0041: la asistente comercial dentro de la división.
+    cargo("asistente", "Asistente Comercial UPS Guayaquil", "coordinador")
     OcupanteCargo.objects.create(cargo=cargos["courier"], nombres="Luis", apellidos="Prueba")
     return general, comercial, cargos
 
@@ -76,8 +78,8 @@ def test_la_division_sale_de_comercial(db):
     courier = activos[("Courier UPS", "Supervisor Operaciones UPS Quito")]
     assert courier.id == cargos["courier"].id
     assert [str(o) for o in courier.ocupantes_sin_cuenta.all()] == ["Luis Prueba"]
-    asistente = activos[("Asistente Comercial UPS Guayaquil", "Coordinador Servicio UPS")]
-    assert asistente.id == cargos["asistente"].id
+    # La asistente comercial no es de la división: allí se desactiva.
+    assert Cargo.objects.get(pk=cargos["asistente"].pk).activo is False
     assert len(activos) == len(ups_2026.CARGOS)
     # Lo que estaba inactivo se mueve con su jefe y sigue inactivo.
     motorizado = Cargo.objects.get(pk=cargos["motorizado"].pk)
@@ -86,10 +88,13 @@ def test_la_division_sale_de_comercial(db):
     # Comercial queda solo con lo de su imagen.
     en_comercial = _activos(comercial)
     assert len(en_comercial) == len(comercial_2026.CARGOS)
-    assert not any("UPS" in nombre and "Asesor" not in nombre for nombre, _ in en_comercial)
-    assert en_comercial[("Asesor Comercial UPS Quito", "Gerente Comercial")].id == (
-        cargos["asesor_ups"].id
-    )
+    assert all(jefe == "Gerente Comercial" for nombre, jefe in en_comercial if "UPS" in nombre)
+    # Internacional UPS, corregido por el usuario: ejecutivos y asistente.
+    ejecutivo = en_comercial[("Ejecutivo de Negocios UPS Quito", "Gerente Comercial")]
+    assert ejecutivo.id == cargos["asesor_ups"].id
+    asistente = en_comercial[("Asistente Comercial UPS Guayaquil", "Gerente Comercial")]
+    assert asistente.id == cargos["asesor_ups_gye"].id
+    assert ("Ejecutiva de Negocios UPS Guayaquil", "Gerente Comercial") in en_comercial
 
 
 def test_repetirlo_no_cambia_nada(db):
