@@ -3,6 +3,7 @@ import { formatNumber } from '../../utils/format'
 import { propsLeyendaPara } from '../../utils/legendPosition'
 import { PALETA_CATEGORICA } from '../../utils/colors'
 import HallazgosClaveCard from './HallazgosClaveCard'
+import FiguraGrafico, { tablaDeVariasSeries } from './FiguraGrafico'
 
 function acortar(texto, max = 22) {
   if (!texto) return ''
@@ -30,16 +31,19 @@ export default function GenericStackedAreaChart({ data, override, leyendaPosicio
     return fila
   })
 
+  // Auditoría UX/UI, fase 3, 28/10/2026: los mismos datos, en tabla, para quien no ve el gráfico.
+  const tablaDatos = tablaDeVariasSeries(data, etiquetasPorSerie)
+
   return (
-    <div className="chart-panel" style={override?.colores?.colorFondo ? { background: override.colores.colorFondo } : undefined}>
-      <div className="chart-panel__title" style={override?.colores?.colorTexto ? { color: override.colores.colorTexto } : undefined}>
-        {override?.titulo || data.titulo}
-      </div>
-      {(override?.descripcion || data.descripcion) && (
-        <div className="chart-panel__subtitle">{override?.descripcion || data.descripcion}</div>
-      )}
+    <FiguraGrafico
+      titulo={override?.titulo || data.titulo}
+      descripcion={override?.descripcion || data.descripcion}
+      override={override}
+      {...tablaDatos}
+      pie={<HallazgosClaveCard variante="multiserie" datosMultiserie={data} textoIA={hallazgoIA} />}
+    >
       <ResponsiveContainer width="100%" height={370}>
-        <AreaChart data={datosGrafico} margin={{ left: 12, right: 24, top: 8, bottom: 40 }}>
+        <AreaChart accessibilityLayer data={datosGrafico} margin={{ left: 12, right: 24, top: 8, bottom: 40 }}>
           <CartesianGrid stroke="var(--gridline)" />
           <XAxis dataKey="etiqueta" angle={-30} textAnchor="end" interval={0} height={70} />
           <YAxis width={96} tick={{ fontSize: 11 }} tickFormatter={(v) => formatNumber(v)} />
@@ -62,7 +66,6 @@ export default function GenericStackedAreaChart({ data, override, leyendaPosicio
           })}
         </AreaChart>
       </ResponsiveContainer>
-      <HallazgosClaveCard variante="multiserie" datosMultiserie={data} textoIA={hallazgoIA} />
-    </div>
+    </FiguraGrafico>
   )
 }

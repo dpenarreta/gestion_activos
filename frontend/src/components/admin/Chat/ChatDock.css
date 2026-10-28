@@ -1,13 +1,8 @@
 /* El color de las conversaciones grupales (canal general, grupos y grupos
    del área): verde, para distinguirlas de los mensajes directos, en azul. */
 :root {
-  --chat-grupo: #146c43;
-  --chat-grupo-suave: #e3f5ec;
-}
-
-:root[data-theme="dark"] {
-  --chat-grupo: #1f7a52;
-  --chat-grupo-suave: #0f2a1f;
+  --chat-grupo: var(--mz-ok-fg);
+  --chat-grupo-suave: var(--mz-ok-bg);
 }
 
 /* --- La barra acoplada abajo a la derecha -------------------------------- */
@@ -40,7 +35,9 @@
   border: 0;
   border-radius: 99px;
   background: var(--mz-blue-600);
-  color: #fff;
+  /* El inverso del relleno: blanco en claro; en oscuro el azul se aclara y el
+     texto pasa a la tarjeta oscura (con blanco quedaba en 2,9:1). */
+  color: var(--mz-raised);
   box-shadow: var(--mz-shadow-2);
   font-weight: 600;
 }
@@ -51,6 +48,7 @@
   padding: 0 6px;
   border-radius: 99px;
   background: var(--mz-bad-line);
+  /* Blanco sobre el rojo de `--mz-bad-line`, igual en ambos temas. */
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -209,7 +207,7 @@
   padding: 6px 8px;
   border-radius: 10px 10px 0 0;
   background: var(--mz-blue-600);
-  color: #fff;
+  color: var(--mz-raised);
 }
 
 .chat-ventana__titulo {
@@ -507,7 +505,7 @@
 }
 
 .chat-lectura--leido {
-  color: var(--mz-blue-500, #2f6fed);
+  color: var(--mz-blue-600);
 }
 
 .chat-lectura__texto {
@@ -575,4 +573,10 @@
   user-select: all;
   -webkit-user-select: all;
   cursor: text;
+}
+
+/* El anillo de foco común no se ve sobre el azul de la barra (auditoría
+   UX/UI, fase 3): ahí va en el color del texto de la barra. */
+.chat-ventana__barra :focus-visible {
+  outline-color: var(--mz-raised);
 }

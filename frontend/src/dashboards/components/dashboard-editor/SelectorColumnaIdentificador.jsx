@@ -20,7 +20,14 @@ export default function SelectorColumnaIdentificador({ dashboardId, valor, onCam
   const { columnas, error } = useColumnasDelArchivo(dashboardId)
 
   if (error) return <p className="text-warning small mb-3">{error}</p>
-  if (!columnas) return <Spinner animation="border" size="sm" className="mb-3" />
+  if (!columnas) {
+    return (
+      <div className="mb-3" role="status">
+        <Spinner animation="border" size="sm" aria-hidden="true" />
+        <span className="visually-hidden">Cargando…</span>
+      </div>
+    )
+  }
 
   // Una columna elegida que el archivo ya no trae se conserva en la lista: quitarla de la vista
   // haría parecer que no hay nada configurado, cuando lo que pasa es que el mapeo quedó viejo.

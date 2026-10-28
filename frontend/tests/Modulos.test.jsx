@@ -113,8 +113,8 @@ describe("El selector de módulos", () => {
     fireEvent.click(boton);
 
     const opciones = within(
-      screen.getByRole("menu", { name: "Módulos" }),
-    ).getAllByRole("menuitemradio");
+      screen.getByRole("group", { name: "Módulos" }),
+    ).getAllByRole("button");
     // En el orden acordado: Institucional, Dashboards, Mesa de ayuda,
     // Matriz, Órdenes de trabajo y Gestión de Activos.
     expect(opciones.map((o) => o.textContent)).toEqual([
@@ -123,7 +123,8 @@ describe("El selector de módulos", () => {
       expect.stringContaining("Matriz de obligaciones"),
       expect.stringContaining("Gestión de Activos"),
     ]);
-    expect(opciones[3]).toHaveAttribute("aria-checked", "true");
+    expect(opciones[3]).toHaveAttribute("aria-current", "true");
+    expect(opciones[0]).not.toHaveAttribute("aria-current");
   });
 
   it("elegir otro lleva a su inicio", () => {
@@ -131,7 +132,7 @@ describe("El selector de módulos", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Cambiar de módulo/ }));
     fireEvent.click(
-      screen.getByRole("menuitemradio", { name: /Matriz de obligaciones/ }),
+      screen.getByRole("button", { name: /Matriz de obligaciones/ }),
     );
 
     expect(screen.getByText("Ruta: /admin/matriz")).toBeInTheDocument();
@@ -159,8 +160,8 @@ describe("El selector de módulos", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Cambiar de módulo/ }));
     const opciones = within(
-      screen.getByRole("menu", { name: "Módulos" }),
-    ).getAllByRole("menuitemradio");
+      screen.getByRole("group", { name: "Módulos" }),
+    ).getAllByRole("button");
     expect(opciones.map((o) => o.textContent)).toEqual([
       expect.stringContaining("Institucional"),
       expect.stringContaining("Mesa de ayuda"),
@@ -180,10 +181,10 @@ describe("El selector de módulos", () => {
       const boton = screen.getByRole("button", { name: /Cambiar de módulo/ });
 
       fireEvent.mouseEnter(boton.parentElement);
-      const panel = screen.getByRole("menu", { name: "Módulos" });
+      const panel = screen.getByRole("group", { name: "Módulos" });
       expect(panel).toHaveClass("mz-flyout");
       fireEvent.click(
-        within(panel).getByRole("menuitemradio", {
+        within(panel).getByRole("button", {
           name: /Matriz de obligaciones/,
         }),
       );
@@ -200,6 +201,6 @@ describe("El selector de módulos", () => {
     fireEvent.click(screen.getByRole("button", { name: /Cambiar de módulo/ }));
     fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Módulos" })).toBeNull();
   });
 });

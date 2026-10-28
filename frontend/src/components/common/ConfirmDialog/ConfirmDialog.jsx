@@ -64,9 +64,12 @@ export function ConfirmDialog({
           </p>
         </div>
         <div className="mz-panel-foot">
+          {/* Del mismo tamaño que el de confirmar: antes «Cancelar» iba en
+              btn-sm junto a un botón normal (auditoría UX/UI, fase 3,
+              28/10/2026). */}
           <button
             type="button"
-            className={`btn ${cancelClassName} btn-sm`}
+            className={`btn ${cancelClassName}`}
             onClick={() => requestClose()}
           >
             {cancelLabel}

@@ -98,7 +98,7 @@ export default function FileUploadZone({ onValidar, cargando, error }) {
           disabled={!archivoSeleccionado || cargando}
           onClick={() => onValidar(archivoSeleccionado)}
         >
-          {cargando ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+          {cargando ? <Spinner size="sm" animation="border" className="me-2" aria-hidden="true" /> : null}
           Validar archivo
         </Button>
         <Button variant="outline-secondary" disabled={cargando} onClick={limpiarSeleccion}>

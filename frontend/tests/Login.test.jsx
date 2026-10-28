@@ -183,7 +183,7 @@ describe("Iniciar sesión", () => {
     pintar();
 
     expect(
-      screen.getByRole("link", { name: /¿Olvidaste tu contraseña\?/ }),
+      screen.getByRole("link", { name: /¿Olvidó su contraseña\?/ }),
     ).toHaveAttribute("href", "/forgot-password");
   });
 });

@@ -195,8 +195,8 @@
 }
 
 .base-cargo__chip.is-falta {
-  background: color-mix(in srgb, #f0a400 15%, transparent);
-  color: #8a5300;
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
 }
 
 .mis-herramientas__base {
@@ -208,7 +208,7 @@
 }
 
 .mis-herramientas__faltan {
-  color: #8a5300;
+  color: var(--mz-warn-fg);
 }
 
 .mis-herramientas__requerida {

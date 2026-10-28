@@ -173,30 +173,11 @@
   opacity: 0.75;
 }
 
-/* Tarjetas de "Mis dashboards" (DashboardsListPage) — los botones de acción (Entrar/Editar/
-   Eliminar) siempre existen en el DOM, solo se revelan visualmente al pasar el cursor o al
-   recibir foco de teclado (accesible sin mouse). */
+/* Tarjetas de "Mis dashboards" (DashboardsListPage) — auditoría UX/UI, fase 3, 28/10/2026: ya
+   no hay capa de acciones que solo se revelaba con el cursor; la tarjeta entera es el enlace y
+   Editar/Eliminar quedan siempre visibles en la esquina (ver `identidad-dashboards.css`). */
 .modulo-dashboards .dashboard-card {
   position: relative;
-}
-
-.modulo-dashboards .dashboard-card__actions {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(15, 23, 42, 0.72);
-  border-radius: var(--border-radius);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.modulo-dashboards .dashboard-card:hover .dashboard-card__actions, .modulo-dashboards .dashboard-card:focus-within .dashboard-card__actions {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 /* `margin-top: auto` (no un valor fijo) para que, dentro de `.kpi-card`/`.chart-panel`

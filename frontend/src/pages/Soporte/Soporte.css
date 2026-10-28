@@ -11,6 +11,7 @@
 
 .soporte-pill--critica {
   background: var(--mz-bad-line);
+  /* Blanco fijo sobre el rojo, que no cambia con el tema (ver Ordenes.css). */
   color: #ffffff;
 }
 
@@ -191,7 +192,7 @@
 
 /* Cumplimiento contra su meta, en Reportes → Mesa de ayuda. */
 .soporte-meta--ok {
-  color: var(--mz-ok-fg, #1e7b4f);
+  color: var(--mz-ok-fg);
   font-weight: 600;
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import EditableGrid from '../components/dashboard-editor/EditableGrid'
 
 function componente(id, overrides = {}) {
@@ -137,5 +138,29 @@ describe('EditableGrid — el ancho de cada panel es adaptable', () => {
 
       expect(celda.closest('.dashboard-grid'), `modoEdicion=${modoEdicion}`).not.toBeNull()
     }
+  })
+})
+
+// Auditoría UX/UI, fase 3, 28/10/2026: mover con los botones anuncia la nueva posición.
+describe('EditableGrid — anuncio al mover', () => {
+  it('después de mover, una región aria-live dice en qué posición quedó el componente', async () => {
+    const antes = [
+      componente('suelto-a', { order: 1, content: { titulo: 'Ventas' } }),
+      componente('suelto-b', { order: 2, content: { titulo: 'Cobros' } }),
+    ]
+    const { props, rerender } = renderGrid(antes)
+    // dnd-kit tiene su propia región de anuncios (también role=status); esta es la del movimiento.
+    const region = screen.getByTestId('anuncio-movimiento')
+    expect(region).toHaveAttribute('role', 'status')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+    expect(region).toBeEmptyDOMElement()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mover "Ventas" después' }))
+    expect(props.onMover).toHaveBeenCalledWith('suelto-a', 'abajo')
+
+    // El padre aplica el movimiento y vuelve a dibujar la rejilla con el orden nuevo.
+    const despues = [{ ...antes[0], order: 2 }, { ...antes[1], order: 1 }]
+    rerender(<EditableGrid {...props} componentes={despues} />)
+    expect(screen.getByTestId('anuncio-movimiento')).toHaveTextContent('"Ventas" quedó en la posición 2 de 2.')
   })
 })

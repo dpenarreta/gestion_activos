@@ -6,7 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Mesa de ayuda: «Soporte TI» (nuevo ticket con los datos de «Mi perfil» y la
@@ -709,5 +709,102 @@ describe("Mis solicitudes en la bandeja", () => {
       screen.queryByRole("navigation", { name: "Qué tickets ver" }),
     ).toBeNull();
     sesion.permisos = ["soporte.atender"];
+  });
+});
+
+/*
+ * En el teléfono (auditoría UX/UI, fase 3, 28/10/2026): las ocho columnas de
+ * la bandeja solo se leían desplazándose de lado; cada ticket va en una
+ * tarjeta con sus datos clave y un botón de 44 px para abrirlo.
+ */
+describe("La bandeja en el teléfono", () => {
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada ticket del equipo es una tarjeta que abre su ficha", async () => {
+    servicio.bandeja.mockResolvedValue({
+      tecnico: {
+        id: 1,
+        nivel: "N1 · Mesa de ayuda",
+        categorias: [],
+        capacidad: 3,
+        en_horario: true,
+        abiertos: 1,
+        cola_para_mi: 0,
+      },
+      cola_total: 0,
+      puede: {
+        ver_todos: false,
+        asignar: false,
+        registrar: false,
+        aprobar_horas: false,
+      },
+    });
+    servicio.tickets.mockResolvedValue({
+      results: [ticket()],
+      count: 1,
+      next: null,
+      previous: null,
+    });
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    const lista = await screen.findByRole("list", { name: "Tickets" });
+    const [tarjeta] = within(lista).getAllByRole("listitem");
+    expect(tarjeta).toHaveTextContent("TCK-2026-000042");
+    expect(tarjeta).toHaveTextContent("No enciende");
+    expect(tarjeta).toHaveTextContent("Carla Ordóñez");
+    expect(tarjeta).toHaveTextContent("Atiende: Jorge Andrade");
+    expect(
+      within(tarjeta).getByRole("link", {
+        name: "Abrir ticket TCK-2026-000042",
+      }),
+    ).toHaveAttribute("href", "/admin/soporte/tickets/42");
+  });
+
+  it("«Mis solicitudes» también va en tarjetas, hacia la ficha de quien pide", async () => {
+    sesion.permisos = [];
+    servicio.misTickets.mockResolvedValue([
+      {
+        id: 7,
+        numero: "TCK-2026-000007",
+        categoria: "Hardware",
+        caso: "No enciende",
+        estado: "nuevo",
+        estado_display: "En cola",
+        criticidad: "alta",
+        criticidad_display: "Alta",
+        posicion: 3,
+        creado: "2026-10-21T15:00:00Z",
+        atendido_en: null,
+      },
+    ]);
+    try {
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+      const lista = await screen.findByRole("list", {
+        name: "Mis solicitudes",
+      });
+      const [tarjeta] = within(lista).getAllByRole("listitem");
+      expect(tarjeta).toHaveTextContent("Posición en la cola: 3");
+      expect(
+        within(tarjeta).getByRole("link", {
+          name: "Ver solicitud TCK-2026-000007",
+        }),
+      ).toHaveAttribute("href", "/admin/ayuda/tickets/7");
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
   });
 });

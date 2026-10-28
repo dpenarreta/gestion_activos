@@ -45,13 +45,13 @@ export default function ConfirmarClaveModal({ show, accion, onConfirmar, onCance
   return (
     <Modal backdrop="static" show={show} onHide={onCancelar} centered>
       <Form onSubmit={confirmar}>
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmá tu contraseña</Modal.Title>
+        <Modal.Header closeButton closeLabel="Cerrar">
+          <Modal.Title>Confirme su contraseña</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p className="mb-3">
             El diseño de este dashboard está bloqueado. Para {accion || 'hacer este cambio'},
-            escribí tu contraseña.
+            escriba su contraseña.
           </p>
           {error && <Alert variant="danger" className="py-2">{error}</Alert>}
           <Form.Group controlId="clave-desbloqueo">
@@ -70,7 +70,7 @@ export default function ConfirmarClaveModal({ show, accion, onConfirmar, onCance
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={onCancelar} disabled={enviando}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={!clave || enviando}>
-            {enviando && <Spinner animation="border" size="sm" className="me-2" />}
+            {enviando && <Spinner animation="border" size="sm" className="me-2" aria-hidden="true" />}
             Confirmar
           </Button>
         </Modal.Footer>

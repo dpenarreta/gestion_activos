@@ -45,7 +45,7 @@ export function ResetPassword() {
       <PantallaAcceso titulo="Recuperar contraseña">
         <div className="mz-alert mz-alert--ok" role="status">
           <i className="bi bi-check2-circle" aria-hidden="true" />
-          Tu contraseña fue actualizada correctamente. Ya podés iniciar sesión.
+          Su contraseña fue actualizada correctamente. Ya puede iniciar sesión.
         </div>
         <Link to="/login" className="btn btn-primary w-100">
           Iniciar sesión
@@ -97,6 +97,7 @@ export function ResetPassword() {
             name="new_password_confirm"
             type="password"
             className="form-control"
+            autoComplete="new-password"
             value={form.new_password_confirm}
             onChange={handleChange}
             required

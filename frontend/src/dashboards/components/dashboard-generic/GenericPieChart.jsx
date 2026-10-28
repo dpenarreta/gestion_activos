@@ -3,6 +3,7 @@ import { formatNumber } from '../../utils/format'
 import { propsLeyendaPara } from '../../utils/legendPosition'
 import { PALETA_CATEGORICA } from '../../utils/colors'
 import HallazgosClaveCard from './HallazgosClaveCard'
+import FiguraGrafico from './FiguraGrafico'
 import { datosCircularConEtiquetas } from './pieChartData'
 
 /**
@@ -22,22 +23,21 @@ export default function GenericPieChart({ data, override, dona = false, leyendaP
   const datosGrafico = datosCircularConEtiquetas(data, override?.colores?.etiquetasPorCategoria)
   const total = (data.valores || []).reduce((suma, v) => suma + (v || 0), 0)
 
+  // Auditoría UX/UI, fase 3, 28/10/2026: los mismos datos, en tabla, para quien no ve el gráfico.
+  // Con los títulos de leyenda personalizados, igual que las porciones.
+  const tablaDatos = { columnas: ['Categoría', 'Valor'], filas: datosGrafico.map((porcion) => [porcion.nombre, porcion.valor]) }
+
   return (
-    <div
-      className="chart-panel"
-      style={{
-        position: 'relative',
-        ...(override?.colores?.colorFondo ? { background: override.colores.colorFondo } : undefined),
-      }}
+    <FiguraGrafico
+      titulo={override?.titulo || data.titulo}
+      descripcion={override?.descripcion || data.descripcion}
+      override={override}
+      style={{ position: 'relative' }}
+      {...tablaDatos}
+      pie={<HallazgosClaveCard variante="categorico" datos={data} textoIA={hallazgoIA} />}
     >
-      <div className="chart-panel__title" style={override?.colores?.colorTexto ? { color: override.colores.colorTexto } : undefined}>
-        {override?.titulo || data.titulo}
-      </div>
-      {(override?.descripcion || data.descripcion) && (
-        <div className="chart-panel__subtitle">{override?.descripcion || data.descripcion}</div>
-      )}
       <ResponsiveContainer width="100%" height={340}>
-        <PieChart>
+        <PieChart accessibilityLayer>
           <Pie
             data={datosGrafico}
             dataKey="valor"
@@ -62,7 +62,6 @@ export default function GenericPieChart({ data, override, dona = false, leyendaP
           <div className="grafico-dona__valor">{formatNumber(total)}</div>
         </div>
       )}
-      <HallazgosClaveCard variante="categorico" datos={data} textoIA={hallazgoIA} />
-    </div>
+    </FiguraGrafico>
   )
 }

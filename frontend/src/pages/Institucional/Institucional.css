@@ -736,6 +736,8 @@
   font-size: 13.5px;
 }
 
+/* Los controles del carrusel van sobre la foto, no sobre el fondo del tema:
+   blanco y casi negro fijos en ambos temas, como el degradado del texto. */
 .carrusel__flecha {
   position: absolute;
   top: 50%;
@@ -1081,6 +1083,8 @@
   height: 24px;
   border-radius: 50%;
   background: var(--mz-action);
+  /* Blanco sobre el color de acción, que no cambia con el tema (como
+     `.btn-primary`); lo mismo en los demás rellenos de acción de la hoja. */
   color: #fff;
   font-weight: 600;
 }
@@ -1174,6 +1178,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  /* Blanco sobre el color del tipo (--cal-*), fijo en ambos temas. */
   color: #fff;
 }
 
@@ -1419,7 +1424,8 @@
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--mz-bad-fg);
+  /* El relleno rojo de `.mz-badge`, igual en ambos temas: el blanco da 5,4:1. */
+  background: var(--mz-bad-line);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -1789,12 +1795,12 @@
 }
 
 .solicitud-regla--aviso {
-  border-left-color: #b26a00;
-  background: color-mix(in srgb, #f0a400 8%, transparent);
+  border-left-color: var(--mz-warn-line);
+  background: var(--mz-warn-bg);
 }
 
 .solicitud-regla--aviso > .bi {
-  color: #b26a00;
+  color: var(--mz-warn-fg);
 }
 
 .solicitud-regla--info {
@@ -1893,8 +1899,8 @@
 }
 
 .perfil-cargo-estado--parcial {
-  background: color-mix(in srgb, #f0a400 15%, transparent);
-  color: #8a5300;
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
 }
 
 .perfil-cargo-estado--vacio {
@@ -2054,7 +2060,7 @@
 .perfil-lista__agregar:hover,
 .perfil-lista__agregar:focus-visible {
   border-color: var(--mz-action);
-  background: rgba(var(--mz-action-rgb), 0.06);
+  background: color-mix(in srgb, var(--mz-action) 6%, transparent);
 }
 
 @media (max-width: 576px) {
@@ -2237,8 +2243,8 @@
 
 .sugerencia-estado--en_revision,
 .sugerencia-estado--planificado {
-  background: color-mix(in srgb, #f0a400 15%, transparent);
-  color: #8a5300;
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
 }
 
 .sugerencia-estado--resuelto {
@@ -2496,8 +2502,8 @@
 }
 
 .onboarding-reloj--poco {
-  border-color: var(--bs-danger, #dc3545);
-  color: var(--bs-danger, #dc3545);
+  border-color: var(--mz-bad-line);
+  color: var(--mz-bad-fg);
 }
 
 .onboarding-reforzar {
@@ -2661,6 +2667,8 @@
   color: #fff;
 }
 
+/* Colores del nivel (un dato, como en la leyenda): fijos en ambos temas;
+   sobre la tarjeta oscura conservan más de 3:1. */
 .org-nodo--nivel-1 {
   border-top-color: #1f78d1;
 }
@@ -2721,8 +2729,8 @@
 
 /* Un fin de semana dentro del permiso salta a la vista. */
 .cal-solicitado__dia.is-pedido.is-finde {
-  background: #f0a400;
-  color: #3d2600;
+  background: var(--mz-warn-fg);
+  color: var(--mz-raised);
 }
 
 .cal-solicitado__resumen {
@@ -2731,7 +2739,7 @@
 }
 
 .cal-solicitado__resumen strong {
-  color: #8a5300;
+  color: var(--mz-warn-fg);
 }
 
 .rol-pagos__codigo-fijo {
@@ -2770,12 +2778,12 @@
 }
 
 .rol-pagos__sin-rol {
-  border-left: 4px solid #f0a400;
+  border-left: 4px solid var(--mz-warn-line);
 }
 
 .rol-pagos__sin-rol-icono {
   font-size: 28px;
-  color: #b26a00;
+  color: var(--mz-warn-fg);
 }
 
 .rol-pagos__sin-rol ul {
@@ -2816,7 +2824,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--surface-overlay);
 }
 
 .visor-rol__aviso .mz-modal {
@@ -3273,6 +3281,7 @@
 /* El día de hoy sigue viéndose aunque sea el inicio o el fin de un rango. */
 .calendario-rango__inicio.calendario__dia--hoy span:first-child,
 .calendario-rango__fin.calendario__dia--hoy span:first-child {
+  /* El inverso del relleno de acción del rango: fijo, como su blanco. */
   background: #fff;
   color: var(--mz-action);
 }

@@ -20,6 +20,14 @@ import { RUTA_DE_ENTRADA } from "../../modulos/modulos";
  * favoritos, el enlace del logo del menú o volver desde un 404 acaban aquí
  * igual, y todas llevan ahora al mismo sitio.
  */
+/** Lo que se lee del estado del servidor: antes salía la clave en inglés
+ * («ok», «checking», «unavailable») (auditoría UX/UI, fase 3, 28/10/2026). */
+const TEXTO_DEL_ESTADO = {
+  ok: "Servicio disponible",
+  checking: "Comprobando…",
+  unavailable: "Servicio no disponible",
+};
+
 export function Home() {
   const [status, setStatus] = useState("checking");
   const { isAuthenticated, isInitializing } = useAuth();
@@ -46,11 +54,11 @@ export function Home() {
       subtitulo="Inicie sesión para consultar y administrar el inventario."
     >
       <p className="mz-small mz-faint">
-        Estado del backend:{" "}
+        Estado del servidor:{" "}
         <span
           className={`mz-pill ${status === "ok" ? "mz-pill--ok" : "mz-pill--neutral"}`}
         >
-          {status}
+          {TEXTO_DEL_ESTADO[status]}
         </span>
       </p>
       <Link to="/login" className="btn btn-primary w-100">

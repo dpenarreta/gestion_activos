@@ -42,6 +42,13 @@ export function useConMouse() {
  *
  * El panel va con `position: fixed` y coordenadas medidas: dentro de la lista
  * del menú —que tiene su propio scroll— un panel absoluto quedaría recortado.
+ *
+ * Con el menú contraído el panel también se abre **pulsando** el grupo (clic,
+ * toque, Enter, Espacio o flecha abajo): antes solo abría con el mouse, y con
+ * teclado o en una tableta táctil no había forma de llegar a lo de dentro
+ * (auditoría UX/UI, fase 3, 28/10/2026). Abierto así queda fijo: las flechas
+ * recorren sus enlaces, Escape lo cierra y devuelve el foco al grupo, y se
+ * cierra al salir con Tab o al pulsar fuera.
  */
 /** Lo pendiente de todas las entradas del grupo, para su cabecera. */
 function totalDeInsignias(item, insignias) {
@@ -70,7 +77,10 @@ export function AdminMenuGroup({
   const flyoutRef = useRef(null);
   const cierreRef = useRef(null);
   const conMouse = useConMouse();
+  // { top, left, fijo }: `fijo` cuando se abrió pulsando y no al pasar el
+  // mouse; ese no se cierra al sacar el puntero.
   const [flyout, setFlyout] = useState(null);
+  const enfocarAlAbrir = useRef(false);
 
   // Los subgrupos hermanos, para que abrir uno cierre al otro sin tocar al
   // padre: pasarle los ids de todos los hijos cerraría el grupo que los
@@ -82,13 +92,32 @@ export function AdminMenuGroup({
   const pendientes = totalDeInsignias(item, insignias);
   const isExpanded = accordion.isExpanded(item.id);
   // Solo el primer nivel flota: los de dentro ya se ven en el panel del padre.
-  // Abierto en acordeón no hace falta, salvo con el menú contraído.
-  const puedeFlotar = conMouse && nivel === 1 && (isCollapsed || !isExpanded);
+  // Abierto en acordeón no hace falta, salvo con el menú contraído, donde el
+  // panel es la única manera de verlos (con mouse o sin él).
+  const puedeFlotar = nivel === 1 && (isCollapsed || (conMouse && !isExpanded));
 
   useEffect(() => () => clearTimeout(cierreRef.current), []);
   useEffect(() => {
     if (!puedeFlotar) setFlyout(null);
   }, [puedeFlotar]);
+
+  // Un solo panel abierto a la vez: al abrirse uno, los demás grupos cierran
+  // el suyo (auditoría UX/UI, fase 3).
+  const yo = useRef({});
+  useEffect(() => {
+    if (!flyout) return undefined;
+    window.dispatchEvent(
+      new CustomEvent("mz-flyout-abierto", { detail: yo.current }),
+    );
+    return undefined;
+  }, [flyout]);
+  useEffect(() => {
+    function otroAbierto(evento) {
+      if (evento.detail !== yo.current) setFlyout(null);
+    }
+    window.addEventListener("mz-flyout-abierto", otroAbierto);
+    return () => window.removeEventListener("mz-flyout-abierto", otroAbierto);
+  }, []);
 
   // Que el panel no se salga por abajo: se mide ya dibujado y se sube lo justo.
   useLayoutEffect(() => {
@@ -102,19 +131,95 @@ export function AdminMenuGroup({
     }
   }, [flyout]);
 
-  function abrirFlyout() {
-    clearTimeout(cierreRef.current);
-    if (!puedeFlotar || !botonRef.current) return;
+  // Abierto pulsando, el foco pasa a su primer enlace; y un clic fuera lo
+  // cierra.
+  useEffect(() => {
+    if (!flyout?.fijo) return undefined;
+    if (enfocarAlAbrir.current) {
+      enfocarAlAbrir.current = false;
+      flyoutRef.current?.querySelector("a")?.focus();
+    }
+    function alPulsarFuera(evento) {
+      const grupo = botonRef.current?.closest("li");
+      if (grupo && !grupo.contains(evento.target)) setFlyout(null);
+    }
+    document.addEventListener("mousedown", alPulsarFuera);
+    return () => document.removeEventListener("mousedown", alPulsarFuera);
+  }, [flyout?.fijo]);
+
+  function posicionDelPanel() {
     const boton = botonRef.current.getBoundingClientRect();
     const menu = botonRef.current
       .closest(".mz-sidebar")
       ?.getBoundingClientRect();
-    setFlyout({ top: boton.top, left: (menu?.right ?? boton.right) + 6 });
+    return { top: boton.top, left: (menu?.right ?? boton.right) + 6 };
+  }
+
+  function abrirFlyout() {
+    clearTimeout(cierreRef.current);
+    // Pasar el mouse solo despliega con mouse de verdad: en una pantalla
+    // táctil el toque también dispara «mouseenter».
+    if (!conMouse || !puedeFlotar || !botonRef.current) return;
+    if (flyout?.fijo) return;
+    setFlyout({ ...posicionDelPanel(), fijo: false });
   }
 
   function cerrarFlyout() {
     clearTimeout(cierreRef.current);
+    if (flyout?.fijo) return;
     cierreRef.current = setTimeout(() => setFlyout(null), RETARDO_CIERRE_MS);
+  }
+
+  /** Contraído, pulsar el grupo abre (o cierra) el panel, fijo. */
+  function alternarFlyoutFijo() {
+    clearTimeout(cierreRef.current);
+    if (flyout?.fijo) {
+      setFlyout(null);
+      return;
+    }
+    enfocarAlAbrir.current = true;
+    setFlyout({ ...posicionDelPanel(), fijo: true });
+  }
+
+  function alPulsarTeclaEnGrupo(evento) {
+    if (!isCollapsed || nivel !== 1) return;
+    if (evento.key === "ArrowDown" && !flyout?.fijo) {
+      evento.preventDefault();
+      alternarFlyoutFijo();
+    }
+  }
+
+  /** Dentro del panel: flechas para recorrer sus enlaces y Escape para
+   * volver al grupo. */
+  function alPulsarTeclaEnPanel(evento) {
+    if (evento.key === "Escape") {
+      evento.preventDefault();
+      evento.stopPropagation();
+      setFlyout(null);
+      botonRef.current?.focus();
+      return;
+    }
+    const enlaces = [...(flyoutRef.current?.querySelectorAll("a") ?? [])];
+    if (enlaces.length === 0) return;
+    const actual = enlaces.indexOf(document.activeElement);
+    let siguiente = null;
+    if (evento.key === "ArrowDown") siguiente = (actual + 1) % enlaces.length;
+    else if (evento.key === "ArrowUp")
+      siguiente = (actual - 1 + enlaces.length) % enlaces.length;
+    else if (evento.key === "Home") siguiente = 0;
+    else if (evento.key === "End") siguiente = enlaces.length - 1;
+    if (siguiente === null) return;
+    evento.preventDefault();
+    enlaces[siguiente].focus();
+  }
+
+  /** Al salir del grupo con Tab, el panel fijo se cierra. Sin destino
+   * (`relatedTarget` nulo: un clic en el relleno del panel, o Safari, donde
+   * los botones no toman el foco) no se cierra: de eso se encarga el clic
+   * fuera. */
+  function alPerderFoco(evento) {
+    if (!flyout?.fijo || !evento.relatedTarget) return;
+    if (!evento.currentTarget.contains(evento.relatedTarget)) setFlyout(null);
   }
 
   function navegarDesdeFlyout(evento, path) {
@@ -136,28 +241,36 @@ export function AdminMenuGroup({
       className={nivel > 1 ? "mz-nav-anidado" : undefined}
       onMouseEnter={abrirFlyout}
       onMouseLeave={cerrarFlyout}
+      onBlur={alPerderFoco}
     >
       <button
         ref={botonRef}
         type="button"
         className={headerClassName}
         onClick={() => {
+          // Contraído no hay acordeón a la vista: se abre el panel.
+          if (isCollapsed && nivel === 1) {
+            alternarFlyoutFijo();
+            return;
+          }
           setFlyout(null);
           accordion.toggle(item.id, siblingIds);
         }}
-        aria-expanded={isExpanded}
-        aria-controls={sublistId}
+        onKeyDown={alPulsarTeclaEnGrupo}
+        aria-expanded={
+          isCollapsed && nivel === 1 ? Boolean(flyout) : isExpanded
+        }
+        aria-controls={isCollapsed && nivel === 1 ? flyoutId : sublistId}
         title={isCollapsed ? item.name : undefined}
       >
         <Icon name={item.icon} />
         {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
         {!isCollapsed && pendientes > 0 && (
-          <span
-            className="mz-badge"
-            aria-label={`${pendientes} pendientes`}
-            title={`${pendientes} pendientes`}
-          >
+          <span className="mz-badge" title={`${pendientes} pendientes`}>
             {pendientes}
+            {/* Texto oculto y no aria-label, que en un <span> sin rol se
+                ignora (auditoría UX/UI, fase 3, 28/10/2026). */}
+            <span className="visually-hidden"> pendientes</span>
           </span>
         )}
         {!isCollapsed && (
@@ -217,6 +330,7 @@ export function AdminMenuGroup({
             hijos={item.children}
             currentPath={currentPath}
             onNavigate={navegarDesdeFlyout}
+            onTecla={alPulsarTeclaEnPanel}
           />
         </div>
       )}
@@ -226,7 +340,7 @@ export function AdminMenuGroup({
 
 /** Las entradas del panel: las hojas como enlaces y los subgrupos como un
  * rótulo con sus hojas debajo, a cualquier profundidad. */
-function EntradasDelFlyout({ hijos, currentPath, onNavigate }) {
+function EntradasDelFlyout({ hijos, currentPath, onNavigate, onTecla }) {
   return (
     <ul className="mz-flyout-lista">
       {hijos.map((hijo) =>
@@ -237,6 +351,7 @@ function EntradasDelFlyout({ hijos, currentPath, onNavigate }) {
               hijos={hijo.children}
               currentPath={currentPath}
               onNavigate={onNavigate}
+              onTecla={onTecla}
             />
           </li>
         ) : (
@@ -250,6 +365,7 @@ function EntradasDelFlyout({ hijos, currentPath, onNavigate }) {
                 hasActiveDescendant(hijo, currentPath) ? "page" : undefined
               }
               onClick={(evento) => onNavigate(evento, hijo.path)}
+              onKeyDown={onTecla}
             >
               <Icon name={hijo.icon} />
               <span>{hijo.name}</span>

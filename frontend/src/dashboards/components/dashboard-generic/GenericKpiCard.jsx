@@ -17,6 +17,12 @@ function IconoKpi({ tipo }) {
   )
 }
 
+// Auditoría UX/UI, fase 3, 28/10/2026: el texto de meta y tendencia (11.5 px) usaba
+// `--status-good`/`--status-critical`, que apuntan a los `*-line` de la Matriz (~3.4:1, pensados
+// para bordes). Para texto van los `*-fg`, que superan 4.5:1 en claro y en oscuro.
+const COLOR_TEXTO_BIEN = 'var(--status-good-text, var(--mz-ok-fg))'
+const COLOR_TEXTO_MAL = 'var(--status-critical-text, var(--mz-bad-fg))'
+
 function formatearValor(valor, formato) {
   if (formato === 'moneda') return formatCurrency(valor)
   if (formato === 'porcentaje') return formatPercent(valor)
@@ -31,7 +37,7 @@ function formatearValor(valor, formato) {
 function MetaEstado({ meta }) {
   if (!meta) return null
   return (
-    <div className="kpi-card__sub" style={{ color: meta.cumple ? 'var(--status-good)' : 'var(--status-critical)' }}>
+    <div className="kpi-card__sub" style={{ color: meta.cumple ? COLOR_TEXTO_BIEN : COLOR_TEXTO_MAL }}>
       {meta.cumple ? '✓ Cumple la meta' : `✗ No cumple la meta (${meta.motivos.join('; ')})`}
     </div>
   )
@@ -71,7 +77,7 @@ export default function GenericKpiCard({ data, override, config, hallazgoIA }) {
       <div className="kpi-card__value">{formatearValor(data.valor, data.formato)}</div>
       <MetaEstado meta={data.meta} />
       {tendencia ? (
-        <div className="kpi-card__sub" style={{ color: tendencia.valor >= 0 ? 'var(--status-good)' : 'var(--status-critical)' }}>
+        <div className="kpi-card__sub" style={{ color: tendencia.valor >= 0 ? COLOR_TEXTO_BIEN : COLOR_TEXTO_MAL }}>
           {tendencia.valor >= 0 ? '↑' : '↓'} {Math.abs(tendencia.valor)}% {tendencia.texto}
         </div>
       ) : (

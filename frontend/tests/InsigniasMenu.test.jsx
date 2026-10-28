@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -76,15 +76,17 @@ describe("Insignias del menú", () => {
       aprobados: 1,
     });
     pintar();
-    const permisos = (
-      await screen.findByRole("link", { name: /Solicitud de permisos/ })
-    ).closest("a");
+    // El enlace se lee con el número y lo que cuenta (auditoría UX/UI, fase 3):
+    // antes era un aria-label sobre un <span>, que los lectores ignoran.
     expect(
-      await within(permisos).findByLabelText("1 por aprobar"),
-    ).toHaveTextContent("1");
-    const onboarding = screen.getByRole("link", { name: /Mi onboarding/ });
+      await screen.findByRole("link", {
+        name: /Solicitud de permisos\s*1 por aprobar/,
+      }),
+    ).toBeInTheDocument();
     expect(
-      await within(onboarding).findByLabelText("3 materiales pendientes"),
+      await screen.findByRole("link", {
+        name: /Mi onboarding\s*3 materiales pendientes/,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -111,10 +113,11 @@ describe("Insignias del menú", () => {
     // La cabecera suma lo de sus entradas: 1 corrección + 2 observaciones.
     const grupo = await screen.findByRole("button", { name: /Rol de pagos/ });
     expect(await within(grupo).findByText("3")).toBeInTheDocument();
+    expect(grupo).toHaveAccessibleName(/Rol de pagos\s*3 pendientes/);
     const observaciones = screen.getByRole("link", { name: /Observaciones/ });
-    expect(
-      within(observaciones).getByLabelText("2 observaciones por atender"),
-    ).toBeInTheDocument();
+    expect(observaciones).toHaveAccessibleName(
+      /Observaciones.*2 observaciones por atender/,
+    );
     // Solo la entrada de la pantalla abierta queda marcada.
     expect(observaciones).toHaveAttribute("aria-current", "page");
     expect(
@@ -131,9 +134,11 @@ describe("Insignias del menú", () => {
     const consultar = await screen.findByRole("link", {
       name: /Consultar rol de pagos/,
     });
-    expect(
-      await within(consultar).findByLabelText("1 correcciones por confirmar"),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(consultar).toHaveAccessibleName(
+        /Consultar rol de pagos\s*1 correcciones por confirmar/,
+      ),
+    );
     expect(screen.queryByRole("button", { name: /Rol de pagos/ })).toBeNull();
   });
 });

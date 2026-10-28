@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Accordion, Button, Form, Offcanvas } from 'react-bootstrap'
 import WidthHeightControls from './WidthHeightControls'
 import FilterFieldReorderList from './FilterFieldReorderList'
@@ -10,6 +10,7 @@ import { SelectorTipoGrafico } from '../dashboard-generic/SlotFields'
 import { POSICIONES_LEYENDA } from '../../utils/legendPosition'
 import { PLANTILLA_SLOTS, TIPOS_COMPATIBLES } from '../../utils/plantillaSlots'
 import { PAGE_SIZES_PERMITIDOS } from '../../config/pageSizes'
+import { contrastRatio, cumpleContrasteAA } from '../../utils/colorContrast'
 
 // Tipos de `calculo` con tipo de gráfico intercambiable — único criterio que decide si, en modo
 // plantilla base, la sección "Datos" muestra el selector de tipo de gráfico o no aparece (mismo
@@ -121,9 +122,25 @@ function estilosDeRestablecerPara(componente) {
   return {}
 }
 
-function CampoColor({ etiqueta, valor, porDefecto, onCambiar }) {
+/** Aviso de contraste entre el color del título y el de fondo — auditoría UX/UI, fase 3,
+ * 28/10/2026: se podían elegir combinaciones ilegibles sin ninguna advertencia. Avisa, no bloquea
+ * (mismo criterio que `utils/colorContrast.js::cumpleContrasteAA`). `null` si no hay nada que
+ * advertir. */
+function avisoContrasteTituloFondo(estilos) {
+  const colorTexto = estilos?.colorTexto || COLOR_TEXTO_HEX
+  const colorFondo = estilos?.colorFondo || COLOR_FONDO_HEX
+  if (cumpleContrasteAA(colorTexto, colorFondo)) return null
+  const razon = contrastRatio(colorTexto, colorFondo)
+  return `El título y el fondo tienen un contraste de ${razon.toFixed(1).replace('.', ',')}:1; para que el título se lea bien se recomienda al menos 4,5:1.`
+}
+
+function CampoColor({ etiqueta, valor, porDefecto, onCambiar, aviso }) {
   const [texto, setTexto] = useState(valor || porDefecto || '')
   const [errorLocal, setErrorLocal] = useState('')
+  const idBase = useId()
+  const idError = `${idBase}-error`
+  const idAviso = `${idBase}-aviso`
+  const descritoPor = [errorLocal && idError, aviso && idAviso].filter(Boolean).join(' ') || undefined
 
   useEffect(() => setTexto(valor || porDefecto || ''), [valor, porDefecto])
 
@@ -152,6 +169,7 @@ function CampoColor({ etiqueta, valor, porDefecto, onCambiar }) {
           value={HEX_RE.test(texto) ? texto : '#ffffff'}
           onChange={(e) => aplicar(e.target.value)}
           aria-label={`${etiqueta} (selector visual)`}
+          aria-describedby={descritoPor}
         />
         <Form.Control
           size="sm"
@@ -159,9 +177,15 @@ function CampoColor({ etiqueta, valor, porDefecto, onCambiar }) {
           placeholder="#RRGGBB"
           onChange={(e) => aplicar(e.target.value)}
           aria-label={`${etiqueta} (hexadecimal)`}
+          aria-describedby={descritoPor}
         />
       </div>
-      {errorLocal && <div className="text-danger" style={{ fontSize: '0.75rem' }}>{errorLocal}</div>}
+      {errorLocal && <div id={idError} className="text-danger" style={{ fontSize: '0.75rem' }}>{errorLocal}</div>}
+      {aviso && (
+        <div id={idAviso} className="text-warning-emphasis" style={{ fontSize: '0.75rem' }}>
+          <i className="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>{aviso}
+        </div>
+      )}
     </Form.Group>
   )
 }
@@ -181,6 +205,7 @@ export default function ComponentPropertiesPanel({
   const bloqueado = (Boolean(componente.config?.bloqueado) || estructuraBloqueada) && !esSuperusuario
 
   const filasColor = filasColorPara(componente)
+  const avisoContraste = avisoContrasteTituloFondo(componente.styles)
   const restablecerColores = () => onActualizarEstilos(componente.component_id, estilosDeRestablecerPara(componente))
 
   const nombresLeyenda = nombresLeyendaPara(componente)
@@ -198,7 +223,7 @@ export default function ComponentPropertiesPanel({
 
   return (
     <Offcanvas show={Boolean(componente)} onHide={onCerrar} placement="end" className="mz-propiedades">
-      <Offcanvas.Header closeButton>
+      <Offcanvas.Header closeButton closeLabel="Cerrar">
         <Offcanvas.Title>Configurar componente</Offcanvas.Title>
       </Offcanvas.Header>
       <Offcanvas.Body>
@@ -286,6 +311,7 @@ export default function ComponentPropertiesPanel({
                       etiqueta={f.etiqueta}
                       valor={f.valor}
                       porDefecto={f.porDefecto}
+                      aviso={f.id === 'colorTexto' || f.id === 'colorFondo' ? avisoContraste : null}
                       onCambiar={(valor) => onActualizarEstilos(componente.component_id, f.onCambiar(valor))}
                     />
                   ))}

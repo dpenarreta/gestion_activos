@@ -581,3 +581,37 @@ describe('ComponentPropertiesPanel — identificador del cliente (consulta por c
     expect(await screen.findByText(/El archivo cargado no trae «Ruc Viejo»/)).toBeInTheDocument()
   })
 })
+
+// Auditoría UX/UI, fase 3, 28/10/2026: aviso (sin bloquear) cuando título y fondo quedan bajo 4.5:1.
+describe('ComponentPropertiesPanel — contraste entre título y fondo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    carteraService.obtenerArchivoActualDashboard.mockResolvedValue({ disponible: false })
+  })
+
+  function tabla(styles) {
+    return componenteDePrueba({ component_id: 'saldo-tabla', type: 'chart', chart_type: 'tabla', styles })
+  }
+
+  it('con los colores por defecto (negro sobre blanco) no avisa nada', () => {
+    renderPanel({ componente: tabla({}) })
+    expect(screen.queryByText(/se recomienda al menos 4,5:1/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Color del título (hexadecimal)')).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('con un título claro sobre fondo blanco, avisa bajo ambos selectores y los enlaza con aria-describedby', () => {
+    renderPanel({ componente: tabla({ colorTexto: '#ffff00' }) })
+    const avisos = screen.getAllByText(/se recomienda al menos 4,5:1/)
+    expect(avisos).toHaveLength(2)
+    expect(avisos[0]).toHaveTextContent('contraste de 1,1:1')
+
+    expect(screen.getByLabelText('Color del título (hexadecimal)')).toHaveAccessibleDescription(/se recomienda al menos 4,5:1/)
+    expect(screen.getByLabelText('Color de fondo (selector visual)')).toHaveAccessibleDescription(/se recomienda al menos 4,5:1/)
+  })
+
+  it('el aviso no impide guardar el color elegido', async () => {
+    const { props } = renderPanel({ componente: tabla({ colorTexto: '#ffff00' }) })
+    fireEvent.change(screen.getByLabelText('Color de fondo (hexadecimal)'), { target: { value: '#fefefe' } })
+    expect(props.onActualizarEstilos).toHaveBeenCalledWith('saldo-tabla', { colorFondo: '#fefefe' })
+  })
+})

@@ -80,6 +80,14 @@ describe("La portada", () => {
     expect(screen.queryByText(/^Destino:/)).not.toBeInTheDocument();
   });
 
+  it("dice el estado del servidor en español, no la clave interna", async () => {
+    // Auditoría UX/UI, fase 3 (28/10/2026): salía «ok» o «checking».
+    pintar(<Home />);
+
+    expect(await screen.findByText("Servicio disponible")).toBeInTheDocument();
+    expect(screen.queryByText("ok")).not.toBeInTheDocument();
+  });
+
   it("mientras se recupera la sesión no parpadea", () => {
     /* Con un token guardado todavía no se sabe si hay sesión: pintar la portada
        la haría aparecer y desaparecer en cada recarga. */

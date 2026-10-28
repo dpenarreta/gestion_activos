@@ -66,6 +66,7 @@ export function ChangePasswordRequired() {
             name="current_password"
             type="password"
             className="form-control"
+            autoComplete="current-password"
             value={form.current_password}
             onChange={handleChange}
             required
@@ -97,6 +98,7 @@ export function ChangePasswordRequired() {
             name="new_password_confirm"
             type="password"
             className="form-control"
+            autoComplete="new-password"
             value={form.new_password_confirm}
             onChange={handleChange}
             required

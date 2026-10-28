@@ -23,6 +23,10 @@
   --status-warning: #e0a100;
   --status-serious: var(--mz-warn-line);
   --status-critical: var(--mz-bad-line);
+  /* Auditoría UX/UI, fase 3, 28/10/2026: los `*-line` (~3.4:1) sirven para bordes y trazos, no
+     para texto de 11.5 px; el texto de estado (meta y tendencia de los KPI) usa los `*-fg`. */
+  --status-good-text: var(--mz-ok-fg);
+  --status-critical-text: var(--mz-bad-fg);
 
   --hallazgos-bg: var(--mz-info-bg);
   --hallazgos-border: var(--mz-blue-100);
@@ -37,10 +41,14 @@
 
   /* Series de los gráficos: el azul institucional primero y los colores de estado después, para
      que un gráfico de una sola serie se vea como la Matriz. */
+  /* Auditoría UX/UI, fase 3, 28/10/2026: la serie 2 (#ff6347, ~2.9:1) y la 4 (#e0a100, ~2.3:1) no
+     llegaban a 3:1 sobre blanco (mínimo WCAG para elementos gráficos). Se oscurecieron sin cambiar
+     el tono: tomate #e5482b (~4.0:1) y ámbar #b07d00 (~3.6:1). En oscuro ya superaban 5:1 sobre
+     `--mz-raised`, por eso su bloque no cambia. */
   --series-1: #2c74c2;
-  --series-2: #ff6347;
+  --series-2: #e5482b;
   --series-3: #1f9d6b;
-  --series-4: #e0a100;
+  --series-4: #b07d00;
   --series-5: #5b93d3;
   --series-6: #0e7c86;
   --series-7: #5b3fa0;
@@ -418,9 +426,24 @@
   background: var(--mz-raised);
 }
 
-.modulo-dashboards .dashboard-card__actions {
-  background: rgba(10, 30, 56, 0.78);
-  border-radius: 16px;
+
+/* Encabezado ordenable de `GenericDataTable` — auditoría UX/UI, fase 3, 28/10/2026: un `<button>`
+   dentro del `<th>` que se ve como el texto del encabezado. */
+.modulo-dashboards .encabezado-ordenable {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.modulo-dashboards .encabezado-ordenable:focus-visible {
+  outline: 2px solid var(--mz-action);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Tooltips de Recharts con el aspecto de un menú desplegable de la Matriz, en ambos modos. */
@@ -451,7 +474,51 @@
 .modulo-dashboards .dashboard-card__fila {
   border-bottom: none;
   padding: 16px;
-  pointer-events: none;
+}
+
+/* Auditoría UX/UI, fase 3, 28/10/2026: toda la tarjeta es el enlace al dashboard (antes «Entrar»
+   vivía en una capa con opacity: 0 que solo aparecía con el cursor encima). Editar y Eliminar son
+   botones de ícono siempre visibles en la esquina; el enlace deja libre ese espacio a la derecha. */
+.modulo-dashboards .dashboard-card__enlace {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 16px;
+}
+
+.modulo-dashboards .dashboard-card--con-acciones .dashboard-card__enlace .dashboard-card__fila {
+  padding-right: 96px;
+}
+
+.modulo-dashboards .dashboard-card__enlace:hover {
+  background: var(--mz-sunken);
+}
+
+.modulo-dashboards .dashboard-card__enlace:focus-visible {
+  outline: 2px solid var(--mz-action);
+  outline-offset: 2px;
+}
+
+.modulo-dashboards .dashboard-card__acciones {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.modulo-dashboards .dashboard-card__acciones .btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+@media (pointer: coarse) {
+  .modulo-dashboards .dashboard-card__acciones .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 .modulo-dashboards .dashboard-card__fila .mz-row-info strong {
@@ -545,6 +612,18 @@
   line-height: 1;
   background: var(--mz-raised);
   align-items: center;
+  /* Auditoría UX/UI, fase 3, 28/10/2026: medían ~23×28 px; mínimo 32 px con ratón y 44 px en
+     pantallas táctiles. */
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+@media (pointer: coarse) {
+  .modulo-dashboards .mz-edit-bar .mz-icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 .modulo-dashboards .mz-edit-bar .mz-icon-btn:hover:not(:disabled) {
@@ -586,6 +665,19 @@
   color: var(--mz-bad-fg);
 }
 
+/* Auditoría UX/UI, fase 3, 28/10/2026: «Sí»/«No» de la confirmación, con el mismo mínimo táctil. */
+.modulo-dashboards .mz-edit-confirmar .btn {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+@media (pointer: coarse) {
+  .modulo-dashboards .mz-edit-confirmar .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .modulo-dashboards .mz-edit-oculto {
   display: flex;
   align-items: center;
@@ -601,7 +693,10 @@
 /* Paleta de componentes y panel de propiedades como `mz-drawer`, a la derecha. La paleta empieza
    debajo de la barra superior para no tapar el botón de tema ni "Volver a Dashboards" (no tiene
    fondo modal: se edita con ella abierta). El panel de propiedades sí es modal y va a alto
-   completo. */
+   completo.
+   Auditoría UX/UI, fase 3, 28/10/2026: ambos Offcanvas se dibujan en `body`, fuera de
+   `.modulo-dashboards`, así que las reglas de su contenido se escriben desde `.offcanvas.mz-*`
+   (antes `.modulo-dashboards .mz-paleta-item` no alcanzaba a nada). */
 .offcanvas.mz-paleta {
   --bs-offcanvas-width: 280px;
   top: var(--mz-topbar-h);
@@ -614,11 +709,11 @@
   border-left: 1px solid var(--mz-border);
 }
 
-.modulo-dashboards .mz-paleta .offcanvas-header, .modulo-dashboards .mz-propiedades .offcanvas-header {
+.offcanvas.mz-paleta .offcanvas-header, .offcanvas.mz-propiedades .offcanvas-header {
   border-bottom: 1px solid var(--mz-border);
 }
 
-.modulo-dashboards .mz-paleta-item {
+.offcanvas.mz-paleta .mz-paleta-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -634,13 +729,13 @@
   cursor: grab;
 }
 
-.modulo-dashboards .mz-paleta-item:hover {
+.offcanvas.mz-paleta .mz-paleta-item:hover {
   border-color: var(--mz-blue-400);
   background: var(--mz-info-bg);
 }
 
 /* Secciones del panel de propiedades (Accordion) con el aspecto de las tarjetas de la Matriz. */
-.modulo-dashboards .mz-propiedades .accordion {
+.offcanvas.mz-propiedades .accordion {
   --bs-accordion-bg: var(--mz-raised);
   --bs-accordion-color: var(--mz-ink);
   --bs-accordion-border-color: var(--mz-border);
@@ -653,7 +748,7 @@
   --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(var(--mz-action-rgb), 0.2);
 }
 
-.modulo-dashboards .mz-propiedades .accordion-button {
+.offcanvas.mz-propiedades .accordion-button {
   font-family: var(--mz-font-display);
   font-size: 13px;
   font-weight: 700;

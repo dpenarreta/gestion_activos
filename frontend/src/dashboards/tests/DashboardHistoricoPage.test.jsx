@@ -92,7 +92,7 @@ describe('DashboardHistoricoPage', () => {
     await usuario.click(screen.getByLabelText('Incluir febrero.xlsx'))
 
     await waitFor(() => expect(screen.getByLabelText('Incluir febrero.xlsx')).toBeChecked())
-    expect(await screen.findByText('No se pudo actualizar la carga. Intentá de nuevo.')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo actualizar la carga. Inténtelo de nuevo.')).toBeInTheDocument()
   })
 
   it('"Generar tabla histórica" ya no manda una selección de cargas: usa el criterio por defecto del backend (las habilitadas)', async () => {
@@ -118,7 +118,7 @@ describe('DashboardHistoricoPage', () => {
 
     await usuario.click(screen.getByRole('button', { name: 'Generar tabla histórica' }))
 
-    expect(await screen.findByText('Elegí al menos una columna para comparar.')).toBeInTheDocument()
+    expect(await screen.findByText('Elija al menos una columna para comparar.')).toBeInTheDocument()
     expect(historicoService.calcularTablaHistorica).not.toHaveBeenCalled()
   })
 

@@ -5,7 +5,9 @@ import { useAppearance } from "../../../context/AppearanceContext";
 import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
 import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
+import { cumpleConsulta, useMediaQuery } from "../../../hooks/useMediaQuery";
 import { EstadoModulosProvider } from "../../../modulos/EstadoModulos";
+import { fijarTituloDePantalla } from "../../../utils/tituloDocumento";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminSidebar } from "../AdminSidebar/AdminSidebar";
 import { coincidencia } from "../AdminSidebar/adminMenuTree";
@@ -39,12 +41,27 @@ function hasStoredPreference() {
   return localStorage.getItem(COLLAPSE_STORAGE_KEY) !== null;
 }
 
+/** Pantalla táctil (tableta): ahí no se contrae por defecto. Contraído, lo de
+ * dentro de cada grupo se ve en un panel flotante, y un menú que hay que
+ * tocar dos veces para cada pantalla es peor que uno ancho (auditoría UX/UI,
+ * fase 3, 28/10/2026). */
+const TACTIL = "(pointer: coarse)";
+
+/** Por debajo de este ancho el menú es un cajón superpuesto: contraerlo a
+ * íconos no significa nada (mismo corte que `AdminSidebar.css`). */
+const ESTRECHO = "(max-width: 880px)";
+
+function contraidoPorDefecto(breakpoint) {
+  if (cumpleConsulta(TACTIL)) return false;
+  return breakpoint === "md" || breakpoint === "lg";
+}
+
 function getInitialCollapsed(breakpoint) {
   const stored = localStorage.getItem(COLLAPSE_STORAGE_KEY);
   if (stored !== null) {
     return stored === "true";
   }
-  return breakpoint === "md" || breakpoint === "lg";
+  return contraidoPorDefecto(breakpoint);
 }
 
 /**
@@ -106,6 +123,18 @@ export function AdminLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const mobileTriggerRef = useRef(null);
   const hadStoredPreference = useRef(hasStoredPreference());
+  const estrecho = useMediaQuery(ESTRECHO);
+  // En el cajón del teléfono el menú va siempre completo, aunque en el
+  // escritorio se haya dejado contraído.
+  const contraido = isCollapsed && !estrecho;
+  const titulo = tituloDeRuta(menu, location.pathname);
+
+  // La pestaña dice en qué pantalla se está, igual que la barra superior
+  // (auditoría UX/UI, fase 3, 28/10/2026).
+  useEffect(() => {
+    fijarTituloDePantalla(titulo);
+  }, [titulo]);
+  useEffect(() => () => fijarTituloDePantalla(null), []);
 
   useEffect(() => {
     localStorage.setItem(COLLAPSE_STORAGE_KEY, String(isCollapsed));
@@ -113,7 +142,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!hadStoredPreference.current) {
-      setIsCollapsed(breakpoint === "md" || breakpoint === "lg");
+      setIsCollapsed(contraidoPorDefecto(breakpoint));
     }
   }, [breakpoint]);
 
@@ -179,7 +208,7 @@ export function AdminLayout() {
             }
           >
             <AdminSidebar
-              isCollapsed={isCollapsed}
+              isCollapsed={contraido}
               onToggleCollapse={handleToggleCollapse}
               isMobileOpen={isMobileOpen}
               onMobileClose={() => setIsMobileOpen(false)}
@@ -201,7 +230,7 @@ export function AdminLayout() {
                 >
                   <Icon name="list" />
                 </button>
-                <h1>{tituloDeRuta(menu, location.pathname)}</h1>
+                <h1>{titulo}</h1>
                 <div className="mz-spacer" />
                 <BusquedaGlobal />
                 {/* Soporte TI: toda persona con sesión pide ayuda desde aquí, tenga el
@@ -222,6 +251,8 @@ export function AdminLayout() {
                 <CampanaNotificaciones />
                 <BotonTema />
                 {/* Con una sola empresa no hay nada que elegir ni mostrar. */}
+                {/* En el teléfono se reduce al ícono del edificio (ver
+                    AdminSidebar.css, fase 3). */}
                 {empresas.multiempresa && (
                   <SelectorEmpresa
                     empresas={empresas.empresas}

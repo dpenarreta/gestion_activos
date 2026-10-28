@@ -49,6 +49,7 @@ export function ForgotPassword() {
               <input
                 id="identifier"
                 className="form-control"
+                autoComplete="username"
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
                 required

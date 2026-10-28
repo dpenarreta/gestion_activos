@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * El listado de cuentas.
@@ -262,7 +262,7 @@ describe("El listado de usuarios", () => {
     pintar();
 
     await screen.findByText("acevallos");
-    fireEvent.click(screen.getByRole("button", { name: "Deshabilitar" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Deshabilitar a / }));
     // Deshabilitar pide confirmación con el nombre de la persona.
     fireEvent.click(
       within(
@@ -284,7 +284,7 @@ describe("El listado de usuarios", () => {
     pintar();
 
     await screen.findByText("acevallos");
-    fireEvent.click(screen.getByRole("button", { name: "Deshabilitar" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Deshabilitar a / }));
     // Deshabilitar pide confirmación con el nombre de la persona.
     fireEvent.click(
       within(
@@ -368,5 +368,72 @@ describe("El listado de usuarios", () => {
     await waitFor(() =>
       expect(listar.mock.calls.at(-1)[0]).toMatchObject({ page: 2 }),
     );
+  });
+});
+
+/*
+ * En el teléfono (auditoría UX/UI, fase 3, 28/10/2026): ocho columnas a
+ * 375 px solo se leían desplazándose de lado. Cada cuenta va en una tarjeta
+ * con sus datos clave y sus acciones.
+ */
+describe("En el teléfono", () => {
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada cuenta es una tarjeta con su estado y sus acciones", async () => {
+    pintar();
+
+    const lista = await screen.findByRole("list", { name: "Usuarios" });
+    const tarjetas = within(lista).getAllByRole("listitem");
+    expect(tarjetas).toHaveLength(2);
+
+    const primera = tarjetas[0];
+    expect(within(primera).getByText("acevallos")).toBeInTheDocument();
+    expect(within(primera).getByText("Activo")).toBeInTheDocument();
+    expect(
+      within(primera).getByText("LaarCourier: Técnico de TI"),
+    ).toBeInTheDocument();
+    expect(
+      within(primera).getByRole("link", { name: "Editar acevallos" }),
+    ).toHaveAttribute("href", "/admin/users/1");
+    expect(
+      within(primera).getByRole("button", { name: /^Deshabilitar a / }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(tarjetas[1]).getByText("Nunca se ha conectado"),
+    ).toBeInTheDocument();
+    expect(
+      within(tarjetas[1]).getByRole("button", { name: /^Habilitar a / }),
+    ).toBeInTheDocument();
+  });
+
+  it("sin cuentas, el aviso se ve también fuera de la tabla", async () => {
+    listar.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+    pintar();
+
+    // Una en la tabla (oculta por CSS en el teléfono) y otra sobre las
+    // tarjetas.
+    expect(
+      await screen.findAllByText("Todavía no hay usuarios registrados."),
+    ).toHaveLength(2);
+    expect(screen.queryByRole("list", { name: "Usuarios" })).toBeNull();
   });
 });

@@ -279,16 +279,24 @@ describe("El pie del menú", () => {
     /* «Mi perfil» no está entre las opciones del menú: se llega desde el
        usuario, abajo. */
     pintar();
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Opciones de la cuenta" }),
+    ).toBeNull();
     expect(screen.queryByText("Mis datos")).toBeNull();
     expect(screen.queryByText("Soporte TI")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /^Menú de/ }));
-    const menu = screen.getByRole("menu");
-    fireEvent.click(within(menu).getByRole("menuitem", { name: /Mi perfil/ }));
+    const menu = screen.getByRole("group", { name: "Opciones de la cuenta" });
+    expect(screen.getByRole("button", { name: /^Menú de/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    fireEvent.click(within(menu).getByRole("link", { name: /Mi perfil/ }));
 
     expect(screen.getByText("Ruta: /admin/perfil")).toBeInTheDocument();
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Opciones de la cuenta" }),
+    ).toBeNull();
   });
 
   it("el menú del usuario se cierra con Escape o un clic fuera", () => {
@@ -297,11 +305,15 @@ describe("El pie del menú", () => {
 
     fireEvent.click(boton);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Opciones de la cuenta" }),
+    ).toBeNull();
 
     fireEvent.click(boton);
     fireEvent.mouseDown(document.body);
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Opciones de la cuenta" }),
+    ).toBeNull();
   });
 
   it("contraído, cada elemento conserva su nombre accesible", () => {

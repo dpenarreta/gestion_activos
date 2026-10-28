@@ -2,6 +2,7 @@ import { createContext, useCallback, useEffect, useState } from "react";
 import { useAlCambiarConfiguracion } from "../api/cambiosDeConfiguracion";
 
 import { themeService } from "../api/themeService";
+import { fijarNombreDelSitio } from "../utils/tituloDocumento";
 import { useAppearance } from "./AppearanceContext";
 
 export const ThemeContext = createContext(null);
@@ -57,7 +58,9 @@ function applyThemeToDocument(theme, resolvedTheme) {
   root.setProperty("--font-size-base", `${theme.font_size_base}px`);
   root.setProperty("--border-radius", theme.border_radius_css);
 
-  document.title = theme.site_name;
+  // Solo el nombre del sitio: la pantalla la pone el shell de /admin
+  // (auditoría UX/UI, fase 3, 28/10/2026).
+  fijarNombreDelSitio(theme.site_name);
 
   if (theme.favicon_url) {
     let iconLink = document.querySelector("link[rel~='icon']");

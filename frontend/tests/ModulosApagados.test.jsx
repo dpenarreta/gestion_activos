@@ -69,7 +69,7 @@ async function abrirSelector() {
   fireEvent.click(
     await screen.findByRole("button", { name: /Cambiar de módulo/ }),
   );
-  return screen.getByRole("menu", { name: "Módulos" });
+  return screen.getByRole("group", { name: "Módulos" });
 }
 
 beforeEach(() => {

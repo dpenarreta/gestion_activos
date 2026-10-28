@@ -24,8 +24,14 @@ describe('GenericChartRenderer — pastel/dona sobre posiciones de 2+ columnas (
 
   it('con pastel y datosMultiserie, dibuja una porción por categoría (no por serie)', () => {
     render(<GenericChartRenderer tipoVisualizacion="pastel" datosMultiserie={MULTISERIE} />)
-    expect(screen.getByText('Ene')).toBeInTheDocument()
-    expect(screen.getByText('Feb')).toBeInTheDocument()
+    // La tabla de datos del gráfico (auditoría UX/UI, fase 3) tiene una fila por porción: 2
+    // categorías con la suma de sus series, ninguna fila por serie.
+    const tabla = within(screen.getByRole('table', { name: /Datos de/ }))
+    expect(tabla.getAllByRole('row')).toHaveLength(3)
+    expect(tabla.getByRole('rowheader', { name: 'Ene' })).toBeInTheDocument()
+    expect(tabla.getByRole('cell', { name: '120' })).toBeInTheDocument()
+    expect(tabla.getByRole('rowheader', { name: 'Feb' })).toBeInTheDocument()
+    expect(tabla.getByRole('cell', { name: '60' })).toBeInTheDocument()
     expect(screen.queryByText('Ingresos')).not.toBeInTheDocument()
     expect(screen.queryByText('Gastos')).not.toBeInTheDocument()
   })

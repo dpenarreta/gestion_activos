@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
-import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
 import {
@@ -11,6 +14,7 @@ import {
 } from "../../components/common/Pestanas/Pestanas";
 import { useAuth } from "../../hooks/useAuth";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
+import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
 import { PERMISOS_SOPORTE } from "../../modulos/permisosSoporte";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
@@ -51,6 +55,7 @@ export function Bandeja({ todos = false }) {
   const [aviso, setAviso] = useState(null);
   const [error, setError] = useState(null);
   const [tomando, setTomando] = useState(false);
+  const enTarjetas = useVistaDeTarjetas();
 
   const cargar = useCallback(
     (params) =>
@@ -277,7 +282,10 @@ export function Bandeja({ todos = false }) {
               </button>
             </form>
 
-            <div className="mz-table-wrap">
+            {/* En el teléfono, cada ticket en una tarjeta como en la Matriz:
+                ocho columnas a 375 px solo se leían desplazándose de lado
+                (auditoría UX/UI, fase 3, 28/10/2026). */}
+            <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
               <table className="mz-table">
                 <thead>
                   <tr>
@@ -365,6 +373,67 @@ export function Bandeja({ todos = false }) {
                 </tbody>
               </table>
             </div>
+            {enTarjetas && (
+              <div className="mz-cards">
+                <EstadoDeCarga
+                  cargando={
+                    listado.isLoading && listado.resultados.length === 0
+                  }
+                  error={listado.error}
+                  onReintentar={listado.refresh}
+                  vacio={listado.resultados.length === 0}
+                  hayFiltros={Boolean(
+                    listado.filtros.q || listado.filtros.estado,
+                  )}
+                  onLimpiarFiltros={() => {
+                    setBusqueda("");
+                    listado.actualizarFiltros({ q: "", estado: "" });
+                  }}
+                  textoVacio={
+                    ambito === "mios"
+                      ? "No tiene tickets en atención."
+                      : "No hay tickets."
+                  }
+                />
+                {listado.resultados.length > 0 && (
+                  <ul className="mz-cards-lista" aria-label="Tickets">
+                    {listado.resultados.map((t) => (
+                      <li key={t.id} className="mz-card-row">
+                        <div className="mz-row-between">
+                          <span className="mz-mono mz-strong">{t.numero}</span>
+                          <EstadoTicket ticket={t} />
+                        </div>
+                        <div className="mz-card-row__titulo">{t.caso}</div>
+                        {t.escalado_por_sla && (
+                          <div className="mz-small text-danger">
+                            Escalado por SLA
+                          </div>
+                        )}
+                        <div className="mz-card-meta">
+                          <span>{t.solicitante_nombre}</span>
+                          <CriticidadTicket ticket={t} />
+                          <PrioridadTicket ticket={t} />
+                          <span>
+                            {ambito === "cola"
+                              ? `Posición ${t.posicion}`
+                              : `Atiende: ${t.tecnico?.nombre || "—"}`}
+                          </span>
+                          <SlaTicket sla={t.sla} />
+                        </div>
+                        <div className="mz-card-acciones">
+                          <Link
+                            className="btn btn-outline-primary btn-sm"
+                            to={`/admin/soporte/tickets/${t.id}`}
+                          >
+                            Abrir ticket {t.numero}
+                          </Link>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <Paginacion
               total={listado.total}
@@ -389,6 +458,7 @@ export function Bandeja({ todos = false }) {
 function MisSolicitudes() {
   const [tickets, setTickets] = useState(null);
   const [error, setError] = useState(null);
+  const enTarjetas = useVistaDeTarjetas();
 
   const cargar = useCallback(() => {
     // El error se borra al cargar bien: se consulta cada 30 s y, si se
@@ -412,7 +482,7 @@ function MisSolicitudes() {
 
   return (
     <>
-      <div className="mz-table-wrap">
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table" aria-label="Mis solicitudes">
           <thead>
             <tr>
@@ -466,6 +536,54 @@ function MisSolicitudes() {
           </tbody>
         </table>
       </div>
+      {/* En el teléfono, en tarjetas (auditoría UX/UI, fase 3, 28/10/2026). */}
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={tickets === null}
+            error={error}
+            onReintentar={cargar}
+            vacio={tickets?.length === 0}
+            textoVacio="Todavía no ha creado solicitudes."
+            accionVacio={
+              <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
+            }
+          />
+          {tickets?.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Mis solicitudes">
+              {tickets.map((t) => (
+                <li key={t.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <span className="mz-mono mz-strong">{t.numero}</span>
+                    <EstadoTicket ticket={t} />
+                  </div>
+                  <div className="mz-card-row__titulo">{t.caso}</div>
+                  <div className="mz-card-meta">
+                    <span>{formatearFecha(t.creado, true)}</span>
+                    <CriticidadTicket ticket={t} />
+                    {t.posicion != null && (
+                      <span>Posición en la cola: {t.posicion}</span>
+                    )}
+                    {t.atendido_en && (
+                      <span>
+                        Atendido: {formatearFecha(t.atendido_en, true)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mz-card-acciones">
+                    <Link
+                      className="btn btn-outline-primary btn-sm"
+                      to={`/admin/ayuda/tickets/${t.id}`}
+                    >
+                      Ver solicitud {t.numero}
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </>
   );
 }

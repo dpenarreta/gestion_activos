@@ -30,7 +30,7 @@
 }
 
 .mz-brand-link:hover {
-  color: #fff;
+  color: var(--mz-side-fg);
 }
 
 .mz-brand-name {
@@ -73,7 +73,7 @@
 .mz-nav-group.is-active {
   background: none;
   border-color: transparent;
-  color: #fff;
+  color: var(--mz-side-fg);
 }
 
 .mz-nav-group.is-active:hover {
@@ -202,7 +202,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid color-mix(in srgb, var(--mz-side-fg) 25%, transparent);
   border-radius: 50%;
   background: var(--mz-side-bg);
   color: var(--mz-side-fg-dim);
@@ -214,7 +214,7 @@
 .mz-collapse-handle:focus-visible {
   background: var(--mz-blue-500);
   border-color: var(--mz-blue-500);
-  color: #fff;
+  color: var(--mz-side-fg);
 }
 
 @media (min-width: 881px) {
@@ -288,7 +288,7 @@
 /* El bloque «General»: reportes y configuración, comunes a todos los
    módulos. Va al pie, separado de las pantallas del módulo activo. */
 .mz-nav-general {
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-top: 1px solid color-mix(in srgb, var(--mz-side-fg) 9%, transparent);
   padding-top: 6px;
 }
 
@@ -324,7 +324,7 @@
   background: var(--mz-blue-950);
   color: var(--mz-side-fg);
   box-shadow: var(--mz-shadow-3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--mz-side-fg) 8%, transparent);
 }
 
 .mz-flyout-titulo {
@@ -356,12 +356,12 @@
 .mz-flyout-item:hover,
 .mz-flyout-item:focus-visible {
   background: var(--mz-side-hover);
-  color: #fff;
+  color: var(--mz-side-fg);
 }
 
 .mz-flyout-item.is-active {
   background: var(--mz-side-hover);
-  color: #fff;
+  color: var(--mz-side-fg);
   font-weight: 600;
 }
 
@@ -444,4 +444,50 @@
 .mz-user__menu a:hover,
 .mz-user__menu button:hover {
   background: var(--mz-sunken);
+}
+
+/* ---------- Selector de empresa en el teléfono ----------
+   A 375 px el selector, de hasta 150 px, empujaba la barra superior fuera de
+   la pantalla. Se reduce al ícono del edificio en un área táctil de 44 px: el
+   <select> nativo sigue ahí (transparente), así que tocarlo abre la lista de
+   empresas del propio teléfono, y su etiqueta sigue para el lector de
+   pantalla (auditoría UX/UI, fase 3, 28/10/2026). */
+@media (max-width: 560px) {
+  .mz-switcher--select select {
+    width: 44px;
+    max-width: 44px;
+    height: 44px;
+    padding: 0;
+    color: transparent;
+  }
+
+  /* Las opciones de la lista no heredan la transparencia. */
+  .mz-switcher--select option {
+    color: var(--mz-ink);
+  }
+
+  .mz-switcher--select .mz-switcher__flecha {
+    display: none;
+  }
+
+  .mz-switcher--select .mz-switcher__icono,
+  .mz-switcher--fija .mz-switcher__icono {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .mz-switcher--fija {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .mz-switcher--fija span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
 }

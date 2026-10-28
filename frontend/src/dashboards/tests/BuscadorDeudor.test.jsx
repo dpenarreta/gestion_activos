@@ -74,7 +74,7 @@ describe('BuscadorDeudor', () => {
     })
     pintar()
     await consultar()
-    await waitFor(() => expect(screen.getByText('2 coincidencias — elegí una:')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('2 coincidencias — elija una:')).toBeInTheDocument())
     expect(obtenerDetalleDeudor).not.toHaveBeenCalled()
     expect(screen.getByText('TRANSEXPORT SA')).toBeInTheDocument()
   })
@@ -337,7 +337,7 @@ describe('BuscadorDeudor — aviso de identidad dudosa', () => {
     pintar()
     await consultar('mutante')
 
-    await waitFor(() => expect(screen.getByText(/Revisá la identidad de este cliente/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Revise la identidad de este cliente/)).toBeInTheDocument())
     expect(screen.getByText(/también figura con el nombre MUTANTE SA/)).toBeInTheDocument()
   })
 
@@ -351,7 +351,7 @@ describe('BuscadorDeudor — aviso de identidad dudosa', () => {
     await consultar()
 
     await waitFor(() => expect(screen.getByText(/TRANSEXPRESS —/)).toBeInTheDocument())
-    expect(screen.queryByText(/Revisá la identidad/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Revise la identidad/)).not.toBeInTheDocument()
   })
 
   it('sin los campos del aviso (una respuesta vieja en caché) no rompe', async () => {
@@ -361,7 +361,7 @@ describe('BuscadorDeudor — aviso de identidad dudosa', () => {
     await consultar()
 
     await waitFor(() => expect(screen.getByText(/TRANSEXPRESS —/)).toBeInTheDocument())
-    expect(screen.queryByText(/Revisá la identidad/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Revise la identidad/)).not.toBeInTheDocument()
   })
 })
 

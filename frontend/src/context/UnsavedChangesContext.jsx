@@ -23,10 +23,22 @@ export function UnsavedChangesProvider({ children }) {
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
   const navigate = useNavigate();
+  // Una pantalla que no lleva un estado «sucio» sino que lo calcula (el
+  // editor de dashboards) registra aquí la función que lo dice (auditoría
+  // UX/UI, fase 3).
+  const verificador = useRef(null);
+  const registrarVerificador = useCallback((funcion) => {
+    verificador.current = funcion;
+    return () => {
+      if (verificador.current === funcion) verificador.current = null;
+    };
+  }, []);
+  const haySinGuardar = () =>
+    isDirtyRef.current || Boolean(verificador.current?.());
 
   useEffect(() => {
     function handleBeforeUnload(event) {
-      if (isDirtyRef.current) {
+      if (haySinGuardar()) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -39,7 +51,7 @@ export function UnsavedChangesProvider({ children }) {
     async (to, options) => {
       // La misma pregunta que las ventanas, no la del navegador (auditoría
       // UX/UI, fase 2).
-      if (isDirtyRef.current && !(await confirmarDescarte())) {
+      if (haySinGuardar() && !(await confirmarDescarte())) {
         return false;
       }
       setIsDirty(false);
@@ -51,7 +63,7 @@ export function UnsavedChangesProvider({ children }) {
 
   return (
     <UnsavedChangesContext.Provider
-      value={{ isDirty, setIsDirty, guardedNavigate }}
+      value={{ isDirty, setIsDirty, guardedNavigate, registrarVerificador }}
     >
       {children}
     </UnsavedChangesContext.Provider>
@@ -66,4 +78,10 @@ export function useUnsavedChanges() {
     );
   }
   return context;
+}
+
+/** Lo mismo, pero sin exigir el proveedor: devuelve null fuera de /admin
+ * (las pruebas de un componente suelto, por ejemplo). */
+export function useUnsavedChangesOpcional() {
+  return useContext(UnsavedChangesContext);
 }

@@ -48,12 +48,12 @@ export default function ComponentPaletteSidebar({ show, onHide, onElegirTipo }) 
     // Panel lateral de la Matriz (`mz-drawer`): alto completo, a la derecha. La página le deja su
     // ancho libre (`.cartera-app--con-panel`) para que no tape la barra de "Guardar cambios".
     <Offcanvas show={show} onHide={onHide} placement="end" backdrop={false} scroll className="mz-paleta">
-      <Offcanvas.Header closeButton>
+      <Offcanvas.Header closeButton closeLabel="Cerrar">
         <Offcanvas.Title>Componentes</Offcanvas.Title>
       </Offcanvas.Header>
       <Offcanvas.Body>
         <p className="mz-desc mt-0 mb-3">
-          Arrastrá un componente hasta la Zona Personal, o hacé clic para elegirlo.
+          Arrastre un componente hasta la Zona Personal, o haga clic para elegirlo.
         </p>
         {TARJETAS.map((t) => <TarjetaComponente key={t.tipo} {...t} onElegirTipo={onElegirTipo} />)}
       </Offcanvas.Body>

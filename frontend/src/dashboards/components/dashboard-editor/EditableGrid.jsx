@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable'
-import ComponentWrapper from './ComponentWrapper'
+import ComponentWrapper, { nombreDelComponente } from './ComponentWrapper'
 import { ZONAS_PLANTILLA } from '../../utils/plantillaSlots'
 
 const IDS_CON_ZONA = ZONAS_PLANTILLA.flatMap((zona) => zona.ids)
@@ -37,6 +38,15 @@ export default function EditableGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  // Auditoría UX/UI, fase 3, 28/10/2026: al mover con los botones, quien usa lector de pantalla
+  // no veía adónde fue a parar el componente. Se recuerda cuál se movió y el anuncio (una región
+  // `aria-live="polite"` oculta a la vista) se calcula con el orden ya actualizado.
+  const [ultimoMovido, setUltimoMovido] = useState(null)
+  const moverYAnunciar = (componentId, direccion) => {
+    setUltimoMovido(componentId)
+    onMover(componentId, direccion)
+  }
 
   const ordenados = [...componentes].sort((a, b) => a.order - b.order)
   const visibles = ordenados.filter((c) => c.is_visible)
@@ -109,7 +119,7 @@ export default function EditableGrid({
         esUltimo={i === items.length - 1}
         seleccionado={seleccionado === c.component_id}
         onSeleccionar={onSeleccionar}
-        onMover={onMover}
+        onMover={moverYAnunciar}
         onOcultar={onOcultar}
         onMostrar={onMostrar}
         onEliminar={onEliminar}
@@ -121,8 +131,16 @@ export default function EditableGrid({
     )
   })
 
+  const grupoDelMovido = ultimoMovido
+    ? [...gruposFinal.map((zona) => zona.items), sinZona].find((items) => items.some((c) => c.component_id === ultimoMovido))
+    : null
+  const anuncioMovimiento = grupoDelMovido
+    ? `"${nombreDelComponente(grupoDelMovido.find((c) => c.component_id === ultimoMovido))}" quedó en la posición ${grupoDelMovido.findIndex((c) => c.component_id === ultimoMovido) + 1} de ${grupoDelMovido.length}.`
+    : ''
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <div className="visually-hidden" aria-live="polite" role="status" data-testid="anuncio-movimiento">{anuncioMovimiento}</div>
       {gruposFinal.map((zona) => (
         <div key={zona.id} className="mb-3">
           <div className="mz-edit-zone__label">{zona.etiqueta}</div>

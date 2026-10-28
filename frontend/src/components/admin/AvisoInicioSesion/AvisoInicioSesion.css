@@ -87,6 +87,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Va sobre la imagen del aviso, no sobre el fondo del tema: fijo. */
   background: rgba(255, 255, 255, 0.9);
   color: #1b2430;
   box-shadow: var(--mz-shadow-1);

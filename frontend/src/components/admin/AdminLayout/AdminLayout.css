@@ -17,11 +17,21 @@
   }
 }
 
-/* El título cede el sitio al buscador en el teléfono: la pantalla ya se
-   reconoce por su propio encabezado, y buscar es lo que se viene a hacer. */
+/* El título cede el sitio en el teléfono: la pantalla ya se reconoce por su
+   propio encabezado. Se oculta solo a la vista —con `display: none` dejaba
+   de existir para el lector de pantalla, que se quedaba sin el h1 de la
+   página— (auditoría UX/UI, fase 3, 28/10/2026). */
 @media (max-width: 560px) {
   .mz-topbar h1 {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
 

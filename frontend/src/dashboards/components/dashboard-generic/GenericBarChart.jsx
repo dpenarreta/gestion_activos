@@ -2,6 +2,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { formatNumber } from '../../utils/format'
 import { PALETA_CATEGORICA } from '../../utils/colors'
 import HallazgosClaveCard from './HallazgosClaveCard'
+import FiguraGrafico, { tablaDeUnaSerie } from './FiguraGrafico'
 
 function acortar(texto, max = 22) {
   if (!texto) return ''
@@ -24,16 +25,19 @@ export default function GenericBarChart({ data, override, orientacion = 'horizon
   const colorDe = (categoria, i) => coloresPorCategoria[categoria] || PALETA_CATEGORICA[i % PALETA_CATEGORICA.length]
   const esHorizontal = orientacion === 'horizontal'
 
+  // Auditoría UX/UI, fase 3, 28/10/2026: los mismos datos, en tabla, para quien no ve el gráfico.
+  const tablaDatos = tablaDeUnaSerie(data)
+
   return (
-    <div className="chart-panel" style={override?.colores?.colorFondo ? { background: override.colores.colorFondo } : undefined}>
-      <div className="chart-panel__title" style={override?.colores?.colorTexto ? { color: override.colores.colorTexto } : undefined}>
-        {override?.titulo || data.titulo}
-      </div>
-      {(override?.descripcion || data.descripcion) && (
-        <div className="chart-panel__subtitle">{override?.descripcion || data.descripcion}</div>
-      )}
+    <FiguraGrafico
+      titulo={override?.titulo || data.titulo}
+      descripcion={override?.descripcion || data.descripcion}
+      override={override}
+      {...tablaDatos}
+      pie={<HallazgosClaveCard variante="categorico" datos={data} textoIA={hallazgoIA} />}
+    >
       <ResponsiveContainer width="100%" height={320}>
-        <BarChart
+        <BarChart accessibilityLayer
           data={datosGrafico}
           layout={esHorizontal ? 'vertical' : 'horizontal'}
           margin={esHorizontal ? { left: 12, right: 24, top: 8 } : { left: 12, right: 24, top: 8, bottom: 32 }}
@@ -62,7 +66,6 @@ export default function GenericBarChart({ data, override, orientacion = 'horizon
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <HallazgosClaveCard variante="categorico" datos={data} textoIA={hallazgoIA} />
-    </div>
+    </FiguraGrafico>
   )
 }

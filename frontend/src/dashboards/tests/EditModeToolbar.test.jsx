@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditModeToolbar from '../components/dashboard-editor/EditModeToolbar'
 import { PERMISOS } from '../hooks/usePermisos'
@@ -126,6 +126,59 @@ describe('EditModeToolbar', () => {
       renderToolbar({ modoEdicion: true })
       expect(screen.queryByRole('button', { name: 'Restablecer diseño' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
+    })
+  })
+
+  // Auditoría UX/UI, fase 3, 28/10/2026: retroalimentación al guardar y aviso al salir.
+  describe('guardar con retroalimentación', () => {
+    it('mientras guarda, el botón dice «Guardando…» y queda deshabilitado', async () => {
+      let terminar
+      const onGuardar = vi.fn(() => new Promise((resolve) => { terminar = resolve }))
+      renderToolbar({ modoEdicion: true, onGuardar })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+      const boton = screen.getByRole('button', { name: 'Guardando…' })
+      expect(boton).toBeDisabled()
+
+      terminar({ ok: false })
+      expect(await screen.findByRole('button', { name: 'Guardar cambios' })).not.toBeDisabled()
+    })
+
+    it('al guardar bien (el dashboard sale del modo edición) anuncia «Diseño guardado.» en un role="status"', async () => {
+      const onGuardar = vi.fn().mockResolvedValue({ ok: true })
+      const { props, rerender } = renderToolbar({ modoEdicion: true, onGuardar })
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+      rerender(<EditModeToolbar {...props} modoEdicion={false} />)
+      expect(screen.getByRole('status')).toHaveTextContent('Diseño guardado.')
+    })
+
+    it('cancelar la edición no anuncia que se guardó', async () => {
+      const { props, rerender } = renderToolbar({ modoEdicion: true })
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+      rerender(<EditModeToolbar {...props} modoEdicion={false} />)
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('con cambios sin guardar, cerrar o recargar la pestaña pide confirmación al navegador', () => {
+      renderToolbar({ modoEdicion: true, hayCambiosSinGuardar: () => true })
+      const evento = new Event('beforeunload', { cancelable: true })
+      fireEvent(window, evento)
+      expect(evento.defaultPrevented).toBe(true)
+    })
+
+    it('sin cambios, o fuera del modo edición, no se interpone al salir', () => {
+      const { unmount } = renderToolbar({ modoEdicion: true, hayCambiosSinGuardar: () => false })
+      const sinCambios = new Event('beforeunload', { cancelable: true })
+      fireEvent(window, sinCambios)
+      expect(sinCambios.defaultPrevented).toBe(false)
+      unmount()
+
+      renderToolbar({ modoEdicion: false, hayCambiosSinGuardar: () => true })
+      const fueraDeEdicion = new Event('beforeunload', { cancelable: true })
+      fireEvent(window, fueraDeEdicion)
+      expect(fueraDeEdicion.defaultPrevented).toBe(false)
     })
   })
 })

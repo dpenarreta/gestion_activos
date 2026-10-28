@@ -52,7 +52,7 @@ function FilaColumnaFaltante({ nombreHistorico, columnas, resuelta, onIdentifica
         onChange={(e) => (e.target.value === YA_NO_EXISTE ? onResolverAusente() : onIdentificar(e.target.value))}
         aria-label={`Columna que corresponde a la columna histórica "${nombreHistorico}"`}
       >
-        <option value={SIN_ELEGIR}>Elegí una columna de este archivo…</option>
+        <option value={SIN_ELEGIR}>Elija una columna de este archivo…</option>
         {columnas.map((c) => <option key={c} value={c}>{c}</option>)}
         <option value={YA_NO_EXISTE}>Ya no existe en este archivo</option>
       </Form.Select>
@@ -169,8 +169,8 @@ export default function RenameColumnsStep({
       {faltantes.length > 0 && (
         <Alert variant="warning">
           <div className="mb-2">
-            Estas columnas estaban marcadas como históricas y no están en este archivo. Identificá
-            con qué columna corresponden ahora, o confirmá que ya no vienen, para poder continuar:
+            Estas columnas estaban marcadas como históricas y no están en este archivo. Identifique
+            con qué columna corresponden ahora, o confirme que ya no vienen, para poder continuar:
           </div>
           {faltantes.map((nombreHistorico) => (
             <FilaColumnaFaltante

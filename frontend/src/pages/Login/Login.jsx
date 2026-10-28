@@ -65,6 +65,7 @@ export function Login() {
             id="identifier"
             name="identifier"
             className="form-control"
+            autoComplete="username"
             value={form.identifier}
             onChange={handleChange}
             required
@@ -79,6 +80,7 @@ export function Login() {
             name="password"
             type="password"
             className="form-control"
+            autoComplete="current-password"
             value={form.password}
             onChange={handleChange}
             required
@@ -88,7 +90,7 @@ export function Login() {
           Entrar
         </Button>
         <div className="login-links">
-          <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
+          <Link to="/forgot-password">¿Olvidó su contraseña?</Link>
         </div>
       </form>
     </PantallaAcceso>

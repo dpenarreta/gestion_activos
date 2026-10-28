@@ -30,14 +30,14 @@ describe('DashboardsListPage', () => {
     expect(screen.getByRole('status')).toBeInTheDocument()
   })
 
-  it('renderiza los dashboards autorizados devueltos por el backend, con un botón "Entrar" que enlaza al dashboard', async () => {
+  it('renderiza los dashboards autorizados devueltos por el backend; la tarjeta entera enlaza al dashboard', async () => {
     dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
       { dashboard_id: 'cartera', name: 'Dashboard de cartera', area: 'Cartera' },
     ])
     renderPagina()
     expect(await screen.findByText('Dashboard de cartera')).toBeInTheDocument()
     const tarjeta = screen.getByTestId('dashboard-card-cartera')
-    expect(within(tarjeta).getByRole('button', { name: 'Entrar' })).toHaveAttribute('href', '/admin/dashboards/cartera')
+    expect(within(tarjeta).getByRole('link', { name: 'Dashboard de cartera Cartera' })).toHaveAttribute('href', '/admin/dashboards/cartera')
   })
 
   it('un dashboard que no es "cartera" enlaza a la página genérica por dashboard_id', async () => {
@@ -47,7 +47,31 @@ describe('DashboardsListPage', () => {
     renderPagina()
     expect(await screen.findByText('Finanzas')).toBeInTheDocument()
     const tarjeta = screen.getByTestId('dashboard-card-finanzas')
-    expect(within(tarjeta).getByRole('button', { name: 'Entrar' })).toHaveAttribute('href', '/admin/dashboards/finanzas')
+    expect(within(tarjeta).getByRole('link', { name: /^Finanzas/ })).toHaveAttribute('href', '/admin/dashboards/finanzas')
+  })
+
+  // Auditoría UX/UI, fase 3, 28/10/2026: antes la tarjeta no era un enlace y sus acciones vivían
+  // en una capa que solo aparecía con el cursor encima.
+  it('la tarjeta es un enlace y Editar/Eliminar quedan fuera de él, nombrados con el dashboard', async () => {
+    dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
+      { dashboard_id: 'finanzas', name: 'Finanzas', area: 'Finanzas y Contabilidad' },
+    ])
+    renderPagina(['dashboard.editar', 'dashboard.eliminar'])
+    const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
+
+    const enlace = within(tarjeta).getByRole('link')
+    expect(enlace).toHaveAttribute('href', '/admin/dashboards/finanzas')
+    expect(enlace).toHaveTextContent('Finanzas')
+    expect(enlace).toHaveTextContent('Finanzas y Contabilidad')
+
+    const editar = within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' })
+    const eliminar = within(tarjeta).getByRole('button', { name: 'Eliminar "Finanzas"' })
+    // Un botón dentro de un <a> es HTML inválido y confunde a los lectores de pantalla.
+    expect(enlace).not.toContainElement(editar)
+    expect(enlace).not.toContainElement(eliminar)
+    // Ya no hay una capa de acciones que se revele solo con el cursor.
+    expect(tarjeta.querySelector('.dashboard-card__actions')).toBeNull()
+    expect(within(tarjeta).queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument()
   })
 
   it('muestra un mensaje cuando no hay dashboards autorizados', async () => {
@@ -108,8 +132,8 @@ describe('DashboardsListPage', () => {
     ])
     renderPagina([])
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    expect(within(tarjeta).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
-    expect(within(tarjeta).queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
+    expect(within(tarjeta).queryByRole('button', { name: 'Editar "Finanzas"' })).not.toBeInTheDocument()
+    expect(within(tarjeta).queryByRole('button', { name: 'Eliminar "Finanzas"' })).not.toBeInTheDocument()
   })
 
   it('con el permiso dashboard.editar, editar un dashboard llama al servicio y refresca la lista', async () => {
@@ -120,7 +144,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.editar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     const nombreInput = await screen.findByLabelText('Nombre')
     expect(nombreInput).toHaveValue('Finanzas')
@@ -146,7 +170,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.editar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     const campoContexto = await screen.findByLabelText('Contexto para la IA (opcional)')
     expect(campoContexto).toHaveValue('Contexto original.')
@@ -167,7 +191,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.eliminar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar "Finanzas"' }))
 
     const dialogo = await screen.findByRole('dialog')
     const spanNombre = within(dialogo).getByText('Finanzas', { selector: 'span' })
@@ -188,7 +212,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.eliminar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar "Finanzas"' }))
 
     const dialogo = await screen.findByRole('dialog')
     await userEvent.type(within(dialogo).getByLabelText('Confirmar nombre del dashboard'), 'Finanzas')
@@ -206,10 +230,10 @@ describe('DashboardsListPage', () => {
     renderPagina([])
 
     const tarjetaConAcceso = await screen.findByTestId('dashboard-card-finanzas')
-    expect(within(tarjetaConAcceso).getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(within(tarjetaConAcceso).getByRole('button', { name: 'Editar "Finanzas"' })).toBeInTheDocument()
 
     const tarjetaSinAcceso = screen.getByTestId('dashboard-card-ventas')
-    expect(within(tarjetaSinAcceso).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(within(tarjetaSinAcceso).queryByRole('button', { name: 'Editar "Ventas"' })).not.toBeInTheDocument()
   })
 
   it('sin permiso dashboard.editar pero con puede_administrar_acceso, el modal solo muestra la sección de acceso, no nombre/área', async () => {
@@ -222,7 +246,7 @@ describe('DashboardsListPage', () => {
     renderPagina([])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     expect(await screen.findByText('Ver y editar')).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
@@ -240,7 +264,7 @@ describe('DashboardsListPage', () => {
     renderPagina([])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     await userEvent.click(await screen.findByLabelText('Analista', { selector: '#acceso-editor-1' }))
     await userEvent.click(screen.getByLabelText('Supervisor', { selector: '#acceso-lector-2' }))
@@ -259,11 +283,12 @@ describe('DashboardsListPage', () => {
     renderPagina([], { is_superuser: false })
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     await screen.findByText('Ver y editar')
     expect(screen.queryByLabelText('Dueño')).not.toBeInTheDocument()
-    expect(screen.getByText(/Solo un superusuario puede reasignar/)).toBeInTheDocument()
+    // El texto nombra el permiso que de verdad decide (`dashboard.reasignar_dueno`), no «superusuario».
+    expect(screen.getByText(/requiere el permiso «Reasignar el dueño de cualquier dashboard»/)).toBeInTheDocument()
   })
 
   it('con dashboard.reasignar_dueno, cambiar el dueño y guardar llama a reasignarDueno', async () => {
@@ -279,7 +304,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.reasignar_dueno'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     const selectorDueno = await screen.findByLabelText('Dueño')
     await userEvent.selectOptions(selectorDueno, '7')
@@ -302,7 +327,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.editar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByText('Ver y editar')).toBeInTheDocument()
@@ -325,7 +350,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.editar', 'dashboard.reasignar_dueno'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     const encabezadoGenerales = await screen.findByRole('button', { name: 'Ajustes generales' })
     const encabezadoPermisos = screen.getByRole('button', { name: 'Permisos de visualización y edición' })
@@ -365,7 +390,7 @@ describe('DashboardsListPage', () => {
     renderPagina(['dashboard.eliminar'])
 
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
-    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar' }))
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Eliminar "Finanzas"' }))
 
     const dialogo = await screen.findByRole('dialog')
     await userEvent.type(within(dialogo).getByLabelText('Confirmar nombre del dashboard'), 'Finanzas')

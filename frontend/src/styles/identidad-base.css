@@ -2245,3 +2245,52 @@ body {
   background: var(--mz-sunken);
   color: var(--mz-ink-soft);
 }
+
+/* ---------- Fase 3: estructura ----------
+   Auditoría UX/UI, fase 3, 28/10/2026. A 375 px la barra superior con
+   22 px a cada lado y 12 px entre botones no cabía y la página se desplazaba
+   en horizontal: en el teléfono, márgenes y separación más cortos. */
+@media (max-width: 560px) {
+  .mz-topbar {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+}
+
+/* Listas en tarjetas (Bandeja de soporte, Usuarios, Auditoría): como las de
+   la Matriz, pero en una lista de verdad —`.mz-cards-lista` dentro de
+   `.mz-cards`; el lector dice cuántas hay— y con sus acciones en áreas
+   táctiles de 44 px. */
+.mz-cards-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mz-card-row__titulo {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.mz-card-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mz-card-acciones .btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mz-card-detalle {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mz-border);
+}

@@ -75,7 +75,7 @@ function ModalCrearDashboard({ show, onHide, onCreado }) {
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={limpiarYCerrar} disabled={guardando} type="button">Cancelar</Button>
           <Button variant="primary" type="submit" disabled={guardando}>
-            {guardando ? <Spinner size="sm" animation="border" /> : 'Crear'}
+            {guardando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Creando…</span></> : 'Crear'}
           </Button>
         </Modal.Footer>
       </Form>
@@ -231,7 +231,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                   </p>
 
                   {cargandoAcceso ? (
-                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" /></div>
+                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
                   ) : (
                     <div className="d-flex gap-4 flex-wrap">
                       <div style={{ minWidth: 220 }}>
@@ -273,7 +273,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                 <Accordion.Header>Dueño del tablero</Accordion.Header>
                 <Accordion.Body>
                   {cargandoAcceso ? (
-                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" /></div>
+                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
                   ) : puedeReasignarDueno ? (
                     <Form.Group controlId="acceso-dueno">
                       <Form.Label className="fw-bold">Dueño</Form.Label>
@@ -286,7 +286,8 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                     </Form.Group>
                   ) : (
                     <p className="chart-panel__subtitle mb-0">
-                      Solo un superusuario puede reasignar el dueño de un dashboard.
+                      Reasignar el dueño requiere el permiso «Reasignar el dueño de cualquier dashboard»;
+                      solicítelo a un administrador si lo necesita.
                     </p>
                   )}
                 </Accordion.Body>
@@ -297,7 +298,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={cerrar} disabled={guardando} type="button">Cancelar</Button>
           <Button variant="primary" type="submit" disabled={guardando || cargandoAcceso}>
-            {guardando ? <Spinner size="sm" animation="border" /> : 'Guardar cambios'}
+            {guardando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Guardando…</span></> : 'Guardar cambios'}
           </Button>
         </Modal.Footer>
       </Form>
@@ -347,10 +348,66 @@ function ModalEliminarDashboard({ show, dashboard, onHide, onEliminado }) {
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={cerrar} disabled={eliminando}>Cancelar</Button>
         <Button variant="danger" disabled={!coincide || eliminando} onClick={eliminar}>
-          {eliminando ? <Spinner size="sm" animation="border" /> : 'Eliminar'}
+          {eliminando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Eliminando…</span></> : 'Eliminar'}
         </Button>
       </Modal.Footer>
     </Modal>
+  )
+}
+
+/**
+ * Tarjeta de "Mis dashboards" — auditoría UX/UI, fase 3, 28/10/2026. Antes la tarjeta no era un
+ * enlace y «Entrar», «Editar» y «Eliminar» vivían en una capa con opacity: 0 que solo aparecía al
+ * pasar el cursor: invisible en pantallas táctiles y sin pista de que había algo que hacer. Ahora
+ * toda la tarjeta es el enlace al dashboard y Editar/Eliminar son botones de ícono siempre
+ * visibles en la esquina, hermanos del enlace (un botón no puede ir dentro de un `<a>`), con el
+ * nombre del dashboard en su `aria-label`. "Editar" también se muestra sin el permiso global
+ * cuando el usuario es dueño/superusuario de este dashboard puntual (`puede_administrar_acceso`),
+ * aunque solo vea dentro la sección de control de acceso, no los campos de nombre/área.
+ */
+function DashboardCard({ dashboard, puedeEditar, puedeEliminar, onEditar, onEliminar }) {
+  const conAcciones = puedeEditar || puedeEliminar
+  return (
+    <div
+      className={`dashboard-card${conAcciones ? ' dashboard-card--con-acciones' : ''}`}
+      data-testid={`dashboard-card-${dashboard.dashboard_id}`}
+    >
+      <Link to={rutaDashboard(dashboard.dashboard_id)} className="dashboard-card__enlace mz-card h-100">
+        <span className="mz-row dashboard-card__fila">
+          <span className="mz-row-ic"><i className="bi bi-bar-chart-line" aria-hidden="true"></i></span>
+          <span className="mz-row-info">
+            <strong>{dashboard.name}</strong>
+            {dashboard.area && <span>{dashboard.area}</span>}
+          </span>
+        </span>
+      </Link>
+      {conAcciones && (
+        <div className="dashboard-card__acciones">
+          {puedeEditar && (
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              onClick={onEditar}
+              aria-label={`Editar "${dashboard.name}"`}
+              title="Editar"
+            >
+              <i className="bi bi-pencil" aria-hidden="true"></i>
+            </Button>
+          )}
+          {puedeEliminar && (
+            <Button
+              size="sm"
+              variant="outline-danger"
+              onClick={onEliminar}
+              aria-label={`Eliminar "${dashboard.name}"`}
+              title="Eliminar"
+            >
+              <i className="bi bi-trash" aria-hidden="true"></i>
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -379,7 +436,7 @@ export default function DashboardsListPage() {
       <div className="mz-view-head">
         <div>
           <h2>Mis dashboards</h2>
-          <p className="mz-desc">Los dashboards que tiene autorizados. Pase el cursor sobre uno para entrar o administrarlo.</p>
+          <p className="mz-desc">Los dashboards que tiene autorizados. Seleccione uno para entrar.</p>
         </div>
         {puedeCrear && (
           <div className="mz-view-actions">
@@ -390,7 +447,7 @@ export default function DashboardsListPage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
       {!dashboards && !error && (
-        <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" /></div>
+        <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
       )}
       {dashboards && dashboards.length === 0 && (
         <div className="mz-card mz-empty">
@@ -401,33 +458,14 @@ export default function DashboardsListPage() {
 
       <div className="dashboards-grid">
         {dashboards?.map((d) => (
-          <div key={d.dashboard_id} className="dashboard-card" data-testid={`dashboard-card-${d.dashboard_id}`}>
-            <div className="mz-card h-100">
-              <div className="mz-row dashboard-card__fila">
-                <span className="mz-row-ic"><i className="bi bi-bar-chart-line" aria-hidden="true"></i></span>
-                <span className="mz-row-info">
-                  <strong>{d.name}</strong>
-                  {d.area && <span>{d.area}</span>}
-                </span>
-              </div>
-            </div>
-
-            {/* Los botones de acción solo se revelan al pasar el cursor (o con foco de teclado,
-                ver :focus-within en dashboard.css) — siempre están en el DOM para que sean
-                accesibles/testeables, la revelación es puramente visual. "Editar" también se
-                muestra sin el permiso global cuando el usuario es dueño/superusuario de este
-                dashboard puntual (`puede_administrar_acceso`), aunque solo vea dentro la sección
-                de control de acceso, no los campos de nombre/área. */}
-            <div className="dashboard-card__actions">
-              <Button as={Link} to={rutaDashboard(d.dashboard_id)} size="sm" variant="primary">Entrar</Button>
-              {(puedeEditar || d.puede_administrar_acceso) && (
-                <Button size="sm" variant="light" onClick={() => setDashboardAEditar(d)}>Editar</Button>
-              )}
-              {puedeEliminar && (
-                <Button size="sm" variant="danger" onClick={() => setDashboardAEliminar(d)}>Eliminar</Button>
-              )}
-            </div>
-          </div>
+          <DashboardCard
+            key={d.dashboard_id}
+            dashboard={d}
+            puedeEditar={Boolean(puedeEditar || d.puede_administrar_acceso)}
+            puedeEliminar={Boolean(puedeEliminar)}
+            onEditar={() => setDashboardAEditar(d)}
+            onEliminar={() => setDashboardAEliminar(d)}
+          />
         ))}
       </div>
 

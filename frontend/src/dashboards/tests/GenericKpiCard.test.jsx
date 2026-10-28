@@ -75,4 +75,16 @@ describe('GenericKpiCard', () => {
       expect(screen.getByText(/↑ 8.5% vs\. mes anterior/)).toBeInTheDocument()
     })
   })
+
+  // Auditoría UX/UI, fase 3, 28/10/2026: el texto de estado usa los tonos de texto de la Matriz
+  // (`*-fg`, ≥4.5:1), no los de borde (`*-line`, ~3.4:1).
+  it('meta y tendencia pintan su texto con los colores de texto, no con los de borde', () => {
+    const meta = { meta_min: 500, meta_max: null, cumple: false, motivos: ['menor al mínimo (500)'] }
+    render(<GenericKpiCard data={{ titulo: 'KPI 1', valor: 100, formato: 'numero', meta, tendencia: { valor: 4, texto: 'vs. mes anterior' } }} />)
+    const estadoMeta = screen.getByText(/No cumple la meta/)
+    const tendencia = screen.getByText(/^↑ 4%/)
+    expect(estadoMeta.getAttribute('style')).toContain('--mz-bad-fg')
+    expect(tendencia.getAttribute('style')).toContain('--mz-ok-fg')
+    expect(estadoMeta.getAttribute('style')).not.toContain('-line')
+  })
 })

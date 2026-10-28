@@ -28,8 +28,9 @@ import { App } from "./App";
 import { tomarEmpresaDeLaDireccion } from "./api/client";
 import { env } from "./config/env";
 import { registrarServiceWorker } from "./pwa/registrarServiceWorker";
+import { fijarNombreDelSitio } from "./utils/tituloDocumento";
 
-document.title = env.appName;
+fijarNombreDelSitio(env.appName);
 tomarEmpresaDeLaDireccion();
 
 // Una pestaña abierta durante un despliegue pide piezas de la versión anterior

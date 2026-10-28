@@ -14,7 +14,7 @@ describe('FilterFieldReorderList', () => {
     render(<FilterFieldReorderList filtros={filtros} onCambiar={onCambiar} />)
 
     const filaZona = screen.getByDisplayValue('zona').closest('tr')
-    await userEvent.click(within(filaZona).getByRole('button', { name: 'Mover arriba' }))
+    await userEvent.click(within(filaZona).getByRole('button', { name: 'Mover "zona" antes' }))
 
     const resultado = onCambiar.mock.calls[0][0]
     expect(resultado.map((f) => f.id)).toEqual(['zona', 'ciudad', 'sucursal'])
@@ -28,8 +28,8 @@ describe('FilterFieldReorderList', () => {
     const filaCiudad = screen.getByDisplayValue('ciudad').closest('tr')
     const filaZona = screen.getByDisplayValue('zona').closest('tr')
 
-    expect(within(filaCiudad).getByRole('button', { name: 'Mover arriba' })).toBeDisabled()
-    expect(within(filaZona).getByRole('button', { name: 'Mover abajo' })).toBeDisabled()
+    expect(within(filaCiudad).getByRole('button', { name: 'Mover "ciudad" antes' })).toBeDisabled()
+    expect(within(filaZona).getByRole('button', { name: 'Mover "zona" después' })).toBeDisabled()
   })
 
   it('destildar el checkbox "Visible" actualiza is_visible de ese campo sin afectar a los demás', async () => {

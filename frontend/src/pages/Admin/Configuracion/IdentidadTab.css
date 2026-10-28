@@ -36,7 +36,7 @@
 }
 
 .identidad-tab__preview-sin-logo {
-  color: #fff;
+  color: var(--mz-side-fg);
   font-size: 12px;
 }
 

@@ -231,7 +231,7 @@ export default function BuscadorDeudor({ componente, dashboardId }) {
               ))}
               {totalSugerencias > MAXIMO_SUGERENCIAS && (
                 <li className="directorio-sugerencias__resto" role="presentation">
-                  y {totalSugerencias - MAXIMO_SUGERENCIAS} más — seguí escribiendo para afinar
+                  y {totalSugerencias - MAXIMO_SUGERENCIAS} más — siga escribiendo para afinar
                 </li>
               )}
             </ul>
@@ -248,7 +248,7 @@ export default function BuscadorDeudor({ componente, dashboardId }) {
       {coincidencias && coincidencias.length > 1 && !detalle && (
         <div className="directorio-coincidencias">
           <div className="directorio-coincidencias__titulo">
-            {coincidencias.length} coincidencias — elegí una:
+            {coincidencias.length} coincidencias — elija una:
           </div>
           {coincidencias.map((c) => (
             <button key={c.identidad} type="button" className="directorio-coincidencia" onClick={() => elegir(c.identidad)}>
@@ -299,7 +299,7 @@ function ResultadoDeudor({ detalle, onVolver, hayVarias }) {
         <div className="mz-alert mz-alert--warn directorio-deudor-consulta__alerta">
           <i className="bi bi-exclamation-triangle" aria-hidden="true"></i>
           <span>
-          <strong>Revisá la identidad de este cliente.</strong> {aviso}{' '}
+          <strong>Revise la identidad de este cliente.</strong> {aviso}{' '}
           Los totales de acá abajo son solo de <em>{detalle.identidad}</em>.
           </span>
         </div>

@@ -58,8 +58,9 @@ export default function TablaHistoricaAutomatica({ dashboardId, columnasValor, o
 
   if (cargando) {
     return (
-      <div className="chart-panel text-center py-4">
-        <Spinner animation="border" size="sm" role="status" />
+      <div className="chart-panel text-center py-4" role="status">
+        <Spinner animation="border" size="sm" aria-hidden="true" />
+        <span className="visually-hidden">Cargando…</span>
       </div>
     )
   }

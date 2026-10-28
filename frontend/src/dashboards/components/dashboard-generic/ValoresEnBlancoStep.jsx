@@ -26,7 +26,7 @@ export default function ValoresEnBlancoStep({
       <div className="chart-panel mb-3">
         <h6>Valores en blanco</h6>
         <p className="chart-panel__subtitle">
-          Estas columnas tienen muchos valores en blanco. Podés escribir un valor para
+          Estas columnas tienen muchos valores en blanco. Puede escribir un valor para
           reemplazarlos — afecta sumas, agrupaciones y la comparación histórica — o dejar el campo
           vacío para conservar el tratamiento habitual.
         </p>
@@ -50,7 +50,7 @@ export default function ValoresEnBlancoStep({
                   aria-label={`Valor de reemplazo para ${c.columna}`}
                 />
                 <div className="chart-panel__subtitle mt-1 mb-0">
-                  {tratamientoColumnaEnBlanco(columnaInfo)} Si preferís, escribí arriba un valor
+                  {tratamientoColumnaEnBlanco(columnaInfo)} Si lo prefiere, escriba arriba un valor
                   para reemplazarlas en vez de dejarlas así.
                 </div>
               </div>

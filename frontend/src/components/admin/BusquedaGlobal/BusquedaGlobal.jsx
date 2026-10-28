@@ -21,22 +21,29 @@ import "./BusquedaGlobal.css";
  * 2. Si no corresponde a ninguno, se abre el inventario buscando ese texto.
  *    Así «Jorge» o «ThinkPad» llevan a la lista filtrada en vez de a un error.
  */
+/** La lista de obligaciones, que es donde se filtra en vivo. */
+const LISTA_DE_LA_MATRIZ = "/admin/matriz/obligaciones";
+
 /**
- * En la Matriz, la barra busca obligaciones (§15.1): tras 250 ms sin escribir
- * abre la matriz filtrada (`?q=`), sin tener que pulsar Enter. Busca en el
- * nombre, el código, el período, el responsable, la entidad y el área.
+ * En la Matriz, la barra busca obligaciones (§15.1). Busca en el nombre, el
+ * código, el período, el responsable, la entidad y el área.
+ *
+ * Estando ya en la lista, filtra en vivo: tras 250 ms sin escribir actualiza
+ * `?q=`. Desde cualquier otra pantalla de la Matriz espera al Enter: antes
+ * también saltaba a la lista a los 250 ms, y a mitad de escribir se perdía la
+ * pantalla en la que se estaba (auditoría UX/UI, fase 3, 28/10/2026).
  */
 function BusquedaEnLaMatriz() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const enLaLista = pathname === LISTA_DE_LA_MATRIZ;
   const [termino, setTermino] = useState("");
   const temporizador = useRef(null);
 
   useEffect(() => () => clearTimeout(temporizador.current), []);
 
   function abrir(valor) {
-    navigate(
-      `/admin/matriz/obligaciones?q=${encodeURIComponent(valor.trim())}`,
-    );
+    navigate(`${LISTA_DE_LA_MATRIZ}?q=${encodeURIComponent(valor.trim())}`);
   }
 
   return (
@@ -63,7 +70,9 @@ function BusquedaEnLaMatriz() {
           const valor = evento.target.value;
           setTermino(valor);
           clearTimeout(temporizador.current);
-          temporizador.current = setTimeout(() => abrir(valor), 250);
+          if (enLaLista) {
+            temporizador.current = setTimeout(() => abrir(valor), 250);
+          }
         }}
       />
     </form>

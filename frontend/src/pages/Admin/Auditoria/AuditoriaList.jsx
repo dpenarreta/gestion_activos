@@ -3,10 +3,14 @@ import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { auditoriaService } from "../../../api/auditoriaService";
-import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAuditoria } from "../../../hooks/useAuditoria";
+import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
@@ -57,6 +61,7 @@ function RegistroDelSistema({ modulo }) {
   const [abierto, setAbierto] = useState(null);
   const [isExportando, setIsExportando] = useState(false);
   const [errorExportacion, setErrorExportacion] = useState(null);
+  const enTarjetas = useVistaDeTarjetas();
 
   const columnas = puedeVerDetalle ? 7 : 6;
   // El módulo elegido arriba no cuenta como filtro: «Limpiar filtros» lo
@@ -222,7 +227,10 @@ function RegistroDelSistema({ modulo }) {
         </div>
       </form>
 
-      <div className="mz-table-wrap">
+      {/* En el teléfono, cada evento en una tarjeta (auditoría UX/UI, fase 3,
+          28/10/2026): siete columnas a 375 px solo se leían desplazándose de
+          lado. */}
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table">
           <thead>
             <tr>
@@ -301,24 +309,7 @@ function RegistroDelSistema({ modulo }) {
                   {puedeVerDetalle && abierto === evento.id && (
                     <tr className="auditoria-detalle">
                       <td colSpan={columnas}>
-                        <div className="auditoria-detalle__columnas">
-                          <div className="mz-section">
-                            <h4>Antes</h4>
-                            <Valores valores={evento.previous_values} />
-                          </div>
-                          <div className="mz-section">
-                            <h4>Después</h4>
-                            <Valores valores={evento.new_values} />
-                          </div>
-                        </div>
-                        <p className="mz-small mz-faint mb-0">
-                          Desde {evento.ip_address || "origen desconocido"}
-                          {evento.browser ? ` · ${evento.browser}` : ""}
-                          {evento.operating_system
-                            ? ` · ${evento.operating_system}`
-                            : ""}
-                          {evento.location ? ` · ${evento.location}` : ""}
-                        </p>
+                        <DetalleDelEvento evento={evento} />
                       </td>
                     </tr>
                   )}
@@ -327,6 +318,81 @@ function RegistroDelSistema({ modulo }) {
           </tbody>
         </table>
       </div>
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={isLoading && eventos.length === 0}
+            error={error}
+            onReintentar={refrescar}
+            vacio={!isLoading && eventos.length === 0}
+            textoVacio="Todavía no hay eventos registrados en este módulo."
+            hayFiltros={hayFiltros}
+            onLimpiarFiltros={limpiar}
+          />
+          {!error && eventos.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Eventos">
+              {eventos.map((evento) => (
+                <li key={evento.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <strong className="mz-card-row__titulo">
+                      {etiquetaDeAccion(evento.action)}
+                    </strong>
+                    <span
+                      className={`mz-pill ${
+                        evento.result === "success"
+                          ? "mz-pill--ok"
+                          : "mz-pill--bad"
+                      }`}
+                    >
+                      {evento.result === "success" ? "Éxito" : "Fallido"}
+                    </span>
+                  </div>
+                  <div className="mz-card-meta">
+                    <span className="mz-mono">
+                      {formatearFecha(evento.created_at_local, true)}
+                    </span>
+                    <span>{evento.actor_username || "Sistema"}</span>
+                    <span>{evento.module_nombre || evento.module || "—"}</span>
+                    <span>
+                      {etiquetaDeObjeto(evento.target_type)}
+                      {evento.target_id ? ` #${evento.target_id}` : ""}
+                    </span>
+                  </div>
+                  {puedeVerDetalle && (
+                    <div className="mz-card-acciones">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm"
+                        aria-expanded={abierto === evento.id}
+                        aria-controls={`auditoria-detalle-${evento.id}`}
+                        onClick={() =>
+                          setAbierto(abierto === evento.id ? null : evento.id)
+                        }
+                      >
+                        {abierto === evento.id
+                          ? "Ocultar detalle"
+                          : "Ver detalle"}
+                        <span className="visually-hidden">
+                          {" "}
+                          de {etiquetaDeAccion(evento.action)}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  {puedeVerDetalle && abierto === evento.id && (
+                    <div
+                      className="mz-card-detalle"
+                      id={`auditoria-detalle-${evento.id}`}
+                    >
+                      <DetalleDelEvento evento={evento} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Al cambiar de página, el pie dice que carga; la primera carga ya la
           dice la fila de estado de la tabla. `Paginacion` no se pinta con
@@ -348,6 +414,31 @@ function RegistroDelSistema({ modulo }) {
         />
       )}
     </div>
+  );
+}
+
+/** Antes y después de un evento, con desde dónde se hizo: en la fila
+ * desplegada de la tabla y en la tarjeta del teléfono. */
+function DetalleDelEvento({ evento }) {
+  return (
+    <>
+      <div className="auditoria-detalle__columnas">
+        <div className="mz-section">
+          <h4>Antes</h4>
+          <Valores valores={evento.previous_values} />
+        </div>
+        <div className="mz-section">
+          <h4>Después</h4>
+          <Valores valores={evento.new_values} />
+        </div>
+      </div>
+      <p className="mz-small mz-faint mb-0">
+        Desde {evento.ip_address || "origen desconocido"}
+        {evento.browser ? ` · ${evento.browser}` : ""}
+        {evento.operating_system ? ` · ${evento.operating_system}` : ""}
+        {evento.location ? ` · ${evento.location}` : ""}
+      </p>
+    </>
   );
 }
 

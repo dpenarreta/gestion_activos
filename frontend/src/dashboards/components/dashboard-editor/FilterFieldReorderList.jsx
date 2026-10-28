@@ -42,7 +42,7 @@ export default function FilterFieldReorderList({ filtros, onCambiar }) {
         <tbody>
           {ordenados.map((f, i) => (
             <tr key={f.id}>
-              <td><MoveButtons onMover={(dir) => mover(f.id, dir)} deshabilitarArriba={i === 0} deshabilitarAbajo={i === ordenados.length - 1} /></td>
+              <td><MoveButtons onMover={(dir) => mover(f.id, dir)} deshabilitarArriba={i === 0} deshabilitarAbajo={i === ordenados.length - 1} nombre={f.label || f.id} /></td>
               <td>
                 <Form.Control
                   size="sm"

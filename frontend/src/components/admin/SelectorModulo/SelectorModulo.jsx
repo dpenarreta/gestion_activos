@@ -157,7 +157,6 @@ export function SelectorModulo({ isCollapsed = false, onElegido }) {
         ref={boton}
         className={clases}
         onClick={alPulsar}
-        aria-haspopup="menu"
         aria-expanded={Boolean(abierto)}
         aria-controls={idMenu}
         aria-label={`Módulo activo: ${activo.nombre}. Cambiar de módulo`}
@@ -173,7 +172,10 @@ export function SelectorModulo({ isCollapsed = false, onElegido }) {
               : "selector-modulo__lista"
           }
           style={flotante && posicion ? posicion : undefined}
-          role="menu"
+          /* Una lista de botones que se despliega, no un role="menu": ese rol
+             promete flechas y aquí solo hay Tab (auditoría UX/UI, fase 3,
+             28/10/2026). */
+          role="group"
           id={idMenu}
           aria-label="Módulos"
         >
@@ -184,8 +186,7 @@ export function SelectorModulo({ isCollapsed = false, onElegido }) {
             <button
               key={modulo.id}
               type="button"
-              role="menuitemradio"
-              aria-checked={modulo.id === activo.id}
+              aria-current={modulo.id === activo.id ? "true" : undefined}
               className={`mz-flyout-item selector-modulo__opcion${
                 modulo.id === activo.id ? " is-active" : ""
               }`}

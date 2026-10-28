@@ -68,7 +68,7 @@ export default function DashboardHistoricoPage() {
     } catch {
       // Revierte el cambio optimista si falla en el backend.
       setCargas((actual) => actual.map((c) => (c.carga_id === carga.carga_id ? { ...c, incluir_en_historico: carga.incluir_en_historico } : c)))
-      setErrorIncluir('No se pudo actualizar la carga. Intentá de nuevo.')
+      setErrorIncluir('No se pudo actualizar la carga. Inténtelo de nuevo.')
     }
   }
 
@@ -91,7 +91,7 @@ export default function DashboardHistoricoPage() {
   const generarTabla = async () => {
     const columnasElegidas = lista.filter((c) => c.columna)
     if (columnasElegidas.length === 0) {
-      setErrorTabla('Elegí al menos una columna para comparar.')
+      setErrorTabla('Elija al menos una columna para comparar.')
       return
     }
     setErrorTabla('')
@@ -135,7 +135,7 @@ export default function DashboardHistoricoPage() {
         <div>
           <h2>Histórico de cargas</h2>
           <p className="mz-desc">
-            Compará la evolución de una o más columnas a través de las cargas de este dashboard.
+            Compare la evolución de una o más columnas a través de las cargas de este dashboard.
             Desmarcar "Incluir" excluye esa carga de esta comparación y también de la tabla
             histórica dentro del dashboard.
           </p>
@@ -147,12 +147,12 @@ export default function DashboardHistoricoPage() {
         </div>
       </div>
 
-      {cargando && <div className="text-center mb-3" role="status"><Spinner animation="border" /></div>}
+      {cargando && <div className="text-center mb-3" role="status"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>}
       {!cargando && error && <Alert variant="danger">{error}</Alert>}
 
       {!cargando && !error && cargas.length === 0 && (
         <Alert variant="secondary">
-          Todavía no hay cargas históricas para este dashboard. Subí y aplicá un archivo (botón
+          Todavía no hay cargas históricas para este dashboard. Suba y aplique un archivo (botón
           "Cargar otro archivo") para empezar a construir el histórico.
         </Alert>
       )}
@@ -249,11 +249,11 @@ export default function DashboardHistoricoPage() {
       </ConfirmModal>
 
       <Modal backdrop="static" show={Boolean(cargaAVer)} onHide={() => setCargaAVer(null)} size="xl" centered scrollable>
-        <Modal.Header closeButton>
+        <Modal.Header closeButton closeLabel="Cerrar">
           <Modal.Title>{cargaAVer?.nombre_original}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {cargandoArchivo && <div className="text-center py-3" role="status"><Spinner animation="border" /></div>}
+          {cargandoArchivo && <div className="text-center py-3" role="status"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>}
           {!cargandoArchivo && errorArchivo && <Alert variant="danger">{errorArchivo}</Alert>}
           {!cargandoArchivo && !errorArchivo && archivoVisto && (
             archivoVisto.filas.length > 0

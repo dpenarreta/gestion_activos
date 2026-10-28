@@ -34,20 +34,24 @@ function comparar(a, b) {
 /** Encabezado de columna clickeable para ordenar (mismo criterio que `DetalleTable.jsx`: primer
  * clic ordena ascendente, un segundo clic sobre la misma columna invierte a descendente, y elegir
  * otra columna vuelve a empezar en ascendente — sin un tercer estado "sin orden"). */
+//
+// Auditoría UX/UI, fase 3, 28/10/2026: antes el `<th>` era `role="button"`, lo que le quitaba su
+// papel de encabezado de columna (un lector de pantalla dejaba de anunciarlo al recorrer las
+// celdas) y no decía en qué orden estaba. Ahora el `<th>` sigue siendo encabezado, con `aria-sort`,
+// y lo que se pulsa es un `<button>` de verdad dentro de él.
 function EncabezadoOrdenable({ columna, alineadoDerecha, ordenActivo, onClick, children }) {
   const activo = ordenActivo?.columna === columna
+  const ascendente = activo && ordenActivo.direccion === 'asc'
   return (
     <th
+      scope="col"
       className={alineadoDerecha ? 'text-end' : undefined}
-      role="button"
-      tabIndex={0}
-      style={{ cursor: 'pointer', userSelect: 'none' }}
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
-      aria-label={`Ordenar por ${children}`}
+      aria-sort={activo ? (ascendente ? 'ascending' : 'descending') : undefined}
     >
-      {children}
-      {activo ? (ordenActivo.direccion === 'asc' ? ' ▲' : ' ▼') : ''}
+      <button type="button" className="encabezado-ordenable" onClick={onClick} title={`Ordenar por ${children}`}>
+        {children}
+        {activo && <span aria-hidden="true">{ascendente ? ' ▲' : ' ▼'}</span>}
+      </button>
     </th>
   )
 }

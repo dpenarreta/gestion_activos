@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { capacitacionService } from "../../../api/capacitacionService";
@@ -186,6 +186,7 @@ export function AdminSidebar({
 
   const [menuUsuario, setMenuUsuario] = useState(false);
   const zonaUsuario = useRef(null);
+  const idMenuUsuario = useId();
   useEffect(() => {
     if (!menuUsuario) return undefined;
     function fuera(evento) {
@@ -297,8 +298,8 @@ export function AdminSidebar({
             <button
               type="button"
               className="mz-user__boton"
-              aria-haspopup="menu"
               aria-expanded={menuUsuario}
+              aria-controls={idMenuUsuario}
               aria-label={`Menú de ${nombreCompleto}`}
               onClick={() => setMenuUsuario((abierto) => !abierto)}
             >
@@ -316,10 +317,17 @@ export function AdminSidebar({
               )}
             </button>
             {menuUsuario && (
-              <div className="mz-user__menu" role="menu">
+              /* Dos opciones que se despliegan, sin role="menu": ese rol
+                 promete flechas y aquí se recorren con Tab (auditoría UX/UI,
+                 fase 3, 28/10/2026). */
+              <div
+                className="mz-user__menu"
+                id={idMenuUsuario}
+                role="group"
+                aria-label="Opciones de la cuenta"
+              >
                 <Link
                   to="/admin/perfil"
-                  role="menuitem"
                   onClick={() => {
                     setMenuUsuario(false);
                     onMobileClose?.();
@@ -327,7 +335,7 @@ export function AdminSidebar({
                 >
                   <Icon name="person-vcard" /> Mi perfil
                 </Link>
-                <button type="button" role="menuitem" onClick={handleLogout}>
+                <button type="button" onClick={handleLogout}>
                   <Icon name="box-arrow-right" /> Cerrar sesión
                 </button>
               </div>

@@ -212,11 +212,11 @@ export default function AgregarComponentePersonalModal({ show, onHide, dashboard
         <Modal.Title>Agregar a la Zona Personal</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {cargandoArchivo && <div className="text-center py-3"><Spinner animation="border" size="sm" /></div>}
+        {cargandoArchivo && <div className="text-center py-3" role="status"><Spinner animation="border" size="sm" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>}
         {!cargandoArchivo && errorArchivo && <Alert variant="danger" className="py-2" style={{ fontSize: '0.85rem' }}>{errorArchivo}</Alert>}
         {!cargandoArchivo && !errorArchivo && !archivoActual?.disponible && (
           <div className="chart-panel__subtitle mb-0">
-            Este dashboard todavía no tiene un archivo real cargado. Usa "Cargar otro archivo" para
+            Este dashboard todavía no tiene un archivo real cargado. Use "Cargar otro archivo" para
             poder configurar los datos de este componente.
           </div>
         )}
@@ -260,7 +260,7 @@ export default function AgregarComponentePersonalModal({ show, onHide, dashboard
                 <Form.Control
                   as="textarea" rows={2} size="sm" value={instruccionIA}
                   onChange={(e) => setInstruccionIA(e.target.value)} maxLength={500}
-                  placeholder='Ej.: "explicá los totales por la columna de contexto elegida"'
+                  placeholder='Ej.: "explique los totales por la columna de contexto elegida"'
                 />
                 <Form.Text style={{ fontSize: '0.72rem' }}>
                   Se usa al generar "Hallazgos clave" para este componente — no cambia el gráfico en sí.

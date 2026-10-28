@@ -42,13 +42,13 @@ export function AdminMenuItem({
       >
         <Icon name={item.icon} />
         {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
+        {/* Qué cuenta el número va en texto oculto y no en un aria-label:
+            sobre un <span> sin rol el aria-label se ignora y se leía «Matriz
+            3» sin decir qué era (auditoría UX/UI, fase 3, 28/10/2026). */}
         {insignia > 0 && (
-          <span
-            className="mz-badge"
-            title={titulo}
-            aria-label={`${insignia} ${sufijo}`}
-          >
+          <span className="mz-badge" title={titulo}>
             {insignia}
+            <span className="visually-hidden"> {sufijo}</span>
           </span>
         )}
       </Link>

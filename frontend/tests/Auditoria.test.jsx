@@ -6,7 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * El registro de auditoría.
@@ -329,5 +329,49 @@ describe("Una sola auditoría, filtrada por módulo", () => {
         name: "Matriz de obligaciones · historial de períodos",
       }),
     ).toBeInTheDocument();
+  });
+});
+
+/*
+ * En el teléfono (auditoría UX/UI, fase 3, 28/10/2026): cada evento en una
+ * tarjeta, con su detalle desplegable dentro, en vez de siete columnas que
+ * solo se leían desplazándose de lado.
+ */
+describe("En el teléfono", () => {
+  const original = window.matchMedia;
+
+  beforeEach(() => {
+    window.matchMedia = vi.fn((consulta) => ({
+      matches: consulta.includes("max-width: 880px"),
+      media: consulta,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+
+  it("cada evento es una tarjeta y su detalle se abre dentro", async () => {
+    pintar();
+
+    const lista = await screen.findByRole("list", { name: "Eventos" });
+    const [primera, segunda] = within(lista).getAllByRole("listitem");
+    expect(primera).toHaveTextContent("Activo modificado");
+    expect(primera).toHaveTextContent("dpenarreta");
+    expect(primera).toHaveTextContent("Activo #42");
+    expect(primera).toHaveTextContent("Éxito");
+    expect(segunda).toHaveTextContent("Sistema");
+    expect(segunda).toHaveTextContent("Fallido");
+
+    const ver = within(primera).getByRole("button", {
+      name: /^Ver detalle de /,
+    });
+    expect(ver).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(ver);
+
+    expect(ver).toHaveAttribute("aria-expanded", "true");
+    expect(within(primera).getByText("asignado")).toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { Icon } from "../Icon/Icon";
 import "./ModalDialog.css";
@@ -27,6 +29,10 @@ export function ModalDialog({
   variante = "primary",
   anchoMaximo,
 }) {
+  // Un id por ventana: con un id fijo, dos ventanas anidadas compartían
+  // «modal-dialog-titulo» y la de dentro se anunciaba con el título de la de
+  // fuera (auditoría UX/UI, fase 3, 28/10/2026).
+  const idTitulo = `${useId()}-titulo`;
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -43,14 +49,14 @@ export function ModalDialog({
         style={anchoMaximo ? { width: `min(${anchoMaximo}, 94vw)` } : undefined}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-dialog-titulo"
+        aria-labelledby={idTitulo}
         ref={panelRef}
         tabIndex={-1}
       >
         <form onSubmit={onSubmit} className="mz-modal-form">
           <div className="mz-panel-head">
             <div>
-              <h3 id="modal-dialog-titulo">{titulo}</h3>
+              <h3 id={idTitulo}>{titulo}</h3>
               {subtitulo && <p className="mz-desc">{subtitulo}</p>}
             </div>
             <button

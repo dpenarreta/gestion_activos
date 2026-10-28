@@ -203,7 +203,7 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
               datos configurada y los componentes de Zona Personal de este dashboard/pestaña — y lo
               deja como recién creado, con datos de ejemplo. No se puede deshacer.
             </p>
-            <p className="mb-2">Para confirmar, escribí exactamente el nombre del dashboard:</p>
+            <p className="mb-2">Para confirmar, escriba exactamente el nombre del dashboard:</p>
             <span className="fw-bold d-block mb-2">{dashboardNombre}</span>
             <Form.Control
               value={confirmacionBorrado}
@@ -217,7 +217,7 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
           <Modal.Footer>
             <Button variant="outline-secondary" onClick={cancelarBorrado} disabled={borrando} type="button" data-no-descarta>Cancelar</Button>
             <Button variant="danger" disabled={!coincideConfirmacionBorrado || borrando} onClick={borrarDatos}>
-              {borrando ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+              {borrando ? <Spinner size="sm" animation="border" className="me-2" aria-hidden="true" /> : null}
               Borrar todo
             </Button>
           </Modal.Footer>
@@ -226,19 +226,19 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
         <Form onSubmit={conectar}>
           <Modal.Body>
             {cargando ? (
-              <div className="text-center py-3"><Spinner animation="border" size="sm" /></div>
+              <div className="text-center py-3" role="status"><Spinner animation="border" size="sm" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
             ) : (
               <>
                 {error && <Alert variant="danger" className="py-2" style={{ fontSize: '0.85rem' }}>{error}</Alert>}
                 <p className="chart-panel__subtitle">
-                  Elegí qué vista o procedimiento almacenado de la base de datos externa trae los
+                  Elija qué vista o procedimiento almacenado de la base de datos externa trae los
                   datos de este dashboard/pestaña. Al confirmar, se conecta y pasa directo al
                   asistente de columnas, igual que con un archivo Excel.
                 </p>
                 <Form.Group className="mb-3" controlId="fuente-bd-tipo">
                   <Form.Label>Tipo de fuente</Form.Label>
                   <Form.Select value={tipo} onChange={(e) => setTipo(e.target.value)} disabled={conectando}>
-                    <option value={SIN_FUENTE}>Elegí un tipo…</option>
+                    <option value={SIN_FUENTE}>Elija un tipo…</option>
                     <option value="vista">Vista</option>
                     <option value="procedimiento">Procedimiento almacenado</option>
                   </Form.Select>
@@ -347,7 +347,7 @@ export default function ConectarFuenteBDModal({ show, onHide, dashboardId, dashb
             )}
             <Button variant="outline-secondary" onClick={onHide} disabled={conectando} type="button">Cancelar</Button>
             <Button variant="primary" type="submit" disabled={cargando || conectando || !nombreValido || !nombreParametroValido}>
-              {conectando ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+              {conectando ? <Spinner size="sm" animation="border" className="me-2" aria-hidden="true" /> : null}
               Conectar
             </Button>
           </Modal.Footer>

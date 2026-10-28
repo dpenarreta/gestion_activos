@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
 import { Presencia } from "../../../components/admin/Chat/Presencia";
-import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
+import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
@@ -31,6 +35,7 @@ const STATUS_PILLS = {
 
 export function UsersList() {
   const multiempresa = useMultiempresa();
+  const enTarjetas = useVistaDeTarjetas();
   // Crear y deshabilitar tienen su propio permiso: con solo ver, el botón
   // terminaría en un 403.
   const puedeCrear = usePermission("usuarios.crear");
@@ -156,7 +161,10 @@ export function UsersList() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      {/* En el teléfono, cada cuenta en una tarjeta con sus acciones a 44 px:
+          ocho columnas a 375 px solo se leían desplazándose de lado
+          (auditoría UX/UI, fase 3, 28/10/2026). */}
+      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
         <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
@@ -280,6 +288,10 @@ export function UsersList() {
                         onClick={() => runAction(user, "disable")}
                       >
                         Deshabilitar
+                        <span className="visually-hidden">
+                          {" "}
+                          a {user.username}
+                        </span>
                       </button>
                     ) : (
                       <button
@@ -289,6 +301,10 @@ export function UsersList() {
                         onClick={() => runAction(user, "enable")}
                       >
                         Habilitar
+                        <span className="visually-hidden">
+                          {" "}
+                          a {user.username}
+                        </span>
                       </button>
                     )}
                   </td>
@@ -297,6 +313,98 @@ export function UsersList() {
           </tbody>
         </table>
       </div>
+      {enTarjetas && (
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={isLoading && users.length === 0}
+            error={error}
+            onReintentar={refresh}
+            vacio={!isLoading && users.length === 0}
+            textoVacio="Todavía no hay usuarios registrados."
+            hayFiltros={hayFiltros}
+            onLimpiarFiltros={limpiarFiltros}
+          />
+          {!error && users.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Usuarios">
+              {users.map((user) => (
+                <li key={user.id} className="mz-card-row">
+                  <div className="mz-row-between">
+                    <strong className="mz-card-row__titulo">
+                      {user.username}
+                    </strong>
+                    <span
+                      className={`mz-pill ${STATUS_PILLS[user.status] || "mz-pill--neutral"}`}
+                    >
+                      {STATUS_LABELS[user.status] || user.status}
+                    </span>
+                  </div>
+                  <div className="mz-card-row__titulo mz-small">
+                    {user.email}
+                  </div>
+                  <div className="mz-card-meta">
+                    {user.is_superuser && <span>Superusuario (cuenta)</span>}
+                    {(user.empresas ?? []).map((empresa) => (
+                      <span key={empresa.id}>
+                        {multiempresa ? `${empresa.nombre}: ` : ""}
+                        {empresa.roles.map((rol) => rol.name).join(", ") ||
+                          (user.is_superuser
+                            ? "Todos los permisos"
+                            : "Sin rol")}
+                      </span>
+                    ))}
+                    <span>
+                      {user.en_linea
+                        ? "En línea"
+                        : user.ultima_conexion || user.last_login
+                          ? `Última conexión: ${formatearFecha(
+                              user.ultima_conexion || user.last_login,
+                              true,
+                            )}`
+                          : "Nunca se ha conectado"}
+                    </span>
+                  </div>
+                  <div className="mz-card-acciones">
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`Editar ${user.username}`}
+                    >
+                      Editar
+                    </Link>
+                    {!puedeDeshabilitar ? null : user.status === "active" ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline-warning btn-sm"
+                        disabled={procesando === user.id}
+                        onClick={() => runAction(user, "disable")}
+                      >
+                        Deshabilitar
+                        <span className="visually-hidden">
+                          {" "}
+                          a {user.username}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-outline-success btn-sm"
+                        disabled={procesando === user.id}
+                        onClick={() => runAction(user, "enable")}
+                      >
+                        Habilitar
+                        <span className="visually-hidden">
+                          {" "}
+                          a {user.username}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <Paginacion
         total={count}

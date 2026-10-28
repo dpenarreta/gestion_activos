@@ -163,7 +163,7 @@ describe("Establecer la nueva contraseña", () => {
     );
 
     expect(
-      await screen.findByText(/Tu contraseña fue actualizada correctamente/),
+      await screen.findByText(/Su contraseña fue actualizada correctamente/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Iniciar sesión" }),

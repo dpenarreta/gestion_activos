@@ -102,7 +102,12 @@ export function SelectorEmpresa({ empresas, activa }) {
   }
 
   return (
-    <div className="mz-switcher mz-switcher--select">
+    // En el teléfono solo se ve el ícono: el globo dice qué empresa está
+    // activa (auditoría UX/UI, fase 3).
+    <div
+      className="mz-switcher mz-switcher--select"
+      title={activa ? `Empresa: ${conRol(activa)}` : "Empresa"}
+    >
       <Icon name="building" className="mz-switcher__icono" />
       <label className="visually-hidden" htmlFor="selector-empresa">
         Empresa

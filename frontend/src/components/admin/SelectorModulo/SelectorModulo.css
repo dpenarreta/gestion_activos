@@ -41,7 +41,7 @@ button.selector-modulo__tarjeta:focus-visible {
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  color: #fff;
+  color: var(--mz-side-fg);
 }
 
 .selector-modulo__icono {
@@ -79,7 +79,7 @@ button.selector-modulo__tarjeta:focus-visible {
   margin: -8px 12px 14px;
   padding: 6px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--mz-side-fg) 4%, transparent);
 }
 
 .selector-modulo__opcion {
@@ -105,8 +105,8 @@ button.selector-modulo__tarjeta:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--mz-side-hover);
+  color: var(--mz-side-fg);
 }
 
 /* Solo lo ven el superusuario y el administrador. */
@@ -116,7 +116,9 @@ button.selector-modulo__tarjeta:focus-visible {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--mz-bad, #b42318);
-  background: color-mix(in srgb, var(--mz-bad, #b42318) 12%, transparent);
+  /* Va sobre el menú, oscuro en ambos temas: texto claro sobre un rojo
+     atenuado (el rojo como texto quedaba en 2,6:1). */
+  color: var(--mz-side-fg);
+  background: color-mix(in srgb, var(--mz-bad-line) 45%, transparent);
   white-space: nowrap;
 }

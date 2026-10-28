@@ -16,7 +16,14 @@ export default function SelectorColumnasDetalle({ dashboardId, seleccionadas, on
   const { columnas, error } = useColumnasDelArchivo(dashboardId)
 
   if (error) return <p className="text-warning small mb-3">{error}</p>
-  if (!columnas) return <Spinner animation="border" size="sm" className="mb-3" />
+  if (!columnas) {
+    return (
+      <div className="mb-3" role="status">
+        <Spinner animation="border" size="sm" aria-hidden="true" />
+        <span className="visually-hidden">Cargando…</span>
+      </div>
+    )
+  }
 
   const elegidas = seleccionadas || []
 

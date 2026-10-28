@@ -153,3 +153,59 @@ describe("Solo dentro de Gestión de Activos", () => {
     ).toBeInTheDocument();
   });
 });
+
+/*
+ * Auditoría UX/UI, fase 3 (28/10/2026): en la Matriz la barra saltaba a la
+ * lista de obligaciones 250 ms después de escribir, desde cualquier pantalla.
+ * Ahora filtra en vivo solo estando en la lista; desde las demás, con Enter.
+ */
+describe("En la Matriz", () => {
+  function pintarEn(ruta) {
+    return render(
+      <MemoryRouter initialEntries={[ruta]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <BusquedaGlobal />
+                <Destino />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  function campo() {
+    return screen.getByRole("searchbox", { name: "Buscar en la matriz" });
+  }
+
+  it("desde otra pantalla no se va a mitad de escribir: espera al Enter", async () => {
+    pintarEn("/admin/matriz");
+
+    fireEvent.change(campo(), { target: { value: "iva" } });
+    await new Promise((resolver) => setTimeout(resolver, 300));
+    expect(screen.getByTestId("destino")).toHaveTextContent(
+      /^\/admin\/matriz$/,
+    );
+
+    fireEvent.submit(campo().closest("form"));
+    expect(screen.getByTestId("destino")).toHaveTextContent(
+      "/admin/matriz/obligaciones?q=iva",
+    );
+  });
+
+  it("en la lista de obligaciones filtra en vivo, sin Enter", async () => {
+    pintarEn("/admin/matriz/obligaciones");
+
+    fireEvent.change(campo(), { target: { value: "iva" } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("destino")).toHaveTextContent(
+        "/admin/matriz/obligaciones?q=iva",
+      ),
+    );
+  });
+});

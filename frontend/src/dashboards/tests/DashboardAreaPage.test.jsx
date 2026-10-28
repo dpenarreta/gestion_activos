@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import DashboardAreaPage from '../pages/dashboards/DashboardAreaPage'
@@ -92,6 +92,17 @@ const KPI_COMPONENTE = {
 const CHART_COMPONENTE = {
   component_id: 'grafico-1', type: 'chart', chart_type: 'barras_verticales', row: 1, order: 2, width: 6, height: 420,
   is_visible: true, content: { titulo: 'Ventas por ciudad', categorias: ['Quito', 'Guayaquil'], valores: [100, 50] }, styles: {}, config: {},
+}
+
+// Auditoría UX/UI, fase 3, 28/10/2026: las acciones secundarias del encabezado (interpretación,
+// conexión a base de datos, histórico/descarga) viven en el menú «Más acciones».
+async function abrirMasAcciones() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Más acciones' }))
+}
+
+async function accionDelMenu(nombre, rol = 'button') {
+  await abrirMasAcciones()
+  return screen.findByRole(rol, { name: nombre })
 }
 
 function renderPagina(dashboardId = 'finanzas') {
@@ -209,7 +220,7 @@ describe('DashboardAreaPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Imprimir como PDF/ }))
 
-    expect(await screen.findByText('No se pudo generar el PDF. Intentá de nuevo.')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo generar el PDF. Inténtelo de nuevo.')).toBeInTheDocument()
   })
 
   it('el PDF solo muestra el nombre y el área del dashboard — todo el resto del "chrome" queda marcado d-print-none', async () => {
@@ -228,7 +239,7 @@ describe('DashboardAreaPage', () => {
 
     // Se excluyen del PDF: la fila de botones del encabezado, la fila de "Última actualización",
     // la barra de pestañas y la fila "Diseño del dashboard" / "Editar dashboard".
-    expect(screen.getByRole('button', { name: 'Conectar vista de base de datos' }).closest('.d-print-none')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Más acciones' }).closest('.d-print-none')).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Cargar otro archivo' }).closest('.d-print-none')).not.toBeNull()
     expect(screen.getByRole('button', { name: /Imprimir como PDF/ }).closest('.d-print-none')).not.toBeNull()
     expect(screen.getByText('Última actualización: Nunca').closest('.d-print-none')).not.toBeNull()
@@ -463,17 +474,48 @@ describe('DashboardAreaPage', () => {
   })
 
   describe('"Conectar vista de base de datos"', () => {
-    it('el botón siempre está habilitado y abre el modal de conexión', async () => {
+    beforeEach(() => {
+      useAuth.mockReturnValue({ user: { permissions: ['dashboard.fuente_bd.configurar'] } })
+    })
+
+    it('con el permiso, la opción está habilitada en «Más acciones» y abre el modal de conexión', async () => {
       useGenericDashboardBuilder.mockReturnValue(builderBase())
       useDashboardLayout.mockReturnValue(layoutBase())
       renderPagina()
-      const boton = await screen.findByRole('button', { name: 'Conectar vista de base de datos' })
+      const boton = await accionDelMenu('Conectar vista de base de datos')
       expect(boton).not.toBeDisabled()
 
       await userEvent.click(boton)
 
+      const dialogo = await screen.findByRole('dialog')
+      expect(within(dialogo).getByText('Conectar vista de base de datos')).toBeInTheDocument()
       await screen.findByLabelText('Tipo de fuente')
-      expect(screen.getAllByText('Conectar vista de base de datos')).toHaveLength(2) // el botón y el título del modal
+    })
+
+    // Auditoría UX/UI, fase 3, 28/10/2026: guardar la conexión exige el permiso (o ser dueño o
+    // superusuario del dashboard), así que no se ofrece a quien no puede usarla.
+    it('sin dashboard.fuente_bd.configurar, no se ofrece', async () => {
+      useAuth.mockReturnValue({ user: { permissions: [] } })
+      useGenericDashboardBuilder.mockReturnValue(builderBase())
+      useDashboardLayout.mockReturnValue(layoutBase())
+      renderPagina()
+      await abrirMasAcciones()
+
+      expect(await screen.findByRole('link', { name: 'Ver histórico' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Conectar vista de base de datos' })).not.toBeInTheDocument()
+    })
+
+    it('sin el permiso global, se ofrece igual al dueño del dashboard (puede_administrar_acceso)', async () => {
+      useAuth.mockReturnValue({ user: { permissions: [] } })
+      dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
+        { dashboard_id: 'finanzas', name: 'Finanzas', area: 'Finanzas y Contabilidad', puede_administrar_acceso: true },
+      ])
+      useGenericDashboardBuilder.mockReturnValue(builderBase())
+      useDashboardLayout.mockReturnValue(layoutBase())
+      renderPagina()
+      await screen.findByText(/Finanzas y Contabilidad/)
+
+      expect(await accionDelMenu('Conectar vista de base de datos')).toBeInTheDocument()
     })
 
     it('completar tipo/nombre y confirmar guarda la configuración, conecta y revela el asistente', async () => {
@@ -482,7 +524,7 @@ describe('DashboardAreaPage', () => {
       useGenericDashboardBuilder.mockReturnValue(builderBase({ conectarFuenteBD }))
       useDashboardLayout.mockReturnValue(layoutBase())
       renderPagina()
-      await userEvent.click(await screen.findByRole('button', { name: 'Conectar vista de base de datos' }))
+      await userEvent.click(await accionDelMenu('Conectar vista de base de datos'))
       await userEvent.selectOptions(await screen.findByLabelText('Tipo de fuente'), 'procedimiento')
       await userEvent.type(screen.getByLabelText('Nombre del procedimiento'), 'dbo.sp_Reporte')
 
@@ -505,7 +547,7 @@ describe('DashboardAreaPage', () => {
       useGenericDashboardBuilder.mockReturnValue(builderBase({ conectarFuenteBD, limpiar }))
       useDashboardLayout.mockReturnValue(layoutBase())
       renderPagina()
-      await userEvent.click(await screen.findByRole('button', { name: 'Conectar vista de base de datos' }))
+      await userEvent.click(await accionDelMenu('Conectar vista de base de datos'))
       await userEvent.selectOptions(await screen.findByLabelText('Tipo de fuente'), 'procedimiento')
       await userEvent.type(screen.getByLabelText('Nombre del procedimiento'), 'dbo.sp_no_existe')
 
@@ -531,7 +573,7 @@ describe('DashboardAreaPage', () => {
       useGenericDashboardBuilder.mockReturnValue(builderBase())
       useDashboardLayout.mockReturnValue(layout)
       renderPagina()
-      await userEvent.click(await screen.findByRole('button', { name: 'Conectar vista de base de datos' }))
+      await userEvent.click(await accionDelMenu('Conectar vista de base de datos'))
       await screen.findByLabelText('Tipo de fuente')
 
       await userEvent.click(screen.getByRole('button', { name: 'Borrar todos los datos' }))
@@ -547,7 +589,7 @@ describe('DashboardAreaPage', () => {
       useGenericDashboardBuilder.mockReturnValue(builderBase())
       useDashboardLayout.mockReturnValue(layoutBase())
       renderPagina()
-      await userEvent.click(await screen.findByRole('button', { name: 'Conectar vista de base de datos' }))
+      await userEvent.click(await accionDelMenu('Conectar vista de base de datos'))
       await screen.findByLabelText('Tipo de fuente')
 
       await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
@@ -559,6 +601,7 @@ describe('DashboardAreaPage', () => {
 
   describe('estado de actualización de datos (bajo los botones del encabezado)', () => {
     it('sin fuente configurada y sin nunca haber cargado datos, igual muestra los 3 valores: "Nunca", sin próxima automática y el ícono', async () => {
+      useAuth.mockReturnValue({ user: { permissions: ['dashboard.fuente_bd.configurar'] } })
       dashboardLayoutService.obtenerFuenteBD.mockResolvedValue({
         tipo: '', nombre: '', frecuencia_actualizacion: '', ultima_actualizacion: null, proxima_actualizacion: null,
       })
@@ -583,7 +626,21 @@ describe('DashboardAreaPage', () => {
       expect(fila).toHaveClass('d-print-none')
     })
 
+    it('sin fuente configurada y sin permiso para conectarla, no ofrece "Actualizar ahora"', async () => {
+      useAuth.mockReturnValue({ user: { permissions: [] } })
+      dashboardLayoutService.obtenerFuenteBD.mockResolvedValue({
+        tipo: '', nombre: '', frecuencia_actualizacion: '', ultima_actualizacion: null, proxima_actualizacion: null,
+      })
+      useGenericDashboardBuilder.mockReturnValue(builderBase())
+      useDashboardLayout.mockReturnValue(layoutBase())
+      renderPagina()
+
+      expect(await screen.findByText('· Sin actualización automática')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Actualizar ahora/ })).not.toBeInTheDocument()
+    })
+
     it('sin fuente configurada, el ícono "Actualizar ahora" abre el modal de conexión en vez de llamar al servicio de actualización instantánea', async () => {
+      useAuth.mockReturnValue({ user: { permissions: ['dashboard.fuente_bd.configurar'] } })
       dashboardLayoutService.obtenerFuenteBD.mockResolvedValue({
         tipo: '', nombre: '', frecuencia_actualizacion: '', ultima_actualizacion: null, proxima_actualizacion: null,
       })
@@ -823,7 +880,7 @@ describe('DashboardAreaPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-      expect(await screen.findByText('Confirmá tu contraseña')).toBeInTheDocument()
+      expect(await screen.findByText('Confirme su contraseña')).toBeInTheDocument()
       // Lo que se le pasó a `guardar` no puede ser un evento: o es la contraseña, o nada.
       expect(guardar.mock.calls[0][0]).toBeUndefined()
     })
@@ -840,7 +897,7 @@ describe('DashboardAreaPage', () => {
       renderPagina()
       await screen.findByRole('heading', { name: 'Finanzas' })
       await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
-      await screen.findByText('Confirmá tu contraseña')
+      await screen.findByText('Confirme su contraseña')
 
       await userEvent.type(screen.getByLabelText('Contraseña'), 'mi-clave')
       await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
@@ -1001,7 +1058,9 @@ describe('DashboardAreaPage', () => {
       useDashboardLayout.mockReturnValue(layoutBase({ borrador: [KPI_COMPONENTE] }))
       renderPagina()
       await screen.findByRole('heading', { name: 'Finanzas' })
+      await abrirMasAcciones()
 
+      expect(await screen.findByRole('link', { name: 'Ver histórico' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Interpretación completa' })).not.toBeInTheDocument()
       expect(dashboardLayoutService.generarInterpretacion).not.toHaveBeenCalled()
     })
@@ -1016,7 +1075,7 @@ describe('DashboardAreaPage', () => {
       renderPagina()
       await screen.findByRole('heading', { name: 'Finanzas' })
 
-      await userEvent.click(screen.getByRole('button', { name: 'Interpretación completa' }))
+      await userEvent.click(await accionDelMenu('Interpretación completa'))
       expect(dashboardLayoutService.generarInterpretacion).toHaveBeenCalledWith('finanzas')
       expect(await screen.findByText('El dashboard muestra una concentración alta en Quito.')).toBeInTheDocument()
     })
@@ -1031,7 +1090,7 @@ describe('DashboardAreaPage', () => {
       renderPagina()
       await screen.findByRole('heading', { name: 'Finanzas' })
 
-      await userEvent.click(screen.getByRole('button', { name: 'Interpretación completa' }))
+      await userEvent.click(await accionDelMenu('Interpretación completa'))
       expect(await screen.findByText('La interpretación con IA no está configurada en este entorno.')).toBeInTheDocument()
     })
   })
@@ -1122,8 +1181,8 @@ describe('DashboardAreaPage — descargar el archivo completo', () => {
     pintarDirectorio()
     await screen.findByRole('heading', { name: 'Finanzas' })
 
-    expect(screen.getByRole('button', { name: 'Descargar Excel' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Ver histórico' })).not.toBeInTheDocument()
+    expect(await accionDelMenu('Descargar Excel')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ver histórico' })).not.toBeInTheDocument()
   })
 
   it('en un dashboard cualquiera el histórico sigue estando', async () => {
@@ -1132,8 +1191,8 @@ describe('DashboardAreaPage — descargar el archivo completo', () => {
     renderPagina()
     await screen.findByRole('heading', { name: 'Finanzas' })
 
-    // `Button as={Link}` renderiza un <a role="button">: el rol accesible es "button".
-    expect(screen.getByRole('button', { name: 'Ver histórico' })).toBeInTheDocument()
+    // Dentro de «Más acciones» es un enlace de verdad (navega a otra página).
+    expect(await accionDelMenu('Ver histórico', 'link')).toHaveAttribute('href', '/admin/dashboards/finanzas/historico')
     expect(screen.queryByRole('button', { name: 'Descargar Excel' })).not.toBeInTheDocument()
   })
 
@@ -1151,7 +1210,7 @@ describe('DashboardAreaPage — descargar el archivo completo', () => {
 
     pintarDirectorio()
     await screen.findByRole('heading', { name: 'Finanzas' })
-    await userEvent.click(screen.getByRole('button', { name: 'Descargar Excel' }))
+    await userEvent.click(await accionDelMenu('Descargar Excel'))
 
     await waitFor(() => expect(dashboardLayoutService.descargarDatos).toHaveBeenCalledWith('finanzas'))
     expect(crear).toHaveBeenCalledWith(blob)
@@ -1167,7 +1226,7 @@ describe('DashboardAreaPage — descargar el archivo completo', () => {
     pintarDirectorio()
     await screen.findByRole('heading', { name: 'Finanzas' })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Descargar Excel' }))
+    await userEvent.click(await accionDelMenu('Descargar Excel'))
 
     expect(await screen.findByText(/todavía no tiene datos cargados/)).toBeInTheDocument()
   })

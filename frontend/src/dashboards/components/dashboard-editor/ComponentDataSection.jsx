@@ -122,13 +122,13 @@ export default function ComponentDataSection({ componente, dashboardId, onActual
       <div className="chart-panel__subtitle mb-0">
         Este componente se creó antes de poder reconfigurar su fuente de datos y no se puede
         identificar con certeza cómo recalcularlo. Para cambiar de qué columna sale su información,
-        te recomendamos borrarlo y crearlo de nuevo desde la paleta de componentes.
+        le recomendamos borrarlo y crearlo de nuevo desde la paleta de componentes.
       </div>
     )
   }
 
   if (cargandoArchivo) {
-    return <div className="text-center py-3"><Spinner animation="border" size="sm" /></div>
+    return <div className="text-center py-3" role="status"><Spinner animation="border" size="sm" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
   }
 
   if (errorArchivo) {
@@ -138,7 +138,7 @@ export default function ComponentDataSection({ componente, dashboardId, onActual
   if (!archivoActual?.disponible) {
     return (
       <div className="chart-panel__subtitle mb-0">
-        Este dashboard todavía no tiene un archivo real cargado. Usa "Cargar otro archivo" para
+        Este dashboard todavía no tiene un archivo real cargado. Use "Cargar otro archivo" para
         poder configurar los datos de este componente.
       </div>
     )
@@ -218,8 +218,8 @@ export default function ComponentDataSection({ componente, dashboardId, onActual
       <div className="chart-panel__subtitle d-flex align-items-center gap-2 flex-wrap mb-2">
         <span>Archivo: {archivoActual.nombre_archivo} · {archivoActual.total_filas} fila(s)</span>
         {cargandoPreview && (
-          <span className="d-inline-flex align-items-center gap-1">
-            <Spinner animation="border" size="sm" role="status" />
+          <span className="d-inline-flex align-items-center gap-1" role="status">
+            <Spinner animation="border" size="sm" aria-hidden="true" />
             Actualizando…
           </span>
         )}
@@ -281,7 +281,7 @@ export default function ComponentDataSection({ componente, dashboardId, onActual
           <div className="chart-panel__subtitle mb-1">Valores calculados</div>
           <p className="text-muted mb-2" style={{ fontSize: '0.8rem' }}>
             Se puede editar el valor de cualquier celda ya calculada (de una columna real o
-            manual). No se pueden agregar ni quitar filas o columnas desde acá — para eso, ajustá
+            manual). No se pueden agregar ni quitar filas o columnas desde acá — para eso, ajuste
             las columnas de arriba.
           </p>
           <TableCellsEditor

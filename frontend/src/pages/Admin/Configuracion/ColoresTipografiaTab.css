@@ -25,6 +25,8 @@
   font-size: var(--font-size-base);
 }
 
+/* La vista previa pinta los colores elegidos, no los del tema: el blanco de
+   los textos sobre el menú y los botones es el de la pantalla real. */
 .colores-tab__preview-menu {
   background: var(--color-menu);
   color: #fff;

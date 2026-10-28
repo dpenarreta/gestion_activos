@@ -49,12 +49,14 @@ a {
 .form-control:focus,
 .form-select:focus {
   border-color: var(--brand-focus-color);
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 0.25rem
+    color-mix(in srgb, var(--mz-action) 25%, transparent);
 }
 
 .form-check-input:focus {
   border-color: var(--brand-focus-color);
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 0.25rem
+    color-mix(in srgb, var(--mz-action) 25%, transparent);
 }
 
 /* Encabezado de tabla con el dibujo de `.mz-table` de la identidad base: fondo

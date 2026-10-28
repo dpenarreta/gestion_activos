@@ -47,7 +47,7 @@ function ModalCrearPestana({ show, onHide, onCreada }) {
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={limpiarYCerrar} disabled={guardando} type="button">Cancelar</Button>
           <Button variant="primary" type="submit" disabled={guardando}>
-            {guardando ? <Spinner size="sm" animation="border" /> : 'Crear'}
+            {guardando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Creando…</span></> : 'Crear'}
           </Button>
         </Modal.Footer>
       </Form>
@@ -102,7 +102,7 @@ function ModalEditarPestana({ show, pestana, onHide, onEditada }) {
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={cerrar} disabled={guardando} type="button">Cancelar</Button>
           <Button variant="primary" type="submit" disabled={guardando}>
-            {guardando ? <Spinner size="sm" animation="border" /> : 'Guardar cambios'}
+            {guardando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Guardando…</span></> : 'Guardar cambios'}
           </Button>
         </Modal.Footer>
       </Form>
@@ -152,7 +152,7 @@ function ModalEliminarPestana({ show, pestana, onHide, onEliminada }) {
       <Modal.Footer>
         <Button variant="outline-secondary" onClick={cerrar} disabled={eliminando}>Cancelar</Button>
         <Button variant="danger" disabled={!coincide || eliminando} onClick={eliminar}>
-          {eliminando ? <Spinner size="sm" animation="border" /> : 'Eliminar'}
+          {eliminando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Eliminando…</span></> : 'Eliminar'}
         </Button>
       </Modal.Footer>
     </Modal>

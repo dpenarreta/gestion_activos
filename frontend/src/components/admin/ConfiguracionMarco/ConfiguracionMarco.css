@@ -36,7 +36,8 @@
 .configuracion-marco__sub a.is-on {
   background: var(--mz-blue-600);
   border-color: var(--mz-blue-600);
-  color: #fff;
+  /* El inverso del relleno: en oscuro el azul se aclara y el texto se oscurece. */
+  color: var(--mz-raised);
 }
 
 /* Cada sección abre con su propio encabezado («Empresas», «Usuarios»…), un

@@ -85,13 +85,13 @@ export default function InterpretacionDashboardModal({ show, onHide, dashboardId
 
   return (
     <Modal backdrop="static" show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
+      <Modal.Header closeButton closeLabel="Cerrar">
         <Modal.Title>Interpretación completa del dashboard</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {cargando && (
           <div className="text-center py-4" role="status">
-            <Spinner animation="border" />
+            <Spinner animation="border" aria-hidden="true" />
             <p className="mt-2 mb-0 text-secondary">Generando interpretación con IA…</p>
           </div>
         )}

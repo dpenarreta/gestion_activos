@@ -88,13 +88,13 @@ export default function TemplateMappingStep({
       {error && <Alert variant="danger">{error}</Alert>}
       <div className="chart-panel__subtitle d-flex align-items-center gap-2 flex-wrap">
         <span>
-          Así quedarían las 13 posiciones de la plantilla con este archivo. Puedes elegir
+          Así quedarían las 13 posiciones de la plantilla con este archivo. Puede elegir
           cualquier columna del archivo en cada selector; la vista previa se actualiza al
           instante. Las posiciones sin columnas elegidas conservan su dato de ejemplo.
         </span>
         {cargandoPreview && (
-          <span className="d-inline-flex align-items-center gap-1">
-            <Spinner animation="border" size="sm" role="status" />
+          <span className="d-inline-flex align-items-center gap-1" role="status">
+            <Spinner animation="border" size="sm" aria-hidden="true" />
             Actualizando vista previa…
           </span>
         )}

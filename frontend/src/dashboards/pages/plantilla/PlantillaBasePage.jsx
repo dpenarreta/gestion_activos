@@ -79,7 +79,7 @@ export default function PlantillaBasePage() {
 
 
       {cargandoInicial && layout.error && <Alert variant="danger">{layout.error}</Alert>}
-      {cargandoInicial && !layout.error && <div className="text-center mb-3" role="status"><Spinner animation="border" /></div>}
+      {cargandoInicial && !layout.error && <div className="text-center mb-3" role="status"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>}
 
       {!cargandoInicial && (
         <>

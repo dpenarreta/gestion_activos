@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Form, Spinner } from 'react-bootstrap'
+import { Alert, Button, Dropdown, Form, Spinner } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
 import { DndContext, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { useGenericDashboardBuilder } from '../../hooks/useGenericDashboardBuilder'
@@ -77,7 +77,7 @@ function ZonaPersonalDropTarget() {
   return (
     <div ref={setNodeRef} className={`mz-drop mb-3 ${isOver ? 'is-drag' : ''}`}>
       <i className="bi bi-plus-square-dotted" aria-hidden="true"></i>
-      <div>Soltá aquí un componente para agregarlo a la Zona Personal</div>
+      <div>Suelte aquí un componente para agregarlo a la Zona Personal</div>
     </div>
   )
 }
@@ -115,6 +115,12 @@ export default function DashboardAreaPage() {
   const [mostrarPaleta, setMostrarPaleta] = useState(false)
   const [mostrarInterpretacion, setMostrarInterpretacion] = useState(false)
   const [mostrarConectarFuenteBD, setMostrarConectarFuenteBD] = useState(false)
+  // Las ventanas que se abren desde «Más acciones» devuelven el foco a ese
+  // menú al cerrarse: el ítem que las abrió ya no existe (auditoría UX/UI,
+  // fase 3). Tras la animación de cierre de la ventana.
+  const volverAMasAcciones = () => {
+    setTimeout(() => document.getElementById(`mas-acciones-${dashboardId}`)?.focus(), 350)
+  }
   const [confirmandoAgregarTipo, setConfirmandoAgregarTipo] = useState(null)
   // Cambio estructural esperando que se confirme la contraseña, en un dashboard con el diseño
   // bloqueado: `{ accion, ejecutar }`. `ejecutar(clave)` reintenta la MISMA operación que acaba
@@ -184,7 +190,7 @@ export default function DashboardAreaPage() {
       // amable no puede explicar (un recurso que no carga, un color que html2canvas no sabe
       // parsear), y sin esto no queda rastro de cuál fue — el usuario solo ve "no se pudo".
       console.error('[PDF] No se pudo generar el PDF:', e)
-      setErrorPDF('No se pudo generar el PDF. Intentá de nuevo.')
+      setErrorPDF('No se pudo generar el PDF. Inténtelo de nuevo.')
     } finally {
       setGenerandoPDF(false)
     }
@@ -198,6 +204,15 @@ export default function DashboardAreaPage() {
   const puedeDesbloquear = Boolean(user?.permissions?.includes('dashboard.desbloquear'))
   const puedeInterpretar = Boolean(user?.permissions?.includes('dashboard.interpretar'))
   const puedeHallazgosIA = Boolean(user?.permissions?.includes('dashboard.hallazgos_ia'))
+  // Auditoría UX/UI, fase 3, 28/10/2026: «Conectar vista de base de datos» se mostraba a todos,
+  // aunque guardar la conexión exige `dashboard.fuente_bd.configurar` (`DashboardFuenteBDView.put`)
+  // o, en un dashboard con control de acceso propio, ser su dueño o superusuario. Se ofrece solo a
+  // quien puede usarla; la verificación real sigue en el backend.
+  const puedeConectarFuenteBD = Boolean(
+    user?.is_superuser
+    || user?.permissions?.includes('dashboard.fuente_bd.configurar')
+    || dashboardInfo?.puede_administrar_acceso,
+  )
 
   // Las columnas que el usuario ya marcó como "históricas" para este dashboard (`ColumnaHistorica`,
   // configuración persistente — no lo que aparece en los datos ya guardados). Alimenta Tabla 3
@@ -532,33 +547,45 @@ export default function DashboardAreaPage() {
             encogerse: sin eso, a 700px la barra medía 94px de alto porque cada botón se
             comprimía hasta partir su texto en cuatro renglones. */}
         <div className="acciones-dashboard d-print-none">
-          {puedeInterpretar && (
-            <Button variant="outline-secondary" size="sm" onClick={() => setMostrarInterpretacion(true)}>
-              <i className="bi bi-stars" aria-hidden="true"></i> Interpretación completa
-            </Button>
-          )}
-          <Button variant="outline-secondary" size="sm" onClick={() => setMostrarConectarFuenteBD(true)}>
-            <i className="bi bi-database" aria-hidden="true"></i> Conectar vista de base de datos
-          </Button>
-          {/* El Dashboard Directorio replica un informe impreso y no usa el histórico de cargas:
-              ahí ese botón cede el lugar a la descarga del archivo completo. En los demás
-              dashboards el histórico sigue como estaba. */}
-          {esInformeDirectorio ? (
-            <Button variant="outline-secondary" size="sm" onClick={descargarDatos} disabled={descargando}>
-              <i className="bi bi-download" aria-hidden="true"></i> {descargando ? 'Preparando…' : 'Descargar Excel'}
-            </Button>
-          ) : (
-            <Button as={Link} to={`/admin/dashboards/${dashboardId}/historico`} variant="outline-secondary" size="sm">
-              <i className="bi bi-clock-history" aria-hidden="true"></i> Ver histórico
-            </Button>
-          )}
+          {/* Auditoría UX/UI, fase 3, 28/10/2026: había seis botones del mismo peso y ninguno
+              destacaba. Quedan a la vista las dos acciones frecuentes —cargar datos e imprimir,
+              que además muestra su progreso— y el resto pasa a «Más acciones». */}
           {!mostrarConstructor && (
             <Button variant="outline-secondary" size="sm" onClick={() => setMostrarConstructor(true)}><i className="bi bi-upload" aria-hidden="true"></i> Cargar otro archivo</Button>
           )}
           <Button variant="outline-secondary" size="sm" onClick={imprimirComoPDF} disabled={generandoPDF}>
-            {generandoPDF ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="bi bi-printer" aria-hidden="true"></i>}
-            {' '}Imprimir como PDF
+            {generandoPDF ? <Spinner size="sm" animation="border" className="me-1" aria-hidden="true" /> : <i className="bi bi-printer" aria-hidden="true"></i>}
+            {' '}{generandoPDF ? 'Generando PDF…' : 'Imprimir como PDF'}
           </Button>
+          <Dropdown align="end">
+            <Dropdown.Toggle variant="outline-secondary" size="sm" id={`mas-acciones-${dashboardId}`}>
+              <i className="bi bi-three-dots" aria-hidden="true"></i> Más acciones
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              {puedeInterpretar && (
+                <Dropdown.Item as="button" onClick={() => setMostrarInterpretacion(true)}>
+                  <i className="bi bi-stars me-2" aria-hidden="true"></i>Interpretación completa
+                </Dropdown.Item>
+              )}
+              {puedeConectarFuenteBD && (
+                <Dropdown.Item as="button" onClick={() => setMostrarConectarFuenteBD(true)}>
+                  <i className="bi bi-database me-2" aria-hidden="true"></i>Conectar vista de base de datos
+                </Dropdown.Item>
+              )}
+              {/* El Dashboard Directorio replica un informe impreso y no usa el histórico de
+                  cargas: ahí esa opción cede el lugar a la descarga del archivo completo. En los
+                  demás dashboards el histórico sigue como estaba. */}
+              {esInformeDirectorio ? (
+                <Dropdown.Item as="button" onClick={descargarDatos} disabled={descargando}>
+                  <i className="bi bi-download me-2" aria-hidden="true"></i>{descargando ? 'Preparando…' : 'Descargar Excel'}
+                </Dropdown.Item>
+              ) : (
+                <Dropdown.Item as={Link} to={`/admin/dashboards/${dashboardId}/historico`}>
+                  <i className="bi bi-clock-history me-2" aria-hidden="true"></i>Ver histórico
+                </Dropdown.Item>
+              )}
+            </Dropdown.Menu>
+          </Dropdown>
         </div>
       </div>
       {errorPDF && (
@@ -584,13 +611,17 @@ export default function DashboardAreaPage() {
           </span>
           {estadoFuenteBD.frecuencia_actualizacion && estadoFuenteBD.proxima_actualizacion ? (
             <span>· Próxima actualización automática: {formatearFechaISO(estadoFuenteBD.proxima_actualizacion)}</span>
+          ) : !estadoFuenteBD.nombre && !puedeConectarFuenteBD ? (
+            // Sin fuente configurada, «Actualizar ahora» abre la conexión: sin permiso para
+            // conectarla, no hay nada que ofrecer.
+            <span>· Sin actualización automática</span>
           ) : (
             <Button
               variant="link" size="sm" className="p-0 d-print-none"
               onClick={estadoFuenteBD.nombre ? pulsarActualizarAhora : () => setMostrarConectarFuenteBD(true)}
               disabled={actualizandoAhora}
             >
-              {actualizandoAhora ? <Spinner size="sm" animation="border" className="me-1" /> : null}
+              {actualizandoAhora ? <Spinner size="sm" animation="border" className="me-1" aria-hidden="true" /> : null}
               {actualizandoAhora ? null : <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>} Actualizar ahora
             </Button>
           )}
@@ -618,7 +649,7 @@ export default function DashboardAreaPage() {
         </div>
       )}
 
-      {cargandoInicial && !layout.error && <div className="text-center mb-3" role="status"><Spinner animation="border" /></div>}
+      {cargandoInicial && !layout.error && <div className="text-center mb-3" role="status"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>}
 
       {!cargandoInicial && mostrandoConstructor && (
         <>
@@ -705,7 +736,7 @@ export default function DashboardAreaPage() {
               <i className="bi bi-lock-fill" aria-hidden="true"></i> El diseño de este dashboard está bloqueado: no se puede agregar, eliminar,
               reordenar, redimensionar ni ocultar componentes.{' '}
               {puedeDesbloquear
-                ? 'Al guardar se te va a pedir tu contraseña para autorizar el cambio.'
+                ? 'Al guardar se le pedirá su contraseña para autorizar el cambio.'
                 : 'Los datos, títulos y colores sí se pueden seguir editando.'}
             </Alert>
           )}
@@ -791,7 +822,7 @@ export default function DashboardAreaPage() {
           >
             <Alert variant="warning" className="mb-0">
               Agregar un componente a la Zona Personal se guarda de inmediato y actualiza el
-              dashboard con la última versión guardada en el servidor — tus cambios de diseño sin
+              dashboard con la última versión guardada en el servidor — sus cambios de diseño sin
               guardar se perderán. ¿Continuar?
             </Alert>
           </ConfirmModal>
@@ -800,7 +831,10 @@ export default function DashboardAreaPage() {
 
       <InterpretacionDashboardModal
         show={mostrarInterpretacion}
-        onHide={() => setMostrarInterpretacion(false)}
+        onHide={() => {
+          setMostrarInterpretacion(false)
+          volverAMasAcciones()
+        }}
         dashboardId={dashboardId}
       />
 
@@ -830,7 +864,10 @@ export default function DashboardAreaPage() {
 
       <ConectarFuenteBDModal
         show={mostrarConectarFuenteBD}
-        onHide={() => setMostrarConectarFuenteBD(false)}
+        onHide={() => {
+          setMostrarConectarFuenteBD(false)
+          volverAMasAcciones()
+        }}
         dashboardId={dashboardId}
         dashboardNombre={dashboardInfo?.name || dashboardId}
         onConectar={conectarFuenteBD}

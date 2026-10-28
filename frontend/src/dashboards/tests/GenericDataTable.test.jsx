@@ -92,14 +92,23 @@ describe('GenericDataTable', () => {
       />,
     )
 
-    const encabezadoVentas = screen.getByText('Ventas')
+    // Auditoría UX/UI, fase 3, 28/10/2026: el encabezado sigue siendo encabezado (con aria-sort) y
+    // lo que se pulsa es un <button> dentro de él, nombrado con el texto de la columna.
+    const encabezadoVentas = screen.getByRole('button', { name: 'Ventas' })
+    const columnaVentas = encabezadoVentas.closest('th')
+    expect(columnaVentas).not.toHaveAttribute('role')
+    expect(columnaVentas).not.toHaveAttribute('aria-sort')
+
     await usuario.click(encabezadoVentas)
     expect(textoColumna(container, 0)).toEqual(['Producto C', 'Producto B', 'Producto A'])
-    expect(screen.getByText('Ventas ▲')).toBeInTheDocument()
+    expect(columnaVentas).toHaveAttribute('aria-sort', 'ascending')
+    expect(encabezadoVentas).toHaveTextContent('Ventas ▲')
 
     await usuario.click(encabezadoVentas)
     expect(textoColumna(container, 0)).toEqual(['Producto A', 'Producto B', 'Producto C'])
-    expect(screen.getByText('Ventas ▼')).toBeInTheDocument()
+    expect(columnaVentas).toHaveAttribute('aria-sort', 'descending')
+    expect(encabezadoVentas).toHaveTextContent('Ventas ▼')
+    expect(screen.getByRole('columnheader', { name: 'Producto' })).not.toHaveAttribute('aria-sort')
   })
 
   it('multi-columna: la fila de totales nunca participa del orden, siempre queda al final', async () => {
