@@ -1,4 +1,4 @@
-"""El organigrama del área Comercial, con la División UPS (27/10/2026).
+"""El organigrama del área Comercial (27/10/2026).
 
 Los equipos de antes se reconocen por nombre y jefe y se renombran
 (conservan su rol y quienes los ocupan, y toman el nivel de su nombre
@@ -42,15 +42,11 @@ def _area_como_estaba():
     cargo("asesor_equipo", "Asesor Comercial", "asesor_lider", plazas=3)
     cargo("televendedor_2", "Televendedor", "asesor_lider")
     cargo("ups", "Asesor Comercial UPS", "gerente", plazas=3)
-    cargo(
-        "coordinador_ups", "Coordinador de Servicio UPS", "gerente", nivel=NivelCargo.COORDINACION
-    )
-    cargo("supervisor_ups", "Supervisor de Operaciones UPS", "coordinador_ups")
-    cargo("courier", "Courier UPS", "supervisor_ups", plazas=15)
-    cargo("motorizado", "Courier Motorizado", "supervisor_ups")
-    cargo("asistente_ope", "Asistente de Operaciones", "supervisor_ups")
+    cargo("televendedor_ocupado", "Televendedor", "asesor_lider")
     # Alguien ya ocupa un cargo que no está en el organigrama nuevo.
-    OcupanteCargo.objects.create(cargo=cargos["motorizado"], nombres="Ana", apellidos="Prueba")
+    OcupanteCargo.objects.create(
+        cargo=cargos["televendedor_ocupado"], nombres="Ana", apellidos="Prueba"
+    )
     return comercial, cargos
 
 
@@ -88,29 +84,9 @@ def test_queda_como_el_organigrama(db):
     televentas = activos[("Asesora de Televentas", "Gerente Comercial")]
     assert televentas.id == cargos["televendedor"].id and televentas.plazas == 2
 
-    # La División UPS, bajo su Coordinador.
-    coordinador = activos[("Coordinador Servicio UPS", "Gerente Comercial")]
-    assert coordinador.id == cargos["coordinador_ups"].id
-    supervisor = activos[("Supervisor Operaciones UPS Quito", "Coordinador Servicio UPS")]
-    assert supervisor.id == cargos["supervisor_ups"].id
-    courier = activos[("Courier UPS", "Supervisor Operaciones UPS Quito")]
-    assert courier.id == cargos["courier"].id and courier.plazas == 3
-    for nuevo in (
-        "Supervisor Administrativo UPS Quito",
-        "Supervisor Operaciones UPS Guayaquil",
-        "Asesora de Servicio al Cliente UPS",
-        "Asistente de Facturación y Cartera UPS",
-    ):
-        assert (nuevo, "Coordinador Servicio UPS") in activos
-    assert (
-        activos[("Auxiliar Operativo UPS Guayaquil", "Supervisor Operaciones UPS Guayaquil")].plazas
-        == 3
-    )
-
     # Lo que ya no está y nadie ocupa, inactivo; lo ocupado se queda.
-    for clave in ("televendedor_2", "asistente_ope"):
-        assert Cargo.objects.get(pk=cargos[clave].pk).activo is False
-    assert Cargo.objects.get(pk=cargos["motorizado"].pk).activo is True
+    assert Cargo.objects.get(pk=cargos["televendedor_2"].pk).activo is False
+    assert Cargo.objects.get(pk=cargos["televendedor_ocupado"].pk).activo is True
 
     gerente = activos[("Gerente Comercial", "Gerente General")]
     assert [str(o) for o in gerente.ocupantes_sin_cuenta.all()] == ["Stalin Vera"]
