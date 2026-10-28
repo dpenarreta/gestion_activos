@@ -286,7 +286,7 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
   return (
     <li className="org-rama">
       <section
-        className={`org-unidad${nodo.activa ? "" : " org-unidad--inactiva"}${
+        className={`org-unidad${nodo.activa === false ? " org-unidad--inactiva" : ""}${
           vista === "arbol" && nodo.cargos.length ? " org-unidad--arbol" : ""
         }`}
         aria-label={nodo.nombre}
@@ -359,6 +359,35 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
  * sus cargos, a quién reporta cada uno, quién lo ocupa y cuántas plazas
  * quedan vacantes. Cada rama se contrae para leer organigramas grandes.
  */
+function soloVigente(datos) {
+  const unidadPorId = new Map(datos.unidades.map((u) => [u.id, u]));
+  const cargoPorId = new Map(datos.cargos.map((c) => [c.id, c]));
+  // Si el superior quedó inactivo, se cuelga del primero vigente de la
+  // cadena: si no, el cargo o la unidad subirían a la raíz como si
+  // encabezaran el área (auditoría UX/UI, 28/10/2026).
+  const primerVigente = (id, porId, vigente) => {
+    const vistos = new Set();
+    let actual = porId.get(id);
+    while (actual && !vigente(actual) && !vistos.has(actual.id)) {
+      vistos.add(actual.id);
+      actual = porId.get(actual.padre ?? actual.jefe);
+    }
+    return actual && vigente(actual) ? actual.id : null;
+  };
+  const unidadVigente = (u) => u.activa !== false;
+  const unidades = datos.unidades.filter(unidadVigente).map((u) => ({
+    ...u,
+    padre: u.padre && primerVigente(u.padre, unidadPorId, unidadVigente),
+  }));
+  const vigentes = new Set(unidades.map((u) => u.id));
+  const cargoVigente = (c) => c.activo !== false && vigentes.has(c.unidad);
+  const cargos = datos.cargos.filter(cargoVigente).map((c) => ({
+    ...c,
+    jefe: c.jefe && primerVigente(c.jefe, cargoPorId, cargoVigente),
+  }));
+  return { ...datos, unidades, cargos };
+}
+
 export function OrganigramaPage() {
   // El botón a la estructura se ve con su permiso: armarla (`editar`) o
   // asignar cargos (`asignar`, que abre solo esa pestaña).
@@ -409,7 +438,11 @@ export function OrganigramaPage() {
     cargar();
   }, []);
 
-  const arbol = useMemo(() => (datos ? armarArbol(datos) : []), [datos]);
+  // Solo lo vigente: los cargos y unidades desactivados se ven y se editan
+  // en Estructura, no en el organigrama (28/10/2026: un cargo retirado
+  // seguía apareciendo como vacante).
+  const vigente = useMemo(() => (datos ? soloVigente(datos) : null), [datos]);
+  const arbol = useMemo(() => (vigente ? armarArbol(vigente) : []), [vigente]);
   // El servidor dice qué se ve: toda la empresa o solo el área de su cargo.
   const alcance = datos?.alcance ?? { tipo: "empresa" };
   const deSuArea = alcance.tipo === "area";
@@ -426,15 +459,15 @@ export function OrganigramaPage() {
   );
   const encontrados = useMemo(() => {
     const texto = buscar.trim().toLowerCase();
-    if (!texto || !datos) return [];
-    return datos.cargos
+    if (!texto || !vigente) return [];
+    return vigente.cargos
       .filter(
         (c) =>
           c.nombre.toLowerCase().includes(texto) ||
           c.ocupantes.some((p) => p.nombre.toLowerCase().includes(texto)),
       )
       .slice(0, 12);
-  }, [buscar, datos]);
+  }, [buscar, vigente]);
 
   function alternar(id) {
     setCerradas((actual) => {
@@ -478,7 +511,7 @@ export function OrganigramaPage() {
       {datos && (
         <div className="org-barra">
           <span className="mz-pill">
-            {datos.unidades.length} unidades · {datos.cargos.length} cargos
+            {vigente.unidades.length} unidades · {vigente.cargos.length} cargos
           </span>
           <span className="mz-pill">
             {totales.plazas - totales.vacantes} de {totales.plazas} plazas
@@ -528,7 +561,9 @@ export function OrganigramaPage() {
         <ul className="org-resultados" aria-label="Resultados">
           {encontrados.map((c) => (
             <li key={c.id}>
-              <strong>{nombreDeCargo(c, datos.unidades, datos.cargos)}</strong>
+              <strong>
+                {nombreDeCargo(c, vigente.unidades, vigente.cargos)}
+              </strong>
               <span className="mz-small">
                 {c.ocupantes.map((p) => p.nombre).join(", ") || "Vacante"}
               </span>
@@ -570,7 +605,7 @@ export function OrganigramaPage() {
                   <Unidad
                     key={nodo.id}
                     nodo={nodo}
-                    cargos={datos.cargos}
+                    cargos={vigente.cargos}
                     conPersonas={conPersonas}
                     cerradas={cerradas}
                     alternar={alternar}

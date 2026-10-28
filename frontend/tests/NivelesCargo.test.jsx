@@ -185,3 +185,58 @@ describe("Niveles jerárquicos por cargo", () => {
     expect(servicio.crear.mock.calls[0][1]).not.toHaveProperty("nivel");
   });
 });
+
+describe("El organigrama solo muestra lo vigente", () => {
+  it("un cargo desactivado no aparece ni cuenta", async () => {
+    servicio.organigrama.mockResolvedValue({
+      ...ORGANIGRAMA,
+      cargos: [
+        ...ORGANIGRAMA.cargos,
+        {
+          id: 22,
+          nombre: "Cargo Retirado",
+          unidad: 11,
+          jefe: 20,
+          plazas: 1,
+          nivel: "operativo",
+          activo: false,
+          ocupantes: [],
+          vacantes: 1,
+        },
+      ],
+    });
+    pintar(<OrganigramaPage />);
+    await screen.findByRole("region", { name: "TI" });
+    expect(screen.queryByText("Cargo Retirado")).toBeNull();
+    expect(screen.getByText(/1 unidades · 2 cargos/)).toBeInTheDocument();
+  });
+
+  it("si el jefe quedó inactivo, el cargo cuelga del primer jefe vigente", async () => {
+    const retirado = {
+      id: 22,
+      nombre: "Cargo Retirado",
+      unidad: 11,
+      jefe: 20,
+      plazas: 1,
+      nivel: "coordinacion",
+      activo: false,
+      ocupantes: [],
+      vacantes: 1,
+    };
+    servicio.organigrama.mockResolvedValue({
+      ...ORGANIGRAMA,
+      cargos: [
+        ...ORGANIGRAMA.cargos,
+        retirado,
+        { ...retirado, id: 23, nombre: "Analista", jefe: 22, activo: true },
+      ],
+    });
+    pintar(<OrganigramaPage />);
+    await screen.findByRole("region", { name: "TI" });
+    fireEvent.click(screen.getByRole("radio", { name: /Lista/ }));
+    const analista = screen.getByText("Analista").closest("li, article, div");
+    expect(
+      within(analista.parentElement).getByText(/Reporta a Jefe TI/),
+    ).toBeInTheDocument();
+  });
+});
