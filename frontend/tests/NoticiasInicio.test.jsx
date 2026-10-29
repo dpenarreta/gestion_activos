@@ -74,7 +74,9 @@ beforeEach(() => {
   let n = 0;
   globalThis.URL.createObjectURL = vi.fn(() => `blob:local/${(n += 1)}`);
   globalThis.URL.revokeObjectURL = vi.fn();
-  servicio.imagenNoticia.mockResolvedValue(new Blob(["x"]));
+  servicio.imagenNoticia.mockResolvedValue(
+    new Blob(["x"], { type: "image/jpeg" }),
+  );
   servicio.noticias.mockResolvedValue(NOTICIAS);
   servicio.carrusel.mockResolvedValue({ segundos: 5 });
 });

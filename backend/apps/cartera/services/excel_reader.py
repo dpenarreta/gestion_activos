@@ -12,6 +12,13 @@ EXTENSIONES_PERMITIDAS = {'.xlsx', '.xls'}
 FIRMA_ZIP = b'PK\x03\x04'
 FIRMA_OLE2 = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
+# Un .xlsx es un ZIP: uno de pocos MB puede descomprimirse en gigas («zip bomb») y tumbar el
+# proceso dentro de `pd.read_excel`. Se suma lo que declara cada entrada ANTES de abrirlo
+# (auditoría de seguridad, 29/10/2026). El límite es holgado a propósito: un .xlsx real de cartera
+# en el máximo de subida (`UPLOAD_MAX_SIZE_BYTES`, 25 MB) puede ocupar unas diez veces más sin
+# comprimir.
+MAX_BYTES_DESCOMPRIMIDOS = 400 * 1024 * 1024
+
 
 def validar_extension_y_firma(nombre_archivo, contenido):
     _, extension = os.path.splitext(nombre_archivo.lower())
@@ -40,9 +47,17 @@ def validar_extension_y_firma(nombre_archivo, contenido):
 def _rechazar_macros(contenido):
     try:
         with zipfile.ZipFile(io.BytesIO(contenido)) as z:
-            nombres = z.namelist()
+            entradas = z.infolist()
     except zipfile.BadZipFile:
         raise CarteraError('El archivo está corrupto o no es un Excel .xlsx válido.', codigo='ARCHIVO_CORRUPTO')
+    nombres = [entrada.filename for entrada in entradas]
+
+    if sum(entrada.file_size for entrada in entradas) > MAX_BYTES_DESCOMPRIMIDOS:
+        raise CarteraError(
+            'El contenido del Excel es demasiado grande para procesarlo. Revise que no tenga hojas '
+            'o rangos con formato de más, o divídalo en varios archivos.',
+            codigo='ARCHIVO_DEMASIADO_GRANDE',
+        )
 
     if any('vbaproject' in n.lower() for n in nombres):
         raise CarteraError(

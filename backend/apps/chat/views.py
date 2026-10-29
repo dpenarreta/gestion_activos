@@ -13,7 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.adjuntos.models import TAMANO_MAXIMO_BYTES
-from apps.adjuntos.validators import validar_archivo
+from apps.adjuntos.validators import tipo_por_extension, validar_archivo
 from apps.organizacion.contacto import para_compartir
 from apps.organizacion.models import Departamento
 from apps.permissions.authorization import user_has_permission
@@ -369,6 +369,9 @@ class ArchivoView(APIView):
             mensaje.archivo.open("rb"),
             as_attachment=not mensaje.es_imagen,
             filename=mensaje.nombre_archivo,
+            # Explícito y de la lista propia, en vez de lo que adivine Django por
+            # el nombre (auditoría de seguridad, 29/10/2026).
+            content_type=tipo_por_extension(mensaje.nombre_archivo),
         )
         respuesta["X-Content-Type-Options"] = "nosniff"
         return respuesta

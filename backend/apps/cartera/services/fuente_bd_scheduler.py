@@ -32,6 +32,7 @@ Reglas de negocio (confirmadas explícitamente, no asumidas):
   excepción sin capturar hacia el comando.
 """
 
+import logging
 from contextlib import nullcontext
 from datetime import date, timedelta
 
@@ -44,6 +45,8 @@ from ..exceptions import CarteraError
 from ..models import CargaArchivo, Dashboard
 from ..utils.archivos import asegurar_directorio
 from . import db_source, historico, plantilla
+
+logger = logging.getLogger(__name__)
 
 
 def _dia_objetivo_del_mes(dia_ancla, anio, mes):
@@ -214,6 +217,20 @@ def actualizar_dashboard(dashboard, hoy=None, fecha_corte=None):
     `fecha_corte` (una `date`) la pasa "Actualizar ahora": reemplaza el parámetro de fecha en vez
     de avanzarlo por frecuencia (ver `fijar_fecha_corte`)."""
     hoy = hoy or date.today()
+
+    # Se vuelve a validar lo guardado antes de tocar la base externa (auditoría de seguridad,
+    # 29/10/2026): una fuente configurada antes de que existieran las reglas de objetos del
+    # sistema o la lista blanca (`db_source.validar_nombre_fuente`) no se ejecuta sola cada semana.
+    try:
+        db_source.validar_nombre_fuente(dashboard.fuente_bd_nombre)
+        for nombre_parametro in dashboard.fuente_bd_parametros or {}:
+            db_source.validar_nombre_parametro(nombre_parametro)
+    except CarteraError as exc:
+        logger.warning(
+            'Actualización automática omitida (dashboard=%s, objeto=%r): %s',
+            dashboard.dashboard_id, dashboard.fuente_bd_nombre, exc.message,
+        )
+        return {'ok': False, 'mensaje': f'No se ejecutó: {exc.message}'}
 
     if not dashboard.fuente_bd_ultimo_mapeo:
         return {

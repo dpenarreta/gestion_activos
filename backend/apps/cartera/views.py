@@ -986,10 +986,13 @@ def _buscar_y_ordenar(df, request):
     busqueda = request.query_params.get('buscar')
     if busqueda and not df.empty:
         patron = busqueda.strip()
+        # `regex=False`: lo que escribe el usuario se busca como texto literal. Como expresión
+        # regular, un `(` daba un 500 y un patrón como `(a+)+$` colgaba el proceso con
+        # backtracking (ReDoS; auditoría de seguridad, 29/10/2026).
         mascara = (
-            df['cliente'].str.contains(patron, case=False, na=False)
-            | df['ruc_cliente'].str.contains(patron, case=False, na=False)
-            | df['numero_documento'].str.contains(patron, case=False, na=False)
+            df['cliente'].str.contains(patron, case=False, na=False, regex=False)
+            | df['ruc_cliente'].str.contains(patron, case=False, na=False, regex=False)
+            | df['numero_documento'].str.contains(patron, case=False, na=False, regex=False)
         )
         df = df[mascara]
 

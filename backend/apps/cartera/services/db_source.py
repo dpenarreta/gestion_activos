@@ -35,30 +35,133 @@ HOJA_TEMPORAL = 'Datos'
 # ni comillas ni punto y coma. Como el nombre se interpola directo en el SQL (no se puede
 # parametrizar un identificador/objeto de un EXEC), esta validación es la única barrera contra
 # inyección: se aplica tanto al guardar la configuración del dashboard (`services/dashboards.py`)
-# como, de nuevo, acá mismo antes de ejecutar cualquier consulta (defensa en profundidad).
-_IDENTIFICADOR = r'[A-Za-z_][A-Za-z0-9_]*'
-_PATRON_NOMBRE_FUENTE = re.compile(rf'^{_IDENTIFICADOR}(\.{_IDENTIFICADOR})?$')
+# como, de nuevo, acá mismo antes de ejecutar cualquier consulta (defensa en profundidad), y otra
+# vez en la actualización automática (`services/fuente_bd_scheduler.py`) por si quedó guardado un
+# nombre de antes de estas reglas. 128 es el largo máximo de un identificador en SQL Server.
+_IDENTIFICADOR = r'[A-Za-z_][A-Za-z0-9_]{0,127}'
+_PATRON_NOMBRE_FUENTE = re.compile(rf'{_IDENTIFICADOR}(\.{_IDENTIFICADOR})?')
+
+# Auditoría de seguridad, 29/10/2026: la regex sola dejaba ejecutar CUALQUIER objeto que se
+# llamara como un identificador — `sp_executesql` (SQL arbitrario en el valor del parámetro),
+# `xp_cmdshell`, `sys.sql_logins`… con los permisos del usuario de la base externa. Ahora:
+#  - nunca un objeto del sistema: esquemas `sys`/`INFORMATION_SCHEMA`, las bases del sistema
+#    usadas como esquema (`master.x`, …) y los prefijos de objetos del sistema (`xp_`, `dt_`, `fn_`);
+#  - `sp_` es el prefijo de los procedimientos del sistema, pero también el de procedimientos
+#    propios de la base de origen (el Dashboard Directorio usa `dbo.sp_Reporte_Seguimiento_Cartera`),
+#    así que se acepta SOLO si figura con su nombre en `EXTERNAL_DB_OBJETOS_PERMITIDOS`;
+#  - los procedimientos del sistema que ejecutan SQL o tocan la seguridad del servidor no se
+#    aceptan ni aunque alguien los ponga en esa lista;
+#  - los nombres de tres partes (`base.esquema.objeto`) ya los rechaza la regex.
+_ESQUEMAS_PROHIBIDOS = {'sys', 'information_schema', 'master', 'msdb', 'tempdb', 'model'}
+_PREFIJOS_PROHIBIDOS = ('xp_', 'dt_', 'fn_')
+_PREFIJO_PROCEDIMIENTO_DE_SISTEMA = 'sp_'
+_PROCEDIMIENTOS_DE_SISTEMA_PROHIBIDOS = {
+    'sp_executesql', 'sp_execute', 'sp_prepexec', 'sp_prepare', 'sp_sqlexec', 'sp_configure',
+    'sp_addlogin', 'sp_addsrvrolemember', 'sp_addrolemember', 'sp_adduser', 'sp_grantlogin',
+    'sp_password', 'sp_droplogin', 'sp_dropuser', 'sp_addlinkedserver', 'sp_addlinkedsrvlogin',
+    'sp_addextendedproc', 'sp_makewebtask', 'sp_send_dbmail', 'sp_start_job', 'sp_add_job',
+    'sp_rename', 'sp_msforeachtable', 'sp_msforeachdb', 'sp_readerrorlog', 'sp_helptext',
+    'sp_who', 'sp_who2', 'sp_oacreate', 'sp_oamethod', 'sp_oasetproperty', 'sp_oagetproperty',
+}
+_MENSAJE_OBJETO_DE_SISTEMA = (
+    '"{nombre}" es un objeto del sistema de SQL Server y no se puede consultar desde aquí. '
+    'Use una vista o un procedimiento propio de la base de origen.'
+)
+
+
+def _normalizar_objeto(nombre):
+    """`dbo.Vista` y `vista` son el mismo objeto para la lista blanca: sin mayúsculas y sin el
+    esquema `dbo` por defecto (cualquier otro esquema sí se conserva)."""
+    nombre = str(nombre or '').strip().lower()
+    return nombre[4:] if nombre.startswith('dbo.') else nombre
+
+
+def objetos_permitidos():
+    """La lista blanca de `settings.EXTERNAL_DB_OBJETOS_PERMITIDOS`, ya normalizada. Vacía = no
+    hay lista blanca y se aplican solo las reglas fijas de `validar_nombre_fuente`."""
+    configurados = getattr(settings, 'EXTERNAL_DB_OBJETOS_PERMITIDOS', None) or []
+    if isinstance(configurados, str):
+        configurados = configurados.split(',')
+    return {_normalizar_objeto(o) for o in configurados if str(o).strip()}
 
 
 def validar_nombre_fuente(nombre):
-    if not _PATRON_NOMBRE_FUENTE.match(nombre or ''):
+    # `fullmatch`: con `match` y `$` pasaba un salto de línea al final del nombre.
+    if not isinstance(nombre, str) or not _PATRON_NOMBRE_FUENTE.fullmatch(nombre):
         raise CarteraError(
             'El nombre de la vista/procedimiento solo puede tener letras, números, guion bajo y '
-            'un punto opcional para el esquema (ej. "dbo.mi_vista").',
+            'un punto opcional para el esquema (ej. "dbo.mi_vista"). No se aceptan nombres con '
+            'la base de datos delante ("base.esquema.objeto").',
             codigo='FUENTE_BD_NOMBRE_INVALIDO',
+        )
+    partes = nombre.lower().split('.')
+    esquema, objeto = (partes[0], partes[1]) if len(partes) == 2 else ('', partes[0])
+    if (
+        esquema in _ESQUEMAS_PROHIBIDOS
+        or objeto in _ESQUEMAS_PROHIBIDOS
+        or objeto.startswith(_PREFIJOS_PROHIBIDOS)
+        or objeto in _PROCEDIMIENTOS_DE_SISTEMA_PROHIBIDOS
+    ):
+        raise CarteraError(_MENSAJE_OBJETO_DE_SISTEMA.format(nombre=nombre), codigo='FUENTE_BD_OBJETO_DE_SISTEMA')
+
+    permitidos = objetos_permitidos()
+    en_lista_blanca = _normalizar_objeto(nombre) in permitidos
+    if permitidos and not en_lista_blanca:
+        raise CarteraError(
+            f'"{nombre}" no está entre las vistas y procedimientos habilitados para consultar en '
+            'la base de datos externa. Pida al administrador del sistema que lo agregue a la '
+            'lista de objetos permitidos (EXTERNAL_DB_OBJETOS_PERMITIDOS).',
+            codigo='FUENTE_BD_OBJETO_NO_PERMITIDO',
+        )
+    if objeto.startswith(_PREFIJO_PROCEDIMIENTO_DE_SISTEMA) and not en_lista_blanca:
+        raise CarteraError(
+            f'"{nombre}" empieza por "sp_", el prefijo de los procedimientos del sistema de SQL '
+            'Server. Solo se acepta si el administrador del sistema lo agregó a la lista de '
+            'objetos permitidos de la base externa (EXTERNAL_DB_OBJETOS_PERMITIDOS).',
+            codigo='FUENTE_BD_OBJETO_NO_PERMITIDO',
         )
 
 
-_PATRON_NOMBRE_PARAMETRO = re.compile(rf'^{_IDENTIFICADOR}$')
+_PATRON_NOMBRE_PARAMETRO = re.compile(_IDENTIFICADOR)
 
 
 def validar_nombre_parametro(nombre):
-    if not _PATRON_NOMBRE_PARAMETRO.match(nombre or ''):
+    # `fullmatch` y no `match` con `$`: este último acepta un salto de línea final («Fecha\n»), y
+    # el nombre va pegado al SQL detrás de la «@» (auditoría de seguridad, 29/10/2026).
+    if not isinstance(nombre, str) or not _PATRON_NOMBRE_PARAMETRO.fullmatch(nombre):
         raise CarteraError(
             f'El nombre de parámetro "{nombre}" no es válido — solo letras, números y guion bajo, '
             'sin el "@" (se agrega solo).',
             codigo='FUENTE_BD_PARAMETRO_INVALIDO',
         )
+
+
+def _valor_odbc(valor):
+    """Un valor de la cadena de conexión ODBC, entre llaves y con `}` escrita como `}}`.
+
+    Auditoría de seguridad, 29/10/2026: los valores iban pegados con f-string, así que una
+    contraseña o un nombre de base con `;` partía la cadena y podía agregar atributos de conexión
+    (`…;Trusted_Connection=yes`). Entre llaves el driver toma todo literal hasta la llave de
+    cierre, y una `}` propia se escribe doble."""
+    return '{' + str(valor).replace('}', '}}') + '}'
+
+
+def cadena_de_conexion():
+    """La cadena de conexión a la base externa, armada desde `settings.EXTERNAL_DB_*`."""
+    servidor = f'{settings.EXTERNAL_DB_HOST},{settings.EXTERNAL_DB_PORT}'
+    return (
+        # Mismo driver que la base propia (`settings.DB_ODBC_DRIVER`): `pyodbc` lo busca por
+        # su nombre exacto y la versión instalada cambia según la máquina — desarrollo tiene
+        # el 17, el servidor de aplicaciones el 18. Tenerlo fijo acá hacía que la conexión
+        # externa fallara en un servidor donde la base propia sí conectaba.
+        f'DRIVER={_valor_odbc(settings.DB_ODBC_DRIVER)};'
+        f'SERVER={_valor_odbc(servidor)};'
+        f'DATABASE={_valor_odbc(settings.EXTERNAL_DB_NAME)};'
+        f'UID={_valor_odbc(settings.EXTERNAL_DB_USER)};'
+        f'PWD={_valor_odbc(settings.EXTERNAL_DB_PASSWORD)};'
+        f'Encrypt={_valor_odbc(settings.EXTERNAL_DB_ENCRYPT)};'
+        f'TrustServerCertificate={_valor_odbc(settings.EXTERNAL_DB_TRUST_SERVER_CERTIFICATE)};'
+    )
 
 
 def _conectar():
@@ -67,18 +170,7 @@ def _conectar():
             'La conexión a la base de datos externa no está configurada en este entorno.',
             codigo='FUENTE_BD_NO_CONFIGURADA_APP',
         )
-    conn_str = (
-        # Mismo driver que la base propia (`settings.DB_ODBC_DRIVER`): `pyodbc` lo busca por
-        # su nombre exacto y la versión instalada cambia según la máquina — desarrollo tiene
-        # el 17, el servidor de aplicaciones el 18. Tenerlo fijo acá hacía que la conexión
-        # externa fallara en un servidor donde la base propia sí conectaba.
-        f'DRIVER={{{settings.DB_ODBC_DRIVER}}};'
-        f'SERVER={settings.EXTERNAL_DB_HOST},{settings.EXTERNAL_DB_PORT};'
-        f'DATABASE={settings.EXTERNAL_DB_NAME};'
-        f'UID={settings.EXTERNAL_DB_USER};PWD={settings.EXTERNAL_DB_PASSWORD};'
-        f'Encrypt={settings.EXTERNAL_DB_ENCRYPT};'
-        f'TrustServerCertificate={settings.EXTERNAL_DB_TRUST_SERVER_CERTIFICATE};'
-    )
+    conn_str = cadena_de_conexion()
     try:
         return pyodbc.connect(conn_str, timeout=15)
     except pyodbc.Error:

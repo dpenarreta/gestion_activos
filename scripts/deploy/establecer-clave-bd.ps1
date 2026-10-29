@@ -27,7 +27,15 @@ $ErrorActionPreference = "Continue"
 $credencial = Import-CliXml $CredentialPath
 
 $segura = Read-Host "Contraseña de ga_app (no se muestra)" -AsSecureString
-$clave = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura))
+# La copia en claro (BSTR) vive fuera del recolector de .NET: se borra y se
+# libera en cuanto se lee, también si algo falla (auditoría de seguridad,
+# 29/10/2026).
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
+try {
+    $clave = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+}
 if (-not $clave) { throw "No se escribió ninguna contraseña." }
 if ($clave -match '[#$"''\r\n]') {
     throw "La contraseña tiene un carácter que el .env no admite sin comillas (# `$ comillas o saltos de línea). Pida al DBA una sin esos caracteres."

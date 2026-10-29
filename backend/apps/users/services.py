@@ -28,6 +28,50 @@ def _vigilando_gestores(cambio):
         raise serializers.ValidationError({"detail": str(error)}) from error
 
 
+def _roles_sin_alcance(actor: User, groups) -> None:
+    """Nadie reparte lo que no tiene, tampoco envuelto en un rol.
+
+    `assign_permissions` y `RoleService._comprobar_alcance` ya lo exigían permiso
+    por permiso; dar un rol entero sin mirar qué trae era la puerta de al lado:
+    con solo `usuarios.editar` uno se ponía el rol de administrador
+    (auditoría de seguridad, 29/10/2026).
+    """
+    codenames = {perm.codename for group in groups for perm in group.permissions.all()}
+    faltantes = permisos_que_no_tiene(actor, codenames)
+    if faltantes:
+        raise serializers.ValidationError(
+            {
+                "role_ids": [
+                    "No puede conceder permisos que usted no tiene: " + ", ".join(faltantes) + "."
+                ]
+            }
+        )
+
+
+CUENTA_FUERA_DE_ALCANCE = (
+    "Solo un superusuario puede modificar esta cuenta: tiene más permisos que usted."
+)
+
+
+def exigir_alcance_sobre(actor: User, user: User) -> None:
+    """Solo se administra una cuenta que no tenga más poder que quien la toca.
+
+    Cambiarle el correo, restablecerle la contraseña, deshabilitarla o cerrarle
+    las sesiones a un superusuario (o a quien tenga permisos que el actor no
+    tiene) es la forma de quedarse con su cuenta o de dejar el sistema sin
+    administrador: eso queda para otro superusuario (auditoría de seguridad,
+    29/10/2026). Sobre la propia cuenta no aplica: nadie tiene más que uno mismo.
+    """
+    from rest_framework.exceptions import PermissionDenied
+
+    from apps.permissions.authorization import get_user_permission_codenames
+
+    if actor is None or actor.is_superuser or actor.pk == user.pk:
+        return
+    if user.is_superuser or permisos_que_no_tiene(actor, get_user_permission_codenames(user)):
+        raise PermissionDenied(CUENTA_FUERA_DE_ALCANCE)
+
+
 LAST_ACTIVE_ADMIN_ERROR = (
     "No es posible deshabilitar/bloquear a este usuario: es el único "
     "administrador activo del sistema."
@@ -71,6 +115,14 @@ class UserAdminService:
         """
         from apps.authentication.validators import clave_temporal
 
+        # Los roles se comprueban antes de crear nada: si no se pueden dar, la
+        # cuenta no debe quedar creada a medias.
+        groups = (
+            list(Group.objects.filter(id__in=role_ids, cargo_organigrama__isnull=True))
+            if role_ids
+            else []
+        )
+        _roles_sin_alcance(actor, groups)
         password = password or clave_temporal()
         if codigo_empleado:
             from rest_framework.exceptions import PermissionDenied
@@ -109,7 +161,7 @@ class UserAdminService:
 
         if role_ids:
             # Los roles de cargo del organigrama no son globales: van por empresa.
-            user.groups.set(Group.objects.filter(id__in=role_ids, cargo_organigrama__isnull=True))
+            user.groups.set(groups)
 
         record_audit_event(
             actor=actor,
@@ -131,6 +183,7 @@ class UserAdminService:
 
     @staticmethod
     def update_user(*, actor: User, user: User, context: dict | None = None, **fields) -> User:
+        exigir_alcance_sobre(actor, user)
         # El código de empleado (con él se consulta el rol de pagos) lo cambia
         # solo quien habilita el rol de pagos (22/10/2026).
         if "codigo_empleado" in fields and (fields["codigo_empleado"] or None) != (
@@ -184,6 +237,7 @@ class UserAdminService:
     def _set_status(
         *, actor: User, user: User, status: str, action: str, context: dict | None = None
     ) -> User:
+        exigir_alcance_sobre(actor, user)
         if status != User.Status.ACTIVE and UserAdminService._is_last_active_admin(user):
             raise serializers.ValidationError({"non_field_errors": [LAST_ACTIVE_ADMIN_ERROR]})
 
@@ -248,6 +302,7 @@ class UserAdminService:
 
     @staticmethod
     def revoke_sessions(*, actor: User, user: User, context: dict | None = None) -> int:
+        exigir_alcance_sobre(actor, user)
         revoked_count = SessionService.logout_all(user)
         record_audit_event(
             actor=actor,
@@ -267,6 +322,9 @@ class UserAdminService:
         # Los roles de nivel del organigrama no son globales: los pone el cargo,
         # en la empresa de ese organigrama.
         groups = list(Group.objects.filter(id__in=role_ids, cargo_organigrama__isnull=True))
+        # Solo cuentan los que se añaden: conservar un rol que ya tenía no es
+        # repartirlo, y exigirlo impediría tocar los demás roles de esa persona.
+        _roles_sin_alcance(actor, [g for g in groups if g not in previous_groups])
         _vigilando_gestores(lambda: user.groups.set(groups))
         user.updated_by = actor
         user.save(update_fields=["updated_by", "updated_at"])

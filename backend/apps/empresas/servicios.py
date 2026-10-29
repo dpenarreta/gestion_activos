@@ -179,6 +179,8 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
     ):
         raise PermissionError(AUTOEXCLUSION)
 
+    _comprobar_alcance(actor, usuario, asignaciones, roles)
+
     predeterminadas = [
         entrada["empresa_id"] for entrada in asignaciones if entrada.get("es_predeterminada")
     ]
@@ -236,6 +238,70 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
         context=context,
     )
     return usuario
+
+
+FUERA_DE_SUS_EMPRESAS = (
+    "No puede dar ni quitar acceso a empresas en las que usted no trabaja: {empresas}."
+)
+
+
+def _roles_manuales(roles) -> set[int]:
+    """Los roles elegidos a mano: los de cargo los pone el organigrama."""
+    return {rol.id for rol in roles if getattr(rol, "cargo_organigrama", None) is None}
+
+
+def _comprobar_alcance(actor, usuario, asignaciones, roles):
+    """Nadie reparte lo que no tiene: ni empresas ajenas ni roles con permisos
+    que no posee (auditoría de seguridad, 29/10/2026).
+
+    Se mira solo lo que cambia. Las membresías que la cuenta ya tenía en
+    empresas fuera del alcance del actor pueden venir tal cual —la ficha manda
+    la lista completa—, pero no se pueden añadir, quitar ni cambiar de rol. Y de
+    los roles, cuentan los que se añaden a cada membresía: conservar uno que ya
+    tenía no es repartirlo. El superusuario y los procesos del sistema
+    (`actor=None`) quedan fuera, como en `permisos_que_no_tiene`.
+    """
+    from apps.permissions.authorization import permisos_que_no_tiene
+
+    if actor is None or actor.is_superuser:
+        return
+
+    previas = {
+        membresia.empresa_id: _roles_manuales(membresia.roles.all())
+        for membresia in MembresiaEmpresa.objects.filter(usuario=usuario).prefetch_related(
+            "roles__cargo_organigrama"
+        )
+    }
+    pedidas = {
+        entrada["empresa_id"]: _roles_manuales(roles[rol] for rol in entrada.get("roles", []))
+        for entrada in asignaciones
+    }
+
+    propias = set(empresas_de(actor).values_list("id", flat=True))
+    ajenas = sorted(
+        empresa_id
+        for empresa_id in set(previas) | set(pedidas)
+        if empresa_id not in propias and previas.get(empresa_id) != pedidas.get(empresa_id)
+    )
+    if ajenas:
+        nombres = ", ".join(
+            Empresa.objects.filter(id__in=ajenas)
+            .order_by("nombre")
+            .values_list("nombre", flat=True)
+        )
+        raise PermissionError(FUERA_DE_SUS_EMPRESAS.format(empresas=nombres))
+
+    nuevos = {
+        rol_id
+        for empresa_id, ids in pedidas.items()
+        for rol_id in ids - previas.get(empresa_id, set())
+    }
+    codenames = {perm.codename for rol_id in nuevos for perm in roles[rol_id].permissions.all()}
+    faltantes = permisos_que_no_tiene(actor, codenames)
+    if faltantes:
+        raise PermissionError(
+            "No puede conceder permisos que usted no tiene: " + ", ".join(faltantes) + "."
+        )
 
 
 def _retrato(usuario):

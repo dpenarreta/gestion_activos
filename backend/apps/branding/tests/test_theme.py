@@ -148,3 +148,40 @@ def test_editing_theme_without_permission_is_rejected():
     response = client.patch("/api/v1/admin/theme/", {"site_name": "Hackeado"}, format="json")
 
     assert response.status_code == 403
+
+
+# --- Logo y favicon: solo rutas del sitio o https (auditoría de seguridad, 29/10/2026)
+
+
+@pytest.mark.parametrize("campo", ["logo_url", "favicon_url"])
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "javascript:alert(1)",
+        " JavaScript:alert(1)",
+        "data:image/svg+xml;base64,PHN2Zz4=",
+        "http://ejemplo.com/logo.png",
+        "//otro.sitio/logo.png",
+        "/\otro.sitio/logo.png",
+        "vbscript:msgbox",
+        "logo.png",
+        "/static/logo\n.png",
+    ],
+)
+def test_logo_y_favicon_rechazan_esquemas_peligrosos(config_admin_client, campo, valor):
+    client, _ = config_admin_client
+
+    response = client.patch("/api/v1/admin/theme/", {campo: valor}, format="json")
+
+    assert response.status_code == 400, valor
+    assert client.get("/api/v1/theme/current/").data[campo] == DEFAULT_THEME[campo]
+
+
+@pytest.mark.parametrize("valor", ["/static/logo.png", "https://cdn.grupolaar.com/logo.svg", ""])
+def test_logo_acepta_ruta_del_sitio_https_o_vacio(config_admin_client, valor):
+    client, _ = config_admin_client
+
+    response = client.patch("/api/v1/admin/theme/", {"logo_url": valor}, format="json")
+
+    assert response.status_code == 200
+    assert response.data["logo_url"] == valor

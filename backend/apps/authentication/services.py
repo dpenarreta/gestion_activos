@@ -45,23 +45,39 @@ _DUMMY_PASSWORD_HASH = make_password(uuid.uuid4().hex)
 
 
 class BruteForceProtectionService:
-    """Bloqueo temporal por identificador tras demasiados intentos fallidos.
+    """Bloqueo temporal tras demasiados intentos fallidos.
 
     El conteo se hace sobre `identifier` (el texto tecleado), no sobre el
     usuario resuelto: así un nombre de usuario inexistente se "bloquea"
     exactamente igual que uno real tras el mismo número de intentos, sin
     filtrar si la cuenta existe.
+
+    Son dos límites (auditoría de seguridad, 29/10/2026). El bajo
+    (`LOGIN_MAX_FAILED_ATTEMPTS`) cuenta por identificador **desde una IP**:
+    antes contaba solo por identificador, y cinco intentos con el usuario de
+    otra persona la dejaban fuera quince minutos, repetible sin fin. El alto
+    (`LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL`) suma todas las IP y frena el ataque
+    repartido entre muchas. Sin IP conocida se aplica el bajo al identificador
+    solo, como antes: es lo más prudente cuando no se sabe de dónde viene.
     """
 
     @staticmethod
-    def is_locked_out(identifier: str) -> bool:
+    def _fallidos(identifier: str):
         window_start = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
-        failed_count = LoginAttempt.objects.filter(
+        return LoginAttempt.objects.filter(
             identifier__iexact=identifier,
             successful=False,
             created_at__gte=window_start,
-        ).count()
-        return failed_count >= settings.LOGIN_MAX_FAILED_ATTEMPTS
+        )
+
+    @staticmethod
+    def is_locked_out(identifier: str, ip_address: str | None = None) -> bool:
+        fallidos = BruteForceProtectionService._fallidos(identifier)
+        if ip_address is None:
+            return fallidos.count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS
+        if fallidos.filter(ip_address=ip_address).count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS:
+            return True
+        return fallidos.count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL
 
     @staticmethod
     def record_attempt(
@@ -156,10 +172,11 @@ class AuthenticationService:
     def authenticate_and_issue_tokens(
         *, identifier: str, password: str, ip_address: str | None = None, user_agent: str = ""
     ) -> dict:
-        if BruteForceProtectionService.is_locked_out(identifier):
-            BruteForceProtectionService.record_attempt(
-                identifier=identifier, ip_address=ip_address, user=None, successful=False
-            )
+        if BruteForceProtectionService.is_locked_out(identifier, ip_address):
+            # El intento bloqueado no se guarda como fallo: si contara, quien
+            # siguiera insistiendo desde una sola IP llegaría solo al límite
+            # global y dejaría fuera al dueño de la cuenta desde cualquier
+            # equipo, que es justo lo que el bloqueo por IP quiere evitar.
             logger.warning(
                 "Bloqueo por fuerza bruta activo para identificador=%r desde ip=%s",
                 identifier,
@@ -366,7 +383,14 @@ class PasswordResetService:
         """El administrador nunca ve ni define la nueva contraseña: solo
         dispara el envío del enlace, activa el flag de cambio obligatorio
         y/o revoca sesiones. Al menos una de las tres opciones debe venir en
-        `True` (validado en el serializer, no aquí)."""
+        `True` (validado en el serializer, no aquí).
+
+        La cuenta de un superusuario (o de quien tenga permisos que el actor
+        no tiene) solo la restablece otro superusuario (auditoría de
+        seguridad, 29/10/2026)."""
+        from apps.users.services import exigir_alcance_sobre
+
+        exigir_alcance_sobre(actor, user)
         revoked_count = 0
 
         if send_link:

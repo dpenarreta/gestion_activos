@@ -58,16 +58,47 @@ def test_version_endpoint_exposes_no_sensitive_data(api_client, settings):
 # --- Documentación OpenAPI --------------------------------------------------------
 
 
-def test_openapi_schema_lists_endpoints_and_auth_scheme(api_client):
-    response = api_client.get("/api/v1/schema/")
+@pytest.fixture
+def staff_client():
+    from apps.users.models import User
+
+    staff = User.objects.create_user(
+        username="staff", email="staff@example.com", password="Sup3r-Secr3t!", is_staff=True
+    )
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    return client
+
+
+def test_openapi_schema_lists_endpoints_and_auth_scheme(staff_client):
+    response = staff_client.get("/api/v1/schema/")
 
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/vnd.oai.openapi")
 
 
-def test_swagger_ui_is_reachable(api_client):
-    response = api_client.get("/api/v1/schema/swagger-ui/")
+def test_swagger_ui_is_reachable(staff_client):
+    response = staff_client.get("/api/v1/schema/swagger-ui/")
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("ruta", ["schema/", "schema/swagger-ui/", "schema/redoc/"])
+def test_el_esquema_no_es_publico(api_client, ruta):
+    """Describe cada endpoint de la API: solo para el personal (auditoría de
+    seguridad, 29/10/2026)."""
+    assert api_client.get(f"/api/v1/{ruta}").status_code in (401, 403)
+
+
+@pytest.mark.parametrize("ruta", ["schema/", "schema/swagger-ui/", "schema/redoc/"])
+def test_el_esquema_no_es_para_cualquier_cuenta(ruta):
+    from apps.users.models import User
+
+    cualquiera = User.objects.create_user(
+        username="cualquiera", email="cualquiera@example.com", password="Sup3r-Secr3t!"
+    )
+    client = APIClient()
+    client.force_authenticate(user=cualquiera)
+    assert client.get(f"/api/v1/{ruta}").status_code == 403
 
 
 # --- Configuración por ambiente: los valores de desarrollo no se propagan --------

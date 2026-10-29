@@ -106,3 +106,21 @@ def test_un_archivo_disfrazado_o_de_mas_no_entra(db):
     assert _responder(th, observacion_id, *seis).status_code == 400
     # Sin archivos sigue funcionando como antes.
     assert _responder(th, observacion_id).json()["estado"] == "corregida"
+
+
+def test_el_tipo_sale_de_la_extension_y_no_del_navegador(db):
+    """Auditoría de seguridad, 29/10/2026: un «text/html» declarado por el
+    cliente se guardaba y se devolvía tal cual."""
+    from apps.nomina.models import AdjuntoObservacion
+
+    rosa, th, observacion_id = _observacion()
+    adjunto = _responder(
+        th, observacion_id, SimpleUploadedFile("captura.png", PNG, content_type="text/html")
+    ).json()["mensajes"][-1]["adjuntos"][0]
+    assert AdjuntoObservacion.objects.get(pk=adjunto["id"]).content_type == "image/png"
+
+    # Uno guardado antes del arreglo con el tipo del cliente se sirve con el derivado.
+    AdjuntoObservacion.objects.filter(pk=adjunto["id"]).update(content_type="text/html")
+    descarga = rosa.get(f"{LISTA}adjuntos/{adjunto['id']}/")
+    assert descarga.status_code == 200
+    assert descarga["Content-Type"] == "image/png"

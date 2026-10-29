@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { nominaService } from "../../api/nominaService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { blobDeImagen } from "../../utils/blobs";
 import { descargarBlob } from "../../utils/descargas";
 import { mensajeDeError } from "../../utils/errores";
 
@@ -27,7 +28,14 @@ function Miniatura({ adjunto }) {
       .adjuntoObservacion(adjunto.id)
       .then((blob) => {
         if (!vigente) return;
-        creada = URL.createObjectURL(blob);
+        // El tipo sale de la extensión, no del que traiga la respuesta: la
+        // miniatura se abre en otra pestaña (auditoría de seguridad, 29/10/2026).
+        const imagen = blobDeImagen(blob, adjunto.nombre);
+        if (!imagen) {
+          setFallo(true);
+          return;
+        }
+        creada = URL.createObjectURL(imagen);
         setUrl(creada);
       })
       // Antes un fallo dejaba el ícono como si siguiera cargando (auditoría
@@ -37,7 +45,7 @@ function Miniatura({ adjunto }) {
       vigente = false;
       if (creada) URL.revokeObjectURL(creada);
     };
-  }, [adjunto.id]);
+  }, [adjunto.id, adjunto.nombre]);
   return (
     <a
       className="obs-adjunto obs-adjunto--imagen"

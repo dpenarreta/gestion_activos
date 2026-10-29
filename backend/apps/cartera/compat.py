@@ -193,7 +193,9 @@ class BruteForceProtectionService:
     def esta_bloqueado(identificador_canonico, ip_address=None):
         from apps.authentication.services import BruteForceProtectionService as Servicio
 
-        return Servicio.is_locked_out(identificador_canonico)
+        # Con la IP: el bloqueo es por identificador + IP (auditoría de
+        # seguridad, 29/10/2026); sin ella, por identificador como antes.
+        return Servicio.is_locked_out(identificador_canonico, ip_address)
 
     @staticmethod
     def registrar_intento(*, identifier, ip_address, user=None, successful):

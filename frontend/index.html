@@ -18,26 +18,11 @@
     <link rel="apple-touch-icon" href="/iconos/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Activos" />
-    <script>
-      (function () {
-        try {
-          var STORAGE_KEY = "admin.appearance.mode";
-          var mode = window.localStorage.getItem(STORAGE_KEY);
-          if (["light", "dark", "system"].indexOf(mode) === -1) mode = "system";
-          var resolved =
-            mode === "system"
-              ? window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light"
-              : mode;
-          document.documentElement.setAttribute("data-theme", resolved);
-          document.documentElement.setAttribute("data-bs-theme", resolved);
-        } catch (error) {
-          // Sin localStorage/matchMedia disponible: se mantiene el modo
-          // claro por defecto (sin atributo), sin bloquear la carga.
-        }
-      })();
-    </script>
+    <!-- El tema claro/oscuro se decide antes de pintar: script clásico, sin
+         defer ni async. Está en public/ y no en línea para que la CSP del
+         sitio no necesite 'unsafe-inline' (auditoría de seguridad,
+         29/10/2026; ver public/tema-inicial.js). -->
+    <script src="/tema-inicial.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -25,6 +25,7 @@ como responsable y suplente (por su correo).
 import datetime
 import re
 import unicodedata
+import zipfile
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
@@ -270,12 +271,65 @@ class Fila:
         return f"{self.hoja}, fila {self.numero}"
 
 
+#: Límites del archivo (auditoría de seguridad, 29/10/2026). La matriz legal real
+#: pesa unos cientos de KB y tiene unos cientos de filas: lo que pase de esto es
+#: un error o un archivo hecho para tumbar el servidor. Un .xlsx es un ZIP, y uno
+#: de pocos KB puede descomprimirse en gigas («zip bomb»), por eso se suma lo que
+#: declara cada entrada **antes** de abrirlo con openpyxl.
+MAX_BYTES = 10 * 1024 * 1024
+MAX_BYTES_DESCOMPRIMIDOS = 100 * 1024 * 1024
+MAX_FILAS = 2000
+FIRMA_XLSX = b"PK"
+
+
+def validar_archivo(archivo) -> None:
+    """Tamaño, firma de ZIP y tamaño descomprimido; `ValueError` con el motivo."""
+    megas = MAX_BYTES // (1024 * 1024)
+    tamano = getattr(archivo, "size", None)
+    if tamano is None:  # un BytesIO (las pruebas, o una llamada desde el shell)
+        tamano = archivo.seek(0, 2)
+    if tamano > MAX_BYTES:
+        raise ValueError(f"El archivo pesa más de {megas} MB. Revise que sea la matriz legal.")
+    archivo.seek(0)
+    cabecera = archivo.read(len(FIRMA_XLSX))
+    archivo.seek(0)
+    if cabecera != FIRMA_XLSX:
+        raise ValueError("El archivo no es un Excel .xlsx válido.")
+    try:
+        with zipfile.ZipFile(archivo) as zip_:
+            entradas = zip_.infolist()
+    except zipfile.BadZipFile as error:
+        raise ValueError("El archivo no es un Excel .xlsx válido.") from error
+    finally:
+        archivo.seek(0)
+    if sum(entrada.file_size for entrada in entradas) > MAX_BYTES_DESCOMPRIMIDOS:
+        raise ValueError(
+            "El contenido del Excel es demasiado grande para ser la matriz legal. "
+            "Revise que no tenga hojas o rangos de más."
+        )
+
+
+def _filas(hoja, desde: int):
+    """`(número, valores)` de cada fila desde `desde`, con un tope de filas con datos."""
+    con_datos = 0
+    for numero, valores in enumerate(hoja.iter_rows(min_row=desde, values_only=True), desde):
+        if any(v is not None for v in valores):
+            con_datos += 1
+            if con_datos > MAX_FILAS:
+                raise ValueError(
+                    f"La hoja «{hoja.title}» tiene más de {MAX_FILAS} filas. Revise el archivo."
+                )
+        yield numero, valores
+
+
 def _encabezados(hoja, buscar: str) -> tuple[int, dict]:
     """La fila de encabezados (la que tiene `buscar`) y columna por nombre."""
-    for fila in hoja.iter_rows(min_row=1, max_row=10):
-        nombres = {normal(c.value): i for i, c in enumerate(fila) if c.value is not None}
+    # El número sale de `enumerate` y no de la celda: en modo de solo lectura
+    # una celda vacía no sabe en qué fila está.
+    for numero, fila in enumerate(hoja.iter_rows(min_row=1, max_row=10, values_only=True), 1):
+        nombres = {normal(v): i for i, v in enumerate(fila) if v is not None}
         if buscar in nombres:
-            return fila[0].row, nombres
+            return numero, nombres
     raise ValueError(f"La hoja «{hoja.title}» no tiene la columna «{buscar}».")
 
 
@@ -283,7 +337,16 @@ def leer(archivo) -> tuple[list[Fila], list[str]]:
     """Las filas del archivo, ya limpias, y los avisos de la lectura."""
     import openpyxl
 
-    libro = openpyxl.load_workbook(archivo, data_only=True, read_only=False)
+    validar_archivo(archivo)
+    # Solo lectura: openpyxl recorre la hoja sin cargarla entera en memoria.
+    libro = openpyxl.load_workbook(archivo, data_only=True, read_only=True)
+    try:
+        return _leer_libro(libro)
+    finally:
+        libro.close()
+
+
+def _leer_libro(libro) -> tuple[list[Fila], list[str]]:
     hojas = {normal(h.title): h for h in libro.worksheets}
     if "consolidado" not in hojas:
         raise ValueError("El archivo no tiene la hoja «CONSOLIDADO».")
@@ -295,7 +358,7 @@ def leer(archivo) -> tuple[list[Fila], list[str]]:
     if "arriendos" in hojas:
         hoja = hojas["arriendos"]
         inicio, col = _encabezados(hoja, "regional")
-        for fila in hoja.iter_rows(min_row=inicio + 1, values_only=True):
+        for _numero, fila in _filas(hoja, inicio + 1):
             regional = limpiar(fila[col["regional"]]) if "regional" in col else None
             if not regional:
                 continue
@@ -317,9 +380,7 @@ def leer(archivo) -> tuple[list[Fila], list[str]]:
         i = col.get(nombre)
         return valores[i] if i is not None and i < len(valores) else None
 
-    for numero, valores in enumerate(
-        hoja.iter_rows(min_row=inicio + 1, values_only=True), inicio + 1
-    ):
+    for numero, valores in _filas(hoja, inicio + 1):
         concepto = limpiar(celda(valores, "concepto"))
         if not concepto:
             continue
@@ -384,9 +445,7 @@ def leer(archivo) -> tuple[list[Fila], list[str]]:
     if "contabilidad" in hojas:
         hoja = hojas["contabilidad"]
         inicio, col = _encabezados(hoja, "documento")
-        for numero, valores in enumerate(
-            hoja.iter_rows(min_row=inicio + 1, values_only=True), inicio + 1
-        ):
+        for numero, valores in _filas(hoja, inicio + 1):
             documento = limpiar(valores[col["documento"]])
             if not documento:
                 continue

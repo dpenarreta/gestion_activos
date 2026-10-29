@@ -1,5 +1,6 @@
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.permissions import IsAdminUser
 
 from apps.branding.views import CurrentThemeView
 from apps.core.correo_views import CorreoDelSistemaView, PruebaDeCorreoView
@@ -14,13 +15,19 @@ from apps.core.version_views import version_info
 urlpatterns = [
     path("health/", include("apps.core.health.urls")),
     path("version/", version_info, name="version-info"),
-    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    # El esquema y su documentación, solo para el personal (`is_staff`); antes
+    # eran públicos (auditoría de seguridad, 29/10/2026).
+    path("schema/", SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name="schema"),
     path(
         "schema/swagger-ui/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
+        SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAdminUser]),
         name="schema-swagger-ui",
     ),
-    path("schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="schema-redoc"),
+    path(
+        "schema/redoc/",
+        SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAdminUser]),
+        name="schema-redoc",
+    ),
     # --- Autenticación (login, refresh, sesiones, restablecimiento propio) ---
     path("auth/", include("apps.authentication.urls")),
     # --- Administración de usuarios ---

@@ -281,6 +281,12 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Cuántos proxies de confianza hay delante de Django. En producción, uno:
+    # IIS con ARR, que agrega a X-Forwarded-For la IP de quien se le conectó.
+    # Con esto DRF (throttling) y `apps.core.request_meta.get_client_ip`
+    # (auditoría, bloqueo del login) toman esa IP y no la que el cliente quiera
+    # escribir en la cabecera (auditoría de seguridad, 29/10/2026).
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=1),
     # Deliberadamente sin `DEFAULT_PAGINATION_CLASS` global: cada listado
     # decide si pagina (ver `apps.users.pagination.UserAdminPagination` y
     # `pagination_class` explícito en `AuditLogViewSet`) — `RoleViewSet`
@@ -331,6 +337,10 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API del backend, versionada bajo /api/v1/.",
     "VERSION": APP_VERSION,
     "SERVE_PUBLIC": True,
+    # El esquema describe cada endpoint de la API: es un mapa para quien la
+    # quiera atacar. Solo para el personal (`is_staff`), no para cualquiera
+    # (auditoría de seguridad, 29/10/2026).
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVERS": [{"url": PUBLIC_API_URL}],
     "SCHEMA_PATH_PREFIX": "/api/v1/",
 }
@@ -370,6 +380,11 @@ SESSION_ACTIVITY_WRITE_EVERY = timedelta(
 # --- Protección contra fuerza bruta en el login ---
 LOGIN_MAX_FAILED_ATTEMPTS = env.int("LOGIN_MAX_FAILED_ATTEMPTS", default=5)
 LOGIN_LOCKOUT_MINUTES = env.int("LOGIN_LOCKOUT_MINUTES", default=15)
+# El bloqueo de arriba es por identificador **y IP**: así nadie bloquea la
+# cuenta de otro desde su equipo. Este, más alto, cuenta los fallos de todas
+# las IP juntas y frena el ataque repartido entre muchas (auditoría de
+# seguridad, 29/10/2026).
+LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL = env.int("LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL", default=20)
 
 # --- Recuperación de contraseña ---
 PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES = env.int(
@@ -465,6 +480,12 @@ EXTERNAL_DB_USER = env.str("EXTERNAL_DB_USER", default="")
 EXTERNAL_DB_PASSWORD = env.str("EXTERNAL_DB_PASSWORD", default="")
 EXTERNAL_DB_ENCRYPT = env.str("EXTERNAL_DB_ENCRYPT", default="yes")
 EXTERNAL_DB_TRUST_SERVER_CERTIFICATE = env.str("EXTERNAL_DB_TRUST_SERVER_CERTIFICATE", default="no")
+# Lista blanca de vistas/procedimientos que se pueden consultar en esa base,
+# separados por comas (sin distinguir mayúsculas; «dbo.» es opcional). Vacía =
+# se acepta cualquier vista o procedimiento propio, nunca uno del sistema, y
+# los que empiezan por «sp_» solo si están aquí (auditoría de seguridad,
+# 29/10/2026; ver apps/cartera/services/db_source.py::validar_nombre_fuente).
+EXTERNAL_DB_OBJETOS_PERMITIDOS = env.list("EXTERNAL_DB_OBJETOS_PERMITIDOS", default=[])
 
 # Una sola empresa (23/10/2026; ver apps.empresas.una_sola): no se crean otras y
 # toda cuenta nueva entra a la única. True vuelve a permitir varias.

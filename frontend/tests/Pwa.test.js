@@ -163,6 +163,16 @@ describe("El manifiesto", () => {
     expect(destinos).toContain("/admin/mis-equipos");
   });
 
+  it("el documento no lleva scripts en línea", () => {
+    /* La CSP del sitio no admite 'unsafe-inline' en scripts (auditoría de
+       seguridad, 29/10/2026). El tema inicial va en un archivo de public/, y
+       sin defer ni async: tiene que correr antes de pintar. */
+    const html = leer("index.html");
+    expect(html).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+    expect(html).toMatch(/<script src="\/tema-inicial\.js"><\/script>/);
+    expect(leer("public/tema-inicial.js")).toContain("admin.appearance.mode");
+  });
+
   it("el documento lo enlaza, junto al color de la barra", () => {
     const html = leer("index.html");
     expect(html).toContain('rel="manifest"');
@@ -221,7 +231,21 @@ describe("La página de sin conexión", () => {
        hay red: una hoja de estilos o una tipografía externa la dejarían en
        blanco. */
     expect(html).not.toMatch(/<link[^>]+rel="stylesheet"/);
-    expect(html).not.toMatch(/<script[^>]+src=/);
+    /* Su único script es propio y el service worker lo guarda con la página:
+       sale de la caché igual que ella (auditoría de seguridad, 29/10/2026). */
+    const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(
+      (coincidencia) => coincidencia[1],
+    );
+    expect(scripts).toEqual(["/sin-conexion.js"]);
+    expect(leer("public/sw.js")).toContain('"/sin-conexion.js"');
+  });
+
+  it("no lleva scripts en línea ni manejadores onclick", () => {
+    /* La CSP del sitio (deploy/iis/web.config) no admite 'unsafe-inline' en
+       scripts: lo escrito en la página no se ejecutaría y el botón no haría
+       nada justo cuando hace falta. */
+    expect(html).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+    expect(html).not.toMatch(/\son[a-z]+=/i);
   });
 
   it("dice qué pasa y por qué no se enseña el inventario guardado", () => {
@@ -231,6 +255,8 @@ describe("La página de sin conexión", () => {
 
   it("vuelve sola en cuanto regresa la red", () => {
     /* Para no dejar a alguien pulsando un botón en un pasillo. */
-    expect(html).toMatch(/addEventListener\("online"/);
+    expect(leer("public/sin-conexion.js")).toMatch(
+      /addEventListener\("online"/,
+    );
   });
 });

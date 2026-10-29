@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { chatService } from "../../../api/chatService";
+import { blobDeImagen } from "../../../utils/blobs";
 import { formatearFecha } from "../../../utils/formato";
 import { descargarBlob } from "../../../utils/descargas";
 import { Icon } from "../../common/Icon/Icon";
@@ -26,12 +27,17 @@ function Imagen({ archivo }) {
     chatService
       .archivo(archivo.url)
       .then((blob) => {
-        creada = URL.createObjectURL(blob);
+        // Con un tipo de imagen de la lista y no el de la respuesta: «Abrir
+        // imagen en otra pestaña» no debe poder abrir una página (auditoría de
+        // seguridad, 29/10/2026).
+        const imagen = blobDeImagen(blob, archivo.nombre);
+        if (!imagen) return setUrl(null);
+        creada = URL.createObjectURL(imagen);
         setUrl(creada);
       })
       .catch(() => setUrl(null));
     return () => creada && URL.revokeObjectURL(creada);
-  }, [archivo.url]);
+  }, [archivo.url, archivo.nombre]);
   return url ? (
     <img className="chat-imagen" src={url} alt={archivo.nombre} />
   ) : (

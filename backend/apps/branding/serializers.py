@@ -7,6 +7,7 @@ from .validators import (
     validate_font_size,
     validate_font_slug,
     validate_hex_color,
+    validate_imagen_url,
 )
 
 
@@ -67,6 +68,12 @@ class SiteThemeSerializer(serializers.ModelSerializer):
 
     def get_border_radius_css(self, obj: SiteTheme) -> str:
         return ALLOWED_BORDER_RADII[obj.border_radius]["value"]
+
+    def validate_logo_url(self, value):
+        return validate_imagen_url(value)
+
+    def validate_favicon_url(self, value):
+        return validate_imagen_url(value)
 
     def validate_color_primary(self, value):
         return validate_hex_color(value)

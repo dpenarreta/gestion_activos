@@ -3,11 +3,30 @@ entre apps (autenticación, auditoría, etc.)."""
 
 
 def get_client_ip(request) -> str | None:
-    """Prioriza X-Forwarded-For (seteado por un proxy/gateway) sobre REMOTE_ADDR."""
+    """La IP del cliente según los proxies de confianza (`NUM_PROXIES`).
+
+    X-Forwarded-For lo puede mandar cualquiera, así que su primer valor es lo
+    que el cliente quiso poner: tomarlo dejaba falsificar la IP de la auditoría
+    y saltarse el bloqueo por IP del inicio de sesión. Cada proxy **agrega** al
+    final la dirección de quien se le conectó; con `NUM_PROXIES` proxies
+    delante (en producción, uno: IIS con ARR) la buena es la que agregó el más
+    externo, la N-ésima contando desde el final. Es el mismo criterio que usa
+    DRF para el throttling, así que la IP de la auditoría y la del límite de
+    peticiones coinciden (auditoría de seguridad, 29/10/2026).
+
+    Sin cabecera, o con `NUM_PROXIES=0`, vale REMOTE_ADDR.
+    """
+    from rest_framework.settings import api_settings
+
+    remote_addr = request.META.get("REMOTE_ADDR")
+    num_proxies = api_settings.NUM_PROXIES
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+    if not forwarded_for or not num_proxies:
+        return remote_addr
+    direcciones = [d.strip() for d in forwarded_for.split(",") if d.strip()]
+    if not direcciones:
+        return remote_addr
+    return direcciones[-min(num_proxies, len(direcciones))]
 
 
 def get_user_agent(request) -> str:

@@ -51,9 +51,15 @@ crear la base de datos (SQL Server no la crea sola):
 # Desde el host (o dentro del contenedor: docker exec <contenedor> /opt/mssql-tools18/bin/sqlcmd ...)
 sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE DATABASE gestion_activos;"
 
-# Usuario de aplicación (evita que Django corra como 'sa')
-sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE LOGIN gestion_activos_user WITH PASSWORD = '<DB_PASSWORD>';"
-sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos -Q "CREATE USER gestion_activos_user FOR LOGIN gestion_activos_user; ALTER ROLE db_owner ADD MEMBER gestion_activos_user;"
+# Usuario de aplicación (evita que Django corra como 'sa'): lee, escribe y
+# ejecuta procedimientos; no cambia la estructura (ver «Inicios de sesión y
+# permisos» más abajo).
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE LOGIN gestion_activos_user WITH PASSWORD = '<password-seguro-local>';"
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos -Q "CREATE USER gestion_activos_user FOR LOGIN gestion_activos_user; ALTER ROLE db_datareader ADD MEMBER gestion_activos_user; ALTER ROLE db_datawriter ADD MEMBER gestion_activos_user; GRANT EXECUTE TO gestion_activos_user;"
+
+# Login de migraciones: el único que cambia la estructura de la base.
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -Q "CREATE LOGIN ga_migraciones WITH PASSWORD = '<otra-password-segura-local>';"
+sqlcmd -S localhost,1433 -U sa -P "<DB_PASSWORD>" -C -d gestion_activos -Q "CREATE USER ga_migraciones FOR LOGIN ga_migraciones; ALTER ROLE db_ddladmin ADD MEMBER ga_migraciones; ALTER ROLE db_datareader ADD MEMBER ga_migraciones; ALTER ROLE db_datawriter ADD MEMBER ga_migraciones;"
 
 # Solo en desarrollo: pytest crea y destruye 'test_gestion_activos',
 # lo que exige permiso para crear bases. NO otorgar esto en producción.
@@ -66,14 +72,80 @@ Si el puerto 1433 del host ya está ocupado por otro proyecto, cambie
 
 ## Migraciones
 
-```bash
+El usuario de la aplicación no puede crear ni alterar tablas: las migraciones
+se aplican con `ga_migraciones`, pasándole sus credenciales solo a ese comando
+(las variables del proceso mandan sobre las de `backend/.env`). Es lo mismo que
+hace `scripts/deploy/deploy-from-workstation.ps1 -Migrar` en el servidor.
+
+```powershell
 cd backend
+$env:DB_USER = "ga_migraciones"; $env:DB_PASSWORD = "<password-de-ga_migraciones>"
 python manage.py migrate
+Remove-Item Env:\DB_USER, Env:\DB_PASSWORD
 ```
 
 Validado realmente (no solo por inspección) contra un contenedor
 `mcr.microsoft.com/mssql/server:2022-latest` real — ver
 `tests/qa/test-execution-report.md`, criterio AC-040.
+
+## Inicios de sesión y permisos
+
+Revisado en la auditoría de seguridad del 29/10/2026: la guía anterior hacía al
+usuario de la aplicación `db_owner`, con lo que un fallo en la aplicación (una
+inyección SQL, una consulta armada a mano) podía borrar tablas, cambiar
+permisos o leer cualquier cosa de la base. Ahora cada tarea tiene su login y
+cada login lo mínimo:
+
+| Login | Para qué | Permisos en la base |
+| --- | --- | --- |
+| Aplicación (`gestion_activos_user` en local, `ga_app` en el servidor) | El backend y sus tareas programadas | `db_datareader`, `db_datawriter`, `GRANT EXECUTE` |
+| `ga_migraciones` | Solo `manage.py migrate` | `db_ddladmin`, `db_datareader`, `db_datawriter` |
+| Respaldos | `manage.py respaldar` (`BACKUP DATABASE`) | `db_backupoperator` (más `db_datareader` para el manifiesto) |
+
+- **Ninguno es `db_owner`** ni `sysadmin`. Si alguna migración llegara a pedir
+  más (p. ej. cambiar permisos), se le da a `ga_migraciones` para ese
+  despliegue, nunca al de la aplicación.
+- **Respaldos.** `respaldar` usa la conexión de Django, así que corre con el
+  login que diga `DB_USER` en ese proceso. Lo recomendable es un login propio
+  con `db_backupoperator`, pasado solo a la tarea de respaldo como en las
+  migraciones. Si en cambio se le agrega `db_backupoperator` al de la
+  aplicación, téngase en cuenta que cualquier fallo de la aplicación podría
+  escribir `.bak` en el disco del servidor. La comprobación posterior
+  (`RESTORE VERIFYONLY`) pide, según la documentación de SQL Server, permiso
+  `CREATE DATABASE`: no se le da al login de la aplicación; si hace falta,
+  solo al de respaldos.
+- **`dbcreator` es solo de desarrollo**, para que pytest cree y borre su base
+  de pruebas (ver arriba). Nunca en el servidor.
+- Las claves van solo en el `.env` de cada máquina o en los archivos cifrados
+  de `%USERPROFILE%\.deploy`, nunca en el repositorio.
+
+### Base externa de solo lectura (dashboards)
+
+Los dashboards que leen otra base (`EXTERNAL_DB_*`, ver
+`backend/.env.example`) se conectan con un login propio que solo puede leer las
+vistas y ejecutar los procedimientos que se usan. Nada de `db_datareader` (lee
+todas las tablas) ni de `db_owner`:
+
+```sql
+-- En el servidor de la base externa, como administrador.
+CREATE LOGIN <login_dashboards> WITH PASSWORD = '<password-segura>';
+
+USE <base_externa>;
+CREATE USER <usuario_dashboards> FOR LOGIN <login_dashboards>;
+
+-- Una línea por cada objeto que de verdad se consulta.
+GRANT SELECT  ON OBJECT::dbo.<vista_usada>          TO <usuario_dashboards>;
+GRANT EXECUTE ON OBJECT::dbo.<procedimiento_usado>  TO <usuario_dashboards>;
+```
+
+- Por el encadenamiento de propiedad de SQL Server, una vista o un
+  procedimiento de `dbo` puede leer sus tablas de `dbo` sin que el usuario
+  tenga `SELECT` sobre ellas: no hace falta dar permiso sobre las tablas.
+- La misma lista de objetos va en `EXTERNAL_DB_OBJETOS_PERMITIDOS`: la
+  aplicación rechaza lo que no está ahí, y la base rechaza lo que no tiene
+  permiso. Son dos barreras; si una falla, queda la otra.
+- Al agregar un dashboard que use un objeto nuevo, hay que pedir el `GRANT`
+  correspondiente al DBA y añadirlo a la lista.
 
 ## Relaciones
 

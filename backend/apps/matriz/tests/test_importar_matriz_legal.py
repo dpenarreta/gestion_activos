@@ -441,3 +441,50 @@ def test_si_faltan_los_temas_se_crean(courier, gente):
     aplicado = cliente.post(URL, {"archivo": _archivo(), "aplicar": "true"})
     assert aplicado.data["aplicado"]["temas_nuevos"] == 2
     assert Area.objects.get(codigo="SEG").nombre == "Seguros y Pólizas"
+
+
+# --- Límites del archivo (auditoría de seguridad, 29/10/2026) ---------------------
+
+
+def _zip_con_entrada_enorme():
+    """Un .xlsx de pocos KB que se descomprime en más del máximo («zip bomb»)."""
+    import zipfile
+
+    salida = io.BytesIO()
+    with zipfile.ZipFile(salida, "w", zipfile.ZIP_DEFLATED) as zip_:
+        zip_.writestr("[Content_Types].xml", "<Types/>")
+        zip_.writestr("xl/worksheets/sheet1.xml", b"0" * (importacion.MAX_BYTES_DESCOMPRIMIDOS + 1))
+    return salida.getvalue()
+
+
+def test_un_xlsx_que_se_descomprime_de_mas_se_rechaza_sin_abrirlo(courier, gente, monkeypatch):
+    contenido = _zip_con_entrada_enorme()
+    assert len(contenido) < importacion.MAX_BYTES
+    abierto = []
+    monkeypatch.setattr(openpyxl, "load_workbook", lambda *a, **k: abierto.append(1))
+    archivo = SimpleUploadedFile("matriz.xlsx", contenido)
+    respuesta = _cliente(gente["admin"], courier).post(URL, {"archivo": archivo})
+    assert respuesta.status_code == 400
+    assert "demasiado grande" in str(respuesta.data)
+    assert abierto == []
+
+
+def test_un_archivo_de_mas_de_10_mb_se_rechaza(courier, gente):
+    archivo = SimpleUploadedFile("matriz.xlsx", b"PK\x03\x04" + b"0" * importacion.MAX_BYTES)
+    respuesta = _cliente(gente["admin"], courier).post(URL, {"archivo": archivo})
+    assert respuesta.status_code == 400
+    assert "10 MB" in str(respuesta.data)
+
+
+def test_un_archivo_que_no_es_zip_se_rechaza(courier, gente):
+    archivo = SimpleUploadedFile("matriz.xlsx", b"<html>no soy un excel</html>")
+    respuesta = _cliente(gente["admin"], courier).post(URL, {"archivo": archivo})
+    assert respuesta.status_code == 400
+    assert ".xlsx válido" in str(respuesta.data)
+
+
+def test_una_hoja_con_demasiadas_filas_se_rechaza(courier, gente, monkeypatch):
+    monkeypatch.setattr(importacion, "MAX_FILAS", 3)
+    respuesta = _cliente(gente["admin"], courier).post(URL, {"archivo": _archivo()})
+    assert respuesta.status_code == 400
+    assert "más de 3 filas" in str(respuesta.data)

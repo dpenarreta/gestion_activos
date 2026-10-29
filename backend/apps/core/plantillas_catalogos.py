@@ -18,6 +18,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from .catalogos_masivos import CatalogoMasivo
+from .hojas_de_calculo import neutralizar
 
 RELLENO_CABECERA = PatternFill("solid", fgColor="1F3864")
 RELLENO_OBLIGATORIA = PatternFill("solid", fgColor="7F1D1D")
@@ -43,7 +44,10 @@ def _hoja_datos(libro: Workbook, catalogo: CatalogoMasivo) -> None:
     existentes = Modelo.objects.filter(**catalogo.filtro_vigentes).order_by(*catalogo.orden)
     for numero_fila, objeto in enumerate(existentes, start=2):
         for indice, columna in enumerate(catalogo.columnas, start=1):
-            hoja.cell(row=numero_fila, column=indice, value=_valor(objeto, columna))
+            # Lo que ya está registrado lo escribió un usuario: un nombre que empiece
+            # por «=» se ejecutaría como fórmula al abrir el archivo (auditoría de
+            # seguridad, 29/10/2026).
+            hoja.cell(row=numero_fila, column=indice, value=neutralizar(_valor(objeto, columna)))
 
     hoja.freeze_panes = "A2"
 

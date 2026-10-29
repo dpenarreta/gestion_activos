@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { avisoInicioService } from "../../../api/avisoInicioService";
 import { useAuth } from "../../../hooks/useAuth";
 import { useModalA11y } from "../../../hooks/useModalA11y";
+import { blobDeImagen } from "../../../utils/blobs";
 import { Icon } from "../../common/Icon/Icon";
 import "./AvisoInicioSesion.css";
 
@@ -131,7 +132,11 @@ export function AvisoInicioSesion({ onTerminado }) {
     avisoInicioService
       .imagen()
       .then((blob) => {
-        url = URL.createObjectURL(blob);
+        // Solo con un tipo de imagen de la lista (auditoría de seguridad,
+        // 29/10/2026); si no, el aviso sale sin imagen.
+        const imagen = blobDeImagen(blob);
+        if (!imagen) return;
+        url = URL.createObjectURL(imagen);
         setImagenUrl(url);
       })
       .catch(() => null);

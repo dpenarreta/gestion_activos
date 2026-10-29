@@ -26,7 +26,7 @@ class ValidarNombreFuenteTests(TestCase):
         db_source.validar_nombre_fuente('mi_vista')  # no lanza
 
     def test_acepta_esquema_punto_objeto(self):
-        db_source.validar_nombre_fuente('dbo.sp_Reporte_Seguimiento_Cartera')  # no lanza
+        db_source.validar_nombre_fuente('dbo.rpt_Reporte_Seguimiento_Cartera')  # no lanza
 
     def test_rechaza_vacio(self):
         with self.assertRaises(CarteraError) as ctx:
@@ -45,6 +45,101 @@ class ValidarNombreFuenteTests(TestCase):
     def test_rechaza_mas_de_un_punto(self):
         with self.assertRaises(CarteraError):
             db_source.validar_nombre_fuente('base.dbo.vista')
+
+
+class ObjetosDeSistemaYListaBlancaTests(TestCase):
+    """Auditoría de seguridad, 29/10/2026: la regex de identificador no alcanzaba — dejaba
+    ejecutar `sp_executesql`, `xp_cmdshell` o leer `sys.sql_logins` en la base externa."""
+
+    def _codigo(self, nombre):
+        with self.assertRaises(CarteraError) as ctx:
+            db_source.validar_nombre_fuente(nombre)
+        return ctx.exception.codigo
+
+    def test_rechaza_procedimientos_y_vistas_del_sistema(self):
+        for nombre in (
+            'sp_executesql', 'dbo.sp_executesql', 'sys.sp_executesql', 'xp_cmdshell',
+            'dbo.xp_cmdshell', 'sys.sql_logins', 'SYS.objects', 'INFORMATION_SCHEMA.TABLES',
+            'master.sysobjects', 'msdb.backupset', 'tempdb.x', 'model.x', 'fn_my_permissions',
+            'dbo.dt_addtosourcecontrol',
+        ):
+            with self.subTest(nombre=nombre):
+                self.assertIn(self._codigo(nombre), {'FUENTE_BD_OBJETO_DE_SISTEMA', 'FUENTE_BD_OBJETO_NO_PERMITIDO'})
+
+    def test_rechaza_nombres_de_tres_partes(self):
+        self.assertEqual(self._codigo('otra_base.dbo.x'), 'FUENTE_BD_NOMBRE_INVALIDO')
+
+    def test_rechaza_salto_de_linea_al_final(self):
+        self.assertEqual(self._codigo('mi_vista\n'), 'FUENTE_BD_NOMBRE_INVALIDO')
+
+    def test_acepta_una_vista_normal(self):
+        db_source.validar_nombre_fuente('dbo.vw_cartera_vencida')  # no lanza
+        db_source.validar_nombre_fuente('reportes.vw_cartera')  # no lanza
+
+    def test_un_procedimiento_sp_propio_sin_lista_blanca_se_rechaza(self):
+        self.assertEqual(self._codigo('dbo.sp_Reporte_Seguimiento_Cartera'), 'FUENTE_BD_OBJETO_NO_PERMITIDO')
+
+    @override_settings(EXTERNAL_DB_OBJETOS_PERMITIDOS=['dbo.sp_Reporte_Seguimiento_Cartera'])
+    def test_un_procedimiento_sp_propio_en_la_lista_blanca_se_acepta(self):
+        db_source.validar_nombre_fuente('dbo.sp_Reporte_Seguimiento_Cartera')  # no lanza
+        # Sin mayúsculas y con o sin «dbo.».
+        db_source.validar_nombre_fuente('SP_REPORTE_SEGUIMIENTO_CARTERA')  # no lanza
+
+    @override_settings(EXTERNAL_DB_OBJETOS_PERMITIDOS=['sp_executesql', 'xp_cmdshell', 'sys.sql_logins'])
+    def test_la_lista_blanca_no_habilita_objetos_del_sistema(self):
+        for nombre in ('sp_executesql', 'xp_cmdshell', 'sys.sql_logins'):
+            with self.subTest(nombre=nombre):
+                self.assertEqual(self._codigo(nombre), 'FUENTE_BD_OBJETO_DE_SISTEMA')
+
+    @override_settings(EXTERNAL_DB_OBJETOS_PERMITIDOS=['vw_cartera', 'reportes.vw_otra'])
+    def test_con_lista_blanca_solo_se_acepta_lo_que_esta(self):
+        db_source.validar_nombre_fuente('dbo.vw_cartera')  # no lanza
+        db_source.validar_nombre_fuente('VW_CARTERA')  # no lanza
+        db_source.validar_nombre_fuente('reportes.vw_otra')  # no lanza
+        self.assertEqual(self._codigo('dbo.vw_no_listada'), 'FUENTE_BD_OBJETO_NO_PERMITIDO')
+        # Otro esquema no es el mismo objeto.
+        self.assertEqual(self._codigo('reportes.vw_cartera'), 'FUENTE_BD_OBJETO_NO_PERMITIDO')
+
+    @override_settings(EXTERNAL_DB_OBJETOS_PERMITIDOS=[])
+    def test_lista_blanca_vacia_aplica_solo_las_reglas_fijas(self):
+        db_source.validar_nombre_fuente('dbo.cualquier_vista')  # no lanza
+        self.assertEqual(self._codigo('xp_cmdshell'), 'FUENTE_BD_OBJETO_DE_SISTEMA')
+
+    @mock.patch('apps.cartera.services.db_source.pyodbc.connect')
+    def test_leer_fuente_no_conecta_si_el_objeto_es_del_sistema(self, connect_mock):
+        with self.assertRaises(CarteraError):
+            db_source.leer_fuente('procedimiento', 'sp_executesql', {'stmt': 'SELECT 1'})
+        connect_mock.assert_not_called()
+
+    def test_configurar_un_dashboard_con_objeto_del_sistema_se_rechaza(self):
+        dashboard = crear_dashboard(nombre='Cobranza')
+        with self.assertRaises(CarteraError) as ctx:
+            actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='xp_cmdshell')
+        self.assertEqual(ctx.exception.codigo, 'FUENTE_BD_OBJETO_DE_SISTEMA')
+        dashboard.refresh_from_db()
+        self.assertEqual(dashboard.fuente_bd_nombre, '')
+
+
+class CadenaDeConexionTests(TestCase):
+    """Auditoría de seguridad, 29/10/2026: cada valor va entre llaves y con `}` escrita `}}`, así
+    un `;` en la contraseña no agrega atributos a la conexión."""
+
+    @override_settings(
+        DB_ODBC_DRIVER='ODBC Driver 17 for SQL Server', EXTERNAL_DB_HOST='10.0.0.5', EXTERNAL_DB_PORT='1433',
+        EXTERNAL_DB_NAME='Origen', EXTERNAL_DB_USER='lector', EXTERNAL_DB_PASSWORD='a;Trusted_Connection=yes}x',
+        EXTERNAL_DB_ENCRYPT='yes', EXTERNAL_DB_TRUST_SERVER_CERTIFICATE='no',
+    )
+    def test_envuelve_y_escapa_cada_valor(self):
+        self.assertEqual(
+            db_source.cadena_de_conexion(),
+            'DRIVER={ODBC Driver 17 for SQL Server};SERVER={10.0.0.5,1433};DATABASE={Origen};'
+            'UID={lector};PWD={a;Trusted_Connection=yes}}x};Encrypt={yes};TrustServerCertificate={no};',
+        )
+
+    def test_valor_odbc(self):
+        self.assertEqual(db_source._valor_odbc('abc'), '{abc}')
+        self.assertEqual(db_source._valor_odbc('a}b'), '{a}}b}')
+        self.assertEqual(db_source._valor_odbc(''), '{}')
 
 
 class ValidarNombreParametroTests(TestCase):
@@ -103,10 +198,10 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0, 2.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_Reporte_Seguimiento_Cartera')
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_Reporte_Seguimiento_Cartera')
 
         consulta = read_sql_mock.call_args[0][0]
-        self.assertEqual(consulta, 'EXEC dbo.sp_Reporte_Seguimiento_Cartera')
+        self.assertEqual(consulta, 'EXEC dbo.rpt_Reporte_Seguimiento_Cartera')
 
     @mock.patch('apps.cartera.services.db_source.pd.read_sql')
     @mock.patch('apps.cartera.services.db_source.pyodbc.connect')
@@ -114,10 +209,10 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0, 2.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_Reporte_Seguimiento_Cartera', {'FechaCorte': '2026-07-31'})
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_Reporte_Seguimiento_Cartera', {'FechaCorte': '2026-07-31'})
 
         args, kwargs = read_sql_mock.call_args
-        self.assertEqual(args[0], 'EXEC dbo.sp_Reporte_Seguimiento_Cartera @FechaCorte = ?')
+        self.assertEqual(args[0], 'EXEC dbo.rpt_Reporte_Seguimiento_Cartera @FechaCorte = ?')
         self.assertEqual(kwargs['params'], ['2026-07-31'])
 
     @mock.patch('apps.cartera.services.db_source.pd.read_sql')
@@ -137,15 +232,15 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_x', {'A': '1', 'B': '2'})
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_x', {'A': '1', 'B': '2'})
 
         args, kwargs = read_sql_mock.call_args
-        self.assertEqual(args[0], 'EXEC dbo.sp_x @A = ?, @B = ?')
+        self.assertEqual(args[0], 'EXEC dbo.rpt_x @A = ?, @B = ?')
         self.assertEqual(kwargs['params'], ['1', '2'])
 
     def test_nombre_de_parametro_invalido_lanza_error_de_negocio(self):
         with self.assertRaises(CarteraError) as ctx:
-            db_source.leer_fuente('procedimiento', 'dbo.sp_x', {'A; DROP TABLE x--': '1'})
+            db_source.leer_fuente('procedimiento', 'dbo.rpt_x', {'A; DROP TABLE x--': '1'})
         self.assertEqual(ctx.exception.codigo, 'FUENTE_BD_PARAMETRO_INVALIDO')
 
     @mock.patch('apps.cartera.services.db_source.pd.read_sql')
@@ -154,7 +249,7 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_x', {'FechaCorte': '2026-07-31'})
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_x', {'FechaCorte': '2026-07-31'})
 
         self.assertEqual(read_sql_mock.call_args.kwargs['params'], ['2026-07-31'])
 
@@ -164,7 +259,7 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_x', {'FechaCorte': '2026-07-31'}, fecha_formato='DD/MM/YYYY')
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_x', {'FechaCorte': '2026-07-31'}, fecha_formato='DD/MM/YYYY')
 
         self.assertEqual(read_sql_mock.call_args.kwargs['params'], ['31/07/2026'])
 
@@ -175,7 +270,7 @@ class LeerFuenteServiceTests(TestCase):
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0]})
 
         db_source.leer_fuente(
-            'procedimiento', 'dbo.sp_x', {'FechaCorte': '2026-07-31', 'Zona': 'Norte'}, fecha_formato='DD/MM/YYYY',
+            'procedimiento', 'dbo.rpt_x', {'FechaCorte': '2026-07-31', 'Zona': 'Norte'}, fecha_formato='DD/MM/YYYY',
         )
 
         self.assertEqual(read_sql_mock.call_args.kwargs['params'], ['31/07/2026', 'Norte'])
@@ -189,10 +284,10 @@ class LeerFuenteServiceTests(TestCase):
         import pandas as pd
         read_sql_mock.return_value = pd.DataFrame({'Saldo': [1.0]})
 
-        db_source.leer_fuente('procedimiento', 'dbo.sp_x', {'Fecha': '2026-07-31'}, fecha_formato='DD/MM/YYYY')
+        db_source.leer_fuente('procedimiento', 'dbo.rpt_x', {'Fecha': '2026-07-31'}, fecha_formato='DD/MM/YYYY')
 
         args, kwargs = read_sql_mock.call_args
-        self.assertEqual(args[0], 'EXEC dbo.sp_x @Fecha = ?')
+        self.assertEqual(args[0], 'EXEC dbo.rpt_x @Fecha = ?')
         self.assertEqual(kwargs['params'], ['31/07/2026'])
 
 
@@ -303,19 +398,19 @@ class FechaCorteDeParametrosTests(TestCase):
 class ActualizarFuenteBDServiceTests(TestCase):
     def test_configura_tipo_y_nombre(self):
         dashboard = crear_dashboard(nombre='Cobranza')
-        resultado = actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte')
+        resultado = actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte')
         self.assertEqual(resultado, {
-            'tipo': 'procedimiento', 'nombre': 'dbo.sp_Reporte', 'parametros': {},
+            'tipo': 'procedimiento', 'nombre': 'dbo.rpt_Reporte', 'parametros': {},
             'fecha_formato': 'YYYY-MM-DD', 'frecuencia_actualizacion': '',
         })
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_tipo, 'procedimiento')
-        self.assertEqual(dashboard.fuente_bd_nombre, 'dbo.sp_Reporte')
+        self.assertEqual(dashboard.fuente_bd_nombre, 'dbo.rpt_Reporte')
 
     def test_configura_parametros_para_un_procedimiento(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         resultado = actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte',
             parametros={'FechaCorte': '2026-07-31'},
         )
         self.assertEqual(resultado['parametros'], {'FechaCorte': '2026-07-31'})
@@ -327,7 +422,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
         "FechaCorte" se guarda y se lee tal cual, sin normalizarlo a un nombre fijo."""
         dashboard = crear_dashboard(nombre='Cobranza')
         resultado = actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte',
             parametros={'Fecha': '2026-07-31'},
         )
         self.assertEqual(resultado['parametros'], {'Fecha': '2026-07-31'})
@@ -345,7 +440,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
         dashboard = crear_dashboard(nombre='Cobranza')
         with self.assertRaises(CarteraError) as ctx:
             actualizar_fuente_bd(
-                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x',
+                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x',
                 parametros={'Fecha Corte': '2026-07-31'},
             )
         self.assertEqual(ctx.exception.codigo, 'FUENTE_BD_PARAMETRO_INVALIDO')
@@ -353,16 +448,16 @@ class ActualizarFuenteBDServiceTests(TestCase):
     def test_reconfigurar_sin_parametros_los_borra(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', parametros={'FechaCorte': '2026-07-31'},
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', parametros={'FechaCorte': '2026-07-31'},
         )
-        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x')
+        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x')
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_parametros, {})
 
     def test_configura_fecha_formato_para_un_procedimiento(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         resultado = actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte', fecha_formato='DD/MM/YYYY',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte', fecha_formato='DD/MM/YYYY',
         )
         self.assertEqual(resultado['fecha_formato'], 'DD/MM/YYYY')
         dashboard.refresh_from_db()
@@ -370,7 +465,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
 
     def test_sin_fecha_formato_elegido_cae_a_iso_por_defecto(self):
         dashboard = crear_dashboard(nombre='Cobranza')
-        resultado = actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte')
+        resultado = actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte')
         self.assertEqual(resultado['fecha_formato'], 'YYYY-MM-DD')
 
     def test_fecha_formato_se_ignora_para_tipo_vista(self):
@@ -384,7 +479,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
         dashboard = crear_dashboard(nombre='Cobranza')
         with self.assertRaises(CarteraError) as ctx:
             actualizar_fuente_bd(
-                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', fecha_formato='ALGO_INVENTADO',
+                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', fecha_formato='ALGO_INVENTADO',
             )
         self.assertEqual(ctx.exception.codigo, 'FUENTE_BD_FECHA_FORMATO_INVALIDO')
 
@@ -423,7 +518,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
     def test_configura_frecuencia_semanal_y_ancla_la_fecha_de_configuracion_a_hoy(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         resultado = actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='semanal',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='semanal',
         )
         self.assertEqual(resultado['frecuencia_actualizacion'], 'semanal')
         dashboard.refresh_from_db()
@@ -433,7 +528,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
     def test_reconectar_sin_cambiar_la_frecuencia_no_mueve_la_ancla(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='mensual',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='mensual',
         )
         dashboard.refresh_from_db()
         ancla_original = dashboard.fuente_bd_fecha_configuracion
@@ -442,7 +537,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
         )
 
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='mensual',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='mensual',
         )
 
         dashboard.refresh_from_db()
@@ -451,14 +546,14 @@ class ActualizarFuenteBDServiceTests(TestCase):
     def test_cambiar_de_semanal_a_mensual_mueve_la_ancla_a_hoy(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='semanal',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='semanal',
         )
         Dashboard.objects.filter(dashboard_id=dashboard.dashboard_id).update(
             fuente_bd_fecha_configuracion=timezone.now().date() - timezone.timedelta(days=30),
         )
 
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='mensual',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='mensual',
         )
 
         dashboard.refresh_from_db()
@@ -467,9 +562,9 @@ class ActualizarFuenteBDServiceTests(TestCase):
     def test_desactivar_la_frecuencia_borra_la_ancla(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='semanal',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='semanal',
         )
-        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='')
+        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='')
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_frecuencia_actualizacion, '')
         self.assertIsNone(dashboard.fuente_bd_fecha_configuracion)
@@ -478,7 +573,7 @@ class ActualizarFuenteBDServiceTests(TestCase):
         dashboard = crear_dashboard(nombre='Cobranza')
         with self.assertRaises(CarteraError) as ctx:
             actualizar_fuente_bd(
-                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='diaria',
+                dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='diaria',
             )
         self.assertEqual(ctx.exception.codigo, 'FUENTE_BD_FRECUENCIA_INVALIDA')
 
@@ -566,13 +661,13 @@ class DashboardFuenteBDViewTests(TestCase):
 
     def test_get_devuelve_la_configuracion_actual(self):
         dashboard = crear_dashboard(nombre='Ventas')
-        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', parametros={'FechaCorte': '2026-07-31'})
+        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', parametros={'FechaCorte': '2026-07-31'})
         usuario = self._usuario_con('dashboard.view', username='con_vista')
         self.client.force_authenticate(user=usuario)
         resp = self.client.get(f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {
-            'tipo': 'procedimiento', 'nombre': 'dbo.sp_x', 'parametros': {'FechaCorte': '2026-07-31'},
+            'tipo': 'procedimiento', 'nombre': 'dbo.rpt_x', 'parametros': {'FechaCorte': '2026-07-31'},
             'fecha_formato': 'YYYY-MM-DD', 'frecuencia_actualizacion': '', 'dia_configuracion_mensual': None,
             'ultima_actualizacion': None, 'proxima_actualizacion': None,
         })
@@ -589,15 +684,15 @@ class DashboardFuenteBDViewTests(TestCase):
         usuario = self._usuario_con('dashboard.fuente_bd.configurar', username='con_editar')
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
-            f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd', {'tipo': 'procedimiento', 'nombre': 'dbo.sp_y'}, format='json',
+            f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd', {'tipo': 'procedimiento', 'nombre': 'dbo.rpt_y'}, format='json',
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), {
-            'tipo': 'procedimiento', 'nombre': 'dbo.sp_y', 'parametros': {},
+            'tipo': 'procedimiento', 'nombre': 'dbo.rpt_y', 'parametros': {},
             'fecha_formato': 'YYYY-MM-DD', 'frecuencia_actualizacion': '',
         })
         dashboard.refresh_from_db()
-        self.assertEqual(dashboard.fuente_bd_nombre, 'dbo.sp_y')
+        self.assertEqual(dashboard.fuente_bd_nombre, 'dbo.rpt_y')
 
     def test_put_con_parametros_los_guarda(self):
         dashboard = crear_dashboard(nombre='Ventas')
@@ -605,7 +700,7 @@ class DashboardFuenteBDViewTests(TestCase):
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd',
-            {'tipo': 'procedimiento', 'nombre': 'dbo.sp_y', 'parametros': {'FechaCorte': '2026-07-31'}},
+            {'tipo': 'procedimiento', 'nombre': 'dbo.rpt_y', 'parametros': {'FechaCorte': '2026-07-31'}},
             format='json',
         )
         self.assertEqual(resp.status_code, 200)
@@ -619,7 +714,7 @@ class DashboardFuenteBDViewTests(TestCase):
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd',
-            {'tipo': 'procedimiento', 'nombre': 'dbo.sp_y', 'fecha_formato': 'DD/MM/YYYY'},
+            {'tipo': 'procedimiento', 'nombre': 'dbo.rpt_y', 'fecha_formato': 'DD/MM/YYYY'},
             format='json',
         )
         self.assertEqual(resp.status_code, 200)
@@ -671,7 +766,7 @@ class ConectarFuenteBDViewTests(TestCase):
     def test_conecta_y_crea_una_carga_lista_para_el_asistente(self, leer_fuente_mock):
         import pandas as pd
         dashboard = crear_dashboard(nombre='Cobranza')
-        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte_Seguimiento_Cartera')
+        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte_Seguimiento_Cartera')
         leer_fuente_mock.return_value = pd.DataFrame({'Saldo': [100.0, 200.0], 'Cliente': ['A', 'B']})
 
         resp = self.client.post('/api/v1/cartera/conectar-fuente-bd', {'dashboard_id': dashboard.dashboard_id}, format='json')
@@ -681,9 +776,9 @@ class ConectarFuenteBDViewTests(TestCase):
         self.assertEqual(sorted(data['columnas_detectadas']), ['Cliente', 'Saldo'])
         self.assertEqual(data['total_filas_detectadas'], 2)
         self.assertEqual(data['hojas_disponibles'], ['Datos'])
-        self.assertIn('dbo.sp_Reporte_Seguimiento_Cartera', data['nombre_archivo'])
+        self.assertIn('dbo.rpt_Reporte_Seguimiento_Cartera', data['nombre_archivo'])
         leer_fuente_mock.assert_called_once_with(
-            'procedimiento', 'dbo.sp_Reporte_Seguimiento_Cartera', {}, fecha_formato='YYYY-MM-DD',
+            'procedimiento', 'dbo.rpt_Reporte_Seguimiento_Cartera', {}, fecha_formato='YYYY-MM-DD',
         )
 
         carga = CargaArchivo.objects.get(id=data['carga_id'])
@@ -696,7 +791,7 @@ class ConectarFuenteBDViewTests(TestCase):
         import pandas as pd
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte_Seguimiento_Cartera',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte_Seguimiento_Cartera',
             parametros={'FechaCorte': '2026-07-31'},
         )
         leer_fuente_mock.return_value = pd.DataFrame({'Saldo': [100.0]})
@@ -704,7 +799,7 @@ class ConectarFuenteBDViewTests(TestCase):
         self.client.post('/api/v1/cartera/conectar-fuente-bd', {'dashboard_id': dashboard.dashboard_id}, format='json')
 
         leer_fuente_mock.assert_called_once_with(
-            'procedimiento', 'dbo.sp_Reporte_Seguimiento_Cartera', {'FechaCorte': '2026-07-31'}, fecha_formato='YYYY-MM-DD',
+            'procedimiento', 'dbo.rpt_Reporte_Seguimiento_Cartera', {'FechaCorte': '2026-07-31'}, fecha_formato='YYYY-MM-DD',
         )
 
     @mock.patch('apps.cartera.views.db_source.leer_fuente')
@@ -717,7 +812,7 @@ class ConectarFuenteBDViewTests(TestCase):
         import pandas as pd
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte_Seguimiento_Cartera',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte_Seguimiento_Cartera',
             parametros={'FechaCorte': '2026-07-31'},
         )
         leer_fuente_mock.return_value = pd.DataFrame({'Saldo': [100.0]})
@@ -855,7 +950,7 @@ class ActualizarFuenteBDAhoraViewTests(TestCase):
 
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_cartera',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_cartera',
             parametros={'FechaCorte': '2026-09-30'},
         )
         mapeo = {'kpi-1': {'disponible': True, 'columna_valor': 'Saldo'}}
@@ -878,7 +973,7 @@ class ActualizarFuenteBDAhoraViewTests(TestCase):
     def test_fecha_corte_invalida_devuelve_400(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_cartera',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_cartera',
             parametros={'FechaCorte': '2026-09-30'},
         )
         resp = self.client.post(

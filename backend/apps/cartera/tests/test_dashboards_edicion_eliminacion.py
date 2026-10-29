@@ -172,7 +172,7 @@ class BorrarDatosDashboardServiceTests(TestCase):
     def test_borra_la_fuente_de_base_de_datos_configurada(self):
         dashboard = crear_dashboard(nombre='Comercial')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x',
             parametros={'FechaCorte': '2026-07-31'}, frecuencia_actualizacion='semanal',
         )
 

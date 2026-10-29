@@ -59,15 +59,22 @@ def seguridad():
 
 
 @pytest.fixture
-def jefa(courier):
+def jefa(courier, seguridad):
     """Quien administra pertenece a la empresa que administra.
 
     No es un detalle del montaje: una cuenta sin ninguna empresa no ve nada —ni
     siquiera a los usuarios— desde que existe la segunda, y administrar accesos
     desde fuera de toda empresa sería exactamente lo que la separación impide.
+
+    Trabaja en las dos y tiene los permisos de los roles que reparte: nadie da
+    acceso a una empresa ajena ni un rol con permisos que no tiene (auditoría
+    de seguridad, 29/10/2026).
     """
-    usuario = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar")
+    usuario = _cuenta(
+        "jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", "activos.ver", "activos.crear"
+    )
     MembresiaEmpresa.objects.create(usuario=usuario, empresa=courier, es_predeterminada=True)
+    MembresiaEmpresa.objects.create(usuario=usuario, empresa=seguridad)
     return usuario
 
 
@@ -229,7 +236,12 @@ def _crear(jefa, nombre, cuerpo):
 
 def test_el_alta_deja_al_usuario_dentro_de_su_empresa_con_su_rol(courier, seguridad):
     """Una cuenta sin empresa ni rol no puede hacer nada: se crea usable."""
-    jefa = _cuenta("jefa", "usuarios.ver", "usuarios.crear", "empresas.ver", "empresas.asignar")
+    jefa = _cuenta(
+        "jefa", "usuarios.ver", "usuarios.crear", "empresas.ver", "empresas.asignar", "activos.ver"
+    )
+    # Da acceso a su empresa y un rol con permisos que tiene (auditoría de
+    # seguridad, 29/10/2026).
+    MembresiaEmpresa.objects.create(usuario=jefa, empresa=courier, es_predeterminada=True)
     soporte = _rol("Soporte TI", "activos.ver")
 
     respuesta = _crear(

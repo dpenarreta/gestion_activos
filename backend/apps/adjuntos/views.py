@@ -20,7 +20,7 @@ from apps.mantenimientos.models import Mantenimiento
 from .actas import ActaNoAplicable, generar_acta, nombre_de_archivo
 from .models import Adjunto
 from .permissions import AdjuntosPermission
-from .validators import validar_archivo
+from .validators import tipo_por_extension, validar_archivo
 
 MODULO = "adjuntos"
 
@@ -53,11 +53,11 @@ class AdjuntoSerializer(serializers.ModelSerializer):
 
 class AdjuntoCreateSerializer(serializers.Serializer):
     activo = RelacionDeEmpresa(Activo)
-    # El mantenimiento no lleva empresa propia: la hereda de su activo, y ese
-    # sí está acotado.
-    mantenimiento = serializers.PrimaryKeyRelatedField(
-        queryset=Mantenimiento.objects.all(), required=False, allow_null=True
-    )
+    # El mantenimiento no lleva empresa propia: la hereda de su activo. La
+    # consulta se arma en cada petición (`RelacionDeEmpresa`) y no al importar
+    # el módulo, así solo se aceptan los de la empresa activa (auditoría de
+    # seguridad, 29/10/2026).
+    mantenimiento = RelacionDeEmpresa(Mantenimiento, required=False, allow_null=True)
     tipo = serializers.ChoiceField(choices=Adjunto.Tipo.choices)
     archivo = serializers.FileField()
     descripcion = serializers.CharField(max_length=255, required=False, allow_blank=True)
@@ -121,7 +121,8 @@ class AdjuntoViewSet(viewsets.ModelViewSet):
             # archivo se almacena con un nombre generado (ver `ruta_adjunto`).
             nombre_original=archivo.name[:255],
             tamano_bytes=archivo.size,
-            content_type=(archivo.content_type or "")[:100],
+            # Por la extensión validada, no el que declara el navegador.
+            content_type=tipo_por_extension(archivo.name),
             descripcion=serializer.validated_data.get("descripcion", ""),
             subido_por=request.user,
         )
@@ -152,7 +153,9 @@ class AdjuntoViewSet(viewsets.ModelViewSet):
             fichero,
             as_attachment=True,
             filename=adjunto.nombre_original,
-            content_type=adjunto.content_type or "application/octet-stream",
+            # Se deriva otra vez del nombre: los adjuntos guardados antes de la
+            # auditoría de seguridad (29/10/2026) tienen el tipo que mandó el cliente.
+            content_type=tipo_por_extension(adjunto.nombre_original),
         )
         # Se fuerza la descarga y se prohíbe adivinar el tipo: un archivo
         # subido por un usuario no debe poder ejecutarse en el navegador de

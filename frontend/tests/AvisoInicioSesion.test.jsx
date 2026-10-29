@@ -42,7 +42,7 @@ beforeEach(() => {
   globalThis.URL.createObjectURL = vi.fn(() => "blob:local/aviso");
   globalThis.URL.revokeObjectURL = vi.fn();
   servicio.obtener.mockResolvedValue(AVISO);
-  servicio.imagen.mockResolvedValue(new Blob(["x"]));
+  servicio.imagen.mockResolvedValue(new Blob(["x"], { type: "image/png" }));
 });
 
 describe("Al entrar al sistema", () => {
@@ -159,5 +159,21 @@ describe("En Configuración", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Revise los campos marcados.",
     );
+  });
+});
+
+describe("La imagen del aviso", () => {
+  it("si no llega como imagen de la lista, el aviso sale sin ella", async () => {
+    // Auditoría de seguridad, 29/10/2026: un blob «text/html» no se muestra.
+    servicio.imagen.mockResolvedValue(
+      new Blob(["<script>"], { type: "text/html" }),
+    );
+    render(<AvisoInicioSesion />);
+    const ventana = await screen.findByRole("dialog", {
+      name: "Mantenimiento del sistema",
+    });
+    await waitFor(() => expect(servicio.imagen).toHaveBeenCalled());
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(ventana.querySelector("img")).toBeNull();
   });
 });

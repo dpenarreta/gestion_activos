@@ -84,14 +84,12 @@
         hace falta red: el inventario cambia durante el día y enseñarle el de
         ayer sería peor que no enseñarle nada.
       </p>
-      <button type="button" onclick="location.reload()">Reintentar</button>
+      <button type="button" id="reintentar">Reintentar</button>
     </main>
-    <script>
-      // Reintenta solo en cuanto el sistema avisa de que volvió la red, para no
-      // dejar a alguien pulsando el botón en un pasillo.
-      window.addEventListener("online", function () {
-        location.reload();
-      });
-    </script>
+    <!-- En un archivo aparte por la CSP del sitio (auditoría de seguridad,
+         29/10/2026): sin 'unsafe-inline' no corre ni un script escrito
+         aquí ni un manejador en atributo (onclick). El service worker lo guarda junto con esta página (ver
+         ARMAZON en sw.js), así que sigue sin hacer falta red para usarla. -->
+    <script src="/sin-conexion.js"></script>
   </body>
 </html>

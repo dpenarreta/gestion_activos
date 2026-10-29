@@ -18,7 +18,9 @@
 
 // Sube con cada despliegue que cambie el armazón. Al activarse, borra las
 // versiones anteriores: sin esto, el teléfono acumula una copia por despliegue.
-const VERSION = "v1";
+// v2 (auditoría de seguridad, 29/10/2026): la página sin conexión trae su
+// script en un archivo aparte, que también tiene que quedar guardado.
+const VERSION = "v2";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";
@@ -28,6 +30,9 @@ const SIN_CONEXION = "/sin-conexion.html";
 const ARMAZON = [
   "/",
   SIN_CONEXION,
+  // Lo que hace andar a la página sin conexión (Reintentar y volver sola):
+  // sin él guardado, la página se vería pero no respondería.
+  "/sin-conexion.js",
   "/manifest.webmanifest",
   "/iconos/icono-192.png",
   "/iconos/icono-512.png",

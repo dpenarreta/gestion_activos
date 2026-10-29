@@ -49,6 +49,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from apps.core.hojas_de_calculo import PELIGROSOS, neutralizar
 from apps.empresas.contexto import empresa_actual, usando_empresa
 from apps.empresas.models import MembresiaEmpresa
 
@@ -173,7 +174,10 @@ def construir_plantilla(con_personas: bool = False) -> bytes:
     for unidad, cargos in por_unidad:
         hoja = libro.create_sheet(_nombre_hoja(unidad.nombre, usados))
         gerente = next((c for c, p in cargos if p == 1), None)
-        hoja["A1"] = unidad.nombre
+        # Todo nombre que viene de la base pasa por `neutralizar`: uno que empiece
+        # por «=» se ejecutaría como fórmula en el equipo de quien abre el archivo
+        # (auditoría de seguridad, 29/10/2026).
+        hoja["A1"] = neutralizar(unidad.nombre)
         hoja["A1"].font = Font(bold=True, size=14)
         detalle = f"Nivel jerárquico: {unidad.nivel.nombre}"
         if unidad.departamento_id:
@@ -210,7 +214,7 @@ def construir_plantilla(con_personas: bool = False) -> bytes:
                     *persona,
                 ]
                 for i, valor in enumerate(valores, start=1):
-                    celda = hoja.cell(row=fila, column=i, value=valor)
+                    celda = hoja.cell(row=fila, column=i, value=neutralizar(valor))
                     celda.border = _BORDE
                     celda.fill = _AMARILLO if i >= PRIMERA_DE_PERSONA else _GRIS
                     if i == 4:
@@ -265,7 +269,7 @@ def _resumen(hoja, por_unidad, actuales):
             plazas - ocupadas,
         ]
         for i, valor in enumerate(valores, start=1):
-            hoja.cell(row=fila, column=i, value=valor).border = _BORDE
+            hoja.cell(row=fila, column=i, value=neutralizar(valor)).border = _BORDE
     hoja.freeze_panes = "A4"
 
 
@@ -315,7 +319,12 @@ def _texto(valor) -> str:
         return ""
     if isinstance(valor, float) and valor.is_integer():
         valor = int(valor)
-    return str(valor).strip()
+    texto = str(valor).strip()
+    # La comilla que `neutralizar` puso al exportar no es parte del dato: así el
+    # archivo bajado lleno se puede volver a subir tal cual.
+    if texto.startswith("'") and texto[1:].startswith(PELIGROSOS):
+        return texto[1:].strip()
+    return texto
 
 
 def leer(archivo) -> dict:

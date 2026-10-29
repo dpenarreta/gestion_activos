@@ -12,6 +12,15 @@ def _clear_cache():
 
 
 @pytest.fixture(autouse=True)
+def _sin_lista_de_objetos_externos(settings):
+    """Las pruebas no dependen del `.env` de cada equipo: sin lista de objetos
+    permitidos de la base externa, solo se bloquean los del sistema. Las
+    pruebas de la lista blanca la fijan ellas mismas (auditoría de seguridad,
+    29/10/2026)."""
+    settings.EXTERNAL_DB_OBJETOS_PERMITIDOS = []
+
+
+@pytest.fixture(autouse=True)
 def _multiempresa(settings):
     """Las pruebas siguen cubriendo la separación por empresa, que sigue por
     dentro aunque el sistema trabaje con una sola (ver apps.empresas.una_sola,

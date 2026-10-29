@@ -355,6 +355,8 @@ class AdjuntoObservacionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
+        from apps.adjuntos.validators import tipo_por_extension
+
         adjunto = services.adjunto_de_observacion(request.user, pk)
         try:
             fichero = adjunto.archivo.open("rb")
@@ -372,7 +374,10 @@ class AdjuntoObservacionView(APIView):
             fichero,
             as_attachment=True,
             filename=adjunto.nombre_original,
-            content_type=adjunto.content_type or "application/octet-stream",
+            # Derivado de la extensión y no del guardado: los adjuntos anteriores
+            # a la auditoría de seguridad (29/10/2026) tienen el que mandó el
+            # navegador, que podía ser «text/html».
+            content_type=tipo_por_extension(adjunto.nombre_original),
         )
         respuesta["Content-Disposition"] = (
             f"attachment; filename*=UTF-8''{quote(adjunto.nombre_original)}"
@@ -443,7 +448,12 @@ class RolDelHistorialView(APIView):
         datos = entrada.validated_data
         try:
             contenido = services.rol_desde_historial(
-                request.user, datos["codigo"], datos["anio"], datos["mes"], datos["password"]
+                request.user,
+                datos["codigo"],
+                datos["anio"],
+                datos["mes"],
+                datos["password"],
+                ip=_ip(request),
             )
         except Exception as error:
             record_audit_event(
@@ -561,7 +571,12 @@ class DescargaMasivaView(APIView):
         periodo = {"unidad": datos["unidad"], "anio": datos["anio"], "mes": datos["mes"]}
         try:
             zip_ = services.descarga_masiva(
-                request.user, datos["unidad"], datos["anio"], datos["mes"], datos["password"]
+                request.user,
+                datos["unidad"],
+                datos["anio"],
+                datos["mes"],
+                datos["password"],
+                ip=_ip(request),
             )
         except Exception as error:
             record_audit_event(

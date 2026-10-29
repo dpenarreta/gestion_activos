@@ -148,6 +148,9 @@ def test_administrar_usuarios_no_alcanza_para_asignar_empresas(courier, segurida
 
 def test_se_asignan_las_dos_empresas_y_queda_auditado(courier, seguridad):
     jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
+    # Solo se da acceso a las empresas en las que uno trabaja (auditoría de
+    # seguridad, 29/10/2026; ver test_alcance_de_la_asignacion.py).
+    MembresiaEmpresa.objects.create(usuario=jefa, empresa=seguridad)
     otra = _cuenta("otra")
 
     respuesta = _cliente(jefa).post(
@@ -195,6 +198,7 @@ def test_la_asignacion_reemplaza_la_lista_entera(courier, seguridad):
 
 def test_sin_predeterminada_se_toma_la_primera_por_nombre(courier, seguridad):
     jefa = _cuenta("jefa", "usuarios.ver", "empresas.ver", "empresas.asignar", empresa=courier)
+    MembresiaEmpresa.objects.create(usuario=jefa, empresa=seguridad)
     otra = _cuenta("otra")
 
     _cliente(jefa).post(

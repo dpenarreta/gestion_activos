@@ -36,7 +36,15 @@ $Variable = "CLAVE_INICIAL_USUARIOS"
 
 function Leer-Oculta([string]$mensaje) {
     $segura = Read-Host $mensaje -AsSecureString
-    [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura))
+    # La copia en claro (BSTR) vive fuera del recolector de .NET: se borra y se
+    # libera en cuanto se lee, también si algo falla (auditoría de seguridad,
+    # 29/10/2026).
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($segura)
+    try {
+        [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
 }
 
 function Escribir-EnEnv([string]$envFile, [string]$clave) {

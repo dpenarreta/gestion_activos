@@ -77,6 +77,28 @@ def _validar_periodo(anio, mes):
         raise ValidationError({"mes": "Ese mes todavía no ha llegado."})
 
 
+def _confirmar_contrasena(usuario, password, ip=None) -> None:
+    """Confirma la contraseña de la cuenta contando los fallos como los del
+    inicio de sesión.
+
+    Antes cada pantalla del rol de pagos validaba la contraseña por su cuenta y
+    solo la limitaba el throttling: servía para adivinarla sin tocar nunca el
+    bloqueo del login. Ahora los fallos quedan en `LoginAttempt` con el usuario
+    de la cuenta y, si está bloqueada, aquí también (auditoría de seguridad,
+    29/10/2026).
+    """
+    from apps.authentication.services import LOCKOUT_ERROR, BruteForceProtectionService
+
+    identificador = usuario.username
+    if BruteForceProtectionService.is_locked_out(identificador, ip):
+        raise PermissionDenied(LOCKOUT_ERROR)
+    if not password or not usuario.check_password(password):
+        BruteForceProtectionService.record_attempt(
+            identifier=identificador, ip_address=ip, user=usuario, successful=False
+        )
+        raise PermissionDenied("La contraseña no es correcta.")
+
+
 def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=None, navegador=""):
     """Valida todo, deja la constancia y devuelve `(consulta, pdf_bytes)`."""
     config = configuracion()
@@ -86,8 +108,7 @@ def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=
         raise ValidationError(
             {"acepto": "Los términos cambiaron mientras los leía: revíselos y acéptelos de nuevo."}
         )
-    if not password or not usuario.check_password(password):
-        raise PermissionDenied("La contraseña no es correcta.")
+    _confirmar_contrasena(usuario, password, ip)
     propio = codigo_de(usuario)
     codigo = (codigo or "").strip() or propio
     if not codigo:
@@ -420,6 +441,7 @@ def corregir(actor, observacion_id, nota, archivos=None):
     """Talento Humano corrigió el rol: pide a la persona que vuelva a
     revisarlo y confirmar; avisa a ella y al resto de Talento Humano. La
     respuesta puede llevar imágenes o archivos, que quedan en el historial."""
+    from apps.adjuntos.validators import tipo_por_extension
     from apps.notificaciones import services as campana
 
     from .models import AdjuntoObservacion, MensajeObservacion, ObservacionRolPagos
@@ -447,7 +469,9 @@ def corregir(actor, observacion_id, nota, archivos=None):
             mensaje=mensaje,
             archivo=archivo,
             nombre_original=(archivo.name or "archivo")[:255],
-            content_type=(getattr(archivo, "content_type", "") or "")[:120],
+            # Por la extensión validada, no el que declara el navegador
+            # (auditoría de seguridad, 29/10/2026).
+            content_type=tipo_por_extension(archivo.name),
             tamano=archivo.size,
         )
     campana.notificar(
@@ -659,13 +683,12 @@ def historial(actor, codigo: str) -> dict:
     }
 
 
-def rol_desde_historial(actor, codigo, anio, mes, password) -> bytes:
+def rol_desde_historial(actor, codigo, anio, mes, password, ip=None) -> bytes:
     """El PDF de un rol del historial, vuelto a generar desde nómina (no se
     guarda). Pide `roles_pago.historial` y la contraseña de quien lo abre."""
     if not ve_historial(actor):
         raise PermissionDenied("No tiene el permiso requerido: roles_pago.historial.")
-    if not password or not actor.check_password(password):
-        raise PermissionDenied("La contraseña no es correcta.")
+    _confirmar_contrasena(actor, password, ip)
     codigo = (codigo or "").strip()
     if not codigo:
         raise ValidationError({"codigo": "Falta el código de empleado."})
@@ -878,14 +901,13 @@ def _nombre_de_archivo(texto: str) -> str:
     return re.sub(r"\s+", " ", limpio).strip(" .")[:120] or "sin nombre"
 
 
-def descarga_masiva(actor, unidad_id, anio, mes, password) -> dict:
+def descarga_masiva(actor, unidad_id, anio, mes, password, ip=None) -> dict:
     """El ZIP con los roles de pagos del área en ese mes: `{nombre, contenido,
     incluidos, omitidos}`."""
     from apps.organizacion.models import UnidadOrganizacional
 
     _exigir_masiva(actor)
-    if not password or not actor.check_password(password):
-        raise PermissionDenied("La contraseña no es correcta.")
+    _confirmar_contrasena(actor, password, ip)
     _validar_periodo(anio, mes)
     unidades = list(UnidadOrganizacional.objects.all())
     unidad = next((u for u in unidades if u.id == unidad_id), None)

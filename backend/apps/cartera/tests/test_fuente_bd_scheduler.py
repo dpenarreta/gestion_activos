@@ -23,7 +23,7 @@ class _ConFuenteBD(TestCase):
 
     def _dashboard(self, configurado_el=None, ultima_corrida=None, **overrides):
         dashboard = crear_dashboard(nombre='Cobranza')
-        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', **overrides)
+        actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', **overrides)
         campos = {}
         if configurado_el is not None:
             campos['fuente_bd_fecha_configuracion'] = configurado_el
@@ -309,7 +309,7 @@ class ActualizarDashboardTests(TestCase):
 
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte',
             parametros={'FechaCorte': '2026-07-31'}, frecuencia_actualizacion=frecuencia,
         )
         df = pd.DataFrame({'Saldo': [100.0, 200.0], 'Zona': ['Norte', 'Sur']})
@@ -343,7 +343,7 @@ class ActualizarDashboardTests(TestCase):
     def test_sin_mapeo_confirmado_previamente_no_hace_nada(self):
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_x', frecuencia_actualizacion='semanal',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', frecuencia_actualizacion='semanal',
         )
         resultado = fuente_bd_scheduler.actualizar_dashboard(dashboard)
         self.assertFalse(resultado['ok'])
@@ -358,7 +358,7 @@ class ActualizarDashboardTests(TestCase):
 
         self.assertTrue(resultado['ok'])
         leer_fuente_mock.assert_called_once_with(
-            'procedimiento', 'dbo.sp_Reporte', {'FechaCorte': '2026-08-07'}, fecha_formato='YYYY-MM-DD',
+            'procedimiento', 'dbo.rpt_Reporte', {'FechaCorte': '2026-08-07'}, fecha_formato='YYYY-MM-DD',
         )
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_parametros, {'FechaCorte': '2026-08-07'})
@@ -373,7 +373,7 @@ class ActualizarDashboardTests(TestCase):
         import pandas as pd
         dashboard = crear_dashboard(nombre='Cobranza')
         actualizar_fuente_bd(
-            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.sp_Reporte',
+            dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_Reporte',
             parametros={'Fecha': '2026-07-31'}, frecuencia_actualizacion='semanal',
         )
         from apps.cartera.services import plantilla
@@ -389,7 +389,7 @@ class ActualizarDashboardTests(TestCase):
 
         self.assertTrue(resultado['ok'], resultado['mensaje'])
         leer_fuente_mock.assert_called_once_with(
-            'procedimiento', 'dbo.sp_Reporte', {'Fecha': '2026-08-07'}, fecha_formato='YYYY-MM-DD',
+            'procedimiento', 'dbo.rpt_Reporte', {'Fecha': '2026-08-07'}, fecha_formato='YYYY-MM-DD',
         )
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_parametros, {'Fecha': '2026-08-07'})
@@ -413,7 +413,7 @@ class ActualizarDashboardTests(TestCase):
         self.assertTrue(resultado['ok'], resultado['mensaje'])
         # 31/07 + 2 semanas, no + 1.
         leer_fuente_mock.assert_called_once_with(
-            'procedimiento', 'dbo.sp_Reporte', {'FechaCorte': '2026-08-14'}, fecha_formato='YYYY-MM-DD',
+            'procedimiento', 'dbo.rpt_Reporte', {'FechaCorte': '2026-08-14'}, fecha_formato='YYYY-MM-DD',
         )
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_parametros, {'FechaCorte': '2026-08-14'})
@@ -493,6 +493,36 @@ class ActualizarDashboardTests(TestCase):
 
         resultado = fuente_bd_scheduler.actualizar_dashboard(dashboard)
         self.assertTrue(resultado['ok'], resultado['mensaje'])
+
+    @mock.patch('apps.cartera.services.fuente_bd_scheduler.db_source.leer_fuente')
+    def test_una_fuente_guardada_que_ya_no_es_valida_no_se_ejecuta(self, leer_fuente_mock):
+        """Auditoría de seguridad, 29/10/2026: una fuente guardada antes de las reglas de objetos
+        del sistema no se ejecuta sola; queda el motivo en el log y en el resultado."""
+        dashboard = self._dashboard_con_mapeo_confirmado()
+        Dashboard.objects.filter(dashboard_id=dashboard.dashboard_id).update(fuente_bd_nombre='sp_executesql')
+        dashboard.refresh_from_db()
+
+        with self.assertLogs('apps.cartera.services.fuente_bd_scheduler', level='WARNING') as logs:
+            resultado = fuente_bd_scheduler.actualizar_dashboard(dashboard)
+
+        self.assertFalse(resultado['ok'])
+        self.assertIn('sistema', resultado['mensaje'])
+        self.assertIn('sp_executesql', logs.output[0])
+        leer_fuente_mock.assert_not_called()
+
+    @mock.patch('apps.cartera.services.fuente_bd_scheduler.db_source.leer_fuente')
+    def test_un_parametro_guardado_invalido_no_se_ejecuta(self, leer_fuente_mock):
+        dashboard = self._dashboard_con_mapeo_confirmado()
+        Dashboard.objects.filter(dashboard_id=dashboard.dashboard_id).update(
+            fuente_bd_parametros={'x = 1; DROP TABLE t--': '2026-07-31'},
+        )
+        dashboard.refresh_from_db()
+
+        with self.assertLogs('apps.cartera.services.fuente_bd_scheduler', level='WARNING'):
+            resultado = fuente_bd_scheduler.actualizar_dashboard(dashboard)
+
+        self.assertFalse(resultado['ok'])
+        leer_fuente_mock.assert_not_called()
 
 
 class ActualizarTodosYComandoTests(TestCase):

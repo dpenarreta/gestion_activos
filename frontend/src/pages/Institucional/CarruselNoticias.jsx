@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
+import { blobDeImagen } from "../../utils/blobs";
 
 /**
  * La medida en que se deben hacer las imágenes del carrusel. En Inicio ocupa
@@ -43,7 +44,12 @@ export function useImagenesDeNoticias(noticias) {
           .imagenNoticia(id)
           .then((blob) => {
             if (!vigente) return;
-            const url = URL.createObjectURL(blob);
+            // Solo con un tipo de imagen de la lista (auditoría de seguridad,
+            // 29/10/2026): si no, cuenta como imagen que no se pudo traer.
+            const imagen = blobDeImagen(blob);
+            if (!imagen)
+              throw new Error("La imagen de la noticia no es válida.");
+            const url = URL.createObjectURL(imagen);
             creadas.push(url);
             setUrls((actual) => ({ ...actual, [id]: url }));
           })

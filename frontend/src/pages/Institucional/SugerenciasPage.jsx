@@ -14,6 +14,7 @@ import {
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { blobDeImagen } from "../../utils/blobs";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
@@ -298,7 +299,16 @@ function DetalleReporte({ id, opciones, onCambio, onCerrar }) {
     sugerenciasService
       .captura(reporte.id)
       .then((blob) => {
-        url = URL.createObjectURL(blob);
+        // La captura se abre en otra pestaña: solo con un tipo de imagen de
+        // la lista, nunca el que traiga la respuesta (auditoría de seguridad,
+        // 29/10/2026).
+        const captura = blobDeImagen(blob);
+        if (!captura) {
+          setImagen(null);
+          setError("No se pudo cargar la captura.");
+          return;
+        }
+        url = URL.createObjectURL(captura);
         setImagen(url);
       })
       .catch((err) => {

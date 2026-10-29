@@ -157,6 +157,63 @@ def test_una_intervencion_de_otro_activo_no_se_puede_colgar_de_este(
     assert "mantenimiento" in respuesta.json()["error"]["details"]
 
 
+def test_el_campo_de_intervencion_se_acota_a_la_empresa_de_cada_peticion(activo, admin):
+    """Auditoría de seguridad, 29/10/2026: el campo armaba su consulta al
+    importar el módulo y quedaba congelada en la empresa de ese momento —en
+    producción, ninguna: aceptaba intervenciones de cualquier empresa—. Ahora
+    se arma en cada uso, con la empresa activa."""
+    from apps.adjuntos.views import AdjuntoCreateSerializer
+    from apps.empresas.contexto import usando_empresa
+    from apps.empresas.models import Empresa
+
+    propia = MantenimientoService.registrar(
+        actor=admin,
+        activo=activo,
+        tipo=Mantenimiento.Tipo.CORRECTIVO,
+        fecha_intervencion=datetime.date(2024, 6, 1),
+        tipo_responsable=Mantenimiento.TipoResponsable.TECNICO_INTERNO,
+        responsable="Soporte",
+        descripcion="Reparación",
+    )
+    campo = AdjuntoCreateSerializer().fields["mantenimiento"]
+    assert propia in campo.get_queryset()
+
+    otra = Empresa.objects.create(nombre="Otra empresa", codigo="OTR")
+    with usando_empresa(otra):
+        assert propia not in campo.get_queryset()
+        assert not AdjuntoCreateSerializer().fields["mantenimiento"].get_queryset().exists()
+
+
+def test_el_tipo_se_guarda_y_se_sirve_segun_la_extension(cliente, activo):
+    """Auditoría de seguridad, 29/10/2026: el `Content-Type` lo escribe el
+    navegador; un «text/html» guardado tal cual se servía tal cual."""
+    cliente.post(
+        "/api/v1/adjuntos/",
+        {
+            "activo": activo.id,
+            "tipo": "factura",
+            "archivo": SimpleUploadedFile("factura.pdf", PDF, content_type="text/html"),
+        },
+        format="multipart",
+    )
+    adjunto = Adjunto.objects.get()
+    assert adjunto.content_type == "application/pdf"
+
+    # Uno guardado antes del arreglo, con el tipo del cliente, se sirve con el derivado.
+    Adjunto.objects.filter(pk=adjunto.pk).update(content_type="image/svg+xml")
+    respuesta = cliente.get(f"/api/v1/adjuntos/{adjunto.id}/descargar/")
+    assert respuesta["Content-Type"] == "application/pdf"
+
+
+def test_tipo_por_extension_nunca_devuelve_html_ni_svg():
+    from apps.adjuntos.validators import tipo_por_extension
+
+    assert tipo_por_extension("foto.JPG") == "image/jpeg"
+    assert tipo_por_extension("libro.xlsx").endswith("spreadsheetml.sheet")
+    for nombre in ("pagina.html", "dibujo.svg", "sin_extension", "", None):
+        assert tipo_por_extension(nombre) == "application/octet-stream"
+
+
 # --- Validación ------------------------------------------------------------
 
 

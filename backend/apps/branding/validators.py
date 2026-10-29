@@ -43,6 +43,33 @@ def validate_border_radius_slug(value: str) -> str:
     return value
 
 
+def validate_imagen_url(value: str) -> str:
+    """`logo_url`/`favicon_url`: una ruta del propio sitio (`/static/logo.png`)
+    o una dirección `https://`. Nada más.
+
+    Auditoría de seguridad, 29/10/2026: el campo aceptaba cualquier texto, y
+    termina en el `src` del logo y en el `href` del favicon de todas las
+    pantallas, incluida la de inicio de sesión (sin autenticar). `javascript:`,
+    `data:` o un `http://` (contenido mixto en un sitio servido por HTTPS) no
+    tienen uso legítimo aquí: no hay ninguna configuración que los use, ni en
+    local. `//otro.sitio` se rechaza porque, pese a empezar por «/», apunta
+    fuera del sitio.
+    """
+    texto = (value or "").strip()
+    if not texto:
+        return ""
+    if any(ord(c) < 33 for c in texto):
+        raise serializers.ValidationError(
+            "La dirección no puede tener espacios ni saltos de línea."
+        )
+    es_ruta_propia = texto.startswith("/") and not texto.startswith(("//", "/\\"))
+    if not (es_ruta_propia or texto.lower().startswith("https://")):
+        raise serializers.ValidationError(
+            "Use una ruta del sitio que empiece por «/» o una dirección que empiece por «https://»."
+        )
+    return texto
+
+
 def validate_font_size(value: int) -> int:
     if not FONT_SIZE_MIN <= value <= FONT_SIZE_MAX:
         raise serializers.ValidationError(
