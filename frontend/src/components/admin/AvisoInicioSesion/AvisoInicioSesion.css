@@ -71,8 +71,21 @@
 
 .aviso-inicio__acciones {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 18px;
+}
+
+/* El aviso del rol de pagos con el plazo vencido (aviso del rol de pagos,
+   29/10/2026): la etiqueta y un filo de advertencia, con los tokens del tema. */
+.aviso-inicio--advertencia {
+  border-top: 4px solid var(--mz-warn-line);
+}
+
+.aviso-inicio--advertencia .aviso-inicio__etiqueta {
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
 }
 
 .aviso-inicio__cerrar-x {
@@ -97,4 +110,21 @@
 .aviso-inicio__cerrar-x:focus-visible {
   outline: 2px solid var(--mz-action);
   outline-offset: 2px;
+}
+
+/* Vista previa en la configuración del aviso del rol de pagos: la misma
+   tarjeta, sin animación ni sombra de ventana y al ancho del formulario. */
+.aviso-inicio--vista-previa {
+  width: auto;
+  max-height: none;
+  animation: none;
+  box-shadow: none;
+  border: 1px solid var(--mz-border);
+}
+
+.aviso-inicio__titulo-previa {
+  margin: 10px 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
 }

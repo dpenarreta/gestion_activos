@@ -65,6 +65,9 @@ vi.mock("../src/components/admin/AvisoOnboarding/AvisoOnboarding", () => ({
 vi.mock("../src/components/admin/AvisoPerfil/AvisoPerfil", () => ({
   AvisoPerfil: () => null,
 }));
+vi.mock("../src/components/admin/AvisoRolPagos/AvisoRolPagos", () => ({
+  AvisoRolPagos: () => null,
+}));
 vi.mock("../src/components/admin/ModuloApagado/ModuloApagado", () => ({
   ModuloApagado: ({ children }) => children,
 }));

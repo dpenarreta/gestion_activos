@@ -14,6 +14,7 @@ import uuid
 from pathlib import PurePath
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.empresas.models import ModeloDeEmpresa
@@ -39,15 +40,49 @@ CONSENTIMIENTO_CORREO_POR_DEFECTO = (
     "Personales. Puedo retirarlo cuando quiera."
 )
 
+#: El aviso del primer día hábil (aviso del rol de pagos, 29/10/2026): los
+#: textos por defecto. `{mes}`, `{anio}` y `{dias}` se reemplazan al mostrarlo
+#: (`aviso.py`).
+AVISO_TITULO_POR_DEFECTO = "Su rol de pagos ya está disponible"
+AVISO_MENSAJE_POR_DEFECTO = (
+    "Su rol de pagos de {mes} de {anio} ya está disponible para que lo revise. "
+    "Ábralo, verifique que los valores sean correctos y acéptelo; si encuentra "
+    "algo que no está bien, deje una observación."
+)
+AVISO_TITULO_VENCIDO_POR_DEFECTO = "Plazo vencido para aceptar su rol de pagos"
+AVISO_MENSAJE_VENCIDO_POR_DEFECTO = (
+    "Superó los {dias} días hábiles permitidos para aceptar su rol de pagos de "
+    "{mes} de {anio}. Exceder este plazo puede ser motivo de sanción. Revíselo y "
+    "acéptelo cuanto antes; si encuentra algo que no está bien, deje una "
+    "observación."
+)
+AVISO_DIAS_POR_DEFECTO = 3
+AVISO_DIAS_MAXIMO = 20
+
 
 class ConfiguracionRolPagos(ModeloDeEmpresa):
     """Los textos de la consulta, por empresa: los términos que se aceptan en
     cada consulta y el consentimiento para guardar el correo personal. Cada
-    cambio de los términos sube su versión."""
+    cambio de los términos sube su versión. También el aviso que sale al
+    iniciar sesión desde el primer día hábil del mes hasta que la persona
+    acepta su rol del mes anterior (aviso del rol de pagos, 29/10/2026)."""
 
     terminos = models.TextField(default=TERMINOS_POR_DEFECTO)
     version = models.PositiveIntegerField(default=1)
     consentimiento_correo = models.TextField(default=CONSENTIMIENTO_CORREO_POR_DEFECTO)
+    aviso_activo = models.BooleanField(default=True)
+    aviso_titulo = models.CharField(max_length=150, default=AVISO_TITULO_POR_DEFECTO)
+    aviso_mensaje = models.TextField(default=AVISO_MENSAJE_POR_DEFECTO)
+    aviso_titulo_vencido = models.CharField(
+        max_length=150, default=AVISO_TITULO_VENCIDO_POR_DEFECTO
+    )
+    aviso_mensaje_vencido = models.TextField(default=AVISO_MENSAJE_VENCIDO_POR_DEFECTO)
+    #: Cuántos días hábiles, desde el primero del mes, tiene para aceptarlo
+    #: antes de que el aviso pase a decir que el plazo venció.
+    aviso_dias_habiles = models.PositiveSmallIntegerField(
+        default=AVISO_DIAS_POR_DEFECTO,
+        validators=[MinValueValidator(1), MaxValueValidator(AVISO_DIAS_MAXIMO)],
+    )
 
     class Meta:
         constraints = [

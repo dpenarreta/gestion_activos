@@ -41,15 +41,34 @@ def configuracion() -> ConfiguracionRolPagos:
     return actual or ConfiguracionRolPagos.objects.create()
 
 
-def guardar_configuracion(terminos: str, consentimiento_correo: str) -> ConfiguracionRolPagos:
+#: Los campos del aviso del primer día hábil (aviso del rol de pagos,
+#: 29/10/2026) que se editan con los textos de la consulta.
+CAMPOS_AVISO = (
+    "aviso_activo",
+    "aviso_titulo",
+    "aviso_mensaje",
+    "aviso_titulo_vencido",
+    "aviso_mensaje_vencido",
+    "aviso_dias_habiles",
+)
+
+
+def guardar_configuracion(
+    terminos: str, consentimiento_correo: str, **aviso
+) -> ConfiguracionRolPagos:
     """Guarda los textos; si cambian los términos, sube su versión (quien
-    consulte después los acepta de nuevo)."""
+    consulte después los acepta de nuevo). Los del aviso (`CAMPOS_AVISO`) que
+    no lleguen se quedan como están."""
     config = configuracion()
     terminos = terminos.strip()
     if terminos != config.terminos:
         config.version += 1
     config.terminos = terminos
     config.consentimiento_correo = consentimiento_correo.strip()
+    for campo in CAMPOS_AVISO:
+        if campo in aviso:
+            valor = aviso[campo]
+            setattr(config, campo, valor.strip() if isinstance(valor, str) else valor)
     config.save()
     return config
 

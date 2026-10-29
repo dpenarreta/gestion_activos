@@ -164,7 +164,19 @@ export const nominaService = {
   olvidarCorreo() {
     return apiClient.delete(`${BASE}correo-personal/`);
   },
+  /** Los textos de la consulta y los del aviso del primer día hábil (con
+   * `roles_pago.configurar`). */
+  configuracion() {
+    return apiClient.get(`${BASE}configuracion/`).then((r) => r.data);
+  },
   configurar(datos) {
     return apiClient.put(`${BASE}configuracion/`, datos).then((r) => r.data);
+  },
+  /** El aviso del rol de pagos al iniciar sesión (aviso del rol de pagos,
+   * 29/10/2026): `{ mostrar: false }` o `{ mostrar: true, anio, mes, vencido,
+   * titulo, mensaje, dias_habiles, enlace }`. Lo puede pedir toda persona con
+   * sesión. */
+  aviso() {
+    return apiClient.get(`${BASE}aviso/`).then((r) => r.data);
   },
 };

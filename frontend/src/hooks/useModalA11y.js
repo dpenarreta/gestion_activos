@@ -81,7 +81,13 @@ export function useModalA11y({
             (el) => el.tabIndex >= 0 && !el.closest("[inert],[hidden]"),
           )
         : [];
-    (enfocables()[0] || panel)?.focus();
+    // Un control marcado con `data-autofocus` (la acción principal) recibe el
+    // foco al abrir; si no hay, el primero que recibe Tab.
+    (
+      panel?.querySelector("[data-autofocus]") ||
+      enfocables()[0] ||
+      panel
+    )?.focus();
     const vigilancia =
       confirmarAlDescartar && panel
         ? vigilarDescarte(panel, { preguntar: confirmarDescarte })

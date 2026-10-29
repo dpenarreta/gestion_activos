@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AdjuntoObservacionView,
     AuditadoView,
+    AvisoView,
     ConfiguracionView,
     ConformidadView,
     ConsultarView,
@@ -48,6 +49,7 @@ urlpatterns = [
         name="rol-observacion-adjunto",
     ),
     path("rol-pagos/correo-personal/", CorreoPersonalView.as_view(), name="rol-pagos-correo"),
+    path("rol-pagos/aviso/", AvisoView.as_view(), name="rol-pagos-aviso"),
     path("rol-pagos/configuracion/", ConfiguracionView.as_view(), name="rol-pagos-configuracion"),
     path(
         "rol-pagos/descarga-masiva/", DescargaMasivaView.as_view(), name="rol-pagos-descarga-masiva"

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { nominaService } from "../../api/nominaService";
 import {
@@ -36,6 +37,14 @@ const MESES = [
   "Noviembre",
   "Diciembre",
 ];
+
+/** El período pedido en la dirección (`?anio=&mes=`), o `null`. */
+function periodoPedido(busqueda) {
+  const pedido = new URLSearchParams(busqueda);
+  const anio = Number(pedido.get("anio"));
+  const mes = Number(pedido.get("mes"));
+  return anio && mes >= 1 && mes <= 12 ? { anio, mes } : null;
+}
 
 /** Si la consulta respondió que no hay rol de ese mes. */
 function esSinRol(err) {
@@ -331,18 +340,225 @@ function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
   );
 }
 
+const CAMPOS_AVISO = [
+  "aviso_activo",
+  "aviso_titulo",
+  "aviso_mensaje",
+  "aviso_titulo_vencido",
+  "aviso_mensaje_vencido",
+  "aviso_dias_habiles",
+];
+
+const AYUDA_MARCADORES =
+  "Puede usar {mes} (el mes del rol, p. ej. «septiembre»), {anio} (su año) y {dias} (los días hábiles permitidos).";
+
+/** Como el servidor reemplaza los marcadores, para la vista previa. */
+function rellenarAviso(texto, { anio, mes, dias }) {
+  return (texto ?? "")
+    .replaceAll("{mes}", MESES[mes - 1].toLowerCase())
+    .replaceAll("{anio}", String(anio))
+    .replaceAll("{dias}", String(dias));
+}
+
+/**
+ * El aviso del primer día hábil (aviso del rol de pagos, 29/10/2026): sale al
+ * iniciar sesión hasta que la persona acepta su rol del mes anterior; pasados
+ * los días hábiles permitidos, con el mensaje de plazo vencido.
+ */
+function SeccionAviso({ aviso, errores, onCambio }) {
+  const hoy = new Date();
+  const ejemplo = {
+    anio: hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear(),
+    mes: hoy.getMonth() === 0 ? 12 : hoy.getMonth(),
+    dias: aviso.aviso_dias_habiles || 3,
+  };
+  const texto = (campo) => (e) => onCambio(campo, e.target.value);
+  return (
+    <fieldset className="mz-stack">
+      <legend className="h6 mb-0">Aviso del primer día hábil</legend>
+      <p className="mz-small mz-faint mb-0">
+        Desde el primer día hábil de cada mes, al iniciar sesión, invita a quien
+        está habilitado a revisar y aceptar su rol del mes anterior. Sale en
+        cada inicio de sesión hasta que lo acepte (o deje una observación);
+        pasados los días hábiles permitidos, muestra el mensaje de plazo
+        vencido.
+      </p>
+      <label className="form-check form-switch">
+        <input
+          type="checkbox"
+          role="switch"
+          className="form-check-input"
+          checked={Boolean(aviso.aviso_activo)}
+          onChange={(e) => onCambio("aviso_activo", e.target.checked)}
+        />{" "}
+        <span className="form-check-label">
+          {aviso.aviso_activo
+            ? "Aviso encendido: se muestra al iniciar sesión"
+            : "Aviso apagado: no se muestra"}
+        </span>
+      </label>
+      <Campo
+        id="rol-cfg-aviso-dias"
+        etiqueta="Días hábiles permitidos para aceptar el rol"
+        obligatorio
+        ayuda="De 1 a 20. Desde el día hábil siguiente se muestra el mensaje de plazo vencido."
+        error={errores.aviso_dias_habiles}
+      >
+        <input
+          type="number"
+          min={1}
+          max={20}
+          className="form-control form-control-sm"
+          value={aviso.aviso_dias_habiles}
+          onChange={(e) =>
+            onCambio(
+              "aviso_dias_habiles",
+              e.target.value === "" ? "" : Number(e.target.value),
+            )
+          }
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-titulo"
+        etiqueta="Título del aviso"
+        obligatorio={Boolean(aviso.aviso_activo)}
+        error={errores.aviso_titulo}
+      >
+        <input
+          type="text"
+          maxLength={150}
+          className="form-control form-control-sm"
+          value={aviso.aviso_titulo}
+          onChange={texto("aviso_titulo")}
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-mensaje"
+        etiqueta="Mensaje del aviso"
+        ayuda={AYUDA_MARCADORES}
+        error={errores.aviso_mensaje}
+      >
+        <textarea
+          rows={4}
+          maxLength={2000}
+          className="form-control form-control-sm"
+          value={aviso.aviso_mensaje}
+          onChange={texto("aviso_mensaje")}
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-titulo-vencido"
+        etiqueta="Título con el plazo vencido"
+        obligatorio={Boolean(aviso.aviso_activo)}
+        error={errores.aviso_titulo_vencido}
+      >
+        <input
+          type="text"
+          maxLength={150}
+          className="form-control form-control-sm"
+          value={aviso.aviso_titulo_vencido}
+          onChange={texto("aviso_titulo_vencido")}
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-mensaje-vencido"
+        etiqueta="Mensaje con el plazo vencido"
+        ayuda={`${AYUDA_MARCADORES} Conviene advertir que exceder el plazo puede ser sancionado.`}
+        error={errores.aviso_mensaje_vencido}
+      >
+        <textarea
+          rows={4}
+          maxLength={2000}
+          className="form-control form-control-sm"
+          value={aviso.aviso_mensaje_vencido}
+          onChange={texto("aviso_mensaje_vencido")}
+        />
+      </Campo>
+      <details>
+        <summary>Vista previa del mensaje</summary>
+        <div className="mz-stack mt-2">
+          {[
+            ["Dentro del plazo", "aviso_titulo", "aviso_mensaje"],
+            [
+              "Con el plazo vencido",
+              "aviso_titulo_vencido",
+              "aviso_mensaje_vencido",
+            ],
+          ].map(([cuando, titulo, mensaje]) => {
+            const vencido = titulo === "aviso_titulo_vencido";
+            // Con el aspecto del aviso real (etiqueta y filo de advertencia),
+            // para ver cómo se distinguen los dos estados.
+            return (
+              <div key={cuando}>
+                <p className="mz-small mz-faint mb-1">{cuando}</p>
+                <div
+                  className={`aviso-inicio aviso-inicio--vista-previa${
+                    vencido ? " aviso-inicio--advertencia" : ""
+                  }`}
+                >
+                  <div className="aviso-inicio__cuerpo">
+                    <span className="aviso-inicio__etiqueta">
+                      <Icon
+                        name={
+                          vencido
+                            ? "exclamation-triangle-fill"
+                            : "file-earmark-text"
+                        }
+                      />{" "}
+                      {vencido ? "Plazo vencido" : "Rol de pagos"}
+                    </span>
+                    <p className="aviso-inicio__titulo-previa">
+                      {rellenarAviso(aviso[titulo], ejemplo)}
+                    </p>
+                    <div className="aviso-inicio__contenido">
+                      {rellenarAviso(aviso[mensaje], ejemplo)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </details>
+    </fieldset>
+  );
+}
+
 /** Los textos de la consulta (con `roles_pago.configurar`). */
 function Configurar({ estado, onGuardado, onCerrar }) {
   const [terminos, setTerminos] = useState(estado.terminos);
   const [consentimiento, setConsentimiento] = useState(
     estado.consentimiento_correo,
   );
+  // Los textos del aviso del primer día hábil llegan aparte (aviso del rol
+  // de pagos, 29/10/2026); si no cargan, se guarda lo demás y el aviso se
+  // queda como estaba.
+  const [aviso, setAviso] = useState(null);
+  const [errorAviso, setErrorAviso] = useState(null);
   const [error, setError] = useState(null);
   // Errores del servidor junto a su campo (auditoría UX/UI, fase 2,
   // 28/10/2026).
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
   const formulario = useRef(null);
+
+  function cargarAviso() {
+    setErrorAviso(null);
+    return nominaService
+      .configuracion()
+      .then((datos) =>
+        setAviso(Object.fromEntries(CAMPOS_AVISO.map((c) => [c, datos[c]]))),
+      )
+      .catch((err) =>
+        setErrorAviso(
+          mensajeDeError(err, "No se pudieron cargar los textos del aviso."),
+        ),
+      );
+  }
+
+  useEffect(() => {
+    cargarAviso();
+  }, []);
 
   async function guardar(evento) {
     evento.preventDefault();
@@ -353,6 +569,7 @@ function Configurar({ estado, onGuardado, onCerrar }) {
       await nominaService.configurar({
         terminos,
         consentimiento_correo: consentimiento,
+        ...(aviso ?? {}),
       });
       onGuardado();
     } catch (err) {
@@ -402,6 +619,21 @@ function Configurar({ estado, onGuardado, onCerrar }) {
             onChange={(e) => setConsentimiento(e.target.value)}
           />
         </Campo>
+        {aviso ? (
+          <SeccionAviso
+            aviso={aviso}
+            errores={errores}
+            onCambio={(campo, valor) =>
+              setAviso((a) => ({ ...a, [campo]: valor }))
+            }
+          />
+        ) : (
+          <EstadoDeCarga
+            cargando={!errorAviso}
+            error={errorAviso}
+            onReintentar={cargarAviso}
+          />
+        )}
         <div className="mz-actions justify-content-end">
           <button
             type="button"
@@ -585,16 +817,16 @@ function MenuDeGestion({ etiqueta, acciones }) {
 
 export function RolPagosPage() {
   const hoy = new Date();
+  const location = useLocation();
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   // Por defecto, el mes anterior (en enero, diciembre del año pasado).
   const [periodo, setPeriodo] = useState(() => {
-    // Desde el aviso de «rol corregido» llega con el año y el mes.
-    const pedido = new URLSearchParams(window.location.search);
-    const anio = Number(pedido.get("anio"));
-    const mes = Number(pedido.get("mes"));
-    if (anio && mes >= 1 && mes <= 12) return { anio, mes, codigo: "" };
+    // Desde el aviso de «rol corregido» o el del rol de pagos al iniciar
+    // sesión llega con el año y el mes.
+    const pedido = periodoPedido(location.search);
+    if (pedido) return { ...pedido, codigo: "" };
     return {
       anio: hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear(),
       mes: hoy.getMonth() === 0 ? 12 : hoy.getMonth(),
@@ -628,6 +860,15 @@ export function RolPagosPage() {
   useEffect(() => {
     cargar();
   }, []);
+
+  // Si la página ya estaba abierta y el aviso del rol de pagos lleva a ella
+  // con otro `?anio=&mes=`, el período también queda elegido (aviso del rol
+  // de pagos, 29/10/2026). Va por `location.key`: cada navegación, aunque
+  // repita la dirección, vuelve a elegirlo.
+  useEffect(() => {
+    const pedido = periodoPedido(location.search);
+    if (pedido) setPeriodo((p) => ({ ...p, ...pedido }));
+  }, [location.key, location.search]);
 
   const anios = Array.from({ length: 6 }, (_, i) => hoy.getFullYear() - i);
   // La constancia del período elegido, si ya abrió su propio rol de ese mes.

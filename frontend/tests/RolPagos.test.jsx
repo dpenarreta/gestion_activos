@@ -5,6 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
@@ -19,6 +20,8 @@ const servicio = {
   enviar: vi.fn(),
   olvidarCorreo: vi.fn(),
   configurar: vi.fn(),
+  configuracion: vi.fn(),
+  aviso: vi.fn(),
   conformidad: vi.fn(),
   historial: vi.fn(),
   rolDelHistorial: vi.fn(),
@@ -81,7 +84,7 @@ beforeEach(() => {
 });
 
 async function consultar() {
-  render(<RolPagosPage />);
+  render(<RolPagosPage />, { wrapper: MemoryRouter });
   expect(await screen.findByLabelText("Código de empleado")).toHaveValue(
     "20104758",
   );
@@ -212,7 +215,7 @@ describe("Consultar rol de pagos", () => {
 
   it("sin código de empleado lo dice y no deja consultar", async () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, codigo: "" });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     expect(
       await screen.findByText(/todavía no tiene código de empleado/),
     ).toBeInTheDocument();
@@ -224,7 +227,7 @@ describe("Consultar rol de pagos", () => {
       ...ESTADO,
       puede_consultar_otros: true,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const codigo = await screen.findByLabelText("Código de empleado");
     expect(codigo).not.toHaveAttribute("readonly");
     await waitFor(() => expect(codigo).toHaveValue("20104758"));
@@ -235,7 +238,7 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("sin permiso el código es el de su cuenta y no se puede cambiar", async () => {
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const codigo = await screen.findByLabelText("Código de empleado");
     expect(codigo).toHaveValue("20104758");
     expect(codigo).toHaveAttribute("readonly");
@@ -451,7 +454,7 @@ describe("Consultar rol de pagos", () => {
         { id: 5, anio: 2026, mes: 8, nota: "Se sumaron las horas extra." },
       ],
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const aviso = await screen.findByRole("region", {
       name: "Correcciones por confirmar",
     });
@@ -524,7 +527,7 @@ describe("Consultar rol de pagos", () => {
         },
       ],
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     // La primera acción queda a la vista; el resto, en «Gestión de roles».
     fireEvent.click(
       await screen.findByRole("button", { name: /Gestión de roles/ }),
@@ -557,7 +560,7 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("sin permiso no aparece el botón del historial", async () => {
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     await screen.findByLabelText("Código de empleado");
     expect(
       screen.queryByRole("button", { name: /Historial por empleado/ }),
@@ -578,7 +581,7 @@ describe("Consultar rol de pagos", () => {
       puede_configurar: true,
     });
     servicio.areasDescargaMasiva.mockResolvedValue([]);
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const principal = await screen.findByRole("button", {
       name: /Roles sin abrir/,
     });
@@ -625,7 +628,7 @@ describe("Consultar rol de pagos", () => {
 
   it("quien no está habilitado no ve la consulta y sabe por qué", async () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, habilitado: false });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     expect(
       await screen.findByText(/no está habilitada para consultar/),
     ).toBeInTheDocument();
@@ -655,7 +658,7 @@ describe("Consultar rol de pagos", () => {
         ],
       },
     ]);
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const seccion = await screen.findByRole("region", {
       name: "Mis observaciones",
     });
@@ -684,7 +687,7 @@ describe("Consultar rol de pagos", () => {
       codigo: "20100001",
       habilitado: true,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Usuarios habilitados/ }),
     );
@@ -706,7 +709,7 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("sin permiso no aparece la descarga masiva", async () => {
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     await screen.findByLabelText("Código de empleado");
     expect(
       screen.queryByRole("button", { name: /Descarga masiva/ }),
@@ -728,7 +731,7 @@ describe("Consultar rol de pagos", () => {
       incluidos: 2,
       omitidos: 1,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Descarga masiva/ }),
     );
@@ -773,7 +776,7 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("sin permiso no aparece «Roles sin abrir»", async () => {
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     await screen.findByLabelText("Código de empleado");
     expect(
       screen.queryByRole("button", { name: /Roles sin abrir/ }),
@@ -853,7 +856,7 @@ describe("Consultar rol de pagos", () => {
       },
       habilitados: 4,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Roles sin abrir/ }),
     );
@@ -928,7 +931,7 @@ describe("Consultar rol de pagos", () => {
     const excel = new Blob(["xlsx"]);
     servicio.exportarSeguimiento.mockResolvedValue(excel);
     servicio.recordarPendientes.mockResolvedValue({ enviadas: 3 });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Roles sin abrir/ }),
     );
@@ -998,7 +1001,7 @@ describe("Consultar rol de pagos", () => {
       habilitados: 1,
     });
     servicio.rolDelHistorial.mockResolvedValue(new Blob(["%PDF"]));
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Roles sin abrir/ }),
     );
@@ -1036,7 +1039,7 @@ describe("Consultar rol de pagos", () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
     servicio.resumenSeguimiento.mockResolvedValue([]);
     servicio.seguimiento.mockResolvedValue(SEGUIMIENTO);
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Roles sin abrir/ }),
     );
@@ -1099,7 +1102,7 @@ describe("Consultar rol de pagos", () => {
         },
       ],
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     const lista = await screen.findByRole("region", {
       name: "Mis roles abiertos",
     });
@@ -1133,7 +1136,7 @@ describe("Consultar rol de pagos", () => {
       incluidos: 2,
       omitidos: 0,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Descargar rol auditado/ }),
     );
@@ -1194,7 +1197,7 @@ describe("Consultar rol de pagos", () => {
       incluidos: 1,
       omitidos: 0,
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Descargar rol auditado/ }),
     );
@@ -1271,7 +1274,7 @@ describe("Consultar rol de pagos", () => {
 describe("Rol de pagos: cargando y error", () => {
   it("muestra «Cargando…» mientras llega el estado", async () => {
     servicio.estado.mockReturnValue(new Promise(() => {}));
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
   });
 
@@ -1279,7 +1282,7 @@ describe("Rol de pagos: cargando y error", () => {
     servicio.estado.mockRejectedValueOnce({
       response: { data: { error: { message: "Servicio no disponible." } } },
     });
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Servicio no disponible.",
     );
@@ -1293,7 +1296,7 @@ describe("Rol de pagos: cargando y error", () => {
 
   it("si sus observaciones no cargan, lo dice en vez de ocultarlas", async () => {
     servicio.misObservaciones.mockRejectedValue({});
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "No se pudieron cargar sus observaciones.",
     );
@@ -1314,7 +1317,7 @@ describe("Rol de pagos: cargando y error", () => {
         habilitado: false,
       },
     ]);
-    render(<RolPagosPage />);
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
     fireEvent.click(
       await screen.findByRole("button", { name: /Usuarios habilitados/ }),
     );
@@ -1328,5 +1331,133 @@ describe("Rol de pagos: cargando y error", () => {
     );
     fireEvent.click(within(tabla).getByRole("button", { name: "Reintentar" }));
     expect(await within(tabla).findByText("Rosa Vera")).toBeInTheDocument();
+  });
+});
+
+describe("El aviso del rol de pagos (29/10/2026)", () => {
+  it("llegar con ?anio&mes elige el período, también con la página ya abierta", async () => {
+    const { Route, Routes, useNavigate } = await import("react-router-dom");
+    function IrAlRol() {
+      const navigate = useNavigate();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            navigate("/admin/institucional/rol-pagos?anio=2025&mes=3")
+          }
+        >
+          Ir desde el aviso
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter
+        initialEntries={["/admin/institucional/rol-pagos?anio=2025&mes=7"]}
+      >
+        <IrAlRol />
+        <Routes>
+          <Route
+            path="/admin/institucional/rol-pagos"
+            element={<RolPagosPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByLabelText("Código de empleado");
+    expect(screen.getByLabelText("Año")).toHaveValue("2025");
+    expect(screen.getByLabelText("Mes")).toHaveValue("7");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ir desde el aviso" }));
+    await waitFor(() => expect(screen.getByLabelText("Mes")).toHaveValue("3"));
+    expect(screen.getByLabelText("Año")).toHaveValue("2025");
+  });
+
+  it("en «Textos de la consulta» se administra el aviso y se guarda con los términos", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_configurar: true });
+    servicio.configuracion.mockResolvedValue({
+      terminos: ESTADO.terminos,
+      version: 3,
+      consentimiento_correo: ESTADO.consentimiento_correo,
+      aviso_activo: true,
+      aviso_titulo: "Su rol de pagos ya está disponible",
+      aviso_mensaje: "Revise su rol de {mes} de {anio}.",
+      aviso_titulo_vencido: "Plazo vencido",
+      aviso_mensaje_vencido: "Superó los {dias} días hábiles.",
+      aviso_dias_habiles: 3,
+    });
+    servicio.configurar.mockResolvedValue({});
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
+    // Con solo ese permiso, «Textos de la consulta» está a la vista.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Textos de la consulta/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Textos de la consulta",
+    });
+    const seccion = await within(ventana).findByRole("group", {
+      name: "Aviso del primer día hábil",
+    });
+    expect(
+      within(seccion).getByRole("switch", { name: /Aviso encendido/ }),
+    ).toBeChecked();
+    expect(
+      within(seccion).getAllByText(/\{mes\}.*\{anio\}.*\{dias\}/).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.change(
+      within(seccion).getByLabelText(/^Días hábiles permitidos/),
+      { target: { value: "5" } },
+    );
+    fireEvent.change(within(seccion).getByLabelText(/^Mensaje con el plazo/), {
+      target: { value: "Pasaron {dias} días: puede ser sancionado." },
+    });
+    // La vista previa reemplaza los marcadores.
+    expect(seccion).toHaveTextContent("Pasaron 5 días: puede ser sancionado.");
+    fireEvent.click(within(ventana).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() =>
+      expect(servicio.configurar).toHaveBeenCalledWith({
+        terminos: ESTADO.terminos,
+        consentimiento_correo: ESTADO.consentimiento_correo,
+        aviso_activo: true,
+        aviso_titulo: "Su rol de pagos ya está disponible",
+        aviso_mensaje: "Revise su rol de {mes} de {anio}.",
+        aviso_titulo_vencido: "Plazo vencido",
+        aviso_mensaje_vencido: "Pasaron {dias} días: puede ser sancionado.",
+        aviso_dias_habiles: 5,
+      }),
+    );
+  });
+
+  it("el error del servidor sale bajo su campo del aviso", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_configurar: true });
+    servicio.configuracion.mockResolvedValue({
+      aviso_activo: true,
+      aviso_titulo: "",
+      aviso_mensaje: "",
+      aviso_titulo_vencido: "Plazo vencido",
+      aviso_mensaje_vencido: "",
+      aviso_dias_habiles: 3,
+    });
+    servicio.configurar.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            details: {
+              aviso_titulo: ["Con el aviso encendido, escriba el título."],
+            },
+          },
+        },
+      },
+    });
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
+    // Con solo ese permiso, «Textos de la consulta» está a la vista.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Textos de la consulta/ }),
+    );
+    const titulo = await screen.findByLabelText(/^Título del aviso/);
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await screen.findByText("Con el aviso encendido, escriba el título.");
+    expect(titulo).toHaveAttribute("aria-invalid", "true");
   });
 });

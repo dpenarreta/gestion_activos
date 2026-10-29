@@ -19,6 +19,7 @@ import { BusquedaGlobal } from "../BusquedaGlobal/BusquedaGlobal";
 import { AvisoInicioSesion } from "../AvisoInicioSesion/AvisoInicioSesion";
 import { AvisoOnboarding } from "../AvisoOnboarding/AvisoOnboarding";
 import { AvisoPerfil } from "../AvisoPerfil/AvisoPerfil";
+import { AvisoRolPagos } from "../AvisoRolPagos/AvisoRolPagos";
 import { ModuloApagado } from "../ModuloApagado/ModuloApagado";
 import { ChatProvider } from "../Chat/ChatContext";
 import { ChatDock } from "../Chat/ChatDock";
@@ -135,6 +136,9 @@ export function AdminLayout() {
   const breakpoint = useBreakpoint();
   const location = useLocation();
   const [avisoListo, setAvisoListo] = useState(false);
+  // El del rol de pagos va entre el aviso importante y el de «Mi perfil»
+  // (aviso del rol de pagos, 29/10/2026).
+  const [avisoRolListo, setAvisoRolListo] = useState(false);
   const menu = useAdminMenu();
   const empresas = useMisEmpresas();
   const [isCollapsed, setIsCollapsed] = useState(() =>
@@ -318,10 +322,13 @@ export function AdminLayout() {
           </div>
           <ChatDock />
           {/* Primero el aviso importante de la empresa; cerrado (o si no hay),
-            el de completar «Mi perfil»: uno a la vez, nunca uno encima del
-            otro. */}
+            el del rol de pagos del mes anterior y luego el de completar «Mi
+            perfil»: uno a la vez, nunca uno encima del otro. */}
           <AvisoInicioSesion onTerminado={() => setAvisoListo(true)} />
-          {avisoListo && <AvisoPerfil />}
+          {avisoListo && (
+            <AvisoRolPagos onTerminado={() => setAvisoRolListo(true)} />
+          )}
+          {avisoRolListo && <AvisoPerfil />}
         </ChatProvider>
       </EstadoModulosProvider>
     </UnsavedChangesProvider>

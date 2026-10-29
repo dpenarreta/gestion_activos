@@ -15,7 +15,8 @@ from apps.descargas.middleware import marcar
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
 
-from . import auditado, fuente, services
+from . import auditado, aviso, fuente, services
+from .models import AVISO_DIAS_MAXIMO
 
 MODULO = "roles_pago"
 #: Por qué las descargas del rol de pagos no guardan copia (apps.descargas).
@@ -270,35 +271,109 @@ class CorreoPersonalView(APIView):
 class _Configuracion(serializers.Serializer):
     terminos = serializers.CharField(max_length=4000)
     consentimiento_correo = serializers.CharField(max_length=2000)
+    # El aviso del primer día hábil (aviso del rol de pagos, 29/10/2026).
+    # Opcionales: lo que no llegue se queda como está.
+    aviso_activo = serializers.BooleanField(required=False)
+    aviso_titulo = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    aviso_mensaje = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    aviso_titulo_vencido = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    aviso_mensaje_vencido = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    aviso_dias_habiles = serializers.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=AVISO_DIAS_MAXIMO,
+        error_messages={
+            "min_value": "Debe ser al menos 1 día hábil.",
+            "max_value": f"No puede pasar de {AVISO_DIAS_MAXIMO} días hábiles.",
+        },
+    )
+
+    def validate(self, datos):
+        # Encendido, el aviso necesita sus dos títulos (los que llegan o, si
+        # no llegan, los guardados).
+        config = services.configuracion()
+        activo = datos.get("aviso_activo", config.aviso_activo)
+        if activo:
+            errores = {}
+            for campo in ("aviso_titulo", "aviso_titulo_vencido"):
+                if not str(datos.get(campo, getattr(config, campo)) or "").strip():
+                    errores[campo] = "Con el aviso encendido, escriba el título."
+            if errores:
+                raise serializers.ValidationError(errores)
+        return datos
+
+
+def _textos(config) -> dict:
+    return {
+        "terminos": config.terminos,
+        "version": config.version,
+        "consentimiento_correo": config.consentimiento_correo,
+        **{campo: getattr(config, campo) for campo in services.CAMPOS_AVISO},
+    }
+
+
+def _aviso_auditado(config) -> dict:
+    """Lo que la auditoría guarda del aviso: los valores tal cual (no hay
+    datos personales en estos textos)."""
+    return {campo: getattr(config, campo) for campo in services.CAMPOS_AVISO}
 
 
 class ConfiguracionView(APIView):
-    """Los textos (términos y consentimiento del correo), con
-    `roles_pago.configurar`. Cambiar los términos sube su versión."""
+    """Los textos (términos, consentimiento del correo y el aviso del primer
+    día hábil), con `roles_pago.configurar`. Cambiar los términos sube su
+    versión."""
 
     permission_classes = [IsAuthenticated]
 
+    def _sin_permiso(self, request):
+        if user_has_permission(request.user, "roles_pago.configurar"):
+            return None
+        return Response(
+            {"detail": "No tiene el permiso requerido: roles_pago.configurar."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    def get(self, request):
+        return self._sin_permiso(request) or Response(_textos(services.configuracion()))
+
     def put(self, request):
-        if not user_has_permission(request.user, "roles_pago.configurar"):
-            return Response(
-                {"detail": "No tiene el permiso requerido: roles_pago.configurar."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        negado = self._sin_permiso(request)
+        if negado:
+            return negado
         entrada = _Configuracion(data=request.data)
         entrada.is_valid(raise_exception=True)
-        anterior = {"version": services.configuracion().version}
-        datos = entrada.validated_data
-        config = services.guardar_configuracion(datos["terminos"], datos["consentimiento_correo"])
+        actual = services.configuracion()
+        anterior = {"version": actual.version, **_aviso_auditado(actual)}
+        datos = dict(entrada.validated_data)
+        config = services.guardar_configuracion(
+            datos.pop("terminos"), datos.pop("consentimiento_correo"), **datos
+        )
         record_audit_event(
             actor=request.user,
             action="roles_pago.configuracion",
             target=config,
             module=MODULO,
             previous_values=anterior,
-            new_values={"version": config.version},
+            new_values={"version": config.version, **_aviso_auditado(config)},
             context=get_request_context(request),
         )
-        return Response({"version": config.version})
+        return Response(_textos(config))
+
+
+class AvisoView(APIView):
+    """El aviso del rol de pagos al iniciar sesión (aviso del rol de pagos,
+    29/10/2026). Lo pide toda persona con sesión al entrar: solo
+    `IsAuthenticated` (y no `PANTALLA`, que daría 403 a quien no tiene nada
+    del rol de pagos); a quien no le corresponde se le dice `mostrar: false`.
+    Con el límite de peticiones por defecto."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        datos = aviso.aviso_del_mes(request.user)
+        if datos is None:
+            return Response({"mostrar": False})
+        return Response({"mostrar": True, **datos})
 
 
 # --- Observaciones (Talento Humano) -------------------------------------------------------

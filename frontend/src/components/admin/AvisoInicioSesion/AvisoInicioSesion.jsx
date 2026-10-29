@@ -25,12 +25,30 @@ function marcarVisto(usuario, version) {
   }
 }
 
+const ETIQUETA_POR_DEFECTO = {
+  icono: "megaphone-fill",
+  texto: "Aviso importante",
+};
+
 /**
  * La ventana del aviso: título, imagen (si tiene), contenido y «Cerrar». La
  * usan el aviso al entrar y la vista previa de Configuración, para que se vea
  * exactamente igual.
+ *
+ * El aviso del rol de pagos (29/10/2026) usa la misma ventana con su propia
+ * etiqueta (`{ icono, texto }`), sus botones (`acciones`) y, con el plazo
+ * vencido, `variante="advertencia"`. Sin esas props, se ve como siempre.
  */
-export function VentanaAviso({ titulo, contenido, imagenUrl, onCerrar }) {
+export function VentanaAviso({
+  titulo,
+  contenido,
+  imagenUrl,
+  onCerrar,
+  etiqueta = ETIQUETA_POR_DEFECTO,
+  variante,
+  acciones,
+  etiquetaCerrar = "Cerrar aviso",
+}) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -42,28 +60,22 @@ export function VentanaAviso({ titulo, contenido, imagenUrl, onCerrar }) {
       role="presentation"
     >
       <div
-        className="aviso-inicio"
+        className={`aviso-inicio${
+          variante ? ` aviso-inicio--${variante}` : ""
+        }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="aviso-inicio-titulo"
-        aria-describedby="aviso-inicio-contenido"
+        aria-describedby={contenido ? "aviso-inicio-contenido" : undefined}
         ref={panelRef}
         tabIndex={-1}
       >
-        <button
-          type="button"
-          className="aviso-inicio__cerrar-x"
-          onClick={onCerrar}
-          aria-label="Cerrar aviso"
-        >
-          <Icon name="x-lg" />
-        </button>
         {imagenUrl && (
           <img className="aviso-inicio__imagen" src={imagenUrl} alt="" />
         )}
         <div className="aviso-inicio__cuerpo">
           <span className="aviso-inicio__etiqueta">
-            <Icon name="megaphone-fill" /> Aviso importante
+            <Icon name={etiqueta.icono} /> {etiqueta.texto}
           </span>
           <h2 id="aviso-inicio-titulo">{titulo}</h2>
           {contenido && (
@@ -75,15 +87,28 @@ export function VentanaAviso({ titulo, contenido, imagenUrl, onCerrar }) {
             </div>
           )}
           <div className="aviso-inicio__acciones">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onCerrar}
-            >
-              Cerrar
-            </button>
+            {acciones ?? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onCerrar}
+              >
+                Cerrar
+              </button>
+            )}
           </div>
         </div>
+        {/* La X va al final del DOM (se ve arriba a la derecha): así el foco
+            inicial cae en la acción principal y no en cerrar sin leer
+            (auditoría UX/UI del aviso del rol de pagos, 29/10/2026). */}
+        <button
+          type="button"
+          className="aviso-inicio__cerrar-x"
+          onClick={onCerrar}
+          aria-label={etiquetaCerrar}
+        >
+          <Icon name="x-lg" />
+        </button>
       </div>
     </div>
   );
