@@ -327,11 +327,63 @@ class SolicitudSerializer(serializers.ModelSerializer):
 
 
 class DetalleSolicitudSerializer(SolicitudSerializer):
+    """El detalle, con lo que necesita quien aprueba para decidir (auditoría
+    UX/UI de la revisión, 29/10/2026): el cargo y el área de quien pide, las
+    restricciones del tipo de permiso evaluadas para sus fechas (con su saldo
+    de vacaciones, si se descuenta) mientras está pendiente, y los feriados
+    que caen en esas fechas."""
+
     acciones = AccionSerializer(many=True, read_only=True)
     puedo = serializers.SerializerMethodField()
+    cargo = serializers.SerializerMethodField()
+    area = serializers.SerializerMethodField()
+    evaluacion = serializers.SerializerMethodField()
+    feriados = serializers.SerializerMethodField()
 
     class Meta(SolicitudSerializer.Meta):
-        fields = SolicitudSerializer.Meta.fields + ["acciones", "puedo"]
+        fields = SolicitudSerializer.Meta.fields + [
+            "acciones",
+            "puedo",
+            "cargo",
+            "area",
+            "evaluacion",
+            "feriados",
+        ]
+
+    def get_cargo(self, solicitud) -> str:
+        from apps.organizacion.herramientas import cargo_de
+
+        cargo = cargo_de(solicitud.solicitante)
+        return cargo.nombre if cargo else ""
+
+    def get_area(self, solicitud) -> str:
+        from apps.organizacion.organigrama import unidad_de
+
+        unidad = unidad_de(solicitud.solicitante)
+        return unidad.nombre if unidad else ""
+
+    def get_evaluacion(self, solicitud):
+        # Solo pendiente: aprobada, sus días ya constan como gozados y se
+        # «cruzarían» consigo mismos.
+        if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
+            return None
+        from .restricciones import evaluar
+
+        resultado = evaluar(
+            solicitud.solicitante,
+            solicitud.flujo,
+            solicitud.desde,
+            solicitud.hasta,
+            solicitud=solicitud,
+        )
+        # «Debe adjuntar» es una indicación para quien pide, no para decidir.
+        resultado["reglas"] = [r for r in resultado["reglas"] if r["clave"] != "adjunto"]
+        return resultado
+
+    def get_feriados(self, solicitud) -> list[str]:
+        from apps.nomina.dias_habiles import feriados
+
+        return sorted(d.isoformat() for d in feriados(solicitud.desde, solicitud.hasta))
 
     def get_puedo(self, solicitud):
         from apps.permissions.authorization import user_has_permission

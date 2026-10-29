@@ -17,7 +17,7 @@ describe("Calendario de los días solicitados", () => {
     expect(within(calendario).getAllByRole("row")).toHaveLength(2);
     expect(within(calendario).getAllByLabelText(/solicitado$/)).toHaveLength(5);
     expect(
-      within(calendario).getByText(/5 días · ninguno de fin de semana/),
+      within(calendario).getByText("Ningún día de fin de semana"),
     ).toBeInTheDocument();
   });
 
@@ -27,11 +27,41 @@ describe("Calendario de los días solicitados", () => {
     expect(within(calendario).getAllByRole("row")).toHaveLength(3);
     expect(
       within(calendario).getByText(
-        /2 de fin de semana \(1 sábado y 1 domingo\)/,
+        /2 días de fin de semana \(1 sábado y 1 domingo\)/,
       ),
     ).toBeInTheDocument();
     expect(
       within(calendario).getByLabelText("sábado, 21 de noviembre, solicitado"),
     ).toHaveClass("is-pedido", "is-finde");
+  });
+});
+
+describe("Calendario de los días solicitados: feriados (29/10/2026)", () => {
+  it("marca los feriados que caen en las fechas y los nombra", () => {
+    render(
+      <CalendarioSolicitado
+        desde="2026-11-02"
+        hasta="2026-11-06"
+        feriados={["2026-11-02", "2026-11-03"]}
+      />,
+    );
+    const calendario = screen.getByRole("region", { name: "Días solicitados" });
+    expect(
+      within(calendario).getByLabelText(
+        "lunes, 2 de noviembre, feriado, solicitado",
+      ),
+    ).toHaveClass("is-feriado");
+    expect(
+      within(calendario).getByText(
+        /2 feriados \(2 de noviembre, 3 de noviembre\)/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("una semana entre dos meses lleva los dos", () => {
+    render(<CalendarioSolicitado desde="2026-10-29" hasta="2026-11-02" />);
+    expect(
+      screen.getByRole("rowheader", { name: /oct.*nov/ }),
+    ).toBeInTheDocument();
   });
 });

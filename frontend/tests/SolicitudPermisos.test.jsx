@@ -101,6 +101,7 @@ const DETALLE = {
 
 const OPCIONES = {
   personas: [
+    { id: 3, nombre: "Ana Vera" },
     { id: 4, nombre: "Julia Paz" },
     { id: 9, nombre: "Tatiana Torres" },
   ],
@@ -318,15 +319,87 @@ describe("Solicitud de permisos", () => {
       name: "Solicitud de permiso",
     });
     expect(
-      await within(ventana).findByText(/pasó a \(Jefatura\): Julia Paz/),
+      await within(ventana).findByText(/Pasó al paso «Jefatura»/),
+    ).toBeInTheDocument();
+    // El título dice qué y de quién; arriba, que le toca decidir.
+    expect(ventana).toHaveAccessibleName("Vacaciones · Ana Vera");
+    expect(
+      within(ventana).getByText("Le toca decidir a usted"),
     ).toBeInTheDocument();
     fireEvent.change(within(ventana).getByLabelText(/Comentario/), {
       target: { value: "De acuerdo" },
     });
     fireEvent.click(within(ventana).getByRole("button", { name: /Aprobar/ }));
+    // Aprobar se confirma, con lo que se aprueba y el comentario.
+    const pregunta = await screen.findByRole("dialog", { name: /¿Aprobar/ });
+    expect(pregunta).toHaveTextContent(/vacaciones de Ana Vera/);
+    expect(pregunta).toHaveTextContent(/«De acuerdo»/);
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Aprobar" }));
     await waitFor(() =>
       expect(servicio.aprobar).toHaveBeenCalledWith("7", "De acuerdo"),
     );
+    expect(
+      await within(ventana).findByText(/Aprobada\. Ahora le toca a/),
+    ).toBeInTheDocument();
+  });
+
+  it("rechazar pide un motivo de al menos 10 caracteres y lo confirma", async () => {
+    servicio.rechazar.mockResolvedValue({
+      ...DETALLE,
+      estado: "rechazada",
+      puedo: { resolver: false, escalar: false, cancelar: false },
+    });
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    const comentario = within(ventana).getByLabelText(/Comentario/);
+    fireEvent.change(comentario, { target: { value: "no" } });
+    fireEvent.click(within(ventana).getByRole("button", { name: /Rechazar/ }));
+    expect(
+      within(ventana).getByText(/explique el motivo \(al menos 10/),
+    ).toBeInTheDocument();
+    expect(comentario).toHaveFocus();
+    expect(servicio.rechazar).not.toHaveBeenCalled();
+
+    fireEvent.change(comentario, {
+      target: { value: "Ya hay dos personas fuera esa semana" },
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: /Rechazar/ }));
+    const pregunta = await screen.findByRole("dialog", { name: /¿Rechazar/ });
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Rechazar" }));
+    await waitFor(() =>
+      expect(servicio.rechazar).toHaveBeenCalledWith(
+        "7",
+        "Ya hay dos personas fuera esa semana",
+      ),
+    );
+  });
+
+  it("escalar: sin destino no se confirma, se puede volver y oculta aprobar", async () => {
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: /^Escalar/ }));
+    expect(
+      within(ventana).getByRole("button", { name: /Confirmar escalamiento/ }),
+    ).toBeDisabled();
+    expect(
+      within(ventana).queryByRole("button", { name: /Aprobar/ }),
+    ).toBeNull();
+    // Ni la solicitante (id 3) aparece como destino.
+    const persona = await within(ventana).findByLabelText(
+      "Escalar a: una persona",
+    );
+    await waitFor(() =>
+      expect(within(persona).getByText("Tatiana Torres")).toBeInTheDocument(),
+    );
+    expect(within(persona).queryByText("Ana Vera")).toBeNull();
+    fireEvent.click(within(ventana).getByRole("button", { name: "Volver" }));
+    expect(
+      within(ventana).getByRole("button", { name: /Aprobar/ }),
+    ).toBeInTheDocument();
   });
 
   it("escala a otra persona", async () => {

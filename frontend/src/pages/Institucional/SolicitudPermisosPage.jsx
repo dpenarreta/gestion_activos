@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { licenciasService } from "../../api/licenciasService";
@@ -16,6 +16,7 @@ import {
   PanelDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
+import { useAuth } from "../../hooks/useAuth";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { usePermission } from "../../hooks/usePermission";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
@@ -32,11 +33,15 @@ import "./Institucional.css";
 import { descargarBlob } from "../../utils/descargas";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
-function Ventana({ titulo, onCerrar, children, ancha = false }) {
+/** Una ventana del módulo. `pie` va fijo abajo (las acciones quedan a la
+ * vista aunque el contenido se desplace) y el diálogo se nombra con su
+ * título visible. */
+function Ventana({ titulo, onCerrar, children, ancha = false, clase, pie }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
   });
+  const tituloId = useId();
   return (
     <div
       className="mz-overlay mz-overlay--center"
@@ -44,15 +49,15 @@ function Ventana({ titulo, onCerrar, children, ancha = false }) {
       role="presentation"
     >
       <div
-        className={`mz-modal${ancha ? " mz-modal--wide" : ""}`}
+        className={`mz-modal${ancha ? " mz-modal--wide" : ""}${clase ? ` ${clase}` : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={titulo}
+        aria-labelledby={tituloId}
         ref={panelRef}
         tabIndex={-1}
       >
         <div className="mz-panel-head">
-          <h3>{titulo}</h3>
+          <h3 id={tituloId}>{titulo}</h3>
           <button
             type="button"
             className="mz-close"
@@ -63,6 +68,7 @@ function Ventana({ titulo, onCerrar, children, ancha = false }) {
           </button>
         </div>
         <div className="mz-panel-body">{children}</div>
+        {pie && <div className="mz-panel-foot solicitud-pie-fijo">{pie}</div>}
       </div>
     </div>
   );
@@ -84,12 +90,15 @@ const ESTADO_REGLA = {
 
 /** Las restricciones del tipo de permiso para las fechas elegidas, cada una
  * con si se cumple. Las que no se cumplen no dejan enviar. */
-function RestriccionesDelPermiso({ evaluacion }) {
+function RestriccionesDelPermiso({
+  evaluacion,
+  titulo = "Restricciones de este permiso",
+}) {
   if (!evaluacion?.reglas.length) return null;
   return (
     <section className="solicitud-reglas" aria-labelledby="sp-reglas">
       <strong id="sp-reglas" className="solicitud-reglas__titulo">
-        Restricciones de este permiso
+        {titulo}
       </strong>
       <ul>
         {evaluacion.reglas.map((regla) => {
@@ -392,30 +401,108 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   );
 }
 
-/** El detalle de una solicitud: sus datos, su historial y, a quien le toca,
- * aprobar, rechazar o escalar. */
+/** El texto de cada acción del historial, en una frase que se entienda
+ * (auditoría UX/UI de la revisión, 29/10/2026). */
+function textoDeAccion(a) {
+  const paso = a.paso ? ` en el paso «${a.paso}»` : "";
+  switch (a.accion) {
+    case "creada":
+      return <>{a.actor && <strong>{a.actor}</strong>} hizo la solicitud</>;
+    case "asignada":
+      return (
+        <>
+          Pasó al paso «{a.paso}»
+          {a.detalle && (
+            <>
+              {" "}
+              · le toca a <strong>{a.detalle}</strong>
+            </>
+          )}
+        </>
+      );
+    case "aprobada":
+      return (
+        <>
+          {a.actor && <strong>{a.actor}</strong>} aprobó{paso}
+        </>
+      );
+    case "rechazada":
+      return (
+        <>
+          {a.actor && <strong>{a.actor}</strong>} rechazó{paso}
+        </>
+      );
+    case "escalada":
+      return (
+        <>
+          {a.actor && <strong>{a.actor}</strong>} escaló{paso}
+          {a.detalle && (
+            <>
+              {" "}
+              a <strong>{a.detalle}</strong>
+            </>
+          )}
+        </>
+      );
+    case "cancelada":
+      return <>{a.actor && <strong>{a.actor}</strong>} canceló la solicitud</>;
+    case "terminada":
+      return (
+        <>
+          Resultado: <strong>{a.detalle || a.accion_display}</strong>
+        </>
+      );
+    default:
+      return (
+        <>
+          {a.actor && <strong>{a.actor} </strong>}
+          {a.accion_display.toLowerCase()}
+          {a.detalle ? `: ${a.detalle}` : ""}
+        </>
+      );
+  }
+}
+
+/** El motivo de rechazo tiene que explicar algo a quien pidió. */
+const MINIMO_RECHAZO = 10;
+
+/** El detalle de una solicitud, pensado para quien la revisa (auditoría
+ * UX/UI de la revisión, 29/10/2026): arriba, quién pide, qué y a quién le
+ * toca decidir; luego lo que hace falta para decidir (saldo y restricciones,
+ * feriados en el calendario), el motivo, el documento y el historial; las
+ * acciones, con su comentario y sus errores, en el pie fijo de la ventana. */
 function DetalleSolicitud({ id, onCambio, onCerrar }) {
+  const { user } = useAuth();
   const [solicitud, setSolicitud] = useState(null);
   const [comentario, setComentario] = useState("");
+  const [errorComentario, setErrorComentario] = useState(null);
   const [escalando, setEscalando] = useState(false);
-  const [destino, setDestino] = useState({
-    tipo: "persona",
-    usuario: null,
-    rol: null,
-    cargo: null,
-  });
+  const [destino, setDestino] = useState(DESTINO_VACIO);
   const [opciones, setOpciones] = useState(null);
+  const [errorCarga, setErrorCarga] = useState(null);
   const [error, setError] = useState(null);
-  const [trabajando, setTrabajando] = useState(false);
+  const [hecho, setHecho] = useState(null);
+  const [trabajando, setTrabajando] = useState(null);
+  const [descargando, setDescargando] = useState(false);
+  const campoComentario = useRef(null);
+  const avisoHecho = useRef(null);
+  // A dónde va el foco cuando el botón pulsado desaparece del pie.
+  const enfocarLuego = (selector) =>
+    requestAnimationFrame(() => document.querySelector(selector)?.focus());
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
     licenciasService
       .solicitud(id)
       .then(setSolicitud)
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo abrir la solicitud.")),
+        setErrorCarga(mensajeDeError(err, "No se pudo abrir la solicitud.")),
       );
   }, [id]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   useEffect(() => {
     if (escalando && !opciones) {
@@ -430,220 +517,437 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
     }
   }, [escalando, opciones]);
 
-  async function hacer(accion) {
-    setTrabajando(true);
+  // A quién escalar: ni a quien pidió ni a uno mismo.
+  const opcionesDeEscalar = opciones && {
+    ...opciones,
+    personas: (opciones.personas ?? []).filter(
+      (p) => p.id !== solicitud?.solicitante.id && p.id !== user?.id,
+    ),
+  };
+  const destinoElegido =
+    destino.tipo === "persona"
+      ? Boolean(destino.usuario)
+      : destino.tipo === "rol"
+        ? Boolean(destino.rol)
+        : destino.tipo === "cargo"
+          ? Boolean(destino.cargo)
+          : true;
+
+  async function hacer(accion, enCurso, listo) {
+    setTrabajando(enCurso);
     setError(null);
+    setHecho(null);
     try {
       const datos = await accion();
       setSolicitud(datos);
       setComentario("");
       setEscalando(false);
+      setDestino(DESTINO_VACIO);
+      setHecho(listo(datos));
+      // El pie puede desaparecer con el botón pulsado: el foco va al aviso.
+      requestAnimationFrame(() => avisoHecho.current?.focus());
       onCambio();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo completar."));
     } finally {
-      setTrabajando(false);
+      setTrabajando(null);
     }
   }
 
   async function verAdjunto() {
     setError(null);
+    setDescargando(true);
     try {
       const blob = await licenciasService.adjunto(id);
       descargarBlob(blob, solicitud.adjunto_nombre);
     } catch (err) {
       // Antes fallaba sin avisar (auditoría UX/UI, fase 2, 28/10/2026).
       setError(mensajeDeError(err, "No se pudo descargar el documento."));
+    } finally {
+      setDescargando(false);
     }
   }
 
   const [estado, clase] = ESTADOS[solicitud?.estado] ?? ["", ""];
+  const resumen =
+    solicitud &&
+    `${solicitud.flujo.toLowerCase()} de ${solicitud.solicitante.nombre} (${fechas(
+      solicitud.desde,
+      solicitud.hasta,
+      formatearFecha,
+    )}, ${solicitud.dias} ${solicitud.dias === 1 ? "día" : "días"})`;
+  const siguiente = (datos) =>
+    datos.estado === "pendiente"
+      ? ` Ahora le toca a ${datos.pendiente_de.map((p) => p.nombre).join(", ")}.`
+      : "";
 
-  return (
-    <Ventana titulo="Solicitud de permiso" onCerrar={onCerrar} ancha>
+  async function aprobar() {
+    if (
+      !(await confirmar({
+        titulo: `¿Aprobar ${resumen}?`,
+        mensaje: comentario.trim()
+          ? `Se enviará su comentario: «${comentario.trim()}».`
+          : "Si es el último paso, la solicitud queda aprobada y se avisa a quien la hizo.",
+        accion: "Aprobar",
+        peligro: false,
+      }))
+    )
+      return;
+    hacer(
+      () => licenciasService.aprobar(id, comentario),
+      "aprobar",
+      (datos) => `Aprobada.${siguiente(datos)}`,
+    );
+  }
+
+  async function rechazar() {
+    const motivo = comentario.trim();
+    if (motivo.length < MINIMO_RECHAZO) {
+      setErrorComentario(
+        `Para rechazar, explique el motivo (al menos ${MINIMO_RECHAZO} caracteres): lo leerá quien la pidió.`,
+      );
+      campoComentario.current?.focus();
+      return;
+    }
+    if (
+      !(await confirmar({
+        titulo: `¿Rechazar ${resumen}?`,
+        mensaje: `La solicitud termina aquí y se avisa a quien la hizo con su comentario: «${motivo}».`,
+        accion: "Rechazar",
+      }))
+    )
+      return;
+    hacer(
+      () => licenciasService.rechazar(id, comentario),
+      "rechazar",
+      () => "Rechazada. Se avisó a quien la hizo.",
+    );
+  }
+
+  const puedeActuar =
+    solicitud &&
+    (solicitud.puedo.resolver ||
+      solicitud.puedo.escalar ||
+      solicitud.puedo.cancelar);
+
+  const pie = puedeActuar ? (
+    <div className="solicitud-pie">
       {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
+        <div className="mz-alert mz-alert--bad mb-2" role="alert">
           <Icon name="x-octagon" />
           {error}
         </div>
       )}
-      {/* Mientras llegan los datos, la ventana no queda en blanco. */}
-      {!solicitud && !error && <EstadoDeCarga cargando />}
+      <label className="form-label mz-small mb-1" htmlFor="sp-comentario">
+        Comentario para el solicitante{" "}
+        {solicitud.puedo.resolver && !escalando && (
+          <span className="mz-faint">(obligatorio para rechazar)</span>
+        )}
+      </label>
+      <textarea
+        id="sp-comentario"
+        ref={campoComentario}
+        rows={2}
+        className={`form-control form-control-sm${errorComentario ? " is-invalid" : ""}`}
+        value={comentario}
+        onChange={(e) => {
+          setComentario(e.target.value);
+          setErrorComentario(null);
+        }}
+        aria-invalid={Boolean(errorComentario)}
+        aria-describedby={errorComentario ? "sp-comentario-error" : undefined}
+      />
+      {errorComentario && (
+        <small id="sp-comentario-error" className="invalid-feedback d-block">
+          {errorComentario}
+        </small>
+      )}
+      {escalando && (
+        <div className="mt-2">
+          <label className="form-label mz-small mb-1" htmlFor="sp-escalar">
+            Escalar a
+          </label>
+          <SelectorDestino
+            id="sp-escalar"
+            etiqueta="Escalar a"
+            valor={destino}
+            onCambio={setDestino}
+            opciones={opcionesDeEscalar}
+            tipos={DESTINOS_ESCALAR}
+          />
+        </div>
+      )}
+      <div className="mz-actions justify-content-end mt-2">
+        {solicitud.puedo.cancelar && !escalando && (
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm me-auto"
+            disabled={Boolean(trabajando)}
+            onClick={async () => {
+              const si = await confirmar({
+                titulo: "¿Cancelar la solicitud?",
+                mensaje: "La solicitud se retira y ya no sigue su aprobación.",
+                accion: "Cancelar solicitud",
+                cancelar: "Volver",
+              });
+              if (si)
+                hacer(
+                  () => licenciasService.cancelar(id, comentario),
+                  "cancelar",
+                  () => "Solicitud cancelada.",
+                );
+            }}
+          >
+            {trabajando === "cancelar" ? "Cancelando…" : "Cancelar solicitud"}
+          </button>
+        )}
+        {escalando ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              disabled={Boolean(trabajando)}
+              onClick={() => {
+                setEscalando(false);
+                setDestino(DESTINO_VACIO);
+                setError(null);
+                enfocarLuego("#sp-boton-escalar");
+              }}
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={Boolean(trabajando) || !destinoElegido}
+              onClick={() =>
+                hacer(
+                  () => licenciasService.escalar(id, destino, comentario),
+                  "escalar",
+                  (datos) => `Escalada.${siguiente(datos)}`,
+                )
+              }
+            >
+              <Icon name="send" />{" "}
+              {trabajando === "escalar"
+                ? "Escalando…"
+                : "Confirmar escalamiento"}
+            </button>
+          </>
+        ) : (
+          <>
+            {solicitud.puedo.escalar && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                disabled={Boolean(trabajando)}
+                id="sp-boton-escalar"
+                onClick={() => {
+                  setHecho(null);
+                  setEscalando(true);
+                  enfocarLuego("#sp-escalar");
+                }}
+              >
+                <Icon name="arrow-up-right" /> Escalar
+              </button>
+            )}
+            {solicitud.puedo.resolver && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  disabled={Boolean(trabajando)}
+                  onClick={rechazar}
+                >
+                  <Icon name="x-circle" />{" "}
+                  {trabajando === "rechazar" ? "Rechazando…" : "Rechazar"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  disabled={Boolean(trabajando)}
+                  onClick={aprobar}
+                >
+                  <Icon name="check-circle" />{" "}
+                  {trabajando === "aprobar" ? "Aprobando…" : "Aprobar"}
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <Ventana
+      titulo={
+        solicitud
+          ? `${solicitud.flujo} · ${solicitud.solicitante.nombre}`
+          : "Solicitud de permiso"
+      }
+      onCerrar={onCerrar}
+      ancha
+      clase="solicitud-ventana"
+      pie={pie}
+    >
+      {/* Mientras llegan los datos, la ventana no queda en blanco; si no
+          llegan, se puede reintentar. */}
+      {!solicitud && (
+        <EstadoDeCarga
+          cargando={!errorCarga}
+          error={errorCarga}
+          onReintentar={cargar}
+        />
+      )}
       {solicitud && (
         <div className="mz-stack">
-          <div className="solicitud-cabecera">
-            <div>
-              <strong>{solicitud.flujo}</strong>
-              <small>
-                {solicitud.solicitante.nombre} ·{" "}
-                {fechas(solicitud.desde, solicitud.hasta, formatearFecha)} (
-                {solicitud.dias} {solicitud.dias === 1 ? "día" : "días"})
-              </small>
+          {hecho && (
+            <div
+              className="mz-alert mz-alert--ok"
+              role="status"
+              ref={avisoHecho}
+              tabIndex={-1}
+            >
+              <Icon name="check-circle" />
+              {hecho}
             </div>
+          )}
+          {!puedeActuar && error && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          {solicitud.estado === "pendiente" &&
+            (solicitud.puedo.resolver ? (
+              <div className="mz-alert mz-alert--info" role="note">
+                <Icon name="hand-index-thumb" />
+                <span>
+                  <strong>Le toca decidir a usted</strong> (paso «
+                  {solicitud.paso_actual}»).
+                </span>
+              </div>
+            ) : (
+              <p className="solicitud-espera mb-0">
+                <Icon name="hourglass-split" /> En el paso «
+                {solicitud.paso_actual}», esperando a{" "}
+                <strong>
+                  {solicitud.pendiente_de.map((p) => p.nombre).join(", ")}
+                </strong>
+                .
+              </p>
+            ))}
+
+          <div className="solicitud-cabecera">
+            <dl className="solicitud-datos">
+              <div>
+                <dt>Solicitante</dt>
+                <dd>
+                  <strong>{solicitud.solicitante.nombre}</strong>
+                  {(solicitud.cargo || solicitud.area) && (
+                    <small>
+                      {[solicitud.cargo, solicitud.area]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Fechas</dt>
+                <dd>
+                  {fechas(solicitud.desde, solicitud.hasta, formatearFecha)}
+                </dd>
+              </div>
+              <div>
+                <dt>Días</dt>
+                <dd>{solicitud.dias}</dd>
+              </div>
+              <div>
+                <dt>Solicitada el</dt>
+                <dd>{formatearFecha(solicitud.created_at, true)}</dd>
+              </div>
+              {solicitud.cerrada_en && (
+                <div>
+                  <dt>Cerrada el</dt>
+                  <dd>{formatearFecha(solicitud.cerrada_en, true)}</dd>
+                </div>
+              )}
+            </dl>
             <span className={`mz-pill ${clase}`}>{estado}</span>
           </div>
+
+          {solicitud.evaluacion?.reglas?.length > 0 && (
+            <RestriccionesDelPermiso
+              evaluacion={solicitud.evaluacion}
+              titulo="Para decidir: saldo y restricciones"
+            />
+          )}
+
           <CalendarioSolicitado
             desde={solicitud.desde}
             hasta={solicitud.hasta}
+            feriados={solicitud.feriados}
           />
-          {solicitud.motivo && <p className="mb-0">{solicitud.motivo}</p>}
+
+          {solicitud.motivo && (
+            <section aria-labelledby="sp-motivo">
+              <h4 id="sp-motivo" className="solicitud-seccion">
+                Motivo
+              </h4>
+              <p className="mb-0">{solicitud.motivo}</p>
+            </section>
+          )}
           {solicitud.tiene_adjunto && (
-            <button
-              type="button"
-              className="btn btn-link btn-sm px-0 align-self-start"
-              onClick={verAdjunto}
-            >
-              <Icon name="paperclip" /> {solicitud.adjunto_nombre}
-            </button>
-          )}
-          {solicitud.estado === "pendiente" && (
-            <p className="mz-small mb-0">
-              <strong>En el paso «{solicitud.paso_actual}»</strong>, pendiente
-              de: {solicitud.pendiente_de.map((p) => p.nombre).join(", ")}
-            </p>
+            <section aria-labelledby="sp-adjunto">
+              <h4 id="sp-adjunto" className="solicitud-seccion">
+                Documento de respaldo
+              </h4>
+              <button
+                type="button"
+                className="btn btn-link btn-sm px-0"
+                onClick={verAdjunto}
+                disabled={descargando}
+              >
+                <Icon name="paperclip" />{" "}
+                {descargando ? "Descargando…" : solicitud.adjunto_nombre}
+              </button>
+            </section>
           )}
 
-          <ol className="solicitud-historial" aria-label="Historial">
-            {solicitud.acciones.map((a) => (
-              <li key={a.id} className={`solicitud-historial__${a.accion}`}>
-                <span className="mz-faint mz-small">
-                  {formatearFecha(a.created_at, true)}
-                </span>
-                <span>
-                  {a.actor && <strong>{a.actor} </strong>}
-                  {a.accion_display.toLowerCase()}
-                  {a.paso && a.accion !== "terminada" ? ` (${a.paso})` : ""}
-                  {a.detalle ? `: ${a.detalle}` : ""}
-                </span>
-                {a.comentario && <em className="mz-small">«{a.comentario}»</em>}
-              </li>
-            ))}
-          </ol>
-
-          {(solicitud.puedo.resolver ||
-            solicitud.puedo.escalar ||
-            solicitud.puedo.cancelar) && (
-            <div className="solicitud-acciones">
-              <label className="form-label mz-small" htmlFor="sp-comentario">
-                Comentario{" "}
-                {solicitud.puedo.resolver && "(obligatorio para rechazar)"}
-              </label>
-              <textarea
-                id="sp-comentario"
-                rows={2}
-                className="form-control form-control-sm"
-                value={comentario}
-                onChange={(e) => setComentario(e.target.value)}
-                aria-describedby={
-                  solicitud.puedo.resolver && !comentario.trim()
-                    ? "sp-comentario-ayuda"
-                    : undefined
-                }
-              />
-              {solicitud.puedo.resolver && !comentario.trim() && (
-                <small id="sp-comentario-ayuda" className="mz-faint d-block">
-                  Para rechazar, escriba el motivo.
-                </small>
-              )}
-              {escalando && (
-                <div className="mt-2">
-                  <span className="mz-small mz-faint">Escalar a:</span>
-                  <SelectorDestino
-                    id="sp-escalar"
-                    etiqueta="Escalar a"
-                    valor={destino}
-                    onCambio={setDestino}
-                    opciones={opciones}
-                    tipos={DESTINOS_ESCALAR}
-                  />
-                </div>
-              )}
-              <div className="mz-actions justify-content-end mt-2">
-                {solicitud.puedo.cancelar && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm me-auto"
-                    disabled={trabajando}
-                    onClick={async () => {
-                      const si = await confirmar({
-                        titulo: "¿Cancelar la solicitud?",
-                        mensaje:
-                          "La solicitud se retira y ya no sigue su aprobación.",
-                        accion: "Cancelar solicitud",
-                        cancelar: "Volver",
-                      });
-                      if (si)
-                        hacer(() => licenciasService.cancelar(id, comentario));
-                    }}
-                  >
-                    Cancelar solicitud
-                  </button>
-                )}
-                {solicitud.puedo.escalar &&
-                  (escalando ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      disabled={trabajando}
-                      onClick={() =>
-                        hacer(() =>
-                          licenciasService.escalar(id, destino, comentario),
-                        )
-                      }
-                    >
-                      <Icon name="send" /> Confirmar escalamiento
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setEscalando(true)}
-                    >
-                      <Icon name="arrow-up-right" /> Escalar
-                    </button>
-                  ))}
-                {solicitud.puedo.resolver && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      disabled={trabajando || !comentario.trim()}
-                      onClick={async () => {
-                        // Rechazar termina la solicitud: se confirma.
-                        const si = await confirmar({
-                          titulo: "¿Rechazar la solicitud?",
-                          mensaje:
-                            "La solicitud termina aquí y se avisa a quien la hizo con su comentario.",
-                          accion: "Rechazar",
-                        });
-                        if (si)
-                          hacer(() =>
-                            licenciasService.rechazar(id, comentario),
-                          );
-                      }}
-                    >
-                      <Icon name="x-circle" /> Rechazar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-success btn-sm"
-                      disabled={trabajando}
-                      onClick={() =>
-                        hacer(() => licenciasService.aprobar(id, comentario))
-                      }
-                    >
-                      <Icon name="check-circle" /> Aprobar
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
+          <section aria-labelledby="sp-historial">
+            <h4 id="sp-historial" className="solicitud-seccion">
+              Historial
+            </h4>
+            <ol className="solicitud-historial" aria-labelledby="sp-historial">
+              {solicitud.acciones.map((a) => (
+                <li key={a.id} className={`solicitud-historial__${a.accion}`}>
+                  <span className="mz-faint mz-small">
+                    {formatearFecha(a.created_at, true)}
+                  </span>
+                  <span>{textoDeAccion(a)}</span>
+                  {a.comentario && (
+                    <blockquote className="solicitud-historial__comentario">
+                      «{a.comentario}»
+                    </blockquote>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
       )}
     </Ventana>
   );
 }
+
+const DESTINO_VACIO = {
+  tipo: "persona",
+  usuario: null,
+  rol: null,
+  cargo: null,
+};
 
 const PESTANAS = [
   { id: "mias", etiqueta: "Mis solicitudes" },
@@ -778,6 +1082,11 @@ export function SolicitudPermisosPage() {
                       type="button"
                       className="btn btn-link btn-sm p-0"
                       onClick={() => abrir(s.id)}
+                      aria-label={`${s.flujo} de ${s.solicitante.nombre}, ${fechas(
+                        s.desde,
+                        s.hasta,
+                        formatearFecha,
+                      )}`}
                     >
                       {s.flujo}
                     </button>

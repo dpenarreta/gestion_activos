@@ -261,10 +261,15 @@ def _regla_dict(clave, estado, texto, detalle=""):
     return {"clave": clave, "estado": estado, "texto": texto, "detalle": detalle}
 
 
-def evaluar(usuario, flujo, desde, hasta) -> dict:
+def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
     """Las restricciones del tipo de permiso para esas fechas, cada una con
-    su estado: «ok», «falla» (no deja enviar), «aviso» o «info»."""
-    if not tiene_rol(usuario):
+    su estado: «ok», «falla» (no deja enviar), «aviso» o «info».
+
+    Con `solicitud` (una pendiente ya creada), para quien la aprueba
+    (auditoría UX/UI de la revisión, 29/10/2026): se evalúa como cuando se
+    pidió, sin contarla contra sí misma (ni como cruce ni como días ya
+    reservados) y sin la regla del rol, que es de quien solicita."""
+    if solicitud is None and not tiene_rol(usuario):
         return {"reglas": [_regla_dict("rol", "falla", *SIN_ROL)], "bloquea": True}
     if hasta < desde:
         return {
@@ -277,7 +282,7 @@ def evaluar(usuario, flujo, desde, hasta) -> dict:
     reglas = []
 
     # Solo aparecen si fallan: no se piden días ya pedidos o ya gozados.
-    cruces = _cruces(usuario, desde, hasta)
+    cruces = _cruces(usuario, desde, hasta, excluir=solicitud)
     if cruces:
         reglas.append(
             _regla_dict(
@@ -324,9 +329,11 @@ def evaluar(usuario, flujo, desde, hasta) -> dict:
         )
 
     if flujo.descuenta_vacaciones:
-        periodos = _periodos(usuario)
+        periodos = _periodos(usuario, antes_de=solicitud)
         disponibles = sum(p.saldo for p in periodos)
-        reparto, marcas, sobran = _repartir(periodos, dias, _fechas_de_otras(usuario))
+        reparto, marcas, sobran = _repartir(
+            periodos, dias, _fechas_de_otras(usuario, excluir=solicitud)
+        )
         if sobran:
             detalle = (
                 f"Tiene {_plural(disponibles, 'día pendiente', 'días pendientes')}; "

@@ -10,9 +10,10 @@ function fecha(texto) {
 /**
  * Un calendario reducido a las semanas del permiso: los días pedidos
  * marcados y los sábados y domingos destacados, para ver de un vistazo si la
- * solicitud toma fines de semana. Solo de lectura.
+ * solicitud toma fines de semana; y los feriados que caen en esas fechas
+ * (`feriados`, AAAA-MM-DD). Solo de lectura.
  */
-export function CalendarioSolicitado({ desde, hasta }) {
+export function CalendarioSolicitado({ desde, hasta, feriados = [] }) {
   if (!desde || !hasta || hasta < desde) return null;
   const inicio = fecha(desde);
   const fin = fecha(hasta);
@@ -33,15 +34,29 @@ export function CalendarioSolicitado({ desde, hasta }) {
   const sabados = pedidos.filter((d) => d.getDay() === 6).length;
   const domingos = pedidos.filter((d) => d.getDay() === 0).length;
   const finDeSemana = sabados + domingos;
+  const enFeriado = new Set(feriados);
+  const feriadosPedidos = pedidos.filter((d) => enFeriado.has(iso(d)));
   const mes = (d) => d.toLocaleDateString("es-EC", { month: "short" });
+  // Una semana entre dos meses lleva los dos («oct–nov»), no solo el del
+  // lunes (auditoría UX/UI de la revisión, 29/10/2026).
+  const mesDeSemana = (semana) => {
+    const primero = mes(semana[0]);
+    const ultimo = mes(semana[6]);
+    return primero === ultimo ? primero : `${primero}–${ultimo}`;
+  };
+  const diaLargo = (d) =>
+    d.toLocaleDateString("es-EC", { day: "numeric", month: "long" });
 
   return (
     <section className="cal-solicitado" aria-label="Días solicitados">
       <table className="cal-solicitado__tabla">
+        <caption className="visually-hidden">
+          Las semanas del permiso, con los días solicitados marcados
+        </caption>
         <thead>
           <tr>
             <th scope="col">
-              <span className="visually-hidden">Semana</span>
+              <span className="visually-hidden">Mes</span>
             </th>
             {DIAS.map((d) => (
               <th key={d} scope="col">
@@ -54,12 +69,13 @@ export function CalendarioSolicitado({ desde, hasta }) {
           {semanas.map((semana) => (
             <tr key={iso(semana[0])}>
               <th scope="row" className="cal-solicitado__mes">
-                {mes(semana[0])}
+                {mesDeSemana(semana)}
               </th>
               {semana.map((d) => {
                 const clave = iso(d);
                 const pedido = clave >= desde && clave <= hasta;
                 const finde = d.getDay() === 0 || d.getDay() === 6;
+                const feriado = enFeriado.has(clave);
                 return (
                   <td
                     key={clave}
@@ -67,6 +83,7 @@ export function CalendarioSolicitado({ desde, hasta }) {
                       "cal-solicitado__dia",
                       pedido && "is-pedido",
                       finde && "is-finde",
+                      feriado && "is-feriado",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -74,7 +91,7 @@ export function CalendarioSolicitado({ desde, hasta }) {
                       weekday: "long",
                       day: "numeric",
                       month: "long",
-                    })}${pedido ? ", solicitado" : ""}`}
+                    })}${feriado ? ", feriado" : ""}${pedido ? ", solicitado" : ""}`}
                   >
                     {d.getDate()}
                   </td>
@@ -84,13 +101,15 @@ export function CalendarioSolicitado({ desde, hasta }) {
           ))}
         </tbody>
       </table>
+      {/* Los días ya están arriba, en los datos: aquí solo lo que el
+          calendario aporta (fines de semana y feriados). */}
       <p className="cal-solicitado__resumen">
-        {pedidos.length} {pedidos.length === 1 ? "día" : "días"} ·{" "}
         {finDeSemana === 0 ? (
-          "ninguno de fin de semana"
+          "Ningún día de fin de semana"
         ) : (
           <strong>
-            {finDeSemana} de fin de semana (
+            {finDeSemana} {finDeSemana === 1 ? "día" : "días"} de fin de semana
+            (
             {[
               sabados && `${sabados} ${sabados === 1 ? "sábado" : "sábados"}`,
               domingos &&
@@ -100,6 +119,18 @@ export function CalendarioSolicitado({ desde, hasta }) {
               .join(" y ")}
             )
           </strong>
+        )}
+        {feriadosPedidos.length > 0 && (
+          <>
+            {" · "}
+            <span className="cal-solicitado__feriados">
+              {feriadosPedidos.length === 1
+                ? `1 feriado (${diaLargo(feriadosPedidos[0])})`
+                : `${feriadosPedidos.length} feriados (${feriadosPedidos
+                    .map(diaLargo)
+                    .join(", ")})`}
+            </span>
+          </>
         )}
       </p>
     </section>

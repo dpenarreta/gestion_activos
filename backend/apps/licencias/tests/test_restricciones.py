@@ -194,3 +194,39 @@ def test_un_tipo_sin_motivo_no_lo_guarda(empresa_con_organigrama):
         format="multipart",
     ).json()
     assert solicitud["motivo"] == ""
+
+
+def test_quien_aprueba_ve_lo_que_necesita_para_decidir(empresa_con_organigrama):
+    """Auditoría UX/UI de la revisión (29/10/2026): el detalle trae el cargo y
+    el área de quien pide, sus restricciones evaluadas sin contar la propia
+    solicitud contra sí misma, y los feriados de esas fechas."""
+    from apps.organizacion.models import EventoCalendario
+
+    e = empresa_con_organigrama
+    _con_reglas(e)
+    usuario, ana = e["ana"]
+    _, jefa = e["jefa"]
+    _periodo(usuario, D(2024, 6, 1))
+    with usando_empresa(empresa_actual()):
+        EventoCalendario.objects.create(titulo="Difuntos", tipo="feriado", fecha=D(2026, 11, 2))
+    creada = ana.post(
+        SOLICITUDES,
+        {"flujo": e["vacaciones"], "desde": "2026-11-02", "hasta": "2026-11-06"},
+        format="multipart",
+    )
+    assert creada.status_code == 201, creada.data
+
+    detalle = jefa.get(f"{SOLICITUDES}{creada.json()['id']}/").json()
+    assert detalle["cargo"] == "Analista"
+    assert detalle["area"] == "Empresa"
+    assert detalle["feriados"] == ["2026-11-02"]
+    reglas = _por_clave(detalle["evaluacion"])
+    # No se cruza consigo misma y sus días no se descuentan dos veces.
+    assert "cruce" not in reglas
+    assert reglas["saldo"]["estado"] == "ok"
+    assert "Tiene 15 días pendientes" in reglas["saldo"]["detalle"]
+    assert detalle["evaluacion"]["bloquea"] is False
+
+    # Cerrada, ya no se evalúa (sus días constan como gozados).
+    jefa.post(f"{SOLICITUDES}{creada.json()['id']}/rechazar/", {"comentario": "No"})
+    assert jefa.get(f"{SOLICITUDES}{creada.json()['id']}/").json()["evaluacion"] is None
