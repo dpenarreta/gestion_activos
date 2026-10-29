@@ -39,9 +39,19 @@ export function SelectorDestino({
   opciones,
   tipos,
   etiqueta = "A quién",
+  // Si falta elegir a quién: se marca el selector que hay que completar
+  // (auditoría UX/UI de los tipos de permiso, 29/10/2026).
+  invalido = false,
+  describedBy,
 }) {
   const campo = CAMPO[valor.tipo];
   const lista = opciones?.[LISTA[valor.tipo]] ?? [];
+  const marca = (propio) =>
+    invalido && propio
+      ? { "aria-invalid": true, "aria-describedby": describedBy }
+      : {};
+  const clase = (propio) =>
+    `form-select form-select-sm${invalido && propio ? " is-invalid" : ""}`;
   return (
     <div
       className={`selector-destino${campo ? "" : " selector-destino--solo"}`}
@@ -49,7 +59,8 @@ export function SelectorDestino({
       <select
         id={id}
         aria-label={etiqueta}
-        className="form-select form-select-sm"
+        className={clase(!campo)}
+        {...marca(!campo)}
         value={valor.tipo}
         onChange={(e) =>
           onCambio({
@@ -69,7 +80,8 @@ export function SelectorDestino({
       {campo && (
         <select
           aria-label={`${etiqueta}: ${DESTINOS[valor.tipo].toLowerCase()}`}
-          className="form-select form-select-sm"
+          className={clase(true)}
+          {...marca(true)}
           value={valor[campo] ?? ""}
           onChange={(e) =>
             onCambio({

@@ -81,6 +81,9 @@ class DestinoSerializer(serializers.Serializer):
 
 
 class PasoSerializer(serializers.Serializer):
+    # El id de un paso que ya existe: al editar se conserva, para que las
+    # solicitudes que están en él sigan en él (auditoría UX/UI, 29/10/2026).
+    id = serializers.IntegerField(required=False, allow_null=True)
     nombre = serializers.CharField(max_length=120)
     aprobadores = DestinoSerializer(many=True)
 
@@ -145,10 +148,30 @@ class FlujoSerializer(serializers.ModelSerializer):
     def validate_pasos(self, pasos):
         if not pasos:
             raise serializers.ValidationError("El flujo necesita al menos un paso de aprobación.")
+        if self.instance is not None:
+            # Un paso con solicitudes en curso no se quita: quedarían sin paso
+            # y, al aprobarse, volverían al primero.
+            quedan = {p.get("id") for p in pasos if p.get("id")}
+            for paso in self.instance.pasos.exclude(pk__in=quedan):
+                en_curso = SolicitudPermiso.objects.filter(
+                    paso_actual=paso, estado=SolicitudPermiso.Estado.PENDIENTE
+                ).count()
+                if en_curso:
+                    raise serializers.ValidationError(
+                        f"El paso «{paso.nombre}» tiene "
+                        f"{en_curso} {'solicitud' if en_curso == 1 else 'solicitudes'} en curso: "
+                        "no se puede quitar hasta que terminen."
+                    )
         return pasos
 
     def to_representation(self, flujo):
         datos = super().to_representation(flujo)
+        # Cuántas solicitudes están en curso y si tiene alguna: el editor avisa
+        # y la lista ofrece desactivar en vez de borrar.
+        datos["solicitudes_en_curso"] = flujo.solicitudes.filter(
+            estado=SolicitudPermiso.Estado.PENDIENTE
+        ).count()
+        datos["tiene_solicitudes"] = flujo.solicitudes.exists()
         datos["pasos"] = [
             {
                 "id": paso.id,
@@ -167,9 +190,24 @@ class FlujoSerializer(serializers.ModelSerializer):
         return datos
 
     def _guardar_partes(self, flujo, pasos, avisos):
-        flujo.pasos.all().delete()
+        """Los pasos se actualizan en su lugar (por su id) y no se borran y
+        crean de nuevo: así las solicitudes en curso siguen en su paso y el
+        historial conserva su nombre (auditoría UX/UI, 29/10/2026: antes, al
+        editar, una solicitud en el paso 2 volvía al 1). Los aprobadores sí se
+        reemplazan: valen para lo que empiece desde ahora."""
+        existentes = {p.pk: p for p in flujo.pasos.all()}
+        conservados = set()
         for orden, paso in enumerate(pasos, start=1):
-            nuevo = PasoFlujo.objects.create(flujo=flujo, orden=orden, nombre=paso["nombre"])
+            actual = existentes.get(paso.get("id"))
+            if actual is not None:
+                actual.orden = orden
+                actual.nombre = paso["nombre"]
+                actual.save(update_fields=["orden", "nombre"])
+                actual.aprobadores.all().delete()
+                conservados.add(actual.pk)
+                nuevo = actual
+            else:
+                nuevo = PasoFlujo.objects.create(flujo=flujo, orden=orden, nombre=paso["nombre"])
             for aprobador in paso["aprobadores"]:
                 AprobadorPaso.objects.create(
                     paso=nuevo,
@@ -178,6 +216,11 @@ class FlujoSerializer(serializers.ModelSerializer):
                     rol=aprobador.get("rol"),
                     cargo=aprobador.get("cargo"),
                 )
+        # Los pasos que se quitaron (sin solicitudes en curso: lo valida
+        # `validate_pasos`).
+        for pk, paso in existentes.items():
+            if pk not in conservados:
+                paso.delete()
         flujo.avisos.all().delete()
         for resultado, lista in avisos.items():
             for aviso in lista:

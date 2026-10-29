@@ -1,13 +1,34 @@
+/** Los mensajes de un error, aunque venga anidado (una lista de pasos, cada
+ * uno con sus campos): `[{}, {usuario: ["Elija a quién."]}]` se lee
+ * «2 › usuario: Elija a quién.» y no «[object Object]» (auditoría UX/UI,
+ * 29/10/2026). */
+function aplanar(valor, ruta) {
+  if (typeof valor === "string") return [ruta ? `${ruta}: ${valor}` : valor];
+  if (Array.isArray(valor)) {
+    if (valor.every((v) => typeof v === "string")) {
+      return valor.length
+        ? [ruta ? `${ruta}: ${valor.join(" ")}` : valor.join(" ")]
+        : [];
+    }
+    return valor.flatMap((v, i) =>
+      aplanar(v, ruta ? `${ruta} ${i + 1}` : String(i + 1)),
+    );
+  }
+  if (valor && typeof valor === "object") {
+    return Object.entries(valor).flatMap(([clave, v]) =>
+      aplanar(v, ruta ? `${ruta} › ${clave}` : clave),
+    );
+  }
+  return [];
+}
+
 /** Convierte `{campo: ["mensaje"]}` en una lista legible. */
 function porCampo(datos) {
-  return Object.entries(datos)
-    .filter(([, valor]) => Array.isArray(valor) || typeof valor === "string")
-    .map(([campo, valor]) => {
-      const texto = Array.isArray(valor) ? valor.join(" ") : valor;
-      return campo === "non_field_errors" || campo === "detail"
-        ? texto
-        : `${campo}: ${texto}`;
-    });
+  return Object.entries(datos).flatMap(([campo, valor]) =>
+    campo === "non_field_errors" || campo === "detail"
+      ? aplanar(valor, "")
+      : aplanar(valor, campo),
+  );
 }
 
 /**
@@ -74,7 +95,10 @@ export function erroresPorCampo(err) {
   const resultado = {};
   for (const [campo, valor] of Object.entries(fuente)) {
     if (campo === "non_field_errors" || campo === "detail") continue;
-    if (Array.isArray(valor)) resultado[campo] = valor.join(" ");
+    // Un error anidado (la lista de pasos de un flujo) no es de un campo:
+    // lo lee quien conoce su forma (`erroresDelFlujo`, por ejemplo).
+    if (Array.isArray(valor) && valor.every((v) => typeof v === "string"))
+      resultado[campo] = valor.join(" ");
     else if (typeof valor === "string") resultado[campo] = valor;
   }
   return resultado;

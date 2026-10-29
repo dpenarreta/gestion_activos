@@ -54,6 +54,10 @@ export function vigilarDescarte(raiz, { preguntar, soloEnFormulario = true }) {
     olvidar: () => {
       sucio = false;
     },
+    /** Lo marca (o desmarca) quien sabe que hubo un cambio sin `input`. */
+    marcar: (valor = true) => {
+      sucio = Boolean(valor);
+    },
     desmontar: () => {
       raiz.removeEventListener("input", marcar);
       raiz.removeEventListener("change", marcar);

@@ -628,27 +628,36 @@ describe("Configurar flujos", () => {
     // El primer paso trae al jefe inmediato; se suma Talento Humano como
     // alternativa (cualquiera de los dos aprueba).
     fireEvent.click(
-      within(ventana).getAllByRole("button", { name: /Agregar$/ })[0],
+      within(ventana).getByRole("button", {
+        name: "Agregar aprobador al paso 1",
+      }),
     );
     await waitFor(() =>
       expect(
-        within(ventana).getByLabelText("Aprobador del paso 1 2"),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.change(within(ventana).getByLabelText("Aprobador del paso 1 2"), {
-      target: { value: "persona" },
-    });
-    await waitFor(() =>
-      expect(
-        within(ventana).getByLabelText("Aprobador del paso 1 2: una persona"),
+        within(ventana).getByLabelText("aprobador del paso 1, opción 2"),
       ).toBeInTheDocument(),
     );
     fireEvent.change(
-      within(ventana).getByLabelText("Aprobador del paso 1 2: una persona"),
+      within(ventana).getByLabelText("aprobador del paso 1, opción 2"),
+      {
+        target: { value: "persona" },
+      },
+    );
+    await waitFor(() =>
+      expect(
+        within(ventana).getByLabelText(
+          "aprobador del paso 1, opción 2: una persona",
+        ),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.change(
+      within(ventana).getByLabelText(
+        "aprobador del paso 1, opción 2: una persona",
+      ),
       { target: { value: "9" } },
     );
     fireEvent.click(
-      within(ventana).getByRole("button", { name: "Guardar flujo" }),
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
     );
 
     await waitFor(() =>
@@ -674,6 +683,126 @@ describe("Configurar flujos", () => {
           ],
           avisos_aprobada: [
             { tipo: "solicitante", usuario: null, rol: null, cargo: null },
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("sin elegir a quién no se envía y dice qué falta, junto al selector", async () => {
+    permisos.lista = ["licencias.configurar"];
+    servicio.flujos.mockResolvedValue([]);
+    pintar(<FlujosPermisoPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nuevo tipo de permiso/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nuevo tipo de permiso",
+    });
+    fireEvent.change(within(ventana).getByLabelText(/^Nombre del permiso/), {
+      target: { value: "Calamidad doméstica" },
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Agregar paso" }),
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
+    );
+    expect(servicio.guardarFlujo).not.toHaveBeenCalled();
+    const alerta = within(ventana).getByRole("alert");
+    expect(alerta).toHaveTextContent("Paso 2, aprobador 1: elija una persona.");
+    expect(alerta).not.toHaveTextContent("[object Object]");
+    expect(
+      within(ventana).getByLabelText(
+        "aprobador del paso 2, opción 1: una persona",
+      ),
+    ).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("agregar un paso cuenta como cambio: cancelar pregunta antes de descartar", async () => {
+    permisos.lista = ["licencias.configurar"];
+    servicio.flujos.mockResolvedValue([]);
+    pintar(<FlujosPermisoPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nuevo tipo de permiso/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nuevo tipo de permiso",
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Agregar paso" }),
+    );
+    // El foco va al nombre del paso nuevo.
+    await waitFor(() =>
+      expect(within(ventana).getByLabelText("Nombre del paso 2")).toHaveFocus(),
+    );
+    fireEvent.click(within(ventana).getByRole("button", { name: "Cancelar" }));
+    expect(
+      await screen.findByRole("dialog", { name: /Descartar/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("al editar conserva el id de los pasos y avisa de las solicitudes en curso", async () => {
+    permisos.lista = ["licencias.configurar"];
+    const flujo = {
+      id: 3,
+      nombre: "Vacaciones",
+      descripcion: "",
+      activo: true,
+      adjunto: "no",
+      orden: 0,
+      dias_minimos: 5,
+      dias_maximos: 0,
+      descuenta_vacaciones: false,
+      sabados_por_periodo: 0,
+      domingos_por_periodo: 0,
+      restricciones: "",
+      pide_motivo: true,
+      solicitudes_en_curso: 2,
+      tiene_solicitudes: true,
+      pasos: [
+        {
+          id: 11,
+          nombre: "Jefatura",
+          aprobadores: [{ tipo: "jefe_inmediato", descripcion: "Su jefe" }],
+        },
+      ],
+      avisos_aprobada: [{ tipo: "solicitante", descripcion: "Quien solicita" }],
+      avisos_rechazada: [],
+    };
+    servicio.flujos.mockResolvedValue([flujo]);
+    servicio.guardarFlujo.mockResolvedValue(flujo);
+    pintar(<FlujosPermisoPage />);
+    // Con solicitudes no se ofrece borrar: se desactiva.
+    expect(
+      await screen.findByRole("button", { name: "Desactivar Vacaciones" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Borrar Vacaciones" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Editar Vacaciones" }));
+    const ventana = screen.getByRole("dialog", { name: "Editar «Vacaciones»" });
+    expect(ventana).toHaveTextContent(/2 solicitudes en curso/);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarFlujo).toHaveBeenCalledWith(
+        3,
+        expect.objectContaining({
+          pasos: [
+            {
+              id: 11,
+              nombre: "Jefatura",
+              aprobadores: [
+                {
+                  tipo: "jefe_inmediato",
+                  usuario: null,
+                  rol: null,
+                  cargo: null,
+                },
+              ],
+            },
           ],
         }),
       ),

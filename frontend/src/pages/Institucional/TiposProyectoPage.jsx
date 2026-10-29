@@ -443,10 +443,14 @@ function EditorTipo({ inicial, opciones, onGuardado, onCerrar }) {
                       }
                     />
                   </div>
-                  <span className="mz-small mz-faint">
+                  <span
+                    id={`tp-paso-${i}-decide`}
+                    className="mz-small mz-faint"
+                  >
                     Lo decide cualquiera de:
                   </span>
                   <ListaDeDestinos
+                    grupoId={`tp-paso-${i}-decide`}
                     conector="o"
                     prefijo={`Quien decide el paso ${i + 1}`}
                     lista={paso.aprobadores}

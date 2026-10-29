@@ -3595,3 +3595,73 @@
     overflow-y: auto;
   }
 }
+
+/* --- Tipos de permiso (crear y editar): auditoría UX/UI (29/10/2026) --- */
+
+/* Los títulos de sección pesan más que las etiquetas de los campos, y cada
+   sección se separa con una raya. */
+.flujo-seccion {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+.flujo-bloque + .flujo-bloque,
+.flujo-bloque + .flujo-ruta {
+  border-top: 1px solid var(--mz-border);
+  padding-top: 14px;
+}
+
+/* La ruta que queda configurada. */
+.flujo-ruta__pasos {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+/* Las restricciones de cada tipo, en su tarjeta. */
+.flujo-tarjeta__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.flujo-tarjeta__acciones {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* El ancho propio del editor (antes lo ganaba .mz-modal--wide). */
+.mz-modal.flujo-editor {
+  width: min(980px, 96vw);
+  max-width: min(980px, 96vw);
+}
+
+@media (pointer: coarse) {
+  .flujo-paso__cabecera .btn,
+  .flujo-destinos__fila .btn,
+  .flujo-destinos__agregar,
+  .flujo-tarjeta__acciones .btn,
+  .flujo-bloque > .btn,
+  .flujo-editor .mz-panel-foot .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* En el teléfono, tipo y «a quién» uno bajo el otro: lado a lado no se leía
+   el nombre elegido. */
+@media (max-width: 575px) {
+  .flujo-editor .selector-destino {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mz-modal.flujo-editor {
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+  }
+}

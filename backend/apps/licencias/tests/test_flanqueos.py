@@ -310,3 +310,41 @@ def test_sin_rol_asignado_no_se_solicita_ningun_tipo(empresa_con_organigrama):
     raiz.is_superuser = True
     raiz.save()
     assert cliente_raiz.get(f"{SOLICITUDES}resumen/").json()["puede_solicitar"] is True
+
+
+def test_editar_un_tipo_no_descoloca_las_solicitudes_en_curso(empresa_con_organigrama):
+    """Auditoría UX/UI (29/10/2026): al editar, los pasos se borraban y se
+    creaban de nuevo; una solicitud ya en el paso 2 volvía al 1 al aprobarse.
+    Ahora se conservan, y un paso con solicitudes en curso no se quita."""
+    from apps.licencias.tests.test_licencias import FLUJOS, SOLICITUDES, _pedir
+
+    e = empresa_con_organigrama
+    _, ana = e["ana"]
+    _, jefa = e["jefa"]
+    _, th = e["th"]
+    _, admin = e["admin"]
+    solicitud = _pedir(ana, e["vacaciones"])
+    jefa.post(f"{SOLICITUDES}{solicitud['id']}/aprobar/")
+
+    flujo = admin.get(f"{FLUJOS}{e['vacaciones']}/").json()
+    assert flujo["solicitudes_en_curso"] == 1
+    assert flujo["tiene_solicitudes"] is True
+    flujo["descripcion"] = "Corrección de una tilde"
+    respuesta = admin.put(f"{FLUJOS}{e['vacaciones']}/", flujo, format="json")
+    assert respuesta.status_code == 200, respuesta.data
+    # Los pasos conservan su id.
+    assert [p["id"] for p in respuesta.json()["pasos"]] == [p["id"] for p in flujo["pasos"]]
+
+    detalle = th.get(f"{SOLICITUDES}{solicitud['id']}/").json()
+    assert detalle["paso_actual"] == "Talento Humano"
+    final = th.post(f"{SOLICITUDES}{solicitud['id']}/aprobar/").json()
+    assert final["estado"] == "aprobada"
+
+    # Un paso con una solicitud en curso no se quita.
+    otra = _pedir(ana, e["vacaciones"], desde="2026-12-07", hasta="2026-12-11")
+    flujo = admin.get(f"{FLUJOS}{e['vacaciones']}/").json()
+    sin_jefatura = {**flujo, "pasos": flujo["pasos"][1:]}
+    respuesta = admin.put(f"{FLUJOS}{e['vacaciones']}/", sin_jefatura, format="json")
+    assert respuesta.status_code == 400
+    assert "en curso" in str(respuesta.data)
+    assert otra["paso_actual"] == "Jefatura"

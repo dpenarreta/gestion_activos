@@ -120,6 +120,14 @@ export function useModalA11y({
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      // Si el foco quedó fuera de la ventana (se quitó el botón que lo tenía y
+      // cayó en <body>), Tab lo devuelve adentro en vez de llevarlo a la
+      // página de atrás (auditoría UX/UI, 29/10/2026).
+      if (!panel?.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -175,10 +183,18 @@ export function useModalA11y({
     [],
   );
 
+  // Un cambio que no es de un campo (agregar, quitar o mover una fila)
+  // también cuenta: cerrar pregunta antes de descartarlo.
+  const marcarCambio = useCallback(
+    (cambio = true) => vigilanciaRef.current?.marcar(cambio),
+    [],
+  );
+
   return {
     panelRef,
     handleBackdropClick,
     requestClose: requestGuardedClose,
     marcarGuardado,
+    marcarCambio,
   };
 }
