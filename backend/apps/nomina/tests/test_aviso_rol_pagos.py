@@ -66,9 +66,11 @@ def test_habilitado_sin_aceptar_ve_el_aviso_de_su_rol_del_mes_anterior(db, hoy):
         "titulo": "Su rol de pagos ya está disponible",
         "mensaje": datos["mensaje"],
         "dias_habiles": 3,
+        "fecha_limite": "2026-10-05",
         "enlace": "/admin/institucional/rol-pagos?anio=2026&mes=9",
     }
     assert "septiembre de 2026" in datos["mensaje"]
+    assert "hasta el lunes 5 de octubre" in datos["mensaje"]
     assert "{" not in datos["mensaje"]
 
 
@@ -237,3 +239,33 @@ def test_solo_con_permiso_y_con_validacion(db):
     solo_terminos = th.put(CONFIG, base, format="json")
     assert solo_terminos.status_code == 200
     assert solo_terminos.json()["aviso_activo"] is False
+
+
+def test_el_aviso_dice_las_fechas_del_plazo_con_los_feriados(db, hoy):
+    """Noviembre 2026: el 2 y el 3 son feriados; el primer día hábil es el
+    miércoles 4 y, con 3 días hábiles, el plazo vence el viernes 6."""
+    for dia in (2, 3):
+        EventoCalendario.objects.create(
+            titulo=f"Feriado {dia}", tipo="feriado", fecha=datetime.date(2026, 11, dia)
+        )
+    _, rosa = _con_codigo("rosa", "20100001")
+    hoy(2026, 11, 4)
+    datos = rosa.get(URL).json()
+    assert datos["fecha_limite"] == "2026-11-06"
+    assert "hasta el viernes 6 de noviembre" in datos["mensaje"]
+    assert "desde el miércoles 4 de noviembre" in datos["mensaje"]
+    assert "3 días hábiles" in datos["mensaje"]
+
+
+def test_los_marcadores_de_fecha():
+    assert (
+        aviso.rellenar(
+            "{primer_dia} – {fecha_limite}",
+            anio=2026,
+            mes=10,
+            dias=3,
+            primer_dia=datetime.date(2026, 11, 4),
+            fecha_limite=datetime.date(2026, 11, 6),
+        )
+        == "miércoles 4 de noviembre – viernes 6 de noviembre"
+    )

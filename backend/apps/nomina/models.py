@@ -41,17 +41,18 @@ CONSENTIMIENTO_CORREO_POR_DEFECTO = (
 )
 
 #: El aviso del primer día hábil (aviso del rol de pagos, 29/10/2026): los
-#: textos por defecto. `{mes}`, `{anio}` y `{dias}` se reemplazan al mostrarlo
-#: (`aviso.py`).
+#: textos por defecto. `{mes}`, `{anio}`, `{dias}`, `{primer_dia}` y
+#: `{fecha_limite}` se reemplazan al mostrarlo (`aviso.py`).
 AVISO_TITULO_POR_DEFECTO = "Su rol de pagos ya está disponible"
-#: Dice el plazo desde el primer aviso, para que nadie llegue a la sanción
-#: sin saberlo (pedido de la administración, 29/10/2026).
+#: Dice el plazo desde el primer aviso, con sus fechas calculadas (el primer
+#: día hábil del mes y el último de los permitidos), para que nadie llegue a
+#: la sanción sin saberlo (pedido de la administración, 29/10/2026).
 AVISO_MENSAJE_POR_DEFECTO = (
     "Su rol de pagos de {mes} de {anio} ya está disponible para que lo revise. "
-    "Tiene {dias} días hábiles, contados desde el primer día hábil del mes, para "
-    "aceptarlo y confirmar que está correcto; así evita multas o sanciones. "
-    "Ábralo y verifique los valores; si encuentra algo que no está bien, deje "
-    "una observación."
+    "Tiene plazo hasta el {fecha_limite} para aceptarlo y confirmar que está "
+    "correcto ({dias} días hábiles desde el {primer_dia}); así evita multas o "
+    "sanciones. Ábralo y verifique los valores; si encuentra algo que no está "
+    "bien, deje una observación."
 )
 AVISO_TITULO_VENCIDO_POR_DEFECTO = "Plazo vencido para aceptar su rol de pagos"
 AVISO_MENSAJE_VENCIDO_POR_DEFECTO = (

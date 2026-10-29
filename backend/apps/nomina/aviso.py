@@ -44,15 +44,46 @@ def mes_anterior(hoy: datetime.date) -> tuple[int, int]:
     return (hoy.year - 1, 12) if hoy.month == 1 else (hoy.year, hoy.month - 1)
 
 
-def rellenar(texto: str, *, anio: int, mes: int, dias: int) -> str:
-    """Reemplaza `{mes}`, `{anio}` y `{dias}` en un texto que escribió la
-    administración. Con reemplazos simples y no con `str.format`: unas llaves
-    sueltas o un `{0.__class__}` en el texto no rompen ni exponen nada."""
+DIAS_DE_LA_SEMANA = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def fecha_en_texto(fecha: datetime.date | None) -> str:
+    """«miércoles 4 de noviembre»."""
+    if fecha is None:
+        return ""
+    return f"{DIAS_DE_LA_SEMANA[fecha.weekday()]} {fecha.day} de {MESES[fecha.month - 1]}"
+
+
+def plazo(anio: int, mes: int, dias: int) -> tuple[datetime.date | None, datetime.date | None]:
+    """El primer día hábil del mes y el último de los `dias` permitidos para
+    aceptar el rol (con los feriados del calendario). Si el mes tuviera menos
+    días hábiles, el último del mes."""
+    habiles = dias_habiles.habiles_del_mes(anio, mes)
+    if not habiles:
+        return None, None
+    return habiles[0], habiles[min(dias, len(habiles)) - 1]
+
+
+def rellenar(
+    texto: str,
+    *,
+    anio: int,
+    mes: int,
+    dias: int,
+    primer_dia: datetime.date | None = None,
+    fecha_limite: datetime.date | None = None,
+) -> str:
+    """Reemplaza `{mes}`, `{anio}`, `{dias}`, `{primer_dia}` y `{fecha_limite}`
+    en un texto que escribió la administración. Con reemplazos simples y no
+    con `str.format`: unas llaves sueltas o un `{0.__class__}` en el texto no
+    rompen ni exponen nada."""
     return (
         (texto or "")
         .replace("{mes}", MESES[mes - 1])
         .replace("{anio}", str(anio))
         .replace("{dias}", str(dias))
+        .replace("{primer_dia}", fecha_en_texto(primer_dia))
+        .replace("{fecha_limite}", fecha_en_texto(fecha_limite))
     )
 
 
@@ -85,6 +116,9 @@ def aviso_del_mes(usuario, hoy: datetime.date | None = None) -> dict | None:
     if _respondido(codigo, anio, mes):
         return None
     dias = config.aviso_dias_habiles
+    # El plazo corre en el mes en curso (el del aviso), no en el del rol.
+    _, fecha_limite = plazo(hoy.year, hoy.month, dias)
+    fechas = {"primer_dia": primero, "fecha_limite": fecha_limite}
     # Los días hábiles 1..N del mes, el mensaje normal; desde el N+1, el de
     # plazo vencido (un fin de semana cuenta los hábiles ya transcurridos).
     vencido = dias_habiles.numero_de_dia_habil(hoy) > dias
@@ -97,8 +131,9 @@ def aviso_del_mes(usuario, hoy: datetime.date | None = None) -> dict | None:
         "anio": anio,
         "mes": mes,
         "vencido": vencido,
-        "titulo": rellenar(titulo, anio=anio, mes=mes, dias=dias),
-        "mensaje": rellenar(mensaje, anio=anio, mes=mes, dias=dias),
+        "titulo": rellenar(titulo, anio=anio, mes=mes, dias=dias, **fechas),
+        "mensaje": rellenar(mensaje, anio=anio, mes=mes, dias=dias, **fechas),
+        "fecha_limite": fecha_limite.isoformat() if fecha_limite else None,
         "dias_habiles": dias,
         "enlace": f"/admin/institucional/rol-pagos?anio={anio}&mes={mes}",
     }

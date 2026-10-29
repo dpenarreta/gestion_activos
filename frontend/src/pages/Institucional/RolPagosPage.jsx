@@ -350,14 +350,31 @@ const CAMPOS_AVISO = [
 ];
 
 const AYUDA_MARCADORES =
-  "Puede usar {mes} (el mes del rol, p. ej. «septiembre»), {anio} (su año) y {dias} (los días hábiles permitidos).";
+  "Puede usar {mes} (el mes del rol, p. ej. «septiembre»), {anio} (su año), {dias} (los días hábiles permitidos), {primer_dia} (el primer día hábil del mes) y {fecha_limite} (el último día para aceptarlo); las fechas se calculan con los feriados del calendario.";
+
+/** «miércoles 4 de noviembre», como lo escribe el servidor. */
+function fechaEnTexto(fecha) {
+  if (!fecha) return "";
+  return new Date(`${fecha}T00:00:00`)
+    .toLocaleDateString("es-EC", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    })
+    .replace(",", "");
+}
 
 /** Como el servidor reemplaza los marcadores, para la vista previa. */
-function rellenarAviso(texto, { anio, mes, dias }) {
+function rellenarAviso(texto, { anio, mes, dias, primerDia, fechaLimite }) {
   return (texto ?? "")
     .replaceAll("{mes}", MESES[mes - 1].toLowerCase())
     .replaceAll("{anio}", String(anio))
-    .replaceAll("{dias}", String(dias));
+    .replaceAll("{dias}", String(dias))
+    .replaceAll("{primer_dia}", fechaEnTexto(primerDia) || "[primer día hábil]")
+    .replaceAll(
+      "{fecha_limite}",
+      fechaEnTexto(fechaLimite) || "[fecha límite]",
+    );
 }
 
 /**
@@ -365,12 +382,17 @@ function rellenarAviso(texto, { anio, mes, dias }) {
  * iniciar sesión hasta que la persona acepta su rol del mes anterior; pasados
  * los días hábiles permitidos, con el mensaje de plazo vencido.
  */
-function SeccionAviso({ aviso, errores, onCambio }) {
+function SeccionAviso({ aviso, habiles = [], errores, onCambio }) {
   const hoy = new Date();
+  const dias = aviso.aviso_dias_habiles || 3;
+  // Las fechas del plazo de este mes, con los días hábiles que calcula el
+  // servidor (feriados incluidos).
   const ejemplo = {
     anio: hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear(),
     mes: hoy.getMonth() === 0 ? 12 : hoy.getMonth(),
-    dias: aviso.aviso_dias_habiles || 3,
+    dias,
+    primerDia: habiles[0],
+    fechaLimite: habiles[Math.min(dias, habiles.length) - 1],
   };
   const texto = (campo) => (e) => onCambio(campo, e.target.value);
   return (
@@ -476,6 +498,12 @@ function SeccionAviso({ aviso, errores, onCambio }) {
       </Campo>
       <details>
         <summary>Vista previa del mensaje</summary>
+        {habiles.length === 0 && (
+          <p className="mz-small mz-faint mt-2 mb-0">
+            No se pudieron calcular las fechas del plazo; en la vista previa
+            aparecen entre corchetes.
+          </p>
+        )}
         <div className="mz-stack mt-2">
           {[
             ["Dentro del plazo", "aviso_titulo", "aviso_mensaje"],
@@ -534,6 +562,7 @@ function Configurar({ estado, onGuardado, onCerrar }) {
   // de pagos, 29/10/2026); si no cargan, se guarda lo demás y el aviso se
   // queda como estaba.
   const [aviso, setAviso] = useState(null);
+  const [habiles, setHabiles] = useState([]);
   const [errorAviso, setErrorAviso] = useState(null);
   const [error, setError] = useState(null);
   // Errores del servidor junto a su campo (auditoría UX/UI, fase 2,
@@ -546,9 +575,10 @@ function Configurar({ estado, onGuardado, onCerrar }) {
     setErrorAviso(null);
     return nominaService
       .configuracion()
-      .then((datos) =>
-        setAviso(Object.fromEntries(CAMPOS_AVISO.map((c) => [c, datos[c]]))),
-      )
+      .then((datos) => {
+        setAviso(Object.fromEntries(CAMPOS_AVISO.map((c) => [c, datos[c]])));
+        setHabiles(datos.habiles_del_mes ?? []);
+      })
       .catch((err) =>
         setErrorAviso(
           mensajeDeError(err, "No se pudieron cargar los textos del aviso."),
@@ -622,6 +652,7 @@ function Configurar({ estado, onGuardado, onCerrar }) {
         {aviso ? (
           <SeccionAviso
             aviso={aviso}
+            habiles={habiles}
             errores={errores}
             onCambio={(campo, valor) =>
               setAviso((a) => ({ ...a, [campo]: valor }))

@@ -2,6 +2,7 @@ import json
 from urllib.parse import quote
 
 from django.http import FileResponse, Http404, HttpResponse
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -15,7 +16,7 @@ from apps.descargas.middleware import marcar
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
 
-from . import auditado, aviso, fuente, services
+from . import auditado, aviso, dias_habiles, fuente, services
 from .models import AVISO_DIAS_MAXIMO
 
 MODULO = "roles_pago"
@@ -304,11 +305,17 @@ class _Configuracion(serializers.Serializer):
 
 
 def _textos(config) -> dict:
+    hoy = timezone.localdate()
     return {
         "terminos": config.terminos,
         "version": config.version,
         "consentimiento_correo": config.consentimiento_correo,
         **{campo: getattr(config, campo) for campo in services.CAMPOS_AVISO},
+        # Los días hábiles del mes en curso, para que la vista previa del aviso
+        # calcule {primer_dia} y {fecha_limite} con los feriados reales.
+        "habiles_del_mes": [
+            d.isoformat() for d in dias_habiles.habiles_del_mes(hoy.year, hoy.month)
+        ],
     }
 
 
