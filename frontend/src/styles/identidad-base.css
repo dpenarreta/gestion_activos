@@ -109,8 +109,10 @@ body {
   --mz-info-bg: #eaf2fb;
   --mz-info-fg: #164b86;
 
-  --mz-shadow-1: 0 1px 2px rgba(15, 33, 56, 0.06), 0 1px 1px rgba(15, 33, 56, 0.04);
-  --mz-shadow-2: 0 6px 20px rgba(15, 33, 56, 0.1), 0 2px 6px rgba(15, 33, 56, 0.06);
+  --mz-shadow-1:
+    0 1px 2px rgba(15, 33, 56, 0.06), 0 1px 1px rgba(15, 33, 56, 0.04);
+  --mz-shadow-2:
+    0 6px 20px rgba(15, 33, 56, 0.1), 0 2px 6px rgba(15, 33, 56, 0.06);
   --mz-shadow-3: 0 16px 48px rgba(15, 33, 56, 0.18);
 
   --mz-font-display: "Sora", system-ui, sans-serif;
@@ -1994,7 +1996,13 @@ body {
 .login-screen {
   min-height: 100vh;
   display: flex;
-  background: radial-gradient(1200px 700px at 85% -10%, var(--mz-blue-100), transparent 60%), var(--mz-bg);
+  background:
+    radial-gradient(
+      1200px 700px at 85% -10%,
+      var(--mz-blue-100),
+      transparent 60%
+    ),
+    var(--mz-bg);
 }
 
 .login-aside {
@@ -2293,4 +2301,30 @@ body {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--mz-border);
+}
+
+/* Colores de los tipos de fecha del calendario (evento, cumpleaños, feriado,
+   aniversario), como fichas de la identidad y no a mano en cada hoja
+   (auditoría UX/UI del calendario, 29/10/2026). «marca» es el ícono suelto
+   sobre la tarjeta; el resto, el fondo de los cuadros con ícono blanco. */
+:root {
+  --mz-cal-cumpleanos: #c2185b;
+  --mz-cal-feriado: #2e7d32;
+  /* El número del día feriado va sobre su fondo verde: más oscuro, 6.6:1. */
+  --mz-cal-feriado-texto: #1b5e20;
+  --mz-cal-aniversario: #b26a00;
+  --mz-cal-marca-evento: var(--mz-action);
+  --mz-cal-marca-cumpleanos: #c2185b;
+  --mz-cal-marca-feriado: #2e7d32;
+  --mz-cal-marca-aniversario: #b26a00;
+}
+
+:root[data-theme="dark"] {
+  /* Un rosa algo más claro: el de claro quedaba en 2.8:1 sobre la tarjeta. */
+  --mz-cal-cumpleanos: #d81b60;
+  --mz-cal-feriado-texto: #81c784;
+  --mz-cal-marca-evento: #8ab4f8;
+  --mz-cal-marca-cumpleanos: #f48fb1;
+  --mz-cal-marca-feriado: #81c784;
+  --mz-cal-marca-aniversario: #ffb74d;
 }

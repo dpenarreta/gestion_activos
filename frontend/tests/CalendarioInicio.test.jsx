@@ -94,27 +94,29 @@ describe("El calendario del mes (ampliado)", () => {
     // Un evento de dos días se marca en los dos.
     expect(
       await screen.findByRole("gridcell", {
-        name: "23 de octubre: Feria de salud",
+        name: "viernes, 23 de octubre: Evento, Feria de salud",
       }),
     ).toBeInTheDocument();
     // Los cumpleaños van en su pestaña: no saturan lo importante.
     expect(screen.queryByText("Cumpleaños de Rosa")).toBeNull();
     expect(
-      screen.getByRole("gridcell", { name: "19 de octubre" }),
+      screen.getByRole("gridcell", { name: "lunes, 19 de octubre" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Celebraciones/ }));
     expect(screen.getByText("Cumpleaños de Rosa")).toBeInTheDocument();
     expect(
-      screen.getByRole("gridcell", { name: "22 de octubre" }),
+      screen.getByRole("gridcell", { name: "jueves, 22 de octubre" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Todo/ }));
     expect(
       screen.getByRole("gridcell", {
-        name: "19 de octubre: Cumpleaños de Rosa",
+        name: "lunes, 19 de octubre: Cumpleaños, Cumpleaños de Rosa",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("gridcell", { name: "22 de octubre: Feria de salud" }),
+      screen.getByRole("gridcell", {
+        name: "jueves, 22 de octubre: Evento, Feria de salud",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -122,12 +124,14 @@ describe("El calendario del mes (ampliado)", () => {
     pintar(<CalendarioMes hoy={HOY} />);
     fireEvent.click(
       await screen.findByRole("gridcell", {
-        name: "22 de octubre: Feria de salud",
+        name: "jueves, 22 de octubre: Evento, Feria de salud",
       }),
     );
     expect(screen.getByText("Feria de salud")).toBeInTheDocument();
     expect(screen.getByText("En el patio")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("gridcell", { name: "20 de octubre" }));
+    fireEvent.click(
+      screen.getByRole("gridcell", { name: "martes, 20 de octubre" }),
+    );
     expect(screen.getByText("Sin eventos este día.")).toBeInTheDocument();
   });
 
@@ -207,13 +211,13 @@ describe("El calendario recogido", () => {
   it("en el mes ampliado, el día dice qué tiene al tocarlo (sin globo)", async () => {
     pintar(<CalendarioMes hoy={HOY} />);
     const dia = await screen.findByRole("gridcell", {
-      name: "22 de octubre: Feria de salud",
+      name: "jueves, 22 de octubre: Evento, Feria de salud",
     });
     // El globo nativo no se ve con teclado ni con el dedo: se quitó.
     expect(dia).not.toHaveAttribute("title");
     fireEvent.click(dia);
     expect(
-      screen.getByText(/del 22 de octubre al 23 de octubre/),
+      screen.getByText(/del 22 al 23 de octubre/),
     ).toBeInTheDocument();
   });
 });
@@ -335,7 +339,7 @@ describe("Si el calendario no carga (auditoría UX/UI)", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Sin eventos este día.")).toBeNull();
     expect(
-      screen.getByRole("gridcell", { name: "19 de octubre" }),
+      screen.getByRole("gridcell", { name: "lunes, 19 de octubre" }),
     ).toHaveAttribute("aria-current", "date");
   });
 });
@@ -343,7 +347,9 @@ describe("Si el calendario no carga (auditoría UX/UI)", () => {
 describe("Con el teclado (auditoría UX/UI)", () => {
   it("la grilla es una sola parada de Tab y se recorre con las flechas", async () => {
     pintar(<CalendarioMes hoy={HOY} />);
-    const hoy = await screen.findByRole("gridcell", { name: "19 de octubre" });
+    const hoy = await screen.findByRole("gridcell", {
+      name: "lunes, 19 de octubre",
+    });
     const conTab = screen
       .getAllByRole("gridcell")
       .filter((d) => d.getAttribute("tabindex") === "0");
@@ -352,15 +358,15 @@ describe("Con el teclado (auditoría UX/UI)", () => {
     hoy.focus();
     fireEvent.keyDown(hoy, { key: "ArrowRight" });
     expect(
-      screen.getByRole("gridcell", { name: "20 de octubre" }),
+      screen.getByRole("gridcell", { name: "martes, 20 de octubre" }),
     ).toHaveFocus();
     fireEvent.keyDown(document.activeElement, { key: "ArrowDown" });
     expect(
-      screen.getByRole("gridcell", { name: "27 de octubre" }),
+      screen.getByRole("gridcell", { name: "martes, 27 de octubre" }),
     ).toHaveFocus();
     fireEvent.keyDown(document.activeElement, { key: "Home" });
     expect(
-      screen.getByRole("gridcell", { name: "26 de octubre" }),
+      screen.getByRole("gridcell", { name: "lunes, 26 de octubre" }),
     ).toHaveFocus();
     // AvPág: el mismo día del mes siguiente.
     fireEvent.keyDown(document.activeElement, { key: "PageDown" });
@@ -368,7 +374,7 @@ describe("Con el teclado (auditoría UX/UI)", () => {
       await screen.findByRole("heading", { name: /noviembre de 2026/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("gridcell", { name: "26 de noviembre" }),
+      screen.getByRole("gridcell", { name: "jueves, 26 de noviembre" }),
     ).toHaveFocus();
   });
 
@@ -397,7 +403,10 @@ describe("Hoy y mañana vacíos", () => {
     // OCTUBRE: el 19 solo hay un cumpleaños (otra pestaña); la feria es el 22.
     expect(await screen.findByText("Próximas fechas")).toBeInTheDocument();
     expect(screen.getByText("Feria de salud")).toBeInTheDocument();
-    expect(screen.getByText(/Jueves, 22 de octubre/)).toBeInTheDocument();
+    // El tipo va en texto, con el tramo de días.
+    expect(
+      screen.getByText("Evento · del 22 al 23 de octubre"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -570,6 +579,73 @@ describe("Agregar un año de feriados", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: `Agregar feriado de ${anio + 2}` }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Calendario del mes: auditoría UX/UI (29/10/2026)", () => {
+  const NOVIEMBRE = [
+    {
+      id: 7,
+      titulo: "Día de los Difuntos",
+      tipo: "feriado",
+      descripcion: "",
+      fecha: "2026-11-02",
+      fecha_fin: null,
+    },
+    {
+      id: 8,
+      titulo: "Carnaval",
+      tipo: "feriado",
+      descripcion: "",
+      fecha: "2026-11-16",
+      fecha_fin: "2026-11-17",
+    },
+  ];
+
+  it("al pasar de mes el día elegido pasa con él y los feriados se marcan en la celda", async () => {
+    servicio.calendario.mockResolvedValue(NOVIEMBRE);
+    pintar(<CalendarioMes hoy={HOY} />);
+    await screen.findByRole("gridcell", { name: "lunes, 19 de octubre" });
+    // En octubre la grilla muestra el 2 de noviembre, pero no se cuenta.
+    expect(
+      screen.getByRole("tab", { name: /Eventos y feriados/ }),
+    ).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole("button", { name: "Hoy" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mes siguiente" }));
+    const elegido = await screen.findByRole("gridcell", {
+      name: "jueves, 19 de noviembre",
+    });
+    expect(elegido).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Jueves, 19 de noviembre")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hoy" })).toBeEnabled();
+
+    const difuntos = screen.getByRole("gridcell", {
+      name: "lunes, 2 de noviembre: Feriado, Día de los Difuntos",
+    });
+    expect(difuntos).toHaveClass("calendario__dia--feriado");
+    expect(
+      screen.getByRole("gridcell", { name: /^lunes, 16 de noviembre/ }),
+    ).toHaveClass("calendario__dia--tramo-inicio");
+    expect(
+      screen.getByRole("gridcell", { name: /^martes, 17 de noviembre/ }),
+    ).toHaveClass("calendario__dia--tramo-fin");
+    expect(
+      screen.getByRole("tab", { name: /Eventos y feriados/ }),
+    ).toHaveTextContent("2");
+
+    fireEvent.click(screen.getByRole("gridcell", { name: /^lunes, 16 de/ }));
+    expect(
+      await screen.findByText("Feriado · del 16 al 17 de noviembre"),
+    ).toBeInTheDocument();
+  });
+
+  it("un mes sin fechas en la pestaña lo dice", async () => {
+    servicio.calendario.mockResolvedValue([]);
+    pintar(<CalendarioMes hoy={HOY} />);
+    expect(
+      await screen.findByText("No hay eventos ni feriados en octubre."),
     ).toBeInTheDocument();
   });
 });
