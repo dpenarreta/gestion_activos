@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
@@ -9,6 +9,10 @@ import {
 } from "../../components/common/Campo/Campo";
 import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
@@ -17,7 +21,7 @@ import "./Institucional.css";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 /** Agregar o editar una fecha del calendario, en una ventana. */
-function FormularioEvento({ inicial, onGuardar, onCerrar }) {
+function FormularioEvento({ inicial, titulo, onGuardar, onCerrar }) {
   const [valores, setValores] = useState(inicial);
   const [error, setError] = useState(null);
   // Errores junto a su campo y foco al primero (auditoría UX/UI, fase 2,
@@ -79,7 +83,7 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
       >
         <div className="mz-panel-head">
           <h3 id="evento-titulo">
-            {editando ? "Editar fecha" : "Agregar al calendario"}
+            {titulo ?? (editando ? "Editar fecha" : "Agregar al calendario")}
           </h3>
           <button
             type="button"
@@ -193,6 +197,12 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
                 Se repite cada año (cumpleaños, aniversarios, feriados fijos)
               </span>
             </label>
+            {editando && inicial.cada_anio && (
+              <p className="mz-small mz-faint mb-0 mt-1">
+                Esta fecha se repite cada año: los cambios se ven en todos los
+                años.
+              </p>
+            )}
           </div>
           <div className="col-12 mz-actions justify-content-end">
             <button
@@ -220,12 +230,153 @@ function FormularioEvento({ inicial, onGuardar, onCerrar }) {
   );
 }
 
+/** El año de una fecha «AAAA-MM-DD». */
+const anioDe = (fecha) => Number(String(fecha).slice(0, 4));
+
+/** La misma fecha en otro año (el 29 de febrero pasa al 28 si no existe). */
+function enOtroAnio(fecha, anio) {
+  if (!fecha) return "";
+  const [, mes, dia] = fecha.split("-").map(Number);
+  const ultimo = new Date(anio, mes, 0).getDate();
+  const d = Math.min(dia, ultimo);
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Los feriados que tocan un año: los de ese año (o que lo cruzan) y los que
+ * se repiten cada año. Ordenados por mes y día. */
+function feriadosDelAnio(eventos, anio) {
+  return eventos
+    .filter(
+      (e) =>
+        e.tipo === "feriado" &&
+        (e.cada_anio ||
+          anioDe(e.fecha) === anio ||
+          (e.fecha_fin && anioDe(e.fecha_fin) === anio)),
+    )
+    .sort((a, b) => a.fecha.slice(5).localeCompare(b.fecha.slice(5)));
+}
+
+/** Los feriados de un año (los que no se repiten solos) que aún no están en
+ * el año siguiente con el mismo título, día y mes. */
+function pendientesDeCopiar(eventos, anio) {
+  const clave = (e) => `${e.titulo.trim().toLowerCase()}|${e.fecha.slice(5)}`;
+  const yaEstan = new Set(
+    eventos
+      .filter((e) => e.tipo === "feriado" && anioDe(e.fecha) === anio + 1)
+      .map(clave),
+  );
+  return eventos.filter(
+    (e) =>
+      e.tipo === "feriado" &&
+      !e.cada_anio &&
+      anioDe(e.fecha) === anio &&
+      !yaEstan.has(clave(e)),
+  );
+}
+
+/** Una tabla de fechas del calendario con sus acciones. */
+function TablaDeFechas({
+  filas,
+  cargando,
+  errorCarga,
+  onReintentar,
+  textoVacio,
+  onEditar,
+  onBorrar,
+  conTipo = true,
+  anio = null,
+}) {
+  // Lo que se repite cada año se muestra con el año que se está viendo, no
+  // con el año en que se creó.
+  const fecha = (e, valor) =>
+    formatearFecha(
+      anio && e.cada_anio
+        ? enOtroAnio(valor, anio + (anioDe(valor) - anioDe(e.fecha)))
+        : valor,
+    );
+  return (
+    <div className="mz-table-wrap">
+      <table className="mz-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Título</th>
+            {conTipo && <th>Tipo</th>}
+            <th>Se repite</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {(filas ?? []).map((e) => (
+            <tr key={e.id}>
+              <td className="text-nowrap">
+                {fecha(e, e.fecha)}
+                {e.fecha_fin && ` al ${fecha(e, e.fecha_fin)}`}
+              </td>
+              <td>
+                {e.titulo}
+                {e.descripcion && (
+                  <span className="d-block mz-small mz-faint">
+                    {e.descripcion}
+                  </span>
+                )}
+              </td>
+              {conTipo && (
+                <td>
+                  <span
+                    className={`calendario__icono calendario__icono--${e.tipo} me-1`}
+                  >
+                    <Icon
+                      name={TIPOS_DE_EVENTO[e.tipo]?.icono ?? "star-fill"}
+                    />
+                  </span>
+                  {TIPOS_DE_EVENTO[e.tipo]?.nombre ?? e.tipo}
+                </td>
+              )}
+              <td>{e.cada_anio ? "Cada año" : "—"}</td>
+              <td className="num text-nowrap">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  aria-label={`Editar ${e.titulo}`}
+                  onClick={() => onEditar(e)}
+                >
+                  <Icon name="pencil" />
+                </button>{" "}
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  aria-label={`Borrar ${e.titulo}`}
+                  onClick={() => onBorrar(e)}
+                >
+                  <Icon name="trash" />
+                </button>
+              </td>
+            </tr>
+          ))}
+          <FilaDeEstado
+            columnas={conTipo ? 5 : 4}
+            cargando={cargando}
+            error={errorCarga}
+            onReintentar={onReintentar}
+            vacio={filas?.length === 0}
+            textoVacio={textoVacio}
+          />
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
- * Institucional → Inicio → «Gestionar calendario» (pide
- * `calendario.gestionar`): los eventos importantes, cumpleaños y feriados
- * que se marcan en el calendario de Inicio.
+ * Gestionar el calendario de Inicio. Los feriados van en una pestaña por año
+ * («Feriados 2026», «Feriados 2027»…: siempre el año actual y el siguiente,
+ * más los años que ya tengan feriados), porque de ellos depende el conteo de
+ * días hábiles (aviso del rol de pagos). Los eventos y cumpleaños, en «Otras
+ * fechas» (29/10/2026).
  */
 export function GestionCalendarioPage() {
+  const anioActual = new Date().getFullYear();
   const [eventos, setEventos] = useState(null);
   const [error, setError] = useState(null);
   // El fallo al cargar va en la tabla, con «Reintentar» (auditoría UX/UI,
@@ -233,6 +384,8 @@ export function GestionCalendarioPage() {
   const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [editando, setEditando] = useState(null);
+  const [vista, setVista] = useState(`f-${anioActual}`);
+  const [copiando, setCopiando] = useState(false);
 
   const cargar = useCallback(() => {
     setErrorCarga(null);
@@ -248,6 +401,29 @@ export function GestionCalendarioPage() {
     cargar();
   }, [cargar]);
 
+  // Pestañas desde el año anterior en adelante; los años más viejos con
+  // feriados van en un selector para que las pestañas no crezcan sin fin.
+  const { anios, anteriores } = useMemo(() => {
+    const conjunto = new Set([anioActual, anioActual + 1]);
+    (eventos ?? [])
+      .filter((e) => e.tipo === "feriado" && !e.cada_anio)
+      .forEach((e) => conjunto.add(anioDe(e.fecha)));
+    const todos = [...conjunto].sort((a, b) => a - b);
+    return {
+      anios: todos.filter((a) => a >= anioActual - 1),
+      anteriores: todos.filter((a) => a < anioActual - 1).reverse(),
+    };
+  }, [eventos, anioActual]);
+
+  const anioVisto = vista.startsWith("f-") ? Number(vista.slice(2)) : null;
+  const feriados =
+    eventos && anioVisto ? feriadosDelAnio(eventos, anioVisto) : null;
+  const otras = eventos ? eventos.filter((e) => e.tipo !== "feriado") : null;
+  const porCopiar = useMemo(
+    () => (eventos && anioVisto ? pendientesDeCopiar(eventos, anioVisto) : []),
+    [eventos, anioVisto],
+  );
+
   async function guardar(datos) {
     await institucionalService.guardarEvento(editando.id, datos);
     setAviso(editando.id ? "Fecha actualizada." : "Fecha agregada.");
@@ -259,6 +435,10 @@ export function GestionCalendarioPage() {
     if (
       !(await confirmar({
         titulo: `¿Quitar «${evento.titulo}» del calendario?`,
+        // Lo que se repite es un solo registro para todos los años.
+        mensaje: evento.cada_anio
+          ? "Se repite cada año: se quitará de todos los años."
+          : undefined,
         accion: "Quitar",
       }))
     )
@@ -274,14 +454,95 @@ export function GestionCalendarioPage() {
     }
   }
 
+  function nueva(tipo, anio) {
+    const hoy = new Date();
+    const fecha =
+      anio && anio !== hoy.getFullYear() ? `${anio}-01-01` : iso(hoy);
+    setEditando({
+      titulo: "",
+      tipo,
+      fecha,
+      fecha_fin: "",
+      descripcion: "",
+      cada_anio: false,
+    });
+  }
+
+  const editar = (e) => setEditando({ ...e, fecha_fin: e.fecha_fin ?? "" });
+
+  /** Copia los feriados de un año (los que no se repiten solos) al
+   * siguiente, como punto de partida: después se ajustan los que cambian de
+   * fecha (Carnaval, Viernes Santo…). No duplica los que ya están. */
+  async function copiarAlSiguiente(anio) {
+    const destino = anio + 1;
+    const nuevos = pendientesDeCopiar(eventos, anio);
+    setError(null);
+    if (nuevos.length === 0) {
+      setAviso(`No hay feriados de ${anio} pendientes de copiar a ${destino}.`);
+      return;
+    }
+    const plural = nuevos.length === 1 ? "" : "s";
+    const si = await confirmar({
+      titulo: `¿Copiar ${nuevos.length} feriado${plural} de ${anio} a ${destino}?`,
+      mensaje:
+        "Se copian con el mismo día y mes. Revise después los que cambian de fecha cada año (Carnaval, Viernes Santo, feriados trasladados).",
+      accion: "Copiar",
+      peligro: false,
+    });
+    if (!si) return;
+    setCopiando(true);
+    setAviso(null);
+    let copiados = 0;
+    try {
+      for (const e of nuevos) {
+        await institucionalService.guardarEvento(null, {
+          titulo: e.titulo,
+          tipo: "feriado",
+          fecha: enOtroAnio(e.fecha, destino),
+          fecha_fin: e.fecha_fin
+            ? enOtroAnio(e.fecha_fin, anioDe(e.fecha_fin) + 1)
+            : null,
+          descripcion: e.descripcion ?? "",
+          cada_anio: false,
+        });
+        copiados += 1;
+      }
+      setAviso(
+        `Se ${nuevos.length === 1 ? "copió" : "copiaron"} ${nuevos.length} feriado${plural} a ${destino}. Revise los que cambian de fecha.`,
+      );
+      setVista(`f-${destino}`);
+    } catch (err) {
+      setError(
+        copiados
+          ? `Se copiaron ${copiados} de ${nuevos.length}; falló el resto (${mensajeDeError(err, "error")}). Vuelva a pulsar «Copiar» para terminar: los ya copiados no se duplican.`
+          : mensajeDeError(err, "No se pudieron copiar los feriados."),
+      );
+    } finally {
+      setCopiando(false);
+      await cargar();
+    }
+  }
+
+  const opciones = [
+    ...(anioVisto && !anios.includes(anioVisto) ? [anioVisto] : [])
+      .concat(anios)
+      .map((anio) => ({
+        id: `f-${anio}`,
+        etiqueta: `Feriados ${anio}`,
+        icono: "calendar-x",
+      })),
+    { id: "otras", etiqueta: "Otras fechas", icono: "calendar-event" },
+  ];
+
   return (
     <div className="institucional-page mz-stack">
       <div className="mz-view-head">
         <div>
           <h2>Gestionar calendario</h2>
           <p className="mz-desc">
-            Los eventos importantes, cumpleaños y feriados que se marcan en el
-            calendario de Inicio.
+            Los feriados de cada año y los eventos y cumpleaños que se marcan en
+            el calendario de Inicio. Los feriados también descuentan días
+            hábiles (por ejemplo, para el aviso del rol de pagos).
           </p>
         </div>
         <div className="mz-actions">
@@ -291,22 +552,6 @@ export function GestionCalendarioPage() {
           >
             <Icon name="arrow-left" /> Volver al inicio
           </Link>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() =>
-              setEditando({
-                titulo: "",
-                tipo: "evento",
-                fecha: iso(new Date()),
-                fecha_fin: "",
-                descripcion: "",
-                cada_anio: false,
-              })
-            }
-          >
-            <Icon name="plus-lg" /> Agregar fecha
-          </button>
         </div>
       </div>
 
@@ -323,80 +568,109 @@ export function GestionCalendarioPage() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
-        <table className="mz-table">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Título</th>
-              <th>Tipo</th>
-              <th>Se repite</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {(eventos ?? []).map((e) => (
-              <tr key={e.id}>
-                <td className="text-nowrap">
-                  {formatearFecha(e.fecha)}
-                  {e.fecha_fin && ` al ${formatearFecha(e.fecha_fin)}`}
-                </td>
-                <td>
-                  {e.titulo}
-                  {e.descripcion && (
-                    <span className="d-block mz-small mz-faint">
-                      {e.descripcion}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <span
-                    className={`calendario__icono calendario__icono--${e.tipo} me-1`}
-                  >
-                    <Icon
-                      name={TIPOS_DE_EVENTO[e.tipo]?.icono ?? "star-fill"}
-                    />
-                  </span>
-                  {TIPOS_DE_EVENTO[e.tipo]?.nombre ?? e.tipo}
-                </td>
-                <td>{e.cada_anio ? "Cada año" : "—"}</td>
-                <td className="num text-nowrap">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    aria-label={`Editar ${e.titulo}`}
-                    onClick={() =>
-                      setEditando({ ...e, fecha_fin: e.fecha_fin ?? "" })
-                    }
-                  >
-                    <Icon name="pencil" />
-                  </button>{" "}
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm"
-                    aria-label={`Borrar ${e.titulo}`}
-                    onClick={() => borrar(e)}
-                  >
-                    <Icon name="trash" />
-                  </button>
-                </td>
-              </tr>
+      {anteriores.length > 0 && (
+        <div className="d-flex align-items-center gap-2">
+          <label htmlFor="feriados-anteriores" className="mz-small mb-0">
+            Feriados de años anteriores
+          </label>
+          <select
+            id="feriados-anteriores"
+            className="form-select form-select-sm w-auto"
+            value={anteriores.includes(anioVisto) ? `f-${anioVisto}` : ""}
+            onChange={(e) => e.target.value && setVista(e.target.value)}
+            disabled={copiando}
+          >
+            <option value="">Elegir año…</option>
+            {anteriores.map((a) => (
+              <option key={a} value={`f-${a}`}>
+                {a}
+              </option>
             ))}
-            <FilaDeEstado
-              columnas={5}
-              cargando={eventos === null}
-              error={errorCarga}
-              onReintentar={cargar}
-              vacio={eventos?.length === 0}
-              textoVacio="Todavía no hay fechas en el calendario."
-            />
-          </tbody>
-        </table>
-      </div>
+          </select>
+        </div>
+      )}
+      <Pestanas
+        etiqueta="Calendario"
+        idBase="gestion-calendario"
+        valor={vista}
+        onCambio={(v) => !copiando && setVista(v)}
+        opciones={opciones}
+      />
+      <PanelDePestana idBase="gestion-calendario" valor={vista}>
+        <div aria-busy={copiando}>
+          {anioVisto ? (
+            <div className="mz-stack">
+              <div className="mz-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={copiando}
+                  onClick={() => nueva("feriado", anioVisto)}
+                >
+                  <Icon name="plus-lg" /> Agregar feriado de {anioVisto}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  disabled={copiando || porCopiar.length === 0}
+                  title={
+                    eventos && porCopiar.length === 0
+                      ? `No hay feriados de ${anioVisto} pendientes de copiar a ${anioVisto + 1}.`
+                      : undefined
+                  }
+                  onClick={() => copiarAlSiguiente(anioVisto)}
+                >
+                  <Icon name="copy" />{" "}
+                  {copiando
+                    ? "Copiando…"
+                    : `Copiar los feriados de ${anioVisto} a ${anioVisto + 1}`}
+                </button>
+              </div>
+              <TablaDeFechas
+                filas={feriados}
+                conTipo={false}
+                anio={anioVisto}
+                cargando={eventos === null && !errorCarga}
+                errorCarga={errorCarga}
+                onReintentar={cargar}
+                textoVacio={`Todavía no hay feriados de ${anioVisto}.`}
+                onEditar={editar}
+                onBorrar={borrar}
+              />
+            </div>
+          ) : (
+            <div className="mz-stack">
+              <div className="mz-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => nueva("evento")}
+                >
+                  <Icon name="plus-lg" /> Agregar fecha
+                </button>
+              </div>
+              <TablaDeFechas
+                filas={otras}
+                cargando={eventos === null && !errorCarga}
+                errorCarga={errorCarga}
+                onReintentar={cargar}
+                textoVacio="Todavía no hay eventos ni cumpleaños en el calendario."
+                onEditar={editar}
+                onBorrar={borrar}
+              />
+            </div>
+          )}
+        </div>
+      </PanelDePestana>
 
       {editando && (
         <FormularioEvento
           inicial={editando}
+          titulo={
+            !editando.id && editando.tipo === "feriado"
+              ? `Agregar feriado de ${anioDe(editando.fecha)}`
+              : undefined
+          }
           onGuardar={guardar}
           onCerrar={() => setEditando(null)}
         />

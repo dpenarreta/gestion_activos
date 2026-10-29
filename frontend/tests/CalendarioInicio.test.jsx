@@ -245,6 +245,10 @@ describe("En el Inicio", () => {
   });
 });
 
+async function irAOtrasFechas() {
+  fireEvent.click(await screen.findByRole("tab", { name: /Otras fechas/ }));
+}
+
 describe("Gestionar calendario", () => {
   beforeEach(() => {
     permisos.lista = ["calendario.gestionar"];
@@ -256,6 +260,7 @@ describe("Gestionar calendario", () => {
   it("lista las fechas y agrega un cumpleaños que se repite cada año", async () => {
     servicio.guardarEvento.mockResolvedValue({});
     pintar(<GestionCalendarioPage />);
+    await irAOtrasFechas();
     const fila = (await screen.findByText("Cumpleaños de Rosa")).closest("tr");
     expect(within(fila).getByText("Cada año")).toBeInTheDocument();
 
@@ -292,6 +297,7 @@ describe("Gestionar calendario", () => {
   it("borra una fecha", async () => {
     servicio.eliminarEvento.mockResolvedValue({});
     pintar(<GestionCalendarioPage />);
+    await irAOtrasFechas();
     fireEvent.click(
       await screen.findByRole("button", { name: "Borrar Cumpleaños de Rosa" }),
     );
@@ -392,5 +398,151 @@ describe("Hoy y mañana vacíos", () => {
     expect(await screen.findByText("Próximas fechas")).toBeInTheDocument();
     expect(screen.getByText("Feria de salud")).toBeInTheDocument();
     expect(screen.getByText(/Jueves, 22 de octubre/)).toBeInTheDocument();
+  });
+});
+
+describe("Feriados por año", () => {
+  const anio = new Date().getFullYear();
+  const FERIADOS = [
+    {
+      id: 10,
+      titulo: "Navidad",
+      tipo: "feriado",
+      fecha: "2019-12-25",
+      fecha_fin: null,
+      descripcion: "",
+      cada_anio: true,
+    },
+    {
+      id: 11,
+      titulo: "Carnaval",
+      tipo: "feriado",
+      fecha: `${anio}-02-16`,
+      fecha_fin: `${anio}-02-17`,
+      descripcion: "",
+      cada_anio: false,
+    },
+    {
+      id: 12,
+      titulo: "Difuntos",
+      tipo: "feriado",
+      fecha: `${anio}-11-02`,
+      fecha_fin: null,
+      descripcion: "",
+      cada_anio: false,
+    },
+    {
+      id: 13,
+      titulo: "Difuntos",
+      tipo: "feriado",
+      fecha: `${anio + 1}-11-02`,
+      fecha_fin: null,
+      descripcion: "",
+      cada_anio: false,
+    },
+    {
+      id: 14,
+      titulo: "Aniversario",
+      tipo: "evento",
+      fecha: `${anio}-05-10`,
+      fecha_fin: null,
+      descripcion: "",
+      cada_anio: false,
+    },
+  ];
+
+  beforeEach(() => {
+    permisos.lista = ["calendario.gestionar"];
+    servicio.eventos.mockResolvedValue(FERIADOS);
+  });
+
+  it("una pestaña por año; el año actual abierto con sus feriados y los fijos", async () => {
+    pintar(<GestionCalendarioPage />);
+    const actual = await screen.findByRole("tab", { name: `Feriados ${anio}` });
+    expect(actual).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("tab", { name: `Feriados ${anio + 1}` }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Carnaval")).toBeInTheDocument();
+    const navidad = screen.getByText("Navidad").closest("tr");
+    // Se repite cada año: se muestra con el año de la pestaña, no el de 2019.
+    expect(within(navidad).getByText(`25/12/${anio}`)).toBeInTheDocument();
+    expect(screen.getAllByText("Difuntos")).toHaveLength(1);
+    // Los eventos van en «Otras fechas», no entre los feriados.
+    expect(screen.queryByText("Aniversario")).toBeNull();
+    await irAOtrasFechas();
+    expect(await screen.findByText("Aniversario")).toBeInTheDocument();
+    expect(screen.queryByText("Carnaval")).toBeNull();
+  });
+
+  it("«Agregar feriado» del año siguiente ya viene como feriado de ese año", async () => {
+    pintar(<GestionCalendarioPage />);
+    fireEvent.click(
+      await screen.findByRole("tab", { name: `Feriados ${anio + 1}` }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `Agregar feriado de ${anio + 1}` }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: `Agregar feriado de ${anio + 1}`,
+    });
+    expect(within(ventana).getByLabelText(/^Tipo/)).toHaveValue("feriado");
+    expect(within(ventana).getByLabelText(/^Fecha/)).toHaveValue(
+      `${anio + 1}-01-01`,
+    );
+  });
+
+  it("copia al año siguiente los feriados que faltan, sin duplicar ni los fijos", async () => {
+    servicio.guardarEvento.mockResolvedValue({});
+    pintar(<GestionCalendarioPage />);
+    await screen.findByText("Carnaval");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Copiar los feriados de ${anio} a ${anio + 1}`,
+      }),
+    );
+    const pregunta = await screen.findByRole("dialog", {
+      name: `¿Copiar 1 feriado de ${anio} a ${anio + 1}?`,
+    });
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Copiar" }));
+    await waitFor(() =>
+      expect(servicio.guardarEvento).toHaveBeenCalledTimes(1),
+    );
+    expect(servicio.guardarEvento).toHaveBeenCalledWith(null, {
+      titulo: "Carnaval",
+      tipo: "feriado",
+      fecha: `${anio + 1}-02-16`,
+      fecha_fin: `${anio + 1}-02-17`,
+      descripcion: "",
+      cada_anio: false,
+    });
+    expect(await screen.findByText(/Se copió 1 feriado a/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: `Feriados ${anio + 1}` }),
+    ).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("al quitar un feriado que se repite avisa que sale de todos los años", async () => {
+    pintar(<GestionCalendarioPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Borrar Navidad" }),
+    );
+    const pregunta = await screen.findByRole("dialog", {
+      name: /Quitar «Navidad»/,
+    });
+    expect(
+      within(pregunta).getByText(/se quitará de todos los años/),
+    ).toBeInTheDocument();
+  });
+
+  it("sin feriados pendientes, «Copiar» queda desactivado", async () => {
+    servicio.eventos.mockResolvedValue([FERIADOS[0]]);
+    pintar(<GestionCalendarioPage />);
+    await screen.findByText("Navidad");
+    expect(
+      screen.getByRole("button", {
+        name: `Copiar los feriados de ${anio} a ${anio + 1}`,
+      }),
+    ).toBeDisabled();
   });
 });
