@@ -11,6 +11,7 @@ import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarg
 import { Icon } from "../../components/common/Icon/Icon";
 import {
   PanelDePestana,
+  idDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
@@ -369,11 +370,11 @@ function TablaDeFechas({
 }
 
 /**
- * Gestionar el calendario de Inicio. Los feriados van en una pestaña por año
- * («Feriados 2026», «Feriados 2027»…: siempre el año actual y el siguiente,
- * más los años que ya tengan feriados), porque de ellos depende el conteo de
- * días hábiles (aviso del rol de pagos). Los eventos y cumpleaños, en «Otras
- * fechas» (29/10/2026).
+ * Gestionar el calendario de Inicio, en dos pestañas: «Feriados», con una
+ * pestaña interna por año («Año 2025», «Año 2026»…: el anterior, el actual y
+ * el siguiente, los que tengan feriados y los que se agreguen con «Agregar
+ * año»), porque de ellos depende el conteo de días hábiles (aviso del rol de
+ * pagos); y «Otras fechas», con eventos y cumpleaños (29/10/2026).
  */
 export function GestionCalendarioPage() {
   const anioActual = new Date().getFullYear();
@@ -384,7 +385,10 @@ export function GestionCalendarioPage() {
   const [errorCarga, setErrorCarga] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [editando, setEditando] = useState(null);
-  const [vista, setVista] = useState(`f-${anioActual}`);
+  const [seccion, setSeccion] = useState("feriados");
+  const [anioVisto, setAnioVisto] = useState(anioActual);
+  // Años agregados a mano que aún no tienen feriados.
+  const [aniosNuevos, setAniosNuevos] = useState([]);
   const [copiando, setCopiando] = useState(false);
 
   const cargar = useCallback(() => {
@@ -401,26 +405,36 @@ export function GestionCalendarioPage() {
     cargar();
   }, [cargar]);
 
-  // Pestañas desde el año anterior en adelante; los años más viejos con
-  // feriados van en un selector para que las pestañas no crezcan sin fin.
-  const { anios, anteriores } = useMemo(() => {
-    const conjunto = new Set([anioActual, anioActual + 1]);
+  const anios = useMemo(() => {
+    const conjunto = new Set([
+      anioActual - 1,
+      anioActual,
+      anioActual + 1,
+      ...aniosNuevos,
+    ]);
     (eventos ?? [])
       .filter((e) => e.tipo === "feriado" && !e.cada_anio)
       .forEach((e) => conjunto.add(anioDe(e.fecha)));
-    const todos = [...conjunto].sort((a, b) => a - b);
-    return {
-      anios: todos.filter((a) => a >= anioActual - 1),
-      anteriores: todos.filter((a) => a < anioActual - 1).reverse(),
-    };
-  }, [eventos, anioActual]);
+    return [...conjunto].sort((a, b) => a - b);
+  }, [eventos, anioActual, aniosNuevos]);
 
-  const anioVisto = vista.startsWith("f-") ? Number(vista.slice(2)) : null;
-  const feriados =
-    eventos && anioVisto ? feriadosDelAnio(eventos, anioVisto) : null;
+  function agregarAnio() {
+    const nuevo = anios[anios.length - 1] + 1;
+    setAniosNuevos((v) => [...v, nuevo]);
+    setAnioVisto(nuevo);
+    setAviso(`Se agregó el año ${nuevo}: cargue sus feriados.`);
+    // El foco va a la pestaña nueva, para no tener que buscarla con el
+    // teclado (auditoría UX/UI, 29/10/2026).
+    requestAnimationFrame(() =>
+      document
+        .getElementById(idDePestana("feriados-anio", `a-${nuevo}`))
+        ?.focus(),
+    );
+  }
+  const feriados = eventos ? feriadosDelAnio(eventos, anioVisto) : null;
   const otras = eventos ? eventos.filter((e) => e.tipo !== "feriado") : null;
   const porCopiar = useMemo(
-    () => (eventos && anioVisto ? pendientesDeCopiar(eventos, anioVisto) : []),
+    () => (eventos ? pendientesDeCopiar(eventos, anioVisto) : []),
     [eventos, anioVisto],
   );
 
@@ -510,7 +524,8 @@ export function GestionCalendarioPage() {
       setAviso(
         `Se ${nuevos.length === 1 ? "copió" : "copiaron"} ${nuevos.length} feriado${plural} a ${destino}. Revise los que cambian de fecha.`,
       );
-      setVista(`f-${destino}`);
+      if (!anios.includes(destino)) setAniosNuevos((v) => [...v, destino]);
+      setAnioVisto(destino);
     } catch (err) {
       setError(
         copiados
@@ -522,17 +537,6 @@ export function GestionCalendarioPage() {
       await cargar();
     }
   }
-
-  const opciones = [
-    ...(anioVisto && !anios.includes(anioVisto) ? [anioVisto] : [])
-      .concat(anios)
-      .map((anio) => ({
-        id: `f-${anio}`,
-        etiqueta: `Feriados ${anio}`,
-        icono: "calendar-x",
-      })),
-    { id: "otras", etiqueta: "Otras fechas", icono: "calendar-event" },
-  ];
 
   return (
     <div className="institucional-page mz-stack">
@@ -568,75 +572,84 @@ export function GestionCalendarioPage() {
         </div>
       )}
 
-      {anteriores.length > 0 && (
-        <div className="d-flex align-items-center gap-2">
-          <label htmlFor="feriados-anteriores" className="mz-small mb-0">
-            Feriados de años anteriores
-          </label>
-          <select
-            id="feriados-anteriores"
-            className="form-select form-select-sm w-auto"
-            value={anteriores.includes(anioVisto) ? `f-${anioVisto}` : ""}
-            onChange={(e) => e.target.value && setVista(e.target.value)}
-            disabled={copiando}
-          >
-            <option value="">Elegir año…</option>
-            {anteriores.map((a) => (
-              <option key={a} value={`f-${a}`}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       <Pestanas
         etiqueta="Calendario"
         idBase="gestion-calendario"
-        valor={vista}
-        onCambio={(v) => !copiando && setVista(v)}
-        opciones={opciones}
+        valor={seccion}
+        onCambio={(v) => !copiando && setSeccion(v)}
+        opciones={[
+          { id: "feriados", etiqueta: "Feriados", icono: "calendar-x" },
+          { id: "otras", etiqueta: "Otras fechas", icono: "calendar-event" },
+        ]}
       />
-      <PanelDePestana idBase="gestion-calendario" valor={vista}>
+      <PanelDePestana idBase="gestion-calendario" valor={seccion}>
         <div aria-busy={copiando}>
-          {anioVisto ? (
+          {seccion === "feriados" ? (
             <div className="mz-stack">
-              <div className="mz-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  disabled={copiando}
-                  onClick={() => nueva("feriado", anioVisto)}
-                >
-                  <Icon name="plus-lg" /> Agregar feriado de {anioVisto}
-                </button>
+              <div className="gestion-calendario__anios">
+                <Pestanas
+                  className="mz-tabs--secundarias"
+                  etiqueta="Feriados por año"
+                  idBase="feriados-anio"
+                  valor={`a-${anioVisto}`}
+                  onCambio={(v) =>
+                    !copiando && setAnioVisto(Number(v.slice(2)))
+                  }
+                  opciones={anios.map((a) => ({
+                    id: `a-${a}`,
+                    etiqueta: `Año ${a}`,
+                  }))}
+                />
                 <button
                   type="button"
                   className="btn btn-outline-secondary btn-sm"
-                  disabled={copiando || porCopiar.length === 0}
-                  title={
-                    eventos && porCopiar.length === 0
-                      ? `No hay feriados de ${anioVisto} pendientes de copiar a ${anioVisto + 1}.`
-                      : undefined
-                  }
-                  onClick={() => copiarAlSiguiente(anioVisto)}
+                  disabled={copiando}
+                  onClick={agregarAnio}
                 >
-                  <Icon name="copy" />{" "}
-                  {copiando
-                    ? "Copiando…"
-                    : `Copiar los feriados de ${anioVisto} a ${anioVisto + 1}`}
+                  <Icon name="plus-lg" /> Agregar año
                 </button>
               </div>
-              <TablaDeFechas
-                filas={feriados}
-                conTipo={false}
-                anio={anioVisto}
-                cargando={eventos === null && !errorCarga}
-                errorCarga={errorCarga}
-                onReintentar={cargar}
-                textoVacio={`Todavía no hay feriados de ${anioVisto}.`}
-                onEditar={editar}
-                onBorrar={borrar}
-              />
+              <PanelDePestana idBase="feriados-anio" valor={`a-${anioVisto}`}>
+                <div className="mz-stack">
+                  <div className="mz-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={copiando}
+                      onClick={() => nueva("feriado", anioVisto)}
+                    >
+                      <Icon name="plus-lg" /> Agregar feriado de {anioVisto}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      disabled={copiando || porCopiar.length === 0}
+                      title={
+                        eventos && porCopiar.length === 0
+                          ? `No hay feriados de ${anioVisto} pendientes de copiar a ${anioVisto + 1}.`
+                          : undefined
+                      }
+                      onClick={() => copiarAlSiguiente(anioVisto)}
+                    >
+                      <Icon name="copy" />{" "}
+                      {copiando
+                        ? "Copiando…"
+                        : `Copiar los feriados de ${anioVisto} a ${anioVisto + 1}`}
+                    </button>
+                  </div>
+                  <TablaDeFechas
+                    filas={feriados}
+                    conTipo={false}
+                    anio={anioVisto}
+                    cargando={eventos === null && !errorCarga}
+                    errorCarga={errorCarga}
+                    onReintentar={cargar}
+                    textoVacio={`Todavía no hay feriados de ${anioVisto}.`}
+                    onEditar={editar}
+                    onBorrar={borrar}
+                  />
+                </div>
+              </PanelDePestana>
             </div>
           ) : (
             <div className="mz-stack">

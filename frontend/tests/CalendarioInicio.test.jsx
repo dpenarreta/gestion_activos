@@ -456,13 +456,17 @@ describe("Feriados por año", () => {
     servicio.eventos.mockResolvedValue(FERIADOS);
   });
 
-  it("una pestaña por año; el año actual abierto con sus feriados y los fijos", async () => {
+  it("una sola pestaña «Feriados» con una pestaña interna por año", async () => {
     pintar(<GestionCalendarioPage />);
-    const actual = await screen.findByRole("tab", { name: `Feriados ${anio}` });
-    expect(actual).toHaveAttribute("aria-selected", "true");
     expect(
-      screen.getByRole("tab", { name: `Feriados ${anio + 1}` }),
-    ).toBeInTheDocument();
+      await screen.findByRole("tab", { name: /^Feriados/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    const actual = await screen.findByRole("tab", { name: `Año ${anio}` });
+    expect(actual).toHaveAttribute("aria-selected", "true");
+    for (const a of [anio - 1, anio + 1]) {
+      expect(screen.getByRole("tab", { name: `Año ${a}` })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("tab", { name: `Año ${anio + 2}` })).toBeNull();
     expect(await screen.findByText("Carnaval")).toBeInTheDocument();
     const navidad = screen.getByText("Navidad").closest("tr");
     // Se repite cada año: se muestra con el año de la pestaña, no el de 2019.
@@ -478,7 +482,7 @@ describe("Feriados por año", () => {
   it("«Agregar feriado» del año siguiente ya viene como feriado de ese año", async () => {
     pintar(<GestionCalendarioPage />);
     fireEvent.click(
-      await screen.findByRole("tab", { name: `Feriados ${anio + 1}` }),
+      await screen.findByRole("tab", { name: `Año ${anio + 1}` }),
     );
     fireEvent.click(
       screen.getByRole("button", { name: `Agregar feriado de ${anio + 1}` }),
@@ -518,7 +522,7 @@ describe("Feriados por año", () => {
     });
     expect(await screen.findByText(/Se copió 1 feriado a/)).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: `Feriados ${anio + 1}` }),
+      screen.getByRole("tab", { name: `Año ${anio + 1}` }),
     ).toHaveAttribute("aria-selected", "true");
   });
 
@@ -544,5 +548,28 @@ describe("Feriados por año", () => {
         name: `Copiar los feriados de ${anio} a ${anio + 1}`,
       }),
     ).toBeDisabled();
+  });
+});
+
+describe("Agregar un año de feriados", () => {
+  const anio = new Date().getFullYear();
+  beforeEach(() => {
+    permisos.lista = ["calendario.gestionar"];
+    servicio.eventos.mockResolvedValue([]);
+  });
+
+  it("«Agregar año» crea la pestaña del año siguiente al último y la abre", async () => {
+    pintar(<GestionCalendarioPage />);
+    await screen.findByText(`Todavía no hay feriados de ${anio}.`);
+    fireEvent.click(screen.getByRole("button", { name: /Agregar año/ }));
+    expect(
+      screen.getByRole("tab", { name: `Año ${anio + 2}` }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByText(`Todavía no hay feriados de ${anio + 2}.`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `Agregar feriado de ${anio + 2}` }),
+    ).toBeInTheDocument();
   });
 });

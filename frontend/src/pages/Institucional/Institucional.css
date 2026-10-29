@@ -3399,3 +3399,26 @@
 .rol-gestion__opcion:focus-visible {
   background: var(--mz-sunken);
 }
+
+/* Gestionar calendario: los años de feriados son pestañas secundarias, con
+   «Agregar año» en la misma fila y sobre la misma raya (auditoría UX/UI,
+   29/10/2026). */
+.gestion-calendario__anios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  border-bottom: 1px solid var(--mz-border);
+}
+.gestion-calendario__anios .mz-tabs {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+.mz-tabs--secundarias button {
+  padding: 8px 12px;
+  font-weight: 500;
+}
+.mz-tabs--secundarias button.is-active {
+  border-bottom-width: 1px;
+  font-weight: 600;
+}
