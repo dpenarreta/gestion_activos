@@ -82,6 +82,8 @@ const { AvisoRolPagos } =
   await import("../src/components/admin/AvisoRolPagos/AvisoRolPagos");
 const { AdminLayout } =
   await import("../src/components/admin/AdminLayout/AdminLayout");
+const { RecordatorioRolPagos } =
+  await import("../src/components/admin/AvisoRolPagos/RecordatorioRolPagos");
 
 const NORMAL = {
   mostrar: true,
@@ -92,12 +94,15 @@ const NORMAL = {
   mensaje: "Su rol de pagos de septiembre de 2026 ya está disponible.",
   dias_habiles: 3,
   enlace: "/admin/institucional/rol-pagos?anio=2026&mes=9",
+  recordatorio:
+    "Recuerde: tiene hasta el lunes 5 de octubre para aceptar su rol de pagos de septiembre de 2026.",
 };
 const VENCIDO = {
   ...NORMAL,
   vencido: true,
   titulo: "Plazo vencido para aceptar su rol de pagos",
   mensaje: "Superó los 3 días hábiles permitidos. Puede ser sancionado.",
+  recordatorio: "El plazo venció el lunes 5 de octubre.",
 };
 
 function Direccion() {
@@ -270,5 +275,64 @@ describe("En el layout, uno a la vez", () => {
     );
     expect(await screen.findByText("Aviso de Mi perfil")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("El recordatorio tras «Recordarme después» (29/10/2026)", () => {
+  function conFranja(ruta = "/admin") {
+    return render(
+      <MemoryRouter initialEntries={[ruta]}>
+        <RecordatorioRolPagos />
+        <AvisoRolPagos />
+        <Direccion />
+      </MemoryRouter>,
+    );
+  }
+
+  it("al posponer el aviso queda la franja con la fecha máxima", async () => {
+    conFranja();
+    await screen.findByRole("dialog");
+    expect(screen.queryByText(/tiene hasta el lunes 5 de octubre/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Recordarme después" }));
+    const franja = await screen.findByText(
+      /Recuerde: tiene hasta el lunes 5 de octubre/,
+    );
+    expect(franja.closest(".recordatorio-rol")).not.toHaveClass(
+      "recordatorio-rol--vencido",
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Ver mi rol de pagos" }));
+    expect(screen.getByTestId("direccion")).toHaveTextContent(
+      "/admin/institucional/rol-pagos?anio=2026&mes=9",
+    );
+    // En la pantalla del rol no se repite.
+    await waitFor(() =>
+      expect(screen.queryByText(/tiene hasta el lunes 5/)).toBeNull(),
+    );
+  });
+
+  it("con el plazo vencido la franja lo dice, en rojo", async () => {
+    servicio.aviso.mockResolvedValue(VENCIDO);
+    sessionStorage.setItem("aviso_rol.visto.7.2026-9", "1");
+    sessionStorage.setItem("aviso_rol.pospuesto.7.2026-9", "1");
+    conFranja();
+    const franja = await screen.findByText(
+      "El plazo venció el lunes 5 de octubre.",
+    );
+    expect(franja.closest(".recordatorio-rol")).toHaveClass(
+      "recordatorio-rol--vencido",
+    );
+  });
+
+  it("si fue directo a su rol (no pospuso) no hay franja; aceptado, tampoco", async () => {
+    sessionStorage.setItem("aviso_rol.visto.7.2026-9", "1");
+    conFranja();
+    await waitFor(() => expect(servicio.aviso).toHaveBeenCalled());
+    expect(screen.queryByText(/Recuerde/)).toBeNull();
+
+    servicio.aviso.mockResolvedValue({ mostrar: false });
+    sessionStorage.setItem("aviso_rol.pospuesto.7.2026-9", "1");
+    conFranja();
+    await waitFor(() => expect(servicio.aviso).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText(/Recuerde/)).toBeNull();
   });
 });

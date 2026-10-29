@@ -346,6 +346,8 @@ const CAMPOS_AVISO = [
   "aviso_mensaje",
   "aviso_titulo_vencido",
   "aviso_mensaje_vencido",
+  "aviso_recordatorio",
+  "aviso_recordatorio_vencido",
   "aviso_dias_habiles",
 ];
 
@@ -494,6 +496,34 @@ function SeccionAviso({ aviso, habiles = [], errores, onCambio }) {
           className="form-control form-control-sm"
           value={aviso.aviso_mensaje_vencido}
           onChange={texto("aviso_mensaje_vencido")}
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-recordatorio"
+        etiqueta="Recordatorio tras «Recordarme después»"
+        ayuda={`Queda arriba de cada pantalla si la persona pospone el aviso, hasta que acepte su rol. ${AYUDA_MARCADORES}`}
+        error={errores.aviso_recordatorio}
+      >
+        <textarea
+          rows={3}
+          maxLength={1000}
+          className="form-control form-control-sm"
+          value={aviso.aviso_recordatorio}
+          onChange={texto("aviso_recordatorio")}
+        />
+      </Campo>
+      <Campo
+        id="rol-cfg-aviso-recordatorio-vencido"
+        etiqueta="Recordatorio con el plazo vencido"
+        ayuda="El mismo recordatorio, cuando ya pasó la fecha límite."
+        error={errores.aviso_recordatorio_vencido}
+      >
+        <textarea
+          rows={3}
+          maxLength={1000}
+          className="form-control form-control-sm"
+          value={aviso.aviso_recordatorio_vencido}
+          onChange={texto("aviso_recordatorio_vencido")}
         />
       </Campo>
       <details>

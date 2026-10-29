@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { nominaService } from "../../../api/nominaService";
 import { useAuth } from "../../../hooks/useAuth";
 import { VentanaAviso } from "../AvisoInicioSesion/AvisoInicioSesion";
+import { marcarPospuesto } from "./RecordatorioRolPagos";
 
 const CLAVE = "aviso_rol.visto";
 
@@ -38,7 +39,9 @@ const VENCIDO = { icono: "exclamation-triangle-fill", texto: "Plazo vencido" };
  * vencido. Misma ventana que el aviso al iniciar sesión.
  *
  * «Ver mi rol de pagos» lo lleva a la consulta con ese período ya elegido;
- * «Recordarme después» (o la X o Escape; un clic fuera no lo cierra) lo cierra. En ambos
+ * «Recordarme después» (o la X o Escape; un clic fuera no lo cierra) lo cierra
+ * y deja arriba de cada pantalla la franja con la fecha máxima
+ * (`RecordatorioRolPagos`). En ambos
  * casos no vuelve a salir en esta sesión, pero sí en el próximo inicio de
  * sesión (el cierre de sesión limpia `sessionStorage`) hasta que lo acepte.
  * Si la consulta falla, no se muestra nada. `onTerminado` avisa cuando ya no
@@ -80,6 +83,7 @@ export function AvisoRolPagos({ onTerminado }) {
 
   function cerrar() {
     marcarVisto(usuario, aviso);
+    marcarPospuesto(usuario, aviso);
     setAviso(null);
     onTerminado?.();
   }

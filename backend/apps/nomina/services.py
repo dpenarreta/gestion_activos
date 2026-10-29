@@ -49,6 +49,8 @@ CAMPOS_AVISO = (
     "aviso_mensaje",
     "aviso_titulo_vencido",
     "aviso_mensaje_vencido",
+    "aviso_recordatorio",
+    "aviso_recordatorio_vencido",
     "aviso_dias_habiles",
 )
 

@@ -279,6 +279,10 @@ class _Configuracion(serializers.Serializer):
     aviso_mensaje = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     aviso_titulo_vencido = serializers.CharField(required=False, allow_blank=True, max_length=150)
     aviso_mensaje_vencido = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    aviso_recordatorio = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    aviso_recordatorio_vencido = serializers.CharField(
+        required=False, allow_blank=True, max_length=1000
+    )
     aviso_dias_habiles = serializers.IntegerField(
         required=False,
         min_value=1,

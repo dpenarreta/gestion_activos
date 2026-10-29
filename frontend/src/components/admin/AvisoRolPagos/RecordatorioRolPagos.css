@@ -1,0 +1,52 @@
+/* La franja del rol de pagos pospuesto, arriba de cada pantalla (como la del
+   onboarding pendiente): ámbar mientras corre el plazo y roja, como las
+   alertas de error, cuando venció (auditoría UX/UI, 29/10/2026: con el tono
+   «warn» de la identidad, que es tomate, los dos estados se veían rosados). */
+.recordatorio-rol {
+  --recordatorio-ambar: #f5b301;
+  --recordatorio-icono: #8a5a00;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(
+    in srgb,
+    var(--recordatorio-ambar) 16%,
+    var(--mz-raised)
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--recordatorio-ambar) 60%, transparent);
+  color: var(--mz-ink);
+  font-size: 14px;
+}
+
+:root[data-theme="dark"] .recordatorio-rol {
+  --recordatorio-icono: #ffc94d;
+}
+
+.recordatorio-rol > .bi {
+  color: var(--recordatorio-icono);
+}
+
+.recordatorio-rol > span {
+  flex: 1;
+  min-width: 220px;
+}
+
+.recordatorio-rol--vencido {
+  background: var(--mz-bad-bg);
+  border-color: var(--mz-bad-line);
+}
+
+.recordatorio-rol--vencido > .bi {
+  color: var(--mz-bad-fg);
+}
+
+@media (pointer: coarse) {
+  .recordatorio-rol .btn {
+    min-height: 44px;
+  }
+}

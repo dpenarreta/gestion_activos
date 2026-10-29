@@ -65,6 +65,11 @@ def test_habilitado_sin_aceptar_ve_el_aviso_de_su_rol_del_mes_anterior(db, hoy):
         "vencido": False,
         "titulo": "Su rol de pagos ya está disponible",
         "mensaje": datos["mensaje"],
+        "recordatorio": (
+            "Recuerde: tiene hasta el lunes 5 de octubre para aceptar su rol de "
+            "pagos de septiembre de 2026. Pasada esa fecha puede recibir una "
+            "sanción o un llamado de atención."
+        ),
         "dias_habiles": 3,
         "fecha_limite": "2026-10-05",
         "enlace": "/admin/institucional/rol-pagos?anio=2026&mes=9",
@@ -82,6 +87,10 @@ def test_pasado_el_plazo_advierte_de_la_sancion(db, hoy):
     assert datos["titulo"] == "Plazo vencido para aceptar su rol de pagos"
     assert "3 días hábiles" in datos["mensaje"] and "sanción" in datos["mensaje"]
     assert "septiembre de 2026" in datos["mensaje"]
+    # La franja de «Recordarme después» también cambia: dice que venció.
+    assert datos["recordatorio"].startswith(
+        "El plazo para aceptar su rol de pagos de septiembre de 2026 venció el lunes 5 de octubre."
+    )
 
 
 def test_un_feriado_corre_el_plazo(db, hoy):

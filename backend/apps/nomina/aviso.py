@@ -122,10 +122,14 @@ def aviso_del_mes(usuario, hoy: datetime.date | None = None) -> dict | None:
     # Los días hábiles 1..N del mes, el mensaje normal; desde el N+1, el de
     # plazo vencido (un fin de semana cuenta los hábiles ya transcurridos).
     vencido = dias_habiles.numero_de_dia_habil(hoy) > dias
-    titulo, mensaje = (
-        (config.aviso_titulo_vencido, config.aviso_mensaje_vencido)
+    titulo, mensaje, recordatorio = (
+        (
+            config.aviso_titulo_vencido,
+            config.aviso_mensaje_vencido,
+            config.aviso_recordatorio_vencido,
+        )
         if vencido
-        else (config.aviso_titulo, config.aviso_mensaje)
+        else (config.aviso_titulo, config.aviso_mensaje, config.aviso_recordatorio)
     )
     return {
         "anio": anio,
@@ -133,6 +137,8 @@ def aviso_del_mes(usuario, hoy: datetime.date | None = None) -> dict | None:
         "vencido": vencido,
         "titulo": rellenar(titulo, anio=anio, mes=mes, dias=dias, **fechas),
         "mensaje": rellenar(mensaje, anio=anio, mes=mes, dias=dias, **fechas),
+        # El segundo texto: la franja que queda tras «Recordarme después».
+        "recordatorio": rellenar(recordatorio, anio=anio, mes=mes, dias=dias, **fechas),
         "fecha_limite": fecha_limite.isoformat() if fecha_limite else None,
         "dias_habiles": dias,
         "enlace": f"/admin/institucional/rol-pagos?anio={anio}&mes={mes}",

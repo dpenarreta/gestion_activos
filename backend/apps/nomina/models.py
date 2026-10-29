@@ -61,6 +61,19 @@ AVISO_MENSAJE_VENCIDO_POR_DEFECTO = (
     "acéptelo cuanto antes; si encuentra algo que no está bien, deje una "
     "observación."
 )
+#: La franja que queda arriba de cada pantalla cuando la persona pospone el
+#: aviso con «Recordarme después»: le recuerda la fecha máxima (pedido de la
+#: administración, 29/10/2026).
+AVISO_RECORDATORIO_POR_DEFECTO = (
+    "Recuerde: tiene hasta el {fecha_limite} para aceptar su rol de pagos de "
+    "{mes} de {anio}. Pasada esa fecha puede recibir una sanción o un llamado "
+    "de atención."
+)
+AVISO_RECORDATORIO_VENCIDO_POR_DEFECTO = (
+    "El plazo para aceptar su rol de pagos de {mes} de {anio} venció el "
+    "{fecha_limite}. Acéptelo cuanto antes: puede recibir una sanción o un "
+    "llamado de atención."
+)
 AVISO_DIAS_POR_DEFECTO = 3
 AVISO_DIAS_MAXIMO = 20
 
@@ -82,6 +95,8 @@ class ConfiguracionRolPagos(ModeloDeEmpresa):
         max_length=150, default=AVISO_TITULO_VENCIDO_POR_DEFECTO
     )
     aviso_mensaje_vencido = models.TextField(default=AVISO_MENSAJE_VENCIDO_POR_DEFECTO)
+    aviso_recordatorio = models.TextField(default=AVISO_RECORDATORIO_POR_DEFECTO)
+    aviso_recordatorio_vencido = models.TextField(default=AVISO_RECORDATORIO_VENCIDO_POR_DEFECTO)
     #: Cuántos días hábiles, desde el primero del mes, tiene para aceptarlo
     #: antes de que el aviso pase a decir que el plazo venció.
     aviso_dias_habiles = models.PositiveSmallIntegerField(

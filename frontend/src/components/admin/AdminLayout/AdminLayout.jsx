@@ -20,6 +20,7 @@ import { AvisoInicioSesion } from "../AvisoInicioSesion/AvisoInicioSesion";
 import { AvisoOnboarding } from "../AvisoOnboarding/AvisoOnboarding";
 import { AvisoPerfil } from "../AvisoPerfil/AvisoPerfil";
 import { AvisoRolPagos } from "../AvisoRolPagos/AvisoRolPagos";
+import { RecordatorioRolPagos } from "../AvisoRolPagos/RecordatorioRolPagos";
 import { ModuloApagado } from "../ModuloApagado/ModuloApagado";
 import { ChatProvider } from "../Chat/ChatContext";
 import { ChatDock } from "../Chat/ChatDock";
@@ -297,6 +298,7 @@ export function AdminLayout() {
                 }`}
               >
                 <AvisoOnboarding />
+                <RecordatorioRolPagos />
                 {/* Las secciones de Configuración conservan sus rutas de
                 siempre; el marco con sus pestañas se pone aquí, según dónde
                 se esté, y no en cada pantalla. */}
