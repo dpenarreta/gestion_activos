@@ -36,6 +36,22 @@ def validar_documento(archivo) -> str:
     return TIPOS[extension]
 
 
+def _orden_intacto(actuales, pasos, hay_en_curso):
+    """Con solicitudes en curso, los pasos que ya existían no cambian de orden
+    entre sí: una solicitud volvería a pasar por un paso que ya aprobó (o se
+    saltaría uno). Se pueden agregar pasos nuevos (auditoría UX/UI,
+    30/10/2026)."""
+    if not hay_en_curso:
+        return
+    antes = [p.id for p in actuales]
+    enviados = [p.get("id") for p in pasos if p.get("id") in set(antes)]
+    if enviados != [i for i in antes if i in set(enviados)]:
+        raise serializers.ValidationError(
+            "Hay solicitudes en curso: los pasos que ya existían no se pueden reordenar "
+            "hasta que terminen (sí se pueden agregar pasos nuevos)."
+        )
+
+
 def _nombre(usuario):
     return (usuario.get_full_name().strip() or usuario.username) if usuario else ""
 
@@ -126,6 +142,14 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
     def validate_pasos(self, pasos):
         if not pasos:
             raise serializers.ValidationError("Agregue al menos un paso.")
+        if self.instance is not None:
+            _orden_intacto(
+                self.instance.pasos.order_by("orden", "id"),
+                pasos,
+                SolicitudProyecto.objects.filter(
+                    tipo_proyecto=self.instance, estado=SolicitudProyecto.Estado.PENDIENTE
+                ).exists(),
+            )
         return pasos
 
     def validate_campos(self, campos):
@@ -150,6 +174,15 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
 
     def to_representation(self, tipo):
         datos = super().to_representation(tipo)
+        # Lo que está en curso: el editor avisa y no deja quitar esos pasos
+        # (auditoría UX/UI, 30/10/2026).
+        pendientes = SolicitudProyecto.objects.filter(
+            tipo_proyecto=tipo, estado=SolicitudProyecto.Estado.PENDIENTE
+        )
+        por_paso = {}
+        for paso_id in pendientes.values_list("paso_actual_id", flat=True):
+            por_paso[paso_id] = por_paso.get(paso_id, 0) + 1
+        datos["solicitudes_en_curso"] = sum(por_paso.values())
         datos["campos"] = [
             {
                 "id": c.id,
@@ -166,6 +199,7 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
             {
                 "id": paso.id,
                 "nombre": paso.nombre,
+                "en_curso": por_paso.get(paso.id, 0),
                 "aprobadores": [
                     DestinoSerializer().to_representation(a) for a in paso.aprobadores.all()
                 ],
@@ -386,7 +420,9 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
                 "estado": (
                     "aprobado"
                     if paso.id in aprobados
-                    else "en_curso" if paso.id == solicitud.paso_actual_id else "pendiente"
+                    else "en_curso"
+                    if paso.id == solicitud.paso_actual_id
+                    else "pendiente"
                 ),
             }
             for paso in solicitud.tipo_proyecto.pasos.order_by("orden", "id")

@@ -352,3 +352,37 @@ def test_editar_el_tipo_no_rompe_las_solicitudes_en_curso(proyecto):
 
     # Con solicitudes no se borra: se desactiva.
     assert admin.delete(f"{TIPOS}{tipo['id']}/").status_code == 409
+
+
+def test_con_solicitudes_en_curso_se_informan_y_no_se_reordenan(proyecto):
+    """Auditoría UX/UI (30/10/2026): el tipo dice cuántas solicitudes van en
+    curso y en qué paso; los pasos que ya existían no se reordenan mientras
+    haya alguna (volvería a pasar por un paso aprobado), pero sí se agregan."""
+    _, admin = proyecto["admin"]
+    tipo = _activar(admin, proyecto["tipo"])
+    _, ana = proyecto["ana"]
+    _solicitar(ana, tipo)
+
+    tipo = admin.get(f"{TIPOS}{tipo['id']}/").json()
+    assert tipo["solicitudes_en_curso"] == 1
+    assert tipo["pasos"][0]["en_curso"] == 1
+
+    pasos = tipo["pasos"]
+    al_reves = admin.put(
+        f"{TIPOS}{tipo['id']}/", {**tipo, "pasos": list(reversed(pasos))}, format="json"
+    )
+    assert al_reves.status_code == 400
+    assert "no se pueden reordenar" in str(al_reves.data)
+
+    con_uno_mas = admin.put(
+        f"{TIPOS}{tipo['id']}/",
+        {
+            **tipo,
+            "pasos": [
+                *pasos,
+                {"nombre": "Cierre", "aprobadores": [{"tipo": "jefe_inmediato"}]},
+            ],
+        },
+        format="json",
+    )
+    assert con_uno_mas.status_code == 200, con_uno_mas.data

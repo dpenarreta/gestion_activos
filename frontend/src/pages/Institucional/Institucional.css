@@ -1504,7 +1504,8 @@
 
 .flujos-lista {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  /* En el teléfono una sola columna, sin desbordar (antes, 360 px fijos). */
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -1518,8 +1519,11 @@
   background: var(--mz-raised);
 }
 
+/* Inactivo: fondo hundido y borde punteado, con la pill «Inactivo». Sin
+   transparencia: el texto bajaba a 2.5:1 (auditoría UX/UI, 30/10/2026). */
 .flujo-tarjeta--inactivo {
-  opacity: 0.6;
+  background: var(--mz-sunken);
+  border-style: dashed;
 }
 
 .flujo-tarjeta__cabecera {
@@ -3663,5 +3667,35 @@
   .mz-modal.flujo-editor {
     width: calc(100vw - 32px);
     max-width: calc(100vw - 32px);
+  }
+}
+
+/* --- Tipos de proyecto: auditoría UX/UI (30/10/2026) --- */
+
+.campo-proyecto__orden {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* En el teléfono, el nombre del campo arriba a todo el ancho; el tipo y los
+   botones de orden debajo (antes el nombre quedaba en 0 px). */
+@media (max-width: 575px) {
+  .campo-proyecto__cabecera {
+    flex-wrap: wrap;
+  }
+
+  .campo-proyecto__nombre {
+    flex: 1 1 calc(100% - 40px);
+  }
+
+  .campo-proyecto__tipo {
+    flex: 1 1 auto;
+  }
+}
+
+@media (pointer: coarse) {
+  .campo-proyecto__orden .btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

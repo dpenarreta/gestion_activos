@@ -357,7 +357,9 @@ describe("Tipos de proyecto", () => {
 
   it("sin plantilla avisa y no deja activarlo", async () => {
     configuracion();
-    expect(await screen.findByText("Sin plantilla")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Cargar plantilla/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Activar" })).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Editar Proyecto de TI" }),
@@ -385,17 +387,17 @@ describe("Tipos de proyecto", () => {
     fireEvent.change(within(editor).getByLabelText("Tipo del campo 2"), {
       target: { value: "lista" },
     });
-    fireEvent.change(within(editor).getByLabelText("Opciones del campo 2"), {
+    fireEvent.change(within(editor).getByLabelText(/^Opciones del campo 2/), {
       target: { value: "Alta\nMedia\n\nBaja" },
     });
 
     const plantilla = new File(["p"], "Plantilla.docx");
-    fireEvent.change(within(editor).getByLabelText("Cargar la plantilla"), {
+    fireEvent.change(within(editor).getByLabelText(/^Cargar la plantilla/), {
       target: { files: [plantilla] },
     });
     fireEvent.click(within(editor).getByLabelText(/Activo/));
     fireEvent.click(
-      within(editor).getByRole("button", { name: "Guardar tipo de proyecto" }),
+      within(editor).getByRole("button", { name: "Guardar cambios" }),
     );
 
     await waitFor(() => expect(servicio.guardarTipo).toHaveBeenCalled());
@@ -426,6 +428,104 @@ describe("Tipos de proyecto", () => {
     );
     await waitFor(() =>
       expect(servicio.activarTipo).toHaveBeenCalledWith(1, true),
+    );
+  });
+
+  it("un tipo nuevo no se envía con pasos sin elegir y dice qué falta", async () => {
+    configuracion();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nuevo tipo de proyecto/ }),
+    );
+    const editor = await screen.findByRole("dialog", {
+      name: "Nuevo tipo de proyecto",
+    });
+    fireEvent.change(
+      within(editor).getByLabelText(/^Nombre del tipo de proyecto/),
+      { target: { value: "Desarrollo de un reporte" } },
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Crear tipo de proyecto" }),
+    );
+    expect(servicio.guardarTipo).not.toHaveBeenCalled();
+    const alerta = within(editor).getByRole("alert");
+    expect(alerta).toHaveTextContent(
+      "Paso 2, quien decide 1: elija una persona.",
+    );
+    expect(alerta).not.toHaveTextContent("aprobadores");
+    expect(
+      within(editor).getByLabelText(
+        "quien decide el paso 2, opción 1: una persona",
+      ),
+    ).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("avisa si un paso lo decide quien ya decidió uno anterior", async () => {
+    servicio.tiposConfigurados.mockResolvedValue([
+      {
+        ...CONFIGURADO,
+        pasos: [
+          CONFIGURADO.pasos[0],
+          { ...CONFIGURADO.pasos[0], id: 22, nombre: "Autorización" },
+        ],
+      },
+    ]);
+    configuracion();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Editar Proyecto de TI" }),
+    );
+    const editor = await screen.findByRole("dialog");
+    expect(within(editor).getByText(/Así queda la ruta/)).toBeInTheDocument();
+    expect(editor).toHaveTextContent(
+      /El paso 2 lo decide quien ya decidió uno anterior/,
+    );
+  });
+
+  it("si la plantilla falla, el tipo ya creado no se duplica al reintentar", async () => {
+    servicio.guardarTipo.mockResolvedValue({ ...CONFIGURADO, id: 7 });
+    servicio.cargarPlantilla.mockRejectedValueOnce({
+      response: { data: { detail: "El archivo está dañado." } },
+    });
+    configuracion();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nuevo tipo de proyecto/ }),
+    );
+    const editor = await screen.findByRole("dialog");
+    fireEvent.change(
+      within(editor).getByLabelText(/^Nombre del tipo de proyecto/),
+      { target: { value: "Desarrollo de un reporte" } },
+    );
+    // Los pasos 2 y 3 nacen sin elegir: se quitan para este caso.
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Quitar el paso 3" }),
+    );
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Quitar el paso 2" }),
+    );
+    fireEvent.change(within(editor).getByLabelText(/^Cargar la plantilla/), {
+      target: { files: [new File(["p"], "Plantilla.docx")] },
+    });
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Crear tipo de proyecto" }),
+    );
+    expect(
+      await within(editor).findByText(
+        /El tipo se creó, pero la plantilla no se cargó/,
+      ),
+    ).toBeInTheDocument();
+    expect(servicio.guardarTipo).toHaveBeenLastCalledWith(
+      undefined,
+      expect.anything(),
+    );
+    // El reintento edita el tipo creado (PUT con su id), no crea otro.
+    servicio.cargarPlantilla.mockResolvedValueOnce({});
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarTipo).toHaveBeenLastCalledWith(
+        7,
+        expect.anything(),
+      ),
     );
   });
 });

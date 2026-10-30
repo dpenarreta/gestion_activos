@@ -149,6 +149,13 @@ class FlujoSerializer(serializers.ModelSerializer):
         if not pasos:
             raise serializers.ValidationError("El flujo necesita al menos un paso de aprobación.")
         if self.instance is not None:
+            from apps.proyectos.serializers import _orden_intacto
+
+            _orden_intacto(
+                self.instance.pasos.order_by("orden", "id"),
+                pasos,
+                self.instance.solicitudes.filter(estado=SolicitudPermiso.Estado.PENDIENTE).exists(),
+            )
             # Un paso con solicitudes en curso no se quita: quedarían sin paso
             # y, al aprobarse, volverían al primero.
             quedan = {p.get("id") for p in pasos if p.get("id")}

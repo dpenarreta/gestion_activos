@@ -45,14 +45,14 @@ const NUEVO = {
 };
 
 /** Los destinos que necesitan elegir a alguien, y con qué campo. */
-const CAMPO_DE = { persona: "usuario", rol: "rol", cargo: "cargo" };
+export const CAMPO_DE = { persona: "usuario", rol: "rol", cargo: "cargo" };
 const LISTA_DE = { persona: "personas", rol: "roles", cargo: "cargos" };
 
 // Claves estables para pasos y destinos: con el índice como clave, al mover
 // un paso el foco quedaba en el que ocupaba su lugar (auditoría UX/UI,
 // 29/10/2026).
 let ultimaClave = 0;
-const nuevaClave = () => `k${(ultimaClave += 1)}`;
+export const nuevaClave = () => `k${(ultimaClave += 1)}`;
 
 function conClaves(flujo) {
   const destinos = (lista) =>
@@ -110,7 +110,7 @@ function paraEnviar(flujo) {
 
 /** «Su jefe inmediato», «Juan Pérez», «Rol Talento Humano»…: un destino en
  * palabras, con las opciones cargadas. */
-function describir(destino, opciones) {
+export function describir(destino, opciones) {
   const campo = CAMPO_DE[destino.tipo];
   if (!campo) return DESTINOS[destino.tipo] ?? destino.tipo;
   const elegido = opciones?.[LISTA_DE[destino.tipo]]?.find(
@@ -1185,8 +1185,10 @@ export function FlujosPermisoPage() {
             >
               <header className="flujo-tarjeta__cabecera">
                 <div>
-                  <strong>{f.nombre}</strong>
-                  {!f.activo && <span className="mz-faint"> (inactivo)</span>}
+                  <strong>{f.nombre}</strong>{" "}
+                  {!f.activo && (
+                    <span className="mz-pill mz-pill--neutral">Inactivo</span>
+                  )}
                   {f.descripcion && <small>{f.descripcion}</small>}
                 </div>
                 <span className="flujo-tarjeta__acciones">

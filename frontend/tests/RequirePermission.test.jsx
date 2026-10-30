@@ -24,19 +24,29 @@ function renderWithRouter() {
           }
         />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
 describe("RequirePermission", () => {
-  it("no renderiza nada mientras se inicializa la sesión", () => {
-    mockUseAuth.mockReturnValue({ isInitializing: true, isAuthenticated: false, user: null });
-    const { container } = renderWithRouter();
-    expect(container).toBeEmptyDOMElement();
+  it("muestra «Cargando…» mientras se inicializa la sesión", () => {
+    mockUseAuth.mockReturnValue({
+      isInitializing: true,
+      isAuthenticated: false,
+      user: null,
+    });
+    renderWithRouter();
+    // Antes, pantalla en blanco (auditoría UX/UI, 30/10/2026).
+    expect(screen.getByText(/Cargando/)).toBeInTheDocument();
+    expect(screen.queryByText(/pantalla de login/i)).toBeNull();
   });
 
   it("redirige a /login si no hay sesión", () => {
-    mockUseAuth.mockReturnValue({ isInitializing: false, isAuthenticated: false, user: null });
+    mockUseAuth.mockReturnValue({
+      isInitializing: false,
+      isAuthenticated: false,
+      user: null,
+    });
     renderWithRouter();
     expect(screen.getByText(/pantalla de login/i)).toBeInTheDocument();
   });
