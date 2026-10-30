@@ -7,7 +7,10 @@ import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { cumpleConsulta, useMediaQuery } from "../../../hooks/useMediaQuery";
 import { EstadoModulosProvider } from "../../../modulos/EstadoModulos";
-import { fijarTituloDePantalla } from "../../../utils/tituloDocumento";
+import {
+  fijarTituloDePantalla,
+  suscribirTituloPropio,
+} from "../../../utils/tituloDocumento";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminSidebar } from "../AdminSidebar/AdminSidebar";
 import { coincidencia } from "../AdminSidebar/adminMenuTree";
@@ -153,13 +156,16 @@ export function AdminLayout() {
   // En el cajón del teléfono el menú va siempre completo, aunque en el
   // escritorio se haya dejado contraído.
   const contraido = isCollapsed && !estrecho;
-  const titulo = tituloDeRuta(menu, location.pathname);
+  const tituloDelMenu = tituloDeRuta(menu, location.pathname);
+  const [tituloPropio, setTituloPropio] = useState("");
+  useEffect(() => suscribirTituloPropio(setTituloPropio), []);
+  const titulo = tituloPropio || tituloDelMenu;
 
   // La pestaña dice en qué pantalla se está, igual que la barra superior
   // (auditoría UX/UI, fase 3, 28/10/2026).
   useEffect(() => {
-    fijarTituloDePantalla(titulo);
-  }, [titulo]);
+    fijarTituloDePantalla(tituloDelMenu);
+  }, [tituloDelMenu]);
   useEffect(() => () => fijarTituloDePantalla(null), []);
 
   useEffect(() => {

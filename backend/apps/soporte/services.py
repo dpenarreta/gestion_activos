@@ -152,7 +152,7 @@ def crear_ticket(
                     _movimiento(
                         ticket,
                         None,
-                        f"Prioridad {Prioridad(caso.prioridad).label} → "
+                        f"Prioridad de {Prioridad(caso.prioridad).label} a "
                         f"{Prioridad(prioridad).label} por impacto y urgencia",
                     )
                 if pide_aprobacion:
@@ -459,6 +459,18 @@ def puede_tomarlo(tecnico, ticket) -> bool:
     )
 
 
+def por_que_no_tomarlo(tecnico, ticket) -> str:
+    """Por qué no aparece «Tomar este ticket» (auditoría UX/UI, 30/10/2026:
+    faltaba sin explicación). Vacío si se puede o si no aplica."""
+    if ticket.estado != Estado.NUEVO or puede_tomarlo(tecnico, ticket):
+        return ""
+    if tecnico is None:
+        return "Usted no es técnico de la mesa de ayuda: no toma tickets de la cola."
+    if ticket.nivel_id != tecnico.nivel_id:
+        return f"El ticket está en «{ticket.nivel}» y usted atiende «{tecnico.nivel}»."
+    return f"Usted no atiende la categoría «{ticket.categoria.nombre}»."
+
+
 def tomar(ticket, tecnico, actor) -> Ticket:
     """«Tomar este ticket» desde su ficha (auditoría UX/UI, 30/10/2026: el
     técnico que abría un ticket vencido de la cola no podía quedárselo; solo
@@ -549,7 +561,9 @@ def _mover(ticket, actor, estado, nota="", descripcion=None):
         ticket.reaperturas += 1
     ticket.estado = estado
     ticket.save()
-    texto = descripcion or f"{Estado(anterior).label} → {Estado(estado).label}"
+    # En palabras, no con una flecha (el lector de pantalla leía «flecha
+    # derecha»).
+    texto = descripcion or f"Pasó de {Estado(anterior).label} a {Estado(estado).label}"
     _movimiento(ticket, actor, texto, anterior=anterior, nuevo=estado, nota=nota)
 
 
@@ -667,7 +681,7 @@ def cambiar_prioridad(ticket, actor, *, prioridad, justificacion, impacto="", ur
         _movimiento(
             ticket,
             actor,
-            f"Prioridad {Prioridad(anterior).label} → {Prioridad(prioridad).label}",
+            f"Prioridad de {Prioridad(anterior).label} a {Prioridad(prioridad).label}",
             nota=justificacion,
         )
     return ticket
@@ -822,8 +836,8 @@ def ciclo(ahora=None) -> dict:
                 ticket,
                 None,
                 Estado.CERRADO,
-                descripcion=f"Cerrado automáticamente tras {dias} día(s) hábiles sin respuesta "
-                "del usuario",
+                descripcion=f"Cerrado automáticamente tras {dias} "
+                f"{'día hábil' if dias == 1 else 'días hábiles'} sin respuesta del usuario",
             )
         transaction.on_commit(lambda t=ticket: avisos.ticket_cerrado(t))
         resumen["cerrados"] += 1

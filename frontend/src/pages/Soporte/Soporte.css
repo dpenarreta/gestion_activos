@@ -474,3 +474,104 @@
   font-size: 14px;
   color: var(--mz-ink);
 }
+
+/* --- Ficha del ticket: auditoría UX/UI (30/10/2026) --- */
+.soporte-ficha__caso {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+.soporte-franja-estado {
+  margin-bottom: 16px;
+}
+
+.soporte-franja-estado__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.soporte-datos__titulo {
+  margin: 4px 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--mz-ink-faint);
+}
+
+.soporte-datos .mz-kv-grid + .soporte-datos__titulo {
+  margin-top: 14px;
+}
+
+.soporte-datos dd {
+  overflow-wrap: anywhere;
+}
+
+.soporte-detalle .mz-kv-label,
+.soporte-page .mz-kv-label {
+  font-size: 12.5px;
+}
+
+.soporte-historial .mz-tl-when {
+  font-size: 12px;
+}
+
+/* Quién habló: pastilla de rol, autor y fecha. */
+.soporte-hilo__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.soporte-hilo > li.soporte-hilo__propio {
+  border-left: 3px solid var(--mz-info-fg, var(--mz-border-strong));
+}
+
+.soporte-hilo > li.soporte-hilo__interno {
+  border-left: 3px solid var(--mz-warn-fg);
+}
+
+/* La nota interna con los colores del sistema (antes, el amarillo de
+   Bootstrap junto al naranja del campo). */
+/* Fondo claro y texto del tono: se lee en los dos temas (con texto blanco
+   sobre el naranja del tema oscuro quedaba en 2:1). */
+.soporte-btn-interno,
+.soporte-btn-interno:focus-visible {
+  background: var(--mz-warn-bg);
+  border-color: var(--mz-warn-fg);
+  color: var(--mz-warn-fg);
+  font-weight: 600;
+}
+
+.soporte-btn-interno:hover {
+  background: var(--mz-warn-bg);
+  border-color: var(--mz-warn-fg);
+  color: var(--mz-warn-fg);
+  filter: brightness(0.94);
+}
+
+.soporte-page .mz-small {
+  font-size: 12px;
+}
+
+.soporte-cp-resultado {
+  font-weight: 600;
+}
+
+.soporte-cp-modo .form-check {
+  padding-block: 10px;
+}
+
+/* 44 px al tacto también en los selectores segmentados y las sugerencias. */
+@media (pointer: coarse) {
+  .soporte-page .btn-group-sm > .btn,
+  .soporte-sugerencias button {
+    min-height: 44px;
+  }
+}

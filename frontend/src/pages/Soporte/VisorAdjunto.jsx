@@ -23,10 +23,12 @@ export function seVeAdentro(nombre) {
  */
 export function useVisorDeAdjuntos() {
   const [abierto, setAbierto] = useState(null);
+  const [abriendo, setAbriendo] = useState(null);
   const [error, setError] = useState(null);
 
   async function abrir(adjunto) {
     setError(null);
+    setAbriendo(adjunto.id);
     try {
       const respuesta = await soporteService.descargar(adjunto.url);
       if (seVeAdentro(adjunto.nombre)) {
@@ -36,6 +38,8 @@ export function useVisorDeAdjuntos() {
       }
     } catch {
       setError(`No se pudo abrir «${adjunto.nombre}».`);
+    } finally {
+      setAbriendo(null);
     }
   }
 
@@ -53,7 +57,7 @@ export function useVisorDeAdjuntos() {
       onCerrar={() => setAbierto(null)}
     />
   );
-  return { abrir, visor, error };
+  return { abrir, abriendo, visor, error };
 }
 
 function VisorImagen({ nombre, blob, onCerrar }) {

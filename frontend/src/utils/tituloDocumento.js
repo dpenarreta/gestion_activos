@@ -10,12 +10,31 @@
  */
 let nombreDelSitio = "";
 let tituloDePantalla = "";
+// El título propio de una pantalla (la ficha de un ticket: su número) gana
+// sobre el del menú mientras esa pantalla esté abierta (auditoría UX/UI,
+// 30/10/2026: todas las fichas se llamaban «Bandeja»).
+let tituloPropio = "";
+const oyentes = new Set();
 
 function aplicar() {
   if (typeof document === "undefined") return;
-  document.title = [tituloDePantalla, nombreDelSitio]
+  document.title = [tituloPropio || tituloDePantalla, nombreDelSitio]
     .filter(Boolean)
     .join(" · ");
+}
+
+/** Lo fija una pantalla; `null` al salir, para volver al del menú. */
+export function fijarTituloPropio(titulo) {
+  tituloPropio = titulo || "";
+  aplicar();
+  oyentes.forEach((oyente) => oyente(tituloPropio));
+}
+
+/** Para la barra superior: avisa cuando cambia el título propio. */
+export function suscribirTituloPropio(oyente) {
+  oyentes.add(oyente);
+  oyente(tituloPropio);
+  return () => oyentes.delete(oyente);
 }
 
 export function fijarNombreDelSitio(nombre) {

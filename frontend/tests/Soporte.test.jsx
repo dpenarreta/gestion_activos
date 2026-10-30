@@ -24,6 +24,7 @@ const servicio = {
   tickets: vi.fn(),
   ticket: vi.fn(),
   tecnicos: vi.fn(),
+  cambiarPrioridad: vi.fn(),
   tomar: vi.fn(),
   tomarSiguiente: vi.fn(),
   cambiarEstado: vi.fn(),
@@ -928,7 +929,7 @@ describe("La ficha del ticket", () => {
     );
     // El aviso sale en la tarjeta de las acciones, no arriba de la página.
     const tarjeta = screen
-      .getByRole("heading", { name: "Qué se puede hacer" })
+      .getByRole("heading", { name: "Acciones" })
       .closest("section");
     expect(
       await within(tarjeta).findByText("Estado actualizado."),
@@ -1208,5 +1209,139 @@ describe("La bandeja en el teléfono", () => {
     } finally {
       sesion.permisos = ["soporte.atender"];
     }
+  });
+});
+
+describe("La ficha del ticket, de un vistazo (auditoría UX/UI, 30/10/2026)", () => {
+  function abrir() {
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+  }
+
+  it("un ticket que no existe lo dice en español y lleva a la bandeja", async () => {
+    servicio.ticket.mockRejectedValueOnce({
+      response: {
+        status: 404,
+        data: { detail: "No Ticket matches the given query." },
+      },
+    });
+    abrir();
+    expect(
+      await screen.findByText(/Este ticket no existe o ya no tiene acceso/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Volver a la bandeja" }),
+    ).toHaveAttribute("href", "/admin/soporte/bandeja");
+    expect(screen.queryByRole("button", { name: /Reintentar/ })).toBeNull();
+  });
+
+  it("arriba dice qué toca y por qué no se puede tomar", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        estado: "nuevo",
+        estado_display: "En cola",
+        tecnico: null,
+        permisos: {
+          acciones: [],
+          tomar: false,
+          motivo_no_tomar: "Usted no atiende la categoría «Hardware».",
+          responder: false,
+          escalar: false,
+          asignar: true,
+        },
+      }),
+    );
+    servicio.tecnicos.mockResolvedValue([]);
+    abrir();
+    expect(
+      await screen.findByText("Nadie lo ha tomado: asígnelo a un técnico."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Usted no atiende la categoría «Hardware»."),
+    ).toBeInTheDocument();
+  });
+
+  it("cada mensaje dice quién habló y un cerrado explica por qué no se responde", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        estado: "cerrado",
+        estado_display: "Cerrado",
+        cerrado_en: "2026-10-20T15:00:00Z",
+        encuesta: { calificacion: 4, resuelto: true, comentario: "Rápido" },
+        mensajes: [
+          {
+            id: 1,
+            texto: "No prende",
+            del_solicitante: true,
+            interno: false,
+            autor: "Carla Ordóñez",
+            fecha: "2026-10-16T10:00:00Z",
+            adjuntos: [],
+          },
+          {
+            id: 2,
+            texto: "Revisar la fuente",
+            del_solicitante: false,
+            interno: true,
+            autor: "Jorge Andrade",
+            fecha: "2026-10-16T11:00:00Z",
+            adjuntos: [],
+          },
+        ],
+        permisos: {
+          acciones: [],
+          responder: true,
+          escalar: false,
+          asignar: false,
+        },
+      }),
+    );
+    abrir();
+    const hilo = (await screen.findByText("Revisar la fuente")).closest("ul");
+    expect(within(hilo).getByText("Usuario")).toBeInTheDocument();
+    expect(within(hilo).getByText("Nota interna")).toBeInTheDocument();
+    expect(screen.getByText(/ya no se puede responder/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Respuesta al usuario/)).toBeNull();
+    // La encuesta del usuario, a la vista del equipo.
+    expect(screen.getByText("4 de 5")).toBeInTheDocument();
+    expect(screen.getByText("«Rápido»")).toBeInTheDocument();
+  });
+
+  it("la prioridad dice en qué quedará y no deja guardar sin cambios", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        prioridad: "media",
+        prioridad_display: "P3 · Media",
+        impacto: "bajo",
+        urgencia: "alta",
+        permisos: {
+          acciones: [],
+          responder: false,
+          escalar: false,
+          asignar: false,
+          prioridad: true,
+        },
+      }),
+    );
+    abrir();
+    const boton = await screen.findByRole("button", {
+      name: "Cambiar prioridad",
+    });
+    expect(boton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Impacto"), {
+      target: { value: "alto" },
+    });
+    expect(
+      screen.getByText(/Quedará en: P1 · Crítica \(antes/),
+    ).toBeInTheDocument();
+    expect(boton).toBeEnabled();
+    fireEvent.click(boton);
+    expect(servicio.cambiarPrioridad).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^Justificación/)).toHaveAccessibleDescription(
+      /Diga por qué cambia la prioridad\./,
+    );
   });
 });

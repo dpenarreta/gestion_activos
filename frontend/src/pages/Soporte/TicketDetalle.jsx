@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
 import { Campo } from "../../components/common/Campo/Campo";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import { AuthContext } from "../../context/AuthContext";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
+import { fijarTituloPropio } from "../../utils/tituloDocumento";
 import {
   EstadoTicket,
   IMPACTOS,
@@ -18,6 +20,7 @@ import {
   SlaTicket,
   URGENCIAS,
   useEtiquetas,
+  VenceTicket,
 } from "./comunes";
 import { useVisorDeAdjuntos } from "./VisorAdjunto";
 import "./Soporte.css";
@@ -81,40 +84,95 @@ function dialogoDe(accion, ticket) {
   }
 }
 
+/** Cada cuánto se vuelve a pedir el ticket (con la pestaña a la vista). */
+const REFRESCO_MS = 45_000;
+
+/** Lo que toca ahora con el ticket, en una frase. */
+function queToca(ticket, permisos) {
+  switch (ticket.estado) {
+    case "nuevo":
+      return permisos.tomar
+        ? "Nadie lo ha tomado: tómelo para empezar."
+        : permisos.asignar
+          ? "Nadie lo ha tomado: asígnelo a un técnico."
+          : "Espera en la cola a que lo tome un técnico de su categoría.";
+    case "esperando_aprobacion": {
+      const faltan = (ticket.aprobaciones ?? [])
+        .filter((a) => a.estado === "pendiente")
+        .map((a) => a.rol);
+      return faltan.length
+        ? `Esperando la aprobación de: ${faltan.join(", ")}.`
+        : "Esperando aprobación.";
+    }
+    case "esperando_usuario":
+      return "Esperando la respuesta del usuario: el plazo de solución está en pausa.";
+    case "atendido":
+      return `Atendido${ticket.atendido_en ? ` el ${formatearFecha(ticket.atendido_en, true)}` : ""}; falta que el usuario confirme que quedó resuelto.`;
+    case "cerrado":
+      return ticket.cerrado_en
+        ? `Cerrado el ${formatearFecha(ticket.cerrado_en, true)}`
+        : "Cerrado.";
+    default:
+      return ticket.respondido_en
+        ? `Lo atiende ${ticket.tecnico?.nombre ?? "el equipo"}.`
+        : `Lo atiende ${ticket.tecnico?.nombre ?? "el equipo"}: falta la primera respuesta al usuario.`;
+  }
+}
+
 /**
  * La ficha de un ticket para el equipo: datos de quien pidió, la conversación
  * (con notas internas que el usuario no ve), los pasos que se pueden dar,
  * escalar al nivel siguiente, ajustar la prioridad con justificación y, si se
  * trabaja fuera del horario, registrar las horas dedicadas.
+ *
+ * Auditoría UX/UI de la ficha (30/10/2026): arriba, una franja con el
+ * estado, el plazo que importa y lo que toca hacer; los datos agrupados
+ * (plazos, quién pide, clasificación); en una columna, acciones y datos
+ * antes de la conversación; cada mensaje dice quién habló; la encuesta y
+ * por qué no se puede responder un cerrado; el título es el del ticket; la
+ * ficha se actualiza sola; y un ticket que no existe lo dice en español,
+ * con salida.
  */
 export function TicketDetalle() {
   const { id } = useParams();
   const etiquetas = useEtiquetas();
+  const location = useLocation();
+  const navegar = useNavigate();
+  // «Volver» regresa a la lista de donde se llegó (la bandeja o «Todos»);
+  // si se entró por un enlace directo, a la bandeja.
+  const hayDeDonde = location.key !== "default";
+  // Opcional: la ficha también se pinta sin sesión cargada (pruebas).
+  const user = useContext(AuthContext)?.user;
   const [ticket, setTicket] = useState(null);
   const [respuestas, setRespuestas] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
   const [error, setError] = useState(null);
+  const [noExiste, setNoExiste] = useState(false);
   const [aviso, setAviso] = useState(null);
-  /* Dónde se muestra el resultado de la última acción: el de los pasos,
-   * escalar y asignar va dentro de «Qué se puede hacer», junto a los botones
-   * (auditoría UX/UI, fase 2, 28/10/2026: salía arriba de la página, lejos de
-   * la columna derecha donde se hizo clic). */
+  const [novedad, setNovedad] = useState(null);
+  /* Dónde se muestra el resultado de la última acción, junto a lo que se
+   * pulsó: «acciones», «respuesta», «prioridad» o arriba («pagina»). */
   const [origen, setOrigen] = useState("pagina");
   const [ocupado, setOcupado] = useState(false);
   const [pedirHoras, setPedirHoras] = useState(false);
   const adjuntos = useVisorDeAdjuntos();
-  // En una columna, «Qué se puede hacer» va primero en el DOM (no solo en
+  // En una columna, acciones y datos van primero en el DOM (no solo en
   // pantalla): el tabulador y el lector de pantalla la recorren en el mismo
-  // orden en que se ve (verificación UX/UI, 30/10/2026).
+  // orden en que se ve.
   const unaColumna = useMediaQuery("(max-width: 991.98px)");
+  const ocupadoRef = useRef(false);
+  ocupadoRef.current = ocupado;
 
   const cargar = useCallback(() => {
+    setNoExiste(false);
     soporteService
       .ticket(id)
       .then(setTicket)
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar el ticket.")),
-      );
+      .catch((err) => {
+        const estado = err?.response?.status;
+        if (estado === 404 || estado === 403) setNoExiste(true);
+        else setError(mensajeDeError(err, "No se pudo cargar el ticket."));
+      });
   }, [id]);
 
   useEffect(() => {
@@ -124,6 +182,44 @@ export function TicketDetalle() {
       .then(setRespuestas)
       .catch(() => setRespuestas([]));
   }, [cargar]);
+
+  // Se actualiza sola mientras la pestaña está a la vista (antes cargaba una
+  // vez: si el usuario contestaba, el técnico no lo veía). Lo que se está
+  // escribiendo no se pierde: vive en sus propios componentes.
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      if (document.visibilityState !== "visible" || ocupadoRef.current) return;
+      soporteService
+        .ticket(id)
+        .then((nuevo) =>
+          setTicket((actual) => {
+            if (!actual) return nuevo;
+            const antes = actual.mensajes?.length ?? 0;
+            const ahora = nuevo.mensajes?.length ?? 0;
+            if (ahora > antes)
+              setNovedad(
+                ahora - antes === 1
+                  ? "Llegó un mensaje nuevo a la conversación."
+                  : `Llegaron ${ahora - antes} mensajes nuevos a la conversación.`,
+              );
+            else if (nuevo.estado !== actual.estado)
+              setNovedad(`El ticket pasó a «${nuevo.estado_display}».`);
+            return nuevo;
+          }),
+        )
+        .catch(() => null);
+    }, REFRESCO_MS);
+    return () => clearInterval(intervalo);
+  }, [id]);
+
+  // El título de la barra y de la pestaña: el ticket, no «Bandeja».
+  const numero = ticket?.numero;
+  const caso = ticket?.caso;
+  useEffect(() => {
+    if (numero) fijarTituloPropio(`${numero} · ${caso}`);
+    else if (noExiste) fijarTituloPropio("Ticket no disponible");
+    return () => fijarTituloPropio(null);
+  }, [numero, caso, noExiste]);
 
   useEffect(() => {
     if (ticket?.permisos?.asignar && tecnicos.length === 0) {
@@ -139,6 +235,7 @@ export function TicketDetalle() {
     setOcupado(true);
     setError(null);
     setAviso(null);
+    setNovedad(null);
     try {
       const resultado = await accion();
       if (resultado?.visible === false) {
@@ -164,6 +261,24 @@ export function TicketDetalle() {
 
   const descargar = adjuntos.abrir;
 
+  if (noExiste) {
+    return (
+      <section className="mz-card">
+        <div className="mz-card-body mz-empty">
+          <Icon name="search" />
+          <h2 className="h5">Ticket no disponible</h2>
+          <p className="mb-2">
+            Este ticket no existe o ya no tiene acceso a él (pudo pasar a otro
+            nivel o a otro técnico).
+          </p>
+          <Link className="btn btn-primary btn-sm" to="/admin/soporte/bandeja">
+            Volver a la bandeja
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   if (!ticket) {
     return (
       <EstadoDeCarga
@@ -182,15 +297,23 @@ export function TicketDetalle() {
     permisos.tomar ||
     permisos.acciones.length > 0 ||
     permisos.escalar ||
-    permisos.asignar;
+    permisos.asignar ||
+    Boolean(permisos.motivo_no_tomar);
   // Si tras la acción la tarjeta desaparece (escalado: ya no es suyo), el
   // aviso sube a la página para que no se pierda.
-  const resultadoEnAcciones = origen === "acciones" && hayAcciones;
+  const enSuLugar =
+    (origen === "acciones" && hayAcciones) ||
+    origen === "respuesta" ||
+    origen === "prioridad";
+  const miNombre = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .join(" ");
 
   const acciones = hayAcciones && (
     <Acciones
       ticket={ticket}
       tecnicos={tecnicos}
+      miNombre={miNombre}
       ocupado={ocupado}
       error={origen === "acciones" ? error : null}
       resultado={
@@ -227,34 +350,345 @@ export function TicketDetalle() {
     />
   );
 
+  const adicionales = Array.isArray(ticket.datos_adicionales)
+    ? ticket.datos_adicionales
+    : [];
+  const datos = (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Datos</h3>
+      </div>
+      <div className="mz-card-body soporte-datos">
+        <h4 className="soporte-datos__titulo">Plazos</h4>
+        <dl className="mz-kv-grid">
+          <Dato etiqueta="Primera respuesta" ancho>
+            <RespuestaTicket sla={ticket.sla} />
+          </Dato>
+          <Dato etiqueta="Solución" ancho>
+            <SlaTicket sla={ticket.sla} />
+          </Dato>
+        </dl>
+        <h4 className="soporte-datos__titulo">Quién pide</h4>
+        <dl className="mz-kv-grid">
+          <Dato etiqueta="Nombre">{ticket.solicitante_nombre}</Dato>
+          {ticket.solicitante_telefono && (
+            <Dato etiqueta="Teléfono">
+              <a
+                className="mz-mono"
+                href={`tel:${ticket.solicitante_telefono.replace(/\s/g, "")}`}
+              >
+                {ticket.solicitante_telefono}
+              </a>
+            </Dato>
+          )}
+          {ticket.solicitante_correo && (
+            <Dato etiqueta="Correo" ancho>
+              <a href={`mailto:${ticket.solicitante_correo}`}>
+                {ticket.solicitante_correo}
+              </a>
+            </Dato>
+          )}
+          {ticket.agencia && <Dato etiqueta="Agencia">{ticket.agencia}</Dato>}
+          {ticket.area && <Dato etiqueta="Área">{ticket.area}</Dato>}
+          {/* Lista de {clave, etiqueta, valor}; cualquier otra cosa (un
+              registro viejo o cargado a mano) no tumba la pantalla. */}
+          {adicionales.map((d) => (
+            <Dato key={d.clave} etiqueta={d.etiqueta}>
+              {d.valor}
+            </Dato>
+          ))}
+        </dl>
+        <h4 className="soporte-datos__titulo">Clasificación</h4>
+        <dl className="mz-kv-grid">
+          <Dato etiqueta="Prioridad">
+            <PrioridadTicket ticket={ticket} />
+            {ticket.prioridad_base &&
+              ticket.prioridad_base !== ticket.prioridad && (
+                <div className="mz-small mz-faint">
+                  Prioridad por defecto del caso:{" "}
+                  {etiquetas.prioridades.find(
+                    ([v]) => v === ticket.prioridad_base,
+                  )?.[1] ?? ticket.prioridad_base}
+                </div>
+              )}
+          </Dato>
+          {ticket.impacto && (
+            <Dato etiqueta="Impacto">{ticket.impacto_display}</Dato>
+          )}
+          {ticket.urgencia && (
+            <Dato etiqueta="Urgencia">{ticket.urgencia_display}</Dato>
+          )}
+          <Dato etiqueta="Nivel de soporte">{ticket.nivel}</Dato>
+          <Dato etiqueta="Canal">
+            {ticket.canal_display}
+            {ticket.registrado_por && (
+              <div className="mz-small mz-faint">
+                Registrado por {ticket.registrado_por}
+              </div>
+            )}
+          </Dato>
+          {ticket.reaperturas > 0 && (
+            <Dato etiqueta="Reaperturas">{ticket.reaperturas}</Dato>
+          )}
+          <Dato etiqueta="Creado">
+            {formatearFecha(ticket.created_at, true)}
+          </Dato>
+        </dl>
+      </div>
+    </section>
+  );
+
+  const solicitud = (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Solicitud</h3>
+      </div>
+      <div className="mz-card-body">
+        <p className="soporte-publico__descripcion">{ticket.descripcion}</p>
+        <ListaDeAdjuntos
+          lista={ticket.adjuntos}
+          abriendo={adjuntos.abriendo}
+          onDescargar={descargar}
+        />
+      </div>
+    </section>
+  );
+
+  const conversacion = (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Conversación</h3>
+      </div>
+      <div className="mz-card-body">
+        {novedad && (
+          <div className="mz-alert mz-alert--info" role="status">
+            <Icon name="bell" />
+            {novedad}
+          </div>
+        )}
+        {ticket.mensajes.length === 0 ? (
+          <p className="mz-faint">Todavía no hay mensajes.</p>
+        ) : (
+          <ul className="soporte-hilo">
+            {ticket.mensajes.map((m) => (
+              <li
+                key={m.id}
+                className={
+                  m.interno
+                    ? "soporte-hilo__interno"
+                    : m.del_solicitante
+                      ? "soporte-hilo__propio"
+                      : "soporte-hilo__equipo"
+                }
+              >
+                {/* Quién habló, en texto y no solo por el color. */}
+                <div className="soporte-hilo__cabeza">
+                  {m.interno ? (
+                    <span className="mz-pill mz-pill--warn">
+                      <Icon name="lock" /> Nota interna
+                    </span>
+                  ) : m.del_solicitante ? (
+                    <span className="mz-pill soporte-pill--info">Usuario</span>
+                  ) : (
+                    <span className="mz-pill mz-pill--neutral">Equipo</span>
+                  )}
+                  <strong>{m.autor}</strong>
+                  <time className="mz-small mz-faint" dateTime={m.fecha}>
+                    {formatearFecha(m.fecha, true)}
+                  </time>
+                </div>
+                <p className="mb-1">{m.texto}</p>
+                <ListaDeAdjuntos
+                  lista={m.adjuntos}
+                  abriendo={adjuntos.abriendo}
+                  onDescargar={descargar}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        {ticket.estado === "cerrado" ? (
+          <div className="mz-alert mz-alert--info mt-3 mb-0">
+            <Icon name="lock" />
+            {`Ticket cerrado${ticket.cerrado_en ? ` el ${formatearFecha(ticket.cerrado_en, true)}` : ""}: ya no se puede responder.`}
+          </div>
+        ) : (
+          permisos.responder && (
+            <Responder
+              respuestas={respuestas}
+              ticket={ticket}
+              ocupado={ocupado}
+              resultado={
+                origen === "respuesta" && (
+                  <Resultado error={error} aviso={aviso} />
+                )
+              }
+              onEnviar={(datosMensaje, archivos) =>
+                hacer(
+                  () =>
+                    soporteService.responder(ticket.id, datosMensaje, archivos),
+                  datosMensaje.interno
+                    ? "Nota interna guardada."
+                    : "Respuesta enviada al usuario.",
+                  "respuesta",
+                )
+              }
+            />
+          )
+        )}
+      </div>
+    </section>
+  );
+
+  const aprobaciones = ticket.aprobaciones?.length > 0 && (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Aprobaciones</h3>
+      </div>
+      <ul className="mz-card-body soporte-aprobaciones">
+        {ticket.aprobaciones.map((a) => (
+          <li key={a.id}>
+            <strong>{a.rol}</strong>{" "}
+            <span
+              className={`mz-pill ${
+                a.estado === "aprobada"
+                  ? "mz-pill--ok"
+                  : a.estado === "rechazada"
+                    ? "mz-pill--bad"
+                    : "mz-pill--warn"
+              }`}
+            >
+              {a.estado_display}
+            </span>
+            <div className="mz-small mz-faint">
+              {a.decidido_por
+                ? `${a.decidido_por} · ${formatearFecha(a.decidido_en, true)}`
+                : a.aprobador
+                  ? `Le toca a ${a.aprobador}`
+                  : "Sin responsable con cuenta: decide quien coordina"}
+            </div>
+            {a.nota && <div className="mz-small">«{a.nota}»</div>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+
+  // La encuesta del usuario: lo que importa al revisar un cierre (antes no
+  // se mostraba en la ficha del equipo).
+  const encuesta = ticket.encuesta && (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Encuesta del usuario</h3>
+      </div>
+      <dl className="mz-card-body mz-kv-grid">
+        <Dato etiqueta="Calificación">{ticket.encuesta.calificacion} de 5</Dato>
+        <Dato etiqueta="¿Quedó resuelto?">
+          {ticket.encuesta.resuelto ? "Sí" : "No"}
+        </Dato>
+        {ticket.encuesta.comentario && (
+          <Dato etiqueta="Comentario" ancho>
+            «{ticket.encuesta.comentario}»
+          </Dato>
+        )}
+      </dl>
+    </section>
+  );
+
+  const prioridad = permisos.prioridad && (
+    <CambiarPrioridad
+      ticket={ticket}
+      prioridades={etiquetas.prioridades}
+      ocupado={ocupado}
+      resultado={
+        origen === "prioridad" && <Resultado error={error} aviso={aviso} />
+      }
+      onCambiar={(datosPrioridad) =>
+        hacer(
+          () => soporteService.cambiarPrioridad(ticket.id, datosPrioridad),
+          "Prioridad actualizada; el plazo se recalculó.",
+          "prioridad",
+        )
+      }
+    />
+  );
+
+  const historial = (
+    <section className="mz-card">
+      <div className="mz-card-head">
+        <h3>Historial</h3>
+      </div>
+      <div className="mz-card-body">
+        {ticket.movimientos?.length ? (
+          <ul className="mz-timeline soporte-historial">
+            {ticket.movimientos.map((m) => (
+              <li key={m.id} className="mz-tl-item">
+                <strong className="mz-tl-what">{m.descripcion}</strong>
+                <div className="mz-tl-when">
+                  {formatearFecha(m.created_at, true)} · {m.actor}
+                </div>
+                {m.nota && <div className="mz-tl-why">{m.nota}</div>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EstadoDeCarga vacio textoVacio="Sin movimientos." />
+        )}
+      </div>
+    </section>
+  );
+
   return (
     <div className="soporte-page">
       <div className="mz-view-head">
         <div>
-          <h2>
-            {ticket.numero} <EstadoTicket ticket={ticket} />
-          </h2>
+          <h2>{ticket.numero}</h2>
+          {/* Lo que se pidió, como subtítulo; el resto, debajo y en gris. */}
+          <p className="soporte-ficha__caso mb-0">{ticket.caso}</p>
           <p className="mz-desc">
-            <span className="mz-pill mz-pill--neutral me-2">
-              {ticket.tipo_display}
-            </span>
-            {ticket.codigo && (
-              <span className="mz-mono me-1">{ticket.codigo}</span>
-            )}
-            {ticket.categoria} · {ticket.caso}
+            {[ticket.tipo_display, ticket.categoria, ticket.codigo]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
         <div className="mz-view-actions">
-          <Link
-            className="btn btn-outline-secondary btn-sm"
-            to="/admin/soporte/bandeja"
-          >
-            Volver a la bandeja
-          </Link>
+          {hayDeDonde ? (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => navegar(-1)}
+            >
+              <Icon name="arrow-left" /> Volver a la lista
+            </button>
+          ) : (
+            <Link
+              className="btn btn-outline-secondary btn-sm"
+              to="/admin/soporte/bandeja"
+            >
+              Volver a la bandeja
+            </Link>
+          )}
         </div>
       </div>
 
-      {!resultadoEnAcciones && <Resultado error={error} aviso={aviso} />}
+      {/* Qué pasa y qué toca, de un vistazo (antes, los plazos al fondo de
+          «Datos»). */}
+      <section className="mz-card soporte-franja-estado" aria-label="Resumen">
+        <div className="mz-card-body">
+          <div className="soporte-franja-estado__fila">
+            <EstadoTicket ticket={ticket} />
+            <PrioridadTicket ticket={ticket} />
+            <VenceTicket sla={ticket.sla} />
+            <span>
+              <span className="mz-faint">Atiende: </span>
+              <strong>{ticket.tecnico?.nombre || "Sin asignar"}</strong>
+            </span>
+          </div>
+          <p className="mb-0 mt-2">{queToca(ticket, permisos)}</p>
+        </div>
+      </section>
+
+      {!enSuLugar && <Resultado error={error} aviso={aviso} />}
       {adjuntos.error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
@@ -265,12 +699,12 @@ export function TicketDetalle() {
       {pedirHoras && (
         <RegistrarHoras
           onCancelar={() => setPedirHoras(false)}
-          onGuardar={async (datos) => {
+          onGuardar={async (datosHoras) => {
             setOrigen("pagina");
             setError(null);
             setAviso(null);
             try {
-              await soporteService.registrarHoras(ticket.id, datos);
+              await soporteService.registrarHoras(ticket.id, datosHoras);
               setPedirHoras(false);
               setAviso(
                 "Horas fuera de horario registradas. Las revisa su supervisión.",
@@ -284,223 +718,33 @@ export function TicketDetalle() {
         />
       )}
 
-      <div className="soporte-detalle">
+      {unaColumna ? (
         <div className="mz-stack">
-          {unaColumna && acciones}
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Solicitud</h3>
-            </div>
-            <div className="mz-card-body">
-              <p className="soporte-publico__descripcion">
-                {ticket.descripcion}
-              </p>
-              <ListaDeAdjuntos
-                lista={ticket.adjuntos}
-                onDescargar={descargar}
-              />
-            </div>
-          </section>
-
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Conversación</h3>
-            </div>
-            <div className="mz-card-body">
-              {ticket.mensajes.length === 0 ? (
-                <p className="mz-faint">Todavía no hay mensajes.</p>
-              ) : (
-                <ul className="soporte-hilo">
-                  {ticket.mensajes.map((m) => (
-                    <li
-                      key={m.id}
-                      className={
-                        m.interno
-                          ? "soporte-hilo__interno"
-                          : m.del_solicitante
-                            ? "soporte-hilo__propio"
-                            : undefined
-                      }
-                    >
-                      <div className="mz-small mz-faint">
-                        {m.autor} · {formatearFecha(m.fecha, true)}
-                        {m.interno && " · nota interna"}
-                      </div>
-                      <p className="mb-1">{m.texto}</p>
-                      <ListaDeAdjuntos
-                        lista={m.adjuntos}
-                        onDescargar={descargar}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {permisos.responder && ticket.estado !== "cerrado" && (
-                <Responder
-                  respuestas={respuestas}
-                  ticket={ticket}
-                  ocupado={ocupado}
-                  onEnviar={(datos, archivos) =>
-                    hacer(
-                      () =>
-                        soporteService.responder(ticket.id, datos, archivos),
-                      datos.interno
-                        ? "Nota interna guardada."
-                        : "Respuesta enviada al usuario.",
-                    )
-                  }
-                />
-              )}
-            </div>
-          </section>
+          {acciones}
+          {datos}
+          {solicitud}
+          {conversacion}
+          {aprobaciones}
+          {encuesta}
+          {prioridad}
+          {historial}
         </div>
-
-        <div className="mz-stack">
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Datos</h3>
-            </div>
-            <div className="mz-card-body mz-kv-grid">
-              <Dato etiqueta="Solicitante">{ticket.solicitante_nombre}</Dato>
-              {ticket.solicitante_telefono && (
-                <Dato etiqueta="Teléfono">
-                  <span className="mz-mono">{ticket.solicitante_telefono}</span>
-                </Dato>
-              )}
-              <Dato etiqueta="Correo">{ticket.solicitante_correo}</Dato>
-              {ticket.agencia && (
-                <Dato etiqueta="Agencia">{ticket.agencia}</Dato>
-              )}
-              {ticket.area && <Dato etiqueta="Área">{ticket.area}</Dato>}
-              {/* Lista de {clave, etiqueta, valor}; cualquier otra cosa (un
-                  registro viejo o cargado a mano) no tumba la pantalla. */}
-              {(Array.isArray(ticket.datos_adicionales)
-                ? ticket.datos_adicionales
-                : []
-              ).map((d) => (
-                <Dato key={d.clave} etiqueta={d.etiqueta}>
-                  {d.valor}
-                </Dato>
-              ))}
-              <Dato etiqueta="Canal">
-                {ticket.canal_display}
-                {ticket.registrado_por && (
-                  <div className="mz-small mz-faint">
-                    Registrado por {ticket.registrado_por}
-                  </div>
-                )}
-              </Dato>
-              <Dato etiqueta="Prioridad">
-                <PrioridadTicket ticket={ticket} />
-                {ticket.prioridad_base &&
-                  ticket.prioridad_base !== ticket.prioridad && (
-                    <div className="mz-small mz-faint">
-                      Base del caso:{" "}
-                      {etiquetas.prioridades.find(
-                        ([v]) => v === ticket.prioridad_base,
-                      )?.[1] ?? ticket.prioridad_base}
-                    </div>
-                  )}
-              </Dato>
-              {ticket.impacto && (
-                <Dato etiqueta="Impacto">{ticket.impacto_display}</Dato>
-              )}
-              {ticket.urgencia && (
-                <Dato etiqueta="Urgencia">{ticket.urgencia_display}</Dato>
-              )}
-              <Dato etiqueta="Nivel">{ticket.nivel}</Dato>
-              <Dato etiqueta="Atiende">
-                {ticket.tecnico?.nombre || "Sin asignar"}
-              </Dato>
-              <Dato etiqueta="Respuesta">
-                <RespuestaTicket sla={ticket.sla} />
-              </Dato>
-              <Dato etiqueta="Solución">
-                <SlaTicket sla={ticket.sla} />
-              </Dato>
-              {ticket.reaperturas > 0 && (
-                <Dato etiqueta="Reaperturas">{ticket.reaperturas}</Dato>
-              )}
-              <Dato etiqueta="Creado">
-                {formatearFecha(ticket.created_at, true)}
-              </Dato>
-            </div>
-          </section>
-
-          {!unaColumna && acciones}
-
-          {ticket.aprobaciones?.length > 0 && (
-            <section className="mz-card">
-              <div className="mz-card-head">
-                <h3>Aprobaciones</h3>
-              </div>
-              <ul className="mz-card-body soporte-aprobaciones">
-                {ticket.aprobaciones.map((a) => (
-                  <li key={a.id}>
-                    <strong>{a.rol}</strong>{" "}
-                    <span
-                      className={`mz-pill ${
-                        a.estado === "aprobada"
-                          ? "mz-pill--ok"
-                          : a.estado === "rechazada"
-                            ? "mz-pill--bad"
-                            : "mz-pill--warn"
-                      }`}
-                    >
-                      {a.estado_display}
-                    </span>
-                    <div className="mz-small mz-faint">
-                      {a.decidido_por
-                        ? `${a.decidido_por} · ${formatearFecha(a.decidido_en, true)}`
-                        : a.aprobador
-                          ? `Le toca a ${a.aprobador}`
-                          : "Sin responsable con cuenta: decide quien coordina"}
-                    </div>
-                    {a.nota && <div className="mz-small">«{a.nota}»</div>}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {permisos.prioridad && (
-            <CambiarPrioridad
-              ticket={ticket}
-              prioridades={etiquetas.prioridades}
-              ocupado={ocupado}
-              onCambiar={(datos) =>
-                hacer(
-                  () => soporteService.cambiarPrioridad(ticket.id, datos),
-                  "Prioridad actualizada; el plazo se recalculó.",
-                )
-              }
-            />
-          )}
-
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Historial</h3>
-            </div>
-            <div className="mz-card-body">
-              {ticket.movimientos?.length ? (
-                <ul className="mz-timeline soporte-historial">
-                  {ticket.movimientos.map((m) => (
-                    <li key={m.id} className="mz-tl-item">
-                      <strong className="mz-tl-what">{m.descripcion}</strong>
-                      <div className="mz-tl-when">
-                        {formatearFecha(m.created_at, true)} · {m.actor}
-                      </div>
-                      {m.nota && <div className="mz-tl-why">{m.nota}</div>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EstadoDeCarga vacio textoVacio="Sin movimientos." />
-              )}
-            </div>
-          </section>
+      ) : (
+        <div className="soporte-detalle">
+          <div className="mz-stack">
+            {solicitud}
+            {conversacion}
+            {historial}
+          </div>
+          <div className="mz-stack">
+            {acciones}
+            {datos}
+            {aprobaciones}
+            {encuesta}
+            {prioridad}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -546,30 +790,47 @@ function Resultado({ error, aviso }) {
   return null;
 }
 
-function Dato({ etiqueta, children }) {
+/** Un dato de la ficha: etiqueta y valor asociados para el lector de
+ * pantalla (antes `div` y `span`). `ancho`: a toda la fila. */
+function Dato({ etiqueta, children, ancho = false }) {
   return (
-    <div className="mz-kv">
-      <span className="mz-kv-label">{etiqueta}</span>
-      {children}
+    <div className={`mz-kv${ancho ? " mz-kv--full" : ""}`}>
+      <dt className="mz-kv-label">{etiqueta}</dt>
+      <dd className="mb-0">{children}</dd>
     </div>
   );
 }
 
-function ListaDeAdjuntos({ lista, onDescargar }) {
+function tamano(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Los adjuntos: su tamaño y «Abriendo…» mientras llega (antes, el clic no
+ * daba señal y se repetía). */
+function ListaDeAdjuntos({ lista, abriendo, onDescargar }) {
   if (!lista?.length) return null;
   return (
     <ul className="soporte-adjuntos">
-      {lista.map((a) => (
-        <li key={a.id}>
-          <button
-            type="button"
-            className="btn btn-link btn-sm p-0"
-            onClick={() => onDescargar(a)}
-          >
-            <Icon name="paperclip" /> {a.nombre}
-          </button>
-        </li>
-      ))}
+      {lista.map((a) => {
+        const cargando = abriendo === a.id;
+        return (
+          <li key={a.id}>
+            <button
+              type="button"
+              className="btn btn-link btn-sm p-0"
+              aria-busy={cargando || undefined}
+              onClick={() => !cargando && onDescargar(a)}
+            >
+              <Icon name="paperclip" /> {cargando ? "Abriendo…" : a.nombre}
+            </button>
+            {a.tamano ? (
+              <span className="mz-small mz-faint"> · {tamano(a.tamano)}</span>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -582,18 +843,24 @@ function ListaDeAdjuntos({ lista, onDescargar }) {
  * campo; antes era una casilla apagada debajo y era fácil mandarle al
  * solicitante un texto que era interno. La nota interna pinta el campo de
  * aviso y el botón dice qué hará. */
-function Responder({ respuestas, ticket, ocupado, onEnviar }) {
+function Responder({ respuestas, ticket, ocupado, resultado, onEnviar }) {
   const [texto, setTexto] = useState("");
   const [interno, setInterno] = useState(false);
   const [archivos, setArchivos] = useState([]);
   const [omitidos, setOmitidos] = useState(0);
   const [cerradas, setCerradas] = useState(false);
+  const [verTodas, setVerTodas] = useState(false);
   // Cambiar la llave remonta el campo de archivo: tras enviar quedaba con
   // los nombres viejos y el siguiente mensaje parecía llevar adjuntos.
   const [llaveArchivos, setLlaveArchivos] = useState(0);
   const caja = useRef(null);
 
-  const consulta = texto.startsWith("/") ? texto.slice(1).toLowerCase() : null;
+  const hayRespuestas = respuestas.length > 0;
+  const consulta = verTodas
+    ? ""
+    : texto.startsWith("/")
+      ? texto.slice(1).toLowerCase()
+      : null;
   const sugerencias =
     consulta === null || cerradas
       ? []
@@ -602,6 +869,8 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
             r.atajo.toLowerCase().startsWith(consulta) ||
             r.titulo.toLowerCase().includes(consulta),
         );
+  const sinCoincidencias =
+    hayRespuestas && !cerradas && consulta && sugerencias.length === 0;
 
   function usar(respuesta) {
     const datos = {
@@ -616,6 +885,7 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         (_, clave) => datos[clave] ?? "",
       ),
     );
+    setVerTodas(false);
     caja.current?.focus();
   }
 
@@ -624,6 +894,7 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
     if (evento.key !== "Escape" || sugerencias.length === 0) return;
     evento.preventDefault();
     setCerradas(true);
+    setVerTodas(false);
     caja.current?.focus();
   }
 
@@ -654,13 +925,27 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         </button>
         <button
           type="button"
-          className={`btn ${interno ? "btn-warning" : "btn-outline-secondary"}`}
+          className={`btn ${interno ? "soporte-btn-interno" : "btn-outline-secondary"}`}
           aria-pressed={interno}
           onClick={() => setInterno(true)}
         >
           <Icon name="lock" /> Nota interna
         </button>
       </div>
+      {hayRespuestas && (
+        <button
+          type="button"
+          className="btn btn-link btn-sm mb-2 ms-2"
+          aria-expanded={verTodas}
+          aria-controls="td-sugerencias"
+          onClick={() => {
+            setVerTodas((v) => !v);
+            setCerradas(false);
+          }}
+        >
+          <Icon name="chat-square-text" /> Respuestas predefinidas
+        </button>
+      )}
       <label className="form-label d-block" htmlFor="td-texto">
         {interno
           ? "Nota interna (el usuario no la ve)"
@@ -673,7 +958,11 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         rows={4}
         required
         maxLength={10000}
-        placeholder="Escriba «/» para usar una respuesta predefinida"
+        placeholder={
+          hayRespuestas
+            ? "Escriba, o «/» para usar una respuesta predefinida"
+            : "Escriba su mensaje"
+        }
         value={texto}
         onChange={(e) => {
           setTexto(e.target.value);
@@ -686,6 +975,11 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
           ? `${sugerencias.length} respuestas sugeridas`
           : ""}
       </div>
+      {sinCoincidencias && (
+        <p className="mz-small mz-faint mt-1 mb-0">
+          Ninguna respuesta predefinida coincide con «/{consulta}».
+        </p>
+      )}
       {sugerencias.length > 0 && (
         // Una lista de botones, no un listbox: sus opciones eran botones
         // dentro de role="option", que el lector no deja usar (auditoría
@@ -725,7 +1019,7 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
         />
         <button
           type="submit"
-          className={`btn btn-sm ms-auto ${interno ? "btn-warning" : "btn-primary"}`}
+          className={`btn btn-sm ms-auto ${interno ? "soporte-btn-interno" : "btn-primary"}`}
           disabled={ocupado}
         >
           {ocupado
@@ -735,6 +1029,8 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
               : "Responder"}
         </button>
       </div>
+      {/* El resultado del envío, junto al botón (antes, arriba). */}
+      {resultado && <div className="mt-2">{resultado}</div>}
       {archivos.length > 0 && (
         <ul className="soporte-por-adjuntar" aria-label="Archivos por adjuntar">
           {archivos.map((archivo, i) => (
@@ -775,6 +1071,7 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
 function Acciones({
   ticket,
   tecnicos,
+  miNombre,
   ocupado,
   error,
   resultado,
@@ -806,10 +1103,16 @@ function Acciones({
   return (
     <section className="mz-card soporte-acciones">
       <div className="mz-card-head">
-        <h3>Qué se puede hacer</h3>
+        <h3>Acciones</h3>
       </div>
       <div className="mz-card-body">
         {!dialogo && resultado}
+        {/* Por qué no se puede tomar (antes, el botón faltaba sin más). */}
+        {!permisos.tomar && permisos.motivo_no_tomar && (
+          <p className="mz-small mz-faint mb-2">
+            <Icon name="info-circle" /> {permisos.motivo_no_tomar}
+          </p>
+        )}
         {permisos.tomar && (
           <div className="mb-3">
             <button
@@ -878,7 +1181,10 @@ function Acciones({
                 <option value="">Elija un técnico</option>
                 {tecnicos.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.nombre} · {t.nivel} · {t.abiertos} abierto(s)
+                    {t.nombre} · {t.nivel} ·{" "}
+                    {t.abiertos === 0
+                      ? "sin tickets abiertos"
+                      : `${t.abiertos} ${t.abiertos === 1 ? "abierto" : "abiertos"}`}
                   </option>
                 ))}
               </select>
@@ -901,9 +1207,12 @@ function Acciones({
                 titulo: `Asignar a ${elegido?.nombre ?? "este técnico"}`,
                 explicacion:
                   ticket.tecnico && ticket.tecnico.nombre !== elegido?.nombre
-                    ? `Deja de estar a cargo de ${ticket.tecnico.nombre}. Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`
-                    : `Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`,
-                campo: "Nota para quien lo recibe (opcional)",
+                    ? `Deja de estar a cargo de ${ticket.tecnico.nombre}. ${elegido?.nombre === miNombre ? "Pasa a estar a su cargo." : `Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`}`
+                    : `${elegido?.nombre === miNombre ? "Pasa a estar a su cargo." : `Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`}${ticket.estado === "nuevo" ? " Empieza a correr el plazo de solución." : ""}`,
+                campo:
+                  elegido?.nombre === miNombre
+                    ? "Nota (opcional)"
+                    : "Nota para quien lo recibe (opcional)",
                 ayuda: "Queda en el historial del ticket.",
                 boton: "Asignar",
               }
@@ -1042,9 +1351,26 @@ function DialogoDeAccion({
   );
 }
 
+/** Impacto × urgencia → prioridad (la misma matriz del servidor). */
+const MATRIZ = {
+  alto: { alta: "critica", media: "alta", baja: "media" },
+  medio: { alta: "alta", media: "media", baja: "baja" },
+  bajo: { alta: "media", media: "baja", baja: "baja" },
+};
+
 /** Ajustar la prioridad: elegirla, o calcularla por impacto y urgencia.
- * Siempre con justificación, que queda en el historial. */
-function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
+ * Siempre con justificación, que queda en el historial.
+ *
+ * Auditoría UX/UI (30/10/2026): dice en qué prioridad quedará antes de
+ * guardar, no deja «cambiar» a la misma, valida bajo el campo (no con la
+ * burbuja del navegador) y el resultado sale en la tarjeta. */
+function CambiarPrioridad({
+  ticket,
+  prioridades,
+  ocupado,
+  resultado,
+  onCambiar,
+}) {
   const [modo, setModo] = useState("matriz");
   const [valores, setValores] = useState({
     prioridad: ticket.prioridad,
@@ -1052,36 +1378,55 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
     urgencia: ticket.urgencia || "",
     justificacion: "",
   });
-  const fijar = (campo) => (e) =>
+  const [errores, setErrores] = useState({});
+  const fijar = (campo) => (e) => {
     setValores((actual) => ({ ...actual, [campo]: e.target.value }));
+    if (errores[campo])
+      setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
+  };
+  const nombre = (valor) =>
+    prioridades.find(([v]) => v === valor)?.[1] ?? valor;
+  const nueva =
+    modo === "matriz"
+      ? (MATRIZ[valores.impacto]?.[valores.urgencia] ?? null)
+      : valores.prioridad;
+  const sinCambio =
+    modo === "directa"
+      ? valores.prioridad === ticket.prioridad
+      : !nueva ||
+        (valores.impacto === (ticket.impacto || "") &&
+          valores.urgencia === (ticket.urgencia || ""));
+
+  async function enviar(evento) {
+    evento.preventDefault();
+    if (!valores.justificacion.trim()) {
+      setErrores({ justificacion: "Diga por qué cambia la prioridad." });
+      return;
+    }
+    const datos =
+      modo === "matriz"
+        ? {
+            impacto: valores.impacto,
+            urgencia: valores.urgencia,
+            justificacion: valores.justificacion,
+          }
+        : {
+            prioridad: valores.prioridad,
+            justificacion: valores.justificacion,
+          };
+    if (await onCambiar(datos))
+      setValores((actual) => ({ ...actual, justificacion: "" }));
+  }
 
   return (
     <section className="mz-card">
       <div className="mz-card-head">
         <h3>Ajustar prioridad</h3>
       </div>
-      <form
-        className="mz-card-body"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const datos =
-            modo === "matriz"
-              ? {
-                  impacto: valores.impacto,
-                  urgencia: valores.urgencia,
-                  justificacion: valores.justificacion,
-                }
-              : {
-                  prioridad: valores.prioridad,
-                  justificacion: valores.justificacion,
-                };
-          if (await onCambiar(datos))
-            setValores((actual) => ({ ...actual, justificacion: "" }));
-        }}
-      >
-        <fieldset className="mb-2">
+      <form className="mz-card-body" onSubmit={enviar} noValidate>
+        <fieldset className="mb-2 soporte-cp-modo">
           <legend className="form-label fs-6 mb-1">Cómo se calcula</legend>
-          <div className="d-flex gap-3">
+          <div className="d-flex flex-wrap gap-3">
             <div className="form-check">
               <input
                 id="cp-matriz"
@@ -1112,12 +1457,9 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
         </fieldset>
         {modo === "matriz" ? (
           <>
-            <div className="mz-field">
-              <label htmlFor="cp-impacto">Impacto</label>
+            <Campo id="cp-impacto" etiqueta="Impacto" className="mb-2">
               <select
-                id="cp-impacto"
                 className="form-select form-select-sm"
-                required
                 value={valores.impacto}
                 onChange={fijar("impacto")}
               >
@@ -1128,13 +1470,10 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="mz-field">
-              <label htmlFor="cp-urgencia">Urgencia</label>
+            </Campo>
+            <Campo id="cp-urgencia" etiqueta="Urgencia" className="mb-2">
               <select
-                id="cp-urgencia"
                 className="form-select form-select-sm"
-                required
                 value={valores.urgencia}
                 onChange={fijar("urgencia")}
               >
@@ -1145,13 +1484,11 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
                   </option>
                 ))}
               </select>
-            </div>
+            </Campo>
           </>
         ) : (
-          <div className="mz-field">
-            <label htmlFor="cp-prioridad">Prioridad</label>
+          <Campo id="cp-prioridad" etiqueta="Prioridad" className="mb-2">
             <select
-              id="cp-prioridad"
               className="form-select form-select-sm"
               value={valores.prioridad}
               onChange={fijar("prioridad")}
@@ -1162,31 +1499,46 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
                 </option>
               ))}
             </select>
-          </div>
+          </Campo>
         )}
-        <div className="mz-field">
-          <label htmlFor="cp-justificacion">Justificación</label>
+        {/* En qué quedará, antes de guardar. */}
+        <p className="soporte-cp-resultado mb-2" aria-live="polite">
+          {!nueva
+            ? "Elija impacto y urgencia para ver la prioridad."
+            : nueva === ticket.prioridad
+              ? `Quedará en: ${nombre(nueva)} (la misma de ahora).`
+              : `Quedará en: ${nombre(nueva)} (antes ${nombre(ticket.prioridad)}).`}
+        </p>
+        <Campo
+          id="cp-justificacion"
+          etiqueta="Justificación"
+          obligatorio
+          ayuda="Queda en el historial. El plazo se recalcula conservando el tiempo ya consumido."
+          error={errores.justificacion}
+          className="mb-2"
+        >
           <textarea
-            id="cp-justificacion"
             className="form-control form-control-sm"
             rows={2}
-            required
             maxLength={1000}
             value={valores.justificacion}
             onChange={fijar("justificacion")}
           />
-          <div className="form-text">
-            Queda en el historial. El plazo se recalcula conservando el tiempo
-            ya consumido.
-          </div>
-        </div>
+        </Campo>
+        {resultado}
         <button
           type="submit"
           className="btn btn-sm btn-outline-primary"
-          disabled={ocupado}
+          disabled={ocupado || sinCambio}
+          aria-describedby={sinCambio ? "cp-sin-cambio" : undefined}
         >
           {ocupado ? "Guardando…" : "Cambiar prioridad"}
         </button>
+        {sinCambio && (
+          <span id="cp-sin-cambio" className="mz-small mz-faint ms-2">
+            Cambie algo para poder guardarlo.
+          </span>
+        )}
       </form>
     </section>
   );

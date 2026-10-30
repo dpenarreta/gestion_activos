@@ -102,8 +102,10 @@ describe("La ficha con el flujo ITIL", () => {
   it("muestra tipo, código, canal y los dos relojes", async () => {
     servicio.ticket.mockResolvedValue(TICKET);
     pintar(<TicketDetalle />, "/t/42", "/t/:id");
-    expect(await screen.findByText("CAM-01")).toBeInTheDocument();
-    expect(screen.getByText("Incidente")).toBeInTheDocument();
+    // Tipo, categoría y código en la línea bajo el caso.
+    expect(
+      await screen.findByText(/^Incidente · .* · CAM-01$/),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Registrado por Jorge Andrade"),
     ).toBeInTheDocument();
@@ -125,7 +127,7 @@ describe("La ficha con el flujo ITIL", () => {
     fireEvent.change(screen.getByLabelText("Urgencia"), {
       target: { value: "alta" },
     });
-    fireEvent.change(screen.getByLabelText("Justificación"), {
+    fireEvent.change(screen.getByLabelText(/^Justificación/), {
       target: { value: "Toda la bodega sin escáneres" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Cambiar prioridad" }));

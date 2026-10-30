@@ -377,6 +377,8 @@ class TicketDetalleSerializer(TicketListaSerializer):
             "urgencia_display",
             "registrado_por",
             "respondido_en",
+            "cerrado_en",
+            "atendido_en",
             "reaperturas",
             "escalamientos",
             "encuesta",
@@ -429,6 +431,7 @@ class TicketDetalleSerializer(TicketListaSerializer):
         return {
             "acciones": services.acciones_disponibles(usuario, ticket),
             "tomar": services.puede_tomarlo(services.tecnico_de(usuario), ticket),
+            "motivo_no_tomar": services.por_que_no_tomarlo(services.tecnico_de(usuario), ticket),
             "responder": trabaja or services.tiene(usuario, "ver_todos"),
             "escalar": trabaja
             and ticket.estado in Ticket.ABIERTOS_DEL_TECNICO + (Ticket.Estado.ESPERANDO_USUARIO,),

@@ -181,10 +181,10 @@ export function VenceTicket({ sla }) {
 /** El reloj de respuesta: hasta la primera respuesta del equipo. */
 export function RespuestaTicket({ sla }) {
   const respuesta = sla?.respuesta;
-  const [texto, tono] = RESPUESTA[respuesta?.estado] ?? [
-    "—",
-    "mz-pill--neutral",
-  ];
+  let [texto, tono] = RESPUESTA[respuesta?.estado] ?? ["—", "mz-pill--neutral"];
+  // Desde cuándo, como en la bandeja («hace 9 d»).
+  if (respuesta?.estado === "vencida" && respuesta.vence)
+    texto = `Sin respuesta, vencida hace ${lapso(minutosHasta(respuesta.vence))}`;
   return (
     <span className="soporte-sla">
       <span className={`mz-pill ${tono}`}>{texto}</span>

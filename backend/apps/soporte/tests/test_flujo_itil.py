@@ -198,7 +198,7 @@ def test_cambiar_la_prioridad_exige_justificacion_y_conserva_lo_consumido(mesa):
     assert ticket.prioridad == "critica"
     assert (ticket.impacto, ticket.urgencia) == ("alto", "alta")
     movimiento = ticket.movimientos.last()
-    assert "P2 · Alta → P1 · Crítica" in movimiento.descripcion
+    assert "de P2 · Alta a P1 · Crítica" in movimiento.descripcion
     assert movimiento.nota == "Toda la bodega"
     # Quien no lo trabaja no la cambia.
     otro = _usuario("pedro", "atender", empresa=mesa["empresa"])
@@ -344,6 +344,10 @@ def test_el_tecnico_toma_el_ticket_que_esta_mirando(mesa):
     # Otro nivel: no lo puede tomar, y su ficha no se lo ofrece.
     experto = _equipo(mesa["experto"].usuario)
     assert experto.post(f"{TICKETS}{ticket.id}/tomar/").status_code in (403, 404)
+    # Quien coordina lo ve y sabe por qué no puede tomarlo.
+    permisos = _equipo(mesa["supervisor"]).get(f"{TICKETS}{ticket.id}/").json()["permisos"]
+    assert permisos["tomar"] is False
+    assert "no es técnico" in permisos["motivo_no_tomar"]
 
     jorge = _equipo(mesa["jorge"].usuario)
     assert jorge.get(f"{TICKETS}{ticket.id}/").json()["permisos"]["tomar"] is True
