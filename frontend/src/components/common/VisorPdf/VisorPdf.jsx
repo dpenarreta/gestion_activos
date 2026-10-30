@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { Icon } from "../Icon/Icon";
+import { LectorPdf, olvidarPdf, registrarPdf } from "./LectorPdf";
 import "./VisorPdf.css";
 import { descargarBlob } from "../../../utils/descargas";
 
@@ -12,8 +13,8 @@ import { descargarBlob } from "../../../utils/descargas";
  *
  * Recibe el PDF ya traído con la sesión (`blob`): el archivo no tiene una URL
  * pública, así que se muestra desde una dirección `blob:` local, que se libera
- * al cerrar. El navegador pone sus herramientas de lectura (páginas, zoom,
- * búsqueda). En producción la CSP debe permitir `frame-src blob:`.
+ * al cerrar. Lo dibuja `LectorPdf` (pdf.js), con páginas y zoom propios, igual
+ * en cualquier equipo (30/10/2026; antes el lector del navegador en un marco).
  */
 export function VisorPdf({ titulo, blob, nombreArchivo, onCerrar }) {
   const url = useUrlDePdf(blob);
@@ -79,22 +80,18 @@ export function useUrlDePdf(blob) {
         ? blob
         : new Blob([blob], { type: "application/pdf" });
     const direccion = URL.createObjectURL(pdf);
+    registrarPdf(direccion, pdf);
     setUrl(direccion);
-    return () => URL.revokeObjectURL(direccion);
+    return () => {
+      olvidarPdf(direccion);
+      URL.revokeObjectURL(direccion);
+    };
   }, [blob]);
   return url;
 }
 
-/** El PDF dentro de la página (sin ventana): lo usan el visor y las
- * pestañas de los códigos de conducta. */
+/** El PDF dentro de la página (sin ventana): lo usan el visor, los códigos
+ * de conducta y el rol de pagos. */
 export function MarcoPdf({ titulo, url }) {
-  return url ? (
-    <iframe
-      className="visor-pdf__marco"
-      title={`Documento: ${titulo}`}
-      src={url}
-    />
-  ) : (
-    <p className="mz-faint">Cargando el documento…</p>
-  );
+  return <LectorPdf titulo={titulo} url={url} />;
 }

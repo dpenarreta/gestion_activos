@@ -506,102 +506,6 @@
 }
 
 /* ---------- Códigos de conducta ---------- */
-.docs-lista {
-  list-style: none;
-  margin: 0 0 16px;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.docs-item {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  border: 1px solid var(--mz-border);
-  border-radius: 12px;
-  background: var(--mz-raised);
-}
-
-.docs-item--retirado {
-  opacity: 0.6;
-}
-
-.docs-item__abrir {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--mz-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.docs-item__abrir:hover,
-.docs-item__abrir:focus-visible {
-  background: var(--mz-sunken);
-}
-
-.docs-item__icono {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  background: var(--mz-blue-50);
-  color: var(--mz-blue-700);
-}
-
-.docs-item__icono--pdf {
-  background: var(--mz-bad-bg);
-  color: var(--mz-bad-fg);
-}
-
-.docs-item__texto {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.docs-item__texto strong {
-  font-size: 14px;
-}
-
-.docs-item__texto small {
-  font-size: 12px;
-  color: var(--mz-ink-soft);
-}
-
-.docs-item__descripcion {
-  margin-top: 2px;
-  font-size: 12.5px;
-  color: var(--mz-ink-soft);
-}
-
-.docs-item__accion {
-  flex: none;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--mz-action);
-}
-
-.docs-item__gestion {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 12px;
-}
-
 /* Una pestaña por documento; con muchos, se desplazan de lado. */
 .docs-pestanas {
   overflow-x: auto;
@@ -4156,6 +4060,56 @@
 @media (pointer: coarse) {
   .onboarding-archivos ~ .mz-actions .btn,
   .onboarding-texto ~ .mz-actions .btn {
+    min-height: 44px;
+  }
+}
+
+/* --- Códigos de conducta: auditoría UX/UI (30/10/2026) --- */
+.aceptaciones-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.aceptaciones-resumen > div {
+  flex: 1;
+  min-width: 220px;
+}
+
+.aceptaciones-resumen__cifra {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.aceptaciones-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.aceptaciones-filtros__buscar {
+  flex: 1 1 240px;
+  max-width: 340px;
+}
+
+/* El botón del chat no tapa el último botón de la gestión. */
+.gestion-documentos {
+  padding-bottom: 72px;
+}
+
+/* «Ver lo que acepté»: del tamaño del texto que lo rodea. */
+.enlace-en-texto {
+  font-size: inherit;
+  vertical-align: baseline;
+}
+
+/* La estrella de la tarjeta, de 44 px al tacto (Apple HIG). */
+@media (pointer: coarse) {
+  .gestion-documentos .mz-card-row .mz-row-between .btn {
+    min-width: 44px;
     min-height: 44px;
   }
 }

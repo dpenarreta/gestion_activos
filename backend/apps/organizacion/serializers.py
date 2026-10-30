@@ -511,11 +511,18 @@ class DocumentoInstitucionalSerializer(serializers.ModelSerializer):
 
     def validate_archivo(self, archivo):
         self._extension = documentos.validar(archivo)
+        # Los nuevos, solo en PDF: se leen en el visor del sistema en
+        # cualquier equipo (un Word solo se podía descargar). Los .docx ya
+        # cargados se siguen pudiendo descargar.
+        if self._extension != ".pdf":
+            raise serializers.ValidationError(
+                "Suba el documento en PDF: en Word, «Archivo › Guardar como» y elija PDF."
+            )
         return archivo
 
     def validate(self, datos):
         if self.instance is None and not datos.get("archivo"):
-            raise serializers.ValidationError({"archivo": "Adjunte el documento (PDF o Word)."})
+            raise serializers.ValidationError({"archivo": "Adjunte el documento en PDF."})
         archivo = datos.get("archivo")
         if archivo:
             datos["nombre_original"] = archivo.name[:255]

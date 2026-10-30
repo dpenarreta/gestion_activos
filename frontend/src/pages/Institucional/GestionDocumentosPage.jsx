@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
-import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  EstadoDeCarga,
+  FilaDeEstado,
+} from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import {
   PanelDePestana,
@@ -95,17 +98,151 @@ export function GestionDocumentosPage() {
     }
   }
 
+  function marcarPrimero(d) {
+    ejecutar(
+      () =>
+        institucionalService.guardarDocumento(d.id, {
+          predeterminado: !d.predeterminado,
+        }),
+      d.predeterminado
+        ? `«${d.titulo}» ya no se abre primero.`
+        : `«${d.titulo}» se abrirá primero.`,
+    );
+  }
+
+  /** Retirarlo lo oculta (sin pedir aceptar de nuevo); volver a publicarlo
+   * sí lo pide: se confirma diciendo la consecuencia (auditoría UX/UI,
+   * 30/10/2026: antes, sin confirmar y anulando en silencio las
+   * aceptaciones). */
+  async function cambiarVigencia(d) {
+    const si = await confirmar(
+      d.activo
+        ? {
+            titulo: `¿Retirar «${d.titulo}»?`,
+            mensaje:
+              "Deja de verse en «Códigos de conducta». Puede volver a publicarlo cuando quiera.",
+            accion: "Retirar",
+            peligro: false,
+          }
+        : {
+            titulo: `¿Volver a publicar «${d.titulo}»?`,
+            mensaje:
+              "Todas las personas deberán aceptar de nuevo el acuerdo de confidencialidad para leer los documentos.",
+            accion: "Volver a publicar",
+            peligro: false,
+          },
+    );
+    if (!si) return;
+    ejecutar(
+      () => institucionalService.guardarDocumento(d.id, { activo: !d.activo }),
+      d.activo
+        ? `«${d.titulo}» se retiró: ya no lo ven los demás.`
+        : `«${d.titulo}» vuelve a estar vigente.`,
+    );
+  }
+
+  async function borrar(d) {
+    const si = await confirmar({
+      titulo: `¿Borrar el documento «${d.titulo}»?`,
+      mensaje:
+        "Se elimina el archivo del servidor y no se puede recuperar. Si solo quiere que deje de verse, use «Retirar».",
+      accion: "Borrar",
+    });
+    if (si)
+      ejecutar(
+        () => institucionalService.eliminarDocumento(d.id),
+        `«${d.titulo}» se borró.`,
+      );
+  }
+
+  /** Las acciones de un documento, con su nombre visible al pasar el ratón
+   * (antes solo íconos). En la tabla y en las tarjetas del teléfono. */
+  function acciones(d, conTexto = false) {
+    const boton = (props, icono, texto) => (
+      <button type="button" title={texto} {...props}>
+        <Icon name={icono} />
+        {conTexto && <> {texto}</>}
+      </button>
+    );
+    return (
+      <>
+        {boton(
+          {
+            className: "btn btn-outline-secondary btn-sm",
+            "aria-label": `${d.es_pdf ? "Ver" : "Descargar"} ${d.titulo}`,
+            // Ocupado y no deshabilitado: el visor devuelve el foco aquí.
+            "aria-busy": documento.abriendo === d.id,
+            onClick: () => documento.abriendo !== d.id && documento.abrir(d),
+          },
+          d.es_pdf ? "eye" : "download",
+          d.es_pdf ? "Ver" : "Descargar",
+        )}{" "}
+        {boton(
+          {
+            className: "btn btn-outline-secondary btn-sm",
+            "aria-label": `Editar ${d.titulo}`,
+            onClick: () => setEditando({ ...VACIO, ...d }),
+          },
+          "pencil",
+          "Editar",
+        )}{" "}
+        {boton(
+          {
+            className: "btn btn-outline-secondary btn-sm",
+            "aria-label": `${d.activo ? "Retirar" : "Volver a publicar"} ${d.titulo}`,
+            onClick: () => cambiarVigencia(d),
+          },
+          d.activo ? "archive" : "arrow-counterclockwise",
+          d.activo ? "Retirar" : "Volver a publicar",
+        )}{" "}
+        {boton(
+          {
+            className: "btn btn-outline-danger btn-sm",
+            "aria-label": `Borrar ${d.titulo}`,
+            onClick: () => borrar(d),
+          },
+          "trash",
+          "Borrar",
+        )}
+      </>
+    );
+  }
+
+  function estrella(d) {
+    return (
+      /* Uno solo: marcar este desmarca al anterior. */
+      <button
+        type="button"
+        className={`btn btn-sm ${d.predeterminado ? "btn-warning" : "btn-outline-secondary"}`}
+        aria-pressed={d.predeterminado}
+        aria-label={`Abrir primero ${d.titulo}`}
+        title={
+          d.predeterminado
+            ? "Es el que se abre primero. Pulse para quitarlo."
+            : "Que se abra primero en «Códigos de conducta»"
+        }
+        onClick={() => marcarPrimero(d)}
+      >
+        <Icon name={d.predeterminado ? "star-fill" : "star"} />
+      </button>
+    );
+  }
+
   const fallo = error || documento.error;
+  const DESCRIPCION = {
+    documentos:
+      "Los códigos de conducta y reglamentos cargados. Los vigentes los ve toda persona en «Códigos de conducta»; los retirados, solo aquí.",
+    acuerdo: "El acuerdo que cada persona acepta antes de leer los documentos.",
+    aceptaciones:
+      "Quién aceptó el acuerdo vigente y quién falta, de todas las personas activas.",
+  };
 
   return (
-    <div className="institucional-page mz-stack">
+    <div className="institucional-page gestion-documentos mz-stack">
       <div className="mz-view-head">
         <div>
           <h2>Gestionar documentos</h2>
-          <p className="mz-desc">
-            Los códigos de conducta y reglamentos cargados. Los vigentes los ve
-            toda persona en «Códigos de conducta»; los retirados, solo aquí.
-          </p>
+          <p className="mz-desc">{DESCRIPCION[pestana]}</p>
         </div>
         <div className="mz-actions">
           <Link
@@ -154,7 +291,7 @@ export function GestionDocumentosPage() {
               </div>
             )}
 
-            <div className="mz-table-wrap">
+            <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
               <table className="mz-table">
                 <thead>
                   <tr>
@@ -198,112 +335,19 @@ export function GestionDocumentosPage() {
                           {d.activo ? "Vigente" : "Retirado"}
                         </span>
                       </td>
-                      <td>
-                        {/* Uno solo: marcar este desmarca al anterior. */}
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${d.predeterminado ? "btn-warning" : "btn-outline-secondary"}`}
-                          aria-pressed={d.predeterminado}
-                          aria-label={
-                            d.predeterminado
-                              ? `${d.titulo} se abre primero`
-                              : `Abrir primero ${d.titulo}`
-                          }
-                          title={
-                            d.predeterminado
-                              ? "Es el que se abre primero. Pulse para quitarlo."
-                              : "Que se abra primero en «Códigos de conducta»"
-                          }
-                          onClick={() =>
-                            ejecutar(
-                              () =>
-                                institucionalService.guardarDocumento(d.id, {
-                                  predeterminado: !d.predeterminado,
-                                }),
-                              d.predeterminado
-                                ? `«${d.titulo}» ya no se abre primero.`
-                                : `«${d.titulo}» se abrirá primero.`,
-                            )
-                          }
-                        >
-                          <Icon
-                            name={d.predeterminado ? "star-fill" : "star"}
-                          />
-                        </button>
-                      </td>
+                      <td>{estrella(d)}</td>
                       <td className="mz-small">
                         {d.subido_por_nombre || "—"}
                         <span className="d-block mz-faint">
                           {formatearFecha(d.created_at)}
                         </span>
                       </td>
-                      <td className="num text-nowrap">
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary btn-sm"
-                          aria-label={`${d.es_pdf ? "Ver" : "Descargar"} ${d.titulo}`}
-                          disabled={documento.abriendo === d.id}
-                          onClick={() => documento.abrir(d)}
-                        >
-                          <Icon name={d.es_pdf ? "eye" : "download"} />
-                        </button>{" "}
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary btn-sm"
-                          aria-label={`Editar ${d.titulo}`}
-                          onClick={() => setEditando({ ...VACIO, ...d })}
-                        >
-                          <Icon name="pencil" />
-                        </button>{" "}
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary btn-sm"
-                          aria-label={`${d.activo ? "Retirar" : "Volver a publicar"} ${d.titulo}`}
-                          title={d.activo ? "Retirar" : "Volver a publicar"}
-                          onClick={() =>
-                            ejecutar(
-                              () =>
-                                institucionalService.guardarDocumento(d.id, {
-                                  activo: !d.activo,
-                                }),
-                              d.activo
-                                ? `«${d.titulo}» se retiró: ya no lo ven los demás.`
-                                : `«${d.titulo}» vuelve a estar vigente.`,
-                            )
-                          }
-                        >
-                          <Icon
-                            name={
-                              d.activo ? "eye-slash" : "arrow-counterclockwise"
-                            }
-                          />
-                        </button>{" "}
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger btn-sm"
-                          aria-label={`Borrar ${d.titulo}`}
-                          onClick={async () => {
-                            const si = await confirmar({
-                              titulo: `¿Borrar el documento «${d.titulo}»?`,
-                              accion: "Borrar",
-                            });
-                            if (si) {
-                              ejecutar(
-                                () =>
-                                  institucionalService.eliminarDocumento(d.id),
-                                `«${d.titulo}» se borró.`,
-                              );
-                            }
-                          }}
-                        >
-                          <Icon name="trash" />
-                        </button>
-                      </td>
+                      <td className="num text-nowrap">{acciones(d)}</td>
                     </tr>
                   ))}
                   <FilaDeEstado
                     columnas={9}
-                    cargando={documentos === null}
+                    cargando={documentos === null && !errorCarga}
                     error={errorCarga}
                     onReintentar={cargar}
                     vacio={documentos?.length === 0}
@@ -311,6 +355,47 @@ export function GestionDocumentosPage() {
                   />
                 </tbody>
               </table>
+            </div>
+            {/* En el teléfono, tarjetas con las acciones a la vista. */}
+            <div className="mz-cards">
+              <EstadoDeCarga
+                cargando={documentos === null && !errorCarga}
+                error={errorCarga}
+                onReintentar={cargar}
+                vacio={documentos?.length === 0}
+                textoVacio="Todavía no hay documentos cargados."
+              />
+              {documentos?.length > 0 && (
+                <ul className="mz-cards-lista" aria-label="Documentos">
+                  {documentos.map((d) => (
+                    <li key={d.id} className="mz-card-row">
+                      <div className="mz-row-between">
+                        <span
+                          className={`mz-pill ${d.activo ? "mz-pill--ok" : "mz-pill--neutral"}`}
+                        >
+                          {d.activo ? "Vigente" : "Retirado"}
+                        </span>
+                        {estrella(d)}
+                      </div>
+                      <div className="mz-card-row__titulo">
+                        <strong>{d.titulo}</strong>
+                      </div>
+                      <div className="mz-card-meta">
+                        <span>
+                          {NOMBRE_CATEGORIA[d.categoria]}
+                          {d.version ? ` · ${d.version}` : ""}
+                        </span>
+                        <span>
+                          {d.nombre_original} · {tamano(d.tamano_bytes)}
+                        </span>
+                      </div>
+                      <div className="mz-card-acciones">
+                        {acciones(d, true)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </>
         )}

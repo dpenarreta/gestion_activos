@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import {
   PanelDePestana,
@@ -12,6 +13,7 @@ import {
   useUrlDePdf,
 } from "../../components/common/VisorPdf/VisorPdf";
 import { useAuth } from "../../hooks/useAuth";
+import { useModalA11y } from "../../hooks/useModalA11y";
 import { PERMISOS_CODIGOS } from "../../modulos/permisosInstitucional";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
@@ -33,6 +35,8 @@ function PanelDelDocumento({
   blob,
   error,
   bloqueado,
+  errorAcuerdo,
+  onReintentarAcuerdo,
   onVerAcuerdo,
 }) {
   const url = useUrlDePdf(documento.es_pdf ? blob : null);
@@ -67,7 +71,12 @@ function PanelDelDocumento({
         )}
       </div>
       <div className="docs-panel__cuerpo">
-        {bloqueado ? (
+        {bloqueado && errorAcuerdo ? (
+          <EstadoDeCarga
+            error={errorAcuerdo}
+            onReintentar={onReintentarAcuerdo}
+          />
+        ) : bloqueado ? (
           <div className="mz-empty">
             <Icon name="shield-lock" />
             <p>
@@ -103,6 +112,63 @@ function PanelDelDocumento({
   );
 }
 
+/** Lo que la persona aceptó, tal cual, para volver a leerlo (auditoría
+ * UX/UI, 30/10/2026). */
+function VentanaAceptado({ acuerdo, onCerrar }) {
+  const { panelRef, handleBackdropClick } = useModalA11y({
+    isOpen: true,
+    onRequestClose: onCerrar,
+  });
+  return (
+    <div
+      className="mz-overlay mz-overlay--center"
+      onClick={handleBackdropClick}
+      role="presentation"
+    >
+      <div
+        className="mz-modal mz-modal--wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aceptado-titulo"
+        ref={panelRef}
+        tabIndex={-1}
+      >
+        <div className="mz-panel-head">
+          <h3 id="aceptado-titulo">
+            <Icon name="shield-check" />{" "}
+            {acuerdo.titulo_aceptado || acuerdo.titulo}
+          </h3>
+          <button
+            type="button"
+            className="mz-close"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+          >
+            <Icon name="x-lg" />
+          </button>
+        </div>
+        <div className="mz-panel-body">
+          <p className="mz-faint mz-small">
+            Lo aceptó el {formatearFecha(acuerdo.aceptado_en, true)}
+          </p>
+          <div className="acuerdo-texto" data-autofocus tabIndex={-1}>
+            {acuerdo.texto_aceptado || acuerdo.texto}
+          </div>
+          <div className="mz-actions justify-content-end mt-3">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onCerrar}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Institucional → Códigos de conducta: la pantalla que se ve primero, solo
  * para leer. Cada documento vigente es una pestaña; abre la del marcado como
@@ -119,14 +185,17 @@ export function CodigosConductaPage() {
   const [activo, setActivo] = useState(null);
   const [archivos, setArchivos] = useState({});
   const [errores, setErrores] = useState({});
-  const [error, setError] = useState(null);
+  const [errorDocumentos, setErrorDocumentos] = useState(null);
+  const [errorAcuerdo, setErrorAcuerdo] = useState(null);
   const [acuerdo, setAcuerdo] = useState(null);
   const [verAcuerdo, setVerAcuerdo] = useState(false);
+  const [verAceptado, setVerAceptado] = useState(false);
   const pedidos = useRef(new Set());
   const aceptado = Boolean(acuerdo?.aceptado);
 
   // Al entrar: si no tiene aceptado el acuerdo vigente, se le presenta.
-  useEffect(() => {
+  const cargarAcuerdo = useCallback(() => {
+    setErrorAcuerdo(null);
     institucionalService
       .confidencialidad()
       .then((estado) => {
@@ -134,16 +203,21 @@ export function CodigosConductaPage() {
         setVerAcuerdo(!estado.aceptado);
       })
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar el acuerdo.")),
+        setErrorAcuerdo(mensajeDeError(err, "No se pudo cargar el acuerdo.")),
       );
   }, []);
+
+  useEffect(() => {
+    cargarAcuerdo();
+  }, [cargarAcuerdo]);
 
   async function aceptar() {
     setAcuerdo(await institucionalService.aceptarConfidencialidad());
     setVerAcuerdo(false);
   }
 
-  useEffect(() => {
+  const cargarDocumentos = useCallback(() => {
+    setErrorDocumentos(null);
     institucionalService
       .documentos()
       // Solo los vigentes, también para quien gestiona: es lo que lee el
@@ -154,9 +228,15 @@ export function CodigosConductaPage() {
         setActivo(elegidoPorDefecto(vigentes) ?? null);
       })
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudieron cargar los documentos.")),
+        setErrorDocumentos(
+          mensajeDeError(err, "No se pudieron cargar los documentos."),
+        ),
       );
   }, []);
+
+  useEffect(() => {
+    cargarDocumentos();
+  }, [cargarDocumentos]);
 
   // El archivo de la pestaña abierta se trae una vez y queda en memoria:
   // volver a una pestaña ya vista no lo pide de nuevo.
@@ -173,10 +253,17 @@ export function CodigosConductaPage() {
         // acuerdo en vez de mostrar un error.
         if (err?.response?.data?.error?.code === "acuerdo_pendiente") {
           pedidos.current.delete(activo);
-          institucionalService.confidencialidad().then((estado) => {
-            setAcuerdo(estado);
-            setVerAcuerdo(true);
-          });
+          institucionalService
+            .confidencialidad()
+            .then((estado) => {
+              setAcuerdo(estado);
+              setVerAcuerdo(true);
+            })
+            .catch((e) =>
+              setErrorAcuerdo(
+                mensajeDeError(e, "No se pudo cargar el acuerdo."),
+              ),
+            );
           return;
         }
         setErrores((e) => ({
@@ -202,7 +289,14 @@ export function CodigosConductaPage() {
                 <span className="mz-faint">
                   <Icon name="shield-check" /> Aceptó el acuerdo de
                   confidencialidad el{" "}
-                  {formatearFecha(acuerdo.aceptado_en, true)}.
+                  {formatearFecha(acuerdo.aceptado_en, true)} ·{" "}
+                  <button
+                    type="button"
+                    className="btn btn-link p-0 align-baseline enlace-en-texto"
+                    onClick={() => setVerAceptado(true)}
+                  >
+                    Ver lo que acepté
+                  </button>
                 </span>
               </>
             )}
@@ -220,18 +314,18 @@ export function CodigosConductaPage() {
         )}
       </div>
 
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-
-      {documentos?.length === 0 && (
+      {/* Cargando, error con «Reintentar» y vacío (antes no se veía nada
+          mientras cargaba). */}
+      {(documentos === null || documentos.length === 0) && (
         <div className="mz-card">
-          <div className="mz-card-body mz-empty">
-            <Icon name="journal-text" />
-            <p>Todavía no hay documentos publicados.</p>
+          <div className="mz-card-body">
+            <EstadoDeCarga
+              cargando={documentos === null && !errorDocumentos}
+              error={errorDocumentos}
+              onReintentar={cargarDocumentos}
+              vacio={documentos?.length === 0}
+              textoVacio="Todavía no hay documentos publicados."
+            />
           </div>
         </div>
       )}
@@ -260,6 +354,8 @@ export function CodigosConductaPage() {
                 blob={archivos[elegido.id]}
                 error={errores[elegido.id]}
                 bloqueado={!aceptado}
+                errorAcuerdo={errorAcuerdo}
+                onReintentarAcuerdo={cargarAcuerdo}
                 onVerAcuerdo={() => setVerAcuerdo(true)}
               />
             </PanelDePestana>
@@ -267,6 +363,12 @@ export function CodigosConductaPage() {
         </>
       )}
 
+      {verAceptado && acuerdo && (
+        <VentanaAceptado
+          acuerdo={acuerdo}
+          onCerrar={() => setVerAceptado(false)}
+        />
+      )}
       {acuerdo && verAcuerdo && !aceptado && (
         <VentanaAcuerdo
           acuerdo={acuerdo}

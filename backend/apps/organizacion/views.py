@@ -828,18 +828,28 @@ class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
                 predeterminado=True
             ).update(predeterminado=False)
 
+    # Solo un cambio de contenido pide aceptar de nuevo el acuerdo: publicar
+    # un documento, reemplazar su archivo o volver a publicar uno retirado.
+    # Marcar cuál se abre primero, corregir el título o la descripción,
+    # retirarlo o borrarlo, no (auditoría UX/UI, 30/10/2026: cualquier
+    # guardado anulaba en silencio las aceptaciones de toda la empresa).
+
     def perform_create(self, serializer):
         documento = serializer.save(subido_por=self.request.user)
         self._uno_predeterminado(documento)
-        confidencialidad.documentos_cambiaron()
+        if documento.activo:
+            confidencialidad.documentos_cambiaron()
         self._auditar("publicado", documento, {"titulo": documento.titulo})
 
     def perform_update(self, serializer):
         anterior = serializer.instance.archivo.name if serializer.instance.archivo else ""
+        estaba_activo = serializer.instance.activo
         documento = serializer.save()
         self._uno_predeterminado(documento)
-        confidencialidad.documentos_cambiaron()
-        if "archivo" in serializer.validated_data and anterior:
+        nuevo_archivo = "archivo" in serializer.validated_data
+        if documento.activo and (nuevo_archivo or not estaba_activo):
+            confidencialidad.documentos_cambiaron()
+        if nuevo_archivo and anterior:
             # Se reemplazó el archivo: el viejo no queda huérfano en el disco.
             documento.archivo.storage.delete(anterior)
         self._auditar("editado", documento, {"titulo": documento.titulo})
@@ -848,7 +858,6 @@ class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
         self._auditar("borrado", documento, {"titulo": documento.titulo})
         documento.borrar_archivo()
         documento.delete()
-        confidencialidad.documentos_cambiaron()
 
     @action(detail=True, methods=["get"])
     def archivo(self, request, pk=None):
@@ -936,30 +945,19 @@ class AceptarConfidencialidadView(APIView):
 
 
 class AceptacionesConfidencialidadView(APIView):
-    """Quién aceptó el acuerdo y cuándo (pide `codigos.ver_aceptaciones`)."""
+    """Quién aceptó el acuerdo, quién falta y cuándo (pide
+    `codigos.ver_aceptaciones`): una fila por cada persona activa de la
+    empresa, con su última aceptación y su estado, y el resumen «X de Y»
+    (auditoría UX/UI, 30/10/2026: antes solo las aceptaciones, una por cada
+    cambio, sin saber quién faltaba). Con `?formato=xlsx`, en Excel."""
 
     permission_classes = [IsAuthenticated, AceptacionesPermission]
 
     def get(self, request):
-        from .models import AceptacionConfidencialidad
-
-        vigente = confidencialidad.acuerdo().version_documentos
-        filas = AceptacionConfidencialidad.objects.select_related("usuario").order_by(
-            "-aceptado_en"
-        )[:500]
-        return Response(
-            [
-                {
-                    "id": fila.id,
-                    "persona": fila.usuario.get_full_name().strip() or fila.usuario.username,
-                    "correo": fila.usuario.email,
-                    "aceptado_en": fila.aceptado_en,
-                    "version": fila.version_documentos,
-                    "vigente": fila.version_documentos == vigente,
-                }
-                for fila in filas
-            ]
-        )
+        datos = confidencialidad.aceptaciones()
+        if request.query_params.get("formato") == "xlsx":
+            return confidencialidad.aceptaciones_excel(datos)
+        return Response(datos)
 
 
 class NoticiaInicioViewSet(viewsets.ModelViewSet):

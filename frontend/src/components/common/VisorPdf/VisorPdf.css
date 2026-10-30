@@ -55,6 +55,88 @@
   .visor-pdf {
     width: 100vw;
     height: 100vh;
+    /* Sin que la barra del navegador del teléfono tape el pie. */
+    height: 100dvh;
     border-radius: 0;
+  }
+}
+
+/* --- El lector de PDF propio (pdf.js, 30/10/2026) --- */
+.lector-pdf {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.lector-pdf__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+}
+
+.lector-pdf__pagina,
+.lector-pdf__zoom {
+  min-width: 96px;
+  text-align: center;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lector-pdf__zoom {
+  min-width: 52px;
+}
+
+.lector-pdf__separador {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--mz-border);
+}
+
+.lector-pdf__marco {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  text-align: center;
+  background: var(--mz-sunken);
+}
+
+.lector-pdf__marco:focus {
+  outline: none;
+}
+
+.lector-pdf__marco:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+.lector-pdf__lienzo {
+  display: inline-block;
+  background: #fff;
+  box-shadow: var(--mz-shadow-2, 0 4px 16px rgb(0 0 0 / 0.18));
+}
+
+.lector-pdf__aviso {
+  margin: 24px;
+}
+
+/* La X del visor, de buen tamaño también con el ratón. */
+.visor-pdf .mz-close {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+@media (pointer: coarse) {
+  .lector-pdf__barra .btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

@@ -144,6 +144,15 @@ export const institucionalService = {
       .get(`${BASE}confidencialidad/aceptaciones/`)
       .then((res) => res.data);
   },
+  /** Las aceptaciones en Excel, para Talento Humano. */
+  exportarAceptaciones() {
+    return apiClient
+      .get(`${BASE}confidencialidad/aceptaciones/`, {
+        params: { formato: "xlsx" },
+        responseType: "blob",
+      })
+      .then((res) => res.data);
+  },
   // --- Carrusel de noticias de Inicio ------------------------------------
   /** Las vigentes hoy; con `todas`, también las programadas y vencidas. */
   noticias(todas = false) {

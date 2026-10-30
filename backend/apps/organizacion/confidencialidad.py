@@ -75,6 +75,91 @@ def estado(usuario) -> dict:
         "version": vigente.version_documentos,
         "aceptado": actual is not None,
         "aceptado_en": actual.aceptado_en if actual else None,
+        # Lo que aceptó, tal cual, para volver a leerlo.
+        "titulo_aceptado": actual.titulo_aceptado if actual else "",
+        "texto_aceptado": actual.texto_aceptado if actual else "",
         # Si aceptó una versión anterior: por qué se le vuelve a pedir.
         "aceptado_antes_en": (anterior.aceptado_en if anterior and not actual else None),
     }
+
+
+ESTADOS = {"vigente": "Aceptó", "antes": "Aceptó antes de un cambio", "nunca": "No ha aceptado"}
+
+
+def aceptaciones() -> dict:
+    """Cada persona activa de la empresa con su última aceptación y su estado
+    («vigente», «antes» de un cambio de los documentos o «nunca»)."""
+    from django.contrib.auth import get_user_model
+
+    from apps.empresas.contexto import empresa_actual
+
+    vigente = acuerdo().version_documentos
+    empresa = empresa_actual()
+    personas = get_user_model().objects.filter(is_active=True)
+    if getattr(empresa, "pk", None):
+        personas = personas.filter(membresias__empresa=empresa).distinct()
+    ultimas = {}
+    for fila in AceptacionConfidencialidad.objects.order_by("usuario_id", "-aceptado_en"):
+        ultimas.setdefault(fila.usuario_id, fila)
+    filas = []
+    for persona in personas.order_by("first_name", "last_name", "username"):
+        ultima = ultimas.get(persona.pk)
+        estado_ = (
+            "nunca"
+            if ultima is None
+            else ("vigente" if ultima.version_documentos == vigente else "antes")
+        )
+        filas.append(
+            {
+                "id": persona.pk,
+                "persona": persona.get_full_name().strip() or persona.username,
+                "correo": persona.email,
+                "aceptado_en": ultima.aceptado_en if ultima else None,
+                "estado": estado_,
+                "vigente": estado_ == "vigente",
+            }
+        )
+    aceptaron = sum(1 for f in filas if f["vigente"])
+    return {
+        "total": len(filas),
+        "aceptaron": aceptaron,
+        "pendientes": len(filas) - aceptaron,
+        "personas": filas,
+    }
+
+
+def aceptaciones_excel(datos):
+    """Las aceptaciones en un Excel, para Talento Humano."""
+    from io import BytesIO
+
+    from django.http import HttpResponse
+    from django.utils import timezone
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Aceptaciones"
+    hoja.append(["Persona", "Correo", "Estado", "Aceptó el"])
+    for celda in hoja[1]:
+        celda.font = Font(bold=True)
+    for fila in datos["personas"]:
+        fecha = fila["aceptado_en"]
+        hoja.append(
+            [
+                fila["persona"],
+                fila["correo"],
+                ESTADOS[fila["estado"]],
+                timezone.localtime(fecha).strftime("%d/%m/%Y %H:%M") if fecha else "",
+            ]
+        )
+    for columna, ancho in zip("ABCD", (34, 34, 26, 18), strict=True):
+        hoja.column_dimensions[columna].width = ancho
+    salida = BytesIO()
+    libro.save(salida)
+    respuesta = HttpResponse(
+        salida.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    respuesta["Content-Disposition"] = 'attachment; filename="aceptaciones-confidencialidad.xlsx"'
+    return respuesta

@@ -33,6 +33,7 @@ const servicio = {
   aceptarConfidencialidad: vi.fn(),
   guardarConfidencialidad: vi.fn(),
   aceptacionesConfidencialidad: vi.fn(),
+  exportarAceptaciones: vi.fn(),
 };
 
 const ACUERDO = {
@@ -45,6 +46,19 @@ const ACUERDO = {
 };
 vi.mock("../src/api/institucionalService", () => ({
   institucionalService: servicio,
+}));
+// El lector dibuja con pdf.js (no corre en jsdom): basta saber qué abre.
+vi.mock("../src/components/common/VisorPdf/LectorPdf", () => ({
+  registrarPdf: vi.fn(),
+  olvidarPdf: vi.fn(),
+  LectorPdf: ({ titulo, url }) => (
+    <div title={`Documento: ${titulo}`} data-url={url} />
+  ),
+}));
+const descargas = vi.hoisted(() => ({ descargarBlob: vi.fn() }));
+vi.mock("../src/utils/descargas", async (original) => ({
+  ...(await original()),
+  descargarBlob: descargas.descargarBlob,
 }));
 
 const { CodigosConductaPage } =
@@ -113,9 +127,12 @@ describe("Códigos de conducta: una pestaña por documento", () => {
       "true",
     );
     const panel = screen.getByRole("tabpanel");
-    expect(
-      await within(panel).findByTitle("Documento: Política"),
-    ).toHaveAttribute("src", "blob:local/1");
+    await waitFor(() =>
+      expect(within(panel).getByTitle("Documento: Política")).toHaveAttribute(
+        "data-url",
+        "blob:local/1",
+      ),
+    );
     expect(servicio.archivoDocumento).toHaveBeenCalledWith(3);
   });
 
@@ -264,7 +281,9 @@ describe("Gestionar documentos", () => {
 
   it("lista todos los cargados, también los retirados", async () => {
     pintar(<GestionDocumentosPage />);
-    const fila = (await screen.findByText("Reglamento interno")).closest("tr");
+    const fila = (await screen.findAllByText("Reglamento interno"))[0].closest(
+      "tr",
+    );
     expect(within(fila).getByText("Retirado")).toBeInTheDocument();
     expect(within(fila).getByText(/reglamento\.docx/)).toBeInTheDocument();
     expect(
@@ -278,7 +297,19 @@ describe("Gestionar documentos", () => {
     pintar(<GestionDocumentosPage />);
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Retirar Código de conducta" }),
+      (
+        await screen.findAllByRole("button", {
+          name: "Retirar Código de conducta",
+        })
+      )[0],
+    );
+    // Retirar se confirma, sin pedir aceptar de nuevo.
+    expect(servicio.guardarDocumento).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(await screen.findByRole("dialog", { name: /Retirar/ })).getByRole(
+        "button",
+        { name: "Retirar" },
+      ),
     );
     await waitFor(() =>
       expect(servicio.guardarDocumento).toHaveBeenCalledWith(1, {
@@ -286,7 +317,7 @@ describe("Gestionar documentos", () => {
       }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Borrar Reglamento interno" }),
+      screen.getAllByRole("button", { name: "Borrar Reglamento interno" })[0],
     );
     // Borrar pide confirmación (auditoría UX/UI).
     expect(servicio.eliminarDocumento).not.toHaveBeenCalled();
@@ -307,9 +338,11 @@ describe("Gestionar documentos", () => {
     servicio.guardarDocumento.mockResolvedValue({});
     pintar(<GestionDocumentosPage />);
     fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Abrir primero Código de conducta",
-      }),
+      (
+        await screen.findAllByRole("button", {
+          name: "Abrir primero Código de conducta",
+        })
+      )[0],
     );
     await waitFor(() =>
       expect(servicio.guardarDocumento).toHaveBeenCalledWith(1, {
@@ -343,34 +376,111 @@ describe("Gestionar documentos", () => {
     expect(await screen.findByText("Acuerdo guardado.")).toBeInTheDocument();
   });
 
-  it("muestra quién aceptó y cuándo", async () => {
-    servicio.aceptacionesConfidencialidad.mockResolvedValue([
-      {
-        id: 1,
-        persona: "Rosa Vera",
-        correo: "rosa@grupolaar.com",
-        aceptado_en: "2026-10-19T15:30:00Z",
-        version: 4,
-        vigente: true,
-      },
-    ]);
+  it("muestra quién falta, quién aceptó y cuándo", async () => {
+    servicio.aceptacionesConfidencialidad.mockResolvedValue({
+      total: 3,
+      aceptaron: 1,
+      pendientes: 2,
+      personas: [
+        {
+          id: 1,
+          persona: "Rosa Vera",
+          correo: "rosa@grupolaar.com",
+          aceptado_en: "2026-10-19T15:30:00Z",
+          estado: "vigente",
+          vigente: true,
+        },
+        {
+          id: 2,
+          persona: "Luis Mora",
+          correo: "luis@grupolaar.com",
+          aceptado_en: "2026-09-01T15:30:00Z",
+          estado: "antes",
+          vigente: false,
+        },
+        {
+          id: 3,
+          persona: "Ana Paz",
+          correo: "ana@grupolaar.com",
+          aceptado_en: null,
+          estado: "nunca",
+          vigente: false,
+        },
+      ],
+    });
     pintar(<GestionDocumentosPage />);
     fireEvent.click(await screen.findByRole("tab", { name: "Aceptaciones" }));
-    const fila = (await screen.findByText("Rosa Vera")).closest("tr");
-    expect(within(fila).getByText("Vigente")).toBeInTheDocument();
+    expect(await screen.findByText("1 de 3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Pendientes (2)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("2 pendientes")).toBeInTheDocument();
+
+    // Primero, quién falta.
+    const pendiente = screen.getAllByText("Luis Mora")[0].closest("tr");
+    expect(
+      within(pendiente).getByText("Aceptó antes de un cambio"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getAllByText("Ana Paz")[0].closest("tr")).getByText(
+        "No ha aceptado",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Rosa Vera")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Aceptaron/ }));
+    const fila = screen.getAllByText("Rosa Vera")[0].closest("tr");
+    expect(within(fila).getByText("Aceptó")).toBeInTheDocument();
     expect(within(fila).getByText(/19\/10\/2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Todas/ }));
+    fireEvent.change(screen.getByLabelText("Buscar persona"), {
+      target: { value: "ana@" },
+    });
+    expect(screen.getAllByText("Ana Paz")[0]).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 persona");
+    expect(screen.queryByText("Luis Mora")).toBeNull();
+  });
+
+  it("exporta las aceptaciones a Excel", async () => {
+    servicio.aceptacionesConfidencialidad.mockResolvedValue({
+      total: 0,
+      aceptaron: 0,
+      pendientes: 0,
+      personas: [],
+    });
+    const blob = new Blob(["PK"]);
+    servicio.exportarAceptaciones.mockResolvedValue(blob);
+    pintar(<GestionDocumentosPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Aceptaciones" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Exportar a Excel/ }),
+    );
+    await waitFor(() =>
+      expect(descargas.descargarBlob).toHaveBeenCalledWith(
+        blob,
+        "aceptaciones-confidencialidad.xlsx",
+      ),
+    );
   });
 
   it("cada pestaña se ve con su permiso", async () => {
     // Solo consulta quién aceptó: entra, y ve solo esa pestaña.
     permisos.lista = ["codigos.ver_aceptaciones"];
-    servicio.aceptacionesConfidencialidad.mockResolvedValue([]);
+    servicio.aceptacionesConfidencialidad.mockResolvedValue({
+      total: 0,
+      aceptaron: 0,
+      pendientes: 0,
+      personas: [],
+    });
     pintar(<GestionDocumentosPage />);
     const pestanas = await screen.findAllByRole("tab");
     expect(pestanas.map((p) => p.textContent.trim())).toEqual(["Aceptaciones"]);
     expect(pestanas[0]).toHaveAttribute("aria-selected", "true");
     expect(
-      await screen.findByText("Nadie ha aceptado el acuerdo todavía"),
+      (
+        await screen.findAllByText("Nadie tiene pendiente aceptar el acuerdo.")
+      )[0],
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Publicar/ })).toBeNull();
     expect(servicio.documentos).not.toHaveBeenCalled();
@@ -391,7 +501,7 @@ describe("Gestionar documentos", () => {
       await screen.findByRole("button", { name: /Publicar documento/ }),
     );
     const ventana = screen.getByRole("dialog", { name: "Publicar documento" });
-    fireEvent.change(within(ventana).getByLabelText("Título"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Título/), {
       target: { value: "Política anticorrupción" },
     });
     fireEvent.change(within(ventana).getByLabelText("Tipo"), {
@@ -400,10 +510,19 @@ describe("Gestionar documentos", () => {
     const archivo = new File(["%PDF-1.4"], "politica.pdf", {
       type: "application/pdf",
     });
-    fireEvent.change(within(ventana).getByLabelText("Archivo"), {
+    fireEvent.change(within(ventana).getByLabelText(/^Archivo/), {
       target: { files: [archivo] },
     });
+    expect(
+      within(ventana).getByText(/deberán aceptar de nuevo/),
+    ).toBeInTheDocument();
     fireEvent.click(within(ventana).getByRole("button", { name: "Publicar" }));
+    expect(servicio.guardarDocumento).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "¿Publicar el documento?" }),
+      ).getByRole("button", { name: "Publicar" }),
+    );
 
     await waitFor(() =>
       expect(servicio.guardarDocumento).toHaveBeenCalledWith(
@@ -417,5 +536,85 @@ describe("Gestionar documentos", () => {
       ),
     );
     expect(await screen.findByText("Documento publicado.")).toBeInTheDocument();
+  });
+
+  it("solo acepta documentos en PDF", async () => {
+    pintar(<GestionDocumentosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Publicar documento/ }),
+    );
+    const ventana = screen.getByRole("dialog", { name: "Publicar documento" });
+    fireEvent.change(within(ventana).getByLabelText(/^Título/), {
+      target: { value: "Reglamento" },
+    });
+    fireEvent.change(within(ventana).getByLabelText(/^Archivo/), {
+      target: { files: [new File(["x"], "reglamento.docx")] },
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Publicar" }));
+    expect(
+      await within(ventana).findByText(/Suba el documento en PDF/),
+    ).toBeInTheDocument();
+    expect(servicio.guardarDocumento).not.toHaveBeenCalled();
+  });
+
+  it("editar el título no pide aceptar de nuevo", async () => {
+    servicio.guardarDocumento.mockResolvedValue({});
+    pintar(<GestionDocumentosPage />);
+    fireEvent.click(
+      (
+        await screen.findAllByRole("button", {
+          name: "Editar Código de conducta",
+        })
+      )[0],
+    );
+    const ventana = screen.getByRole("dialog", { name: /Editar/ });
+    expect(within(ventana).queryByText(/aceptar de nuevo/)).toBeNull();
+    fireEvent.change(within(ventana).getByLabelText(/^Título/), {
+      target: { value: "Código de ética" },
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarDocumento).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ titulo: "Código de ética" }),
+        null,
+      ),
+    );
+  });
+
+  it("volver a publicarlo desde «Editar» lo confirma con ese nombre", async () => {
+    servicio.guardarDocumento.mockResolvedValue({});
+    pintar(<GestionDocumentosPage />);
+    fireEvent.click(
+      (
+        await screen.findAllByRole("button", {
+          name: "Editar Reglamento interno",
+        })
+      )[0],
+    );
+    const ventana = screen.getByRole("dialog", { name: /Editar/ });
+    fireEvent.click(within(ventana).getByLabelText(/^Vigente \(visible/));
+    expect(
+      within(ventana).getByText(/Al volver a publicarlo/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", {
+          name: "¿Volver a publicar el documento?",
+        }),
+      ).getByRole("button", { name: "Volver a publicar" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarDocumento).toHaveBeenCalledWith(
+        2,
+        expect.objectContaining({ activo: true }),
+        null,
+      ),
+    );
   });
 });

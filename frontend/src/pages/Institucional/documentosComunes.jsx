@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../components/common/Campo/Campo";
 import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { mensajeDeError } from "../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { descargarBlob } from "../../utils/descargas";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 
 /*
  * Lo que comparten las dos pantallas de los códigos de conducta: la de leer
@@ -33,12 +39,20 @@ export function tamano(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-/** Publicar o editar un documento, en una ventana. */
+/** Los PDF de hasta 20 MB (los nuevos documentos, solo en PDF: se leen en
+ * el visor del sistema en cualquier equipo). */
+const MAXIMO = 20 * 1024 * 1024;
+
+/** Publicar o editar un documento, en una ventana (auditoría UX/UI,
+ * 30/10/2026: obligatorios marcados, errores junto a su campo, el archivo
+ * actual a la vista y el aviso de cuándo se pide aceptar de nuevo). */
 export function FormularioDocumento({ inicial, onGuardar, onCerrar }) {
   const [valores, setValores] = useState(inicial);
   const [archivo, setArchivo] = useState(null);
   const [error, setError] = useState(null);
+  const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
+  const formulario = useRef(null);
   const editando = Boolean(inicial.id);
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -49,15 +63,72 @@ export function FormularioDocumento({ inicial, onGuardar, onCerrar }) {
       ...v,
       [campo]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
     }));
+  // Publicar uno vigente, reemplazar su archivo o volver a publicarlo pide a
+  // todos aceptar de nuevo el acuerdo; el resto de los cambios, no.
+  const pideAceptar =
+    valores.activo &&
+    (!editando || Boolean(archivo) || (editando && !inicial.activo));
+  const accionQuePide =
+    archivo && editando
+      ? {
+          titulo: "Reemplazar el archivo",
+          boton: "Reemplazar",
+          aviso: "Al reemplazar el archivo",
+        }
+      : editando
+        ? {
+            titulo: "Volver a publicar el documento",
+            boton: "Volver a publicar",
+            aviso: "Al volver a publicarlo",
+          }
+        : {
+            titulo: "Publicar el documento",
+            boton: "Publicar",
+            aviso: "Al publicarlo",
+          };
 
   async function enviar(evento) {
     evento.preventDefault();
-    if (!editando && !archivo) {
-      setError("Adjunte el documento (PDF o Word).");
+    const propios = {};
+    if (!valores.titulo.trim()) propios.titulo = "Escriba el título.";
+    if (!editando && !archivo) propios.archivo = "Adjunte el documento en PDF.";
+    if (archivo && !/\.pdf$/i.test(archivo.name))
+      propios.archivo =
+        "Suba el documento en PDF: en Word, «Archivo › Guardar como» y elija PDF.";
+    else if (archivo && archivo.size > MAXIMO)
+      propios.archivo = "El archivo pasa de 20 MB.";
+    setErrores(propios);
+    setError(null);
+    if (Object.keys(propios).length) {
+      enfocarPrimerError(formulario.current);
       return;
     }
+    // Si obliga a todos a aceptar de nuevo, se confirma (además del aviso),
+    // con el nombre de lo que se hace; retirarlo desde aquí también se
+    // confirma, como el botón «Retirar» de la tabla.
+    const retira = editando && inicial.activo && !valores.activo;
+    if (
+      (pideAceptar || retira) &&
+      !(await confirmar(
+        retira
+          ? {
+              titulo: `¿Retirar «${inicial.titulo}»?`,
+              mensaje:
+                "Deja de verse en «Códigos de conducta». Puede volver a publicarlo cuando quiera.",
+              accion: "Retirar",
+              peligro: false,
+            }
+          : {
+              titulo: `¿${accionQuePide.titulo}?`,
+              mensaje:
+                "Todas las personas deberán aceptar de nuevo el acuerdo de confidencialidad para leer los documentos.",
+              accion: accionQuePide.boton,
+              peligro: false,
+            },
+      ))
+    )
+      return;
     setGuardando(true);
-    setError(null);
     try {
       const {
         titulo,
@@ -81,8 +152,15 @@ export function FormularioDocumento({ inicial, onGuardar, onCerrar }) {
         archivo,
       );
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el documento."));
+      const delServidor = erroresPorCampo(err);
+      setErrores(delServidor);
+      setError(
+        Object.keys(delServidor).length
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo guardar el documento."),
+      );
       setGuardando(false);
+      enfocarPrimerError(formulario.current);
     }
   }
 
@@ -113,140 +191,176 @@ export function FormularioDocumento({ inicial, onGuardar, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body row g-2" onSubmit={enviar}>
-          {error && (
-            <div className="col-12">
-              <div className="mz-alert mz-alert--bad" role="alert">
-                <Icon name="x-octagon" />
-                {error}
+        {/* La fila va dentro del cuerpo: sus márgenes negativos ya no
+            desbordan la ventana (había desplazamiento horizontal). */}
+        <form
+          ref={formulario}
+          className="mz-panel-body"
+          onSubmit={enviar}
+          noValidate
+        >
+          <div className="row g-2">
+            {error && (
+              <div className="col-12">
+                <div className="mz-alert mz-alert--bad" role="alert">
+                  <Icon name="x-octagon" />
+                  {error}
+                </div>
               </div>
+            )}
+            <div className="col-12">
+              <LeyendaObligatorios />
             </div>
-          )}
-          <div className="col-12 col-md-8">
-            <label className="form-label mz-small" htmlFor="doc-titulo">
-              Título
-            </label>
-            <input
+            <Campo
               id="doc-titulo"
-              className="form-control form-control-sm"
-              required
-              maxLength={200}
-              value={valores.titulo}
-              onChange={fijar("titulo")}
-            />
-          </div>
-          <div className="col-12 col-md-4">
-            <label className="form-label mz-small" htmlFor="doc-categoria">
-              Tipo
-            </label>
-            <select
+              etiqueta="Título"
+              obligatorio
+              error={errores.titulo}
+              className="col-12 col-md-8"
+            >
+              <input
+                className="form-control form-control-sm"
+                maxLength={200}
+                value={valores.titulo}
+                onChange={fijar("titulo")}
+                data-autofocus
+              />
+            </Campo>
+            <Campo
               id="doc-categoria"
-              className="form-select form-select-sm"
-              value={valores.categoria}
-              onChange={fijar("categoria")}
+              etiqueta="Tipo"
+              error={errores.categoria}
+              className="col-12 col-md-4"
             >
-              {CATEGORIAS.map(([id, nombre]) => (
-                <option key={id} value={id}>
-                  {nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-6 col-md-4">
-            <label className="form-label mz-small" htmlFor="doc-version">
-              Versión
-            </label>
-            <input
+              <select
+                className="form-select form-select-sm"
+                value={valores.categoria}
+                onChange={fijar("categoria")}
+              >
+                {CATEGORIAS.map(([id, nombre]) => (
+                  <option key={id} value={id}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo
               id="doc-version"
-              className="form-control form-control-sm"
-              maxLength={30}
-              placeholder="V2"
-              value={valores.version}
-              onChange={fijar("version")}
-            />
-          </div>
-          <div className="col-6 col-md-4">
-            <label className="form-label mz-small" htmlFor="doc-vigente">
-              Vigente desde
-            </label>
-            <input
+              etiqueta="Versión"
+              error={errores.version}
+              className="col-6 col-md-4"
+            >
+              <input
+                className="form-control form-control-sm"
+                maxLength={30}
+                placeholder="Ej.: V2"
+                value={valores.version}
+                onChange={fijar("version")}
+              />
+            </Campo>
+            <Campo
               id="doc-vigente"
-              type="date"
-              className="form-control form-control-sm"
-              value={valores.vigente_desde ?? ""}
-              onChange={fijar("vigente_desde")}
-            />
-          </div>
-          <div className="col-12 col-md-4">
-            <label className="form-label mz-small" htmlFor="doc-archivo">
-              {editando ? "Reemplazar archivo (opcional)" : "Archivo"}
-            </label>
-            <input
+              etiqueta="Vigente desde"
+              error={errores.vigente_desde}
+              className="col-6 col-md-4"
+            >
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={valores.vigente_desde ?? ""}
+                onChange={fijar("vigente_desde")}
+              />
+            </Campo>
+            <Campo
               id="doc-archivo"
-              type="file"
-              className="form-control form-control-sm"
-              accept=".pdf,.docx"
-              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          <div className="col-12">
-            <label className="form-label mz-small" htmlFor="doc-descripcion">
-              Descripción
-            </label>
-            <textarea
+              etiqueta={
+                editando ? "Reemplazar el archivo (opcional)" : "Archivo"
+              }
+              obligatorio={!editando}
+              ayuda={
+                editando && inicial.nombre_original
+                  ? `Archivo actual: ${inicial.nombre_original} · ${tamano(inicial.tamano_bytes)}. Solo PDF, hasta 20 MB.`
+                  : "Solo PDF (se lee en el visor del sistema), hasta 20 MB."
+              }
+              error={errores.archivo}
+              className="col-12 col-md-4"
+            >
+              <input
+                type="file"
+                className="form-control form-control-sm"
+                accept=".pdf,application/pdf"
+                onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+              />
+            </Campo>
+            <Campo
               id="doc-descripcion"
-              className="form-control form-control-sm"
-              rows={2}
-              value={valores.descripcion}
-              onChange={fijar("descripcion")}
-            />
-          </div>
-          <div className="col-12">
-            <label className="form-check">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={valores.activo}
-                onChange={fijar("activo")}
-              />{" "}
-              <span className="form-check-label">
-                Vigente (visible para todos)
-              </span>
-            </label>
-            <label className="form-check">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={Boolean(valores.predeterminado)}
-                onChange={fijar("predeterminado")}
-              />{" "}
-              <span className="form-check-label">
-                Se abre primero en «Códigos de conducta»
-              </span>
-            </label>
-          </div>
-          <p className="col-12 mz-faint mb-0">
-            PDF (se lee en el visor del sistema) o Word, hasta 20 MB.
-          </p>
-          <div className="col-12 mz-actions justify-content-end">
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm"
-              onClick={onCerrar}
+              etiqueta="Descripción"
+              error={errores.descripcion}
+              className="col-12"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={guardando}
-            >
-              {guardando
-                ? "Guardando…"
-                : editando
-                  ? "Guardar cambios"
-                  : "Publicar"}
-            </button>
+              <textarea
+                className="form-control form-control-sm"
+                rows={2}
+                value={valores.descripcion}
+                onChange={fijar("descripcion")}
+              />
+            </Campo>
+            <div className="col-12">
+              <label className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={valores.activo}
+                  onChange={fijar("activo")}
+                />{" "}
+                <span className="form-check-label">
+                  Vigente (visible para todos)
+                </span>
+              </label>
+              <label className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={Boolean(valores.predeterminado)}
+                  onChange={fijar("predeterminado")}
+                />{" "}
+                <span className="form-check-label">
+                  Se abre primero en «Códigos de conducta»
+                </span>
+              </label>
+            </div>
+            {pideAceptar && (
+              <div className="col-12">
+                <div className="mz-alert mz-alert--warn mb-0" role="note">
+                  <Icon name="exclamation-triangle" />
+                  <span>
+                    {accionQuePide.aviso}, todas las personas deberán aceptar de
+                    nuevo el acuerdo de confidencialidad para leer los
+                    documentos.
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="col-12 mz-actions justify-content-end">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={onCerrar}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={guardando}
+              >
+                {guardando
+                  ? "Guardando…"
+                  : editando
+                    ? "Guardar cambios"
+                    : "Publicar"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

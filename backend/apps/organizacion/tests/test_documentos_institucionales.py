@@ -145,20 +145,38 @@ def test_se_acepta_una_vez_hasta_que_cambian_los_documentos(db):
     assert AceptacionConfidencialidad.objects.count() == 1
     assert empleado.get(CONFIDENCIALIDAD).json()["aceptado"] is True
 
-    # Agregar, modificar o borrar cualquier documento lo vuelve a pedir.
-    for cambio in (
-        lambda: _publicar(rrhh, titulo="Reglamento", categoria="disciplinario"),
-        lambda: rrhh.patch(f"{URL}{documento['id']}/", {"version": "V3"}, format="multipart"),
-        lambda: rrhh.delete(f"{URL}{documento['id']}/"),
-    ):
+    # Solo un cambio de contenido lo vuelve a pedir (auditoría UX/UI,
+    # 30/10/2026): publicar, reemplazar el archivo o volver a publicar.
+    url = f"{URL}{documento['id']}/"
+
+    def vuelve_a_pedir(cambio):
         cambio()
         estado = empleado.get(CONFIDENCIALIDAD).json()
         assert estado["aceptado"] is False
         assert estado["aceptado_antes_en"]  # se le dice que ya había aceptado
         empleado.post(CONFIDENCIALIDAD + "aceptar/")
 
+    vuelve_a_pedir(lambda: _publicar(rrhh, titulo="Reglamento", categoria="disciplinario"))
+    vuelve_a_pedir(lambda: rrhh.patch(url, {"archivo": _pdf("V3.pdf")}, format="multipart"))
+    # Retirarlo no pide nada; volver a publicarlo, sí.
+    rrhh.patch(url, {"activo": "false"}, format="multipart")
+    assert empleado.get(CONFIDENCIALIDAD).json()["aceptado"] is True
+    vuelve_a_pedir(lambda: rrhh.patch(url, {"activo": "true"}, format="multipart"))
+
+    # Corregir el título, marcar cuál se abre primero o borrar uno no anula
+    # las aceptaciones.
+    rrhh.patch(url, {"titulo": "Código de conducta (corregido)"}, format="multipart")
+    rrhh.patch(url, {"predeterminado": "true"}, format="multipart")
+    otro = _publicar(rrhh, titulo="Anexo").json()
+    empleado.post(CONFIDENCIALIDAD + "aceptar/")
+    rrhh.delete(f"{URL}{otro['id']}/")
+    estado = empleado.get(CONFIDENCIALIDAD).json()
+    assert estado["aceptado"] is True
+    # Y puede volver a leer lo que aceptó.
+    assert estado["texto_aceptado"]
+
     # Cada aceptación queda guardada, con su fecha.
-    assert AceptacionConfidencialidad.objects.count() == 4
+    assert AceptacionConfidencialidad.objects.count() == 5
 
 
 def test_el_titulo_y_el_texto_se_configuran_con_permiso(db):
@@ -171,9 +189,15 @@ def test_el_titulo_y_el_texto_se_configuran_con_permiso(db):
     assert (estado["titulo"], estado["texto"]) == ("Compromiso de reserva", "No compartir.")
 
     empleado.post(CONFIDENCIALIDAD + "aceptar/")
-    aceptaciones = rrhh.get(CONFIDENCIALIDAD + "aceptaciones/").json()
-    assert [a["persona"] for a in aceptaciones] == ["Ema"]
-    assert aceptaciones[0]["vigente"] is True
+    # Cada persona activa, con su estado y el resumen «X de Y».
+    datos = rrhh.get(CONFIDENCIALIDAD + "aceptaciones/").json()
+    por_persona = {a["persona"]: a for a in datos["personas"]}
+    assert por_persona["Ema"]["estado"] == "vigente"
+    assert por_persona["Talia"]["estado"] == "nunca"
+    assert datos["aceptaron"] == 1 and datos["pendientes"] == datos["total"] - 1
+    excel = rrhh.get(CONFIDENCIALIDAD + "aceptaciones/", {"formato": "xlsx"})
+    assert excel.status_code == 200
+    assert excel.content.startswith(b"PK")
     assert empleado.get(CONFIDENCIALIDAD + "aceptaciones/").status_code == 403
 
 
@@ -194,3 +218,18 @@ def test_cada_pestana_de_la_gestion_pide_su_permiso(db):
 
     assert _publicar(auditora).status_code == 403
     assert auditora.get(CONFIDENCIALIDAD + "aceptaciones/").status_code == 200
+
+
+def test_los_nuevos_documentos_solo_en_pdf(db):
+    """Se leen en el visor del sistema en cualquier equipo (30/10/2026)."""
+    _, rrhh = _cuenta("talia", *GESTION)
+    docx = SimpleUploadedFile(
+        "Reglamento.docx",
+        b"PK\x03\x04" + b"0" * 64,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    respuesta = rrhh.post(
+        URL, {"titulo": "Reglamento", "categoria": "conducta", "archivo": docx}, format="multipart"
+    )
+    assert respuesta.status_code == 400
+    assert "PDF" in str(respuesta.data)
