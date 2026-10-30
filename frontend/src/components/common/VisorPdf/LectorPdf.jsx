@@ -71,7 +71,9 @@ export function LectorPdf({ titulo, url }) {
         if (!pdfjs.GlobalWorkerOptions.workerSrc) {
           const trabajador =
             await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
-          pdfjs.GlobalWorkerOptions.workerSrc = trabajador.default;
+          // «?v=2»: la primera publicación respondió 404 a este archivo y
+          // el servidor lo dejó en la caché del navegador por un año.
+          pdfjs.GlobalWorkerOptions.workerSrc = `${trabajador.default}?v=2`;
         }
         const blob = pdfPorUrl.get(url);
         const origen = blob
