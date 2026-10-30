@@ -26,6 +26,7 @@ from .models import (
     FeriadoMesa,
     HorarioMesa,
     HorasFueraDeHorario,
+    MensajeChatTicket,
     MensajeTicket,
     MovimientoTicket,
     NivelSoporte,
@@ -685,6 +686,103 @@ def cambiar_prioridad(ticket, actor, *, prioridad, justificacion, impacto="", ur
             nota=justificacion,
         )
     return ticket
+
+
+# --- Chat del ticket ---------------------------------------------------------------------
+
+#: Mientras el ticket está a cargo del técnico (desde que lo toma).
+ESTADOS_CON_CHAT = (
+    Estado.ASIGNADO,
+    Estado.EN_CURSO,
+    Estado.ESPERANDO_USUARIO,
+    Estado.ATENDIDO,
+)
+LARGO_CHAT = 2000
+
+
+def chat_abierto(ticket) -> bool:
+    return bool(ticket.tecnico_id) and ticket.estado in ESTADOS_CON_CHAT
+
+
+def puede_ver_chat(usuario, ticket) -> bool:
+    """El técnico asignado y quien coordina o ve todo (para auditoría)."""
+    return puede_trabajarlo(usuario, ticket) or tiene(usuario, "ver_todos")
+
+
+def puede_escribir_chat(usuario, ticket) -> bool:
+    """Solo el técnico que lo tiene a su cargo, mientras está abierto."""
+    return (
+        chat_abierto(ticket)
+        and ticket.tecnico.usuario_id == usuario.id
+        and tiene(usuario, "atender")
+    )
+
+
+def solicitante_puede_escribir_chat(ticket) -> bool:
+    """Quien reportó escribe mientras el chat está abierto, salvo con el
+    ticket resuelto: ahí «sigue fallando» va por «Responder», que lo reabre
+    (si lo escribiera en el chat, el ticket se cerraría solo igual)."""
+    return chat_abierto(ticket) and ticket.estado != Estado.ATENDIDO
+
+
+def motivo_chat(ticket, *, del_solicitante, a_cargo=False) -> str:
+    """Por qué no se puede escribir ahora, según la causa."""
+    if ticket.estado == Estado.CERRADO:
+        return "El ticket está cerrado: el chat queda como constancia."
+    if del_solicitante and ticket.estado == Estado.ATENDIDO:
+        return (
+            "Su ticket está resuelto. Si el problema sigue, use «No, sigue el "
+            "problema» o «Responder»: así se reabre."
+        )
+    if ticket.estado == Estado.ESPERANDO_APROBACION:
+        return "El chat está en pausa mientras el ticket espera aprobación."
+    if not ticket.tecnico_id or ticket.estado == Estado.NUEVO:
+        return "El chat está en pausa hasta que un técnico tome el ticket."
+    if not del_solicitante and not a_cargo:
+        return "Solo lectura: conversan el técnico a cargo y quien reportó el ticket."
+    return ""
+
+
+def escribir_en_chat(ticket, actor, texto, *, del_solicitante=False) -> MensajeChatTicket:
+    """Un mensaje del chat del ticket. No toca el estado ni los plazos: es
+    para aclarar detalles (decidido el 30/10/2026). Avisa al otro en la
+    campana, con el enlace a su vista del ticket."""
+    texto = (texto or "").strip()
+    if not texto:
+        raise ValidationError({"texto": "Escriba un mensaje."})
+    if len(texto) > LARGO_CHAT:
+        raise ValidationError({"texto": f"Como máximo {LARGO_CHAT} caracteres."})
+    abierto = solicitante_puede_escribir_chat(ticket) if del_solicitante else chat_abierto(ticket)
+    if not abierto:
+        raise ValidationError(
+            {"texto": motivo_chat(ticket, del_solicitante=del_solicitante, a_cargo=True)}
+        )
+    mensaje = MensajeChatTicket.objects.create(
+        ticket=ticket, autor=actor, del_solicitante=del_solicitante, texto=texto
+    )
+    from apps.notificaciones import services as campana
+
+    if del_solicitante:
+        destinatarios = [ticket.tecnico.usuario]
+        enlace = f"/admin/soporte/tickets/{ticket.id}"
+        titulo = f"Chat del ticket {ticket.numero}"
+    else:
+        destinatarios = [ticket.solicitante] if ticket.solicitante_id else []
+        enlace = f"/admin/ayuda/tickets/{ticket.id}"
+        titulo = f"Soporte le escribió sobre {ticket.numero}"
+    if destinatarios:
+        resumen = f"{actor.get_full_name() or actor.username}: {texto[:160]}"
+        transaction.on_commit(
+            lambda: campana.notificar(
+                destinatarios,
+                tipo="soporte.chat",
+                titulo=titulo,
+                resumen=resumen,
+                enlace=enlace,
+                empresa=ticket.empresa,
+            )
+        )
+    return mensaje
 
 
 def responder_encuesta(ticket, *, calificacion, resuelto, comentario="") -> EncuestaTicket:

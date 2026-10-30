@@ -605,3 +605,74 @@ def test_registrar_en_nombre_de_otro_es_un_permiso_aparte(mesa):
     assert recepcion.get(f"{TICKETS}personas/").status_code == 200
     bandeja = recepcion.get(TICKETS).json()
     assert (bandeja.get("results", bandeja)) == []
+
+
+# --- Chat del ticket (30/10/2026) -----------------------------------------------------
+
+
+def test_el_chat_del_ticket_se_abre_al_tomarlo_y_no_toca_los_plazos(mesa):
+    """El técnico a cargo y quien reportó conversan dentro del ticket: queda
+    guardado, avisa en la campana y no cambia el estado ni el plazo."""
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    jorge = _equipo(mesa["jorge"].usuario)
+    quien_pide = _quien_pide(mesa)
+    chat_equipo = f"{TICKETS}{ticket.id}/chat/"
+    chat_suyo = f"{SEGUIMIENTO}{ticket.id}/chat/"
+
+    # En la cola, nadie lo tiene: cerrado.
+    assert quien_pide.get(chat_suyo).json()["abierto"] is False
+    assert quien_pide.post(chat_suyo, {"texto": "Hola"}, format="json").status_code == 400
+
+    jorge.post(f"{TICKETS}{ticket.id}/tomar/")
+    ticket.refresh_from_db()
+    respuesta_vence, estado = ticket.sla_respuesta_vence, ticket.estado
+    datos = jorge.post(chat_equipo, {"texto": "¿Qué modelo es?"}, format="json").json()
+    assert datos["mensajes"][0]["texto"] == "¿Qué modelo es?"
+    assert datos["mensajes"][0]["mio"] is True
+
+    datos = quien_pide.post(chat_suyo, {"texto": "Un HP 240"}, format="json").json()
+    assert [m["del_solicitante"] for m in datos["mensajes"]] == [False, True]
+    assert datos["tecnico"]
+
+    # No es una respuesta del ticket: ni estado, ni plazo, ni primera respuesta.
+    ticket.refresh_from_db()
+    assert ticket.estado == estado
+    assert ticket.sla_respuesta_vence == respuesta_vence
+    assert ticket.respondido_en is None
+    assert ticket.mensajes.count() == 0
+
+    # Avisa en la campana a quien le toca leerlo.
+    assert (
+        Notificacion.objects.todas()
+        .filter(usuario=mesa["jorge"].usuario, tipo="soporte.chat")
+        .exists()
+    )
+
+    # Otro técnico no lo lee; quien coordina sí (auditoría), pero no escribe.
+    assert _equipo(mesa["experto"].usuario).get(chat_equipo).status_code in (403, 404)
+    supervisor = _equipo(mesa["supervisor"])
+    assert len(supervisor.get(chat_equipo).json()["mensajes"]) == 2
+    assert supervisor.post(chat_equipo, {"texto": "x"}, format="json").status_code == 403
+
+
+def test_el_chat_se_cierra_con_el_ticket_y_queda_para_auditoria(mesa):
+    _siempre(mesa["jorge"])
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    jorge = _equipo(mesa["jorge"].usuario)
+    jorge.post(f"{TICKETS}{ticket.id}/tomar/")
+    jorge.post(f"{TICKETS}{ticket.id}/chat/", {"texto": "Listo"}, format="json")
+    jorge.post(f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json")
+    # Resuelto: quien reportó no reclama por el chat (no reabriría): se le
+    # indica «Responder».
+    chat_suyo = f"{SEGUIMIENTO}{ticket.id}/chat/"
+    resuelto = _quien_pide(mesa).get(chat_suyo).json()
+    assert resuelto["puede_escribir"] is False
+    assert "No, sigue el problema" in resuelto["motivo"]
+    assert _quien_pide(mesa).post(chat_suyo, {"texto": "Sigue"}, format="json").status_code == 400
+    assert _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()["chat"]["mensajes"] == 1
+    jorge.post(f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "cerrado"}, format="json")
+    datos = _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/chat/").json()
+    assert datos["abierto"] is False
+    assert [m["texto"] for m in datos["mensajes"]] == ["Listo"]

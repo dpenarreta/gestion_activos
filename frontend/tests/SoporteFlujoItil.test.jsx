@@ -15,6 +15,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const servicio = {
+  miChat: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
+  escribirMiChat: vi.fn(),
+  chatTicket: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
+  escribirChatTicket: vi.fn(),
   ticket: vi.fn(),
   respuestas: vi.fn(),
   tecnicos: vi.fn(),

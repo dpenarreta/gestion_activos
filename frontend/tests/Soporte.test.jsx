@@ -14,6 +14,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const servicio = {
+  miChat: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
+  escribirMiChat: vi.fn(),
+  chatTicket: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
+  escribirChatTicket: vi.fn(),
   solicitar: vi.fn(),
   crearTicket: vi.fn(),
   miTicket: vi.fn(),
@@ -1470,5 +1474,115 @@ describe("Mis tickets: qué le toca y qué pasó (auditoría UX/UI, 30/10/2026)"
     } finally {
       sesion.permisos = ["soporte.atender"];
     }
+  });
+});
+
+describe("El chat del ticket (30/10/2026)", () => {
+  it("el técnico a cargo conversa con quien lo reportó, sin salir del ticket", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        permisos: {
+          acciones: [],
+          responder: true,
+          escalar: false,
+          asignar: false,
+          chat_ver: true,
+          chat_escribir: true,
+        },
+      }),
+    );
+    servicio.chatTicket.mockResolvedValue({
+      abierto: true,
+      puede_escribir: true,
+      mensajes: [],
+    });
+    servicio.escribirChatTicket.mockResolvedValue({
+      abierto: true,
+      puede_escribir: true,
+      mensajes: [
+        {
+          id: 1,
+          texto: "¿Qué modelo es?",
+          autor: "Jorge Andrade",
+          del_solicitante: false,
+          mio: true,
+          fecha: "2026-10-30T15:00:00Z",
+        },
+      ],
+    });
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+    expect(
+      await screen.findByRole("heading", { name: /Chat con Carla Ordóñez/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no cambia su estado ni el plazo/),
+    ).toBeInTheDocument();
+    const campo = await screen.findByLabelText("Mensaje");
+    // Vacío no se envía.
+    fireEvent.click(screen.getByRole("button", { name: /^Enviar$/ }));
+    expect(servicio.escribirChatTicket).not.toHaveBeenCalled();
+    // Sin teclado físico (como en el teléfono), Enter no envía: el botón sí.
+    fireEvent.change(campo, { target: { value: "¿Qué modelo es?" } });
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect(servicio.escribirChatTicket).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^Enviar$/ }));
+    await waitFor(() =>
+      expect(servicio.escribirChatTicket).toHaveBeenCalledWith(
+        42,
+        "¿Qué modelo es?",
+      ),
+    );
+    const lista = await screen.findByRole("list", {
+      name: "Mensajes del chat",
+    });
+    expect(within(lista).getByText("¿Qué modelo es?")).toBeInTheDocument();
+    expect(campo).toHaveValue("");
+  });
+
+  it("quien reportó ve el chat con su técnico cuando lo tomaron", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "en_curso",
+      estado_display: "En atención",
+      posicion: null,
+      atiende: "Jorge Andrade",
+      chat: { abierto: true, tecnico: "Jorge Andrade" },
+    });
+    servicio.miChat.mockResolvedValue({
+      abierto: true,
+      puede_escribir: true,
+      mensajes: [
+        {
+          id: 1,
+          texto: "¿Qué modelo es?",
+          autor: "Jorge Andrade",
+          del_solicitante: false,
+          mio: false,
+          fecha: "2026-10-30T15:00:00Z",
+        },
+      ],
+    });
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+    expect(
+      await screen.findByRole("heading", { name: /Chat con Jorge Andrade/ }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("¿Qué modelo es?")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mensaje")).toBeInTheDocument();
+  });
+
+  it("sin técnico todavía, quien reportó no ve el chat", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      chat: { abierto: false, tecnico: "" },
+    });
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+    expect(
+      await screen.findByRole("heading", { name: "Ticket TCK-2026-000042" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Chat con/ })).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ import {
   useEtiquetas,
   VenceTicket,
 } from "./comunes";
+import { ChatDelTicket } from "./ChatDelTicket";
 import { useVisorDeAdjuntos } from "./VisorAdjunto";
 import "./Soporte.css";
 
@@ -540,6 +541,18 @@ export function TicketDetalle() {
     </section>
   );
 
+  // El chat con quien lo reportó: desde que un técnico lo toma.
+  // Con mensajes, sigue a la vista aunque esté en pausa (el historial).
+  const chat = permisos.chat_ver &&
+    (ticket.tecnico || permisos.chat_mensajes > 0) && (
+      <ChatDelTicket
+        titulo={`Chat con ${ticket.solicitante_nombre}`}
+        nota="Para aclarar detalles con la persona. Se ve solo en este ticket y queda guardado. No es una respuesta del ticket: no cambia su estado ni el plazo (la respuesta formal va en «Conversación»)."
+        cargar={() => soporteService.chatTicket(ticket.id)}
+        enviar={(texto) => soporteService.escribirChatTicket(ticket.id, texto)}
+      />
+    );
+
   const aprobaciones = ticket.aprobaciones?.length > 0 && (
     <section className="mz-card">
       <div className="mz-card-head">
@@ -724,6 +737,7 @@ export function TicketDetalle() {
           {datos}
           {solicitud}
           {conversacion}
+          {chat}
           {aprobaciones}
           {encuesta}
           {prioridad}
@@ -734,6 +748,7 @@ export function TicketDetalle() {
           <div className="mz-stack">
             {solicitud}
             {conversacion}
+            {chat}
             {historial}
           </div>
           <div className="mz-stack">

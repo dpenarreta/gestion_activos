@@ -211,6 +211,21 @@ def plazos_para_quien_pide(ticket) -> dict:
     }
 
 
+def chat_dict(mensajes, usuario) -> list:
+    """Los mensajes del chat del ticket, con «mio» para pintarlos a un lado."""
+    return [
+        {
+            "id": m.id,
+            "texto": m.texto,
+            "autor": _nombre(m.autor) or ("Usuario" if m.del_solicitante else "Soporte"),
+            "del_solicitante": m.del_solicitante,
+            "mio": m.autor_id == usuario.id,
+            "fecha": m.created_at,
+        }
+        for m in mensajes
+    ]
+
+
 def seguimiento(ticket, url_adjunto) -> dict:
     """Lo que ve quien pidió: nada interno ni de otros tickets."""
     nombres = etiquetas.de_la_empresa(ticket.empresa_id)
@@ -271,6 +286,14 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "puede_confirmar": ticket.estado == Ticket.Estado.ATENDIDO,
         "encuesta": encuesta_dict(ticket),
         "puede_encuestar": puede_encuestar(ticket),
+        # El chat del ticket: abierto desde que un técnico lo toma.
+        "chat": {
+            "abierto": services.chat_abierto(ticket),
+            "tecnico": str(ticket.tecnico) if ticket.tecnico_id else "",
+            # Con mensajes, la tarjeta sigue a la vista aunque el chat esté en
+            # pausa (antes desaparecía con el historial).
+            "mensajes": ticket.chat.count(),
+        },
     }
 
 
@@ -478,6 +501,9 @@ class TicketDetalleSerializer(TicketListaSerializer):
             "acciones": services.acciones_disponibles(usuario, ticket),
             "tomar": services.puede_tomarlo(services.tecnico_de(usuario), ticket),
             "motivo_no_tomar": services.por_que_no_tomarlo(services.tecnico_de(usuario), ticket),
+            "chat_ver": services.puede_ver_chat(usuario, ticket),
+            "chat_mensajes": ticket.chat.count(),
+            "chat_escribir": services.puede_escribir_chat(usuario, ticket),
             "responder": trabaja or services.tiene(usuario, "ver_todos"),
             "escalar": trabaja
             and ticket.estado in Ticket.ABIERTOS_DEL_TECNICO + (Ticket.Estado.ESPERANDO_USUARIO,),

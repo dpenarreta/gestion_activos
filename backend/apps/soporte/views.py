@@ -76,6 +76,7 @@ from .serializers import (
     ESTADOS_PARA_QUIEN_PIDE,
     atrasado,
     puede_encuestar,
+    chat_dict,
     seguimiento,
     validar_adjuntos,
 )
@@ -356,6 +357,45 @@ class MiTicketView(APIView):
         except ErrorDeModelo as error:
             raise serializers.ValidationError(_errores(error)) from error
         return self.get(request, pk)
+
+
+class MiChatView(APIView):
+    """El chat del ticket, del lado de quien lo reportó."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _respuesta(self, request, ticket):
+        return Response(
+            {
+                "abierto": services.chat_abierto(ticket),
+                "puede_escribir": services.solicitante_puede_escribir_chat(ticket),
+                "motivo": services.motivo_chat(ticket, del_solicitante=True),
+                "tecnico": str(ticket.tecnico) if ticket.tecnico_id else "",
+                "mensajes": chat_dict(ticket.chat.select_related("autor"), request.user),
+            }
+        )
+
+    def get(self, request, pk):
+        return self._respuesta(request, _mi_ticket(request, pk))
+
+    def post(self, request, pk):
+        ticket = _mi_ticket(request, pk)
+        try:
+            mensaje = services.escribir_en_chat(
+                ticket, request.user, request.data.get("texto", ""), del_solicitante=True
+            )
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        record_audit_event(
+            actor=request.user,
+            action="ticket.chat",
+            target_type="ticket",
+            target_id=ticket.numero,
+            module=MODULO,
+            new_values={"mensaje": mensaje.id},
+            context=get_request_context(request),
+        )
+        return self._respuesta(request, ticket)
 
 
 class MiEncuestaView(APIView):
@@ -728,6 +768,38 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
             )
         self._auditar("ticket.tomado", ticket, {"tecnico": str(tecnico)})
         return Response(self._detalle(ticket))
+
+    @action(detail=True, methods=["get", "post"])
+    def chat(self, request, pk=None):
+        """El chat del ticket con quien lo reportó: lo lee el técnico a cargo
+        (y quien coordina, para auditoría) y escribe el técnico a cargo."""
+        ticket = self.get_object()
+        if not services.puede_ver_chat(request.user, ticket):
+            raise PermissionDenied("El chat del ticket es del técnico que lo tiene a su cargo.")
+        if request.method == "POST":
+            if not services.puede_escribir_chat(request.user, ticket):
+                raise PermissionDenied(
+                    "Escribe en el chat el técnico que tiene el ticket a su cargo."
+                )
+            try:
+                mensaje = services.escribir_en_chat(
+                    ticket, request.user, request.data.get("texto", "")
+                )
+            except ErrorDeModelo as error:
+                raise serializers.ValidationError(_errores(error)) from error
+            self._auditar("ticket.chat", ticket, {"mensaje": mensaje.id})
+        puede = services.puede_escribir_chat(request.user, ticket)
+        a_cargo = bool(ticket.tecnico_id) and ticket.tecnico.usuario_id == request.user.id
+        return Response(
+            {
+                "abierto": services.chat_abierto(ticket),
+                "puede_escribir": puede,
+                "motivo": ""
+                if puede
+                else services.motivo_chat(ticket, del_solicitante=False, a_cargo=a_cargo),
+                "mensajes": chat_dict(ticket.chat.select_related("autor"), request.user),
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def tomar(self, request, pk=None):

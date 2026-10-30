@@ -42,6 +42,15 @@ export const soporteService = {
       )
       .then((r) => r.data);
   },
+  /** El chat del ticket, del lado de quien lo reportó. */
+  miChat(id) {
+    return apiClient.get(`${BASE}/mis-tickets/${id}/chat/`).then((r) => r.data);
+  },
+  escribirMiChat(id, texto) {
+    return apiClient
+      .post(`${BASE}/mis-tickets/${id}/chat/`, { texto })
+      .then((r) => r.data);
+  },
   confirmarMiTicket(id) {
     return apiClient
       .post(`${BASE}/mis-tickets/${id}/`, { confirmar: true })
@@ -106,6 +115,15 @@ export const soporteService = {
       .then((r) => r.data);
   },
   /** «Tomar este ticket», desde su ficha. */
+  /** El chat del ticket, del lado del técnico a cargo. */
+  chatTicket(id) {
+    return apiClient.get(`${BASE}/tickets/${id}/chat/`).then((r) => r.data);
+  },
+  escribirChatTicket(id, texto) {
+    return apiClient
+      .post(`${BASE}/tickets/${id}/chat/`, { texto })
+      .then((r) => r.data);
+  },
   tomar(id) {
     return apiClient.post(`${BASE}/tickets/${id}/tomar/`).then((r) => r.data);
   },

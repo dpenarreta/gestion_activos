@@ -558,6 +558,26 @@ class MensajeTicket(BaseModel):
         ordering = ["created_at"]
 
 
+class MensajeChatTicket(BaseModel):
+    """El chat del ticket entre el técnico que lo tomó y quien lo reportó
+    (30/10/2026), para aclarar detalles. Se ve solo dentro del ticket —no va
+    al chat personal— y queda guardado para auditoría. No es una respuesta
+    del ticket: no cambia su estado ni sus plazos."""
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="chat")
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    del_solicitante = models.BooleanField(default=False)
+    texto = models.TextField()
+
+    objects = gestor_de_lo_que_cuelga("ticket__empresa")
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [models.Index(fields=["ticket", "id"])]
+
+
 def ruta_adjunto_ticket(instance, filename: str) -> str:
     import uuid
     from pathlib import PurePath

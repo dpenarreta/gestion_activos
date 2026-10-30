@@ -611,3 +611,75 @@
     min-height: 44px;
   }
 }
+
+/* --- Chat del ticket (30/10/2026) --- */
+.soporte-chat__lista {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.soporte-chat__lista:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.soporte-chat__vacio {
+  padding: 8px;
+}
+
+.soporte-chat__mensaje {
+  max-width: 85%;
+  align-self: flex-start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.soporte-chat__mensaje--mio {
+  align-self: flex-end;
+  background: var(--mz-info-bg);
+  /* Se distingue del fondo de la lista (antes, casi del mismo tono). */
+  border-left: 3px solid var(--mz-info-fg);
+}
+
+.soporte-chat__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.soporte-chat__escribir {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.soporte-chat__escribir textarea {
+  flex: 1 1 240px;
+}
+
+.soporte-chat__motivo {
+  color: var(--mz-ink);
+}
+
+@media (pointer: coarse) {
+  .soporte-chat__escribir .btn {
+    min-height: 44px;
+  }
+}

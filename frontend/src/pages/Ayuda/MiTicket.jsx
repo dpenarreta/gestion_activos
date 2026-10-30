@@ -8,6 +8,7 @@ import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import { fijarTituloPropio } from "../../utils/tituloDocumento";
 import { EstadoTicket, enLaCola, prioridadLlana } from "../Soporte/comunes";
+import { ChatDelTicket } from "../Soporte/ChatDelTicket";
 import { useVisorDeAdjuntos } from "../Soporte/VisorAdjunto";
 import "../Soporte/Soporte.css";
 
@@ -630,6 +631,21 @@ export function MiTicket() {
               )}
             </div>
           </section>
+          {/* El chat con el técnico que lo atiende: desde que lo toma, o
+              con su historial si ya conversaron. Va después de
+              «Conversación», como en la ficha del equipo. */}
+          {(ticket.chat?.abierto || ticket.chat?.mensajes > 0) && (
+            <ChatDelTicket
+              titulo={
+                ticket.chat?.tecnico
+                  ? `Chat con ${ticket.chat.tecnico}`
+                  : "Chat con soporte"
+              }
+              nota="Para dudas rápidas con quien atiende su ticket. Se ve solo aquí y queda guardado. No reabre ni responde el ticket: si el problema sigue, use «Responder» o «No, sigue el problema»."
+              cargar={() => soporteService.miChat(id)}
+              enviar={(texto) => soporteService.escribirMiChat(id, texto)}
+            />
+          )}
         </>
       )}
     </div>
