@@ -12,6 +12,8 @@ Queda en la bitácora del organigrama, con su respaldo."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 MOTIVO = (
     "Niveles jerárquicos por cargo: Gerencia General, Gerencia de Área, "
     "Jefatura, Coordinación, Operativo de área y Asistente de área. El Jefe de "
@@ -47,7 +49,8 @@ def aplicar(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [("organizacion", "0037_nivel_del_cargo")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

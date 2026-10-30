@@ -7,6 +7,8 @@ Gerencia General. Repetirlo no cambia nada."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 
 def aplicar(apps, schema_editor):
     from apps.empresas.contexto import usando_empresa
@@ -21,4 +23,6 @@ def aplicar(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [("organizacion", "0039_texto_alternativo_noticia")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

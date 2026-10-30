@@ -8,6 +8,8 @@ dicen los organigramas) no cambia nada."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 MOTIVO = (
     "Se crean en el organigrama las áreas que pasaron el 27/10/2026 y aún no "
     "estaban: Gestión de Talento Humano LCE 2026 (su gerente reporta al "
@@ -29,7 +31,8 @@ def aplicar(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [("organizacion", "0033_organigrama_talento_humano_2026")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

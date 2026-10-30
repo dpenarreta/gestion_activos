@@ -8,6 +8,8 @@ nada."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 MOTIVO = (
     "La División UPS se separa del área Comercial como unidad propia bajo la "
     "Gerencia General; el área Comercial queda como su organigrama: jefes "
@@ -32,4 +34,6 @@ def aplicar(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [("organizacion", "0040_organigrama_comercial_2026")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

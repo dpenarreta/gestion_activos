@@ -8,6 +8,8 @@ UPS sale de ahí (se desactiva si nadie la ocupa). Repetirlo no cambia nada."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 MOTIVO = (
     "Internacional UPS del área Comercial corregido: Ejecutivo de Negocios "
     "UPS Quito, Ejecutiva de Negocios UPS Guayaquil y Asistente Comercial UPS "
@@ -30,4 +32,6 @@ def aplicar(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [("organizacion", "0041_division_ups_fuera_de_comercial")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

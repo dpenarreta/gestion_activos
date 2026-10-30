@@ -5,6 +5,8 @@ en la bitácora del organigrama."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 ANTES = "Departamento"
 AHORA = "Área"
 MOTIVO = "Se renombra el nivel jerárquico «Departamento» a «Área»."
@@ -27,7 +29,8 @@ def aplicar(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [("organizacion", "0035_renombrar_innovacion_a_ti")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]

@@ -6,6 +6,8 @@ cargos conservan su nombre."""
 
 from django.db import migrations
 
+from apps.core.migraciones import si_el_esquema_esta_al_dia
+
 ANTES = "Innovación y Transformación Digital"
 AHORA = "TI"
 MOTIVO = "Se renombra el departamento «Innovación y Transformación Digital» a «TI»."
@@ -31,7 +33,8 @@ def aplicar(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [("organizacion", "0034_crear_areas_que_faltan")]
 
-    operations = [migrations.RunPython(aplicar, migrations.RunPython.noop)]
+    operations = [
+        migrations.RunPython(si_el_esquema_esta_al_dia(aplicar), migrations.RunPython.noop)
+    ]
