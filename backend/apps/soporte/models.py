@@ -578,6 +578,55 @@ class MensajeChatTicket(BaseModel):
         indexes = [models.Index(fields=["ticket", "id"])]
 
 
+class LlamadaTicket(BaseModel):
+    """Una llamada de voz entre el técnico a cargo y quien reportó el ticket
+    (30/10/2026). El audio va directo entre los dos navegadores (WebRTC); aquí
+    solo se guarda la señalización y el registro: quién llamó, cuándo y cuánto
+    duró. El audio no se graba. No toca los plazos del ticket."""
+
+    class Estado(models.TextChoices):
+        SONANDO = "sonando", "Sonando"
+        EN_CURSO = "en_curso", "En curso"
+        TERMINADA = "terminada", "Terminada"
+        RECHAZADA = "rechazada", "Rechazada"
+        PERDIDA = "perdida", "Perdida"
+        CANCELADA = "cancelada", "Cancelada"
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="llamadas")
+    llamante = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    destinatario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.SONANDO)
+    #: La descripción de la sesión (SDP) de cada lado, con sus candidatos.
+    oferta = models.TextField()
+    respuesta = models.TextField(blank=True)
+    contestada_en = models.DateTimeField(null=True, blank=True)
+    terminada_en = models.DateTimeField(null=True, blank=True)
+    #: El último «sigo aquí» de cada lado: si uno recarga, cierra o pierde la
+    #: red, la llamada se corta sola y no deja el ticket bloqueado.
+    visto_llamante = models.DateTimeField(null=True, blank=True)
+    visto_destinatario = models.DateTimeField(null=True, blank=True)
+
+    objects = gestor_de_lo_que_cuelga("ticket__empresa")
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["destinatario", "estado"]),
+            models.Index(fields=["llamante", "estado"]),
+        ]
+
+    @property
+    def segundos(self) -> int:
+        if not self.contestada_en:
+            return 0
+        fin = self.terminada_en or self.contestada_en
+        return max(0, int((fin - self.contestada_en).total_seconds()))
+
+
 def ruta_adjunto_ticket(instance, filename: str) -> str:
     import uuid
     from pathlib import PurePath

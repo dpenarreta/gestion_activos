@@ -683,3 +683,54 @@
     min-height: 44px;
   }
 }
+
+/* --- Llamada del ticket (30/10/2026) --- */
+/* Arriba a la derecha, bajo la barra: no tapa el chat ni sus ventanas
+   (abajo a la derecha). */
+.soporte-llamada {
+  position: fixed;
+  right: 16px;
+  top: 72px;
+  z-index: 1080;
+  width: min(380px, calc(100vw - 32px));
+  box-shadow: var(--mz-shadow-2, var(--mz-shadow-1));
+}
+
+.soporte-llamada--aviso {
+  align-items: center;
+}
+
+.soporte-llamada__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.soporte-llamada__reloj {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.soporte-llamada__silenciado {
+  color: var(--mz-warn-fg);
+}
+
+@media (pointer: coarse) {
+  .soporte-llamar .btn {
+    min-height: 44px;
+  }
+}
+
+.soporte-llamada .mz-actions {
+  flex-wrap: wrap;
+}
+
+.soporte-llamada .btn {
+  min-height: 44px;
+}
+
+.soporte-publico__estado .soporte-llamar {
+  margin-left: auto;
+}

@@ -211,6 +211,31 @@ def plazos_para_quien_pide(ticket) -> dict:
     }
 
 
+def llamada_dict(llamada, usuario) -> dict:
+    """Lo que necesita cada lado de una llamada: el que llama recibe la
+    respuesta; el que la recibe, la oferta."""
+    soy_llamante = llamada.llamante_id == usuario.id
+    otro = llamada.destinatario if soy_llamante else llamada.llamante
+    soy_solicitante = llamada.ticket.solicitante_id == usuario.id
+    return {
+        "id": llamada.id,
+        "ticket": llamada.ticket_id,
+        "ticket_numero": llamada.ticket.numero,
+        "enlace_ticket": (
+            f"/admin/ayuda/tickets/{llamada.ticket_id}"
+            if soy_solicitante
+            else f"/admin/soporte/tickets/{llamada.ticket_id}"
+        ),
+        "estado": llamada.estado,
+        "soy_llamante": soy_llamante,
+        "otro": _nombre(otro) or "—",
+        "oferta": llamada.oferta if not soy_llamante else "",
+        "respuesta": llamada.respuesta if soy_llamante else "",
+        "contestada_en": llamada.contestada_en,
+        "segundos": llamada.segundos,
+    }
+
+
 def chat_dict(mensajes, usuario) -> list:
     """Los mensajes del chat del ticket, con «mio» para pintarlos a un lado."""
     return [
@@ -294,6 +319,9 @@ def seguimiento(ticket, url_adjunto) -> dict:
             # pausa (antes desaparecía con el historial).
             "mensajes": ticket.chat.count(),
         },
+        "puede_llamar": bool(ticket.solicitante_id)
+        and services.chat_abierto(ticket)
+        and services.solicitante_puede_escribir_chat(ticket),
     }
 
 
@@ -503,6 +531,7 @@ class TicketDetalleSerializer(TicketListaSerializer):
             "motivo_no_tomar": services.por_que_no_tomarlo(services.tecnico_de(usuario), ticket),
             "chat_ver": services.puede_ver_chat(usuario, ticket),
             "chat_mensajes": ticket.chat.count(),
+            "llamar": services.puede_llamar(usuario, ticket),
             "chat_escribir": services.puede_escribir_chat(usuario, ticket),
             "responder": trabaja or services.tiene(usuario, "ver_todos"),
             "escalar": trabaja

@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiClient, getAccessToken, getEmpresaActiva } from "./client";
 
 const BASE = "/soporte";
 
@@ -45,6 +45,45 @@ export const soporteService = {
   /** El chat del ticket, del lado de quien lo reportó. */
   miChat(id) {
     return apiClient.get(`${BASE}/mis-tickets/${id}/chat/`).then((r) => r.data);
+  },
+  /** La llamada de voz del ticket: la señalización (el audio va directo). */
+  llamar(ticket, oferta) {
+    return apiClient
+      .post(`${BASE}/llamadas/`, { ticket, oferta })
+      .then((r) => r.data);
+  },
+  llamadasEntrantes() {
+    return apiClient.get(`${BASE}/llamadas/`).then((r) => r.data);
+  },
+  llamada(id) {
+    return apiClient.get(`${BASE}/llamadas/${id}/`).then((r) => r.data);
+  },
+  contestarLlamada(id, respuesta) {
+    return apiClient
+      .post(`${BASE}/llamadas/${id}/contestar/`, { respuesta })
+      .then((r) => r.data);
+  },
+  colgarLlamada(id) {
+    return apiClient.post(`${BASE}/llamadas/${id}/colgar/`).then((r) => r.data);
+  },
+  /** Colgar al cerrar o recargar la pestaña: la petición sale aunque la
+   * página se esté yendo (con `keepalive`). */
+  colgarAlSalir(id) {
+    const token = getAccessToken();
+    const empresa = getEmpresaActiva();
+    try {
+      fetch(`${apiClient.defaults.baseURL}${BASE}/llamadas/${id}/colgar/`, {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(empresa ? { "X-Empresa": empresa } : {}),
+        },
+      });
+    } catch {
+      // Si no sale, el servidor la corta solo al dejar de recibir señales.
+    }
   },
   escribirMiChat(id, texto) {
     return apiClient

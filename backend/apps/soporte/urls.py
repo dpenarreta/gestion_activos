@@ -24,6 +24,13 @@ urlpatterns = [
     path("mis-tickets/", views.MisTicketsView.as_view(), name="soporte-mis-tickets"),
     path("mis-tickets/<int:pk>/", views.MiTicketView.as_view(), name="soporte-mi-ticket"),
     path("mis-tickets/<int:pk>/chat/", views.MiChatView.as_view(), name="soporte-mi-chat"),
+    path("llamadas/", views.LlamadasView.as_view(), name="soporte-llamadas"),
+    path("llamadas/<int:pk>/", views.LlamadaView.as_view(), name="soporte-llamada"),
+    path(
+        "llamadas/<int:pk>/<str:accion>/",
+        views.LlamadaView.as_view(),
+        name="soporte-llamada-accion",
+    ),
     path(
         "mis-tickets/<int:pk>/encuesta/",
         views.MiEncuestaView.as_view(),

@@ -23,6 +23,7 @@ import {
   VenceTicket,
 } from "./comunes";
 import { ChatDelTicket } from "./ChatDelTicket";
+import { BotonLlamar } from "./Llamadas";
 import { useVisorDeAdjuntos } from "./VisorAdjunto";
 import "./Soporte.css";
 
@@ -698,6 +699,14 @@ export function TicketDetalle() {
             </span>
           </div>
           <p className="mb-0 mt-2">{queToca(ticket, permisos)}</p>
+          {permisos.llamar && (
+            <div className="mt-2">
+              <BotonLlamar
+                ticketId={ticket.id}
+                nombre={ticket.solicitante_nombre}
+              />
+            </div>
+          )}
         </div>
       </section>
 

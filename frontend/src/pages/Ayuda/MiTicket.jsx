@@ -9,6 +9,7 @@ import { mensajeDeError } from "../../utils/errores";
 import { fijarTituloPropio } from "../../utils/tituloDocumento";
 import { EstadoTicket, enLaCola, prioridadLlana } from "../Soporte/comunes";
 import { ChatDelTicket } from "../Soporte/ChatDelTicket";
+import { BotonLlamar } from "../Soporte/Llamadas";
 import { useVisorDeAdjuntos } from "../Soporte/VisorAdjunto";
 import "../Soporte/Soporte.css";
 
@@ -283,6 +284,13 @@ export function MiTicket() {
                 ) : ticket.atiende ? (
                   <span>Lo atiende {ticket.atiende}</span>
                 ) : null}
+                {ticket.puede_llamar && ticket.chat?.tecnico && (
+                  <BotonLlamar
+                    ticketId={Number(id)}
+                    nombre={ticket.chat.tecnico}
+                    paraQuienPide
+                  />
+                )}
               </div>
               {/* Qué le toca, como en la lista (antes, solo la etiqueta). */}
               {ticket.estado === "esperando_usuario" && (

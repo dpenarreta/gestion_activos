@@ -676,3 +676,110 @@ def test_el_chat_se_cierra_con_el_ticket_y_queda_para_auditoria(mesa):
     datos = _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/chat/").json()
     assert datos["abierto"] is False
     assert [m["texto"] for m in datos["mensajes"]] == ["Listo"]
+
+
+# --- Llamada del ticket (30/10/2026) --------------------------------------------------
+
+LLAMADAS = "/api/v1/soporte/llamadas/"
+
+
+def _tomado(mesa):
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    _equipo(mesa["jorge"].usuario).post(f"{TICKETS}{ticket.id}/tomar/")
+    ticket.refresh_from_db()
+    return ticket
+
+
+def test_la_llamada_suena_se_contesta_y_queda_en_el_historial(mesa):
+    ticket = _tomado(mesa)
+    jorge = _equipo(mesa["jorge"].usuario)
+    carla = _quien_pide(mesa)
+    estado, plazo = ticket.estado, ticket.sla_respuesta_vence
+
+    llamada = jorge.post(LLAMADAS, {"ticket": ticket.id, "oferta": "sdp-o"}, format="json")
+    assert llamada.status_code == 201, llamada.data
+    llamada = llamada.json()
+    assert llamada["estado"] == "sonando" and llamada["oferta"] == ""
+
+    # A quien reportó le suena, con la oferta para contestar.
+    entrantes = carla.get(LLAMADAS).json()["entrantes"]
+    assert [e["id"] for e in entrantes] == [llamada["id"]]
+    assert entrantes[0]["oferta"] == "sdp-o"
+    # Una segunda llamada en el mismo ticket, no.
+    assert (
+        jorge.post(LLAMADAS, {"ticket": ticket.id, "oferta": "x"}, format="json").status_code == 400
+    )
+
+    url = f"{LLAMADAS}{llamada['id']}/"
+    contestada = carla.post(f"{url}contestar/", {"respuesta": "sdp-r"}, format="json").json()
+    assert contestada["estado"] == "en_curso"
+    assert jorge.get(url).json()["respuesta"] == "sdp-r"
+
+    colgada = jorge.post(f"{url}colgar/").json()
+    assert colgada["estado"] == "terminada"
+    ticket.refresh_from_db()
+    assert ticket.movimientos.filter(descripcion__startswith="Llamada de").exists()
+    # No toca el ticket.
+    assert (ticket.estado, ticket.sla_respuesta_vence) == (estado, plazo)
+    assert ticket.respondido_en is None
+
+
+def test_la_llamada_sin_contestar_queda_perdida_y_avisa(mesa):
+    ticket = _tomado(mesa)
+    jorge = _equipo(mesa["jorge"].usuario)
+    llamada = jorge.post(LLAMADAS, {"ticket": ticket.id, "oferta": "sdp"}, format="json").json()
+    from apps.soporte.models import LlamadaTicket
+
+    LlamadaTicket.objects.filter(pk=llamada["id"]).update(
+        created_at=timezone.now() - timedelta(seconds=services.SEGUNDOS_DE_TIMBRE + 5)
+    )
+    assert _quien_pide(mesa).get(LLAMADAS).json()["entrantes"] == []
+    assert jorge.get(f"{LLAMADAS}{llamada['id']}/").json()["estado"] == "perdida"
+    assert Notificacion.objects.todas().filter(tipo="soporte.llamada_perdida").exists()
+
+
+def test_solo_llaman_el_tecnico_a_cargo_y_quien_reporto(mesa):
+    with mock.patch.object(services, "repartir", return_value=0):
+        en_cola = _ticket(_crear(mesa)["id"], mesa)
+    # En la cola, sin técnico: nadie llama.
+    assert (
+        _quien_pide(mesa)
+        .post(LLAMADAS, {"ticket": en_cola.id, "oferta": "x"}, format="json")
+        .status_code
+        == 403
+    )
+    ticket = _tomado(mesa)
+    otro = _equipo(mesa["experto"].usuario)
+    assert (
+        otro.post(LLAMADAS, {"ticket": ticket.id, "oferta": "x"}, format="json").status_code == 403
+    )
+    llamada = (
+        _quien_pide(mesa).post(LLAMADAS, {"ticket": ticket.id, "oferta": "x"}, format="json").json()
+    )
+    # Un tercero no ve ni toca la llamada.
+    assert otro.get(f"{LLAMADAS}{llamada['id']}/").status_code == 404
+    assert _equipo(mesa["jorge"].usuario).get(f"{TICKETS}{ticket.id}/").json()["permisos"]["llamar"]
+
+
+def test_la_llamada_se_corta_sola_si_un_lado_deja_de_dar_senales(mesa):
+    """Auditoría UX/UI (30/10/2026): recargar o perder la red dejaba la
+    llamada «en curso» para siempre y el ticket sin poder volver a llamar."""
+    from apps.soporte.models import LlamadaTicket
+
+    ticket = _tomado(mesa)
+    jorge = _equipo(mesa["jorge"].usuario)
+    carla = _quien_pide(mesa)
+    llamada = jorge.post(LLAMADAS, {"ticket": ticket.id, "oferta": "o"}, format="json").json()
+    carla.post(f"{LLAMADAS}{llamada['id']}/contestar/", {"respuesta": "r"}, format="json")
+    # Carla recarga: deja de dar señales.
+    viejo = timezone.now() - timedelta(seconds=services.SEGUNDOS_SIN_LATIDO + 5)
+    LlamadaTicket.objects.filter(pk=llamada["id"]).update(visto_destinatario=viejo)
+    assert jorge.get(f"{LLAMADAS}{llamada['id']}/").json()["estado"] == "terminada"
+    assert ticket.movimientos.filter(descripcion__contains="se cortó la conexión").exists()
+    # El ticket ya no queda bloqueado: se puede volver a llamar.
+    assert (
+        jorge.post(LLAMADAS, {"ticket": ticket.id, "oferta": "o"}, format="json").status_code == 201
+    )
+    # Y quien recibe sabe cada cuánto preguntar (tiene un ticket con técnico).
+    assert carla.get(LLAMADAS).json()["esperar"] == 3

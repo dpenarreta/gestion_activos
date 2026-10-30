@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAppearance } from "../../../context/AppearanceContext";
 import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
+import { LlamadasProvider } from "../../../pages/Soporte/Llamadas";
 import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { cumpleConsulta, useMediaQuery } from "../../../hooks/useMediaQuery";
@@ -218,128 +219,132 @@ export function AdminLayout() {
 
   return (
     <UnsavedChangesProvider>
-      <EstadoModulosProvider>
-        <ChatProvider>
-          {/* Saltar el menú (WCAG 2.4.1): se ve solo al recibir el foco. */}
-          <a
-            className="mz-saltar"
-            href="#contenido"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById("contenido")?.focus();
-            }}
-          >
-            Saltar al contenido
-          </a>
-          <div
-            className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
-            style={
-              empresas.activa?.color
-                ? { "--company-color": empresas.activa.color }
-                : undefined
-            }
-          >
-            <AdminSidebar
-              isCollapsed={contraido}
-              onToggleCollapse={handleToggleCollapse}
-              isMobileOpen={isMobileOpen}
-              onMobileClose={() => setIsMobileOpen(false)}
-              mobileTriggerRef={mobileTriggerRef}
-            />
-            <div className="mz-main">
-              {/* La búsqueda vive aquí y no dentro de cada pantalla: buscar un
+      {/* Las llamadas del ticket: suenan en cualquier pantalla y siguen al
+          navegar. */}
+      <LlamadasProvider>
+        <EstadoModulosProvider>
+          <ChatProvider>
+            {/* Saltar el menú (WCAG 2.4.1): se ve solo al recibir el foco. */}
+            <a
+              className="mz-saltar"
+              href="#contenido"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("contenido")?.focus();
+              }}
+            >
+              Saltar al contenido
+            </a>
+            <div
+              className={`mz-shell ${isCollapsed ? "mz-shell--collapsed" : ""}`}
+              style={
+                empresas.activa?.color
+                  ? { "--company-color": empresas.activa.color }
+                  : undefined
+              }
+            >
+              <AdminSidebar
+                isCollapsed={contraido}
+                onToggleCollapse={handleToggleCollapse}
+                isMobileOpen={isMobileOpen}
+                onMobileClose={() => setIsMobileOpen(false)}
+                mobileTriggerRef={mobileTriggerRef}
+              />
+              <div className="mz-main">
+                {/* La búsqueda vive aquí y no dentro de cada pantalla: buscar un
               equipo es lo que más se hace, y tenerlo en un solo sitio evita
               que cada listado se invente su propia versión. */}
-              <header className="mz-topbar">
-                <button
-                  type="button"
-                  ref={mobileTriggerRef}
-                  className="mz-icon-btn mz-menu-btn"
-                  onClick={() => setIsMobileOpen(true)}
-                  aria-expanded={isMobileOpen}
-                  aria-controls="admin-sidebar-nav"
-                  aria-label="Abrir menú administrativo"
-                >
-                  <Icon name="list" />
-                </button>
-                <h1>{titulo}</h1>
-                <div className="mz-spacer" />
-                <BusquedaGlobal />
-                {/* Soporte TI: toda persona con sesión pide ayuda desde aquí, tenga el
+                <header className="mz-topbar">
+                  <button
+                    type="button"
+                    ref={mobileTriggerRef}
+                    className="mz-icon-btn mz-menu-btn"
+                    onClick={() => setIsMobileOpen(true)}
+                    aria-expanded={isMobileOpen}
+                    aria-controls="admin-sidebar-nav"
+                    aria-label="Abrir menú administrativo"
+                  >
+                    <Icon name="list" />
+                  </button>
+                  <h1>{titulo}</h1>
+                  <div className="mz-spacer" />
+                  <BusquedaGlobal />
+                  {/* Soporte TI: toda persona con sesión pide ayuda desde aquí, tenga el
                 rol que tenga. */}
 
-                <Link
-                  to="/admin/ayuda"
-                  className="mz-icon-btn mz-topbar__soporte"
-                  title="Soporte TI: pedir ayuda y ver mis tickets"
-                >
-                  {/* El texto antes del ícono: el audífono solo no se
+                  <Link
+                    to="/admin/ayuda"
+                    className="mz-icon-btn mz-topbar__soporte"
+                    title="Soporte TI: pedir ayuda y ver mis tickets"
+                  >
+                    {/* El texto antes del ícono: el audífono solo no se
                       reconocía como «pedir ayuda». En el teléfono queda solo
                       el ícono (el texto sigue para el lector de pantalla). */}
-                  <span className="mz-topbar__soporte-texto">Soporte TI</span>
-                  <Icon name="headset" />
-                </Link>
+                    <span className="mz-topbar__soporte-texto">Soporte TI</span>
+                    <Icon name="headset" />
+                  </Link>
 
-                <CampanaNotificaciones />
-                <BotonTema />
-                {/* Con una sola empresa no hay nada que elegir ni mostrar. */}
-                {/* En el teléfono se reduce al ícono del edificio (ver
+                  <CampanaNotificaciones />
+                  <BotonTema />
+                  {/* Con una sola empresa no hay nada que elegir ni mostrar. */}
+                  {/* En el teléfono se reduce al ícono del edificio (ver
                     AdminSidebar.css, fase 3). */}
-                {empresas.multiempresa && (
-                  <SelectorEmpresa
-                    empresas={empresas.empresas}
-                    activa={empresas.activa}
-                  />
-                )}
-              </header>
-              {/* Con el chat acoplado abajo a la derecha, el contenido deja
+                  {empresas.multiempresa && (
+                    <SelectorEmpresa
+                      empresas={empresas.empresas}
+                      activa={empresas.activa}
+                    />
+                  )}
+                </header>
+                {/* Con el chat acoplado abajo a la derecha, el contenido deja
                 espacio al final: si no, el botón del chat tapa el último botón
                 de la pantalla (el «Guardar» de Configuración). */}
-              <main
-                id="contenido"
-                tabIndex={-1}
-                className={`mz-view${
-                  location.pathname.startsWith("/admin/chat")
-                    ? ""
-                    : " mz-view--con-chat"
-                }`}
-              >
-                <AvisoOnboarding />
-                <RecordatorioRolPagos />
-                {/* Las secciones de Configuración conservan sus rutas de
+                <main
+                  id="contenido"
+                  tabIndex={-1}
+                  className={`mz-view${
+                    location.pathname.startsWith("/admin/chat")
+                      ? ""
+                      : " mz-view--con-chat"
+                  }`}
+                >
+                  <AvisoOnboarding />
+                  <RecordatorioRolPagos />
+                  {/* Las secciones de Configuración conservan sus rutas de
                 siempre; el marco con sus pestañas se pone aquí, según dónde
                 se esté, y no en cada pantalla. */}
-                {seccionDeRuta(location.pathname) ? (
-                  <ConfiguracionMarco empresa={empresas.activa?.nombre}>
-                    <Outlet />
-                  </ConfiguracionMarco>
-                ) : esRutaDeAuditoria(location.pathname) ? (
-                  <AuditoriaMarco>
-                    <Outlet />
-                  </AuditoriaMarco>
-                ) : esRutaDeReportes(location.pathname) ? (
-                  <ReportesMarco>
-                    <Outlet />
-                  </ReportesMarco>
-                ) : (
-                  <ModuloApagado>
-                    <Outlet />
-                  </ModuloApagado>
-                )}
-              </main>
+                  {seccionDeRuta(location.pathname) ? (
+                    <ConfiguracionMarco empresa={empresas.activa?.nombre}>
+                      <Outlet />
+                    </ConfiguracionMarco>
+                  ) : esRutaDeAuditoria(location.pathname) ? (
+                    <AuditoriaMarco>
+                      <Outlet />
+                    </AuditoriaMarco>
+                  ) : esRutaDeReportes(location.pathname) ? (
+                    <ReportesMarco>
+                      <Outlet />
+                    </ReportesMarco>
+                  ) : (
+                    <ModuloApagado>
+                      <Outlet />
+                    </ModuloApagado>
+                  )}
+                </main>
+              </div>
             </div>
-          </div>
-          <ChatDock />
-          {/* Primero el aviso importante de la empresa; cerrado (o si no hay),
+            <ChatDock />
+            {/* Primero el aviso importante de la empresa; cerrado (o si no hay),
             el del rol de pagos del mes anterior y luego el de completar «Mi
             perfil»: uno a la vez, nunca uno encima del otro. */}
-          <AvisoInicioSesion onTerminado={() => setAvisoListo(true)} />
-          {avisoListo && (
-            <AvisoRolPagos onTerminado={() => setAvisoRolListo(true)} />
-          )}
-          {avisoRolListo && <AvisoPerfil />}
-        </ChatProvider>
-      </EstadoModulosProvider>
+            <AvisoInicioSesion onTerminado={() => setAvisoListo(true)} />
+            {avisoListo && (
+              <AvisoRolPagos onTerminado={() => setAvisoRolListo(true)} />
+            )}
+            {avisoRolListo && <AvisoPerfil />}
+          </ChatProvider>
+        </EstadoModulosProvider>
+      </LlamadasProvider>
     </UnsavedChangesProvider>
   );
 }

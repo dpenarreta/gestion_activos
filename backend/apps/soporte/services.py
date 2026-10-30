@@ -26,6 +26,7 @@ from .models import (
     FeriadoMesa,
     HorarioMesa,
     HorasFueraDeHorario,
+    LlamadaTicket,
     MensajeChatTicket,
     MensajeTicket,
     MovimientoTicket,
@@ -783,6 +784,237 @@ def escribir_en_chat(ticket, actor, texto, *, del_solicitante=False) -> MensajeC
             )
         )
     return mensaje
+
+
+# --- Llamada del ticket ------------------------------------------------------------------
+
+#: Cuánto suena antes de quedar como perdida.
+SEGUNDOS_DE_TIMBRE = 45
+#: Sin noticias de un lado durante este tiempo, la llamada se da por cortada.
+SEGUNDOS_SIN_LATIDO = 15
+LLAMADA_ACTIVA = (LlamadaTicket.Estado.SONANDO, LlamadaTicket.Estado.EN_CURSO)
+
+
+def otra_parte(ticket, usuario):
+    """Con quién habla cada uno: el técnico a cargo con quien reportó, y al
+    revés. `None` si no es ninguno de los dos."""
+    if ticket.tecnico_id and ticket.tecnico.usuario_id == usuario.id:
+        return ticket.solicitante if ticket.solicitante_id else None
+    if ticket.solicitante_id == usuario.id and ticket.tecnico_id:
+        return ticket.tecnico.usuario
+    return None
+
+
+def puede_llamar(usuario, ticket) -> bool:
+    """Mientras el técnico tiene el ticket a su cargo, como el chat; quien
+    reportó, no con el ticket ya resuelto (si sigue, lo reabre)."""
+    if otra_parte(ticket, usuario) is None or not chat_abierto(ticket):
+        return False
+    if ticket.solicitante_id == usuario.id:
+        return solicitante_puede_escribir_chat(ticket)
+    return True
+
+
+def _duracion(segundos: int) -> str:
+    minutos, resto = divmod(segundos, 60)
+    return f"{minutos} min {resto} s" if minutos else f"{resto} s"
+
+
+def _nombre_de(usuario) -> str:
+    return (usuario.get_full_name() or usuario.username) if usuario else "—"
+
+
+def _registrar_llamada(llamada, descripcion):
+    _movimiento(llamada.ticket, llamada.llamante, descripcion)
+
+
+def latido(llamada, usuario, ahora=None):
+    """«Sigo aquí»: lo manda cada lado mientras sigue la llamada."""
+    ahora = ahora or timezone.now()
+    campo = (
+        "visto_llamante"
+        if usuario.id == llamada.llamante_id
+        else "visto_destinatario"
+        if usuario.id == llamada.destinatario_id
+        else None
+    )
+    if campo:
+        LlamadaTicket.objects.filter(pk=llamada.pk).update(**{campo: ahora})
+        setattr(llamada, campo, ahora)
+
+
+def _sin_latido(momento, desde, ahora) -> bool:
+    ultimo = momento or desde
+    return (ahora - ultimo).total_seconds() > SEGUNDOS_SIN_LATIDO
+
+
+def vencer_llamada(llamada, ahora=None):
+    """Lo que ya no sigue (se revisa al leerla: no hay proceso aparte): la que
+    sonó demasiado queda perdida; la que suena con quien llama ya fuera, se
+    cancela; y la que está en curso con un lado que dejó de dar señales
+    (recargó, cerró, perdió la red), se da por cortada."""
+    ahora = ahora or timezone.now()
+    if llamada.estado == LlamadaTicket.Estado.EN_CURSO:
+        if _sin_latido(llamada.visto_llamante, llamada.contestada_en, ahora) or _sin_latido(
+            llamada.visto_destinatario, llamada.contestada_en, ahora
+        ):
+            ultimo = max(
+                filter(None, [llamada.visto_llamante, llamada.visto_destinatario]),
+                default=llamada.contestada_en,
+            )
+            if LlamadaTicket.objects.filter(
+                pk=llamada.pk, estado=LlamadaTicket.Estado.EN_CURSO
+            ).update(estado=LlamadaTicket.Estado.TERMINADA, terminada_en=ultimo):
+                llamada.refresh_from_db()
+                _registrar_llamada(
+                    llamada,
+                    f"Llamada de {_nombre_de(llamada.llamante)} a "
+                    f"{_nombre_de(llamada.destinatario)} · {_duracion(llamada.segundos)} "
+                    "(se cortó la conexión)",
+                )
+        return llamada
+    if llamada.estado != LlamadaTicket.Estado.SONANDO:
+        return llamada
+    if _sin_latido(llamada.visto_llamante, llamada.created_at, ahora):
+        if LlamadaTicket.objects.filter(pk=llamada.pk, estado=LlamadaTicket.Estado.SONANDO).update(
+            estado=LlamadaTicket.Estado.CANCELADA, terminada_en=ahora
+        ):
+            llamada.refresh_from_db()
+            _registrar_llamada(
+                llamada,
+                f"Llamada de {_nombre_de(llamada.llamante)} a "
+                f"{_nombre_de(llamada.destinatario)}: se cortó antes de que contestara",
+            )
+        return llamada
+    if (ahora - llamada.created_at).total_seconds() < SEGUNDOS_DE_TIMBRE:
+        return llamada
+    actualizadas = LlamadaTicket.objects.filter(
+        pk=llamada.pk, estado=LlamadaTicket.Estado.SONANDO
+    ).update(estado=LlamadaTicket.Estado.PERDIDA, terminada_en=ahora)
+    llamada.refresh_from_db()
+    if actualizadas:
+        _registrar_llamada(
+            llamada,
+            f"Llamada perdida: {_nombre_de(llamada.llamante)} llamó a "
+            f"{_nombre_de(llamada.destinatario)}",
+        )
+        if llamada.destinatario:
+            from apps.notificaciones import services as campana
+
+            enlace = (
+                f"/admin/ayuda/tickets/{llamada.ticket_id}"
+                if llamada.ticket.solicitante_id == llamada.destinatario_id
+                else f"/admin/soporte/tickets/{llamada.ticket_id}"
+            )
+            campana.notificar(
+                [llamada.destinatario],
+                tipo="soporte.llamada_perdida",
+                titulo=f"Llamada perdida · {llamada.ticket.numero}",
+                resumen=f"{_nombre_de(llamada.llamante)} le llamó por el ticket "
+                f"{llamada.ticket.numero}.",
+                enlace=enlace,
+                empresa=llamada.ticket.empresa,
+            )
+    return llamada
+
+
+def iniciar_llamada(ticket, actor, oferta) -> LlamadaTicket:
+    if not puede_llamar(actor, ticket):
+        raise PermissionDenied(
+            "Se llama mientras el técnico tiene el ticket a su cargo, entre él y quien lo reportó."
+        )
+    if not (oferta or "").strip():
+        raise ValidationError({"oferta": "Falta la descripción de la llamada."})
+    destinatario = otra_parte(ticket, actor)
+    for previa in LlamadaTicket.objects.filter(
+        Q(ticket=ticket)
+        | Q(llamante=destinatario)
+        | Q(destinatario=destinatario)
+        | Q(llamante=actor)
+        | Q(destinatario=actor),
+        estado__in=LLAMADA_ACTIVA,
+    ):
+        vencer_llamada(previa)
+    if LlamadaTicket.objects.filter(ticket=ticket, estado__in=LLAMADA_ACTIVA).exists():
+        raise ValidationError({"ticket": "Ya hay una llamada en curso en este ticket."})
+    if LlamadaTicket.objects.filter(
+        Q(llamante=destinatario) | Q(destinatario=destinatario), estado__in=LLAMADA_ACTIVA
+    ).exists():
+        raise ValidationError(
+            {"ticket": f"{_nombre_de(destinatario)} está en otra llamada. Inténtelo en un momento."}
+        )
+    ahora = timezone.now()
+    return LlamadaTicket.objects.create(
+        ticket=ticket,
+        llamante=actor,
+        destinatario=destinatario,
+        oferta=oferta,
+        visto_llamante=ahora,
+    )
+
+
+def puede_recibir_llamadas(usuario) -> bool:
+    """¿Tiene algún ticket donde le puedan llamar? Si no, la pantalla busca
+    llamadas mucho más espaciado."""
+    return Ticket.objects.filter(
+        Q(tecnico__usuario=usuario) | Q(solicitante=usuario),
+        tecnico__isnull=False,
+        estado__in=ESTADOS_CON_CHAT,
+    ).exists()
+
+
+def contestar_llamada(llamada, actor, respuesta) -> LlamadaTicket:
+    vencer_llamada(llamada)
+    if llamada.destinatario_id != actor.id:
+        raise PermissionDenied("Esta llamada es para otra persona.")
+    if llamada.estado != LlamadaTicket.Estado.SONANDO:
+        raise ValidationError({"estado": "La llamada ya no está sonando."})
+    if not (respuesta or "").strip():
+        raise ValidationError({"respuesta": "Falta la respuesta de la llamada."})
+    ahora = timezone.now()
+    actualizadas = LlamadaTicket.objects.filter(
+        pk=llamada.pk, estado=LlamadaTicket.Estado.SONANDO
+    ).update(
+        estado=LlamadaTicket.Estado.EN_CURSO,
+        respuesta=respuesta,
+        contestada_en=ahora,
+        visto_llamante=ahora,
+        visto_destinatario=ahora,
+    )
+    llamada.refresh_from_db()
+    if not actualizadas:
+        raise ValidationError({"estado": "La llamada ya no está sonando."})
+    return llamada
+
+
+def terminar_llamada(llamada, actor) -> LlamadaTicket:
+    """Colgar (o cancelar antes de que contesten, o rechazar si es para mí).
+    Queda en el historial del ticket con su duración."""
+    if actor.id not in (llamada.llamante_id, llamada.destinatario_id):
+        raise PermissionDenied("Esta llamada es de otras personas.")
+    vencer_llamada(llamada)
+    if llamada.estado not in LLAMADA_ACTIVA:
+        return llamada
+    ahora = timezone.now()
+    if llamada.estado == LlamadaTicket.Estado.EN_CURSO:
+        nuevo = LlamadaTicket.Estado.TERMINADA
+    elif actor.id == llamada.destinatario_id:
+        nuevo = LlamadaTicket.Estado.RECHAZADA
+    else:
+        nuevo = LlamadaTicket.Estado.CANCELADA
+    actualizadas = LlamadaTicket.objects.filter(pk=llamada.pk, estado=llamada.estado).update(
+        estado=nuevo, terminada_en=ahora
+    )
+    llamada.refresh_from_db()
+    if actualizadas:
+        de, a = _nombre_de(llamada.llamante), _nombre_de(llamada.destinatario)
+        texto = {
+            LlamadaTicket.Estado.TERMINADA: f"Llamada de {de} a {a} · {_duracion(llamada.segundos)}",
+            LlamadaTicket.Estado.RECHAZADA: f"Llamada de {de} a {a}: no la contestó",
+            LlamadaTicket.Estado.CANCELADA: f"Llamada de {de} a {a}: colgó antes de que contestara",
+        }[nuevo]
+        _registrar_llamada(llamada, texto)
+    return llamada
 
 
 def responder_encuesta(ticket, *, calificacion, resuelto, comentario="") -> EncuestaTicket:

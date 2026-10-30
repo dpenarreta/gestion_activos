@@ -43,6 +43,7 @@ from .models import (
     FeriadoMesa,
     HorarioMesa,
     HorasFueraDeHorario,
+    LlamadaTicket,
     NivelSoporte,
     ReglaSLA,
     RespuestaPredefinida,
@@ -77,6 +78,7 @@ from .serializers import (
     atrasado,
     puede_encuestar,
     chat_dict,
+    llamada_dict,
     seguimiento,
     validar_adjuntos,
 )
@@ -396,6 +398,91 @@ class MiChatView(APIView):
             context=get_request_context(request),
         )
         return self._respuesta(request, ticket)
+
+
+class LlamadasView(APIView):
+    """Iniciar una llamada del ticket (POST) y las que están sonando para
+    quien consulta (GET): la pantalla las busca cada pocos segundos."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Las que suenan para mí, mis llamadas activas (para cortar las que
+        quedaron de una recarga) y cada cuánto volver a preguntar."""
+        sonando, activas = [], []
+        for llamada in LlamadaTicket.objects.filter(
+            Q(destinatario=request.user) | Q(llamante=request.user),
+            estado__in=services.LLAMADA_ACTIVA,
+        ).select_related("ticket", "llamante", "destinatario", "ticket__tecnico__usuario"):
+            services.vencer_llamada(llamada)
+            if llamada.estado not in services.LLAMADA_ACTIVA:
+                continue
+            datos = llamada_dict(llamada, request.user)
+            if (
+                llamada.estado == LlamadaTicket.Estado.SONANDO
+                and llamada.destinatario_id == request.user.id
+            ):
+                sonando.append(datos)
+            else:
+                activas.append(datos)
+        return Response(
+            {
+                "entrantes": sonando,
+                "activas": activas,
+                "esperar": 3 if services.puede_recibir_llamadas(request.user) else 30,
+            }
+        )
+
+    def post(self, request):
+        ticket = get_object_or_404(
+            Ticket.objects.select_related("tecnico__usuario", "solicitante"),
+            pk=request.data.get("ticket"),
+        )
+        try:
+            llamada = services.iniciar_llamada(ticket, request.user, request.data.get("oferta"))
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        return Response(llamada_dict(llamada, request.user), status=201)
+
+
+class LlamadaView(APIView):
+    """Una llamada: su estado (GET) y contestar o colgar (POST)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _llamada(self, request, pk):
+        llamada = get_object_or_404(
+            LlamadaTicket.objects.select_related(
+                "ticket", "llamante", "destinatario", "ticket__tecnico__usuario"
+            ),
+            pk=pk,
+        )
+        if request.user.id not in (llamada.llamante_id, llamada.destinatario_id):
+            raise Http404
+        return llamada
+
+    def get(self, request, pk):
+        llamada = self._llamada(request, pk)
+        # Consultarla es también decir «sigo aquí».
+        if llamada.estado in services.LLAMADA_ACTIVA:
+            services.latido(llamada, request.user)
+        llamada = services.vencer_llamada(llamada)
+        return Response(llamada_dict(llamada, request.user))
+
+    def post(self, request, pk, accion):
+        llamada = self._llamada(request, pk)
+        try:
+            if accion == "contestar":
+                llamada = services.contestar_llamada(
+                    llamada, request.user, request.data.get("respuesta")
+                )
+            elif accion == "colgar":
+                llamada = services.terminar_llamada(llamada, request.user)
+            else:
+                raise Http404
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        return Response(llamada_dict(llamada, request.user))
 
 
 class MiEncuestaView(APIView):
