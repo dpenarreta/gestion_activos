@@ -1,5 +1,7 @@
 import json
+from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.text import slugify
@@ -158,6 +160,46 @@ def aprobaciones_dict(ticket) -> list:
     ]
 
 
+#: Cómo se llaman los estados para quien pide ayuda: en su lenguaje, no en el
+#: de la mesa («Esperando al usuario» le hablaba en tercera persona). Decidido
+#: el 30/10/2026; el equipo sigue viendo los nombres de la empresa.
+ESTADOS_PARA_QUIEN_PIDE = {
+    Ticket.Estado.NUEVO: "En cola",
+    Ticket.Estado.ASIGNADO: "Asignado a un técnico",
+    Ticket.Estado.EN_CURSO: "En atención",
+    Ticket.Estado.ESPERANDO_USUARIO: "Esperando su respuesta",
+    Ticket.Estado.ESPERANDO_APROBACION: "Esperando aprobación",
+    Ticket.Estado.ATENDIDO: "Resuelto: falta su confirmación",
+    Ticket.Estado.CERRADO: "Cerrado",
+}
+
+
+def cierre_automatico(ticket):
+    """Cuándo se cierra solo un ticket atendido si nadie responde: al cumplir
+    los días hábiles de la mesa (ver `services.ciclo`)."""
+    if ticket.estado != Ticket.Estado.ATENDIDO or not ticket.atendido_en:
+        return None
+    dias = getattr(settings, "SOPORTE_DIAS_CIERRE_AUTOMATICO", 3)
+    for extra in range(1, 31):
+        candidato = ticket.atendido_en + timedelta(days=extra)
+        if sla.dias_habiles_entre(ticket.empresa_id, ticket.atendido_en, candidato) >= dias:
+            return candidato.date()
+    return None
+
+
+def atrasado(ticket, ahora=None) -> bool:
+    """¿Pasó el plazo que corre (respuesta o solución)?"""
+    ahora = ahora or timezone.now()
+    plazos = plazos_para_quien_pide(ticket)
+    return any(p and ahora > p for p in (plazos["respuesta"], plazos["solucion"]))
+
+
+def puede_encuestar(ticket) -> bool:
+    """La encuesta, solo con el ticket cerrado: con el ticket atendido
+    competía con «¿Quedó resuelto?» (decidido el 30/10/2026)."""
+    return ticket.estado == Ticket.Estado.CERRADO and encuesta_dict(ticket) is None
+
+
 def plazos_para_quien_pide(ticket) -> dict:
     """Los plazos que corren ahora: el de respuesta hasta que respondan, y el
     de solución mientras se trabaja. `None` si no corre."""
@@ -190,7 +232,12 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "numero": ticket.numero,
         "empresa": ticket.empresa.nombre if ticket.empresa_id else "",
         "estado": ticket.estado,
-        "estado_display": nombres["estados"][ticket.estado],
+        "estado_display": ESTADOS_PARA_QUIEN_PIDE.get(
+            ticket.estado, nombres["estados"][ticket.estado]
+        ),
+        "cierre_automatico": cierre_automatico(ticket),
+        "atrasado": atrasado(ticket),
+        "cerrado_en": ticket.cerrado_en,
         "posicion": services.posicion_en_cola(ticket),
         "fuera_de_horario": ticket.fuera_de_horario,
         "categoria": ticket.categoria.nombre,
@@ -223,8 +270,7 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "puede_responder": ticket.estado != Ticket.Estado.CERRADO,
         "puede_confirmar": ticket.estado == Ticket.Estado.ATENDIDO,
         "encuesta": encuesta_dict(ticket),
-        "puede_encuestar": ticket.estado in (Ticket.Estado.ATENDIDO, Ticket.Estado.CERRADO)
-        and encuesta_dict(ticket) is None,
+        "puede_encuestar": puede_encuestar(ticket),
     }
 
 

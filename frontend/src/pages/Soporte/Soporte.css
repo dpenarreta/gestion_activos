@@ -575,3 +575,39 @@
     min-height: 44px;
   }
 }
+
+/* --- Mis tickets: auditoría UX/UI (30/10/2026) --- */
+.soporte-que-sigue {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.soporte-estrellas__extremos {
+  display: flex;
+  justify-content: space-between;
+  max-width: 240px;
+}
+
+/* Sí / No de la encuesta como botones de 44 px (antes radios de 16 px). */
+.soporte-si-no {
+  min-width: 72px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.soporte-si-no:has(input:focus-visible) {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* Al tacto, los adjuntos y el selector de archivos de 44 px. */
+@media (pointer: coarse) {
+  .soporte-adjuntos .btn,
+  .soporte-publico__archivos,
+  .soporte-confirmar .btn,
+  .mz-view-actions .btn {
+    min-height: 44px;
+  }
+}

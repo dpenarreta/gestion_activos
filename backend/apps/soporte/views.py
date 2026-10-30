@@ -73,6 +73,9 @@ from .serializers import (
     TicketDetalleSerializer,
     TicketInternoSerializer,
     TicketListaSerializer,
+    ESTADOS_PARA_QUIEN_PIDE,
+    atrasado,
+    puede_encuestar,
     seguimiento,
     validar_adjuntos,
 )
@@ -294,7 +297,7 @@ class MisTicketsView(APIView):
 
     def get(self, request):
         nombres = etiquetas.de_la_empresa()
-        tickets = _mis_tickets(request.user).select_related("caso", "categoria")[:100]
+        tickets = _mis_tickets(request.user).select_related("caso", "categoria", "encuesta")[:100]
         return Response(
             [
                 {
@@ -303,7 +306,11 @@ class MisTicketsView(APIView):
                     "categoria": t.categoria.nombre,
                     "caso": t.caso.nombre,
                     "estado": t.estado,
-                    "estado_display": nombres["estados"][t.estado],
+                    "estado_display": ESTADOS_PARA_QUIEN_PIDE.get(
+                        t.estado, nombres["estados"][t.estado]
+                    ),
+                    "atrasado": atrasado(t),
+                    "puede_encuestar": puede_encuestar(t),
                     "prioridad": t.prioridad,
                     "prioridad_display": nombres["prioridades"][t.prioridad],
                     "criticidad": t.criticidad,

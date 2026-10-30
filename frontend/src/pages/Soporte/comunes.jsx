@@ -286,13 +286,30 @@ export function queSigue(ticket) {
     case "esperando_aprobacion":
       return { texto: "Esperando la aprobación", accion: false };
     case "nuevo":
-      return {
-        texto: enLaCola(ticket.posicion) ?? "Esperando a soporte",
-        accion: false,
-      };
+      return ticket.atrasado
+        ? {
+            texto:
+              `Tarda más de lo previsto. ${enLaCola(ticket.posicion) ?? ""}`.trim(),
+            accion: false,
+            atrasado: true,
+          }
+        : {
+            texto: enLaCola(ticket.posicion) ?? "Esperando a soporte",
+            accion: false,
+          };
     case "cerrado":
-      return { texto: "Cerrado", accion: false };
+      // Cerrado con la encuesta pendiente: se le pide (antes, «Cerrado» sin
+      // más).
+      return ticket.puede_encuestar
+        ? { texto: "Cuéntenos cómo le fue", accion: true }
+        : { texto: "Cerrado", accion: false };
     default:
-      return { texto: "Soporte lo está trabajando", accion: false };
+      return ticket.atrasado
+        ? {
+            texto: "Tarda más de lo previsto; soporte ya fue avisado",
+            accion: false,
+            atrasado: true,
+          }
+        : { texto: "Soporte lo está trabajando", accion: false };
   }
 }

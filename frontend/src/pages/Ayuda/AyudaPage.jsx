@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+
+import { soporteService } from "../../api/soporteService";
+import { queSigue } from "../Soporte/comunes";
 
 import {
   PanelDePestana,
@@ -32,6 +36,24 @@ const PESTANAS = [
 export function AyudaPage() {
   const [parametros, setParametros] = useSearchParams();
   const pestana = parametros.get("vista") === "mios" ? "mios" : "nuevo";
+  // Cuántos tickets le piden algo: se dice en la pestaña (antes, quien
+  // entraba a «Nuevo ticket» no se enteraba de que soporte le preguntó).
+  const [pendientes, setPendientes] = useState(0);
+  const contar = (lista) =>
+    setPendientes((lista ?? []).filter((t) => queSigue(t).accion).length);
+  // En «Nuevo ticket» se pide la lista solo para contar; en «Mis tickets»
+  // cuenta la propia lista al cargar.
+  useEffect(() => {
+    if (pestana !== "nuevo") return;
+    Promise.resolve(soporteService.misTickets?.())
+      .then(contar)
+      .catch(() => setPendientes(0));
+  }, [pestana]);
+  const opciones = PESTANAS.map((p) =>
+    p.id === "mios"
+      ? { ...p, cuenta: pendientes, unidad: "necesitan algo de usted" }
+      : p,
+  );
 
   function cambiar(id) {
     setParametros(id === "mios" ? { vista: "mios" } : {}, { replace: true });
@@ -57,10 +79,14 @@ export function AyudaPage() {
         idBase="ayuda"
         valor={pestana}
         onCambio={cambiar}
-        opciones={PESTANAS}
+        opciones={opciones}
       />
       <PanelDePestana idBase="ayuda" valor={pestana}>
-        {pestana === "nuevo" ? <NuevoTicket /> : <MisSolicitudes />}
+        {pestana === "nuevo" ? (
+          <NuevoTicket />
+        ) : (
+          <MisSolicitudes onCargados={contar} />
+        )}
       </PanelDePestana>
     </div>
   );

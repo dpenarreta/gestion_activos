@@ -238,7 +238,9 @@ def test_el_equipo_registra_un_ticket_en_nombre_de_quien_llama(mesa):
 # --- Encuesta y cierre ----------------------------------------------------------------
 
 
-def test_la_encuesta_se_responde_una_vez_cuando_se_atendio(mesa):
+def test_la_encuesta_se_ofrece_una_vez_y_con_el_ticket_cerrado(mesa):
+    """Decidido el 30/10/2026: con el ticket atendido la encuesta competía con
+    «¿Quedó resuelto?»; se ofrece al cerrarse."""
     _siempre(mesa["jorge"])
     ticket = _ticket(_crear(mesa)["id"], mesa)
     url = f"{SEGUIMIENTO}{ticket.id}/encuesta/"
@@ -247,6 +249,12 @@ def test_la_encuesta_se_responde_una_vez_cuando_se_atendio(mesa):
     _equipo(mesa["jorge"].usuario).post(
         f"{TICKETS}{ticket.id}/cambiar-estado/", {"estado": "atendido"}, format="json"
     )
+    ficha = _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()
+    assert ficha["puede_encuestar"] is False
+    assert ficha["puede_confirmar"] is True
+    assert ficha["estado_display"] == "Resuelto: falta su confirmación"
+    assert ficha["cierre_automatico"]  # la fecha en que se cierra solo
+    _quien_pide(mesa).post(f"{SEGUIMIENTO}{ticket.id}/", {"confirmar": "true"}, format="json")
     assert _quien_pide(mesa).get(f"{SEGUIMIENTO}{ticket.id}/").json()["puede_encuestar"] is True
     respuesta = _quien_pide(mesa).post(url, voto, format="json")
     assert respuesta.status_code == 201

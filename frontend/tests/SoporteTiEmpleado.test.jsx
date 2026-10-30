@@ -111,7 +111,9 @@ describe("Soporte TI: Mis tickets", () => {
     fireEvent.click(within(alerta).getByRole("button", { name: "Reintentar" }));
 
     expect(
-      await screen.findByRole("link", { name: "TCK-2026-000042" }),
+      await screen.findByRole("link", {
+        name: "Ver el ticket TCK-2026-000042",
+      }),
     ).toHaveAttribute("href", "/admin/ayuda/tickets/42");
     expect(servicio.misTickets).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -145,7 +147,7 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
     const alerta = await screen.findByRole("alert");
-    expect(alerta).toHaveTextContent("No encontramos este ticket.");
+    expect(alerta).toHaveTextContent("No se pudo cargar su ticket.");
     fireEvent.click(within(alerta).getByRole("button", { name: "Reintentar" }));
 
     expect(
@@ -176,10 +178,12 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
     expect(screen.getByText("No prende")).toBeInTheDocument();
     expect(screen.queryByText(/No encontramos/)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText(/No se pudo actualizar el ticket/)).toHaveAttribute(
-      "role",
-      "status",
-    );
+    // Dentro de una región de estado siempre montada: se anuncia al aparecer.
+    expect(
+      screen
+        .getByText(/No se pudo actualizar el ticket/)
+        .closest('[role="status"]'),
+    ).not.toBeNull();
 
     // El siguiente refresco bueno quita el aviso.
     await act(async () => {
@@ -204,9 +208,12 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
       "Máx. 3 archivos; se omitieron 2.",
     );
 
-    fireEvent.change(screen.getByLabelText("Responder"), {
-      target: { value: "Van las capturas" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(/^(Responder|¿Quiere agregar algo\?)$/),
+      {
+        target: { value: "Van las capturas" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
     await waitFor(() =>
       expect(servicio.responderMiTicket).toHaveBeenCalledWith(
@@ -245,19 +252,25 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
       expect(estrella).toHaveAttribute("name", "calificacion");
     }
 
+    // El botón queda activo y dice qué falta al pulsarlo, junto a él
+    // (antes deshabilitado: el motivo no se anunciaba).
     const enviar = screen.getByRole("button", { name: "Enviar encuesta" });
-    expect(enviar).toBeDisabled();
-    expect(enviar).toHaveAccessibleDescription("Elija una calificación.");
-
-    fireEvent.click(within(grupo).getByRole("radio", { name: "4 de 5" }));
-    expect(within(grupo).getByRole("radio", { name: "4 de 5" })).toBeChecked();
-    expect(enviar).toHaveAccessibleDescription(
-      "Indique si su requerimiento se resolvió.",
+    expect(enviar).toBeEnabled();
+    fireEvent.click(enviar);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Elija una calificación de 1 a 5 estrellas.",
     );
 
+    fireEvent.click(within(grupo).getByRole("radio", { name: /^4 de 5/ }));
+    expect(
+      within(grupo).getByRole("radio", { name: "4 de 5: Satisfecho" }),
+    ).toBeChecked();
+    fireEvent.click(enviar);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Indique si su requerimiento se resolvió.",
+    );
     fireEvent.click(screen.getByLabelText("Sí"));
-    expect(enviar).toBeEnabled();
-    expect(screen.queryByText("Elija una calificación.")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 

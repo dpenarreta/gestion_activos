@@ -53,7 +53,7 @@ function dialogoDe(accion, ticket) {
     case "atendido":
       return {
         titulo: "Marcar como atendido",
-        explicacion: `Se avisa a ${ticket.solicitante_nombre} para que confirme si quedó resuelto y responda la encuesta. Si no responde, se cierra solo.`,
+        explicacion: `Se avisa a ${ticket.solicitante_nombre} para que confirme si quedó resuelto. Si no responde, se cierra solo y entonces se le pide la encuesta.`,
         campo: "Qué se hizo (opcional)",
         ayuda: "Queda en el historial del ticket; el usuario no lo ve.",
         boton: "Marcar como atendido",
@@ -188,7 +188,7 @@ export function TicketDetalle() {
   // escribiendo no se pierde: vive en sus propios componentes.
   useEffect(() => {
     const intervalo = setInterval(() => {
-      if (document.visibilityState !== "visible" || ocupadoRef.current) return;
+      if (document.visibilityState === "hidden" || ocupadoRef.current) return;
       soporteService
         .ticket(id)
         .then((nuevo) =>

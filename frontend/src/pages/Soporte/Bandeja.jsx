@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
@@ -566,11 +566,15 @@ export function Bandeja({ todos = false }) {
 
 /** «Qué sigue» de un ticket propio: resaltado si le toca a la persona. */
 function QueSigue({ ticket }) {
-  const { texto, accion } = queSigue(ticket);
+  const { texto, accion, atrasado } = queSigue(ticket);
   return accion ? (
     <strong className="soporte-le-toca">
       <Icon name="arrow-right-circle-fill" /> {texto}
     </strong>
+  ) : atrasado ? (
+    <span className="soporte-le-toca">
+      <Icon name="exclamation-triangle" /> {texto}
+    </span>
   ) : (
     <span className="mz-faint">{texto}</span>
   );
@@ -585,7 +589,10 @@ function QueSigue({ ticket }) {
  * respondieron», «Confirme si quedó resuelto»), con la columna «Qué sigue»;
  * la prioridad en palabras llanas (sin «P1») y un botón «Ver» por fila.
  */
-export function MisSolicitudes() {
+export function MisSolicitudes({ onCargados }) {
+  // Con ref: la lista se consulta cada 30 s y no debe recargarse si cambia.
+  const avisar = useRef(onCargados);
+  avisar.current = onCargados;
   const [tickets, setTickets] = useState(null);
   const [error, setError] = useState(null);
   const enTarjetas = useVistaDeTarjetas();
@@ -598,6 +605,7 @@ export function MisSolicitudes() {
       .then((datos) => {
         setTickets(datos);
         setError(null);
+        avisar.current?.(datos);
       })
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudieron cargar sus solicitudes.")),
@@ -606,15 +614,16 @@ export function MisSolicitudes() {
 
   useEffect(() => {
     cargar();
-    const intervalo = setInterval(cargar, REFRESCO_MS);
+    // Con la pestaña oculta no se consulta.
+    const intervalo = setInterval(() => {
+      if (document.visibilityState !== "hidden") cargar();
+    }, REFRESCO_MS);
     return () => clearInterval(intervalo);
   }, [cargar]);
 
-  // Lo que le toca a la persona, arriba; el resto, como llega (lo reciente
-  // primero).
-  const ordenados = [...(tickets ?? [])].sort(
-    (a, b) => Number(queSigue(b).accion) - Number(queSigue(a).accion),
-  );
+  // Lo que le toca primero, después lo abierto y al final lo cerrado.
+  const peso = (t) => (queSigue(t).accion ? 0 : t.estado === "cerrado" ? 2 : 1);
+  const ordenados = [...(tickets ?? [])].sort((a, b) => peso(a) - peso(b));
   const pendientes = ordenados.filter((t) => queSigue(t).accion).length;
 
   return (
@@ -645,7 +654,7 @@ export function MisSolicitudes() {
             {ordenados.map((t) => (
               <tr key={t.id}>
                 <td className="mz-mono">
-                  <Link to={`/admin/ayuda/tickets/${t.id}`}>{t.numero}</Link>
+                  {t.numero}
                   <div className="mz-small mz-faint">
                     {formatearFecha(t.creado, true)}
                   </div>
@@ -712,8 +721,11 @@ export function MisSolicitudes() {
                     <EstadoTicket ticket={t} />
                   </div>
                   <div className="mz-card-row__titulo">{t.caso}</div>
-                  <div className="mz-card-meta">
+                  {/* «Qué sigue» en su propia línea: es lo más importante. */}
+                  <div className="soporte-que-sigue">
                     <QueSigue ticket={t} />
+                  </div>
+                  <div className="mz-card-meta">
                     <PrioridadTicket ticket={t} llano />
                     <span>{formatearFecha(t.creado, true)}</span>
                   </div>

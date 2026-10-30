@@ -275,7 +275,7 @@ describe("La encuesta de satisfacción", () => {
     });
     pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
-    fireEvent.click(await screen.findByRole("radio", { name: "4 de 5" }));
+    fireEvent.click(await screen.findByRole("radio", { name: /^4 de 5/ }));
     fireEvent.click(screen.getByLabelText("Sí"));
     fireEvent.click(screen.getByRole("button", { name: "Enviar encuesta" }));
     await waitFor(() =>

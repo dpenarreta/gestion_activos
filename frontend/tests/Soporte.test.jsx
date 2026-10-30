@@ -386,9 +386,9 @@ describe("Mis tickets: qué sigue (auditoría UX/UI, 30/10/2026)", () => {
     pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
     fireEvent.click(await screen.findByRole("button", { name: "Enviar" }));
     expect(servicio.responderMiTicket).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Responder")).toHaveAccessibleDescription(
-      "Escriba su mensaje o adjunte un archivo.",
-    );
+    expect(
+      screen.getByLabelText(/^(Responder|¿Quiere agregar algo\?)$/),
+    ).toHaveAccessibleDescription("Escriba su mensaje o adjunte un archivo.");
   });
 
   it("la lista pone primero lo que le toca a la persona", async () => {
@@ -457,9 +457,12 @@ describe("Mis tickets: la ficha de un ticket propio", () => {
     expect(
       await screen.findByText("Hay 2 tickets antes que el suyo."),
     ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Responder"), {
-      target: { value: "Sigue igual" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(/^(Responder|¿Quiere agregar algo\?)$/),
+      {
+        target: { value: "Sigue igual" },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
     await waitFor(() =>
       expect(servicio.responderMiTicket).toHaveBeenCalledWith(
@@ -1103,7 +1106,9 @@ describe("Mis solicitudes en la bandeja", () => {
     ).toBeInTheDocument();
     // Abre su ficha de seguimiento, no la del equipo (sin notas internas).
     expect(
-      within(tabla).getByRole("link", { name: "TCK-2026-000007" }),
+      within(tabla).getByRole("link", {
+        name: "Ver el ticket TCK-2026-000007",
+      }),
     ).toHaveAttribute("href", "/admin/ayuda/tickets/7");
     // Ni el estado de técnico ni las pestañas del equipo.
     expect(servicio.bandeja).not.toHaveBeenCalled();
@@ -1343,5 +1348,127 @@ describe("La ficha del ticket, de un vistazo (auditoría UX/UI, 30/10/2026)", ()
     expect(screen.getByLabelText(/^Justificación/)).toHaveAccessibleDescription(
       /Diga por qué cambia la prioridad\./,
     );
+  });
+});
+
+describe("Mis tickets: qué le toca y qué pasó (auditoría UX/UI, 30/10/2026)", () => {
+  function abrir() {
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+  }
+
+  it("si soporte espera su respuesta, se lo dice y lo lleva a responder", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "esperando_usuario",
+      estado_display: "Esperando su respuesta",
+      posicion: null,
+      atiende: "Jorge Andrade",
+      mensajes: [
+        {
+          id: 1,
+          texto: "¿Qué modelo es?",
+          del_solicitante: false,
+          autor: "Jorge Andrade",
+          fecha: "2026-10-16T11:00:00Z",
+          adjuntos: [],
+        },
+      ],
+    });
+    abrir();
+    expect(
+      await screen.findByText(/Soporte necesita algo de usted/),
+    ).toBeInTheDocument();
+    // Quién habló, en texto.
+    expect(screen.getByText("Soporte TI")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Responder" }));
+    expect(screen.getByLabelText("Responder")).toHaveFocus();
+  });
+
+  it("atendido: dice cuándo se cierra solo y no ofrece la encuesta todavía", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "atendido",
+      estado_display: "Resuelto: falta su confirmación",
+      posicion: null,
+      puede_confirmar: true,
+      puede_encuestar: false,
+      cierre_automatico: "2026-11-04",
+    });
+    servicio.confirmarMiTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "cerrado",
+      estado_display: "Cerrado",
+      posicion: null,
+      puede_responder: false,
+      puede_encuestar: true,
+    });
+    abrir();
+    expect(
+      await screen.findByText(/Si no nos responde, se cerrará solo el/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "¿Cómo lo atendimos?" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, quedó resuelto" }));
+    // Dice qué pasó y la encuesta aparece ahora.
+    expect(
+      await screen.findByText(/¡Gracias! Cerramos su ticket/),
+    ).toHaveFocus();
+    expect(
+      screen.getByRole("heading", { name: "¿Cómo lo atendimos?" }),
+    ).toBeInTheDocument();
+  });
+
+  it("un ticket que no es suyo o no existe tiene salida y no ofrece reintentar", async () => {
+    servicio.miTicket.mockRejectedValueOnce({ response: { status: 404 } });
+    abrir();
+    expect(
+      await screen.findByRole("heading", { name: "Ticket no disponible" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ver mis tickets" }),
+    ).toHaveAttribute("href", "/admin/ayuda?vista=mios");
+    expect(screen.queryByRole("button", { name: /Reintentar/ })).toBeNull();
+  });
+
+  it("en la lista pide la encuesta pendiente y avisa los atrasados", async () => {
+    sesion.permisos = [];
+    servicio.misTickets.mockResolvedValue([
+      {
+        id: 1,
+        numero: "TCK-2026-000001",
+        categoria: "Hardware",
+        caso: "No enciende",
+        estado: "nuevo",
+        estado_display: "En cola",
+        prioridad: "media",
+        prioridad_display: "P3 · Media",
+        posicion: 3,
+        atrasado: true,
+        creado: "2026-10-21T15:00:00Z",
+      },
+      {
+        id: 2,
+        numero: "TCK-2026-000002",
+        categoria: "Accesos",
+        caso: "Olvidé mi clave",
+        estado: "cerrado",
+        estado_display: "Cerrado",
+        prioridad: "baja",
+        prioridad_display: "P4 · Baja",
+        posicion: null,
+        puede_encuestar: true,
+        creado: "2026-10-01T15:00:00Z",
+      },
+    ]);
+    try {
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      const tabla = await screen.findByRole("table", { name: "Mis tickets" });
+      const filas = within(tabla).getAllByRole("row").slice(1);
+      expect(filas[0]).toHaveTextContent("Cuéntenos cómo le fue");
+      expect(filas[1]).toHaveTextContent("Tarda más de lo previsto");
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
   });
 });
