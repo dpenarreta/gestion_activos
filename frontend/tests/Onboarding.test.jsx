@@ -433,3 +433,61 @@ describe("Aviso del onboarding", () => {
     expect(screen.queryByText(/Tiene su onboarding pendiente/)).toBeNull();
   });
 });
+
+describe("Material de solo texto (30/10/2026)", () => {
+  it("se lee con formato, dice cuánto toma y lleva a evaluarse", async () => {
+    const { TextoDelMaterial, tiempoDeLectura } =
+      await import("../src/pages/Institucional/MiOnboardingPage");
+    expect(tiempoDeLectura("una dos tres")).toBe("Lectura de 1 minuto");
+    expect(tiempoDeLectura(Array(600).fill("palabra").join(" "))).toBe(
+      "Lectura de unos 3 minutos",
+    );
+    render(
+      <div>
+        <TextoDelMaterial
+          texto={
+            "La información es valiosa.\n\nReglas básicas:\n• Nunca comparta su contraseña.\n- Reporte lo sospechoso en https://intranet.ejemplo/ayuda."
+          }
+        />
+      </div>,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Reglas básicas:" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(
+      screen.getByRole("link", {
+        name: "https://intranet.ejemplo/ayuda (se abre en otra pestaña)",
+      }),
+    ).toHaveAttribute("target", "_blank");
+  });
+
+  it("al abrirlo el foco va al texto y «Evaluarme ahora» abre la evaluación", async () => {
+    servicio.marcarVisto.mockResolvedValue({});
+    servicio.evaluacion.mockReturnValue(new Promise(() => {}));
+    render(<MiOnboardingPage />);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: /Revisar/ }))[0],
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: MATERIAL.titulo,
+    });
+    await waitFor(() =>
+      expect(
+        within(ventana).getByRole("region", {
+          name: `Contenido de «${MATERIAL.titulo}»`,
+        }),
+      ).toHaveFocus(),
+    );
+    expect(ventana).toHaveTextContent("Lectura de 1 minuto");
+    await waitFor(() => expect(servicio.marcarVisto).toHaveBeenCalledWith(1));
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: /Evaluarme ahora/ }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: `Evaluación · ${MATERIAL.titulo}`,
+      }),
+    ).toBeInTheDocument();
+  });
+});

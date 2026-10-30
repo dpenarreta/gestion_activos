@@ -80,11 +80,121 @@ function Ventana({
   );
 }
 
+const ENLACE = /(https?:\/\/[^\s<>()]+[^\s<>().,;:!?»"'])/g;
+const VINETA = /^\s*[•\-*·]\s+/;
+
+/** Las direcciones web de una línea, como enlaces (en otra pestaña). */
+function conEnlaces(linea) {
+  return linea.split(ENLACE).map((parte, i) =>
+    i % 2 === 1 ? (
+      <a
+        key={i}
+        href={parte}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${parte} (se abre en otra pestaña)`}
+      >
+        {parte}{" "}
+        <Icon name="box-arrow-up-right" className="onboarding-texto__externo" />
+      </a>
+    ) : (
+      parte
+    ),
+  );
+}
+
+/**
+ * El texto de un material con un formato simple, sin cambiar cómo se escribe
+ * (auditoría UX/UI, 30/10/2026): las líneas que empiezan con «•», «-» o «*»
+ * son una lista; una línea corta que termina en «:» es un subtítulo; una
+ * línea en blanco separa párrafos; las direcciones web son enlaces.
+ */
+export function TextoDelMaterial({ texto }) {
+  const bloques = [];
+  let lista = null;
+  let parrafo = null;
+  const cerrar = () => {
+    lista = null;
+    parrafo = null;
+  };
+  for (const cruda of String(texto ?? "").split(/\r?\n/)) {
+    const linea = cruda.trimEnd();
+    if (!linea.trim()) {
+      cerrar();
+      continue;
+    }
+    if (VINETA.test(linea)) {
+      parrafo = null;
+      if (!lista) {
+        lista = { tipo: "lista", items: [] };
+        bloques.push(lista);
+      }
+      lista.items.push(linea.replace(VINETA, ""));
+      continue;
+    }
+    lista = null;
+    if (linea.trim().endsWith(":") && linea.trim().length <= 80) {
+      parrafo = null;
+      bloques.push({ tipo: "subtitulo", texto: linea.trim() });
+      continue;
+    }
+    if (!parrafo) {
+      parrafo = { tipo: "parrafo", lineas: [] };
+      bloques.push(parrafo);
+    }
+    parrafo.lineas.push(linea);
+  }
+  return bloques.map((b, i) => {
+    if (b.tipo === "lista")
+      return (
+        <ul key={i}>
+          {b.items.map((item, j) => (
+            <li key={j}>{conEnlaces(item)}</li>
+          ))}
+        </ul>
+      );
+    if (b.tipo === "subtitulo")
+      return (
+        <h4 key={i} className="onboarding-texto__subtitulo">
+          {b.texto}
+        </h4>
+      );
+    return (
+      <p key={i}>
+        {b.lineas.map((l, j) => (
+          <span key={j}>
+            {j > 0 && <br />}
+            {conEnlaces(l)}
+          </span>
+        ))}
+      </p>
+    );
+  });
+}
+
+/** «Lectura de unos 3 minutos» (a unas 200 palabras por minuto). */
+export function tiempoDeLectura(texto) {
+  const palabras = String(texto ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const minutos = Math.max(1, Math.round(palabras / 200));
+  return minutos === 1
+    ? "Lectura de 1 minuto"
+    : `Lectura de unos ${minutos} minutos`;
+}
+
 /** Un material, con todo lo que trae: el texto, su archivo (el PDF y la
  * presentación se abren en el visor del sistema, sin salir) y el video.
  * Cuenta como visto al abrir el archivo o el video (o al abrir la ventana si
  * es solo texto): antes contaba con abrir la ventana, sin ver nada. */
-function RevisarMaterial({ material, onVisto, onAbrirArchivo, onCerrar }) {
+function RevisarMaterial({
+  material,
+  onVisto,
+  onAbrirArchivo,
+  onEvaluar,
+  onCerrar,
+}) {
   const [error, setError] = useState(null);
   const [abriendo, setAbriendo] = useState(false);
   const soloTexto = !material.tiene_archivo && !material.url;
@@ -92,6 +202,12 @@ function RevisarMaterial({ material, onVisto, onAbrirArchivo, onCerrar }) {
   const presentacion = !material.archivo_es_pdf && esPresentacion(nombre);
   const pptAntiguo =
     material.tiene_archivo && !material.archivo_es_pdf && !presentacion;
+  const puedeEvaluarse =
+    (material.visto || soloTexto) &&
+    material.preguntas > 0 &&
+    !material.aprobado &&
+    !material.agotado &&
+    Boolean(onEvaluar);
 
   useEffect(() => {
     if (soloTexto) onVisto(material);
@@ -137,7 +253,24 @@ function RevisarMaterial({ material, onVisto, onAbrirArchivo, onCerrar }) {
         <p className="mz-faint">{material.descripcion}</p>
       )}
       {material.contenido && (
-        <div className="onboarding-texto">{material.contenido}</div>
+        <>
+          <p className="onboarding-texto__lectura">
+            <Icon name="clock" /> {tiempoDeLectura(material.contenido)}
+          </p>
+          {/* El foco empieza en el texto, para leer (antes en la X). */}
+          <div
+            className="onboarding-texto"
+            // Una región que se desplaza tiene que poder enfocarse con Tab
+            // para moverla con el teclado (WCAG 2.1.1).
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+            tabIndex={0}
+            aria-label={`Contenido de «${material.titulo}»`}
+            role="region"
+            data-autofocus={soloTexto ? true : undefined}
+          >
+            <TextoDelMaterial texto={material.contenido} />
+          </div>
+        </>
       )}
       {!soloTexto && (
         <>
@@ -201,6 +334,16 @@ function RevisarMaterial({ material, onVisto, onAbrirArchivo, onCerrar }) {
         >
           Cerrar
         </button>
+        {/* Después de revisarlo, el siguiente paso a un clic. */}
+        {puedeEvaluarse && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => onEvaluar(material)}
+          >
+            <Icon name="pencil-square" /> Evaluarme ahora
+          </button>
+        )}
       </div>
     </Ventana>
   );
@@ -1098,6 +1241,10 @@ export function MiOnboardingPage() {
           onAbrirArchivo={(blob, tipo) =>
             setVisor({ material: leyendo, blob, tipo })
           }
+          onEvaluar={(m) => {
+            setLeyendo(null);
+            setEvaluando({ ...m, visto: true });
+          }}
           onCerrar={() => {
             const id = leyendo.id;
             setLeyendo(null);

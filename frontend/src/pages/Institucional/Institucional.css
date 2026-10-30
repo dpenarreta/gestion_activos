@@ -2478,11 +2478,54 @@
   background: var(--mz-ok-fg);
 }
 
+/* El texto de un material: líneas de unos 70 caracteres a 15 px, con
+   listas y subtítulos (auditoría UX/UI, 30/10/2026: antes 110 caracteres
+   por línea a 14 px y todo como texto plano). */
 .onboarding-texto {
+  max-width: 70ch;
   max-height: 60vh;
   overflow: auto;
-  white-space: pre-wrap;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--mz-ink);
+}
+
+.onboarding-texto:focus {
+  outline: none;
+}
+
+.onboarding-texto:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 4px;
+}
+
+.onboarding-texto p,
+.onboarding-texto ul {
+  margin: 0 0 12px;
+}
+
+.onboarding-texto ul {
+  padding-left: 22px;
+}
+
+.onboarding-texto li + li {
+  margin-top: 4px;
+}
+
+.onboarding-texto__subtitulo {
+  margin: 16px 0 6px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.onboarding-texto__subtitulo:first-child {
+  margin-top: 0;
+}
+
+.onboarding-texto__lectura {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
 }
 
 .onboarding-pregunta {
@@ -4103,4 +4146,16 @@
 
 .onboarding-detalle__icono--mal {
   color: var(--mz-bad-fg);
+}
+
+.onboarding-texto__externo {
+  font-size: 0.8em;
+}
+
+/* Cerrar / Evaluarme ahora del material, de buen tamaño para el dedo. */
+@media (pointer: coarse) {
+  .onboarding-archivos ~ .mz-actions .btn,
+  .onboarding-texto ~ .mz-actions .btn {
+    min-height: 44px;
+  }
 }
