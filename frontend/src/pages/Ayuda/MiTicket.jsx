@@ -4,9 +4,10 @@ import { Link, useParams } from "react-router-dom";
 import { soporteService } from "../../api/soporteService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
-import { descargarBlob } from "../../utils/descargas";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
+import { EstadoTicket, enLaCola, prioridadLlana } from "../Soporte/comunes";
+import { useVisorDeAdjuntos } from "../Soporte/VisorAdjunto";
 import "../Soporte/Soporte.css";
 
 /** Cada cuánto se refresca: la posición en la cola baja sola. */
@@ -39,7 +40,12 @@ export function MiTicket() {
   const [archivos, setArchivos] = useState([]);
   const [omitidos, setOmitidos] = useState(0);
   const [enviando, setEnviando] = useState(false);
+  const [errorTexto, setErrorTexto] = useState(null);
+  const [llaveArchivos, setLlaveArchivos] = useState(0);
   const cargado = useRef(false);
+  const caja = useRef(null);
+  const avisoError = useRef(null);
+  const adjuntos = useVisorDeAdjuntos();
 
   const cargar = useCallback(() => {
     soporteService
@@ -67,7 +73,12 @@ export function MiTicket() {
     return () => clearInterval(intervalo);
   }, [cargar]);
 
-  async function ejecutar(accion) {
+  /* `donde`: responder, confirmar o encuesta. El error y el «Enviando…»
+   * salen junto al botón que se pulsó (verificación UX/UI, 30/10/2026: el de
+   * la encuesta no se veía en un ticket cerrado). */
+  const [origen, setOrigen] = useState("responder");
+  async function ejecutar(accion, donde = "responder") {
+    setOrigen(donde);
     setEnviando(true);
     setError(null);
     try {
@@ -75,21 +86,40 @@ export function MiTicket() {
       setTexto("");
       setArchivos([]);
       setOmitidos(0);
+      setLlaveArchivos((n) => n + 1);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar."));
+      requestAnimationFrame(() => avisoError.current?.focus());
     } finally {
       setEnviando(false);
     }
   }
 
-  async function descargar(adjunto) {
-    try {
-      const respuesta = await soporteService.descargar(adjunto.url);
-      descargarBlob(respuesta.data, adjunto.nombre);
-    } catch {
-      setError("No se pudo descargar el archivo.");
-    }
+  const descargar = adjuntos.abrir;
+
+  /** «No, sigue el problema»: lleva a la caja de respuesta. */
+  function sigueElProblema() {
+    caja.current?.focus();
+    caja.current?.scrollIntoView?.({ block: "center" });
   }
+
+  function responder(evento) {
+    evento.preventDefault();
+    // Basta el texto o un adjunto (una captura sola también sirve).
+    if (!texto.trim() && archivos.length === 0) {
+      setErrorTexto("Escriba su mensaje o adjunte un archivo.");
+      caja.current?.focus();
+      return;
+    }
+    setErrorTexto(null);
+    ejecutar(() => soporteService.responderMiTicket(id, texto, archivos));
+  }
+
+  const ahora = Date.now();
+  const plazos = ticket?.plazos ?? {};
+  const respuestaVence = plazos.respuesta
+    ? new Date(plazos.respuesta).getTime()
+    : null;
 
   return (
     <div className="soporte-page mz-stack">
@@ -120,12 +150,13 @@ export function MiTicket() {
         />
       )}
 
-      {error && (
+      {adjuntos.error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
-          {error}
+          {adjuntos.error}
         </div>
       )}
+      {adjuntos.visor}
 
       {ticket && refrescoFallido && (
         <p className="mz-small mz-faint mb-0" role="status">
@@ -139,20 +170,48 @@ export function MiTicket() {
           <section className="mz-card">
             <div className="mz-card-body">
               <div className="soporte-publico__estado" aria-live="polite">
-                <span className="mz-pill mz-pill--neutral">
-                  {ticket.estado_display}
-                </span>
+                {/* El mismo color que en la lista (antes, gris aquí). */}
+                <EstadoTicket ticket={ticket} />
                 {ticket.posicion ? (
-                  <span>
-                    Posición en la cola:{" "}
-                    <strong className="soporte-publico__numero">
-                      {ticket.posicion}
-                    </strong>
-                  </span>
+                  <span>{enLaCola(ticket.posicion)}</span>
                 ) : ticket.atiende ? (
                   <span>Lo atiende {ticket.atiende}</span>
                 ) : null}
               </div>
+              {/* Cuándo le van a responder y para cuándo debería estar
+                  resuelto (antes solo la posición en la cola). */}
+              {respuestaVence && (
+                <p className="mt-2 mb-0">
+                  {respuestaVence > ahora ? (
+                    <>
+                      <Icon name="clock" /> Le responderemos antes del{" "}
+                      <strong>{formatearFecha(plazos.respuesta, true)}</strong>.
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="exclamation-triangle" /> Está tardando más de
+                      lo previsto; el equipo de soporte ya fue avisado.
+                    </>
+                  )}
+                </p>
+              )}
+              {plazos.solucion && (
+                <p className="mt-2 mb-0">
+                  {new Date(plazos.solucion).getTime() > ahora ? (
+                    <>
+                      <Icon name="calendar-check" /> Debería quedar resuelto
+                      antes del{" "}
+                      <strong>{formatearFecha(plazos.solucion, true)}</strong>.
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="exclamation-triangle" /> La solución está
+                      tardando más de lo previsto; el equipo de soporte ya fue
+                      avisado.
+                    </>
+                  )}
+                </p>
+              )}
               {ticket.estado === "esperando_aprobacion" && (
                 <p className="mz-small mt-2 mb-0">
                   Su solicitud necesita la aprobación de{" "}
@@ -163,12 +222,16 @@ export function MiTicket() {
                   . En cuanto la aprueben, entra a la cola de soporte.
                 </p>
               )}
-              {ticket.fuera_de_horario && ticket.posicion && (
-                <p className="mz-small mz-faint mt-2 mb-0">
-                  Llegó fuera del horario de atención: se atenderá a la brevedad
-                  el siguiente día hábil.
-                </p>
-              )}
+              {/* Solo mientras aplica: antes seguía diciendo «el siguiente
+                  día hábil» nueve días después. */}
+              {ticket.fuera_de_horario &&
+                ticket.posicion &&
+                respuestaVence > ahora && (
+                  <p className="mz-small mz-faint mt-2 mb-0">
+                    Llegó fuera del horario de atención: se atenderá a la
+                    brevedad el siguiente día hábil.
+                  </p>
+                )}
               <dl className="soporte-publico__datos">
                 <div>
                   <dt>Categoría</dt>
@@ -179,12 +242,8 @@ export function MiTicket() {
                   <dd>{ticket.caso}</dd>
                 </div>
                 <div>
-                  <dt>Criticidad</dt>
-                  <dd>{ticket.criticidad_display || "—"}</dd>
-                </div>
-                <div>
                   <dt>Prioridad</dt>
-                  <dd>{ticket.prioridad_display}</dd>
+                  <dd>{prioridadLlana(ticket.prioridad_display)}</dd>
                 </div>
                 <div>
                   <dt>Creado</dt>
@@ -204,22 +263,44 @@ export function MiTicket() {
             </div>
           </section>
 
+          {/* Las dos respuestas, con su botón (antes solo el «Sí»: para
+              decir que no había que descubrir la caja de abajo). */}
           {ticket.puede_confirmar && (
-            <div className="mz-alert mz-alert--info">
+            <div className="mz-alert mz-alert--info soporte-confirmar">
               <Icon name="check2-circle" />
               <span>
-                Soporte marcó su ticket como atendido. ¿Quedó resuelto?{" "}
+                Soporte marcó su ticket como atendido. ¿Quedó resuelto?
+              </span>
+              <span className="soporte-confirmar__botones">
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm ms-2"
+                  className="btn btn-primary btn-sm"
                   disabled={enviando}
                   onClick={() =>
-                    ejecutar(() => soporteService.confirmarMiTicket(id))
+                    ejecutar(
+                      () => soporteService.confirmarMiTicket(id),
+                      "confirmar",
+                    )
                   }
                 >
-                  Sí, quedó resuelto
+                  {enviando && origen === "confirmar"
+                    ? "Enviando…"
+                    : "Sí, quedó resuelto"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={sigueElProblema}
+                >
+                  No, sigue el problema
                 </button>
               </span>
+            </div>
+          )}
+          {error && origen === "confirmar" && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
             </div>
           )}
 
@@ -227,9 +308,13 @@ export function MiTicket() {
             <Encuesta
               ticket={ticket}
               onResponder={(datos) =>
-                ejecutar(() => soporteService.encuestaMiTicket(id, datos))
+                ejecutar(
+                  () => soporteService.encuestaMiTicket(id, datos),
+                  "encuesta",
+                )
               }
-              enviando={enviando}
+              enviando={enviando && origen === "encuesta"}
+              error={origen === "encuesta" ? error : null}
             />
           )}
 
@@ -259,16 +344,17 @@ export function MiTicket() {
                 </ul>
               )}
 
+              {!ticket.puede_responder && ticket.estado === "cerrado" && (
+                <div className="mz-alert mz-alert--info mt-3 mb-0">
+                  <Icon name="info-circle" />
+                  <span>
+                    Este ticket está cerrado. Si el problema volvió,{" "}
+                    <Link to="/admin/ayuda">cree un ticket nuevo</Link>.
+                  </span>
+                </div>
+              )}
               {ticket.puede_responder && (
-                <form
-                  className="mt-3"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    ejecutar(() =>
-                      soporteService.responderMiTicket(id, texto, archivos),
-                    );
-                  }}
-                >
+                <form className="mt-3" onSubmit={responder} noValidate>
                   <label className="form-label" htmlFor="sg-texto">
                     {ticket.puede_confirmar
                       ? "¿El problema sigue? Cuéntenos (el ticket se reabre)"
@@ -276,19 +362,36 @@ export function MiTicket() {
                   </label>
                   <textarea
                     id="sg-texto"
-                    className="form-control"
+                    ref={caja}
+                    className={`form-control${errorTexto ? " is-invalid" : ""}`}
                     rows={3}
-                    required
                     maxLength={5000}
                     value={texto}
-                    onChange={(e) => setTexto(e.target.value)}
+                    aria-invalid={errorTexto ? true : undefined}
+                    aria-describedby={errorTexto ? "sg-texto-error" : undefined}
+                    onChange={(e) => {
+                      setTexto(e.target.value);
+                      if (errorTexto) setErrorTexto(null);
+                    }}
                   />
-                  <div className="d-flex flex-wrap gap-2 align-items-center mt-2">
+                  {errorTexto && (
+                    <div id="sg-texto-error" className="mz-field-error">
+                      {errorTexto}
+                    </div>
+                  )}
+                  <label className="form-label mt-2 mb-1" htmlFor="sg-adjuntos">
+                    Adjuntar captura o archivo{" "}
+                    <span className="mz-faint fw-normal">
+                      (opcional, hasta 3, 10 MB cada uno)
+                    </span>
+                  </label>
+                  <div className="d-flex flex-wrap gap-2 align-items-center">
                     <input
+                      key={llaveArchivos}
+                      id="sg-adjuntos"
                       type="file"
                       className="form-control form-control-sm soporte-publico__archivos"
                       multiple
-                      aria-label="Adjuntar archivos"
                       accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
                       aria-describedby={
                         omitidos > 0 ? "sg-adjuntos-aviso" : undefined
@@ -309,6 +412,18 @@ export function MiTicket() {
                       {enviando ? "Enviando…" : "Enviar"}
                     </button>
                   </div>
+                  {/* El error del envío, junto al botón. */}
+                  {error && origen === "responder" && (
+                    <div
+                      ref={avisoError}
+                      className="mz-alert mz-alert--bad mt-2 mb-0"
+                      role="alert"
+                      tabIndex={-1}
+                    >
+                      <Icon name="x-octagon" />
+                      {error}
+                    </div>
+                  )}
                   {/* Antes se recortaba a tres en silencio (revisión final
                       UX/UI, 28/10/2026). */}
                   {omitidos > 0 && (
@@ -331,7 +446,7 @@ export function MiTicket() {
 }
 
 /** Tres preguntas al cerrar: calificación, si se resolvió y un comentario. */
-function Encuesta({ ticket, onResponder, enviando }) {
+function Encuesta({ ticket, onResponder, enviando, error }) {
   const [calificacion, setCalificacion] = useState(0);
   const [resuelto, setResuelto] = useState("");
   const [comentario, setComentario] = useState("");
@@ -445,7 +560,7 @@ function Encuesta({ ticket, onResponder, enviando }) {
             disabled={enviando || Boolean(falta)}
             aria-describedby={falta ? "enc-falta" : undefined}
           >
-            Enviar encuesta
+            {enviando ? "Enviando…" : "Enviar encuesta"}
           </button>
           {/* El botón ya no se queda deshabilitado sin decir por qué. */}
           {falta && (
@@ -454,6 +569,12 @@ function Encuesta({ ticket, onResponder, enviando }) {
             </span>
           )}
         </div>
+        {error && (
+          <div className="mz-alert mz-alert--bad mt-2 mb-0" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
       </form>
     </section>
   );

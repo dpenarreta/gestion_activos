@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 import { CamposFormulario } from "./Publico/CamposFormulario";
@@ -53,6 +54,7 @@ export function FormularioEditor() {
   const [editando, setEditando] = useState(null);
   const [porQuitar, setPorQuitar] = useState(null);
   const [error, setError] = useState(null);
+  const [aviso, setAviso] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
 
   const cargar = useCallback(() => {
@@ -78,12 +80,14 @@ export function FormularioEditor() {
     cargarCategorias();
   }, [cargar, cargarCategorias]);
 
-  async function ejecutar(accion) {
+  async function ejecutar(accion, mensaje = "Cambios guardados.") {
     setTrabajando(true);
     setError(null);
+    setAviso(null);
     try {
       await accion();
       await cargar();
+      setAviso(mensaje);
       return true;
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar el cambio."));
@@ -97,7 +101,7 @@ export function FormularioEditor() {
     const ids = campos.map((c) => c.id);
     const destino = indice + paso;
     [ids[indice], ids[destino]] = [ids[destino], ids[indice]];
-    ejecutar(() => soporteService.config.ordenarCampos(ids));
+    ejecutar(() => soporteService.config.ordenarCampos(ids), "Orden guardado.");
   }
 
   async function guardar(borrador) {
@@ -115,10 +119,14 @@ export function FormularioEditor() {
       // Impacto y urgencia: el texto de cada opción.
       datos.opciones = borrador.opciones;
     }
-    const hecho = await ejecutar(() =>
+    const hecho = await ejecutar(
+      () =>
+        borrador.id
+          ? soporteService.config.actualizar("formulario", borrador.id, datos)
+          : soporteService.config.crear("formulario", datos),
       borrador.id
-        ? soporteService.config.actualizar("formulario", borrador.id, datos)
-        : soporteService.config.crear("formulario", datos),
+        ? `Campo «${borrador.etiqueta}» guardado.`
+        : `Campo «${borrador.etiqueta}» agregado.`,
     );
     if (hecho) setEditando(null);
   }
@@ -173,6 +181,14 @@ export function FormularioEditor() {
           {error}
         </div>
       )}
+      {aviso && !error && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
+          {aviso}
+        </div>
+      )}
+      {/* «Cargando…» y no una página vacía. */}
+      {!campos && !error && <EstadoDeCarga cargando />}
 
       {campos && (
         <div className="soporte-formulario">
@@ -211,7 +227,7 @@ export function FormularioEditor() {
                       <div className="soporte-campo__orden">
                         <button
                           type="button"
-                          className="btn btn-link btn-sm p-0"
+                          className="btn btn-link btn-sm soporte-orden-btn"
                           aria-label={`Subir «${campo.etiqueta}»`}
                           disabled={trabajando || indice === 0}
                           onClick={() => mover(indice, -1)}
@@ -220,7 +236,7 @@ export function FormularioEditor() {
                         </button>
                         <button
                           type="button"
-                          className="btn btn-link btn-sm p-0"
+                          className="btn btn-link btn-sm soporte-orden-btn"
                           aria-label={`Bajar «${campo.etiqueta}»`}
                           disabled={trabajando || indice === campos.length - 1}
                           onClick={() => mover(indice, 1)}
@@ -284,11 +300,13 @@ export function FormularioEditor() {
                                 className="btn btn-danger btn-sm"
                                 disabled={trabajando}
                                 onClick={() =>
-                                  ejecutar(() =>
-                                    soporteService.config.eliminar(
-                                      "formulario",
-                                      campo.id,
-                                    ),
+                                  ejecutar(
+                                    () =>
+                                      soporteService.config.eliminar(
+                                        "formulario",
+                                        campo.id,
+                                      ),
+                                    `Campo «${campo.etiqueta}» quitado.`,
                                   )
                                 }
                               >
@@ -328,10 +346,12 @@ export function FormularioEditor() {
 
           <div className="mz-stack">
             <VistaPrevia campos={campos} datos={datosVista} />
-            <CriticidadPorPersona />
           </div>
         </div>
       )}
+      {/* Fuera de la columna fija de la vista previa: se montaba debajo de
+          ella al desplazarse. */}
+      {campos && <CriticidadPorPersona />}
     </div>
   );
 }

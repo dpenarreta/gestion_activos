@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
 
@@ -15,13 +16,16 @@ const RUTA_CATEGORIAS = "/admin/configuracion/soporte/categorias";
  */
 function useGuardar(onCambio) {
   const [error, setError] = useState(null);
+  const [aviso, setAviso] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
-  async function guardar(accion, mensaje) {
+  async function guardar(accion, mensaje, hecho = "Guardado.") {
     setTrabajando(true);
     setError(null);
+    setAviso(null);
     try {
       await accion();
       await onCambio();
+      setAviso(hecho);
       return true;
     } catch (err) {
       setError(mensajeDeError(err, mensaje));
@@ -30,7 +34,30 @@ function useGuardar(onCambio) {
       setTrabajando(false);
     }
   }
-  return { error, trabajando, guardar };
+  return { error, aviso, trabajando, guardar };
+}
+
+/* Estas opciones se guardan al momento, no con el «Guardar» del campo
+ * (auditoría UX/UI, 30/10/2026: «Cancelar» no deshacía un interruptor ya
+ * movido y no se decía). Se dice arriba y cada cambio avisa que se guardó. */
+function AlMomento() {
+  return (
+    <p className="mz-small mb-1 soporte-al-momento">
+      <Icon name="lightning-charge" /> Estos cambios se guardan al momento:
+      «Cancelar» no los deshace.
+    </p>
+  );
+}
+
+/** Ocultar una opción del formulario se confirma: deja de ofrecerse. */
+async function confirmarOcultar(nombre) {
+  return confirmar({
+    titulo: `¿Ocultar «${nombre}»?`,
+    mensaje:
+      "Deja de ofrecerse al pedir ayuda. Los tickets que ya la tienen la conservan.",
+    accion: "Ocultar",
+    peligro: false,
+  });
 }
 
 /** De más a menos crítico: así se lee la lista. */
@@ -75,7 +102,7 @@ function Opcion({
       <span className="d-inline-flex flex-column">
         <button
           type="button"
-          className="btn btn-link btn-sm p-0 lh-1"
+          className="btn btn-link btn-sm soporte-orden-btn"
           aria-label={`Más crítico: «${nombre}»`}
           disabled={trabajando || peso >= total}
           onClick={() => onMover(-1)}
@@ -84,7 +111,7 @@ function Opcion({
         </button>
         <button
           type="button"
-          className="btn btn-link btn-sm p-0 lh-1"
+          className="btn btn-link btn-sm soporte-orden-btn"
           aria-label={`Menos crítico: «${nombre}»`}
           disabled={trabajando || peso <= 1}
           onClick={() => onMover(1)}
@@ -107,7 +134,11 @@ function Opcion({
           aria-label={`Mostrar «${nombre}»`}
           checked={visible}
           disabled={trabajando}
-          onChange={(e) => onGuardar({ visible: e.target.checked })}
+          onChange={async (e) => {
+            const visible = e.target.checked;
+            if (!visible && !(await confirmarOcultar(nombre))) return;
+            onGuardar({ visible });
+          }}
         />{" "}
         <span className="form-check-label mz-small">
           {visible ? "Se muestra" : "Oculta"}
@@ -125,14 +156,14 @@ function Opcion({
   );
 }
 
-function Agregar({ etiqueta, trabajando, onAgregar }) {
+function Agregar({ etiqueta, trabajando, onAgregar, placeholder }) {
   const [valor, setValor] = useState("");
   return (
     <div className="soporte-opcion soporte-opcion--nueva">
       <input
         className="form-control form-control-sm"
         aria-label={`Nueva opción: ${etiqueta}`}
-        placeholder={`Nueva ${etiqueta}`}
+        placeholder={placeholder ?? `Nueva ${etiqueta}`}
         maxLength={120}
         value={valor}
         onChange={(e) => setValor(e.target.value)}
@@ -151,7 +182,13 @@ function Agregar({ etiqueta, trabajando, onAgregar }) {
   );
 }
 
-function Fallo({ texto }) {
+function Fallo({ texto, aviso }) {
+  if (aviso && !texto)
+    return (
+      <p className="mz-small soporte-guardado mb-1" role="status">
+        <Icon name="check2-circle" /> {aviso}
+      </p>
+    );
   if (!texto) return null;
   return (
     <div className="mz-alert mz-alert--bad" role="alert">
@@ -162,13 +199,14 @@ function Fallo({ texto }) {
 }
 
 export function OpcionesDeCategoria({ categorias, onCambio }) {
-  const { error, trabajando, guardar } = useGuardar(onCambio);
+  const { error, aviso, trabajando, guardar } = useGuardar(onCambio);
   return (
     <fieldset className="col-12 soporte-opciones">
       <legend className="form-label mz-small mb-1">
         Opciones: las categorías de la mesa de ayuda, de más a menos crítica
       </legend>
-      <Fallo texto={error} />
+      <AlMomento />
+      <Fallo texto={error} aviso={aviso} />
       <ul className="list-unstyled mz-stack mb-2">
         {porPeso(categorias).map((c, indice) => (
           <Opcion
@@ -228,13 +266,14 @@ export function OpcionesDeCategoria({ categorias, onCambio }) {
 }
 
 export function OpcionesDeCaso({ categorias, onCambio }) {
-  const { error, trabajando, guardar } = useGuardar(onCambio);
+  const { error, aviso, trabajando, guardar } = useGuardar(onCambio);
   return (
     <fieldset className="col-12 soporte-opciones">
       <legend className="form-label mz-small mb-1">
         Opciones: los casos de ayuda de cada categoría, de más a menos crítico
       </legend>
-      <Fallo texto={error} />
+      <AlMomento />
+      <Fallo texto={error} aviso={aviso} />
       {categorias.map((c) => (
         <div key={c.id} className="soporte-opciones__grupo">
           <strong className="mz-small">
@@ -277,6 +316,7 @@ export function OpcionesDeCaso({ categorias, onCambio }) {
           </ul>
           <Agregar
             etiqueta={`caso en ${c.nombre}`}
+            placeholder={`Nuevo caso en ${c.nombre}`}
             trabajando={trabajando}
             onAgregar={(nombre) =>
               guardar(
@@ -360,7 +400,7 @@ export function CriticidadPorPersona() {
         .catch(() => setDatos({ areas: [], niveles: [] })),
     [],
   );
-  const { error, trabajando, guardar } = useGuardar(cargar);
+  const { error, aviso, trabajando, guardar } = useGuardar(cargar);
 
   useEffect(() => {
     cargar();
@@ -381,7 +421,8 @@ export function CriticidadPorPersona() {
             de quien pide suman en su criticidad.
           </p>
         </div>
-        <Fallo texto={error} />
+        <AlMomento />
+        <Fallo texto={error} aviso={aviso} />
         <div className="soporte-criticidad">
           <div>
             <strong className="mz-small">Áreas, de más a menos crítica</strong>
@@ -394,7 +435,7 @@ export function CriticidadPorPersona() {
                   <span className="d-inline-flex flex-column">
                     <button
                       type="button"
-                      className="btn btn-link btn-sm p-0 lh-1"
+                      className="btn btn-link btn-sm soporte-orden-btn"
                       aria-label={`Más crítica: «${area.nombre}»`}
                       disabled={trabajando || indice === 0}
                       onClick={() =>
@@ -411,7 +452,7 @@ export function CriticidadPorPersona() {
                     </button>
                     <button
                       type="button"
-                      className="btn btn-link btn-sm p-0 lh-1"
+                      className="btn btn-link btn-sm soporte-orden-btn"
                       aria-label={`Menos crítica: «${area.nombre}»`}
                       disabled={trabajando || indice === areas.length - 1}
                       onClick={() =>

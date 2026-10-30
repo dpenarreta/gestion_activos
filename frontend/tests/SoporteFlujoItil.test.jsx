@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -204,20 +210,22 @@ describe("El alta interna", () => {
     );
     expect(screen.getByText("Cobranzas")).toBeInTheDocument();
     // Le faltan teléfono y agencia: se completan para este ticket.
-    fireEvent.change(screen.getByLabelText("Teléfono"), {
+    fireEvent.change(screen.getByLabelText(/^Teléfono/), {
       target: { value: "0994182273" },
     });
-    fireEvent.change(screen.getByLabelText("Agencia"), {
+    fireEvent.change(screen.getByLabelText(/^Agencia/), {
       target: { value: "1" },
     });
     fireEvent.change(screen.getByLabelText("¿Por dónde llegó?"), {
       target: { value: "whatsapp" },
     });
-    fireEvent.change(screen.getByLabelText("Categoría"), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Caso"), { target: { value: "4" } });
-    fireEvent.change(screen.getByLabelText("Descripción"), {
+    fireEvent.change(screen.getByLabelText(/^Caso/), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Descripción/), {
       target: { value: "No escanea" },
     });
     fireEvent.click(screen.getByLabelText(/Me lo asigno/));
@@ -354,10 +362,83 @@ describe("Los indicadores del piloto", () => {
     });
     render(<ReportesSoporte />);
     expect(await screen.findByText("62.5 %")).toBeInTheDocument();
-    expect(screen.getByText("4.3 / 5 · 50 % respondió")).toBeInTheDocument();
-    expect(screen.getByText("88 % (meta 85 %)")).toBeInTheDocument();
-    expect(screen.getByText("90 %")).toHaveClass("soporte-meta--bajo");
+    expect(screen.getByText("4.3 / 5")).toBeInTheDocument();
+    expect(screen.getByText("50 % respondió la encuesta")).toBeInTheDocument();
+    // Cada indicador dice si cumple su meta, en texto y en el color.
+    const sla = screen
+      .getByText("Solucionados a tiempo", { selector: ".mz-kpi-label" })
+      .closest(".mz-kpi");
+    expect(within(sla).getByText("88 %")).toBeInTheDocument();
+    expect(
+      within(sla).getByText(/Cumple la meta \(≥ 85 %\)/),
+    ).toBeInTheDocument();
+    expect(sla).toHaveClass("mz-kpi--ok");
+    const canal = screen
+      .getByText("Pedidos por el sistema", { selector: ".mz-kpi-label" })
+      .closest(".mz-kpi");
+    expect(
+      within(canal).getByText(/No cumple la meta \(≥ 80 %\)/),
+    ).toBeInTheDocument();
+    expect(canal).toHaveClass("mz-kpi--bad");
+    expect(screen.getByText("90 % · no cumple la meta")).toHaveClass(
+      "soporte-meta--bajo",
+    );
     expect(screen.getByText("87.5 %")).toHaveClass("soporte-meta--ok");
+  });
+
+  it("los vencidos sin responder se ven y bajan el cumplimiento", async () => {
+    servicio.reportes.mockResolvedValue({
+      kpis: {
+        creados: 7,
+        en_cola: 7,
+        atendidos: 0,
+        cumplimiento_respuesta: 0,
+        medidos_respuesta: 1,
+        respuestas_vencidas: 1,
+        cumplimiento_sla: null,
+        medidos_sla: 0,
+        vencidos_abiertos: 0,
+        meta_sla: 85,
+      },
+      prioridades: [
+        {
+          prioridad: "critica",
+          etiqueta: "P1 · Crítica",
+          tickets: 1,
+          cumplimiento: 0,
+          meta: 95,
+          plazo_respuesta: 15,
+          plazo_solucion: 240,
+        },
+      ],
+      graficos: [],
+      tecnicos: [],
+    });
+    render(<ReportesSoporte />);
+    const respuesta = (
+      await screen.findByText("Respondidos a tiempo", {
+        selector: ".mz-kpi-label",
+      })
+    ).closest(".mz-kpi");
+    expect(respuesta).toHaveClass("mz-kpi--bad");
+    expect(
+      within(respuesta).getByText("1 sin responder con el plazo vencido"),
+    ).toBeInTheDocument();
+    const solucion = screen
+      .getByText("Solucionados a tiempo", { selector: ".mz-kpi-label" })
+      .closest(".mz-kpi");
+    expect(within(solucion).getByText("—")).toBeInTheDocument();
+    expect(
+      within(solucion).getByText("Aún no hay tickets para medir"),
+    ).toBeInTheDocument();
+    // Los plazos de la prioridad, junto al cumplimiento.
+    const fila = screen.getByText("P1 · Crítica").closest("tr");
+    expect(within(fila).getByText("15 min")).toBeInTheDocument();
+    expect(within(fila).getByText("4 h")).toBeInTheDocument();
+    // Por defecto, el mes en curso.
+    expect(servicio.reportes).toHaveBeenCalledWith({
+      periodo: expect.stringMatching(/^\d{4}-\d{2}$/),
+    });
   });
 });
 

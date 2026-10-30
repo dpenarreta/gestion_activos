@@ -1,18 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { Link } from "react-router-dom";
 
 import { apiClient } from "../../../api/client";
 import { soporteService } from "../../../api/soporteService";
+import { confirmar } from "../../../components/common/Confirmar/confirmar";
+import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
-import { EditorDeAgenda } from "../EditorDeAgenda";
+import { EditorDeAgenda, erroresDeAgenda } from "../EditorDeAgenda";
+import {
+  CampoDuracion,
+  juntarMinutos,
+  ListaDeCasillas,
+  partirMinutos,
+  VentanaDeEdicion,
+} from "./piezas";
 import "../Soporte.css";
-import { confirmar } from "../../../components/common/Confirmar/confirmar";
 
 /*
  * Configuración → Mesa de ayuda. Cinco apartados: equipo (niveles y
  * técnicos), categorías y casos (el catálogo de servicios), SLA, horario y
  * metas, y respuestas predefinidas. Todo es de la empresa activa: cada empresa
  * tiene su propio equipo.
+ *
+ * Auditoría UX/UI (30/10/2026): un solo modo de guardar —con «Guardar» y un
+ * aviso de que se guardó— en lugar de celdas y selectores que guardaban
+ * solos; casillas en lugar de selectores múltiples; «Cargando…» (antes, un
+ * catálogo vacío invitaba a crear duplicados); lo que se desactiva o quita
+ * dice qué pasa; y la alerta de las categorías sin técnicos.
  */
 
 const PRIORIDADES = [
@@ -38,6 +54,8 @@ const CASO_NUEVO = {
 function useRecurso(recurso) {
   const [lista, setLista] = useState(null);
   const [error, setError] = useState(null);
+  const [aviso, setAviso] = useState(null);
+  const [guardando, setGuardando] = useState(false);
   const cargar = useCallback(() => {
     soporteService.config
       .listar(recurso)
@@ -50,18 +68,36 @@ function useRecurso(recurso) {
     cargar();
   }, [cargar]);
 
-  async function ejecutar(accion) {
+  /** Guarda, recarga y dice que se guardó (o el error). */
+  async function ejecutar(accion, mensaje = "Cambios guardados.") {
     setError(null);
+    setAviso(null);
+    setGuardando(true);
     try {
       await accion();
       cargar();
+      setAviso(mensaje);
       return true;
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar."));
       return false;
+    } finally {
+      setGuardando(false);
     }
   }
-  return { lista, error, ejecutar, recargar: cargar };
+  function limpiar() {
+    setError(null);
+    setAviso(null);
+  }
+  return {
+    lista,
+    error,
+    aviso,
+    guardando,
+    ejecutar,
+    limpiar,
+    recargar: cargar,
+  };
 }
 
 function Error({ texto }) {
@@ -70,6 +106,33 @@ function Error({ texto }) {
     <div className="mz-alert mz-alert--bad" role="alert">
       <Icon name="x-octagon" />
       {texto}
+    </div>
+  );
+}
+
+/** El error, el aviso de que se guardó y «Cargando…» de una lista.
+ * `parte`: «carga» (arriba: solo «Cargando…» y el error de carga) o
+ * «accion» (junto al botón: lo que pasó al guardar). Sin `parte`, todo, y
+ * se lleva la vista al aviso para que se vea dónde quedó (verificación
+ * UX/UI, 30/10/2026: el aviso salía arriba, lejos de la acción). */
+function Resultado({ recurso, parte }) {
+  const ref = useRef(null);
+  const cargando = recurso.lista === null && !recurso.error;
+  const mensajes = parte !== "carga" || recurso.lista === null;
+  useEffect(() => {
+    if (!parte && (recurso.aviso || recurso.error))
+      ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [parte, recurso.aviso, recurso.error]);
+  return (
+    <div ref={ref}>
+      {mensajes && <Error texto={recurso.error} />}
+      {mensajes && parte !== "carga" && recurso.aviso && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
+          {recurso.aviso}
+        </div>
+      )}
+      {parte !== "accion" && cargando && <EstadoDeCarga cargando />}
     </div>
   );
 }
@@ -83,6 +146,16 @@ export function EquipoSoporte() {
   const [personas, setPersonas] = useState([]);
   const [editando, setEditando] = useState(null);
   const [nuevoNivel, setNuevoNivel] = useState({ nombre: "", orden: "" });
+  const abridor = useRef(null);
+  function abrirTecnico(datos) {
+    abridor.current = document.activeElement;
+    tecnicos.limpiar();
+    setEditando(datos);
+  }
+  function cerrarTecnico() {
+    setEditando(null);
+    requestAnimationFrame(() => abridor.current?.focus?.());
+  }
 
   useEffect(() => {
     soporteService.config
@@ -106,7 +179,7 @@ export function EquipoSoporte() {
           <h3>Niveles de escalamiento</h3>
         </div>
         <div className="mz-card-body">
-          <Error texto={niveles.error} />
+          <Resultado recurso={niveles} />
           <p className="mz-small mz-faint">
             Los tickets nuevos entran al primer nivel. Escalar los pasa al
             siguiente. Los supervisores de cada nivel reciben las alertas y
@@ -139,8 +212,9 @@ export function EquipoSoporte() {
             onSubmit={async (e) => {
               e.preventDefault();
               if (
-                await niveles.ejecutar(() =>
-                  soporteService.config.crear("niveles", nuevoNivel),
+                await niveles.ejecutar(
+                  () => soporteService.config.crear("niveles", nuevoNivel),
+                  `Nivel «${nuevoNivel.nombre}» agregado.`,
                 )
               )
                 setNuevoNivel({ nombre: "", orden: "" });
@@ -171,7 +245,7 @@ export function EquipoSoporte() {
                 className="form-control form-control-sm"
                 required
                 maxLength={80}
-                placeholder="N1 · Mesa de ayuda"
+                placeholder="Mesa de ayuda"
                 value={nuevoNivel.nombre}
                 onChange={(e) =>
                   setNuevoNivel((n) => ({ ...n, nombre: e.target.value }))
@@ -182,8 +256,9 @@ export function EquipoSoporte() {
               <button
                 type="submit"
                 className="btn btn-outline-primary btn-sm w-100"
+                disabled={niveles.guardando}
               >
-                Agregar nivel
+                {niveles.guardando ? "Guardando…" : "Agregar nivel"}
               </button>
             </div>
           </form>
@@ -197,7 +272,7 @@ export function EquipoSoporte() {
             type="button"
             className="btn btn-primary btn-sm"
             onClick={() =>
-              setEditando({
+              abrirTecnico({
                 usuario: "",
                 nivel: niveles.lista?.[0]?.id ?? "",
                 categorias: [],
@@ -212,7 +287,10 @@ export function EquipoSoporte() {
           </button>
         </div>
         <div className="mz-card-body">
-          <Error texto={tecnicos.error} />
+          <Resultado
+            recurso={tecnicos}
+            parte={editando ? "carga" : undefined}
+          />
           <div className="mz-table-wrap">
             <table className="mz-table">
               <thead>
@@ -264,7 +342,8 @@ export function EquipoSoporte() {
                       <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
-                        onClick={() => setEditando(t)}
+                        aria-label={`Editar a ${t.nombre}`}
+                        onClick={() => abrirTecnico(t)}
                       >
                         Editar
                       </button>
@@ -285,7 +364,9 @@ export function EquipoSoporte() {
               personas={personas}
               niveles={niveles.lista ?? []}
               categorias={categorias.lista ?? []}
-              onCancelar={() => setEditando(null)}
+              guardando={tecnicos.guardando}
+              resultado={<Resultado recurso={tecnicos} parte="accion" />}
+              onCancelar={cerrarTecnico}
               onGuardar={async (datos) => {
                 const accion = datos.id
                   ? () =>
@@ -295,7 +376,13 @@ export function EquipoSoporte() {
                         datos,
                       )
                   : () => soporteService.config.crear("tecnicos", datos);
-                if (await tecnicos.ejecutar(accion)) setEditando(null);
+                if (
+                  await tecnicos.ejecutar(
+                    accion,
+                    datos.id ? "Técnico guardado." : "Técnico agregado.",
+                  )
+                )
+                  cerrarTecnico();
               }}
             />
           )}
@@ -306,56 +393,51 @@ export function EquipoSoporte() {
 }
 
 function FilaNivel({ nivel, personas, recurso }) {
+  const [editando, setEditando] = useState(false);
   const [supervisores, setSupervisores] = useState(nivel.supervisores);
+  const nombres = nivel.supervisores
+    .map((id) => personas.find((p) => p.id === id)?.nombre)
+    .filter(Boolean);
   return (
     <tr>
       <td className="mz-mono">N{nivel.orden}</td>
       <td>{nivel.nombre}</td>
       <td>
-        <select
-          multiple
-          className="form-select form-select-sm"
-          aria-label={`Supervisores de ${nivel.nombre}`}
-          value={supervisores.map(String)}
-          onChange={(e) =>
-            setSupervisores(
-              Array.from(e.target.selectedOptions).map((o) => Number(o.value)),
-            )
-          }
-        >
-          {personas.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        {nombres.length ? (
+          nombres.join(", ")
+        ) : (
+          <span className="mz-pill mz-pill--warn">Sin supervisores</span>
+        )}
       </td>
       <td className="num">
         <div className="mz-actions justify-content-end">
           <button
             type="button"
             className="btn btn-outline-primary btn-sm"
-            onClick={() =>
-              recurso.ejecutar(() =>
-                soporteService.config.actualizar("niveles", nivel.id, {
-                  supervisores,
-                }),
-              )
-            }
+            aria-label={`Cambiar los supervisores de ${nivel.nombre}`}
+            onClick={() => {
+              setSupervisores(nivel.supervisores);
+              recurso.limpiar();
+              setEditando(true);
+            }}
           >
-            Guardar
+            Supervisores
           </button>
           <button
             type="button"
             className="btn btn-outline-danger btn-sm"
+            aria-label={`Quitar el nivel ${nivel.nombre}`}
             onClick={async () => {
               const si = await confirmar({
                 titulo: `¿Quitar el nivel «${nivel.nombre}»?`,
+                mensaje:
+                  "Si tiene técnicos o tickets, no se puede quitar: muévalos antes a otro nivel. Los escalamientos ya no pasarán por él.",
                 accion: "Quitar",
               });
               if (si) {
-                recurso.ejecutar(() =>
-                  soporteService.config.eliminar("niveles", nivel.id),
+                recurso.ejecutar(
+                  () => soporteService.config.eliminar("niveles", nivel.id),
+                  `Nivel «${nivel.nombre}» quitado.`,
                 );
               }
             }}
@@ -363,6 +445,37 @@ function FilaNivel({ nivel, personas, recurso }) {
             Quitar
           </button>
         </div>
+        {editando && (
+          <VentanaDeEdicion
+            titulo={`Supervisores de ${nivel.nombre}`}
+            guardando={recurso.guardando}
+            error={recurso.error}
+            onCerrar={() => setEditando(false)}
+            onGuardar={async () => {
+              if (
+                await recurso.ejecutar(
+                  () =>
+                    soporteService.config.actualizar("niveles", nivel.id, {
+                      supervisores,
+                    }),
+                  `Supervisores de «${nivel.nombre}» guardados.`,
+                )
+              )
+                setEditando(false);
+            }}
+          >
+            <p className="mz-small mz-faint">
+              Reciben las alertas y los escalamientos por plazo de este nivel.
+            </p>
+            <ListaDeCasillas
+              etiqueta="Supervisores"
+              opciones={personas}
+              valor={supervisores}
+              onCambiar={setSupervisores}
+              vacio="No hay personas con cuenta."
+            />
+          </VentanaDeEdicion>
+        )}
       </td>
     </tr>
   );
@@ -373,6 +486,8 @@ function FormularioTecnico({
   personas,
   niveles,
   categorias,
+  guardando,
+  resultado,
   onGuardar,
   onCancelar,
 }) {
@@ -381,13 +496,34 @@ function FormularioTecnico({
     horarios: inicial.horarios ?? [],
     ausencias: inicial.ausencias ?? [],
   });
+  const [errores, setErrores] = useState(null);
+  const [errorPersona, setErrorPersona] = useState(null);
+  const titulo = useRef(null);
+  const persona = useRef(null);
   const fijar = (campo, valor) => setValores((v) => ({ ...v, [campo]: valor }));
+
+  // El formulario aparece debajo de la tabla: se lleva la vista y el foco
+  // (antes, quien no miraba abajo no lo veía).
+  useEffect(() => {
+    titulo.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    titulo.current?.focus({ preventScroll: true });
+  }, [inicial]);
 
   return (
     <form
       className="mz-card mt-3"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
+        if (!valores.usuario) {
+          setErrorPersona("Elija la cuenta de la persona.");
+          persona.current?.focus();
+          return;
+        }
+        setErrorPersona(null);
+        const problemas = erroresDeAgenda(valores.horarios, valores.ausencias);
+        setErrores(problemas);
+        if (problemas) return;
         onGuardar({
           id: valores.id,
           usuario: Number(valores.usuario),
@@ -396,12 +532,14 @@ function FormularioTecnico({
           capacidad: Number(valores.capacidad),
           activo: valores.activo,
           horarios: valores.horarios,
-          ausencias: valores.ausencias.filter((a) => a.desde && a.hasta),
+          ausencias: valores.ausencias,
         });
       }}
     >
       <div className="mz-card-head">
-        <h3>{valores.id ? `Editar a ${valores.nombre}` : "Nuevo técnico"}</h3>
+        <h3 ref={titulo} tabIndex={-1}>
+          {valores.id ? `Editar a ${valores.nombre}` : "Nuevo técnico"}
+        </h3>
       </div>
       <div className="mz-card-body row g-3">
         <div className="col-12 col-md-6">
@@ -410,11 +548,17 @@ function FormularioTecnico({
           </label>
           <select
             id="tc-usuario"
-            className="form-select"
-            required
+            ref={persona}
+            className={`form-select${errorPersona ? " is-invalid" : ""}`}
+            aria-required="true"
+            aria-invalid={errorPersona ? true : undefined}
+            aria-describedby={`tc-usuario-ayuda${errorPersona ? " tc-usuario-error" : ""}`}
             disabled={Boolean(valores.id)}
             value={valores.usuario}
-            onChange={(e) => fijar("usuario", e.target.value)}
+            onChange={(e) => {
+              fijar("usuario", e.target.value);
+              if (errorPersona) setErrorPersona(null);
+            }}
           >
             <option value="">Elija una cuenta</option>
             {personas.map((p) => (
@@ -423,9 +567,14 @@ function FormularioTecnico({
               </option>
             ))}
           </select>
-          <div className="form-text">
+          <div id="tc-usuario-ayuda" className="form-text">
             Necesita además el permiso «Atender tickets» en su rol.
           </div>
+          {errorPersona && (
+            <div id="tc-usuario-error" className="mz-field-error">
+              {errorPersona}
+            </div>
+          )}
         </div>
         <div className="col-6 col-md-3">
           <label className="form-label" htmlFor="tc-nivel">
@@ -494,10 +643,18 @@ function FormularioTecnico({
           <EditorDeAgenda
             horarios={valores.horarios}
             ausencias={valores.ausencias}
-            onCambiar={({ horarios, ausencias }) =>
-              setValores((v) => ({ ...v, horarios, ausencias }))
-            }
+            errores={errores}
+            onCambiar={({ horarios, ausencias }) => {
+              setValores((v) => ({ ...v, horarios, ausencias }));
+              if (errores) setErrores(erroresDeAgenda(horarios, ausencias));
+            }}
           />
+          {errores && (
+            <div className="mz-alert mz-alert--bad mt-2 mb-0" role="alert">
+              <Icon name="x-octagon" />
+              Revise el horario: hay franjas o fechas marcadas.
+            </div>
+          )}
         </div>
         <div className="col-12 form-check ms-2">
           <input
@@ -511,16 +668,21 @@ function FormularioTecnico({
             Activo (recibe tickets)
           </label>
         </div>
+        <div className="col-12">{resultado}</div>
         <div className="col-12 mz-actions justify-content-end">
           <button
             type="button"
-            className="btn btn-cancelar"
+            className="btn btn-outline-secondary"
             onClick={onCancelar}
           >
             Cancelar
           </button>
-          <button type="submit" className="btn btn-primary">
-            Guardar
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={guardando}
+          >
+            {guardando ? "Guardando…" : "Guardar"}
           </button>
         </div>
       </div>
@@ -543,9 +705,27 @@ export function CategoriasSoporte() {
       .catch(() => setAreas([]));
   }, []);
 
+  const sinTecnicos = (categorias.lista ?? []).filter(
+    (c) => c.activa && c.tecnicos.length === 0,
+  );
+
   return (
     <div className="soporte-page mz-stack">
-      <Error texto={categorias.error} />
+      <Resultado recurso={categorias} />
+      {/* Lo que deja tickets sin repartir, a la vista (antes, «0 técnico(s)»
+          en letra pequeña). */}
+      {sinTecnicos.length > 0 && (
+        <div className="mz-alert mz-alert--bad" role="status">
+          <Icon name="exclamation-octagon" />
+          <span>
+            {sinTecnicos.length === 1
+              ? `«${sinTecnicos[0].nombre}» no tiene técnicos: sus tickets no se reparten.`
+              : `${sinTecnicos.length} categorías no tienen técnicos (${sinTecnicos.map((c) => c.nombre).join(", ")}): sus tickets no se reparten.`}{" "}
+            Asígnelos al editar cada técnico en{" "}
+            <Link to="/admin/configuracion/soporte">Equipo</Link>.
+          </span>
+        </div>
+      )}
       <p className="mz-faint mb-0">
         El catálogo de servicios. Las categorías dicen qué técnicos atienden
         cada tipo de ticket; cada caso fija el tipo, la prioridad base (la
@@ -566,8 +746,10 @@ export function CategoriasSoporte() {
         onSubmit={async (e) => {
           e.preventDefault();
           if (
-            await categorias.ejecutar(() =>
-              soporteService.config.crear("categorias", { nombre: nueva }),
+            await categorias.ejecutar(
+              () =>
+                soporteService.config.crear("categorias", { nombre: nueva }),
+              `Categoría «${nueva}» agregada.`,
             )
           )
             setNueva("");
@@ -588,8 +770,12 @@ export function CategoriasSoporte() {
               onChange={(e) => setNueva(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn btn-primary">
-            Agregar
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={categorias.guardando}
+          >
+            {categorias.guardando ? "Guardando…" : "Agregar"}
           </button>
         </div>
       </form>
@@ -597,12 +783,67 @@ export function CategoriasSoporte() {
   );
 }
 
+const NOMBRE = (lista, valor) =>
+  lista.find(([v]) => v === valor)?.[1] ?? valor ?? "—";
+
 function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
   const [caso, setCaso] = useState(CASO_NUEVO);
-  const cambiar = (c, datos) =>
-    recurso.ejecutar(() =>
-      soporteService.config.actualizar("casos", c.id, datos),
+  const [editando, setEditando] = useState(null);
+
+  async function cambiarCategoria() {
+    if (categoria.activa) {
+      const si = await confirmar({
+        titulo: `¿Desactivar «${categoria.nombre}»?`,
+        mensaje:
+          "Deja de aparecer en «Soporte TI»: nadie podrá pedir ayuda con ella. Los tickets abiertos siguen igual.",
+        accion: "Desactivar",
+        peligro: false,
+      });
+      if (!si) return;
+    }
+    recurso.ejecutar(
+      () =>
+        soporteService.config.actualizar("categorias", categoria.id, {
+          activa: !categoria.activa,
+        }),
+      categoria.activa
+        ? `«${categoria.nombre}» desactivada.`
+        : `«${categoria.nombre}» activada.`,
     );
+  }
+
+  async function cambiarCaso(c) {
+    if (c.activo) {
+      const si = await confirmar({
+        titulo: `¿Desactivar el caso «${c.nombre}»?`,
+        mensaje:
+          "Deja de ofrecerse al pedir ayuda. Los tickets abiertos de este caso siguen igual.",
+        accion: "Desactivar",
+        peligro: false,
+      });
+      if (!si) return;
+    }
+    recurso.ejecutar(
+      () =>
+        soporteService.config.actualizar("casos", c.id, { activo: !c.activo }),
+      c.activo
+        ? `Caso «${c.nombre}» desactivado.`
+        : `Caso «${c.nombre}» activado.`,
+    );
+  }
+
+  const nivelDe = (id) => {
+    const n = niveles.find((x) => x.id === id);
+    return n ? `N${n.orden} · ${n.nombre}` : "Primer nivel";
+  };
+  const aprueban = (c) =>
+    [
+      c.aprueba_jefe_area && "Jefe de área",
+      ...(c.aprueban ?? []).map((id) => areas.find((a) => a.id === id)?.nombre),
+    ]
+      .filter(Boolean)
+      .join(", ") || "Nadie";
+
   return (
     <section className="mz-card">
       <div className="mz-card-head">
@@ -613,20 +854,20 @@ function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
           )}
         </h3>
         <div className="mz-actions">
-          <span className="mz-small mz-faint">
-            {categoria.tecnicos.length} técnico(s):{" "}
-            {categoria.tecnicos.map((t) => t.nombre).join(", ") || "ninguno"}
-          </span>
+          {categoria.tecnicos.length === 0 ? (
+            <span className="mz-pill mz-pill--bad">
+              <Icon name="exclamation-octagon" /> Sin técnicos
+            </span>
+          ) : (
+            <span className="mz-small mz-faint">
+              Atienden: {categoria.tecnicos.map((t) => t.nombre).join(", ")}
+            </span>
+          )}
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
-            onClick={() =>
-              recurso.ejecutar(() =>
-                soporteService.config.actualizar("categorias", categoria.id, {
-                  activa: !categoria.activa,
-                }),
-              )
-            }
+            aria-label={`${categoria.activa ? "Desactivar" : "Activar"} la categoría ${categoria.nombre}`}
+            onClick={cambiarCategoria}
           >
             {categoria.activa ? "Desactivar" : "Activar"}
           </button>
@@ -637,13 +878,15 @@ function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
           <table className="mz-table">
             <thead>
               <tr>
-                <th>Servicio</th>
+                <th>Caso</th>
                 <th>Tipo</th>
                 <th>Prioridad base</th>
                 <th>Entra por</th>
-                <th>Plazo propio (h)</th>
+                <th>Plazo de solución</th>
                 <th>Aprueban</th>
-                <th aria-label="Acciones" />
+                <th>
+                  <span className="visually-hidden">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -660,133 +903,71 @@ function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
                       </span>
                     )}
                   </td>
+                  <td>{NOMBRE(TIPOS, c.tipo)}</td>
+                  <td>{NOMBRE(PRIORIDADES, c.prioridad)}</td>
+                  <td>{nivelDe(c.nivel_inicial)}</td>
                   <td>
-                    <select
-                      className="form-select form-select-sm"
-                      aria-label={`Tipo de ${c.nombre}`}
-                      value={c.tipo}
-                      onChange={(e) => cambiar(c, { tipo: e.target.value })}
-                    >
-                      {TIPOS.map(([valor, etiqueta]) => (
-                        <option key={valor} value={valor}>
-                          {etiqueta}
-                        </option>
-                      ))}
-                    </select>
+                    {c.minutos_plazo
+                      ? horasYMinutos(c.minutos_plazo)
+                      : "El de su prioridad"}
                   </td>
-                  <td>
-                    <select
-                      className="form-select form-select-sm"
-                      aria-label={`Prioridad de ${c.nombre}`}
-                      value={c.prioridad}
-                      onChange={(e) =>
-                        cambiar(c, { prioridad: e.target.value })
-                      }
-                    >
-                      {PRIORIDADES.map(([valor, etiqueta]) => (
-                        <option key={valor} value={valor}>
-                          {etiqueta}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className="form-select form-select-sm"
-                      aria-label={`Nivel de entrada de ${c.nombre}`}
-                      value={c.nivel_inicial ?? ""}
-                      onChange={(e) =>
-                        cambiar(c, { nivel_inicial: e.target.value || null })
-                      }
-                    >
-                      <option value="">Primer nivel</option>
-                      {niveles.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          N{n.orden} · {n.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      min="0.25"
-                      step="0.25"
-                      className="form-control form-control-sm"
-                      aria-label={`Plazo propio de ${c.nombre}, en horas`}
-                      placeholder="Reglas"
-                      defaultValue={c.minutos_plazo ? c.minutos_plazo / 60 : ""}
-                      onBlur={(e) => {
-                        const minutos = e.target.value
-                          ? Math.round(Number(e.target.value) * 60)
-                          : null;
-                        if (minutos !== c.minutos_plazo)
-                          cambiar(c, { minutos_plazo: minutos });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <div className="form-check mb-1">
-                      <input
-                        id={`cs-jefe-${c.id}`}
-                        type="checkbox"
-                        className="form-check-input"
-                        checked={c.aprueba_jefe_area}
-                        onChange={(e) =>
-                          cambiar(c, { aprueba_jefe_area: e.target.checked })
-                        }
-                      />
-                      <label
-                        className="form-check-label mz-small"
-                        htmlFor={`cs-jefe-${c.id}`}
-                      >
-                        Jefe de área
-                      </label>
-                    </div>
-                    <select
-                      multiple
-                      className="form-select form-select-sm soporte-aprueban"
-                      aria-label={`Áreas que aprueban ${c.nombre}`}
-                      value={(c.aprueban ?? []).map(String)}
-                      onChange={(e) =>
-                        cambiar(c, {
-                          aprueban: Array.from(e.target.selectedOptions).map(
-                            (o) => Number(o.value),
-                          ),
-                        })
-                      }
-                    >
-                      {areas.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+                  <td className="mz-small">{aprueban(c)}</td>
                   <td className="num">
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => cambiar(c, { activo: !c.activo })}
-                    >
-                      {c.activo ? "Desactivar" : "Activar"}
-                    </button>
+                    <div className="mz-actions justify-content-end">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        aria-label={`Editar el caso ${c.nombre}`}
+                        onClick={() => {
+                          recurso.limpiar();
+                          setEditando(c);
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm"
+                        aria-label={`${c.activo ? "Desactivar" : "Activar"} el caso ${c.nombre}`}
+                        onClick={() => cambiarCaso(c)}
+                      >
+                        {c.activo ? "Desactivar" : "Activar"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
+              {categoria.casos.length === 0 && (
+                <tr className="mz-empty-row">
+                  <td colSpan={7}>
+                    Sin casos: nadie podrá elegir esta categoría todavía.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        {editando && (
+          <EditarCaso
+            caso={editando}
+            niveles={niveles}
+            areas={areas}
+            recurso={recurso}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
         <form
           className="row g-2 align-items-end mt-2"
           onSubmit={async (e) => {
             e.preventDefault();
             if (
-              await recurso.ejecutar(() =>
-                soporteService.config.crear("casos", {
-                  ...caso,
-                  categoria: categoria.id,
-                }),
+              await recurso.ejecutar(
+                () =>
+                  soporteService.config.crear("casos", {
+                    ...caso,
+                    categoria: categoria.id,
+                  }),
+                `Caso «${caso.nombre}» agregado.`,
               )
             )
               setCaso(CASO_NUEVO);
@@ -875,13 +1056,176 @@ function TarjetaCategoria({ categoria, recurso, niveles, areas }) {
             <button
               type="submit"
               className="btn btn-outline-primary btn-sm w-100"
+              disabled={recurso.guardando}
             >
-              Agregar caso
+              {recurso.guardando ? "Guardando…" : "Agregar caso"}
             </button>
           </div>
         </form>
       </div>
     </section>
+  );
+}
+
+/** Editar un caso en su ventana, con «Guardar» (antes, cada celda de la
+ * tabla guardaba sola al cambiarla, sin aviso ni forma de deshacer). */
+function EditarCaso({ caso, niveles, areas, recurso, onCerrar }) {
+  const [valores, setValores] = useState({
+    nombre: caso.nombre,
+    tipo: caso.tipo,
+    prioridad: caso.prioridad,
+    nivel_inicial: caso.nivel_inicial ?? "",
+    plazo: partirMinutos(caso.minutos_plazo),
+    aprueba_jefe_area: Boolean(caso.aprueba_jefe_area),
+    aprueban: caso.aprueban ?? [],
+  });
+  const [errorPlazo, setErrorPlazo] = useState(null);
+  const fijar = (campo) => (e) =>
+    setValores((v) => ({
+      ...v,
+      [campo]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
+    }));
+
+  async function guardar() {
+    const minutos = juntarMinutos(valores.plazo);
+    if (
+      minutos !== null &&
+      (minutos < 5 ||
+        Number(valores.plazo.horas) < 0 ||
+        Number(valores.plazo.minutos) < 0)
+    ) {
+      setErrorPlazo("Déjelo vacío o ponga al menos 5 minutos.");
+      return;
+    }
+    setErrorPlazo(null);
+    const hecho = await recurso.ejecutar(
+      () =>
+        soporteService.config.actualizar("casos", caso.id, {
+          nombre: valores.nombre,
+          tipo: valores.tipo,
+          prioridad: valores.prioridad,
+          nivel_inicial: valores.nivel_inicial || null,
+          minutos_plazo: minutos,
+          aprueba_jefe_area: valores.aprueba_jefe_area,
+          aprueban: valores.aprueban,
+        }),
+      `Caso «${valores.nombre}» guardado.`,
+    );
+    if (hecho) onCerrar();
+  }
+
+  return (
+    <VentanaDeEdicion
+      titulo={`Editar el caso «${caso.nombre}»`}
+      ancha
+      guardando={recurso.guardando}
+      error={recurso.error}
+      onCerrar={onCerrar}
+      onGuardar={guardar}
+    >
+      <p className="mz-small mz-faint">
+        Los cambios rigen para los tickets nuevos; los abiertos conservan su
+        prioridad y su plazo.
+      </p>
+      <div className="row g-3">
+        <div className="col-12">
+          <label className="form-label" htmlFor="ec-nombre">
+            Nombre
+          </label>
+          <input
+            id="ec-nombre"
+            className="form-control form-control-sm"
+            maxLength={120}
+            value={valores.nombre}
+            data-autofocus
+            onChange={fijar("nombre")}
+          />
+        </div>
+        <div className="col-6 col-md-4">
+          <label className="form-label" htmlFor="ec-tipo">
+            Tipo
+          </label>
+          <select
+            id="ec-tipo"
+            className="form-select form-select-sm"
+            value={valores.tipo}
+            onChange={fijar("tipo")}
+          >
+            {TIPOS.map(([valor, etiqueta]) => (
+              <option key={valor} value={valor}>
+                {etiqueta}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-6 col-md-4">
+          <label className="form-label" htmlFor="ec-prioridad">
+            Prioridad base
+          </label>
+          <select
+            id="ec-prioridad"
+            className="form-select form-select-sm"
+            value={valores.prioridad}
+            onChange={fijar("prioridad")}
+          >
+            {PRIORIDADES.map(([valor, etiqueta]) => (
+              <option key={valor} value={valor}>
+                {etiqueta}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-12 col-md-4">
+          <label className="form-label" htmlFor="ec-nivel">
+            Entra por
+          </label>
+          <select
+            id="ec-nivel"
+            className="form-select form-select-sm"
+            value={valores.nivel_inicial}
+            onChange={fijar("nivel_inicial")}
+          >
+            <option value="">Primer nivel</option>
+            {niveles.map((n) => (
+              <option key={n.id} value={n.id}>
+                N{n.orden} · {n.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-12">
+          <CampoDuracion
+            id="ec-plazo"
+            etiqueta="Plazo propio de solución (opcional)"
+            valor={valores.plazo}
+            onCambiar={(plazo) => setValores((v) => ({ ...v, plazo }))}
+            ayuda="Vacío: rige el plazo de su prioridad o de las reglas de tiempo."
+            error={errorPlazo}
+          />
+        </div>
+        <div className="col-12">
+          <div className="form-check mb-2">
+            <input
+              id="ec-jefe"
+              type="checkbox"
+              className="form-check-input"
+              checked={valores.aprueba_jefe_area}
+              onChange={fijar("aprueba_jefe_area")}
+            />
+            <label className="form-check-label" htmlFor="ec-jefe">
+              Lo aprueba el jefe de área de quien pide
+            </label>
+          </div>
+          <ListaDeCasillas
+            etiqueta="Áreas que además lo aprueban"
+            opciones={areas}
+            valor={valores.aprueban}
+            onCambiar={(aprueban) => setValores((v) => ({ ...v, aprueban }))}
+            vacio="No hay áreas."
+          />
+        </div>
+      </div>
+    </VentanaDeEdicion>
   );
 }
 
@@ -896,17 +1240,30 @@ function horasYMinutos(minutos) {
   );
 }
 
+const PLAZOS_BASE = [
+  ["critica", 15, 4 * 60],
+  ["alta", 30, 8 * 60],
+  ["media", 2 * 60, 16 * 60],
+  ["baja", 4 * 60, 40 * 60],
+];
+
+const REGLA_VACIA = {
+  id: null,
+  categoria: "",
+  area: "",
+  prioridad: "",
+  respuesta: { horas: "", minutos: "" },
+  solucion: { horas: "", minutos: "" },
+};
+
 export function SlaSoporte() {
   const reglas = useRecurso("sla");
   const categorias = useRecurso("categorias");
   const [areas, setAreas] = useState([]);
-  const [nueva, setNueva] = useState({
-    categoria: "",
-    area: "",
-    prioridad: "",
-    horas: "",
-    respuesta: "",
-  });
+  const [regla, setRegla] = useState(REGLA_VACIA);
+  const [errorSolucion, setErrorSolucion] = useState(null);
+  const [errorRespuesta, setErrorRespuesta] = useState(null);
+  const formulario = useRef(null);
 
   useEffect(() => {
     apiClient
@@ -915,20 +1272,104 @@ export function SlaSoporte() {
       .catch(() => setAreas([]));
   }, []);
 
+  function editar(r) {
+    setRegla({
+      id: r.id,
+      categoria: r.categoria ?? "",
+      area: r.area ?? "",
+      prioridad: r.prioridad ?? "",
+      respuesta: partirMinutos(r.minutos_respuesta),
+      solucion: partirMinutos(r.minutos),
+    });
+    setErrorSolucion(null);
+    formulario.current?.scrollIntoView?.({ block: "center" });
+    formulario.current?.querySelector("select")?.focus();
+  }
+
+  async function guardar(evento) {
+    evento.preventDefault();
+    // Lo que el servidor rechazaría, dicho aquí y bajo su campo.
+    const minutos = juntarMinutos(regla.solucion);
+    const respuesta = juntarMinutos(regla.respuesta);
+    const negativo = (d) => Number(d.horas) < 0 || Number(d.minutos) < 0;
+    const problemaSolucion =
+      minutos === null || minutos === 0
+        ? "Ponga el plazo de solución."
+        : negativo(regla.solucion)
+          ? "Las horas y los minutos no pueden ser negativos."
+          : minutos < 5
+            ? "El plazo de solución es de al menos 5 minutos."
+            : null;
+    const problemaRespuesta =
+      respuesta === null
+        ? null
+        : negativo(regla.respuesta)
+          ? "Las horas y los minutos no pueden ser negativos."
+          : respuesta < 1
+            ? "Déjelo vacío o ponga al menos 1 minuto."
+            : minutos && respuesta >= minutos
+              ? "Debe ser menor que el plazo de solución."
+              : null;
+    setErrorSolucion(problemaSolucion);
+    setErrorRespuesta(problemaRespuesta);
+    if (problemaSolucion || problemaRespuesta) return;
+    const datos = {
+      categoria: regla.categoria || null,
+      area: regla.area || null,
+      prioridad: regla.prioridad,
+      minutos,
+      minutos_respuesta: respuesta,
+    };
+    const hecho = await reglas.ejecutar(
+      () =>
+        regla.id
+          ? soporteService.config.actualizar("sla", regla.id, datos)
+          : soporteService.config.crear("sla", datos),
+      regla.id ? "Regla guardada." : "Regla agregada.",
+    );
+    if (hecho) setRegla(REGLA_VACIA);
+  }
+
   return (
     <div className="soporte-page mz-stack">
-      <Error texto={reglas.error} />
+      <Resultado recurso={reglas} parte="carga" />
       <p className="mz-faint mb-0">
         Los plazos corren desde que se crea el ticket: la respuesta, hasta la
         primera respuesta del equipo; la solución, hasta que se atiende. Los P1
         se cuentan en horas calendario y los demás en el horario hábil de la
         mesa (ver «Horario y metas»). Gana el plazo propio del caso; si no, la
         regla más específica (categoría, área y prioridad; vacío es
-        «cualquiera»). Sin reglas rigen los de cada prioridad: P1 15 min / 4 h,
-        P2 30 min / 8 h, P3 2 h / 16 h y P4 4 h / 40 h.
+        «cualquiera»); sin reglas, los de cada prioridad:
       </p>
+      {/* Los plazos que rigen sin reglas, en una tabla y no en un párrafo. */}
+      <div className="mz-table-wrap">
+        <table className="mz-table soporte-plazos-base">
+          <caption className="soporte-titulo-tabla text-start">
+            Plazos de cada prioridad
+          </caption>
+          <thead>
+            <tr>
+              <th>Prioridad</th>
+              <th>Responder en</th>
+              <th>Solucionar en</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PLAZOS_BASE.map(([valor, respuesta, solucion]) => (
+              <tr key={valor}>
+                <td>{NOMBRE(PRIORIDADES, valor)}</td>
+                <td>{horasYMinutos(respuesta)}</td>
+                <td>{horasYMinutos(solucion)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="mz-table-wrap">
         <table className="mz-table">
+          <caption className="soporte-titulo-tabla text-start">
+            Reglas de tiempo
+          </caption>
           <thead>
             <tr>
               <th>Categoría</th>
@@ -936,7 +1377,9 @@ export function SlaSoporte() {
               <th>Prioridad</th>
               <th>Respuesta</th>
               <th>Solución</th>
-              <th aria-label="Acciones" />
+              <th>
+                <span className="visually-hidden">Acciones</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -952,23 +1395,37 @@ export function SlaSoporte() {
                 </td>
                 <td>{horasYMinutos(r.minutos)}</td>
                 <td className="num">
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm"
-                    onClick={async () => {
-                      const si = await confirmar({
-                        titulo: "¿Quitar esta regla de tiempo?",
-                        accion: "Quitar",
-                      });
-                      if (si) {
-                        reglas.ejecutar(() =>
-                          soporteService.config.eliminar("sla", r.id),
-                        );
-                      }
-                    }}
-                  >
-                    Quitar
-                  </button>
+                  <div className="mz-actions justify-content-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`Editar la regla ${r.categoria_nombre || "de cualquier categoría"} · ${r.prioridad_display || "cualquier prioridad"}`}
+                      onClick={() => editar(r)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      aria-label={`Quitar la regla ${r.categoria_nombre || "de cualquier categoría"} · ${r.prioridad_display || "cualquier prioridad"}`}
+                      onClick={async () => {
+                        const si = await confirmar({
+                          titulo: "¿Quitar esta regla de tiempo?",
+                          mensaje:
+                            "Los tickets nuevos usarán la regla siguiente más específica o el plazo de su prioridad. Los abiertos conservan el suyo.",
+                          accion: "Quitar",
+                        });
+                        if (si) {
+                          reglas.ejecutar(
+                            () => soporteService.config.eliminar("sla", r.id),
+                            "Regla quitada.",
+                          );
+                        }
+                      }}
+                    >
+                      Quitar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -982,44 +1439,21 @@ export function SlaSoporte() {
           </tbody>
         </table>
       </div>
-      <form
-        className="mz-card"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const datos = {
-            categoria: nueva.categoria || null,
-            area: nueva.area || null,
-            prioridad: nueva.prioridad,
-            minutos: Math.round(Number(nueva.horas) * 60),
-            minutos_respuesta: nueva.respuesta
-              ? Math.round(Number(nueva.respuesta) * 60)
-              : null,
-          };
-          if (
-            await reglas.ejecutar(() =>
-              soporteService.config.crear("sla", datos),
-            )
-          )
-            setNueva({
-              categoria: "",
-              area: "",
-              prioridad: "",
-              horas: "",
-              respuesta: "",
-            });
-        }}
-      >
-        <div className="mz-card-body row g-2 align-items-end">
-          <div className="col-12 col-md-3">
+      <form className="mz-card" ref={formulario} onSubmit={guardar} noValidate>
+        <div className="mz-card-head">
+          <h3>{regla.id ? "Editar la regla" : "Nueva regla de tiempo"}</h3>
+        </div>
+        <div className="mz-card-body row g-2 align-items-start">
+          <div className="col-12 col-md-4">
             <label className="form-label mz-small" htmlFor="sla-categoria">
               Categoría
             </label>
             <select
               id="sla-categoria"
               className="form-select form-select-sm"
-              value={nueva.categoria}
+              value={regla.categoria}
               onChange={(e) =>
-                setNueva((v) => ({ ...v, categoria: e.target.value }))
+                setRegla((v) => ({ ...v, categoria: e.target.value }))
               }
             >
               <option value="">Cualquiera</option>
@@ -1030,16 +1464,16 @@ export function SlaSoporte() {
               ))}
             </select>
           </div>
-          <div className="col-12 col-md-3">
+          <div className="col-12 col-md-4">
             <label className="form-label mz-small" htmlFor="sla-area">
               Área solicitante
             </label>
             <select
               id="sla-area"
               className="form-select form-select-sm"
-              value={nueva.area}
+              value={regla.area}
               onChange={(e) =>
-                setNueva((v) => ({ ...v, area: e.target.value }))
+                setRegla((v) => ({ ...v, area: e.target.value }))
               }
             >
               <option value="">Cualquiera</option>
@@ -1050,16 +1484,16 @@ export function SlaSoporte() {
               ))}
             </select>
           </div>
-          <div className="col-6 col-md-2">
+          <div className="col-12 col-md-4">
             <label className="form-label mz-small" htmlFor="sla-prioridad">
               Prioridad
             </label>
             <select
               id="sla-prioridad"
               className="form-select form-select-sm"
-              value={nueva.prioridad}
+              value={regla.prioridad}
               onChange={(e) =>
-                setNueva((v) => ({ ...v, prioridad: e.target.value }))
+                setRegla((v) => ({ ...v, prioridad: e.target.value }))
               }
             >
               <option value="">Cualquiera</option>
@@ -1070,43 +1504,55 @@ export function SlaSoporte() {
               ))}
             </select>
           </div>
-          <div className="col-6 col-md-2">
-            <label className="form-label mz-small" htmlFor="sla-respuesta">
-              Respuesta (horas)
-            </label>
-            <input
+          <div className="col-12 col-md-6">
+            <CampoDuracion
               id="sla-respuesta"
-              type="number"
-              min="0.05"
-              step="0.05"
-              className="form-control form-control-sm"
-              placeholder="La de su prioridad"
-              value={nueva.respuesta}
-              onChange={(e) =>
-                setNueva((v) => ({ ...v, respuesta: e.target.value }))
-              }
+              etiqueta="Responder en (opcional)"
+              valor={regla.respuesta}
+              onCambiar={(respuesta) => {
+                setRegla((v) => ({ ...v, respuesta }));
+                if (errorRespuesta) setErrorRespuesta(null);
+              }}
+              ayuda="Vacío: el de su prioridad."
+              error={errorRespuesta}
             />
           </div>
-          <div className="col-6 col-md-2">
-            <label className="form-label mz-small" htmlFor="sla-horas">
-              Solución (horas)
-            </label>
-            <input
-              id="sla-horas"
-              type="number"
-              min="0.25"
-              step="0.25"
-              className="form-control form-control-sm"
-              required
-              value={nueva.horas}
-              onChange={(e) =>
-                setNueva((v) => ({ ...v, horas: e.target.value }))
-              }
+          <div className="col-12 col-md-6">
+            <CampoDuracion
+              id="sla-solucion"
+              etiqueta="Solucionar en"
+              obligatorio
+              valor={regla.solucion}
+              onCambiar={(solucion) => {
+                setRegla((v) => ({ ...v, solucion }));
+                if (errorSolucion) setErrorSolucion(null);
+              }}
+              error={errorSolucion}
             />
           </div>
-          <div className="col-12 col-md-2">
-            <button type="submit" className="btn btn-primary btn-sm w-100">
-              Agregar regla
+          <div className="col-12">
+            <Resultado recurso={reglas} parte="accion" />
+          </div>
+          <div className="col-12 mz-actions justify-content-end">
+            {regla.id && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setRegla(REGLA_VACIA)}
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={reglas.guardando}
+            >
+              {reglas.guardando
+                ? "Guardando…"
+                : regla.id
+                  ? "Guardar cambios"
+                  : "Agregar regla"}
             </button>
           </div>
         </div>
@@ -1123,23 +1569,38 @@ export function SlaSoporte() {
 export function HorarioMesaSoporte() {
   const [mesa, setMesa] = useState(null);
   const [error, setError] = useState(null);
+  const [errorCarga, setErrorCarga] = useState(null);
+  const [errores, setErrores] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setErrorCarga(null);
     soporteService.config
       .mesa()
       .then(setMesa)
       .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar la configuración.")),
+        setErrorCarga(
+          mensajeDeError(err, "No se pudo cargar la configuración."),
+        ),
       );
   }, []);
 
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
   async function guardar(evento) {
     evento.preventDefault();
-    setGuardando(true);
     setError(null);
     setAviso(null);
+    const problemas = erroresDeAgenda(mesa.horarios, mesa.feriados);
+    setErrores(problemas);
+    if (problemas) {
+      setError("Revise el horario: hay franjas o fechas marcadas.");
+      return;
+    }
+    setGuardando(true);
     try {
       setMesa(
         await soporteService.config.guardarMesa({
@@ -1161,17 +1622,17 @@ export function HorarioMesaSoporte() {
     }
   }
 
-  if (!mesa) return <Error texto={error} />;
+  if (!mesa)
+    return (
+      <EstadoDeCarga
+        cargando={!errorCarga}
+        error={errorCarga}
+        onReintentar={cargar}
+      />
+    );
 
   return (
-    <form className="soporte-page mz-stack" onSubmit={guardar}>
-      <Error texto={error} />
-      {aviso && (
-        <div className="mz-alert mz-alert--info" role="status">
-          <Icon name="check2-circle" />
-          {aviso}
-        </div>
-      )}
+    <form className="soporte-page mz-stack" onSubmit={guardar} noValidate>
       <section className="mz-card">
         <div className="mz-card-head">
           <h3>Metas y P1</h3>
@@ -1291,9 +1752,11 @@ export function HorarioMesaSoporte() {
           <EditorDeAgenda
             horarios={mesa.horarios}
             ausencias={mesa.feriados}
-            onCambiar={({ horarios, ausencias }) =>
-              setMesa({ ...mesa, horarios, feriados: ausencias })
-            }
+            errores={errores}
+            onCambiar={({ horarios, ausencias }) => {
+              setMesa({ ...mesa, horarios, feriados: ausencias });
+              if (errores) setErrores(erroresDeAgenda(horarios, ausencias));
+            }}
             textos={{
               horario: "Horario hábil de la mesa",
               sinFranjas: "Sin franjas: rige el horario por defecto.",
@@ -1302,6 +1765,14 @@ export function HorarioMesaSoporte() {
           />
         </div>
       </section>
+      {/* El resultado, junto al botón (antes, arriba de todo). */}
+      <Error texto={error} />
+      {aviso && (
+        <div className="mz-alert mz-alert--ok" role="status">
+          <Icon name="check2-circle" />
+          {aviso}
+        </div>
+      )}
       <div className="mz-actions justify-content-end">
         <button type="submit" className="btn btn-primary" disabled={guardando}>
           {guardando ? "Guardando…" : "Guardar"}
@@ -1313,13 +1784,49 @@ export function HorarioMesaSoporte() {
 
 // --- Respuestas predefinidas ------------------------------------------------------------
 
+const RESPUESTA_VACIA = { id: null, atajo: "", titulo: "", texto: "" };
+
+/** El texto de la respuesta con datos de ejemplo, como lo leerá el usuario. */
+function vistaPrevia(texto) {
+  const ejemplo = {
+    nombre: "Carla Ordóñez",
+    numero: "TCK-2026-000042",
+    caso: "El equipo no enciende",
+    tecnico: "Jorge Andrade",
+  };
+  return texto.replace(
+    /\{\{\s*(\w+)\s*\}\}/g,
+    (_, clave) => ejemplo[clave] ?? `{{${clave}}}`,
+  );
+}
+
+const VARIABLES = new Set(["nombre", "numero", "caso", "tecnico"]);
+
+/** Las {{variables}} que no existen: el usuario vería las llaves. */
+function desconocidas(texto) {
+  return [
+    ...new Set(
+      [...texto.matchAll(/\{\{\s*(\w+)\s*\}\}/g)]
+        .map((m) => m[1])
+        .filter((v) => !VARIABLES.has(v)),
+    ),
+  ];
+}
+
 export function RespuestasSoporte() {
   const respuestas = useRecurso("respuestas");
-  const [nueva, setNueva] = useState({ atajo: "", titulo: "", texto: "" });
+  const [nueva, setNueva] = useState(RESPUESTA_VACIA);
+  const formulario = useRef(null);
+
+  function editar(r) {
+    setNueva({ id: r.id, atajo: r.atajo, titulo: r.titulo, texto: r.texto });
+    formulario.current?.scrollIntoView?.({ block: "center" });
+    formulario.current?.querySelector("input")?.focus();
+  }
 
   return (
     <div className="soporte-page mz-stack">
-      <Error texto={respuestas.error} />
+      <Resultado recurso={respuestas} parte="carga" />
       <p className="mz-faint mb-0">
         Se insertan al responder un ticket escribiendo «/» y el atajo. Pueden
         usar <code>{"{{nombre}}"}</code>, <code>{"{{numero}}"}</code>,{" "}
@@ -1332,7 +1839,9 @@ export function RespuestasSoporte() {
               <th>Atajo</th>
               <th>Título</th>
               <th>Texto</th>
-              <th aria-label="Acciones" />
+              <th>
+                <span className="visually-hidden">Acciones</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1342,23 +1851,39 @@ export function RespuestasSoporte() {
                 <td>{r.titulo}</td>
                 <td className="mz-small">{r.texto}</td>
                 <td className="num">
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm"
-                    onClick={async () => {
-                      const si = await confirmar({
-                        titulo: `¿Quitar la respuesta «${r.titulo}»?`,
-                        accion: "Quitar",
-                      });
-                      if (si) {
-                        respuestas.ejecutar(() =>
-                          soporteService.config.eliminar("respuestas", r.id),
-                        );
-                      }
-                    }}
-                  >
-                    Quitar
-                  </button>
+                  <div className="mz-actions justify-content-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      aria-label={`Editar la respuesta ${r.titulo}`}
+                      onClick={() => editar(r)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      aria-label={`Quitar la respuesta ${r.titulo}`}
+                      onClick={async () => {
+                        const si = await confirmar({
+                          titulo: `¿Quitar la respuesta «${r.titulo}»?`,
+                          accion: "Quitar",
+                        });
+                        if (si) {
+                          respuestas.ejecutar(
+                            () =>
+                              soporteService.config.eliminar(
+                                "respuestas",
+                                r.id,
+                              ),
+                            "Respuesta quitada.",
+                          );
+                        }
+                      }}
+                    >
+                      Quitar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1372,16 +1897,25 @@ export function RespuestasSoporte() {
       </div>
       <form
         className="mz-card"
+        ref={formulario}
         onSubmit={async (e) => {
           e.preventDefault();
+          const { id, ...datos } = nueva;
           if (
-            await respuestas.ejecutar(() =>
-              soporteService.config.crear("respuestas", nueva),
+            await respuestas.ejecutar(
+              () =>
+                id
+                  ? soporteService.config.actualizar("respuestas", id, datos)
+                  : soporteService.config.crear("respuestas", datos),
+              id ? "Respuesta guardada." : "Respuesta agregada.",
             )
           )
-            setNueva({ atajo: "", titulo: "", texto: "" });
+            setNueva(RESPUESTA_VACIA);
         }}
       >
+        <div className="mz-card-head">
+          <h3>{nueva.id ? "Editar la respuesta" : "Nueva respuesta"}</h3>
+        </div>
         <div className="mz-card-body row g-2">
           <div className="col-6 col-md-3">
             <label className="form-label mz-small" htmlFor="rp-atajo">
@@ -1394,11 +1928,15 @@ export function RespuestasSoporte() {
               maxLength={40}
               pattern="[a-z0-9_-]+"
               placeholder="reinicio"
+              aria-describedby="rp-atajo-ayuda"
               value={nueva.atajo}
               onChange={(e) =>
                 setNueva((v) => ({ ...v, atajo: e.target.value.toLowerCase() }))
               }
             />
+            <div id="rp-atajo-ayuda" className="form-text">
+              Minúsculas, números, «-» o «_».
+            </div>
           </div>
           <div className="col-6 col-md-9">
             <label className="form-label mz-small" htmlFor="rp-titulo">
@@ -1430,9 +1968,51 @@ export function RespuestasSoporte() {
               }
             />
           </div>
+          {nueva.texto.trim() && (
+            <div className="col-12">
+              <p className="form-label mz-small mb-1">
+                Así lo leerá el usuario (con datos de ejemplo)
+              </p>
+              <blockquote className="soporte-vista-previa mb-0">
+                {vistaPrevia(nueva.texto)}
+              </blockquote>
+              {desconocidas(nueva.texto).length > 0 && (
+                <p className="mz-field-error mt-1 mb-0">
+                  {desconocidas(nueva.texto)
+                    .map((v) => `{{${v}}}`)
+                    .join(", ")}{" "}
+                  no{" "}
+                  {desconocidas(nueva.texto).length === 1
+                    ? "es una variable"
+                    : "son variables"}
+                  : se verá tal cual.
+                </p>
+              )}
+            </div>
+          )}
+          <div className="col-12">
+            <Resultado recurso={respuestas} parte="accion" />
+          </div>
           <div className="col-12 mz-actions justify-content-end">
-            <button type="submit" className="btn btn-primary btn-sm">
-              Agregar respuesta
+            {nueva.id && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setNueva(RESPUESTA_VACIA)}
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={respuestas.guardando}
+            >
+              {respuestas.guardando
+                ? "Guardando…"
+                : nueva.id
+                  ? "Guardar cambios"
+                  : "Agregar respuesta"}
             </button>
           </div>
         </div>

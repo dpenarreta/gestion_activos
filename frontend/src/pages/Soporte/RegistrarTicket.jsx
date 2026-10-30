@@ -1,11 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import {
+  Campo,
+  enfocarPrimerError,
+  LeyendaObligatorios,
+} from "../../components/common/Campo/Campo";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
-import { mensajeDeError } from "../../utils/errores";
-import { aplica, CamposFormulario } from "./Publico/CamposFormulario";
+import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
+import {
+  aplica,
+  CamposFormulario,
+  validarCampos,
+} from "./Publico/CamposFormulario";
 import "./Soporte.css";
 
 /** Cuántos archivos acepta el servidor por ticket. */
@@ -44,8 +53,13 @@ export function RegistrarTicket() {
   const [archivos, setArchivos] = useState([]);
   const [omitidos, setOmitidos] = useState(0);
   const [error, setError] = useState(null);
+  const [errorEnvio, setErrorEnvio] = useState(null);
+  const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const formulario = useRef(null);
+  const avisoError = useRef(null);
   const [creado, setCreado] = useState(null);
+  const [buscando, setBuscando] = useState(true);
 
   useEffect(() => {
     soporteService
@@ -58,11 +72,14 @@ export function RegistrarTicket() {
 
   useEffect(() => {
     if (persona) return undefined;
+    // Mientras busca dice «Buscando…» (antes, «Nadie con ese nombre»).
+    setBuscando(true);
     const temporizador = setTimeout(() => {
       soporteService
         .personas(busqueda)
         .then(setPersonas)
-        .catch(() => setPersonas([]));
+        .catch(() => setPersonas([]))
+        .finally(() => setBuscando(false));
     }, 250);
     return () => clearTimeout(temporizador);
   }, [busqueda, persona]);
@@ -77,10 +94,25 @@ export function RegistrarTicket() {
     }));
   }
 
+  /* Como en «Nuevo ticket» (auditoría UX/UI, 30/10/2026): lo que falta se
+   * marca bajo cada campo y el error del servidor sale junto al botón; antes
+   * se enviaba vacío y el error genérico salía arriba. */
   async function enviar(evento) {
     evento.preventDefault();
+    setErrorEnvio(null);
+    const propiosFaltan = validarCampos(datos.campos, valores, adicionales);
+    if (faltan.includes("telefono") && !completar.telefono.trim())
+      propiosFaltan.telefono = "Escriba el teléfono de la persona.";
+    if (faltan.includes("area") && !completar.area)
+      propiosFaltan.area = "Elija el área de la persona.";
+    if (faltan.includes("agencia") && !completar.sede)
+      propiosFaltan.sede = "Elija la agencia de la persona.";
+    setErrores(propiosFaltan);
+    if (Object.keys(propiosFaltan).length) {
+      enfocarPrimerError(formulario.current);
+      return;
+    }
     setEnviando(true);
-    setError(null);
     try {
       const campos = {
         ...valores,
@@ -103,7 +135,18 @@ export function RegistrarTicket() {
       if (ticket.visible === false) setCreado(ticket);
       else navigate(`/admin/soporte/tickets/${ticket.id}`);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo registrar el ticket."));
+      const delServidor = erroresPorCampo(err);
+      setErrores(delServidor);
+      setErrorEnvio(
+        Object.keys(delServidor).length
+          ? "Revise los campos marcados."
+          : mensajeDeError(err, "No se pudo registrar el ticket."),
+      );
+      requestAnimationFrame(() =>
+        Object.keys(delServidor).length
+          ? enfocarPrimerError(formulario.current)
+          : avisoError.current?.focus(),
+      );
     } finally {
       setEnviando(false);
     }
@@ -137,11 +180,46 @@ export function RegistrarTicket() {
       )}
 
       {creado ? (
-        <div className="mz-alert mz-alert--info" role="status">
-          <Icon name="check2-circle" />
-          Ticket <strong className="mz-mono">{creado.numero}</strong>{" "}
-          registrado; quedó en la cola.
-        </div>
+        // Con salida: registrar otro o volver (antes, un aviso sin más).
+        <section className="mz-card">
+          <div className="mz-card-body">
+            <div className="mz-alert mz-alert--ok" role="status">
+              <Icon name="check2-circle" />
+              <span>
+                Ticket <strong className="mz-mono">{creado.numero}</strong>{" "}
+                registrado; quedó en la cola. Quien lo pidió recibe el número
+                por correo.
+              </span>
+            </div>
+            <div className="mz-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setCreado(null);
+                  setPersona(null);
+                  setBusqueda("");
+                  setValores((actual) =>
+                    Object.fromEntries(
+                      Object.keys(actual).map((clave) => [clave, ""]),
+                    ),
+                  );
+                  setAdicionales({});
+                  setArchivos([]);
+                  setOmitidos(0);
+                }}
+              >
+                Registrar otro
+              </button>
+              <Link
+                className="btn btn-outline-secondary"
+                to="/admin/soporte/bandeja"
+              >
+                Volver a la bandeja
+              </Link>
+            </div>
+          </div>
+        </section>
       ) : !datos ? (
         // Mientras llega el formulario, «Cargando…» y no una página vacía
         // (auditoría UX/UI, fase 2, 28/10/2026); su error ya sale arriba.
@@ -152,13 +230,22 @@ export function RegistrarTicket() {
             <h3>¿Quién pide?</h3>
           </div>
           <div className="mz-card-body">
+            <label className="form-label" htmlFor="rt-buscar">
+              Busque a la persona por su nombre o correo
+            </label>
             <input
+              id="rt-buscar"
+              type="search"
               className="form-control"
-              placeholder="Buscar por nombre o correo"
-              aria-label="Buscar a la persona"
+              placeholder="Ej.: Carla o carla@grupolaar.com"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
             />
+            <p className="visually-hidden" role="status">
+              {buscando
+                ? "Buscando…"
+                : `${personas.length} ${personas.length === 1 ? "persona" : "personas"}`}
+            </p>
             <ul className="soporte-personas" aria-label="Personas registradas">
               {personas.map((p) => (
                 <li key={p.id}>
@@ -178,7 +265,9 @@ export function RegistrarTicket() {
                 </li>
               ))}
               {personas.length === 0 && (
-                <li className="mz-small mz-faint p-2">Nadie con ese nombre.</li>
+                <li className="mz-small mz-faint p-2">
+                  {buscando ? "Buscando…" : "Nadie con ese nombre o correo."}
+                </li>
               )}
             </ul>
             <p className="mz-small mz-faint mb-0">
@@ -188,8 +277,11 @@ export function RegistrarTicket() {
           </div>
         </section>
       ) : (
-        <form className="mz-card" onSubmit={enviar}>
+        <form ref={formulario} className="mz-card" onSubmit={enviar} noValidate>
           <div className="mz-card-body row g-3">
+            <div className="col-12">
+              <LeyendaObligatorios />
+            </div>
             <div className="col-12">
               <div className="soporte-persona-elegida">
                 <div className="mz-kv-grid">
@@ -241,31 +333,33 @@ export function RegistrarTicket() {
               </div>
             )}
             {faltan.includes("telefono") && (
-              <div className="col-12 col-md-4">
-                <label className="form-label" htmlFor="rt-telefono">
-                  Teléfono
-                </label>
+              <Campo
+                id="rt-telefono"
+                etiqueta="Teléfono"
+                obligatorio
+                error={errores.telefono}
+                className="col-12 col-md-4"
+              >
                 <input
-                  id="rt-telefono"
                   className="form-control"
-                  required
                   inputMode="tel"
                   value={completar.telefono}
                   onChange={(e) =>
                     setCompletar((v) => ({ ...v, telefono: e.target.value }))
                   }
                 />
-              </div>
+              </Campo>
             )}
             {faltan.includes("area") && (
-              <div className="col-12 col-md-4">
-                <label className="form-label" htmlFor="rt-area">
-                  Área
-                </label>
+              <Campo
+                id="rt-area"
+                etiqueta="Área"
+                obligatorio
+                error={errores.area}
+                className="col-12 col-md-4"
+              >
                 <select
-                  id="rt-area"
                   className="form-select"
-                  required
                   value={completar.area}
                   onChange={(e) =>
                     setCompletar((v) => ({ ...v, area: e.target.value }))
@@ -278,17 +372,18 @@ export function RegistrarTicket() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </Campo>
             )}
             {faltan.includes("agencia") && (
-              <div className="col-12 col-md-4">
-                <label className="form-label" htmlFor="rt-sede">
-                  Agencia
-                </label>
+              <Campo
+                id="rt-sede"
+                etiqueta="Agencia"
+                obligatorio
+                error={errores.sede}
+                className="col-12 col-md-4"
+              >
                 <select
-                  id="rt-sede"
                   className="form-select"
-                  required
                   value={completar.sede}
                   onChange={(e) =>
                     setCompletar((v) => ({ ...v, sede: e.target.value }))
@@ -301,7 +396,7 @@ export function RegistrarTicket() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </Campo>
             )}
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="rt-canal">
@@ -321,10 +416,12 @@ export function RegistrarTicket() {
               </select>
             </div>
             <CamposFormulario
+              tercera
               campos={datos.campos}
               datos={datos}
               valores={valores}
               onBase={fijar}
+              errores={errores}
               adicionales={adicionales}
               onAdicional={(clave, valor) =>
                 setAdicionales((actual) => ({ ...actual, [clave]: valor }))
@@ -375,6 +472,19 @@ export function RegistrarTicket() {
                   <label className="form-check-label" htmlFor="rt-asignarme">
                     Me lo asigno (lo atiendo ahora)
                   </label>
+                </div>
+              </div>
+            )}
+            {errorEnvio && (
+              <div className="col-12">
+                <div
+                  ref={avisoError}
+                  className="mz-alert mz-alert--bad mb-0"
+                  role="alert"
+                  tabIndex={-1}
+                >
+                  <Icon name="x-octagon" />
+                  {errorEnvio}
                 </div>
               </div>
             )}

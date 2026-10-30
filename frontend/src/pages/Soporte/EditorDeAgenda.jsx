@@ -1,4 +1,49 @@
+import { confirmar } from "../../components/common/Confirmar/confirmar";
+import { formatearFecha } from "../../utils/formato";
 import { DIAS } from "./comunes";
+
+/** El horario de siempre de la mesa (el mismo que su horario por defecto). */
+const DESDE = "08:00";
+const HASTA = "17:30";
+
+/**
+ * Lo que está mal en las franjas y las ausencias, por posición (auditoría
+ * UX/UI, 30/10/2026: «Hasta» antes de «Desde» o dos franjas que se cruzan se
+ * guardaban, y una ausencia sin fechas se descartaba en silencio).
+ * `{ franjas: {i: mensaje}, ausencias: {i: mensaje} }`; vacío si está bien.
+ */
+export function erroresDeAgenda(horarios, ausencias) {
+  const franjas = {};
+  horarios.forEach((f, i) => {
+    const desde = f.hora_inicio.slice(0, 5);
+    const hasta = f.hora_fin.slice(0, 5);
+    if (!desde || !hasta) {
+      franjas[i] = "Ponga la hora de inicio y la de fin.";
+    } else if (hasta <= desde) {
+      franjas[i] = "«Hasta» debe ser después de «Desde».";
+    } else {
+      const cruza = horarios.findIndex(
+        (otra, j) =>
+          j !== i &&
+          otra.dia_semana === f.dia_semana &&
+          otra.hora_inicio.slice(0, 5) < hasta &&
+          desde < otra.hora_fin.slice(0, 5),
+      );
+      if (cruza >= 0)
+        franjas[i] =
+          `Se cruza con otra franja del ${DIAS[f.dia_semana].toLowerCase()}.`;
+    }
+  });
+  const fechas = {};
+  ausencias.forEach((a, i) => {
+    if (!a.desde || !a.hasta) fechas[i] = "Ponga las dos fechas.";
+    else if (a.hasta < a.desde)
+      fechas[i] = "«Hasta» no puede ser antes de «Desde».";
+  });
+  return Object.keys(franjas).length || Object.keys(fechas).length
+    ? { franjas, ausencias: fechas }
+    : null;
+}
 
 /**
  * Las franjas semanales y las ausencias de un técnico. Lo usan «Mi horario»
@@ -12,6 +57,7 @@ export function EditorDeAgenda({
   onCambiar,
   deshabilitado = false,
   textos = {},
+  errores = null,
 }) {
   const t = {
     horario: "Horario de atención semanal",
@@ -24,6 +70,28 @@ export function EditorDeAgenda({
       horarios: horarios.map((f, i) =>
         i === indice ? { ...f, [campo]: valor } : f,
       ),
+      ausencias,
+    });
+  }
+
+  async function usarAtajo() {
+    // Reemplaza todo: si ya hay franjas, se pregunta (antes, sin aviso).
+    if (
+      horarios.length > 0 &&
+      !(await confirmar({
+        titulo: "¿Reemplazar el horario?",
+        mensaje: `Las ${horarios.length} franjas actuales se cambian por lunes a viernes, ${DESDE}–${HASTA}.`,
+        accion: "Reemplazar",
+        peligro: false,
+      }))
+    )
+      return;
+    onCambiar({
+      horarios: [0, 1, 2, 3, 4].map((dia) => ({
+        dia_semana: dia,
+        hora_inicio: DESDE,
+        hora_fin: HASTA,
+      })),
       ausencias,
     });
   }
@@ -88,9 +156,13 @@ export function EditorDeAgenda({
               <input
                 id={`ag-fin-${i}`}
                 type="time"
-                className="form-control form-control-sm"
+                className={`form-control form-control-sm${errores?.franjas[i] ? " is-invalid" : ""}`}
                 disabled={deshabilitado}
                 value={franja.hora_fin.slice(0, 5)}
+                aria-invalid={errores?.franjas[i] ? true : undefined}
+                aria-describedby={
+                  errores?.franjas[i] ? `ag-error-${i}` : undefined
+                }
                 onChange={(e) => cambiarFranja(i, "hora_fin", e.target.value)}
               />
             </div>
@@ -109,6 +181,11 @@ export function EditorDeAgenda({
                 Quitar
               </button>
             )}
+            {errores?.franjas[i] && (
+              <div id={`ag-error-${i}`} className="mz-field-error w-100">
+                {errores.franjas[i]}
+              </div>
+            )}
           </div>
         ))}
         {!deshabilitado && (
@@ -120,7 +197,7 @@ export function EditorDeAgenda({
                 onCambiar({
                   horarios: [
                     ...horarios,
-                    { dia_semana: 0, hora_inicio: "08:00", hora_fin: "17:00" },
+                    { dia_semana: 0, hora_inicio: DESDE, hora_fin: HASTA },
                   ],
                   ausencias,
                 })
@@ -131,18 +208,9 @@ export function EditorDeAgenda({
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
-              onClick={() =>
-                onCambiar({
-                  horarios: [0, 1, 2, 3, 4].map((dia) => ({
-                    dia_semana: dia,
-                    hora_inicio: "08:00",
-                    hora_fin: "17:00",
-                  })),
-                  ausencias,
-                })
-              }
+              onClick={usarAtajo}
             >
-              Lunes a viernes, 08:00–17:00
+              Lunes a viernes, {DESDE}–{HASTA}
             </button>
           </div>
         )}
@@ -175,8 +243,12 @@ export function EditorDeAgenda({
               <input
                 id={`au-hasta-${i}`}
                 type="date"
-                className="form-control form-control-sm"
+                className={`form-control form-control-sm${errores?.ausencias[i] ? " is-invalid" : ""}`}
                 disabled={deshabilitado}
+                aria-invalid={errores?.ausencias[i] ? true : undefined}
+                aria-describedby={
+                  errores?.ausencias[i] ? `au-error-${i}` : undefined
+                }
                 value={ausencia.hasta}
                 onChange={(e) => cambiarAusencia(i, "hasta", e.target.value)}
               />
@@ -198,6 +270,11 @@ export function EditorDeAgenda({
               <button
                 type="button"
                 className="btn btn-outline-danger btn-sm"
+                aria-label={
+                  ausencia.desde
+                    ? `Quitar la ausencia desde el ${formatearFecha(ausencia.desde)}`
+                    : `Quitar la ausencia ${i + 1}`
+                }
                 onClick={() =>
                   onCambiar({
                     horarios,
@@ -207,6 +284,11 @@ export function EditorDeAgenda({
               >
                 Quitar
               </button>
+            )}
+            {errores?.ausencias[i] && (
+              <div id={`au-error-${i}`} className="mz-field-error w-100">
+                {errores.ausencias[i]}
+              </div>
             )}
           </div>
         ))}

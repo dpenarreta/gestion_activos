@@ -4,8 +4,9 @@ import datetime
 from decimal import Decimal
 
 from django.db.models import Sum
+from django.utils import timezone
 
-from . import etiquetas
+from . import etiquetas, sla
 from .models import Canal, ConfiguracionMesa, HorasFueraDeHorario, Prioridad, Ticket, TipoTicket
 
 Estado = Ticket.Estado
@@ -35,9 +36,15 @@ def filtrar(queryset, parametros):
     return queryset
 
 
-def _cumplio(ticket) -> bool | None:
+def _cumplio(ticket, ahora=None) -> bool | None:
+    """¿Se solucionó en plazo? Uno abierto cuyo plazo ya venció cuenta como
+    incumplido (auditoría UX/UI, 30/10/2026: antes quedaba fuera y el
+    reporte daba 100 % con tickets vencidos en la cola)."""
     if not ticket.atendido_en:
-        return None
+        if ticket.estado == Estado.CERRADO or ahora is None:
+            return None
+        pendiente = sla.restante(ticket, ahora)
+        return False if pendiente is not None and pendiente <= 0 else None
     if ticket.sla_cumplido is not None:
         return ticket.sla_cumplido
     if not ticket.sla_vence:
@@ -45,9 +52,15 @@ def _cumplio(ticket) -> bool | None:
     return ticket.atendido_en <= ticket.sla_vence
 
 
-def _respondio_a_tiempo(ticket) -> bool | None:
-    if not ticket.respondido_en or not ticket.sla_respuesta_vence:
+def _respondio_a_tiempo(ticket, ahora=None) -> bool | None:
+    """¿Se respondió en plazo? Sin respuesta y con el plazo vencido, cuenta
+    como incumplido."""
+    if not ticket.sla_respuesta_vence:
         return None
+    if not ticket.respondido_en:
+        if ahora is None or ticket.estado == Estado.CERRADO:
+            return None
+        return False if ahora >= ticket.sla_respuesta_vence else None
     return ticket.respondido_en <= ticket.sla_respuesta_vence
 
 
@@ -55,9 +68,10 @@ def resumen(queryset) -> dict:
     tickets = list(
         queryset.select_related("categoria", "area", "tecnico__usuario", "nivel", "encuesta")
     )
+    ahora = timezone.now()
     atendidos = [t for t in tickets if t.atendido_en]
-    medidos = [c for c in (_cumplio(t) for t in atendidos) if c is not None]
-    respuestas = [c for c in (_respondio_a_tiempo(t) for t in tickets) if c is not None]
+    medidos = [c for c in (_cumplio(t, ahora) for t in tickets) if c is not None]
+    respuestas = [c for c in (_respondio_a_tiempo(t, ahora) for t in tickets) if c is not None]
     encuestas = [t.encuesta for t in tickets if getattr(t, "encuesta", None)]
     configuracion = ConfiguracionMesa.objects.first() or ConfiguracionMesa()
     # Resolución en el primer contacto: atendido en el primer nivel, sin escalar.
@@ -73,6 +87,9 @@ def resumen(queryset) -> dict:
         if t.respondido_en and t.en_cola_desde
     ]
     nombres = etiquetas.de_la_empresa()
+    # Los plazos base de cada prioridad (las reglas y los casos pueden
+    # cambiarlos): la referencia junto a cada tiempo medido.
+    plazos_por_prioridad = sla.PLAZOS_POR_DEFECTO
     horas = HorasFueraDeHorario.objects.filter(
         ticket__in=[t.pk for t in tickets], estado=HorasFueraDeHorario.Estado.APROBADO
     ).aggregate(total=Sum("horas"))["total"] or Decimal("0")
@@ -113,8 +130,16 @@ def resumen(queryset) -> dict:
             ),
             "atendidos": len(atendidos),
             "cumplimiento_sla": _porcentaje(sum(medidos), len(medidos)),
+            "medidos_sla": len(medidos),
+            "vencidos_abiertos": sum(
+                1 for t in tickets if not t.atendido_en and _cumplio(t, ahora) is False
+            ),
+            "respuestas_vencidas": sum(
+                1 for t in tickets if not t.respondido_en and _respondio_a_tiempo(t, ahora) is False
+            ),
             "meta_sla": configuracion.meta_sla,
             "cumplimiento_respuesta": _porcentaje(sum(respuestas), len(respuestas)),
+            "medidos_respuesta": len(respuestas),
             "fcr": _porcentaje(len(en_primer_contacto), len(atendidos)),
             "reabiertos": _porcentaje(sum(1 for t in atendidos if t.reaperturas), len(atendidos)),
             "csat": (
@@ -128,6 +153,8 @@ def resumen(queryset) -> dict:
             ),
             "minutos_promedio": round(sum(duraciones) / len(duraciones)) if duraciones else None,
             "lead_time_promedio": round(sum(esperas) / len(esperas)) if esperas else None,
+            "medidos_lead": len(esperas),
+            "medidos_cycle": len(duraciones),
             "escalados_sla": sum(1 for t in tickets if t.escalado_por_sla),
             "fuera_de_horario": sum(1 for t in tickets if t.fuera_de_horario),
             "horas_fuera_aprobadas": str(horas),
@@ -138,9 +165,15 @@ def resumen(queryset) -> dict:
                 "etiqueta": nombres["prioridades"][valor],
                 "tickets": sum(1 for t in tickets if t.prioridad == valor),
                 "cumplimiento": _porcentaje(
-                    sum(1 for t in atendidos if t.prioridad == valor and _cumplio(t)),
-                    sum(1 for t in atendidos if t.prioridad == valor and _cumplio(t) is not None),
+                    sum(1 for t in tickets if t.prioridad == valor and _cumplio(t, ahora)),
+                    sum(
+                        1
+                        for t in tickets
+                        if t.prioridad == valor and _cumplio(t, ahora) is not None
+                    ),
                 ),
+                "plazo_respuesta": plazos_por_prioridad.get(valor, (None, None))[0],
+                "plazo_solucion": plazos_por_prioridad.get(valor, (None, None))[1],
                 "meta": (
                     configuracion.meta_sla_critica
                     if valor == Prioridad.CRITICA

@@ -97,6 +97,7 @@ export function tituloDeRuta(menu, pathname) {
 const TITULOS_DE_RESPALDO = [
   ["/admin/perfil", "Mi perfil"],
   ["/admin/ayuda", "Soporte TI"],
+  ["/admin/soporte/registrar", "Registrar ticket"],
   ["/admin/notificaciones", "Notificaciones"],
   ["/admin/chat", "Chat"],
 ];

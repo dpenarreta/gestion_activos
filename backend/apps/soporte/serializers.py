@@ -96,7 +96,8 @@ class TicketInternoSerializer(SolicitudSerializer):
 
 
 class MensajePublicoSerializer(serializers.Serializer):
-    texto = serializers.CharField(max_length=5000)
+    # Puede ir vacío si lleva adjuntos (una captura basta).
+    texto = serializers.CharField(max_length=5000, required=False, allow_blank=True)
 
 
 class EncuestaSerializer(serializers.Serializer):
@@ -157,6 +158,17 @@ def aprobaciones_dict(ticket) -> list:
     ]
 
 
+def plazos_para_quien_pide(ticket) -> dict:
+    """Los plazos que corren ahora: el de respuesta hasta que respondan, y el
+    de solución mientras se trabaja. `None` si no corre."""
+    corre = ticket.estado in sla.CORRE
+    return {
+        "respuesta": (ticket.sla_respuesta_vence if corre and not ticket.respondido_en else None),
+        "solucion": ticket.sla_vence if corre else None,
+        "respondido": bool(ticket.respondido_en),
+    }
+
+
 def seguimiento(ticket, url_adjunto) -> dict:
     """Lo que ve quien pidió: nada interno ni de otros tickets."""
     nombres = etiquetas.de_la_empresa(ticket.empresa_id)
@@ -183,7 +195,11 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "fuera_de_horario": ticket.fuera_de_horario,
         "categoria": ticket.categoria.nombre,
         "caso": ticket.caso.nombre,
+        "prioridad": ticket.prioridad,
         "prioridad_display": nombres["prioridades"][ticket.prioridad],
+        # Cuándo le van a responder y para cuándo debería estar resuelto, en
+        # lugar de solo la posición en la cola (auditoría UX/UI, 30/10/2026).
+        "plazos": plazos_para_quien_pide(ticket),
         "criticidad": ticket.criticidad,
         "criticidad_display": ticket.get_criticidad_display(),
         "tipo_display": ticket.get_tipo_display(),
@@ -412,6 +428,7 @@ class TicketDetalleSerializer(TicketListaSerializer):
         trabaja = services.puede_trabajarlo(usuario, ticket)
         return {
             "acciones": services.acciones_disponibles(usuario, ticket),
+            "tomar": services.puede_tomarlo(services.tecnico_de(usuario), ticket),
             "responder": trabaja or services.tiene(usuario, "ver_todos"),
             "escalar": trabaja
             and ticket.estado in Ticket.ABIERTOS_DEL_TECNICO + (Ticket.Estado.ESPERANDO_USUARIO,),

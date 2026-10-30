@@ -319,7 +319,8 @@ def _siguiente_para(tecnico):
             categoria__in=tecnico.categorias.all(),
         )
         # El más crítico primero; entre iguales, el que llegó antes.
-        .order_by("-puntaje", "en_cola_desde").first()
+        .order_by("-puntaje", "en_cola_desde")
+        .first()
     )
 
 
@@ -446,6 +447,27 @@ def tomar_siguiente(tecnico, actor) -> Ticket | None:
     if ticket and _asignar(ticket, tecnico, actor, f"{tecnico} tomó el ticket de la cola"):
         return ticket
     return None
+
+
+def puede_tomarlo(tecnico, ticket) -> bool:
+    """Un técnico toma de la cola lo de su nivel y sus categorías."""
+    return bool(
+        tecnico
+        and ticket.estado == Estado.NUEVO
+        and ticket.nivel_id == tecnico.nivel_id
+        and tecnico.categorias.filter(pk=ticket.categoria_id).exists()
+    )
+
+
+def tomar(ticket, tecnico, actor) -> Ticket:
+    """«Tomar este ticket» desde su ficha (auditoría UX/UI, 30/10/2026: el
+    técnico que abría un ticket vencido de la cola no podía quedárselo; solo
+    «Tomar siguiente», que da el más crítico, no ese)."""
+    if not puede_tomarlo(tecnico, ticket):
+        raise PermissionDenied("Este ticket no es de su nivel o de sus categorías.")
+    if not _asignar(ticket, tecnico, actor, f"{tecnico} tomó el ticket de la cola"):
+        raise ValidationError("Otra persona lo tomó mientras tanto.")
+    return ticket
 
 
 def asignar_manual(ticket, tecnico, actor, nota="") -> Ticket:

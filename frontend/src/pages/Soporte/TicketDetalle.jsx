@@ -2,34 +2,84 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { Campo } from "../../components/common/Campo/Campo";
+import { confirmar } from "../../components/common/Confirmar/confirmar";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
-import { descargarBlob } from "../../utils/descargas";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useModalA11y } from "../../hooks/useModalA11y";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import {
   EstadoTicket,
   IMPACTOS,
-  CriticidadTicket,
   PrioridadTicket,
   RespuestaTicket,
   SlaTicket,
   URGENCIAS,
   useEtiquetas,
 } from "./comunes";
+import { useVisorDeAdjuntos } from "./VisorAdjunto";
 import "./Soporte.css";
 
-/* Pasos que piden «Nota o motivo» antes de enviarse: al esperar al usuario es
- * lo que le llega; al escalar, lo que lee el nivel siguiente. */
-const PASOS_CON_NOTA = new Set(["esperando_usuario"]);
 const MAX_ADJUNTOS = 3;
 
 const TEXTO_DEL_PASO = {
   en_curso: "Poner en curso",
-  esperando_usuario: "Esperar al usuario",
+  esperando_usuario: "Esperar al usuario (pausa el plazo)",
   atendido: "Marcar como atendido",
   cerrado: "Cerrar",
 };
+
+/* Cada acción con consecuencias abre su propia ventana: qué va a pasar, un
+ * campo con su nombre (quién lo lee) y la confirmación (auditoría UX/UI,
+ * 30/10/2026: una sola «Nota o motivo» servía para cuatro cosas y cerrar,
+ * escalar o marcar como atendido iban de un clic). */
+function dialogoDe(accion, ticket) {
+  switch (accion) {
+    case "esperando_usuario":
+      return {
+        titulo: "Esperar al usuario",
+        explicacion:
+          "El plazo de solución se pausa hasta que el usuario responda.",
+        campo: "Qué necesita del usuario",
+        ayuda: "Le llega por correo y lo ve en su ticket.",
+        obligatorio: "Escriba qué necesita del usuario: es lo que le llega.",
+        boton: "Enviar y esperar",
+      };
+    case "atendido":
+      return {
+        titulo: "Marcar como atendido",
+        explicacion: `Se avisa a ${ticket.solicitante_nombre} para que confirme si quedó resuelto y responda la encuesta. Si no responde, se cierra solo.`,
+        campo: "Qué se hizo (opcional)",
+        ayuda: "Queda en el historial del ticket; el usuario no lo ve.",
+        boton: "Marcar como atendido",
+      };
+    case "cerrado":
+      return {
+        titulo: "Cerrar el ticket",
+        explicacion:
+          "Un ticket cerrado ya no se puede reabrir ni responder. Si el problema vuelve, el usuario crea uno nuevo.",
+        campo: "Motivo del cierre (opcional)",
+        ayuda: "Queda en el historial del ticket.",
+        boton: "Cerrar ticket",
+        peligro: true,
+      };
+    case "escalar":
+      return {
+        titulo: "Escalar al siguiente nivel",
+        explicacion:
+          "Deja de estar a su cargo y pasa a la cola del nivel siguiente. El plazo sigue corriendo.",
+        campo: "Motivo para el nivel siguiente",
+        ayuda: "Lo lee quien lo tome; el usuario no lo ve.",
+        obligatorio: "Escriba el motivo para escalar el ticket.",
+        boton: "Escalar",
+        peligro: true,
+      };
+    default:
+      return null;
+  }
+}
 
 /**
  * La ficha de un ticket para el equipo: datos de quien pidió, la conversación
@@ -52,6 +102,11 @@ export function TicketDetalle() {
   const [origen, setOrigen] = useState("pagina");
   const [ocupado, setOcupado] = useState(false);
   const [pedirHoras, setPedirHoras] = useState(false);
+  const adjuntos = useVisorDeAdjuntos();
+  // En una columna, «Qué se puede hacer» va primero en el DOM (no solo en
+  // pantalla): el tabulador y el lector de pantalla la recorren en el mismo
+  // orden en que se ve (verificación UX/UI, 30/10/2026).
+  const unaColumna = useMediaQuery("(max-width: 991.98px)");
 
   const cargar = useCallback(() => {
     soporteService
@@ -107,15 +162,7 @@ export function TicketDetalle() {
     }
   }
 
-  async function descargar(adjunto) {
-    setOrigen("pagina");
-    try {
-      const respuesta = await soporteService.descargar(adjunto.url);
-      descargarBlob(respuesta.data, adjunto.nombre);
-    } catch {
-      setError("No se pudo descargar el archivo.");
-    }
-  }
+  const descargar = adjuntos.abrir;
 
   if (!ticket) {
     return (
@@ -132,10 +179,53 @@ export function TicketDetalle() {
 
   const permisos = ticket.permisos ?? { acciones: [] };
   const hayAcciones =
-    permisos.acciones.length > 0 || permisos.escalar || permisos.asignar;
+    permisos.tomar ||
+    permisos.acciones.length > 0 ||
+    permisos.escalar ||
+    permisos.asignar;
   // Si tras la acción la tarjeta desaparece (escalado: ya no es suyo), el
   // aviso sube a la página para que no se pierda.
   const resultadoEnAcciones = origen === "acciones" && hayAcciones;
+
+  const acciones = hayAcciones && (
+    <Acciones
+      ticket={ticket}
+      tecnicos={tecnicos}
+      ocupado={ocupado}
+      error={origen === "acciones" ? error : null}
+      resultado={
+        origen === "acciones" && <Resultado error={error} aviso={aviso} />
+      }
+      onTomar={() =>
+        hacer(
+          () => soporteService.tomar(ticket.id),
+          "El ticket es suyo: ya puede trabajarlo.",
+          "acciones",
+        )
+      }
+      onPaso={(estado, nota) =>
+        hacer(
+          () => soporteService.cambiarEstado(ticket.id, estado, nota),
+          "Estado actualizado.",
+          "acciones",
+        )
+      }
+      onEscalar={(motivo) =>
+        hacer(
+          () => soporteService.escalar(ticket.id, motivo),
+          "Ticket escalado al siguiente nivel.",
+          "acciones",
+        )
+      }
+      onAsignar={(tecnico, nota) =>
+        hacer(
+          () => soporteService.asignar(ticket.id, tecnico, nota),
+          "Ticket asignado.",
+          "acciones",
+        )
+      }
+    />
+  );
 
   return (
     <div className="soporte-page">
@@ -165,6 +255,13 @@ export function TicketDetalle() {
       </div>
 
       {!resultadoEnAcciones && <Resultado error={error} aviso={aviso} />}
+      {adjuntos.error && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          {adjuntos.error}
+        </div>
+      )}
+      {adjuntos.visor}
       {pedirHoras && (
         <RegistrarHoras
           onCancelar={() => setPedirHoras(false)}
@@ -189,6 +286,7 @@ export function TicketDetalle() {
 
       <div className="soporte-detalle">
         <div className="mz-stack">
+          {unaColumna && acciones}
           <section className="mz-card">
             <div className="mz-card-head">
               <h3>Solicitud</h3>
@@ -292,9 +390,6 @@ export function TicketDetalle() {
                   </div>
                 )}
               </Dato>
-              <Dato etiqueta="Criticidad">
-                <CriticidadTicket ticket={ticket} />
-              </Dato>
               <Dato etiqueta="Prioridad">
                 <PrioridadTicket ticket={ticket} />
                 {ticket.prioridad_base &&
@@ -332,39 +427,7 @@ export function TicketDetalle() {
             </div>
           </section>
 
-          {hayAcciones && (
-            <Acciones
-              ticket={ticket}
-              tecnicos={tecnicos}
-              ocupado={ocupado}
-              resultado={
-                origen === "acciones" && (
-                  <Resultado error={error} aviso={aviso} />
-                )
-              }
-              onPaso={(estado, nota) =>
-                hacer(
-                  () => soporteService.cambiarEstado(ticket.id, estado, nota),
-                  "Estado actualizado.",
-                  "acciones",
-                )
-              }
-              onEscalar={(motivo) =>
-                hacer(
-                  () => soporteService.escalar(ticket.id, motivo),
-                  "Ticket escalado al siguiente nivel.",
-                  "acciones",
-                )
-              }
-              onAsignar={(tecnico, nota) =>
-                hacer(
-                  () => soporteService.asignar(ticket.id, tecnico, nota),
-                  "Ticket asignado.",
-                  "acciones",
-                )
-              }
-            />
-          )}
+          {!unaColumna && acciones}
 
           {ticket.aprobaciones?.length > 0 && (
             <section className="mz-card">
@@ -525,6 +588,9 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
   const [archivos, setArchivos] = useState([]);
   const [omitidos, setOmitidos] = useState(0);
   const [cerradas, setCerradas] = useState(false);
+  // Cambiar la llave remonta el campo de archivo: tras enviar quedaba con
+  // los nombres viejos y el siguiente mensaje parecía llevar adjuntos.
+  const [llaveArchivos, setLlaveArchivos] = useState(0);
   const caja = useRef(null);
 
   const consulta = texto.startsWith("/") ? texto.slice(1).toLowerCase() : null;
@@ -567,6 +633,7 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
       setTexto("");
       setArchivos([]);
       setOmitidos(0);
+      setLlaveArchivos((n) => n + 1);
     }
   }
 
@@ -643,10 +710,11 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
       )}
       <div className="d-flex flex-wrap gap-3 align-items-center mt-2">
         <input
+          key={llaveArchivos}
           type="file"
           className="form-control form-control-sm soporte-publico__archivos"
           multiple
-          aria-label="Adjuntar archivos"
+          aria-label="Adjuntar archivos (opcional, hasta 3)"
           aria-describedby={omitidos > 0 ? "td-adjuntos-aviso" : undefined}
           accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
           onChange={(e) => {
@@ -660,9 +728,33 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
           className={`btn btn-sm ms-auto ${interno ? "btn-warning" : "btn-primary"}`}
           disabled={ocupado}
         >
-          {interno ? "Guardar nota interna" : "Responder"}
+          {ocupado
+            ? "Enviando…"
+            : interno
+              ? "Guardar nota interna"
+              : "Responder"}
         </button>
       </div>
+      {archivos.length > 0 && (
+        <ul className="soporte-por-adjuntar" aria-label="Archivos por adjuntar">
+          {archivos.map((archivo, i) => (
+            <li key={`${archivo.name}-${i}`}>
+              <Icon name="paperclip" /> {archivo.name}
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 ms-1"
+                aria-label={`Quitar ${archivo.name}`}
+                onClick={() => {
+                  setArchivos((lista) => lista.filter((_, j) => j !== i));
+                  setLlaveArchivos((n) => n + 1);
+                }}
+              >
+                <Icon name="x-lg" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {omitidos > 0 && (
         <div
           id="td-adjuntos-aviso"
@@ -676,108 +768,101 @@ function Responder({ respuestas, ticket, ocupado, onEnviar }) {
   );
 }
 
-/* Auditoría UX/UI, fase 2 (28/10/2026): la nota es obligatoria para esperar
- * al usuario y para escalar, y antes se mandaba vacía y el servidor la
- * rechazaba arriba de la página. Se valida aquí, bajo el campo, y el aviso o
- * el error de la acción salen dentro de esta tarjeta. */
+/* Lo que se puede hacer con el ticket. Tomarlo y ponerlo en curso van de un
+ * clic; lo que tiene consecuencias (esperar al usuario, atendido, cerrar,
+ * escalar, asignar) abre su ventana con lo que va a pasar y su propio campo
+ * (auditoría UX/UI, 30/10/2026). */
 function Acciones({
   ticket,
   tecnicos,
   ocupado,
+  error,
   resultado,
+  onTomar,
   onPaso,
   onEscalar,
   onAsignar,
 }) {
-  const [nota, setNota] = useState("");
-  const [errorNota, setErrorNota] = useState(null);
+  const [dialogo, setDialogo] = useState(null);
   const [tecnico, setTecnico] = useState("");
-  const campoNota = useRef(null);
   const permisos = ticket.permisos;
+  const elegido = tecnicos.find((t) => String(t.id) === String(tecnico));
 
-  /** true si hay nota; si no, marca el campo con `mensaje` y lo enfoca. */
-  function notaLista(mensaje) {
-    if (nota.trim()) {
-      setErrorNota(null);
-      return true;
+  async function pasoDirecto(destino) {
+    // Reabrir lo atendido avisa a quien lo pidió: se confirma.
+    if (destino === "en_curso" && ticket.estado === "atendido") {
+      const si = await confirmar({
+        titulo: "¿Reabrir el ticket?",
+        mensaje:
+          "Vuelve a estar en curso y el plazo de solución sigue con lo que quedaba.",
+        accion: "Reabrir",
+        peligro: false,
+      });
+      if (!si) return;
     }
-    setErrorNota(mensaje);
-    campoNota.current?.focus();
-    return false;
+    onPaso(destino, "");
   }
 
   return (
-    <section className="mz-card">
+    <section className="mz-card soporte-acciones">
       <div className="mz-card-head">
         <h3>Qué se puede hacer</h3>
       </div>
       <div className="mz-card-body">
-        {resultado}
-        <div className="mz-field">
-          <label htmlFor="ta-nota">Nota o motivo</label>
-          <textarea
-            id="ta-nota"
-            ref={campoNota}
-            className={`form-control form-control-sm${errorNota ? " is-invalid" : ""}`}
-            rows={2}
-            value={nota}
-            aria-invalid={errorNota ? true : undefined}
-            aria-describedby={`ta-nota-ayuda${errorNota ? " ta-nota-error" : ""}`}
-            onChange={(e) => {
-              setNota(e.target.value);
-              if (errorNota && e.target.value.trim()) setErrorNota(null);
-            }}
-          />
-          <div id="ta-nota-ayuda" className="form-text">
-            Obligatorio al esperar al usuario (es lo que le llega) y al escalar.
-          </div>
-          {errorNota && (
-            <div id="ta-nota-error" className="mz-field-error">
-              {errorNota}
+        {!dialogo && resultado}
+        {permisos.tomar && (
+          <div className="mb-3">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={ocupado}
+              onClick={onTomar}
+            >
+              <Icon name="person-check" />{" "}
+              {ocupado ? "Tomando…" : "Tomar este ticket"}
+            </button>
+            <div className="form-text">
+              Pasa a estar a su cargo y empieza a correr el plazo de solución.
             </div>
-          )}
-        </div>
-        <div className="mz-actions">
-          {permisos.acciones.map((destino) => (
-            <button
-              key={destino}
-              type="button"
-              className={`btn btn-sm ${destino === "atendido" ? "btn-primary" : "btn-outline-primary"}`}
-              disabled={ocupado}
-              onClick={async () => {
-                if (PASOS_CON_NOTA.has(destino)) {
-                  if (
-                    !notaLista(
-                      "Escriba qué necesita del usuario: es lo que le llega.",
-                    )
-                  )
-                    return;
-                } else {
-                  setErrorNota(null);
+          </div>
+        )}
+        {(permisos.acciones.length > 0 || permisos.escalar) && (
+          <div className="mz-actions">
+            {permisos.acciones.map((destino) => (
+              <button
+                key={destino}
+                type="button"
+                className={`btn btn-sm ${
+                  destino === "atendido"
+                    ? "btn-primary"
+                    : destino === "cerrado"
+                      ? "btn-outline-danger"
+                      : "btn-outline-primary"
+                }`}
+                disabled={ocupado}
+                onClick={() =>
+                  dialogoDe(destino, ticket)
+                    ? setDialogo(destino)
+                    : pasoDirecto(destino)
                 }
-                if (await onPaso(destino, nota)) setNota("");
-              }}
-            >
-              {destino === "en_curso" && ticket.estado === "atendido"
-                ? "Reabrir"
-                : TEXTO_DEL_PASO[destino]}
-            </button>
-          ))}
-          {permisos.escalar && (
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger"
-              disabled={ocupado}
-              onClick={async () => {
-                if (!notaLista("Escriba el motivo para escalar el ticket."))
-                  return;
-                if (await onEscalar(nota)) setNota("");
-              }}
-            >
-              Escalar al siguiente nivel
-            </button>
-          )}
-        </div>
+              >
+                {destino === "en_curso" && ticket.estado === "atendido"
+                  ? "Reabrir"
+                  : TEXTO_DEL_PASO[destino]}
+              </button>
+            ))}
+            {permisos.escalar && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                disabled={ocupado}
+                onClick={() => setDialogo("escalar")}
+              >
+                Escalar al siguiente nivel
+              </button>
+            )}
+          </div>
+        )}
         {permisos.asignar && (
           <div className="mt-3">
             <label className="form-label" htmlFor="ta-tecnico">
@@ -801,7 +886,7 @@ function Acciones({
                 type="button"
                 className="btn btn-sm btn-outline-primary"
                 disabled={ocupado || !tecnico}
-                onClick={() => onAsignar(tecnico, nota)}
+                onClick={() => setDialogo("asignar")}
               >
                 Asignar
               </button>
@@ -809,7 +894,151 @@ function Acciones({
           </div>
         )}
       </div>
+      {dialogo && (
+        <DialogoDeAccion
+          {...(dialogo === "asignar"
+            ? {
+                titulo: `Asignar a ${elegido?.nombre ?? "este técnico"}`,
+                explicacion:
+                  ticket.tecnico && ticket.tecnico.nombre !== elegido?.nombre
+                    ? `Deja de estar a cargo de ${ticket.tecnico.nombre}. Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`
+                    : `Se le avisa a ${elegido?.nombre ?? "quien lo recibe"}.`,
+                campo: "Nota para quien lo recibe (opcional)",
+                ayuda: "Queda en el historial del ticket.",
+                boton: "Asignar",
+              }
+            : dialogoDe(dialogo, ticket))}
+          ocupado={ocupado}
+          error={error}
+          onCerrar={() => setDialogo(null)}
+          onConfirmar={async (nota) => {
+            const hecho =
+              dialogo === "escalar"
+                ? await onEscalar(nota)
+                : dialogo === "asignar"
+                  ? await onAsignar(tecnico, nota)
+                  : await onPaso(dialogo, nota);
+            if (hecho) {
+              setDialogo(null);
+              if (dialogo === "asignar") setTecnico("");
+            }
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/** La ventana de una acción: qué va a pasar, su campo y la confirmación. Si
+ * el servidor la rechaza, el error sale aquí, junto al botón. */
+function DialogoDeAccion({
+  titulo,
+  explicacion,
+  campo,
+  ayuda,
+  obligatorio,
+  boton,
+  peligro = false,
+  ocupado,
+  error,
+  onCerrar,
+  onConfirmar,
+}) {
+  const [nota, setNota] = useState("");
+  const [errorNota, setErrorNota] = useState(null);
+  const [intentado, setIntentado] = useState(false);
+  const caja = useRef(null);
+  const { panelRef, handleBackdropClick } = useModalA11y({
+    isOpen: true,
+    onRequestClose: onCerrar,
+  });
+
+  async function enviar(evento) {
+    evento.preventDefault();
+    if (obligatorio && !nota.trim()) {
+      setErrorNota(obligatorio);
+      caja.current?.focus();
+      return;
+    }
+    setErrorNota(null);
+    setIntentado(true);
+    await onConfirmar(nota.trim());
+  }
+
+  return (
+    <div
+      className="mz-overlay mz-overlay--center"
+      onClick={handleBackdropClick}
+      role="presentation"
+    >
+      <div
+        className="mz-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="da-titulo"
+        aria-describedby="da-explicacion"
+        ref={panelRef}
+        tabIndex={-1}
+      >
+        <div className="mz-panel-head">
+          <h3 id="da-titulo">{titulo}</h3>
+          <button
+            type="button"
+            className="mz-close"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+          >
+            <Icon name="x-lg" />
+          </button>
+        </div>
+        <form className="mz-panel-body" onSubmit={enviar} noValidate>
+          <p id="da-explicacion">{explicacion}</p>
+          {intentado && error && (
+            <div className="mz-alert mz-alert--bad" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          <Campo
+            id="da-nota"
+            etiqueta={campo}
+            obligatorio={Boolean(obligatorio)}
+            ayuda={ayuda}
+            error={errorNota}
+            className="mb-3"
+          >
+            <textarea
+              ref={caja}
+              className="form-control form-control-sm"
+              rows={3}
+              maxLength={2000}
+              value={nota}
+              data-autofocus
+              onChange={(e) => {
+                setNota(e.target.value);
+                if (errorNota && e.target.value.trim()) setErrorNota(null);
+              }}
+            />
+          </Campo>
+          <div className="mz-actions justify-content-end">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onCerrar}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className={`btn btn-sm ${peligro ? "btn-danger" : "btn-primary"}`}
+              disabled={ocupado}
+            >
+              {ocupado ? "Guardando…" : boton}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -956,7 +1185,7 @@ function CambiarPrioridad({ ticket, prioridades, ocupado, onCambiar }) {
           className="btn btn-sm btn-outline-primary"
           disabled={ocupado}
         >
-          Cambiar prioridad
+          {ocupado ? "Guardando…" : "Cambiar prioridad"}
         </button>
       </form>
     </section>

@@ -297,6 +297,107 @@ def test_los_indicadores_del_piloto(mesa):
     assert {g["clave"] for g in datos["graficos"]} >= {"canal", "tipo"}
 
 
+def test_los_vencidos_sin_atender_cuentan_como_incumplidos(mesa):
+    """Auditoría UX/UI (30/10/2026): el reporte daba 100 % de cumplimiento
+    con un P1 sin respuesta desde hacía días, porque lo abierto no contaba."""
+    _sin_reglas(mesa)
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa, caso=_caso_critico(mesa).id)["id"], mesa)
+    cliente = _equipo(mesa["supervisor"])
+
+    # En plazo: todavía no cuenta ni a favor ni en contra.
+    kpis = cliente.get("/api/v1/soporte/reportes/").json()["kpis"]
+    assert kpis["cumplimiento_respuesta"] is None
+    assert kpis["respuestas_vencidas"] == 0
+
+    # Pasada la hora de respuesta, sin que nadie responda: incumplido.
+    Ticket.objects.filter(pk=ticket.pk).update(
+        sla_respuesta_vence=timezone.now() - timedelta(minutes=1)
+    )
+    datos = cliente.get("/api/v1/soporte/reportes/").json()
+    assert datos["kpis"]["cumplimiento_respuesta"] == 0.0
+    assert datos["kpis"]["medidos_respuesta"] == 1
+    assert datos["kpis"]["respuestas_vencidas"] == 1
+    p1 = next(p for p in datos["prioridades"] if p["prioridad"] == "critica")
+    assert (p1["plazo_respuesta"], p1["plazo_solucion"]) == (15, 240)
+
+
+def test_la_bandeja_ordena_por_lo_que_vence_y_filtra_los_vencidos(mesa):
+    """Auditoría UX/UI (30/10/2026): la bandeja no mostraba lo vencido."""
+    with mock.patch.object(services, "repartir", return_value=0):
+        primero = _ticket(_crear(mesa)["id"], mesa)
+        segundo = _ticket(_crear(mesa)["id"], mesa)
+    ahora = timezone.now()
+    Ticket.objects.filter(pk=primero.pk).update(sla_respuesta_vence=ahora + timedelta(hours=2))
+    Ticket.objects.filter(pk=segundo.pk).update(sla_respuesta_vence=ahora - timedelta(days=9))
+    cliente = _equipo(mesa["supervisor"])
+    lista = cliente.get(TICKETS, {"ambito": "todos"}).json()["results"]
+    assert [t["id"] for t in lista][:2] == [segundo.id, primero.id]
+    vencidos = cliente.get(TICKETS, {"ambito": "todos", "vencidos": "true"}).json()
+    assert [t["id"] for t in vencidos["results"]] == [segundo.id]
+
+
+def test_el_tecnico_toma_el_ticket_que_esta_mirando(mesa):
+    """Auditoría UX/UI (30/10/2026): solo había «Tomar siguiente»."""
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    # Otro nivel: no lo puede tomar, y su ficha no se lo ofrece.
+    experto = _equipo(mesa["experto"].usuario)
+    assert experto.post(f"{TICKETS}{ticket.id}/tomar/").status_code in (403, 404)
+
+    jorge = _equipo(mesa["jorge"].usuario)
+    assert jorge.get(f"{TICKETS}{ticket.id}/").json()["permisos"]["tomar"] is True
+    respuesta = jorge.post(f"{TICKETS}{ticket.id}/tomar/")
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.json()["estado"] == "asignado"
+    assert respuesta.json()["permisos"]["tomar"] is False
+    ticket.refresh_from_db()
+    assert ticket.tecnico == mesa["jorge"]
+
+
+def test_quien_pide_ve_sus_plazos_y_puede_responder_solo_con_una_captura(mesa):
+    """Auditoría UX/UI (30/10/2026): no sabía cuándo lo iban a atender, y no
+    podía mandar solo una captura."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    with mock.patch.object(services, "repartir", return_value=0):
+        ticket = _ticket(_crear(mesa)["id"], mesa)
+    cliente = _quien_pide(mesa)
+    ficha = cliente.get(f"{SEGUIMIENTO}{ticket.id}/").json()
+    assert ficha["plazos"]["respuesta"] is not None
+    assert ficha["plazos"]["respondido"] is False
+    assert ficha["prioridad"] == ticket.prioridad
+    lista = cliente.get(SEGUIMIENTO).json()
+    assert lista[0]["prioridad_display"]
+
+    captura = SimpleUploadedFile(
+        "captura.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, content_type="image/png"
+    )
+    respuesta = cliente.post(
+        f"{SEGUIMIENTO}{ticket.id}/", {"texto": "", "adjuntos": [captura]}, format="multipart"
+    )
+    assert respuesta.status_code == 200, respuesta.data
+    assert respuesta.json()["mensajes"][-1]["texto"] == "(Adjuntó archivos)"
+    # Sin texto y sin archivos, sigue pidiendo el mensaje.
+    vacio = cliente.post(f"{SEGUIMIENTO}{ticket.id}/", {"texto": ""}, format="multipart")
+    assert vacio.status_code == 400
+
+
+def test_quien_coordina_ve_las_categorias_sin_tecnicos(mesa):
+    datos = _equipo(mesa["supervisor"]).get(f"{TICKETS}bandeja/").json()
+    # «Accesos» no tiene técnicos; «Hardware», sí.
+    assert datos["categorias_sin_tecnicos"] == ["Accesos"]
+    # El técnico no la ve: no es quien lo resuelve.
+    tecnico = _equipo(mesa["jorge"].usuario).get(f"{TICKETS}bandeja/").json()
+    assert tecnico["categorias_sin_tecnicos"] == []
+
+
+def test_el_nivel_no_repite_su_codigo(mesa):
+    assert str(mesa["n1"]) == "N1 · Mesa de ayuda"
+    mesa["n1"].nombre = "N1 · Mesa de ayuda"
+    assert str(mesa["n1"]) == "N1 · Mesa de ayuda"
+
+
 def test_quien_configura_define_el_horario_las_metas_y_los_feriados(mesa):
     cliente = _equipo(_usuario("marco", "configurar", empresa=mesa["empresa"]))
     inicial = cliente.get("/api/v1/soporte/config/mesa/").json()

@@ -130,24 +130,24 @@ describe("El formulario configurable de Soporte TI", () => {
     );
 
     // Los datos de contacto salen de «Mi perfil»: no se preguntan.
-    expect(await screen.findByText("Carla Ordóñez")).toBeInTheDocument();
+    expect(await screen.findByText(/Carla Ordóñez/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Teléfono de contacto")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Categoría"), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
       target: { value: "5" },
     });
     expect(screen.queryByLabelText("Serie del equipo")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Categoría"), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Serie del equipo"), {
+    fireEvent.change(screen.getByLabelText(/^Serie del equipo/), {
       target: { value: "MX20991" },
     });
-    fireEvent.click(screen.getByLabelText("Bloquea su trabajo"));
-    fireEvent.change(screen.getByLabelText("Caso de ayuda"), {
+    fireEvent.click(screen.getByLabelText(/^Bloquea su trabajo/));
+    fireEvent.change(screen.getByLabelText(/^Caso de ayuda/), {
       target: { value: "4" },
     });
-    fireEvent.change(screen.getByLabelText("Describa el problema"), {
+    fireEvent.change(screen.getByLabelText(/^Describa el problema/), {
       target: { value: "No prende" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
@@ -261,7 +261,7 @@ describe("El editor del formulario", () => {
     // Los datos de contacto no se preguntan: no están en la vista previa.
     expect(within(vista).queryByLabelText("Nombre y apellido")).toBeNull();
     expect(
-      within(vista).getByLabelText("Describa el problema"),
+      within(vista).getByLabelText(/^Describa el problema/),
     ).toBeInTheDocument();
     expect(screen.getAllByText("De «Mi perfil»").length).toBe(2);
   });
@@ -340,7 +340,13 @@ describe("Las opciones de los desplegables del sistema", () => {
       }),
     );
 
+    // Ocultar se confirma: deja de ofrecerse al pedir ayuda.
     fireEvent.click(within(editor).getByLabelText("Mostrar «Accesos»"));
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "¿Ocultar «Accesos»?" }),
+      ).getByRole("button", { name: "Ocultar" }),
+    );
     await waitFor(() =>
       expect(servicio.config.actualizar).toHaveBeenCalledWith("categorias", 5, {
         activa: false,

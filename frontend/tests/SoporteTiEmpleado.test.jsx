@@ -130,7 +130,7 @@ describe("Soporte TI: Mis tickets", () => {
     );
     fireEvent.keyDown(nuevo, { key: "ArrowRight" });
     expect(
-      await screen.findByText("Todavía no ha creado solicitudes."),
+      await screen.findByText("Todavía no ha pedido ayuda."),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Mis tickets" })).toHaveFocus();
   });
@@ -195,7 +195,7 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
     servicio.responderMiTicket.mockResolvedValue(SEGUIMIENTO);
     pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
-    const entrada = await screen.findByLabelText("Adjuntar archivos");
+    const entrada = await screen.findByLabelText(/^Adjuntar captura o archivo/);
     fireEvent.change(entrada, { target: { files: archivos(5) } });
     expect(
       screen.getByText("Máx. 3 archivos; se omitieron 2."),
@@ -283,9 +283,7 @@ describe("Aviso de adjuntos omitidos al crear el ticket", () => {
     });
     pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
 
-    const entrada = await screen.findByLabelText(
-      "Adjuntos (opcional, hasta 3)",
-    );
+    const entrada = await screen.findByLabelText(/^Capturas o archivos/);
     fireEvent.change(entrada, { target: { files: archivos(4) } });
     expect(
       screen.getByText("Máx. 3 archivos; se omitieron 1."),

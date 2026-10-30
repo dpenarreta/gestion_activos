@@ -65,12 +65,21 @@ export function CriticidadTicket({ ticket }) {
   );
 }
 
-export function PrioridadTicket({ ticket }) {
+/** Sin el código («P1 · Crítica» → «Crítica»): para quien pide ayuda, que
+ * no sabe qué es «P1» (auditoría UX/UI, 30/10/2026). */
+export function prioridadLlana(texto) {
+  return (texto ?? "").replace(/^P\d\s*·\s*/, "");
+}
+
+export function PrioridadTicket({ ticket, llano = false }) {
+  if (!ticket.prioridad) return <span className="mz-faint">—</span>;
   return (
     <span
       className={`mz-pill ${TONO_PRIORIDAD[ticket.prioridad] ?? "mz-pill--neutral"}`}
     >
-      {ticket.prioridad_display}
+      {llano
+        ? prioridadLlana(ticket.prioridad_display)
+        : ticket.prioridad_display}
     </span>
   );
 }
@@ -92,7 +101,7 @@ export function enHoras(minutos) {
   return resto ? `${horas} h ${resto} min` : `${horas} h`;
 }
 
-/** El reloj de solución: corre desde que se crea el ticket. */
+/** El reloj de solución: corre desde que un técnico toma el ticket. */
 export function SlaTicket({ sla }) {
   const [texto, tono] = SLA[sla?.estado] ?? ["—", "mz-pill--neutral"];
   return (
@@ -108,6 +117,62 @@ export function SlaTicket({ sla }) {
         <span className="mz-small mz-faint">
           quedan {enHoras(sla.restante_en_pausa)}
         </span>
+      )}
+    </span>
+  );
+}
+
+/** Cuánto pasó o falta, en palabras: «9 d», «3 h», «25 min». */
+export function lapso(minutos) {
+  const m = Math.max(0, Math.round(Math.abs(minutos)));
+  if (m < 60) return `${m} min`;
+  if (m < 48 * 60) return enHoras(Math.round(m / 60) * 60);
+  return `${Math.round(m / (24 * 60))} d`;
+}
+
+function minutosHasta(fecha, ahora = Date.now()) {
+  return (new Date(fecha).getTime() - ahora) / 60000;
+}
+
+/**
+ * El plazo que importa ahora, en una sola pastilla: el de respuesta mientras
+ * nadie respondió, y después el de solución (auditoría UX/UI, 30/10/2026: la
+ * bandeja mostraba solo el de solución, «Sin iniciar», con la respuesta
+ * vencida hacía días).
+ */
+export function VenceTicket({ sla }) {
+  const respuesta = sla?.respuesta;
+  let texto;
+  let tono;
+  let fecha = null;
+  if (respuesta?.estado === "vencida") {
+    texto = `Respuesta vencida hace ${lapso(minutosHasta(respuesta.vence))}`;
+    tono = "soporte-pill--critica";
+  } else if (respuesta?.estado === "en_plazo") {
+    texto = `Responder en ${lapso(minutosHasta(respuesta.vence))}`;
+    tono = "mz-pill--warn";
+    fecha = respuesta.vence;
+  } else if (sla?.estado === "vencido") {
+    texto = `Solución vencida hace ${lapso(minutosHasta(sla.vence))}`;
+    tono = "soporte-pill--critica";
+  } else if (sla?.estado === "por_vencer" || sla?.estado === "en_plazo") {
+    texto = `Solucionar en ${lapso(minutosHasta(sla.vence))}`;
+    tono = sla.estado === "por_vencer" ? "mz-pill--warn" : "mz-pill--ok";
+    fecha = sla.vence;
+  } else if (sla?.estado === "pausado") {
+    texto =
+      sla.restante_en_pausa === null
+        ? "En pausa"
+        : `En pausa · quedan ${enHoras(sla.restante_en_pausa)}`;
+    tono = "mz-pill--neutral";
+  } else {
+    [texto, tono] = SLA[sla?.estado] ?? ["—", "mz-pill--neutral"];
+  }
+  return (
+    <span className="soporte-sla">
+      <span className={`mz-pill ${tono}`}>{texto}</span>
+      {fecha && (
+        <span className="mz-small mz-faint">{formatearFecha(fecha, true)}</span>
       )}
     </span>
   );
@@ -197,4 +262,37 @@ export function useEtiquetas() {
     };
   }, []);
   return etiquetas;
+}
+
+/** La posición en la cola, en palabras: «Es el siguiente», «Hay 3 antes». */
+export function enLaCola(posicion) {
+  if (!posicion) return null;
+  if (posicion === 1) return "Es el siguiente en la cola.";
+  const antes = posicion - 1;
+  return `Hay ${antes} ${antes === 1 ? "ticket" : "tickets"} antes que el suyo.`;
+}
+
+/**
+ * Qué sigue con un ticket propio, para quien lo pidió: si le toca hacer algo
+ * o esperar (auditoría UX/UI, 30/10/2026: la lista no decía qué ticket
+ * necesitaba algo de la persona). `accion` marca lo que le toca a ella.
+ */
+export function queSigue(ticket) {
+  switch (ticket.estado) {
+    case "esperando_usuario":
+      return { texto: "Le respondieron: lea y conteste", accion: true };
+    case "atendido":
+      return { texto: "Confirme si quedó resuelto", accion: true };
+    case "esperando_aprobacion":
+      return { texto: "Esperando la aprobación", accion: false };
+    case "nuevo":
+      return {
+        texto: enLaCola(ticket.posicion) ?? "Esperando a soporte",
+        accion: false,
+      };
+    case "cerrado":
+      return { texto: "Cerrado", accion: false };
+    default:
+      return { texto: "Soporte lo está trabajando", accion: false };
+  }
 }

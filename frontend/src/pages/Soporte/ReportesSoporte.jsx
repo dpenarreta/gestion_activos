@@ -4,28 +4,92 @@ import { soporteService } from "../../api/soporteService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../utils/errores";
+import { enHoras } from "./comunes";
 import "./Soporte.css";
 
-/* Los indicadores del piloto (§6.8 del flujo ITIL), con su meta. */
+/* Los indicadores del piloto (§6.8 del flujo ITIL), con su meta. El color
+ * sale del valor frente a la meta, y lo dice también con texto («Bajo la
+ * meta»); antes era fijo y el SLA salía verde aunque estuviera bajo la meta
+ * (auditoría UX/UI, 30/10/2026). `meta` recibe los indicadores: la del SLA
+ * la fija cada empresa. */
 const INDICADORES = [
-  ["creados", "Tickets creados", "ticket-detailed", "info"],
-  ["en_cola", "En cola", "hourglass-split", "warn"],
-  ["atendidos", "Atendidos", "check2-circle", "ok"],
-  ["canal_oficial", "Por el portal (meta ≥ 80 %)", "globe", "info"],
-  ["cumplimiento_respuesta", "SLA de respuesta (meta ≥ 90 %)", "reply", "ok"],
-  ["cumplimiento_sla", "SLA de solución", "speedometer", "ok"],
-  ["fcr", "Resueltos en primer contacto (meta ≥ 50 %)", "1-circle", "ok"],
-  ["csat", "Satisfacción (meta ≥ 4,0 / 5)", "star", "ok"],
-  ["reabiertos", "Reabiertos (meta ≤ 5 %)", "arrow-counterclockwise", "warn"],
-  [
-    "lead_time_promedio",
-    "Lead time (llega → 1.ª respuesta)",
-    "hourglass",
-    "info",
-  ],
-  ["minutos_promedio", "Cycle time (toma → solución)", "stopwatch", "info"],
-  ["escalados_sla", "Escalados por SLA", "exclamation-octagon", "bad"],
-  ["horas_fuera_aprobadas", "Horas fuera de horario", "moon", "warn"],
+  { clave: "creados", etiqueta: "Tickets creados", icono: "ticket-detailed" },
+  { clave: "en_cola", etiqueta: "En cola", icono: "hourglass-split" },
+  { clave: "en_atencion", etiqueta: "En atención", icono: "person-workspace" },
+  { clave: "atendidos", etiqueta: "Atendidos", icono: "check2-circle" },
+  {
+    clave: "cumplimiento_respuesta",
+    etiqueta: "Respondidos a tiempo",
+    icono: "reply",
+    meta: () => 90,
+    nota: (k) =>
+      k.respuestas_vencidas
+        ? `${k.respuestas_vencidas} sin responder con el plazo vencido`
+        : medidos(k.medidos_respuesta),
+  },
+  {
+    clave: "cumplimiento_sla",
+    etiqueta: "Solucionados a tiempo",
+    icono: "speedometer",
+    meta: (k) => k.meta_sla,
+    nota: (k) =>
+      k.vencidos_abiertos
+        ? `${k.vencidos_abiertos} abierto${k.vencidos_abiertos === 1 ? "" : "s"} con el plazo vencido`
+        : medidos(k.medidos_sla),
+  },
+  {
+    clave: "fcr",
+    etiqueta: "Resueltos en el primer contacto",
+    icono: "1-circle",
+    meta: () => 50,
+  },
+  {
+    clave: "csat",
+    etiqueta: "Satisfacción",
+    icono: "star",
+    meta: () => 4,
+    nota: (k) =>
+      k.respuesta_encuesta === null || k.respuesta_encuesta === undefined
+        ? null
+        : `${k.respuesta_encuesta} % respondió la encuesta`,
+  },
+  {
+    clave: "reabiertos",
+    etiqueta: "Reabiertos",
+    icono: "arrow-counterclockwise",
+    meta: () => 5,
+    menorEsMejor: true,
+  },
+  {
+    clave: "canal_oficial",
+    etiqueta: "Pedidos por el sistema",
+    icono: "globe",
+    meta: () => 80,
+  },
+  {
+    clave: "lead_time_promedio",
+    etiqueta: "Tiempo hasta la 1.ª respuesta (lead time)",
+    icono: "hourglass",
+    nota: (k) =>
+      `Desde que entra a la cola hasta la primera respuesta, en horas corridas; solo los ya respondidos (${k.medidos_lead ?? 0}). Los plazos, en la tabla.`,
+  },
+  {
+    clave: "minutos_promedio",
+    etiqueta: "Tiempo de trabajo (cycle time)",
+    icono: "stopwatch",
+    nota: (k) =>
+      `Desde que se toma hasta solucionarlo, en horas corridas; solo los ya atendidos (${k.medidos_cycle ?? 0}).${k.en_cola ? ` ${k.en_cola} en cola aún sin plazo de solución.` : ""}`,
+  },
+  {
+    clave: "escalados_sla",
+    etiqueta: "Escalados por vencer el plazo",
+    icono: "exclamation-octagon",
+  },
+  {
+    clave: "horas_fuera_aprobadas",
+    etiqueta: "Horas fuera de horario aprobadas",
+    icono: "moon",
+  },
 ];
 
 const PORCENTAJES = new Set([
@@ -36,25 +100,55 @@ const PORCENTAJES = new Set([
   "canal_oficial",
 ]);
 
+function medidos(n) {
+  if (n === undefined || n === null) return null;
+  return n === 0
+    ? "Aún no hay tickets para medir"
+    : `${n} ticket${n === 1 ? "" : "s"} medido${n === 1 ? "" : "s"}`;
+}
+
+function duracion(minutos) {
+  if (minutos < 48 * 60) return enHoras(minutos);
+  return `${Math.floor(minutos / (24 * 60))} d ${Math.floor((minutos % (24 * 60)) / 60)} h`;
+}
+
 function valor(clave, kpis) {
   const dato = kpis[clave];
   if (dato === null || dato === undefined) return "—";
-  if (clave === "cumplimiento_sla")
-    return `${dato} % (meta ${kpis.meta_sla} %)`;
   if (PORCENTAJES.has(clave)) return `${dato} %`;
-  if (clave === "csat")
-    return `${dato} / 5${kpis.respuesta_encuesta !== null ? ` · ${kpis.respuesta_encuesta} % respondió` : ""}`;
+  if (clave === "csat") return `${dato} / 5`;
   if (clave === "minutos_promedio" || clave === "lead_time_promedio")
-    return dato >= 60
-      ? `${Math.floor(dato / 60)} h ${dato % 60} min`
-      : `${dato} min`;
+    return duracion(dato);
   if (clave === "horas_fuera_aprobadas") return `${Number(dato)} h`;
   return dato;
 }
 
+/** Frente a la meta: el tono y un texto que lo dice sin depender del color. */
+function frenteALaMeta(indicador, kpis) {
+  if (!indicador.meta) return { tono: "info", texto: null };
+  const dato = kpis[indicador.clave];
+  const meta = indicador.meta(kpis);
+  const unidad = indicador.clave === "csat" ? " / 5" : " %";
+  const signo = indicador.menorEsMejor ? "≤" : "≥";
+  if (dato === null || dato === undefined)
+    return { tono: "info", texto: `Meta ${signo} ${meta}${unidad}` };
+  const cumple = indicador.menorEsMejor ? dato <= meta : dato >= meta;
+  return {
+    tono: cumple ? "ok" : "bad",
+    // «No cumple», no «Bajo la meta»: en «Reabiertos» (menos es mejor)
+    // «bajo» se leía como algo bueno.
+    texto: `${cumple ? "Cumple la meta" : "No cumple la meta"} (${signo} ${meta}${unidad})`,
+  };
+}
+
+function mesDe(fecha) {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /** Reportes → Mesa de ayuda: indicadores, gráficos y desempeño por técnico. */
 export function ReportesSoporte() {
-  const [periodo, setPeriodo] = useState("");
+  // Por defecto, el mes en curso (antes «Todo», que mezclaba los meses).
+  const [periodo, setPeriodo] = useState(() => mesDe(new Date()));
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -89,7 +183,7 @@ export function ReportesSoporte() {
   const meses = Array.from({ length: 12 }, (_, i) => {
     const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
     return [
-      `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`,
+      mesDe(fecha),
       fecha.toLocaleDateString("es-EC", { month: "long", year: "numeric" }),
     ];
   });
@@ -113,7 +207,6 @@ export function ReportesSoporte() {
             value={periodo}
             onChange={(e) => setPeriodo(e.target.value)}
           >
-            <option value="">Todo</option>
             {meses.map(([v, etiqueta]) => (
               <option key={v} value={v}>
                 {etiqueta}
@@ -122,6 +215,7 @@ export function ReportesSoporte() {
             <option value={String(hoy.getFullYear())}>
               Año {hoy.getFullYear()}
             </option>
+            <option value="">Todo</option>
           </select>
         </div>
       </div>
@@ -133,17 +227,32 @@ export function ReportesSoporte() {
       {datos && (
         <>
           <div className="mz-kpi-grid soporte-kpis">
-            {INDICADORES.map(([clave, etiqueta, icono, tono]) => (
-              <div key={clave} className={`mz-kpi mz-kpi--${tono}`}>
-                <div className="mz-kpi-top">
-                  <span className="mz-kpi-label">{etiqueta}</span>
-                  <span className="mz-kpi-icon">
-                    <Icon name={icono} />
-                  </span>
+            {INDICADORES.map((indicador) => {
+              const { tono, texto } = frenteALaMeta(indicador, datos.kpis);
+              const nota = indicador.nota?.(datos.kpis);
+              return (
+                <div key={indicador.clave} className={`mz-kpi mz-kpi--${tono}`}>
+                  <div className="mz-kpi-top">
+                    <span className="mz-kpi-label">{indicador.etiqueta}</span>
+                    <span className="mz-kpi-icon">
+                      <Icon name={indicador.icono} />
+                    </span>
+                  </div>
+                  <div className="mz-kpi-value">
+                    {valor(indicador.clave, datos.kpis)}
+                  </div>
+                  {texto && (
+                    <div
+                      className={`soporte-kpi-meta soporte-kpi-meta--${tono}`}
+                    >
+                      {tono === "bad" && <Icon name="exclamation-triangle" />}{" "}
+                      {texto}
+                    </div>
+                  )}
+                  {nota && <div className="soporte-kpi-nota">{nota}</div>}
                 </div>
-                <div className="mz-kpi-value">{valor(clave, datos.kpis)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="soporte-graficos">
             {datos.graficos.map((g) => {
@@ -181,15 +290,22 @@ export function ReportesSoporte() {
           </div>
           <section className="mz-card">
             <div className="mz-card-head">
-              <h3>Cumplimiento de SLA por prioridad</h3>
+              <h3>Cumplimiento de plazos por prioridad</h3>
             </div>
+            <p className="mz-faint mz-small px-3 pt-2 mb-0">
+              Cuentan los solucionados y los abiertos cuyo plazo ya venció. Los
+              plazos son los de cada prioridad; una regla o un caso pueden
+              cambiarlos.
+            </p>
             <div className="mz-table-wrap">
               <table className="mz-table">
                 <thead>
                   <tr>
                     <th>Prioridad</th>
                     <th className="num">Tickets</th>
-                    <th className="num">Cumplimiento</th>
+                    <th className="num">Responder en</th>
+                    <th className="num">Solucionar en</th>
+                    <th className="num">A tiempo</th>
                     <th className="num">Meta</th>
                   </tr>
                 </thead>
@@ -198,6 +314,12 @@ export function ReportesSoporte() {
                     <tr key={p.prioridad}>
                       <td>{p.etiqueta}</td>
                       <td className="num">{p.tickets}</td>
+                      <td className="num">
+                        {p.plazo_respuesta ? duracion(p.plazo_respuesta) : "—"}
+                      </td>
+                      <td className="num">
+                        {p.plazo_solucion ? duracion(p.plazo_solucion) : "—"}
+                      </td>
                       <td className="num">
                         {p.cumplimiento === null ? (
                           "—"
@@ -210,6 +332,7 @@ export function ReportesSoporte() {
                             }
                           >
                             {p.cumplimiento} %
+                            {p.cumplimiento < p.meta && " · no cumple la meta"}
                           </span>
                         )}
                       </td>
@@ -230,7 +353,7 @@ export function ReportesSoporte() {
                   <tr>
                     <th>Técnico</th>
                     <th className="num">Atendidos</th>
-                    <th className="num">Cumplimiento de SLA</th>
+                    <th className="num">Solucionados a tiempo</th>
                   </tr>
                 </thead>
                 <tbody>

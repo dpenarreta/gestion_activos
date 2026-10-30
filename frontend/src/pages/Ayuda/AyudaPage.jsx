@@ -41,9 +41,12 @@ export function AyudaPage() {
     <div className="soporte-page mz-stack">
       <div className="mz-view-head">
         <div>
-          <h2>Soporte TI</h2>
+          {/* La barra ya dice «Soporte TI»: el título dice para qué sirve
+              (antes se repetía). */}
+          <h2>¿Necesita ayuda con tecnología?</h2>
           <p className="mz-desc">
-            Pida ayuda al equipo de tecnología y siga sus tickets.
+            Cuéntenos qué pasa y el equipo de TI le ayuda. Aquí también sigue
+            sus tickets.
           </p>
         </div>
       </div>

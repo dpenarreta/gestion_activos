@@ -105,6 +105,10 @@ export const soporteService = {
       .post(`${BASE}/tickets/${id}/prioridad/`, datos)
       .then((r) => r.data);
   },
+  /** «Tomar este ticket», desde su ficha. */
+  tomar(id) {
+    return apiClient.post(`${BASE}/tickets/${id}/tomar/`).then((r) => r.data);
+  },
   tomarSiguiente() {
     return apiClient
       .post(`${BASE}/tickets/tomar-siguiente/`)

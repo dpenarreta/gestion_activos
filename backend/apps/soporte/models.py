@@ -97,7 +97,11 @@ class NivelSoporte(ModeloDeEmpresa):
         ]
 
     def __str__(self) -> str:
-        return f"N{self.orden} · {self.nombre}"
+        # Si el nombre ya lo trae («N1 · Mesa de ayuda»), no se repite.
+        codigo = f"N{self.orden}"
+        if self.nombre.upper().startswith(codigo):
+            return self.nombre
+        return f"{codigo} · {self.nombre}"
 
 
 class Categoria(ModeloDeEmpresa):

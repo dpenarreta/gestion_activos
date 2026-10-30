@@ -143,7 +143,9 @@
 
 .soporte-formulario__vista {
   position: sticky;
-  top: 16px;
+  /* Bajo la barra superior, que la tapaba. */
+  top: calc(var(--mz-topbar-h, 64px) + 16px);
+  z-index: 1;
 }
 
 .soporte-campos {
@@ -303,4 +305,172 @@
 .soporte-respuesta--interna:focus {
   background: var(--mz-warn-bg);
   border-color: var(--mz-warn-fg);
+}
+
+/* Reportes: si cumple la meta, en texto (no solo el color de la tarjeta). */
+.soporte-kpi-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.soporte-kpi-meta--ok {
+  color: var(--mz-ok-fg);
+}
+
+.soporte-kpi-meta--bad {
+  color: var(--mz-bad-fg);
+}
+
+.soporte-kpi-meta--info {
+  color: var(--mz-ink-faint);
+}
+
+.soporte-kpi-nota {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--mz-ink-faint);
+}
+
+/* El adjunto que es imagen, dentro del sistema (auditoría UX/UI, 30/10/2026). */
+.soporte-visor-imagen .mz-panel-head {
+  gap: 8px;
+}
+
+.soporte-visor-imagen .mz-panel-head h3 {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.soporte-visor-imagen__cuerpo {
+  display: flex;
+  justify-content: center;
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.soporte-visor-imagen__cuerpo img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Lo que se va a adjuntar, con «Quitar» para cada archivo. */
+.soporte-por-adjuntar {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.soporte-por-adjuntar li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+/* «¿Quedó resuelto?» con sus dos respuestas. */
+.soporte-confirmar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.soporte-confirmar__botones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Las sugerencias de categoría y caso bajo la descripción. */
+.soporte-sugeridos {
+  padding: 10px 12px;
+  border: 1px dashed var(--mz-border-strong);
+  border-radius: 8px;
+}
+
+/* «Le contactaremos como…», al final del formulario. */
+.soporte-sus-datos {
+  color: var(--mz-ink-faint);
+}
+
+/* Lo que le toca a quien pidió el ticket. */
+.soporte-le-toca {
+  color: var(--mz-warn-fg);
+}
+
+/* Una franja con error: el mensaje va debajo, a todo el ancho. */
+.soporte-franja .mz-field-error {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+}
+
+/* Configuración → Mesa de ayuda: casillas, tiempo en horas y minutos y la
+   vista previa de una respuesta (auditoría UX/UI, 30/10/2026). */
+.soporte-casillas__lista {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.soporte-duracion {
+  min-width: 0;
+}
+
+.soporte-duracion__campos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.soporte-duracion__campos input {
+  max-width: 90px;
+}
+
+.soporte-vista-previa {
+  padding: 10px 12px;
+  border-left: 3px solid var(--mz-border-strong);
+  background: var(--mz-sunken);
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+
+/* Flechas para ordenar: 32 px con ratón y 44 px al tacto (antes 16×23). */
+.soporte-orden-btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (pointer: coarse) {
+  .soporte-orden-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.soporte-al-momento {
+  color: var(--mz-warn-fg);
+}
+
+.soporte-guardado {
+  color: var(--mz-ok-fg);
+}
+
+/* Los títulos de las tablas de plazos, arriba y como título. */
+.soporte-titulo-tabla {
+  caption-side: top;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--mz-ink);
 }

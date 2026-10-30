@@ -11,7 +11,7 @@
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as ErrorDeModelo
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, DateTimeField, F, Q, Value, When
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -304,9 +304,12 @@ class MisTicketsView(APIView):
                     "caso": t.caso.nombre,
                     "estado": t.estado,
                     "estado_display": nombres["estados"][t.estado],
+                    "prioridad": t.prioridad,
+                    "prioridad_display": nombres["prioridades"][t.prioridad],
                     "criticidad": t.criticidad,
                     "criticidad_display": t.get_criticidad_display(),
                     "posicion": services.posicion_en_cola(t),
+                    "actualizado": t.updated_at,
                     "creado": t.created_at,
                     "atendido_en": t.atendido_en,
                 }
@@ -336,9 +339,10 @@ class MiTicketView(APIView):
                     entrada = MensajePublicoSerializer(data=request.data)
                     entrada.is_valid(raise_exception=True)
                     archivos = validar_adjuntos(request.FILES.getlist("adjuntos"))
-                    mensaje = services.mensaje_del_solicitante(
-                        ticket, entrada.validated_data["texto"]
-                    )
+                    texto = entrada.validated_data.get("texto", "").strip()
+                    if not texto and archivos:
+                        texto = "(Adjuntó archivos)"
+                    mensaje = services.mensaje_del_solicitante(ticket, texto)
                     services.guardar_adjuntos(
                         ticket, archivos, mensaje=mensaje, del_solicitante=True
                     )
@@ -446,6 +450,32 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(categoria_id=int(params["categoria"]))
         if params.get("prioridad") in dict(Ticket._meta.get_field("prioridad").choices):
             queryset = queryset.filter(prioridad=params["prioridad"])
+        ahora = timezone.now()
+        # Lo vencido: sin primera respuesta pasado su plazo, o con el plazo de
+        # solución corriendo y ya pasado (auditoría UX/UI, 30/10/2026).
+        respuesta_vencida = Q(
+            respondido_en__isnull=True,
+            sla_respuesta_vence__lt=ahora,
+            estado__in=sla.CORRE,
+        )
+        solucion_vencida = Q(estado__in=sla.CORRE, sla_vence__lt=ahora)
+        if params.get("vencidos") == "true":
+            queryset = queryset.filter(respuesta_vencida | solucion_vencida)
+        if ambito != "cola":
+            # Lo que vence antes, primero: el plazo de respuesta mientras nadie
+            # respondió, y después el de solución. Lo que no corre, al final.
+            queryset = queryset.annotate(
+                vence_primero=Case(
+                    When(
+                        respondido_en__isnull=True,
+                        estado__in=sla.CORRE,
+                        then=F("sla_respuesta_vence"),
+                    ),
+                    When(estado__in=sla.CORRE, then=F("sla_vence")),
+                    default=Value(None, output_field=DateTimeField()),
+                    output_field=DateTimeField(),
+                )
+            ).order_by(F("vence_primero").asc(nulls_last=True), "-created_at")
         busqueda = (params.get("q") or "").strip()
         if busqueda:
             filtro = Q(solicitante_nombre__icontains=busqueda) | Q(descripcion__icontains=busqueda)
@@ -527,6 +557,19 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                     else None
                 ),
                 "cola_total": Ticket.objects.filter(estado=Ticket.Estado.NUEVO).count(),
+                # Quien coordina ve qué categorías no tienen a nadie: sus
+                # tickets no se reparten (auditoría UX/UI, 30/10/2026).
+                "categorias_sin_tecnicos": (
+                    list(
+                        Categoria.objects.filter(activa=True)
+                        .exclude(tecnicos__activo=True)
+                        .order_by("nombre")
+                        .values_list("nombre", flat=True)
+                    )
+                    if services.tiene(request.user, "asignar")
+                    or services.tiene(request.user, "configurar")
+                    else []
+                ),
                 "puede": {
                     "ver_todos": services.tiene(request.user, "ver_todos"),
                     "asignar": services.tiene(request.user, "asignar"),
@@ -676,6 +719,19 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(
                 {"detail": "No hay tickets en la cola que usted pueda atender."}, status=404
             )
+        self._auditar("ticket.tomado", ticket, {"tecnico": str(tecnico)})
+        return Response(self._detalle(ticket))
+
+    @action(detail=True, methods=["post"])
+    def tomar(self, request, pk=None):
+        ticket = self.get_object()
+        tecnico = services.tecnico_de(request.user)
+        if tecnico is None:
+            raise PermissionDenied("Solo un técnico de la mesa toma tickets de la cola.")
+        try:
+            services.tomar(ticket, tecnico, request.user)
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
         self._auditar("ticket.tomado", ticket, {"tecnico": str(tecnico)})
         return Response(self._detalle(ticket))
 

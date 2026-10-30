@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
 import {
@@ -20,9 +20,9 @@ import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import {
   EstadoTicket,
-  CriticidadTicket,
   PrioridadTicket,
-  SlaTicket,
+  queSigue,
+  VenceTicket,
   useEtiquetas,
 } from "./comunes";
 import "./Soporte.css";
@@ -48,9 +48,33 @@ export function Bandeja({ todos = false }) {
     user?.permissions?.includes(p),
   );
   const [cabecera, setCabecera] = useState(null);
-  const [ambito, setAmbito] = useState(
-    todos ? "todos" : delEquipo ? "mios" : "creados",
-  );
+  const [parametros, setParametros] = useSearchParams();
+  /* La pestaña va en la dirección (?vista=…): al recargar se queda donde
+   * estaba. Sin elegir, la que corresponde una vez que se sabe quién es
+   * (auditoría UX/UI, 30/10/2026: al recargar, el técnico caía en «Mis
+   * solicitudes», porque se decidía antes de cargar sus permisos). */
+  const elegida = parametros.get("vista");
+  const ambito = todos
+    ? "todos"
+    : elegida ||
+      (!delEquipo
+        ? "creados"
+        : cabecera
+          ? cabecera.tecnico
+            ? "mios"
+            : cabecera.puede.ver_todos
+              ? "todos"
+              : "creados"
+          : null);
+  const setAmbito = (vista) =>
+    setParametros(
+      (actuales) => {
+        const nuevos = new URLSearchParams(actuales);
+        nuevos.set("vista", vista);
+        return nuevos;
+      },
+      { replace: true },
+    );
   const [busqueda, setBusqueda] = useState("");
   const [aviso, setAviso] = useState(null);
   const [error, setError] = useState(null);
@@ -59,18 +83,32 @@ export function Bandeja({ todos = false }) {
 
   const cargar = useCallback(
     (params) =>
-      // «Mis solicitudes» tiene su propio listado (ver `MisSolicitudes`).
-      ambito === "creados"
+      // «Mis solicitudes» tiene su propio listado (ver `MisSolicitudes`), y
+      // sin saber todavía la pestaña no se pide nada.
+      ambito === "creados" || ambito === null
         ? Promise.resolve({ results: [], count: 0 })
         : soporteService.tickets({ ...params, ambito }),
     [ambito],
   );
   const listado = useListadoPaginado(
     cargar,
-    { q: "", estado: "" },
+    { q: "", estado: "", prioridad: "", vencidos: "" },
     "No se pudieron cargar los tickets.",
   );
-  const { refresh } = listado;
+  const { refresh, actualizarFiltros } = listado;
+  const buscado = listado.filtros.q;
+
+  // La búsqueda se aplica sola al dejar de escribir (antes había que pulsar
+  // «Buscar» y el estado, en cambio, se aplicaba al instante).
+  useEffect(() => {
+    if (busqueda.trim() === buscado) return undefined;
+    const espera = setTimeout(
+      () => actualizarFiltros({ q: busqueda.trim() }),
+      300,
+    );
+    return () => clearTimeout(espera);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al escribir
+  }, [busqueda]);
 
   const cargarCabecera = useCallback(() => {
     // Quien no es del equipo no tiene estado de técnico que mostrar: pedirlo
@@ -117,6 +155,48 @@ export function Bandeja({ todos = false }) {
   }
 
   const tecnico = cabecera?.tecnico;
+  const sinColaParaMi = tecnico && tecnico.cola_para_mi === 0;
+  const hayFiltros = Boolean(
+    listado.filtros.q ||
+    listado.filtros.estado ||
+    listado.filtros.prioridad ||
+    listado.filtros.vencidos,
+  );
+  const limpiarFiltros = () => {
+    setBusqueda("");
+    listado.actualizarFiltros({
+      q: "",
+      estado: "",
+      prioridad: "",
+      vencidos: "",
+    });
+  };
+  const textoVacio = listado.filtros.vencidos
+    ? "No hay tickets vencidos."
+    : ambito === "mios"
+      ? "No tiene tickets en atención."
+      : ambito === "cola"
+        ? "No hay tickets esperando en la cola."
+        : "No hay tickets.";
+  const accionVacio =
+    ambito !== "mios" || !tecnico || hayFiltros ? undefined : sinColaParaMi ? (
+      <button
+        type="button"
+        className="btn btn-outline-primary btn-sm"
+        onClick={() => setAmbito("cola")}
+      >
+        Ver la cola de la empresa
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        disabled={tomando}
+        onClick={tomarSiguiente}
+      >
+        {tomando ? "Tomando…" : "Tomar el siguiente de la cola"}
+      </button>
+    );
   const ambitos = [
     ...(tecnico
       ? [
@@ -152,11 +232,16 @@ export function Bandeja({ todos = false }) {
               </Link>
             )}
             {tecnico && (
+              /* Sin nada para usted en la cola, el botón lo dice en vez de
+                 invitar a pulsarlo (auditoría UX/UI, 30/10/2026). */
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={tomarSiguiente}
-                disabled={tomando}
+                disabled={tomando || sinColaParaMi}
+                aria-describedby={
+                  sinColaParaMi ? "sb-sin-cola-para-mi" : undefined
+                }
               >
                 <Icon name="inbox-fill" />{" "}
                 {tomando ? "Tomando…" : "Tomar siguiente"}
@@ -166,7 +251,19 @@ export function Bandeja({ todos = false }) {
         )}
       </div>
 
-      {tecnico && (
+      {cabecera?.categorias_sin_tecnicos?.length > 0 && (
+        <div className="mz-alert mz-alert--bad" role="status">
+          <Icon name="exclamation-octagon" />
+          <span>
+            {cabecera.categorias_sin_tecnicos.length === 1
+              ? `La categoría «${cabecera.categorias_sin_tecnicos[0]}» no tiene técnicos: sus tickets no se reparten.`
+              : `${cabecera.categorias_sin_tecnicos.length} categorías no tienen técnicos (${cabecera.categorias_sin_tecnicos.join(", ")}): sus tickets no se reparten.`}{" "}
+            <Link to="/admin/configuracion/soporte">Asignar técnicos</Link>
+          </span>
+        </div>
+      )}
+
+      {tecnico && !todos && (
         <section className="mz-card mb-3">
           <div className="mz-card-body soporte-estado-tecnico">
             <span
@@ -180,8 +277,14 @@ export function Bandeja({ todos = false }) {
               <strong>{tecnico.abiertos}</strong> de {tecnico.capacidad} en
               atención
             </span>
-            <span>
-              <strong>{tecnico.cola_para_mi}</strong> en la cola para usted
+            <span id="sb-sin-cola-para-mi">
+              {sinColaParaMi ? (
+                "No hay tickets de sus categorías en la cola"
+              ) : (
+                <>
+                  <strong>{tecnico.cola_para_mi}</strong> en la cola para usted
+                </>
+              )}
             </span>
             <span className="mz-small mz-faint">
               {tecnico.nivel} ·{" "}
@@ -231,7 +334,9 @@ export function Bandeja({ todos = false }) {
         // Sin pestañas a la vista, el panel no se presenta como tal.
         sinPestanas={!(ambitos.length > 1 && !todos)}
       >
-        {ambito === "creados" ? (
+        {ambito === null ? (
+          <EstadoDeCarga cargando />
+        ) : ambito === "creados" ? (
           <MisSolicitudes />
         ) : (
           <>
@@ -240,7 +345,7 @@ export function Bandeja({ todos = false }) {
               role="search"
               onSubmit={(e) => {
                 e.preventDefault();
-                listado.actualizarFiltros({ q: busqueda });
+                listado.actualizarFiltros({ q: busqueda.trim() });
               }}
             >
               <label className="mz-fb-search" htmlFor="sb-buscar">
@@ -274,13 +379,44 @@ export function Bandeja({ todos = false }) {
                   </select>
                 </div>
               )}
-              <button
-                type="submit"
-                className="btn btn-outline-secondary btn-sm"
-              >
-                Buscar
-              </button>
+              <div className="mz-inline-field">
+                <label htmlFor="sb-prioridad">Prioridad</label>
+                <select
+                  id="sb-prioridad"
+                  className="form-select form-select-sm"
+                  value={listado.filtros.prioridad}
+                  onChange={(e) =>
+                    listado.actualizarFiltros({ prioridad: e.target.value })
+                  }
+                >
+                  <option value="">Todas</option>
+                  {etiquetas.prioridades.map(([valor, etiqueta]) => (
+                    <option key={valor} value={valor}>
+                      {etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="form-check mb-0" htmlFor="sb-vencidos">
+                <input
+                  id="sb-vencidos"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={Boolean(listado.filtros.vencidos)}
+                  onChange={(e) =>
+                    listado.actualizarFiltros({
+                      vencidos: e.target.checked ? "true" : "",
+                    })
+                  }
+                />{" "}
+                <span className="form-check-label">Solo vencidos</span>
+              </label>
             </form>
+            {ambito !== "cola" && (
+              <p className="mz-small mz-faint mb-2">
+                Primero lo que vence antes.
+              </p>
+            )}
 
             {/* En el teléfono, cada ticket en una tarjeta como en la Matriz:
                 ocho columnas a 375 px solo se leían desplazándose de lado
@@ -292,11 +428,10 @@ export function Bandeja({ todos = false }) {
                     <th>Ticket</th>
                     <th>Solicitante</th>
                     <th>Caso</th>
-                    <th>Criticidad</th>
                     <th>Prioridad</th>
                     <th>Estado</th>
                     <th>{ambito === "cola" ? "Posición" : "Atiende"}</th>
-                    <th>SLA</th>
+                    <th>Vence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,9 +458,6 @@ export function Bandeja({ todos = false }) {
                         </div>
                       </td>
                       <td>
-                        <CriticidadTicket ticket={t} />
-                      </td>
-                      <td>
                         <PrioridadTicket ticket={t} />
                       </td>
                       <td>
@@ -342,33 +474,24 @@ export function Bandeja({ todos = false }) {
                           : t.tecnico?.nombre || "—"}
                       </td>
                       <td>
-                        <SlaTicket sla={t.sla} />
+                        <VenceTicket sla={t.sla} />
                       </td>
                     </tr>
                   ))}
-                  {/* Auditoría UX/UI, fase 2 (28/10/2026): cargando, error y
-                    vacío dentro de la tabla, en sus 8 columnas (antes
-                    colSpan={7}). */}
+                  {/* Cargando, error y vacío dentro de la tabla, en sus 7
+                    columnas. */}
                   <FilaDeEstado
-                    columnas={8}
+                    columnas={7}
                     cargando={
                       listado.isLoading && listado.resultados.length === 0
                     }
                     error={listado.error}
                     onReintentar={listado.refresh}
                     vacio={listado.resultados.length === 0}
-                    hayFiltros={Boolean(
-                      listado.filtros.q || listado.filtros.estado,
-                    )}
-                    onLimpiarFiltros={() => {
-                      setBusqueda("");
-                      listado.actualizarFiltros({ q: "", estado: "" });
-                    }}
-                    textoVacio={
-                      ambito === "mios"
-                        ? "No tiene tickets en atención."
-                        : "No hay tickets."
-                    }
+                    hayFiltros={hayFiltros}
+                    onLimpiarFiltros={limpiarFiltros}
+                    textoVacio={textoVacio}
+                    accionVacio={accionVacio}
                   />
                 </tbody>
               </table>
@@ -382,18 +505,10 @@ export function Bandeja({ todos = false }) {
                   error={listado.error}
                   onReintentar={listado.refresh}
                   vacio={listado.resultados.length === 0}
-                  hayFiltros={Boolean(
-                    listado.filtros.q || listado.filtros.estado,
-                  )}
-                  onLimpiarFiltros={() => {
-                    setBusqueda("");
-                    listado.actualizarFiltros({ q: "", estado: "" });
-                  }}
-                  textoVacio={
-                    ambito === "mios"
-                      ? "No tiene tickets en atención."
-                      : "No hay tickets."
-                  }
+                  hayFiltros={hayFiltros}
+                  onLimpiarFiltros={limpiarFiltros}
+                  textoVacio={textoVacio}
+                  accionVacio={accionVacio}
                 />
                 {listado.resultados.length > 0 && (
                   <ul className="mz-cards-lista" aria-label="Tickets">
@@ -411,14 +526,13 @@ export function Bandeja({ todos = false }) {
                         )}
                         <div className="mz-card-meta">
                           <span>{t.solicitante_nombre}</span>
-                          <CriticidadTicket ticket={t} />
                           <PrioridadTicket ticket={t} />
                           <span>
                             {ambito === "cola"
                               ? `Posición ${t.posicion}`
                               : `Atiende: ${t.tecnico?.nombre || "—"}`}
                           </span>
-                          <SlaTicket sla={t.sla} />
+                          <VenceTicket sla={t.sla} />
                         </div>
                         <div className="mz-card-acciones">
                           <Link
@@ -450,10 +564,26 @@ export function Bandeja({ todos = false }) {
   );
 }
 
+/** «Qué sigue» de un ticket propio: resaltado si le toca a la persona. */
+function QueSigue({ ticket }) {
+  const { texto, accion } = queSigue(ticket);
+  return accion ? (
+    <strong className="soporte-le-toca">
+      <Icon name="arrow-right-circle-fill" /> {texto}
+    </strong>
+  ) : (
+    <span className="mz-faint">{texto}</span>
+  );
+}
+
 /**
- * «Mis solicitudes»: los tickets que la persona creó, en cualquier estado, con
- * su posición en la cola. Solo los suyos (el servidor no devuelve otros) y
- * abren su ficha de seguimiento, la de quien pide —sin notas internas—.
+ * «Mis solicitudes»: los tickets que la persona creó, en cualquier estado.
+ * Solo los suyos (el servidor no devuelve otros) y abren su ficha de
+ * seguimiento, la de quien pide —sin notas internas—.
+ *
+ * Auditoría UX/UI (30/10/2026): primero los que le piden algo («Le
+ * respondieron», «Confirme si quedó resuelto»), con la columna «Qué sigue»;
+ * la prioridad en palabras llanas (sin «P1») y un botón «Ver» por fila.
  */
 export function MisSolicitudes() {
   const [tickets, setTickets] = useState(null);
@@ -480,22 +610,39 @@ export function MisSolicitudes() {
     return () => clearInterval(intervalo);
   }, [cargar]);
 
+  // Lo que le toca a la persona, arriba; el resto, como llega (lo reciente
+  // primero).
+  const ordenados = [...(tickets ?? [])].sort(
+    (a, b) => Number(queSigue(b).accion) - Number(queSigue(a).accion),
+  );
+  const pendientes = ordenados.filter((t) => queSigue(t).accion).length;
+
   return (
     <>
+      {pendientes > 0 && (
+        <div className="mz-alert mz-alert--warn" role="status">
+          <Icon name="arrow-right-circle" />
+          {pendientes === 1
+            ? "Un ticket necesita algo de usted: está primero en la lista."
+            : `${pendientes} tickets necesitan algo de usted: están primero en la lista.`}
+        </div>
+      )}
       <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
-        <table className="mz-table" aria-label="Mis solicitudes">
+        <table className="mz-table" aria-label="Mis tickets">
           <thead>
             <tr>
               <th>Ticket</th>
               <th>Caso</th>
-              <th>Criticidad</th>
+              <th>Prioridad</th>
               <th>Estado</th>
-              <th>Posición en la cola</th>
-              <th>Atendido</th>
+              <th>Qué sigue</th>
+              <th>
+                <span className="visually-hidden">Abrir</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {(tickets ?? []).map((t) => (
+            {ordenados.map((t) => (
               <tr key={t.id}>
                 <td className="mz-mono">
                   <Link to={`/admin/ayuda/tickets/${t.id}`}>{t.numero}</Link>
@@ -508,27 +655,34 @@ export function MisSolicitudes() {
                   <div className="mz-small mz-faint">{t.categoria}</div>
                 </td>
                 <td>
-                  <CriticidadTicket ticket={t} />
+                  <PrioridadTicket ticket={t} llano />
                 </td>
                 <td>
                   <EstadoTicket ticket={t} />
                 </td>
-                <td>{t.posicion ?? "—"}</td>
                 <td>
-                  {t.atendido_en ? formatearFecha(t.atendido_en, true) : "—"}
+                  <QueSigue ticket={t} />
+                </td>
+                <td>
+                  <Link
+                    className="btn btn-outline-primary btn-sm"
+                    to={`/admin/ayuda/tickets/${t.id}`}
+                    aria-label={`Ver el ticket ${t.numero}`}
+                  >
+                    Ver
+                  </Link>
                 </td>
               </tr>
             ))}
             {/* Mientras carga ya no se ve una tabla vacía, y un fallo no se
-                confunde con «no ha creado solicitudes» (auditoría UX/UI,
-                fase 2, 28/10/2026). */}
+                confunde con «no ha creado solicitudes». */}
             <FilaDeEstado
               columnas={6}
               cargando={tickets === null}
               error={error}
               onReintentar={cargar}
               vacio={tickets?.length === 0}
-              textoVacio="Todavía no ha creado solicitudes."
+              textoVacio="Todavía no ha pedido ayuda."
               accionVacio={
                 <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
               }
@@ -536,7 +690,7 @@ export function MisSolicitudes() {
           </tbody>
         </table>
       </div>
-      {/* En el teléfono, en tarjetas (auditoría UX/UI, fase 3, 28/10/2026). */}
+      {/* En el teléfono, en tarjetas. */}
       {enTarjetas && (
         <div className="mz-cards">
           <EstadoDeCarga
@@ -544,14 +698,14 @@ export function MisSolicitudes() {
             error={error}
             onReintentar={cargar}
             vacio={tickets?.length === 0}
-            textoVacio="Todavía no ha creado solicitudes."
+            textoVacio="Todavía no ha pedido ayuda."
             accionVacio={
               <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
             }
           />
-          {tickets?.length > 0 && (
-            <ul className="mz-cards-lista" aria-label="Mis solicitudes">
-              {tickets.map((t) => (
+          {ordenados.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Mis tickets">
+              {ordenados.map((t) => (
                 <li key={t.id} className="mz-card-row">
                   <div className="mz-row-between">
                     <span className="mz-mono mz-strong">{t.numero}</span>
@@ -559,23 +713,16 @@ export function MisSolicitudes() {
                   </div>
                   <div className="mz-card-row__titulo">{t.caso}</div>
                   <div className="mz-card-meta">
+                    <QueSigue ticket={t} />
+                    <PrioridadTicket ticket={t} llano />
                     <span>{formatearFecha(t.creado, true)}</span>
-                    <CriticidadTicket ticket={t} />
-                    {t.posicion != null && (
-                      <span>Posición en la cola: {t.posicion}</span>
-                    )}
-                    {t.atendido_en && (
-                      <span>
-                        Atendido: {formatearFecha(t.atendido_en, true)}
-                      </span>
-                    )}
                   </div>
                   <div className="mz-card-acciones">
                     <Link
                       className="btn btn-outline-primary btn-sm"
                       to={`/admin/ayuda/tickets/${t.id}`}
                     >
-                      Ver solicitud {t.numero}
+                      Ver el ticket {t.numero}
                     </Link>
                   </div>
                 </li>

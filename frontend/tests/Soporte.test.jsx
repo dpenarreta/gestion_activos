@@ -24,6 +24,7 @@ const servicio = {
   tickets: vi.fn(),
   ticket: vi.fn(),
   tecnicos: vi.fn(),
+  tomar: vi.fn(),
   tomarSiguiente: vi.fn(),
   cambiarEstado: vi.fn(),
   escalar: vi.fn(),
@@ -139,25 +140,29 @@ describe("Soporte TI: nuevo ticket", () => {
     pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
 
     // Sus datos vienen de «Mi perfil»: no se vuelven a pedir.
-    expect(await screen.findByText("Carla Ordóñez")).toBeInTheDocument();
-    expect(screen.getByText("Loja · Agencia")).toBeInTheDocument();
+    // En una línea al final: «Le contactaremos como …».
+    expect(
+      await screen.findByText(/Carla Ordóñez · .*Loja · Agencia/),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Nombre y apellido")).toBeNull();
 
-    expect(screen.getByLabelText("Caso de ayuda")).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Categoría"), {
+    expect(screen.getByLabelText(/^Caso de ayuda/)).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Caso de ayuda"), {
+    fireEvent.change(screen.getByLabelText(/^Caso de ayuda/), {
       target: { value: "4" },
     });
-    expect(screen.getByText("Prioridad: Alta")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Describa el problema"), {
+    // Sin «Prioridad: …» bajo el caso: la persona no sabe qué es «P1» y la
+    // prioridad final depende de lo que responda.
+    expect(screen.queryByText(/^Prioridad:/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Describa el problema/), {
       target: { value: "No prende" },
     });
-    fireEvent.change(screen.getByLabelText("¿A quién afecta?"), {
+    fireEvent.change(screen.getByLabelText(/^¿A quién afecta\?/), {
       target: { value: "medio" },
     });
-    fireEvent.change(screen.getByLabelText("¿Puede seguir trabajando?"), {
+    fireEvent.change(screen.getByLabelText(/^¿Puede seguir trabajando\?/), {
       target: { value: "alta" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
@@ -173,7 +178,9 @@ describe("Soporte TI: nuevo ticket", () => {
     expect(campos).not.toHaveProperty("categoria");
     expect(campos).not.toHaveProperty("nombre");
     expect(await screen.findByText("TCK-2026-000042")).toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(
+      screen.getByText("Hay 3 tickets antes que el suyo."),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/fuera del horario de atención/),
     ).toBeInTheDocument();
@@ -200,7 +207,7 @@ describe("Soporte TI: nuevo ticket", () => {
 
     expect(await screen.findByText("Complete sus datos")).toBeInTheDocument();
     expect(screen.getByText(/complete: agencia/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Describa el problema")).toBeNull();
+    expect(screen.queryByLabelText(/^Describa el problema/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/^Teléfono/), {
       target: { value: "0994182273" },
     });
@@ -217,7 +224,7 @@ describe("Soporte TI: nuevo ticket", () => {
       ),
     );
     expect(
-      await screen.findByLabelText("Describa el problema"),
+      await screen.findByLabelText(/^Describa el problema/),
     ).toBeInTheDocument();
   });
 
@@ -249,6 +256,185 @@ const SEGUIMIENTO = {
   puede_confirmar: false,
 };
 
+describe("Soporte TI a prueba de errores (auditoría UX/UI, 30/10/2026)", () => {
+  it("sin completar, dice qué falta bajo cada campo, en «usted», y no envía", async () => {
+    servicio.solicitar.mockResolvedValue(FORMULARIO);
+    servicio.crearTicket.mockReset();
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Crear ticket" }),
+    );
+    expect(servicio.crearTicket).not.toHaveBeenCalled();
+    const descripcion = screen.getByLabelText(/^Describa el problema/);
+    expect(descripcion).toHaveAttribute("aria-invalid", "true");
+    expect(descripcion).toHaveAccessibleDescription(/Cuéntenos qué pasa\./);
+    expect(screen.getByLabelText(/^Categoría/)).toHaveAccessibleDescription(
+      /Elija la categoría de su problema\./,
+    );
+    // Primero se cuenta el problema: la descripción va antes que la
+    // categoría.
+    const campos = screen.getAllByRole("combobox").concat(descripcion);
+    expect(
+      descripcion.compareDocumentPosition(screen.getByLabelText(/^Categoría/)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(campos.length).toBeGreaterThan(1);
+  });
+
+  it("sugiere la categoría y el caso con lo que escribió", async () => {
+    servicio.solicitar.mockResolvedValue(FORMULARIO);
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
+
+    fireEvent.change(await screen.findByLabelText(/^Describa el problema/), {
+      target: { value: "Mi computadora no enciende desde la mañana" },
+    });
+    const sugerencia = await screen.findByRole("button", {
+      name: "Hardware › No enciende",
+    });
+    fireEvent.click(sugerencia);
+    expect(screen.getByLabelText(/^Categoría/)).toHaveValue("3");
+    expect(screen.getByLabelText(/^Caso de ayuda/)).toHaveValue("4");
+    expect(sugerencia).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("si el servidor lo rechaza, el aviso sale junto al botón", async () => {
+    servicio.solicitar.mockResolvedValue(FORMULARIO);
+    servicio.crearTicket.mockRejectedValueOnce({
+      response: { status: 500, data: null },
+    });
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
+    fireEvent.change(await screen.findByLabelText(/^Describa el problema/), {
+      target: { value: "No prende" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Categoría/), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Caso de ayuda/), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText(/^¿A quién afecta\?/), {
+      target: { value: "bajo" },
+    });
+    fireEvent.change(screen.getByLabelText(/^¿Puede seguir trabajando\?/), {
+      target: { value: "baja" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Crear ticket" }));
+    const aviso = await screen.findByRole("alert");
+    expect(aviso).toHaveTextContent("No se pudo crear el ticket.");
+    await waitFor(() => expect(aviso).toHaveFocus());
+  });
+
+  it("«Cambiar mis datos» se puede cancelar sin perder lo escrito", async () => {
+    servicio.solicitar.mockResolvedValue(FORMULARIO);
+    pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
+    fireEvent.change(await screen.findByLabelText(/^Describa el problema/), {
+      target: { value: "No prende" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar mis datos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
+    expect(screen.getByLabelText(/^Describa el problema/)).toHaveValue(
+      "No prende",
+    );
+  });
+});
+
+describe("Mis tickets: qué sigue (auditoría UX/UI, 30/10/2026)", () => {
+  it("dice cuándo le responden y ofrece «No, sigue el problema»", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "atendido",
+      estado_display: "Atendido",
+      posicion: null,
+      atiende: "Jorge Andrade",
+      puede_confirmar: true,
+      plazos: {
+        respuesta: "2999-01-01T15:00:00Z",
+        solucion: null,
+        respondido: false,
+      },
+    });
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+
+    expect(
+      await screen.findByText(/Le responderemos antes del/),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "No, sigue el problema" }),
+    );
+    expect(screen.getByLabelText(/El problema sigue/)).toHaveFocus();
+  });
+
+  it("un ticket cerrado dice qué hacer si el problema vuelve", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "cerrado",
+      estado_display: "Cerrado",
+      posicion: null,
+      puede_responder: false,
+    });
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+    expect(
+      await screen.findByRole("link", { name: "cree un ticket nuevo" }),
+    ).toHaveAttribute("href", "/admin/ayuda");
+  });
+
+  it("responder vacío pide el mensaje o un archivo", async () => {
+    servicio.miTicket.mockResolvedValue(SEGUIMIENTO);
+    servicio.responderMiTicket.mockReset();
+    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
+    fireEvent.click(await screen.findByRole("button", { name: "Enviar" }));
+    expect(servicio.responderMiTicket).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Responder")).toHaveAccessibleDescription(
+      "Escriba su mensaje o adjunte un archivo.",
+    );
+  });
+
+  it("la lista pone primero lo que le toca a la persona", async () => {
+    sesion.permisos = [];
+    servicio.misTickets.mockResolvedValue([
+      {
+        id: 1,
+        numero: "TCK-2026-000001",
+        categoria: "Hardware",
+        caso: "No enciende",
+        estado: "nuevo",
+        estado_display: "En cola",
+        prioridad: "critica",
+        prioridad_display: "P1 · Crítica",
+        posicion: 1,
+        creado: "2026-10-21T15:00:00Z",
+      },
+      {
+        id: 2,
+        numero: "TCK-2026-000002",
+        categoria: "Accesos",
+        caso: "Olvidé mi clave",
+        estado: "esperando_usuario",
+        estado_display: "Esperando al usuario",
+        prioridad: "baja",
+        prioridad_display: "P4 · Baja",
+        posicion: null,
+        creado: "2026-10-01T15:00:00Z",
+      },
+    ]);
+    try {
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      const tabla = await screen.findByRole("table", { name: "Mis tickets" });
+      const filas = within(tabla).getAllByRole("row").slice(1);
+      expect(filas[0]).toHaveTextContent("Le respondieron: lea y conteste");
+      expect(filas[1]).toHaveTextContent("Es el siguiente en la cola.");
+      // La prioridad, sin el código «P1».
+      expect(within(filas[1]).getByText("Crítica")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Un ticket necesita algo de usted",
+      );
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+});
+
 describe("Mis tickets: la ficha de un ticket propio", () => {
   it("muestra la posición en la cola y deja responder", async () => {
     servicio.miTicket.mockResolvedValue(SEGUIMIENTO);
@@ -267,7 +453,9 @@ describe("Mis tickets: la ficha de un ticket propio", () => {
     });
     pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
-    expect(await screen.findByText("3")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Hay 2 tickets antes que el suyo."),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Responder"), {
       target: { value: "Sigue igual" },
     });
@@ -358,7 +546,7 @@ describe("La bandeja", () => {
         capacidad: 1,
         en_horario: true,
         abiertos: 0,
-        cola_para_mi: 0,
+        cola_para_mi: 1,
       },
       cola_total: 0,
       puede: {
@@ -399,6 +587,138 @@ describe("La bandeja", () => {
     fireEvent.click(screen.getByRole("button", { name: /Tomar siguiente/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "No se pudo tomar el siguiente ticket.",
+    );
+  });
+});
+
+describe("La bandeja: qué vence y qué falta", () => {
+  const cabecera = (extra = {}) => ({
+    tecnico: {
+      id: 1,
+      nivel: "N1 · Mesa de ayuda",
+      categorias: ["Hardware"],
+      capacidad: 2,
+      en_horario: true,
+      abiertos: 1,
+      cola_para_mi: 0,
+    },
+    cola_total: 7,
+    categorias_sin_tecnicos: ["Accesos", "Redes"],
+    puede: {
+      ver_todos: true,
+      asignar: true,
+      registrar: false,
+      aprobar_horas: false,
+    },
+    ...extra,
+  });
+
+  it("abre en «Mis tickets» del técnico y muestra el plazo que importa", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-10-30T12:00:00Z"));
+    servicio.bandeja.mockResolvedValue(cabecera());
+    servicio.tickets.mockResolvedValue({
+      results: [
+        {
+          id: 3,
+          numero: "TCK-2026-000003",
+          estado: "asignado",
+          estado_display: "Asignado",
+          prioridad: "critica",
+          prioridad_display: "P1 · Crítica",
+          caso: "Tracking caído",
+          categoria: "Hardware",
+          nivel: "N1 · Mesa de ayuda",
+          solicitante_nombre: "Carla",
+          created_at: "2026-10-21T12:00:00Z",
+          sla: {
+            estado: "en_plazo",
+            vence: "2026-10-31T12:00:00Z",
+            respuesta: {
+              estado: "vencida",
+              vence: "2026-10-21T12:15:00Z",
+            },
+          },
+        },
+      ],
+      count: 1,
+      next: null,
+      previous: null,
+    });
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    // La pestaña se decide al saber que es técnico (antes caía en «Mis
+    // solicitudes» al recargar).
+    expect(
+      await screen.findByRole("tab", { name: "Mis tickets" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await waitFor(() =>
+      expect(servicio.tickets).toHaveBeenCalledWith(
+        expect.objectContaining({ ambito: "mios" }),
+      ),
+    );
+    // El reloj de respuesta, vencido, y no «Sin iniciar».
+    expect(
+      (await screen.findAllByText("Respuesta vencida hace 9 d"))[0],
+    ).toBeInTheDocument();
+    // Una sola escala: la prioridad.
+    expect(
+      screen.queryByRole("columnheader", { name: "Criticidad" }),
+    ).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("avisa de las categorías sin técnicos y no invita a tomar si no hay nada", async () => {
+    servicio.bandeja.mockResolvedValue(cabecera());
+    servicio.tickets.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    expect(
+      await screen.findByText(
+        /2 categorías no tienen técnicos \(Accesos, Redes\)/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 categorías no tienen técnicos/),
+    ).toHaveTextContent("2 categorías no tienen técnicos (Accesos, Redes)");
+    expect(
+      screen.getByRole("link", { name: "Asignar técnicos" }),
+    ).toHaveAttribute("href", "/admin/configuracion/soporte");
+    expect(
+      screen.getByRole("button", { name: /Tomar siguiente/ }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("No hay tickets de sus categorías en la cola"),
+    ).toBeInTheDocument();
+  });
+
+  it("filtra los vencidos y por prioridad", async () => {
+    servicio.bandeja.mockResolvedValue(cabecera());
+    servicio.tickets.mockResolvedValue({
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+    });
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+    fireEvent.click(await screen.findByLabelText("Solo vencidos"));
+    await waitFor(() =>
+      expect(servicio.tickets).toHaveBeenLastCalledWith(
+        expect.objectContaining({ vencidos: "true" }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Prioridad"), {
+      target: { value: "critica" },
+    });
+    await waitFor(() =>
+      expect(servicio.tickets).toHaveBeenLastCalledWith(
+        expect.objectContaining({ prioridad: "critica", vencidos: "true" }),
+      ),
     );
   });
 });
@@ -462,6 +782,12 @@ describe("La ficha del ticket", () => {
     );
   });
 
+  /** La ventana de una acción y su campo. */
+  async function abrirAccion(boton) {
+    fireEvent.click(await screen.findByRole("button", { name: boton }));
+    return screen.findByRole("dialog");
+  }
+
   it("si actúa fuera de su horario, le pide registrar las horas", async () => {
     servicio.ticket.mockResolvedValue(ticket());
     servicio.cambiarEstado.mockResolvedValue(
@@ -479,8 +805,9 @@ describe("La ficha del ticket", () => {
       "/admin/soporte/tickets/:id",
     );
 
+    const ventana = await abrirAccion("Marcar como atendido");
     fireEvent.click(
-      await screen.findByRole("button", { name: "Marcar como atendido" }),
+      within(ventana).getByRole("button", { name: "Marcar como atendido" }),
     );
     expect(
       await screen.findByText("Está fuera de su horario de atención"),
@@ -500,7 +827,7 @@ describe("La ficha del ticket", () => {
     );
   });
 
-  it("escalar manda el motivo", async () => {
+  it("escalar explica qué pasa y manda el motivo", async () => {
     servicio.ticket.mockResolvedValue(ticket());
     servicio.escalar.mockResolvedValue({
       id: 42,
@@ -514,21 +841,23 @@ describe("La ficha del ticket", () => {
       "/admin/soporte/tickets/:id",
     );
 
-    fireEvent.change(await screen.findByLabelText("Nota o motivo"), {
-      target: { value: "Falla de placa" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Escalar al siguiente nivel" }),
+    const ventana = await abrirAccion("Escalar al siguiente nivel");
+    expect(ventana).toHaveAccessibleName("Escalar al siguiente nivel");
+    expect(ventana).toHaveAccessibleDescription(/Deja de estar a su cargo/);
+    fireEvent.change(
+      within(ventana).getByLabelText(/Motivo para el nivel siguiente/),
+      { target: { value: "Falla de placa" } },
     );
+    fireEvent.click(within(ventana).getByRole("button", { name: "Escalar" }));
     await waitFor(() =>
       expect(servicio.escalar).toHaveBeenCalledWith(42, "Falla de placa"),
     );
     expect(
       await screen.findByText(/ya no está a su cargo/),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  // Auditoría UX/UI, fase 2 (28/10/2026).
   it("sin motivo no escala: marca el campo y le lleva el foco", async () => {
     servicio.ticket.mockResolvedValue(ticket());
     servicio.escalar.mockReset();
@@ -538,11 +867,12 @@ describe("La ficha del ticket", () => {
       "/admin/soporte/tickets/:id",
     );
 
-    const nota = await screen.findByLabelText("Nota o motivo");
-    fireEvent.change(nota, { target: { value: "   " } });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Escalar al siguiente nivel" }),
+    const ventana = await abrirAccion("Escalar al siguiente nivel");
+    const nota = within(ventana).getByLabelText(
+      /Motivo para el nivel siguiente/,
     );
+    fireEvent.change(nota, { target: { value: "   " } });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Escalar" }));
     expect(servicio.escalar).not.toHaveBeenCalled();
     expect(nota).toHaveAttribute("aria-invalid", "true");
     expect(nota).toHaveAccessibleDescription(
@@ -550,12 +880,21 @@ describe("La ficha del ticket", () => {
     );
     expect(nota).toHaveFocus();
 
-    // Al escribirlo, el error se va.
+    // Al escribirlo, el error se va; «Cancelar» con texto escrito pregunta
+    // antes de descartarlo, y no escala.
     fireEvent.change(nota, { target: { value: "Falla de placa" } });
     expect(nota).not.toHaveAttribute("aria-invalid");
+    fireEvent.click(within(ventana).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "¿Descartar los cambios?" }),
+      ).getByRole("button", { name: "Descartar" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(servicio.escalar).not.toHaveBeenCalled();
   });
 
-  it("esperar al usuario también pide la nota; marcar atendido no", async () => {
+  it("esperar al usuario pide qué necesita; atendido explica y confirma", async () => {
     servicio.ticket.mockResolvedValue(ticket());
     servicio.cambiarEstado.mockReset();
     servicio.cambiarEstado.mockResolvedValue(
@@ -567,17 +906,22 @@ describe("La ficha del ticket", () => {
       "/admin/soporte/tickets/:id",
     );
 
+    let ventana = await abrirAccion(/Esperar al usuario \(pausa el plazo\)/);
     fireEvent.click(
-      await screen.findByRole("button", { name: "Esperar al usuario" }),
+      within(ventana).getByRole("button", { name: "Enviar y esperar" }),
     );
     expect(servicio.cambiarEstado).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Nota o motivo")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
+    expect(
+      within(ventana).getByLabelText(/Qué necesita del usuario/),
+    ).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(within(ventana).getByRole("button", { name: "Cancelar" }));
 
+    ventana = await abrirAccion("Marcar como atendido");
+    expect(ventana).toHaveAccessibleDescription(
+      /Se avisa a Carla Ordóñez para que confirme/,
+    );
     fireEvent.click(
-      screen.getByRole("button", { name: "Marcar como atendido" }),
+      within(ventana).getByRole("button", { name: "Marcar como atendido" }),
     );
     await waitFor(() =>
       expect(servicio.cambiarEstado).toHaveBeenCalledWith(42, "atendido", ""),
@@ -588,6 +932,61 @@ describe("La ficha del ticket", () => {
       .closest("section");
     expect(
       await within(tarjeta).findByText("Estado actualizado."),
+    ).toBeInTheDocument();
+  });
+
+  it("si el servidor rechaza la acción, el error sale en la ventana", async () => {
+    servicio.ticket.mockResolvedValue(ticket());
+    servicio.escalar.mockReset();
+    servicio.escalar.mockRejectedValue({
+      response: { data: { error: { message: "No hay un nivel siguiente." } } },
+    });
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+    const ventana = await abrirAccion("Escalar al siguiente nivel");
+    fireEvent.change(
+      within(ventana).getByLabelText(/Motivo para el nivel siguiente/),
+      { target: { value: "Falla de placa" } },
+    );
+    fireEvent.click(within(ventana).getByRole("button", { name: "Escalar" }));
+    expect(await within(ventana).findByRole("alert")).toHaveTextContent(
+      "No hay un nivel siguiente.",
+    );
+  });
+
+  it("un técnico toma el ticket de la cola que está mirando", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        estado: "nuevo",
+        estado_display: "En cola",
+        tecnico: null,
+        permisos: {
+          acciones: [],
+          tomar: true,
+          responder: false,
+          escalar: false,
+          asignar: false,
+        },
+      }),
+    );
+    servicio.tomar.mockResolvedValue(ticket());
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+    // Sin la «Nota o motivo» suelta que no servía para nada.
+    expect(
+      await screen.findByRole("button", { name: /Tomar este ticket/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nota o motivo")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Tomar este ticket/ }));
+    await waitFor(() => expect(servicio.tomar).toHaveBeenCalledWith(42));
+    expect(
+      await screen.findByText("El ticket es suyo: ya puede trabajarlo."),
     ).toBeInTheDocument();
   });
 
@@ -694,10 +1093,13 @@ describe("Mis solicitudes en la bandeja", () => {
     ]);
     pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
 
-    const tabla = await screen.findByRole("table", { name: "Mis solicitudes" });
+    const tabla = await screen.findByRole("table", { name: "Mis tickets" });
     expect(within(tabla).getByText("En cola")).toBeInTheDocument();
-    expect(within(tabla).getByText("Cerrado")).toBeInTheDocument();
-    expect(within(tabla).getByText("3")).toBeInTheDocument();
+    expect(within(tabla).getAllByText("Cerrado")[0]).toBeInTheDocument();
+    // «Qué sigue», en palabras.
+    expect(
+      within(tabla).getByText("Hay 2 tickets antes que el suyo."),
+    ).toBeInTheDocument();
     // Abre su ficha de seguimiento, no la del equipo (sin notas internas).
     expect(
       within(tabla).getByRole("link", { name: "TCK-2026-000007" }),
@@ -794,13 +1196,13 @@ describe("La bandeja en el teléfono", () => {
       pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
 
       const lista = await screen.findByRole("list", {
-        name: "Mis solicitudes",
+        name: "Mis tickets",
       });
       const [tarjeta] = within(lista).getAllByRole("listitem");
-      expect(tarjeta).toHaveTextContent("Posición en la cola: 3");
+      expect(tarjeta).toHaveTextContent("Hay 2 tickets antes que el suyo.");
       expect(
         within(tarjeta).getByRole("link", {
-          name: "Ver solicitud TCK-2026-000007",
+          name: "Ver el ticket TCK-2026-000007",
         }),
       ).toHaveAttribute("href", "/admin/ayuda/tickets/7");
     } finally {
