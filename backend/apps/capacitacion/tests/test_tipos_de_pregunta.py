@@ -105,6 +105,10 @@ def test_la_nota_suma_los_puntos_de_cada_tipo_sobre_10(db):
     assert resultado["nota"] == "7.25"
     assert resultado["puntaje"] == 73 and resultado["aprobado"] is True
     assert "Una cada sigla con su entidad" in resultado["a_reforzar"]
+    # El detalle dice lo obtenido en cada pregunta (auditoría UX/UI).
+    obtenidos = {d["texto"]: (d["obtenidos"], d["puntos"]) for d in resultado["detalle"]}
+    assert obtenidos["Una cada sigla con su entidad"] == ("1.25", "2.50")
+    assert [d["numero"] for d in resultado["detalle"]] == [1, 2, 3, 4]
 
 
 def test_los_puntos_deben_sumar_10_y_cada_tipo_se_valida(db):

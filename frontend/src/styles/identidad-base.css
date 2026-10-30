@@ -1244,6 +1244,13 @@ body {
   color: var(--mz-info-fg);
   border-color: var(--mz-blue-400);
 }
+/* El de éxito (auditoría UX/UI, 30/10/2026): lo usaban 35 pantallas («Solicitud
+   enviada», «¡Aprobó!»…) y no estaba definido, así que salía sin color. */
+.mz-alert--ok {
+  background: var(--mz-ok-bg);
+  color: var(--mz-ok-fg);
+  border-color: var(--mz-ok-line);
+}
 
 /* Documentos */
 .mz-doc {

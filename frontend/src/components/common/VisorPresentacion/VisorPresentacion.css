@@ -1,0 +1,59 @@
+/* El visor de presentaciones: la misma ventana que el de PDF, con la
+   diapositiva centrada y la navegación abajo. */
+.visor-presentacion__icono {
+  color: var(--mz-warn-fg);
+  font-size: 18px;
+}
+
+.visor-presentacion__cuerpo {
+  flex-direction: column;
+  overflow: auto;
+  padding: 12px;
+}
+
+.visor-presentacion__lienzo {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* La diapositiva, con sombra, sobre el fondo hundido. Los controles propios
+   de la librería se ocultan: la navegación es la del pie. */
+.visor-presentacion__lienzo > * {
+  box-shadow: var(--mz-shadow-2, 0 4px 16px rgb(0 0 0 / 0.18));
+  background: #fff;
+}
+
+.visor-presentacion__lienzo [class*="pagination"],
+.visor-presentacion__lienzo [class*="pre-button"],
+.visor-presentacion__lienzo [class*="next-button"] {
+  display: none !important;
+}
+
+.visor-presentacion__pie {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--mz-border);
+}
+
+.visor-presentacion__contador {
+  min-width: 150px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+@media (pointer: coarse) {
+  .visor-presentacion__pie .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* La diapositiva entera, sin la barra de desplazamiento de la librería. */
+.visor-presentacion__lienzo .pptx-preview-wrapper {
+  overflow: hidden !important;
+}

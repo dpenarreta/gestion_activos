@@ -18,6 +18,7 @@
 """
 
 import datetime
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
@@ -342,7 +343,21 @@ def _calificar(usuario, material, respuestas: dict, por_tiempo: bool = False) ->
         "intentos_restantes": estado["intentos_restantes"],
         # Oportunidades de mejora: qué falló (no cuál era la correcta).
         "a_reforzar": [calificacion.texto_visible(p) for p in falladas],
+        # Cada pregunta con lo obtenido sobre lo que vale.
+        "detalle": [
+            {
+                "numero": i,
+                "texto": calificacion.texto_visible(p),
+                "obtenidos": str(obtenidos),
+                "puntos": str(_redondear_puntos(p.puntos)),
+            }
+            for i, (p, obtenidos) in enumerate(resultado["detalle"], start=1)
+        ],
     }
+
+
+def _redondear_puntos(valor) -> Decimal:
+    return Decimal(valor).quantize(Decimal("0.01"))
 
 
 def _revisar_si_completo(usuario):

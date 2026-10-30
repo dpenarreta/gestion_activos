@@ -2494,12 +2494,19 @@
   border-radius: 10px;
 }
 
+/* El título de la pregunta dentro del recuadro, no montado sobre el borde. */
 .onboarding-pregunta legend {
-  float: none;
+  float: left;
   width: 100%;
-  margin-bottom: 4px;
-  font-size: 14px;
+  margin: 0 0 2px;
+  padding: 0;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.4;
+}
+
+.onboarding-pregunta legend + * {
+  clear: left;
 }
 
 .onboarding-opcion {
@@ -2514,7 +2521,7 @@
 
 .onboarding-hueco {
   display: inline-block;
-  width: 140px;
+  max-width: 100%;
   margin: 2px 4px;
   vertical-align: baseline;
 }
@@ -3830,4 +3837,270 @@
 .vacaciones-regla[open] > summary::before,
 .vacaciones-consulta[open] > summary::before {
   transform: rotate(45deg);
+}
+
+/* --- Mi onboarding: auditoría UX/UI (30/10/2026) --- */
+
+/* Los estados de cada material, con su propia pill. */
+.onboarding-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.onboarding-estado--pendiente {
+  background: var(--mz-sunken);
+  border-color: var(--mz-border);
+  color: var(--mz-ink-soft);
+}
+
+.onboarding-estado--visto {
+  background: var(--mz-info-bg);
+  border-color: var(--mz-blue-400);
+  color: var(--mz-info-fg);
+}
+
+.onboarding-falta {
+  color: var(--mz-bad-fg);
+}
+
+.onboarding-estado--por-aprobar {
+  background: var(--mz-warn-bg);
+  border-color: var(--mz-warn-line);
+  color: var(--mz-warn-fg);
+}
+
+.onboarding-estado--aprobado {
+  background: var(--mz-ok-bg);
+  border-color: var(--mz-ok-line);
+  color: var(--mz-ok-fg);
+}
+
+.onboarding-estado--agotado {
+  background: var(--mz-bad-bg);
+  border-color: var(--mz-bad-line);
+  color: var(--mz-bad-fg);
+}
+
+.onboarding-plan__datos {
+  color: var(--mz-ink-soft);
+}
+
+.onboarding-plan__motivo {
+  color: var(--mz-ink-soft);
+  font-style: italic;
+}
+
+.onboarding-plan__acciones {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* En el teléfono, el título a todo el ancho; el estado y los botones
+   debajo (antes el título quedaba en 0–30 px). */
+@media (max-width: 575px) {
+  .onboarding-plan li {
+    flex-wrap: wrap;
+  }
+
+  .onboarding-plan .perfil-cargo-lista__nombre {
+    flex-basis: 100%;
+  }
+
+  .onboarding-plan__acciones {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  .onboarding-unir {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .onboarding-unir .contents > span {
+    margin-top: 6px;
+    font-weight: 600;
+  }
+}
+
+/* El material: el archivo es la acción principal, como una tarjeta. */
+.onboarding-indicacion {
+  margin: 12px 0 6px;
+  color: var(--mz-ink-soft);
+  font-size: 13.5px;
+}
+
+.onboarding-archivos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 10px;
+}
+
+.onboarding-archivo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-action);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--mz-action) 6%, var(--mz-raised));
+  color: var(--mz-ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.onboarding-archivo:hover {
+  background: color-mix(in srgb, var(--mz-action) 12%, var(--mz-raised));
+}
+
+.onboarding-archivo[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.onboarding-archivo__icono {
+  font-size: 28px;
+  color: var(--mz-action);
+}
+
+.onboarding-archivo strong {
+  display: block;
+  font-size: 15px;
+}
+
+.onboarding-archivo small {
+  display: block;
+  color: var(--mz-ink-soft);
+}
+
+/* La evaluación: reglas legibles, número de pregunta y controles con borde
+   de 3:1 (antes 1,6:1; WCAG 1.4.11). */
+.onboarding-reglas {
+  font-size: 14px;
+}
+
+.onboarding-pregunta__numero {
+  color: var(--mz-action);
+}
+
+.onboarding-pregunta__tipo {
+  color: var(--mz-ink-soft);
+  font-size: 12.5px;
+}
+
+.onboarding-pregunta--falta {
+  border-color: var(--mz-bad-line);
+  background: color-mix(in srgb, var(--mz-bad-fg) 5%, transparent);
+}
+
+.onboarding-pregunta .form-check-input,
+.onboarding-pregunta .form-control,
+.onboarding-pregunta .form-select {
+  border-color: var(--mz-ink-faint);
+}
+
+.onboarding-pregunta .form-check-input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.onboarding-pregunta .form-check {
+  min-height: 28px;
+  font-size: 14.5px;
+}
+
+.onboarding-frase {
+  line-height: 2.2;
+  font-size: 14.5px;
+}
+
+/* El resultado: la nota grande y su estado. */
+.onboarding-resultado {
+  padding: 16px 18px;
+  border: 1px solid var(--mz-warn-line);
+  border-radius: 12px;
+  background: var(--mz-warn-bg);
+  color: var(--mz-ink);
+}
+
+.onboarding-resultado--aprobado {
+  border-color: var(--mz-ok-line);
+  background: var(--mz-ok-bg);
+}
+
+.onboarding-resultado__titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.onboarding-resultado__titulo:focus {
+  outline: none;
+}
+
+.onboarding-resultado__nota {
+  margin: 2px 0 6px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.onboarding-resultado__cifra {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.onboarding-seccion {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.onboarding-detalle {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.onboarding-detalle li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.onboarding-detalle__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-detalle__puntos {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.onboarding-detalle__icono--bien {
+  color: var(--mz-ok-fg);
+}
+
+.onboarding-detalle__icono--parcial {
+  color: var(--mz-warn-fg);
+}
+
+.onboarding-detalle__icono--mal {
+  color: var(--mz-bad-fg);
 }

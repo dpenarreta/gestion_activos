@@ -28,9 +28,9 @@ export function AvisoOnboarding() {
   if (pathname.endsWith("/institucional/onboarding")) return null;
 
   return (
-    <div
+    <aside
       className={`aviso-onboarding${datos.vencido ? " aviso-onboarding--vencido" : ""}`}
-      role="status"
+      aria-label="Onboarding pendiente"
     >
       <Icon name="mortarboard" />
       <span>
@@ -39,12 +39,13 @@ export function AvisoOnboarding() {
         {datos.vencido ? "venció el " : "complételo antes del "}
         {formatearFecha(datos.fecha_limite)}.
       </span>
+      {/* Dice adónde lleva y se ve (antes «Continuar» en btn-light, 1,1:1). */}
       <Link
-        className="btn btn-sm btn-light"
+        className="btn btn-sm btn-outline-primary"
         to="/admin/institucional/onboarding"
       >
-        Continuar
+        Ir a Mi onboarding
       </Link>
-    </div>
+    </aside>
   );
 }

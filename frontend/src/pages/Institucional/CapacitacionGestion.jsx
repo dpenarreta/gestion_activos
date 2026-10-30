@@ -278,7 +278,11 @@ function EditorMaterial({ inicial, datos, onGuardado, onCerrar }) {
               </label>
             </div>
           )}
-          <small className="mz-faint d-block">Hasta 50 MB.</small>
+          <small className="mz-faint d-block">
+            Hasta 50 MB. El PDF y la presentación .pptx se ven dentro del
+            sistema; la .ppt antigua solo se puede descargar (guárdela como
+            .pptx en PowerPoint).
+          </small>
         </div>
         <Campo
           id="mat-url"
@@ -437,7 +441,7 @@ function Opciones({ pregunta: p, i, cambiar }) {
     return (
       <p className="mz-small mb-0">
         {espacios
-          ? `${espacios} espacio(s) a completar.`
+          ? `${espacios} ${espacios === 1 ? "espacio" : "espacios"} a completar.`
           : "Aún no hay espacios: escriba la palabra entre [[ ]]."}
       </p>
     );

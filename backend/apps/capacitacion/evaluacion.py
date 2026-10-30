@@ -146,10 +146,15 @@ def calificar(preguntas, respuestas: dict) -> dict:
     bien."""
     nota = Decimal(0)
     falladas = []
+    # Lo obtenido en cada pregunta, para que el resultado diga qué estuvo bien
+    # en parte (auditoría UX/UI, 30/10/2026); nunca cuál era la correcta.
+    detalle = []
     for pregunta in preguntas:
         respuesta = respuestas.get(str(pregunta.id), respuestas.get(pregunta.id))
         fraccion = _fraccion(pregunta, respuesta)
-        nota += Decimal(pregunta.puntos) * fraccion
+        obtenidos = Decimal(pregunta.puntos) * fraccion
+        nota += obtenidos
+        detalle.append((pregunta, _redondear(obtenidos)))
         if fraccion < 1:
             falladas.append(pregunta)
     total = sum((Decimal(p.puntos) for p in preguntas), Decimal(0)) or TOTAL
@@ -158,6 +163,7 @@ def calificar(preguntas, respuestas: dict) -> dict:
         "nota": nota,
         "porcentaje": int((nota * 10).to_integral_value(rounding=ROUND_HALF_UP)),
         "falladas": falladas,
+        "detalle": detalle,
     }
 
 

@@ -121,27 +121,54 @@ describe("Mi onboarding", () => {
       nota_minima: 70,
       intentos_restantes: 2,
       a_reforzar: ["¿Qué hacer con un correo sospechoso?"],
+      detalle: [
+        {
+          numero: 1,
+          texto: "¿Qué hacer con un correo sospechoso?",
+          obtenidos: "0.00",
+          puntos: "10.00",
+        },
+      ],
     });
     render(<MiOnboardingPage />);
     fireEvent.click(await screen.findByRole("button", { name: /Evaluarme/ }));
     const ventana = await screen.findByRole("dialog", {
       name: `Evaluación · ${MATERIAL.titulo}`,
     });
-    const enviar = within(ventana).getByRole("button", {
+    const enviar = await within(ventana).findByRole("button", {
       name: "Enviar respuestas",
     });
-    expect(enviar).toBeDisabled();
-    fireEvent.click(
-      await within(ventana).findByRole("radio", { name: "Abrirlo" }),
-    );
+    // Sin responder no se envía, y dice qué falta (antes el botón quedaba gris).
     fireEvent.click(enviar);
+    expect(
+      await within(ventana).findByText("Falta responder la pregunta 1."),
+    ).toBeInTheDocument();
+    expect(servicio.responder).not.toHaveBeenCalled();
+    fireEvent.click(within(ventana).getByRole("radio", { name: "Abrirlo" }));
+    fireEvent.click(enviar);
+    // Enviar gasta un intento: se confirma.
+    const pregunta = await screen.findByRole("dialog", {
+      name: "¿Enviar sus respuestas?",
+    });
+    expect(pregunta).toHaveTextContent("Usará el intento 1 de 3.");
+    fireEvent.click(within(pregunta).getByRole("button", { name: "Enviar" }));
     await waitFor(() =>
       expect(servicio.responder).toHaveBeenCalledWith(1, { 10: 100 }, false),
     );
-    expect(await within(ventana).findByText(/0 \/ 10\b/)).toBeInTheDocument();
+    // El resultado: la nota grande, lo obtenido por pregunta y qué hacer.
+    const resultado = await within(ventana).findByRole("heading", {
+      name: "Resultado",
+    });
+    await waitFor(() => expect(resultado).toHaveFocus());
+    expect(within(ventana).getByText("No aprobado · 0 %")).toBeInTheDocument();
+    expect(ventana).toHaveTextContent("Le quedan 2 intentos.");
+    expect(within(ventana).getByText("0 de 10")).toBeInTheDocument();
     expect(
-      within(ventana).getByRole("region", { name: "Oportunidades de mejora" }),
-    ).toHaveTextContent("¿Qué hacer con un correo sospechoso?");
+      within(ventana).getByRole("button", { name: /Intentar de nuevo/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("button", { name: /Repasar el material/ }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -225,7 +252,7 @@ describe("Tipos de pregunta", () => {
     const ventana = await screen.findByRole("dialog", {
       name: `Evaluación · ${MATERIAL.titulo}`,
     });
-    const enviar = within(ventana).getByRole("button", {
+    const enviar = await within(ventana).findByRole("button", {
       name: "Enviar respuestas",
     });
     fireEvent.click(
@@ -233,22 +260,28 @@ describe("Tipos de pregunta", () => {
     );
     fireEvent.click(within(ventana).getByRole("checkbox", { name: "Cédulas" }));
     fireEvent.change(
-      within(ventana).getByRole("textbox", {
-        name: "Espacio 1 de la pregunta 2",
-      }),
+      within(ventana).getByRole("textbox", { name: /^Espacio 1/ }),
       { target: { value: "RUC" } },
     );
     fireEvent.change(
       within(ventana).getByRole("combobox", { name: "Respuesta para «SRI»" }),
       { target: { value: "Rentas Internas" } },
     );
-    // Falta una pareja: todavía no se puede enviar.
-    expect(enviar).toBeDisabled();
+    // Falta una pareja: no se envía y dice cuál pregunta falta.
+    fireEvent.click(enviar);
+    expect(
+      await within(ventana).findByText("Falta responder la pregunta 3."),
+    ).toBeInTheDocument();
     fireEvent.change(
       within(ventana).getByRole("combobox", { name: "Respuesta para «IESS»" }),
       { target: { value: "Seguridad Social" } },
     );
     fireEvent.click(enviar);
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "¿Enviar sus respuestas?" }),
+      ).getByRole("button", { name: "Enviar" }),
+    );
     await waitFor(() =>
       expect(servicio.responder).toHaveBeenCalledWith(
         1,
@@ -260,8 +293,8 @@ describe("Tipos de pregunta", () => {
         false,
       ),
     );
-    expect(await within(ventana).findByText(/8,5 \/ 10/)).toBeInTheDocument();
-    expect(within(ventana).getByText(/85 %/)).toBeInTheDocument();
+    expect(await within(ventana).findByText("8,5")).toBeInTheDocument();
+    expect(within(ventana).getByText("Aprobado · 85 %")).toBeInTheDocument();
   });
 
   it("el editor suma y reparte los 10 puntos", async () => {
@@ -304,9 +337,7 @@ describe("Tiempo límite", () => {
       preguntas: [PREGUNTA],
     });
     render(<MiOnboardingPage />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Evaluarme · 5 min/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /Evaluarme/ }));
     const ventana = await screen.findByRole("dialog");
     expect(ventana).toHaveTextContent("5 minutos");
     expect(servicio.evaluacion).not.toHaveBeenCalled();
@@ -385,10 +416,9 @@ describe("Aviso del onboarding", () => {
     expect(
       await screen.findByText(/Tiene su onboarding pendiente/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Continuar" })).toHaveAttribute(
-      "href",
-      "/admin/institucional/onboarding",
-    );
+    expect(
+      screen.getByRole("link", { name: "Ir a Mi onboarding" }),
+    ).toHaveAttribute("href", "/admin/institucional/onboarding");
     unmount();
     servicio.miOnboarding.mockResolvedValue({
       ...PLAN,
