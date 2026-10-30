@@ -1233,7 +1233,7 @@
 /* ---------- Mis vacaciones ---------- */
 .vacaciones-resumen {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 12px;
 }
 
@@ -1258,6 +1258,7 @@
 .vacaciones-resumen strong {
   font-size: 28px;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .vacaciones-resumen small {
@@ -1271,12 +1272,13 @@
 
 .vacaciones-resumen__principal strong {
   font-size: 40px;
-  color: var(--mz-action);
+  /* Un dato, no algo que se pulsa: el color de tinta (auditoría UX/UI). */
+  color: var(--mz-ink);
 }
 
 .vacaciones-periodos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -1314,13 +1316,13 @@
 
 .vacaciones-periodo__cifras {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin: 0;
   text-align: center;
 }
 
 .vacaciones-periodo__cifras dt {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--mz-ink-soft);
 }
@@ -1329,10 +1331,11 @@
   margin: 0;
   font-size: 22px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .vacaciones-periodo__pendientes {
-  color: var(--mz-action);
+  color: var(--mz-ink);
 }
 
 .vacaciones-barra {
@@ -1342,11 +1345,26 @@
   overflow: hidden;
 }
 
+.vacaciones-barra {
+  display: flex;
+}
+
 .vacaciones-barra span {
   display: block;
   height: 100%;
-  border-radius: 999px;
+}
+
+.vacaciones-barra__gozado {
   background: var(--mz-ok-fg);
+}
+
+/* Lo que está en aprobación, rayado: reservado, todavía no gozado. */
+.vacaciones-barra__reservado {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--mz-warn-fg) 0 4px,
+    color-mix(in srgb, var(--mz-warn-fg) 45%, transparent) 4px 8px
+  );
 }
 
 /* Dentro de la tarjeta del período: sin el ancho mínimo de los listados
@@ -1371,6 +1389,10 @@
 }
 
 .vacaciones-consulta summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
   padding: 10px 14px;
   cursor: pointer;
   font-weight: 600;
@@ -1391,6 +1413,8 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  align-items: center;
+  min-height: 44px;
   padding: 6px 10px;
   border: 0;
   border-radius: 8px;
@@ -1399,6 +1423,16 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* Dentro de una lista que se desplaza, el contorno de foco va hacia
+   adentro: si no, se recortaba en el primero y el último. */
+.vacaciones-personas__boton:focus-visible {
+  outline-offset: -2px;
+}
+
+.vacaciones-personas__boton:disabled {
+  cursor: progress;
 }
 
 .vacaciones-personas__boton:hover,
@@ -1410,6 +1444,74 @@
   .vacaciones-resumen {
     grid-template-columns: 1fr;
   }
+
+  .vacaciones-resumen > div {
+    padding: 10px 14px;
+  }
+
+  .vacaciones-resumen__principal strong {
+    font-size: 32px;
+  }
+
+  .vacaciones-periodo__cifras {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+}
+
+/* --- Mis vacaciones: auditoría UX/UI (30/10/2026) --- */
+.vacaciones-titulo:focus {
+  outline: none;
+}
+
+.vacaciones-periodo__titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vacaciones-periodo__marcas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.vacaciones-periodo__fines {
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.vacaciones-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+.vacaciones-seccion {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vacaciones-en-curso ul,
+.vacaciones-regla ul {
+  padding-left: 18px;
+  font-size: 13.5px;
+}
+
+.vacaciones-regla {
+  font-size: 13.5px;
+  color: var(--mz-ink-soft);
+}
+
+.vacaciones-regla summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--mz-ink);
 }
 
 /* ---------- Solicitud de permisos ---------- */
@@ -3698,4 +3800,34 @@
     min-width: 44px;
     min-height: 44px;
   }
+}
+
+/* Los desplegables con `display: flex` pierden el triángulo nativo: se
+   dibuja uno que gira al abrir (auditoría UX/UI, 30/10/2026). */
+.vacaciones-regla summary,
+.vacaciones-consulta summary {
+  list-style: none;
+}
+
+.vacaciones-regla summary::-webkit-details-marker,
+.vacaciones-consulta summary::-webkit-details-marker {
+  display: none;
+}
+
+.vacaciones-regla summary::before,
+.vacaciones-consulta summary::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.vacaciones-regla[open] > summary::before,
+.vacaciones-consulta[open] > summary::before {
+  transform: rotate(45deg);
 }

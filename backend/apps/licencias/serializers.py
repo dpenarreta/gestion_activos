@@ -274,7 +274,17 @@ class FlujoParaSolicitarSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FlujoPermiso
-        fields = ["id", "nombre", "descripcion", "adjunto", "pide_motivo", "pasos"]
+        # `descuenta_vacaciones`: «Solicitar vacaciones» (en Mis vacaciones)
+        # abre la solicitud con ese tipo ya elegido.
+        fields = [
+            "id",
+            "nombre",
+            "descripcion",
+            "adjunto",
+            "pide_motivo",
+            "descuenta_vacaciones",
+            "pasos",
+        ]
 
     def get_pasos(self, flujo):
         return [

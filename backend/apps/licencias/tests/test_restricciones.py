@@ -230,3 +230,33 @@ def test_quien_aprueba_ve_lo_que_necesita_para_decidir(empresa_con_organigrama):
     # Cerrada, ya no se evalúa (sus días constan como gozados).
     jefa.post(f"{SOLICITUDES}{creada.json()['id']}/rechazar/", {"comentario": "No"})
     assert jefa.get(f"{SOLICITUDES}{creada.json()['id']}/").json()["evaluacion"] is None
+
+
+def test_mis_vacaciones_cuenta_lo_reservado_como_al_pedir(empresa_con_organigrama):
+    """Auditoría UX/UI de Mis vacaciones (30/10/2026): el saldo cuenta lo que
+    está en aprobación (como al pedir), con los fines de semana de la regla y
+    las solicitudes en curso."""
+    e = empresa_con_organigrama
+    _con_reglas(e)
+    usuario, ana = e["ana"]
+    _periodo(usuario, D(2024, 6, 1))
+    creada = ana.post(
+        SOLICITUDES,
+        {"flujo": e["vacaciones"], "desde": "2026-11-02", "hasta": "2026-11-08"},
+        format="multipart",
+    )
+    assert creada.status_code == 201, creada.data
+
+    datos = ana.get("/api/v1/organizacion/vacaciones/mias/").json()
+    periodo = datos["periodos"][0]
+    assert periodo["gozados"] == 0
+    assert periodo["reservados"] == 7
+    assert periodo["disponibles"] == 8
+    # Del 2 al 8 de noviembre: un sábado y un domingo.
+    assert (periodo["sabados"], periodo["domingos"]) == (1, 1)
+    assert datos["regla"] == {"sabados": 2, "domingos": 2}
+    assert datos["disponibles"] == 8
+    assert [s["id"] for s in datos["en_curso"]] == [creada.json()["id"]]
+    # El mismo número que da Solicitud de permisos al pedir otra.
+    otra = _por_clave(_evaluar(ana, e["vacaciones"], "2026-12-07", "2026-12-11"))
+    assert "Tiene 8 días pendientes" in otra["saldo"]["detalle"]

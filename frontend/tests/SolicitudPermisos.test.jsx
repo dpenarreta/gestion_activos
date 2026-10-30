@@ -436,6 +436,32 @@ describe("Solicitud de permisos", () => {
  * decía nada mientras cargaba, al cambiar de pestaña pintaba las filas viejas
  * con las columnas corridas y un error viejo quedaba a la vista.
  */
+describe("Solicitar vacaciones desde Mis vacaciones (30/10/2026)", () => {
+  it("?nueva=vacaciones abre la solicitud con el tipo de vacaciones elegido", async () => {
+    servicio.tipos.mockResolvedValue([
+      {
+        ...VACACIONES,
+        id: 1,
+        nombre: "Permiso médico",
+        descuenta_vacaciones: false,
+      },
+      {
+        ...VACACIONES,
+        id: 2,
+        nombre: "Vacaciones",
+        descuenta_vacaciones: true,
+      },
+    ]);
+    pintar(<SolicitudPermisosPage />, "/?nueva=vacaciones");
+    const ventana = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(within(ventana).getByLabelText(/^Tipo de permiso/)).toHaveValue(
+        "2",
+      ),
+    );
+  });
+});
+
 describe("Solicitud de permisos: cargando, error y pestañas", () => {
   it("muestra «Cargando…» en la tabla mientras llega la lista", async () => {
     let entregar;

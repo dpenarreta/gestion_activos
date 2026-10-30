@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
@@ -12,33 +13,67 @@ function dias(n) {
   return `${n} ${n === 1 ? "día" : "días"}`;
 }
 
-/** Un período: cuántos días le corresponden, cuántos gozó y cuántos le
- * quedan, con la barra de avance y el detalle de lo gozado. */
-function Periodo({ periodo }) {
-  const avance = periodo.correspondientes
-    ? Math.min(100, (periodo.gozados / periodo.correspondientes) * 100)
-    : 0;
-  const completo = periodo.pendientes === 0;
+/** «1 día disponible», «3 días disponibles» (antes «1 día pendientes»). */
+function diasCon(n, singular, plural) {
+  return `${dias(n)} ${n === 1 ? singular : plural}`;
+}
+
+const SOLICITAR = "/admin/institucional/permisos?nueva=vacaciones";
+
+/** Los sábados y domingos que lleva el período frente a los que pide la
+ * regla, para que no lleguen por sorpresa los «marcados por defecto»
+ * (auditoría UX/UI, 30/10/2026). */
+function FinesDeSemana({ periodo, regla }) {
+  if (!regla?.sabados && !regla?.domingos) return null;
+  const completo =
+    periodo.sabados >= regla.sabados && periodo.domingos >= regla.domingos;
   return (
-    <section
-      className={`vacaciones-periodo${completo ? " vacaciones-periodo--completo" : ""}`}
-      aria-label={`Período ${periodo.nombre}`}
-    >
+    <p className="vacaciones-periodo__fines mb-0">
+      <Icon name="calendar-week" /> Fines de semana:{" "}
+      <span className="vacaciones-num">
+        {Math.min(periodo.sabados, regla.sabados)} de {regla.sabados}
+      </span>{" "}
+      {regla.sabados === 1 ? "sábado" : "sábados"} ·{" "}
+      <span className="vacaciones-num">
+        {Math.min(periodo.domingos, regla.domingos)} de {regla.domingos}
+      </span>{" "}
+      {regla.domingos === 1 ? "domingo" : "domingos"}{" "}
+      <span className={`mz-pill ${completo ? "mz-pill--ok" : "mz-pill--warn"}`}>
+        {completo ? "Completos" : "Faltan"}
+      </span>
+    </p>
+  );
+}
+
+/** Un período: lo que corresponde, lo gozado, lo reservado en aprobación y lo
+ * disponible, con la barra de avance y el detalle de lo gozado. */
+function Periodo({ periodo, regla, primero }) {
+  const base = periodo.correspondientes || 1;
+  const gozado = Math.min(100, (periodo.gozados / base) * 100);
+  const reservado = Math.min(100 - gozado, (periodo.reservados / base) * 100);
+  const tituloId = `periodo-${periodo.id}`;
+  return (
+    <section className="vacaciones-periodo" aria-labelledby={tituloId}>
       <header className="vacaciones-periodo__cabecera">
         <div>
-          <strong>Período {periodo.nombre}</strong>
+          <h3 id={tituloId} className="vacaciones-periodo__titulo">
+            Período {periodo.nombre}
+          </h3>
           <small>
             Del {formatearFecha(periodo.desde)} al{" "}
             {formatearFecha(periodo.hasta)}
           </small>
         </div>
-        <span
-          className={`mz-pill ${completo ? "mz-pill--ok" : "mz-pill--warn"}`}
-        >
-          {completo
-            ? "Gozado completo"
-            : `${dias(periodo.pendientes)} pendientes`}
-        </span>
+        <div className="vacaciones-periodo__marcas">
+          <span className="mz-pill mz-pill--warn">
+            {diasCon(periodo.disponibles, "disponible", "disponibles")}
+          </span>
+          {primero && (
+            <span className="mz-pill mz-pill--neutral">
+              Se descuenta primero
+            </span>
+          )}
+        </div>
       </header>
 
       <dl className="vacaciones-periodo__cifras">
@@ -51,32 +86,43 @@ function Periodo({ periodo }) {
           <dd>{periodo.gozados}</dd>
         </div>
         <div>
-          <dt>Pendientes</dt>
+          <dt>En aprobación</dt>
+          <dd>{periodo.reservados}</dd>
+        </div>
+        <div>
+          <dt>Disponibles</dt>
           <dd className="vacaciones-periodo__pendientes">
-            {periodo.pendientes}
+            {periodo.disponibles}
           </dd>
         </div>
       </dl>
-      <div
-        className="vacaciones-barra"
-        role="progressbar"
-        aria-label={`Gozados del período ${periodo.nombre}`}
-        aria-valuemin={0}
-        aria-valuemax={periodo.correspondientes}
-        aria-valuenow={periodo.gozados}
-      >
-        <span style={{ width: `${avance}%` }} />
+      {/* Decorativa: las cifras ya están arriba, en texto. */}
+      <div className="vacaciones-barra" aria-hidden="true">
+        <span
+          className="vacaciones-barra__gozado"
+          style={{ width: `${gozado}%` }}
+        />
+        <span
+          className="vacaciones-barra__reservado"
+          style={{ width: `${reservado}%` }}
+        />
       </div>
+      <FinesDeSemana periodo={periodo} regla={regla} />
 
       {periodo.goces.length > 0 ? (
         <div className="vacaciones-goces-marco">
           <table className="mz-table vacaciones-goces">
+            <caption className="visually-hidden">
+              Días gozados del período {periodo.nombre}
+            </caption>
             <thead>
               <tr>
-                <th>Gozadas del</th>
-                <th>Al</th>
-                <th className="num">Días</th>
-                <th>Detalle</th>
+                <th scope="col">Gozadas del</th>
+                <th scope="col">Al</th>
+                <th scope="col" className="num">
+                  Días
+                </th>
+                <th scope="col">Detalle</th>
               </tr>
             </thead>
             <tbody>
@@ -85,7 +131,14 @@ function Periodo({ periodo }) {
                   <td>{formatearFecha(g.desde)}</td>
                   <td>{formatearFecha(g.hasta)}</td>
                   <td className="num">{g.dias}</td>
-                  <td className="mz-small">{g.descripcion || "—"}</td>
+                  <td className="mz-small">
+                    {g.por_defecto && (
+                      <span className="mz-pill mz-pill--neutral me-1">
+                        Por defecto
+                      </span>
+                    )}
+                    {g.descripcion || "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -105,49 +158,127 @@ function Periodo({ periodo }) {
   );
 }
 
+/** Los períodos ya gozados por completo, a la vista si se quieren cuadrar
+ * los totales. */
+function PeriodoGozado({ periodo }) {
+  return (
+    <li>
+      <strong>Período {periodo.nombre}</strong>{" "}
+      <span className="mz-faint">
+        ({formatearFecha(periodo.desde)} al {formatearFecha(periodo.hasta)}) ·{" "}
+        {diasCon(periodo.gozados, "gozado", "gozados")} de{" "}
+        {periodo.correspondientes}
+      </span>
+    </li>
+  );
+}
+
 /** El resumen y los períodos de una persona. */
-function Vacaciones({ datos }) {
+function Vacaciones({ datos, propias }) {
   if (datos.periodos.length === 0) {
     return (
       <div className="mz-card">
         <div className="mz-card-body mz-empty">
           <Icon name="sun" />
-          <p>Todavía no hay períodos de vacaciones cargados.</p>
+          {propias ? (
+            <p>
+              Aún no tiene períodos de vacaciones registrados. Los carga Talento
+              Humano al cumplir cada año de servicio; si cree que falta alguno,
+              escríbales.
+            </p>
+          ) : (
+            <p>
+              {datos.persona.nombre} no tiene períodos de vacaciones
+              registrados.
+            </p>
+          )}
         </div>
       </div>
     );
   }
-  // Solo los períodos con días pendientes (los gozados por completo se
-  // ocultan), del más reciente al más antiguo.
-  const periodos = datos.periodos.filter((p) => p.pendientes > 0).reverse();
-  const gozadosCompletos = datos.periodos.length - periodos.length;
+  // Los períodos con días, del más antiguo al más nuevo: en ese orden se
+  // descuentan al pedir (antes iban al revés).
+  const periodos = datos.periodos.filter((p) => p.pendientes > 0);
+  const gozados = datos.periodos.filter((p) => p.pendientes === 0);
+  const regla = datos.regla;
+  const primero = periodos.find((p) => p.disponibles > 0);
   return (
     <>
+      <h3 className="visually-hidden">Resumen</h3>
       <div className="vacaciones-resumen">
         <div className="vacaciones-resumen__principal">
-          <span>Días pendientes de gozar</span>
-          <strong>{datos.pendientes}</strong>
+          <span>Disponibles para pedir</span>
+          <strong>{datos.disponibles}</strong>
           <small>
+            {datos.reservados > 0
+              ? `${diasCon(datos.reservados, "en aprobación", "en aprobación")} · `
+              : ""}
             {datos.periodos_con_pendientes === 0
               ? "No tiene días pendientes."
-              : `En ${datos.periodos_con_pendientes} ${
+              : `en ${datos.periodos_con_pendientes} ${
                   datos.periodos_con_pendientes === 1 ? "período" : "períodos"
                 }`}
           </small>
         </div>
         <div>
-          <span>Días gozados</span>
+          <span>Gozados</span>
           <strong>{datos.gozados}</strong>
-        </div>
-        <div>
-          <span>Días que corresponden</span>
-          <strong>{datos.correspondientes}</strong>
           <small>
+            de {datos.correspondientes} que corresponden en{" "}
             {datos.periodos.length}{" "}
             {datos.periodos.length === 1 ? "período" : "períodos"}
           </small>
         </div>
       </div>
+
+      {datos.en_curso?.length > 0 && (
+        <section
+          className="mz-card vacaciones-en-curso"
+          aria-labelledby="vac-en-curso"
+        >
+          <div className="mz-card-body">
+            <h3 id="vac-en-curso" className="vacaciones-seccion">
+              Solicitudes de vacaciones en aprobación
+            </h3>
+            <ul className="mb-0">
+              {datos.en_curso.map((s) => (
+                <li key={s.id}>
+                  {propias ? (
+                    <Link
+                      to={`/admin/institucional/permisos?solicitud=${s.id}`}
+                    >
+                      {formatearFecha(s.desde)} al {formatearFecha(s.hasta)}
+                    </Link>
+                  ) : (
+                    <span>
+                      {formatearFecha(s.desde)} al {formatearFecha(s.hasta)}
+                    </span>
+                  )}{" "}
+                  <span className="mz-faint">
+                    · {dias(s.dias)}
+                    {s.paso ? ` · en «${s.paso}»` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {(regla?.sabados > 0 || regla?.domingos > 0) && (
+        <details className="vacaciones-regla">
+          <summary>¿Por qué se cuentan los fines de semana?</summary>
+          <p className="mb-0">
+            De cada período deben salir al menos {regla.sabados}{" "}
+            {regla.sabados === 1 ? "sábado" : "sábados"} y {regla.domingos}{" "}
+            {regla.domingos === 1 ? "domingo" : "domingos"}. Si al completarse
+            el período faltan, se marcan por defecto los siguientes a la
+            solicitud (aparecen como «Por defecto» en lo gozado). Para elegirlos
+            usted, inclúyalos al pedir sus vacaciones.
+          </p>
+        </details>
+      )}
+
       {periodos.length === 0 ? (
         <div className="mz-card">
           <div className="mz-card-body mz-empty">
@@ -158,34 +289,49 @@ function Vacaciones({ datos }) {
       ) : (
         <div className="vacaciones-periodos">
           {periodos.map((p) => (
-            <Periodo key={p.id} periodo={p} />
+            <Periodo
+              key={p.id}
+              periodo={p}
+              regla={regla}
+              primero={periodos.length > 1 && p === primero}
+            />
           ))}
         </div>
       )}
-      {gozadosCompletos > 0 && periodos.length > 0 && (
-        <p className="mz-faint mz-small mb-0">
-          <Icon name="info-circle" />{" "}
-          {gozadosCompletos === 1
-            ? "1 período ya gozado por completo no se muestra."
-            : `${gozadosCompletos} períodos ya gozados por completo no se muestran.`}
-        </p>
+      {gozados.length > 0 && periodos.length > 0 && (
+        <details className="vacaciones-regla">
+          <summary>
+            Ver {gozados.length}{" "}
+            {gozados.length === 1 ? "período ya gozado" : "períodos ya gozados"}{" "}
+            por completo
+          </summary>
+          <ul className="mb-0">
+            {gozados.map((p) => (
+              <PeriodoGozado key={p.id} periodo={p} />
+            ))}
+          </ul>
+        </details>
       )}
     </>
   );
 }
 
 /**
- * Institucional → Mis vacaciones: los días de vacaciones pendientes de gozar,
- * y por cada período (año de servicio) cuántos le corresponden, cuántos gozó y
- * cuántos le quedan. Quien tiene `vacaciones.ver_todas` puede consultar los
- * de cualquier persona de la empresa.
+ * Institucional → Mis vacaciones: los días disponibles para pedir (los
+ * pendientes menos lo que está en aprobación, como al solicitar), y por cada
+ * período (año de servicio) cuántos corresponden, cuántos se gozaron y los
+ * fines de semana que pide la regla. Quien tiene `vacaciones.ver_todas`
+ * puede consultar los de cualquier persona de la empresa.
  */
 export function MisVacacionesPage() {
   const verTodas = usePermission("vacaciones.ver_todas");
+  const puedeSolicitar = usePermission("licencias.solicitar");
   const [mias, setMias] = useState(null);
   const [personas, setPersonas] = useState(null);
+  const [buscando, setBuscando] = useState(false);
   const [buscar, setBuscar] = useState("");
   const [otra, setOtra] = useState(null);
+  const [abriendo, setAbriendo] = useState(null);
   const [error, setError] = useState(null);
   // Cargando y error de cada lista por separado, con «Reintentar»; antes la
   // pantalla quedaba en blanco mientras cargaba y un fallo al buscar
@@ -193,6 +339,7 @@ export function MisVacacionesPage() {
   // 28/10/2026).
   const [errorMias, setErrorMias] = useState(null);
   const [errorPersonas, setErrorPersonas] = useState(null);
+  const titulo = useRef(null);
 
   const cargarMias = useCallback(() => {
     setErrorMias(null);
@@ -210,8 +357,10 @@ export function MisVacacionesPage() {
     cargarMias();
   }, [cargarMias]);
 
+  // Se conserva la lista anterior mientras se busca (antes parpadeaba a
+  // «Cargando…» en cada letra).
   const cargarPersonas = useCallback(() => {
-    setPersonas(null);
+    setBuscando(true);
     setErrorPersonas(null);
     institucionalService
       .personasVacaciones(buscar)
@@ -220,7 +369,8 @@ export function MisVacacionesPage() {
         setErrorPersonas(
           mensajeDeError(err, "No se pudo buscar a las personas."),
         ),
-      );
+      )
+      .finally(() => setBuscando(false));
   }, [buscar]);
 
   useEffect(() => {
@@ -229,13 +379,29 @@ export function MisVacacionesPage() {
     return () => clearTimeout(espera);
   }, [verTodas, cargarPersonas]);
 
+  // El foco va al título al cambiar de persona o volver a las propias: el
+  // contenido cambió y el botón pulsado puede haber desaparecido.
+  const enfocarTitulo = () =>
+    requestAnimationFrame(() => titulo.current?.focus());
+
   async function verDe(persona) {
+    if (abriendo) return;
     setError(null);
+    setAbriendo(persona.id);
     try {
       setOtra(await institucionalService.vacacionesDe(persona.id));
+      enfocarTitulo();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudieron cargar sus vacaciones."));
+    } finally {
+      setAbriendo(null);
     }
+  }
+
+  function volver() {
+    setOtra(null);
+    setError(null);
+    enfocarTitulo();
   }
 
   const mostradas = otra ?? mias;
@@ -244,25 +410,37 @@ export function MisVacacionesPage() {
     <div className="institucional-page mz-stack">
       <div className="mz-view-head">
         <div>
-          <h2>
+          <h2 ref={titulo} tabIndex={-1} className="vacaciones-titulo">
             {otra ? `Vacaciones de ${otra.persona.nombre}` : "Mis vacaciones"}
           </h2>
           <p className="mz-desc">
-            Los días de vacaciones pendientes de gozar y, por cada período,
-            cuántos corresponden, cuántos se gozaron y cuántos quedan.
+            Los días disponibles para pedir y, por cada período, cuántos
+            corresponden, cuántos se gozaron y cuántos están en aprobación.
           </p>
         </div>
-        {otra && (
-          <div className="mz-actions">
+        <div className="mz-actions">
+          {otra ? (
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
-              onClick={() => setOtra(null)}
+              onClick={volver}
             >
               <Icon name="arrow-left" /> Volver a las mías
             </button>
-          </div>
-        )}
+          ) : (
+            puedeSolicitar &&
+            mias?.periodos?.length > 0 &&
+            (mias.disponibles > 0 ? (
+              <Link to={SOLICITAR} className="btn btn-primary btn-sm">
+                <Icon name="plus-lg" /> Solicitar vacaciones
+              </Link>
+            ) : (
+              <span className="mz-faint mz-small">
+                Sin días disponibles para pedir.
+              </span>
+            ))
+          )}
+        </div>
       </div>
 
       {verTodas && (
@@ -279,8 +457,13 @@ export function MisVacacionesPage() {
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
             />
+            {buscando && personas !== null && (
+              <p className="mz-faint mz-small mb-1" role="status">
+                Buscando…
+              </p>
+            )}
             <EstadoDeCarga
-              cargando={personas === null}
+              cargando={personas === null && !errorPersonas}
               error={errorPersonas}
               onReintentar={cargarPersonas}
               vacio={personas?.length === 0}
@@ -288,19 +471,26 @@ export function MisVacacionesPage() {
               hayFiltros={buscar.trim() !== ""}
               onLimpiarFiltros={() => setBuscar("")}
             />
-            <ul className="vacaciones-personas">
+            <ul className="vacaciones-personas" aria-busy={Boolean(abriendo)}>
               {(personas ?? []).map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
                     className="vacaciones-personas__boton"
+                    disabled={Boolean(abriendo)}
                     onClick={() => verDe(p)}
                   >
                     <span>{p.nombre}</span>
                     <span className="mz-faint mz-small">
-                      {p.periodos === 0
-                        ? "Sin períodos"
-                        : `${dias(p.pendientes)} pendientes`}
+                      {abriendo === p.id
+                        ? "Abriendo…"
+                        : p.periodos === 0
+                          ? "Sin períodos"
+                          : diasCon(
+                              p.disponibles ?? p.pendientes,
+                              "disponible",
+                              "disponibles",
+                            )}
                     </span>
                   </button>
                 </li>
@@ -319,12 +509,12 @@ export function MisVacacionesPage() {
 
       {!otra && (
         <EstadoDeCarga
-          cargando={mias === null}
+          cargando={mias === null && !errorMias}
           error={errorMias}
           onReintentar={cargarMias}
         />
       )}
-      {mostradas && <Vacaciones datos={mostradas} />}
+      {mostradas && <Vacaciones datos={mostradas} propias={!otra} />}
     </div>
   );
 }

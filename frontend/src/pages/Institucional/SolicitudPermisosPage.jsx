@@ -124,7 +124,7 @@ function RestriccionesDelPermiso({
 
 /** Pedir un permiso: el tipo (con sus pasos a la vista), las fechas, el
  * motivo y, si lo pide, el documento. */
-function NuevaSolicitud({ onCreada, onCerrar }) {
+function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
   const [tipos, setTipos] = useState(null);
   const [valores, setValores] = useState({
     flujo: "",
@@ -165,8 +165,12 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
       .tipos()
       .then((lista) => {
         setTipos(lista);
-        if (lista.length)
-          setValores((v) => ({ ...v, flujo: String(lista[0].id) }));
+        // Desde Mis vacaciones («Solicitar vacaciones»): el tipo que se
+        // descuenta de las vacaciones, ya elegido.
+        const inicial =
+          (deVacaciones && lista.find((t) => t.descuenta_vacaciones)) ||
+          lista[0];
+        if (inicial) setValores((v) => ({ ...v, flujo: String(inicial.id) }));
       })
       .catch((err) => {
         // Antes un fallo se veía como «no hay tipos de permiso» (auditoría
@@ -176,7 +180,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
         );
         setTipos([]);
       });
-  }, []);
+  }, [deVacaciones]);
 
   const elegido = tipos?.find((t) => String(t.id) === valores.flujo);
   const pideMotivo = elegido?.pide_motivo !== false;
@@ -968,7 +972,8 @@ export function SolicitudPermisosPage() {
   const [pestana, setPestana] = useState("mias");
   const [lista, setLista] = useState(null);
   const [porAprobar, setPorAprobar] = useState(0);
-  const [nueva, setNueva] = useState(false);
+  // `?nueva=vacaciones` (desde Mis vacaciones) abre la solicitud de una vez.
+  const [nueva, setNueva] = useState(() => parametros.get("nueva") || false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [puedeSolicitar, setPuedeSolicitar] = useState(true);
@@ -1124,11 +1129,18 @@ export function SolicitudPermisosPage() {
         </table>
       </PanelDePestana>
 
-      {nueva && (
+      {/* `?nueva=` solo abre la solicitud si la cuenta puede solicitar. */}
+      {nueva && puedeSolicitar && (
         <NuevaSolicitud
-          onCerrar={() => setNueva(false)}
+          deVacaciones={nueva === "vacaciones"}
+          onCerrar={() => {
+            setNueva(false);
+            // Sin el parámetro: al recargar no se vuelve a abrir.
+            if (parametros.get("nueva")) setParametros({});
+          }}
           onCreada={(s) => {
             setNueva(false);
+            if (parametros.get("nueva")) setParametros({});
             setAviso(
               `Solicitud enviada: queda pendiente de ${s.pendiente_de
                 .map((p) => p.nombre)
