@@ -46,6 +46,7 @@ APPS_DE_NEGOCIO = frozenset(
         "sugerencias",
         "nomina",
         "capacitacion",
+        "novedades",
     }
 )
 

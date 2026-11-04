@@ -597,6 +597,52 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Control Operativo de Novedades (portado de Nexo,
+    # 04/11/2026). Los roles operativos (SUPERVISOR_OPERACIONES,
+    # ASISTENTE_OPERACIONES y JEFE_OPERACIONES) tienen además una matriz propia
+    # de permisos obligatorios, configurables y no disponibles que se aplica
+    # por código (ver `apps.novedades.access.ROLE_MATRIX`).
+    "novedades": {
+        "label": "Control Operativo de Novedades",
+        "description": (
+            "Días laborados, horas extras, cierres mensuales y repositorio de la operación."
+        ),
+        "permissions": {
+            "novedades.acceder": "Acceder al módulo Control Operativo de Novedades",
+            "novedades.colaboradores_gestionar": (
+                "Registrar colaboradores y cambiar su estado operativo (ve la cédula completa)"
+            ),
+            "novedades.registrar": (
+                "Registrar y editar días laborados y horas extras en períodos abiertos"
+            ),
+            "novedades.consolidado_ver": (
+                "Consultar el consolidado de horas extras y sus indicadores"
+            ),
+            "novedades.historial_ver": (
+                "Consultar el historial de registros y el repositorio mensual"
+            ),
+            "novedades.importar": "Importar información desde Excel",
+            "novedades.exportar": "Exportar información a Excel",
+            "novedades.cerrar_periodo": "Cerrar el período operativo",
+            "novedades.corregir_cerrado": (
+                "Corregir registros de un período cerrado (procedimiento auditado)"
+            ),
+            "novedades.administrar": (
+                "Administrar el módulo con alcance nacional (todos los supervisores)"
+            ),
+            "novedades.permisos_gestionar": "Administrar los permisos y excepciones del módulo",
+            "novedades.depurar": (
+                "Depurar horas extras en la base independiente de Horas depuradas"
+            ),
+            "novedades.dias_editar": "Editar celdas de Días laborados",
+            "novedades.ingresos_ver": (
+                "Consultar la pestaña consolidada de Ingresos de colaboradores"
+            ),
+            "novedades.salidas_ver": (
+                "Consultar la pestaña consolidada de Salidas de colaboradores"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -718,6 +764,18 @@ MODULE_GROUPS = [
             "configuración. Pedir ayuda no requiere ninguno."
         ),
         "modules": ["soporte"],
+    },
+    {
+        "id": "gestion_humana",
+        "label": "Gestión Humana",
+        "alcance": "modulo",
+        "description": (
+            "Solo sirven en el módulo de Gestión Humana: el control operativo de "
+            "novedades (días laborados, horas extras, cierres, depuración e "
+            "ingresos y salidas de colaboradores). Los Supervisores, Asistentes y "
+            "Jefes de Operaciones tienen además reglas propias por rol."
+        ),
+        "modules": ["novedades"],
     },
     {
         "id": "matriz",

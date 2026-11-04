@@ -795,7 +795,120 @@ PLANTILLAS_SOPORTE = (
     ),
 )
 
-PLANTILLAS = PLANTILLAS + PLANTILLAS_SOPORTE
+# --- Gestión Humana · Control Operativo de Novedades (portado de Nexo) ----------------
+# Ingreso y cambio de estado de un colaborador operativo. Llegan a las listas de
+# destinatarios que el Administrador del módulo configura en sus Ajustes (no a
+# cuentas del sistema). Nunca llevan la cédula: es un dato protegido (LOPDP); al
+# colaborador lo identifican su nombre y su código de empleado.
+
+
+def _novedades_html() -> str:
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="es">\n<head><meta charset="utf-8" /><title>{{asunto}}</title></head>\n'
+        '<body style="margin: 0; padding: 24px; background-color: #f5f6f8; '
+        'font-family: Arial, Helvetica, sans-serif; color: #212529;">\n'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width: 760px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; '
+        'border: 1px solid #dee2e6;">\n<tr><td style="padding: 24px;">\n'
+        '<h1 style="margin: 0 0 4px; font-size: 18px;">{{titulo}}</h1>\n'
+        f'<p style="margin: 0 0 4px; font-size: 13px; {_GRIS}">{{{{sistema}}}}'
+        "{{#empresa}} · {{empresa}}{{/empresa}}</p>\n"
+        f'<p style="margin: 0 0 16px; font-size: 12px; {_GRIS}">{{{{linea}}}}</p>\n'
+        '<p style="margin: 0 0 16px; font-size: 14px;">{{mensaje}}</p>\n'
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        'style="font-size: 13px; border-collapse: collapse;">{{datos}}</table>\n'
+        '<p style="margin: 20px 0 8px; font-size: 13px; font-weight: bold;">'
+        "Días laborados — {{periodo}}</p>\n"
+        "{{asistencia}}\n"
+        f'<p style="margin: 6px 0 0; font-size: 11px; {_GRIS}">Celda vacía: sin registro. '
+        "0: cero reportado. {{equipo_anterior}}</p>\n"
+        f'<p style="margin: 20px 0 0; font-size: 11px; {_GRIS}">{{{{pie}}}}</p>\n'
+        f'<p style="margin: 12px 0 0; font-size: 12px; {_GRIS}">{{{{razon}}}}</p>\n'
+        "</td></tr>\n</table>\n</body>\n</html>\n"
+    )
+
+
+_NOVEDADES_VARIABLES = (
+    Variable("titulo", "Título del aviso", "Notificación de ingreso de nuevo colaborador"),
+    Variable("colaborador", "Nombre del colaborador", "Ana Pérez"),
+    Variable(
+        "linea",
+        "Fecha del aviso y período operativo",
+        "Generada el 12/10/2026 12:00 · Período operativo Octubre 2026 (2026-09-23 al 2026-10-22)",
+    ),
+    Variable(
+        "mensaje",
+        "Qué se informa",
+        "Se notifica el ingreso operativo del colaborador indicado a continuación.",
+    ),
+    Variable(
+        "datos",
+        "Datos del colaborador (filas de una tabla que arma el sistema)",
+        '<tr><td style="padding:3px 12px 3px 0;color:#6b7280;">Empleado</td>'
+        '<td style="padding:3px 0;">Ana Pérez</td></tr>',
+        html=True,
+    ),
+    Variable("periodo", "Período operativo (23 → 22)", "Octubre 2026"),
+    Variable(
+        "asistencia",
+        "Su fila en Días laborados (tabla que arma el sistema)",
+        '<table style="border-collapse:collapse;font-size:11px;"><tr><th>01</th><th>Total</th>'
+        "</tr><tr><td>8</td><td>8</td></tr></table>",
+        html=True,
+    ),
+    Variable(
+        "equipo_anterior",
+        "Nota si hay días del equipo anterior (vacía si no)",
+        "* Registrado por el equipo anterior del colaborador; no suma en el total.",
+    ),
+    Variable(
+        "pie",
+        "Aclaración legal del aviso",
+        "Mensaje automático. Informa un ingreso operativo registrado en el sistema.",
+    ),
+    Variable(
+        "enlace",
+        "Control Operativo de Novedades en el sistema (exige iniciar sesión)",
+        "https://intranet.empresa.com/admin/gestion-humana/novedades",
+    ),
+)
+
+_NOVEDADES_RAZON = (
+    "Le llega porque su dirección está en la lista de avisos de colaboradores del "
+    "Control Operativo de Novedades."
+)
+
+PLANTILLAS_NOVEDADES = (
+    Plantilla(
+        clave="novedades.ingreso_colaborador",
+        nombre="Ingreso de nuevo colaborador",
+        modulo="Gestión Humana · Novedades",
+        descripcion=(
+            "Cuando un colaborador dado de alta como nuevo ingreso registra su segundo día "
+            "laborado. Llega a la lista de ingresos de los Ajustes del módulo."
+        ),
+        asunto="{{sistema}} | {{titulo}} — {{colaborador}}",
+        html=_novedades_html(),
+        variables=_NOVEDADES_VARIABLES,
+        razon=_NOVEDADES_RAZON,
+    ),
+    Plantilla(
+        clave="novedades.cambio_estado_colaborador",
+        nombre="Salida o suspensión de colaborador",
+        modulo="Gestión Humana · Novedades",
+        descripcion=(
+            "Cuando un colaborador activo pasa a Inactivo o Suspendido. Llega a la lista de "
+            "cambios de estado de los Ajustes del módulo."
+        ),
+        asunto="{{sistema}} | {{titulo}} — {{colaborador}}",
+        html=_novedades_html(),
+        variables=_NOVEDADES_VARIABLES,
+        razon=_NOVEDADES_RAZON,
+    ),
+)
+
+PLANTILLAS = PLANTILLAS + PLANTILLAS_SOPORTE + PLANTILLAS_NOVEDADES
 
 POR_CLAVE = {plantilla.clave: plantilla for plantilla in PLANTILLAS}
 

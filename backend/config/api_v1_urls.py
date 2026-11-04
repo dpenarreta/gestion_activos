@@ -52,6 +52,8 @@ urlpatterns = [
     path("sugerencias/", include("apps.sugerencias.urls")),
     path("nomina/", include("apps.nomina.urls")),
     path("capacitacion/", include("apps.capacitacion.urls")),
+    # --- Gestión Humana · Control Operativo de Novedades (portado de Nexo) ---
+    path("novedades/", include("apps.novedades.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---

@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "apps.sugerencias",
     "apps.nomina",
     "apps.capacitacion",
+    "apps.novedades",
 ]
 
 MIDDLEWARE = [

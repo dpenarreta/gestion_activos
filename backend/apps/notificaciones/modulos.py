@@ -17,6 +17,7 @@ MODULOS = {
     "licencias": ("Solicitud de permisos", "calendar-check"),
     "capacitacion": ("Onboarding y capacitación", "mortarboard"),
     "descargas": ("Auditoría · Descargas", "download"),
+    "novedades": ("Gestión Humana · Novedades", "people"),
 }
 
 SISTEMA = ("Sistema", "bell")
