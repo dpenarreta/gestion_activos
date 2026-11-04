@@ -30,6 +30,23 @@ def test_la_base_sale_del_nombre_sin_tildes_ni_enies(nombres, apellidos, esperad
     assert base_de_username(nombres, apellidos) == esperado
 
 
+@pytest.mark.parametrize(
+    ("nombres", "apellidos", "esperado"),
+    [
+        # Sin apellidos, el nombre completo se parte (pasó con las cuentas de
+        # Nexo: «Anthony Jacome» en un solo campo daba `a`).
+        ("Anthony Jacome", "", "ajacome"),
+        ("JOSE ANDALUZ", "", "jandaluz"),
+        ("Diego Peñarreta Vaca", "  ", "dpenarretavaca"),
+        # Una sola palabra (un buzón de área) va completa, nunca una letra.
+        ("Recepción", "", "recepcion"),
+        ("Bodega", "-", "bodega"),
+    ],
+)
+def test_sin_apellidos_nunca_queda_una_letra_suelta(nombres, apellidos, esperado):
+    assert base_de_username(nombres, apellidos) == esperado
+
+
 def test_un_nombre_sin_letras_utilizables_no_deja_la_cuenta_sin_nombre():
     assert base_de_username("", "") == "usuario"
     assert base_de_username("---", "***") == "usuario"

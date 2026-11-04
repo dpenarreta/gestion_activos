@@ -45,7 +45,19 @@ def base_de_username(nombres: str, apellidos: str) -> str:
     Los apellidos van completos y pegados —«Peñarreta Vaca» es
     `penarretavaca`—: cortar por el primero convertiría en la misma cuenta a
     dos hermanos que trabajen aquí.
+
+    Sin apellidos, la regla daba una sola letra («Anthony Jacome» entero en
+    el nombre era `a`; pasó con las cuentas traídas de Nexo, 04/11/2026). Así
+    que, si faltan, el nombre se parte: la primera palabra es el nombre y el
+    resto, los apellidos (`ajacome`); y si es una sola palabra —un buzón de
+    área, «Recepción»— va completa (`recepcion`), nunca una letra suelta.
     """
+    if not _solo_letras(apellidos or ""):
+        palabras = (nombres or "").split()
+        if len(palabras) > 1:
+            nombres, apellidos = palabras[0], " ".join(palabras[1:])
+        else:
+            return _solo_letras(nombres or "")[: LARGO_MAXIMO - MARGEN_SUFIJO] or RESERVA
     inicial = _solo_letras(nombres or "")[:1]
     apellido = _solo_letras(apellidos or "")
     return f"{inicial}{apellido}"[: LARGO_MAXIMO - MARGEN_SUFIJO] or RESERVA
