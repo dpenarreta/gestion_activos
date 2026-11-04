@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Icon } from "../../common/Icon/Icon";
-import { AdminMenuItem } from "./AdminMenuItem";
+import { AdminMenuItem, TEXTOS, sufijoDeInsignia } from "./AdminMenuItem";
 import { hasActiveDescendant } from "./adminMenuTree";
 
 /** Pantalla con mouse y menú de escritorio: donde tiene sentido desplegar al
@@ -265,12 +265,19 @@ export function AdminMenuGroup({
       >
         <Icon name={item.icon} />
         {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}
-        {!isCollapsed && pendientes > 0 && (
-          <span className="mz-badge" title={`${pendientes} pendientes`}>
+        {/* También contraído, sobre el ícono: si no, lo pendiente de las
+            entradas del grupo no se veía en ningún lado. */}
+        {pendientes > 0 && (
+          <span
+            className="mz-badge"
+            title={`${pendientes} ${pendientes === 1 ? "pendiente" : "pendientes"} en este grupo`}
+          >
             {pendientes}
             {/* Texto oculto y no aria-label, que en un <span> sin rol se
                 ignora (auditoría UX/UI, fase 3, 28/10/2026). */}
-            <span className="visually-hidden"> pendientes</span>
+            <span className="visually-hidden">
+              {pendientes === 1 ? " pendiente" : " pendientes"}
+            </span>
           </span>
         )}
         {!isCollapsed && (
@@ -331,6 +338,7 @@ export function AdminMenuGroup({
             currentPath={currentPath}
             onNavigate={navegarDesdeFlyout}
             onTecla={alPulsarTeclaEnPanel}
+            insignias={insignias}
           />
         </div>
       )}
@@ -340,7 +348,13 @@ export function AdminMenuGroup({
 
 /** Las entradas del panel: las hojas como enlaces y los subgrupos como un
  * rótulo con sus hojas debajo, a cualquier profundidad. */
-function EntradasDelFlyout({ hijos, currentPath, onNavigate, onTecla }) {
+function EntradasDelFlyout({
+  hijos,
+  currentPath,
+  onNavigate,
+  onTecla,
+  insignias = {},
+}) {
   return (
     <ul className="mz-flyout-lista">
       {hijos.map((hijo) =>
@@ -352,6 +366,7 @@ function EntradasDelFlyout({ hijos, currentPath, onNavigate, onTecla }) {
               currentPath={currentPath}
               onNavigate={onNavigate}
               onTecla={onTecla}
+              insignias={insignias}
             />
           </li>
         ) : (
@@ -369,6 +384,18 @@ function EntradasDelFlyout({ hijos, currentPath, onNavigate, onTecla }) {
             >
               <Icon name={hijo.icon} />
               <span>{hijo.name}</span>
+              {insignias[hijo.insignia] > 0 && (
+                <span
+                  className="mz-badge"
+                  title={(TEXTOS[hijo.insignia] ?? TEXTOS.atencion)[0]}
+                >
+                  {insignias[hijo.insignia]}
+                  <span className="visually-hidden">
+                    {" "}
+                    {sufijoDeInsignia(hijo.insignia, insignias[hijo.insignia])}
+                  </span>
+                </span>
+              )}
             </Link>
           </li>
         ),

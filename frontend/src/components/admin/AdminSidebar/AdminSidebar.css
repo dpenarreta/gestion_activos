@@ -242,6 +242,19 @@
     display: none;
   }
 
+  /* Contraído, el número va sobre la esquina del ícono. */
+  .mz-shell--collapsed .mz-nav-item {
+    position: relative;
+  }
+
+  .mz-shell--collapsed .mz-nav-item .mz-badge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    margin-left: 0;
+    line-height: 1.3;
+  }
+
   .mz-shell--collapsed .mz-sidebar-foot {
     padding: 12px 0 16px;
   }

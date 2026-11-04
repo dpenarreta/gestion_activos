@@ -16,6 +16,7 @@ import { useMenuAccordion } from "../../../hooks/useMenuAccordion";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { useTheme } from "../../../hooks/useTheme";
 import { iniciales } from "../../../utils/iniciales";
+import { EVENTO_INSIGNIAS } from "../../../utils/insigniasDelMenu";
 import { confirmarDescarte } from "../../common/ConfirmarDescarte/confirmarDescarte";
 import { Icon } from "../../common/Icon/Icon";
 import { AdminMenuGroup } from "./AdminMenuGroup";
@@ -44,6 +45,9 @@ function rolDe(user) {
  * De dónde sale cada insignia del menú (el número a la derecha de una
  * entrada): lo que esa pantalla tiene pendiente para quien entra.
  */
+/** Lo último que se supo de cada parte del rol de pagos (ver abajo). */
+const ultimoDelRol = { porAceptar: 0, correcciones: 0 };
+
 const FUENTES_DE_INSIGNIAS = {
   // Matriz: lo incumplido o que vence hoy.
   atencion: () => matrizService.resumen().then((d) => d.counts.attention),
@@ -54,9 +58,29 @@ const FUENTES_DE_INSIGNIAS = {
     proyectosService.resumen().then((d) => d.por_atender),
   // Sugerencias y errores: los reportes nuevos (solo quien los gestiona).
   sugerencias: () => sugerenciasService.resumen().then((d) => d.nuevos),
-  // Consultar rol de pagos: las correcciones que esperan su confirmación.
+  // Consultar rol de pagos: el rol del mes que aún no acepta (el mismo que
+  // dispara el aviso al entrar) y las correcciones que esperan su
+  // confirmación. El aviso lo puede pedir cualquiera; el estado, solo quien
+  // tiene la pantalla: si uno falla, cuenta el otro.
   rol_por_confirmar: () =>
-    nominaService.estado().then((d) => (d.por_confirmar ?? []).length),
+    Promise.allSettled([nominaService.aviso(), nominaService.estado()]).then(
+      ([aviso, estado]) => {
+        if (aviso.status === "rejected" && estado.status === "rejected") {
+          throw estado.reason;
+        }
+        // Si solo uno falla, se usa lo último que se supo de él: así el
+        // número no baja y sube con un corte pasajero.
+        if (aviso.status === "fulfilled") {
+          ultimoDelRol.porAceptar = aviso.value?.mostrar ? 1 : 0;
+        }
+        if (estado.status === "fulfilled") {
+          ultimoDelRol.correcciones = (
+            estado.value?.por_confirmar ?? []
+          ).length;
+        }
+        return ultimoDelRol.porAceptar + ultimoDelRol.correcciones;
+      },
+    ),
   // Observaciones de roles: las que Talento Humano tiene por atender.
   observaciones_rol: () =>
     nominaService.resumenObservaciones().then((d) => d.abiertas),
@@ -93,21 +117,29 @@ function useInsignias(menu, pathname) {
   useEffect(() => {
     if (!claves) return undefined;
     let vigente = true;
+    // Cada pedido lleva su turno: una respuesta vieja que llega tarde (p. ej.
+    // de antes de aceptar el rol) no pisa a la más nueva.
+    const turnos = {};
     function pedir() {
       claves.split(",").forEach((clave) => {
+        const turno = (turnos[clave] = (turnos[clave] ?? 0) + 1);
         Promise.resolve()
           .then(() => FUENTES_DE_INSIGNIAS[clave]())
           .then((valor) => {
-            if (vigente) setInsignias((i) => ({ ...i, [clave]: valor ?? 0 }));
+            if (vigente && turno === turnos[clave]) {
+              setInsignias((i) => ({ ...i, [clave]: valor ?? 0 }));
+            }
           })
           .catch(() => {});
       });
     }
     pedir();
     const intervalo = setInterval(pedir, REFRESCO_MS);
+    window.addEventListener(EVENTO_INSIGNIAS, pedir);
     return () => {
       vigente = false;
       clearInterval(intervalo);
+      window.removeEventListener(EVENTO_INSIGNIAS, pedir);
     };
   }, [claves, pathname]);
 

@@ -3,21 +3,51 @@ import { Link } from "react-router-dom";
 import { Icon } from "../../common/Icon/Icon";
 import { hasActiveDescendant } from "./adminMenuTree";
 
-/** Qué cuenta cada insignia, para el título y los lectores de pantalla. */
-const TEXTOS = {
-  atencion: ["Incumplidas o que vencen hoy", "que piden atención"],
-  por_aprobar: ["Solicitudes que tiene por aprobar", "por aprobar"],
-  sugerencias: ["Reportes nuevos sin revisar", "reportes nuevos"],
-  onboarding: ["Materiales que le faltan aprobar", "materiales pendientes"],
+/** Qué cuenta cada insignia, para el título y los lectores de pantalla:
+ * `[título, con 1, con varios]` («1 reporte nuevo», «3 reportes nuevos»). */
+export const TEXTOS = {
+  atencion: [
+    "Incumplidas o que vencen hoy",
+    "que pide atención",
+    "que piden atención",
+  ],
+  por_aprobar: [
+    "Solicitudes que tiene por aprobar",
+    "por aprobar",
+    "por aprobar",
+  ],
+  proyectos_por_atender: [
+    "Solicitudes que tiene por atender",
+    "por atender",
+    "por atender",
+  ],
+  sugerencias: [
+    "Reportes nuevos sin revisar",
+    "reporte nuevo",
+    "reportes nuevos",
+  ],
+  onboarding: [
+    "Materiales que le faltan aprobar",
+    "material pendiente",
+    "materiales pendientes",
+  ],
   rol_por_confirmar: [
-    "Correcciones a su rol de pagos por confirmar",
-    "correcciones por confirmar",
+    "Su rol de pagos por aceptar o correcciones por confirmar",
+    "pendiente de aceptar o confirmar",
+    "pendientes de aceptar o confirmar",
   ],
   observaciones_rol: [
     "Observaciones a roles de pagos por atender",
+    "observación por atender",
     "observaciones por atender",
   ],
 };
+
+/** El texto oculto que dice qué cuenta el número, en singular o plural. */
+export function sufijoDeInsignia(tipo, cantidad) {
+  const [, uno, varios] = TEXTOS[tipo] ?? TEXTOS.atencion;
+  return cantidad === 1 ? uno : varios;
+}
 
 /** Ítem hoja del Menú Administrativo (sin hijos): siempre navega. Con
  * `insignia`, un contador a la derecha: lo que esa pantalla tiene pendiente. */
@@ -29,7 +59,8 @@ export function AdminMenuItem({
   insignia,
   tipoInsignia = "atencion",
 }) {
-  const [titulo, sufijo] = TEXTOS[tipoInsignia] ?? TEXTOS.atencion;
+  const [titulo] = TEXTOS[tipoInsignia] ?? TEXTOS.atencion;
+  const sufijo = sufijoDeInsignia(tipoInsignia, insignia);
   const isActive = hasActiveDescendant(item, currentPath);
   return (
     <li>

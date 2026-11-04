@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -41,8 +47,13 @@ vi.mock("../src/api/sugerenciasService", () => ({
 
 const estadoNomina = vi.fn();
 const resumenObservaciones = vi.fn();
+const avisoRol = vi.fn();
 vi.mock("../src/api/nominaService", () => ({
-  nominaService: { estado: estadoNomina, resumenObservaciones },
+  nominaService: {
+    estado: estadoNomina,
+    resumenObservaciones,
+    aviso: avisoRol,
+  },
 }));
 
 const { AdminSidebar } =
@@ -64,6 +75,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   permisos.lista = ["licencias.solicitar"];
   resumenSugerencias.mockResolvedValue({ nuevos: 0 });
+  avisoRol.mockResolvedValue({ mostrar: false });
 });
 
 describe("Insignias del menú", () => {
@@ -136,9 +148,79 @@ describe("Insignias del menú", () => {
     });
     await waitFor(() =>
       expect(consultar).toHaveAccessibleName(
-        /Consultar rol de pagos\s*1 correcciones por confirmar/,
+        /Consultar rol de pagos\s*1 pendiente de aceptar o confirmar/,
       ),
     );
     expect(screen.queryByRole("button", { name: /Rol de pagos/ })).toBeNull();
+  });
+
+  it("el rol del mes sin aceptar enciende Consultar rol de pagos y la cabecera Rol de pagos", async () => {
+    permisos.lista = ["roles_pago.consultar", "roles_pago.observaciones"];
+    resumenLicencias.mockResolvedValue({ por_aprobar: 0 });
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    // El mismo aviso que sale al entrar: el rol de octubre sin aceptar.
+    avisoRol.mockResolvedValue({ mostrar: true, anio: 2026, mes: 10 });
+    estadoNomina.mockResolvedValue({ por_confirmar: [] });
+    resumenObservaciones.mockResolvedValue({ abiertas: 0 });
+    pintar("/admin/institucional/rol-pagos");
+
+    const grupo = await screen.findByRole("button", { name: /Rol de pagos/ });
+    expect(await within(grupo).findByText("1")).toBeInTheDocument();
+    // En singular: «1 pendiente», no «1 pendientes».
+    expect(grupo).toHaveAccessibleName(/Rol de pagos\s*1 pendiente$/);
+    expect(
+      screen.getByRole("link", { name: /Consultar rol de pagos/ }),
+    ).toHaveAccessibleName(
+      /Consultar rol de pagos\s*1 pendiente de aceptar o confirmar/,
+    );
+
+    // Al aceptarlo, el menú se actualiza enseguida (sin esperar al minuto).
+    avisoRol.mockResolvedValue({ mostrar: false });
+    const { avisarCambioDeInsignias } =
+      await import("../src/utils/insigniasDelMenu");
+    avisarCambioDeInsignias();
+    await waitFor(() => expect(within(grupo).queryByText("1")).toBeNull());
+  });
+
+  it("sin la pantalla de consulta, el aviso cuenta igual aunque el estado falle", async () => {
+    permisos.lista = ["roles_pago.consultar"];
+    resumenLicencias.mockResolvedValue({ por_aprobar: 0 });
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    avisoRol.mockResolvedValue({ mostrar: true, anio: 2026, mes: 10 });
+    estadoNomina.mockRejectedValue(new Error("403"));
+    pintar();
+    const consultar = await screen.findByRole("link", {
+      name: /Consultar rol de pagos/,
+    });
+    await waitFor(() =>
+      expect(consultar).toHaveAccessibleName(
+        /Consultar rol de pagos\s*1 pendiente de aceptar o confirmar/,
+      ),
+    );
+  });
+
+  it("con el menú contraído, el grupo y su panel también muestran lo pendiente", async () => {
+    permisos.lista = ["roles_pago.consultar", "roles_pago.observaciones"];
+    resumenLicencias.mockResolvedValue({ por_aprobar: 0 });
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    avisoRol.mockResolvedValue({ mostrar: true, anio: 2026, mes: 10 });
+    estadoNomina.mockResolvedValue({ por_confirmar: [] });
+    resumenObservaciones.mockResolvedValue({ abiertas: 0 });
+    render(
+      <MemoryRouter initialEntries={["/admin/institucional/inicio"]}>
+        <UnsavedChangesProvider>
+          <AdminSidebar isCollapsed onToggleCollapse={vi.fn()} />
+        </UnsavedChangesProvider>
+      </MemoryRouter>,
+    );
+    const grupo = await screen.findByRole("button", { name: /Rol de pagos/ });
+    expect(await within(grupo).findByText("1")).toBeInTheDocument();
+    fireEvent.click(grupo);
+    const panel = await screen.findByRole("group", { name: "Rol de pagos" });
+    expect(
+      within(panel).getByRole("link", { name: /Consultar rol de pagos/ }),
+    ).toHaveAccessibleName(
+      /Consultar rol de pagos\s*1 pendiente de aceptar o confirmar/,
+    );
   });
 });

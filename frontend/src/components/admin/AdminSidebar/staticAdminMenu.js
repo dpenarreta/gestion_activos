@@ -388,7 +388,8 @@ export const ADMIN_MENU = [
           "roles_pago.descarga_masiva",
           "roles_pago.seguimiento",
         ],
-        // Las correcciones de Talento Humano que esperan su confirmación.
+        // El rol del mes por aceptar (el del aviso al entrar) y las
+        // correcciones de Talento Humano que esperan su confirmación.
         insignia: "rol_por_confirmar",
       },
       {

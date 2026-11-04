@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import { avisarCambioDeInsignias } from "../utils/insigniasDelMenu";
 
 const BASE = "/nomina/rol-pagos/";
 
@@ -38,7 +39,11 @@ export const nominaService = {
   conformidad(consulta, conformidad, observacion = "") {
     return apiClient
       .post(`${BASE}conformidad/`, { consulta, conformidad, observacion })
-      .then((r) => r.data);
+      .then((r) => {
+        // Ya respondió: la insignia del menú baja sin esperar al minuto.
+        avisarCambioDeInsignias();
+        return r.data;
+      });
   },
   /** Todo lo de un código de empleado, por período (Talento Humano). */
   historial(codigo) {
@@ -137,7 +142,10 @@ export const nominaService = {
     archivos.forEach((archivo) => datos.append("archivos", archivo));
     return apiClient
       .post(`/nomina/observaciones/${id}/corregir/`, datos)
-      .then((r) => r.data);
+      .then((r) => {
+        avisarCambioDeInsignias();
+        return r.data;
+      });
   },
   /** Un adjunto de una respuesta (para verlo o descargarlo). */
   adjuntoObservacion(id) {

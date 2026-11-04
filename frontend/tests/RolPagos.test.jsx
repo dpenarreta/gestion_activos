@@ -6,7 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Consultar rol de pagos: el código sale de la sesión; ver pide aceptar los
@@ -76,6 +76,10 @@ const SEGUIMIENTO = {
   con_observacion: [],
   aceptados: [],
 };
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -916,6 +920,10 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("exporta los pendientes a Excel y les manda un recordatorio", async () => {
+    // El seguimiento abre en el mes anterior: con la fecha fija, la prueba
+    // no depende del día en que se corre (octubre de 2026 → septiembre).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 15));
     servicio.estado.mockResolvedValue({ ...ESTADO, puede_seguimiento: true });
     servicio.resumenSeguimiento.mockResolvedValue([]);
     servicio.seguimiento.mockResolvedValue({
@@ -972,6 +980,10 @@ describe("Consultar rol de pagos", () => {
   });
 
   it("con el historial se ve el rol de cada persona para validarlo", async () => {
+    // El seguimiento abre en el mes anterior: con la fecha fija, la prueba
+    // no depende del día en que se corre (octubre de 2026 → septiembre).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 15));
     servicio.estado.mockResolvedValue({
       ...ESTADO,
       puede_seguimiento: true,
