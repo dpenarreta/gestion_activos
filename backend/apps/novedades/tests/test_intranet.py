@@ -441,3 +441,10 @@ def test_destinatarios_unicos_dentro_de_la_empresa(courier):
     repetido = cliente.post(f"{BASE}/collaborator-notifications/recipients/", datos, format="json")
     assert repetido.status_code == 409 and repetido.json()["error"]["code"] == "duplicate"
     assert CollaboratorNotificationRecipient.objects.todas().get().email == "talento@example.com"
+
+
+def test_los_roles_de_gestion_humana_existen_y_aun_no_conceden_nada(db):
+    """Vienen de Nexo para que cada persona quede con su rol; sus permisos
+    llegan cuando se porte Tareas, carga y KPI."""
+    for nombre in ("JEFE_NACIONAL", "ANALISTA_CC", "TRABAJO_SOCIAL", "ASISTENTE_NOMINA"):
+        assert not Group.objects.get(name=nombre).permissions.exists()
