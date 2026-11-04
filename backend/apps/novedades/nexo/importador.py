@@ -245,11 +245,32 @@ class ImportadorNexo:
 
     # 2. Comprobaciones previas -------------------------------------------------
 
+    def _periodos_vacios(self) -> list[int]:
+        """Los períodos sin ningún registro que cuelgue de ellos. La pantalla
+        crea el del mes en curso con solo abrirla: no son datos, y se
+        eliminan dentro de la misma transacción de la importación."""
+        relaciones = [r for r in OperationalPeriod._meta.related_objects if r.field.many_to_one]
+        vacios = []
+        for periodo in _ambito(OperationalPeriod, self.empresa):
+            if not any(
+                r.related_model._base_manager.filter(**{r.field.name: periodo}).exists()
+                for r in relaciones
+            ):
+                vacios.append(periodo.pk)
+        return vacios
+
     def _comprobar_destino_vacio(self):
         con_datos = []
+        self.periodos_vacios = []
         for modelo in dict.fromkeys(MODELOS.values()):
-            if _ambito(modelo, self.empresa).exists():
-                con_datos.append(modelo.__name__)
+            if not _ambito(modelo, self.empresa).exists():
+                continue
+            if modelo is OperationalPeriod:
+                vacios = self._periodos_vacios()
+                if len(vacios) == _ambito(OperationalPeriod, self.empresa).count():
+                    self.periodos_vacios = vacios
+                    continue
+            con_datos.append(modelo.__name__)
         if con_datos:
             raise ImportacionAbortada(
                 f"La empresa «{self.empresa}» ya tiene datos de Novedades; la importación "
@@ -975,6 +996,8 @@ class ImportadorNexo:
             self._comprobar_destino_vacio()
             self._cruzar_usuarios()
             with transaction.atomic(), fechas_tal_cual(dict.fromkeys(MODELOS.values())):
+                if self.periodos_vacios:
+                    OperationalPeriod.objects.todas().filter(pk__in=self.periodos_vacios).delete()
                 self._crear()
                 if self.asignar_roles:
                     self._asignar_roles()

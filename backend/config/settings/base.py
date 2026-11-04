@@ -195,6 +195,10 @@ if env.str("NEXO_DB_NAME", default=""):
         },
         # Uso puntual (una importación): sin conexiones persistentes.
         "CONN_MAX_AGE": 0,
+        # En las pruebas no se crea una base de pruebas para Nexo (sería una
+        # escritura, y las pruebas usan un lector en memoria): el alias apunta
+        # a la de pruebas principal.
+        "TEST": {"MIRROR": "default"},
     }
 
 DATABASE_ROUTERS = ["config.db_routers.NexoSoloLecturaRouter"]

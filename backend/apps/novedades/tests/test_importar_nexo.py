@@ -675,13 +675,32 @@ def test_un_usuario_necesario_que_falta_aborta_sin_escribir(intranet):
 
 
 def test_un_destino_con_datos_aborta(intranet):
-    OperationalPeriod.objects.create(
+    periodo = OperationalPeriod.objects.create(
         year=2026, month=11, start_date=date(2026, 10, 23), end_date=date(2026, 11, 22)
     )
+    SupervisorPeriod.objects.create(period=periodo, supervisor=intranet["sup"])
 
     with pytest.raises(CommandError, match="ya tiene datos de Novedades"):
         importar(None, "--aplicar")
     assert not Collaborator.objects.exists()
+
+
+def test_un_periodo_vacio_no_bloquea_y_se_reemplaza(intranet):
+    """La pantalla crea el período del mes en curso con solo abrirla (pasó en
+    producción el 04/11/2026): vacío no es un dato. En el simulacro sigue ahí;
+    al aplicar se elimina y quedan solo los períodos de Nexo."""
+    vacio = OperationalPeriod.objects.create(
+        year=2026, month=11, start_date=date(2026, 10, 23), end_date=date(2026, 11, 22)
+    )
+
+    importar(None)
+    assert OperationalPeriod.objects.filter(pk=vacio.pk).exists()
+    assert not Collaborator.objects.exists()
+
+    lector = LectorEnMemoria()
+    assert "Importación confirmada" in importar(lector, "--aplicar")
+    assert not OperationalPeriod.objects.filter(pk=vacio.pk).exists()
+    assert OperationalPeriod.objects.count() == len(lector.datos["operationalperiod"])
 
 
 # ── Enlace con el Empleado ───────────────────────────────────────────────────
