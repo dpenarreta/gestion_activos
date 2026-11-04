@@ -327,6 +327,11 @@ REST_FRAMEWORK = {
         # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000
         # por hora y todo lo demás empezaba a responder 429 (19/10/2026).
         "sondeo": env.str("SONDEO_THROTTLE_RATE", default="2400/hour"),
+        # Las llamadas del ticket: cada pantalla abierta pregunta cada 3 s si
+        # alguien llama (y, en llamada, manda su «sigo aquí»). Con el límite
+        # general, dos pestañas agotaban los 1000 por hora en media hora y la
+        # persona quedaba sin poder ni entrar (04/11/2026). Va con el suyo.
+        "llamadas": env.str("LLAMADAS_THROTTLE_RATE", default="7200/hour"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }

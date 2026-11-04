@@ -361,10 +361,23 @@ class MiTicketView(APIView):
         return self.get(request, pk)
 
 
+def _limite_de_sondeo(vista, alcance="sondeo"):
+    """Lo que la pantalla consulta sola cada pocos segundos (GET) va con su
+    propio límite y no con el general de la persona: si no, el sondeo lo
+    agota y todo lo demás responde 429, hasta el «quién soy» del login."""
+    if vista.request.method == "GET":
+        vista.throttle_scope = alcance
+        return [ScopedRateThrottle()]
+    return None
+
+
 class MiChatView(APIView):
     """El chat del ticket, del lado de quien lo reportó."""
 
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        return _limite_de_sondeo(self) or super().get_throttles()
 
     def _respuesta(self, request, ticket):
         return Response(
@@ -405,6 +418,9 @@ class LlamadasView(APIView):
     quien consulta (GET): la pantalla las busca cada pocos segundos."""
 
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        return _limite_de_sondeo(self, "llamadas") or super().get_throttles()
 
     def get(self, request):
         """Las que suenan para mí, mis llamadas activas (para cortar las que
@@ -449,6 +465,10 @@ class LlamadaView(APIView):
     """Una llamada: su estado (GET) y contestar o colgar (POST)."""
 
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        # El GET es también el «sigo aquí» de cada lado durante la llamada.
+        return _limite_de_sondeo(self, "llamadas") or super().get_throttles()
 
     def _llamada(self, request, pk):
         llamada = get_object_or_404(
@@ -536,6 +556,12 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, TicketsPermission]
     pagination_class = DefaultPagination
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_throttles(self):
+        # El chat abierto se refresca solo cada pocos segundos.
+        if getattr(self, "action", None) == "chat":
+            return _limite_de_sondeo(self) or super().get_throttles()
+        return super().get_throttles()
 
     def get_queryset(self):
         usuario = self.request.user

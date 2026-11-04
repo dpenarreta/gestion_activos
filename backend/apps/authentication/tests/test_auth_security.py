@@ -225,3 +225,17 @@ def test_el_refresco_tiene_su_propio_cupo(api_client):
     assert codigos[0] == 401, "las primeras se evalúan: el token no sirve"
     assert codigos[-1] == 429, "pasado el cupo, se corta"
     assert codigos.count(429) == 2, codigos
+
+
+def test_el_limite_de_peticiones_se_explica_en_minutos():
+    """El 429 de DRF decía «Solicitud fue regulada (throttled). Se espera que
+    esté disponible en 1391 segundos» (04/11/2026)."""
+    from apps.core.exceptions import _mensaje_de_espera
+
+    assert _mensaje_de_espera(1391) == (
+        "Demasiadas solicitudes seguidas. Intente de nuevo en 24 minutos."
+    )
+    assert _mensaje_de_espera(45) == (
+        "Demasiadas solicitudes seguidas. Intente de nuevo en 45 segundos."
+    )
+    assert _mensaje_de_espera(None).startswith("Demasiadas solicitudes seguidas.")

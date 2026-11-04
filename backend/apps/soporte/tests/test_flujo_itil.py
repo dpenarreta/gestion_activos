@@ -783,3 +783,28 @@ def test_la_llamada_se_corta_sola_si_un_lado_deja_de_dar_senales(mesa):
     )
     # Y quien recibe sabe cada cuánto preguntar (tiene un ticket con técnico).
     assert carla.get(LLAMADAS).json()["esperar"] == 3
+
+
+def test_el_sondeo_de_llamadas_y_chat_no_gasta_el_limite_general():
+    """La pantalla pregunta cada 3 s si alguien llama: con el límite general
+    (1000 por hora) dos pestañas lo agotaban y la persona no podía ni entrar
+    al sistema (04/11/2026). El GET va con su límite; el POST, con el general."""
+    from types import SimpleNamespace
+
+    from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+
+    from apps.soporte.views import LlamadasView, LlamadaView, MiChatView, TicketViewSet
+
+    def limites(vista, metodo, accion=None):
+        vista.request = SimpleNamespace(method=metodo)
+        if accion:
+            vista.action = accion
+        tipos = [type(t) for t in vista.get_throttles()]
+        return tipos, getattr(vista, "throttle_scope", None)
+
+    assert limites(LlamadasView(), "GET") == ([ScopedRateThrottle], "llamadas")
+    assert limites(LlamadaView(), "GET") == ([ScopedRateThrottle], "llamadas")
+    assert limites(MiChatView(), "GET") == ([ScopedRateThrottle], "sondeo")
+    assert limites(TicketViewSet(), "GET", "chat") == ([ScopedRateThrottle], "sondeo")
+    assert UserRateThrottle in limites(LlamadasView(), "POST")[0]
+    assert UserRateThrottle in limites(TicketViewSet(), "GET", "list")[0]

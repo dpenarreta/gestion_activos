@@ -1,8 +1,10 @@
 """Manejo centralizado de errores para toda la API (DRF)."""
 
 import logging
+import math
 
 from django.db import transaction
+from rest_framework.exceptions import Throttled
 from rest_framework.views import exception_handler
 
 from .audit import record_audit_event
@@ -87,6 +89,20 @@ def _audit_validation_failure(request, view, status_code) -> None:
         logger.exception("No se pudo auditar un fallo de validación")
 
 
+def _mensaje_de_espera(segundos) -> str:
+    """El 429 en palabras: el de DRF decía «Solicitud fue regulada
+    (throttled). Se espera que esté disponible en 1391 segundos»."""
+    if not segundos:
+        return "Demasiadas solicitudes seguidas. Intente de nuevo en un momento."
+    segundos = math.ceil(segundos)
+    if segundos < 60:
+        cuanto = f"{segundos} segundos" if segundos != 1 else "1 segundo"
+    else:
+        minutos = math.ceil(segundos / 60)
+        cuanto = f"{minutos} minutos" if minutos != 1 else "1 minuto"
+    return f"Demasiadas solicitudes seguidas. Intente de nuevo en {cuanto}."
+
+
 def api_exception_handler(exc, context):
     """Envuelve cualquier excepción de DRF en el contrato de error uniforme.
 
@@ -122,6 +138,8 @@ def api_exception_handler(exc, context):
 
     code = getattr(exc, "default_code", exc.__class__.__name__.lower())
     message = response.data.get("detail") if isinstance(response.data, dict) else str(response.data)
+    if isinstance(exc, Throttled):
+        message = _mensaje_de_espera(exc.wait)
 
     return error_response(
         code=str(code),
