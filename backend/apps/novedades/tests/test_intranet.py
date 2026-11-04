@@ -410,6 +410,24 @@ def test_la_migracion_siembra_los_roles_operativos(db):
     assert de(perms.JEFE_ROLE) == {perms.ACCEDER, perms.CONSOLIDADO, perms.DEPURAR}
 
 
+def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
+    """Administra todo el módulo (también Ingresos y salidas) sin ser
+    administrador del sistema: ningún permiso de otro módulo (04/11/2026)."""
+    rol = Group.objects.get(name="Administrador de Gestión Humana")
+    codenames = set(rol.permissions.values_list("codename", flat=True))
+    assert codenames == set(PERMISSION_CATALOG["novedades"]["permissions"])
+
+    admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
+    cliente = _cliente(admin_gh, courier)
+    yo = cliente.get(f"{BASE}/me/").json()
+    assert yo["national_write"] is True
+    assert yo["role"] is None
+    assert cliente.get(f"{BASE}/permissions/config/").status_code == 200
+    assert cliente.get(f"{BASE}/movements/access/").status_code == 200
+    # Fuera del módulo, nada: ni usuarios ni la configuración del sistema.
+    assert cliente.get("/api/v1/admin/users/").status_code == 403
+
+
 def test_destinatarios_unicos_dentro_de_la_empresa(courier):
     admin = _cuenta("admin", {courier: ["ADMINISTRADOR"]})
     cliente = _cliente(admin, courier)
