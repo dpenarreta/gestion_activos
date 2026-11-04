@@ -233,21 +233,33 @@ def test_la_importacion_enlaza_por_codigo_de_empleado(courier):
 # ── Cédula protegida (LOPDP) ──────────────────────────────────────────────────
 
 
-def test_la_cedula_completa_solo_para_quien_gestiona_colaboradores(courier):
+def test_la_cedula_completa_solo_en_el_detalle_y_para_quien_gestiona(courier):
+    """Decisión del 2026-11-04: en listados, grillas y matrices la cédula va
+    siempre enmascarada, también para quien gestiona colaboradores; completa
+    solo en el detalle de un colaborador (y en el Excel), para quien puede."""
     sup = _cuenta("sup", {courier: [perms.SUPERVISOR_ROLE]})
     asistente = _cuenta("asis", {courier: [perms.ASSISTANT_ROLE]})
     jefe = _cuenta("jefe", {courier: [perms.JEFE_ROLE]})
     _alta(_cliente(sup, courier))
 
-    assert _cliente(sup, courier).get(f"{BASE}/collaborators/").json()[0]["cedula"] == (
-        "0102030405"
-    )
-    for quien in (asistente, jefe):
+    for quien in (sup, asistente, jefe):
         fila = _cliente(quien, courier).get(f"{BASE}/collaborators/").json()[0]
         assert fila["cedula"] == "••••••0405"
+    # La búsqueda por cédula sigue funcionando en el servidor.
+    encontrados = _cliente(sup, courier).get(f"{BASE}/collaborators/?q=0102030405").json()
+    assert [c["full_name"] for c in encontrados] == ["Ana Pérez"]
+    pk = encontrados[0]["id"]
+    assert _cliente(sup, courier).get(f"{BASE}/collaborators/{pk}/").json()["cedula"] == (
+        "0102030405"
+    )
+    detalle = _cliente(asistente, courier).get(f"{BASE}/collaborators/{pk}/").json()
+    assert detalle["cedula"] == "••••••0405"
     with usando_empresa(courier):
-        matriz = WorkedDayService.matrix(access(asistente), OCT, sup)
-    assert matriz["rows"][0]["cedula"] == "••••••0405"
+        assert WorkedDayService.matrix(access(sup), OCT, sup)["rows"][0]["cedula"] == "••••••0405"
+        completa = WorkedDayService.matrix(access(sup), OCT, sup, full_cedula=True)
+        enmascarada = WorkedDayService.matrix(access(asistente), OCT, sup, full_cedula=True)
+    assert completa["rows"][0]["cedula"] == "0102030405"
+    assert enmascarada["rows"][0]["cedula"] == "••••••0405"
     assert str(Collaborator.objects.todas().get()) == "Ana Pérez"  # nunca en el __str__
 
 

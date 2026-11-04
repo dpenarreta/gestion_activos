@@ -1,0 +1,668 @@
+/*
+ * Gestión Humana · Control Operativo de Novedades. Encabezados, tablas,
+ * tarjetas, indicadores y avisos salen de la identidad (`mz-*`); aquí, lo que
+ * ella no trae: las grillas de captura (Días laborados, Horas extras, Horas
+ * depuradas), con su desplazamiento propio y columnas fijas.
+ */
+
+.gh-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.gh-alcance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+
+.gh-alcance .mz-campo {
+  min-width: 220px;
+}
+
+.gh-alcance .form-select {
+  min-width: 220px;
+}
+
+.gh-corte {
+  margin: -6px 0 0;
+}
+
+.gh-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gh-barra__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.gh-guardado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  min-height: 24px;
+  font-size: 13px;
+}
+
+.gh-guardado--saving {
+  color: var(--mz-ink-faint);
+}
+
+.gh-guardado--saved {
+  color: var(--mz-ok-fg);
+}
+
+.gh-guardado--pending {
+  color: var(--mz-warn-fg);
+  font-weight: 600;
+}
+
+.gh-guardado--error {
+  color: var(--mz-bad-fg);
+  font-weight: 600;
+}
+
+.gh-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+}
+
+.gh-leyenda__muestra {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  border: 1px solid var(--mz-border);
+  border-radius: 3px;
+}
+
+/* --- Grillas de captura ------------------------------------------------- */
+
+/* Desplazamiento propio, horizontal y vertical: la página nunca se desborda,
+   y la cabecera y las primeras columnas quedan a la vista. */
+.gh-grilla-wrap {
+  position: relative;
+  max-height: 65vh;
+  overflow: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  overscroll-behavior: contain;
+}
+
+.gh-grilla {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+
+.gh-grilla th,
+.gh-grilla td {
+  border-bottom: 1px solid var(--mz-border);
+  border-right: 1px solid var(--mz-border);
+  padding: 0;
+  white-space: nowrap;
+}
+
+.gh-grilla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 6px 8px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-faint);
+  font-weight: 600;
+  text-align: left;
+}
+
+.gh-grilla .gh-texto {
+  padding: 4px 8px;
+}
+
+.gh-grilla .gh-fija {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--mz-raised);
+}
+
+/* Días laborados: Cédula y Empleado quedan a la vista al desplazar. */
+.gh-grilla .gh-col-cedula {
+  width: 112px;
+  min-width: 112px;
+}
+
+.gh-grilla .gh-col-empleado {
+  left: 112px;
+  min-width: 240px;
+  font-weight: 400;
+}
+
+/* Captura de horas extras: casilla, n.º, fecha y nombre quedan a la vista. */
+.gh-grilla .gh-fija-cap--marca {
+  width: 44px;
+  min-width: 44px;
+}
+
+.gh-grilla .gh-fija-cap--numero {
+  left: 44px;
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+}
+
+.gh-grilla .gh-fija-cap--fecha {
+  left: 84px;
+  min-width: 140px;
+}
+
+.gh-grilla .gh-fija-cap--nombre {
+  left: 224px;
+  min-width: 200px;
+  box-shadow: 2px 0 0 var(--mz-border);
+}
+
+.gh-grilla thead .gh-fija {
+  z-index: 3;
+  background: var(--mz-sunken);
+}
+
+.gh-grilla .gh-col-dia {
+  min-width: 46px;
+  text-align: center;
+  padding: 4px 2px;
+}
+
+.gh-col-dia__num {
+  display: block;
+  font-weight: 700;
+}
+
+.gh-col-dia__sem {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.gh-grilla .gh-finde {
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
+.gh-grilla thead .gh-feriado {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.gh-grilla .gh-num {
+  text-align: right;
+  padding: 4px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-celda {
+  position: relative;
+}
+
+.gh-celda input[type="text"],
+.gh-celda input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 46px;
+  height: 30px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-celda input[type="date"] {
+  min-width: 132px;
+  text-align: left;
+}
+
+.gh-celda--texto input[type="text"] {
+  min-width: 200px;
+  text-align: left;
+}
+
+.gh-celda--horas input[type="text"] {
+  min-width: 70px;
+  text-align: right;
+}
+
+/* Foco visible también al hacer clic (no solo con teclado). */
+.gh-celda input:focus,
+.gh-celda__corregir:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+.gh-celda input:disabled,
+.gh-celda input[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--mz-ink-faint);
+}
+
+.gh-celda input[type="checkbox"] {
+  display: block;
+  margin: 7px auto;
+  width: 16px;
+  height: 16px;
+}
+
+/* Bloqueada (plazo vencido, fecha futura, equipo anterior, sin edición):
+   fondo hundido y rayado, distinto del fin de semana. */
+.gh-celda--bloqueada {
+  background-color: var(--mz-sunken);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    var(--mz-border) 5px 6px
+  );
+}
+
+/* Por guardar: borde inferior punteado (no el color del fin de semana). */
+.gh-celda--pendiente {
+  box-shadow: inset 0 -3px 0 -1px var(--mz-warn-line);
+  background-image: radial-gradient(
+    circle at calc(100% - 5px) 5px,
+    var(--mz-warn-line) 0 3px,
+    transparent 3.5px
+  );
+}
+
+/* Fuera de plazo (se puede corregir, queda auditado): esquina ámbar. */
+.gh-celda--tarde::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-top: 9px solid var(--mz-warn-line);
+  border-right: 9px solid transparent;
+  pointer-events: none;
+}
+
+.gh-celda--error {
+  background: var(--mz-bad-bg);
+  box-shadow: inset 0 0 0 1px var(--mz-bad-line);
+}
+
+.gh-celda--arrastre {
+  background: var(--mz-info-bg);
+  outline: 1px dashed var(--mz-action);
+  outline-offset: -1px;
+}
+
+/* Rango elegido (Mayús+↓ o arrastre): marco con el color del foco. */
+.gh-celda--rango {
+  box-shadow: inset 0 0 0 2px var(--mz-foco);
+}
+
+.gh-leyenda__muestra.gh-celda--pendiente,
+.gh-leyenda__muestra.gh-celda--tarde {
+  position: relative;
+}
+
+.gh-celda__corregir {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.gh-celda__corregir:hover {
+  background: var(--mz-info-bg);
+}
+
+/* El controlador de relleno (arrastrar para copiar hacia abajo). */
+.gh-relleno {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--mz-raised);
+  background: var(--mz-action);
+  cursor: crosshair;
+}
+
+/* El motivo de la celda elegida, en línea bajo la grilla (no solo en title). */
+.gh-motivo {
+  min-height: 1.5em;
+  margin: 4px 0 0;
+}
+
+/* --mz-link no existe en la identidad: el azul de información cumple 4.5:1
+   en claro y en oscuro. */
+.gh-enlace {
+  min-height: 24px;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--mz-link, var(--mz-info-fg));
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.gh-enlace:disabled {
+  color: var(--mz-ink-faint);
+  text-decoration: none;
+}
+
+.gh-enlace--peligro {
+  color: var(--mz-bad-fg);
+}
+
+/* «Más acciones» (⋯). */
+.gh-menu {
+  display: inline-block;
+  margin-left: auto;
+}
+
+.gh-menu__boton {
+  padding: 0 6px;
+  line-height: 1.2;
+}
+
+.gh-menu__lista {
+  position: fixed;
+  z-index: 1060;
+  width: 240px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.gh-menu__item {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--mz-ink);
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+}
+
+.gh-menu__item:hover,
+.gh-menu__item:focus {
+  background: var(--mz-sunken);
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+.gh-menu__item--peligro {
+  color: var(--mz-bad-fg);
+}
+
+.gh-identidad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.gh-identidad__texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gh-identidad__nombre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* La cédula como línea secundaria: solo en el teléfono. */
+.gh-identidad__secundaria {
+  display: none;
+  font-size: 11px;
+  color: var(--mz-ink-faint);
+}
+
+.gh-lista-errores {
+  max-height: 160px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.gh-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+
+.gh-mono {
+  font-family: var(--mz-font-mono);
+}
+
+.gh-tarjeta-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.gh-tarjeta-kv dt {
+  color: var(--mz-ink-faint);
+  font-weight: 400;
+}
+
+.gh-tarjeta-kv dd {
+  margin: 0;
+}
+
+.gh-tarjeta-kv--estrecha dd {
+  text-align: right;
+  font-weight: 600;
+}
+
+.gh-recuadro {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.gh-avance {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+}
+
+.gh-avance > span {
+  display: block;
+  height: 100%;
+  background: var(--mz-ok-line);
+}
+
+.gh-historial-fila--danger > td:first-child {
+  box-shadow: inset 3px 0 0 var(--mz-bad-line);
+}
+
+.gh-historial-fila--info > td:first-child {
+  box-shadow: inset 3px 0 0 var(--mz-action);
+}
+
+.gh-seleccion {
+  max-height: 45vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.gh-seleccion li + li {
+  border-top: 1px solid var(--mz-border);
+}
+
+.gh-seleccion label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  margin: 0;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.gh-switch-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gh-switch-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+/* Al tacto: celdas, casillas y enlaces de las grillas con 44 px (WCAG 2.5.8). */
+@media (pointer: coarse) {
+  .gh-celda input[type="text"],
+  .gh-celda input[type="date"],
+  .gh-celda__corregir {
+    height: 44px;
+    min-height: 44px;
+    min-width: 52px;
+  }
+
+  .gh-celda input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    margin: 10px auto;
+  }
+
+  .gh-enlace,
+  .gh-grilla .btn-sm,
+  .gh-menu__item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Sin teclado, el atajo no aplica. */
+  .gh-solo-teclado {
+    display: none;
+  }
+
+  .gh-seleccion label {
+    min-height: 44px;
+  }
+
+  /* Arrastrar no existe al tacto: se usa «Copiar hacia abajo». */
+  .gh-relleno {
+    display: none;
+  }
+}
+
+@media (max-width: 880px) {
+  .gh-grilla-wrap {
+    max-height: 70vh;
+  }
+
+  .gh-alcance .mz-campo,
+  .gh-alcance .form-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .gh-alcance > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* Teléfono: en Días laborados queda fija una sola columna estrecha con el
+   nombre (y la cédula enmascarada como línea secundaria); las demás
+   columnas de identidad se ocultan y los días ganan el ancho. */
+@media (max-width: 600px) {
+  .gh-grilla--dias .gh-col-cedula,
+  .gh-grilla--dias .gh-col-secundaria {
+    display: none;
+  }
+
+  .gh-grilla--dias .gh-col-empleado {
+    left: 0;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+
+  .gh-grilla--dias .gh-identidad {
+    padding: 4px 6px;
+  }
+
+  .gh-grilla--dias .gh-identidad__nombre {
+    max-width: 72px;
+    white-space: nowrap;
+  }
+
+  .gh-grilla--dias .gh-identidad__secundaria {
+    display: block;
+  }
+
+  .gh-grilla--dias .gh-identidad .mz-pill {
+    display: none;
+  }
+}
+
+/* Utilidades del módulo (antes en estilos en línea). */
+.gh-desplazable {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.gh-ancho-medio {
+  max-width: 420px;
+}
+
+.gh-ancho-corto {
+  max-width: 160px;
+}
+
+.gh-pre {
+  white-space: pre-wrap;
+}

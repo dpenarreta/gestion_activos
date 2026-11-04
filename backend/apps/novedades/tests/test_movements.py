@@ -223,26 +223,28 @@ def test_counters_distinguish_movements_from_people(admin, history):
     assert entries["counters"] == {"movements": 4, "people": 3, "altas": 3, "reingresos": 1}
     exits = MovementService.exits(admin, {})
     assert exits["counters"] == {"movements": 3, "people": 2}
-    assert {r["cedula"] for r in exits["results"]} == {ana.cedula, beto.cedula}
+    assert {r["collaborator_id"] for r in exits["results"]} == {ana.pk, beto.pk}
+    # En pantalla, la cédula siempre enmascarada (la completa solo en el Excel).
+    assert {r["cedula"] for r in exits["results"]} == {"••••••0405", "••••••0406"}
 
 
 def test_filters_reflect_persisted_records(admin, supervisor, supervisor2, history):
     ana, beto, caro = history
     by = lambda params, kind="exits": {  # noqa: E731
-        r["cedula"] for r in getattr(MovementService, kind)(admin, params)["results"]
+        r["collaborator_id"] for r in getattr(MovementService, kind)(admin, params)["results"]
     }
-    assert by({"q": "beto"}) == {beto.cedula}
-    assert by({"q": "0102030405"}) == {ana.cedula}
-    assert by({"cargo": "Bodeguero"}, "entries") == {beto.cedula, caro.cedula}
+    assert by({"q": "beto"}) == {beto.pk}
+    assert by({"q": "0102030405"}) == {ana.pk}
+    assert by({"cargo": "Bodeguero"}, "entries") == {beto.pk, caro.pk}
     # Supervisor responsable EN LA FECHA del movimiento: Beto salió siendo de
     # sup1 aunque hoy pertenezca a sup2.
-    assert by({"supervisor": supervisor.pk}) == {ana.cedula, beto.cedula}
+    assert by({"supervisor": supervisor.pk}) == {ana.pk, beto.pk}
     assert by({"supervisor": supervisor2.pk}) == set()
-    assert by({"supervisor": supervisor2.pk}, "entries") == {caro.cedula}
-    assert by({"status": "ACTIVE"}, "entries") == {caro.cedula}
+    assert by({"supervisor": supervisor2.pk}, "entries") == {caro.pk}
+    assert by({"status": "ACTIVE"}, "entries") == {caro.pk}
     # Rango de fechas del calendario del negocio.
     day = (NOW - timedelta(days=10) - timedelta(hours=5)).date()
-    assert by({"date_from": day.isoformat(), "date_to": day.isoformat()}) == {beto.cedula}
+    assert by({"date_from": day.isoformat(), "date_to": day.isoformat()}) == {beto.pk}
     exit_row = next(r for r in MovementService.exits(admin, {"q": "beto"})["results"])
     assert exit_row["supervisor"] == "Sup1" and exit_row["changed_by"] == "Sup1"
     assert exit_row["status"] == "INACTIVE" and exit_row["previous_status"] == "ACTIVE"

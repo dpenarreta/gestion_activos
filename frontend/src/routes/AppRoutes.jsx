@@ -119,6 +119,26 @@ import { RoleForm } from "../pages/Admin/Roles/RoleForm";
 import { RolesPage } from "../pages/Admin/Roles/RolesPage";
 import { UserForm } from "../pages/Admin/Users/UserForm";
 import { UsersList } from "../pages/Admin/Users/UsersList";
+import { Colaboradores } from "../pages/GestionHumana/Colaboradores";
+import { ConfiguracionModulo } from "../pages/GestionHumana/ConfiguracionModulo";
+import { MarcoGestionHumana } from "../pages/GestionHumana/ContextoNovedades";
+import { DiasLaborados } from "../pages/GestionHumana/DiasLaborados";
+import { HistorialRegistros } from "../pages/GestionHumana/HistorialRegistros";
+import { HorasDepuradas } from "../pages/GestionHumana/HorasDepuradas";
+import { HorasExtras } from "../pages/GestionHumana/HorasExtras";
+import { IngresosSalidas } from "../pages/GestionHumana/IngresosSalidas";
+import { InicioGestionHumana } from "../pages/GestionHumana/InicioGestionHumana";
+import { RepositorioMensual } from "../pages/GestionHumana/RepositorioMensual";
+import {
+  ACCEDER as GH_ACCEDER,
+  ADMINISTRAR as GH_ADMINISTRAR,
+  DEPURAR as GH_DEPURAR,
+  HISTORIAL as GH_HISTORIAL,
+  INGRESOS as GH_INGRESOS,
+  PERMISOS as GH_PERMISOS,
+  PERMISOS_GESTION_HUMANA,
+  SALIDAS as GH_SALIDAS,
+} from "../modulos/permisosGestionHumana";
 
 const USUARIOS_VER = "usuarios.ver";
 const ROLES_VER = "roles.ver";
@@ -626,6 +646,93 @@ export function AppRoutes() {
             />
           }
         />
+        {/* Gestión Humana · Control Operativo de Novedades. Cada pantalla
+            vuelve a preguntar al servidor qué puede la persona
+            (`novedades/me/`): el rol operativo y las excepciones mandan. */}
+        {/* El enlace de los avisos de la campana (`ALERT_LINK` del backend). */}
+        <Route
+          path="gestion-humana/novedades"
+          element={
+            <Navigate to="/admin/gestion-humana/dias-laborados" replace />
+          }
+        />
+        {/* El marco solo pide `novedades/me/` cuando una pantalla lo usa:
+            la entrada e Ingresos y salidas (con sus propios permisos) no lo
+            necesitan. */}
+        <Route path="gestion-humana" element={<MarcoGestionHumana />}>
+          <Route
+            index
+            element={
+              <RequirePermission permission={PERMISOS_GESTION_HUMANA}>
+                <InicioGestionHumana />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="ingresos-salidas"
+            element={
+              <RequirePermission permission={[GH_INGRESOS, GH_SALIDAS]}>
+                <IngresosSalidas />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="dias-laborados"
+            element={
+              <RequirePermission permission={GH_ACCEDER}>
+                <DiasLaborados />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="horas-extras"
+            element={
+              <RequirePermission permission={GH_ACCEDER}>
+                <HorasExtras />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="colaboradores"
+            element={
+              <RequirePermission permission={GH_ACCEDER}>
+                <Colaboradores />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="historial"
+            element={
+              <RequirePermission permission={GH_HISTORIAL}>
+                <HistorialRegistros />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="repositorio"
+            element={
+              <RequirePermission permission={GH_HISTORIAL}>
+                <RepositorioMensual />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="horas-depuradas"
+            element={
+              <RequirePermission permission={[GH_DEPURAR, GH_ADMINISTRAR]}>
+                <HorasDepuradas />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="configuracion"
+            element={
+              <RequirePermission permission={[GH_PERMISOS, GH_ADMINISTRAR]}>
+                <ConfiguracionModulo />
+              </RequirePermission>
+            }
+          />
+        </Route>
         {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
         <Route
           path="soporte"

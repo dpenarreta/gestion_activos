@@ -1,9 +1,11 @@
 """Validación de entrada y serialización de salida del módulo.
 
-La cédula es un dato protegido (LOPDP): los serializadores de listados la
-devuelven enmascarada (últimos 4 caracteres) salvo que la vista indique en el
-contexto `full_cedula=True`, que solo pasa para quien gestiona colaboradores o
-administra el módulo (`NovedadesAccess.can_see_cedula`).
+La cédula es un dato protegido (LOPDP): se devuelve enmascarada (últimos 4
+caracteres) en todas las respuestas, también para quien gestiona
+colaboradores. La vista pide `full_cedula=True` solo donde es obligatoria (el
+detalle de un colaborador y la corrección de su cédula) y solo para quien
+puede verla (`NovedadesAccess.can_see_cedula`). Las exportaciones a Excel la
+llevan completa.
 """
 
 from rest_framework import serializers
@@ -287,6 +289,15 @@ class ImportConfirmSerializer(serializers.Serializer):
 
 class ImportBatchSerializer(serializers.ModelSerializer):
     period = serializers.SerializerMethodField()
+    rows = serializers.SerializerMethodField()
+
+    def get_rows(self, obj) -> list:
+        """Las filas leídas del archivo, con la cédula enmascarada (la
+        confirmación usa las guardadas en el lote, no estas)."""
+        return [
+            {**r, "cedula": mask_cedula(r["cedula"])} if r.get("cedula") else r
+            for r in (obj.rows or [])
+        ]
 
     def get_period(self, obj) -> str | None:
         return obj.period.code if obj.period else None

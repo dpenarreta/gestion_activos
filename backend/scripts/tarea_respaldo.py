@@ -97,6 +97,9 @@ def main() -> int:
         ("limpiar_notificaciones", []),
         ("limpiar_chat", []),
         ("ciclo_descargas", []),
+        # Gestión Humana: reintenta los avisos y correos de Novedades que no
+        # se pudieron entregar en el momento.
+        ("novedades_retry_notifications", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

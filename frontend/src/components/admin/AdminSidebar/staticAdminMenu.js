@@ -14,6 +14,17 @@ import {
 } from "../../../modulos/permisosDashboards";
 import { RUTA_SOPORTE } from "../../../modulos/permisosSoporte";
 import {
+  ACCEDER as GH_ACCEDER,
+  ADMINISTRAR as GH_ADMINISTRAR,
+  CONSOLIDADO as GH_CONSOLIDADO,
+  DEPURAR as GH_DEPURAR,
+  HISTORIAL as GH_HISTORIAL,
+  INGRESOS as GH_INGRESOS,
+  PERMISOS as GH_PERMISOS,
+  RUTA_GESTION_HUMANA,
+  SALIDAS as GH_SALIDAS,
+} from "../../../modulos/permisosGestionHumana";
+import {
   PERMISOS_ORDENES,
   RUTA_ORDENES,
 } from "../../../modulos/permisosOrdenes";
@@ -31,7 +42,9 @@ export { PERMISOS_MATRIZ };
  * `AdminMenuGroup` (que solo consumen esta forma de datos, sin saber de
  * dónde viene).
  *
- * Cada item: { id, name, icon, path?, permission, rutas?, children? }.
+ * Cada item: { id, name, icon, path?, permission, requiere?, rutas?, children? }.
+ * `requiere` (opcional): un código que además hace falta (`permission` Y
+ * `requiere`), para las entradas que dependen de dos permisos a la vez.
  * `permission` (un código o una lista, de la que basta uno) filtra la entrada
  * completa (y sus hijos) si el usuario no lo tiene; `rutas`, otras direcciones
  * que también la marcan como activa — la
@@ -276,6 +289,87 @@ export const ADMIN_MENU = [
     path: `${RUTA_SOPORTE}/formulario`,
     permission: "soporte.formulario",
   },
+  // --- Gestión Humana · Control Operativo de Novedades --------------------
+  //
+  // Cada pestaña de Nexo es una entrada. El menú mira los permisos del
+  // catálogo; lo que depende del rol operativo (el Supervisor no consulta el
+  // historial de registros aunque tenga `historial_ver`, por ejemplo) lo dice
+  // `GET novedades/me/` dentro de la pantalla.
+  {
+    id: "gh-dias",
+    modulo: "gestion_humana",
+    name: "Días laborados",
+    icon: "calendar3",
+    path: `${RUTA_GESTION_HUMANA}/dias-laborados`,
+    permission: GH_ACCEDER,
+  },
+  {
+    id: "gh-horas",
+    modulo: "gestion_humana",
+    name: "Horas extras",
+    icon: "clock-history",
+    path: `${RUTA_GESTION_HUMANA}/horas-extras`,
+    permission: GH_ACCEDER,
+  },
+  {
+    id: "gh-colaboradores",
+    modulo: "gestion_humana",
+    name: "Colaboradores",
+    icon: "people",
+    path: `${RUTA_GESTION_HUMANA}/colaboradores`,
+    permission: GH_ACCEDER,
+  },
+  {
+    id: "gh-historial",
+    modulo: "gestion_humana",
+    name: "Historial de registros",
+    icon: "journal-text",
+    path: `${RUTA_GESTION_HUMANA}/historial`,
+    // El historial es del Asistente de Operaciones y del Administrador; el
+    // Supervisor tiene `historial_ver` solo para el Repositorio mensual
+    // (`access.can_view_event_history`). El menú no conoce el rol operativo:
+    // pide además el consolidado o administrar, que el Supervisor no tiene
+    // de partida (ver el informe: una excepción que se lo conceda haría
+    // visible la entrada, y la pantalla le explica que no le corresponde).
+    permission: [GH_CONSOLIDADO, GH_ADMINISTRAR],
+    requiere: GH_HISTORIAL,
+  },
+  {
+    id: "gh-repositorio",
+    modulo: "gestion_humana",
+    name: "Repositorio mensual",
+    icon: "archive",
+    path: `${RUTA_GESTION_HUMANA}/repositorio`,
+    permission: GH_HISTORIAL,
+  },
+  {
+    // El Jefe de Operaciones la trabaja; el Administrador la consulta.
+    id: "gh-depuradas",
+    modulo: "gestion_humana",
+    name: "Horas depuradas",
+    icon: "funnel",
+    path: `${RUTA_GESTION_HUMANA}/horas-depuradas`,
+    permission: [GH_DEPURAR, GH_ADMINISTRAR],
+  },
+  {
+    // Con sus propios permisos: no exige el acceso al resto del módulo.
+    id: "gh-movimientos",
+    modulo: "gestion_humana",
+    name: "Ingresos y salidas",
+    icon: "arrow-left-right",
+    path: `${RUTA_GESTION_HUMANA}/ingresos-salidas`,
+    permission: [GH_INGRESOS, GH_SALIDAS],
+  },
+  {
+    // Permisos por rol, excepciones, plazos y destinatarios de correos: el
+    // administrador del módulo.
+    id: "gh-configuracion",
+    modulo: "gestion_humana",
+    name: "Configuración del módulo",
+    icon: "sliders",
+    path: `${RUTA_GESTION_HUMANA}/configuracion`,
+    permission: [GH_PERMISOS, GH_ADMINISTRAR],
+  },
   // --- Institucional ------------------------------------------------------
   {
     // Sin permiso: es a donde entra toda persona al iniciar sesión.
@@ -507,6 +601,7 @@ function filterByPermission(items, permissions, heredado = undefined) {
   return items
     .map((item) => {
       const propio = item.permission ?? heredado;
+      if (item.requiere && !permissions.includes(item.requiere)) return null;
       if (!item.children) {
         return esVisible(propio, permissions) ? item : null;
       }

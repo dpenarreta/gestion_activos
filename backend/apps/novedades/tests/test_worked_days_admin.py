@@ -155,7 +155,9 @@ def test_admin_corrects_cedula_registered_by_supervisor(client_for, admin, super
     # Las relaciones siguen intactas: mismo colaborador, mismos días y horas.
     row = next(
         r
-        for r in WorkedDayService.matrix(access(supervisor), OCT, supervisor)["rows"]
+        for r in WorkedDayService.matrix(access(supervisor), OCT, supervisor, full_cedula=True)[
+            "rows"
+        ]
         if r["collaborator_id"] == ana.pk
     )
     assert row["cedula"] == "1712345678" and row["cells"][FRI.isoformat()]["hours"] == "8"

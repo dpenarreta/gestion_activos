@@ -132,10 +132,12 @@ class NovedadesView(APIView):
             )
         return supervisor
 
-    def out(self, serializer_class, instance, **kwargs):
-        """Serializa con la cédula completa solo para quien puede verla."""
+    def out(self, serializer_class, instance, *, full=False, **kwargs):
+        """La cédula va enmascarada en toda respuesta; completa solo donde es
+        obligatoria (`full=True`: el detalle de un colaborador y la corrección
+        de su cédula) y para quien puede verla."""
         return serializer_class(
-            instance, context={"full_cedula": self.access.can_see_cedula}, **kwargs
+            instance, context={"full_cedula": full and self.access.can_see_cedula}, **kwargs
         )
 
     def validated(self, serializer_class, data=None):
@@ -244,7 +246,11 @@ class CollaboratorListView(NovedadesView):
 class CollaboratorDetailView(NovedadesView):
     def get(self, request, pk):
         return Response(
-            self.out(CollaboratorSerializer, CollaboratorService.get_for_read(self.access, pk)).data
+            self.out(
+                CollaboratorSerializer,
+                CollaboratorService.get_for_read(self.access, pk),
+                full=True,
+            ).data
         )
 
     def patch(self, request, pk):
@@ -302,7 +308,7 @@ class CollaboratorCedulaView(NovedadesView):
         collaborator = CollaboratorService.change_cedula(
             self.access, pk, data["cedula"], data["reason"], context=self.context
         )
-        return Response(self.out(CollaboratorSerializer, collaborator).data)
+        return Response(self.out(CollaboratorSerializer, collaborator, full=True).data)
 
 
 class CollaboratorReassignView(NovedadesView):
@@ -344,7 +350,9 @@ class WorkedDaySaveView(NovedadesView):
 class WorkedDayExportView(NovedadesView):
     def get(self, request):
         key = self.period_param()
-        matrix = WorkedDayService.matrix(self.access, key, self.supervisor_param())
+        matrix = WorkedDayService.matrix(
+            self.access, key, self.supervisor_param(), full_cedula=True
+        )
         content = ExportService.worked_days(self.access, matrix)
         return self.xlsx(content, f"dias-laborados-{key.code}.xlsx")
 
@@ -591,7 +599,9 @@ class OvertimeTemplateView(NovedadesView):
 class WorkedDayTemplateView(NovedadesView):
     def get(self, request):
         key = self.period_param()
-        matrix = WorkedDayService.matrix(self.access, key, self.supervisor_param())
+        matrix = WorkedDayService.matrix(
+            self.access, key, self.supervisor_param(), full_cedula=True
+        )
         return self.xlsx(
             ExportService.worked_days(self.access, matrix, blank=True),
             f"plantilla-dias-laborados-{key.code}.xlsx",

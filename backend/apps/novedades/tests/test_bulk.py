@@ -283,4 +283,5 @@ def test_jornada_filter(client_for, supervisor, team):
         ],
     )
     body = client_for(supervisor).get(f"{BASE}/overtime/?period=2026-10&jornada=sabado").json()
-    assert [r["cedula"] for r in body["records"]] == [team[0].cedula]
+    assert [r["collaborator_id"] for r in body["records"]] == [team[0].pk]
+    assert body["records"][0]["cedula"] == "••••••0401"  # en pantalla, enmascarada

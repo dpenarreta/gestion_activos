@@ -302,9 +302,11 @@ class NovedadesAccess:
 
     @property
     def can_see_cedula(self) -> bool:
-        """La cédula completa (dato protegido, LOPDP) solo la ve quien gestiona
-        la base de colaboradores o administra el módulo; el resto, enmascarada
-        (últimos 4 caracteres)."""
+        """Puede ver la cédula completa (dato protegido, LOPDP): quien gestiona
+        la base de colaboradores o administra el módulo. Aun así, en pantalla
+        va siempre enmascarada (últimos 4 caracteres); la completa solo sale
+        donde es obligatoria: el detalle de un colaborador, la corrección de
+        su cédula y las exportaciones a Excel (decisión del 2026-11-04)."""
         return self.can(COLABORADORES) or self.national_write
 
     @property

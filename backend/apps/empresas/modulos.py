@@ -31,6 +31,7 @@ MODULOS = {
     ),
     "dashboards": ("Dashboards", ("/api/v1/cartera/", "/api/v1/dashboards/")),
     "soporte": ("Mesa de ayuda", ("/api/v1/soporte/",)),
+    "gestion_humana": ("Gestión Humana", ("/api/v1/novedades/",)),
     "matriz": ("Matriz de obligaciones", ("/api/v1/matriz/",)),
     "sedes": ("Órdenes de trabajo", ("/api/v1/ordenes/",)),
     "activos": (

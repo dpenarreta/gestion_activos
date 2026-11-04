@@ -28,6 +28,8 @@ export function ModalDialog({
   puedeConfirmar = true,
   variante = "primary",
   anchoMaximo,
+  // El nombre accesible de la X (por defecto, «Cerrar» como hasta ahora).
+  etiquetaCerrar = "Cerrar",
 }) {
   // Un id por ventana: con un id fijo, dos ventanas anidadas compartían
   // «modal-dialog-titulo» y la de dentro se anunciaba con el título de la de
@@ -63,7 +65,7 @@ export function ModalDialog({
               type="button"
               className="mz-close"
               onClick={onCerrar}
-              aria-label="Cerrar"
+              aria-label={etiquetaCerrar}
             >
               <Icon name="x-lg" />
             </button>

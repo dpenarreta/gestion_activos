@@ -1405,7 +1405,11 @@ class WorkedDayService:
         )
 
     @staticmethod
-    def matrix(acc: NovedadesAccess, key: PeriodKey, supervisor) -> dict:
+    def matrix(acc: NovedadesAccess, key: PeriodKey, supervisor, *, full_cedula=False) -> dict:
+        """`full_cedula`: solo para el Excel (exportación y plantilla, que se
+        reimporta por cédula) y solo si la persona puede verla. En pantalla la
+        cédula va siempre enmascarada (decisión del 2026-11-04: la completa,
+        solo donde es obligatoria)."""
         if not acc.can(perms.ACCEDER):
             raise _forbidden()
         if not acc.can_read_supervisor(supervisor.pk):
@@ -1475,7 +1479,9 @@ class WorkedDayService:
             rows.append(
                 {
                     "collaborator_id": c.pk,
-                    "cedula": c.cedula if acc.can_see_cedula else mask_cedula(c.cedula),
+                    "cedula": (
+                        c.cedula if full_cedula and acc.can_see_cedula else mask_cedula(c.cedula)
+                    ),
                     "full_name": c.full_name,
                     "cargo": c.cargo,
                     "area": c.area,
@@ -4034,7 +4040,8 @@ class DepurationService:
                     "source_id": r.source_id,
                     "version": r.version,
                     "date": r.date,
-                    "cedula": r.cedula if acc.can_see_cedula else mask_cedula(r.cedula),
+                    # Pantalla: siempre enmascarada (la exportación la lleva completa).
+                    "cedula": mask_cedula(r.cedula),
                     "full_name": r.full_name,
                     "regional": r.regional,
                     "area": r.area,
@@ -4988,7 +4995,7 @@ class ExitNotificationService:
         return {
             "id": event.pk,
             "kind": RecipientKind.EXIT,
-            "collaborator": {"id": c.pk, "cedula": c.cedula, "full_name": c.full_name},
+            "collaborator": {"id": c.pk, "cedula": mask_cedula(c.cedula), "full_name": c.full_name},
             "supervisor": user_display(event.supervisor),
             "changed_by": user_display(event.changed_by),
             "changed_at": event.changed_at,
@@ -5198,7 +5205,7 @@ class EntryNotificationService:
         return {
             "id": event.pk,
             "kind": RecipientKind.ENTRY,
-            "collaborator": {"id": c.pk, "cedula": c.cedula, "full_name": c.full_name},
+            "collaborator": {"id": c.pk, "cedula": mask_cedula(c.cedula), "full_name": c.full_name},
             "supervisor": user_display(event.supervisor),
             "changed_by": user_display(event.created_by),
             "changed_at": event.triggered_at or event.created_at,
@@ -5275,6 +5282,11 @@ class MovementService:
         el módulo; para el resto, enmascarada (LOPDP)."""
         if NovedadesAccess.for_user(user).can_see_cedula:
             return rows
+        return [{**r, "cedula": mask_cedula(r["cedula"])} for r in rows]
+
+    @staticmethod
+    def _masked(rows: list[dict]) -> list[dict]:
+        """En pantalla, siempre enmascarada (la completa solo va en el Excel)."""
         return [{**r, "cedula": mask_cedula(r["cedula"])} for r in rows]
 
     @staticmethod
@@ -5529,7 +5541,7 @@ class MovementService:
         keys = MovementService._entry_keys(f)
         chunk = keys[(page - 1) * size : page * size]
         return {
-            "results": MovementService._protect(user, MovementService._entry_rows(chunk)),
+            "results": MovementService._masked(MovementService._entry_rows(chunk)),
             "count": len(keys),
             "page": page,
             "page_size": size,
@@ -5582,8 +5594,8 @@ class MovementService:
         qs = MovementService._ordered_exits(f)
         total = qs.count()
         return {
-            "results": MovementService._protect(
-                user, MovementService._exit_rows(qs[(page - 1) * size : page * size])
+            "results": MovementService._masked(
+                MovementService._exit_rows(qs[(page - 1) * size : page * size])
             ),
             "count": total,
             "page": page,

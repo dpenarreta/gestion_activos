@@ -43,6 +43,16 @@ export const MODULOS = [
     prefijo: "/admin/soporte",
   },
   {
+    // Control Operativo de Novedades (portado de Nexo, 04/11/2026): días
+    // laborados, horas extras, colaboradores, cierres e ingresos y salidas.
+    id: "gestion_humana",
+    nombre: "Gestión Humana",
+    descripcion: "Días laborados, horas extras y novedades de colaboradores",
+    icono: "people",
+    inicio: "/admin/gestion-humana",
+    prefijo: "/admin/gestion-humana",
+  },
+  {
     id: "matriz",
     nombre: "Matriz de obligaciones",
     descripcion: "Obligaciones, vencimientos y evidencias de cada empresa",
