@@ -174,6 +174,31 @@ DATABASES = {
     }
 }
 
+# --- Base de Nexo (solo lectura, opcional) ---
+# La usa únicamente `manage.py importar_nexo`, que trae el Control Operativo de
+# Novedades desde Nexo. Existe solo si el .env define NEXO_DB_NAME: sin ella el
+# alias no aparece y nada puede apuntarle por error. El router
+# (`config.db_routers.NexoSoloLecturaRouter`) impide migrarla o escribir en
+# ella, y la conexión rechaza toda sentencia que no sea un SELECT. El usuario
+# de base debería tener además solo lectura (db_datareader).
+if env.str("NEXO_DB_NAME", default=""):
+    DATABASES["nexo"] = {
+        "ENGINE": "mssql",
+        "NAME": env.str("NEXO_DB_NAME"),
+        "USER": env.str("NEXO_DB_USER", default=""),
+        "PASSWORD": env.str("NEXO_DB_PASSWORD", default=""),
+        "HOST": env.str("NEXO_DB_HOST", default=""),
+        "PORT": env.str("NEXO_DB_PORT", default="1433"),
+        "OPTIONS": {
+            **DATABASES["default"]["OPTIONS"],
+            "driver": env.str("NEXO_DB_DRIVER", default=DATABASES["default"]["OPTIONS"]["driver"]),
+        },
+        # Uso puntual (una importación): sin conexiones persistentes.
+        "CONN_MAX_AGE": 0,
+    }
+
+DATABASE_ROUTERS = ["config.db_routers.NexoSoloLecturaRouter"]
+
 AUTH_USER_MODEL = "users.User"
 
 # --- Hashing de contraseñas: Argon2 como algoritmo primario ---
