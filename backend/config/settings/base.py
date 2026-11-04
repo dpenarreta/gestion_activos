@@ -332,6 +332,9 @@ REST_FRAMEWORK = {
         # general, dos pestañas agotaban los 1000 por hora en media hora y la
         # persona quedaba sin poder ni entrar (04/11/2026). Va con el suyo.
         "llamadas": env.str("LLAMADAS_THROTTLE_RATE", default="7200/hour"),
+        # La ficha del ticket abierta se refresca sola cada 10 s para que la
+        # conversación llegue al momento (antes eso lo hacía un chat aparte).
+        "conversacion": env.str("CONVERSACION_THROTTLE_RATE", default="2400/hour"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }

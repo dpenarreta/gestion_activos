@@ -30,8 +30,14 @@ export const soporteService = {
   misTickets() {
     return apiClient.get(`${BASE}/mis-tickets/`).then((r) => r.data);
   },
-  miTicket(id) {
-    return apiClient.get(`${BASE}/mis-tickets/${id}/`).then((r) => r.data);
+  /** `sondeo`: la consulta que la ficha abierta repite sola (va con su
+   * propio límite en el servidor, no con el general de la persona). */
+  miTicket(id, { sondeo = false } = {}) {
+    return apiClient
+      .get(`${BASE}/mis-tickets/${id}/`, {
+        params: sondeo ? { sondeo: 1 } : undefined,
+      })
+      .then((r) => r.data);
   },
   responderMiTicket(id, texto, archivos) {
     return apiClient
@@ -41,10 +47,6 @@ export const soporteService = {
         multipart,
       )
       .then((r) => r.data);
-  },
-  /** El chat del ticket, del lado de quien lo reportó. */
-  miChat(id) {
-    return apiClient.get(`${BASE}/mis-tickets/${id}/chat/`).then((r) => r.data);
   },
   /** La llamada de voz del ticket: la señalización (el audio va directo). */
   llamar(ticket, oferta) {
@@ -85,11 +87,6 @@ export const soporteService = {
       // Si no sale, el servidor la corta solo al dejar de recibir señales.
     }
   },
-  escribirMiChat(id, texto) {
-    return apiClient
-      .post(`${BASE}/mis-tickets/${id}/chat/`, { texto })
-      .then((r) => r.data);
-  },
   confirmarMiTicket(id) {
     return apiClient
       .post(`${BASE}/mis-tickets/${id}/`, { confirmar: true })
@@ -108,8 +105,12 @@ export const soporteService = {
   tickets(params = {}) {
     return apiClient.get(`${BASE}/tickets/`, { params }).then((r) => r.data);
   },
-  ticket(id) {
-    return apiClient.get(`${BASE}/tickets/${id}/`).then((r) => r.data);
+  ticket(id, { sondeo = false } = {}) {
+    return apiClient
+      .get(`${BASE}/tickets/${id}/`, {
+        params: sondeo ? { sondeo: 1 } : undefined,
+      })
+      .then((r) => r.data);
   },
   /** A quién se puede asignar (quien coordina). */
   tecnicos() {
@@ -154,15 +155,6 @@ export const soporteService = {
       .then((r) => r.data);
   },
   /** «Tomar este ticket», desde su ficha. */
-  /** El chat del ticket, del lado del técnico a cargo. */
-  chatTicket(id) {
-    return apiClient.get(`${BASE}/tickets/${id}/chat/`).then((r) => r.data);
-  },
-  escribirChatTicket(id, texto) {
-    return apiClient
-      .post(`${BASE}/tickets/${id}/chat/`, { texto })
-      .then((r) => r.data);
-  },
   tomar(id) {
     return apiClient.post(`${BASE}/tickets/${id}/tomar/`).then((r) => r.data);
   },

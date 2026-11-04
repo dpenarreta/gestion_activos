@@ -17,10 +17,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const servicio = {
-  miChat: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
-  escribirMiChat: vi.fn(),
-  chatTicket: vi.fn(() => Promise.resolve({ abierto: false, mensajes: [] })),
-  escribirChatTicket: vi.fn(),
   misTickets: vi.fn(),
   miTicket: vi.fn(),
   responderMiTicket: vi.fn(),
@@ -173,9 +169,12 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(10_000);
     });
     expect(servicio.miTicket).toHaveBeenCalledTimes(2);
+    // Se refresca cada 10 s (la conversación llega al momento) y lo pide
+    // como sondeo, con su propio límite en el servidor.
+    expect(servicio.miTicket).toHaveBeenLastCalledWith("42", { sondeo: true });
     expect(
       screen.getByRole("heading", { name: "Ticket TCK-2026-000042" }),
     ).toBeInTheDocument();
@@ -191,7 +190,7 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
 
     // El siguiente refresco bueno quita el aviso.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(10_000);
     });
     expect(
       screen.queryByText(/No se pudo actualizar el ticket/),

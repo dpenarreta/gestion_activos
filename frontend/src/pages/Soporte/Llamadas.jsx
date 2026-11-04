@@ -363,8 +363,8 @@ export function LlamadasProvider({ children }) {
         } else if (!["sonando", "en_curso"].includes(actual.estado)) {
           const otro = actual.otro;
           const textos = {
-            rechazada: `${otro} no contestó. Puede escribirle por el chat del ticket o volver a llamar.`,
-            perdida: `${otro} no contestó. Le quedó el aviso en la campana; también puede escribirle por el chat del ticket.`,
+            rechazada: `${otro} no contestó. Puede escribirle en la conversación del ticket o volver a llamar.`,
+            perdida: `${otro} no contestó. Le quedó el aviso en la campana; también puede escribirle en la conversación del ticket.`,
             cancelada:
               faseRef.current === "entrante"
                 ? `${otro} colgó antes de que contestara.`

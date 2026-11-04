@@ -8,13 +8,12 @@ import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import { fijarTituloPropio } from "../../utils/tituloDocumento";
 import { EstadoTicket, enLaCola, prioridadLlana } from "../Soporte/comunes";
-import { ChatDelTicket } from "../Soporte/ChatDelTicket";
 import { BotonLlamar } from "../Soporte/Llamadas";
 import { useVisorDeAdjuntos } from "../Soporte/VisorAdjunto";
 import "../Soporte/Soporte.css";
 
 /** Cada cuánto se refresca: la posición en la cola baja sola. */
-const REFRESCO_MS = 30_000;
+const REFRESCO_MS = 10_000;
 /** Cuántos archivos acepta el servidor por mensaje. */
 const MAX_ADJUNTOS = 3;
 
@@ -93,17 +92,26 @@ export function MiTicket() {
   const cargar = useCallback(
     (refresco = false) => {
       soporteService
-        .miTicket(id)
+        .miTicket(id, { sondeo: refresco })
         .then((datos) => {
           // Si soporte respondió con la ficha abierta, se dice.
           const actual = anterior.current;
           if (refresco && actual) {
             const deSoporte = (lista) =>
               lista.filter((m) => !m.del_solicitante).length;
+            // Con la hora: cada aviso es distinto y el lector lo vuelve a leer.
+            const hora = new Date().toLocaleTimeString("es-EC", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
             if (deSoporte(datos.mensajes) > deSoporte(actual.mensajes))
-              setNovedad("Soporte le respondió: lea el mensaje nuevo abajo.");
+              setNovedad(
+                `Soporte le respondió (${hora}): lea el mensaje nuevo abajo.`,
+              );
             else if (datos.estado !== actual.estado)
-              setNovedad(`Su ticket pasó a «${datos.estado_display}».`);
+              setNovedad(
+                `Su ticket pasó a «${datos.estado_display}» (${hora}).`,
+              );
           }
           anterior.current = datos;
           setTicket(datos);
@@ -463,10 +471,10 @@ export function MiTicket() {
             {/* La llamada, con la conversación (como en la ficha del equipo). */}
             <div className="mz-card-head soporte-conversacion-head">
               <h3 id="mi-ticket-conversacion">Conversación</h3>
-              {ticket.puede_llamar && ticket.chat?.tecnico && (
+              {ticket.puede_llamar && ticket.atiende && (
                 <BotonLlamar
                   ticketId={Number(id)}
-                  nombre={ticket.chat.tecnico}
+                  nombre={ticket.atiende}
                   paraQuienPide
                 />
               )}
@@ -640,21 +648,6 @@ export function MiTicket() {
               )}
             </div>
           </section>
-          {/* El chat con el técnico que lo atiende: desde que lo toma, o
-              con su historial si ya conversaron. Va después de
-              «Conversación», como en la ficha del equipo. */}
-          {(ticket.chat?.abierto || ticket.chat?.mensajes > 0) && (
-            <ChatDelTicket
-              titulo={
-                ticket.chat?.tecnico
-                  ? `Chat con ${ticket.chat.tecnico}`
-                  : "Chat con soporte"
-              }
-              nota="Para dudas rápidas con quien atiende su ticket. Se ve solo aquí y queda guardado. No reabre ni responde el ticket: si el problema sigue, use «Responder» o «No, sigue el problema»."
-              cargar={() => soporteService.miChat(id)}
-              enviar={(texto) => soporteService.escribirMiChat(id, texto)}
-            />
-          )}
         </>
       )}
     </div>

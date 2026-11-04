@@ -22,7 +22,6 @@ import {
   useEtiquetas,
   VenceTicket,
 } from "./comunes";
-import { ChatDelTicket } from "./ChatDelTicket";
 import { BotonLlamar } from "./Llamadas";
 import { useVisorDeAdjuntos } from "./VisorAdjunto";
 import "./Soporte.css";
@@ -87,7 +86,14 @@ function dialogoDe(accion, ticket) {
 }
 
 /** Cada cuánto se vuelve a pedir el ticket (con la pestaña a la vista). */
-const REFRESCO_MS = 45_000;
+const REFRESCO_MS = 10_000;
+
+function horaDeAhora() {
+  return new Date().toLocaleTimeString("es-EC", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 /** Lo que toca ahora con el ticket, en una frase. */
 function queToca(ticket, permisos) {
@@ -164,6 +170,10 @@ export function TicketDetalle() {
   const unaColumna = useMediaQuery("(max-width: 991.98px)");
   const ocupadoRef = useRef(false);
   ocupadoRef.current = ocupado;
+  // El ticket a la vista, para comparar con el que trae el refresco sin
+  // meter efectos en la función de `setTicket`.
+  const ticketRef = useRef(null);
+  ticketRef.current = ticket;
 
   const cargar = useCallback(() => {
     setNoExiste(false);
@@ -192,23 +202,27 @@ export function TicketDetalle() {
     const intervalo = setInterval(() => {
       if (document.visibilityState === "hidden" || ocupadoRef.current) return;
       soporteService
-        .ticket(id)
-        .then((nuevo) =>
-          setTicket((actual) => {
-            if (!actual) return nuevo;
+        .ticket(id, { sondeo: true })
+        .then((nuevo) => {
+          const actual = ticketRef.current;
+          if (actual) {
             const antes = actual.mensajes?.length ?? 0;
             const ahora = nuevo.mensajes?.length ?? 0;
+            // Con la hora: cada aviso es distinto y el lector lo vuelve a leer.
+            const hora = horaDeAhora();
             if (ahora > antes)
               setNovedad(
                 ahora - antes === 1
-                  ? "Llegó un mensaje nuevo a la conversación."
-                  : `Llegaron ${ahora - antes} mensajes nuevos a la conversación.`,
+                  ? `Llegó un mensaje nuevo a la conversación (${hora}).`
+                  : `Llegaron ${ahora - antes} mensajes nuevos a la conversación (${hora}).`,
               );
             else if (nuevo.estado !== actual.estado)
-              setNovedad(`El ticket pasó a «${nuevo.estado_display}».`);
-            return nuevo;
-          }),
-        )
+              setNovedad(
+                `El ticket pasó a «${nuevo.estado_display}» (${hora}).`,
+              );
+          }
+          setTicket(nuevo);
+        })
         .catch(() => null);
     }, REFRESCO_MS);
     return () => clearInterval(intervalo);
@@ -470,12 +484,16 @@ export function TicketDetalle() {
         )}
       </div>
       <div className="mz-card-body">
-        {novedad && (
-          <div className="mz-alert mz-alert--info" role="status">
-            <Icon name="bell" />
-            {novedad}
-          </div>
-        )}
+        {/* Siempre montada: una región viva que aparece ya con su texto a
+            veces no se lee. */}
+        <div role="status">
+          {novedad && (
+            <div className="mz-alert mz-alert--info">
+              <Icon name="bell" />
+              {novedad}
+            </div>
+          )}
+        </div>
         {ticket.mensajes.length === 0 ? (
           <p className="mz-faint">Todavía no hay mensajes.</p>
         ) : (
@@ -549,18 +567,6 @@ export function TicketDetalle() {
       </div>
     </section>
   );
-
-  // El chat con quien lo reportó: desde que un técnico lo toma.
-  // Con mensajes, sigue a la vista aunque esté en pausa (el historial).
-  const chat = permisos.chat_ver &&
-    (ticket.tecnico || permisos.chat_mensajes > 0) && (
-      <ChatDelTicket
-        titulo={`Chat con ${ticket.solicitante_nombre}`}
-        nota="Para aclarar detalles con la persona. Se ve solo en este ticket y queda guardado. No es una respuesta del ticket: no cambia su estado ni el plazo (la respuesta formal va en «Conversación»)."
-        cargar={() => soporteService.chatTicket(ticket.id)}
-        enviar={(texto) => soporteService.escribirChatTicket(ticket.id, texto)}
-      />
-    );
 
   const aprobaciones = ticket.aprobaciones?.length > 0 && (
     <section className="mz-card">
@@ -746,7 +752,6 @@ export function TicketDetalle() {
           {datos}
           {solicitud}
           {conversacion}
-          {chat}
           {aprobaciones}
           {encuesta}
           {prioridad}
@@ -757,7 +762,6 @@ export function TicketDetalle() {
           <div className="mz-stack">
             {solicitud}
             {conversacion}
-            {chat}
             {historial}
           </div>
           <div className="mz-stack">
@@ -993,7 +997,13 @@ function Responder({ respuestas, ticket, ocupado, resultado, onEnviar }) {
           setCerradas(false);
         }}
         onKeyDown={cerrarConEscape}
+        aria-describedby={interno ? undefined : "td-texto-ayuda"}
       />
+      {!interno && (
+        <p id="td-texto-ayuda" className="mz-small mz-faint mt-1 mb-0">
+          El usuario la ve en su ticket y recibe un aviso.
+        </p>
+      )}
       <div className="visually-hidden" aria-live="polite">
         {sugerencias.length > 0
           ? `${sugerencias.length} respuestas sugeridas`
