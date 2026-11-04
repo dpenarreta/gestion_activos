@@ -645,8 +645,8 @@ export function BotonLlamar({ ticketId, nombre, paraQuienPide = false }) {
   const sinHttps = !sePuedeLlamar();
   const motivo = sinHttps
     ? paraQuienPide
-      ? "Las llamadas aún no están disponibles. Mientras tanto, use el chat del ticket."
-      : "Las llamadas necesitan que el sistema se abra con HTTPS (lo está configurando TI)."
+      ? "Las llamadas aún no están disponibles; use el chat."
+      : "Las llamadas aún no están disponibles: falta HTTPS (lo configura TI)."
     : llamadas.ocupado
       ? "Ya está en una llamada."
       : null;

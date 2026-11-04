@@ -457,9 +457,17 @@ export function TicketDetalle() {
   );
 
   const conversacion = (
-    <section className="mz-card">
-      <div className="mz-card-head">
-        <h3>Conversación</h3>
+    <section className="mz-card" aria-labelledby="soporte-conversacion">
+      {/* La llamada va con la conversación y no en la franja de arriba:
+          todo lo de hablar con la persona queda junto y más compacto. */}
+      <div className="mz-card-head soporte-conversacion-head">
+        <h3 id="soporte-conversacion">Conversación</h3>
+        {permisos.llamar && (
+          <BotonLlamar
+            ticketId={ticket.id}
+            nombre={ticket.solicitante_nombre}
+          />
+        )}
       </div>
       <div className="mz-card-body">
         {novedad && (
@@ -699,14 +707,6 @@ export function TicketDetalle() {
             </span>
           </div>
           <p className="mb-0 mt-2">{queToca(ticket, permisos)}</p>
-          {permisos.llamar && (
-            <div className="mt-2">
-              <BotonLlamar
-                ticketId={ticket.id}
-                nombre={ticket.solicitante_nombre}
-              />
-            </div>
-          )}
         </div>
       </section>
 

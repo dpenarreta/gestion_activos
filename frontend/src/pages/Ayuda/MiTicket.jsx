@@ -284,13 +284,6 @@ export function MiTicket() {
                 ) : ticket.atiende ? (
                   <span>Lo atiende {ticket.atiende}</span>
                 ) : null}
-                {ticket.puede_llamar && ticket.chat?.tecnico && (
-                  <BotonLlamar
-                    ticketId={Number(id)}
-                    nombre={ticket.chat.tecnico}
-                    paraQuienPide
-                  />
-                )}
               </div>
               {/* Qué le toca, como en la lista (antes, solo la etiqueta). */}
               {ticket.estado === "esperando_usuario" && (
@@ -466,9 +459,17 @@ export function MiTicket() {
             />
           )}
 
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Conversación</h3>
+          <section className="mz-card" aria-labelledby="mi-ticket-conversacion">
+            {/* La llamada, con la conversación (como en la ficha del equipo). */}
+            <div className="mz-card-head soporte-conversacion-head">
+              <h3 id="mi-ticket-conversacion">Conversación</h3>
+              {ticket.puede_llamar && ticket.chat?.tecnico && (
+                <BotonLlamar
+                  ticketId={Number(id)}
+                  nombre={ticket.chat.tecnico}
+                  paraQuienPide
+                />
+              )}
             </div>
             <div className="mz-card-body">
               {ticket.mensajes.length === 0 ? (

@@ -731,6 +731,32 @@
   min-height: 44px;
 }
 
-.soporte-publico__estado .soporte-llamar {
+/* La llamada en la cabecera de «Conversación»: a la derecha del título y,
+   sin espacio, debajo. El motivo (sin HTTPS, ocupado) va bajo el botón. */
+.soporte-conversacion-head {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  /* El título a la altura del botón, no del bloque botón + motivo. */
+  align-items: baseline;
+}
+
+.soporte-conversacion-head .soporte-llamar {
   margin-left: auto;
+  max-width: 20rem;
+}
+
+@media (max-width: 575.98px) {
+  /* En el teléfono, siempre en su propia línea, sea corto o largo el nombre. */
+  .soporte-conversacion-head .soporte-llamar {
+    flex-basis: 100%;
+    margin-left: 0;
+    max-width: none;
+  }
+}
+
+/* Sin HTTPS u ocupado: sigue enfocable (y dice por qué), pero no parece
+   un botón que funciona. */
+.soporte-llamar .btn[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
