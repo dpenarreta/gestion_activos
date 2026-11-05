@@ -3,12 +3,16 @@ intranet: Proyectos (con su papelera y sus documentos), Ausencias y lo que
 persiste el motor de KPI.
 
     manage.py importar_nexo_gh --empresa <id> [--aplicar] [--informe <ruta.csv>]
+                               [--excluir-usuario <correo> ...]
 
 Sin `--aplicar` es un simulacro: hace todo dentro de una transacción (también
 guarda los documentos, para probar el almacenamiento), verifica y lo deshace
 todo, archivos incluidos; pero imprime el resumen igual. La base de Nexo es la
 misma que usan `importar_nexo` e `importar_nexo_tareas` (variables NEXO_DB_*)
 y solo se lee. Detalle del recorrido en `apps/projects/nexo/importador.py`.
+
+`--excluir-usuario` (repetible) deja fuera las filas cuyo sujeto es esa persona
+(una cuenta de pruebas, por ejemplo); si aparece en datos de otros, aborta.
 
 Se llama `_gh` y no `_proyectos` porque trae tres módulos en una pasada.
 """
@@ -56,9 +60,22 @@ class Command(BaseCommand):
         parser.add_argument(
             "--informe", help="Ruta de un CSV con el informe (fuera del repositorio)."
         )
+        parser.add_argument(
+            "--excluir-usuario",
+            action="append",
+            default=[],
+            metavar="CORREO",
+            help=(
+                "Correo de Nexo cuyas filas propias no se importan (repetible). Si aparece "
+                "en filas de otras personas, la importación aborta."
+            ),
+        )
 
     def handle(self, *args, **opciones):
         ruta = ruta_de_informe(opciones["informe"]) if opciones.get("informe") else None
+        excluir = [c.strip().lower() for c in opciones.get("excluir_usuario") or []]
+        if any("@" not in c for c in excluir):
+            raise CommandError("--excluir-usuario espera un correo.")
         empresa = Empresa.objects.filter(pk=opciones["empresa"]).first()
         if empresa is None:
             raise CommandError(f"No existe la empresa con id {opciones['empresa']}.")
@@ -68,7 +85,9 @@ class Command(BaseCommand):
             lector = opciones.get("lector") or LectorNexoGHSQL(
                 corte_medico=medical_retention_cutoff(business_calendar_day(timezone.now()))
             )
-            importador = ImportadorNexoGH(lector, empresa, aplicar=opciones["aplicar"])
+            importador = ImportadorNexoGH(
+                lector, empresa, aplicar=opciones["aplicar"], excluir_usuarios=excluir
+            )
             modo = "APLICAR" if opciones["aplicar"] else "SIMULACRO (no se guarda nada)"
             self.stdout.write(
                 f"Proyectos, Ausencias y KPI de Nexo → «{empresa}» (id {empresa.pk}) — {modo}"
@@ -140,6 +159,13 @@ class Command(BaseCommand):
                     f"({doc['bytes']} bytes): {doc['motivo']}"
                 )
             )
+        if informe.usuarios_excluidos:
+            w(f"Usuarios excluidos: {', '.join(informe.usuarios_excluidos)}")
+            if informe.excluidas_por_usuario:
+                for tabla, filas in informe.excluidas_por_usuario.items():
+                    w(f"  excluidas por usuario — {tabla}: {filas}")
+            else:
+                w("  excluidas por usuario: ninguna fila")
         if informe.kpi_omitidos:
             w(f"Fecha de inicio del KPI omitida (sin cuenta): {len(informe.kpi_omitidos)}")
         renombrados = sum(informe.roles_renombrados.values())
@@ -204,6 +230,10 @@ class Command(BaseCommand):
                         ),
                     ]
                 )
+            for correo in informe.usuarios_excluidos:
+                csv_.writerow(["usuario_excluido", correo, "", "", ""])
+            for tabla, filas in informe.excluidas_por_usuario.items():
+                csv_.writerow(["excluidas_por_usuario", tabla, filas, "", ""])
             for correo in informe.kpi_omitidos:
                 csv_.writerow(["kpi_omitido", correo, "", "", ""])
             for tabla, veces in sorted(informe.roles_renombrados.items()):

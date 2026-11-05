@@ -152,6 +152,21 @@ NO_SE_MIGRA = {
 #: Tipos de ausencia y de estado especial: datos de salud.
 TIPOS_DE_SALUD = frozenset({TIPO_MEDICO, *SpecialStatus.Type.values})
 
+#: Columna que es el SUJETO de cada fila: si es un usuario excluido
+#: (`--excluir-usuario`), la fila no se importa. Las tablas que no están aquí
+#: (proyectos, fases, documentos, historial, papelera, ajustes) no tienen un
+#: dueño que se pueda quitar sin perder datos ajenos: si un excluido aparece en
+#: ellas, la importación aborta.
+SUJETO_POR_TABLA = {
+    "analyticsauditlog": "user_id",
+    "leaverecord": "user_id",
+    "specialstatus": "user_id",
+    "kpistartdate": "id",
+    "projectparticipant": "user_id",
+    "projectactivity": "author_id",
+    "projectcomment": "author_id",
+}
+
 #: Claves dentro del JSON del historial que son ids de Nexo.
 _REFERENCIAS_DEL_HISTORIAL = {
     "responsible_id": "usuario",
@@ -217,6 +232,10 @@ class InformeGH(InformeBase):
     medicos_vencidos: dict = field(default_factory=dict)
     #: Personas con fecha de inicio del KPI en Nexo y sin cuenta en la intranet.
     kpi_omitidos: list[str] = field(default_factory=list)
+    #: Correos excluidos con `--excluir-usuario` y, por tabla, cuántas filas
+    #: suyas no se importaron.
+    usuarios_excluidos: list[str] = field(default_factory=list)
+    excluidas_por_usuario: dict[str, int] = field(default_factory=dict)
 
 
 class ImportadorNexoGH(ImportadorBase):
@@ -224,8 +243,14 @@ class ImportadorNexoGH(ImportadorBase):
     tablas = TABLAS
     informe_class = InformeGH
 
-    def __init__(self, lector: LectorNexoGH, empresa, *, aplicar: bool = False):
+    def __init__(
+        self, lector: LectorNexoGH, empresa, *, aplicar: bool = False, excluir_usuarios=()
+    ):
         super().__init__(lector, empresa, aplicar=aplicar)
+        #: Correos (en minúsculas) cuyas filas no se importan (ver
+        #: `_excluir_usuarios`).
+        self.excluir = sorted({c.strip().lower() for c in excluir_usuarios if c.strip()})
+        self.informe.usuarios_excluidos = list(self.excluir)
         #: tabla → filas que deben quedar en la intranet (si no, las leídas).
         self.esperados: dict[str, int] = {}
         #: Documentos aceptados, ya en la carpeta temporal: id de Nexo → datos.
@@ -262,6 +287,101 @@ class ImportadorNexoGH(ImportadorBase):
         self.usuarios_nexo = {
             u["id"]: u for u in self.lector.usuarios(self.usuarios_necesarios | opcionales)
         }
+        if self.excluir:
+            self._excluir_usuarios()
+            # Lo que queda ya no necesita a los excluidos.
+            self.usuarios_necesarios = self._usuarios_de_las_filas()
+
+    # 1b. Usuarios excluidos (`--excluir-usuario`) -------------------------------
+
+    def _correo(self, fila: dict | None) -> str:
+        return str((fila or {}).get("email") or "").strip().lower()
+
+    def _excluir_usuarios(self):
+        """Quita las filas cuyo SUJETO (`SUJETO_POR_TABLA`) es un usuario
+        excluido y descuenta de las sumas de Nexo lo que aportaban. Si un
+        excluido aparece en cualquier otra columna de una fila que sí se
+        importa (creador de un proyecto ajeno, actor del historial, un id
+        dentro del JSON, una actividad suya con documentos…), aborta: excluirlo
+        borraría datos de otras personas."""
+        excluidos = {
+            uid for uid, u in self.usuarios_nexo.items() if self._correo(u) in self.excluir
+        } | {f["id"] for f in self.datos["kpistartdate"] if self._correo(f) in self.excluir}
+        encontrados = {self._correo(self.usuarios_nexo.get(uid)) for uid in excluidos} | {
+            self._correo(f) for f in self.datos["kpistartdate"] if f["id"] in excluidos
+        }
+        for correo in self.excluir:
+            if correo not in encontrados:
+                self.informe.avisos.append(
+                    f"--excluir-usuario {correo}: no aparece en nada de lo que se importa."
+                )
+        if not excluidos:
+            return
+
+        quitadas: dict[str, list[dict]] = {}
+        for tabla, columna in SUJETO_POR_TABLA.items():
+            fuera = [f for f in self.datos[tabla] if f.get(columna) in excluidos]
+            if fuera:
+                quitadas[tabla] = fuera
+                ids = {f["id"] for f in fuera}
+                self.datos[tabla] = [f for f in self.datos[tabla] if f["id"] not in ids]
+                self.esperados[tabla] = len(self.datos[tabla])
+
+        referencias = []
+        for tabla, filas in self.datos.items():
+            sujeto = SUJETO_POR_TABLA.get(tabla)
+            columnas = [c for c in self.tablas[tabla].usuarios if c != sujeto]
+            for fila in filas:
+                for columna in columnas:
+                    if fila.get(columna) in excluidos:
+                        referencias.append(f"{tabla} #{fila['id']}, columna {columna}")
+        for fila in self.datos["projecthistory"]:
+            for nombre in ("previous_value", "new_value"):
+                valor = fila[nombre]
+                if not isinstance(valor, dict):
+                    continue
+                for campo, destino in _REFERENCIAS_DEL_HISTORIAL.items():
+                    if destino == "usuario" and valor.get(campo) in excluidos:
+                        referencias.append(f"projecthistory #{fila['id']}, {nombre}.{campo}")
+        actividades_fuera = {f["id"] for f in quitadas.get("projectactivity", [])}
+        for fila in self.datos["projectdocument"]:
+            if fila["activity_id"] in actividades_fuera:
+                referencias.append(
+                    f"projectdocument #{fila['id']}, columna activity_id (actividad "
+                    f"#{fila['activity_id']} del usuario excluido)"
+                )
+        if referencias:
+            raise ImportacionAbortada(
+                f"Un usuario excluido aparece en {len(referencias)} filas que no son suyas; "
+                "excluirlo perdería datos de otras personas. Corrija esas filas en Nexo o no "
+                "lo excluya. No se creó ni se cambió nada.",
+                referencias,
+                codigo="usuario_excluido_referenciado",
+            )
+
+        self.informe.excluidas_por_usuario = {t: len(f) for t, f in quitadas.items()}
+        self._descontar_de_los_totales(quitadas)
+
+    def _descontar_de_los_totales(self, quitadas: dict[str, list[dict]]):
+        """Las sumas de control de Nexo incluyen las filas excluidas: se restan
+        para comparar con lo que de verdad se importa."""
+        actividades = self.totales_nexo.get("actividades", {})
+        for f in quitadas.get("projectactivity", []):
+            momento = (f["activity_date"] or f["created_at"]).astimezone(UTC)
+            c = actividades.get((momento.year, momento.month))
+            if c is not None:
+                c["registros"] -= 1
+                c["minutos"] -= f["duration"]
+        ausencias = self.totales_nexo.get("ausencias", {})
+        for f in quitadas.get("leaverecord", []):
+            c = ausencias.get((f["date"].year, f["date"].month))
+            if c is not None:
+                c["registros"] -= 1
+                c["minutos"] -= f["duration_minutes"] or 0
+                c["dias_completos"] -= 1 if f["is_full_day"] else 0
+        for totales in (actividades, ausencias):
+            for clave in [k for k, c in totales.items() if not any(c.values())]:
+                del totales[clave]
 
     # 2. Comprobaciones previas -------------------------------------------------
 

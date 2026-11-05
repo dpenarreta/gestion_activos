@@ -1189,3 +1189,134 @@ def test_convertir_da_tipos_de_python():
         TABLAS["projecthistory"], {"new_value": '{"document_id": 5}', "previous_value": None}
     )
     assert historial["new_value"] == {"document_id": 5}
+
+
+# ── Usuarios excluidos (`--excluir-usuario`) ─────────────────────────────────
+
+QA = 9050
+CORREO_QA = "qa.pruebas@grupolaar.com"
+
+
+def lector_con_qa(**cambios) -> LectorEnMemoria:
+    """Nexo con una cuenta de pruebas que no existe ni existirá en la
+    intranet, dueña de 2 cálculos del KPI (como en producción)."""
+    lector = LectorEnMemoria(
+        usuarios=[*USUARIOS_NEXO, {"id": QA, "username": "qa", "email": CORREO_QA}]
+    )
+    for pk, periodo in ((2950, "2026-09"), (2951, "2026-10")):
+        lector.datos["analyticsauditlog"].append(
+            {
+                "id": pk,
+                "user_id": QA,
+                "kind": "health_score",
+                "period": periodo,
+                "inputs": {"completed_pct": 0.0},
+                "result": {"score": 20},
+                "engine_version": "1.5.0",
+                "created_at": t(10, 20, 20),
+            }
+        )
+    return lector
+
+
+def test_sin_excluirlo_la_cuenta_de_pruebas_falta_y_aborta(intranet):
+    with pytest.raises(CommandError, match=CORREO_QA):
+        importar(lector_con_qa(), "--aplicar")
+    assert nada_importado()
+
+
+def test_excluir_un_usuario_deja_fuera_su_auditoria_del_kpi(intranet, tmp_path):
+    ruta = tmp_path / "informe.csv"
+    salida = importar(
+        lector_con_qa(),
+        "--aplicar",
+        "--excluir-usuario",
+        "QA.Pruebas@GrupoLaar.com",
+        "--informe",
+        str(ruta),
+    )
+
+    assert "Importación confirmada" in salida and "NO CUADRA" not in salida
+    assert "excluidas por usuario — analyticsauditlog: 2" in salida
+    # Las 2 de las personas reales sí pasan.
+    assert AnalyticsAuditLog.objects.count() == 2
+    assert not AnalyticsAuditLog.objects.filter(kind="health_score").exists()
+    assert not User.objects.filter(email__iexact=CORREO_QA).exists()
+    texto = ruta.read_text(encoding="utf-8-sig")
+    assert f"usuario_excluido,{CORREO_QA}" in texto
+    assert "excluidas_por_usuario,analyticsauditlog,2" in texto
+    # Leídas en Nexo: todas; esperadas en la intranet: sin las excluidas.
+    assert "verificacion,analyticsauditlog: filas en Nexo / leídas,4,4,ok" in texto
+    assert "verificacion,analyticsauditlog: esperadas / en la intranet,2,2,ok" in texto
+
+
+def test_la_verificacion_descuenta_horas_y_ausencias_del_excluido(intranet):
+    lector = lector_con_qa()
+    lector.datos["projectactivity"].append(
+        _actividad(2290, 1001, author_id=QA, duration=35, created_at=t(9, 16, 9))
+    )
+    lector.datos["leaverecord"].append(
+        _ausencia(2790, QA, "PERSONAL", date(2026, 9, 12), is_full_day=False, duration_minutes=50)
+    )
+
+    salida = importar(lector, "--aplicar", "--excluir-usuario", CORREO_QA)
+
+    assert "Importación confirmada" in salida and "NO CUADRA" not in salida
+    assert "excluidas por usuario — projectactivity: 1" in salida
+    assert "excluidas por usuario — leaverecord: 1" in salida
+    assert not ProjectActivity.objects.filter(duration=35).exists()
+    assert not LeaveRecord.objects.filter(date=date(2026, 9, 12)).exists()
+    assert ProjectActivity.objects.count() == 3 and LeaveRecord.objects.count() == 4
+
+
+@pytest.mark.parametrize(
+    ("tabla", "cambio", "donde"),
+    [
+        (
+            "leaverecord",
+            lambda filas: filas[0].update(created_by_id=QA),
+            "leaverecord #2701, columna created_by_id",
+        ),
+        (
+            "project",
+            lambda filas: filas[1].update(created_by_id=QA),
+            "project #1002, columna created_by_id",
+        ),
+        (
+            "projecthistory",
+            lambda filas: filas[0]["new_value"].update(responsible_id=QA),
+            "projecthistory #2501, new_value.responsible_id",
+        ),
+    ],
+)
+def test_si_el_excluido_aparece_en_datos_ajenos_aborta(intranet, tabla, cambio, donde):
+    lector = lector_con_qa()
+    cambio(lector.datos[tabla])
+
+    with pytest.raises(CommandError) as error:
+        importar(lector, "--aplicar", "--excluir-usuario", CORREO_QA)
+
+    mensaje = str(error.value)
+    assert "aparece en 1 filas que no son suyas" in mensaje
+    assert donde in mensaje
+    assert nada_importado()
+
+
+def test_la_actividad_excluida_con_documentos_ajenos_aborta(intranet):
+    lector = lector_con_qa()
+    lector.datos["projectactivity"][0]["author_id"] = QA  # la 2201 tiene el acta
+
+    with pytest.raises(CommandError, match="projectdocument #2401, columna activity_id"):
+        importar(lector, "--aplicar", "--excluir-usuario", CORREO_QA)
+    assert nada_importado()
+
+
+def test_excluir_un_correo_que_no_aparece_solo_avisa(intranet):
+    salida = importar(None, "--excluir-usuario", "nadie@grupolaar.com")
+    assert "nadie@grupolaar.com: no aparece en nada de lo que se importa" in salida
+    assert "excluidas por usuario: ninguna fila" in salida
+
+
+def test_excluir_usuario_pide_un_correo(intranet):
+    with pytest.raises(CommandError, match="espera un correo"):
+        importar(None, "--excluir-usuario", "qa")
