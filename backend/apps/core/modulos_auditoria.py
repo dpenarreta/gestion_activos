@@ -27,6 +27,7 @@ NOMBRES = {
     "reportes": "Reportes",
     "chat": "Chat",
     "matriz": "Matriz de obligaciones",
+    "tareas": "Gestión Humana · Tareas",
 }
 
 

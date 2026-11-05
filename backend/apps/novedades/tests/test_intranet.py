@@ -415,7 +415,13 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
     administrador del sistema: ningún permiso de otro módulo (04/11/2026)."""
     rol = Group.objects.get(name="Administrador de Gestión Humana")
     codenames = set(rol.permissions.values_list("codename", flat=True))
-    assert codenames == set(PERMISSION_CATALOG["novedades"]["permissions"])
+    # Desde la fase 2a (tasks/0002) administra también Tareas y Equipo: todo
+    # Gestión Humana y nada de otro módulo.
+    assert codenames == (
+        set(PERMISSION_CATALOG["novedades"]["permissions"])
+        | set(PERMISSION_CATALOG["tareas"]["permissions"])
+        | set(PERMISSION_CATALOG["equipo"]["permissions"])
+    )
 
     admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
     cliente = _cliente(admin_gh, courier)
@@ -443,8 +449,13 @@ def test_destinatarios_unicos_dentro_de_la_empresa(courier):
     assert CollaboratorNotificationRecipient.objects.todas().get().email == "talento@example.com"
 
 
-def test_los_roles_de_gestion_humana_existen_y_aun_no_conceden_nada(db):
-    """Vienen de Nexo para que cada persona quede con su rol; sus permisos
-    llegan cuando se porte Tareas, carga y KPI."""
+def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
+    """Vienen de Nexo para que cada persona quede con su rol. En Novedades no
+    conceden nada; desde la fase 2a (tasks/0002) dan lo suyo en Tareas y
+    Equipo, y nada de otro módulo."""
     for nombre in ("JEFE_NACIONAL", "ANALISTA_CC", "TRABAJO_SOCIAL", "ASISTENTE_NOMINA"):
-        assert not Group.objects.get(name=nombre).permissions.exists()
+        codenames = set(
+            Group.objects.get(name=nombre).permissions.values_list("codename", flat=True)
+        )
+        assert "tareas.acceder" in codenames
+        assert all(c.startswith(("tareas.", "equipo.")) for c in codenames), codenames

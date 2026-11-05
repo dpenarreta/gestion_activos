@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     "apps.nomina",
     "apps.capacitacion",
     "apps.novedades",
+    "apps.tasks",
 ]
 
 MIDDLEWARE = [

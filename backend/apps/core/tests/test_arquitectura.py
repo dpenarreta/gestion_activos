@@ -100,6 +100,7 @@ APPS_DE_NEGOCIO = (
     "nomina",
     "capacitacion",
     "novedades",
+    "tasks",
 )
 
 #: Y de esas, las que llevan **reglas**: dar de alta un activo emite su código
@@ -118,6 +119,7 @@ APPS_CON_SERVICIOS = (
     "nomina",
     "capacitacion",
     "novedades",
+    "tasks",
 )
 
 

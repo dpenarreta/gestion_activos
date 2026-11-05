@@ -643,6 +643,38 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    "tareas": {
+        "label": "Tareas",
+        "description": (
+            "Tareas del equipo de Gestión Humana: registro de horas, Tiempo Objetivo, "
+            "Fecha Fin, cierre de mes y repositorio. Cada quien ve sus tareas y las de su "
+            "equipo según el organigrama."
+        ),
+        "permissions": {
+            "tareas.acceder": (
+                "Acceder a Tareas: ver y trabajar sus tareas y asignarlas a su equipo"
+            ),
+            "tareas.validar": (
+                "Validar el Tiempo Objetivo y decidir la Fecha Fin de tareas ajenas"
+            ),
+            "tareas.regularizar": (
+                "Regularizar en bloque Tiempo Objetivo/Fecha Fin y ver pendientes de "
+                "regularización"
+            ),
+            "tareas.cerrar_mes": "Cerrar el mes de tareas del equipo",
+            "tareas.administrar": (
+                "Administrar Tareas: ver y gestionar todas las tareas de la empresa, corregir "
+                "archivadas, editar horas registradas, motivos de actividad y ajustes"
+            ),
+        },
+    },
+    "equipo": {
+        "label": "Equipo",
+        "description": "Consulta de las personas de su equipo (según el organigrama) y sus tareas.",
+        "permissions": {
+            "equipo.ver": "Ver su equipo (según el organigrama) y sus tareas",
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -772,10 +804,12 @@ MODULE_GROUPS = [
         "description": (
             "Solo sirven en el módulo de Gestión Humana: el control operativo de "
             "novedades (días laborados, horas extras, cierres, depuración e "
-            "ingresos y salidas de colaboradores). Los Supervisores, Asistentes y "
-            "Jefes de Operaciones tienen además reglas propias por rol."
+            "ingresos y salidas de colaboradores), las tareas del equipo y la "
+            "pantalla de Equipo. Los Supervisores, Asistentes y Jefes de "
+            "Operaciones tienen además reglas propias por rol; en Tareas y Equipo, "
+            "lo que cada quien ve lo decide además el organigrama."
         ),
-        "modules": ["novedades"],
+        "modules": ["novedades", "tareas", "equipo"],
     },
     {
         "id": "matriz",
