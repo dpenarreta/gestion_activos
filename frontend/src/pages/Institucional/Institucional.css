@@ -4113,3 +4113,128 @@
     min-height: 44px;
   }
 }
+
+/* --- Solicitud de permisos: cómo se registra y permisos por horas
+   (05/11/2026) --- */
+
+/* «Qué descuenta» y «Se pide por»: cada opción es una tarjeta con su
+   explicación, y se elige tocando cualquier parte de ella. */
+.flujo-opciones {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.flujo-opciones legend {
+  float: none;
+  margin-bottom: 2px;
+}
+
+.flujo-opcion {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.flujo-opcion .form-check-input {
+  grid-row: span 2;
+  /* El borde de un control, 3:1 o más (WCAG 1.4.11): --mz-ink-faint da
+     5.3:1 sobre blanco y unos 5.7:1 sobre el fondo oscuro. */
+  border-color: var(--mz-ink-faint);
+  margin-left: 0;
+  margin-top: 3px;
+}
+
+.flujo-opcion__titulo {
+  display: block;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+.flujo-opcion small {
+  grid-column: 2;
+  color: var(--mz-ink-soft);
+}
+
+.flujo-opcion.is-elegida {
+  border-color: var(--mz-action);
+  box-shadow: inset 0 0 0 1px var(--mz-action);
+}
+
+.flujo-opcion.is-deshabilitada {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* El foco se ve también al elegir con el clic, no solo con el teclado; y en
+   el grupo, cuando lo enfoca un error. */
+.flujo-opciones:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.flujo-opcion:focus-within {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* El tipo de ausencia fijado por el descuento: texto, no un selector
+   desactivado. */
+.flujo-fijado {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 13px;
+}
+
+/* El permiso de cada tarjeta de la lista, en el teléfono. */
+.solicitud-tarjeta__abrir {
+  text-align: left;
+  font-weight: 600;
+}
+
+/* Desde las / Hasta las, lado a lado; en el teléfono angosto, una bajo la
+   otra. */
+.solicitud-horas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* Bajo 420 px no caben dos horas lado a lado con su etiqueta. */
+@media (max-width: 419px) {
+  .solicitud-horas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Qué descuenta el tipo elegido, junto a su ruta de aprobación. */
+.solicitud-descuento {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+/* En la lista: qué descuenta, bajo el nombre, y el horario, bajo la fecha. */
+.solicitudes-tabla__descuento,
+.solicitudes-tabla__horario {
+  display: block;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+}
+
+@media (pointer: coarse) {
+  .flujo-opcion {
+    min-height: 44px;
+  }
+}

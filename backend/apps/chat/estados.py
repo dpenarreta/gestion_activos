@@ -112,7 +112,7 @@ def vacaciones_sugeridas(usuario) -> dict | None:
     hoy = timezone.localdate()
     base = (
         SolicitudPermiso.objects.filter(solicitante=usuario, hasta__gte=hoy)
-        .filter(Q(flujo__descuenta_vacaciones=True) | Q(flujo__nombre__icontains="vacaci"))
+        .filter(Q(descuento="vacaciones") | Q(flujo__nombre__icontains="vacaci"))
         .order_by("desde")
     )
     for estado in (SolicitudPermiso.Estado.APROBADA, SolicitudPermiso.Estado.PENDIENTE):

@@ -79,7 +79,8 @@ def resumen(usuario) -> dict:
         for s in SolicitudPermiso.objects.filter(
             solicitante=usuario,
             estado=SolicitudPermiso.Estado.PENDIENTE,
-            flujo__descuenta_vacaciones=True,
+            # La de la solicitud, no la actual del tipo (05/11/2026).
+            descuento="vacaciones",
         )
         .select_related("flujo", "paso_actual")
         .order_by("desde")

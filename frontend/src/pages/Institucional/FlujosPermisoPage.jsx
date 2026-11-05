@@ -12,6 +12,7 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import {
+  DESCUENTOS,
   DESTINOS,
   DESTINOS_APROBADOR,
   DESTINOS_AVISO,
@@ -34,7 +35,9 @@ const NUEVO = {
   orden: 0,
   dias_minimos: 0,
   dias_maximos: 0,
-  descuenta_vacaciones: false,
+  descuento: "ninguno",
+  unidad: "dias",
+  tipo_ausencia: "PERSONAL",
   sabados_por_periodo: 0,
   domingos_por_periodo: 0,
   restricciones: "",
@@ -54,11 +57,32 @@ const LISTA_DE = { persona: "personas", rol: "roles", cargo: "cargos" };
 let ultimaClave = 0;
 export const nuevaClave = () => `k${(ultimaClave += 1)}`;
 
+/** Qué descuenta, en qué unidad se pide y qué ausencia genera en Gestión
+ * Humana (05/11/2026). Un tipo guardado antes solo traía
+ * `descuenta_vacaciones`: se lee igual que en el servidor. */
+export function clasificacion(flujo) {
+  const descuento =
+    flujo.descuento ?? (flujo.descuenta_vacaciones ? "vacaciones" : "ninguno");
+  const vacaciones = descuento === "vacaciones";
+  return {
+    descuento,
+    unidad: vacaciones ? "dias" : (flujo.unidad ?? "dias"),
+    // Sin descuento de vacaciones, la ausencia es personal o médica: el
+    // servidor rechaza VACACIONES sin ese descuento.
+    tipo_ausencia: vacaciones
+      ? "VACACIONES"
+      : flujo.tipo_ausencia === "MEDICO"
+        ? "MEDICO"
+        : "PERSONAL",
+  };
+}
+
 function conClaves(flujo) {
   const destinos = (lista) =>
     (lista ?? []).map((d) => ({ ...d, _k: nuevaClave() }));
   return {
     ...flujo,
+    ...clasificacion(flujo),
     pasos: (flujo.pasos ?? []).map((p) => ({
       ...p,
       _k: nuevaClave(),
@@ -85,15 +109,25 @@ function paraEnviar(flujo) {
     activo: flujo.activo,
     adjunto: flujo.adjunto,
     orden: Number(flujo.orden) || 0,
-    dias_minimos: Number(flujo.dias_minimos) || 0,
-    dias_maximos: Number(flujo.dias_maximos) || 0,
-    descuenta_vacaciones: Boolean(flujo.descuenta_vacaciones),
-    sabados_por_periodo: flujo.descuenta_vacaciones
-      ? Number(flujo.sabados_por_periodo) || 0
-      : 0,
-    domingos_por_periodo: flujo.descuenta_vacaciones
-      ? Number(flujo.domingos_por_periodo) || 0
-      : 0,
+    // Por horas es un solo día: el mínimo y el máximo no aplican (y un
+    // mínimo de más de 1 lo rechaza el servidor).
+    dias_minimos:
+      flujo.unidad === "horas" ? 0 : Number(flujo.dias_minimos) || 0,
+    dias_maximos:
+      flujo.unidad === "horas" ? 0 : Number(flujo.dias_maximos) || 0,
+    // `descuento` manda; el servidor deja `descuenta_vacaciones` como su
+    // espejo, así que ya no se envía.
+    descuento: flujo.descuento,
+    unidad: flujo.unidad,
+    tipo_ausencia: flujo.tipo_ausencia,
+    sabados_por_periodo:
+      flujo.descuento === "vacaciones"
+        ? Number(flujo.sabados_por_periodo) || 0
+        : 0,
+    domingos_por_periodo:
+      flujo.descuento === "vacaciones"
+        ? Number(flujo.domingos_por_periodo) || 0
+        : 0,
     restricciones: flujo.restricciones ?? "",
     pide_motivo: flujo.pide_motivo !== false,
     // Con su id: al editar, el servidor conserva el paso y las solicitudes
@@ -180,6 +214,9 @@ const NOMBRE_CAMPO = {
   adjunto: "Documento de respaldo",
   dias_minimos: "Mínimo de días",
   dias_maximos: "Máximo de días",
+  descuento: "Qué descuenta",
+  unidad: "Se pide por",
+  tipo_ausencia: "Tipo de ausencia en Gestión Humana",
   sabados_por_periodo: "Sábados por período",
   domingos_por_periodo: "Domingos por período",
   restricciones: "Otras indicaciones",
@@ -392,6 +429,253 @@ export function ListaDeDestinos({
   );
 }
 
+const OPCIONES_DESCUENTO = [
+  [
+    "sueldo",
+    "La ausencia queda registrada en Gestión Humana y se descuenta del sueldo.",
+  ],
+  [
+    "vacaciones",
+    "Los días salen de las vacaciones pendientes de la persona, del período más antiguo al más nuevo. Se pide por días y queda registrado como vacaciones.",
+  ],
+  [
+    "ninguno",
+    "La persona falta con goce de sueldo: la ausencia queda registrada, sin descuento.",
+  ],
+];
+
+const OPCIONES_UNIDAD = [
+  ["dias", "Días", "Uno o varios días completos."],
+  [
+    "horas",
+    "Horas",
+    "Unas horas dentro de un mismo día, con hora de inicio y de fin.",
+  ],
+];
+
+export const TIPOS_AUSENCIA = {
+  PERSONAL: "Personal",
+  MEDICO: "Médica",
+  VACACIONES: "Vacaciones",
+};
+
+/** Las que se eligen; «Vacaciones» solo queda fijada por el descuento. */
+const TIPOS_ELEGIBLES = ["PERSONAL", "MEDICO"];
+
+const AYUDA_MEDICO =
+  "Dato de salud protegido (LOPDP): en Gestión Humana solo ven que es médica la persona y quien tiene permiso para ver las ausencias médicas; los demás ven «Ausencia». Se borra a los cinco años. En las solicitudes, quienes aprueban ven el tipo, el motivo y el documento.";
+
+/** Un grupo de opciones excluyentes (radios) con su leyenda, la explicación
+ * de cada opción y el error debajo. El error se marca en el grupo
+ * (`radiogroup` admite `aria-invalid`; un `radio` suelto, no), así
+ * `enfocarPrimerError` lleva el foco al grupo y se lee su error. */
+function GrupoDeOpciones({
+  id,
+  leyenda,
+  opciones,
+  valor,
+  onCambio,
+  error,
+  nota,
+}) {
+  const idError = error ? `${id}-error` : undefined;
+  const describe =
+    [nota && `${id}-nota`, idError].filter(Boolean).join(" ") || undefined;
+  return (
+    <fieldset
+      className="flujo-opciones"
+      role="radiogroup"
+      aria-labelledby={`${id}-leyenda`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={describe}
+    >
+      <legend id={`${id}-leyenda`} className="form-label">
+        {leyenda}
+      </legend>
+      {opciones.map((o) => (
+        <label
+          key={o.valor}
+          htmlFor={`${id}-${o.valor}`}
+          className={`flujo-opcion${valor === o.valor ? " is-elegida" : ""}${o.deshabilitada ? " is-deshabilitada" : ""}`}
+        >
+          <input
+            type="radio"
+            className="form-check-input"
+            name={id}
+            id={`${id}-${o.valor}`}
+            value={o.valor}
+            checked={valor === o.valor}
+            disabled={o.deshabilitada}
+            aria-describedby={`${id}-${o.valor}-ayuda`}
+            onChange={() => onCambio(o.valor)}
+          />
+          <span className="flujo-opcion__titulo">{o.titulo}</span>
+          <small id={`${id}-${o.valor}-ayuda`}>{o.explicacion}</small>
+        </label>
+      ))}
+      {nota && (
+        <p id={`${id}-nota`} className="mz-faint mz-small mb-0">
+          {nota}
+        </p>
+      )}
+      {error && (
+        <div id={idError} className="mz-field-error">
+          {error}
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+/** «Cómo se registra» (05/11/2026): qué descuenta, en qué unidad se pide y
+ * qué ausencia genera en Gestión Humana al aprobarse. La pantalla aplica las
+ * mismas reglas de coherencia que el servidor: «vacaciones» fija el tipo
+ * VACACIONES y la unidad días, y un tipo VACACIONES no se pide por horas.
+ *
+ * Con solicitudes (`conSolicitudes`) no se cambia entre días y horas: las que
+ * ya existen quedarían con otra forma. */
+function ComoSeRegistra({
+  flujo,
+  cambiar,
+  errores,
+  anunciar,
+  editando,
+  conSolicitudes,
+}) {
+  const vacaciones = flujo.descuento === "vacaciones";
+  // Pasar a vacaciones obliga a pedir por días: con solicitudes por horas, no.
+  const vacacionesBloqueadas = conSolicitudes && flujo.unidad === "horas";
+
+  function cambiarDescuento(descuento) {
+    const cambios = { descuento };
+    if (descuento === "vacaciones") {
+      cambios.tipo_ausencia = "VACACIONES";
+      cambios.unidad = "dias";
+      anunciar(
+        "Se descuenta de las vacaciones: el tipo de ausencia queda en Vacaciones y se pide por días.",
+      );
+    } else if (vacaciones && flujo.tipo_ausencia === "VACACIONES") {
+      // Deja de descontar vacaciones: ya no registra vacaciones (igual que
+      // el servidor).
+      cambios.tipo_ausencia = "PERSONAL";
+      anunciar("El tipo de ausencia pasó a Personal.");
+    }
+    cambiar(cambios);
+  }
+
+  const notaUnidad = conSolicitudes
+    ? "Este tipo ya tiene solicitudes: no se cambia entre días y horas, porque las que existen quedarían con otra forma. Si lo necesita, cree otro tipo de permiso."
+    : vacaciones
+      ? "Las vacaciones se piden por días, no por horas."
+      : undefined;
+  const ayudaTipo =
+    flujo.tipo_ausencia === "MEDICO"
+      ? AYUDA_MEDICO
+      : "Es el tipo con el que queda cada ausencia al aprobarse la solicitud.";
+
+  return (
+    <section aria-labelledby="flujo-registro" className="flujo-bloque">
+      <h4 id="flujo-registro" className="flujo-seccion">
+        Cómo se registra
+      </h4>
+      <p className="mz-faint mz-small mb-2">
+        Al aprobarse la solicitud, sus ausencias se registran en Gestión Humana
+        con lo que elija aquí.
+      </p>
+      {editando && (
+        <p className="mz-alert mz-alert--info mb-2" role="note">
+          <Icon name="info-circle" />
+          <span>Los cambios solo valen para las solicitudes nuevas.</span>
+        </p>
+      )}
+      <div className="row g-3">
+        <div className="col-12 col-lg-7">
+          <GrupoDeOpciones
+            id="flujo-descuento"
+            leyenda="Qué descuenta"
+            valor={flujo.descuento}
+            onCambio={cambiarDescuento}
+            error={errores.campos.descuento}
+            nota={
+              vacacionesBloqueadas
+                ? "No se puede pasar a vacaciones: se piden por días y este tipo ya tiene solicitudes por horas."
+                : undefined
+            }
+            opciones={OPCIONES_DESCUENTO.map(([valor, explicacion]) => ({
+              valor,
+              titulo: DESCUENTOS[valor],
+              explicacion,
+              deshabilitada: valor === "vacaciones" && vacacionesBloqueadas,
+            }))}
+          />
+        </div>
+        <div className="col-12 col-lg-5 d-flex flex-column gap-3">
+          <GrupoDeOpciones
+            id="flujo-unidad"
+            leyenda="Se pide por"
+            valor={flujo.unidad}
+            onCambio={(unidad) => cambiar({ unidad })}
+            error={errores.campos.unidad}
+            nota={notaUnidad}
+            opciones={OPCIONES_UNIDAD.map(([valor, titulo, explicacion]) => ({
+              valor,
+              titulo,
+              explicacion,
+              deshabilitada:
+                valor !== flujo.unidad &&
+                (conSolicitudes || (valor === "horas" && vacaciones)),
+            }))}
+          />
+          {vacaciones ? (
+            // Fijado: se dice como texto, no con un selector desactivado
+            // (que no recibe el foco y se lee como algo que falla).
+            <div className="mz-campo">
+              <span className="form-label d-block" id="flujo-tipo-ausencia">
+                Tipo de ausencia en Gestión Humana
+              </span>
+              <p
+                className="flujo-fijado mb-0"
+                aria-describedby={
+                  errores.campos.tipo_ausencia
+                    ? "flujo-tipo-ausencia-error"
+                    : undefined
+                }
+              >
+                <strong>Vacaciones</strong> · fijado porque se descuenta de las
+                vacaciones
+              </p>
+              {errores.campos.tipo_ausencia && (
+                <div id="flujo-tipo-ausencia-error" className="mz-field-error">
+                  {errores.campos.tipo_ausencia}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Campo
+              id="flujo-tipo-ausencia"
+              etiqueta="Tipo de ausencia en Gestión Humana"
+              ayuda={ayudaTipo}
+              error={errores.campos.tipo_ausencia}
+            >
+              <select
+                className="form-select form-select-sm"
+                value={flujo.tipo_ausencia}
+                onChange={(e) => cambiar({ tipo_ausencia: e.target.value })}
+              >
+                {TIPOS_ELEGIBLES.map((valor) => (
+                  <option key={valor} value={valor}>
+                    {TIPOS_AUSENCIA[valor]}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** El recorrido que queda configurado, en una línea por etapa. */
 function ResumenDeRuta({ flujo, opciones }) {
   const lista = (destinos) =>
@@ -449,6 +733,8 @@ function EditorFlujo({
   const [anuncio, setAnuncio] = useState("");
   const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
+  // Contra el doble envío: el estado tarda un render en desactivar el botón.
+  const enviando = useRef(false);
   const { panelRef, handleBackdropClick, marcarCambio } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -462,11 +748,21 @@ function EditorFlujo({
     if (JSON.stringify(paraEnviar(flujo)) !== original) marcarCambio(true);
   }, [flujo, original, marcarCambio]);
 
-  const fijar = (campo) => (e) =>
-    setFlujo((f) => ({
-      ...f,
-      [campo]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
-    }));
+  // Al corregir un campo, su error deja de verse (si no, quedaba marcado
+  // aunque ya estuviera bien).
+  const limpiarError = (...nombres) =>
+    setErrores((actuales) => {
+      if (!nombres.some((n) => actuales.campos[n])) return actuales;
+      const campos = { ...actuales.campos };
+      nombres.forEach((n) => delete campos[n]);
+      return { ...actuales, campos };
+    });
+  const fijar = (campo) => (e) => {
+    const valor =
+      e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    setFlujo((f) => ({ ...f, [campo]: valor }));
+    limpiarError(campo);
+  };
   const pasos = flujo.pasos;
   const cambiarPasos = (nuevos) => setFlujo((f) => ({ ...f, pasos: nuevos }));
   const enfocar = (id) =>
@@ -511,6 +807,7 @@ function EditorFlujo({
 
   async function guardar(evento) {
     evento.preventDefault();
+    if (enviando.current) return;
     setErrores(VACIO_DE_ERRORES);
     // Lo que se puede saber sin ir al servidor, antes de enviar.
     const propios = validar(flujo);
@@ -519,6 +816,7 @@ function EditorFlujo({
       enfocarPrimerError(formulario.current);
       return;
     }
+    enviando.current = true;
     setGuardando(true);
     try {
       await onGuardado(paraEnviar(flujo));
@@ -526,6 +824,8 @@ function EditorFlujo({
       setErrores(erroresDelServidor(err));
       setGuardando(false);
       enfocarPrimerError(formulario.current);
+    } finally {
+      enviando.current = false;
     }
   }
 
@@ -688,6 +988,23 @@ function EditorFlujo({
             </div>
           </section>
 
+          <ComoSeRegistra
+            flujo={flujo}
+            cambiar={(cambios) => {
+              setFlujo((f) => ({ ...f, ...cambios }));
+              limpiarError(
+                "descuento",
+                "unidad",
+                "tipo_ausencia",
+                "dias_minimos",
+              );
+            }}
+            errores={errores}
+            anunciar={setAnuncio}
+            editando={editando}
+            conSolicitudes={Boolean(inicial.tiene_solicitudes)}
+          />
+
           <section
             aria-labelledby="flujo-restricciones"
             className="flujo-bloque"
@@ -696,53 +1013,46 @@ function EditorFlujo({
               Restricciones
             </h4>
             <p className="mz-faint mz-small mb-2">
-              Quien solicita las ve al elegir las fechas, con si las cumple. Los
-              mínimos y máximos no dejan enviar la solicitud; 0 es sin
-              restricción.
+              {flujo.unidad === "horas"
+                ? "Quien solicita las ve al elegir el día. Un permiso por horas es de un solo día: no lleva mínimo ni máximo de días."
+                : "Quien solicita las ve al elegir las fechas, con si las cumple. Los mínimos y máximos no dejan enviar la solicitud; 0 es sin restricción."}
             </p>
             <div className="row g-2">
-              <Campo
-                id="flujo-minimo"
-                etiqueta="Mínimo de días seguidos"
-                error={errores.campos.dias_minimos}
-                className="col-6 col-md-3"
-              >
-                <input
-                  type="number"
-                  min={0}
-                  className="form-control form-control-sm"
-                  value={flujo.dias_minimos ?? 0}
-                  onChange={fijar("dias_minimos")}
-                />
-              </Campo>
-              <Campo
-                id="flujo-maximo"
-                etiqueta="Máximo de días seguidos"
-                error={errores.campos.dias_maximos}
-                className="col-6 col-md-3"
-              >
-                <input
-                  type="number"
-                  min={0}
-                  className="form-control form-control-sm"
-                  value={flujo.dias_maximos ?? 0}
-                  onChange={fijar("dias_maximos")}
-                />
-              </Campo>
-              <div className="col-12 col-md-6 d-flex align-items-end">
-                <label className="form-check mb-1">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={Boolean(flujo.descuenta_vacaciones)}
-                    onChange={fijar("descuenta_vacaciones")}
-                  />{" "}
-                  <span className="form-check-label">
-                    Se descuenta de las vacaciones pendientes
-                  </span>
-                </label>
-              </div>
-              {flujo.descuenta_vacaciones && (
+              {flujo.unidad !== "horas" && (
+                <>
+                  <Campo
+                    id="flujo-minimo"
+                    etiqueta="Mínimo de días seguidos"
+                    error={errores.campos.dias_minimos}
+                    className="col-6 col-md-3"
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      className="form-control form-control-sm"
+                      value={flujo.dias_minimos ?? 0}
+                      onChange={fijar("dias_minimos")}
+                    />
+                  </Campo>
+                  <Campo
+                    id="flujo-maximo"
+                    etiqueta="Máximo de días seguidos"
+                    error={errores.campos.dias_maximos}
+                    className="col-6 col-md-3"
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      className="form-control form-control-sm"
+                      value={flujo.dias_maximos ?? 0}
+                      onChange={fijar("dias_maximos")}
+                    />
+                  </Campo>
+                </>
+              )}
+              {/* Los fines de semana por período solo aplican si se descuenta
+                  de las vacaciones («Cómo se registra»). */}
+              {flujo.descuento === "vacaciones" && (
                 <>
                   <Campo
                     id="flujo-sabados"
@@ -1003,12 +1313,29 @@ function EditorFlujo({
 
 const NOMBRE_ADJUNTO = Object.fromEntries(ADJUNTOS);
 
+const AUSENCIA_CORTA = {
+  PERSONAL: "Ausencia personal",
+  MEDICO: "Ausencia médica",
+  VACACIONES: "Ausencia de vacaciones",
+};
+
+const DESCUENTO_CORTO = {
+  sueldo: "Descuenta sueldo",
+  vacaciones: "Descuenta vacaciones",
+  ninguno: "Con sueldo",
+};
+
 /** Las restricciones de un tipo, en pocas palabras, para su tarjeta. */
 function resumenDeRestricciones(f) {
+  const { descuento, unidad, tipo_ausencia: tipo } = clasificacion(f);
+  const porDias = unidad !== "horas";
+  const dias = (n) => `${n} ${Number(n) === 1 ? "día" : "días"}`;
   return [
-    f.dias_minimos ? `Mín. ${f.dias_minimos} días` : null,
-    f.dias_maximos ? `Máx. ${f.dias_maximos} días` : null,
-    f.descuenta_vacaciones ? "Descuenta vacaciones" : null,
+    DESCUENTO_CORTO[descuento],
+    AUSENCIA_CORTA[tipo],
+    porDias ? null : "Por horas",
+    porDias && f.dias_minimos ? `Mín. ${dias(f.dias_minimos)}` : null,
+    porDias && f.dias_maximos ? `Máx. ${dias(f.dias_maximos)}` : null,
     f.adjunto !== "no" ? NOMBRE_ADJUNTO[f.adjunto] : null,
   ].filter(Boolean);
 }

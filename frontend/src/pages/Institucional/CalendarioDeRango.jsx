@@ -29,8 +29,11 @@ const esFecha = (texto) => /^\d{4}-\d{2}-\d{2}$/.test(texto ?? "");
  *
  * Con el teclado la grilla es una sola parada de Tab: las flechas mueven el
  * cursor (ver `navegacionCalendario.js`) y Enter o Espacio eligen el día.
+ *
+ * Con `unDia` (un permiso por horas, 05/11/2026) se elige un solo día: cada
+ * toque fija `desde = hasta`.
  */
-export function CalendarioDeRango({ desde, hasta, onCambio }) {
+export function CalendarioDeRango({ desde, hasta, onCambio, unDia = false }) {
   const [mes, setMes] = useState(() =>
     primeroDelMes(esFecha(desde) ? desde : iso(new Date())),
   );
@@ -82,6 +85,10 @@ export function CalendarioDeRango({ desde, hasta, onCambio }) {
   }
 
   function elegir(clave) {
+    if (unDia) {
+      onCambio({ desde: clave, hasta: clave });
+      return;
+    }
     if (!esperandoFin || !esFecha(desde) || clave < desde) {
       onCambio({ desde: clave, hasta: clave });
       setEsperandoFin(true);
@@ -119,7 +126,7 @@ export function CalendarioDeRango({ desde, hasta, onCambio }) {
       <div
         className="calendario__grilla"
         role="grid"
-        aria-label={`Elegir fechas: ${titulo}`}
+        aria-label={`${unDia ? "Elegir el día" : "Elegir fechas"}: ${titulo}`}
       >
         <div className="calendario__fila" role="row">
           {DIAS.map((d) => (
@@ -185,9 +192,11 @@ export function CalendarioDeRango({ desde, hasta, onCambio }) {
         className="calendario-rango__ayuda mz-faint mz-small"
         aria-live="polite"
       >
-        {esperandoFin
-          ? "Ahora elija el último día."
-          : "Elija el primer día y luego el último."}
+        {unDia
+          ? "Elija el día del permiso."
+          : esperandoFin
+            ? "Ahora elija el último día."
+            : "Elija el primer día y luego el último."}
       </p>
     </div>
   );

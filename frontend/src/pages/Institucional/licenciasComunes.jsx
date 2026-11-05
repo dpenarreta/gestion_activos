@@ -107,3 +107,45 @@ export function fechas(desde, hasta, formatear) {
     ? formatear(desde)
     : `${formatear(desde)} al ${formatear(hasta)}`;
 }
+
+/** Qué descuenta un tipo de permiso (`FlujoPermiso.descuento`), en palabras
+ * de quien lo pide (05/11/2026). */
+export const DESCUENTOS = {
+  sueldo: "Se descuenta del sueldo",
+  vacaciones: "Se descuenta de las vacaciones pendientes",
+  ninguno: "Permiso con sueldo (no se descuenta)",
+};
+
+/** Los minutos entre dos horas «HH:MM», o `null` si falta alguna. */
+export function minutosEntre(inicio, fin) {
+  const leer = (texto) => {
+    const partes = /^(\d{1,2}):(\d{2})/.exec(texto ?? "");
+    return partes ? Number(partes[1]) * 60 + Number(partes[2]) : null;
+  };
+  const a = leer(inicio);
+  const b = leer(fin);
+  return a === null || b === null ? null : b - a;
+}
+
+/** «2 h 30 min», «45 min», «3 h». */
+export function duracion(minutos) {
+  if (minutos === null || minutos === undefined || minutos <= 0) return "";
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  if (!horas) return `${resto} min`;
+  return resto ? `${horas} h ${resto} min` : `${horas} h`;
+}
+
+/** «08:00 a 10:30», o "" si falta alguna hora (nunca « a » vacío). */
+export function horario(desde, hasta) {
+  if (!desde || !hasta) return "";
+  return `${desde.slice(0, 5)} a ${hasta.slice(0, 5)}`;
+}
+
+/** Lo que dura una solicitud: «5 días», «1 día» o, por horas, «2 h 30 min». */
+export function duracionDeSolicitud(s) {
+  if (s.unidad === "horas") {
+    return duracion(s.minutos ?? minutosEntre(s.hora_desde, s.hora_hasta));
+  }
+  return `${s.dias} ${s.dias === 1 ? "día" : "días"}`;
+}

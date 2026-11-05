@@ -230,7 +230,7 @@ def _periodos(usuario, antes_de=None):
     pendientes = SolicitudPermiso.objects.filter(
         solicitante=usuario,
         estado=SolicitudPermiso.Estado.PENDIENTE,
-        flujo__descuenta_vacaciones=True,
+        descuento=FlujoPermiso.Descuento.VACACIONES,
     ).order_by("created_at", "id")
     for solicitud in pendientes:
         if antes_de is not None and solicitud.pk == antes_de.pk:
@@ -280,6 +280,14 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
     total = len(dias)
     elegidos = f"Ha elegido {_plural(total, 'día', 'días')}."
     reglas = []
+    # La clasificación de una solicitud ya hecha es la suya (se copió del tipo
+    # al pedirla); la de una nueva, la del tipo.
+    if solicitud is not None:
+        descuenta_vacaciones = solicitud.descuenta_vacaciones
+        por_horas = solicitud.por_horas
+    else:
+        descuenta_vacaciones = flujo.descuenta_vacaciones
+        por_horas = flujo.por_horas
 
     # Solo aparecen si fallan: no se piden días ya pedidos o ya gozados.
     cruces = _cruces(usuario, desde, hasta, excluir=solicitud)
@@ -297,7 +305,7 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
                 + ".",
             )
         )
-    if flujo.descuenta_vacaciones:
+    if descuenta_vacaciones:
         gozados = _gozados_en(usuario, desde, hasta)
         if gozados:
             reglas.append(
@@ -309,26 +317,33 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
                 )
             )
 
-    if flujo.dias_minimos:
-        reglas.append(
-            _regla_dict(
-                "minimo",
-                "ok" if total >= flujo.dias_minimos else "falla",
-                f"Mínimo {flujo.dias_minimos} días seguidos por solicitud.",
-                elegidos,
+    if por_horas:
+        # Un permiso por horas es de un día: no hay «días seguidos» que
+        # contar, sino ese día y si es laborable.
+        reglas.extend(_reglas_de_un_dia(desde, hasta))
+    else:
+        if flujo.dias_minimos:
+            reglas.append(
+                _regla_dict(
+                    "minimo",
+                    "ok" if total >= flujo.dias_minimos else "falla",
+                    f"Mínimo {_plural(flujo.dias_minimos, 'día seguido', 'días seguidos')} "
+                    "por solicitud.",
+                    elegidos,
+                )
             )
-        )
-    if flujo.dias_maximos:
-        reglas.append(
-            _regla_dict(
-                "maximo",
-                "ok" if total <= flujo.dias_maximos else "falla",
-                f"Máximo {flujo.dias_maximos} días seguidos por solicitud.",
-                elegidos,
+        if flujo.dias_maximos:
+            reglas.append(
+                _regla_dict(
+                    "maximo",
+                    "ok" if total <= flujo.dias_maximos else "falla",
+                    f"Máximo {_plural(flujo.dias_maximos, 'día seguido', 'días seguidos')} "
+                    "por solicitud.",
+                    elegidos,
+                )
             )
-        )
 
-    if flujo.descuenta_vacaciones:
+    if descuenta_vacaciones:
         periodos = _periodos(usuario, antes_de=solicitud)
         disponibles = sum(p.saldo for p in periodos)
         reparto, marcas, sobran = _repartir(
@@ -368,6 +383,39 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
         reglas.append(_regla_dict(f"nota-{i}", "info", nota))
 
     return {"reglas": reglas, "bloquea": any(r["estado"] == "falla" for r in reglas)}
+
+
+NOMBRE_DIA_SEMANA = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def _reglas_de_un_dia(desde, hasta):
+    """Las reglas de un permiso por horas: es de un solo día, y se avisa si
+    ese día no es laborable (fin de semana o feriado de la empresa). No
+    bloquea por no laborable: hay quien trabaja los sábados."""
+    if desde != hasta:
+        return [
+            _regla_dict(
+                "un_dia",
+                "falla",
+                "Un permiso por horas es de un solo día.",
+                "Elija la misma fecha en «Desde» y en «Hasta».",
+            )
+        ]
+    from apps.nomina.dias_habiles import feriados
+
+    dia = f"{NOMBRE_DIA_SEMANA[desde.weekday()]} {_fecha(desde)}"
+    feriado = desde in feriados(desde, desde)
+    if feriado or desde.weekday() >= 5:
+        motivo = "es feriado" if feriado else "es fin de semana"
+        return [
+            _regla_dict(
+                "dia",
+                "aviso",
+                f"El {dia} no es laborable ({motivo}).",
+                "Pida el permiso por horas solo si trabaja ese día.",
+            )
+        ]
+    return [_regla_dict("dia", "ok", f"Permiso por horas del {dia}.")]
 
 
 def _reglas_de_fines_de_semana(flujo, periodos, reparto, marcas):
@@ -430,7 +478,7 @@ def registrar_goce(solicitud):
     """Una solicitud aprobada que se descuenta de vacaciones queda como
     gozada en sus períodos, con los fines de semana marcados por defecto si
     alguno se completó (y se le avisa a la persona)."""
-    if not solicitud.flujo.descuenta_vacaciones:
+    if not solicitud.descuenta_vacaciones:
         return
     usuario = solicitud.solicitante
     # Que nada más descuente días de esta persona mientras se registra.
@@ -490,3 +538,35 @@ def registrar_goce(solicitud):
             ),
             enlace=ENLACE_VACACIONES,
         )
+
+
+def goces_de(solicitud):
+    """Los goces que `registrar_goce` dejó para esta solicitud (nombran «…
+    (solicitud n.º N)»). Vacío si la solicitud no se descontó de vacaciones."""
+    if not solicitud.descuenta_vacaciones:
+        return GoceVacaciones.objects.none()
+    return GoceVacaciones.objects.filter(
+        periodo__usuario_id=solicitud.solicitante_id,
+        descripcion__endswith=f"(solicitud n.º {solicitud.pk})",
+    )
+
+
+def dias_a_devolver(solicitud) -> int:
+    """Los días de vacaciones que volverían a quedar pendientes si se
+    cancela esta solicitud aprobada (0 si no descontó vacaciones)."""
+    if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+        return 0
+    return sum(goces_de(solicitud).values_list("dias", flat=True))
+
+
+def anular_goce(solicitud):
+    """Al cancelarse una solicitud aprobada (05/11/2026): los días que
+    `registrar_goce` dejó como gozados vuelven a quedar pendientes. Se
+    reconocen por su descripción, que nombra la solicitud («… (solicitud
+    n.º N)»), aunque el tipo de permiso haya cambiado de nombre o ya no
+    descuente vacaciones.
+
+    Los fines de semana marcados por defecto al completar un período no se
+    quitan: no nombran la solicitud y pueden deberse también a otras; si
+    sobran, Talento Humano los corrige en Vacaciones."""
+    return goces_de(solicitud).delete()[0]

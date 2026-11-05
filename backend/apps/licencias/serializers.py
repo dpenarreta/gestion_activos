@@ -118,6 +118,9 @@ class FlujoSerializer(serializers.ModelSerializer):
             "dias_minimos",
             "dias_maximos",
             "descuenta_vacaciones",
+            "descuento",
+            "unidad",
+            "tipo_ausencia",
             "sabados_por_periodo",
             "domingos_por_periodo",
             "restricciones",
@@ -134,6 +137,69 @@ class FlujoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"dias_maximos": "El máximo de días no puede ser menor que el mínimo."}
             )
+        return self._clasificar(datos)
+
+    def _clasificar(self, datos):
+        """`descuento`, `unidad` y `tipo_ausencia` (05/11/2026).
+
+        - Compatibilidad: quien solo manda `descuenta_vacaciones` (la pantalla
+          anterior) lo traduce a `descuento`: verdadero = «vacaciones»; falso
+          quita «vacaciones» (pasa a «ninguno») y deja «sueldo» como estaba.
+          Si llegan los dos, manda `descuento`.
+        - Al crear sin `tipo_ausencia`: PERSONAL, o VACACIONES si se descuenta
+          de las vacaciones.
+        - Con descuento de vacaciones el tipo de ausencia es VACACIONES y la
+          unidad, días; unas vacaciones (o un tipo VACACIONES) no se piden por
+          horas, y un tipo por horas no pide más de un día seguido.
+        """
+        Flujo = FlujoPermiso
+        actual = self.instance
+        if "descuento" not in datos and "descuenta_vacaciones" in datos:
+            previo = actual.descuento if actual else Flujo.Descuento.NINGUNO
+            if datos["descuenta_vacaciones"]:
+                datos["descuento"] = Flujo.Descuento.VACACIONES
+            elif previo == Flujo.Descuento.VACACIONES:
+                datos["descuento"] = Flujo.Descuento.NINGUNO
+        descuento = datos.get("descuento", actual.descuento if actual else Flujo.Descuento.NINGUNO)
+        unidad = datos.get("unidad", actual.unidad if actual else Flujo.Unidad.DIAS)
+        vacaciones = descuento == Flujo.Descuento.VACACIONES
+        if "tipo_ausencia" not in datos and (actual is None or "descuento" in datos):
+            if vacaciones:
+                datos["tipo_ausencia"] = Flujo.TipoAusencia.VACACIONES
+            elif actual is None:
+                datos["tipo_ausencia"] = Flujo.TipoAusencia.PERSONAL
+            elif actual.tipo_ausencia == Flujo.TipoAusencia.VACACIONES:
+                # Deja de descontar vacaciones: ya no genera «vacaciones».
+                datos["tipo_ausencia"] = Flujo.TipoAusencia.PERSONAL
+        tipo = datos.get(
+            "tipo_ausencia", actual.tipo_ausencia if actual else Flujo.TipoAusencia.PERSONAL
+        )
+        if vacaciones and tipo != Flujo.TipoAusencia.VACACIONES:
+            raise serializers.ValidationError(
+                {
+                    "tipo_ausencia": "Un permiso que se descuenta de las vacaciones genera "
+                    "ausencias de vacaciones."
+                }
+            )
+        if tipo == Flujo.TipoAusencia.VACACIONES and not vacaciones:
+            raise serializers.ValidationError(
+                {
+                    "tipo_ausencia": "«Vacaciones» solo corresponde a un permiso que se "
+                    "descuenta de las vacaciones. Elija «Personal» o «Médico», o cambie el "
+                    "descuento a vacaciones."
+                }
+            )
+        if unidad == Flujo.Unidad.HORAS:
+            if tipo == Flujo.TipoAusencia.VACACIONES:
+                raise serializers.ValidationError(
+                    {"unidad": "Las vacaciones se piden por días, no por horas."}
+                )
+            if datos.get("dias_minimos", actual.dias_minimos if actual else 0) > 1:
+                raise serializers.ValidationError(
+                    {"dias_minimos": "Un permiso por horas es de un solo día."}
+                )
+        if "descuento" in datos:
+            datos["descuenta_vacaciones"] = vacaciones
         return datos
 
     def validate_nombre(self, valor):
@@ -271,6 +337,7 @@ class FlujoParaSolicitarSerializer(serializers.ModelSerializer):
     documento y por qué pasos va a pasar."""
 
     pasos = serializers.SerializerMethodField()
+    es_medico = serializers.SerializerMethodField()
 
     class Meta:
         model = FlujoPermiso
@@ -283,8 +350,16 @@ class FlujoParaSolicitarSerializer(serializers.ModelSerializer):
             "adjunto",
             "pide_motivo",
             "descuenta_vacaciones",
+            "descuento",
+            "unidad",
+            "tipo_ausencia",
+            "es_medico",
             "pasos",
         ]
+
+    def get_es_medico(self, flujo) -> bool:
+        """Para que el formulario avise que no se escriban diagnósticos."""
+        return flujo.tipo_ausencia == FlujoPermiso.TipoAusencia.MEDICO
 
     def get_pasos(self, flujo):
         return [
@@ -305,8 +380,29 @@ class NuevaSolicitudSerializer(serializers.Serializer):
     flujo = RelacionDeEmpresa(FlujoPermiso, {"activo": True})
     desde = serializers.DateField()
     hasta = serializers.DateField()
+    #: Solo en un tipo por horas (`unidad = "horas"`), y ahí obligatorias:
+    #: «HH:MM», en un solo día y con el fin después del inicio.
+    hora_desde = serializers.TimeField(required=False, allow_null=True, default=None)
+    hora_hasta = serializers.TimeField(required=False, allow_null=True, default=None)
     motivo = serializers.CharField(allow_blank=True, default="")
     adjunto = serializers.FileField(required=False)
+
+    def validate(self, datos):
+        from rest_framework.exceptions import ValidationError as ErrorDeApi
+
+        from .services import validar_horas
+
+        try:
+            validar_horas(
+                datos["flujo"],
+                datos["desde"],
+                datos["hasta"],
+                datos.get("hora_desde"),
+                datos.get("hora_hasta"),
+            )
+        except ErrorDeApi as error:
+            raise serializers.ValidationError(error.detail) from error
+        return datos
 
     def validate_adjunto(self, archivo):
         if archivo.size > TAMANO_MAXIMO:
@@ -355,6 +451,14 @@ class SolicitudSerializer(serializers.ModelSerializer):
     pendiente_de = serializers.SerializerMethodField()
     dias = serializers.IntegerField(read_only=True)
     tiene_adjunto = serializers.SerializerMethodField()
+    # La clasificación de la solicitud (copiada del tipo al pedirla), no la
+    # actual del tipo.
+    unidad = serializers.CharField(read_only=True)
+    descuento = serializers.CharField(read_only=True)
+    tipo_ausencia = serializers.CharField(read_only=True)
+    minutos = serializers.IntegerField(read_only=True)
+    hora_desde = serializers.TimeField(format="%H:%M", read_only=True)
+    hora_hasta = serializers.TimeField(format="%H:%M", read_only=True)
 
     class Meta:
         model = SolicitudPermiso
@@ -365,6 +469,12 @@ class SolicitudSerializer(serializers.ModelSerializer):
             "desde",
             "hasta",
             "dias",
+            "unidad",
+            "descuento",
+            "tipo_ausencia",
+            "hora_desde",
+            "hora_hasta",
+            "minutos",
             "motivo",
             "estado",
             "estado_display",
@@ -399,6 +509,8 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
     area = serializers.SerializerMethodField()
     evaluacion = serializers.SerializerMethodField()
     feriados = serializers.SerializerMethodField()
+    dias_a_devolver = serializers.SerializerMethodField()
+    ausencias_a_borrar = serializers.SerializerMethodField()
 
     class Meta(SolicitudSerializer.Meta):
         fields = SolicitudSerializer.Meta.fields + [
@@ -408,7 +520,26 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
             "area",
             "evaluacion",
             "feriados",
+            "dias_a_devolver",
+            "ausencias_a_borrar",
         ]
+
+    def get_dias_a_devolver(self, solicitud) -> int:
+        """Lo que de verdad se descontó: los días de vacaciones que vuelven a
+        quedar pendientes si se cancela (0 si no está aprobada o no descontó
+        vacaciones). Para que la confirmación diga «se le devolverán N días»
+        solo cuando corresponde."""
+        from .restricciones import dias_a_devolver
+
+        return dias_a_devolver(solicitud)
+
+    def get_ausencias_a_borrar(self, solicitud) -> int:
+        """Cuántas ausencias de Gestión Humana se borrarían al cancelarla."""
+        if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+            return 0
+        from apps.ausencias.models import LeaveRecord
+
+        return LeaveRecord.objects.filter(solicitud=solicitud).count()
 
     def get_cargo(self, solicitud) -> str:
         from apps.organizacion.herramientas import cargo_de
@@ -448,11 +579,19 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
     def get_puedo(self, solicitud):
         from apps.permissions.authorization import user_has_permission
 
+        from .services import puede_anular_aprobadas
+
         usuario = self.context["request"].user
         pendiente = solicitud.estado == SolicitudPermiso.Estado.PENDIENTE
         mia = solicitud.pendiente_de.filter(pk=usuario.pk).exists()
+        # Una aprobada la cancela Gestión Humana (con comentario obligatorio):
+        # borra sus ausencias y devuelve sus días de vacaciones.
+        anular = solicitud.estado == SolicitudPermiso.Estado.APROBADA and puede_anular_aprobadas(
+            usuario
+        )
         return {
             "resolver": pendiente and mia,
             "escalar": pendiente and (mia or user_has_permission(usuario, "licencias.ver_todas")),
-            "cancelar": pendiente and solicitud.solicitante_id == usuario.pk,
+            "cancelar": (pendiente and solicitud.solicitante_id == usuario.pk) or anular,
+            "cancelar_pide_comentario": anular,
         }

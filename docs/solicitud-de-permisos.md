@@ -10,7 +10,7 @@ y cualquier intento hecho directamente contra la API recibe la misma
 respuesta. Cada control indica la prueba que lo protege, en
 `backend/apps/licencias/tests/`.
 
-Actualizado el 20/10/2026.
+Actualizado el 05/11/2026.
 
 ## Archivos
 
@@ -28,7 +28,7 @@ Actualizado el 20/10/2026.
 | Permiso | Qué habilita |
 | --- | --- |
 | *(cualquier cuenta de la empresa **con un rol asignado**)* | Solicitar, ver lo propio, aprobar o rechazar lo que tiene pendiente, escalarlo y cancelar lo suyo pendiente. |
-| `licencias.ver_todas` | Ver todas las solicitudes de la empresa y escalar cualquiera **a otra persona**. No le permite aprobar una solicitud que no tenga pendiente. |
+| `licencias.ver_todas` | Ver todas las solicitudes de la empresa y escalar cualquiera **a otra persona**. Cancelar una solicitud **ya aprobada**, con comentario (05/11/2026). No le permite aprobar una solicitud que no tenga pendiente. |
 | `licencias.configurar` | Crear y editar flujos y sus restricciones. Recibe las solicitudes cuyo paso no encuentra aprobador. |
 
 ## Paso 1: configurar el tipo de permiso
@@ -102,6 +102,15 @@ Pruebas: `test_un_periodo_no_se_completa_sin_fines_de_semana`, `test_los_fines_d
 - El motivo, en un tipo que no lo pide: se descarta (`test_un_tipo_sin_motivo_no_lo_guarda`).
 - Una solicitud creada **no se edita ni se borra**: PUT, PATCH y DELETE responden 405. Para cambiarla, se cancela y se pide de nuevo.
 
+### Tipos por horas
+
+En un tipo por horas no se evalúan el mínimo ni el máximo de días seguidos. En su lugar:
+
+- `un_dia` (falla) si «Desde» y «Hasta» no coinciden;
+- `dia`: `ok` («Permiso por horas del jueves 05/11/2026.») o `aviso` si ese día no es laborable («El sábado 07/11/2026 no es laborable (es fin de semana).» o «(es feriado)»). No bloquea, porque hay quien trabaja ese día.
+
+Los textos de mínimo y máximo usan singular cuando corresponde: «Mínimo 1 día seguido por solicitud.»
+
 ## Paso 3: aprobación por pasos
 
 1. Al crearse, la solicitud queda pendiente de los aprobadores del primer paso, y se les avisa en la campana.
@@ -130,7 +139,15 @@ Tampoco escala quien no la tiene pendiente ni ve todas. Pruebas: `test_se_escala
 
 ## Paso 5: cancelar
 
-Solo quien la solicitó, y solo mientras está pendiente. Lo aprobado no se cancela, porque sus días ya se registraron. Lo deshace Talento Humano en *Mis vacaciones*. Prueba: `test_no_se_aprueba_dos_veces_ni_lo_ya_cerrado`.
+- **Pendiente:** solo quien la solicitó. Prueba: `test_nadie_aprueba_lo_suyo_y_quien_solicita_puede_cancelar`.
+- **Aprobada (05/11/2026):** solo quien tiene `licencias.ver_todas` (Gestión Humana), con un comentario obligatorio. Quien la pidió no la cancela (400, `test_no_se_aprueba_dos_veces_ni_lo_ya_cerrado`); otra persona recibe 403. En la misma transacción:
+  - se borran sus ausencias de Gestión Humana (`LeaveRecord`);
+  - si se descontó de las vacaciones, se borran los goces que nombran la solicitud («… (solicitud n.º N)») y esos días vuelven a quedar pendientes. Los fines de semana marcados por defecto no se quitan, porque no nombran la solicitud: si sobran, se corrigen en *Vacaciones*;
+  - se avisa a quien la pidió (`licencias.cancelada`).
+
+  Pruebas: `test_gestion_humana_cancela_una_aprobada_y_se_borran_sus_ausencias`, `test_cancelar_unas_vacaciones_aprobadas_devuelve_sus_dias`, `test_quien_no_ve_todas_no_cancela_una_aprobada_ajena`.
+
+`puedo.cancelar` del detalle es verdadero en los dos casos, y `puedo.cancelar_pide_comentario` dice si el comentario es obligatorio. Para la confirmación, el detalle trae lo que de verdad se descontó: `dias_a_devolver` (días de vacaciones que vuelven a quedar pendientes; 0 si no está aprobada o no descontó vacaciones) y `ausencias_a_borrar`. El nombre de la persona está en `solicitante.nombre`.
 
 ## Paso 6: aprobación final y registro
 
@@ -138,9 +155,52 @@ Cuando aprueba el último paso:
 
 1. **Se vuelve a validar.** Si el tipo se descuenta de las vacaciones, se comprueba de nuevo que los días alcanzan y que no se cruzan con días gozados. Entre la solicitud y la aprobación, Talento Humano pudo cargar goces. Si algo ya no cuadra, la aprobación se rechaza con el motivo y **no queda nada a medias**: la solicitud sigue pendiente del mismo aprobador y no se registran días. Lo que corresponde entonces es rechazarla para que se pida de nuevo. Pruebas: `test_al_aprobar_se_vuelve_a_comprobar_que_los_dias_alcanzan`, `test_al_aprobar_no_se_registran_dias_que_ya_se_gozaron`.
 2. **Se registran los días** como gozados en sus períodos, en tramos de días seguidos con la referencia «Vacaciones (solicitud n.º N)». Los fines de semana marcados por defecto se registran día por día. Se ven en *Mis vacaciones*.
-3. **Se avisa** a los destinatarios configurados para «Si se aprueba».
+3. **Se crean sus ausencias en Gestión Humana** (ver la sección siguiente).
+4. **Se avisa** a los destinatarios configurados para «Si se aprueba».
 
-Todo el paso corre en una transacción, con la persona bloqueada mientras se registra.
+Todo el paso corre en una transacción, con la persona bloqueada mientras se registra. La fila de la solicitud también se bloquea al aprobar, rechazar o cancelar, para que dos decisiones simultáneas no la cierren dos veces.
+
+## Clasificación de los tipos y ausencias de Gestión Humana (05/11/2026)
+
+Cada tipo de permiso (`FlujoPermiso`) se clasifica con tres campos, que se editan en *Configurar flujos*:
+
+| Campo | Valores | Por defecto | Qué hace |
+| --- | --- | --- | --- |
+| `descuento` | `sueldo`, `vacaciones`, `ninguno` | `ninguno` | `sueldo`: ausencia con descuento de sueldo. `vacaciones`: sale de las vacaciones pendientes, con la lógica de los pasos 2 y 6. `ninguno`: permiso con goce de sueldo. |
+| `unidad` | `dias`, `horas` | `dias` | Por horas, la solicitud es de un solo día y lleva `hora_desde` y `hora_hasta`. |
+| `tipo_ausencia` | `MEDICO`, `PERSONAL`, `VACACIONES` | `PERSONAL` (`VACACIONES` si `descuento = vacaciones`) | El tipo de `LeaveRecord` que genera al aprobarse. |
+
+Reglas de coherencia (400 por campo): con `descuento = vacaciones`, el tipo de ausencia es `VACACIONES` y la unidad, días. **`tipo_ausencia = VACACIONES` exige `descuento = vacaciones`** (`details.tipo_ausencia`). Un tipo por horas no pide más de un día seguido. La migración `licencias/0005` pasa a `PERSONAL` cualquier tipo que hubiera quedado en `VACACIONES` sin descuento de vacaciones: `0004` no lo produce, pero hasta el 05/11/2026 la API lo admitía al editar.
+
+`/licencias/tipos/` (lo que ve quien solicita) trae `descuento`, `unidad`, `tipo_ausencia` y `es_medico`, para que el formulario avise que no se escriban diagnósticos en el motivo.
+
+**La solicitud guarda su clasificación.** `unidad`, `descuento` y `tipo_ausencia` se copian del tipo al crear la solicitud y no cambian si el tipo se reclasifica. La API los sirve desde la solicitud. Las ausencias, el descuento de vacaciones al aprobar, lo reservado por las pendientes y la devolución al cancelar usan los valores de la solicitud. `licencias/0005` rellenó las existentes con el valor que tenía su tipo. Pruebas: `test_clasificacion_de_la_solicitud.py`.
+
+`descuenta_vacaciones` queda como **espejo** de `descuento = vacaciones`: lo siguen leyendo las restricciones y la pantalla actual. Si un cliente manda solo `descuenta_vacaciones`, se traduce: verdadero pasa a `vacaciones`; falso quita `vacaciones` (queda `ninguno`) y deja `sueldo` como estaba. La migración `licencias/0004` pasó los tipos con `descuenta_vacaciones` a `vacaciones` y `VACACIONES`, y los que se llaman «… médico …» a `MEDICO`. Pruebas: `test_la_migracion_clasifica_los_tipos_existentes`, `test_la_pantalla_anterior_sigue_marcando_vacaciones_con_el_booleano`, `test_cada_descuento_se_guarda_y_lo_lleva_la_ausencia`.
+
+**Permiso por horas.** `hora_desde` y `hora_hasta` (`HH:MM`) son obligatorias si la unidad es horas, con `desde == hasta` y el fin posterior al inicio. En un tipo por días no se aceptan. Se valida en el serializer y en `services.crear`. La respuesta de la solicitud trae `unidad`, `descuento`, `hora_desde`, `hora_hasta` y `minutos`. Pruebas: `test_las_horas_se_validan_en_la_api`, `test_las_horas_se_validan_tambien_en_el_servicio`, `test_un_tipo_por_dias_no_lleva_horas`.
+
+**Al aprobarse** se crean sus `LeaveRecord` (`apps.ausencias.services.create_from_request`), con `solicitud`, el `descuento` y el `tipo_ausencia` del tipo:
+
+- **Por días:** uno de día completo por cada día del rango, sin los feriados del calendario institucional. Los sábados y domingos solo cuentan si el tipo se descuenta de las vacaciones y tiene su regla de sábados (o de domingos) por período, porque entonces salen de las vacaciones como cualquier otro día. En los demás casos no se registran.
+- **Por horas:** uno solo, en su día, con `duration_minutes`.
+- **Idempotente:** si la solicitud ya tiene sus ausencias, no se crean más. En la base lo garantiza la restricción única `(solicitud, date)`.
+- **Rechazada o pendiente:** no genera nada.
+
+Pruebas: `test_aprobar_por_dias_salta_fin_de_semana_y_feriado`, `test_vacaciones_con_regla_de_fines_de_semana_los_registran`, `test_aprobar_por_horas_crea_una_sola_ausencia_con_sus_minutos`, `test_aprobar_dos_veces_o_reintentar_no_duplica`, `test_rechazar_no_genera_ausencias`.
+
+**Desde Ausencias** no se borra un registro que viene de una solicitud, sea quien sea: responde `409` con `{"error": {"code": "linked_to_request", "message": "Este registro viene de la solicitud N.º 123; gestiónelo desde Solicitud de permisos.", "details": {"solicitud_id": 123}}}`. Quien no ve la ausencia recibe 404, como siempre. El listado trae `solicitudId` y `descuento`, y `canDelete` es falso para esos registros. Los registros manuales no cambian (`test_lo_que_viene_de_una_solicitud_no_se_borra_desde_ausencias`).
+
+**LOPDP:**
+
+- una ausencia `MEDICO` generada queda protegida igual que una manual (`apps/ausencias/access.py`);
+- el motivo y el adjunto de la solicitud no se copian a la observación;
+- la auditoría de Ausencias es la genérica (`ausencias.registro_creado` / `registro_eliminado`, con `origen: "solicitud"`), sin tipo ni motivo;
+- Ausencias no envía avisos propios.
+
+Prueba: `test_la_auditoria_de_ausencias_no_lleva_el_tipo_ni_el_motivo`.
+
+Las ausencias médicas, generadas o manuales, se borran a los cinco años (`manage.py purgar_ausencias_medicas`, en la tarea de cada 5 minutos).
 
 ## Quién ve una solicitud
 
@@ -151,4 +211,6 @@ Quien la pidió, quien la tiene pendiente, quien ya actuó en ella y quien tiene
 - **Fechas pasadas.** Hoy se permite pedir fechas anteriores a hoy: un permiso médico suele registrarse después. Si las vacaciones deben pedirse solo hacia adelante, o con cierta anticipación, se puede agregar como restricción que bloquee. Hoy solo se puede informar con «Otras indicaciones».
 - **Si la única persona con `licencias.configurar` solicita sin tener jefe en el organigrama**, su paso no encuentra a nadie y queda sin aprobador hasta que alguien con `licencias.ver_todas` la escale. Conviene que al menos dos personas tengan `licencias.configurar`.
 - **Concurrencia.** El bloqueo por persona se probó en su lógica, no con dos peticiones simultáneas reales.
+- **Dos permisos por horas el mismo día.** La regla de cruces compara días, así que dos solicitudes por horas del mismo día se cruzan aunque sus horas no se solapen. Si hace falta, hay que comparar también las horas.
+- **El nombre del tipo de permiso en avisos y auditoría de Institucional.** Los avisos de la campana y la auditoría `licencias.solicitud.creada` llevan el nombre del tipo, por ejemplo «Permiso médico». Ese comportamiento es anterior al 05/11/2026 y no se cambió. Si el nombre del tipo se considera dato de salud, hay que decidir qué ven los aprobadores.
 - **Interpretación de «antes de finalizar su período».** Se tomó como «antes de agotar los días del período», porque los períodos son años de servicio que se gozan después de cumplidos. Si se quiere una fecha límite, hay que definirla.

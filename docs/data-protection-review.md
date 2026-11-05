@@ -300,3 +300,21 @@ su ficha. Sus datos de contacto salen de «Mis datos» (`DatosDeContacto`):
   entrega solo a esas personas, como adjunto y con `nosniff`.
 - **Avisos:** van a la campana de cada destinatario configurado en el flujo.
 - **Quién configura los flujos:** quien tiene `licencias.configurar`.
+
+## Ausencias médicas de Gestión Humana
+
+Un permiso MÉDICO (`apps.ausencias.LeaveRecord`) y un estado especial
+(maternidad, lactancia) son datos de salud. Controles (05/11/2026):
+
+- **Quién ve el detalle**: el titular y quien tiene `ausencias.medicas_ver`.
+  Los demás ven «ausencia», con su fecha y sus horas, sin tipo ni observación
+  (`apps/ausencias/access.py`).
+- **Desde la Solicitud de permisos**: al aprobarse, una solicitud genera sus
+  ausencias, protegidas igual que las manuales. El motivo y el adjunto de la
+  solicitud no se copian (ver `docs/solicitud-de-permisos.md`).
+- **Auditoría y avisos**: la auditoría de Ausencias es genérica, sin tipo ni
+  observación, y Ausencias no envía avisos.
+- **Retención**: cinco años desde el día de la ausencia.
+  `purgar_ausencias_medicas`, en la tarea programada, borra lo vencido y deja
+  en la auditoría de cada empresa solo cuántos registros se borraron y entre
+  qué fechas (`ausencias.retencion_purgada`). Con `--simular`, solo cuenta.

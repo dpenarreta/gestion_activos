@@ -204,6 +204,8 @@ class SolicitudViewSet(viewsets.GenericViewSet):
             datos["flujo"],
             desde=datos["desde"],
             hasta=datos["hasta"],
+            hora_desde=datos.get("hora_desde"),
+            hora_hasta=datos.get("hora_hasta"),
             motivo=datos["motivo"],
             adjunto=datos.get("adjunto"),
             tipo_adjunto=getattr(entrada, "_tipo", ""),

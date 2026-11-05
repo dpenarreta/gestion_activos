@@ -12,6 +12,11 @@ avanza, se rechaza o se escala, y a quién se avisa el resultado.
   nadie, pasa a quien administra los flujos).
 - No se escala a uno mismo: quien ve todas las solicitudes no puede
   asignársela y aprobarla saltándose a los aprobadores del flujo.
+- **Ausencias de Gestión Humana (05/11/2026)**: al aprobarse, la solicitud
+  genera sus `LeaveRecord` (`apps.ausencias.services.create_from_request`);
+  si Gestión Humana cancela una aprobada, se borran y sus días de vacaciones
+  vuelven a quedar pendientes. Todo en la transacción de la aprobación o de
+  la cancelación.
 """
 
 from django.db import transaction
@@ -104,6 +109,8 @@ def _resumen(solicitud) -> str:
     desde = solicitud.desde.strftime("%d/%m/%Y")
     hasta = solicitud.hasta.strftime("%d/%m/%Y")
     fechas = desde if desde == hasta else f"del {desde} al {hasta}"
+    if solicitud.hora_desde and solicitud.hora_hasta:
+        fechas = f"{fechas}, de {solicitud.hora_desde:%H:%M} a {solicitud.hora_hasta:%H:%M}"
     return f"{_nombre(solicitud.solicitante)} · {solicitud.flujo.nombre} · {fechas}"
 
 
@@ -180,7 +187,7 @@ def _siguiente_paso(solicitud):
     return None
 
 
-def _terminar(solicitud, estado):
+def _terminar(solicitud, estado, actor=None):
     solicitud.estado = estado
     solicitud.paso_actual = None
     solicitud.cerrada_en = timezone.now()
@@ -195,6 +202,11 @@ def _terminar(solicitud, estado):
         return
     if estado == SolicitudPermiso.Estado.APROBADA:
         restricciones.registrar_goce(solicitud)
+        # Sus ausencias en Gestión Humana, en la misma transacción: si algo
+        # falla, la solicitud no queda aprobada sin ellas.
+        from apps.ausencias.services import create_from_request
+
+        create_from_request(solicitud, actor=actor or solicitud.solicitante)
     destinatarios = []
     for aviso in solicitud.flujo.avisos.filter(resultado=estado):
         destinatarios.extend(resolver(aviso, solicitud))
@@ -211,12 +223,47 @@ def _terminar(solicitud, estado):
 # --- Lo que se puede hacer con una solicitud -------------------------------------------
 
 
+def validar_horas(flujo, desde, hasta, hora_desde, hora_hasta) -> None:
+    """Un tipo por horas pide la hora de inicio y la de fin, en un solo día y
+    con el fin después del inicio; uno por días no lleva horas. Lo comprueban
+    el serializer y `crear` (por si se llama sin pasar por la API)."""
+    if not flujo.por_horas:
+        if hora_desde is not None or hora_hasta is not None:
+            raise ValidationError(
+                {"hora_desde": "Este tipo de permiso es por días: no lleva horas."}
+            )
+        return
+    if hora_desde is None or hora_hasta is None:
+        campo = "hora_desde" if hora_desde is None else "hora_hasta"
+        raise ValidationError(
+            {campo: "Este tipo de permiso es por horas: indique la hora de inicio y la de fin."}
+        )
+    if desde != hasta:
+        raise ValidationError(
+            {"hasta": "Un permiso por horas es de un solo día: «Desde» y «Hasta» deben coincidir."}
+        )
+    if hora_hasta <= hora_desde:
+        raise ValidationError({"hora_hasta": "La hora de fin debe ser posterior a la de inicio."})
+
+
 @transaction.atomic
-def crear(solicitante, flujo, *, desde, hasta, motivo="", adjunto=None, tipo_adjunto=""):
+def crear(
+    solicitante,
+    flujo,
+    *,
+    desde,
+    hasta,
+    motivo="",
+    adjunto=None,
+    tipo_adjunto="",
+    hora_desde=None,
+    hora_hasta=None,
+):
     if not flujo.activo:
         raise ValidationError({"flujo": "Ese tipo de permiso no está disponible."})
     if hasta < desde:
         raise ValidationError({"hasta": "La fecha de fin no puede ser anterior a la de inicio."})
+    validar_horas(flujo, desde, hasta, hora_desde, hora_hasta)
     if flujo.adjunto == flujo.Adjunto.OBLIGATORIO and not adjunto:
         raise ValidationError({"adjunto": "Este permiso pide un documento de respaldo."})
     if not flujo.pasos.exists():
@@ -230,7 +277,13 @@ def crear(solicitante, flujo, *, desde, hasta, motivo="", adjunto=None, tipo_adj
     if not flujo.pide_motivo:
         motivo = ""
     solicitud = SolicitudPermiso(
-        flujo=flujo, solicitante=solicitante, desde=desde, hasta=hasta, motivo=motivo.strip()
+        flujo=flujo,
+        solicitante=solicitante,
+        desde=desde,
+        hasta=hasta,
+        hora_desde=hora_desde if flujo.por_horas else None,
+        hora_hasta=hora_hasta if flujo.por_horas else None,
+        motivo=motivo.strip(),
     )
     if adjunto:
         solicitud.adjunto.save(adjunto.name, adjunto, save=False)
@@ -242,7 +295,23 @@ def crear(solicitante, flujo, *, desde, hasta, motivo="", adjunto=None, tipo_adj
     return solicitud
 
 
+def _bloquear(solicitud):
+    """Bloquea la fila de la solicitud y relee su estado: dos aprobaciones (o
+    una aprobación y una cancelación) a la vez no la cierran dos veces ni
+    generan dos veces sus días."""
+    fila = (
+        SolicitudPermiso.objects.select_for_update()
+        .filter(pk=solicitud.pk)
+        .values("estado", "paso_actual_id")
+        .first()
+    )
+    if fila is not None:
+        solicitud.estado = fila["estado"]
+        solicitud.paso_actual_id = fila["paso_actual_id"]
+
+
 def _exigir_pendiente_de(solicitud, usuario):
+    _bloquear(solicitud)
     if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
         raise ValidationError({"detail": "La solicitud ya está cerrada."})
     if not solicitud.pendiente_de.filter(pk=usuario.pk).exists():
@@ -261,7 +330,7 @@ def aprobar(solicitud, usuario, comentario=""):
     )
     siguiente = _siguiente_paso(solicitud)
     if siguiente is None:
-        _terminar(solicitud, SolicitudPermiso.Estado.APROBADA)
+        _terminar(solicitud, SolicitudPermiso.Estado.APROBADA, actor=usuario)
     else:
         _iniciar_paso(solicitud, siguiente)
     return solicitud
@@ -279,7 +348,7 @@ def rechazar(solicitud, usuario, comentario=""):
         paso=solicitud.paso_actual,
         comentario=comentario,
     )
-    _terminar(solicitud, SolicitudPermiso.Estado.RECHAZADA)
+    _terminar(solicitud, SolicitudPermiso.Estado.RECHAZADA, actor=usuario)
     return solicitud
 
 
@@ -317,14 +386,46 @@ def escalar(solicitud, usuario, destino, comentario=""):
     return solicitud
 
 
+def puede_anular_aprobadas(usuario) -> bool:
+    """Quién cancela una solicitud ya aprobada: Gestión Humana, que ve todas
+    (`licencias.ver_todas`). Quien la pidió solo cancela la suya pendiente."""
+    return user_has_permission(usuario, "licencias.ver_todas")
+
+
 @transaction.atomic
 def cancelar(solicitud, usuario, comentario=""):
+    """Quien la pidió cancela la suya mientras está pendiente. Una aprobada la
+    cancela Gestión Humana (`puede_anular_aprobadas`), diciendo por qué: se
+    borran sus ausencias de Gestión Humana y, si se descontó de vacaciones,
+    sus días vuelven a quedar pendientes, todo en esta misma transacción."""
+    _bloquear(solicitud)
+    if solicitud.estado == SolicitudPermiso.Estado.APROBADA and puede_anular_aprobadas(usuario):
+        return _cancelar_aprobada(solicitud, usuario, comentario)
     if solicitud.solicitante_id != usuario.pk:
         raise PermissionDenied("Solo quien la solicitó puede cancelarla.")
     if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
         raise ValidationError({"detail": "La solicitud ya está cerrada."})
     _registrar(solicitud, AccionSolicitud.Accion.CANCELADA, actor=usuario, comentario=comentario)
-    _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA)
+    _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA, actor=usuario)
+    return solicitud
+
+
+def _cancelar_aprobada(solicitud, usuario, comentario):
+    from apps.ausencias.services import delete_for_request
+
+    if not (comentario or "").strip():
+        raise ValidationError({"comentario": "Diga por qué se cancela una solicitud aprobada."})
+    _registrar(solicitud, AccionSolicitud.Accion.CANCELADA, actor=usuario, comentario=comentario)
+    delete_for_request(solicitud, actor=usuario)
+    restricciones.anular_goce(solicitud)  # Nada si no descontó vacaciones.
+    _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA, actor=usuario)
+    campana.notificar(
+        [solicitud.solicitante],
+        tipo="licencias.cancelada",
+        titulo=f"Solicitud de permiso cancelada: {solicitud.flujo.nombre}",
+        resumen=_resumen(solicitud),
+        enlace=_enlace(solicitud),
+    )
     return solicitud
 
 

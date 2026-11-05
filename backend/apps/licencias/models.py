@@ -39,12 +39,44 @@ APROBADORES_VALIDOS = {Destino.JEFE_INMEDIATO, Destino.PERSONA, Destino.ROL, Des
 
 
 class FlujoPermiso(ModeloDeEmpresa):
-    """Un tipo de permiso que se puede solicitar, con su forma de aprobarse."""
+    """Un tipo de permiso que se puede solicitar, con su forma de aprobarse.
+
+    **Clasificación (05/11/2026).** Cada tipo dice qué descuenta, en qué
+    unidad se pide y qué ausencia genera en Gestión Humana al aprobarse
+    (`apps.ausencias`, ver `ausencias.services.create_from_request`):
+
+    - `descuento`: «sueldo» (ausencia con descuento de sueldo), «vacaciones»
+      (sale de las vacaciones pendientes, la lógica de `restricciones.py`) o
+      «ninguno» (con goce de sueldo; por defecto).
+    - `unidad`: «dias» (por defecto) u «horas» (un solo día, con hora de
+      inicio y de fin).
+    - `tipo_ausencia`: MEDICO, PERSONAL o VACACIONES, el tipo de `LeaveRecord`
+      que genera. Con descuento de vacaciones es siempre VACACIONES.
+
+    `descuenta_vacaciones` es el espejo de `descuento == "vacaciones"`: lo
+    siguen leyendo las restricciones, el chat y la pantalla actual. Lo
+    mantiene `save()`; `descuento` es el que manda.
+    """
 
     class Adjunto(models.TextChoices):
         NO = "no", "No se pide"
         OPCIONAL = "opcional", "Opcional"
         OBLIGATORIO = "obligatorio", "Obligatorio"
+
+    class Descuento(models.TextChoices):
+        SUELDO = "sueldo", "Con descuento de sueldo"
+        VACACIONES = "vacaciones", "Se descuenta de las vacaciones"
+        NINGUNO = "ninguno", "Con goce de sueldo (sin descuento)"
+
+    class Unidad(models.TextChoices):
+        DIAS = "dias", "Por días"
+        HORAS = "horas", "Por horas"
+
+    class TipoAusencia(models.TextChoices):
+        # Los mismos valores que `ausencias.LeaveRecord.Type`.
+        MEDICO = "MEDICO", "Médico"
+        PERSONAL = "PERSONAL", "Personal"
+        VACACIONES = "VACACIONES", "Vacaciones"
 
     nombre = models.CharField(max_length=120)
     descripcion = models.TextField(blank=True)
@@ -67,6 +99,13 @@ class FlujoPermiso(ModeloDeEmpresa):
     pide_motivo = models.BooleanField(default=True)
     #: Otras indicaciones para quien solicita, una por línea.
     restricciones = models.TextField(blank=True)
+    descuento = models.CharField(
+        max_length=10, choices=Descuento.choices, default=Descuento.NINGUNO
+    )
+    unidad = models.CharField(max_length=5, choices=Unidad.choices, default=Unidad.DIAS)
+    tipo_ausencia = models.CharField(
+        max_length=15, choices=TipoAusencia.choices, default=TipoAusencia.PERSONAL
+    )
 
     class Meta:
         ordering = ["orden", "nombre"]
@@ -78,6 +117,34 @@ class FlujoPermiso(ModeloDeEmpresa):
 
     def __str__(self) -> str:
         return self.nombre
+
+    def save(self, *args, **kwargs):
+        """`descuenta_vacaciones` sigue a `descuento`. Quien todavía escribe
+        solo el booleano (código o datos anteriores al 05/11/2026) marca un
+        tipo «ninguno» como de vacaciones; uno «sueldo» no cambia."""
+        if self.descuento == self.Descuento.VACACIONES:
+            self.descuenta_vacaciones = True
+        elif self.descuenta_vacaciones:
+            if self.descuento == self.Descuento.NINGUNO:
+                self.descuento = self.Descuento.VACACIONES
+            else:
+                self.descuenta_vacaciones = False
+        if self.descuento == self.Descuento.VACACIONES:
+            self.tipo_ausencia = self.TipoAusencia.VACACIONES
+            self.unidad = self.Unidad.DIAS
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {
+                "descuento",
+                "descuenta_vacaciones",
+                "tipo_ausencia",
+                "unidad",
+            }
+        return super().save(*args, **kwargs)
+
+    @property
+    def por_horas(self) -> bool:
+        return self.unidad == self.Unidad.HORAS
 
 
 class _ConDestino(ModeloDeEmpresa):
@@ -144,7 +211,12 @@ def ruta_adjunto(instance, filename: str) -> str:
 
 
 class SolicitudPermiso(ModeloDeEmpresa):
-    """Una solicitud de permiso y en qué paso de su flujo va."""
+    """Una solicitud de permiso y en qué paso de su flujo va.
+
+    `unidad`, `descuento` y `tipo_ausencia` se copian de su tipo al crearla
+    (auditoría UX/UI, 05/11/2026) y no cambian después: si Talento Humano
+    reclasifica el tipo, las solicitudes ya hechas se siguen leyendo como se
+    pidieron (sus horas, sus días de vacaciones, sus ausencias)."""
 
     class Estado(models.TextChoices):
         PENDIENTE = "pendiente", "Pendiente"
@@ -158,6 +230,23 @@ class SolicitudPermiso(ModeloDeEmpresa):
     )
     desde = models.DateField()
     hasta = models.DateField()
+    #: Solo en un tipo por horas (`FlujoPermiso.unidad`): obligatorias, en un
+    #: solo día (`desde == hasta`) y con el fin después del inicio.
+    hora_desde = models.TimeField(null=True, blank=True)
+    hora_hasta = models.TimeField(null=True, blank=True)
+    unidad = models.CharField(
+        max_length=5, choices=FlujoPermiso.Unidad.choices, default=FlujoPermiso.Unidad.DIAS
+    )
+    descuento = models.CharField(
+        max_length=10,
+        choices=FlujoPermiso.Descuento.choices,
+        default=FlujoPermiso.Descuento.NINGUNO,
+    )
+    tipo_ausencia = models.CharField(
+        max_length=15,
+        choices=FlujoPermiso.TipoAusencia.choices,
+        default=FlujoPermiso.TipoAusencia.PERSONAL,
+    )
     motivo = models.TextField(blank=True)
     adjunto = models.FileField(upload_to=ruta_adjunto, max_length=255, blank=True)
     adjunto_nombre = models.CharField(max_length=255, blank=True)
@@ -178,9 +267,35 @@ class SolicitudPermiso(ModeloDeEmpresa):
     def __str__(self) -> str:
         return f"{self.flujo} de {self.solicitante}"
 
+    def save(self, *args, **kwargs):
+        """Al crearla, la clasificación es la de su tipo en ese momento."""
+        if self._state.adding and self.flujo_id:
+            self.unidad = self.flujo.unidad
+            self.descuento = self.flujo.descuento
+            self.tipo_ausencia = self.flujo.tipo_ausencia
+        return super().save(*args, **kwargs)
+
     @property
     def dias(self) -> int:
         return (self.hasta - self.desde).days + 1
+
+    @property
+    def por_horas(self) -> bool:
+        return self.unidad == FlujoPermiso.Unidad.HORAS
+
+    @property
+    def descuenta_vacaciones(self) -> bool:
+        return self.descuento == FlujoPermiso.Descuento.VACACIONES
+
+    @property
+    def minutos(self) -> int | None:
+        """Lo que dura un permiso por horas, en minutos (`None` si es por
+        días)."""
+        if self.hora_desde is None or self.hora_hasta is None:
+            return None
+        inicio = self.hora_desde.hour * 60 + self.hora_desde.minute
+        fin = self.hora_hasta.hour * 60 + self.hora_hasta.minute
+        return fin - inicio
 
 
 class AccionSolicitud(ModeloDeEmpresa):

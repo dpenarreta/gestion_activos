@@ -24,10 +24,15 @@ import { formatearFecha } from "../../utils/formato";
 import { CalendarioDeRango } from "./CalendarioDeRango";
 import { CalendarioSolicitado } from "./CalendarioSolicitado";
 import {
+  DESCUENTOS,
   DESTINOS_ESCALAR,
   ESTADOS,
   SelectorDestino,
+  duracion,
+  duracionDeSolicitud,
   fechas,
+  horario,
+  minutosEntre,
 } from "./licenciasComunes";
 import "./Institucional.css";
 import { descargarBlob } from "../../utils/descargas";
@@ -122,22 +127,45 @@ function RestriccionesDelPermiso({
   );
 }
 
-/** Pedir un permiso: el tipo (con sus pasos a la vista), las fechas, el
- * motivo y, si lo pide, el documento. */
+/** Las horas de un permiso por horas, antes de enviarlo: las dos, y el fin
+ * después del inicio (las mismas reglas que el servidor). */
+function validarHoras({ hora_desde: inicio, hora_hasta: fin }) {
+  // Las dos a la vez: si faltan ambas, se marcan ambas.
+  const errores = {};
+  if (!inicio) errores.hora_desde = "Indique la hora de inicio.";
+  if (!fin) errores.hora_hasta = "Indique la hora de fin.";
+  if (inicio && fin && minutosEntre(inicio, fin) <= 0)
+    errores.hora_hasta = "La hora de fin debe ser posterior a la de inicio.";
+  return errores;
+}
+
+/** Si un tipo de permiso genera ausencias médicas. `tipo_ausencia` o
+ * `es_medico`, según lo que exponga `/licencias/tipos/`. */
+const esMedico = (tipo) =>
+  tipo?.tipo_ausencia === "MEDICO" || tipo?.es_medico === true;
+
+/** Pedir un permiso: el tipo (con sus pasos a la vista), las fechas (o, si
+ * es por horas, el día y el horario), el motivo y, si lo pide, el
+ * documento. */
 function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
   const [tipos, setTipos] = useState(null);
   const [valores, setValores] = useState({
     flujo: "",
     desde: hoyIso(),
     hasta: hoyIso(),
+    hora_desde: "",
+    hora_hasta: "",
     motivo: "",
   });
   const [adjunto, setAdjunto] = useState(null);
   const [error, setError] = useState(null);
+  const [errorTipos, setErrorTipos] = useState(null);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [evaluacion, setEvaluacion] = useState(null);
   const formulario = useRef(null);
+  // Contra el doble envío: el estado tarda un render en desactivar el botón.
+  const enCurso = useRef(false);
 
   // Las restricciones se recalculan al cambiar el tipo o las fechas (con una
   // pausa corta, para no consultar en cada tecla).
@@ -160,7 +188,9 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     };
   }, [valores]);
 
-  useEffect(() => {
+  const cargarTipos = useCallback(() => {
+    setTipos(null);
+    setErrorTipos(null);
     licenciasService
       .tipos()
       .then((lista) => {
@@ -168,24 +198,55 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
         // Desde Mis vacaciones («Solicitar vacaciones»): el tipo que se
         // descuenta de las vacaciones, ya elegido.
         const inicial =
-          (deVacaciones && lista.find((t) => t.descuenta_vacaciones)) ||
+          (deVacaciones &&
+            lista.find(
+              (t) => t.descuento === "vacaciones" || t.descuenta_vacaciones,
+            )) ||
           lista[0];
-        if (inicial) setValores((v) => ({ ...v, flujo: String(inicial.id) }));
+        if (inicial)
+          setValores((v) => ({
+            ...v,
+            flujo: String(inicial.id),
+            hasta: inicial.unidad === "horas" ? v.desde : v.hasta,
+          }));
       })
       .catch((err) => {
         // Antes un fallo se veía como «no hay tipos de permiso» (auditoría
-        // UX/UI, fase 2, 28/10/2026): ahora se dice que no se pudo cargar.
-        setError(
+        // UX/UI, fase 2, 28/10/2026): ahora se dice que no se pudo cargar,
+        // con «Reintentar».
+        setErrorTipos(
           mensajeDeError(err, "No se pudieron cargar los tipos de permiso."),
         );
         setTipos([]);
       });
   }, [deVacaciones]);
 
+  useEffect(() => {
+    cargarTipos();
+  }, [cargarTipos]);
+
   const elegido = tipos?.find((t) => String(t.id) === valores.flujo);
   const pideMotivo = elegido?.pide_motivo !== false;
+  // Por horas (05/11/2026): un solo día, con hora de inicio y de fin.
+  const porHoras = elegido?.unidad === "horas";
   const fijar = (campo) => (e) =>
     setValores((v) => ({ ...v, [campo]: e.target.value }));
+  const fijarTipo = (e) => {
+    const flujo = e.target.value;
+    const tipo = tipos.find((t) => String(t.id) === flujo);
+    setErrores({});
+    setValores((v) => ({
+      ...v,
+      flujo,
+      hasta: tipo?.unidad === "horas" ? v.desde : v.hasta,
+    }));
+  };
+  // El día de un permiso por horas: «desde» y «hasta» van juntos.
+  const fijarDia = (dia) =>
+    setValores((v) => ({ ...v, desde: dia, hasta: dia }));
+  const minutos = porHoras
+    ? minutosEntre(valores.hora_desde, valores.hora_hasta)
+    : null;
   // Desde y Hasta, escritos o elegidos en el calendario. Si «desde» pasa a
   // ser posterior a «hasta», «hasta» lo acompaña.
   const fijarDesde = (e) => {
@@ -207,20 +268,37 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
 
   async function enviar(evento) {
     evento.preventDefault();
-    if (elegido?.adjunto === "obligatorio" && !adjunto) {
-      // El error va junto al campo y el foco a él (auditoría UX/UI, fase 2).
+    if (enCurso.current) return;
+    // Lo que se puede saber sin ir al servidor: el error va junto a su
+    // campo y el foco al primero (auditoría UX/UI, fase 2).
+    const propios = porHoras ? validarHoras(valores) : {};
+    if (elegido?.adjunto === "obligatorio" && !adjunto)
+      propios.adjunto = "Este permiso pide un documento de respaldo.";
+    if (Object.keys(propios).length) {
       setError(null);
-      setErrores({ adjunto: "Este permiso pide un documento de respaldo." });
+      setErrores(propios);
       enfocarPrimerError(formulario.current);
       return;
     }
+    const { hora_desde: horaDesde, hora_hasta: horaHasta, ...base } = valores;
+    // Por días no se mandan horas (el servidor las rechaza); por horas,
+    // «hasta» es el mismo día.
+    const campos = porHoras
+      ? {
+          ...base,
+          hasta: base.desde,
+          hora_desde: horaDesde,
+          hora_hasta: horaHasta,
+        }
+      : base;
+    enCurso.current = true;
     setEnviando(true);
     setError(null);
     setErrores({});
     try {
       onCreada(
         await licenciasService.solicitar(
-          pideMotivo ? valores : { ...valores, motivo: "" },
+          pideMotivo ? campos : { ...campos, motivo: "" },
           adjunto,
         ),
       );
@@ -229,6 +307,8 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
       setErrores(erroresPorCampo(err));
       setEnviando(false);
       enfocarPrimerError(formulario.current);
+    } finally {
+      enCurso.current = false;
     }
   }
 
@@ -237,8 +317,8 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
       {tipos === null ? (
         <EstadoDeCarga cargando />
       ) : tipos.length === 0 ? (
-        error ? (
-          <EstadoDeCarga error={error} />
+        errorTipos ? (
+          <EstadoDeCarga error={errorTipos} onReintentar={cargarTipos} />
         ) : (
           <p className="mz-faint mb-0">
             Todavía no hay tipos de permiso para solicitar.
@@ -269,7 +349,7 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
               <select
                 className="form-select form-select-sm"
                 value={valores.flujo}
-                onChange={fijar("flujo")}
+                onChange={fijarTipo}
               >
                 {tipos.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -282,6 +362,12 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
               <div className="solicitud-ruta mt-2">
                 {elegido.descripcion && (
                   <p className="mz-small mb-1">{elegido.descripcion}</p>
+                )}
+                {DESCUENTOS[elegido.descuento] && (
+                  <p className="solicitud-descuento mb-1">
+                    <Icon name="wallet2" /> {DESCUENTOS[elegido.descuento]}
+                    {porHoras ? " · se pide por horas" : ""}
+                  </p>
                 )}
                 <span className="mz-faint mz-small">
                   Lo aprueban, en orden:
@@ -303,43 +389,100 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
             <CalendarioDeRango
               desde={valores.desde}
               hasta={valores.hasta}
+              // Por horas, un solo día: cada toque fija «desde = hasta».
+              unDia={porHoras}
               onCambio={(rango) => setValores((v) => ({ ...v, ...rango }))}
             />
           </div>
-          <div className="col-12 col-md-5 d-flex flex-column gap-2">
-            <Campo
-              id="sp-desde"
-              etiqueta="Desde"
-              obligatorio
-              error={errores.desde}
-            >
-              <input
-                type="date"
-                className="form-control form-control-sm"
-                value={valores.desde}
-                onChange={fijarDesde}
-              />
-            </Campo>
-            <Campo
-              id="sp-hasta"
-              etiqueta="Hasta"
-              obligatorio
-              error={errores.hasta}
-            >
-              <input
-                type="date"
-                min={valores.desde}
-                className="form-control form-control-sm"
-                value={valores.hasta}
-                onChange={fijar("hasta")}
-              />
-            </Campo>
-            <p className="solicitud-dias mb-0" aria-live="polite">
-              {dias
-                ? `${dias} ${dias === 1 ? "día" : "días"} en total`
-                : "Revise las fechas: «Hasta» no puede ser antes de «Desde»."}
-            </p>
-          </div>
+          {porHoras ? (
+            <div className="col-12 col-md-5 d-flex flex-column gap-2">
+              <Campo
+                id="sp-dia"
+                etiqueta="Fecha"
+                obligatorio
+                // «hasta» llega si el servidor no ve un solo día.
+                error={errores.desde ?? errores.hasta}
+              >
+                <input
+                  type="date"
+                  className="form-control form-control-sm"
+                  value={valores.desde}
+                  onChange={(e) => fijarDia(e.target.value)}
+                />
+              </Campo>
+              <div className="solicitud-horas">
+                <Campo
+                  id="sp-hora-desde"
+                  etiqueta="Desde las"
+                  obligatorio
+                  error={errores.hora_desde}
+                >
+                  <input
+                    type="time"
+                    className="form-control form-control-sm"
+                    value={valores.hora_desde}
+                    onChange={fijar("hora_desde")}
+                  />
+                </Campo>
+                <Campo
+                  id="sp-hora-hasta"
+                  etiqueta="Hasta las"
+                  obligatorio
+                  error={errores.hora_hasta}
+                >
+                  <input
+                    type="time"
+                    min={valores.hora_desde || undefined}
+                    className="form-control form-control-sm"
+                    value={valores.hora_hasta}
+                    onChange={fijar("hora_hasta")}
+                  />
+                </Campo>
+              </div>
+              <p className="solicitud-dias mb-0" role="status">
+                {minutos === null
+                  ? "Indique la hora de inicio y la de fin."
+                  : minutos > 0
+                    ? `Duración: ${duracion(minutos)}`
+                    : "Revise las horas: «Hasta las» debe ser después de «Desde las»."}
+              </p>
+            </div>
+          ) : (
+            <div className="col-12 col-md-5 d-flex flex-column gap-2">
+              <Campo
+                id="sp-desde"
+                etiqueta="Desde"
+                obligatorio
+                error={errores.desde}
+              >
+                <input
+                  type="date"
+                  className="form-control form-control-sm"
+                  value={valores.desde}
+                  onChange={fijarDesde}
+                />
+              </Campo>
+              <Campo
+                id="sp-hasta"
+                etiqueta="Hasta"
+                obligatorio
+                error={errores.hasta}
+              >
+                <input
+                  type="date"
+                  min={valores.desde}
+                  className="form-control form-control-sm"
+                  value={valores.hasta}
+                  onChange={fijar("hasta")}
+                />
+              </Campo>
+              <p className="solicitud-dias mb-0" aria-live="polite">
+                {dias
+                  ? `${dias} ${dias === 1 ? "día" : "días"} en total`
+                  : "Revise las fechas: «Hasta» no puede ser antes de «Desde»."}
+              </p>
+            </div>
+          )}
           {/* Las indicaciones del permiso van a todo el ancho; el motivo, solo
               si el tipo lo pide (vacaciones no). */}
           {evaluacion?.reglas.length > 0 && (
@@ -351,6 +494,12 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
             <Campo
               id="sp-motivo"
               etiqueta="Motivo"
+              // LOPDP: el motivo lo leen quienes aprueban.
+              ayuda={
+                esMedico(elegido)
+                  ? "No escriba diagnósticos; basta con adjuntar el certificado."
+                  : undefined
+              }
               error={errores.motivo}
               className="col-12"
             >
@@ -467,6 +616,31 @@ function textoDeAccion(a) {
   }
 }
 
+/** Lo que pasa al cancelar una aprobada, nombrando a la persona. Los días
+ * de vacaciones se dicen solo si `dias_a_devolver > 0`; si el servidor aún
+ * no manda ese dato, se dice sin número y solo si se descontó de las
+ * vacaciones. */
+function consecuenciaDeCancelar(solicitud) {
+  const nombre = solicitud.solicitante?.nombre || "la persona";
+  const n = solicitud.dias_a_devolver;
+  const dias = (x) => `${x} ${x === 1 ? "día" : "días"}`;
+  let devolver = "";
+  let devuelto = "";
+  if (typeof n === "number") {
+    if (n > 0) {
+      devolver = ` y se le devolverán ${dias(n)} de vacaciones`;
+      devuelto = ` y se le devolvieron ${dias(n)} de vacaciones`;
+    }
+  } else if (solicitud.descuento === "vacaciones") {
+    devolver = " y se le devolverán los días de vacaciones descontados";
+    devuelto = " y se le devolvieron los días de vacaciones descontados";
+  }
+  return {
+    futuro: `Se quitarán las ausencias de ${nombre} en Gestión Humana${devolver}.`,
+    hecho: `se quitaron las ausencias de ${nombre} en Gestión Humana${devuelto}.`,
+  };
+}
+
 /** El motivo de rechazo tiene que explicar algo a quien pidió. */
 const MINIMO_RECHAZO = 10;
 
@@ -490,6 +664,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
   const [descargando, setDescargando] = useState(false);
   const campoComentario = useRef(null);
   const avisoHecho = useRef(null);
+  const ocupado = useRef(false);
   // A dónde va el foco cuando el botón pulsado desaparece del pie.
   const enfocarLuego = (selector) =>
     requestAnimationFrame(() => document.querySelector(selector)?.focus());
@@ -538,6 +713,9 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           : true;
 
   async function hacer(accion, enCurso, listo) {
+    // Contra el doble envío: `trabajando` tarda un render en desactivar.
+    if (ocupado.current) return;
+    ocupado.current = true;
     setTrabajando(enCurso);
     setError(null);
     setHecho(null);
@@ -552,8 +730,17 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       requestAnimationFrame(() => avisoHecho.current?.focus());
       onCambio();
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo completar."));
+      // El error del comentario (cancelar una aprobada sin decir por qué)
+      // va bajo su campo, con el foco en él.
+      const delComentario = erroresPorCampo(err).comentario;
+      if (delComentario) {
+        setErrorComentario(delComentario);
+        requestAnimationFrame(() => campoComentario.current?.focus());
+      } else {
+        setError(mensajeDeError(err, "No se pudo completar."));
+      }
     } finally {
+      ocupado.current = false;
       setTrabajando(null);
     }
   }
@@ -573,13 +760,61 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
   }
 
   const [estado, clase] = ESTADOS[solicitud?.estado] ?? ["", ""];
+  // Unidad, descuento y horario son de la solicitud (se copian del tipo al
+  // crearla): si el tipo cambia después, la solicitud no cambia.
+  const porHoras = solicitud?.unidad === "horas";
+  const horas = solicitud
+    ? horario(solicitud.hora_desde, solicitud.hora_hasta)
+    : "";
   const resumen =
     solicitud &&
-    `${solicitud.flujo.toLowerCase()} de ${solicitud.solicitante.nombre} (${fechas(
-      solicitud.desde,
-      solicitud.hasta,
-      formatearFecha,
-    )}, ${solicitud.dias} ${solicitud.dias === 1 ? "día" : "días"})`;
+    `${solicitud.flujo.toLowerCase()} de ${solicitud.solicitante.nombre} (${[
+      fechas(solicitud.desde, solicitud.hasta, formatearFecha),
+      horas,
+      duracionDeSolicitud(solicitud),
+    ]
+      .filter(Boolean)
+      .join(", ")})`;
+  // Una aprobada la cancela Gestión Humana, diciendo por qué.
+  const cancelaAprobada =
+    solicitud?.estado === "aprobada" &&
+    Boolean(solicitud?.puedo?.cancelar_pide_comentario);
+
+  async function cancelar() {
+    const motivo = comentario.trim();
+    if (cancelaAprobada && !motivo) {
+      setErrorComentario(
+        "Para cancelar una solicitud aprobada, explique por qué: queda en el historial y se avisa a quien la pidió.",
+      );
+      campoComentario.current?.focus();
+      return;
+    }
+    const consecuencia = consecuenciaDeCancelar(solicitud);
+    const si = await confirmar(
+      cancelaAprobada
+        ? {
+            titulo: `¿Cancelar ${resumen}, ya aprobada?`,
+            mensaje: `${consecuencia.futuro} Se avisará a quien la pidió con su comentario: «${motivo}».`,
+            accion: "Cancelar solicitud aprobada",
+            cancelar: "Volver",
+          }
+        : {
+            titulo: "¿Cancelar la solicitud?",
+            mensaje: "La solicitud se retira y ya no sigue su aprobación.",
+            accion: "Cancelar solicitud",
+            cancelar: "Volver",
+          },
+    );
+    if (!si) return;
+    hacer(
+      () => licenciasService.cancelar(id, comentario),
+      "cancelar",
+      () =>
+        cancelaAprobada
+          ? `Solicitud cancelada: ${consecuencia.hecho}`
+          : "Solicitud cancelada.",
+    );
+  }
   const siguiente = (datos) =>
     datos.estado === "pendiente"
       ? ` Ahora le toca a ${datos.pendiente_de.map((p) => p.nombre).join(", ")}.`
@@ -644,8 +879,13 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       )}
       <label className="form-label mz-small mb-1" htmlFor="sp-comentario">
         Comentario para el solicitante{" "}
-        {solicitud.puedo.resolver && !escalando && (
-          <span className="mz-faint">(obligatorio para rechazar)</span>
+        {cancelaAprobada && !escalando ? (
+          <span className="mz-faint">(obligatorio para cancelar)</span>
+        ) : (
+          solicitud.puedo.resolver &&
+          !escalando && (
+            <span className="mz-faint">(obligatorio para rechazar)</span>
+          )
         )}
       </label>
       <textarea
@@ -658,13 +898,14 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           setComentario(e.target.value);
           setErrorComentario(null);
         }}
-        aria-invalid={Boolean(errorComentario)}
+        aria-required={cancelaAprobada && !escalando ? true : undefined}
+        aria-invalid={errorComentario ? true : undefined}
         aria-describedby={errorComentario ? "sp-comentario-error" : undefined}
       />
       {errorComentario && (
-        <small id="sp-comentario-error" className="invalid-feedback d-block">
+        <div id="sp-comentario-error" className="mz-field-error">
           {errorComentario}
-        </small>
+        </div>
       )}
       {escalando && (
         <div className="mt-2">
@@ -687,20 +928,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
             type="button"
             className="btn btn-outline-secondary btn-sm me-auto"
             disabled={Boolean(trabajando)}
-            onClick={async () => {
-              const si = await confirmar({
-                titulo: "¿Cancelar la solicitud?",
-                mensaje: "La solicitud se retira y ya no sigue su aprobación.",
-                accion: "Cancelar solicitud",
-                cancelar: "Volver",
-              });
-              if (si)
-                hacer(
-                  () => licenciasService.cancelar(id, comentario),
-                  "cancelar",
-                  () => "Solicitud cancelada.",
-                );
-            }}
+            onClick={cancelar}
           >
             {trabajando === "cancelar" ? "Cancelando…" : "Cancelar solicitud"}
           </button>
@@ -823,6 +1051,16 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
               {error}
             </div>
           )}
+          {cancelaAprobada && (
+            <div className="mz-alert mz-alert--warn" role="note">
+              <Icon name="exclamation-triangle" />
+              <span>
+                Esta solicitud ya está aprobada. Si la cancela:{" "}
+                {consecuenciaDeCancelar(solicitud).futuro} Debe explicar por qué
+                en el comentario.
+              </span>
+            </div>
+          )}
           {solicitud.estado === "pendiente" &&
             (solicitud.puedo.resolver ? (
               <div className="mz-alert mz-alert--info" role="note">
@@ -859,15 +1097,37 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                 </dd>
               </div>
               <div>
-                <dt>Fechas</dt>
+                <dt>{porHoras ? "Fecha" : "Fechas"}</dt>
                 <dd>
                   {fechas(solicitud.desde, solicitud.hasta, formatearFecha)}
                 </dd>
               </div>
-              <div>
-                <dt>Días</dt>
-                <dd>{solicitud.dias}</dd>
-              </div>
+              {porHoras ? (
+                <>
+                  {/* Sin horario (datos incompletos), no se muestra « a ». */}
+                  {horas && (
+                    <div>
+                      <dt>Horario</dt>
+                      <dd>{horas}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Duración</dt>
+                    <dd>{duracionDeSolicitud(solicitud)}</dd>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <dt>Días</dt>
+                  <dd>{solicitud.dias}</dd>
+                </div>
+              )}
+              {DESCUENTOS[solicitud.descuento] && (
+                <div>
+                  <dt>Descuento</dt>
+                  <dd>{DESCUENTOS[solicitud.descuento]}</dd>
+                </div>
+              )}
               <div>
                 <dt>Solicitada el</dt>
                 <dd>{formatearFecha(solicitud.created_at, true)}</dd>
@@ -896,16 +1156,16 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           />
 
           {solicitud.motivo && (
-            <section aria-labelledby="sp-motivo">
-              <h4 id="sp-motivo" className="solicitud-seccion">
+            <section aria-labelledby="sp-detalle-motivo">
+              <h4 id="sp-detalle-motivo" className="solicitud-seccion">
                 Motivo
               </h4>
               <p className="mb-0">{solicitud.motivo}</p>
             </section>
           )}
           {solicitud.tiene_adjunto && (
-            <section aria-labelledby="sp-adjunto">
-              <h4 id="sp-adjunto" className="solicitud-seccion">
+            <section aria-labelledby="sp-detalle-adjunto">
+              <h4 id="sp-detalle-adjunto" className="solicitud-seccion">
                 Documento de respaldo
               </h4>
               <button
@@ -952,6 +1212,16 @@ const DESTINO_VACIO = {
   rol: null,
   cargo: null,
 };
+
+/** El nombre accesible de una solicitud en la lista. */
+function nombreDeSolicitud(s) {
+  const horas = s.unidad === "horas" ? horario(s.hora_desde, s.hora_hasta) : "";
+  return `${s.flujo} de ${s.solicitante.nombre}, ${fechas(
+    s.desde,
+    s.hasta,
+    formatearFecha,
+  )}${horas ? `, de ${horas}` : ""}`;
+}
 
 const PESTANAS = [
   { id: "mias", etiqueta: "Mis solicitudes" },
@@ -1028,7 +1298,7 @@ export function SolicitudPermisosPage() {
               to="/admin/institucional/permisos/flujos"
               className="btn btn-outline-secondary btn-sm"
             >
-              <Icon name="diagram-2" /> Configurar flujos
+              <Icon name="diagram-2" /> Tipos de permiso
             </Link>
           )}
           <button
@@ -1064,69 +1334,136 @@ export function SolicitudPermisosPage() {
         </div>
       )}
 
-      <PanelDePestana idBase="sp" valor={pestana} className="mz-table-wrap">
-        <table className="mz-table solicitudes-tabla">
-          <thead>
-            <tr>
-              <th>Permiso</th>
-              {pestana !== "mias" && <th>Solicitante</th>}
-              <th>Fechas</th>
-              <th className="num">Días</th>
-              <th>Estado</th>
-              <th>Paso / pendiente de</th>
-              <th>Solicitada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(lista ?? []).map((s) => {
-              const [estado, clase] = ESTADOS[s.estado] ?? ["", ""];
-              return (
-                <tr key={s.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm p-0"
-                      onClick={() => abrir(s.id)}
-                      aria-label={`${s.flujo} de ${s.solicitante.nombre}, ${fechas(
-                        s.desde,
-                        s.hasta,
-                        formatearFecha,
-                      )}`}
-                    >
-                      {s.flujo}
-                    </button>
-                  </td>
-                  {pestana !== "mias" && <td>{s.solicitante.nombre}</td>}
-                  <td>{fechas(s.desde, s.hasta, formatearFecha)}</td>
-                  <td className="num">{s.dias}</td>
-                  <td>
-                    <span className={`mz-pill ${clase}`}>{estado}</span>
-                  </td>
-                  <td className="mz-small">
-                    {s.estado === "pendiente"
-                      ? `${s.paso_actual} · ${s.pendiente_de.map((p) => p.nombre).join(", ")}`
-                      : "—"}
-                  </td>
-                  <td className="mz-small">
-                    {formatearFecha(s.created_at, true)}
-                  </td>
-                </tr>
-              );
-            })}
-            <FilaDeEstado
-              columnas={pestana === "mias" ? 6 : 7}
-              cargando={lista === null}
-              error={error}
-              onReintentar={cargar}
-              vacio={lista?.length === 0}
-              textoVacio={
-                pestana === "por_aprobar"
-                  ? "No tiene solicitudes por aprobar."
-                  : "No hay solicitudes."
-              }
-            />
-          </tbody>
-        </table>
+      <PanelDePestana idBase="sp" valor={pestana}>
+        <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+          <table className="mz-table solicitudes-tabla">
+            <thead>
+              <tr>
+                <th>Permiso</th>
+                {pestana !== "mias" && <th>Solicitante</th>}
+                <th>Fechas</th>
+                <th className="num">Duración</th>
+                <th>Estado</th>
+                <th>Paso / pendiente de</th>
+                <th>Solicitada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(lista ?? []).map((s) => {
+                const [estado, clase] = ESTADOS[s.estado] ?? ["", ""];
+                const horas =
+                  s.unidad === "horas"
+                    ? horario(s.hora_desde, s.hora_hasta)
+                    : "";
+                return (
+                  <tr key={s.id}>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0"
+                        onClick={() => abrir(s.id)}
+                        aria-label={nombreDeSolicitud(s)}
+                      >
+                        {s.flujo}
+                      </button>
+                      {DESCUENTOS[s.descuento] && (
+                        <small className="solicitudes-tabla__descuento">
+                          {DESCUENTOS[s.descuento]}
+                        </small>
+                      )}
+                    </td>
+                    {pestana !== "mias" && <td>{s.solicitante.nombre}</td>}
+                    <td>
+                      {fechas(s.desde, s.hasta, formatearFecha)}
+                      {horas && (
+                        <small className="solicitudes-tabla__horario">
+                          {horas}
+                        </small>
+                      )}
+                    </td>
+                    <td className="num">{duracionDeSolicitud(s)}</td>
+                    <td>
+                      <span className={`mz-pill ${clase}`}>{estado}</span>
+                    </td>
+                    <td className="mz-small">
+                      {s.estado === "pendiente"
+                        ? `${s.paso_actual} · ${s.pendiente_de.map((p) => p.nombre).join(", ")}`
+                        : "—"}
+                    </td>
+                    <td className="mz-small">
+                      {formatearFecha(s.created_at, true)}
+                    </td>
+                  </tr>
+                );
+              })}
+              <FilaDeEstado
+                columnas={pestana === "mias" ? 6 : 7}
+                cargando={lista === null}
+                error={error}
+                onReintentar={cargar}
+                vacio={lista?.length === 0}
+                textoVacio={
+                  pestana === "por_aprobar"
+                    ? "No tiene solicitudes por aprobar."
+                    : "No hay solicitudes."
+                }
+              />
+            </tbody>
+          </table>
+        </div>
+        {/* En el teléfono, la misma lista en tarjetas. */}
+        <div className="mz-cards">
+          <EstadoDeCarga
+            cargando={lista === null}
+            error={error}
+            onReintentar={cargar}
+            vacio={lista?.length === 0}
+            textoVacio={
+              pestana === "por_aprobar"
+                ? "No tiene solicitudes por aprobar."
+                : "No hay solicitudes."
+            }
+          />
+          {!error && lista?.length > 0 && (
+            <ul className="mz-cards-lista" aria-label="Solicitudes de permiso">
+              {lista.map((s) => {
+                const [estado, clase] = ESTADOS[s.estado] ?? ["", ""];
+                const horas =
+                  s.unidad === "horas"
+                    ? horario(s.hora_desde, s.hora_hasta)
+                    : "";
+                return (
+                  <li key={s.id} className="mz-card-row">
+                    <div className="mz-row-between">
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 mz-card-row__titulo solicitud-tarjeta__abrir"
+                        onClick={() => abrir(s.id)}
+                        aria-label={nombreDeSolicitud(s)}
+                      >
+                        {s.flujo}
+                      </button>
+                      <span className={`mz-pill ${clase}`}>{estado}</span>
+                    </div>
+                    <div className="mz-card-meta">
+                      {pestana !== "mias" && (
+                        <span>{s.solicitante.nombre}</span>
+                      )}
+                      <span>
+                        {fechas(s.desde, s.hasta, formatearFecha)}
+                        {horas ? `, ${horas}` : ""}
+                      </span>
+                      <span>{duracionDeSolicitud(s)}</span>
+                      {DESCUENTOS[s.descuento] && (
+                        <span>{DESCUENTOS[s.descuento]}</span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </PanelDePestana>
 
       {/* `?nueva=` solo abre la solicitud si la cuenta puede solicitar. */}

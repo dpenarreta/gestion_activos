@@ -129,17 +129,23 @@ beforeEach(() => {
 describe("Solicitud de permisos", () => {
   it("lista mis solicitudes y cuántas tengo por aprobar", async () => {
     pintar(<SolicitudPermisosPage />);
-    expect(await screen.findByText("Vacaciones")).toBeInTheDocument();
-    expect(screen.getByText("Jefatura · Julia Paz")).toBeInTheDocument();
+    // La tabla; en el teléfono, la misma lista va en tarjetas.
+    const tabla = screen.getByRole("table");
+    expect(await within(tabla).findByText("Vacaciones")).toBeInTheDocument();
+    expect(within(tabla).getByText("Jefatura · Julia Paz")).toBeInTheDocument();
+    const tarjetas = screen.getByRole("list", {
+      name: "Solicitudes de permiso",
+    });
+    expect(
+      within(tarjetas).getByRole("button", { name: /^Vacaciones de Ana Vera/ }),
+    ).toBeInTheDocument();
     // La cuenta va dentro de la pestaña y se lee «1 por aprobar».
     expect(
       screen.getByRole("tab", { name: /Por aprobar\s*1\s*por aprobar/ }),
     ).toBeInTheDocument();
     // Sin permisos: ni «Todas» ni configurar.
     expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: /Configurar flujos/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("link", { name: /Tipos de permiso/ })).toBeNull();
   });
 
   it("pide un permiso viendo por qué pasos va a pasar", async () => {
@@ -508,7 +514,7 @@ describe("Solicitud de permisos: cargando, error y pestañas", () => {
 
   it("las pestañas se recorren con las flechas y controlan su panel", async () => {
     pintar(<SolicitudPermisosPage />);
-    await screen.findByText("Vacaciones");
+    await within(screen.getByRole("table")).findByText("Vacaciones");
     const mias = screen.getByRole("tab", { name: "Mis solicitudes" });
     expect(mias).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAttribute(
@@ -526,7 +532,9 @@ describe("Solicitud de permisos: cargando, error y pestañas", () => {
     pintar(<SolicitudPermisosPage />);
     fireEvent.click(screen.getByRole("tab", { name: /Por aprobar/ }));
     expect(
-      await screen.findByText("No tiene solicitudes por aprobar."),
+      await within(screen.getByRole("table")).findByText(
+        "No tiene solicitudes por aprobar.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -692,7 +700,11 @@ describe("Configurar flujos", () => {
         expect.objectContaining({
           nombre: "Permiso médico",
           dias_maximos: 3,
-          descuenta_vacaciones: false,
+          // Por defecto, permiso con sueldo, por días y ausencia personal;
+          // `descuenta_vacaciones` ya no se envía (es espejo de `descuento`).
+          descuento: "ninguno",
+          unidad: "dias",
+          tipo_ausencia: "PERSONAL",
           pasos: [
             {
               nombre: "Jefatura",
