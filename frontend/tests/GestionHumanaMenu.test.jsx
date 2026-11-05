@@ -11,10 +11,17 @@ import { MODULOS, moduloDeRuta } from "../src/modulos/modulos";
  * lateral, filtrada por los permisos del catálogo (`novedades.*`).
  */
 
+/** Las entradas con dirección, recorriendo las secciones del menú
+ * («Control operativo» y «Tareas y equipo»). */
+const hojas = (items) =>
+  items.flatMap((i) => [...(i.path ? [i] : []), ...hojas(i.children ?? [])]);
+
 const entradas = (permisos) =>
-  getVisibleAdminMenu(permisos, "gestion_humana")
-    .filter((i) => i.modulo === "gestion_humana")
-    .map((i) => i.id);
+  hojas(
+    getVisibleAdminMenu(permisos, "gestion_humana").filter(
+      (i) => i.modulo === "gestion_humana",
+    ),
+  ).map((i) => i.id);
 
 describe("Gestión Humana en el menú", () => {
   it("está registrado como módulo con su prefijo", () => {

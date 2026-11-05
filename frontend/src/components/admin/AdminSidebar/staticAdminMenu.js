@@ -23,6 +23,12 @@ import {
   PERMISOS as GH_PERMISOS,
   RUTA_GESTION_HUMANA,
   SALIDAS as GH_SALIDAS,
+  EQUIPO_VER as GH_EQUIPO_VER,
+  TAREAS_ACCEDER as GH_TAREAS_ACCEDER,
+  TAREAS_ADMINISTRAR as GH_TAREAS_ADMINISTRAR,
+  TAREAS_CERRAR_MES as GH_TAREAS_CERRAR_MES,
+  TAREAS_REGULARIZAR as GH_TAREAS_REGULARIZAR,
+  TAREAS_VALIDAR as GH_TAREAS_VALIDAR,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -289,86 +295,158 @@ export const ADMIN_MENU = [
     path: `${RUTA_SOPORTE}/formulario`,
     permission: "soporte.formulario",
   },
-  // --- Gestión Humana · Control Operativo de Novedades --------------------
+  // --- Gestión Humana ----------------------------------------------------
   //
-  // Cada pestaña de Nexo es una entrada. El menú mira los permisos del
-  // catálogo; lo que depende del rol operativo (el Supervisor no consulta el
-  // historial de registros aunque tenga `historial_ver`, por ejemplo) lo dice
-  // `GET novedades/me/` dentro de la pantalla.
+  // Dos secciones: Control operativo (Novedades) y Tareas y equipo. Quien
+  // solo tiene una entrada de una sección la ve directa (`aplanarSiUno`).
   {
-    id: "gh-dias",
+    id: "gh-control-operativo",
     modulo: "gestion_humana",
-    name: "Días laborados",
-    icon: "calendar3",
-    path: `${RUTA_GESTION_HUMANA}/dias-laborados`,
-    permission: GH_ACCEDER,
+    name: "Control operativo",
+    icon: "clipboard-data",
+    aplanarSiUno: true,
+    children: [
+      // Cada pestaña de Nexo es una entrada. El menú mira los permisos del
+      // catálogo; lo que depende del rol operativo (el Supervisor no consulta
+      // el historial de registros aunque tenga `historial_ver`, por ejemplo)
+      // lo dice `GET novedades/me/` dentro de la pantalla.
+      {
+        id: "gh-dias",
+        modulo: "gestion_humana",
+        name: "Días laborados",
+        icon: "calendar3",
+        path: `${RUTA_GESTION_HUMANA}/dias-laborados`,
+        permission: GH_ACCEDER,
+      },
+      {
+        id: "gh-horas",
+        modulo: "gestion_humana",
+        name: "Horas extras",
+        icon: "clock-history",
+        path: `${RUTA_GESTION_HUMANA}/horas-extras`,
+        permission: GH_ACCEDER,
+      },
+      {
+        id: "gh-colaboradores",
+        modulo: "gestion_humana",
+        name: "Colaboradores",
+        icon: "people",
+        path: `${RUTA_GESTION_HUMANA}/colaboradores`,
+        permission: GH_ACCEDER,
+      },
+      {
+        id: "gh-historial",
+        modulo: "gestion_humana",
+        name: "Historial de registros",
+        icon: "journal-text",
+        path: `${RUTA_GESTION_HUMANA}/historial`,
+        // El historial es del Asistente de Operaciones y del Administrador; el
+        // Supervisor tiene `historial_ver` solo para el Repositorio mensual
+        // (`access.can_view_event_history`). El menú no conoce el rol operativo:
+        // pide además el consolidado o administrar, que el Supervisor no tiene
+        // de partida (ver el informe: una excepción que se lo conceda haría
+        // visible la entrada, y la pantalla le explica que no le corresponde).
+        permission: [GH_CONSOLIDADO, GH_ADMINISTRAR],
+        requiere: GH_HISTORIAL,
+      },
+      {
+        id: "gh-repositorio",
+        modulo: "gestion_humana",
+        name: "Repositorio mensual",
+        icon: "archive",
+        path: `${RUTA_GESTION_HUMANA}/repositorio`,
+        permission: GH_HISTORIAL,
+      },
+      {
+        // El Jefe de Operaciones la trabaja; el Administrador la consulta.
+        id: "gh-depuradas",
+        modulo: "gestion_humana",
+        name: "Horas depuradas",
+        icon: "funnel",
+        path: `${RUTA_GESTION_HUMANA}/horas-depuradas`,
+        permission: [GH_DEPURAR, GH_ADMINISTRAR],
+      },
+      {
+        // Con sus propios permisos: no exige el acceso al resto del módulo.
+        id: "gh-movimientos",
+        modulo: "gestion_humana",
+        name: "Ingresos y salidas",
+        icon: "arrow-left-right",
+        path: `${RUTA_GESTION_HUMANA}/ingresos-salidas`,
+        permission: [GH_INGRESOS, GH_SALIDAS],
+      },
+      {
+        // Permisos por rol, excepciones, plazos y destinatarios de correos: el
+        // administrador del módulo.
+        id: "gh-configuracion",
+        modulo: "gestion_humana",
+        name: "Configuración del módulo",
+        icon: "sliders",
+        path: `${RUTA_GESTION_HUMANA}/configuracion`,
+        permission: [GH_PERMISOS, GH_ADMINISTRAR],
+      },
+    ],
   },
   {
-    id: "gh-horas",
+    // Tareas y Equipo (fase 2a, portado de Nexo). Cada entrada exige además
+    // `tareas.acceder`, que el servidor pide en toda petición de `/tasks/`.
+    // El ámbito (de quién son las tareas, quién es de su equipo) lo decide
+    // el organigrama en el servidor.
+    id: "gh-tareas-equipo",
     modulo: "gestion_humana",
-    name: "Horas extras",
-    icon: "clock-history",
-    path: `${RUTA_GESTION_HUMANA}/horas-extras`,
-    permission: GH_ACCEDER,
-  },
-  {
-    id: "gh-colaboradores",
-    modulo: "gestion_humana",
-    name: "Colaboradores",
-    icon: "people",
-    path: `${RUTA_GESTION_HUMANA}/colaboradores`,
-    permission: GH_ACCEDER,
-  },
-  {
-    id: "gh-historial",
-    modulo: "gestion_humana",
-    name: "Historial de registros",
-    icon: "journal-text",
-    path: `${RUTA_GESTION_HUMANA}/historial`,
-    // El historial es del Asistente de Operaciones y del Administrador; el
-    // Supervisor tiene `historial_ver` solo para el Repositorio mensual
-    // (`access.can_view_event_history`). El menú no conoce el rol operativo:
-    // pide además el consolidado o administrar, que el Supervisor no tiene
-    // de partida (ver el informe: una excepción que se lo conceda haría
-    // visible la entrada, y la pantalla le explica que no le corresponde).
-    permission: [GH_CONSOLIDADO, GH_ADMINISTRAR],
-    requiere: GH_HISTORIAL,
-  },
-  {
-    id: "gh-repositorio",
-    modulo: "gestion_humana",
-    name: "Repositorio mensual",
-    icon: "archive",
-    path: `${RUTA_GESTION_HUMANA}/repositorio`,
-    permission: GH_HISTORIAL,
-  },
-  {
-    // El Jefe de Operaciones la trabaja; el Administrador la consulta.
-    id: "gh-depuradas",
-    modulo: "gestion_humana",
-    name: "Horas depuradas",
-    icon: "funnel",
-    path: `${RUTA_GESTION_HUMANA}/horas-depuradas`,
-    permission: [GH_DEPURAR, GH_ADMINISTRAR],
-  },
-  {
-    // Con sus propios permisos: no exige el acceso al resto del módulo.
-    id: "gh-movimientos",
-    modulo: "gestion_humana",
-    name: "Ingresos y salidas",
-    icon: "arrow-left-right",
-    path: `${RUTA_GESTION_HUMANA}/ingresos-salidas`,
-    permission: [GH_INGRESOS, GH_SALIDAS],
-  },
-  {
-    // Permisos por rol, excepciones, plazos y destinatarios de correos: el
-    // administrador del módulo.
-    id: "gh-configuracion",
-    modulo: "gestion_humana",
-    name: "Configuración del módulo",
-    icon: "sliders",
-    path: `${RUTA_GESTION_HUMANA}/configuracion`,
-    permission: [GH_PERMISOS, GH_ADMINISTRAR],
+    name: "Tareas y equipo",
+    icon: "kanban",
+    aplanarSiUno: true,
+    children: [
+      {
+        // Kanban, Tabla, Gantt y Repositorio son pestañas de la pantalla.
+        id: "gh-tareas",
+        modulo: "gestion_humana",
+        name: "Tareas",
+        icon: "kanban",
+        path: `${RUTA_GESTION_HUMANA}/tareas`,
+        permission: GH_TAREAS_ACCEDER,
+      },
+      {
+        id: "gh-equipo",
+        modulo: "gestion_humana",
+        name: "Equipo",
+        icon: "diagram-3",
+        path: `${RUTA_GESTION_HUMANA}/equipo`,
+        permission: GH_EQUIPO_VER,
+        requiere: GH_TAREAS_ACCEDER,
+      },
+      {
+        // Con `validar`, las de su equipo; con `regularizar`, toda la
+        // empresa y las acciones en bloque.
+        id: "gh-tiempo-objetivo",
+        modulo: "gestion_humana",
+        name: "Validaciones",
+        icon: "stopwatch",
+        path: `${RUTA_GESTION_HUMANA}/tiempo-objetivo`,
+        permission: [GH_TAREAS_VALIDAR, GH_TAREAS_REGULARIZAR],
+        requiere: GH_TAREAS_ACCEDER,
+      },
+      {
+        id: "gh-cierre-mes",
+        modulo: "gestion_humana",
+        name: "Cierre de mes",
+        icon: "calendar-check",
+        path: `${RUTA_GESTION_HUMANA}/cierre-de-mes`,
+        permission: GH_TAREAS_CERRAR_MES,
+        requiere: GH_TAREAS_ACCEDER,
+      },
+      {
+        // Ajustes con vigencia y el catálogo de motivos de registro de horas.
+        id: "gh-ajustes-tareas",
+        modulo: "gestion_humana",
+        name: "Ajustes de tareas",
+        icon: "sliders2",
+        path: `${RUTA_GESTION_HUMANA}/ajustes-de-tareas`,
+        permission: GH_TAREAS_ADMINISTRAR,
+        requiere: GH_TAREAS_ACCEDER,
+      },
+    ],
   },
   // --- Institucional ------------------------------------------------------
   {

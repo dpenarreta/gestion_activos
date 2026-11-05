@@ -47,7 +47,8 @@ export const MODULOS = [
     // laborados, horas extras, colaboradores, cierres e ingresos y salidas.
     id: "gestion_humana",
     nombre: "Gestión Humana",
-    descripcion: "Días laborados, horas extras y novedades de colaboradores",
+    descripcion:
+      "Novedades de colaboradores (días laborados y horas extras), tareas y equipo",
     icono: "people",
     inicio: "/admin/gestion-humana",
     prefijo: "/admin/gestion-humana",

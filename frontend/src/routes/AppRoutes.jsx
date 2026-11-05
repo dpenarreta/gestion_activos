@@ -4,6 +4,7 @@ import { PlantillaCorreoEditor } from "../pages/Admin/Configuracion/PlantillaCor
 import { PlantillasCorreoPage } from "../pages/Admin/Configuracion/PlantillasCorreoPage";
 import { AuditoriaInicio } from "../components/admin/AuditoriaMarco/AuditoriaMarco";
 import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
+import { lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
@@ -129,6 +130,7 @@ import { HorasExtras } from "../pages/GestionHumana/HorasExtras";
 import { IngresosSalidas } from "../pages/GestionHumana/IngresosSalidas";
 import { InicioGestionHumana } from "../pages/GestionHumana/InicioGestionHumana";
 import { RepositorioMensual } from "../pages/GestionHumana/RepositorioMensual";
+import { MarcoTareas } from "../pages/GestionHumana/Tareas/ContextoTareas";
 import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
@@ -138,7 +140,42 @@ import {
   PERMISOS as GH_PERMISOS,
   PERMISOS_GESTION_HUMANA,
   SALIDAS as GH_SALIDAS,
+  EQUIPO_VER as GH_EQUIPO_VER,
+  TAREAS_ACCEDER as GH_TAREAS_ACCEDER,
+  TAREAS_ADMINISTRAR as GH_TAREAS_ADMINISTRAR,
+  TAREAS_CERRAR_MES as GH_TAREAS_CERRAR_MES,
+  TAREAS_REGULARIZAR as GH_TAREAS_REGULARIZAR,
+  TAREAS_VALIDAR as GH_TAREAS_VALIDAR,
 } from "../modulos/permisosGestionHumana";
+
+// Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
+// Humana. El marco (`MarcoTareas`) no es perezoso: conserva `tasks/me/` al
+// pasar de una pantalla a otra y espera cada una dentro de su `Suspense`.
+const Tareas = lazy(() =>
+  import("../pages/GestionHumana/Tareas/Tareas").then((m) => ({
+    default: m.Tareas,
+  })),
+);
+const Equipo = lazy(() =>
+  import("../pages/GestionHumana/Tareas/Equipo").then((m) => ({
+    default: m.Equipo,
+  })),
+);
+const TiempoObjetivo = lazy(() =>
+  import("../pages/GestionHumana/Tareas/TiempoObjetivo").then((m) => ({
+    default: m.TiempoObjetivo,
+  })),
+);
+const CierreDeMes = lazy(() =>
+  import("../pages/GestionHumana/Tareas/CierreDeMes").then((m) => ({
+    default: m.CierreDeMes,
+  })),
+);
+const AjustesTareas = lazy(() =>
+  import("../pages/GestionHumana/Tareas/AjustesTareas").then((m) => ({
+    default: m.AjustesTareas,
+  })),
+);
 
 const USUARIOS_VER = "usuarios.ver";
 const ROLES_VER = "roles.ver";
@@ -732,6 +769,61 @@ export function AppRoutes() {
               </RequirePermission>
             }
           />
+          {/* Tareas y Equipo. `tareas/<id>` es el enlace de los avisos de la
+              campana (`TASK_LINK` del backend). Cada pantalla vuelve a
+              preguntar `tasks/me/`; el servidor autoriza cada petición. */}
+          <Route element={<MarcoTareas />}>
+            <Route
+              path="tareas"
+              element={
+                <RequirePermission permission={GH_TAREAS_ACCEDER}>
+                  <Tareas />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="tareas/:tareaId"
+              element={
+                <RequirePermission permission={GH_TAREAS_ACCEDER}>
+                  <Tareas />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="equipo"
+              element={
+                <RequirePermission permission={GH_EQUIPO_VER}>
+                  <Equipo />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="tiempo-objetivo"
+              element={
+                <RequirePermission
+                  permission={[GH_TAREAS_VALIDAR, GH_TAREAS_REGULARIZAR]}
+                >
+                  <TiempoObjetivo />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="cierre-de-mes"
+              element={
+                <RequirePermission permission={GH_TAREAS_CERRAR_MES}>
+                  <CierreDeMes />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="ajustes-de-tareas"
+              element={
+                <RequirePermission permission={GH_TAREAS_ADMINISTRAR}>
+                  <AjustesTareas />
+                </RequirePermission>
+              }
+            />
+          </Route>
         </Route>
         {/* Mesa de ayuda. Qué tickets ve cada quien lo decide el servidor. */}
         <Route

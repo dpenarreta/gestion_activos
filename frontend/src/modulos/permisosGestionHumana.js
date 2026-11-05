@@ -17,6 +17,19 @@ export const PERMISOS = "novedades.permisos_gestionar";
 export const INGRESOS = "novedades.ingresos_ver";
 export const SALIDAS = "novedades.salidas_ver";
 
+/*
+ * Tareas y Equipo (fase 2a, portado de Nexo). Toda pantalla exige además
+ * `tareas.acceder`: el servidor lo pide en cada petición de `/tasks/`. El
+ * ámbito (de quién son las tareas, quién es de su equipo) lo decide el
+ * organigrama en el servidor; `GET tasks/me/` dice qué puede la persona.
+ */
+export const TAREAS_ACCEDER = "tareas.acceder";
+export const TAREAS_VALIDAR = "tareas.validar";
+export const TAREAS_REGULARIZAR = "tareas.regularizar";
+export const TAREAS_CERRAR_MES = "tareas.cerrar_mes";
+export const TAREAS_ADMINISTRAR = "tareas.administrar";
+export const EQUIPO_VER = "equipo.ver";
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -24,6 +37,7 @@ export const PERMISOS_GESTION_HUMANA = [
   SALIDAS,
   ADMINISTRAR,
   PERMISOS,
+  TAREAS_ACCEDER,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

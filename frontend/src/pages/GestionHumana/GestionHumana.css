@@ -357,14 +357,14 @@
   margin: 4px 0 0;
 }
 
-/* --mz-link no existe en la identidad: el azul de información cumple 4.5:1
-   en claro y en oscuro. */
+/* Enlaces con el color de enlace de la identidad (`--mz-link`, definido en
+   `identidad-puente.css` para el tema claro y el oscuro). */
 .gh-enlace {
   min-height: 24px;
   padding: 2px 4px;
   border: 0;
   background: none;
-  color: var(--mz-link, var(--mz-info-fg));
+  color: var(--mz-link);
   font: inherit;
   font-size: 13px;
   text-decoration: underline;
@@ -386,8 +386,23 @@
 }
 
 .gh-menu__boton {
-  padding: 0 6px;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 3px 6px;
   line-height: 1.2;
+}
+
+.gh-menu__boton--texto {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.gh-menu__separador {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--mz-border);
 }
 
 .gh-menu__lista {
@@ -579,6 +594,7 @@
 
   .gh-enlace,
   .gh-grilla .btn-sm,
+  .gh-menu__boton,
   .gh-menu__item {
     min-width: 44px;
     min-height: 44px;
@@ -665,4 +681,57 @@
 
 .gh-pre {
   white-space: pre-wrap;
+}
+
+/* Enlaces con forma de botón («Volver…», «Quitar selección»). */
+.gh-page .btn-link {
+  color: var(--mz-link);
+}
+
+/* Foco visible también al hacer clic, en las pantallas y ventanas del
+   módulo (auditoría UX/UI de Tareas, 04/11/2026). */
+.gh-page [role="tab"]:focus,
+.gh-page .btn:focus,
+.gh-page .mz-close:focus,
+.gh-page .gh-enlace:focus,
+.gh-page .form-check-input:focus,
+.mz-overlay .btn:focus,
+.mz-overlay .mz-close:focus,
+.mz-overlay .gh-enlace:focus,
+.mz-overlay .form-check-input:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* Casillas: 18 px en escritorio; al tacto, 24 px dentro de un área de 44. */
+.gh-page .form-check-input,
+.mz-overlay .form-check-input {
+  width: 18px;
+  height: 18px;
+}
+
+@media (pointer: coarse) {
+  .gh-page .form-check-input,
+  .mz-overlay .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+
+  .gh-page [role="tab"],
+  .gh-page .mz-view-actions .btn,
+  .gh-page .form-select-sm,
+  .gh-page .form-control,
+  .gh-page .mz-close,
+  .mz-overlay .mz-close,
+  .gh-page .mz-estado__error .btn,
+  .mz-overlay .mz-estado__error .btn,
+  .gh-page .form-check,
+  .mz-overlay .form-check {
+    min-height: 44px;
+  }
+
+  .gh-page .mz-close,
+  .mz-overlay .mz-close {
+    min-width: 44px;
+  }
 }

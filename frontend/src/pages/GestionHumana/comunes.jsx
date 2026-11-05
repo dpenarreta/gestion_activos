@@ -368,8 +368,10 @@ export function respaldo(ambito) {
  * recorte el contenedor con desplazamiento de una grilla.
  *
  * `acciones`: `[{ texto, onClick, peligro? }]` (los `false` se ignoran).
+ * `contenido`: lo que muestra el botón en vez de «⋯» (el estado de una
+ * tarea, que abre «Mover a…»); `idBoton`, para devolverle el foco.
  */
-export function MenuDeAcciones({ etiqueta, acciones }) {
+export function MenuDeAcciones({ etiqueta, acciones, contenido, idBoton }) {
   const [abierto, setAbierto] = useState(false);
   const [posicion, setPosicion] = useState(null);
   const raiz = useRef(null);
@@ -399,9 +401,13 @@ export function MenuDeAcciones({ etiqueta, acciones }) {
     const alDesplazar = () => setAbierto(false);
     document.addEventListener("mousedown", fuera);
     window.addEventListener("resize", alDesplazar);
+    // Fija sobre la página: si algo se desplaza (la página o una tabla), la
+    // lista quedaría flotando lejos de su botón.
+    window.addEventListener("scroll", alDesplazar, true);
     return () => {
       document.removeEventListener("mousedown", fuera);
       window.removeEventListener("resize", alDesplazar);
+      window.removeEventListener("scroll", alDesplazar, true);
     };
   }, [abierto]);
 
@@ -437,14 +443,15 @@ export function MenuDeAcciones({ etiqueta, acciones }) {
       <button
         ref={boton}
         type="button"
-        className="btn btn-outline-secondary btn-sm gh-menu__boton"
+        id={idBoton}
+        className={`btn btn-outline-secondary btn-sm gh-menu__boton${contenido ? " gh-menu__boton--texto" : ""}`}
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label={etiqueta}
-        title="Más acciones"
+        title={contenido ? undefined : "Más acciones"}
         onClick={() => setAbierto((a) => !a)}
       >
-        <Icon name="three-dots" />
+        {contenido ?? <Icon name="three-dots" />}
       </button>
       {abierto && (
         <ul
@@ -457,7 +464,15 @@ export function MenuDeAcciones({ etiqueta, acciones }) {
           }
           onKeyDown={teclas}
         >
-          {visibles.map((a) => (
+          {visibles.map((a, i) => [
+            // Lo destructivo, separado del resto.
+            a.peligro && i > 0 && !visibles[i - 1].peligro && (
+              <li
+                role="separator"
+                key={`sep-${a.texto}`}
+                className="gh-menu__separador"
+              />
+            ),
             <li role="none" key={a.texto}>
               <button
                 type="button"
@@ -471,8 +486,8 @@ export function MenuDeAcciones({ etiqueta, acciones }) {
               >
                 {a.texto}
               </button>
-            </li>
-          ))}
+            </li>,
+          ])}
         </ul>
       )}
     </div>

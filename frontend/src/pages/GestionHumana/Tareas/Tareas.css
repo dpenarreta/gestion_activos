@@ -1,0 +1,982 @@
+/*
+ * Gestión Humana · Tareas y Equipo. Encabezados, tablas, tarjetas, avisos,
+ * indicadores y pestañas salen de la identidad (`mz-*`) y de
+ * `GestionHumana.css` (`gh-*`); aquí, lo propio: el Kanban, el Gantt, los
+ * paneles de actividades y comentarios, y la columna fija de las tablas.
+ * Solo tokens `--mz-*`: nada de colores fijos, salvo la paleta de color de
+ * las tarjetas, que es un dato de cada tarea.
+ */
+
+.gt-min0 {
+  min-width: 0;
+}
+
+.gt-titulo-panel {
+  overflow-wrap: anywhere;
+}
+
+.gt-legend {
+  font-size: inherit;
+  margin-bottom: 6px;
+}
+
+.gt-texto--bad {
+  color: var(--mz-bad-fg);
+  font-weight: 600;
+}
+
+.gt-texto--ok {
+  color: var(--mz-ok-fg);
+}
+
+.gt-texto--warn {
+  color: var(--mz-warn-fg);
+  font-weight: 600;
+}
+
+.gt-corta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gt-nuevo {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--mz-bad-bg);
+  color: var(--mz-bad-fg);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gt-cuenta {
+  min-width: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--mz-border);
+  border-radius: 99px;
+  background: var(--mz-raised);
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Foco visible también al hacer clic (no solo con teclado). */
+.gt-orden:focus,
+.gt-columna__plegar:focus,
+.gt-mes:focus,
+.gt-persona:focus,
+.gt-tarjeta select:focus,
+.gt-tabla select:focus,
+.gt-opcion input:focus,
+.gt-segmentado__opcion input:focus,
+.gt-color-opcion input:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* --- Paleta de las tarjetas (`colors.ts` de Nexo) ------------------------ */
+
+.gt-color--blue {
+  --gt-color: #3b82f6;
+}
+.gt-color--green {
+  --gt-color: #22c55e;
+}
+.gt-color--purple {
+  --gt-color: #8b5cf6;
+}
+.gt-color--orange {
+  --gt-color: #f97316;
+}
+.gt-color--pink {
+  --gt-color: #ec4899;
+}
+.gt-color--red {
+  --gt-color: #ef4444;
+}
+.gt-color--yellow {
+  --gt-color: #eab308;
+}
+.gt-color--gray {
+  --gt-color: #6b7280;
+}
+.gt-color--turquoise {
+  --gt-color: #14b8a6;
+}
+.gt-color--black {
+  --gt-color: #1e293b;
+}
+
+.gt-colores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.gt-color-opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.gt-color-muestra {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 50%;
+  background: var(--gt-color, transparent);
+}
+
+/* --- Formularios --------------------------------------------------------- */
+
+.gt-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+}
+
+.gt-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.gt-opcion {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.gt-opcion:has(input:checked) {
+  border-color: var(--mz-action);
+  background: var(--mz-info-bg);
+}
+
+.gt-opcion input {
+  margin-top: 3px;
+}
+
+.gt-opcion__texto {
+  font-weight: 600;
+}
+
+.gt-opcion__texto .mz-small {
+  font-weight: 400;
+}
+
+.gt-segmentado {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.gt-segmentado__opcion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.gt-segmentado__opcion + .gt-segmentado__opcion {
+  border-left: 1px solid var(--mz-border-strong);
+}
+
+.gt-segmentado__opcion:has(input:checked) {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  font-weight: 600;
+}
+
+.gt-duracion {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+}
+
+.gt-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 14px;
+}
+
+.gt-busqueda {
+  max-width: 420px;
+}
+
+/* --- Panel lateral, comentarios y actividades ------------------------------ */
+
+.gt-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+}
+
+.gt-panel__cuerpo {
+  flex: 1;
+  padding: 16px 20px;
+}
+
+.gt-panel__pie {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+}
+
+.gt-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gt-avatar--grande {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.gt-hilo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-hilo__item {
+  display: flex;
+  gap: 10px;
+}
+
+.gt-hilo__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+}
+
+.gt-hilo__texto {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gt-resumen {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+.gt-resumen__fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gt-bloque {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.gt-bloque__titulo {
+  margin-bottom: 8px;
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gt-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-act {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+.gt-act__cabeza,
+.gt-act__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.gt-act__tiempo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.gt-act__tiempo strong {
+  margin-left: auto;
+}
+
+.gt-act__comentarios {
+  margin-top: 8px;
+}
+
+.gt-act__lista-comentarios {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-act__lista-comentarios li {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.gt-act__comentar {
+  display: flex;
+  gap: 6px;
+}
+
+/* --- Kanban ------------------------------------------------------------- */
+
+.gt-kanban {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 992px) {
+  .gt-kanban {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.gt-columna {
+  padding: 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-sunken);
+}
+
+.gt-columna--destino {
+  border-color: var(--mz-action);
+  box-shadow: inset 0 0 0 1px var(--mz-action);
+}
+
+.gt-columna__cabeza {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.gt-columna__plegar {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--mz-ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.gt-columna__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gt-tarjeta {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-left: 4px solid var(--gt-color, var(--mz-border-strong));
+  border-radius: 10px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  cursor: grab;
+  touch-action: manipulation;
+}
+
+.gt-tarjeta--arrastrando {
+  position: relative;
+  z-index: 5;
+  box-shadow: var(--mz-shadow-3);
+  cursor: grabbing;
+}
+
+.gt-tarjeta__cabeza {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.gt-tarjeta__titulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.gt-tarjeta__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.gt-tarjeta__estado {
+  max-width: 200px;
+  margin-bottom: 8px;
+}
+
+.gt-tarjeta__pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.gt-tarjeta__botones {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* --- Tablas con columna fija --------------------------------------------- */
+
+.gt-seccion__titulo {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.gt-tabla-vista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gt-tabla-wrap {
+  overscroll-behavior-x: contain;
+}
+
+.gt-tabla tbody th {
+  font-weight: 400;
+}
+
+.gt-tabla .gt-fija {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 220px;
+  max-width: 340px;
+  background: var(--mz-raised);
+  box-shadow: 1px 0 0 var(--mz-border);
+}
+
+.gt-tabla thead .gt-fija {
+  z-index: 3;
+  background: var(--mz-sunken);
+}
+
+.gt-tabla tr[class*="gt-color--"] > .gt-fija {
+  box-shadow:
+    inset 4px 0 0 var(--gt-color),
+    1px 0 0 var(--mz-border);
+}
+
+.gt-fija__contenido {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.gt-fija__contenido .form-check-input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.gt-fija__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gt-fija__titulo {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.gt-orden {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.gt-estado-fila {
+  min-width: 140px;
+}
+
+.gt-barra-seleccion {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--mz-action);
+  border-radius: 10px;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+/* --- Gantt --------------------------------------------------------------- */
+
+.gt-gantt-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+  overscroll-behavior-x: contain;
+}
+
+.gt-gantt {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+
+.gt-gantt th,
+.gt-gantt td {
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.gt-gantt__tarea {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-right: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.gt-gantt thead .gt-gantt__tarea {
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+  font-weight: 600;
+}
+
+.gt-gantt__abrir {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.gt-gantt__abrir:hover .gt-gantt__titulo {
+  color: var(--mz-link);
+  text-decoration: underline;
+}
+
+.gt-gantt__abrir:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* El título en dos líneas como máximo. */
+.gt-gantt__titulo {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.gt-gantt__sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gt-gantt__tiempo {
+  padding: 0;
+}
+
+.gt-gantt thead .gt-gantt__tiempo {
+  background: var(--mz-sunken);
+}
+
+/* Una marca por día (28 px, el mismo `PX_POR_DIA` de `VistaGantt.jsx`). */
+.gt-gantt__pista {
+  position: relative;
+  height: 48px;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0 27px,
+    var(--mz-border) 27px 28px
+  );
+}
+
+.gt-gantt thead .gt-gantt__pista {
+  height: 32px;
+  background-image: none;
+}
+
+.gt-gantt__semana {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 8px 4px 0;
+  border-left: 1px solid var(--mz-border);
+  color: var(--mz-ink-faint);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gt-gantt__hoy {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  background: var(--mz-bad-line);
+}
+
+.gt-gantt__barra {
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+  height: 24px;
+  overflow: hidden;
+  /* 3:1 sobre el fondo (WCAG 1.4.11). */
+  border: 1px solid var(--mz-ink-faint);
+  border-radius: 6px;
+  background: var(--mz-sunken);
+}
+
+.gt-gantt__barra--en_progreso {
+  border-color: var(--mz-action);
+  background: var(--mz-info-bg);
+}
+
+.gt-gantt__barra--completada {
+  border-color: var(--mz-ok-line);
+  background: var(--mz-ok-bg);
+}
+
+.gt-gantt__barra--vencida {
+  border: 2px dashed var(--mz-bad-line);
+}
+
+.gt-gantt__avance {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--mz-border-strong);
+  opacity: 0.45;
+}
+
+.gt-gantt__barra--en_progreso .gt-gantt__avance {
+  background: var(--mz-action);
+  opacity: 0.25;
+}
+
+.gt-gantt__barra--completada .gt-gantt__avance {
+  background: var(--mz-ok-line);
+  opacity: 0.3;
+}
+
+.gt-gantt__etiqueta {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 100%;
+  padding: 0 6px;
+  overflow: hidden;
+  color: var(--mz-ink);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.gt-gantt__barra.gt-gantt__muestra,
+.gt-gantt__muestra {
+  position: static;
+  display: inline-block;
+  width: 18px;
+  height: 10px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.gt-gantt__hoy-muestra {
+  width: 3px;
+  background: var(--mz-bad-line);
+}
+
+/* --- Repositorio --------------------------------------------------------- */
+
+.gt-meses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-mes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  text-align: left;
+}
+
+.gt-mes:hover {
+  border-color: var(--mz-action);
+  background: var(--mz-info-bg);
+}
+
+/* --- Equipo -------------------------------------------------------------- */
+
+.gt-personas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-persona {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 14px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  text-align: left;
+  box-shadow: var(--mz-shadow-1);
+}
+
+.gt-persona:hover {
+  border-color: var(--mz-action);
+}
+
+.gt-persona__cabeza {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.gt-persona__nombre {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.gt-persona__cuentas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 13px;
+}
+
+/* --- Tacto: objetivos de 44 px (WCAG 2.5.8) ------------------------------- */
+
+@media (pointer: coarse) {
+  .gt-orden,
+  .gt-columna__plegar,
+  .gt-tarjeta .btn-sm,
+  .gt-tarjeta .gh-menu__boton,
+  .gt-tabla .gh-menu__boton,
+  .gt-act .gh-menu__boton,
+  .gh-switch-lista .gh-menu__boton,
+  .gt-barra-seleccion .btn,
+  .gt-columna__cabeza .btn,
+  .gt-act__comentar .btn,
+  .gt-color-opcion,
+  .gt-segmentado__opcion {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .gt-tabla .form-check-input,
+  .gt-opcion input,
+  .gt-segmentado__opcion input {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* La casilla de la fila, dentro de un área de 44 px. */
+  .gt-fija__contenido .form-check-input {
+    margin: 10px;
+  }
+
+  .gt-busqueda .form-control,
+  .gt-mes,
+  .gt-persona {
+    min-height: 44px;
+  }
+}
+
+/* --- Teléfono: una sola columna fija y estrecha ---------------------------- */
+
+@media (max-width: 600px) {
+  .gt-tabla .gt-fija {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+  }
+
+  .gt-gantt__tarea {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+
+  .gt-panel__cuerpo,
+  .gt-panel__pie {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .gt-busqueda {
+    max-width: none;
+  }
+}
+
+/* Las pestañas de vista no se parten en dos líneas: se desplazan dentro de
+   su barra. */
+.gt-pestanas.mz-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.gt-pestanas.mz-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.gt-columna__titulo {
+  margin: 0;
+  font-size: inherit;
+}
+
+/* Las franjas claras u oscuras se distinguen del fondo con un filo. */
+.gt-color--yellow,
+.gt-color--black {
+  --gt-filo: inset 1px 0 0 var(--mz-border-strong);
+}
+
+.gt-tarjeta.gt-color--yellow,
+.gt-tarjeta.gt-color--black {
+  box-shadow: var(--gt-filo), var(--mz-shadow-1);
+}
+
+.gt-color-muestra.gt-color--yellow,
+.gt-color-muestra.gt-color--black {
+  border-color: var(--mz-ink-faint);
+}
+
+.gt-previa {
+  min-height: 1.3em;
+  margin: 4px 0 0;
+  color: var(--mz-ink-soft);
+  font-size: 13px;
+}
+
+.gt-kpi-texto {
+  font-size: 15px;
+  line-height: 1.3;
+}
