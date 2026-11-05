@@ -980,3 +980,70 @@
   font-size: 15px;
   line-height: 1.3;
 }
+
+/* A quién se avisa de un registro retroactivo. */
+.gt-avisados {
+  padding-top: 12px;
+  border-top: 1px solid var(--mz-border);
+}
+
+.gt-avisados__leyenda {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.gt-avisados__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.gt-avisados__lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}
+
+.gt-avisados__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gt-avisados p[tabindex="-1"]:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* Buscar, elegir y agregar en una fila; el botón alineado abajo. */
+.gt-avisados__agregar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+
+.gt-avisados__agregar .mz-campo {
+  flex: 1 1 220px;
+}
+
+@media (pointer: coarse) {
+  .gt-avisados .btn,
+  .gt-avisados .gh-enlace {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .gt-avisados .form-control,
+  .gt-avisados .form-select {
+    min-height: 44px;
+  }
+}

@@ -82,6 +82,255 @@ function CasillasDeRoles({ id, valor, onCambio, error, etiqueta }) {
   );
 }
 
+/** Máximo de personas que recibe el aviso (lo exige el servidor). */
+const MAXIMO_AVISADOS = 25;
+
+const mismaLista = (a, b) =>
+  [...a].sort((x, y) => x - y).join("|") ===
+  [...b].sort((x, y) => x - y).join("|");
+
+/**
+ * A quién se avisa de un registro retroactivo de horas. Sin nadie elegido,
+ * al jefe inmediato de quien registra según el organigrama (lo recomendado);
+ * con personas elegidas, solo a ellas, y si ninguna puede recibirlo (inactiva
+ * o es quien registró) el servidor vuelve al jefe inmediato. Las opciones son
+ * las personas de la empresa con acceso a Tareas (`assignable-users/`); el
+ * servidor revisa que cada una sea una persona activa de la empresa.
+ *
+ * Foco: al agregar vuelve al selector; al quitar, al «Quitar» siguiente (o
+ * al anterior, o al buscador si no queda nadie); al volver al jefe
+ * inmediato, al texto que lo dice. Cada cambio se anuncia.
+ */
+function AvisoRetroactivo({ ids, guardados, onCambio, error }) {
+  const [personas, setPersonas] = useState(null);
+  const [errorPersonas, setErrorPersonas] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [elegida, setElegida] = useState("");
+  const [anuncio, setAnuncio] = useState("");
+  const selector = useRef(null);
+  const buscador = useRef(null);
+  const textoJefe = useRef(null);
+  const botonesQuitar = useRef({});
+  const siguienteFoco = useRef(null);
+
+  const cargar = useCallback(() => {
+    setErrorPersonas(null);
+    setPersonas(null);
+    tareasService
+      .asignables()
+      .then((l) => setPersonas(Array.isArray(l) ? l : []))
+      .catch((err) =>
+        setErrorPersonas(
+          errorDeTareas(err, "No se pudo cargar la lista de personas.").mensaje,
+        ),
+      );
+  }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  // El foco se mueve después de pintar la lista nueva.
+  useEffect(() => {
+    const destino = siguienteFoco.current;
+    if (!destino) return;
+    siguienteFoco.current = null;
+    if (destino === "selector") selector.current?.focus();
+    else if (destino === "buscador") buscador.current?.focus();
+    else if (destino === "jefe") textoJefe.current?.focus();
+    else botonesQuitar.current[destino]?.focus();
+  }, [ids]);
+
+  const persona = (id) => personas?.find((p) => p.id === id) ?? null;
+  const nombre = (id) => persona(id)?.name ?? `Persona n.º ${id}`;
+  const texto = busqueda.trim().toLowerCase();
+  const sinElegir = (personas ?? []).filter((p) => !ids.includes(p.id));
+  const disponibles = sinElegir.filter(
+    (p) =>
+      !texto ||
+      p.name.toLowerCase().includes(texto) ||
+      (p.email ?? "").toLowerCase().includes(texto),
+  );
+  // Solo cuenta lo que se ve en el selector: si el buscador oculta a la
+  // persona elegida, no se puede agregar sin verla.
+  const valorElegido = disponibles.some((p) => String(p.id) === elegida)
+    ? elegida
+    : "";
+  const lleno = ids.length >= MAXIMO_AVISADOS;
+  const sinGuardar = !mismaLista(ids, guardados);
+
+  function agregar() {
+    const id = Number(valorElegido);
+    if (!id || ids.includes(id) || lleno) return;
+    siguienteFoco.current = "selector";
+    setAnuncio(
+      `Se agregó a ${nombre(id)}. ${ids.length + 1} de ${MAXIMO_AVISADOS} personas.`,
+    );
+    setElegida("");
+    onCambio([...ids, id]);
+  }
+
+  function quitar(id) {
+    const i = ids.indexOf(id);
+    const resto = ids.filter((x) => x !== id);
+    siguienteFoco.current = resto.length
+      ? (ids[i + 1] ?? ids[i - 1])
+      : "buscador";
+    setAnuncio(
+      resto.length
+        ? `Se quitó a ${nombre(id)}.`
+        : `Se quitó a ${nombre(id)}. Ahora se avisa al jefe inmediato.`,
+    );
+    onCambio(resto);
+  }
+
+  function volverAlJefe() {
+    siguienteFoco.current = "jefe";
+    setAnuncio("Ahora se avisa al jefe inmediato.");
+    onCambio([]);
+  }
+
+  let marcador;
+  if (errorPersonas) marcador = "No se pudo cargar la lista";
+  else if (personas === null) marcador = "Cargando…";
+  else if (!sinElegir.length)
+    marcador = "Ya agregó a todas las personas disponibles";
+  else if (!disponibles.length) marcador = "Ninguna persona coincide";
+  else marcador = "Elija una persona";
+
+  return (
+    <fieldset className="mt-3 gt-avisados">
+      <legend className="gt-avisados__leyenda">
+        Aviso de los registros retroactivos
+      </legend>
+      <p className="visually-hidden" role="status">
+        {anuncio}
+      </p>
+      {ids.length === 0 ? (
+        <p ref={textoJefe} tabIndex={-1} className="mb-2">
+          {sinGuardar ? "Al guardar, se avisará" : "Se avisa"} al jefe inmediato
+          de quien registra las horas, según el organigrama (recomendado).
+        </p>
+      ) : (
+        <>
+          <p className="mb-2">
+            {sinGuardar
+              ? "Al guardar, se avisará solo a estas personas, no al jefe inmediato."
+              : "Se avisa solo a estas personas, no al jefe inmediato."}{" "}
+            Si ninguna puede recibirlo (por ejemplo, porque es quien registró
+            las horas), se avisa al jefe inmediato.
+          </p>
+          {personas === null && !errorPersonas ? (
+            <EstadoDeCarga cargando />
+          ) : (
+            <ul className="gt-avisados__lista">
+              {ids.map((id) => {
+                const p = persona(id);
+                return (
+                  <li key={id}>
+                    <span className="gt-avisados__nombre">
+                      {nombre(id)}
+                      {p?.email && (
+                        <span className="mz-small mz-faint d-block">
+                          {p.email}
+                        </span>
+                      )}
+                      {!p && !errorPersonas && (
+                        <span className="mz-pill mz-pill--warn ms-2">
+                          <Icon name="exclamation-triangle" /> Ya no tiene
+                          acceso
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      ref={(nodo) => {
+                        botonesQuitar.current[id] = nodo;
+                      }}
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      aria-label={`Quitar a ${nombre(id)}`}
+                      onClick={() => quitar(id)}
+                    >
+                      Quitar
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mz-small mz-faint mb-1">
+            {ids.length} de {MAXIMO_AVISADOS} personas.
+          </p>
+          <button
+            type="button"
+            className="gh-enlace px-0 mb-2"
+            onClick={volverAlJefe}
+          >
+            Volver al jefe inmediato
+          </button>
+        </>
+      )}
+      {sinGuardar && (
+        <p className="mz-small gt-texto--warn mb-2">
+          Cambios sin guardar: pulse «Guardar ajustes».
+        </p>
+      )}
+      {errorPersonas && (
+        <EstadoDeCarga error={errorPersonas} onReintentar={cargar} />
+      )}
+      {lleno && (
+        <p className="mz-small mb-2">
+          Ya eligió el máximo de {MAXIMO_AVISADOS} personas: quite a alguien
+          para agregar otra.
+        </p>
+      )}
+      <div className="gt-avisados__agregar">
+        <Campo
+          id="gt-aj-buscar-persona"
+          etiqueta="Buscar persona"
+          ayuda="Por nombre o correo."
+        >
+          <input
+            ref={buscador}
+            type="search"
+            className="form-control"
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              setElegida("");
+            }}
+          />
+        </Campo>
+        <Campo id="gt-aj-persona" etiqueta="Elegir persona" error={error}>
+          <select
+            ref={selector}
+            className="form-select"
+            value={valorElegido}
+            onChange={(e) => setElegida(e.target.value)}
+            disabled={personas === null || lleno}
+          >
+            <option value="">{marcador}</option>
+            {disponibles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.email ? ` · ${p.email}` : ""}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <button
+          type="button"
+          className="btn btn-outline-secondary"
+          onClick={agregar}
+          disabled={!valorElegido || lleno}
+        >
+          <Icon name="person-plus" /> Agregar persona
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
 function FormularioAjustes() {
   const [ajustes, setAjustes] = useState(null);
   const [valores, setValores] = useState(null);
@@ -100,7 +349,7 @@ function FormularioAjustes() {
     horas_efectivas_dia: String(a.horas_efectivas_dia),
     horas_esperadas_mes: String(a.horas_esperadas_mes),
     first_comment_role: a.first_comment_role ?? "",
-    retroactive_notify_roles: a.retroactive_notify_roles ?? [],
+    retroactive_notify_users: a.retroactive_notify_users ?? [],
   });
 
   const cargar = useCallback(() => {
@@ -156,12 +405,14 @@ function FormularioAjustes() {
       (ajustes.first_comment_role ?? null)
     )
       cuerpo.first_comment_role = valores.first_comment_role || null;
-    const antes = [...(ajustes.retroactive_notify_roles ?? [])]
-      .sort()
+    const antes = [...(ajustes.retroactive_notify_users ?? [])]
+      .sort((a, b) => a - b)
       .join("|");
-    const ahora = [...valores.retroactive_notify_roles].sort().join("|");
+    const ahora = [...valores.retroactive_notify_users]
+      .sort((a, b) => a - b)
+      .join("|");
     if (antes !== ahora)
-      cuerpo.retroactive_notify_roles = valores.retroactive_notify_roles;
+      cuerpo.retroactive_notify_users = valores.retroactive_notify_users;
     if (!Object.keys(cuerpo).length) {
       setAviso({ tono: "info", texto: "No hay cambios para guardar." });
       return;
@@ -262,39 +513,14 @@ function FormularioAjustes() {
                 </select>
               </Campo>
             </div>
-            <fieldset className="mt-3">
-              <legend className="form-label gt-legend">
-                Avisar de los registros retroactivos a
-              </legend>
-              <div className="gt-roles">
-                {ROLES.map((r) => (
-                  <label key={r} className="form-check">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={valores.retroactive_notify_roles.includes(r)}
-                      onChange={() =>
-                        setValores((v) => ({
-                          ...v,
-                          retroactive_notify_roles:
-                            v.retroactive_notify_roles.includes(r)
-                              ? v.retroactive_notify_roles.filter(
-                                  (x) => x !== r,
-                                )
-                              : [...v.retroactive_notify_roles, r],
-                        }))
-                      }
-                    />
-                    <span className="form-check-label">{ROL[r]}</span>
-                  </label>
-                ))}
-              </div>
-              {errores.retroactive_notify_roles && (
-                <div className="mz-field-error">
-                  {errores.retroactive_notify_roles}
-                </div>
-              )}
-            </fieldset>
+            <AvisoRetroactivo
+              ids={valores.retroactive_notify_users}
+              guardados={ajustes.retroactive_notify_users ?? []}
+              onCambio={(ids) =>
+                setValores((v) => ({ ...v, retroactive_notify_users: ids }))
+              }
+              error={errores.retroactive_notify_users}
+            />
             <ErrorEnLinea mensaje={errorGuardar} className="mt-3" />
             <div className="mt-3">
               <button

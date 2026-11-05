@@ -340,7 +340,8 @@ def test_ajustes_los_lee_el_modulo_y_los_cambia_quien_administra(courier):
 
     leidos = _cliente(analista, courier).get(f"{BASE}/settings/").json()
     assert leidos["retroactive_window_business_days"] == 2
-    assert leidos["retroactive_notify_roles"] == ["COORDINADOR_NACIONAL"]
+    # Vacía: el aviso retroactivo va al jefe inmediato (por defecto).
+    assert leidos["retroactive_notify_users"] == []
 
     negado = _cliente(analista, courier).patch(
         f"{BASE}/settings/", {"retroactive_window_business_days": 5}, format="json"
@@ -349,12 +350,19 @@ def test_ajustes_los_lee_el_modulo_y_los_cambia_quien_administra(courier):
 
     cambio = _cliente(admin, courier).patch(
         f"{BASE}/settings/",
-        {"retroactive_window_business_days": 5, "retroactive_notify_roles": ["JEFE_NACIONAL"]},
+        {"retroactive_window_business_days": 5, "retroactive_notify_users": [analista.pk]},
         format="json",
     )
     assert cambio.status_code == 200
     assert cambio.json()["retroactive_window_business_days"] == 5
-    assert cambio.json()["retroactive_notify_roles"] == ["JEFE_NACIONAL"]
+    assert cambio.json()["retroactive_notify_users"] == [analista.pk]
+
+    # Solo personas activas de esta empresa.
+    ajena = _cuenta("ajena", {})
+    rechazo = _cliente(admin, courier).patch(
+        f"{BASE}/settings/", {"retroactive_notify_users": [ajena.pk]}, format="json"
+    )
+    assert rechazo.status_code == 400
 
     invalido = _cliente(admin, courier).patch(
         f"{BASE}/settings/", {"retroactive_window_business_days": 0}, format="json"
@@ -379,3 +387,17 @@ def test_un_error_de_validacion_explica_el_motivo(courier):
     error = respuesta.json()["error"]
     assert error["message"] != "Error en la solicitud."
     assert "title" in error["details"]
+
+
+def test_el_administrador_de_ti_no_tiene_tareas_pero_el_superusuario_si(db):
+    """Decisión del 05/11/2026: el rol «Administrador» del sistema no ve las
+    Tareas de Gestión Humana; el «Superusuario» sí."""
+    from django.contrib.auth.models import Group
+
+    def de(rol):
+        return set(Group.objects.get(name=rol).permissions.values_list("codename", flat=True))
+
+    del_modulo = {c for c in de("Administrador") if c.startswith(("tareas.", "equipo."))}
+    assert del_modulo == set()
+    assert "tareas.administrar" in de("Superusuario")
+    assert "tareas.administrar" in de("Administrador de Gestión Humana")

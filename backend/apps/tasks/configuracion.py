@@ -46,6 +46,14 @@ CONFIG_KEY_FIRST_COMMENT_ROLE = "tasks_first_comment_role"
 CONFIG_KEY_RETROACTIVE_NOTIFY_ROLES = "tasks_retroactive_notify_roles"
 DEFAULT_RETROACTIVE_NOTIFY_ROLES = [COORDINADOR_NACIONAL]
 
+#: A quién se avisa de un registro retroactivo de horas (05/11/2026): por
+#: defecto (lista vacía) al jefe inmediato de quien registra, según el
+#: organigrama; quien administra puede elegir personas concretas. Reemplaza al
+#: aviso por rol de Nexo (`tasks_retroactive_notify_roles`, ya sin uso).
+CONFIG_KEY_RETROACTIVE_NOTIFY_USERS = "tasks_retroactive_notify_users"
+#: Tope de personas: los ids van como JSON en `SettingHistory.value` (255).
+MAX_RETROACTIVE_NOTIFY_USERS = 25
+
 
 def get_effective_horas_efectivas(as_of: datetime) -> float:
     return get_effective_config_value(CONFIG_KEY_HORAS_EFECTIVAS, as_of, DEFAULT_HORAS_EFECTIVAS)
@@ -91,6 +99,21 @@ def get_retroactive_notify_roles() -> list[str]:
     return [rol for rol in roles if rol in ALL_ROLES]
 
 
+def get_retroactive_notify_users() -> list[int]:
+    """Ids de las personas elegidas para el aviso retroactivo; vacía = el jefe
+    inmediato de quien registra."""
+    raw = _current_text(CONFIG_KEY_RETROACTIVE_NOTIFY_USERS)
+    if not raw:
+        return []
+    try:
+        ids = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(ids, list):
+        return []
+    return [int(i) for i in ids if isinstance(i, int) or str(i).isdigit()]
+
+
 def current_settings() -> dict:
     now = timezone.now()
     return {
@@ -98,7 +121,7 @@ def current_settings() -> dict:
         "horas_efectivas_dia": get_effective_horas_efectivas(now),
         "horas_esperadas_mes": get_effective_horas_esperadas_mes(now),
         "first_comment_role": get_first_comment_role(),
-        "retroactive_notify_roles": get_retroactive_notify_roles(),
+        "retroactive_notify_users": get_retroactive_notify_users(),
     }
 
 
@@ -116,10 +139,10 @@ def save_settings(values: dict, actor) -> None:
         set_config_value(CONFIG_KEY_HORAS_ESPERADAS_MES, str(values["horas_esperadas_mes"]), actor)
     if "first_comment_role" in values:
         set_config_value(CONFIG_KEY_FIRST_COMMENT_ROLE, values["first_comment_role"] or "", actor)
-    if "retroactive_notify_roles" in values:
+    if "retroactive_notify_users" in values:
         set_config_value(
-            CONFIG_KEY_RETROACTIVE_NOTIFY_ROLES,
-            json.dumps(values["retroactive_notify_roles"]),
+            CONFIG_KEY_RETROACTIVE_NOTIFY_USERS,
+            json.dumps(values["retroactive_notify_users"]),
             actor,
         )
 

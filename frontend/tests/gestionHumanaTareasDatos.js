@@ -194,7 +194,7 @@ export function servicioFalso() {
       horas_efectivas_dia: 6.5,
       horas_esperadas_mes: 140,
       first_comment_role: null,
-      retroactive_notify_roles: ["COORDINADOR_NACIONAL"],
+      retroactive_notify_users: [],
     }),
     guardarAjustes: vi.fn(),
     listar: vi.fn().mockResolvedValue(TAREAS),

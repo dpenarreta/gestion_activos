@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from apps.users.models import User
 
+from .configuracion import MAX_RETROACTIVE_NOTIFY_USERS
 from .models import (
     ActivityComment,
     ActivityReason,
@@ -432,12 +433,27 @@ class TaskSettingsSerializer(serializers.Serializer):
     horas_efectivas_dia = serializers.FloatField(min_value=0.5, max_value=24, required=False)
     horas_esperadas_mes = serializers.FloatField(min_value=1, max_value=400, required=False)
     first_comment_role = serializers.ChoiceField(choices=ALL_ROLES, required=False, allow_null=True)
-    retroactive_notify_roles = serializers.ListField(
-        child=serializers.ChoiceField(choices=ALL_ROLES), required=False, max_length=len(ALL_ROLES)
+    #: Vacía = el jefe inmediato de quien registra (por defecto).
+    retroactive_notify_users = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        max_length=MAX_RETROACTIVE_NOTIFY_USERS,
     )
 
-    def validate_retroactive_notify_roles(self, value):
-        return list(dict.fromkeys(value))
+    def validate_retroactive_notify_users(self, value):
+        """Solo personas activas de la empresa activa."""
+        from apps.empresas.contexto import empresa_actual
+
+        ids = list(dict.fromkeys(value))
+        validos = set(
+            User.objects.filter(
+                pk__in=ids, is_active=True, membresias__empresa=empresa_actual()
+            ).values_list("pk", flat=True)
+        )
+        ajenos = [i for i in ids if i not in validos]
+        if ajenos:
+            raise serializers.ValidationError("Elija personas activas de esta empresa.")
+        return ids
 
 
 class PersonSerializer(serializers.ModelSerializer):

@@ -505,7 +505,7 @@ describe("Ajustes de tareas", () => {
       horas_efectivas_dia: 6.5,
       horas_esperadas_mes: 140,
       first_comment_role: null,
-      retroactive_notify_roles: ["COORDINADOR_NACIONAL"],
+      retroactive_notify_users: [],
       ...c,
     }));
     pintar(AjustesTareas);
@@ -523,5 +523,195 @@ describe("Ajustes de tareas", () => {
     // El catálogo de motivos, con su estado en texto.
     expect(screen.getByText("Reunión")).toBeInTheDocument();
     expect(screen.getAllByText("Activo").length).toBeGreaterThan(0);
+  });
+
+  describe("aviso de los registros retroactivos", () => {
+    const AJUSTES = {
+      retroactive_window_business_days: 2,
+      horas_efectivas_dia: 6.5,
+      horas_esperadas_mes: 140,
+      first_comment_role: null,
+      retroactive_notify_users: [],
+    };
+
+    beforeEach(() => {
+      servicio.yo.mockResolvedValue({
+        ...LIDER,
+        permissions: ["tareas.acceder", "tareas.administrar"],
+      });
+      servicio.ajustes.mockResolvedValue(AJUSTES);
+    });
+
+    async function selectorListo() {
+      const selector = await screen.findByLabelText("Elegir persona");
+      await waitFor(() => expect(selector).toBeEnabled());
+      return selector;
+    }
+
+    it("sin nadie elegido, se avisa al jefe inmediato", async () => {
+      pintar(AjustesTareas);
+      expect(
+        await screen.findByText(
+          "Se avisa al jefe inmediato de quien registra las horas, según el organigrama (recomendado).",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Volver al jefe inmediato" }),
+      ).toBeNull();
+      expect(screen.queryByText(/Cambios sin guardar/)).toBeNull();
+    });
+
+    it("agrega con el foco de vuelta en el selector, avisa que falta guardar y guarda los ids", async () => {
+      servicio.guardarAjustes.mockImplementation(async (c) => ({
+        ...AJUSTES,
+        ...c,
+      }));
+      pintar(AjustesTareas);
+      const selector = await selectorListo();
+      fireEvent.change(screen.getByLabelText("Buscar persona"), {
+        target: { value: "luis" },
+      });
+      expect(
+        within(selector).queryByRole("option", { name: /Ana Pérez/ }),
+      ).toBeNull();
+      fireEvent.change(selector, { target: { value: "2" } });
+      fireEvent.click(screen.getByRole("button", { name: /Agregar persona/ }));
+      await waitFor(() => expect(selector).toHaveFocus());
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Se agregó a Luis Mora. 1 de 25 personas.",
+      );
+      expect(
+        screen.getByText(/Al guardar, se avisará solo a estas personas/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Cambios sin guardar: pulse «Guardar ajustes»."),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Guardar ajustes" }));
+      await waitFor(() =>
+        expect(servicio.guardarAjustes).toHaveBeenCalledWith({
+          retroactive_notify_users: [2],
+        }),
+      );
+      expect(
+        await screen.findByText(/^Se avisa solo a estas personas/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Cambios sin guardar/)).toBeNull();
+    });
+
+    it("no se puede agregar a una persona que el buscador oculta", async () => {
+      pintar(AjustesTareas);
+      const selector = await selectorListo();
+      fireEvent.change(selector, { target: { value: "2" } });
+      const agregar = screen.getByRole("button", { name: /Agregar persona/ });
+      expect(agregar).toBeEnabled();
+      fireEvent.change(screen.getByLabelText("Buscar persona"), {
+        target: { value: "zzz" },
+      });
+      expect(agregar).toBeDisabled();
+      expect(selector).toHaveValue("");
+      fireEvent.click(agregar);
+      expect(
+        screen.getByText(/Se avisa al jefe inmediato de quien registra/),
+      ).toBeInTheDocument();
+    });
+
+    it("al quitar, el foco va al «Quitar» siguiente, y al final al buscador", async () => {
+      servicio.ajustes.mockResolvedValue({
+        ...AJUSTES,
+        retroactive_notify_users: [1, 2],
+      });
+      pintar(AjustesTareas);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Quitar a Ana Pérez" }),
+      );
+      const siguiente = screen.getByRole("button", {
+        name: "Quitar a Luis Mora",
+      });
+      await waitFor(() => expect(siguiente).toHaveFocus());
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Se quitó a Ana Pérez.",
+      );
+      fireEvent.click(siguiente);
+      await waitFor(() =>
+        expect(screen.getByLabelText("Buscar persona")).toHaveFocus(),
+      );
+      expect(
+        screen.getByText(/Al guardar, se avisará al jefe inmediato/),
+      ).toBeInTheDocument();
+    });
+
+    it("«Volver al jefe inmediato» vacía la lista y lleva el foco al texto", async () => {
+      servicio.ajustes.mockResolvedValue({
+        ...AJUSTES,
+        retroactive_notify_users: [1, 2],
+      });
+      servicio.guardarAjustes.mockResolvedValue(AJUSTES);
+      pintar(AjustesTareas);
+      expect(await screen.findByText("2 de 25 personas.")).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Volver al jefe inmediato" }),
+      );
+      const texto = screen.getByText(
+        /Al guardar, se avisará al jefe inmediato/,
+      );
+      await waitFor(() => expect(texto).toHaveFocus());
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Ahora se avisa al jefe inmediato.",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Guardar ajustes" }));
+      await waitFor(() =>
+        expect(servicio.guardarAjustes).toHaveBeenCalledWith({
+          retroactive_notify_users: [],
+        }),
+      );
+    });
+
+    it("una persona que ya no está en la lista se marca «Ya no tiene acceso»", async () => {
+      servicio.ajustes.mockResolvedValue({
+        ...AJUSTES,
+        retroactive_notify_users: [99],
+      });
+      pintar(AjustesTareas);
+      expect(await screen.findByText("Ya no tiene acceso")).toBeInTheDocument();
+      expect(screen.getByText(/Persona n\.º 99/)).toBeInTheDocument();
+    });
+
+    it("si la lista de personas no carga, lo dice (no «Cargando…»)", async () => {
+      servicio.asignables.mockRejectedValue(errorApi(500, "Sin servicio."));
+      pintar(AjustesTareas);
+      expect(await screen.findByText("Sin servicio.")).toBeInTheDocument();
+      const selector = screen.getByLabelText("Elegir persona");
+      expect(
+        within(selector).getByRole("option", {
+          name: "No se pudo cargar la lista",
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("el 400 de una persona no válida queda bajo el campo", async () => {
+      servicio.guardarAjustes.mockRejectedValue(
+        errorApi(
+          400,
+          "La persona 2 no es una persona activa de la empresa.",
+          "validation_error",
+          {
+            retroactive_notify_users: [
+              "La persona 2 no es una persona activa de la empresa.",
+            ],
+          },
+        ),
+      );
+      pintar(AjustesTareas);
+      const selector = await selectorListo();
+      fireEvent.change(selector, { target: { value: "2" } });
+      fireEvent.click(screen.getByRole("button", { name: /Agregar persona/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar ajustes" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText("Elegir persona")).toHaveAttribute(
+          "aria-invalid",
+          "true",
+        ),
+      );
+    });
   });
 });

@@ -55,7 +55,7 @@ from .configuracion import (
     business_base_for_range,
     get_effective_retroactive_window_days,
     get_first_comment_role,
-    get_retroactive_notify_roles,
+    get_retroactive_notify_users,
 )
 from .mask_email import mask_email
 from .models import (
@@ -639,11 +639,25 @@ class ActivityService:
             activity.created_at = backdated_created_at
             ActivityService._recalc_task_real_hours(task)
 
-        recipients = [
-            p
-            for p in _people_with_roles(get_retroactive_notify_roles(), task.empresa)
-            if p.pk != actor.pk
-        ]
+        # Las personas elegidas en Ajustes de tareas o, si no hay ninguna, el
+        # jefe inmediato de quien registra según el organigrama (05/11/2026).
+        # Si de las elegidas no queda nadie (inactivas, o la única es quien
+        # registra), también se avisa al jefe inmediato: el aviso nunca se
+        # pierde en silencio.
+        elegidos = get_retroactive_notify_users()
+        recipients = []
+        if elegidos:
+            recipients = [
+                p
+                for p in User.objects.filter(
+                    pk__in=elegidos, is_active=True, membresias__empresa=task.empresa
+                ).distinct()
+                if p.pk != actor.pk
+            ]
+        if not recipients:
+            recipients = [
+                p for p in jerarquia.jefe_inmediato(actor, task.empresa) if p.pk != actor.pk
+            ]
         _notify(
             recipients,
             category="retroactivo",
