@@ -56,6 +56,11 @@ urlpatterns = [
     path("novedades/", include("apps.novedades.urls")),
     # --- Gestión Humana · Tareas y Equipo (portado de Nexo) ---
     path("tasks/", include("apps.tasks.urls")),
+    # --- Gestión Humana · Proyectos y Ausencias (portados de Nexo) ---
+    path("projects/", include("apps.projects.urls")),
+    path("ausencias/", include("apps.ausencias.urls")),
+    # --- Gestión Humana · KPI e Inteligencia Preventiva (motor portado de Nexo) ---
+    path("analytics/", include("apps.analytics.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---

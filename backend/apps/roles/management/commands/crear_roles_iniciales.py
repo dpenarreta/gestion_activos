@@ -30,8 +30,20 @@ ROLES = {
     "Administrador": {
         "descripcion": "Configura usuarios, roles, reglas y auditoría. Acceso completo.",
         # Todo el catálogo: es el rol que existe para no depender de una cuenta
-        # de superusuario en el día a día.
+        # de superusuario en el día a día. Salvo lo de Gestión Humana que no es
+        # de TI (decisión del usuario, 05/11/2026; ver `tasks/0003`,
+        # `projects/0002`, `ausencias/0002` y `analytics/0002`): las tareas y
+        # horas del equipo, sus proyectos, sus ausencias, que incluyen datos de
+        # salud, y su KPI con la inteligencia preventiva.
         "permisos": "*",
+        "excluir_prefijos": (
+            "tareas.",
+            "equipo.",
+            "proyectos_gh.",
+            "ausencias.",
+            "kpi.",
+            "inteligencia_preventiva.",
+        ),
     },
     "Superusuario": {
         "descripcion": "Todo el sistema, para asignar a quien lo administra por completo.",
@@ -73,6 +85,8 @@ class Command(BaseCommand):
                 if definicion["permisos"] == "*"
                 else definicion["permisos"]
             )
+            excluidos = definicion.get("excluir_prefijos", ())
+            codenames = [c for c in codenames if not c.startswith(excluidos)]
 
             desconocidos = [c for c in codenames if c not in disponibles]
             if desconocidos:

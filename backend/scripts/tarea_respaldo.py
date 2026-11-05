@@ -23,6 +23,10 @@ decide si le toca por su frecuencia, semanal o mensual.
 Y el ciclo de la Mesa de ayuda (`ciclo_soporte`): repartir la cola entre quien
 empieza su turno, avisar y escalar por SLA, y cerrar lo atendido sin respuesta.
 
+Y la retención de las ausencias médicas de Gestión Humana
+(`purgar_ausencias_medicas`, LOPDP): lo de hace más de cinco años se borra,
+con constancia agregada en la auditoría.
+
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -100,6 +104,9 @@ def main() -> int:
         # Gestión Humana: reintenta los avisos y correos de Novedades que no
         # se pudieron entregar en el momento.
         ("novedades_retry_notifications", []),
+        # Retención LOPDP: borra las ausencias médicas de hace más de cinco
+        # años. Sin nada vencido es una sola consulta.
+        ("purgar_ausencias_medicas", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

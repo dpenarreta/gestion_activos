@@ -675,6 +675,109 @@ PERMISSION_CATALOG = {
             "equipo.ver": "Ver su equipo (según el organigrama) y sus tareas",
         },
     },
+    # Gestión Humana · Proyectos (portado de Nexo, 05/11/2026). El prefijo no
+    # es `proyectos.` porque ese ya es de la Solicitud de proyectos del módulo
+    # Institucional (`apps.proyectos`), que es otra cosa.
+    "proyectos_gh": {
+        "label": "Proyectos",
+        "description": (
+            "Iniciativas transversales del equipo de Gestión Humana: fases, participantes, "
+            "actividades con horas, documentos y papelera. Cada quien ve los proyectos en que "
+            "participa y los de su equipo según el organigrama."
+        ),
+        "permissions": {
+            "proyectos_gh.acceder": (
+                "Acceder a Proyectos: ver los suyos y los de su equipo; en los que participa, "
+                "comentar, registrar actividades y subir documentos"
+            ),
+            "proyectos_gh.crear": "Crear proyectos y ver su papelera",
+            "proyectos_gh.supervisar": (
+                "Gestionar los proyectos de su equipo según el organigrama: editarlos, cambiar "
+                "su estado, sus fases y sus participantes"
+            ),
+            "proyectos_gh.administrar": (
+                "Administrar Proyectos: ver y gestionar todos los proyectos de la empresa y toda "
+                "su papelera"
+            ),
+        },
+    },
+    # Gestión Humana · Ausencias (permisos por día o en minutos y estados
+    # especiales; portado de Nexo, 05/11/2026). Un permiso MÉDICO es un dato de
+    # salud (LOPDP): sin `ausencias.medicas_ver` se ve como «ausencia», sin
+    # tipo ni observación.
+    "ausencias": {
+        "label": "Ausencias",
+        "description": (
+            "Permisos médicos y personales, vacaciones y estados especiales (maternidad, "
+            "lactancia) que descuentan la base de horas del KPI. El motivo médico y los estados "
+            "especiales son datos de salud: solo los ve quien tiene el permiso explícito."
+        ),
+        "permissions": {
+            "ausencias.ver": (
+                "Ver las ausencias de su equipo según el organigrama, como «ausencia» con sus "
+                "horas, sin el motivo"
+            ),
+            "ausencias.gestionar": (
+                "Registrar permisos personales y vacaciones de cualquier persona de la empresa y "
+                "ver todas las ausencias (sin el motivo médico)"
+            ),
+            "ausencias.medicas_ver": (
+                "Ver el tipo y la observación de cada ausencia, incluidos los permisos médicos "
+                "(dato de salud)"
+            ),
+            "ausencias.medicas_gestionar": (
+                "Registrar y eliminar permisos médicos y eliminar cualquier ausencia (dato de "
+                "salud)"
+            ),
+            "ausencias.estados_gestionar": (
+                "Ver, registrar, finalizar y eliminar los estados especiales (maternidad, "
+                "lactancia), con su base y límites de horas (dato de salud)"
+            ),
+        },
+    },
+    # Gestión Humana · KPI e Inteligencia Preventiva (motor portado de Nexo,
+    # 05/11/2026). Los prefijos `kpi.` e `inteligencia_preventiva.` no chocan
+    # con ningún bloque de la intranet; el segundo conserva el nombre de Nexo.
+    "kpi": {
+        "label": "KPI",
+        "description": (
+            "Carga laboral, cumplimiento, desempeño, equilibrio operativo, predicción y "
+            "simulador del equipo de Gestión Humana. Lo que cada quien ve del equipo lo decide "
+            "el organigrama; el motivo de las ausencias sigue los permisos de Ausencias."
+        ),
+        "permissions": {
+            "kpi.acceder": (
+                "Acceder a KPI: ver sus propios indicadores, su inteligencia preventiva y simular "
+                "escenarios sobre sí mismo"
+            ),
+            "kpi.equipo": (
+                "Ver los KPI de su equipo según el organigrama: los de cada persona, la capacidad "
+                "y el resumen mensual del equipo y sus alertas preventivas"
+            ),
+            "kpi.ejecutivo": (
+                "Ver el resumen ejecutivo de su equipo: tendencia de seis meses, ranking, "
+                "alertas y estado general"
+            ),
+            "kpi.administrar": (
+                "Administrar KPI: ver los indicadores de cualquier persona de la empresa, las "
+                "advertencias y el diagnóstico del motor, la fecha de inicio de cada persona y "
+                "los ajustes (pesos, umbrales, curvas y límites)"
+            ),
+        },
+    },
+    "inteligencia_preventiva": {
+        "label": "Inteligencia preventiva",
+        "description": (
+            "Índice de Riesgo Operativo y recomendaciones de redistribución de carga del equipo "
+            "de Gestión Humana, sin IA."
+        ),
+        "permissions": {
+            "inteligencia_preventiva.ver": (
+                "Ver el Índice de Riesgo Operativo de su equipo y las recomendaciones de "
+                "redistribución de carga (avisa al jefe inmediato cuando el riesgo es alto)"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -804,12 +907,22 @@ MODULE_GROUPS = [
         "description": (
             "Solo sirven en el módulo de Gestión Humana: el control operativo de "
             "novedades (días laborados, horas extras, cierres, depuración e "
-            "ingresos y salidas de colaboradores), las tareas del equipo y la "
-            "pantalla de Equipo. Los Supervisores, Asistentes y Jefes de "
-            "Operaciones tienen además reglas propias por rol; en Tareas y Equipo, "
-            "lo que cada quien ve lo decide además el organigrama."
+            "ingresos y salidas de colaboradores), las tareas del equipo, la "
+            "pantalla de Equipo, los proyectos, las ausencias y el KPI con su "
+            "inteligencia preventiva. Los Supervisores, Asistentes y Jefes de "
+            "Operaciones tienen además reglas propias por rol; en Tareas, Equipo, "
+            "Proyectos, Ausencias y KPI, lo que cada quien ve lo decide además el "
+            "organigrama."
         ),
-        "modules": ["novedades", "tareas", "equipo"],
+        "modules": [
+            "novedades",
+            "tareas",
+            "equipo",
+            "proyectos_gh",
+            "ausencias",
+            "kpi",
+            "inteligencia_preventiva",
+        ],
     },
     {
         "id": "matriz",

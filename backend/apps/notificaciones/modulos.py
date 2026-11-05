@@ -19,6 +19,10 @@ MODULOS = {
     "descargas": ("Auditoría · Descargas", "download"),
     "novedades": ("Gestión Humana · Novedades", "people"),
     "tareas": ("Gestión Humana · Tareas", "list-check"),
+    # Los avisos `proyectos.*` son de Gestión Humana · Proyectos y de la
+    # Solicitud de proyectos de Institucional: comparten el nombre.
+    "proyectos": ("Proyectos", "kanban"),
+    "kpi": ("Gestión Humana · KPI", "speedometer2"),
 }
 
 SISTEMA = ("Sistema", "bell")

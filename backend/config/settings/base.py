@@ -109,6 +109,9 @@ INSTALLED_APPS = [
     "apps.capacitacion",
     "apps.novedades",
     "apps.tasks",
+    "apps.projects",
+    "apps.ausencias",
+    "apps.analytics",
 ]
 
 MIDDLEWARE = [

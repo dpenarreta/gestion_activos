@@ -38,8 +38,15 @@ def tipo_por_extension(nombre: str) -> str:
     return TIPOS_POR_EXTENSION.get(PurePath(nombre or "").suffix.lower(), TIPO_GENERICO)
 
 
-def validar_archivo(archivo):
-    """Valida un `UploadedFile` y devuelve su extensión normalizada."""
+def validar_archivo(archivo, *, formatos: dict[str, list[bytes]] | None = None):
+    """Valida un `UploadedFile` y devuelve su extensión normalizada.
+
+    `formatos` (extensión → firmas aceptadas) reemplaza, solo para quien lo
+    pasa, la lista general de `EXTENSIONES_PERMITIDAS`/`FIRMAS`: un módulo que
+    acepta otros formatos (Proyectos acepta PowerPoint y los Office antiguos;
+    05/11/2026) los declara sin cambiar lo que aceptan los demás."""
+    permitidas = EXTENSIONES_PERMITIDAS if formatos is None else set(formatos)
+    firmas = FIRMAS if formatos is None else formatos
     if archivo.size == 0:
         raise serializers.ValidationError("El archivo está vacío.")
 
@@ -50,17 +57,17 @@ def validar_archivo(archivo):
         )
 
     extension = PurePath(archivo.name).suffix.lower()
-    if extension not in EXTENSIONES_PERMITIDAS:
-        permitidas = ", ".join(sorted(EXTENSIONES_PERMITIDAS))
+    if extension not in permitidas:
+        lista = ", ".join(sorted(permitidas))
         raise serializers.ValidationError(
-            f"No se admiten archivos «{extension or 'sin extensión'}». Permitidos: {permitidas}."
+            f"No se admiten archivos «{extension or 'sin extensión'}». Permitidos: {lista}."
         )
 
     cabecera = archivo.read(BYTES_DE_FIRMA)
     # Se devuelve el puntero al inicio: si no, el archivo se guardaría sin sus
     # primeros bytes y quedaría corrupto.
     archivo.seek(0)
-    if not any(cabecera.startswith(firma) for firma in FIRMAS[extension]):
+    if not any(cabecera.startswith(firma) for firma in firmas[extension]):
         raise serializers.ValidationError(
             f"El contenido del archivo no corresponde a un {extension}. "
             "Verifique que no se haya renombrado la extensión."

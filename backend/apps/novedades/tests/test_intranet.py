@@ -415,12 +415,17 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
     administrador del sistema: ningún permiso de otro módulo (04/11/2026)."""
     rol = Group.objects.get(name="Administrador de Gestión Humana")
     codenames = set(rol.permissions.values_list("codename", flat=True))
-    # Desde la fase 2a (tasks/0002) administra también Tareas y Equipo: todo
-    # Gestión Humana y nada de otro módulo.
+    # Desde la fase 2a (tasks/0002) administra también Tareas y Equipo, y desde
+    # la 2b (projects/0002, ausencias/0002) Proyectos y Ausencias: todo Gestión
+    # Humana y nada de otro módulo.
     assert codenames == (
         set(PERMISSION_CATALOG["novedades"]["permissions"])
         | set(PERMISSION_CATALOG["tareas"]["permissions"])
         | set(PERMISSION_CATALOG["equipo"]["permissions"])
+        | set(PERMISSION_CATALOG["proyectos_gh"]["permissions"])
+        | set(PERMISSION_CATALOG["ausencias"]["permissions"])
+        | set(PERMISSION_CATALOG["kpi"]["permissions"])
+        | set(PERMISSION_CATALOG["inteligencia_preventiva"]["permissions"])
     )
 
     admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
@@ -452,10 +457,22 @@ def test_destinatarios_unicos_dentro_de_la_empresa(courier):
 def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
     """Vienen de Nexo para que cada persona quede con su rol. En Novedades no
     conceden nada; desde la fase 2a (tasks/0002) dan lo suyo en Tareas y
-    Equipo, y nada de otro módulo."""
+    Equipo, y desde la 2b en Proyectos y Ausencias; nada de otro módulo."""
     for nombre in ("JEFE_NACIONAL", "ANALISTA_CC", "TRABAJO_SOCIAL", "ASISTENTE_NOMINA"):
         codenames = set(
             Group.objects.get(name=nombre).permissions.values_list("codename", flat=True)
         )
         assert "tareas.acceder" in codenames
-        assert all(c.startswith(("tareas.", "equipo.")) for c in codenames), codenames
+        assert all(
+            c.startswith(
+                (
+                    "tareas.",
+                    "equipo.",
+                    "proyectos_gh.",
+                    "ausencias.",
+                    "kpi.",
+                    "inteligencia_preventiva.",
+                )
+            )
+            for c in codenames
+        ), codenames

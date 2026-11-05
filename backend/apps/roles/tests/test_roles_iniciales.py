@@ -25,7 +25,25 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
     # Menos lo que se da persona por persona (consultar el rol de pagos).
     from apps.organizacion.permisos_por_cargo import SOLO_POR_PERSONA
 
-    assert _permisos_de("Administrador") == all_codenames() - SOLO_POR_PERSONA
+    # El Administrador (TI), además, sin lo de Gestión Humana que no es suyo:
+    # tareas, equipo, proyectos, ausencias y KPI (decisión del usuario,
+    # 05/11/2026).
+    de_gestion_humana = {
+        c
+        for c in all_codenames()
+        if c.startswith(
+            (
+                "tareas.",
+                "equipo.",
+                "proyectos_gh.",
+                "ausencias.",
+                "kpi.",
+                "inteligencia_preventiva.",
+            )
+        )
+    }
+    assert de_gestion_humana
+    assert _permisos_de("Administrador") == all_codenames() - SOLO_POR_PERSONA - de_gestion_humana
     assert _permisos_de("Superusuario") == all_codenames() - SOLO_POR_PERSONA
 
 
