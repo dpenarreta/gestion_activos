@@ -24,7 +24,7 @@ import {
 } from "../../../modulos/permisosGestionHumana";
 import { Encabezado } from "../Tareas/ContextoTareas";
 import { iniciales, rolLegible } from "../Tareas/tareasComunes";
-import { EstadoSeccion, Seccion, Semaforo } from "./Componentes";
+import { BotonExcel, EstadoSeccion, Seccion, Semaforo } from "./Componentes";
 import { ConAccesoKpi, useCarga, useKpi } from "./ContextoKpi";
 import { DetalleKpi } from "./DetalleKpi";
 import { RecomendacionesDelEquipo, RiesgoDelEquipo } from "./RiesgoOperativo";
@@ -124,6 +124,13 @@ function PantallaEquipo() {
               <p className="mb-0" aria-live="polite">
                 Período: <strong>{nombreDelMes(mes)}</strong>
               </p>
+              {can(KPI_EQUIPO) && (
+                <div className="gk-acciones ms-auto">
+                  <BotonExcel
+                    descargar={() => kpiService.exportarEquipo(mes)}
+                  />
+                </div>
+              )}
             </div>
           }
         />

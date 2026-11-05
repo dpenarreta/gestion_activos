@@ -226,7 +226,13 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
   }, [cargarTipos]);
 
   const elegido = tipos?.find((t) => String(t.id) === valores.flujo);
-  const pideMotivo = elegido?.pide_motivo !== false;
+  // Un permiso médico pide siempre el motivo y el documento (el servidor
+  // responde 400 si faltan).
+  const medico = esMedico(elegido);
+  const pideMotivo = medico || elegido?.pide_motivo !== false;
+  const adjuntoObligatorio = medico || elegido?.adjunto === "obligatorio";
+  const pideAdjunto =
+    Boolean(elegido) && (adjuntoObligatorio || elegido.adjunto !== "no");
   // Por horas (05/11/2026): un solo día, con hora de inicio y de fin.
   const porHoras = elegido?.unidad === "horas";
   const fijar = (campo) => (e) =>
@@ -235,6 +241,8 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     const flujo = e.target.value;
     const tipo = tipos.find((t) => String(t.id) === flujo);
     setErrores({});
+    // El documento elegido era para el otro tipo: no se envía con este.
+    setAdjunto(null);
     setValores((v) => ({
       ...v,
       flujo,
@@ -272,8 +280,13 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     // Lo que se puede saber sin ir al servidor: el error va junto a su
     // campo y el foco al primero (auditoría UX/UI, fase 2).
     const propios = porHoras ? validarHoras(valores) : {};
-    if (elegido?.adjunto === "obligatorio" && !adjunto)
-      propios.adjunto = "Este permiso pide un documento de respaldo.";
+    if (medico && !valores.motivo.trim())
+      propios.motivo =
+        "Un permiso médico pide el motivo. No escriba diagnósticos.";
+    if (adjuntoObligatorio && !adjunto)
+      propios.adjunto = medico
+        ? "Adjunte el certificado médico."
+        : "Este permiso pide un documento de respaldo.";
     if (Object.keys(propios).length) {
       setError(null);
       setErrores(propios);
@@ -299,7 +312,8 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
       onCreada(
         await licenciasService.solicitar(
           pideMotivo ? campos : { ...campos, motivo: "" },
-          adjunto,
+          // Solo si el tipo lo pide (y se ve el campo).
+          pideAdjunto ? adjunto : null,
         ),
       );
     } catch (err) {
@@ -494,11 +508,15 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
             <Campo
               id="sp-motivo"
               etiqueta="Motivo"
+              obligatorio={medico}
               // LOPDP: el motivo lo leen quienes aprueban.
               ayuda={
-                esMedico(elegido)
-                  ? "No escriba diagnósticos; basta con adjuntar el certificado."
-                  : undefined
+                medico ? (
+                  <span className="solicitud-ayuda-medica">
+                    Indique el motivo sin escribir diagnósticos. Adjunte el
+                    certificado médico.
+                  </span>
+                ) : undefined
               }
               error={errores.motivo}
               className="col-12"
@@ -511,20 +529,24 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
               />
             </Campo>
           )}
-          {elegido && elegido.adjunto !== "no" && (
+          {pideAdjunto && (
             <Campo
               id="sp-adjunto"
               etiqueta={
-                elegido.adjunto === "obligatorio"
-                  ? "Documento de respaldo"
-                  : "Documento de respaldo (opcional)"
+                medico
+                  ? "Certificado médico"
+                  : adjuntoObligatorio
+                    ? "Documento de respaldo"
+                    : "Documento de respaldo (opcional)"
               }
-              obligatorio={elegido.adjunto === "obligatorio"}
+              obligatorio={adjuntoObligatorio}
               ayuda="PDF o imagen, hasta 10 MB."
               error={errores.adjunto}
               className="col-12"
             >
               <input
+                // Al cambiar de tipo se vacía: el archivo no queda oculto.
+                key={valores.flujo}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 className="form-control form-control-sm"

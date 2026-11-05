@@ -569,36 +569,128 @@ describe("Solicitud por horas", () => {
     );
   });
 
-  it("en un tipo médico, el motivo pide no escribir diagnósticos", async () => {
+  it("en un tipo médico, motivo y certificado son obligatorios y se revisan antes de enviar", async () => {
     const medico = {
-      ...POR_HORAS,
+      ...VACACIONES,
       id: 6,
       nombre: "Permiso médico",
+      descuento: "ninguno",
+      unidad: "dias",
       pide_motivo: true,
+      adjunto: "obligatorio",
       tipo_ausencia: "MEDICO",
     };
     const ventana = await abrirNuevaSolicitud([VACACIONES, medico]);
-    // Con un tipo que no es médico, sin la ayuda.
-    expect(
-      within(ventana).getByLabelText(/^Motivo/),
-    ).not.toHaveAccessibleDescription(/diagnósticos/);
+    // Con un tipo que no es médico, el motivo es libre y sin la ayuda.
+    const motivoLibre = within(ventana).getByLabelText(/^Motivo/);
+    expect(motivoLibre).not.toHaveAttribute("aria-required");
+    expect(motivoLibre).not.toHaveAccessibleDescription(/diagnósticos/);
+
     fireEvent.change(within(ventana).getByLabelText(/^Tipo de permiso/), {
       target: { value: "6" },
     });
-    expect(
-      within(ventana).getByLabelText(/^Motivo/),
-    ).toHaveAccessibleDescription(
-      "No escriba diagnósticos; basta con adjuntar el certificado.",
+    const motivo = within(ventana).getByLabelText(/^Motivo/);
+    expect(motivo).toHaveAttribute("aria-required", "true");
+    expect(motivo).toHaveAccessibleDescription(
+      "Indique el motivo sin escribir diagnósticos. Adjunte el certificado médico.",
     );
+    const certificado = within(ventana).getByLabelText(/^Certificado médico/);
+    expect(certificado).toHaveAttribute("aria-required", "true");
+
+    // Sin motivo ni certificado: los dos se marcan y no se envía.
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(motivo).toHaveAttribute("aria-invalid", "true");
+    expect(motivo).toHaveAccessibleDescription(
+      /Un permiso médico pide el motivo\. No escriba diagnósticos\./,
+    );
+    expect(certificado).toHaveAttribute("aria-invalid", "true");
+    // Un solo término: «certificado médico».
+    expect(certificado).toHaveAccessibleDescription(
+      /Adjunte el certificado médico\./,
+    );
+    await waitFor(() => expect(motivo).toHaveFocus());
+    expect(servicio.solicitar).not.toHaveBeenCalled();
+
+    // Con motivo pero sin certificado, tampoco.
+    fireEvent.change(motivo, { target: { value: "Cita de control" } });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(motivo).not.toHaveAttribute("aria-invalid");
+    expect(certificado).toHaveAttribute("aria-invalid", "true");
+    expect(servicio.solicitar).not.toHaveBeenCalled();
   });
 
-  it("si el servidor expone `es_medico` en vez de `tipo_ausencia`, también avisa", async () => {
+  it("al cambiar de tipo, el archivo elegido no se queda pegado", async () => {
+    servicio.solicitar.mockResolvedValue(DETALLE);
+    const medico = {
+      ...VACACIONES,
+      id: 6,
+      nombre: "Permiso médico",
+      descuento: "ninguno",
+      pide_motivo: true,
+      adjunto: "obligatorio",
+      tipo_ausencia: "MEDICO",
+    };
+    const ventana = await abrirNuevaSolicitud([medico, VACACIONES]);
+    const archivo = new File(["%PDF-1.4"], "certificado.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(within(ventana).getByLabelText(/^Certificado médico/), {
+      target: { files: [archivo] },
+    });
+    // Pasa a un tipo que no pide documento y envía: sin el archivo.
+    fireEvent.change(within(ventana).getByLabelText(/^Tipo de permiso/), {
+      target: { value: "1" },
+    });
+    expect(within(ventana).queryByLabelText(/^Certificado médico/)).toBeNull();
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    await waitFor(() => expect(servicio.solicitar).toHaveBeenCalled());
+    expect(servicio.solicitar.mock.calls[0][1]).toBeNull();
+  });
+
+  it("la ayuda médica del motivo va a 13 px", async () => {
     const ventana = await abrirNuevaSolicitud([
-      { ...POR_HORAS, pide_motivo: true, es_medico: true },
+      { ...POR_HORAS, pide_motivo: true, tipo_ausencia: "MEDICO" },
     ]);
     expect(
-      within(ventana).getByLabelText(/^Motivo/),
-    ).toHaveAccessibleDescription(/No escriba diagnósticos/);
+      within(ventana).getByText(/Indique el motivo sin escribir diagnósticos/),
+    ).toHaveClass("solicitud-ayuda-medica");
+  });
+
+  it("un médico que el servidor marca con `es_medico` y sin `pide_motivo` igual pide motivo y certificado", async () => {
+    const ventana = await abrirNuevaSolicitud([
+      { ...POR_HORAS, pide_motivo: false, adjunto: "no", es_medico: true },
+    ]);
+    expect(within(ventana).getByLabelText(/^Motivo/)).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(
+      within(ventana).getByLabelText(/^Certificado médico/),
+    ).toHaveAttribute("aria-required", "true");
+  });
+
+  it("el 400 del servidor en el motivo va bajo el campo", async () => {
+    servicio.solicitar.mockRejectedValue(
+      errorDeCampos({
+        motivo: ["Un permiso médico pide el motivo. No escriba diagnósticos."],
+      }),
+    );
+    // Un tipo que la pantalla no reconoce como médico: decide el servidor.
+    const ventana = await abrirNuevaSolicitud([VACACIONES]);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    const motivo = within(ventana).getByLabelText(/^Motivo/);
+    await waitFor(() => expect(motivo).toHaveAttribute("aria-invalid", "true"));
+    expect(motivo).toHaveAccessibleDescription(
+      "Un permiso médico pide el motivo. No escriba diagnósticos.",
+    );
   });
 
   it("si no se cargan los tipos, deja reintentar", async () => {
@@ -854,5 +946,202 @@ describe("Cancelar una aprobada sin `dias_a_devolver` del servidor", () => {
       "Se quitarán las ausencias de Ana Vera en Gestión Humana y se le devolverán los días de vacaciones descontados.",
     );
     expect(ventana).not.toHaveTextContent(/devolverán \d/);
+  });
+});
+
+describe("Configurar tipos: el tipo médico", () => {
+  it("al elegir Médica fija motivo y documento obligatorio, y al salir quedan libres", async () => {
+    const { ventana, seccion } = await abrirEditorNuevo();
+    const tipo = within(seccion).getByLabelText(
+      /^Tipo de ausencia en Gestión Humana/,
+    );
+    fireEvent.change(tipo, { target: { value: "MEDICO" } });
+    // Fijados, como texto y con su motivo.
+    expect(
+      within(ventana).queryByRole("combobox", {
+        name: /^Documento de respaldo/,
+      }),
+    ).toBeNull();
+    expect(
+      within(ventana).queryByRole("checkbox", {
+        name: /Pide un motivo a quien solicita/,
+      }),
+    ).toBeNull();
+    // Cada etiqueta con su valor, y la explicación una sola vez.
+    const fijados = within(ventana)
+      .getByText("Documento de respaldo", { selector: "dt" })
+      .closest("dl");
+    expect(fijados).toHaveTextContent("Documento de respaldoObligatorio");
+    expect(fijados).toHaveTextContent("Pide un motivo a quien solicitaSí");
+    expect(fijados).toHaveAccessibleDescription(
+      "Un permiso médico siempre pide motivo y certificado.",
+    );
+    expect(
+      within(ventana).getAllByText(
+        "Un permiso médico siempre pide motivo y certificado.",
+      ),
+    ).toHaveLength(1);
+    // Y bajo el selector, que el cambio pasó más arriba.
+    expect(tipo).toHaveAccessibleDescription(
+      /Además, pide siempre motivo y certificado \(fijado en Datos del permiso\)\./,
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarFlujo).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          tipo_ausencia: "MEDICO",
+          pide_motivo: true,
+          adjunto: "obligatorio",
+        }),
+      ),
+    );
+  });
+
+  it("al pasar de Médica a Personal, los dos controles se vuelven a poder cambiar", async () => {
+    const { ventana, seccion } = await abrirEditorNuevo();
+    const tipo = within(seccion).getByLabelText(
+      /^Tipo de ausencia en Gestión Humana/,
+    );
+    fireEvent.change(tipo, { target: { value: "MEDICO" } });
+    fireEvent.change(tipo, { target: { value: "PERSONAL" } });
+    // Se anuncia en la región viva.
+    expect(ventana).toHaveTextContent(
+      "Motivo y documento vuelven a ser editables; quedan en obligatorio.",
+    );
+    const documento = within(ventana).getByLabelText(/^Documento de respaldo/);
+    expect(documento).toHaveValue("obligatorio");
+    fireEvent.change(documento, { target: { value: "opcional" } });
+    expect(documento).toHaveValue("opcional");
+    const pideMotivo = within(ventana).getByRole("checkbox", {
+      name: /Pide un motivo a quien solicita/,
+    });
+    fireEvent.click(pideMotivo);
+    expect(pideMotivo).not.toBeChecked();
+  });
+
+  it("si la descripción de un médico dice «si lo tiene», avisa sin cambiarla", async () => {
+    const { ventana, seccion } = await abrirEditorNuevo();
+    const descripcion = within(ventana).getByLabelText(/^Descripción/);
+    const texto = "Adjunte el certificado si lo tiene.";
+    fireEvent.change(descripcion, { target: { value: texto } });
+    expect(ventana).not.toHaveTextContent(/pero en un permiso médico/);
+    fireEvent.change(
+      within(seccion).getByLabelText(/^Tipo de ausencia en Gestión Humana/),
+      { target: { value: "MEDICO" } },
+    );
+    expect(ventana).toHaveTextContent(
+      /La descripción dice «si lo tiene», pero en un permiso médico el certificado es obligatorio/,
+    );
+    expect(descripcion).toHaveValue(texto);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarFlujo).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ descripcion: texto }),
+      ),
+    );
+  });
+
+  it("un médico guardado sin motivo ni documento se abre ya corregido", async () => {
+    permisos.lista = ["licencias.configurar"];
+    servicio.flujos.mockResolvedValue([
+      {
+        ...FLUJO_GUARDADO,
+        nombre: "Permiso médico",
+        descuento: "ninguno",
+        unidad: "dias",
+        tipo_ausencia: "MEDICO",
+        pide_motivo: false,
+        adjunto: "no",
+      },
+    ]);
+    servicio.guardarFlujo.mockResolvedValue({});
+    pintar(<FlujosPermisoPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Editar Permiso médico" }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Editar «Permiso médico»",
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarFlujo).toHaveBeenCalledWith(
+        3,
+        expect.objectContaining({ pide_motivo: true, adjunto: "obligatorio" }),
+      ),
+    );
+  });
+
+  it("los 400 de `pide_motivo` y `adjunto` van bajo su campo", async () => {
+    const { ventana } = await abrirEditorNuevo();
+    servicio.guardarFlujo.mockRejectedValue(
+      errorDeCampos({
+        pide_motivo: ["Un permiso médico siempre pide el motivo."],
+        adjunto: ["Un permiso médico pide el certificado como obligatorio."],
+      }),
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
+    );
+    const pideMotivo = within(ventana).getByRole("checkbox", {
+      name: /Pide un motivo a quien solicita/,
+    });
+    await waitFor(() =>
+      expect(pideMotivo).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(pideMotivo).toHaveAccessibleDescription(
+      "Un permiso médico siempre pide el motivo.",
+    );
+    const documento = within(ventana).getByLabelText(/^Documento de respaldo/);
+    expect(documento).toHaveAttribute("aria-invalid", "true");
+    expect(documento).toHaveAccessibleDescription(
+      "Un permiso médico pide el certificado como obligatorio.",
+    );
+    expect(within(ventana).getByRole("alert")).toHaveTextContent(
+      "Pide motivo: Un permiso médico siempre pide el motivo.",
+    );
+  });
+});
+
+describe("Cancelar depende solo de `puedo.cancelar`", () => {
+  const aprobada = (puedo) => ({
+    ...DETALLE,
+    estado: "aprobada",
+    dias_a_devolver: 0,
+    puedo: { resolver: false, escalar: false, ...puedo },
+  });
+
+  it("sin `ver_todas` pero con `puedo.cancelar` (licencias.anular_aprobadas), se ofrece", async () => {
+    permisos.lista = [];
+    servicio.solicitud.mockResolvedValue(
+      aprobada({ cancelar: true, cancelar_pide_comentario: true }),
+    );
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    expect(
+      within(ventana).getByRole("button", { name: "Cancelar solicitud" }),
+    ).toBeInTheDocument();
+  });
+
+  it("con `ver_todas` pero sin `puedo.cancelar`, no se ofrece", async () => {
+    permisos.lista = ["licencias.ver_todas"];
+    servicio.solicitud.mockResolvedValue(aprobada({ cancelar: false }));
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    expect(
+      within(ventana).queryByRole("button", { name: /Cancelar solicitud/ }),
+    ).toBeNull();
+    expect(within(ventana).queryByText(/ya está aprobada/)).toBeNull();
   });
 });

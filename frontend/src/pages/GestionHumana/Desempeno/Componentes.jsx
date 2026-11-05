@@ -4,7 +4,9 @@
  * `ExplainModal`, `ScoreZoneBar`). El color nunca va solo: cada semáforo
  * lleva su texto.
  */
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { errorDeKpi } from "../../../api/kpiService";
 
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
@@ -386,6 +388,102 @@ export function ExplicarCalculo({
         </dl>
       )}
     </Ventana>
+  );
+}
+
+/** El mensaje de una exportación que falló. Un 404 o un 403 aquí no es «ya
+ * no existe»: el archivo no se pudo generar. */
+export const ERROR_EXCEL =
+  "No se pudo generar el Excel. Inténtelo de nuevo o avise a Soporte TI.";
+
+/**
+ * «Descargar Excel»: descarga con la sesión (`descargar` devuelve una
+ * promesa con el nombre del archivo). Mientras descarga, el botón no se
+ * deshabilita (el foco se iría a `<body>`): queda `aria-disabled`, con
+ * «Descargando…» y un indicador, y un `useRef` evita el doble clic. Si
+ * falla, el error va junto al botón y el foco pasa a «Reintentar».
+ * `aviso`: una nota bajo el botón, unida a él con `aria-describedby`.
+ */
+export function BotonExcel({ descargar, aviso, etiqueta = "Descargar Excel" }) {
+  const [descargando, setDescargando] = useState(false);
+  const [error, setError] = useState(null);
+  const [listo, setListo] = useState(null);
+  const enCurso = useRef(false);
+  const reintentar = useRef(null);
+  const idAviso = `${useId()}-aviso`;
+
+  useEffect(() => {
+    if (error) reintentar.current?.focus();
+  }, [error]);
+
+  async function bajar() {
+    if (enCurso.current) return;
+    enCurso.current = true;
+    setDescargando(true);
+    setError(null);
+    setListo(null);
+    try {
+      const nombre = await descargar();
+      setListo(`Descarga lista: ${nombre}.`);
+    } catch (err) {
+      const fallo = errorDeKpi(err, ERROR_EXCEL);
+      setError(
+        fallo.estado === 404 || fallo.estado === 403
+          ? ERROR_EXCEL
+          : fallo.mensaje,
+      );
+    } finally {
+      enCurso.current = false;
+      setDescargando(false);
+    }
+  }
+
+  return (
+    <div className="gk-excel">
+      <button
+        type="button"
+        className={`btn btn-exportar btn-sm${descargando ? " gk-excel__boton--ocupado" : ""}`}
+        onClick={bajar}
+        aria-disabled={descargando ? "true" : undefined}
+        aria-describedby={aviso ? idAviso : undefined}
+      >
+        {descargando ? (
+          <span
+            className="spinner-border spinner-border-sm"
+            aria-hidden="true"
+          />
+        ) : (
+          <Icon name="file-earmark-excel" />
+        )}{" "}
+        {descargando ? "Descargando…" : etiqueta}
+      </button>
+      {aviso && (
+        <span id={idAviso} className="mz-small mz-faint">
+          {aviso}
+        </span>
+      )}
+      <span role="status" className="visually-hidden">
+        {listo}
+      </span>
+      {error && (
+        <div
+          className="mz-alert mz-alert--bad mz-alert--accion gk-excel__error"
+          role="alert"
+        >
+          <Icon name="x-octagon" />
+          <span>{error}</span>
+          <button
+            ref={reintentar}
+            type="button"
+            className="btn btn-sm btn-outline-danger ms-auto"
+            onClick={bajar}
+            aria-disabled={descargando ? "true" : undefined}
+          >
+            <Icon name="arrow-clockwise" /> Reintentar
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

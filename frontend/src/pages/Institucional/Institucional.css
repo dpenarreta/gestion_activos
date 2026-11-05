@@ -4238,3 +4238,40 @@
     min-height: 44px;
   }
 }
+
+/* Permiso médico (05/11/2026): motivo y documento fijados, alineados con los
+   campos vecinos (el alto de un form-control-sm). */
+.flujo-fijados {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.flujo-fijados > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: calc(1.5em + 0.5rem + 2px);
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.flujo-fijados dt {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.flujo-fijados dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mz-ink);
+}
+
+/* La ayuda del motivo en un permiso médico se lee: 13 px, no 11.5. */
+.form-text .solicitud-ayuda-medica {
+  font-size: 13px;
+}

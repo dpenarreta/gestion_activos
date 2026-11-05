@@ -603,6 +603,48 @@
   color: var(--mz-ink);
 }
 
+/* «Descargar Excel»: a la derecha de la barra del período o del
+   encabezado, con su aviso debajo. */
+.gk-excel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  max-width: 100%;
+}
+
+.gk-excel > .mz-small {
+  text-align: right;
+}
+
+/* Ocupado: sigue con el color de exportar (legible) y sin perder el foco. */
+.gk-excel__boton--ocupado,
+.gk-excel__boton--ocupado:hover {
+  color: var(--state-export);
+  background: transparent;
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.gk-excel__error {
+  align-self: stretch;
+  margin: 0;
+}
+
+/* Un aviso con su botón (Reintentar), centrado en una línea (el mismo
+   patrón de Institucional, cuya hoja no se carga aquí). */
+.gk-excel .mz-alert--accion {
+  align-items: center;
+}
+
+.gk-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
 .gk-solo-telefono {
   display: none;
 }
@@ -655,5 +697,15 @@
 
   .gk-mes {
     flex: 1 1 100%;
+  }
+
+  .gk-acciones,
+  .gk-excel {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .gk-excel > .mz-small {
+    text-align: left;
   }
 }

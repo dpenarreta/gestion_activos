@@ -1,3 +1,4 @@
+import { descargarBlob } from "../utils/descargas";
 import { apiClient } from "./client";
 import { errorDeTareas } from "./tareasService";
 
@@ -30,7 +31,46 @@ export function errorDeKpi(err, porDefecto = "No se pudo cargar.") {
  * organigrama (403 si la persona no es de su equipo). Los simuladores nunca
  * guardan nada.
  */
+/** El nombre del archivo de `Content-Disposition` (`filename*` con
+ * acentos o `filename`); si no viene, el de por defecto. */
+export function nombreDeArchivo(cabecera, porDefecto) {
+  const texto = cabecera ?? "";
+  const extendido = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(texto);
+  if (extendido) {
+    try {
+      return decodeURIComponent(extendido[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      // Mal codificado: se usa la forma simple.
+    }
+  }
+  const simple = /filename="?([^";]+)"?/i.exec(texto);
+  return simple?.[1]?.trim() || porDefecto;
+}
+
+/** Descarga un Excel del motor con la sesión y lo guarda con
+ * `descargarBlob` (que deja el registro de descargas). */
+async function exportar(ruta, params, porDefecto) {
+  const r = await apiClient.get(`${BASE}/${ruta}`, {
+    params: limpio(params),
+    responseType: "blob",
+  });
+  const nombre = nombreDeArchivo(
+    r.headers?.["content-disposition"],
+    porDefecto,
+  );
+  descargarBlob(r.data, nombre);
+  return nombre;
+}
+
 export const kpiService = {
+  // --- Exportación a Excel ---
+  exportarMisKpi: (mes) =>
+    exportar("kpis/me/export/", { month: mes }, `mis-kpi-${mes}.xlsx`),
+  exportarEquipo: (mes) =>
+    exportar("kpis/team/export/", { month: mes }, `kpi-equipo-${mes}.xlsx`),
+  exportarEjecutivo: () =>
+    exportar("kpis/executive/export/", {}, "resumen-ejecutivo.xlsx"),
+
   yo: () => apiClient.get(`${BASE}/me/`).then(datos),
 
   // --- KPI del mes ---

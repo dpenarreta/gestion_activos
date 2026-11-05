@@ -77,10 +77,19 @@ export function clasificacion(flujo) {
   };
 }
 
+/** Un permiso médico siempre pide motivo y documento obligatorio (el
+ * servidor responde 400 en `pide_motivo` o `adjunto` si no). */
+export const FIJADO_MEDICO =
+  "Un permiso médico siempre pide motivo y certificado.";
+const conLoDelMedico = (flujo) =>
+  flujo.tipo_ausencia === "MEDICO"
+    ? { ...flujo, pide_motivo: true, adjunto: "obligatorio" }
+    : flujo;
+
 function conClaves(flujo) {
   const destinos = (lista) =>
     (lista ?? []).map((d) => ({ ...d, _k: nuevaClave() }));
-  return {
+  return conLoDelMedico({
     ...flujo,
     ...clasificacion(flujo),
     pasos: (flujo.pasos ?? []).map((p) => ({
@@ -90,7 +99,7 @@ function conClaves(flujo) {
     })),
     avisos_aprobada: destinos(flujo.avisos_aprobada),
     avisos_rechazada: destinos(flujo.avisos_rechazada),
-  };
+  });
 }
 
 const limpiarDestinos = (lista) =>
@@ -212,6 +221,7 @@ const NOMBRE_CAMPO = {
   nombre: "Nombre del permiso",
   descripcion: "Descripción",
   adjunto: "Documento de respaldo",
+  pide_motivo: "Pide motivo",
   dias_minimos: "Mínimo de días",
   dias_maximos: "Máximo de días",
   descuento: "Qué descuenta",
@@ -570,7 +580,7 @@ function ComoSeRegistra({
       : undefined;
   const ayudaTipo =
     flujo.tipo_ausencia === "MEDICO"
-      ? AYUDA_MEDICO
+      ? `${AYUDA_MEDICO} Además, pide siempre motivo y certificado (fijado en Datos del permiso).`
       : "Es el tipo con el que queda cada ausencia al aprobarse la solicitud.";
 
   return (
@@ -740,6 +750,7 @@ function EditorFlujo({
     onRequestClose: onCerrar,
   });
   const editando = Boolean(inicial.id);
+  const medico = flujo.tipo_ausencia === "MEDICO";
   const enCurso = inicial.solicitudes_en_curso ?? 0;
 
   // Agregar, quitar o mover filas también son cambios: cerrar pregunta antes
@@ -931,24 +942,67 @@ function EditorFlujo({
                   onChange={fijar("nombre")}
                 />
               </Campo>
-              <Campo
-                id="flujo-adjunto"
-                etiqueta="Documento de respaldo"
-                error={errores.campos.adjunto}
-                className="col-12 col-md-6"
-              >
-                <select
-                  className="form-select form-select-sm"
-                  value={flujo.adjunto}
-                  onChange={fijar("adjunto")}
+              {medico ? (
+                // Fijados por el tipo médico: cada etiqueta con su valor en
+                // una lista de definiciones y la explicación una sola vez,
+                // debajo de los dos.
+                <div className="mz-campo col-12 col-md-6">
+                  <dl
+                    className="flujo-fijados mb-1"
+                    aria-describedby={[
+                      "flujo-fijados-nota",
+                      errores.campos.adjunto && "flujo-adjunto-error",
+                      errores.campos.pide_motivo && "flujo-pide-motivo-error",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    <div>
+                      <dt>Documento de respaldo</dt>
+                      <dd id="flujo-adjunto">Obligatorio</dd>
+                    </div>
+                    <div>
+                      <dt>Pide un motivo a quien solicita</dt>
+                      <dd id="flujo-pide-motivo">Sí</dd>
+                    </div>
+                  </dl>
+                  <p id="flujo-fijados-nota" className="mz-faint mz-small mb-0">
+                    {FIJADO_MEDICO}
+                  </p>
+                  {errores.campos.adjunto && (
+                    <div id="flujo-adjunto-error" className="mz-field-error">
+                      {errores.campos.adjunto}
+                    </div>
+                  )}
+                  {errores.campos.pide_motivo && (
+                    <div
+                      id="flujo-pide-motivo-error"
+                      className="mz-field-error"
+                    >
+                      {errores.campos.pide_motivo}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Campo
+                  id="flujo-adjunto"
+                  etiqueta="Documento de respaldo"
+                  error={errores.campos.adjunto}
+                  className="col-12 col-md-6"
                 >
-                  {ADJUNTOS.map(([id, nombre]) => (
-                    <option key={id} value={id}>
-                      {nombre}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
+                  <select
+                    className="form-select form-select-sm"
+                    value={flujo.adjunto}
+                    onChange={fijar("adjunto")}
+                  >
+                    {ADJUNTOS.map(([id, nombre]) => (
+                      <option key={id} value={id}>
+                        {nombre}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              )}
               <Campo
                 id="flujo-descripcion"
                 etiqueta="Descripción (la ve quien solicita)"
@@ -961,6 +1015,19 @@ function EditorFlujo({
                   onChange={fijar("descripcion")}
                 />
               </Campo>
+              {/* Solo se avisa: la descripción la corrige quien administra. */}
+              {medico && /si lo tiene/i.test(flujo.descripcion ?? "") && (
+                <div className="col-12">
+                  <p className="mz-alert mz-alert--warn mb-0" role="note">
+                    <Icon name="exclamation-triangle" />
+                    <span>
+                      La descripción dice «si lo tiene», pero en un permiso
+                      médico el certificado es obligatorio. Corríjala para no
+                      confundir a quien solicita.
+                    </span>
+                  </p>
+                </div>
+              )}
               <div className="col-12">
                 <label className="form-check">
                   <input
@@ -973,17 +1040,34 @@ function EditorFlujo({
                     Activo (se puede solicitar)
                   </span>
                 </label>
-                <label className="form-check">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={flujo.pide_motivo !== false}
-                    onChange={fijar("pide_motivo")}
-                  />{" "}
-                  <span className="form-check-label">
-                    Pide un motivo a quien solicita
-                  </span>
-                </label>
+                {/* Con tipo médico va fijado junto al documento. */}
+                {!medico && (
+                  <label className="form-check mt-2">
+                    <input
+                      id="flujo-pide-motivo"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={flujo.pide_motivo !== false}
+                      aria-invalid={
+                        errores.campos.pide_motivo ? true : undefined
+                      }
+                      aria-describedby={
+                        errores.campos.pide_motivo
+                          ? "flujo-pide-motivo-error"
+                          : undefined
+                      }
+                      onChange={fijar("pide_motivo")}
+                    />{" "}
+                    <span className="form-check-label">
+                      Pide un motivo a quien solicita
+                    </span>
+                  </label>
+                )}
+                {!medico && errores.campos.pide_motivo && (
+                  <div id="flujo-pide-motivo-error" className="mz-field-error">
+                    {errores.campos.pide_motivo}
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -991,12 +1075,25 @@ function EditorFlujo({
           <ComoSeRegistra
             flujo={flujo}
             cambiar={(cambios) => {
-              setFlujo((f) => ({ ...f, ...cambios }));
+              // Médico fija motivo y documento obligatorio; al pasar a otro
+              // tipo, los dos controles vuelven a quedar libres (con esos
+              // valores, que se pueden cambiar).
+              setFlujo((f) => conLoDelMedico({ ...f, ...cambios }));
+              if (cambios.tipo_ausencia === "MEDICO")
+                setAnuncio(
+                  "Permiso médico: pide motivo y el documento es obligatorio.",
+                );
+              else if (cambios.tipo_ausencia && medico)
+                setAnuncio(
+                  "Motivo y documento vuelven a ser editables; quedan en obligatorio.",
+                );
               limpiarError(
                 "descuento",
                 "unidad",
                 "tipo_ausencia",
                 "dias_minimos",
+                "pide_motivo",
+                "adjunto",
               );
             }}
             errores={errores}

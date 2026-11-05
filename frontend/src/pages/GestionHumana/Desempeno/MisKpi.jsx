@@ -26,7 +26,13 @@ import {
 import { ErrorEnLinea } from "../comunes";
 import { Encabezado } from "../Tareas/ContextoTareas";
 import { rolLegible } from "../Tareas/tareasComunes";
-import { EstadoSeccion, Indicador, Seccion, Semaforo } from "./Componentes";
+import {
+  BotonExcel,
+  EstadoSeccion,
+  Indicador,
+  Seccion,
+  Semaforo,
+} from "./Componentes";
 import { ConAccesoKpi, useCarga, useKpi } from "./ContextoKpi";
 import { DetalleKpi } from "./DetalleKpi";
 import { LineaDeCumplimiento } from "./Graficos";
@@ -159,14 +165,26 @@ function VistaDelMes() {
         <p className="mb-0" aria-live="polite">
           Período: <strong>{nombreDelMes(mes)}</strong>
         </p>
-        {kpi && enCurso && (
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm ms-auto"
-            onClick={() => setSimulando(true)}
-          >
-            <Icon name="sliders" /> ¿Qué pasaría si…?
-          </button>
+        {kpi && (
+          <div className="gk-acciones ms-auto">
+            {enCurso && (
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => setSimulando(true)}
+              >
+                <Icon name="sliders" /> ¿Qué pasaría si…?
+              </button>
+            )}
+            <BotonExcel
+              descargar={() => kpiService.exportarMisKpi(mes)}
+              aviso={
+                enCurso
+                  ? undefined
+                  : "El Excel no incluye la carga laboral de meses pasados."
+              }
+            />
+          </div>
         )}
       </div>
       {!kpi ? (

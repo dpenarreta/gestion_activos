@@ -17,7 +17,13 @@ import {
 } from "../../../modulos/permisosGestionHumana";
 import { Encabezado } from "../Tareas/ContextoTareas";
 import { rolLegible } from "../Tareas/tareasComunes";
-import { EstadoSeccion, Indicador, Seccion, Semaforo } from "./Componentes";
+import {
+  BotonExcel,
+  EstadoSeccion,
+  Indicador,
+  Seccion,
+  Semaforo,
+} from "./Componentes";
 import { ConAccesoKpi, useCarga, useKpi } from "./ContextoKpi";
 import { BarrasDeCargaDelEquipo, LineaDeCumplimiento } from "./Graficos";
 import {
@@ -68,6 +74,9 @@ function PantallaEjecutiva() {
         titulo="Resumen ejecutivo"
         descripcion="El estado de su equipo ejecutor en el mes, calculado por reglas fijas."
       >
+        {d?.ranking?.length > 0 && can(KPI_EJECUTIVO) && (
+          <BotonExcel descargar={() => kpiService.exportarEjecutivo()} />
+        )}
         {d?.ranking?.length > 0 && (
           <button
             type="button"
