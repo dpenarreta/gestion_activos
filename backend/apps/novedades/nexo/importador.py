@@ -24,15 +24,11 @@ import re
 import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterable
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count, Sum
-from django.db.models.functions import Lower
 from django.utils import timezone
 
 from apps.empresas.contexto import usando_empresa
@@ -60,7 +56,26 @@ from ..models import (
     WorkedDay,
     mask_cedula,
 )
+from .comun import (
+    ImportacionAbortada,
+    ImportadorBase,
+    InformeBase,
+    fechas_tal_cual,
+)
+from .comun import ambito as _ambito
+from .comun import normal as _normal
 from .lector import TABLAS, LectorNexo
+
+__all__ = [
+    "MODELOS",
+    "NO_SE_MIGRA",
+    "Enmascarador",
+    "ImportacionAbortada",
+    "ImportadorNexo",
+    "Informe",
+    "fechas_tal_cual",
+    "normalizar_nombre",
+]
 
 #: Tabla lógica de Nexo → modelo de la intranet donde termina.
 MODELOS = {
@@ -110,37 +125,13 @@ OBJETIVOS_DE_CORRECCION = {
 }
 
 
-class ImportacionAbortada(Exception):
-    """La importación no puede empezar: nada se escribió."""
-
-    def __init__(self, mensaje: str, detalle: Iterable[str] = (), codigo: str = "abortada"):
-        super().__init__(mensaje)
-        self.mensaje = mensaje
-        self.detalle = list(detalle)
-        self.codigo = codigo
-
-
 @dataclass
-class Informe:
-    aplicar: bool
-    leidos: dict[str, int] = field(default_factory=dict)
-    creados: dict[str, int] = field(default_factory=dict)
+class Informe(InformeBase):
     #: Colaboradores enlazados por nombre: cédula enmascarada, nombre, código.
     enlazados: list[dict] = field(default_factory=list)
     #: Colaboradores sin Empleado: cédula enmascarada, nombre y motivo.
     sin_enlace: list[dict] = field(default_factory=list)
-    usuarios_faltantes: list[str] = field(default_factory=list)
     roles: list[dict] = field(default_factory=list)
-    verificacion: list[dict] = field(default_factory=list)
-    #: Referencias que no se pudieron remapear (hacen fallar la verificación).
-    problemas: list[str] = field(default_factory=list)
-    #: Avisos que no invalidan la importación.
-    avisos: list[str] = field(default_factory=list)
-    confirmado: bool = False
-
-    @property
-    def cuadra(self) -> bool:
-        return not self.problemas and all(v["ok"] for v in self.verificacion)
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────────
@@ -183,44 +174,19 @@ class Enmascarador:
         return self.texto(valor)
 
 
-@contextmanager
-def fechas_tal_cual(modelos):
-    """Desactiva `auto_now`/`auto_now_add` de esos modelos mientras dura el
-    bloque, para que `bulk_create` guarde las fechas de Nexo en vez de la hora
-    actual. Los campos de un modelo abstracto se copian en cada modelo
-    concreto, así que solo se tocan los de estos. Se restauran siempre."""
-    cambiados = []
-    for modelo in modelos:
-        for campo in modelo._meta.concrete_fields:
-            if getattr(campo, "auto_now", False) or getattr(campo, "auto_now_add", False):
-                cambiados.append((campo, campo.auto_now, campo.auto_now_add))
-                campo.auto_now = campo.auto_now_add = False
-    try:
-        yield
-    finally:
-        for campo, auto_now, auto_now_add in cambiados:
-            campo.auto_now, campo.auto_now_add = auto_now, auto_now_add
-
-
-def _ambito(modelo, empresa):
-    """Filtro de lo que pertenece a la empresa, sea raíz o cuelgue de otro."""
-    return modelo.objects.todas().filter(**{modelo.objects.ruta_de_empresa: empresa})
-
-
 # ── Importador ────────────────────────────────────────────────────────────────
 
 
-class ImportadorNexo:
+class ImportadorNexo(ImportadorBase):
+    modelos = MODELOS
+    tablas = TABLAS
+    informe_class = Informe
+
     def __init__(
         self, lector: LectorNexo, empresa, *, aplicar: bool = False, asignar_roles: bool = False
     ):
-        self.lector = lector
-        self.empresa = empresa
-        self.aplicar = aplicar
+        super().__init__(lector, empresa, aplicar=aplicar)
         self.asignar_roles = asignar_roles
-        self.informe = Informe(aplicar=aplicar)
-        #: tabla → {id de Nexo: id en la intranet}
-        self.mapas: dict[str, dict[int, int]] = defaultdict(dict)
 
     # 1. Lectura ---------------------------------------------------------------
 
@@ -231,11 +197,7 @@ class ImportadorNexo:
         self.totales_nexo = self.lector.totales()
         self.roles_nexo = self.lector.roles_operativos() if self.asignar_roles else []
 
-        necesarios = set()
-        for tabla, filas in self.datos.items():
-            columnas = TABLAS[tabla].usuarios
-            for fila in filas:
-                necesarios |= {fila[c] for c in columnas if fila.get(c) is not None}
+        necesarios = self._usuarios_de_las_filas()
         opcionales = {r["user_id"] for r in self.roles_nexo}
         for evento in self.datos["novedadevent"]:
             if evento["target_type"] == "user" and str(evento["target_id"]).isdigit():
@@ -279,103 +241,7 @@ class ImportadorNexo:
                 codigo="destino_con_datos",
             )
 
-    def _cruzar_usuarios(self):
-        """Usuario de Nexo → usuario de la intranet, por correo. Aborta si
-        falta alguno de los que referencia un registro."""
-        correos = {
-            uid: str(u.get("email") or "").strip().lower() for uid, u in self.usuarios_nexo.items()
-        }
-        por_correo = defaultdict(list)
-        intranet = (
-            get_user_model()
-            .objects.annotate(correo=Lower("email"))
-            .filter(correo__in={c for c in correos.values() if c})
-            .values_list("correo", "id")
-        )
-        for correo, uid in intranet:
-            por_correo[correo].append(uid)
-
-        self.usuarios = {}
-        faltantes = set()
-        for uid in sorted(self.usuarios_necesarios | set(self.usuarios_nexo)):
-            fila = self.usuarios_nexo.get(uid)
-            correo = correos.get(uid, "")
-            coincidencias = por_correo.get(correo, []) if correo else []
-            if len(coincidencias) == 1:
-                self.usuarios[uid] = coincidencias[0]
-                continue
-            if uid not in self.usuarios_necesarios:
-                continue
-            if fila is None:
-                faltantes.add(f"(usuario #{uid} de Nexo: no existe en Nexo)")
-            elif not correo:
-                faltantes.add(f"(usuario «{fila.get('username')}» de Nexo: sin correo)")
-            elif coincidencias:
-                faltantes.add(f"{correo} (varias cuentas de la intranet con ese correo)")
-            else:
-                faltantes.add(correo)
-        if faltantes:
-            self.informe.usuarios_faltantes = sorted(faltantes)
-            raise ImportacionAbortada(
-                f"Faltan {len(faltantes)} usuarios en la intranet. Créelos (con el mismo correo "
-                "que en Nexo) y vuelva a ejecutar; no se creó ni se cambió nada.",
-                sorted(faltantes),
-                codigo="usuarios_faltantes",
-            )
-
-    def _u(self, uid):
-        return None if uid is None else self.usuarios[uid]
-
     # 3. Escritura ---------------------------------------------------------------
-
-    def _insertar(
-        self,
-        tabla: str,
-        pares: list[tuple[int, object]],
-        clave: tuple[str, ...] | None = None,
-    ):
-        """Inserta por lotes y, si se da `clave` (atributos de la clave natural
-        en la intranet), recupera el id nuevo de cada fila de Nexo."""
-        modelo = MODELOS[tabla]
-        self.informe.creados[tabla] = self.informe.creados.get(tabla, 0) + len(pares)
-        if not pares:
-            return
-        if clave is None:
-            modelo.objects.bulk_create([obj for _, obj in pares])
-            return
-
-        def clave_de(obj):
-            return tuple(getattr(obj, a) for a in clave)
-
-        repeticiones = Counter(clave_de(obj) for _, obj in pares)
-        en_lote = [(i, o) for i, o in pares if repeticiones[clave_de(o)] == 1]
-        sueltos = [(i, o) for i, o in pares if repeticiones[clave_de(o)] > 1]
-        modelo.objects.bulk_create([obj for _, obj in en_lote])
-        for id_nexo, obj in sueltos:
-            # Clave repetida: una a una, que sí devuelve el id.
-            obj.save(force_insert=True)
-            self.mapas[tabla][id_nexo] = obj.pk
-
-        buscadas = {clave_de(o): i for i, o in en_lote}
-        for fila in _ambito(modelo, self.empresa).values_list("pk", *clave):
-            id_nexo = buscadas.get(tuple(fila[1:]))
-            if id_nexo is not None:
-                self.mapas[tabla][id_nexo] = fila[0]
-        perdidos = len(pares) - len(self.mapas[tabla])
-        if perdidos:
-            self.informe.problemas.append(
-                f"{tabla}: {perdidos} filas creadas sin poder recuperar su id."
-            )
-
-    def _id(self, tabla: str, id_nexo, *, requerido=True, contexto=""):
-        if id_nexo is None:
-            return None
-        nuevo = self.mapas[tabla].get(id_nexo)
-        if nuevo is None and requerido:
-            self.informe.problemas.append(
-                f"{contexto or tabla}: referencia a {tabla} #{id_nexo} de Nexo sin registro migrado."
-            )
-        return nuevo
 
     def _enlazar_empleados(self, colaboradores: list[dict]) -> dict[int, Empleado | None]:
         """Empleado de la empresa cuyo nombre completo coincide (normalizado)
@@ -1007,14 +873,3 @@ class ImportadorNexo:
                 else:
                     transaction.set_rollback(True)
         return self.informe
-
-
-def _normal(valor):
-    """Sumas comparables: `None` y 0 son lo mismo; los decimales, a 2 cifras."""
-    if valor is None:
-        return Decimal("0.00")
-    if isinstance(valor, int):
-        return Decimal(valor)
-    if isinstance(valor, Decimal):
-        return valor.quantize(Decimal("0.01"))
-    return valor

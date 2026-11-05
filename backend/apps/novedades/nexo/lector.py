@@ -16,16 +16,33 @@ hora en UTC sin zona), fechas como `date`, importes como `Decimal` y los
 campos JSON ya interpretados.
 """
 
-import json
 from collections.abc import Iterable
-from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
-from decimal import Decimal
 from typing import Protocol
 
-from django.db import DatabaseError, connections
+from .comun import (
+    MAXIMO_DE_PARAMETROS,
+    TAMANO_DE_LOTE,
+    ErrorDeNexo,
+    LectorSQL,
+    Tabla,
+    convertir,
+)
+from .comun import a_decimal as _decimal
+from .comun import f as _f
 
-from config.db_routers import ALIAS_NEXO, solo_select
+__all__ = [
+    "CLAVES_DE_AJUSTES",
+    "MAXIMO_DE_PARAMETROS",
+    "ROLES_OPERATIVOS",
+    "TABLAS",
+    "TAMANO_DE_LOTE",
+    "ErrorDeNexo",
+    "LectorNexo",
+    "LectorNexoSQL",
+    "Tabla",
+    "convertir",
+]
+
 
 #: Claves de `SystemConfigHistory` que usa Novedades en Nexo
 #: (`RecordDeadlineService.CONFIG_KEYS` y `OvertimeMonthService.CONFIG_KEY`).
@@ -37,37 +54,6 @@ CLAVES_DE_AJUSTES = (
 
 #: Roles operativos (auth.Group) que se trasladan con `--asignar-roles`.
 ROLES_OPERATIVOS = ("SUPERVISOR_OPERACIONES", "ASISTENTE_OPERACIONES", "JEFE_OPERACIONES")
-
-#: Filas por viaje al leer.
-TAMANO_DE_LOTE = 2000
-#: Parámetros por consulta `IN (...)` (SQL Server admite 2100).
-MAXIMO_DE_PARAMETROS = 1000
-
-
-class ErrorDeNexo(Exception):
-    """No se pudo leer la base de Nexo (conexión, permisos o esquema)."""
-
-    codigo = "nexo_no_disponible"
-
-
-@dataclass(frozen=True)
-class Tabla:
-    """Una tabla de Nexo y cómo convertir sus columnas."""
-
-    nombre: str
-    columnas: tuple[str, ...]
-    fechas_hora: frozenset[str] = field(default_factory=frozenset)
-    fechas: frozenset[str] = field(default_factory=frozenset)
-    json: frozenset[str] = field(default_factory=frozenset)
-    #: Columnas que son claves foráneas a `users_user`.
-    usuarios: tuple[str, ...] = ()
-    #: Filtro fijo (sin datos de entrada) y sus parámetros.
-    filtro: str = ""
-    parametros: tuple = ()
-
-
-def _f(*nombres: str) -> frozenset[str]:
-    return frozenset(nombres)
 
 
 #: Lo que se migra, en orden de dependencias. La clave es el nombre lógico que
@@ -428,100 +414,10 @@ class LectorNexo(Protocol):
         """
 
 
-def _q(nombre: str) -> str:
-    """Identificador entre corchetes. Solo se usa con los nombres fijos de
-    `TABLAS`, nunca con datos de entrada."""
-    return "[" + nombre.replace("]", "]]") + "]"
+class LectorNexoSQL(LectorSQL):
+    """Lector real sobre `connections["nexo"]` (ver `comun.LectorSQL`)."""
 
-
-def _a_utc(valor):
-    if isinstance(valor, str):
-        valor = datetime.fromisoformat(valor)
-    if isinstance(valor, datetime) and valor.tzinfo is None:
-        return valor.replace(tzinfo=UTC)
-    return valor
-
-
-def _a_fecha(valor):
-    if isinstance(valor, str):
-        return date.fromisoformat(valor[:10])
-    if isinstance(valor, datetime):
-        return valor.date()
-    return valor
-
-
-def _a_json(valor):
-    if isinstance(valor, str):
-        return json.loads(valor)
-    return valor
-
-
-def convertir(tabla: Tabla, fila: dict) -> dict:
-    """Tipos de Python para una fila tal como la entrega el driver."""
-    for nombre in tabla.fechas_hora:
-        if fila.get(nombre) is not None:
-            fila[nombre] = _a_utc(fila[nombre])
-    for nombre in tabla.fechas:
-        if fila.get(nombre) is not None:
-            fila[nombre] = _a_fecha(fila[nombre])
-    for nombre in tabla.json:
-        if fila.get(nombre) is not None:
-            fila[nombre] = _a_json(fila[nombre])
-    return fila
-
-
-def _decimal(valor) -> Decimal:
-    return Decimal(str(valor if valor is not None else 0))
-
-
-class LectorNexoSQL:
-    """Lector real sobre `connections["nexo"]`. Cada consulta corre además
-    dentro de `solo_select`, aunque la conexión ya lo tenga instalado."""
-
-    def __init__(self, alias: str = ALIAS_NEXO):
-        if alias not in connections.databases:
-            raise ErrorDeNexo(
-                "La base de Nexo no está configurada: defina NEXO_DB_NAME y las demás "
-                "variables NEXO_DB_* en el .env del backend."
-            )
-        self.conexion = connections[alias]
-
-    def _select(self, sql: str, parametros: Iterable = ()) -> list[dict]:
-        try:
-            with self.conexion.execute_wrapper(solo_select), self.conexion.cursor() as cursor:
-                cursor.execute(sql, list(parametros))
-                columnas = [d[0] for d in cursor.description]
-                filas = []
-                while lote := cursor.fetchmany(TAMANO_DE_LOTE):
-                    filas.extend(dict(zip(columnas, fila, strict=True)) for fila in lote)
-                return filas
-        except DatabaseError as exc:
-            # Sin el texto del driver: puede incluir el servidor o el usuario.
-            raise ErrorDeNexo(
-                f"No se pudo leer la base de Nexo ({type(exc).__name__}). Revise la "
-                "conexión, los permisos de lectura y que el esquema sea el esperado."
-            ) from exc
-
-    def filas(self, tabla: str) -> list[dict]:
-        definicion = TABLAS[tabla]
-        columnas = ", ".join(_q(c) for c in definicion.columnas)
-        sql = f"SELECT {columnas} FROM {_q(definicion.nombre)}"  # noqa: S608 (nombres fijos)
-        if definicion.filtro:
-            sql += f" WHERE {definicion.filtro}"
-        sql += " ORDER BY [id]"
-        return [convertir(definicion, fila) for fila in self._select(sql, definicion.parametros)]
-
-    def usuarios(self, ids: Iterable[int]) -> list[dict]:
-        ids = sorted({int(i) for i in ids})
-        resultado = []
-        for inicio in range(0, len(ids), MAXIMO_DE_PARAMETROS):
-            tramo = ids[inicio : inicio + MAXIMO_DE_PARAMETROS]
-            marcas = ", ".join(["%s"] * len(tramo))
-            resultado += self._select(
-                f"SELECT [id], [username], [email] FROM [users_user] WHERE [id] IN ({marcas})",
-                tramo,
-            )
-        return resultado
+    tablas = TABLAS
 
     def roles_operativos(self) -> list[dict]:
         marcas = ", ".join(["%s"] * len(ROLES_OPERATIVOS))
@@ -531,15 +427,6 @@ class LectorNexoSQL:
             f"WHERE g.[name] IN ({marcas}) ORDER BY ug.[user_id], g.[name]",
             ROLES_OPERATIVOS,
         )
-
-    def conteos(self) -> dict[str, int]:
-        resultado = {}
-        for clave, definicion in TABLAS.items():
-            sql = f"SELECT COUNT(*) AS n FROM {_q(definicion.nombre)}"  # noqa: S608
-            if definicion.filtro:
-                sql += f" WHERE {definicion.filtro}"
-            resultado[clave] = int(self._select(sql, definicion.parametros)[0]["n"])
-        return resultado
 
     def totales(self) -> dict:
         dias = self._select(

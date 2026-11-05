@@ -12,11 +12,11 @@ recorrido en `apps/novedades/nexo/importador.py`.
 import csv
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError
 
 from apps.empresas.models import Empresa
+from apps.novedades.nexo.comun import ruta_de_informe
 from apps.novedades.nexo.importador import (
     NO_SE_MIGRA,
     ImportacionAbortada,
@@ -24,23 +24,6 @@ from apps.novedades.nexo.importador import (
     Informe,
 )
 from apps.novedades.nexo.lector import TABLAS, ErrorDeNexo, LectorNexoSQL
-
-
-def ruta_de_informe(texto: str) -> Path:
-    """La ruta del CSV, que nunca puede quedar dentro del repositorio: lleva
-    nombres de colaboradores y correos, y el repositorio es público."""
-    ruta = Path(texto).expanduser().resolve()
-    repositorio = Path(settings.BASE_DIR).resolve().parent
-    if ruta == repositorio or repositorio in ruta.parents:
-        raise CommandError(
-            f"El informe no puede guardarse dentro del repositorio ({repositorio}). "
-            "Indique una ruta fuera de él."
-        )
-    if ruta.suffix.lower() != ".csv":
-        raise CommandError("El informe tiene que ser un archivo .csv.")
-    if not ruta.parent.is_dir():
-        raise CommandError(f"No existe la carpeta del informe: {ruta.parent}")
-    return ruta
 
 
 class Command(BaseCommand):
