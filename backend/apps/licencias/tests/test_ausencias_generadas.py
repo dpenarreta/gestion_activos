@@ -21,6 +21,7 @@ import json
 
 import pytest
 from django.apps import apps as django_apps
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.exceptions import ValidationError
 
 from apps.ausencias.models import LeaveRecord
@@ -56,17 +57,28 @@ def _feriado(dia, titulo="Feriado"):
 
 def _clasificar(e, flujo, **campos):
     _, admin = e["admin"]
+    if campos.get("tipo_ausencia") == "MEDICO":
+        # Un tipo médico pide motivo y documento obligatorio (05/11/2026).
+        campos.setdefault("pide_motivo", True)
+        campos.setdefault("adjunto", "obligatorio")
     respuesta = admin.patch(f"{FLUJOS}{e[flujo]}/", campos, format="json")
     assert respuesta.status_code == 200, respuesta.data
     return respuesta.json()
 
 
-def _pedir(cliente, flujo, desde, hasta, **extra):
-    return cliente.post(
-        SOLICITUDES,
-        {"flujo": flujo, "desde": desde, "hasta": hasta, "motivo": MOTIVO, **extra},
-        format="multipart",
+def _certificado():
+    return SimpleUploadedFile(
+        "certificado.pdf", b"%PDF-1.4 certificado", content_type="application/pdf"
     )
+
+
+def _pedir(cliente, flujo, desde, hasta, **extra):
+    datos = {"flujo": flujo, "desde": desde, "hasta": hasta, "motivo": MOTIVO, **extra}
+    if "adjunto" not in datos and (
+        FlujoPermiso.objects.todas().get(pk=flujo).adjunto == FlujoPermiso.Adjunto.OBLIGATORIO
+    ):
+        datos["adjunto"] = _certificado()
+    return cliente.post(SOLICITUDES, datos, format="multipart")
 
 
 def _pedida(cliente, flujo, desde, hasta, **extra):

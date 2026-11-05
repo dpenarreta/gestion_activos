@@ -266,6 +266,13 @@ def crear(
     validar_horas(flujo, desde, hasta, hora_desde, hora_hasta)
     if flujo.adjunto == flujo.Adjunto.OBLIGATORIO and not adjunto:
         raise ValidationError({"adjunto": "Este permiso pide un documento de respaldo."})
+    # Permisos médicos (05/11/2026): motivo y documento son obligatorios y se
+    # conservan con la solicitud. El tipo ya los exige (`FlujoSerializer`); el
+    # motivo se comprueba aquí porque `pide_motivo` por sí solo no lo exige.
+    if flujo.tipo_ausencia == flujo.TipoAusencia.MEDICO and not (motivo or "").strip():
+        raise ValidationError(
+            {"motivo": "Un permiso médico pide el motivo. No escriba diagnósticos."}
+        )
     if not flujo.pasos.exists():
         raise ValidationError(
             {"flujo": "Ese tipo de permiso todavía no tiene pasos de aprobación."}
@@ -387,9 +394,13 @@ def escalar(solicitud, usuario, destino, comentario=""):
 
 
 def puede_anular_aprobadas(usuario) -> bool:
-    """Quién cancela una solicitud ya aprobada: Gestión Humana, que ve todas
-    (`licencias.ver_todas`). Quien la pidió solo cancela la suya pendiente."""
-    return user_has_permission(usuario, "licencias.ver_todas")
+    """Quién cancela una solicitud ya aprobada: quien tiene
+    `licencias.anular_aprobadas` (decisión del usuario, 05/11/2026; antes
+    bastaba `licencias.ver_todas`, y `permissions/0049` se lo dio a quien lo
+    tenía). Anular borra sus ausencias de Gestión Humana y devuelve los días de
+    vacaciones: no es lo mismo que consultarlas. Quien la pidió solo cancela la
+    suya pendiente."""
+    return user_has_permission(usuario, "licencias.anular_aprobadas")
 
 
 @transaction.atomic

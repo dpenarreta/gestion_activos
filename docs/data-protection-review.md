@@ -300,6 +300,27 @@ su ficha. Sus datos de contacto salen de «Mis datos» (`DatosDeContacto`):
   entrega solo a esas personas, como adjunto y con `nosniff`.
 - **Avisos:** van a la campana de cada destinatario configurado en el flujo.
 - **Quién configura los flujos:** quien tiene `licencias.configurar`.
+- **Permisos médicos (05/11/2026):** un tipo médico pide siempre el motivo y
+  el documento de respaldo (obligatorio); la API rechaza otra configuración y
+  `licencias/0006` corrigió los existentes. El formulario pide no escribir
+  diagnósticos en el motivo. **El motivo y el documento se conservan con la
+  solicitud**: no tienen purga propia (decisión del usuario). La retención a
+  cinco años es solo de las ausencias médicas de Gestión Humana (abajo).
+- **Anular una aprobada:** pide `licencias.anular_aprobadas` (05/11/2026,
+  antes `ver_todas`), que no amplía lo que se ve: solo alcanza solicitudes
+  que esa persona ya puede ver.
+
+## Exportación del KPI a Excel (05/11/2026)
+
+- «Mis KPI», el KPI del equipo y el resumen ejecutivo se descargan en .xlsx
+  con el mismo permiso y el mismo ámbito (organigrama) que su pantalla.
+- **Ausencias:** van como horas de ausencia; el desglose por tipo (permiso
+  médico, personal, vacaciones) solo para el titular o quien tiene
+  `ausencias.medicas_ver`. Ni la observación de la ausencia ni los estados
+  especiales (maternidad, lactancia) se exportan.
+- **Fórmulas:** todo texto pasa por `apps.core.hojas_de_calculo.neutralizar`.
+- **Registro:** cada archivo queda anotado para el registro de descargas
+  (`apps.descargas`, módulo «Gestión Humana · KPI»).
 
 ## Ausencias médicas de Gestión Humana
 
@@ -311,7 +332,8 @@ Un permiso MÉDICO (`apps.ausencias.LeaveRecord`) y un estado especial
   (`apps/ausencias/access.py`).
 - **Desde la Solicitud de permisos**: al aprobarse, una solicitud genera sus
   ausencias, protegidas igual que las manuales. El motivo y el adjunto de la
-  solicitud no se copian (ver `docs/solicitud-de-permisos.md`).
+  solicitud no se copian (ver `docs/solicitud-de-permisos.md`), y se
+  conservan con la solicitud aunque la ausencia se purgue.
 - **Auditoría y avisos**: la auditoría de Ausencias es genérica, sin tipo ni
   observación, y Ausencias no envía avisos.
 - **Retención**: cinco años desde el día de la ausencia.

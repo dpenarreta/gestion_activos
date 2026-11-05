@@ -28,14 +28,15 @@ Actualizado el 05/11/2026.
 | Permiso | Qué habilita |
 | --- | --- |
 | *(cualquier cuenta de la empresa **con un rol asignado**)* | Solicitar, ver lo propio, aprobar o rechazar lo que tiene pendiente, escalarlo y cancelar lo suyo pendiente. |
-| `licencias.ver_todas` | Ver todas las solicitudes de la empresa y escalar cualquiera **a otra persona**. Cancelar una solicitud **ya aprobada**, con comentario (05/11/2026). No le permite aprobar una solicitud que no tenga pendiente. |
+| `licencias.ver_todas` | Ver todas las solicitudes de la empresa y escalar cualquiera **a otra persona**. No le permite aprobar una solicitud que no tenga pendiente ni, desde el 05/11/2026, anular una aprobada. |
+| `licencias.anular_aprobadas` | Anular una solicitud **ya aprobada**, con comentario: quita sus ausencias de Gestión Humana y devuelve los días de vacaciones (05/11/2026). No amplía lo que se ve: solo alcanza las solicitudes que ya ve (por `ver_todas`, porque la pidió, la tiene pendiente o actuó en ella). `permissions/0049` se lo dio a los roles y cuentas que tenían `licencias.ver_todas` y al Superusuario; va con los cargos de Gestión Humana (`organizacion/permisos_por_cargo.py`), y el Administrador y el Superusuario lo tienen por `crear_roles_iniciales`. |
 | `licencias.configurar` | Crear y editar flujos y sus restricciones. Recibe las solicitudes cuyo paso no encuentra aprobador. |
 
 ## Paso 1: configurar el tipo de permiso
 
 En *Configurar flujos*, solo con `licencias.configurar` (prueba `test_las_restricciones_solo_las_configura_quien_administra`), se definen:
 
-- **Datos:** nombre (único en la empresa), descripción, si está activo, si pide documento de respaldo (no se pide, opcional u obligatorio) y si pide motivo.
+- **Datos:** nombre (único en la empresa), descripción, si está activo, si pide documento de respaldo (no se pide, opcional u obligatorio) y si pide motivo. **Un tipo médico (`tipo_ausencia = MEDICO`) pide siempre motivo y documento obligatorio** (ver «Permisos médicos» más abajo).
 - **Restricciones:**
   - mínimo y máximo de días seguidos (0 = sin restricción);
   - si se descuenta de las vacaciones;
@@ -140,12 +141,12 @@ Tampoco escala quien no la tiene pendiente ni ve todas. Pruebas: `test_se_escala
 ## Paso 5: cancelar
 
 - **Pendiente:** solo quien la solicitó. Prueba: `test_nadie_aprueba_lo_suyo_y_quien_solicita_puede_cancelar`.
-- **Aprobada (05/11/2026):** solo quien tiene `licencias.ver_todas` (Gestión Humana), con un comentario obligatorio. Quien la pidió no la cancela (400, `test_no_se_aprueba_dos_veces_ni_lo_ya_cerrado`); otra persona recibe 403. En la misma transacción:
+- **Aprobada (05/11/2026):** solo quien tiene `licencias.anular_aprobadas` (antes bastaba `licencias.ver_todas`), con un comentario obligatorio. Quien la pidió no la cancela (400, `test_no_se_aprueba_dos_veces_ni_lo_ya_cerrado`); otra persona recibe 403. En la misma transacción:
   - se borran sus ausencias de Gestión Humana (`LeaveRecord`);
   - si se descontó de las vacaciones, se borran los goces que nombran la solicitud («… (solicitud n.º N)») y esos días vuelven a quedar pendientes. Los fines de semana marcados por defecto no se quitan, porque no nombran la solicitud: si sobran, se corrigen en *Vacaciones*;
   - se avisa a quien la pidió (`licencias.cancelada`).
 
-  Pruebas: `test_gestion_humana_cancela_una_aprobada_y_se_borran_sus_ausencias`, `test_cancelar_unas_vacaciones_aprobadas_devuelve_sus_dias`, `test_quien_no_ve_todas_no_cancela_una_aprobada_ajena`.
+  Pruebas: `test_gestion_humana_cancela_una_aprobada_y_se_borran_sus_ausencias`, `test_cancelar_unas_vacaciones_aprobadas_devuelve_sus_dias`, `test_quien_no_ve_todas_no_cancela_una_aprobada_ajena`, `test_con_el_permiso_cancela_una_aprobada_aunque_no_vea_todas`, `test_solo_con_ver_todas_ya_no_cancela_una_aprobada` (403), `test_el_permiso_solo_no_revela_solicitudes_que_no_ve` (404).
 
 `puedo.cancelar` del detalle es verdadero en los dos casos, y `puedo.cancelar_pide_comentario` dice si el comentario es obligatorio. Para la confirmación, el detalle trae lo que de verdad se descontó: `dias_a_devolver` (días de vacaciones que vuelven a quedar pendientes; 0 si no está aprobada o no descontó vacaciones) y `ausencias_a_borrar`. El nombre de la persona está en `solicitante.nombre`.
 
@@ -174,6 +175,15 @@ Reglas de coherencia (400 por campo): con `descuento = vacaciones`, el tipo de a
 
 `/licencias/tipos/` (lo que ve quien solicita) trae `descuento`, `unidad`, `tipo_ausencia` y `es_medico`, para que el formulario avise que no se escriban diagnósticos en el motivo.
 
+**Permisos médicos: motivo y documento obligatorios, y se conservan (decisión del usuario, 05/11/2026).**
+
+- Un tipo con `tipo_ausencia = MEDICO` tiene `pide_motivo = true` y `adjunto = "obligatorio"`. Si al crearlo o editarlo llega otra cosa, la API responde 400 por campo, sin corregirlo en silencio: `details.pide_motivo` («Un permiso médico siempre pide el motivo.») y `details.adjunto` («Un permiso médico pide siempre el documento de respaldo: elija «Obligatorio».»). Vale también para un PATCH que solo cambia `tipo_ausencia` a `MEDICO` sobre un tipo con documento opcional. `FlujoPermiso.save()` los fija igual para los caminos que no pasan por la API.
+- `licencias/0006` corrigió los tipos médicos existentes (`pide_motivo = true`, `adjunto = obligatorio`); las solicitudes ya hechas no se tocan.
+- Al solicitar un tipo médico, sin documento responde 400 `details.adjunto` y sin motivo (o solo espacios) 400 `details.motivo` («Un permiso médico pide el motivo. No escriba diagnósticos.»), en `services.crear`. En los tipos no médicos, `pide_motivo` sigue mostrando el campo sin exigirlo.
+- **El motivo y el documento de la solicitud se conservan**: no hay purga para ellos. La purga a cinco años es solo de las ausencias médicas de Gestión Humana (`purgar_ausencias_medicas`), y no cambia.
+
+Pruebas: `test_medicos_y_anulacion.py` (`test_un_tipo_medico_sin_documento_obligatorio_no_se_guarda`, `test_un_tipo_medico_sin_motivo_no_se_guarda`, `test_uno_ya_medico_no_puede_dejar_de_pedir_motivo_ni_documento`, `test_la_migracion_corrige_los_tipos_medicos_existentes`, `test_la_solicitud_medica_sin_documento_o_sin_motivo_se_rechaza`, `test_la_solicitud_medica_conserva_su_motivo_y_su_documento`).
+
 **La solicitud guarda su clasificación.** `unidad`, `descuento` y `tipo_ausencia` se copian del tipo al crear la solicitud y no cambian si el tipo se reclasifica. La API los sirve desde la solicitud. Las ausencias, el descuento de vacaciones al aprobar, lo reservado por las pendientes y la devolución al cancelar usan los valores de la solicitud. `licencias/0005` rellenó las existentes con el valor que tenía su tipo. Pruebas: `test_clasificacion_de_la_solicitud.py`.
 
 `descuenta_vacaciones` queda como **espejo** de `descuento = vacaciones`: lo siguen leyendo las restricciones y la pantalla actual. Si un cliente manda solo `descuenta_vacaciones`, se traduce: verdadero pasa a `vacaciones`; falso quita `vacaciones` (queda `ninguno`) y deja `sueldo` como estaba. La migración `licencias/0004` pasó los tipos con `descuenta_vacaciones` a `vacaciones` y `VACACIONES`, y los que se llaman «… médico …» a `MEDICO`. Pruebas: `test_la_migracion_clasifica_los_tipos_existentes`, `test_la_pantalla_anterior_sigue_marcando_vacaciones_con_el_booleano`, `test_cada_descuento_se_guarda_y_lo_lleva_la_ausencia`.
@@ -200,7 +210,7 @@ Pruebas: `test_aprobar_por_dias_salta_fin_de_semana_y_feriado`, `test_vacaciones
 
 Prueba: `test_la_auditoria_de_ausencias_no_lleva_el_tipo_ni_el_motivo`.
 
-Las ausencias médicas, generadas o manuales, se borran a los cinco años (`manage.py purgar_ausencias_medicas`, en la tarea de cada 5 minutos).
+Las ausencias médicas, generadas o manuales, se borran a los cinco años (`manage.py purgar_ausencias_medicas`, en la tarea de cada 5 minutos). El motivo y el documento de la solicitud de permiso **no** se purgan: se conservan con la solicitud (decisión del 05/11/2026).
 
 ## Quién ve una solicitud
 

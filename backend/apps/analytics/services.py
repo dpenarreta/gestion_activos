@@ -22,7 +22,7 @@ Adaptaciones de la intranet (las fórmulas no cambian):
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from django.utils import timezone as django_timezone
 
 from apps.tasks.business_time import business_day_real_range
@@ -841,6 +841,116 @@ def build_executive_dashboard_payload(*, actor, now: datetime | None = None) -> 
             },
         },
     }
+
+
+def build_team_kpi_rows(*, actor, year: int, month: int, now: datetime) -> list[dict]:
+    """Las filas de `GET kpis/team/?month=YYYY-MM`: el snapshot mensual del
+    equipo ejecutor de `actor` (`access.executor_members`, por organigrama).
+    Réplica campo por campo de Nexo. Lo usan la vista y su exportación a Excel
+    (`exportacion.py`), para que el archivo diga exactamente lo mismo que la
+    pantalla."""
+    members = access.executor_members(actor)
+    if not members:
+        return []
+    member_ids = [m.id for m in members]
+
+    start, end = _month_bounds(year, month)
+    ref_date = end if end < now else now
+
+    biz = monthly_business_base_for_users(members, year, month)
+    shared_biz, per_user_biz = biz["shared"], biz["per_user"]
+    real_start, _ = business_day_real_range(shared_biz["start"])
+    _, real_end = business_day_real_range(shared_biz["end"])
+
+    tasks = list(
+        Task.objects.filter(
+            assigned_to_id__in=member_ids, end_date__gte=start, end_date__lte=end
+        ).only("assigned_to_id", "status", "estimated_hours", "real_hours", "end_date", "progress")
+    )
+    comment_counts = dict(
+        Comment.objects.filter(author_id__in=member_ids, created_at__gte=start, created_at__lte=end)
+        .values("author_id")
+        .annotate(count=Count("id"))
+        .values_list("author_id", "count")
+    )
+    fija_tasks = list(
+        Task.objects.filter(
+            assigned_to_id__in=member_ids,
+            type=Task.Type.FIJA,
+            archived_month__isnull=True,
+            completed_at__gte=real_start,
+            completed_at__lte=real_end,
+        ).only("assigned_to_id", "real_hours", "completed_at")
+    )
+    activities = list(
+        TaskActivity.objects.filter(
+            author_id__in=member_ids, created_at__gte=real_start, created_at__lte=real_end
+        ).only("author_id", "duration", "created_at")
+    )
+
+    rows = []
+    for m in members:
+        m_tasks = [t for t in tasks if t.assigned_to_id == m.id]
+        overdue_count = sum(1 for t in m_tasks if is_task_overdue(t.end_date, t.status, ref_date))
+        completed_pct = compute_completed_pct_any(m_tasks)
+        total_est = sum(t.estimated_hours for t in m_tasks)
+        total_real = sum(t.real_hours for t in m_tasks)
+        carga_ratio = compute_estimated_vs_real_ratio(total_real, total_est)
+        in_progress = [t for t in m_tasks if t.status == Task.Status.EN_PROGRESO]
+        avg_progress = (
+            round_half_up(sum(t.progress for t in in_progress) / len(in_progress))
+            if in_progress
+            else 0
+        )
+        score = compute_simple_score(
+            completed_pct, carga_ratio, avg_progress, comment_counts.get(m.id, 0)
+        )
+        color = cumplimiento_color(completed_pct)
+
+        fija_hours = sum(t.real_hours for t in fija_tasks if t.assigned_to_id == m.id)
+        activity_hours = sum(a.duration for a in activities if a.author_id == m.id) / 60
+        carga_real_hours = round_half_up(fija_hours + activity_hours, 2)
+
+        user_biz = per_user_biz.get(m.id, shared_biz)
+        carga_range = compute_workload_range(
+            carga_real_hours,
+            user_biz["limit_base_hours"],
+            user_biz["limit_low_hours"],
+            user_biz["limit_high_hours"],
+            user_biz["limit_overload_hours"],
+        )
+        carga_pct = compute_workload_pct(
+            carga_real_hours, user_biz["limit_base_hours"], carga_range["max"]
+        )
+        horas_disponibles = max(
+            0, round_half_up(user_biz["limit_high_hours"] - carga_real_hours, 2)
+        )
+        capacidad_disponible_pct = (
+            max(0, round_half_up(horas_disponibles / user_biz["base_hours"] * 100))
+            if user_biz["base_hours"] > 0
+            else 0
+        )
+        rows.append(
+            {
+                "id": m.id,
+                "name": m.first_name or m.username,
+                "role": gh_role_of(m),
+                "score": score,
+                "completed_pct": completed_pct,
+                "carga_ratio": carga_ratio,
+                "total_tasks": len(m_tasks),
+                "overdue_count": overdue_count,
+                "color": color,
+                "carga_pct": carga_pct,
+                "carga_color": carga_range["color"],
+                "carga_label": carga_range["label"],
+                "carga_real_hours": carga_real_hours,
+                "carga_base_hours": user_biz["base_hours"],
+                "capacidad_disponible_pct": capacidad_disponible_pct,
+                "horas_disponibles": horas_disponibles,
+            }
+        )
+    return rows
 
 
 def get_team_members(user) -> list:

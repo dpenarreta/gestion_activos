@@ -81,7 +81,9 @@ def empresa_con_organigrama(db):
         "jefa": _persona("julia", cargo=jefe),
         "ana": _persona("ana", cargo=analista),
         "th": _persona("tatiana"),
-        "admin": _persona("ines", "licencias.configurar", "licencias.ver_todas"),
+        "admin": _persona(
+            "ines", "licencias.configurar", "licencias.ver_todas", "licencias.anular_aprobadas"
+        ),
     }
     _, admin = personas["admin"]
     th = personas["th"][0]

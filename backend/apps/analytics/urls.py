@@ -15,6 +15,14 @@ urlpatterns = [
     path("me/", views.MeView.as_view(), name="analytics-me"),
     # --- KPI (Nexo: /kpis/) ---
     path("kpis/me/range/", views.KpiMeRangeView.as_view(), name="kpis-me-range"),
+    # Exportación a Excel (05/11/2026): mismo ámbito y permisos que su pantalla.
+    path("kpis/me/export/", views.KpiMeExportView.as_view(), name="kpis-me-export"),
+    path("kpis/team/export/", views.TeamKpiExportView.as_view(), name="kpis-team-export"),
+    path(
+        "kpis/executive/export/",
+        views.ExecutiveDashboardExportView.as_view(),
+        name="kpis-executive-export",
+    ),
     path("kpis/me/", views.KpiMeView.as_view(), name="kpis-me"),
     path("kpis/team-capacity/", views.TeamCapacityView.as_view(), name="kpis-team-capacity"),
     path("kpis/team/", views.TeamKpiView.as_view(), name="kpis-team"),

@@ -132,6 +132,12 @@ class FlujoPermiso(ModeloDeEmpresa):
         if self.descuento == self.Descuento.VACACIONES:
             self.tipo_ausencia = self.TipoAusencia.VACACIONES
             self.unidad = self.Unidad.DIAS
+        if self.tipo_ausencia == self.TipoAusencia.MEDICO:
+            # 05/11/2026: un permiso médico pide motivo y documento obligatorio.
+            # La API responde 400 si se intenta otra cosa; esto cubre el resto
+            # de caminos (código, comandos).
+            self.pide_motivo = True
+            self.adjunto = self.Adjunto.OBLIGATORIO
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
             kwargs["update_fields"] = set(update_fields) | {
@@ -139,6 +145,8 @@ class FlujoPermiso(ModeloDeEmpresa):
                 "descuenta_vacaciones",
                 "tipo_ausencia",
                 "unidad",
+                "pide_motivo",
+                "adjunto",
             }
         return super().save(*args, **kwargs)
 

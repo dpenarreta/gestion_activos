@@ -69,6 +69,9 @@ REGLAS: dict[str, set[str]] = {
     # Solicitud de permisos.
     "licencias.ver_por_aprobar": {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_ZONA_SUR},
     "licencias.ver_todas": GH_FIJOS,
+    # Anular una aprobada (05/11/2026): separado de `ver_todas`, a los mismos
+    # cargos que lo tenían por él.
+    "licencias.anular_aprobadas": GH_FIJOS,
     "licencias.configurar": {COORDINADOR_GH, CLIMA},
     # Mis vacaciones: consultar las de otra persona.
     "vacaciones.ver_todas": {COORDINADOR_GH, ASISTENTE_GH, ASISTENTE_ZONA_SUR, CLIMA},

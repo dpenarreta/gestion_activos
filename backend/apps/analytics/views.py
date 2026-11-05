@@ -24,7 +24,7 @@ Cambios frente a Nexo (las fórmulas no cambian):
 import time
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import ValidationError
@@ -34,21 +34,20 @@ from rest_framework.views import APIView
 
 from apps.core.request_meta import get_request_context
 from apps.core.responses import error_response
+from apps.descargas.middleware import marcar
 from apps.permissions.permissions import Requiere
 from apps.tasks import jerarquia
-from apps.tasks.business_time import business_day_real_range
-from apps.tasks.models import Comment, Task, TaskActivity
+from apps.tasks.models import Task
 from apps.tasks.roles import gh_role_of, gh_roles_of, in_active_company
 from apps.tasks.rounding import round_half_up
 
-from . import access, ajustes
+from . import access, ajustes, exportacion
 from .audit_history import get_score_series
 from .benchmark import compute_personal_evolution, compute_smart_benchmark
 from .capacity_forecast import compute_capacity_forecast, compute_team_capacity_forecast
 from .configuracion import get_effective_config_string, set_config_value
 from .errores import AnalyticsError, forbidden, not_found
 from .explain import (
-    cumplimiento_color,
     derived_normalized_value,
     reliability_pct_from_observations,
     reliability_pct_from_stars,
@@ -81,10 +80,7 @@ from .prediction_engine import compute_project_delay_prediction, compute_subutil
 from .preventive_intelligence import compute_preventive_alerts, compute_team_preventive_alerts
 from .recommendations import compute_team_recommendations
 from .scoring import (
-    compute_completed_pct_any,
     compute_data_quality,
-    compute_estimated_vs_real_ratio,
-    compute_simple_score,
     compute_target_time_precision,
 )
 from .serializers import (
@@ -101,12 +97,12 @@ from .serializers import (
     parse_month,
 )
 from .services import (
-    _month_bounds,
     build_analytics_bundle_payload,
     build_executive_dashboard_payload,
     build_kpi_payload,
     build_kpi_range_payload,
     build_prediction_bundle_payload,
+    build_team_kpi_rows,
     get_team_members,
     get_visible_team_project_ids,
     notify_if_high_risk,
@@ -117,8 +113,6 @@ from .simulate_engine import (
     simulate_redistribute_load,
 )
 from .trend_engine import compute_trend_engine
-from .utils import is_task_overdue
-from .workload import compute_workload_pct, compute_workload_range, monthly_business_base_for_users
 
 User = get_user_model()
 
@@ -349,115 +343,93 @@ class TeamKpiView(AnalyticsView):
             year, month = parse_month(query["month"])
         else:
             year, month = now.year, now.month
-
-        members = access.executor_members(request.user)
-        if not members:
-            return Response({"users": []})
-        member_ids = [m.id for m in members]
-
-        start, end = _month_bounds(year, month)
-        ref_date = end if end < now else now
-
-        biz = monthly_business_base_for_users(members, year, month)
-        shared_biz, per_user_biz = biz["shared"], biz["per_user"]
-        real_start, _ = business_day_real_range(shared_biz["start"])
-        _, real_end = business_day_real_range(shared_biz["end"])
-
-        tasks = list(
-            Task.objects.filter(
-                assigned_to_id__in=member_ids, end_date__gte=start, end_date__lte=end
-            ).only(
-                "assigned_to_id", "status", "estimated_hours", "real_hours", "end_date", "progress"
-            )
-        )
-        comment_counts = dict(
-            Comment.objects.filter(
-                author_id__in=member_ids, created_at__gte=start, created_at__lte=end
-            )
-            .values("author_id")
-            .annotate(count=Count("id"))
-            .values_list("author_id", "count")
-        )
-        fija_tasks = list(
-            Task.objects.filter(
-                assigned_to_id__in=member_ids,
-                type=Task.Type.FIJA,
-                archived_month__isnull=True,
-                completed_at__gte=real_start,
-                completed_at__lte=real_end,
-            ).only("assigned_to_id", "real_hours", "completed_at")
-        )
-        activities = list(
-            TaskActivity.objects.filter(
-                author_id__in=member_ids, created_at__gte=real_start, created_at__lte=real_end
-            ).only("author_id", "duration", "created_at")
+        return Response(
+            {"users": build_team_kpi_rows(actor=request.user, year=year, month=month, now=now)}
         )
 
-        payload_users = []
-        for m in members:
-            m_tasks = [t for t in tasks if t.assigned_to_id == m.id]
-            overdue_count = sum(
-                1 for t in m_tasks if is_task_overdue(t.end_date, t.status, ref_date)
-            )
-            completed_pct = compute_completed_pct_any(m_tasks)
-            total_est = sum(t.estimated_hours for t in m_tasks)
-            total_real = sum(t.real_hours for t in m_tasks)
-            carga_ratio = compute_estimated_vs_real_ratio(total_real, total_est)
-            in_progress = [t for t in m_tasks if t.status == Task.Status.EN_PROGRESO]
-            avg_progress = (
-                round_half_up(sum(t.progress for t in in_progress) / len(in_progress))
-                if in_progress
-                else 0
-            )
-            score = compute_simple_score(
-                completed_pct, carga_ratio, avg_progress, comment_counts.get(m.id, 0)
-            )
-            color = cumplimiento_color(completed_pct)
 
-            fija_hours = sum(t.real_hours for t in fija_tasks if t.assigned_to_id == m.id)
-            activity_hours = sum(a.duration for a in activities if a.author_id == m.id) / 60
-            carga_real_hours = round_half_up(fija_hours + activity_hours, 2)
+# ── Exportación a Excel (05/11/2026) ────────────────────────────────────────
 
-            user_biz = per_user_biz.get(m.id, shared_biz)
-            carga_range = compute_workload_range(
-                carga_real_hours,
-                user_biz["limit_base_hours"],
-                user_biz["limit_low_hours"],
-                user_biz["limit_high_hours"],
-                user_biz["limit_overload_hours"],
-            )
-            carga_pct = compute_workload_pct(
-                carga_real_hours, user_biz["limit_base_hours"], carga_range["max"]
-            )
-            horas_disponibles = max(
-                0, round_half_up(user_biz["limit_high_hours"] - carga_real_hours, 2)
-            )
-            capacidad_disponible_pct = (
-                max(0, round_half_up(horas_disponibles / user_biz["base_hours"] * 100))
-                if user_biz["base_hours"] > 0
-                else 0
-            )
-            payload_users.append(
-                {
-                    "id": m.id,
-                    "name": _display(m),
-                    "role": gh_role_of(m),
-                    "score": score,
-                    "completed_pct": completed_pct,
-                    "carga_ratio": carga_ratio,
-                    "total_tasks": len(m_tasks),
-                    "overdue_count": overdue_count,
-                    "color": color,
-                    "carga_pct": carga_pct,
-                    "carga_color": carga_range["color"],
-                    "carga_label": carga_range["label"],
-                    "carga_real_hours": carga_real_hours,
-                    "carga_base_hours": user_biz["base_hours"],
-                    "capacidad_disponible_pct": capacidad_disponible_pct,
-                    "horas_disponibles": horas_disponibles,
-                }
-            )
-        return Response({"users": payload_users})
+
+def _periodo(query, now) -> tuple[int, int]:
+    if query.get("month"):
+        return parse_month(query["month"])
+    return now.year, now.month
+
+
+def _excel(request, contenido: bytes, nombre: str, **referencia) -> HttpResponse:
+    """El .xlsx como descarga, anotado para el registro de descargas
+    (`apps.descargas`: el middleware guarda su huella con esta referencia)."""
+    marcar(request, modulo="kpi", **referencia)
+    respuesta = HttpResponse(contenido, content_type=exportacion.CONTENT_TYPE)
+    respuesta["Content-Disposition"] = f'attachment; filename="{nombre}"'
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
+
+
+class KpiMeExportView(AnalyticsView):
+    """`GET kpis/me/export/?month=YYYY-MM`: «Mis KPI» del mes en Excel
+    (`kpi.acceder`, como `kpis/me/`). Hojas: Resumen, Tareas y Horas por
+    semana. Es el titular: ve el desglose de sus propias ausencias."""
+
+    def get(self, request):
+        query = self.validated(MonthQuerySerializer, data=request.query_params)
+        now = timezone.now()
+        year, month = _periodo(query, now)
+        clave = exportacion.clave_del_periodo(year, month)
+        payload = build_kpi_payload(actor=request.user, target=request.user, month_param=clave)
+        contenido = exportacion.mis_kpi(
+            actor=request.user,
+            target=request.user,
+            payload=payload,
+            year=year,
+            month=month,
+            now=now,
+        )
+        return _excel(request, contenido, f"mis-kpi-{clave}.xlsx", reporte="mis_kpi", periodo=clave)
+
+
+class TeamKpiExportView(AnalyticsView):
+    """`GET kpis/team/export/?month=YYYY-MM`: el KPI del equipo en Excel, una
+    fila por persona (`kpi.equipo`, el mismo equipo ejecutor que
+    `kpis/team/`). Las horas de ausencia van sin tipo salvo para quien tiene
+    `ausencias.medicas_ver`."""
+
+    permission_classes = [IsAuthenticated, CanAccess, CanViewTeam]
+
+    def get(self, request):
+        query = self.validated(MonthQuerySerializer, data=request.query_params)
+        now = timezone.now()
+        year, month = _periodo(query, now)
+        clave = exportacion.clave_del_periodo(year, month)
+        filas = build_team_kpi_rows(actor=request.user, year=year, month=month, now=now)
+        contenido = exportacion.kpi_del_equipo(
+            actor=request.user, filas=filas, year=year, month=month, now=now
+        )
+        return _excel(
+            request, contenido, f"kpi-equipo-{clave}.xlsx", reporte="kpi_equipo", periodo=clave
+        )
+
+
+class ExecutiveDashboardExportView(AnalyticsView):
+    """`GET kpis/executive/export/`: el resumen ejecutivo del mes en curso
+    (con su tendencia de seis meses) en Excel (`kpi.ejecutivo`, el mismo
+    equipo que `kpis/executive/`)."""
+
+    permission_classes = [IsAuthenticated, CanAccess, CanViewExecutive]
+
+    def get(self, request):
+        now = timezone.now()
+        payload = build_executive_dashboard_payload(actor=request.user, now=now)
+        clave = exportacion.clave_del_periodo(now.year, now.month)
+        contenido = exportacion.resumen_ejecutivo(payload=payload, year=now.year, month=now.month)
+        return _excel(
+            request,
+            contenido,
+            f"kpi-resumen-ejecutivo-{clave}.xlsx",
+            reporte="kpi_resumen_ejecutivo",
+            periodo=clave,
+        )
 
 
 # ── Analytics (Nexo: /analytics/) ───────────────────────────────────────────

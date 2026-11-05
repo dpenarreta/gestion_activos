@@ -577,6 +577,13 @@ PERMISSION_CATALOG = {
                 "Ver todas las solicitudes de permiso de la empresa y escalar "
                 "cualquiera que esté pendiente"
             ),
+            # Separado de `ver_todas` el 05/11/2026: anular una aprobada borra
+            # sus ausencias de Gestión Humana y devuelve los días de
+            # vacaciones, que es más que consultar.
+            "licencias.anular_aprobadas": (
+                "Anular solicitudes de permiso ya aprobadas (quita sus ausencias y "
+                "devuelve vacaciones)"
+            ),
         },
     },
     "proyectos": {

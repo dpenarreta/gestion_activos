@@ -198,9 +198,30 @@ class FlujoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"dias_minimos": "Un permiso por horas es de un solo día."}
                 )
+        if tipo == Flujo.TipoAusencia.MEDICO:
+            self._exigir_motivo_y_documento(datos)
         if "descuento" in datos:
             datos["descuenta_vacaciones"] = vacaciones
         return datos
+
+    def _exigir_motivo_y_documento(self, datos):
+        """Un permiso médico pide motivo y documento obligatorio (decisión del
+        usuario, 05/11/2026): el certificado respalda la ausencia y los dos se
+        conservan con la solicitud. No se corrigen en silencio: si la pantalla
+        manda otra cosa, 400 por campo, para que quien configura sepa por qué."""
+        Flujo = FlujoPermiso
+        actual = self.instance
+        pide_motivo = datos.get("pide_motivo", actual.pide_motivo if actual else True)
+        adjunto = datos.get("adjunto", actual.adjunto if actual else Flujo.Adjunto.NO)
+        errores = {}
+        if not pide_motivo:
+            errores["pide_motivo"] = "Un permiso médico siempre pide el motivo."
+        if adjunto != Flujo.Adjunto.OBLIGATORIO:
+            errores["adjunto"] = (
+                "Un permiso médico pide siempre el documento de respaldo: elija «Obligatorio»."
+            )
+        if errores:
+            raise serializers.ValidationError(errores)
 
     def validate_nombre(self, valor):
         valor = valor.strip()

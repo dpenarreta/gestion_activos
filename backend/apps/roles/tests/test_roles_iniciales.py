@@ -47,6 +47,16 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
     assert _permisos_de("Superusuario") == all_codenames() - SOLO_POR_PERSONA
 
 
+def test_los_dos_roles_pueden_anular_permisos_aprobados():
+    """`licencias.anular_aprobadas` (05/11/2026) está en el catálogo y en los
+    dos roles de administración: no es de Gestión Humana que no sea de TI."""
+    call_command("crear_roles_iniciales", verbosity=0)
+
+    assert "licencias.anular_aprobadas" in all_codenames()
+    assert "licencias.anular_aprobadas" in _permisos_de("Administrador")
+    assert "licencias.anular_aprobadas" in _permisos_de("Superusuario")
+
+
 def test_ya_no_crea_las_plantillas_por_funcion():
     """Los permisos de un técnico o de Talento Humano se marcan en el rol de su
     cargo, no en un rol aparte."""
