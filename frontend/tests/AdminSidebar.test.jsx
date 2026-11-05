@@ -352,8 +352,17 @@ describe("El pie del menú", () => {
 
     const marca = screen.getByRole("link", { name: /Ir al inicio/ });
     expect(within(marca).queryByText("Gestión de Activos")).toBeNull();
-    // El glifo de la identidad base: las iniciales, como «MA» en la Matriz.
-    expect(marca).toHaveTextContent("GA");
+    // Sin logo propio, el ícono LCE de la marca en vez del logotipo entero.
+    expect(marca.querySelector("img.marca-icono")).not.toBeNull();
+    expect(marca.querySelector("img.marca-logo")).toBeNull();
+  });
+
+  it("extendido y sin logo propio, muestra el logotipo de la marca y el nombre", () => {
+    pintar();
+
+    const marca = screen.getByRole("link", { name: /Ir al inicio/ });
+    expect(marca.querySelector("img.marca-logo--negativo")).not.toBeNull();
+    expect(within(marca).getByText("Gestión de Activos")).toBeInTheDocument();
   });
 });
 

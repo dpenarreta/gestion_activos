@@ -638,7 +638,8 @@
 
 .modulo-dashboards .mz-edit-bar .mz-icon-btn.is-active {
   background: var(--mz-info-bg);
-  border-color: var(--mz-blue-400);
+  /* El borde es la señal de «activo»: necesita 3:1 (WCAG 1.4.11). */
+  border-color: var(--mz-ink);
   color: var(--mz-info-fg);
 }
 

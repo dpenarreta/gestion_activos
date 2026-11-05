@@ -1,0 +1,399 @@
+/*
+ * MARCA LAARCOURIER — Brand Book 2026
+ * ------------------------------------------------------------------
+ * La última capa de estilos (después de `identidad-puente.css`). La identidad
+ * base nació azul; aquí sus tokens fijos pasan a la paleta de la marca:
+ *
+ *   Amarillo  #FCE200  (PANTONE P 4-8 C)
+ *   Negro     #000000  (PANTONE Process Black C)
+ *   Gris      #E1E1E1  (PANTONE P 179-3 C)
+ *
+ * y el carbón #1E1E1E de los fondos oscuros del manual.
+ *
+ * Lo editable (Configuración → Colores y tipografía) no se toca aquí: sus
+ * valores de fábrica ya son los de la marca (`backend/apps/branding/catalog.py`)
+ * y quien cambie un color sigue mandando sobre su token.
+ *
+ * Regla de contraste: el amarillo da 1,3:1 sobre blanco, así que en claro
+ * nunca es texto ni la única señal de un estado; va de fondo con letra negra,
+ * de acento sobre el carbón o de adorno. En oscuro, sobre el carbón, sí es el
+ * color de acción (15:1).
+ */
+
+:root {
+  --marca-amarillo: #fce200;
+  --marca-amarillo-hover: #e6ce00;
+  --marca-negro: #000000;
+  --marca-gris: #e1e1e1;
+  --marca-carbon: #1e1e1e;
+
+  /* Rampa «azul» de la identidad base, en neutros y amarillos. La 600 y la
+     700 las fija el puente desde Colores (primario y secundario). */
+  --mz-blue-950: #141414;
+  --mz-blue-900: #1a1a1a;
+  --mz-blue-500: #3d3d3d;
+  --mz-blue-400: #c2ae00;
+  --mz-blue-300: #e0c900;
+  --mz-blue-100: #fff4a8;
+  --mz-blue-50: #fffbe0;
+
+  --mz-raised: #ffffff;
+  --mz-sunken: #ececec;
+  --mz-border: var(--marca-gris);
+  --mz-border-strong: #c8c8c8;
+  --mz-ink-soft: #474747;
+  --mz-ink-faint: #666666; /* 5,2:1 sobre #F4F4F4; 4,9:1 sobre #ECECEC */
+
+  --mz-info-bg: #fff8cc;
+  --mz-info-fg: #5c4f00;
+
+  --mz-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.04);
+  --mz-shadow-2: 0 6px 20px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --mz-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.18);
+
+  /* El texto que va sobre el color de acción. */
+  --mz-on-action: #ffffff;
+
+  /* Menú lateral: carbón con el amarillo como señal de «estás aquí». */
+  --mz-side-fg: #f2f2f2;
+  --mz-side-fg-dim: rgba(242, 242, 242, 0.74);
+  --mz-side-hover: rgba(255, 255, 255, 0.07);
+  /* Neutro: un velo amarillo sobre el carbón se ve oliva. El amarillo va en
+     la raya y el ícono del ítem activo. */
+  --mz-side-active: rgba(255, 255, 255, 0.1);
+
+  --shadow-color: rgba(0, 0, 0, 0.12);
+
+  /* Los de la plantilla, que aún leen algunos componentes. */
+  --brand-primary: var(--marca-carbon);
+  --brand-focus-color: var(--marca-carbon);
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Los azules compilados de Bootstrap (halo de foco, enlaces, primario). */
+  --bs-primary: var(--mz-action);
+  --bs-primary-rgb: 30, 30, 30;
+  --bs-link-color: var(--mz-link);
+  --bs-link-hover-color: var(--mz-link);
+  --bs-focus-ring-color: color-mix(in srgb, var(--mz-foco) 25%, transparent);
+
+  /* Borde de lo que se puede tocar o llenar: 3:1 sobre blanco (WCAG
+     1.4.11). `--mz-border` sigue en el gris de marca para las divisiones. */
+  --marca-borde-control: #8a8a8a;
+}
+
+:root[data-theme="dark"] {
+  --mz-bg: #121212;
+  --mz-raised: #1c1c1c;
+  --mz-sunken: #0d0d0d;
+  --mz-border: #2e2e2e;
+  --mz-border-strong: #3d3d3d;
+  --mz-ink: #f2f2f2;
+  --mz-ink-soft: #c4c4c4;
+  --mz-ink-faint: #9a9a9a;
+
+  --mz-blue-950: #0a0a0a;
+  --mz-blue-900: #121212;
+  --mz-blue-700: #ffe94d;
+  --mz-blue-600: var(--marca-amarillo);
+  --mz-blue-500: #bdbdbd;
+  --mz-blue-400: #c2ae00;
+  --mz-blue-100: #2e2a0c;
+  --mz-blue-50: #1f1c08;
+
+  --mz-info-bg: #1f1c08;
+  --mz-info-fg: var(--marca-amarillo);
+  --mz-cal-marca-evento: var(--marca-amarillo);
+  --bs-primary-rgb: 252, 226, 0;
+  --marca-borde-control: #6e6e6e;
+
+  /* En oscuro la acción es el amarillo, con letra negra. */
+  --mz-action: var(--marca-amarillo);
+  --mz-on-action: #000000;
+  --mz-foco: var(--marca-amarillo);
+
+  --mz-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --mz-shadow-2: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --mz-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* El modo «sistema» sin elección guardada: lo mismo que el oscuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mz-foco: var(--marca-amarillo);
+  }
+}
+
+/* ---------- Botón primario ---------- */
+.btn-primary {
+  --bs-btn-color: var(--mz-on-action);
+  --bs-btn-hover-color: var(--mz-on-action);
+  --bs-btn-active-color: var(--mz-on-action);
+  --bs-btn-disabled-color: var(--mz-on-action);
+}
+
+/* El contorno de foco (`--mz-foco`) ya marca el botón; el halo de Bootstrap
+   salía azul. */
+.btn {
+  --bs-btn-focus-box-shadow: none;
+}
+
+/* En claro, `brightness(.92)` sobre el carbón no se nota: el hover va a negro. */
+:root:not([data-theme="dark"]) .btn-primary {
+  --bs-btn-hover-bg: var(--marca-negro);
+  --bs-btn-hover-border-color: var(--marca-negro);
+  --bs-btn-active-bg: var(--marca-negro);
+  --bs-btn-active-border-color: var(--marca-negro);
+}
+
+.form-control,
+.form-select,
+.btn-outline-secondary {
+  border-color: var(--marca-borde-control);
+}
+
+/* El filtro elegido: el color de acción con su letra. Fijo en blanco, en
+   oscuro quedaba blanco sobre amarillo. */
+.mz-chips button.is-on {
+  background: var(--mz-action);
+  border-color: var(--mz-action);
+  color: var(--mz-on-action);
+}
+
+/* El velo de los modales, en negro y no en el azul marino de la base. */
+.mz-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.mz-sidebar-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* «Saltar al contenido» va sobre el color de acción. */
+.mz-saltar {
+  color: var(--mz-on-action);
+}
+
+/* Las casillas marcadas toman el color de acción; en oscuro es amarillo y la
+   marca blanca de Bootstrap no se vería: va negra. */
+:root[data-theme="dark"] .form-check-input:checked[type="checkbox"] {
+  --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+:root[data-theme="dark"] .form-check-input:checked[type="radio"] {
+  --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23000'/%3e%3c/svg%3e");
+}
+
+:root[data-theme="dark"] .form-switch .form-check-input:checked {
+  --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23000'/%3e%3c/svg%3e");
+}
+
+/* ---------- Menú lateral ---------- */
+/* Contraído, el submenú no se ve: el grupo de la página abierta lleva la
+   raya y el fondo, para no depender solo del color del ícono (WCAG 1.4.1). */
+.mz-shell--collapsed .mz-nav-item.is-active.mz-nav-group {
+  background: var(--mz-side-active);
+  box-shadow: inset 3px 0 0 var(--marca-amarillo);
+}
+
+.mz-flyout-item.is-active {
+  box-shadow: inset 3px 0 0 var(--marca-amarillo);
+}
+
+.mz-nav-item.is-active {
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* La raya, solo en la página abierta; el grupo que la contiene no la lleva. */
+.mz-nav-item.is-active:not(.mz-nav-group) {
+  box-shadow: inset 3px 0 0 var(--marca-amarillo);
+}
+
+.mz-nav-item.is-active i,
+.mz-nav-item.is-active .bi {
+  color: var(--marca-amarillo);
+}
+
+.mz-active-company {
+  border-left-color: var(--company-color, var(--marca-amarillo));
+}
+
+.mz-collapse-handle:hover,
+.mz-collapse-handle:focus-visible {
+  background: var(--marca-amarillo);
+  border-color: var(--marca-amarillo);
+  color: var(--marca-negro);
+}
+
+/* Las iniciales, cuando no hay logotipo: la baldosa amarilla del ícono. */
+.mz-glyph,
+.login-glyph {
+  background: var(--marca-amarillo);
+  color: var(--marca-negro);
+}
+
+/* `.mz-user .mz-avatar`: el pie del menú tiñe todo <span> de gris
+   (`.mz-user span`), y el avatar es un <span>. */
+.mz-avatar,
+.mz-user .mz-avatar {
+  display: flex;
+  background: var(--marca-amarillo);
+  color: var(--marca-negro);
+}
+
+/* ---------- Logotipo ---------- */
+/* El manual pide no bajar de 3 cm de ancho (unos 113 px) ni deformarlo: solo
+   se fija el alto y el ancho sale de la proporción. */
+.marca-logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+}
+
+.mz-brand .marca-logo {
+  height: 26px;
+}
+
+.mz-brand .marca-icono {
+  display: block;
+  width: 36px;
+  height: auto;
+}
+
+.mz-brand-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mz-brand-texto .mz-brand-name {
+  color: var(--mz-side-fg-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------- Títulos ---------- */
+/* La firma del manual: el título con una raya amarilla debajo. Es adorno —el
+   título ya se lee sin ella—, así que no necesita contraste. */
+.mz-view-head h2::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--marca-amarillo);
+}
+
+/* ---------- Pantalla de acceso ---------- */
+.login-screen {
+  background:
+    radial-gradient(
+      1200px 700px at 85% -10%,
+      color-mix(in srgb, var(--marca-amarillo) 18%, transparent),
+      transparent 60%
+    ),
+    var(--mz-bg);
+}
+
+.login-aside {
+  position: relative;
+  overflow: hidden;
+  background: var(--marca-carbon);
+  color: #f2f2f2;
+}
+
+/* La onda negra de las portadas del manual, con el filo amarillo abajo. */
+.login-aside::before {
+  content: "";
+  position: absolute;
+  inset: -40% -30% auto auto;
+  width: 120%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #000000 0%, transparent 100%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.login-aside::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: var(--marca-amarillo);
+}
+
+.login-aside > * {
+  position: relative;
+}
+
+.login-brand-marca {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-brand .marca-logo {
+  height: 44px;
+}
+
+.login-brand-nombre {
+  color: rgba(242, 242, 242, 0.74);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.login-pitch h1 {
+  color: #ffffff;
+}
+
+.login-pitch h1::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 5px;
+  margin-top: 16px;
+  border-radius: 3px;
+  background: var(--marca-amarillo);
+}
+
+.login-pitch p,
+.login-foot {
+  color: rgba(242, 242, 242, 0.74);
+}
+
+/* Sin el panel (pantallas estrechas) el logotipo va sobre la tarjeta. */
+.login-card-marca {
+  display: none;
+  margin-bottom: 22px;
+}
+
+.login-card-marca .marca-logo {
+  height: 30px;
+}
+
+.login-card-marca .marca-logo--negativo {
+  display: none;
+}
+
+:root[data-theme="dark"] .login-card-marca .marca-logo--positivo {
+  display: none;
+}
+
+:root[data-theme="dark"] .login-card-marca .marca-logo--negativo {
+  display: block;
+}
+
+@media (max-width: 880px) {
+  .login-card-marca {
+    display: block;
+  }
+}

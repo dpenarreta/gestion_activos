@@ -19,6 +19,7 @@ import { iniciales } from "../../../utils/iniciales";
 import { EVENTO_INSIGNIAS } from "../../../utils/insigniasDelMenu";
 import { confirmarDescarte } from "../../common/ConfirmarDescarte/confirmarDescarte";
 import { Icon } from "../../common/Icon/Icon";
+import { IconoMarca, LogoMarca } from "../../common/Marca/Marca";
 import { AdminMenuGroup } from "./AdminMenuGroup";
 import { SelectorModulo } from "../SelectorModulo/SelectorModulo";
 import { AdminMenuItem } from "./AdminMenuItem";
@@ -285,13 +286,21 @@ export function AdminSidebar({
             aria-label={`${siteName} — Ir al inicio`}
           >
             {theme?.logo_url ? (
-              <img src={theme.logo_url} alt="" className="mz-brand-logo" />
+              <>
+                <img src={theme.logo_url} alt="" className="mz-brand-logo" />
+                {!isCollapsed && (
+                  <span className="mz-brand-name">{siteName}</span>
+                )}
+              </>
+            ) : isCollapsed ? (
+              <IconoMarca />
             ) : (
-              <span className="mz-glyph" aria-hidden="true">
-                {iniciales(siteName)}
+              // Sin logo propio, el de la marca, con el nombre del sitio debajo.
+              <span className="mz-brand-texto">
+                <LogoMarca version="negativo" alt="" />
+                <span className="mz-brand-name">{siteName}</span>
               </span>
             )}
-            {!isCollapsed && <span className="mz-brand-name">{siteName}</span>}
           </Link>
           <button
             type="button"

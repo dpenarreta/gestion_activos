@@ -1,10 +1,11 @@
-"""Dibuja los iconos de la aplicación instalable.
+"""Dibuja los iconos de la aplicación instalable y el de la pestaña.
 
 Están aquí, en un script, y no pegados como binarios sin origen: dentro de un
-año alguien va a querer cambiarlos —otro color, otro dibujo— y este archivo
-sabe cómo se hicieron. El motivo es una etiqueta de código de barras, que es lo
-que la aplicación hace y lo que se reconoce de un vistazo entre los demás
-iconos de una pantalla de inicio.
+año alguien va a querer cambiarlos y este archivo sabe cómo se hicieron. Desde
+noviembre de 2026 son el ícono de LAARCOURIER del Brand Book 2026 (página 7,
+«Ícono» y «Favicon»): las letras LCE en blanco con la estela amarilla, sobre la
+baldosa negra. El dibujo es `src/assets/marca/lce.png` (ver
+`scripts/extraer-marca.py`); aquí solo se le pone el fondo y el margen.
 
 Se ejecuta a mano, muy de vez en cuando; lo que se versiona son los PNG que
 produce. Necesita Pillow, que ya está en el entorno del backend:
@@ -12,61 +13,57 @@ produce. Necesita Pillow, que ya está en el entorno del backend:
     cd frontend
     ../backend/.venv/Scripts/python scripts/generar-iconos.py
 
-El color es `--brand-primary` de `src/styles/brand.css`. Si la identidad visual
-cambia, cambia aquí también: el manifiesto no lee variables de CSS, y el icono
-de una aplicación instalada no se retematiza por empresa —es del producto, no
-del cliente—.
+El fondo es `--marca-carbon` de `src/styles/marca.css`. El manifiesto no lee
+variables de CSS, y el icono de una aplicación instalada no se retematiza por
+empresa —es del producto, no del cliente—.
 """
 
 import pathlib
 
 from PIL import Image, ImageDraw
 
-AZUL = (13, 110, 253)
-BLANCO = (255, 255, 255)
-DESTINO = pathlib.Path(__file__).resolve().parent.parent / "public" / "iconos"
-
-#: Anchos alternos de barra y espacio, como en un código real. No codifica nada:
-#: un código legible invitaría a escanear el icono.
-BARRAS = [3, 1, 1, 2, 1, 3, 1, 1, 2, 2, 1, 1, 3, 1, 2, 1, 1, 2]
+CARBON = (30, 30, 30)
+RAIZ = pathlib.Path(__file__).resolve().parent.parent
+GLIFO = RAIZ / "src" / "assets" / "marca" / "lce.png"
+DESTINO = RAIZ / "public" / "iconos"
 
 
-def dibujar(lado: int, margen_relativo: float) -> Image.Image:
-    imagen = Image.new("RGBA", (lado, lado), AZUL + (255,))
-    lienzo = ImageDraw.Draw(imagen)
+def dibujar(lado: int, margen_relativo: float, redondeo: float = 0.0) -> Image.Image:
+    """El glifo centrado sobre el carbón, con `margen_relativo` a cada lado.
 
-    margen = int(lado * margen_relativo)
-    util = lado - 2 * margen
-    alto = int(util * 0.62)
-    arriba = margen + (util - alto) // 2
+    `redondeo` (fracción del lado) recorta las esquinas como la baldosa del
+    manual; los iconos que el sistema operativo ya recorta van cuadrados.
+    """
+    imagen = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    fondo = Image.new("RGBA", (lado, lado), CARBON + (255,))
+    mascara = Image.new("L", (lado, lado), 0)
+    ImageDraw.Draw(mascara).rounded_rectangle(
+        [0, 0, lado - 1, lado - 1], radius=int(lado * redondeo), fill=255
+    )
+    imagen.paste(fondo, (0, 0), mascara)
 
-    unidad = util / sum(BARRAS)
-    x = margen
-    for indice, ancho in enumerate(BARRAS):
-        if indice % 2 == 0:  # las pares son barra; las impares, espacio
-            lienzo.rectangle(
-                [round(x), arriba, round(x + ancho * unidad) - 1, arriba + alto],
-                fill=BLANCO,
-            )
-        x += ancho * unidad
+    glifo = Image.open(GLIFO).convert("RGBA")
+    util = lado - 2 * int(lado * margen_relativo)
+    escala = util / glifo.width
+    glifo = glifo.resize((util, max(1, round(glifo.height * escala))), Image.LANCZOS)
+    imagen.alpha_composite(glifo, ((lado - glifo.width) // 2, (lado - glifo.height) // 2))
     return imagen
 
 
 def main() -> None:
     DESTINO.mkdir(parents=True, exist_ok=True)
 
-    # Con su propio margen, para que se vea completo sobre cualquier fondo.
     for lado in (192, 512):
-        dibujar(lado, 0.16).save(DESTINO / f"icono-{lado}.png")
+        dibujar(lado, 0.16, 0.18).save(DESTINO / f"icono-{lado}.png")
 
     # Android le recorta las esquinas al icono `maskable`, así que el dibujo se
     # encoge al centro —la «zona segura» que la especificación garantiza
-    # visible—. Sin una versión así, el sistema mete el cuadrado dentro de un
-    # círculo blanco y parece un icono mal puesto.
-    dibujar(512, 0.26).save(DESTINO / "icono-maskable-512.png")
+    # visible— y el fondo llega a los bordes.
+    dibujar(512, 0.24).save(DESTINO / "icono-maskable-512.png")
 
-    # El de la pestaña: sin margen, que a 32 píxeles no se ve nada.
-    dibujar(32, 0.06).save(DESTINO / "favicon-32.png")
+    # El de la pestaña: casi sin margen, que a 32 píxeles no se ve nada.
+    dibujar(32, 0.08, 0.18).save(DESTINO / "favicon-32.png")
+    # iOS pone sus propias esquinas.
     dibujar(180, 0.16).save(DESTINO / "apple-touch-icon.png")
 
     print(f"Iconos escritos en {DESTINO}")

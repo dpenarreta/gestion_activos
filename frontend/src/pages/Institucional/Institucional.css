@@ -353,7 +353,7 @@
 }
 
 .org-nodo--nivel-0 .org-nivel--gerencia_area {
-  color: #164b86;
+  color: var(--marca-carbon, #1e1e1e);
 }
 
 .org-nodo--nivel-0 .org-nivel--operativo {
@@ -983,9 +983,10 @@
   height: 24px;
   border-radius: 50%;
   background: var(--mz-action);
-  /* Blanco sobre el color de acción, que no cambia con el tema (como
-     `.btn-primary`); lo mismo en los demás rellenos de acción de la hoja. */
-  color: #fff;
+  /* La letra que va sobre el color de acción (`marca.css`): blanca sobre el
+     carbón del tema claro, negra sobre el amarillo del oscuro. Lo mismo en
+     los demás rellenos de acción de la hoja. */
+  color: var(--mz-on-action, #fff);
   font-weight: 600;
 }
 
@@ -1600,7 +1601,7 @@
   align-items: center;
   justify-content: center;
   background: var(--mz-action);
-  color: #fff;
+  color: var(--mz-on-action, #fff);
   font-weight: 700;
   font-size: 13px;
 }
@@ -1704,7 +1705,7 @@
 .calendario-rango__inicio,
 .calendario-rango__fin {
   background: var(--mz-action);
-  color: #fff;
+  color: var(--mz-on-action, #fff);
   font-weight: 600;
 }
 
@@ -2588,7 +2589,7 @@
 
 .org-vista label.is-activo {
   background: var(--mz-action);
-  color: #fff;
+  color: var(--mz-on-action, #fff);
 }
 
 .org-vista label:has(input:focus-visible) {
@@ -2713,8 +2714,8 @@
 /* El nivel dentro del área, como en la leyenda del organigrama:
    dirección, jefaturas, coordinaciones y equipo operativo. */
 .org-nodo--nivel-0 {
-  border-top-color: #10395f;
-  background: #10395f;
+  border-top-color: var(--marca-carbon, #1e1e1e);
+  background: var(--marca-carbon, #1e1e1e);
   color: #fff;
 }
 
@@ -2999,7 +3000,7 @@
   align-items: center;
   justify-content: center;
   background: var(--mz-action);
-  color: #fff;
+  color: var(--mz-on-action, #fff);
   font-weight: 700;
   font-size: 12px;
 }
@@ -3337,8 +3338,9 @@
 /* El día de hoy sigue viéndose aunque sea el inicio o el fin de un rango. */
 .calendario-rango__inicio.calendario__dia--hoy span:first-child,
 .calendario-rango__fin.calendario__dia--hoy span:first-child {
-  /* El inverso del relleno de acción del rango: fijo, como su blanco. */
-  background: #fff;
+  /* El inverso del relleno de acción del rango: blanco y carbón en claro,
+     negro y amarillo en oscuro. */
+  background: var(--mz-on-action, #fff);
   color: var(--mz-action);
 }
 
@@ -3487,7 +3489,7 @@
 
 /* El número de hoy conserva su círculo aunque sea feriado. */
 .calendario__dia--feriado.calendario__dia--hoy > span:first-child {
-  color: #fff;
+  color: var(--mz-on-action, #fff);
 }
 
 /* Un feriado de varios días (Carnaval) se ve como un solo tramo. */

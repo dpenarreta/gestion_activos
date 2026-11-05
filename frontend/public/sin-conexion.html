@@ -3,13 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sin conexión · Gestión de Activos</title>
+    <title>Sin conexión · Intranet LCE</title>
     <style>
       /* Suelta a propósito: esta página tiene que poder dibujarse cuando no
          hay red, así que no pide ni una hoja de estilos ni una tipografía. */
       :root {
         color-scheme: light dark;
-        --azul: #0d6efd;
+        /* Marca LAARCOURIER: carbón en claro, amarillo en oscuro. */
+        --accion: #1e1e1e;
+        --sobre-accion: #fff;
       }
       body {
         margin: 0;
@@ -29,8 +31,12 @@
       }
       @media (prefers-color-scheme: dark) {
         body {
-          background: #121417;
-          color: #dee2e6;
+          background: #121212;
+          color: #f2f2f2;
+        }
+        :root {
+          --accion: #fce200;
+          --sobre-accion: #000;
         }
       }
       main {
@@ -53,8 +59,8 @@
         margin-top: 1rem;
         padding: 0.6rem 1.4rem;
         font: inherit;
-        color: #fff;
-        background: var(--azul);
+        color: var(--sobre-accion);
+        background: var(--accion);
         border: 0;
         border-radius: 0.5rem;
         cursor: pointer;
@@ -62,7 +68,7 @@
       svg {
         width: 4rem;
         height: 4rem;
-        color: var(--azul);
+        color: var(--accion);
       }
     </style>
   </head>

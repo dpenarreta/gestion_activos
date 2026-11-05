@@ -1,7 +1,7 @@
 {
-  "name": "Gestión de Activos TI",
-  "short_name": "Activos",
-  "description": "Inventario de equipos: consulta por escáner, fichas y mantenimientos.",
+  "name": "Intranet LCE",
+  "short_name": "Intranet",
+  "description": "Intranet de LAARCOURIER: activos, mesa de ayuda, gestión humana e institucional.",
   "id": "/",
   "start_url": "/admin",
   "scope": "/",
@@ -10,7 +10,7 @@
   "lang": "es-EC",
   "dir": "ltr",
   "background_color": "#ffffff",
-  "theme_color": "#0d6efd",
+  "theme_color": "#1e1e1e",
   "icons": [
     {
       "src": "/iconos/icono-192.png",

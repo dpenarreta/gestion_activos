@@ -179,6 +179,7 @@
 
 .gp-progreso .form-range {
   width: 100%;
+  accent-color: var(--mz-action);
 }
 
 /* --- Participantes ------------------------------------------------------------ */

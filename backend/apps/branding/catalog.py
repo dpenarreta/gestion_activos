@@ -39,6 +39,13 @@ FONT_FAMILIES = {
         "label": "Sora (identidad base)",
         "css_stack": "Sora, system-ui, sans-serif",
     },
+    # La de LAARCOURIER: el Brand Book 2026 pide Mazzard y, en soportes
+    # informáticos, Poppins. Mazzard no tiene licencia web; Poppins también
+    # viene empaquetada (`@fontsource/poppins`).
+    "poppins": {
+        "label": "Poppins (marca LAARCOURIER)",
+        "css_stack": "Poppins, system-ui, sans-serif",
+    },
 }
 
 ALLOWED_BORDER_RADII = {
@@ -57,16 +64,21 @@ DEFAULT_THEME = {
     "short_name": "Activos",
     "logo_url": "",
     "favicon_url": "",
-    "color_primary": "#1C5DA3",
-    "color_secondary": "#164B86",
-    "color_background": "#F2F4F8",
-    "color_headings": "#0F2138",
-    "color_text": "#0F2138",
-    "color_links": "#1C5DA3",
-    "color_buttons": "#0D6EFD",
-    "color_menu": "#0A1E38",
-    "font_primary": "ibm-plex-sans",
-    "font_secondary": "sora",
+    # Marca LAARCOURIER (Brand Book 2026): negro, amarillo #FCE200 y gris
+    # #E1E1E1. El amarillo no sirve para texto sobre blanco (1,3:1), así que
+    # aquí van los tonos oscuros y el amarillo entra como acento fijo en
+    # `frontend/src/styles/marca.css`. Los enlaces, en un amarillo oscurecido
+    # que se distingue del texto y da 6,7:1 sobre blanco.
+    "color_primary": "#1E1E1E",
+    "color_secondary": "#000000",
+    "color_background": "#F4F4F4",
+    "color_headings": "#000000",
+    "color_text": "#1E1E1E",
+    "color_links": "#6B5B00",
+    "color_buttons": "#1E1E1E",
+    "color_menu": "#1E1E1E",
+    "font_primary": "poppins",
+    "font_secondary": "poppins",
     "font_size_base": 14,
     "border_radius": "base",
 }

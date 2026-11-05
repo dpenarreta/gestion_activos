@@ -20,7 +20,8 @@
 // versiones anteriores: sin esto, el teléfono acumula una copia por despliegue.
 // v2 (auditoría de seguridad, 29/10/2026): la página sin conexión trae su
 // script en un archivo aparte, que también tiene que quedar guardado.
-const VERSION = "v2";
+// v3 (05/11/2026): iconos y manifiesto con la marca LAARCOURIER.
+const VERSION = "v3";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";

@@ -11,6 +11,13 @@ import "@fontsource/ibm-plex-sans/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
+// Poppins: la tipografía de LAARCOURIER para soportes informáticos (Brand Book
+// 2026). Es la del tema por defecto; Sora e IBM Plex siguen elegibles.
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
+import "@fontsource/poppins/800.css";
 import "./styles/brand.css";
 import "./styles/variables.css";
 import "./styles/appearance-tokens.css";
@@ -20,6 +27,8 @@ import "./styles/global.css";
 // gana a la anterior por orden (ver scripts/sincronizar-identidad.sh).
 import "./styles/identidad-base.css";
 import "./styles/identidad-puente.css";
+// La marca LAARCOURIER, encima de todo: paleta, acentos amarillos y logotipo.
+import "./styles/marca.css";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
