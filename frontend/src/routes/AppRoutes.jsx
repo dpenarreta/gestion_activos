@@ -131,6 +131,8 @@ import { IngresosSalidas } from "../pages/GestionHumana/IngresosSalidas";
 import { InicioGestionHumana } from "../pages/GestionHumana/InicioGestionHumana";
 import { RepositorioMensual } from "../pages/GestionHumana/RepositorioMensual";
 import { MarcoTareas } from "../pages/GestionHumana/Tareas/ContextoTareas";
+import { MarcoProyectos } from "../pages/GestionHumana/Proyectos/ContextoProyectos";
+import { MarcoKpi } from "../pages/GestionHumana/Desempeno/ContextoKpi";
 import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
@@ -146,6 +148,12 @@ import {
   TAREAS_CERRAR_MES as GH_TAREAS_CERRAR_MES,
   TAREAS_REGULARIZAR as GH_TAREAS_REGULARIZAR,
   TAREAS_VALIDAR as GH_TAREAS_VALIDAR,
+  PROYECTOS_ACCEDER as GH_PROYECTOS_ACCEDER,
+  KPI_ACCEDER as GH_KPI_ACCEDER,
+  KPI_EQUIPO as GH_KPI_EQUIPO,
+  KPI_EJECUTIVO as GH_KPI_EJECUTIVO,
+  KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
+  RIESGO_VER as GH_RIESGO_VER,
 } from "../modulos/permisosGestionHumana";
 
 // Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
@@ -174,6 +182,43 @@ const CierreDeMes = lazy(() =>
 const AjustesTareas = lazy(() =>
   import("../pages/GestionHumana/Tareas/AjustesTareas").then((m) => ({
     default: m.AjustesTareas,
+  })),
+);
+// Proyectos y Desempeño (fase 2b), también bajo demanda. Desempeño trae
+// Recharts, que solo se descarga al abrir una de sus pantallas.
+const Proyectos = lazy(() =>
+  import("../pages/GestionHumana/Proyectos/Proyectos").then((m) => ({
+    default: m.Proyectos,
+  })),
+);
+const DetalleProyecto = lazy(() =>
+  import("../pages/GestionHumana/Proyectos/DetalleProyecto").then((m) => ({
+    default: m.DetalleProyecto,
+  })),
+);
+const MisKpi = lazy(() =>
+  import("../pages/GestionHumana/Desempeno/MisKpi").then((m) => ({
+    default: m.MisKpi,
+  })),
+);
+const KpiEquipo = lazy(() =>
+  import("../pages/GestionHumana/Desempeno/KpiEquipo").then((m) => ({
+    default: m.KpiEquipo,
+  })),
+);
+const ResumenEjecutivo = lazy(() =>
+  import("../pages/GestionHumana/Desempeno/ResumenEjecutivo").then((m) => ({
+    default: m.ResumenEjecutivo,
+  })),
+);
+const InteligenciaPreventiva = lazy(() =>
+  import("../pages/GestionHumana/Desempeno/InteligenciaPreventiva").then(
+    (m) => ({ default: m.InteligenciaPreventiva }),
+  ),
+);
+const AjustesKpi = lazy(() =>
+  import("../pages/GestionHumana/Desempeno/AjustesKpi").then((m) => ({
+    default: m.AjustesKpi,
   })),
 );
 
@@ -820,6 +865,73 @@ export function AppRoutes() {
               element={
                 <RequirePermission permission={GH_TAREAS_ADMINISTRAR}>
                   <AjustesTareas />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Proyectos (fase 2b). `proyectos` es el enlace de los avisos de
+              la campana (`PROJECT_LINK` del backend). Qué proyecto ve y qué
+              puede hacer en él lo decide el servidor por proyecto. */}
+          <Route element={<MarcoProyectos />}>
+            <Route
+              path="proyectos"
+              element={
+                <RequirePermission permission={GH_PROYECTOS_ACCEDER}>
+                  <Proyectos />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="proyectos/:proyectoId"
+              element={
+                <RequirePermission permission={GH_PROYECTOS_ACCEDER}>
+                  <DetalleProyecto />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Desempeño: KPI, Mis KPI e Inteligencia preventiva (fase 2b).
+              `kpi` es el enlace del aviso de riesgo operativo
+              (`RISK_NOTIFICATION_LINK` del backend): lo abre quien tiene
+              `kpi.equipo` o `inteligencia_preventiva.ver`. */}
+          <Route element={<MarcoKpi />}>
+            <Route
+              path="mis-kpi"
+              element={
+                <RequirePermission permission={GH_KPI_ACCEDER}>
+                  <MisKpi />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="kpi"
+              element={
+                <RequirePermission permission={[GH_KPI_EQUIPO, GH_RIESGO_VER]}>
+                  <KpiEquipo />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="resumen-ejecutivo"
+              element={
+                <RequirePermission permission={GH_KPI_EJECUTIVO}>
+                  <ResumenEjecutivo />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="inteligencia-preventiva"
+              element={
+                <RequirePermission permission={GH_RIESGO_VER}>
+                  <InteligenciaPreventiva />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="ajustes-de-kpi"
+              element={
+                <RequirePermission permission={GH_KPI_ADMINISTRAR}>
+                  <AjustesKpi />
                 </RequirePermission>
               }
             />

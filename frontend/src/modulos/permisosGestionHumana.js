@@ -30,6 +30,28 @@ export const TAREAS_CERRAR_MES = "tareas.cerrar_mes";
 export const TAREAS_ADMINISTRAR = "tareas.administrar";
 export const EQUIPO_VER = "equipo.ver";
 
+/*
+ * Proyectos (fase 2b, portado de Nexo). Toda petición de `/projects/` exige
+ * `proyectos_gh.acceder`; qué proyecto ve y qué puede hacer en él (gestionar,
+ * participar, enviarlo a la papelera) lo decide el servidor por proyecto.
+ */
+export const PROYECTOS_ACCEDER = "proyectos_gh.acceder";
+export const PROYECTOS_CREAR = "proyectos_gh.crear";
+export const PROYECTOS_SUPERVISAR = "proyectos_gh.supervisar";
+export const PROYECTOS_ADMINISTRAR = "proyectos_gh.administrar";
+
+/*
+ * Desempeño: KPI, Mis KPI e Inteligencia preventiva (fase 2b, portado de
+ * Nexo). Toda petición de `/analytics/` exige `kpi.acceder`; cada pantalla
+ * suma el suyo. El ámbito (de quién se ven los KPI) lo decide el organigrama
+ * en el servidor.
+ */
+export const KPI_ACCEDER = "kpi.acceder";
+export const KPI_EQUIPO = "kpi.equipo";
+export const KPI_EJECUTIVO = "kpi.ejecutivo";
+export const KPI_ADMINISTRAR = "kpi.administrar";
+export const RIESGO_VER = "inteligencia_preventiva.ver";
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -38,6 +60,8 @@ export const PERMISOS_GESTION_HUMANA = [
   ADMINISTRAR,
   PERMISOS,
   TAREAS_ACCEDER,
+  PROYECTOS_ACCEDER,
+  KPI_ACCEDER,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

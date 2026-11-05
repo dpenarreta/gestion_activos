@@ -3,16 +3,24 @@ import { useEffect, useState } from "react";
 import { soporteService } from "../../api/soporteService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
+import {
+  VisorPresentacion,
+  esPresentacion,
+} from "../../components/common/VisorPresentacion/VisorPresentacion";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { descargarBlob } from "../../utils/descargas";
 
 const IMAGEN = /\.(png|jpe?g|webp|gif)$/i;
 const PDF = /\.pdf$/i;
 
-/** ¿Se puede ver dentro del sistema? (PDF e imágenes; Word y Excel se
- * descargan). */
+/** ¿Se puede ver dentro del sistema? (PDF, imágenes y presentaciones .pptx;
+ * Word y Excel se descargan). */
 export function seVeAdentro(nombre) {
-  return PDF.test(nombre ?? "") || IMAGEN.test(nombre ?? "");
+  return (
+    PDF.test(nombre ?? "") ||
+    IMAGEN.test(nombre ?? "") ||
+    esPresentacion(nombre ?? "")
+  );
 }
 
 /**
@@ -45,6 +53,15 @@ export function useVisorDeAdjuntos() {
 
   const visor = !abierto ? null : PDF.test(abierto.nombre) ? (
     <VisorPdf
+      titulo={abierto.nombre}
+      blob={abierto.blob}
+      nombreArchivo={abierto.nombre}
+      onCerrar={() => setAbierto(null)}
+    />
+  ) : esPresentacion(abierto.nombre) ? (
+    // Las presentaciones, con sus diapositivas, dentro del sistema
+    // (05/11/2026: los documentos de Proyectos de Gestión Humana).
+    <VisorPresentacion
       titulo={abierto.nombre}
       blob={abierto.blob}
       nombreArchivo={abierto.nombre}

@@ -1,0 +1,659 @@
+/*
+ * Gestión Humana · Desempeño (Mis KPI, KPI del equipo, Resumen ejecutivo,
+ * Inteligencia preventiva y Ajustes de KPI). Tarjetas, indicadores,
+ * pestañas, píldoras y avisos salen de la identidad (`mz-*`), de
+ * `GestionHumana.css` y de `Tareas.css`; aquí, lo propio: los bloques de
+ * carga, las barras, la barra de zonas, los gráficos y el panel de personas.
+ * Solo tokens `--mz-*`. En el teléfono, una sola columna.
+ */
+
+.gk-contents {
+  display: contents;
+}
+
+.gk-grande {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.gk-subtitulo {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gk-titulo-seccion {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gk-caption {
+  caption-side: top;
+  padding: 0 0 6px;
+  color: var(--mz-ink);
+  font-weight: 700;
+}
+
+.gk-codigo {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+}
+
+.gk-seccion .mz-card-head h3 {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.gk-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gk-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.gk-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.gk-mes {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.gk-mes .form-control {
+  width: auto;
+}
+
+.gk-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gk-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.gk-pie-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.gk-rejilla-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+
+/* --- Navegación por secciones -------------------------------------------- */
+
+.gk-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gk-nav a {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 999px;
+  color: var(--mz-link);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.gk-nav a:hover {
+  text-decoration: underline;
+}
+
+.gk-nav a:focus,
+.gk-ayuda:focus,
+.gk-desplegar:focus,
+.gk-persona:focus,
+.gk-datos summary:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+[id^="gk-"] {
+  scroll-margin-top: 72px;
+}
+
+/* --- Ayuda y madurez ------------------------------------------------------- */
+
+.gk-ayuda {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--mz-link);
+}
+
+.gk-ayuda__lista dt {
+  margin-top: 8px;
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.gk-ayuda__lista dd {
+  margin: 2px 0 0;
+}
+
+.gk-estrellas {
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.gk-estrella--on {
+  color: var(--mz-warn-fg);
+}
+
+/* --- Confianza ------------------------------------------------------------ */
+
+.gk-confianza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.gk-confianza dt {
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.gk-confianza dd {
+  margin: 0;
+}
+
+.gk-confianza--compacta > div {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* --- Puntajes y barra de zonas ------------------------------------------- */
+
+.gk-puntaje {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.gk-puntaje__valor {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.gk-puntaje__de {
+  margin-left: 2px;
+  color: var(--mz-ink-faint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gk-zonas__barra {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--mz-sunken);
+}
+
+/* Cada tramo en su posición real (umbrales de la clasificación). Colores
+   con contraste de 3:1 o más contra la tarjeta. */
+.gk-zonas__z {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-right: 2px solid var(--mz-raised);
+}
+
+.gk-zonas__z:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.gk-zonas__z:nth-last-child(2) {
+  border-right: 0;
+  border-radius: 0 999px 999px 0;
+}
+
+.gk-zonas__z--red {
+  background: var(--mz-bad-fg);
+}
+
+.gk-zonas__z--orange {
+  background: var(--mz-warn-fg);
+}
+
+.gk-zonas__z--yellow {
+  background: var(--mz-warn-fg);
+  opacity: 0.7;
+}
+
+.gk-zonas__z--blue {
+  background: var(--mz-info-fg);
+}
+
+.gk-zonas__z--green {
+  background: var(--mz-ok-fg);
+}
+
+.gk-zonas__z--green2 {
+  background: var(--mz-ok-fg);
+  opacity: 0.75;
+}
+
+.gk-zonas__marca {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--mz-raised);
+  border-radius: 50%;
+  background: var(--mz-ink);
+  transform: translate(-50%, -50%);
+}
+
+.gk-zonas__escala {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+  color: var(--mz-ink-soft);
+  font-size: 11px;
+}
+
+.gk-zonas__escala > span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.gk-zonas__escala > span:first-child {
+  transform: none;
+}
+
+.gk-zonas__escala > span:last-child {
+  transform: translateX(-100%);
+}
+
+/* --- Carga laboral -------------------------------------------------------- */
+
+.gk-carga-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.gk-bloques {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+
+.gk-bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-border);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.gk-bloque--ok {
+  border-left-color: var(--mz-ok-line);
+}
+
+.gk-bloque--warn {
+  border-left-color: var(--mz-warn-line);
+}
+
+.gk-bloque--bad {
+  border-left-color: var(--mz-bad-line);
+}
+
+.gk-bloque--info,
+.gk-bloque--neutral {
+  border-left-color: var(--mz-info-fg);
+}
+
+.gk-bloque__etiqueta {
+  margin: 0;
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.gk-bloque__valor {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.gk-bloque__nota {
+  color: var(--mz-info-fg);
+}
+
+/* --- Barras horizontales (prioridad, seguimiento, balance) --------------- */
+
+.gk-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gk-barras li {
+  display: grid;
+  grid-template-columns: minmax(120px, 34%) 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.gk-barras__etiqueta {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.gk-barras__barra {
+  display: block;
+}
+
+.gk-relleno--ok {
+  background: var(--mz-ok-line) !important;
+}
+
+.gk-relleno--warn {
+  background: var(--mz-warn-line) !important;
+}
+
+.gk-relleno--bad {
+  background: var(--mz-bad-line) !important;
+}
+
+.gk-relleno--info,
+.gk-relleno--neutral {
+  background: var(--mz-info-fg) !important;
+}
+
+/* --- Alertas e insights --------------------------------------------------- */
+
+.gk-alerta,
+.gk-insight {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.gk-alerta--ok,
+.gk-insight--ok {
+  border-left-color: var(--mz-ok-line);
+}
+
+.gk-alerta--warn,
+.gk-insight--warn {
+  border-left-color: var(--mz-warn-line);
+}
+
+.gk-alerta--bad,
+.gk-insight--bad {
+  border-left-color: var(--mz-bad-line);
+}
+
+.gk-insight--neutral {
+  border-left-color: var(--mz-border-strong);
+}
+
+.gk-accion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  font-size: 13px;
+}
+
+.gk-accion dt {
+  color: var(--mz-ink-faint);
+  font-weight: 600;
+}
+
+.gk-accion dd {
+  margin: 0;
+}
+
+.gk-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.gk-cifras dt {
+  color: var(--mz-ink-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.gk-cifras dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gk-dimensiones,
+.gk-indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gk-fila-actual > * {
+  background: var(--mz-info-bg);
+  font-weight: 600;
+}
+
+.gk-tabla-chica .mz-table {
+  min-width: 0;
+}
+
+/* --- Gráficos -------------------------------------------------------------- */
+
+.gk-grafico {
+  margin: 0;
+}
+
+.gk-grafico__titulo {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gk-grafico__lienzo {
+  width: 100%;
+  min-width: 0;
+}
+
+.gk-datos {
+  margin-top: 6px;
+}
+
+.gk-datos summary {
+  color: var(--mz-link);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gk-datos .mz-table {
+  min-width: 0;
+}
+
+/* --- KPI del equipo -------------------------------------------------------- */
+
+.gk-equipo {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.gk-personas__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+
+.gk-personas__nota {
+  padding: 0 12px 12px;
+}
+
+.gk-persona {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--mz-ink);
+}
+
+.gk-persona:hover {
+  background: var(--mz-sunken);
+}
+
+.gk-persona[aria-pressed="true"] {
+  border-color: var(--mz-action);
+  background: var(--mz-info-bg);
+}
+
+.gk-persona-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.gk-desplegar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mz-ink);
+}
+
+.gk-solo-telefono {
+  display: none;
+}
+
+/* --- Táctil ----------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  .gk-ayuda,
+  .gk-nav a,
+  .gk-persona,
+  .gk-desplegar,
+  .gk-datos summary {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .gk-nav a,
+  .gk-datos summary {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* --- Teléfono: una sola columna ------------------------------------------- */
+
+@media (max-width: 900px) {
+  .gk-equipo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .gk-solo-telefono {
+    display: block;
+  }
+
+  .gk-barras li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .gk-barras__barra {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .gk-mes .form-control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .gk-mes {
+    flex: 1 1 100%;
+  }
+}

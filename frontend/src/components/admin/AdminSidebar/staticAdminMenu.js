@@ -29,6 +29,12 @@ import {
   TAREAS_CERRAR_MES as GH_TAREAS_CERRAR_MES,
   TAREAS_REGULARIZAR as GH_TAREAS_REGULARIZAR,
   TAREAS_VALIDAR as GH_TAREAS_VALIDAR,
+  PROYECTOS_ACCEDER as GH_PROYECTOS_ACCEDER,
+  KPI_ACCEDER as GH_KPI_ACCEDER,
+  KPI_EQUIPO as GH_KPI_EQUIPO,
+  KPI_EJECUTIVO as GH_KPI_EJECUTIVO,
+  KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
+  RIESGO_VER as GH_RIESGO_VER,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -417,6 +423,16 @@ export const ADMIN_MENU = [
         requiere: GH_TAREAS_ACCEDER,
       },
       {
+        // Proyectos (fase 2b): no depende de Tareas; el servidor exige
+        // `proyectos_gh.acceder` en toda petición de `/projects/`.
+        id: "gh-proyectos",
+        modulo: "gestion_humana",
+        name: "Proyectos",
+        icon: "folder2-open",
+        path: `${RUTA_GESTION_HUMANA}/proyectos`,
+        permission: GH_PROYECTOS_ACCEDER,
+      },
+      {
         // Con `validar`, las de su equipo; con `regularizar`, toda la
         // empresa y las acciones en bloque.
         id: "gh-tiempo-objetivo",
@@ -445,6 +461,64 @@ export const ADMIN_MENU = [
         path: `${RUTA_GESTION_HUMANA}/ajustes-de-tareas`,
         permission: GH_TAREAS_ADMINISTRAR,
         requiere: GH_TAREAS_ACCEDER,
+      },
+    ],
+  },
+  {
+    // Desempeño (fase 2b, portado de Nexo): el motor de KPI. Cada entrada
+    // exige además `kpi.acceder`, que el servidor pide en toda petición de
+    // `/analytics/`. De quién se ven los KPI lo decide el organigrama.
+    id: "gh-desempeno",
+    modulo: "gestion_humana",
+    name: "Desempeño",
+    icon: "graph-up-arrow",
+    aplanarSiUno: true,
+    children: [
+      {
+        id: "gh-mis-kpi",
+        modulo: "gestion_humana",
+        name: "Mis KPI",
+        icon: "person-badge",
+        path: `${RUTA_GESTION_HUMANA}/mis-kpi`,
+        permission: GH_KPI_ACCEDER,
+      },
+      {
+        // También el destino del aviso de riesgo operativo.
+        id: "gh-kpi-equipo",
+        modulo: "gestion_humana",
+        name: "KPI del equipo",
+        icon: "people",
+        path: `${RUTA_GESTION_HUMANA}/kpi`,
+        // Quien solo ve el riesgo operativo también entra (ve el del equipo).
+        permission: [GH_KPI_EQUIPO, GH_RIESGO_VER],
+        requiere: GH_KPI_ACCEDER,
+      },
+      {
+        id: "gh-resumen-ejecutivo",
+        modulo: "gestion_humana",
+        name: "Resumen ejecutivo",
+        icon: "clipboard2-data",
+        path: `${RUTA_GESTION_HUMANA}/resumen-ejecutivo`,
+        permission: GH_KPI_EJECUTIVO,
+        requiere: GH_KPI_ACCEDER,
+      },
+      {
+        id: "gh-inteligencia-preventiva",
+        modulo: "gestion_humana",
+        name: "Inteligencia preventiva",
+        icon: "shield-check",
+        path: `${RUTA_GESTION_HUMANA}/inteligencia-preventiva`,
+        permission: GH_RIESGO_VER,
+        requiere: GH_KPI_ACCEDER,
+      },
+      {
+        id: "gh-ajustes-kpi",
+        modulo: "gestion_humana",
+        name: "Ajustes de KPI",
+        icon: "sliders2-vertical",
+        path: `${RUTA_GESTION_HUMANA}/ajustes-de-kpi`,
+        permission: GH_KPI_ADMINISTRAR,
+        requiere: GH_KPI_ACCEDER,
       },
     ],
   },

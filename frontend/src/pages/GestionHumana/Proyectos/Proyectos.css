@@ -1,0 +1,320 @@
+/*
+ * Gestión Humana · Proyectos. Encabezados, tarjetas, indicadores, pestañas y
+ * avisos salen de la identidad (`mz-*`), de `GestionHumana.css` (`gh-*`) y de
+ * `Tareas.css` (`gt-*`); aquí, lo propio: las tarjetas del listado, las
+ * fases, la papelera, la línea de tiempo de actividades y los documentos.
+ * Solo tokens `--mz-*`. En el teléfono todo va en una sola columna, sin
+ * desplazamiento horizontal de la página.
+ */
+
+.gp-subtitulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.gp-subtitulo:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.gp-seccion-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gp-angosto {
+  max-width: 760px;
+}
+
+.gp-partir {
+  overflow-wrap: anywhere;
+}
+
+.gp-dos-lineas {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.gp-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gp-kpi-valor {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.gp-aviso-foco:focus {
+  outline: none;
+}
+
+/* --- Listado ---------------------------------------------------------------- */
+
+.gp-tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gp-tarjeta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 14px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+}
+
+.gp-tarjeta:hover {
+  border-color: var(--mz-border-strong);
+}
+
+.gp-tarjeta__cabeza {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.gp-tarjeta__titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.gp-tarjeta__enlace {
+  color: var(--mz-link);
+  text-decoration: none;
+}
+
+/* Toda la tarjeta abre el proyecto, pero el enlace es solo el título (su
+   nombre accesible es el del proyecto, no todo el texto de la tarjeta). */
+.gp-tarjeta__enlace::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  content: "";
+}
+
+.gp-tarjeta__enlace:hover {
+  text-decoration: underline;
+}
+
+.gp-tarjeta__enlace:focus {
+  outline: none;
+}
+
+.gp-tarjeta__enlace:focus::after {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* --- Fases ------------------------------------------------------------------ */
+
+.gp-fases {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gp-fase {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--mz-border);
+  border-radius: 14px;
+  background: var(--mz-raised);
+}
+
+.gp-fase__cabeza {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.gp-fase__titulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.gp-fase__pie {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.gp-progreso {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.gp-progreso .form-range {
+  width: 100%;
+}
+
+/* --- Participantes ------------------------------------------------------------ */
+
+.gp-personas,
+.gp-lista,
+.gp-papelera {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gp-persona {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.gp-agregar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+/* --- Papelera --------------------------------------------------------------- */
+
+.gp-papelera__item {
+  padding: 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+}
+
+/* --- Actividades ------------------------------------------------------------ */
+
+.gp-dia {
+  margin: 6px 0 8px;
+  color: var(--mz-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gp-actividad {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.gp-actividad__tiempo {
+  flex: 0 0 auto;
+  color: var(--mz-info-fg);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* --- Documentos ------------------------------------------------------------- */
+
+.gp-documento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+}
+
+.gp-documento__icono {
+  color: var(--mz-ink-faint);
+  font-size: 20px;
+}
+
+.gp-subir {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gp-subir__campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gp-subir__campos > :first-child {
+  min-width: 160px;
+}
+
+/* --- Táctil ----------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  .gh-page .btn-sm,
+  .mz-overlay .btn-sm,
+  .gp-progreso .form-range {
+    min-height: 44px;
+  }
+
+  .gp-tarjeta__enlace {
+    display: inline-block;
+    min-height: 44px;
+    padding-top: 10px;
+  }
+}
+
+/* --- Teléfono: una sola columna --------------------------------------------- */
+
+@media (max-width: 600px) {
+  .gp-actividades__lateral {
+    order: -1;
+  }
+
+  .gp-actividad,
+  .gp-documento,
+  .gp-persona {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gp-agregar > *,
+  .gp-subir__campos > * {
+    flex: 1 1 100%;
+  }
+}

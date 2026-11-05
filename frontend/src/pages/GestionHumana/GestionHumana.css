@@ -735,3 +735,25 @@
     min-width: 44px;
   }
 }
+
+/* Títulos que reciben el foco al llegar (fichas de Proyectos, una persona
+   en KPI del equipo) y grupos de píldoras: los usan Proyectos y Desempeño. */
+.gp-titulo {
+  overflow-wrap: anywhere;
+}
+
+.gp-titulo:focus {
+  outline: none;
+}
+
+.gp-titulo:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.gp-marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}

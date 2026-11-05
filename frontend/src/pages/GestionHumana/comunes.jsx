@@ -480,6 +480,10 @@ export function MenuDeAcciones({ etiqueta, acciones, contenido, idBoton }) {
                 tabIndex={-1}
                 className={`gh-menu__item${a.peligro ? " gh-menu__item--peligro" : ""}`}
                 onClick={() => {
+                  // El foco vuelve al botón «⋯» antes de actuar: si la
+                  // acción abre una confirmación y se cancela, el foco
+                  // regresa ahí y no a <body> (auditoría UX/UI, 05/11/2026).
+                  boton.current?.focus();
                   setAbierto(false);
                   a.onClick();
                 }}
