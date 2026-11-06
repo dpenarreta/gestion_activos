@@ -72,6 +72,9 @@ export function UserForm() {
   // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
   // la ficha ya está el bloque completo, con todas sus empresas.
   const [alta, setAlta] = useState(EMPTY_ALTA);
+  // La empresa que propone el selector al montar: elegida por el sistema, no
+  // por quien crea la cuenta, así que no es un cambio que avisar al salir.
+  const [empresaPropuesta, setEmpresaPropuesta] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   // Lo último cargado o guardado: con él se sabe si hay cambios sin guardar.
   const [original, setOriginal] = useState(EMPTY_FORM);
@@ -118,7 +121,9 @@ export function UserForm() {
   // El restablecimiento de contraseña no cuenta: es una acción, no un dato.
   const datosSinGuardar =
     Object.keys(EMPTY_FORM).some((campo) => form[campo] !== original[campo]) ||
-    (!isEditing && (alta.empresaId !== null || alta.rolId !== null));
+    (!isEditing &&
+      (alta.rolId !== null ||
+        (alta.empresaId !== null && alta.empresaId !== empresaPropuesta)));
 
   useEffect(() => {
     setIsDirty(datosSinGuardar || accesosSinGuardar);
@@ -140,6 +145,33 @@ export function UserForm() {
     setError(null);
     setErroresCampo({});
     setMensajeDatos(null);
+    // Los obligatorios se validan aquí y todos a la vez, con cada error bajo
+    // su campo y el foco en el primero: corregir de uno en uno, enviando cada
+    // vez, era descubrir el siguiente fallo solo al arreglar el anterior. Y
+    // sin `required`: la burbuja del navegador no se parecía al resto del
+    // formulario (auditoría UX/UI, 06/11/2026). El formato del correo y lo
+    // demás lo sigue diciendo el servidor.
+    const faltan = {};
+    if (!(form.first_name ?? "").trim())
+      faltan.first_name = "Escriba los nombres.";
+    if (!(form.last_name ?? "").trim())
+      faltan.last_name = "Escriba los apellidos.";
+    if (!(form.email ?? "").trim()) faltan.email = "Escriba el correo.";
+    // Sin rol la cuenta nacería sin ver nada. Con `empresaId` vacío el
+    // selector no cargó o no hay empresas activas: entonces no se exige.
+    if (
+      !isEditing &&
+      puedeAsignarEmpresas &&
+      alta.empresaId !== null &&
+      !alta.rolId
+    )
+      faltan.rol = "Elija el rol con el que entra esta persona.";
+    if (Object.keys(faltan).length > 0) {
+      setErroresCampo(faltan);
+      setError("Revise los campos marcados.");
+      enfocarPrimerError(formRef.current);
+      return;
+    }
     setIsLoading(true);
     try {
       if (isEditing) {
@@ -392,11 +424,23 @@ export function UserForm() {
 
             {!isEditing && puedeAsignarEmpresas && (
               <div className="mz-section mt-3">
-                <h4>{multiempresa ? "Empresa y rol" : "Rol"}</h4>
+                {/* Con una sola empresa el título repetía la etiqueta «Rol»
+                    justo debajo (auditoría UX/UI, 06/11/2026). */}
+                {multiempresa && <h4>Empresa y rol</h4>}
                 <SeleccionEmpresaYRol
                   empresaId={alta.empresaId}
                   rolId={alta.rolId}
-                  onChange={setAlta}
+                  errores={{
+                    empresa: erroresCampo.empresa,
+                    rol: erroresCampo.rol,
+                  }}
+                  onChange={(siguiente, { propuesta = false } = {}) => {
+                    setAlta(siguiente);
+                    if (propuesta) setEmpresaPropuesta(siguiente.empresaId);
+                    if (erroresCampo.rol && siguiente.rolId) {
+                      setErroresCampo({ ...erroresCampo, rol: undefined });
+                    }
+                  }}
                 />
               </div>
             )}

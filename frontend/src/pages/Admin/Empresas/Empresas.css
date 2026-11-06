@@ -11,12 +11,180 @@
   padding-block: 0.15rem;
 }
 
-/* Los roles de una empresa se leen como un bloque, no como una frase larga:
+/* Los temas de la Matriz se leen como un bloque, no como una frase larga:
    con cinco o seis, en línea, dejan de distinguirse unos de otros. */
-.empresas-asignacion__roles {
+.empresas-asignacion__casillas {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
+}
+
+/* Una empresa por bloque y no una fila de tabla: la identidad base oculta
+   `.mz-table-wrap` por debajo de 880 px y la asignación desaparecía en el
+   móvil. */
+.empresas-asignacion__lista {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+/* Fondo hundido y borde de control: con el mismo blanco y el borde tenue de
+   la tarjeta, cada empresa no se separaba de ella (auditoría UX/UI,
+   06/11/2026). */
+.empresas-asignacion__empresa {
+  border: 1px solid var(--marca-borde-control, var(--mz-border-strong));
+  border-radius: 12px;
+  background: var(--mz-sunken);
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+/* En claro, el borde de control de la marca (#8a8a8a) daba 2,92:1 sobre el
+   gris hundido del bloque; #767676 da 3,9:1 y cumple el 3:1 de los
+   componentes (WCAG 1.4.11). En oscuro el de la marca ya lo cumple. */
+:root:not([data-theme="dark"])
+  .empresas-asignacion__empresa
+  :is(.form-select, .form-control, .form-check-input:not(:checked)) {
+  border-color: #767676;
+}
+
+.empresas-asignacion__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 8px;
+}
+
+.empresas-asignacion__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+/* El desplegable del rol no ocupa todo el ancho en escritorio: con nombres
+   cortos, una barra de 900 px no se lee como «elija uno». */
+.empresas-asignacion__rol .form-select {
+  max-width: 26rem;
+}
+
+.empresas-asignacion__etiqueta {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin: 8px 0 4px;
+}
+
+/* Los roles adicionales y los globales, como fichas con «Quitar». */
+.empresas-asignacion__fichas ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.empresas-asignacion__ficha {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--mz-border-strong);
+  background: var(--mz-bg);
+  color: var(--mz-ink);
+  border-radius: 99px;
+  padding: 2px 4px 2px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 100%;
+}
+
+.empresas-asignacion__ficha > span {
+  overflow-wrap: anywhere;
+}
+
+/* «Añadir otro rol», «Quitar», «Cancelar»: discretos, pero con el color de
+   enlace del tema (en oscuro el de Bootstrap se pierde sobre #121212). */
+.empresas-asignacion .btn-link {
+  color: var(--mz-link);
+}
+
+.empresas-asignacion__anadir {
+  padding-inline: 0;
+  margin-top: 4px;
+}
+
+.empresas-asignacion__otro {
+  margin-top: 8px;
+}
+
+.empresas-asignacion__otro label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 4px;
+}
+
+.empresas-asignacion__otro-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.empresas-asignacion__otro-fila .form-select {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
+/* Los roles globales, plegados: casi ninguna cuenta los necesita. */
+.empresas-asignacion__avanzado {
+  border-top: 1px solid var(--mz-border);
+  padding-top: 10px;
+  margin-bottom: 0.5rem;
+}
+
+.empresas-asignacion__avanzado > summary {
+  cursor: pointer;
+  color: var(--mz-ink-soft);
+  font-weight: 600;
+  padding-block: 4px;
+}
+
+.empresas-asignacion__avanzado[open] > summary {
+  margin-bottom: 6px;
+}
+
+@media (max-width: 880px) {
+  .empresas-asignacion__rol .form-select,
+  .empresas-asignacion__otro-fila .form-select {
+    max-width: none;
+  }
+}
+
+/* Dedo y no ratón: 44 px de alto en lo que se toca (WCAG 2.5.5). Los `.btn-sm`
+   ya los cubre la identidad base. */
+@media (pointer: coarse) {
+  .empresas-asignacion .form-select {
+    min-height: 44px;
+  }
+
+  /* Con relleno y no con `display: flex`, que quitaría el triángulo de
+     plegar. */
+  .empresas-asignacion__avanzado > summary,
+  .empresas-asignacion__areas summary {
+    padding-block: 12px;
+  }
+
+  /* La etiqueta es la zona que se toca: la casilla sola mide 16 px. */
+  .empresas-asignacion__marcas .form-check-label {
+    padding-block: 10px;
+  }
 }
 
 /* Las áreas de la Matriz, plegadas: solo importan a quien crea obligaciones

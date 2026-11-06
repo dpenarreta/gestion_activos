@@ -23,6 +23,7 @@ import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDe
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { TAREAS_ADMINISTRAR } from "../../../modulos/permisosGestionHumana";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { Aviso, ErrorEnLinea, MenuDeAcciones, fechaHora } from "../comunes";
 import {
   ConAccesoTareas,
@@ -143,13 +144,11 @@ function AvisoRetroactivo({ ids, guardados, onCambio, error }) {
 
   const persona = (id) => personas?.find((p) => p.id === id) ?? null;
   const nombre = (id) => persona(id)?.name ?? `Persona n.º ${id}`;
-  const texto = busqueda.trim().toLowerCase();
   const sinElegir = (personas ?? []).filter((p) => !ids.includes(p.id));
-  const disponibles = sinElegir.filter(
-    (p) =>
-      !texto ||
-      p.name.toLowerCase().includes(texto) ||
-      (p.email ?? "").toLowerCase().includes(texto),
+  // En cada tecla, sin distinguir tildes ni mayúsculas (búsqueda en vivo,
+  // 06/11/2026).
+  const disponibles = sinElegir.filter((p) =>
+    coincideBusqueda(busqueda, p.name, p.email),
   );
   // Solo cuenta lo que se ve en el selector: si el buscador oculta a la
   // persona elegida, no se puede agregar sin verla.

@@ -1,0 +1,74 @@
+/* Un buscador con sugerencias en vivo (06/11/2026): la lista cuelga del
+   campo. Lo usan la barra superior y el escáner. */
+.buscador-sugerencias {
+  position: relative;
+}
+
+.buscador-sugerencias__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+}
+
+.buscador-sugerencias__panel[hidden] {
+  display: none;
+}
+
+/* Mientras llegan las nuevas, las anteriores se quedan, atenuadas. */
+.buscador-sugerencias__panel[aria-busy="true"] .buscador-sugerencias__lista {
+  opacity: 0.6;
+}
+
+.buscador-sugerencias__lista {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.buscador-sugerencias__opcion {
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.buscador-sugerencias__opcion small {
+  display: block;
+  color: var(--mz-ink-soft);
+}
+
+.buscador-sugerencias__opcion.is-activa {
+  background: var(--mz-sunken);
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+.buscador-sugerencias__opcion--todos {
+  border-top: 1px solid var(--mz-border);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.buscador-sugerencias__vacio {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--mz-ink-soft);
+}
+
+/* En pantallas táctiles, cada sugerencia a 44 px de alto como mínimo, para
+   acertarle con el dedo (auditoría UX/UI, 06/11/2026). */
+@media (pointer: coarse) {
+  .buscador-sugerencias__opcion {
+    min-height: 44px;
+    padding-block: 10px;
+  }
+}

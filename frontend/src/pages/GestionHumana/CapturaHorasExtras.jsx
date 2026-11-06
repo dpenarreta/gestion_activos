@@ -10,10 +10,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { errorDeNovedades, novedadesService } from "../../api/novedadesService";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { ModalDialog } from "../../components/common/ModalDialog/ModalDialog";
 import { PERM } from "../../modulos/permisosGestionHumana";
+import { coincideBusqueda } from "../../utils/busqueda";
 import {
   Aviso,
   IndicadorDeGuardado,
@@ -1393,18 +1395,17 @@ export function CapturaHorasExtras({ mes, supervisorId }) {
 /** Elegir del equipo a quiénes agregar como filas para la fecha elegida. */
 function ElegirColaboradores({ equipo, dia, ocupados, onCerrar, onAgregar }) {
   const [busqueda, setBusqueda] = useState("");
+  const campoElegir = useRef(null);
   const [elegidos, setElegidos] = useState(new Set());
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return equipo.filter(
-      (c) =>
-        !q ||
-        c.full_name.toLowerCase().includes(q) ||
-        String(c.cedula).toLowerCase().includes(q) ||
-        (c.cargo ?? "").toLowerCase().includes(q) ||
-        (c.area ?? "").toLowerCase().includes(q),
-    );
-  }, [equipo, busqueda]);
+  // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra en
+  // cualquier orden (búsqueda en vivo, 06/11/2026).
+  const visibles = useMemo(
+    () =>
+      equipo.filter((c) =>
+        coincideBusqueda(busqueda, c.full_name, c.cedula, c.cargo, c.area),
+      ),
+    [equipo, busqueda],
+  );
   const libres = visibles.filter((c) => !ocupados.has(c.id));
   const alternar = (id) =>
     setElegidos((previos) => {
@@ -1431,6 +1432,7 @@ function ElegirColaboradores({ equipo, dia, ocupados, onCerrar, onAgregar }) {
         <div className="mz-fb-search flex-grow-1">
           <Icon name="search" />
           <input
+            ref={campoElegir}
             type="search"
             aria-label="Buscar por nombre, cédula, cargo o área"
             data-autofocus
@@ -1458,6 +1460,7 @@ function ElegirColaboradores({ equipo, dia, ocupados, onCerrar, onAgregar }) {
           Limpiar
         </button>
       </div>
+      <AnuncioDeResultados termino={busqueda} total={visibles.length} />
       {equipo.length === 0 ? (
         <p className="mz-estado mz-empty">
           No hay colaboradores activos en este equipo.
@@ -1465,7 +1468,20 @@ function ElegirColaboradores({ equipo, dia, ocupados, onCerrar, onAgregar }) {
       ) : (
         <ul className="gh-seleccion" aria-label="Colaboradores del equipo">
           {visibles.length === 0 && (
-            <li className="mz-estado mz-faint">Ningún resultado.</li>
+            <li className="mz-estado mz-faint">
+              Sin resultados para «{busqueda.trim()}».{" "}
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 align-baseline"
+                onClick={() => {
+                  setBusqueda("");
+                  // Tras limpiar, el foco vuelve al buscador (auditoría UX/UI, 06/11/2026).
+                  campoElegir.current?.focus();
+                }}
+              >
+                Limpiar búsqueda
+              </button>
+            </li>
           )}
           {visibles.map((c) => {
             const ocupado = ocupados.has(c.id);

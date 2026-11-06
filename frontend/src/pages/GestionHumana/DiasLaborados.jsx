@@ -8,12 +8,21 @@
  * persona: la pantalla solo bloquea lo que él informa y él vuelve a validar
  * cada celda al guardar.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { errorDeNovedades, novedadesService } from "../../api/novedadesService";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { PERM } from "../../modulos/permisosGestionHumana";
+import { coincideBusqueda } from "../../utils/busqueda";
 import {
   Aviso,
   ESTADO_COLABORADOR,
@@ -101,6 +110,8 @@ function Matriz({ periodo, supervisorId }) {
   const [borradores, setBorradores] = useState({});
   const [erroresCelda, setErroresCelda] = useState({});
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [activa, setActiva] = useState(null);
   const [rango, setRango] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -257,16 +268,18 @@ function Matriz({ periodo, supervisorId }) {
   }, [borradores, pendientes, matriz, almacen, marcarPendientes]);
   useEffect(() => () => marcarPendientes(0), [marcarPendientes]);
 
+  // En cada tecla, sin distinguir tildes ni mayúsculas (búsqueda en vivo,
+  // 06/11/2026). La grilla puede ser grande —un equipo por los días del
+  // mes—: con el valor diferido el campo responde primero y la grilla se
+  // vuelve a pintar después, sin trabar el tecleo.
+  const buscado = useDeferredValue(busqueda.trim());
   const filas = useMemo(() => {
     if (!matriz) return [];
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return matriz.rows;
-    return matriz.rows.filter(
-      (r) =>
-        r.full_name.toLowerCase().includes(q) ||
-        String(r.cedula).toLowerCase().includes(q),
+    if (!buscado) return matriz.rows;
+    return matriz.rows.filter((r) =>
+      coincideBusqueda(buscado, r.full_name, r.cedula),
     );
-  }, [matriz, busqueda]);
+  }, [matriz, buscado]);
 
   const arrastre = useArrastreRelleno({
     contenedorRef: contenedor,
@@ -619,6 +632,7 @@ function Matriz({ periodo, supervisorId }) {
           <div className="mz-fb-search mz-fb-search--compact">
             <Icon name="search" />
             <input
+              ref={campoBusqueda}
               type="search"
               aria-label="Buscar por cédula o nombre"
               placeholder="Buscar cédula o nombre"
@@ -626,6 +640,7 @@ function Matriz({ periodo, supervisorId }) {
               onChange={(e) => setBusqueda(e.target.value)}
             />
           </div>
+          <AnuncioDeResultados termino={buscado} total={filas.length} />
           {matriz.supervisor && can(PERM.exportar) && (
             <button
               type="button"
@@ -778,6 +793,9 @@ function Matriz({ periodo, supervisorId }) {
         <EstadoDeCarga
           vacio
           hayFiltros
+          termino={buscado}
+          campoBusquedaRef={campoBusqueda}
+          etiquetaLimpiar="Limpiar búsqueda"
           onLimpiarFiltros={() => setBusqueda("")}
         />
       ) : (

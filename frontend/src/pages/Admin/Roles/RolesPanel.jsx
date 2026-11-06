@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { rolesService } from "../../../api/rolesService";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { usePermission } from "../../../hooks/usePermission";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { mensajeDeError } from "../../../utils/errores";
 import "./RolesPanel.css";
 
@@ -16,6 +18,12 @@ import "./RolesPanel.css";
  * el encabezado y las pestañas compartidas con el catálogo de permisos. Por
  * eso «Nuevo rol» va en la barra del panel y no en el encabezado de la vista:
  * en la pestaña del catálogo no hay nada que crear.
+ *
+ * Con buscador (06/11/2026): con los roles de cada cargo del organigrama son
+ * más de cien y encontrar el que se quiere editar era recorrer la tabla. La
+ * lista ya está cargada, así que filtra en cada tecla, sin tildes ni
+ * mayúsculas (`coincideBusqueda`). Lo buscado y el tipo van en la dirección:
+ * al volver de editar un rol, la lista sigue filtrada.
  */
 export function RolesPanel() {
   const puedeEditar = usePermission("roles.editar");
@@ -25,6 +33,32 @@ export function RolesPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [eliminando, setEliminando] = useState(false);
   const [aEliminar, setAEliminar] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const texto = params.get("q") ?? "";
+  const tipo = params.get("tipo") ?? "";
+
+  // `replace`: cada letra no debe quedar como un paso del «atrás».
+  function cambiarFiltro(clave, valor) {
+    const siguientes = new URLSearchParams(params);
+    if (valor) siguientes.set(clave, valor);
+    else siguientes.delete(clave);
+    setParams(siguientes, { replace: true });
+  }
+
+  const visibles = roles.filter(
+    (role) =>
+      (tipo === "" || (tipo === "cargo" ? Boolean(role.cargo) : !role.cargo)) &&
+      coincideBusqueda(texto, role.name, role.cargo?.empresa),
+  );
+  const filtrando = texto.trim() !== "" || tipo !== "";
+  const campo = useRef(null);
+
+  // Al limpiar, el foco vuelve al buscador: el botón desaparece con el vacío
+  // y, si no, quedaría perdido en la página.
+  function limpiarFiltros() {
+    setParams(new URLSearchParams(), { replace: true });
+    campo.current?.focus();
+  }
 
   function loadRoles() {
     setIsLoading(true);
@@ -73,6 +107,35 @@ export function RolesPanel() {
         )}
       </div>
 
+      <div className="mz-filter-bar" role="search">
+        <label className="mz-fb-search">
+          <Icon name="search" />
+          <span className="visually-hidden">Buscar roles</span>
+          <input
+            ref={campo}
+            type="search"
+            placeholder="Buscar un rol por su nombre"
+            value={texto}
+            onChange={(event) => cambiarFiltro("q", event.target.value)}
+          />
+        </label>
+        <select
+          className="form-select form-select-sm"
+          aria-label="Tipo de rol"
+          value={tipo}
+          onChange={(event) => cambiarFiltro("tipo", event.target.value)}
+        >
+          <option value="">Todos los roles</option>
+          <option value="manual">Se asignan a mano</option>
+          <option value="cargo">De un cargo del organigrama</option>
+        </select>
+      </div>
+      <AnuncioDeResultados
+        termino={texto}
+        total={visibles.length}
+        cargando={isLoading}
+      />
+
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
           <Icon name="x-octagon" />
@@ -97,11 +160,15 @@ export function RolesPanel() {
               cargando={isLoading && roles.length === 0}
               error={errorCarga}
               onReintentar={loadRoles}
-              vacio={!isLoading && roles.length === 0}
+              vacio={!isLoading && visibles.length === 0}
               textoVacio="Todavía no hay roles registrados."
+              hayFiltros={filtrando && roles.length > 0}
+              termino={texto}
+              onLimpiarFiltros={limpiarFiltros}
+              etiquetaLimpiar="Limpiar búsqueda"
             />
             {!errorCarga &&
-              roles.map((role) => (
+              visibles.map((role) => (
                 <tr key={role.id}>
                   <td className="mz-strong">
                     {role.name}

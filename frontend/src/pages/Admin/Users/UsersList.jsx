@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
@@ -7,9 +7,11 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useAdminUsers } from "../../../hooks/useAdminUsers";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
@@ -53,7 +55,14 @@ export function UsersList() {
     error,
     refresh,
   } = useAdminUsers();
-  const [searchInput, setSearchInput] = useState("");
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: filters.q,
+    alBuscar: (q) => updateFilters({ q }),
+  });
   const [actionError, setActionError] = useState(null);
   const [actionAviso, setActionAviso] = useState(null);
   const [procesando, setProcesando] = useState(null);
@@ -62,11 +71,11 @@ export function UsersList() {
 
   function handleSearchSubmit(event) {
     event.preventDefault();
-    updateFilters({ q: searchInput });
+    busqueda.buscarYa();
   }
 
   function limpiarFiltros() {
-    setSearchInput("");
+    busqueda.fijar("");
     updateFilters({ q: "", status: "" });
   }
 
@@ -129,8 +138,8 @@ export function UsersList() {
           <input
             type="search"
             placeholder="Buscar por nombre, correo o usuario"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <select
@@ -144,10 +153,12 @@ export function UsersList() {
           <option value="disabled">Deshabilitado</option>
           <option value="blocked">Bloqueado</option>
         </select>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={filters.q}
+        total={count}
+        cargando={isLoading}
+      />
 
       {actionAviso && (
         <div className="mz-alert mz-alert--ok" role="status">
@@ -167,7 +178,10 @@ export function UsersList() {
       {/* En el teléfono, cada cuenta en una tarjeta con sus acciones a 44 px:
           ocho columnas a 375 px solo se leían desplazándose de lado
           (auditoría UX/UI, fase 3, 28/10/2026). */}
-      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+      <div
+        className="mz-table-wrap mz-table-wrap--con-tarjetas"
+        aria-busy={isLoading}
+      >
         <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
@@ -200,6 +214,8 @@ export function UsersList() {
               textoVacio="Todavía no hay usuarios registrados."
               hayFiltros={hayFiltros}
               onLimpiarFiltros={limpiarFiltros}
+              termino={filters.q}
+              campoBusquedaRef={campoBusqueda}
             />
             {!error &&
               users.map((user) => (
@@ -317,7 +333,7 @@ export function UsersList() {
         </table>
       </div>
       {enTarjetas && (
-        <div className="mz-cards">
+        <div className="mz-cards" aria-busy={isLoading}>
           <EstadoDeCarga
             cargando={isLoading && users.length === 0}
             error={error}
@@ -326,6 +342,8 @@ export function UsersList() {
             textoVacio="Todavía no hay usuarios registrados."
             hayFiltros={hayFiltros}
             onLimpiarFiltros={limpiarFiltros}
+            termino={filters.q}
+            campoBusquedaRef={campoBusqueda}
           />
           {!error && users.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Usuarios">

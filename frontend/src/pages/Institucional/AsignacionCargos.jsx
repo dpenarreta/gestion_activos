@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { institucionalService } from "../../api/institucionalService";
 import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
@@ -27,23 +28,33 @@ export function AsignacionCargos({ datos, onAsignado }) {
   const [aviso, setAviso] = useState(null);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
 
-  const cargarPersonas = useCallback((texto) => {
-    setErrorCarga(null);
-    return institucionalService
-      .asignaciones(texto)
-      .then(setPersonas)
-      .catch((err) =>
-        setErrorCarga(
-          mensajeDeError(err, "No se pudieron cargar las personas."),
-        ),
-      );
-  }, []);
+  // Solo cuenta la respuesta de lo último escrito: una lenta no pisa a la
+  // más nueva (búsqueda en vivo, 06/11/2026).
+  const nuevaPeticion = useUltimaPeticion();
+  const cargarPersonas = useCallback(
+    (texto) => {
+      const vigente = nuevaPeticion();
+      setErrorCarga(null);
+      return institucionalService
+        .asignaciones(texto)
+        .then((lista) => vigente() && setPersonas(lista))
+        .catch(
+          (err) =>
+            vigente() &&
+            setErrorCarga(
+              mensajeDeError(err, "No se pudieron cargar las personas."),
+            ),
+        );
+    },
+    [nuevaPeticion],
+  );
 
-  // Al cambiar la búsqueda, «Cargando…» en vez de la lista anterior.
-  const buscarPersonas = useCallback(() => {
-    setPersonas(null);
-    return cargarPersonas(buscar);
-  }, [buscar, cargarPersonas]);
+  // Al cambiar la búsqueda se conserva la lista anterior hasta que llega la
+  // nueva (antes volvía a «Cargando…» en cada palabra).
+  const buscarPersonas = useCallback(
+    () => cargarPersonas(buscar),
+    [buscar, cargarPersonas],
+  );
 
   useEffect(() => {
     const espera = setTimeout(buscarPersonas, 250);

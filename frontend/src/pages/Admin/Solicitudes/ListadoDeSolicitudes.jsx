@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { solicitudesService } from "../../../api/solicitudesService";
@@ -7,6 +7,8 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { formatearFecha } from "../../../utils/formato";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import "./Solicitudes.css";
 
 export const ESTADOS = [
@@ -67,7 +69,6 @@ export function ListadoDeSolicitudes({
   descripcion,
   acciones = null,
 }) {
-  const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback(
     (params) => solicitudesService.list({ ...params, ambito }),
     [ambito],
@@ -77,9 +78,17 @@ export function ListadoDeSolicitudes({
     FILTROS_INICIALES,
     "No se pudieron cargar las solicitudes.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
@@ -100,7 +109,7 @@ export function ListadoDeSolicitudes({
         role="search"
         onSubmit={(evento) => {
           evento.preventDefault();
-          listado.actualizarFiltros({ q: busqueda });
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search" htmlFor="sol-buscar">
@@ -110,8 +119,8 @@ export function ListadoDeSolicitudes({
             id="sol-buscar"
             type="search"
             placeholder="Qué se pidió, o quién"
-            value={busqueda}
-            onChange={(evento) => setBusqueda(evento.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <div className="mz-inline-field">
@@ -147,12 +156,14 @@ export function ListadoDeSolicitudes({
             <option value="false">Solo las cerradas</option>
           </select>
         </div>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table">
           <thead>
             <tr>
@@ -219,6 +230,8 @@ export function ListadoDeSolicitudes({
               }
               hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
           </tbody>
         </table>

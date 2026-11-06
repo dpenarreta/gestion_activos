@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { usePermission } from "../../hooks/usePermission";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { mensajeDeError } from "../../utils/errores";
 import {
   arbolDeCargos,
@@ -478,13 +479,14 @@ export function OrganigramaPage() {
     [arbol],
   );
   const encontrados = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
+    const texto = buscar.trim();
     if (!texto || !vigente) return [];
+    // Sin distinguir tildes ni mayúsculas (búsqueda en vivo, 06/11/2026).
     return vigente.cargos
       .filter(
         (c) =>
-          c.nombre.toLowerCase().includes(texto) ||
-          c.ocupantes.some((p) => p.nombre.toLowerCase().includes(texto)),
+          coincideBusqueda(texto, c.nombre) ||
+          c.ocupantes.some((p) => coincideBusqueda(texto, p.nombre)),
       )
       .slice(0, 12);
   }, [buscar, vigente]);

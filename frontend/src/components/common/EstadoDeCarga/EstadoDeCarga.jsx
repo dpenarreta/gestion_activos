@@ -19,6 +19,9 @@ function contenido({
   hayFiltros,
   onLimpiarFiltros,
   accionVacio,
+  termino,
+  etiquetaLimpiar = "Limpiar filtros",
+  campoBusquedaRef,
 }) {
   if (error) {
     return (
@@ -50,16 +53,29 @@ function contenido({
   }
   if (!vacio) return null;
   if (hayFiltros) {
+    // Con la búsqueda en vivo (06/11/2026) se nombra lo escrito: así se ve
+    // de un vistazo si fue una errata y no que el registro no exista.
+    const buscado = (termino ?? "").trim();
     return (
       <div className="mz-estado mz-empty">
-        <p className="mb-2">Ningún resultado con estos filtros.</p>
+        <p className="mb-2">
+          {buscado
+            ? `Sin resultados para «${buscado}».`
+            : "Ningún resultado con estos filtros."}
+        </p>
         {onLimpiarFiltros && (
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
-            onClick={onLimpiarFiltros}
+            onClick={() => {
+              onLimpiarFiltros();
+              // El botón desaparece al limpiar y el foco caía en <main>: se
+              // lleva al buscador, que es donde se va a escribir de nuevo
+              // (auditoría UX/UI de la búsqueda en vivo, 06/11/2026).
+              campoBusquedaRef?.current?.focus();
+            }}
           >
-            Limpiar filtros
+            {etiquetaLimpiar}
           </button>
         )}
       </div>
@@ -83,6 +99,10 @@ function contenido({
  * @param {boolean} [props.hayFiltros] vacío por los filtros, no por falta de datos
  * @param {() => void} [props.onLimpiarFiltros]
  * @param {import("react").ReactNode} [props.accionVacio] p. ej. «Crear el primero»
+ * @param {string} [props.termino] lo buscado, para decir «Sin resultados para…»
+ * @param {string} [props.etiquetaLimpiar] el texto del botón de limpiar
+ * @param {{ current: HTMLElement | null }} [props.campoBusquedaRef] el campo
+ *   que recibe el foco tras limpiar
  */
 export function EstadoDeCarga(props) {
   return contenido(props);

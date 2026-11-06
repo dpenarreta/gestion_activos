@@ -61,7 +61,6 @@ const ETIQUETAS_FIJAS = {
 };
 
 const TITULOS = {
-  q: "Búsqueda",
   categoria: "Categoría",
   tipo: "Tipo",
   departamento: "Área",
@@ -107,7 +106,9 @@ export function describirFiltros(filtros, catalogos = {}) {
   const añadir = (claves, clave, texto) =>
     chips.push({ claves, titulo: TITULOS[clave] || clave, texto });
 
-  if (filtros.q) añadir(["q"], "q", `«${filtros.q}»`);
+  // La búsqueda de texto no lleva chip (búsqueda en vivo, 06/11/2026): el
+  // propio campo ya la muestra y la limpia, y el chip, al aparecer con la
+  // primera palabra, empujaba la tabla hacia abajo mientras se escribía.
   if (filtros.categoria)
     añadir(
       ["categoria"],

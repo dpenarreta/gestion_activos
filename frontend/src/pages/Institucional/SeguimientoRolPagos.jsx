@@ -10,6 +10,7 @@ import { VisorPdf } from "../../components/common/VisorPdf/VisorPdf";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { copiarTexto } from "../../utils/copiar";
 import { descargarBlob } from "../../utils/descargas";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { mensajeDeError } from "../../utils/errores";
 import { ConstanciaRol } from "./ConstanciaRol";
 import { mensajeDeDescarga } from "./DescargaMasivaRolPagos";
@@ -319,13 +320,11 @@ export function SeguimientoRolPagos({ onCerrar, puedeVerRol = false }) {
 
   const filas = useMemo(() => {
     const lista = datos?.[vista] ?? [];
-    const texto = buscar.trim().toLowerCase();
+    const texto = buscar.trim();
     if (!texto) return lista;
+    // Sin distinguir tildes ni mayúsculas (búsqueda en vivo, 06/11/2026).
     return lista.filter((p) =>
-      [p.nombre, p.codigo, p.area, p.cargo, p.correo]
-        .join(" ")
-        .toLowerCase()
-        .includes(texto),
+      coincideBusqueda(texto, p.nombre, p.codigo, p.area, p.cargo, p.correo),
     );
   }, [datos, vista, buscar]);
 

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
+import { matrizService } from "../../../api/matrizService";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { usePermission } from "../../../hooks/usePermission";
 import { moduloDeRuta } from "../../../modulos/modulos";
+import { BuscadorConSugerencias } from "../../common/BuscadorConSugerencias/BuscadorConSugerencias";
 import "./BusquedaGlobal.css";
 
 /*
@@ -20,7 +22,24 @@ import "./BusquedaGlobal.css";
  *    termina en un Enter: ahí nadie quiere un listado de un elemento.
  * 2. Si no corresponde a ninguno, se abre el inventario buscando ese texto.
  *    Así «Jorge» o «ThinkPad» llevan a la lista filtrada en vez de a un error.
+ *
+ * Mientras se escribe (búsqueda en vivo, 06/11/2026) no se navega: debajo
+ * del campo aparecen los equipos que coinciden, para abrir uno con las
+ * flechas y Enter o con un clic. Enter sin ninguno marcado sigue los dos
+ * caminos de arriba, así que la pistola funciona igual que antes.
  */
+
+/** Cuántas sugerencias caben sin tapar la pantalla. */
+const SUGERENCIAS = 6;
+
+/** Las primeras y cuántas hay en total, para anunciar «6 de 12». */
+const sugerenciasDe = (datos) => {
+  const lista = datos.results ?? datos;
+  return {
+    resultados: lista.slice(0, SUGERENCIAS),
+    total: datos.count ?? lista.length,
+  };
+};
 /** La lista de obligaciones, que es donde se filtra en vivo. */
 const LISTA_DE_LA_MATRIZ = "/admin/matriz/obligaciones";
 
@@ -28,23 +47,34 @@ const LISTA_DE_LA_MATRIZ = "/admin/matriz/obligaciones";
  * En la Matriz, la barra busca obligaciones (§15.1). Busca en el nombre, el
  * código, el período, el responsable, la entidad y el área.
  *
- * Estando ya en la lista, filtra en vivo: tras 250 ms sin escribir actualiza
- * `?q=`. Desde cualquier otra pantalla de la Matriz espera al Enter: antes
- * también saltaba a la lista a los 250 ms, y a mitad de escribir se perdía la
- * pantalla en la que se estaba (auditoría UX/UI, fase 3, 28/10/2026).
+ * Estando ya en la lista, filtra en vivo: al dejar de escribir actualiza
+ * `?q=` conservando los demás filtros y sin apilar historial. Desde cualquier
+ * otra pantalla de la Matriz no navega a mitad de escribir (auditoría UX/UI,
+ * fase 3, 28/10/2026): sugiere los períodos que coinciden y Enter abre la
+ * lista buscando ese texto (búsqueda en vivo, 06/11/2026).
  */
 function BusquedaEnLaMatriz() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
-  const enLaLista = pathname === LISTA_DE_LA_MATRIZ;
-  const [termino, setTermino] = useState("");
-  const temporizador = useRef(null);
+  if (pathname === LISTA_DE_LA_MATRIZ) return <FiltroDeLaMatriz />;
+  return <SugerenciasDeLaMatriz />;
+}
 
-  useEffect(() => () => clearTimeout(temporizador.current), []);
-
-  function abrir(valor) {
-    navigate(`${LISTA_DE_LA_MATRIZ}?q=${encodeURIComponent(valor.trim())}`);
-  }
+function FiltroDeLaMatriz() {
+  const [params, setParams] = useSearchParams();
+  const busqueda = useBusquedaEnVivo({
+    // Arranca con lo que ya filtra la lista: vaciar el campo la limpia.
+    inicial: params.get("q") ?? "",
+    alBuscar: (q) =>
+      setParams(
+        (actuales) => {
+          const nuevos = new URLSearchParams(actuales);
+          if (q) nuevos.set("q", q);
+          else nuevos.delete("q");
+          return nuevos;
+        },
+        { replace: true },
+      ),
+  });
 
   return (
     <form
@@ -52,8 +82,7 @@ function BusquedaEnLaMatriz() {
       role="search"
       onSubmit={(evento) => {
         evento.preventDefault();
-        clearTimeout(temporizador.current);
-        abrir(termino);
+        busqueda.buscarYa();
       }}
     >
       <label className="visually-hidden" htmlFor="busqueda-global">
@@ -64,18 +93,51 @@ function BusquedaEnLaMatriz() {
         id="busqueda-global"
         type="search"
         placeholder="Buscar obligación, responsable, código…"
-        value={termino}
         autoComplete="off"
-        onChange={(evento) => {
-          const valor = evento.target.value;
-          setTermino(valor);
-          clearTimeout(temporizador.current);
-          if (enLaLista) {
-            temporizador.current = setTimeout(() => abrir(valor), 250);
-          }
-        }}
+        {...busqueda.propsCampo}
       />
     </form>
+  );
+}
+
+function SugerenciasDeLaMatriz() {
+  const navigate = useNavigate();
+  const abrirLista = (q) =>
+    navigate(`${LISTA_DE_LA_MATRIZ}?q=${encodeURIComponent(q)}`);
+  return (
+    <BuscadorConSugerencias
+      etiqueta="Buscar en la matriz"
+      placeholder="Buscar obligación, responsable, código…"
+      icono="search"
+      buscar={(q) =>
+        matrizService
+          .periodos({ q, page_size: SUGERENCIAS })
+          .then(sugerenciasDe)
+      }
+      claveDe={(periodo) => periodo.id}
+      contenidoDe={(periodo) => (
+        <>
+          <span className="mz-mono">{periodo.codigo}</span>{" "}
+          {periodo.obligacion?.nombre}
+          <small>
+            {[periodo.area, periodo.responsable?.nombre]
+              .filter(Boolean)
+              .join(" · ")}
+          </small>
+        </>
+      )}
+      // El período se abre en el panel lateral de la lista, como al hacer
+      // clic en su fila.
+      alElegir={(periodo) =>
+        navigate(`${LISTA_DE_LA_MATRIZ}?periodo=${periodo.id}`)
+      }
+      alConfirmar={abrirLista}
+      textoVerTodos={(q) => `Ver todos los períodos con «${q}»`}
+      alVerTodos={abrirLista}
+      textoSinSugerencias={(q) =>
+        `Sin sugerencias para «${q}». Pulse Enter para buscarlo en la matriz.`
+      }
+    />
   );
 }
 
@@ -96,8 +158,6 @@ export function BusquedaGlobal() {
 function BusquedaDeActivos() {
   const puedeVer = usePermission("activos.ver");
   const navigate = useNavigate();
-  const [termino, setTermino] = useState("");
-  const [isBuscando, setIsBuscando] = useState(false);
 
   if (!puedeVer) {
     // Quien no ve el inventario tampoco puede buscar en él: ofrecerlo acabaría
@@ -105,12 +165,10 @@ function BusquedaDeActivos() {
     return null;
   }
 
-  async function handleSubmit(evento) {
-    evento.preventDefault();
-    const valor = termino.trim();
-    if (!valor) return;
+  const abrirInventario = (valor) =>
+    navigate(`/admin/activos?q=${encodeURIComponent(valor)}`);
 
-    setIsBuscando(true);
+  async function confirmar(valor) {
     try {
       const datos = await activosService.porCodigo(valor);
       navigate(`/admin/activos/${datos.activo.id}`);
@@ -118,32 +176,43 @@ function BusquedaDeActivos() {
       // Cualquier fallo cae al listado: un 404 es lo normal al buscar por
       // nombre, y si el servidor falló de verdad el listado lo dirá con su
       // propio mensaje en vez de dejar la cabecera en silencio.
-      navigate(`/admin/activos?q=${encodeURIComponent(valor)}`);
-    } finally {
-      setIsBuscando(false);
-      setTermino("");
+      abrirInventario(valor);
     }
   }
 
   return (
-    <form
-      className="mz-search busqueda-global"
-      onSubmit={handleSubmit}
-      role="search"
-    >
-      <label className="visually-hidden" htmlFor="busqueda-global">
-        Buscar un equipo
-      </label>
-      <i className="bi bi-upc-scan" aria-hidden="true" />
-      <input
-        id="busqueda-global"
-        type="search"
-        placeholder="Escanee o busque: código, serie, equipo o persona"
-        value={termino}
-        onChange={(evento) => setTermino(evento.target.value)}
-        disabled={isBuscando}
-        autoComplete="off"
-      />
-    </form>
+    <BuscadorConSugerencias
+      etiqueta="Buscar un equipo"
+      placeholder="Escanee o busque: código, serie, equipo o persona"
+      icono="upc-scan"
+      buscar={(q) =>
+        activosService.list({ q, page_size: SUGERENCIAS }).then(sugerenciasDe)
+      }
+      claveDe={(activo) => activo.id}
+      contenidoDe={(activo) => (
+        <>
+          <code className="codigo-barras">{activo.codigo_barras}</code>{" "}
+          {activo.nombre}
+          <small>
+            {[
+              [activo.marca, activo.modelo].filter(Boolean).join(" "),
+              activo.numero_serie,
+              activo.responsables_resumen,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </small>
+        </>
+      )}
+      alElegir={(activo) => navigate(`/admin/activos/${activo.id}`)}
+      alConfirmar={confirmar}
+      textoVerTodos={(q) =>
+        `Ver todos los resultados de «${q}» en el inventario`
+      }
+      alVerTodos={abrirInventario}
+      textoSinSugerencias={(q) =>
+        `Sin sugerencias para «${q}». Pulse Enter para buscarlo en el inventario.`
+      }
+    />
   );
 }

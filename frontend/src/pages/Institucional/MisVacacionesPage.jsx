@@ -5,6 +5,7 @@ import { institucionalService } from "../../api/institucionalService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { usePermission } from "../../hooks/usePermission";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
@@ -359,19 +360,25 @@ export function MisVacacionesPage() {
 
   // Se conserva la lista anterior mientras se busca (antes parpadeaba a
   // «Cargando…» en cada letra).
+  // Y solo cuenta la respuesta de lo último escrito (búsqueda en vivo,
+  // 06/11/2026).
+  const nuevaPeticion = useUltimaPeticion();
   const cargarPersonas = useCallback(() => {
+    const vigente = nuevaPeticion();
     setBuscando(true);
     setErrorPersonas(null);
     institucionalService
       .personasVacaciones(buscar)
-      .then(setPersonas)
-      .catch((err) =>
-        setErrorPersonas(
-          mensajeDeError(err, "No se pudo buscar a las personas."),
-        ),
+      .then((lista) => vigente() && setPersonas(lista))
+      .catch(
+        (err) =>
+          vigente() &&
+          setErrorPersonas(
+            mensajeDeError(err, "No se pudo buscar a las personas."),
+          ),
       )
-      .finally(() => setBuscando(false));
-  }, [buscar]);
+      .finally(() => vigente() && setBuscando(false));
+  }, [buscar, nuevaPeticion]);
 
   useEffect(() => {
     if (!verTodas) return undefined;

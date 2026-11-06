@@ -8,6 +8,7 @@ import {
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 
@@ -118,24 +119,30 @@ function Asignar({ onAsignado, onCerrar }) {
   const [dias, setDias] = useState(15);
   const [error, setError] = useState(null);
 
+  // Solo cuenta la respuesta de lo último escrito: una lenta no pisa a la
+  // más nueva (búsqueda en vivo, 06/11/2026).
+  const nuevaPeticion = useUltimaPeticion();
   useEffect(() => {
     if (buscar.trim().length < 2) {
+      nuevaPeticion();
       setResultados([]);
       return undefined;
     }
     const espera = setTimeout(() => {
+      const vigente = nuevaPeticion();
       capacitacionService
         .personas(buscar.trim())
-        .then(setResultados)
+        .then((lista) => vigente() && setResultados(lista))
         // Antes un fallo se veía como «nadie coincide» (auditoría UX/UI,
         // fase 2, 28/10/2026).
         .catch((err) => {
+          if (!vigente()) return;
           setResultados([]);
           setError(mensajeDeError(err, "No se pudo buscar personas."));
         });
     }, 250);
     return () => clearTimeout(espera);
-  }, [buscar]);
+  }, [buscar, nuevaPeticion]);
 
   async function asignar() {
     setError(null);

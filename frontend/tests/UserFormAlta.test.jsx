@@ -61,6 +61,13 @@ function pintar() {
   );
 }
 
+// El desplegable de rol existe desde el principio, deshabilitado mientras
+// cargan los roles: se espera a que tenga opciones antes de elegir.
+async function rolListo() {
+  await screen.findByRole("option", { name: "Soporte TI" });
+  return screen.getByLabelText(/^Rol/);
+}
+
 function rellenarDatosMinimos() {
   fireEvent.change(screen.getByLabelText(/^Nombres/), {
     target: { value: "Nueva" },
@@ -88,7 +95,7 @@ describe("Alta de usuario", () => {
   it("ofrece un desplegable con los roles que se pueden asignar", async () => {
     pintar();
 
-    const rol = await screen.findByLabelText("Rol");
+    const rol = await screen.findByLabelText(/^Rol/);
     expect(
       screen.getByRole("option", { name: "Soporte TI" }),
     ).toBeInTheDocument();
@@ -99,17 +106,45 @@ describe("Alta de usuario", () => {
     expect(rol).toHaveValue("");
   });
 
+  /* Los de cargo eran la mayoría del catálogo y el servidor los descarta si
+     se envían a mano: no se ofrecen, y el resto va por orden alfabético
+     (06/11/2026). */
+  it("ofrece los roles por orden alfabético y sin los de cargo", async () => {
+    listarRoles.mockResolvedValue([
+      ...ROLES,
+      {
+        id: 30,
+        name: "Jefe de bodega",
+        cargo: { id: 4, nombre: "Jefe de bodega", empresa: "LaarSeguridad" },
+      },
+      { id: 12, name: "Auditor" },
+    ]);
+    pintar();
+
+    const rol = await screen.findByLabelText(/^Rol/);
+    await waitFor(() =>
+      expect(
+        [...rol.querySelectorAll("option")].map((o) => o.textContent),
+      ).toEqual([
+        "Seleccione un rol",
+        "Auditor",
+        "Solo consulta",
+        "Soporte TI",
+      ]),
+    );
+  });
+
   // Dar de alta a alguien es, casi siempre, darlo de alta donde uno está.
   it("propone la empresa en la que se está trabajando", async () => {
     pintar();
 
-    expect(await screen.findByLabelText("Empresa")).toHaveValue("3");
+    expect(await screen.findByLabelText(/^Empresa/)).toHaveValue("3");
   });
 
   it("crea la cuenta ya dentro de su empresa y con su rol", async () => {
     pintar();
 
-    fireEvent.change(await screen.findByLabelText("Rol"), {
+    fireEvent.change(await rolListo(), {
       target: { value: "10" },
     });
     rellenarDatosMinimos();
@@ -131,8 +166,8 @@ describe("Alta de usuario", () => {
 
     pintar();
 
-    expect(await screen.findByLabelText("Rol")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Empresa")).not.toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Rol/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Empresa/)).not.toBeInTheDocument();
   });
 
   // Crear una cuenta y decidir qué información ve son dos poderes distintos.
@@ -167,7 +202,7 @@ describe("Alta de usuario", () => {
   it("no manda el nombre de usuario: lo compone el backend", async () => {
     pintar();
 
-    fireEvent.change(await screen.findByLabelText("Rol"), {
+    fireEvent.change(await rolListo(), {
       target: { value: "10" },
     });
     rellenarDatosMinimos();
@@ -175,5 +210,120 @@ describe("Alta de usuario", () => {
 
     await waitFor(() => expect(crear).toHaveBeenCalled());
     expect(crear.mock.calls[0][0].username).toBeUndefined();
+  });
+
+  /* Sin la burbuja del navegador: el error va bajo el campo, como el resto
+     del formulario, y el foco a él (auditoría UX/UI, 06/11/2026). */
+  it("sin rol no crea la cuenta: marca el campo y lo enfoca", async () => {
+    pintar();
+
+    const rol = await screen.findByLabelText(/^Rol/);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Empresa/)).toHaveValue("3"),
+    );
+    expect(rol).not.toHaveAttribute("required");
+    expect(rol).toHaveAttribute("aria-required", "true");
+    rellenarDatosMinimos();
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
+
+    expect(
+      await screen.findByText("Elija el rol con el que entra esta persona."),
+    ).toBeInTheDocument();
+    expect(rol).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(rol).toHaveFocus());
+    expect(crear).not.toHaveBeenCalled();
+
+    fireEvent.change(rol, { target: { value: "10" } });
+    expect(
+      screen.queryByText("Elija el rol con el que entra esta persona."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("volver a «Seleccione un rol» deja la cuenta sin rol, no con el 0", async () => {
+    pintar();
+
+    const rol = await rolListo();
+    fireEvent.change(rol, { target: { value: "10" } });
+    fireEvent.change(rol, { target: { value: "" } });
+    rellenarDatosMinimos();
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
+
+    expect(
+      await screen.findByText("Elija el rol con el que entra esta persona."),
+    ).toBeInTheDocument();
+    expect(crear).not.toHaveBeenCalled();
+  });
+
+  // Auditoría UX/UI, 06/11/2026: durante la carga decía «No hay roles».
+  it("mientras cargan los roles lo dice, sin el falso «No hay roles»", async () => {
+    listarRoles.mockReturnValue(new Promise(() => {}));
+    pintar();
+
+    const rol = await screen.findByLabelText(/^Rol/);
+    expect(rol).toBeDisabled();
+    expect(
+      screen.getByRole("option", { name: "Cargando roles…" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No hay roles creados/)).not.toBeInTheDocument();
+  });
+
+  it("sin roles creados, una vez cargado, lo avisa", async () => {
+    listarRoles.mockResolvedValue([]);
+    pintar();
+
+    expect(
+      await screen.findByText(/No hay roles creados todavía/),
+    ).toBeInTheDocument();
+  });
+
+  /* La empresa la propone el sistema: abrir el alta y salir sin tocar nada
+     no pide confirmación (auditoría UX/UI, 06/11/2026). */
+  it("la empresa propuesta no cuenta como cambio sin guardar; el rol sí", async () => {
+    pintar();
+
+    const rol = await rolListo();
+    expect(screen.getByLabelText(/^Empresa/)).toHaveValue("3");
+    expect(marcarSinGuardar).toHaveBeenLastCalledWith(false);
+
+    fireEvent.change(rol, { target: { value: "10" } });
+    expect(marcarSinGuardar).toHaveBeenLastCalledWith(true);
+  });
+
+  it("cambiar a otra empresa sí cuenta como cambio sin guardar", async () => {
+    pintar();
+
+    await rolListo();
+    fireEvent.change(screen.getByLabelText(/^Empresa/), {
+      target: { value: "1" },
+    });
+    expect(marcarSinGuardar).toHaveBeenLastCalledWith(true);
+  });
+
+  it("valida todos los obligatorios a la vez y enfoca el primero", async () => {
+    pintar();
+
+    await rolListo();
+    fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
+
+    expect(await screen.findByText("Escriba los nombres.")).toBeInTheDocument();
+    expect(screen.getByText("Escriba los apellidos.")).toBeInTheDocument();
+    expect(screen.getByText("Escriba el correo.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Elija el rol con el que entra esta persona."),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Nombres/)).toHaveFocus(),
+    );
+    expect(crear).not.toHaveBeenCalled();
+  });
+
+  it("con una sola empresa no repite el título «Rol» sobre la etiqueta", async () => {
+    listarEmpresas.mockResolvedValue({ results: [COURIER] });
+    pintar();
+
+    await screen.findByLabelText(/^Rol/);
+    expect(
+      screen.queryByRole("heading", { name: "Rol" }),
+    ).not.toBeInTheDocument();
   });
 });

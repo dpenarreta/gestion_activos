@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -6,12 +6,15 @@ import {
   tiposDispositivoService,
 } from "../../../api/activosService";
 import { CaracteristicasDelTipo } from "../../../components/activos/CaracteristicasDelTipo/CaracteristicasDelTipo";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import "./Activos.css";
 
 const FILTROS_INICIALES = { q: "" };
@@ -33,7 +36,6 @@ const VACIO = {
  */
 export function TiposDispositivoList() {
   const puedeEditar = usePermission("activos.editar");
-  const [busqueda, setBusqueda] = useState("");
   const [enEdicion, setEnEdicion] = useState(null);
   const cargar = useCallback(
     (params) => tiposDispositivoService.list(params),
@@ -44,6 +46,14 @@ export function TiposDispositivoList() {
     FILTROS_INICIALES,
     "No se pudo cargar el catálogo de tipos.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   return (
     <div>
@@ -73,7 +83,7 @@ export function TiposDispositivoList() {
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
-          listado.actualizarFiltros({ q: busqueda });
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search">
@@ -82,14 +92,16 @@ export function TiposDispositivoList() {
           <input
             type="search"
             placeholder="Buscar por nombre o código"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {listado.error && (
         <div className="mz-alert mz-alert--bad" role="alert">
@@ -98,7 +110,7 @@ export function TiposDispositivoList() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
@@ -161,10 +173,19 @@ export function TiposDispositivoList() {
                 </td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={8}>Sin tipos de dispositivo registrados</td>
-              </tr>
+            {/* Con la búsqueda en vivo, el vacío dice qué se buscó y deja
+                limpiarlo; sin búsqueda, que el catálogo está vacío. */}
+            {!listado.error && (
+              <FilaDeEstado
+                columnas={8}
+                vacio={!listado.isLoading && listado.resultados.length === 0}
+                textoVacio="Sin tipos de dispositivo registrados"
+                hayFiltros={Boolean(listado.filtros.q)}
+                termino={listado.filtros.q}
+                campoBusquedaRef={campoBusqueda}
+                onLimpiarFiltros={busqueda.limpiar}
+                etiquetaLimpiar="Limpiar búsqueda"
+              />
             )}
           </tbody>
         </table>

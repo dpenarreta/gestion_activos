@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { exportacionService } from "../../../api/activosService";
@@ -12,6 +12,8 @@ import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
 import { descargarBlob } from "../../../utils/descargas";
 import { formatearFecha, formatearMoneda } from "../../../utils/formato";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import "./Mantenimientos.css";
 
 const FILTROS_INICIALES = { q: "", tipo: "", desde: "", hasta: "" };
@@ -28,7 +30,6 @@ export function MantenimientosList() {
   const puedeEditar = usePermission("mantenimientos.editar");
   const puedeExportar = usePermission("mantenimientos.exportar");
   const [isExportando, setIsExportando] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
   const [aEliminar, setAEliminar] = useState(null);
   const [errorAccion, setErrorAccion] = useState(null);
 
@@ -41,9 +42,17 @@ export function MantenimientosList() {
     FILTROS_INICIALES,
     "No se pudo cargar la bitácora de mantenimientos.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
@@ -124,7 +133,7 @@ export function MantenimientosList() {
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
-          listado.actualizarFiltros({ q: busqueda });
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search" htmlFor="mant-buscar">
@@ -134,8 +143,8 @@ export function MantenimientosList() {
             id="mant-buscar"
             type="search"
             placeholder="Código, responsable o diagnóstico"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <div className="mz-inline-field">
@@ -177,10 +186,12 @@ export function MantenimientosList() {
             }
           />
         </div>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {/* El mismo aviso que da el inventario: el backend repara el código que
           llega con la distribución de teclado cambiada —el guion como
@@ -203,7 +214,7 @@ export function MantenimientosList() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table mz-table--ancha">
           <thead>
             <tr>
@@ -308,6 +319,8 @@ export function MantenimientosList() {
               textoVacio="Todavía no hay intervenciones registradas."
               hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
           </tbody>
         </table>

@@ -16,9 +16,11 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import { ModalDialog } from "../../components/common/ModalDialog/ModalDialog";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { PERM } from "../../modulos/permisosGestionHumana";
 import {
   Aviso,
@@ -50,6 +52,8 @@ function PantallaColaboradores() {
   const [lista, setLista] = useState(null);
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [estado, setEstado] = useState("");
   const [dialogo, setDialogo] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -59,24 +63,34 @@ function PantallaColaboradores() {
   const gestiona = can(PERM.colaboradores) && !me.is_assistant;
   const administra = me.national_write;
 
+  // Solo cuenta la respuesta de lo último escrito: con la búsqueda en vivo,
+  // una consulta lenta de «ma» llegaba después de la de «maría» y la pisaba
+  // (06/11/2026). Mientras tanto la lista anterior se queda, atenuada.
+  const nuevaPeticion = useUltimaPeticion();
+  const [cargando, setCargando] = useState(true);
   const cargar = useCallback(async () => {
+    const vigente = nuevaPeticion();
     setError(null);
+    setCargando(true);
     try {
-      setLista(
-        await novedadesService.colaboradores({
-          q: busqueda.trim(),
-          status: estado,
-          supervisor: supervisorId ?? undefined,
-        }),
-      );
+      const datos = await novedadesService.colaboradores({
+        q: busqueda.trim(),
+        status: estado,
+        supervisor: supervisorId ?? undefined,
+      });
+      if (!vigente()) return;
+      setLista(datos);
+      setCargando(false);
     } catch (err) {
+      if (!vigente()) return;
+      setCargando(false);
       setLista([]);
       setError(
         errorDeNovedades(err, "No se pudo cargar la base de colaboradores.")
           .mensaje,
       );
     }
-  }, [busqueda, estado, supervisorId]);
+  }, [busqueda, estado, supervisorId, nuevaPeticion]);
 
   // La búsqueda espera a que se deje de escribir; los demás filtros, al momento.
   useEffect(() => {
@@ -135,6 +149,8 @@ function PantallaColaboradores() {
     vacio: lista !== null && lista.length === 0,
     textoVacio: "Todavía no hay colaboradores registrados en esta base.",
     hayFiltros,
+    termino: busqueda.trim(),
+    campoBusquedaRef: campoBusqueda,
     onLimpiarFiltros: () => {
       setBusqueda("");
       setEstado("");
@@ -277,6 +293,7 @@ function PantallaColaboradores() {
         <div className="mz-fb-search">
           <Icon name="search" />
           <input
+            ref={campoBusqueda}
             type="search"
             aria-label="Buscar por cédula o nombre"
             placeholder="Buscar cédula o nombre"
@@ -301,10 +318,15 @@ function PantallaColaboradores() {
           </select>
         </div>
       </div>
+      <AnuncioDeResultados
+        termino={busqueda}
+        total={lista?.length ?? 0}
+        cargando={cargando}
+      />
       <Aviso aviso={aviso} onCerrar={() => setAviso(null)} />
 
       {!enTarjetas && (
-        <div className="mz-table-wrap">
+        <div className="mz-table-wrap" aria-busy={cargando && lista !== null}>
           <table className="mz-table">
             <caption className="visually-hidden">Base de colaboradores</caption>
             <thead>
@@ -340,7 +362,7 @@ function PantallaColaboradores() {
         </div>
       )}
       {enTarjetas && (
-        <div className="mz-cards">
+        <div className="mz-cards" aria-busy={cargando && lista !== null}>
           <EstadoDeCarga {...estadoDeCarga} />
           {lista?.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Base de colaboradores">

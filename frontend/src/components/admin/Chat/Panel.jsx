@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { chatService } from "../../../api/chatService";
+import { useResultadosEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { formatearFecha } from "../../../utils/formato";
+import { AnuncioDeResultados } from "../../common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { TarjetaContacto } from "./Contacto";
@@ -99,31 +101,36 @@ export function ListaConversaciones({
 export function Directorio({ onElegida }) {
   const { iniciarDirecta } = useChat();
   const [busqueda, setBusqueda] = useState("");
-  const [personas, setPersonas] = useState([]);
   // De quién se está viendo el contacto.
   const [contacto, setContacto] = useState(null);
+  // Filtra mientras se escribe, y una respuesta lenta no pisa a la del texto
+  // vigente (búsqueda en vivo, 06/11/2026).
+  const directorio = useResultadosEnVivo(busqueda, (q) =>
+    chatService.directorio(q).catch(() => []),
+  );
+  const personas = useMemo(() => directorio.datos ?? [], [directorio.datos]);
   const presencia = usePresencia(personas.map((p) => p.id));
-
-  useEffect(() => {
-    const temporizador = setTimeout(() => {
-      chatService
-        .directorio(busqueda)
-        .then(setPersonas)
-        .catch(() => setPersonas([]));
-    }, 250);
-    return () => clearTimeout(temporizador);
-  }, [busqueda]);
 
   return (
     <div className="chat-directorio">
       <input
+        type="search"
         className="form-control form-control-sm"
         placeholder="Buscar por nombre o correo"
         aria-label="Buscar personas"
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
       />
-      <ul className="chat-lista" aria-label="Personas">
+      <AnuncioDeResultados
+        termino={directorio.termino}
+        total={personas.length}
+        cargando={directorio.cargando}
+      />
+      <ul
+        className="chat-lista mz-atenuable"
+        aria-label="Personas"
+        aria-busy={directorio.cargando && personas.length > 0}
+      >
         {personas.map((p) => (
           <li key={p.id} className="chat-persona">
             <div className="chat-persona__fila">
@@ -165,8 +172,12 @@ export function Directorio({ onElegida }) {
             {contacto === p.id && <TarjetaContacto persona={p} />}
           </li>
         ))}
-        {personas.length === 0 && (
-          <li className="mz-small mz-faint p-2">Nadie con ese nombre.</li>
+        {!directorio.cargando && personas.length === 0 && (
+          <li className="mz-small mz-faint p-2">
+            {directorio.termino
+              ? `Nadie coincide con «${directorio.termino}».`
+              : "Nadie con ese nombre."}
+          </li>
         )}
       </ul>
     </div>
@@ -181,7 +192,6 @@ export function NuevoGrupo({ onCreado }) {
   const [areas, setAreas] = useState([]);
   const [area, setArea] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [personas, setPersonas] = useState([]);
   const [elegidas, setElegidas] = useState([]);
   const [error, setError] = useState(null);
 
@@ -192,12 +202,12 @@ export function NuevoGrupo({ onCreado }) {
       .catch(() => setAreas([]));
   }, []);
 
-  useEffect(() => {
-    chatService
-      .directorio(busqueda)
-      .then(setPersonas)
-      .catch(() => setPersonas([]));
-  }, [busqueda]);
+  // Antes preguntaba en cada letra y sin orden: una respuesta vieja podía
+  // dejar la lista de otro texto (búsqueda en vivo, 06/11/2026).
+  const candidatas = useResultadosEnVivo(busqueda, (q) =>
+    chatService.directorio(q).catch(() => []),
+  );
+  const personas = candidatas.datos ?? [];
 
   async function crear(evento) {
     evento.preventDefault();
@@ -300,11 +310,22 @@ export function NuevoGrupo({ onCreado }) {
             ))}
           </div>
           <input
+            type="search"
             className="form-control form-control-sm mt-2"
             placeholder="Buscar personas para agregar"
             aria-label="Buscar personas para el grupo"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
+            // Enter aquí busca —ya lo hace solo—; no debe crear el grupo a
+            // medio armar.
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
+          />
+          <AnuncioDeResultados
+            termino={candidatas.termino}
+            total={personas.length}
+            cargando={candidatas.cargando}
           />
           <ul className="chat-lista chat-lista--corta">
             {personas

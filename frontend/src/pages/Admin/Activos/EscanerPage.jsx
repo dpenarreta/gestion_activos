@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { activosService } from "../../../api/activosService";
 import { Icon } from "../../../components/common/Icon/Icon";
@@ -31,6 +31,7 @@ export function EscanerPage() {
   const [recientes, setRecientes] = useState([]);
   const [avisoLector, setAvisoLector] = useState(null);
   const [camaraAbierta, setCamaraAbierta] = useState(false);
+  const navigate = useNavigate();
 
   async function handleEscanear(codigo) {
     setIsLoading(true);
@@ -116,6 +117,38 @@ export function EscanerPage() {
         enfocarAlMontar
         mantenerFoco
         disabled={isLoading}
+        // Al escribir a mano, los equipos que coinciden (búsqueda en vivo,
+        // 06/11/2026); elegir uno lo consulta igual que una lectura.
+        sugerir={(q) =>
+          activosService.list({ q, page_size: 6 }).then((datos) => {
+            const lista = datos.results ?? datos;
+            return {
+              resultados: lista.slice(0, 6),
+              total: datos.count ?? lista.length,
+            };
+          })
+        }
+        contenidoSugerencia={(activo) => (
+          <>
+            <code className="codigo-barras">{activo.codigo_barras}</code>{" "}
+            {activo.nombre}
+            <small>
+              {[activo.numero_serie, activo.responsables_resumen]
+                .filter(Boolean)
+                .join(" · ")}
+            </small>
+          </>
+        )}
+        alElegirSugerencia={(activo) => handleEscanear(activo.codigo_barras)}
+        textoVerTodos={(q) =>
+          `Ver todos los resultados de «${q}» en el inventario`
+        }
+        textoSinSugerencias={(q) =>
+          `Sin sugerencias para «${q}». Pulse Enter para consultar el código.`
+        }
+        alVerTodos={(q) =>
+          navigate(`/admin/activos?q=${encodeURIComponent(q)}`)
+        }
       />
 
       {/* role="status" y no "alert": «no se encontró» es el resultado de la

@@ -4,11 +4,12 @@
  * sin Ctrl borraba la selección entera), un tiempo en horas y minutos en
  * lugar de «0,25 h», y una ventana con «Guardar» y «Cancelar».
  */
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Icon } from "../../../components/common/Icon/Icon";
 import { useModalA11y } from "../../../hooks/useModalA11y";
+import { coincideBusqueda } from "../../../utils/busqueda";
 
 /** Varias opciones con casillas; con buscador si son muchas. */
 export function ListaDeCasillas({
@@ -20,11 +21,12 @@ export function ListaDeCasillas({
 }) {
   const id = useId();
   const [buscar, setBuscar] = useState("");
+  const campo = useRef(null);
   const elegidos = new Set(valor.map(String));
-  const texto = buscar.trim().toLowerCase();
-  const visibles = texto
-    ? opciones.filter((o) => o.nombre.toLowerCase().includes(texto))
-    : opciones;
+  const texto = buscar.trim();
+  // En cada tecla, sin distinguir tildes ni mayúsculas (búsqueda en vivo,
+  // 06/11/2026).
+  const visibles = opciones.filter((o) => coincideBusqueda(texto, o.nombre));
   return (
     <fieldset className="soporte-casillas">
       <legend className="form-label">
@@ -35,6 +37,7 @@ export function ListaDeCasillas({
       </legend>
       {opciones.length > 8 && (
         <input
+          ref={campo}
           type="search"
           className="form-control form-control-sm mb-2"
           placeholder="Buscar"
@@ -66,7 +69,23 @@ export function ListaDeCasillas({
         ))}
         {visibles.length === 0 && (
           <p className="mz-small mz-faint mb-0">
-            {texto ? "Nada coincide con la búsqueda." : vacio}
+            {texto ? `Nada coincide con «${texto}».` : vacio}
+            {texto && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 align-baseline"
+                  onClick={() => {
+                    setBuscar("");
+                    // Tras limpiar, el foco vuelve al buscador (auditoría UX/UI, 06/11/2026).
+                    campo.current?.focus();
+                  }}
+                >
+                  Limpiar búsqueda
+                </button>
+              </>
+            )}
           </p>
         )}
       </div>

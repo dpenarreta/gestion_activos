@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -73,5 +73,36 @@ describe("RolesPanel", () => {
     expect(
       screen.getByRole("button", { name: "Eliminar Editor" }),
     ).toBeInTheDocument();
+  });
+
+  it("el buscador filtra en cada tecla, sin tildes ni mayúsculas", async () => {
+    renderPanel();
+    await screen.findByText("Editor");
+    const campo = screen.getByRole("searchbox", { name: "Buscar roles" });
+    fireEvent.change(campo, { target: { value: "EDITÓR" } });
+    expect(screen.getByText("Editor")).toBeInTheDocument();
+    expect(screen.queryByText("Jefe TI")).toBeNull();
+  });
+
+  it("filtra por tipo: solo los de un cargo del organigrama", async () => {
+    renderPanel();
+    await screen.findByText("Editor");
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo de rol" }), {
+      target: { value: "cargo" },
+    });
+    expect(screen.getByText("Jefe TI")).toBeInTheDocument();
+    expect(screen.queryByText("Editor")).toBeNull();
+  });
+
+  it("sin coincidencias lo dice y limpiar devuelve el foco al buscador", async () => {
+    renderPanel();
+    await screen.findByText("Editor");
+    const campo = screen.getByRole("searchbox", { name: "Buscar roles" });
+    fireEvent.change(campo, { target: { value: "zzz" } });
+    expect(screen.getByText("Sin resultados para «zzz».")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    expect(campo).toHaveValue("");
+    expect(campo).toHaveFocus();
+    expect(screen.getByText("Editor")).toBeInTheDocument();
   });
 });

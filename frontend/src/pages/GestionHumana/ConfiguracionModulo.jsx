@@ -19,12 +19,14 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import { ModalDialog } from "../../components/common/ModalDialog/ModalDialog";
 import {
   PanelDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { PERM } from "../../modulos/permisosGestionHumana";
 import { Aviso, ErrorEnLinea, ROL_OPERATIVO, fechaHora } from "./comunes";
 import { ConAcceso, Encabezado, useNovedades } from "./ContextoNovedades";
@@ -1185,24 +1187,37 @@ function Correos() {
 
 function PermisosDeMovimientos() {
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [usuarios, setUsuarios] = useState(null);
   const [error, setError] = useState(null);
   const [ocupado, setOcupado] = useState(null);
   const [aviso, setAviso] = useState(null);
 
+  // Solo cuenta la respuesta de lo último escrito (búsqueda en vivo,
+  // 06/11/2026): una lenta no pisa a la más nueva.
+  const nuevaPeticion = useUltimaPeticion();
+  const [cargando, setCargando] = useState(true);
   const cargar = useCallback(async () => {
+    const vigente = nuevaPeticion();
     setError(null);
+    setCargando(true);
     try {
-      setUsuarios(
-        await novedadesService.permisosDeMovimientos(busqueda.trim()),
+      const datos = await novedadesService.permisosDeMovimientos(
+        busqueda.trim(),
       );
+      if (!vigente()) return;
+      setUsuarios(datos);
+      setCargando(false);
     } catch (err) {
+      if (!vigente()) return;
+      setCargando(false);
       setUsuarios([]);
       setError(
         errorDeNovedades(err, "No se pudieron cargar los usuarios.").mensaje,
       );
     }
-  }, [busqueda]);
+  }, [busqueda, nuevaPeticion]);
 
   useEffect(() => {
     const reloj = setTimeout(cargar, 300);
@@ -1241,6 +1256,7 @@ function PermisosDeMovimientos() {
         <div className="mz-fb-search">
           <Icon name="search" />
           <input
+            ref={campoBusqueda}
             type="search"
             aria-label="Buscar usuario por nombre o correo"
             placeholder="Buscar usuario"
@@ -1249,8 +1265,13 @@ function PermisosDeMovimientos() {
           />
         </div>
       </div>
+      <AnuncioDeResultados
+        termino={busqueda}
+        total={usuarios?.length ?? 0}
+        cargando={cargando}
+      />
       <Aviso aviso={aviso} onCerrar={() => setAviso(null)} />
-      <div className="mz-table-wrap">
+      <div className="mz-table-wrap" aria-busy={cargando && usuarios !== null}>
         <table className="mz-table">
           <caption className="visually-hidden">
             Permisos de Ingresos y Salidas por usuario
@@ -1308,6 +1329,9 @@ function PermisosDeMovimientos() {
               vacio={usuarios?.length === 0}
               textoVacio="No hay usuarios en esta empresa."
               hayFiltros={Boolean(busqueda.trim())}
+              termino={busqueda}
+              campoBusquedaRef={campoBusqueda}
+              etiquetaLimpiar="Limpiar búsqueda"
               onLimpiarFiltros={() => setBusqueda("")}
             />
           </tbody>

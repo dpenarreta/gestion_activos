@@ -262,7 +262,7 @@ describe.each(CATALOGOS)(
       fireEvent.submit(campo.closest("form"));
 
       expect(
-        await screen.findByText("Ningún resultado con estos filtros."),
+        await screen.findByText("Sin resultados para «zzz»."),
       ).toBeInTheDocument();
       expect(screen.queryByText(vacio)).not.toBeInTheDocument();
 

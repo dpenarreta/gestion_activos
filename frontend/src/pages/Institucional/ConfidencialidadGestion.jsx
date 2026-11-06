@@ -10,7 +10,9 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { descargarBlob } from "../../utils/descargas";
@@ -201,7 +203,7 @@ export function AceptacionesConfidencialidad() {
     }
   }
 
-  const texto = buscar.trim().toLowerCase();
+  const texto = buscar.trim();
   const conteos = {
     pendientes: datos?.pendientes ?? 0,
     aceptaron: datos?.aceptaron ?? 0,
@@ -211,9 +213,8 @@ export function AceptacionesConfidencialidad() {
     (f) =>
       (filtro === "todas" ||
         (filtro === "aceptaron" ? f.vigente : !f.vigente)) &&
-      (!texto ||
-        f.persona.toLowerCase().includes(texto) ||
-        (f.correo ?? "").toLowerCase().includes(texto)),
+      // Sin distinguir tildes ni mayúsculas (búsqueda en vivo, 06/11/2026).
+      coincideBusqueda(texto, f.persona, f.correo),
   );
   const nombreFiltro = Object.fromEntries(FILTROS)[filtro];
   const textoVacio = texto
@@ -310,11 +311,13 @@ export function AceptacionesConfidencialidad() {
           {errorExportar}
         </div>
       )}
-      {datos && (
-        <p className="visually-hidden" role="status">
-          {filas.length} {filas.length === 1 ? "persona" : "personas"}
-        </p>
-      )}
+      {/* Con pausa y solo al buscar: la región anterior hablaba en cada
+          tecla (auditoría UX/UI de la búsqueda en vivo, 06/11/2026). */}
+      <AnuncioDeResultados
+        termino={texto}
+        total={filas.length}
+        sustantivo={["persona", "personas"]}
+      />
       {datos && texto && filtro !== "todas" && filas.length === 0 && (
         <p className="mb-0">
           <button

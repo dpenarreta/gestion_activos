@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
@@ -15,6 +15,8 @@ import {
   Sede,
   moneda,
 } from "./comunes";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import "./Ordenes.css";
 
 /**
@@ -43,16 +45,23 @@ function hayFiltrosActivos(filtros, iniciales) {
 export function OrdenesList() {
   const [catalogos, setCatalogos] = useState(null);
   const [errorCatalogos, setErrorCatalogos] = useState(null);
-  const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback((params) => ordenesService.list(params), []);
   const listado = useListadoPaginado(
     cargar,
     FILTROS_INICIALES,
     "No se pudieron cargar las órdenes.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
@@ -103,7 +112,7 @@ export function OrdenesList() {
         role="search"
         onSubmit={(evento) => {
           evento.preventDefault();
-          listado.actualizarFiltros({ q: busqueda });
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search" htmlFor="ot-buscar">
@@ -113,8 +122,8 @@ export function OrdenesList() {
             id="ot-buscar"
             type="search"
             placeholder="N.º, trabajo, sede o técnico"
-            value={busqueda}
-            onChange={(evento) => setBusqueda(evento.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <Filtro
@@ -152,10 +161,12 @@ export function OrdenesList() {
             <option value="">Todas</option>
           </select>
         </div>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
       {errorCatalogos && (
         <p className="mz-field-error" role="alert">
           {errorCatalogos} Los filtros de estado, prioridad y región quedan sin
@@ -163,7 +174,7 @@ export function OrdenesList() {
         </p>
       )}
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table">
           <thead>
             <tr>
@@ -227,6 +238,8 @@ export function OrdenesList() {
               textoVacio="No hay órdenes abiertas en su alcance."
               hayFiltros={hayFiltrosActivos(listado.filtros, FILTROS_INICIALES)}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
           </tbody>
         </table>

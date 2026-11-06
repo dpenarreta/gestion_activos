@@ -37,45 +37,53 @@ export function useListadoPaginado(
   // filtro escrito en la caja, que es mentir sobre lo que se está viendo.
   const vigente = useRef(0);
 
-  const consultar = useCallback(() => {
-    setIsLoading(true);
-    const esta = ++vigente.current;
-    const params = { page: pagina };
-    Object.entries(filtros).forEach(([clave, valor]) => {
-      if (valor !== "" && valor !== null && valor !== undefined) {
-        params[clave] = valor;
-      }
-    });
-    return cargar(params)
-      .then((respuesta) => {
-        if (esta !== vigente.current) return;
-        // El error se borra al cargar bien, no antes de pedir: con los
-        // listados que se refrescan solos, el aviso se volvía a anunciar en
-        // cada vuelta mientras durara el fallo (auditoría UX/UI, fase 2).
-        setError(null);
-        // Un endpoint sin paginar devuelve una lista pelada; se normaliza para
-        // que la vista no tenga que distinguir los dos casos.
-        setDatos(
-          Array.isArray(respuesta)
-            ? {
-                results: respuesta,
-                count: respuesta.length,
-                next: null,
-                previous: null,
-              }
-            : respuesta,
-        );
-      })
-      .catch((err) => {
-        if (esta !== vigente.current) return;
-        setError(err.response?.data?.error?.message || mensajeError);
-      })
-      .finally(() => {
-        // El indicador de carga también es de la consulta vigente: apagarlo
-        // desde una vieja diría «ya está» con la nueva todavía en camino.
-        if (esta === vigente.current) setIsLoading(false);
+  // `{ silencioso: true }` para los refrescos automáticos (la Bandeja cada
+  // 30 s): releen sin encender `isLoading`, así la lista no se atenúa ni
+  // dice «cargando» sin que nadie haya buscado nada (auditoría UX/UI de la
+  // búsqueda en vivo, 06/11/2026). Desde un botón llega el evento del clic,
+  // que no lo es.
+  const consultar = useCallback(
+    (opciones) => {
+      if (opciones?.silencioso !== true) setIsLoading(true);
+      const esta = ++vigente.current;
+      const params = { page: pagina };
+      Object.entries(filtros).forEach(([clave, valor]) => {
+        if (valor !== "" && valor !== null && valor !== undefined) {
+          params[clave] = valor;
+        }
       });
-  }, [cargar, filtros, pagina, mensajeError]);
+      return cargar(params)
+        .then((respuesta) => {
+          if (esta !== vigente.current) return;
+          // El error se borra al cargar bien, no antes de pedir: con los
+          // listados que se refrescan solos, el aviso se volvía a anunciar en
+          // cada vuelta mientras durara el fallo (auditoría UX/UI, fase 2).
+          setError(null);
+          // Un endpoint sin paginar devuelve una lista pelada; se normaliza para
+          // que la vista no tenga que distinguir los dos casos.
+          setDatos(
+            Array.isArray(respuesta)
+              ? {
+                  results: respuesta,
+                  count: respuesta.length,
+                  next: null,
+                  previous: null,
+                }
+              : respuesta,
+          );
+        })
+        .catch((err) => {
+          if (esta !== vigente.current) return;
+          setError(err.response?.data?.error?.message || mensajeError);
+        })
+        .finally(() => {
+          // El indicador de carga también es de la consulta vigente: apagarlo
+          // desde una vieja diría «ya está» con la nueva todavía en camino.
+          if (esta === vigente.current) setIsLoading(false);
+        });
+    },
+    [cargar, filtros, pagina, mensajeError],
+  );
 
   useEffect(() => {
     consultar();

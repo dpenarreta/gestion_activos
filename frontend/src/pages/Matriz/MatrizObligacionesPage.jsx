@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { getEmpresaActiva } from "../../api/client";
 import { matrizService } from "../../api/matrizService";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
+import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import {
@@ -70,11 +72,11 @@ export function MatrizObligacionesPage() {
   const [params, setParams] = useSearchParams();
   const panel = usePanelDePeriodo();
   const opciones = useOpcionesMatriz();
-  const [busqueda, setBusqueda] = useState(params.get("q") ?? "");
   const [agrupar, setAgrupar] = useState("");
   const [pagina, setPagina] = useState(1);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
+  const [cargando, setCargando] = useState(true);
   const [empresa, setEmpresa] = useState(null);
   const [creando, setCreando] = useState(false);
   const [importando, setImportando] = useState(false);
@@ -106,6 +108,10 @@ export function MatrizObligacionesPage() {
   const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(() => {
     const vigente = nuevaPeticion();
+    // La lista anterior se queda a la vista, atenuada, mientras llega la
+    // nueva (búsqueda en vivo, 06/11/2026): vaciarla en cada palabra haría
+    // saltar la página.
+    setCargando(true);
     matrizService
       .periodos({ ...filtros, sort: orden, page: pagina })
       .then((respuesta) => {
@@ -117,25 +123,41 @@ export function MatrizObligacionesPage() {
         (err) =>
           vigente() &&
           setError(mensajeDeError(err, "No se pudo cargar la matriz.")),
-      );
+      )
+      .finally(() => vigente() && setCargando(false));
   }, [filtros, orden, pagina, nuevaPeticion]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  // La búsqueda global de la barra superior llega por `?q=`.
-  useEffect(() => {
-    setBusqueda(params.get("q") ?? "");
-  }, [params]);
-
-  function fijarParametro(clave, valor) {
+  function fijarParametro(clave, valor, opciones) {
     const siguientes = new URLSearchParams(params);
     if (valor) siguientes.set(clave, valor);
     else siguientes.delete(clave);
-    setParams(siguientes);
+    setParams(siguientes, opciones);
     setPagina(1);
   }
+
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026). El texto va
+  // en `?q=` como el resto de los filtros, pero reemplazando la entrada del
+  // historial: Atrás no tiene que recorrer la búsqueda palabra por palabra.
+  const qDeLaUrl = params.get("q") ?? "";
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: qDeLaUrl,
+    alBuscar: (q) => fijarParametro("q", q, { replace: true }),
+  });
+
+  // La búsqueda global de la barra superior llega por `?q=`, igual que el
+  // Atrás del navegador: el campo sigue a la dirección. Solo al cambiar `q`;
+  // antes cualquier filtro devolvía el campo a lo de la dirección y se
+  // perdía lo que se estaba escribiendo.
+  const { fijar: fijarBusqueda, termino: terminoAplicado } = busqueda;
+  useEffect(() => {
+    if (qDeLaUrl !== terminoAplicado) fijarBusqueda(qDeLaUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar la dirección
+  }, [qDeLaUrl]);
 
   function ordenarPor(clave) {
     fijarParametro("sort", orden === clave ? `-${clave}` : clave);
@@ -145,8 +167,10 @@ export function MatrizObligacionesPage() {
     const siguientes = new URLSearchParams();
     if (panel.abierto) siguientes.set("periodo", String(panel.abierto));
     setParams(siguientes);
-    setBusqueda("");
+    busqueda.fijar("");
     setPagina(1);
+    // Tras limpiar, el foco vuelve al buscador (auditoría UX/UI, 06/11/2026).
+    campoBusqueda.current?.focus();
   }
 
   const filas = useMemo(() => datos?.results ?? [], [datos]);
@@ -217,7 +241,7 @@ export function MatrizObligacionesPage() {
         role="search"
         onSubmit={(e) => {
           e.preventDefault();
-          fijarParametro("q", busqueda.trim());
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search">
@@ -226,8 +250,8 @@ export function MatrizObligacionesPage() {
           <input
             type="search"
             placeholder="Obligación, código, responsable, entidad…"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <select
@@ -322,6 +346,11 @@ export function MatrizObligacionesPage() {
           </button>
         )}
       </form>
+      <AnuncioDeResultados
+        termino={qDeLaUrl}
+        total={datos?.count ?? 0}
+        cargando={cargando}
+      />
 
       {error && (
         <div className="mz-alert mz-alert--bad" role="alert">
@@ -330,7 +359,10 @@ export function MatrizObligacionesPage() {
         </div>
       )}
 
-      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+      <div
+        className="mz-table-wrap mz-table-wrap--con-tarjetas"
+        aria-busy={cargando && datos !== null}
+      >
         <table className="mz-table mz-table--ancha mz-table--clicable">
           <thead>
             <tr>
@@ -379,9 +411,23 @@ export function MatrizObligacionesPage() {
             {datos && filas.length === 0 && (
               <tr className="mz-empty-row">
                 <td colSpan={COLUMNAS.length}>
-                  {hayFiltros
-                    ? "Ningún período coincide con los filtros."
-                    : "Todavía no hay obligaciones registradas."}
+                  {qDeLaUrl
+                    ? `Ningún período coincide con «${qDeLaUrl}».`
+                    : hayFiltros
+                      ? "Ningún período coincide con los filtros."
+                      : "Todavía no hay obligaciones registradas."}
+                  {hayFiltros && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 align-baseline"
+                        onClick={limpiar}
+                      >
+                        Limpiar filtros
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             )}
@@ -437,7 +483,7 @@ export function MatrizObligacionesPage() {
         </table>
       </div>
 
-      <div className="mz-cards">
+      <div className="mz-cards" aria-busy={cargando && datos !== null}>
         {filas.map((fila) => (
           <button
             key={fila.id}

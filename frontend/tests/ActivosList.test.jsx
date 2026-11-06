@@ -5,7 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
@@ -323,22 +323,72 @@ describe("Los filtros", () => {
     expect(ultimaConsulta().antiguedad_max_meses).toBeUndefined();
   });
 
-  it("la búsqueda se envía al confirmar, no en cada tecla", async () => {
-    pintar();
+  it("filtra mientras se escribe, tras una pausa, y deja el texto en la URL", async () => {
+    /* Búsqueda en vivo (06/11/2026): ya no hay botón «Buscar». Una consulta
+       por palabra, no por letra, y `?q=` para que al recargar siga. */
+    function Ubicacion() {
+      const { search } = useLocation();
+      return <output data-testid="ubicacion">{search}</output>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/admin/activos"]}>
+        <ActivosList />
+        <Ubicacion />
+      </MemoryRouter>,
+    );
 
     await screen.findByText("Laptop Jefatura TI");
+    expect(
+      screen.queryByRole("button", { name: /^Buscar$/ }),
+    ).not.toBeInTheDocument();
     const llamadasPrevias = listarActivos.mock.calls.length;
 
     const campo = screen.getByLabelText(
       "Buscar en el inventario o escanear un código",
     );
+    fireEvent.change(campo, { target: { value: "DL" } });
     fireEvent.change(campo, { target: { value: "DL5440" } });
+    // No en cada tecla.
     expect(listarActivos.mock.calls).toHaveLength(llamadasPrevias);
 
-    fireEvent.submit(campo.closest("form"));
     await waitFor(() =>
-      expect(ultimaConsulta()).toMatchObject({ q: "DL5440" }),
+      expect(ultimaConsulta()).toMatchObject({ q: "DL5440", page: 1 }),
     );
+    expect(listarActivos.mock.calls).toHaveLength(llamadasPrevias + 1);
+    // La dirección se actualiza en una transición de React Router: llega
+    // un instante después de la consulta.
+    await waitFor(() =>
+      expect(screen.getByTestId("ubicacion")).toHaveTextContent("q=DL5440"),
+    );
+    // El foco y el texto siguen en el campo.
+    expect(campo).toHaveValue("DL5440");
+  });
+
+  it("sin resultados lo dice con el texto buscado y deja limpiar", async () => {
+    pintar();
+
+    await screen.findByText("Laptop Jefatura TI");
+    listarActivos.mockResolvedValue({ results: [], count: 0 });
+    const campo = screen.getByLabelText(
+      "Buscar en el inventario o escanear un código",
+    );
+    fireEvent.change(campo, { target: { value: "zzz" } });
+
+    expect(
+      (await screen.findAllByText("Sin resultados para «zzz».")).length,
+    ).toBeGreaterThan(0);
+    // La búsqueda no genera chip: el campo ya la muestra, y el chip empujaba
+    // la tabla al escribir (auditoría UX/UI, 06/11/2026).
+    expect(
+      screen.queryByRole("button", { name: /Quitar filtro Búsqueda/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Limpiar filtros" })[0],
+    );
+    expect(campo).toHaveValue("");
+    // El foco vuelve al buscador, no se queda en <main>.
+    expect(campo).toHaveFocus();
+    await waitFor(() => expect(ultimaConsulta()).not.toHaveProperty("q"));
   });
 
   it("un código escaneado busca solo, sin pulsar nada", async () => {
@@ -348,11 +398,16 @@ describe("Los filtros", () => {
 
     await screen.findByText("Laptop Jefatura TI");
     const campo = screen.getByPlaceholderText(/Escanee una etiqueta/);
+    // La pistola escribe en el campo enfocado.
+    campo.focus();
     fireEvent.change(campo, { target: { value: "GA-LAP-000007" } });
     fireEvent.submit(campo.closest("form"));
 
-    await waitFor(() =>
-      expect(ultimaConsulta()).toMatchObject({ q: "GA-LAP-000007" }),
+    // Sin esperar la pausa de la búsqueda en vivo (300 ms): el Enter de la
+    // pistola consulta ya.
+    await waitFor(
+      () => expect(ultimaConsulta()).toMatchObject({ q: "GA-LAP-000007" }),
+      { timeout: 150 },
     );
     // El código queda a la vista y seleccionado: la lectura siguiente lo
     // reemplaza en vez de pegarse detrás.

@@ -4,6 +4,7 @@ import {
   agruparCatalogo,
   codigosDelGrupo,
 } from "../../../utils/gruposDePermisos";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { GrupoDePermisos } from "../GrupoDePermisos/GrupoDePermisos";
 import "./PermissionsCheckboxGroup.css";
 
@@ -32,6 +33,7 @@ export function PermissionsCheckboxGroup({
   soloLectura = false,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const campoBusqueda = useRef(null);
   const [moduleFilter, setModuleFilter] = useState("");
   const [abiertos, setAbiertos] = useState(() => new Set());
 
@@ -40,7 +42,7 @@ export function PermissionsCheckboxGroup({
   const selectedCount = allCodenames.filter((codename) =>
     selected.has(codename),
   ).length;
-  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const normalizedSearch = searchTerm.trim();
   const filtrando = Boolean(normalizedSearch || moduleFilter);
 
   const gruposVisibles = grupos
@@ -51,11 +53,10 @@ export function PermissionsCheckboxGroup({
         .map(([moduleKey, module]) => [
           moduleKey,
           module,
-          Object.entries(module.permissions).filter(
-            ([codename, name]) =>
-              !normalizedSearch ||
-              codename.toLowerCase().includes(normalizedSearch) ||
-              name.toLowerCase().includes(normalizedSearch),
+          // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra
+          // en cualquier orden (búsqueda en vivo, 06/11/2026).
+          Object.entries(module.permissions).filter(([codename, name]) =>
+            coincideBusqueda(normalizedSearch, codename, name),
           ),
         ])
         .filter(([, , entradas]) => entradas.length > 0),
@@ -92,6 +93,7 @@ export function PermissionsCheckboxGroup({
       <div className="mz-filter-bar permissions-checkbox-group__filtros">
         <div>
           <input
+            ref={campoBusqueda}
             type="search"
             className="form-control form-control-sm"
             placeholder="Buscar permiso"
@@ -128,11 +130,29 @@ export function PermissionsCheckboxGroup({
       {/* Sin coincidencias, se dice en vez de dejar el hueco en blanco
           (auditoría UX/UI, fase 2, 28/10/2026). */}
       {gruposVisibles.length === 0 && (
-        <p className="mz-empty" role="status">
-          {normalizedSearch
-            ? `Ningún permiso coincide con “${searchTerm.trim()}”.`
-            : "Ningún permiso en este módulo."}
-        </p>
+        <div className="mz-empty">
+          {/* El formulario del rol ya tiene su propia región viva; aquí se
+              anuncia solo el vacío, como antes (búsqueda en vivo,
+              06/11/2026). */}
+          <p className="mb-2" role="status">
+            {normalizedSearch
+              ? `Ningún permiso coincide con “${normalizedSearch}”.`
+              : "Ningún permiso en este módulo."}
+          </p>
+          {normalizedSearch && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                setSearchTerm("");
+                // Tras limpiar, el foco vuelve al buscador (auditoría UX/UI, 06/11/2026).
+                campoBusqueda.current?.focus();
+              }}
+            >
+              Limpiar búsqueda
+            </button>
+          )}
+        </div>
       )}
 
       {gruposVisibles.map(({ grupo, bloques }) => {

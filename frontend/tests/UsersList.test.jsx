@@ -214,7 +214,25 @@ describe("El listado de usuarios", () => {
     expect(screen.queryByText("Administración")).not.toBeInTheDocument();
   });
 
-  it("la búsqueda se envía al confirmar, no en cada tecla", async () => {
+  it("filtra mientras se escribe, tras una pausa y no en cada tecla", async () => {
+    /* Búsqueda en vivo (06/11/2026): sin botón «Buscar». */
+    pintar();
+
+    await screen.findByText("acevallos");
+    const campo = screen.getByPlaceholderText(
+      "Buscar por nombre, correo o usuario",
+    );
+    fireEvent.change(campo, { target: { value: "an" } });
+    fireEvent.change(campo, { target: { value: "ana" } });
+    expect(listar).toHaveBeenCalledTimes(1);
+
+    await waitFor(() =>
+      expect(listar.mock.calls.at(-1)[0]).toMatchObject({ q: "ana" }),
+    );
+    expect(listar).toHaveBeenCalledTimes(2);
+  });
+
+  it("Enter aplica la búsqueda sin esperar", async () => {
     pintar();
 
     await screen.findByText("acevallos");
@@ -222,12 +240,11 @@ describe("El listado de usuarios", () => {
       "Buscar por nombre, correo o usuario",
     );
     fireEvent.change(campo, { target: { value: "ana" } });
-    expect(listar).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(campo, { key: "Enter" });
 
-    fireEvent.submit(campo.closest("form"));
-
-    await waitFor(() =>
-      expect(listar.mock.calls.at(-1)[0]).toMatchObject({ q: "ana" }),
+    await waitFor(
+      () => expect(listar.mock.calls.at(-1)[0]).toMatchObject({ q: "ana" }),
+      { timeout: 150 },
     );
   });
 

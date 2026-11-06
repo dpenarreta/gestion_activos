@@ -1,12 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { componentesService } from "../../../api/mantenimientosService";
+import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { usePermission } from "../../../hooks/usePermission";
 import { mensajeDeError } from "../../../utils/errores";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import "./Mantenimientos.css";
 
 const FILTROS_INICIALES = { q: "", es_critico: "" };
@@ -27,7 +30,6 @@ const VACIO = {
  */
 export function ComponentesList() {
   const puedeEditar = usePermission("mantenimientos.componentes");
-  const [busqueda, setBusqueda] = useState("");
   const [enEdicion, setEnEdicion] = useState(null);
   const cargar = useCallback((params) => componentesService.list(params), []);
   const listado = useListadoPaginado(
@@ -35,6 +37,14 @@ export function ComponentesList() {
     FILTROS_INICIALES,
     "No se pudo cargar el catálogo de componentes.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   return (
     <div className="mantenimientos-page">
@@ -65,7 +75,7 @@ export function ComponentesList() {
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
-          listado.actualizarFiltros({ q: busqueda });
+          busqueda.buscarYa();
         }}
       >
         <label className="mz-fb-search">
@@ -74,8 +84,8 @@ export function ComponentesList() {
           <input
             type="search"
             placeholder="Buscar por nombre o código"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <select
@@ -90,10 +100,12 @@ export function ComponentesList() {
           <option value="true">Solo críticas</option>
           <option value="false">Solo no críticas</option>
         </select>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {listado.error && (
         <div className="mz-alert mz-alert--bad" role="alert">
@@ -102,7 +114,7 @@ export function ComponentesList() {
         </div>
       )}
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table">
           <thead>
             <tr>
@@ -149,10 +161,21 @@ export function ComponentesList() {
                 </td>
               </tr>
             ))}
-            {!listado.isLoading && listado.resultados.length === 0 && (
-              <tr className="mz-empty-row">
-                <td colSpan={6}>Sin componentes registrados</td>
-              </tr>
+            {/* Con la búsqueda en vivo, el vacío dice qué se buscó y deja
+                limpiar búsqueda y criticidad de una vez. */}
+            {!listado.error && (
+              <FilaDeEstado
+                columnas={6}
+                vacio={!listado.isLoading && listado.resultados.length === 0}
+                textoVacio="Sin componentes registrados"
+                hayFiltros={Object.values(listado.filtros).some(Boolean)}
+                termino={listado.filtros.q}
+                campoBusquedaRef={campoBusqueda}
+                onLimpiarFiltros={() => {
+                  busqueda.fijar("");
+                  listado.actualizarFiltros(FILTROS_INICIALES);
+                }}
+              />
             )}
           </tbody>
         </table>

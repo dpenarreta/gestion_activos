@@ -5,6 +5,7 @@ import { institucionalService } from "../../api/institucionalService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { mensajeDeError } from "../../utils/errores";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 
@@ -487,14 +488,13 @@ export function PerfilesCargo({ datos, onGuardado }) {
   const [buscar, setBuscar] = useState("");
 
   const porUnidad = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
+    const texto = buscar.trim();
+    // Sin distinguir tildes ni mayúsculas (búsqueda en vivo, 06/11/2026).
     return datos.unidades
       .map((u) => ({
         unidad: u,
         cargos: datos.cargos.filter(
-          (c) =>
-            c.unidad === u.id &&
-            (!texto || c.nombre.toLowerCase().includes(texto)),
+          (c) => c.unidad === u.id && coincideBusqueda(texto, c.nombre),
         ),
       }))
       .filter((g) => g.cargos.length > 0);

@@ -11,8 +11,10 @@ import {
   errorDeProyectos,
   proyectosGhService,
 } from "../../../api/proyectosGhService";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { RUTA_GESTION_HUMANA } from "../../../modulos/permisosGestionHumana";
 import { Aviso } from "../comunes";
 import { Encabezado } from "../Tareas/ContextoTareas";
@@ -126,6 +128,8 @@ function PantallaProyectos() {
   const [creando, setCreando] = useState(false);
   const [papelera, setPapelera] = useState(false);
   const [buscar, setBuscar] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [estado, setEstado] = useState("");
   const enfocado = useRef(false);
 
@@ -153,17 +157,17 @@ function PantallaProyectos() {
     document.getElementById(idTarjeta(desde))?.focus();
   }, [proyectos, location.state]);
 
-  const visibles = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
-    return (proyectos ?? []).filter(
-      (p) =>
-        (!estado || p.status === estado) &&
-        (!texto ||
-          p.name.toLowerCase().includes(texto) ||
-          (p.area ?? "").toLowerCase().includes(texto) ||
-          (p.tags ?? []).some((t) => t.toLowerCase().includes(texto))),
-    );
-  }, [proyectos, buscar, estado]);
+  // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra en
+  // cualquier orden (búsqueda en vivo, 06/11/2026).
+  const visibles = useMemo(
+    () =>
+      (proyectos ?? []).filter(
+        (p) =>
+          (!estado || p.status === estado) &&
+          coincideBusqueda(buscar, p.name, p.area, ...(p.tags ?? [])),
+      ),
+    [proyectos, buscar, estado],
+  );
 
   const hayFiltros = Boolean(buscar.trim() || estado);
 
@@ -205,12 +209,14 @@ function PantallaProyectos() {
             <Icon name="search" />
             <span className="visually-hidden">Buscar proyectos</span>
             <input
+              ref={campoBusqueda}
               type="search"
               placeholder="Buscar por nombre, área o etiqueta"
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
             />
           </label>
+          <AnuncioDeResultados termino={buscar} total={visibles.length} />
           <select
             className="form-select form-select-sm"
             aria-label="Filtrar por estado"
@@ -233,6 +239,8 @@ function PantallaProyectos() {
         onReintentar={cargar}
         vacio={proyectos !== null && visibles.length === 0}
         hayFiltros={hayFiltros && proyectos?.length > 0}
+        termino={buscar}
+        campoBusquedaRef={campoBusqueda}
         onLimpiarFiltros={() => {
           setBuscar("");
           setEstado("");
@@ -257,7 +265,9 @@ function PantallaProyectos() {
 
       {visibles.length > 0 && (
         <>
-          <p className="mz-small mz-faint mb-0" role="status">
+          {/* Sin región viva: la búsqueda ya se anuncia con pausa en
+              AnuncioDeResultados; esta hablaba en cada tecla. */}
+          <p className="mz-small mz-faint mb-0">
             {visibles.length} {visibles.length === 1 ? "proyecto" : "proyectos"}
           </p>
           <ul className="gp-tarjetas">

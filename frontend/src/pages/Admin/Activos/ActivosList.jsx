@@ -11,11 +11,13 @@ import {
   departamentosService,
   sedesService,
 } from "../../../api/organizacionService";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { EstadoActivo } from "../../../components/activos/EstadoActivo/EstadoActivo";
 import { EstadoGarantia } from "../../../components/activos/EstadoGarantia/EstadoGarantia";
 import { NivelRenovacion } from "../../../components/activos/NivelRenovacion/NivelRenovacion";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
@@ -81,8 +83,7 @@ export function ActivosList() {
   const campoBusqueda = useRef(null);
   const [errorExportacion, setErrorExportacion] = useState(null);
   const [isExportando, setIsExportando] = useState(false);
-  const [searchParams] = useSearchParams();
-  const [busqueda, setBusqueda] = useState(() => searchParams.get("q") || "");
+  const [searchParams, setSearchParams] = useSearchParams();
   /* Los nueve desplegables ocupaban dos filas enteras y empujaban la tabla
      —que es a lo que se viene— hacia abajo. Arrancan plegados, salvo que la
      pantalla se abra ya filtrada desde otro sitio: ahí hay que poder ver y
@@ -129,6 +130,55 @@ export function ActivosList() {
     "No se pudo cargar el inventario.",
   );
 
+  // El texto buscado también va en la dirección (`?q=`): es por donde llega
+  // la búsqueda de la barra superior, y si se quedara el de entonces, al
+  // recargar volvería una búsqueda que ya no es la del campo. Se reemplaza la
+  // entrada del historial, no se apila: Atrás no recorre letra por letra.
+  const qVigente = useRef(filtrosIniciales.q);
+  const escribirQ = useCallback(
+    (q) => {
+      qVigente.current = q;
+      setSearchParams(
+        (actuales) => {
+          const nuevos = new URLSearchParams(actuales);
+          if (q) nuevos.set("q", q);
+          else nuevos.delete("q");
+          return nuevos;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026). La pistola no
+  // nota la espera: teclea el código de golpe y su Enter aplica al instante.
+  const busqueda = useBusquedaEnVivo({
+    inicial: filtrosIniciales.q,
+    alBuscar: (q) => {
+      listado.actualizarFiltros({ q });
+      escribirQ(q);
+    },
+  });
+
+  // Si la dirección cambia desde fuera —la barra superior busca otra cosa
+  // estando ya en el inventario—, el campo y el listado la siguen. Lo que
+  // escribe esta misma pantalla ya está en `qVigente` y no se repite.
+  const qDeLaUrl = searchParams.get("q") || "";
+  // Solo al cambiar la dirección: corriendo en cada render, entre aplicar la
+  // búsqueda y que la navegación llegue veía la `q` vieja y vaciaba el campo
+  // un instante (y con él la selección que espera la pistola).
+  const seguirUrl = useRef(null);
+  seguirUrl.current = (q) => {
+    busqueda.fijar(q);
+    listado.actualizarFiltros({ q });
+  };
+  useEffect(() => {
+    if (qDeLaUrl === qVigente.current) return;
+    qVigente.current = qDeLaUrl;
+    seguirUrl.current(qDeLaUrl);
+  }, [qDeLaUrl]);
+
   useEffect(() => {
     categoriasActivoService
       .list({ activa: "true", page_size: 100 })
@@ -152,14 +202,17 @@ export function ActivosList() {
 
   function handleBuscar(event) {
     event.preventDefault();
-    listado.actualizarFiltros({ q: busqueda.trim() });
     // La pistola teclea el código y cierra con Enter. El texto queda a la
     // vista —se sabe qué se buscó— pero seleccionado, así la lectura
     // siguiente lo reemplaza en vez de pegarse detrás (lo que antes hacía
     // el campo aparte del escáner al vaciarse).
+    busqueda.buscarYa();
     campoBusqueda.current?.select();
   }
 
+  // La búsqueda no tiene chip (el campo la muestra), pero cuenta para decir
+  // «Sin resultados para…» en vez de «Todavía no hay activos».
+  const hayBusqueda = Boolean(listado.filtros.q);
   const chips = describirFiltros(listado.filtros, {
     categorias,
     tipos,
@@ -169,12 +222,12 @@ export function ActivosList() {
 
   function quitarFiltro(claves) {
     const vaciados = Object.fromEntries(claves.map((clave) => [clave, ""]));
-    if (claves.includes("q")) setBusqueda("");
     listado.actualizarFiltros(vaciados);
   }
 
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
+    escribirQ("");
     listado.actualizarFiltros(
       Object.fromEntries(
         Object.keys(listado.filtros).map((clave) => [clave, ""]),
@@ -307,19 +360,15 @@ export function ActivosList() {
             ref={campoBusqueda}
             type="search"
             placeholder="Escanee una etiqueta o escriba código, serie, marca o responsable"
-            value={busqueda}
+            {...busqueda.propsCampo}
             // Una lectora no necesita corrección ni mayúsculas automáticas
             // del móvil, que además corromperían el código.
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
-            onChange={(event) => setBusqueda(event.target.value)}
           />
         </label>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm"
@@ -331,6 +380,11 @@ export function ActivosList() {
           {chips.length > 0 ? ` (${chips.length})` : ""}
         </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {chips.length > 0 && (
         <div className="mz-chips activos-filtros__chips">
@@ -583,7 +637,10 @@ export function ActivosList() {
       {/* En el teléfono, cada equipo en una tarjeta con sus acciones a 44 px:
           la tabla mide 1100 px y a 375 px solo se leía desplazándose de lado
           (revisión final UX/UI, 28/10/2026). */}
-      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+      <div
+        className="mz-table-wrap mz-table-wrap--con-tarjetas"
+        aria-busy={listado.isLoading}
+      >
         <table className="mz-table mz-table--ancha mz-table--clicable">
           <thead>
             <tr>
@@ -676,22 +733,26 @@ export function ActivosList() {
               cargando={listado.isLoading && listado.resultados.length === 0}
               vacio={listado.resultados.length === 0}
               textoVacio="Todavía no hay activos registrados."
-              hayFiltros={chips.length > 0}
+              hayFiltros={hayBusqueda || chips.length > 0}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
           </tbody>
         </table>
       </div>
       {enTarjetas && (
-        <div className="mz-cards">
+        <div className="mz-cards" aria-busy={listado.isLoading}>
           <EstadoDeCarga
             error={listado.error}
             onReintentar={listado.refresh}
             cargando={listado.isLoading && listado.resultados.length === 0}
             vacio={listado.resultados.length === 0}
             textoVacio="Todavía no hay activos registrados."
-            hayFiltros={chips.length > 0}
+            hayFiltros={hayBusqueda || chips.length > 0}
             onLimpiarFiltros={limpiarFiltros}
+            termino={listado.filtros.q}
+            campoBusquedaRef={campoBusqueda}
           />
           {listado.resultados.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Activos">

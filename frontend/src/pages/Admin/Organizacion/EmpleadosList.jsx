@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -9,10 +9,12 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
 import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
@@ -20,7 +22,6 @@ const FILTROS_INICIALES = { q: "", departamento: "", activo: "" };
 
 export function EmpleadosList() {
   const puedeEditar = usePermission("organizacion.editar");
-  const [busqueda, setBusqueda] = useState("");
   const [departamentos, setDepartamentos] = useState([]);
   const enTarjetas = useVistaDeTarjetas();
   const cargar = useCallback((params) => empleadosService.list(params), []);
@@ -29,6 +30,14 @@ export function EmpleadosList() {
     FILTROS_INICIALES,
     "No se pudo cargar el listado de empleados.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   useEffect(() => {
     departamentosService
@@ -41,13 +50,13 @@ export function EmpleadosList() {
 
   function handleBuscar(event) {
     event.preventDefault();
-    listado.actualizarFiltros({ q: busqueda });
+    busqueda.buscarYa();
   }
 
-  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
-  // próximo «Buscar» volvería a filtrar por él.
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí
+  // diciendo un filtro que ya no se aplica.
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
@@ -80,8 +89,8 @@ export function EmpleadosList() {
           <input
             type="search"
             placeholder="Nombre, código o correo"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <select
@@ -111,15 +120,20 @@ export function EmpleadosList() {
           <option value="true">Activos</option>
           <option value="false">Inactivos</option>
         </select>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {/* En el teléfono, cada empleado en una tarjeta: ocho columnas a 375 px
           solo se leían desplazándose de lado (revisión final UX/UI,
           28/10/2026). */}
-      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+      <div
+        aria-busy={listado.isLoading}
+        className="mz-table-wrap mz-table-wrap--con-tarjetas"
+      >
         <table className="mz-table">
           <thead>
             <tr>
@@ -146,6 +160,8 @@ export function EmpleadosList() {
               textoVacio="Todavía no hay empleados registrados."
               hayFiltros={hayFiltros}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
             {!listado.error &&
               listado.resultados.map((empleado) => (
@@ -208,6 +224,8 @@ export function EmpleadosList() {
             textoVacio="Todavía no hay empleados registrados."
             hayFiltros={hayFiltros}
             onLimpiarFiltros={limpiarFiltros}
+            termino={listado.filtros.q}
+            campoBusquedaRef={campoBusqueda}
           />
           {!listado.error && listado.resultados.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Empleados">

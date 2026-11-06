@@ -115,10 +115,8 @@ describe("Estados de la pantalla", () => {
     fireEvent.change(screen.getByLabelText("Buscar"), {
       target: { value: "zzz" },
     });
-    expect(
-      screen.getByText("Ningún resultado con estos filtros."),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+    expect(screen.getByText("Sin resultados para «zzz».")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
     expect(screen.getByText("Informe mensual")).toBeInTheDocument();
   });
 });

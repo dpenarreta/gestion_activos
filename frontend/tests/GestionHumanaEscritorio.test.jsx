@@ -986,7 +986,7 @@ describe("Contador de notas sin leer", () => {
 });
 
 describe("Buscar", () => {
-  it("manda los filtros, los deja en la URL y muestra notas y recordatorios", async () => {
+  it("busca mientras se escribe (sin botón), deja los filtros en la URL y muestra notas y recordatorios", async () => {
     pintar("?seccion=buscar");
     expect(
       await screen.findByText(/Escriba un texto o elija un filtro/),
@@ -997,7 +997,10 @@ describe("Buscar", () => {
     fireEvent.change(screen.getByLabelText("Estado"), {
       target: { value: "PENDIENTE" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^Buscar$/ }));
+    // Búsqueda en vivo (06/11/2026): ya no hay botón «Buscar».
+    expect(
+      screen.queryByRole("button", { name: /^Buscar$/ }),
+    ).not.toBeInTheDocument();
     await waitFor(() =>
       expect(servicio.buscar).toHaveBeenCalledWith(
         expect.objectContaining({ q: "informe", status: "PENDIENTE" }),

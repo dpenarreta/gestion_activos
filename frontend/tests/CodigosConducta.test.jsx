@@ -438,7 +438,11 @@ describe("Gestionar documentos", () => {
       target: { value: "ana@" },
     });
     expect(screen.getAllByText("Ana Paz")[0]).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("1 persona");
+    // El total se anuncia con pausa, cuando se deja de escribir (búsqueda en
+    // vivo, 06/11/2026), y no en cada tecla.
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("1 persona"),
+    );
     expect(screen.queryByText("Luis Mora")).toBeNull();
   });
 

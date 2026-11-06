@@ -5,13 +5,22 @@
  * lo que reportaron los supervisores: el servidor lo garantiza y la pantalla
  * solo lo refleja.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { errorDeNovedades, novedadesService } from "../../api/novedadesService";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { ModalDialog } from "../../components/common/ModalDialog/ModalDialog";
+import { coincideBusqueda } from "../../utils/busqueda";
 import {
   Aviso,
   HORAS_MIENTRAS_ESCRIBE,
@@ -83,6 +92,8 @@ function Base({ periodo }) {
   const [filas, setFilas] = useState([]);
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [creando, setCreando] = useState(false);
   const [historial, setHistorial] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -284,16 +295,17 @@ function Base({ periodo }) {
     }
   }
 
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return q
-      ? filas.filter(
-          (f) =>
-            f.full_name.toLowerCase().includes(q) ||
-            String(f.cedula).toLowerCase().includes(q),
-        )
-      : filas;
-  }, [filas, busqueda]);
+  // En cada tecla, sin distinguir tildes ni mayúsculas, con el valor
+  // diferido para no trabar el tecleo en un mes con muchas filas (búsqueda
+  // en vivo, 06/11/2026).
+  const buscado = useDeferredValue(busqueda.trim());
+  const visibles = useMemo(
+    () =>
+      buscado
+        ? filas.filter((f) => coincideBusqueda(buscado, f.full_name, f.cedula))
+        : filas,
+    [filas, buscado],
+  );
 
   if (error) return <EstadoDeCarga error={error} onReintentar={cargar} />;
   if (!estado) return <EstadoDeCarga cargando />;
@@ -381,6 +393,7 @@ function Base({ periodo }) {
             <div className="mz-fb-search">
               <Icon name="search" />
               <input
+                ref={campoBusqueda}
                 type="search"
                 aria-label="Buscar por cédula o nombre"
                 placeholder="Buscar cédula o nombre"
@@ -389,6 +402,7 @@ function Base({ periodo }) {
               />
             </div>
           </div>
+          <AnuncioDeResultados termino={buscado} total={visibles.length} />
           {filas.length === 0 ? (
             <EstadoDeCarga
               vacio
@@ -398,6 +412,9 @@ function Base({ periodo }) {
             <EstadoDeCarga
               vacio
               hayFiltros
+              termino={buscado}
+              campoBusquedaRef={campoBusqueda}
+              etiquetaLimpiar="Limpiar búsqueda"
               onLimpiarFiltros={() => setBusqueda("")}
             />
           ) : (

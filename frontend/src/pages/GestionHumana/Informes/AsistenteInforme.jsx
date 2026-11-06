@@ -16,8 +16,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { errorDeInformes, informesService } from "../../../api/informesService";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { sumarMeses } from "../Desempeno/kpiComunes";
 import { ROLES, rolLegible } from "../Tareas/tareasComunes";
 import { Ventana } from "../Tareas/Ventanas";
@@ -234,15 +236,15 @@ export function AsistenteInforme({ onCerrar, onGenerado }) {
   }, [personas]);
 
   const [buscar, setBuscar] = useState("");
-  const visibles = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
-    if (!texto) return personas;
-    return personas.filter((p) =>
-      [p.full_name, p.name, p.cargo, p.unidad]
-        .filter(Boolean)
-        .some((t) => t.toLowerCase().includes(texto)),
-    );
-  }, [personas, buscar]);
+  // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra en
+  // cualquier orden (búsqueda en vivo, 06/11/2026).
+  const visibles = useMemo(
+    () =>
+      personas.filter((p) =>
+        coincideBusqueda(buscar, p.full_name, p.name, p.cargo, p.unidad),
+      ),
+    [personas, buscar],
+  );
 
   // Vista previa: cuántas personas entran con los filtros, preguntada al
   // servidor (la misma regla que aplicará al generar). Con una pausa corta
@@ -666,6 +668,10 @@ export function AsistenteInforme({ onCerrar, onGenerado }) {
                     placeholder="Nombre, cargo o área"
                     value={buscar}
                     onChange={(e) => setBuscar(e.target.value)}
+                  />
+                  <AnuncioDeResultados
+                    termino={buscar}
+                    total={visibles.length}
                   />
                 </div>
                 <GrupoDeCasillas

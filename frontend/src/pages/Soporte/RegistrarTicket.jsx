@@ -74,14 +74,20 @@ export function RegistrarTicket() {
     if (persona) return undefined;
     // Mientras busca dice «Buscando…» (antes, «Nadie con ese nombre»).
     setBuscando(true);
+    // Solo cuenta la respuesta de lo último escrito: una lenta no pisa a la
+    // más nueva (búsqueda en vivo, 06/11/2026).
+    let vigente = true;
     const temporizador = setTimeout(() => {
       soporteService
         .personas(busqueda)
-        .then(setPersonas)
-        .catch(() => setPersonas([]))
-        .finally(() => setBuscando(false));
+        .then((lista) => vigente && setPersonas(lista))
+        .catch(() => vigente && setPersonas([]))
+        .finally(() => vigente && setBuscando(false));
     }, 250);
-    return () => clearTimeout(temporizador);
+    return () => {
+      vigente = false;
+      clearTimeout(temporizador);
+    };
   }, [busqueda, persona]);
 
   const faltan = persona?.faltan ?? [];

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { empresasService } from "../../../api/empresasService";
@@ -13,6 +13,8 @@ import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Empresas.css";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 
 const FILTROS_INICIALES = {};
 
@@ -28,7 +30,6 @@ const FILTROS_INICIALES = {};
 export function EmpresasList() {
   const multiempresa = useMultiempresa();
   const puedeEditar = usePermission("empresas.editar");
-  const [busqueda, setBusqueda] = useState("");
   const enTarjetas = useVistaDeTarjetas();
   const cargar = useCallback((params) => empresasService.list(params), []);
   const listado = useListadoPaginado(
@@ -36,14 +37,22 @@ export function EmpresasList() {
     FILTROS_INICIALES,
     "No se pudo cargar el listado de empresas.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   function handleBuscar(event) {
     event.preventDefault();
-    listado.actualizarFiltros({ q: busqueda });
+    busqueda.buscarYa();
   }
 
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros({ q: "" });
   }
 
@@ -74,19 +83,24 @@ export function EmpresasList() {
           <input
             type="search"
             placeholder="Buscar por nombre"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
       {/* En el teléfono, cada empresa en una tarjeta: siete columnas a 375 px
           solo se leían desplazándose de lado (revisión final UX/UI,
           28/10/2026). */}
-      <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+      <div
+        aria-busy={listado.isLoading}
+        className="mz-table-wrap mz-table-wrap--con-tarjetas"
+      >
         <table className="mz-table">
           <thead>
             <tr>
@@ -112,6 +126,8 @@ export function EmpresasList() {
               textoVacio="Todavía no hay empresas registradas."
               hayFiltros={Boolean(listado.filtros.q)}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
             {!listado.error &&
               listado.resultados.map((empresa) => (
@@ -170,6 +186,8 @@ export function EmpresasList() {
             textoVacio="Todavía no hay empresas registradas."
             hayFiltros={Boolean(listado.filtros.q)}
             onLimpiarFiltros={limpiarFiltros}
+            termino={listado.filtros.q}
+            campoBusquedaRef={campoBusqueda}
           />
           {!listado.error && listado.resultados.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Empresas">

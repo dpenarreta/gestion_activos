@@ -258,7 +258,7 @@ describe("El listado de empresas", () => {
     fireEvent.submit(campo.closest("form"));
 
     expect(
-      await screen.findByText("Ningún resultado con estos filtros."),
+      await screen.findByText("Sin resultados para «nada»."),
     ).toBeInTheDocument();
 
     listar.mockResolvedValue({ results: EMPRESAS, count: 2 });

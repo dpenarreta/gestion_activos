@@ -4,7 +4,7 @@
  * y el nuevo. Lo consultan el Administrador y el Asistente de Operaciones; el
  * Supervisor ve el Repositorio mensual (restricción del servidor).
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { errorDeNovedades, novedadesService } from "../../api/novedadesService";
@@ -12,8 +12,10 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { RUTA_GESTION_HUMANA } from "../../modulos/permisosGestionHumana";
 import { ROL_OPERATIVO, fechaHora } from "./comunes";
 import {
@@ -74,6 +76,8 @@ function PantallaHistorial() {
   const [desde, setDesde] = useState(0);
   const [operacion, setOperacion] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [todosLosPeriodos, setTodosLosPeriodos] = useState(false);
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -81,10 +85,16 @@ function PantallaHistorial() {
   const enTarjetas = useVistaDeTarjetas();
   const puedeVer = me.can_view_history;
 
+  // Con la búsqueda en vivo (06/11/2026) la lista anterior se queda a la
+  // vista, atenuada, mientras llega la nueva —antes se vaciaba en cada
+  // palabra—, y solo cuenta la respuesta de lo último escrito.
+  const nuevaPeticion = useUltimaPeticion();
+  const [cargando, setCargando] = useState(true);
   const cargar = useCallback(async () => {
     if (!puedeVer) return;
+    const vigente = nuevaPeticion();
     setError(null);
-    setEventos(null);
+    setCargando(true);
     try {
       const datos = await novedadesService.historial({
         period: todosLosPeriodos ? undefined : periodo,
@@ -96,9 +106,13 @@ function PantallaHistorial() {
         offset: desde,
         limit: PAGINA,
       });
+      if (!vigente()) return;
       setEventos(datos.results);
       setCuenta(datos.count);
+      setCargando(false);
     } catch (err) {
+      if (!vigente()) return;
+      setCargando(false);
       setEventos([]);
       setError(
         errorDeNovedades(err, "No se pudo cargar el historial.").mensaje,
@@ -114,6 +128,7 @@ function PantallaHistorial() {
     fechaDesde,
     fechaHasta,
     desde,
+    nuevaPeticion,
   ]);
 
   useEffect(() => {
@@ -155,6 +170,8 @@ function PantallaHistorial() {
     vacio: eventos !== null && eventos.length === 0,
     textoVacio: "Sin eventos registrados en este período.",
     hayFiltros,
+    termino: busqueda.trim(),
+    campoBusquedaRef: campoBusqueda,
     onLimpiarFiltros: () => {
       setOperacion("");
       setBusqueda("");
@@ -190,6 +207,7 @@ function PantallaHistorial() {
         <div className="mz-fb-search">
           <Icon name="search" />
           <input
+            ref={campoBusqueda}
             type="search"
             aria-label="Buscar colaborador"
             placeholder="Buscar colaborador"
@@ -247,9 +265,14 @@ function PantallaHistorial() {
           />
         </div>
       </div>
+      <AnuncioDeResultados
+        termino={busqueda}
+        total={cuenta}
+        cargando={cargando}
+      />
 
       {!enTarjetas && (
-        <div className="mz-table-wrap">
+        <div className="mz-table-wrap" aria-busy={cargando && eventos !== null}>
           <table className="mz-table mz-table--ancha">
             <caption className="visually-hidden">
               Historial de registros
@@ -302,7 +325,7 @@ function PantallaHistorial() {
         </div>
       )}
       {enTarjetas && (
-        <div className="mz-cards">
+        <div className="mz-cards" aria-busy={cargando && eventos !== null}>
           <EstadoDeCarga {...estadoDeCarga} />
           {eventos?.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Historial de registros">

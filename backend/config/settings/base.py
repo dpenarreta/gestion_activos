@@ -336,7 +336,13 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_THROTTLE_RATES": {
         "anon": env.str("DEFAULT_THROTTLE_RATE_ANON", default="100/hour"),
-        "user": env.str("DEFAULT_THROTTLE_RATE_USER", default="1000/hour"),
+        # Por minuto y holgado (06/11/2026): con 1000 por hora, abrir unas
+        # pestañas (Inicio sola dispara una docena de consultas) más lo que cada
+        # una consulta de fondo agotaba el cupo y la persona quedaba bloqueada
+        # hasta que se vaciara la hora («Intente de nuevo en 5 minutos»). 600
+        # por minuto sigue frenando un bucle o un abuso, nunca el trabajo con
+        # varias pestañas, y si algo llega al tope la espera es de segundos.
+        "user": env.str("DEFAULT_THROTTLE_RATE_USER", default="600/min"),
         "login": env.str("LOGIN_THROTTLE_RATE", default="10/min"),
         "password_reset": env.str("PASSWORD_RESET_THROTTLE_RATE", default="5/hour"),
         # Holgado a propósito: una sesión de trabajo renueva su token cada pocos
@@ -364,15 +370,16 @@ REST_FRAMEWORK = {
         # chat, la campana): va aparte del límite general por persona. Si no,
         # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000
         # por hora y todo lo demás empezaba a responder 429 (19/10/2026).
-        "sondeo": env.str("SONDEO_THROTTLE_RATE", default="2400/hour"),
+        # Por minuto: el cupo por hora se agotaba con tres pestañas abiertas.
+        "sondeo": env.str("SONDEO_THROTTLE_RATE", default="600/min"),
         # Las llamadas del ticket: cada pantalla abierta pregunta cada 3 s si
         # alguien llama (y, en llamada, manda su «sigo aquí»). Con el límite
         # general, dos pestañas agotaban los 1000 por hora en media hora y la
         # persona quedaba sin poder ni entrar (04/11/2026). Va con el suyo.
-        "llamadas": env.str("LLAMADAS_THROTTLE_RATE", default="7200/hour"),
+        "llamadas": env.str("LLAMADAS_THROTTLE_RATE", default="600/min"),
         # La ficha del ticket abierta se refresca sola cada 10 s para que la
         # conversación llegue al momento (antes eso lo hacía un chat aparte).
-        "conversacion": env.str("CONVERSACION_THROTTLE_RATE", default="2400/hour"),
+        "conversacion": env.str("CONVERSACION_THROTTLE_RATE", default="600/min"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
     },
 }

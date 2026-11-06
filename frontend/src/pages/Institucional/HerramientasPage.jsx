@@ -14,6 +14,7 @@ import {
 } from "../../components/common/Pestanas/Pestanas";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { AccesosHerramienta } from "./AccesosHerramienta";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import "./Institucional.css";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
@@ -250,16 +251,13 @@ export function HerramientasPage() {
   }
 
   const filtradas = useMemo(() => {
-    const texto = buscar.trim().toLowerCase();
+    const texto = buscar.trim();
     if (!uso || !texto) return uso ?? [];
+    // Sin distinguir tildes ni mayúsculas (búsqueda en vivo, 06/11/2026).
     return uso.filter(
       (h) =>
-        h.nombre.toLowerCase().includes(texto) ||
-        h.usuarios.some(
-          (u) =>
-            u.nombre.toLowerCase().includes(texto) ||
-            u.correo.toLowerCase().includes(texto),
-        ),
+        coincideBusqueda(texto, h.nombre) ||
+        h.usuarios.some((u) => coincideBusqueda(texto, u.nombre, u.correo)),
     );
   }, [uso, buscar]);
 

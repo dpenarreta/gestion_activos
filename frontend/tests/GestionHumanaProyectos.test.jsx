@@ -180,13 +180,31 @@ describe("Listado de proyectos", () => {
         target: { value: "zzz" },
       },
     );
-    expect(
-      screen.getByText("Ningún resultado con estos filtros."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Sin resultados para «zzz».")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     expect(
       screen.getByRole("link", { name: "Kits escolares" }),
     ).toBeInTheDocument();
+  });
+
+  it("filtra en cada tecla sin distinguir tildes ni mayúsculas", async () => {
+    /* Búsqueda en vivo (06/11/2026): filtro local, inmediato. */
+    servicio.listar.mockResolvedValue([
+      proyecto({ id: 13, name: "Capacitación anual", tags: [], area: "" }),
+      proyecto({ id: 12, name: "Kits escolares", tags: [], area: "" }),
+    ]);
+    pintar();
+    await screen.findByRole("link", { name: "Kits escolares" });
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Buscar proyectos" }),
+      { target: { value: "CAPACITACION" } },
+    );
+    expect(
+      screen.getByRole("link", { name: "Capacitación anual" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Kits escolares" }),
+    ).not.toBeInTheDocument();
   });
 
   it("sin `proyectos_gh.crear` no ofrece crear ni la papelera", async () => {

@@ -7,12 +7,14 @@ import {
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Paginacion } from "../../components/common/Paginacion/Paginacion";
 import {
   PanelDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
 import { useAuth } from "../../hooks/useAuth";
+import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
 import { PERMISOS_SOPORTE } from "../../modulos/permisosSoporte";
@@ -75,7 +77,6 @@ export function Bandeja({ todos = false }) {
       },
       { replace: true },
     );
-  const [busqueda, setBusqueda] = useState("");
   const [aviso, setAviso] = useState(null);
   const [error, setError] = useState(null);
   const [tomando, setTomando] = useState(false);
@@ -96,19 +97,17 @@ export function Bandeja({ todos = false }) {
     "No se pudieron cargar los tickets.",
   );
   const { refresh, actualizarFiltros } = listado;
-  const buscado = listado.filtros.q;
 
   // La búsqueda se aplica sola al dejar de escribir (antes había que pulsar
-  // «Buscar» y el estado, en cambio, se aplicaba al instante).
-  useEffect(() => {
-    if (busqueda.trim() === buscado) return undefined;
-    const espera = setTimeout(
-      () => actualizarFiltros({ q: busqueda.trim() }),
-      300,
-    );
-    return () => clearTimeout(espera);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al escribir
-  }, [busqueda]);
+  // «Buscar» y el estado, en cambio, se aplicaba al instante). Desde el
+  // 06/11/2026 con el hook común de la búsqueda en vivo, que además hace que
+  // Enter aplique sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => actualizarFiltros({ q }),
+  });
 
   const cargarCabecera = useCallback(() => {
     // Quien no es del equipo no tiene estado de técnico que mostrar: pedirlo
@@ -124,7 +123,7 @@ export function Bandeja({ todos = false }) {
     cargarCabecera();
     const intervalo = setInterval(() => {
       cargarCabecera();
-      refresh?.();
+      refresh?.({ silencioso: true });
     }, REFRESCO_MS);
     return () => clearInterval(intervalo);
   }, [cargarCabecera, refresh]);
@@ -163,7 +162,7 @@ export function Bandeja({ todos = false }) {
     listado.filtros.vencidos,
   );
   const limpiarFiltros = () => {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros({
       q: "",
       estado: "",
@@ -345,7 +344,7 @@ export function Bandeja({ todos = false }) {
               role="search"
               onSubmit={(e) => {
                 e.preventDefault();
-                listado.actualizarFiltros({ q: busqueda.trim() });
+                busqueda.buscarYa();
               }}
             >
               <label className="mz-fb-search" htmlFor="sb-buscar">
@@ -355,8 +354,8 @@ export function Bandeja({ todos = false }) {
                   id="sb-buscar"
                   type="search"
                   placeholder="N.º de ticket, solicitante o descripción"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
+                  ref={campoBusqueda}
+                  {...busqueda.propsCampo}
                 />
               </label>
               {ambito !== "cola" && (
@@ -412,6 +411,11 @@ export function Bandeja({ todos = false }) {
                 <span className="form-check-label">Solo vencidos</span>
               </label>
             </form>
+            <AnuncioDeResultados
+              termino={listado.filtros.q}
+              total={listado.total}
+              cargando={listado.isLoading}
+            />
             {ambito !== "cola" && (
               <p className="mz-small mz-faint mb-2">
                 Primero lo que vence antes.
@@ -421,7 +425,10 @@ export function Bandeja({ todos = false }) {
             {/* En el teléfono, cada ticket en una tarjeta como en la Matriz:
                 ocho columnas a 375 px solo se leían desplazándose de lado
                 (auditoría UX/UI, fase 3, 28/10/2026). */}
-            <div className="mz-table-wrap mz-table-wrap--con-tarjetas">
+            <div
+              className="mz-table-wrap mz-table-wrap--con-tarjetas"
+              aria-busy={listado.isLoading}
+            >
               <table className="mz-table">
                 <thead>
                   <tr>
@@ -490,6 +497,8 @@ export function Bandeja({ todos = false }) {
                     vacio={listado.resultados.length === 0}
                     hayFiltros={hayFiltros}
                     onLimpiarFiltros={limpiarFiltros}
+                    termino={listado.filtros.q}
+                    campoBusquedaRef={campoBusqueda}
                     textoVacio={textoVacio}
                     accionVacio={accionVacio}
                   />
@@ -497,7 +506,7 @@ export function Bandeja({ todos = false }) {
               </table>
             </div>
             {enTarjetas && (
-              <div className="mz-cards">
+              <div className="mz-cards" aria-busy={listado.isLoading}>
                 <EstadoDeCarga
                   cargando={
                     listado.isLoading && listado.resultados.length === 0
@@ -507,6 +516,8 @@ export function Bandeja({ todos = false }) {
                   vacio={listado.resultados.length === 0}
                   hayFiltros={hayFiltros}
                   onLimpiarFiltros={limpiarFiltros}
+                  termino={listado.filtros.q}
+                  campoBusquedaRef={campoBusqueda}
                   textoVacio={textoVacio}
                   accionVacio={accionVacio}
                 />

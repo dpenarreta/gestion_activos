@@ -16,8 +16,10 @@ import {
   LeyendaObligatorios,
   enfocarPrimerError,
 } from "../../../components/common/Campo/Campo";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import { ErrorEnLinea } from "../comunes";
 import { PreviaHoras } from "../Tareas/Indicadores";
 import {
@@ -91,8 +93,10 @@ export function FormularioProyecto({
     return lista.sort((a, b) => nombreDe(a).localeCompare(nombreDe(b), "es"));
   }, [miembros, proyecto]);
 
+  // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra en
+  // cualquier orden (búsqueda en vivo, 06/11/2026).
   const filtrados = opciones.filter((m) =>
-    nombreDe(m).toLowerCase().includes(filtro.trim().toLowerCase()),
+    coincideBusqueda(filtro, nombreDe(m)),
   );
 
   function validar() {
@@ -402,6 +406,15 @@ export function FormularioProyecto({
                   placeholder="Buscar por nombre"
                   value={filtro}
                   onChange={(e) => setFiltro(e.target.value)}
+                  // Enter aquí filtra (ya lo hace solo); no debe guardar el
+                  // proyecto a medio llenar.
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.preventDefault();
+                  }}
+                />
+                <AnuncioDeResultados
+                  termino={filtro}
+                  total={filtrados.length}
                 />
                 <ul className="gh-seleccion gh-desplazable">
                   {filtrados.map((m) => (

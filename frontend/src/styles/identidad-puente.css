@@ -354,3 +354,31 @@ dl.mz-kv-grid dd {
 .mz-view {
   max-width: none;
 }
+
+/* Búsqueda en vivo (06/11/2026): mientras llega el resultado de lo que se
+   está escribiendo, la lista anterior se queda —vaciarla en cada palabra
+   haría saltar la página— pero atenuada, para que se note que va a cambiar.
+   Cualquier contenedor marcado con `mz-atenuable` y los marcos de tabla y
+   tarjetas de siempre. */
+.mz-table-wrap[aria-busy="true"],
+.mz-cards[aria-busy="true"],
+.mz-atenuable[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-table-wrap[aria-busy="true"],
+  .mz-cards[aria-busy="true"],
+  .mz-atenuable[aria-busy="true"] {
+    transition: none;
+  }
+}
+
+/* El texto de ejemplo de los buscadores de las barras de filtro con el gris
+   de la identidad: el del navegador quedaba en 4,18:1 (auditoría UX/UI de la
+   búsqueda en vivo, 06/11/2026). */
+.mz-fb-search input::placeholder {
+  color: var(--mz-ink-faint);
+  opacity: 1;
+}

@@ -6,19 +6,22 @@
  * acceso al resto del módulo: por eso no usa el marco de `novedades/me/`.
  * Filtrar, paginar o exportar nunca crea movimientos ni envía correos.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { errorDeNovedades, novedadesService } from "../../api/novedadesService";
 import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import {
   PanelDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
+import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { EstadoColaborador, fecha, fechaHora } from "./comunes";
 import { Encabezado } from "./ContextoNovedades";
 import "./GestionHumana.css";
@@ -125,7 +128,6 @@ export function IngresosSalidas() {
 
 function Movimientos({ tipo, opciones }) {
   const [filtros, setFiltros] = useState(FILTROS);
-  const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const [tamano, setTamano] = useState(25);
   const [datos, setDatos] = useState(null);
@@ -135,34 +137,40 @@ function Movimientos({ tipo, opciones }) {
   const enTarjetas = useVistaDeTarjetas();
   const esIngreso = tipo === "entries";
 
-  // La búsqueda por texto espera a que se deje de escribir.
-  useEffect(() => {
-    const reloj = setTimeout(() => {
-      setFiltros((f) =>
-        f.q === busqueda.trim() ? f : { ...f, q: busqueda.trim() },
-      );
+  // La búsqueda por texto espera a que se deje de escribir, y Enter la
+  // aplica sin esperar (búsqueda en vivo, 06/11/2026).
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    alBuscar: (q) => {
+      setFiltros((f) => (f.q === q ? f : { ...f, q }));
       setPagina(1);
-    }, 350);
-    return () => clearTimeout(reloj);
-  }, [busqueda]);
+    },
+  });
 
+  // Solo cuenta la respuesta de la consulta vigente: una lenta no pisa a la
+  // de lo último escrito.
+  const nuevaPeticion = useUltimaPeticion();
   const cargar = useCallback(async () => {
+    const vigente = nuevaPeticion();
     setCargando(true);
     setError(null);
     try {
-      setDatos(
-        await novedadesService.movimientos(tipo, {
-          ...filtros,
-          page: pagina,
-          page_size: tamano,
-        }),
-      );
+      const respuesta = await novedadesService.movimientos(tipo, {
+        ...filtros,
+        page: pagina,
+        page_size: tamano,
+      });
+      if (vigente()) setDatos(respuesta);
     } catch (err) {
-      setError(errorDeNovedades(err, "No se pudo cargar la consulta.").mensaje);
+      if (vigente())
+        setError(
+          errorDeNovedades(err, "No se pudo cargar la consulta.").mensaje,
+        );
     } finally {
-      setCargando(false);
+      if (vigente()) setCargando(false);
     }
-  }, [tipo, filtros, pagina, tamano]);
+  }, [tipo, filtros, pagina, tamano, nuevaPeticion]);
 
   useEffect(() => {
     cargar();
@@ -173,7 +181,7 @@ function Movimientos({ tipo, opciones }) {
     setPagina(1);
   };
   const limpiar = () => {
-    setBusqueda("");
+    busqueda.fijar("");
     setFiltros({ ...FILTROS, order: filtros.order });
     setPagina(1);
   };
@@ -219,6 +227,8 @@ function Movimientos({ tipo, opciones }) {
       ? "Todavía no hay ingresos registrados."
       : "Todavía no hay salidas registradas.",
     hayFiltros: activos.length > 0,
+    termino: filtros.q,
+    campoBusquedaRef: campoBusqueda,
     onLimpiarFiltros: limpiar,
   };
   const columnas = esIngreso ? 10 : 9;
@@ -261,6 +271,11 @@ function Movimientos({ tipo, opciones }) {
           )}
         </div>
       )}
+      <AnuncioDeResultados
+        termino={filtros.q}
+        total={datos?.count ?? 0}
+        cargando={cargando}
+      />
       <div className="mz-filter-bar" role="group" aria-label="Filtros">
         <div className="mz-fb-search">
           <Icon name="search" />
@@ -268,8 +283,8 @@ function Movimientos({ tipo, opciones }) {
             type="search"
             aria-label="Buscar por cédula o nombre"
             placeholder="Buscar cédula o nombre"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </div>
         <div className="mz-inline-field">
@@ -385,7 +400,7 @@ function Movimientos({ tipo, opciones }) {
       )}
 
       {!enTarjetas && (
-        <div className="mz-table-wrap">
+        <div className="mz-table-wrap" aria-busy={cargando && Boolean(datos)}>
           <table className="mz-table mz-table--ancha">
             <caption className="visually-hidden">
               {esIngreso ? "Ingresos" : "Salidas"}
@@ -445,7 +460,7 @@ function Movimientos({ tipo, opciones }) {
         </div>
       )}
       {enTarjetas && (
-        <div className="mz-cards">
+        <div className="mz-cards" aria-busy={cargando && Boolean(datos)}>
           <EstadoDeCarga {...estadoDeCarga} />
           {resultados.length > 0 && (
             <ul

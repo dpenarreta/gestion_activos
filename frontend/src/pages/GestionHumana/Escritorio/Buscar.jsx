@@ -5,13 +5,14 @@
  * remitente, destinatario y estado. Hasta 50 de cada uno (lo corta el
  * servidor). Los filtros viven en la URL: al recargar, la búsqueda sigue.
  */
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
   errorDeEscritorio,
   escritorioService,
 } from "../../../api/escritorioService";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { ESPERA_BUSQUEDA_MS } from "../../../hooks/useBusquedaEnVivo";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { fechaHora } from "../comunes";
 import { useEscritorio } from "./ContextoEscritorio";
@@ -37,6 +38,16 @@ const ESTADOS = [
 
 const MAXIMO = 50;
 
+/** Los campos de texto esperan a que se deje de escribir; el resto, no. */
+const DE_TEXTO = new Set(["q", "sender", "recipient"]);
+
+const limpios = (borrador) =>
+  Object.fromEntries(
+    FILTROS_DE_BUSQUEDA.map((c) => [c, String(borrador[c] ?? "").trim()]),
+  );
+const claveDe = (filtros) =>
+  FILTROS_DE_BUSQUEDA.map((c) => filtros[c] ?? "").join("|");
+
 export function Buscar({ filtros, onBuscar }) {
   const { prioridadesNota, prioridadesRecordatorio, estadosRecordatorio } =
     useEscritorio();
@@ -47,11 +58,23 @@ export function Buscar({ filtros, onBuscar }) {
   const [error, setError] = useState(null);
   const [vez, setVez] = useState(0);
   const [abierta, setAbierta] = useState(null);
-  const clave = FILTROS_DE_BUSQUEDA.map((c) => filtros[c] ?? "").join("|");
+  const [cargando, setCargando] = useState(false);
+  const clave = claveDe(filtros);
   const hayBusqueda = FILTROS_DE_BUSQUEDA.some((c) => filtros[c]);
+  // Búsqueda en vivo (06/11/2026): lo escrito se aplica solo, 300 ms después
+  // de la última tecla; los desplegables y el día, al momento; Enter, ya.
+  const temporizador = useRef(null);
+  // Lo último que este formulario mandó a la URL: cuando vuelve por `filtros`
+  // no hay que reescribir el borrador (se perdería un espacio recién
+  // tecleado, o lo que se siguió escribiendo mientras tanto).
+  const aplicada = useRef(clave);
 
-  // Si la URL cambia (atrás, adelante), el formulario la sigue.
+  useEffect(() => () => clearTimeout(temporizador.current), []);
+
+  // Si la URL cambia desde fuera (atrás, adelante), el formulario la sigue.
   useEffect(() => {
+    if (clave === aplicada.current) return;
+    aplicada.current = clave;
     setBorrador(filtros);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave]);
@@ -64,7 +87,8 @@ export function Buscar({ filtros, onBuscar }) {
     }
     let vigente = true;
     setError(null);
-    setResultado(null);
+    // Lo anterior se queda a la vista, atenuado, hasta que llega lo nuevo.
+    setCargando(true);
     escritorioService
       .buscar(filtros)
       .then((d) => {
@@ -77,29 +101,45 @@ export function Buscar({ filtros, onBuscar }) {
       .catch((err) => {
         if (vigente)
           setError(errorDeEscritorio(err, "No se pudo buscar.").mensaje);
-      });
+      })
+      .finally(() => vigente && setCargando(false));
     return () => {
       vigente = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave, vez]);
 
+  function aplicar(nuevo) {
+    clearTimeout(temporizador.current);
+    const limpio = limpios(nuevo);
+    if (claveDe(limpio) === aplicada.current) return;
+    aplicada.current = claveDe(limpio);
+    onBuscar(limpio);
+  }
+
   function cambiar(campo, valor) {
-    setBorrador((b) => ({ ...b, [campo]: valor }));
+    const nuevo = { ...borrador, [campo]: valor };
+    setBorrador(nuevo);
+    clearTimeout(temporizador.current);
+    if (DE_TEXTO.has(campo) && valor.trim()) {
+      temporizador.current = setTimeout(
+        () => aplicar(nuevo),
+        ESPERA_BUSQUEDA_MS,
+      );
+    } else {
+      aplicar(nuevo);
+    }
   }
 
   function enviar(evento) {
     evento.preventDefault();
-    const limpio = Object.fromEntries(
-      FILTROS_DE_BUSQUEDA.map((c) => [c, String(borrador[c] ?? "").trim()]),
-    );
-    onBuscar(limpio);
+    aplicar(borrador);
   }
 
   function limpiar() {
     const vacio = Object.fromEntries(FILTROS_DE_BUSQUEDA.map((c) => [c, ""]));
     setBorrador(vacio);
-    onBuscar(vacio);
+    aplicar(vacio);
     document.getElementById(id("q"))?.focus();
   }
 
@@ -216,11 +256,10 @@ export function Buscar({ filtros, onBuscar }) {
             />
           </div>
         </div>
-        <div className="mz-card-body pt-0 ed-acciones">
-          <button type="submit" className="btn btn-primary btn-sm">
-            <Icon name="search" /> Buscar
-          </button>
-          {hayBusqueda && (
+        {/* Sin botón «Buscar»: se busca al escribir o al elegir. Enter
+            sigue aplicando al instante (envía el formulario). */}
+        {hayBusqueda && (
+          <div className="mz-card-body pt-0 ed-acciones">
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
@@ -228,104 +267,131 @@ export function Buscar({ filtros, onBuscar }) {
             >
               Limpiar
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </form>
 
       {!hayBusqueda ? (
         <p className="mz-small mz-faint mb-0">
-          Escriba un texto o elija un filtro y pulse Buscar.
+          Escriba un texto o elija un filtro: los resultados aparecen solos.
         </p>
       ) : (
         <EstadoDeCarga
           cargando={resultado === null && !error}
           error={error}
           onReintentar={() => setVez((v) => v + 1)}
-          vacio={resultado !== null && total === 0}
-          textoVacio="No se encontró nada con esa búsqueda."
+          vacio={!cargando && resultado !== null && total === 0}
+          textoVacio={
+            filtros.q
+              ? `Sin resultados para «${filtros.q}».`
+              : "No se encontró nada con esa búsqueda."
+          }
+          accionVacio={
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={limpiar}
+            >
+              Limpiar la búsqueda
+            </button>
+          }
         />
       )}
       <p className="mz-small mz-faint mb-0" role="status">
-        {resultado && total > 0
-          ? `${resultado.notes.length} ${resultado.notes.length === 1 ? "nota" : "notas"} y ${resultado.reminders.length} ${resultado.reminders.length === 1 ? "recordatorio" : "recordatorios"}.${
-              resultado.notes.length >= MAXIMO ||
-              resultado.reminders.length >= MAXIMO
-                ? ` Se muestran los ${MAXIMO} más recientes: afine la búsqueda.`
-                : ""
-            }`
-          : ""}
+        {resultado && total > 0 ? (
+          `${resultado.notes.length} ${resultado.notes.length === 1 ? "nota" : "notas"} y ${resultado.reminders.length} ${resultado.reminders.length === 1 ? "recordatorio" : "recordatorios"}.${
+            resultado.notes.length >= MAXIMO ||
+            resultado.reminders.length >= MAXIMO
+              ? ` Se muestran los ${MAXIMO} más recientes: afine la búsqueda.`
+              : ""
+          }`
+        ) : // El vacío también se anuncia: con la búsqueda en vivo el foco
+        // sigue en el campo y no se ve el aviso de abajo.
+        hayBusqueda && !cargando && resultado && total === 0 ? (
+          <span className="visually-hidden">Sin resultados.</span>
+        ) : (
+          ""
+        )}
       </p>
 
-      {resultado?.notes.length > 0 && (
-        <section aria-labelledby={id("notas")}>
-          <h3 id={id("notas")} className="ed-subtitulo">
-            Notas
-          </h3>
-          <ul className="ed-resultados">
-            {resultado.notes.map((n) => (
-              <li
-                key={n.id}
-                className={`ed-resultado ${claseDeColor(n.color)}`}
-              >
-                <p className="mz-small mb-1">
-                  <span className="mz-strong">
-                    {n.is_mine
-                      ? `Para ${nombreDe(n.recipient)}`
-                      : `De ${nombreDe(n.sender)}`}
-                  </span>
-                  <span className="mz-faint"> · {fechaHora(n.created_at)}</span>
-                </p>
-                <p className="ed-hoy__extracto mb-2">{n.message}</p>
-                <div className="ed-hoy__fila">
-                  <Pildora opciones={prioridadesNota} valor={n.priority} />
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => setAbierta(n)}
-                  >
-                    Abrir{" "}
-                    <span className="visually-hidden">
-                      la nota {n.is_mine ? "para" : "de"}{" "}
-                      {nombreDe(n.is_mine ? n.recipient : n.sender)}
+      <div className="mz-atenuable" aria-busy={cargando && resultado !== null}>
+        {resultado?.notes.length > 0 && (
+          <section aria-labelledby={id("notas")}>
+            <h3 id={id("notas")} className="ed-subtitulo">
+              Notas
+            </h3>
+            <ul className="ed-resultados">
+              {resultado.notes.map((n) => (
+                <li
+                  key={n.id}
+                  className={`ed-resultado ${claseDeColor(n.color)}`}
+                >
+                  <p className="mz-small mb-1">
+                    <span className="mz-strong">
+                      {n.is_mine
+                        ? `Para ${nombreDe(n.recipient)}`
+                        : `De ${nombreDe(n.sender)}`}
                     </span>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {resultado?.reminders.length > 0 && (
-        <section aria-labelledby={id("recordatorios")}>
-          <h3 id={id("recordatorios")} className="ed-subtitulo">
-            Recordatorios
-          </h3>
-          <ul className="ed-resultados">
-            {resultado.reminders.map((r) => (
-              <li key={r.id} className="ed-resultado ed-resultado--neutro">
-                <p className="mz-strong mb-1">{r.title}</p>
-                {r.description && (
-                  <p className="ed-hoy__extracto mz-small mb-2">
-                    {r.description}
+                    <span className="mz-faint">
+                      {" "}
+                      · {fechaHora(n.created_at)}
+                    </span>
                   </p>
-                )}
-                <div className="ed-hoy__fila">
-                  <span className="mz-small">
-                    <Icon name="alarm" /> {fechaHora(r.due_at)}
-                  </span>
-                  <span className="mz-pill-row">
-                    <Pildora
-                      opciones={prioridadesRecordatorio}
-                      valor={r.priority}
-                    />
-                    <Pildora opciones={estadosRecordatorio} valor={r.status} />
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+                  <p className="ed-hoy__extracto mb-2">{n.message}</p>
+                  <div className="ed-hoy__fila">
+                    <Pildora opciones={prioridadesNota} valor={n.priority} />
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setAbierta(n)}
+                    >
+                      Abrir{" "}
+                      <span className="visually-hidden">
+                        la nota {n.is_mine ? "para" : "de"}{" "}
+                        {nombreDe(n.is_mine ? n.recipient : n.sender)}
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {resultado?.reminders.length > 0 && (
+          <section aria-labelledby={id("recordatorios")}>
+            <h3 id={id("recordatorios")} className="ed-subtitulo">
+              Recordatorios
+            </h3>
+            <ul className="ed-resultados">
+              {resultado.reminders.map((r) => (
+                <li key={r.id} className="ed-resultado ed-resultado--neutro">
+                  <p className="mz-strong mb-1">{r.title}</p>
+                  {r.description && (
+                    <p className="ed-hoy__extracto mz-small mb-2">
+                      {r.description}
+                    </p>
+                  )}
+                  <div className="ed-hoy__fila">
+                    <span className="mz-small">
+                      <Icon name="alarm" /> {fechaHora(r.due_at)}
+                    </span>
+                    <span className="mz-pill-row">
+                      <Pildora
+                        opciones={prioridadesRecordatorio}
+                        valor={r.priority}
+                      />
+                      <Pildora
+                        opciones={estadosRecordatorio}
+                        valor={r.status}
+                      />
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
 
       {abierta && (
         <DetalleNota id={abierta.id} onCerrar={() => setAbierta(null)} />

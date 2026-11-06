@@ -14,8 +14,10 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { errorDeTareas, tareasService } from "../../../api/tareasService";
 import { confirmar } from "../../../components/common/Confirmar/confirmar";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { coincideBusqueda } from "../../../utils/busqueda";
 import {
   PanelDePestana,
   Pestanas,
@@ -173,6 +175,8 @@ function PantallaTareas() {
   const [tareas, setTareas] = useState(null);
   const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
   const [aviso, setAviso] = useState(null);
   const [formulario, setFormulario] = useState(null);
   const [comentando, setComentando] = useState(null);
@@ -353,14 +357,13 @@ function PantallaTareas() {
     eliminar,
   };
 
-  const texto = busqueda.trim().toLowerCase();
+  const texto = busqueda.trim();
+  // En cada tecla, sin distinguir tildes ni mayúsculas y cada palabra en
+  // cualquier orden (búsqueda en vivo, 06/11/2026).
   const filtradas = useMemo(() => {
     if (!tareas || !texto) return tareas ?? [];
-    return tareas.filter(
-      (t) =>
-        t.title.toLowerCase().includes(texto) ||
-        (t.description ?? "").toLowerCase().includes(texto) ||
-        nombreDe(t.assigned_to).toLowerCase().includes(texto),
+    return tareas.filter((t) =>
+      coincideBusqueda(texto, t.title, t.description, nombreDe(t.assigned_to)),
     );
   }, [tareas, texto]);
 
@@ -481,18 +484,23 @@ function PantallaTareas() {
       />
       <PanelDePestana idBase="gt-vistas" valor={vista} className="gh-page">
         {enLista && (
+          // Con el dibujo de los demás buscadores (campo con lupa de la
+          // identidad), no un campo de formulario con su etiqueta encima
+          // (auditoría UX/UI de la búsqueda en vivo, 06/11/2026).
           <div className="gt-busqueda">
-            <label className="form-label" htmlFor="gt-buscar">
-              Buscar
+            <label className="mz-fb-search" htmlFor="gt-buscar">
+              <Icon name="search" />
+              <span className="visually-hidden">Buscar</span>
+              <input
+                ref={campoBusqueda}
+                id="gt-buscar"
+                type="search"
+                placeholder="Título, descripción o persona"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
             </label>
-            <input
-              id="gt-buscar"
-              type="search"
-              className="form-control"
-              placeholder="Título, descripción o persona"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
+            <AnuncioDeResultados termino={texto} total={filtradas.length} />
           </div>
         )}
         {enLista && (
@@ -507,6 +515,9 @@ function PantallaTareas() {
               (vista === "kanban" ? sinResultados : filtradas.length === 0)
             }
             hayFiltros={Boolean(texto) && tareas?.length > 0}
+            termino={texto}
+            campoBusquedaRef={campoBusqueda}
+            etiquetaLimpiar="Limpiar búsqueda"
             onLimpiarFiltros={() => setBusqueda("")}
             textoVacio="Todavía no tiene tareas activas."
             accionVacio={

@@ -4,6 +4,7 @@ import { nominaService } from "../../api/nominaService";
 import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 
 /** Una persona: su código y si está habilitada; se guarda fila por fila. */
@@ -92,17 +93,27 @@ export function HabilitadosRolPagos({ onCerrar }) {
   const [personas, setPersonas] = useState(null);
   const [error, setError] = useState(null);
 
-  const cargar = useCallback((texto) => {
-    nominaService
-      .habilitados(texto)
-      .then((datos) => {
-        setPersonas(datos);
-        setError(null);
-      })
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo cargar la lista.")),
-      );
-  }, []);
+  // Solo cuenta la respuesta de lo último escrito: una lenta no pisa a la
+  // más nueva (búsqueda en vivo, 06/11/2026).
+  const nuevaPeticion = useUltimaPeticion();
+  const cargar = useCallback(
+    (texto) => {
+      const vigente = nuevaPeticion();
+      nominaService
+        .habilitados(texto)
+        .then((datos) => {
+          if (!vigente()) return;
+          setPersonas(datos);
+          setError(null);
+        })
+        .catch(
+          (err) =>
+            vigente() &&
+            setError(mensajeDeError(err, "No se pudo cargar la lista.")),
+        );
+    },
+    [nuevaPeticion],
+  );
 
   useEffect(() => {
     const temporizador = setTimeout(() => cargar(buscar), 250);

@@ -1,11 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { concesionariosService } from "../../../api/organizacionService";
 import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { AnuncioDeResultados } from "../../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { Paginacion } from "../../../components/common/Paginacion/Paginacion";
 import { useListadoPaginado } from "../../../hooks/useListadoPaginado";
+import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { usePermission } from "../../../hooks/usePermission";
 import "./Organizacion.css";
 
@@ -25,7 +27,6 @@ const FILTROS_INICIALES = { q: "", activo: "" };
  */
 export function ConcesionariosList() {
   const puedeEditar = usePermission("organizacion.editar");
-  const [busqueda, setBusqueda] = useState("");
   const cargar = useCallback(
     (params) => concesionariosService.list(params),
     [],
@@ -35,18 +36,26 @@ export function ConcesionariosList() {
     FILTROS_INICIALES,
     "No se pudo cargar el listado de concesionarios.",
   );
+  // Filtra mientras se escribe (búsqueda en vivo, 06/11/2026); Enter
+  // aplica sin esperar.
+  // El buscador, para devolverle el foco al limpiar.
+  const campoBusqueda = useRef(null);
+  const busqueda = useBusquedaEnVivo({
+    inicial: listado.filtros.q,
+    alBuscar: (q) => listado.actualizarFiltros({ q }),
+  });
 
   const hayFiltros = Object.values(listado.filtros).some(Boolean);
 
   function handleBuscar(event) {
     event.preventDefault();
-    listado.actualizarFiltros({ q: busqueda });
+    busqueda.buscarYa();
   }
 
-  // También vacía la caja de búsqueda: si no, el texto seguiría ahí y el
-  // próximo «Buscar» volvería a filtrar por él.
+  // También vacía la caja de búsqueda: si no, el texto seguiría ahí
+  // diciendo un filtro que ya no se aplica.
   function limpiarFiltros() {
-    setBusqueda("");
+    busqueda.fijar("");
     listado.actualizarFiltros(FILTROS_INICIALES);
   }
 
@@ -81,8 +90,8 @@ export function ConcesionariosList() {
           <input
             type="search"
             placeholder="Buscar por nombre, RUC o contacto"
-            value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            ref={campoBusqueda}
+            {...busqueda.propsCampo}
           />
         </label>
         <select
@@ -97,12 +106,14 @@ export function ConcesionariosList() {
           <option value="true">Activos</option>
           <option value="false">Dados de baja</option>
         </select>
-        <button type="submit" className="btn btn-outline-secondary btn-sm">
-          Buscar
-        </button>
       </form>
+      <AnuncioDeResultados
+        termino={listado.filtros.q}
+        total={listado.total}
+        cargando={listado.isLoading}
+      />
 
-      <div className="mz-table-wrap">
+      <div aria-busy={listado.isLoading} className="mz-table-wrap">
         <table className="mz-table">
           <thead>
             <tr>
@@ -127,6 +138,8 @@ export function ConcesionariosList() {
               textoVacio="Todavía no hay concesionarios registrados."
               hayFiltros={hayFiltros}
               onLimpiarFiltros={limpiarFiltros}
+              termino={listado.filtros.q}
+              campoBusquedaRef={campoBusqueda}
             />
             {!listado.error &&
               listado.resultados.map((concesionario) => (

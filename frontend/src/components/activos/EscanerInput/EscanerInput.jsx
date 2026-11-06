@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-import { Icon } from "../../common/Icon/Icon";
+import { BuscadorConSugerencias } from "../../common/BuscadorConSugerencias/BuscadorConSugerencias";
 import "./EscanerInput.css";
 
 /**
@@ -27,6 +27,14 @@ import "./EscanerInput.css";
  * velocidad entre pulsaciones: es una heurística frágil (un teclado mecánico
  * rápido la engaña, una pistola Bluetooth lenta también) y no aportaría nada,
  * porque en ambos casos la acción resultante es la misma.
+ *
+ * Búsqueda en vivo (06/11/2026): con `sugerir`, al escribir a mano aparecen
+ * debajo los equipos que coinciden —para quien no tiene la etiqueta legible y
+ * busca por serie o por nombre—. La lectura sigue siendo el Enter: la pistola
+ * cierra con él antes de que la espera de las sugerencias se cumpla, así que
+ * no nota nada. El campo ya no se deshabilita mientras se consulta: perdía el
+ * foco y con él la lectura siguiente; ahora se vacía en cuanto sale la
+ * consulta y queda listo para el próximo disparo.
  */
 export function EscanerInput({
   onEscanear,
@@ -40,8 +48,15 @@ export function EscanerInput({
   // en la lista de regiones del lector de pantalla (auditoría UX/UI, fase 2,
   // 28/10/2026).
   etiquetaRegion = "Buscar por código con el escáner",
+  // Sugerencias en vivo (opcionales): `sugerir(texto)` devuelve una promesa
+  // con los equipos; `alElegirSugerencia(equipo)` decide qué hacer con uno.
+  sugerir,
+  alElegirSugerencia,
+  contenidoSugerencia,
+  textoVerTodos,
+  alVerTodos,
+  textoSinSugerencias,
 }) {
-  const [valor, setValor] = useState("");
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -50,54 +65,47 @@ export function EscanerInput({
     }
   }, [enfocarAlMontar, disabled]);
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    const limpio = valor.trim();
-    if (!limpio) {
-      return;
-    }
+  function confirmar(limpio) {
+    // Sin esperar la respuesta: el campo se vacía ya y la lectura siguiente
+    // no se pega detrás de esta ni se pierde mientras viaja.
     onEscanear(limpio);
-    setValor("");
     if (mantenerFoco) {
       inputRef.current?.focus();
     }
   }
 
   return (
-    <form
+    <BuscadorConSugerencias
       className={`escaner-input ${className}`}
-      onSubmit={handleSubmit}
-      role="search"
-      aria-label={etiquetaRegion}
-    >
-      <div className="input-group">
-        <span className="input-group-text">
-          <Icon name="upc-scan" />
-        </span>
-        <input
-          ref={inputRef}
-          type="text"
-          className="form-control"
-          placeholder={placeholder}
-          aria-label="Código de barras o número de serie"
-          value={valor}
-          disabled={disabled}
-          autoComplete="off"
-          // Una lectora no necesita corrección ortográfica ni mayúsculas
-          // automáticas del móvil, que además corromperían el código.
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
-          onChange={(event) => setValor(event.target.value)}
-        />
+      claseGrupo="input-group"
+      claseCampo="form-control"
+      campoRef={inputRef}
+      etiqueta="Código de barras o número de serie"
+      etiquetaRegion={etiquetaRegion}
+      placeholder={placeholder}
+      icono="upc-scan"
+      buscar={sugerir ?? (() => Promise.resolve([]))}
+      // Sin `sugerir`, nunca se llega a pedir nada.
+      minimo={sugerir ? 2 : Infinity}
+      claveDe={(equipo) => equipo.id}
+      contenidoDe={contenidoSugerencia ?? ((equipo) => equipo.nombre)}
+      alElegir={(equipo) => {
+        alElegirSugerencia?.(equipo);
+        if (mantenerFoco) inputRef.current?.focus();
+      }}
+      alConfirmar={confirmar}
+      textoVerTodos={textoVerTodos}
+      alVerTodos={alVerTodos}
+      textoSinSugerencias={textoSinSugerencias}
+      sufijo={({ texto }) => (
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={disabled || !valor.trim()}
+          disabled={disabled || !texto.trim()}
         >
           Buscar
         </button>
-      </div>
-    </form>
+      )}
+    />
   );
 }
