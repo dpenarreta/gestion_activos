@@ -353,7 +353,7 @@
 }
 
 .org-nodo--nivel-0 .org-nivel--gerencia_area {
-  color: var(--marca-carbon, #1e1e1e);
+  color: var(--mz-side-bg, #164b86);
 }
 
 .org-nodo--nivel-0 .org-nivel--operativo {
@@ -2713,9 +2713,10 @@
 
 /* El nivel dentro del área, como en la leyenda del organigrama:
    dirección, jefaturas, coordinaciones y equipo operativo. */
+/* El color del menú: azul marino en claro, negro en oscuro. */
 .org-nodo--nivel-0 {
-  border-top-color: var(--marca-carbon, #1e1e1e);
-  background: var(--marca-carbon, #1e1e1e);
+  border-top-color: var(--mz-side-bg, #10395f);
+  background: var(--mz-side-bg, #10395f);
   color: #fff;
 }
 

@@ -10,13 +10,17 @@
  *
  * y el carbón #1E1E1E de los fondos oscuros del manual.
  *
- * Lo editable (Configuración → Colores y tipografía) no se toca aquí: sus
- * valores de fábrica ya son los de la marca (`backend/apps/branding/catalog.py`)
- * y quien cambie un color sigue mandando sobre su token.
+ * Los dos temas (decisión del 06/11/2026):
+ *   - Claro: el azul institucional con el blanco —menú azul marino, acción
+ *     azul—, que viene de lo editable (Configuración → Colores y tipografía),
+ *     y el amarillo de la marca como acento: logotipo, raya del ítem activo y
+ *     de los títulos.
+ *   - Oscuro: todo en negro, también el menú, sin azules; el amarillo es el
+ *     color de acción, con letra negra.
  *
  * Regla de contraste: el amarillo da 1,3:1 sobre blanco, así que en claro
  * nunca es texto ni la única señal de un estado; va de fondo con letra negra,
- * de acento sobre el carbón o de adorno. En oscuro, sobre el carbón, sí es el
+ * de acento sobre el menú o de adorno. En oscuro, sobre el negro, sí es el
  * color de acción (15:1).
  */
 
@@ -54,24 +58,26 @@
   /* El texto que va sobre el color de acción. */
   --mz-on-action: #ffffff;
 
-  /* Menú lateral: carbón con el amarillo como señal de «estás aquí». */
+  /* Menú lateral: el amarillo como señal de «estás aquí». */
   --mz-side-fg: #f2f2f2;
   --mz-side-fg-dim: rgba(242, 242, 242, 0.74);
   --mz-side-hover: rgba(255, 255, 255, 0.07);
-  /* Neutro: un velo amarillo sobre el carbón se ve oliva. El amarillo va en
+  /* Neutro: un velo amarillo sobre el menú se ve oliva. El amarillo va en
      la raya y el ícono del ítem activo. */
   --mz-side-active: rgba(255, 255, 255, 0.1);
 
   --shadow-color: rgba(0, 0, 0, 0.12);
 
   /* Los de la plantilla, que aún leen algunos componentes. */
-  --brand-primary: var(--marca-carbon);
-  --brand-focus-color: var(--marca-carbon);
+  --brand-primary: var(--mz-action);
+  --brand-focus-color: var(--mz-action);
   --surface-overlay: rgba(0, 0, 0, 0.5);
 
   /* Los azules compilados de Bootstrap (halo de foco, enlaces, primario). */
   --bs-primary: var(--mz-action);
-  --bs-primary-rgb: 30, 30, 30;
+  /* `.text-primary` y compañía: el azul de los enlaces (#1C5DA3, 6,1:1 sobre
+     el fondo); el #0D6EFD de Bootstrap da 4,1:1. */
+  --bs-primary-rgb: 28, 93, 163;
   --bs-link-color: var(--mz-link);
   --bs-link-hover-color: var(--mz-link);
   --bs-focus-ring-color: color-mix(in srgb, var(--mz-foco) 25%, transparent);
@@ -82,6 +88,8 @@
 }
 
 :root[data-theme="dark"] {
+  /* El menú, negro en vez del azul marino del tema claro. */
+  --mz-side-bg: #000000;
   --mz-bg: #121212;
   --mz-raised: #1c1c1c;
   --mz-sunken: #0d0d0d;
@@ -135,14 +143,6 @@
    salía azul. */
 .btn {
   --bs-btn-focus-box-shadow: none;
-}
-
-/* En claro, `brightness(.92)` sobre el carbón no se nota: el hover va a negro. */
-:root:not([data-theme="dark"]) .btn-primary {
-  --bs-btn-hover-bg: var(--marca-negro);
-  --bs-btn-hover-border-color: var(--marca-negro);
-  --bs-btn-active-bg: var(--marca-negro);
-  --bs-btn-active-border-color: var(--marca-negro);
 }
 
 .form-control,
@@ -216,6 +216,13 @@
 
 .mz-active-company {
   border-left-color: var(--company-color, var(--marca-amarillo));
+}
+
+/* En oscuro, el color de cada empresa (casi siempre un azul) cede al
+   amarillo. `!important` porque `--company-color` va en línea en el
+   contenedor (AdminLayout). */
+:root[data-theme="dark"] .mz-shell {
+  --company-color: var(--marca-amarillo) !important;
 }
 
 .mz-collapse-handle:hover,
@@ -302,7 +309,8 @@
 .login-aside {
   position: relative;
   overflow: hidden;
-  background: var(--marca-carbon);
+  /* El color del menú: azul marino en claro, negro en oscuro. */
+  background: var(--mz-side-bg, #0a1e38);
   color: #f2f2f2;
 }
 
@@ -396,4 +404,12 @@
   .login-card-marca {
     display: block;
   }
+}
+
+/* ---------- Organigrama ---------- */
+/* En oscuro el nodo raíz es negro sobre la tarjeta casi negra: la raya
+   amarilla lo separa. */
+:root[data-theme="dark"] .org-nodo--nivel-0 {
+  border-top-color: var(--marca-amarillo);
+  outline: 1px solid var(--marca-borde-control);
 }

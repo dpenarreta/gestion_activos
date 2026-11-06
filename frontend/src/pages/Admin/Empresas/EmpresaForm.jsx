@@ -36,7 +36,7 @@ const VACIO = {
   identificacion: "",
   activa: true,
   zona_horaria: "America/Guayaquil",
-  color: "#1E1E1E",
+  color: "#164B86",
   gerente_general: "",
   base_cumplimiento: "validacion",
   matriz_crear_para_otros: false,

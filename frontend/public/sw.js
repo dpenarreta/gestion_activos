@@ -21,7 +21,8 @@
 // v2 (auditoría de seguridad, 29/10/2026): la página sin conexión trae su
 // script en un archivo aparte, que también tiene que quedar guardado.
 // v3 (05/11/2026): iconos y manifiesto con la marca LAARCOURIER.
-const VERSION = "v3";
+// v4 (06/11/2026): página sin conexión y manifiesto con el azul del tema claro.
+const VERSION = "v4";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";

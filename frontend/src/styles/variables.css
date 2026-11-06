@@ -10,14 +10,14 @@
  * los valores reales configurados en base de datos.
  */
 :root {
-  --color-primary: #1e1e1e;
-  --color-secondary: #000000;
-  --color-background: #f4f4f4;
-  --color-headings: #000000;
-  --color-text: #1e1e1e;
-  --color-links: #6b5b00;
-  --color-buttons: #1e1e1e;
-  --color-menu: #1e1e1e;
+  --color-primary: #1c5da3;
+  --color-secondary: #164b86;
+  --color-background: #f2f4f8;
+  --color-headings: #0f2138;
+  --color-text: #0f2138;
+  --color-links: #1c5da3;
+  --color-buttons: #0d6efd;
+  --color-menu: #0a1e38;
   --font-primary: Poppins, system-ui, sans-serif;
   --font-secondary: Poppins, system-ui, sans-serif;
   --font-size-base: 14px;
