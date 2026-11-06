@@ -11,7 +11,13 @@ import { useId } from "react";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { useModalA11y } from "../../../hooks/useModalA11y";
 
-function Cabecera({ idTitulo, titulo, subtitulo, onCerrar }) {
+function Cabecera({
+  idTitulo,
+  titulo,
+  subtitulo,
+  onCerrar,
+  bloqueada = false,
+}) {
   return (
     <div className="mz-panel-head">
       <div className="gt-min0">
@@ -24,7 +30,8 @@ function Cabecera({ idTitulo, titulo, subtitulo, onCerrar }) {
         type="button"
         className="mz-close"
         aria-label="Cerrar ventana"
-        onClick={onCerrar}
+        aria-disabled={bloqueada ? "true" : undefined}
+        onClick={bloqueada ? undefined : onCerrar}
       >
         <Icon name="x-lg" />
       </button>
@@ -32,19 +39,28 @@ function Cabecera({ idTitulo, titulo, subtitulo, onCerrar }) {
   );
 }
 
-/** Ventana centrada con cuerpo y pie libres. */
+/**
+ * Ventana centrada con cuerpo y pie libres. `bloqueada`: mientras se envía
+ * algo que no se puede interrumpir (generar un informe), ni Escape, ni el
+ * fondo, ni la X la cierran; la X lo anuncia con `aria-disabled`.
+ */
 export function Ventana({
   titulo,
   subtitulo,
   onCerrar,
   pie,
   ancha = false,
+  bloqueada = false,
   children,
 }) {
   const idTitulo = `${useId()}-titulo`;
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
+    // Bloqueada, Escape ni siquiera pregunta si descartar lo escrito.
+    closeOnEscape: !bloqueada,
+    // Se consulta en cada intento de cierre, así sigue el valor actual.
+    guardClose: () => !bloqueada,
   });
   return (
     <div
@@ -65,6 +81,7 @@ export function Ventana({
           titulo={titulo}
           subtitulo={subtitulo}
           onCerrar={onCerrar}
+          bloqueada={bloqueada}
         />
         <div className="mz-panel-body">{children}</div>
         <div className="mz-panel-foot">

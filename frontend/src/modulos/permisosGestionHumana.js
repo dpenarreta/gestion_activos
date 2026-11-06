@@ -52,6 +52,23 @@ export const KPI_EJECUTIVO = "kpi.ejecutivo";
 export const KPI_ADMINISTRAR = "kpi.administrar";
 export const RIESGO_VER = "inteligencia_preventiva.ver";
 
+/*
+ * Informes ejecutivos (fase 2c, portado de Nexo). No dependen de
+ * `kpi.acceder`: el servidor pide uno de estos tres en `/informes/`. `ver`
+ * abre el historial; `generar` emite sobre su equipo; `administrar` da el
+ * alcance completo, la bitácora y los incidentes de integridad. Quién sale en
+ * cada informe lo decide el organigrama en el servidor.
+ */
+export const INFORMES_VER = "informes_gh.ver";
+export const INFORMES_GENERAR = "informes_gh.generar";
+export const INFORMES_ADMINISTRAR = "informes_gh.administrar";
+/** Cualquiera de los tres abre la pantalla (como `PuedeVer` del servidor). */
+export const PERMISOS_INFORMES = [
+  INFORMES_VER,
+  INFORMES_GENERAR,
+  INFORMES_ADMINISTRAR,
+];
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -62,6 +79,7 @@ export const PERMISOS_GESTION_HUMANA = [
   TAREAS_ACCEDER,
   PROYECTOS_ACCEDER,
   KPI_ACCEDER,
+  ...PERMISOS_INFORMES,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

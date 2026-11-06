@@ -26,8 +26,8 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
     from apps.organizacion.permisos_por_cargo import SOLO_POR_PERSONA
 
     # El Administrador (TI), además, sin lo de Gestión Humana que no es suyo:
-    # tareas, equipo, proyectos, ausencias y KPI (decisión del usuario,
-    # 05/11/2026).
+    # tareas, equipo, proyectos, ausencias, KPI (decisión del usuario,
+    # 05/11/2026) e informes ejecutivos (06/11/2026).
     de_gestion_humana = {
         c
         for c in all_codenames()
@@ -39,6 +39,7 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 "ausencias.",
                 "kpi.",
                 "inteligencia_preventiva.",
+                "informes_gh.",
             )
         )
     }

@@ -35,6 +35,7 @@ import {
   KPI_EJECUTIVO as GH_KPI_EJECUTIVO,
   KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
   RIESGO_VER as GH_RIESGO_VER,
+  PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -501,6 +502,18 @@ export const ADMIN_MENU = [
         path: `${RUTA_GESTION_HUMANA}/resumen-ejecutivo`,
         permission: GH_KPI_EJECUTIVO,
         requiere: GH_KPI_ACCEDER,
+      },
+      {
+        // Informes ejecutivos (fase 2c): el historial de informes congelados,
+        // su generación y el visor imprimible. Sin `requiere`: el servidor
+        // no pide `kpi.acceder` en `/informes/`, le basta uno de los tres
+        // `informes_gh.*`. El visor (`informes/<id>`) cuelga de aquí.
+        id: "gh-informes",
+        modulo: "gestion_humana",
+        name: "Informes ejecutivos",
+        icon: "file-earmark-bar-graph",
+        path: `${RUTA_GESTION_HUMANA}/informes`,
+        permission: GH_PERMISOS_INFORMES,
       },
       {
         id: "gh-inteligencia-preventiva",

@@ -785,6 +785,35 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Informes ejecutivos (portado de Nexo, 06/11/2026). El
+    # prefijo no es `reportes.` porque ese ya es de los Reportes generales de la
+    # intranet (`apps.reportes`), que son otra cosa.
+    "informes_gh": {
+        "label": "Informes ejecutivos",
+        "description": (
+            "Informes ejecutivos del equipo de Gestión Humana (mensual, rango de meses o rango "
+            "de fechas): documento inmutable con su Report ID, exportable a Excel y PDF. Cada "
+            "quien genera sobre su equipo según el organigrama y ve los informes de las "
+            "personas que ve."
+        ),
+        "permissions": {
+            "informes_gh.ver": (
+                "Ver el historial de informes ejecutivos de su ámbito, abrirlos y descargarlos "
+                "en Excel o PDF (solo los informes cuyas personas ve según el organigrama, y los "
+                "que generó)"
+            ),
+            "informes_gh.generar": (
+                "Generar informes ejecutivos sobre su equipo según el organigrama: mensual, por "
+                "rango de meses o por rango de fechas, con fecha de corte y filtros por rol, "
+                "área o persona"
+            ),
+            "informes_gh.administrar": (
+                "Administrar los informes ejecutivos: generarlos sobre toda la empresa, ver "
+                "todos los emitidos, su bitácora (quién los generó, abrió o exportó) y los "
+                "incidentes de integridad"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -915,11 +944,11 @@ MODULE_GROUPS = [
             "Solo sirven en el módulo de Gestión Humana: el control operativo de "
             "novedades (días laborados, horas extras, cierres, depuración e "
             "ingresos y salidas de colaboradores), las tareas del equipo, la "
-            "pantalla de Equipo, los proyectos, las ausencias y el KPI con su "
-            "inteligencia preventiva. Los Supervisores, Asistentes y Jefes de "
+            "pantalla de Equipo, los proyectos, las ausencias, el KPI con su "
+            "inteligencia preventiva y los informes ejecutivos. Los Supervisores, Asistentes y Jefes de "
             "Operaciones tienen además reglas propias por rol; en Tareas, Equipo, "
-            "Proyectos, Ausencias y KPI, lo que cada quien ve lo decide además el "
-            "organigrama."
+            "Proyectos, Ausencias, KPI e Informes, lo que cada quien ve lo decide "
+            "además el organigrama."
         ),
         "modules": [
             "novedades",
@@ -929,6 +958,7 @@ MODULE_GROUPS = [
             "ausencias",
             "kpi",
             "inteligencia_preventiva",
+            "informes_gh",
         ],
     },
     {

@@ -133,6 +133,7 @@ import { RepositorioMensual } from "../pages/GestionHumana/RepositorioMensual";
 import { MarcoTareas } from "../pages/GestionHumana/Tareas/ContextoTareas";
 import { MarcoProyectos } from "../pages/GestionHumana/Proyectos/ContextoProyectos";
 import { MarcoKpi } from "../pages/GestionHumana/Desempeno/ContextoKpi";
+import { MarcoInformes } from "../pages/GestionHumana/Informes/ContextoInformes";
 import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
@@ -154,6 +155,7 @@ import {
   KPI_EJECUTIVO as GH_KPI_EJECUTIVO,
   KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
   RIESGO_VER as GH_RIESGO_VER,
+  PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
 } from "../modulos/permisosGestionHumana";
 
 // Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
@@ -219,6 +221,19 @@ const InteligenciaPreventiva = lazy(() =>
 const AjustesKpi = lazy(() =>
   import("../pages/GestionHumana/Desempeno/AjustesKpi").then((m) => ({
     default: m.AjustesKpi,
+  })),
+);
+// Informes ejecutivos (fase 2c), también bajo demanda. El marco
+// (`MarcoInformes`) no es perezoso: conserva `informes/me/` al pasar del
+// listado al visor.
+const Informes = lazy(() =>
+  import("../pages/GestionHumana/Informes/Informes").then((m) => ({
+    default: m.Informes,
+  })),
+);
+const VisorInforme = lazy(() =>
+  import("../pages/GestionHumana/Informes/VisorInforme").then((m) => ({
+    default: m.VisorInforme,
   })),
 );
 
@@ -932,6 +947,27 @@ export function AppRoutes() {
               element={
                 <RequirePermission permission={GH_KPI_ADMINISTRAR}>
                   <AjustesKpi />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Informes ejecutivos (fase 2c): el historial y el visor
+              imprimible. Basta uno de los tres `informes_gh.*`; qué informe
+              ve cada quien lo decide el servidor (un informe ajeno es 404). */}
+          <Route element={<MarcoInformes />}>
+            <Route
+              path="informes"
+              element={
+                <RequirePermission permission={GH_PERMISOS_INFORMES}>
+                  <Informes />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="informes/:reportId"
+              element={
+                <RequirePermission permission={GH_PERMISOS_INFORMES}>
+                  <VisorInforme />
                 </RequirePermission>
               }
             />

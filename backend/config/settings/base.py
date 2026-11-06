@@ -112,6 +112,7 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.ausencias",
     "apps.analytics",
+    "apps.informes",
 ]
 
 MIDDLEWARE = [

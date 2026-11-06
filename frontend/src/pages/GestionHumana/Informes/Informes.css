@@ -1,0 +1,763 @@
+/*
+ * Informes ejecutivos de Gestión Humana: el listado, el asistente y el
+ * documento de once páginas (`EXECUTIVE_REPORT_STYLES` de Nexo, llevado a
+ * los tokens `mz-*`). En pantalla sigue el tema (claro u oscuro); al imprimir
+ * siempre sale en claro, una página por hoja y sin el menú ni las barras.
+ */
+
+/* --- Tablas (listado, bitácora, incidentes y las del documento) ----------- */
+
+.ie-tabla-marco {
+  overflow-x: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  background: var(--mz-raised);
+}
+
+.ie-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--mz-ink);
+}
+
+.ie-tabla thead th {
+  background: var(--mz-sunken);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-soft);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.ie-tabla tbody th,
+.ie-tabla tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mz-border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.ie-tabla tbody th {
+  font-weight: 600;
+}
+
+/* Un correo, una ruta de campo o un nombre largo no rompen la tabla. */
+.ie-tabla td,
+.ie-tabla th {
+  overflow-wrap: anywhere;
+}
+
+/* Mientras se refresca (cambio de página o filtro) se atenúa lo anterior. */
+.ie-tabla-marco[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.ie-tabla tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.ie-tabla--metadatos tbody th {
+  width: 40%;
+  color: var(--mz-ink-soft);
+}
+
+/* El período es el enlace al informe: objetivo táctil amplio (WCAG 2.5.8). */
+.ie-enlace {
+  display: inline-block;
+  min-height: 24px;
+  padding: 2px 0;
+  font-weight: 600;
+  color: var(--mz-link);
+}
+
+.ie-mono {
+  font-family: var(--mz-font-mono);
+  font-size: 0.92em;
+}
+
+/* --- Ficha de estado del visor -------------------------------------------- */
+
+.ie-ficha__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.ie-ficha__datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 4px;
+}
+
+.ie-ficha__datos dd {
+  margin: 0;
+  color: var(--mz-ink);
+}
+
+.ie-ficha__problemas {
+  margin-top: 10px;
+}
+
+.ie-ficha__problemas summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-warn-fg);
+  min-height: 24px;
+}
+
+/* --- Asistente de generación ---------------------------------------------- */
+
+.ie-asistente {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ie-asistente__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.ie-asistente__titulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin-bottom: 2px;
+  float: none;
+}
+
+.ie-asistente__filtros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 14px;
+}
+
+.ie-asistente__personas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ie-asistente__personas-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ie-casillas {
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0;
+  min-width: 0;
+}
+
+.ie-casillas__titulo {
+  float: none;
+  width: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.ie-casillas__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ie-casillas__lista--desplazable {
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Toda la fila es el objetivo táctil de la casilla (≥ 24 px, WCAG 2.5.8). */
+.ie-casilla {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 32px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--mz-ink);
+  font-size: 13px;
+}
+
+.ie-casilla:hover {
+  background: var(--mz-sunken);
+}
+
+.ie-casilla .form-check-input {
+  flex: none;
+  margin-top: 2px;
+}
+
+.ie-casilla:has(input:focus-visible) {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 1px;
+}
+
+/* Sin `p-0`: el enlace conserva su relleno y su área táctil. */
+.ie-quitar {
+  align-self: flex-start;
+}
+
+/* --- Pantallas táctiles: objetivos de 44 px (como Tareas y Desempeño) ----- */
+
+@media (pointer: coarse) {
+  .ie-filtros .form-select,
+  .ie-asistente .form-control,
+  .ie-asistente .form-control-sm,
+  .ie-quitar,
+  .ie-enlace,
+  .ie-ficha__problemas summary {
+    min-height: 44px;
+  }
+
+  .ie-enlace,
+  .ie-ficha__problemas summary {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .ie-casilla {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .ie-casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+    margin-top: 0;
+  }
+}
+
+/* --- Documento: las once páginas ------------------------------------------ */
+
+.ie-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+  color: var(--mz-ink);
+}
+
+.ie-pagina {
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 12px;
+  box-shadow: var(--mz-shadow-1);
+  padding: 36px 40px 20px;
+  min-width: 0;
+}
+
+.ie-antetitulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mz-link);
+  margin: 0 0 6px;
+}
+
+.ie-pagina__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid var(--mz-border);
+}
+
+.ie-h3 {
+  font-family: var(--mz-font-display);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0;
+}
+
+.ie-h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 8px;
+}
+
+.ie-separado {
+  margin-top: 22px;
+}
+
+.ie-bloque {
+  margin-bottom: 20px;
+  break-inside: avoid;
+}
+
+.ie-p {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--mz-ink-soft);
+  margin: 0 0 12px;
+}
+
+.ie-tenue {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--mz-ink-faint);
+}
+
+.ie-lista {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--mz-ink-soft);
+}
+
+.ie-lista li {
+  margin-bottom: 4px;
+}
+
+.ie-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ie-tarjeta {
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--mz-sunken);
+  break-inside: avoid;
+}
+
+.ie-tarjeta__etiqueta {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mz-ink-faint);
+  margin: 0 0 6px;
+}
+
+.ie-tarjeta__valor {
+  font-family: var(--mz-font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0;
+}
+
+.ie-tarjeta__detalle {
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+  margin: 4px 0 0;
+}
+
+.ie-indicador {
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+
+.ie-indicador__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin-bottom: 6px;
+}
+
+.ie-indicador__nombre {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+}
+
+.ie-indicador__valor {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mz-link);
+}
+
+.ie-indicador__meta {
+  font-size: 12px;
+  color: var(--mz-ink-faint);
+  margin: 0 0 4px;
+}
+
+.ie-kv {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--mz-ink-soft);
+  margin: 4px 0 0;
+}
+
+.ie-kv b {
+  color: var(--mz-ink);
+}
+
+/* Portada */
+.ie-portada {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.ie-portada__avisos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 620px;
+  text-align: left;
+  padding: 12px 16px;
+  border: 1px solid var(--mz-warn-line);
+  border-radius: 8px;
+  background: var(--mz-warn-bg);
+}
+
+.ie-portada__avisos .ie-p {
+  color: var(--mz-ink);
+}
+
+.ie-portada__periodo {
+  font-size: 15px;
+  color: var(--mz-ink-soft);
+  margin: 0;
+}
+
+.ie-portada__estado {
+  border: 2px solid var(--mz-border);
+  border-radius: 14px;
+  padding: 22px 36px;
+  max-width: 560px;
+}
+
+.ie-portada__nivel {
+  font-family: var(--mz-font-display);
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 4px 0 8px;
+}
+
+.ie-portada__explicacion {
+  margin: 10px 0 0;
+}
+
+.ie-portada__cierre {
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px dashed var(--mz-border-strong);
+}
+
+.ie-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 32px;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  text-align: left;
+  font-size: 13px;
+}
+
+.ie-datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 2px;
+}
+
+.ie-datos dd {
+  margin: 0;
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.ie-nota {
+  font-style: italic;
+  font-size: 12.5px;
+  text-align: left;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 6px;
+}
+
+/* Barras de la distribución por motivo */
+.ie-barras {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ie-barras__fila {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr 52px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.ie-barras__pista {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  overflow: hidden;
+}
+
+.ie-barras__relleno {
+  display: block;
+  height: 100%;
+  background: var(--mz-link);
+}
+
+.ie-barras__valor {
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  text-align: right;
+}
+
+.ie-pie {
+  margin-top: 24px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mz-border);
+  font-size: 11px;
+  color: var(--mz-ink-faint);
+  text-align: center;
+}
+
+/* --- Teléfono y tableta (≤ 880 px), solo en pantalla ---------------------- */
+/* `screen`: al imprimir, el ancho de la hoja A4 también es menor de 880 px y
+   el documento debe salir con sus tablas, no apilado. */
+@media screen and (max-width: 880px) {
+  .ie-pagina {
+    padding: 22px 18px 14px;
+  }
+
+  .ie-asistente__filtros {
+    grid-template-columns: 1fr;
+  }
+
+  .ie-datos {
+    grid-template-columns: 1fr;
+  }
+
+  .ie-portada__estado {
+    padding: 18px 20px;
+  }
+
+  .ie-barras__fila {
+    grid-template-columns: 1fr 52px;
+  }
+
+  .ie-barras__etiqueta {
+    grid-column: 1 / -1;
+  }
+
+  /* Las tablas se apilan: cada fila es una tarjeta y cada celda dice su
+     columna (`data-etiqueta`). Así no hay desplazamiento horizontal. */
+  .ie-apilable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ie-apilable,
+  .ie-apilable tbody,
+  .ie-apilable tr,
+  .ie-apilable tbody th,
+  .ie-apilable tbody td {
+    display: block;
+    width: 100%;
+  }
+
+  .ie-apilable tr {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--mz-border);
+  }
+
+  .ie-apilable tr:last-child {
+    border-bottom: 0;
+  }
+
+  .ie-apilable tbody th,
+  .ie-apilable tbody td {
+    border-bottom: 0;
+    padding: 4px 12px;
+  }
+
+  .ie-apilable tbody td[data-etiqueta]::before {
+    content: attr(data-etiqueta) ": ";
+    font-weight: 600;
+    color: var(--mz-ink-faint);
+  }
+}
+
+/* --- Impresión / PDF ------------------------------------------------------- */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  /* Solo el documento: todo lo que no lo contiene ni está dentro de él se
+     oculta (menú, barra superior, ficha de estado, botones, chat, avisos).
+     Sin `:has()` (navegadores anteriores a 2023) se imprimiría la pantalla
+     entera, que sigue siendo legible. */
+  body:has(.ie-doc) *:not(:has(.ie-doc)):not(.ie-doc):not(.ie-doc *) {
+    display: none !important;
+  }
+
+  /* Los contenedores del documento pierden su maqueta de pantalla (rejilla
+     del shell, alturas fijas, desplazamientos) para que el contenido fluya
+     por las hojas. */
+  body:has(.ie-doc) *:has(.ie-doc) {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    transform: none !important;
+  }
+
+  html:has(.ie-doc),
+  body:has(.ie-doc) {
+    background: #ffffff !important;
+  }
+
+  /* Siempre en claro, aunque la pantalla esté en oscuro: los tokens del
+     documento se fijan a sus valores del tema claro (los de `marca.css` e
+     `identidad-puente.css`). Con el tema claro, los configurados en
+     Colores y tipografía mandan (`--color-*`). */
+  .ie-doc {
+    --mz-raised: #ffffff;
+    --mz-sunken: #f4f4f4;
+    --mz-border: #e1e1e1;
+    --mz-border-strong: #c8c8c8;
+    --mz-ink: var(--color-text, #0f2138);
+    --mz-ink-soft: #474747;
+    --mz-ink-faint: #666666;
+    --mz-heading: var(--color-headings, #0f2138);
+    --mz-link: var(--color-links, #1c5da3);
+    --mz-ok-bg: #e3f5ec;
+    --mz-ok-fg: #146c43;
+    --mz-ok-line: #1f9d6b;
+    --mz-warn-bg: #fff1ea;
+    --mz-warn-fg: #b8481f;
+    --mz-warn-line: #ff6347;
+    --mz-bad-bg: #fdeaea;
+    --mz-bad-fg: #a91e1e;
+    --mz-bad-line: #c0392b;
+    --mz-info-bg: #fff8cc;
+    --mz-info-fg: #5c4f00;
+    display: block;
+    max-width: none;
+    color: var(--mz-ink);
+    background: #ffffff;
+    /* Los semáforos y las barras se imprimen con su color. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* En oscuro, los `--color-*` que publica `appearance-tokens.css` son los
+     del tema oscuro (texto #dee2e6, títulos #f8f9fa): leídos aquí dejaban
+     texto casi blanco sobre el papel. Entonces se fijan los literales del
+     tema claro, sin pasar por `--color-*`. */
+  :root[data-theme="dark"] .ie-doc {
+    --mz-ink: #0f2138;
+    --mz-heading: #0f2138;
+    --mz-link: #1c5da3;
+  }
+
+  .ie-pagina {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    break-after: page;
+  }
+
+  .ie-pagina:last-child {
+    break-after: auto;
+  }
+
+  .ie-tabla-marco {
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .ie-tabla tr {
+    break-inside: avoid;
+  }
+
+  .ie-tabla thead {
+    display: table-header-group;
+  }
+}
+
+/* El modo «sistema» con el equipo en oscuro y sin elección guardada: lo
+   mismo que el tema oscuro (como `marca.css`). */
+@media print and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ie-doc {
+    --mz-ink: #0f2138;
+    --mz-heading: #0f2138;
+    --mz-link: #1c5da3;
+  }
+}

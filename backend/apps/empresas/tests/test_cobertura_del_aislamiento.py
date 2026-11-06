@@ -51,6 +51,7 @@ APPS_DE_NEGOCIO = frozenset(
         "projects",
         "ausencias",
         "analytics",
+        "informes",
     }
 )
 
