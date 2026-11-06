@@ -114,6 +114,8 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.informes",
     "apps.mejora_continua",
+    "apps.reuniones",
+    "apps.escritorio",
 ]
 
 MIDDLEWARE = [

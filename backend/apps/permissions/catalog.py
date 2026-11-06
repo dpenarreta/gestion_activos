@@ -839,6 +839,47 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Reuniones (portadas de Nexo, 06/11/2026). Sin Zoom: el
+    # enlace lo pega quien organiza. No salen en el calendario de Institucional.
+    "reuniones": {
+        "label": "Reuniones",
+        "description": (
+            "Reuniones del equipo de Gestión Humana: quien organiza las programa con su enlace "
+            "(Zoom, Teams, Meet u otro) e invita; cada quien ve las que organiza y a las que lo "
+            "invitaron, con la asistencia y el resumen que deja el anfitrión."
+        ),
+        "permissions": {
+            "reuniones.acceder": (
+                "Entrar a Reuniones: ver las reuniones que organiza y a las que lo invitaron, y "
+                "poder ser invitado"
+            ),
+            "reuniones.crear": (
+                "Programar reuniones con su enlace e invitados, y editar, eliminar y marcar la "
+                "asistencia de las que organiza"
+            ),
+            "reuniones.administrar": (
+                "Administrar Reuniones: ver todas las reuniones de la empresa y editarlas o "
+                "eliminarlas aunque no sea el anfitrión"
+            ),
+        },
+    },
+    # Gestión Humana · Escritorio (el «Escritorio Digital» de Nexo, 06/11/2026).
+    # Convive con el chat: la nota es un pendiente, no una conversación.
+    "escritorio": {
+        "label": "Escritorio",
+        "description": (
+            "Escritorio personal de Gestión Humana: notas rápidas entre personas (con "
+            "prioridad, color, respuestas y un adjunto) y recordatorios propios que avisan "
+            "al vencer; una nota se convierte en recordatorio y un recordatorio en tarea. "
+            "Nadie ve las notas ni los recordatorios de otra persona."
+        ),
+        "permissions": {
+            "escritorio.acceder": (
+                "Usar el Escritorio: dejar y recibir notas, responderlas, y llevar sus "
+                "recordatorios con su bitácora"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -970,7 +1011,8 @@ MODULE_GROUPS = [
             "novedades (días laborados, horas extras, cierres, depuración e "
             "ingresos y salidas de colaboradores), las tareas del equipo, la "
             "pantalla de Equipo, los proyectos, las ausencias, el KPI con su "
-            "inteligencia preventiva, los informes ejecutivos y la mejora continua. Los "
+            "inteligencia preventiva, los informes ejecutivos, la mejora continua, las "
+            "reuniones y el escritorio. Los "
             "Supervisores, Asistentes y Jefes de Operaciones tienen además reglas propias "
             "por rol; en Tareas, Equipo, Proyectos, Ausencias, KPI, Informes y Mejora "
             "continua, lo que cada quien ve lo decide además el organigrama."
@@ -985,6 +1027,8 @@ MODULE_GROUPS = [
             "inteligencia_preventiva",
             "informes_gh",
             "mejora_continua",
+            "reuniones",
+            "escritorio",
         ],
     },
     {

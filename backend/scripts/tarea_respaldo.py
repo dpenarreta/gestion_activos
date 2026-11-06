@@ -27,6 +27,10 @@ Y la retención de las ausencias médicas de Gestión Humana
 (`purgar_ausencias_medicas`, LOPDP): lo de hace más de cinco años se borra,
 con constancia agregada en la auditoría.
 
+Y el ciclo del Escritorio de Gestión Humana (`ciclo_escritorio`): el aviso en
+la campana de cada recordatorio que venció y las purgas del archivo y de la
+papelera de notas.
+
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -107,6 +111,9 @@ def main() -> int:
         # Retención LOPDP: borra las ausencias médicas de hace más de cinco
         # años. Sin nada vencido es una sola consulta.
         ("purgar_ausencias_medicas", []),
+        # Escritorio: avisa los recordatorios vencidos (una vez cada uno) y
+        # purga las notas archivadas o en la papelera que cumplieron su plazo.
+        ("ciclo_escritorio", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

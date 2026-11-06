@@ -1,0 +1,633 @@
+/*
+ * Escritorio digital de Gestión Humana: «Hoy», las notas tipo post-it, los
+ * recordatorios y el buscador. Todo con los tokens `mz-*`, salvo los colores
+ * de las notas (abajo, documentados), que siguen el tema claro (azul con
+ * acentos amarillos) y el oscuro (fondos #121212, acción amarilla con letra
+ * negra).
+ */
+
+/*
+ * --- Colores de las notas --------------------------------------------------
+ *
+ * Los únicos colores sueltos del módulo: el color que elige quien deja la
+ * nota (los seis de Nexo). Van como fondo del cuerpo de la nota, con el
+ * texto de la identidad encima:
+ *
+ * - Tema claro: pasteles con luminancia ≥ 0,81. `--mz-ink-faint` (#666, el
+ *   texto más tenue) queda entre 4,7:1 (lila) y 5,3:1 (amarillo); `--mz-ink`
+ *   y `--mz-ink-soft` muy por encima.
+ * - Tema oscuro: tonos casi negros con luminancia ≤ 0,022. `--mz-ink-faint`
+ *   (#9A9A9A) queda por encima de 4,9:1 en los seis.
+ *
+ * Los botones de la nota no van sobre el color: van en una banda de fondo
+ * neutro (`.ed-nota__acciones`), así su contraste es el de siempre. Las
+ * píldoras traen su propio fondo. (El test `GestionHumanaEscritorio` vuelve
+ * a medir estos contrastes.)
+ */
+:root {
+  --ed-nota-amarillo: #fff6c7;
+  --ed-nota-rosado: #fde4ee;
+  --ed-nota-celeste: #e1f0fb;
+  --ed-nota-verde: #e2f5e8;
+  --ed-nota-naranja: #ffe9d6;
+  --ed-nota-lila: #efe6fb;
+  /* El borde de la muestra de color: ≥ 3:1 sobre el fondo de la ventana. */
+  --ed-nota-borde: var(--marca-borde-control, var(--mz-border-strong));
+}
+
+:root[data-theme="dark"] {
+  --ed-nota-amarillo: #2b2710;
+  --ed-nota-rosado: #33202a;
+  --ed-nota-celeste: #172a38;
+  --ed-nota-verde: #18291f;
+  --ed-nota-naranja: #33251a;
+  --ed-nota-lila: #262036;
+}
+
+.ed-color--amarillo {
+  --ed-fondo: var(--ed-nota-amarillo);
+}
+
+.ed-color--rosado {
+  --ed-fondo: var(--ed-nota-rosado);
+}
+
+.ed-color--celeste {
+  --ed-fondo: var(--ed-nota-celeste);
+}
+
+.ed-color--verde {
+  --ed-fondo: var(--ed-nota-verde);
+}
+
+.ed-color--naranja {
+  --ed-fondo: var(--ed-nota-naranja);
+}
+
+.ed-color--lila {
+  --ed-fondo: var(--ed-nota-lila);
+}
+
+/* --- Comunes --------------------------------------------------------------- */
+
+.ed-subtitulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 6px;
+}
+
+/* Lo que escribió la persona, con sus saltos de línea y como texto. */
+.ed-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--mz-ink);
+}
+
+.ed-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ed-casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.ed-casilla .form-check-input {
+  margin: 0;
+}
+
+.ed-filtros .form-select {
+  width: auto;
+  max-width: 100%;
+}
+
+.ed-archivo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+}
+
+.ed-archivo__nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ed-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--mz-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--mz-ink);
+}
+
+/* Un botón de ícono con su texto: en el escritorio, ícono y texto. */
+.ed-boton-icono {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* El visor de imágenes compartido (`Soporte/VisorAdjunto`) trae sus reglas en
+   `Soporte.css`, que este módulo no carga: lo mínimo para que la imagen
+   quepa en la ventana. */
+.soporte-visor-imagen__cuerpo {
+  display: flex;
+  justify-content: center;
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.soporte-visor-imagen__cuerpo img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* --- Formularios ----------------------------------------------------------- */
+
+.ed-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ed-formulario__fila {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ed-grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.ed-grupo__titulo {
+  float: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+}
+
+.ed-prioridades {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Las muestras de color: cada una con su nombre escrito encima del color y
+   un borde visible; la elegida, con un borde grueso y el radio marcado. */
+.ed-colores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ed-color-opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ed-nota-borde);
+  border-radius: 10px;
+  background: var(--ed-fondo);
+  color: var(--mz-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ed-color-opcion:has(input:checked) {
+  border-width: 3px;
+  border-color: var(--mz-ink);
+  padding: 6px 8px;
+}
+
+.ed-color-opcion input:focus {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.ed-horas {
+  max-width: 140px;
+}
+
+.ed-subformulario {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.ed-atajos {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.ed-fila-fecha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ed-fila-fecha .form-control {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 260px;
+}
+
+/* --- Notas (post-it) ------------------------------------------------------- */
+
+.ed-notas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.ed-nota {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--mz-shadow-1);
+  background: var(--mz-raised);
+  min-width: 0;
+}
+
+/* Sin leer: un borde grueso además de la píldora «Sin leer» (el color nunca
+   va solo). */
+.ed-nota--sin-leer {
+  border-color: var(--mz-info-fg);
+  border-width: 2px;
+}
+
+.ed-nota__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--ed-fondo);
+  color: var(--mz-ink);
+}
+
+.ed-nota__quien {
+  margin: 0;
+  font-weight: 700;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+/* Seis líneas como mucho en la tarjeta; entera al abrirla. */
+/* Las píldoras sobre el color de la nota llevan el borde en su propio color
+   de texto: su silueta no se pierde contra el pastel (auditoría UX/UI). */
+.ed-nota__cuerpo .mz-pill,
+.ed-detalle__mensaje .mz-pill {
+  border: 1px solid currentColor;
+}
+
+.ed-nota__mensaje {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ed-nota__datos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--mz-ink-faint);
+}
+
+.ed-nota__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+}
+
+/* --- Detalle de la nota ---------------------------------------------------- */
+
+.ed-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ed-detalle__mensaje {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--ed-fondo);
+  color: var(--mz-ink);
+}
+
+.ed-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ed-respuestas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ed-respuesta {
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+}
+
+.ed-responder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ed-tope {
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+}
+
+/* --- Recordatorios --------------------------------------------------------- */
+
+.ed-recordatorios {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ed-recordatorio {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--mz-border);
+  border-left: 4px solid var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  box-shadow: var(--mz-shadow-1);
+  min-width: 0;
+}
+
+/* Vencido: la raya en el tono de error, además de la píldora «Vencido». */
+.ed-recordatorio--vencido {
+  border-left-color: var(--mz-bad-line);
+}
+
+.ed-recordatorio--hecho {
+  border-left-color: var(--mz-ok-line);
+}
+
+.ed-recordatorio__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.ed-recordatorio__titulo:focus-visible,
+.ed-detalle [tabindex="-1"]:focus-visible,
+#ed-notas-contador:focus-visible,
+#ed-recordatorios-contador:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.ed-recordatorio__titulo {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* Completado: tachado y con la píldora «Completado» (no solo el estilo). */
+.ed-recordatorio--hecho .ed-recordatorio__titulo {
+  text-decoration: line-through;
+  color: var(--mz-ink-soft);
+}
+
+.ed-recordatorio__vence {
+  font-size: 13px;
+  color: var(--mz-ink);
+}
+
+/* --- Hoy ------------------------------------------------------------------- */
+
+.ed-hoy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.ed-hoy__bloque h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ed-hoy__bloque h3:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.ed-hoy__lista,
+.ed-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ed-hoy__item {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mz-border);
+  color: var(--mz-ink);
+}
+
+.ed-hoy__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ed-hoy__nota,
+.ed-resultado {
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--ed-fondo, var(--mz-raised));
+  color: var(--mz-ink);
+}
+
+.ed-resultado--neutro {
+  background: var(--mz-raised);
+}
+
+.ed-hoy__extracto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ed-hoy__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.ed-hoy__enlace {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* --- Buscador -------------------------------------------------------------- */
+
+.ed-buscador__campos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ed-buscador__texto {
+  grid-column: 1 / -1;
+}
+
+/* --- Pantallas estrechas (≤ 880 px) ---------------------------------------- */
+
+@media (max-width: 880px) {
+  .ed-hoy,
+  .ed-formulario__fila,
+  .ed-buscador__campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ed-colores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* En la banda de la nota solo los íconos; el texto sigue para lectores
+     de pantalla (y como `title`). */
+  .ed-nota__acciones .ed-boton-icono__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .ed-prioridades {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Pantallas táctiles: objetivos de 44 px -------------------------------- */
+
+@media (pointer: coarse) {
+  .ed-filtros .form-select,
+  .ed-casilla,
+  .ed-acciones .btn,
+  .ed-nota__acciones .btn,
+  .ed-archivo .btn,
+  .ed-hoy__fila .btn,
+  .ed-fila-fecha .btn,
+  .ed-fila-fecha .form-control,
+  .ed-color-opcion,
+  .ed-hoy .btn-link,
+  .ed-seccion > .btn,
+  .ed-detalle .btn-link,
+  .ed-recordatorio .btn-link,
+  .ed-recordatorio a {
+    min-height: 44px;
+  }
+
+  .ed-nota__acciones .btn {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .ed-casilla .form-check-input,
+  .ed-color-opcion input {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ed-hoy__enlace,
+  .ed-recordatorio a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

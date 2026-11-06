@@ -88,6 +88,13 @@ export function useModalA11y({
       enfocables()[0] ||
       panel
     )?.focus();
+    // Si el marcado no pudo recibir el foco (p. ej. un `disabled` mientras
+    // carga sus opciones), `focus()` no hace nada y el foco quedaba fuera de
+    // la ventana (auditoría UX/UI, 06/11/2026): el primero que recibe Tab o
+    // el propio panel.
+    if (panel && !panel.contains(document.activeElement)) {
+      (enfocables()[0] || panel).focus();
+    }
     const vigilancia =
       confirmarAlDescartar && panel
         ? vigilarDescarte(panel, { preguntar: confirmarDescarte })

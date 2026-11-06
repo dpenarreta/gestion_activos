@@ -1,0 +1,323 @@
+/*
+ * Reuniones de Gestión Humana: el listado, el formulario y el detalle. Todo
+ * con los tokens `mz-*`, así sigue el tema claro (azul con acentos amarillos)
+ * y el oscuro (fondos #121212, acción amarilla con letra negra). El estado y
+ * el momento llevan su texto e ícono: el color es solo apoyo.
+ */
+
+/* --- Filtros y listado ----------------------------------------------------- */
+
+.re-filtros .form-select {
+  width: auto;
+  max-width: 100%;
+}
+
+.re-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.re-tarjeta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-left: 4px solid var(--mz-border-strong);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: var(--mz-shadow-1);
+  min-width: 0;
+}
+
+.re-tarjeta__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* `break-word`: solo corta una palabra que no cabe sola en la línea. */
+.re-tarjeta__titulo {
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--mz-link);
+  overflow-wrap: break-word;
+}
+
+.re-tarjeta__horario {
+  color: var(--mz-ink);
+  font-size: 13px;
+  overflow-wrap: break-word;
+}
+
+.re-tarjeta__acciones {
+  flex: none;
+}
+
+/* --- Formulario ------------------------------------------------------------ */
+
+.re-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.re-formulario__fila {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.re-duraciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Un botón que se alterna (las duraciones, el estado de la reunión): el
+   elegido con fondo de información, borde en el color del texto (≥ 3:1) y
+   el ícono de visto; no solo el color. */
+.re-alternar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--marca-borde-control, var(--mz-border-strong));
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+}
+
+.re-alternar[aria-pressed="true"] {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  border-color: var(--mz-info-fg);
+  font-weight: 600;
+}
+
+.re-duracion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.re-asistencia {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.re-grupo__titulo {
+  float: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+}
+
+.re-resultado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.re-resultado:hover {
+  background: var(--mz-sunken);
+}
+
+.re-resultado .form-check-input {
+  flex: none;
+  margin: 0;
+}
+
+.re-resultado__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Detalle --------------------------------------------------------------- */
+
+.re-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+}
+
+.re-detalle__principal,
+.re-detalle__lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.re-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.re-datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 4px;
+}
+
+.re-datos dd {
+  margin: 0;
+  color: var(--mz-ink);
+  overflow-wrap: break-word;
+}
+
+.re-subtitulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 6px;
+}
+
+/* Los saltos de línea que escribió quien organiza, como texto. */
+.re-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--mz-ink);
+}
+
+/* El enlace externo y, al lado, adónde lleva (con un candado). */
+.re-externo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  max-width: 100%;
+}
+
+.re-dominio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mz-ink-soft);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.re-enlace {
+  overflow-wrap: anywhere;
+}
+
+.re-clave {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.re-clave__valor {
+  padding: 4px 10px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 6px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.re-personas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.re-persona {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mz-border);
+  color: var(--mz-ink);
+}
+
+.re-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.re-casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.re-casilla .form-check-input {
+  margin: 0;
+}
+
+/* --- Pantallas estrechas (≤ 880 px) ---------------------------------------- */
+
+@media (max-width: 880px) {
+  .re-detalle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .re-tarjeta {
+    flex-direction: column;
+  }
+
+  .re-formulario__fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Pantallas táctiles: objetivos de 44 px -------------------------------- */
+
+@media (pointer: coarse) {
+  .re-filtros .form-select,
+  .re-duraciones .btn,
+  .re-acciones .btn,
+  .re-clave .btn,
+  .re-tarjeta__acciones .btn,
+  .re-resultado,
+  .re-casilla {
+    min-height: 44px;
+  }
+
+  .re-resultado .form-check-input,
+  .re-casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* El título de la tarjeta es el enlace al detalle. */
+  .re-tarjeta__titulo {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

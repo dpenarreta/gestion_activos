@@ -37,6 +37,8 @@ import {
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
   PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
+  PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
+  ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -445,6 +447,28 @@ export const ADMIN_MENU = [
         icon: "lightbulb",
         path: `${RUTA_GESTION_HUMANA}/mejora-continua`,
         permission: GH_PERMISOS_MEJORA,
+      },
+      {
+        // Reuniones: no depende de Tareas; el servidor pide uno de los tres
+        // `reuniones.*`. El detalle (`reuniones/<id>`, destino de los
+        // avisos) cuelga de aquí.
+        id: "gh-reuniones",
+        modulo: "gestion_humana",
+        name: "Reuniones",
+        icon: "camera-video",
+        path: `${RUTA_GESTION_HUMANA}/reuniones`,
+        permission: GH_PERMISOS_REUNIONES,
+      },
+      {
+        // Escritorio: notas y recordatorios personales. La insignia cuenta
+        // las notas sin leer (`escritorio/notes/unread-count/`).
+        id: "gh-escritorio",
+        modulo: "gestion_humana",
+        name: "Escritorio",
+        icon: "sticky",
+        path: `${RUTA_GESTION_HUMANA}/escritorio`,
+        permission: GH_ESCRITORIO_ACCEDER,
+        insignia: "notas_sin_leer",
       },
       {
         // Con `validar`, las de su equipo; con `regularizar`, toda la

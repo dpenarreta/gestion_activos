@@ -45,6 +45,11 @@ vi.mock("../src/api/sugerenciasService", () => ({
   sugerenciasService: { resumen: resumenSugerencias },
 }));
 
+const notasSinLeer = vi.fn();
+vi.mock("../src/api/escritorioService", () => ({
+  escritorioService: { sinLeer: notasSinLeer },
+}));
+
 const estadoNomina = vi.fn();
 const resumenObservaciones = vi.fn();
 const avisoRol = vi.fn();
@@ -100,6 +105,21 @@ describe("Insignias del menú", () => {
         name: /Mi onboarding\s*3 materiales pendientes/,
       }),
     ).toBeInTheDocument();
+  });
+
+  it("Escritorio de Gestión Humana muestra las notas sin leer", async () => {
+    permisos.lista = ["escritorio.acceder"];
+    notasSinLeer.mockResolvedValue({ unread: 2 });
+    pintar("/admin/gestion-humana/escritorio");
+    expect(
+      await screen.findByRole("link", {
+        name: /Escritorio\s*2 notas sin leer/,
+      }),
+    ).toBeInTheDocument();
+    // Informativa: el tono de información, no el rojo de lo incumplido.
+    expect(screen.getByText("2", { selector: ".mz-badge" })).toHaveClass(
+      "mz-badge--info",
+    );
   });
 
   it("sin pendientes no muestra número", async () => {

@@ -41,6 +41,8 @@ MODULOS = {
             "/api/v1/analytics/",
             "/api/v1/informes/",
             "/api/v1/mejora-continua/",
+            "/api/v1/reuniones/",
+            "/api/v1/escritorio/",
         ),
     ),
     "matriz": ("Matriz de obligaciones", ("/api/v1/matriz/",)),

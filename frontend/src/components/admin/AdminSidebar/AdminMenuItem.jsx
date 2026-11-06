@@ -26,6 +26,7 @@ export const TEXTOS = {
     "reporte nuevo",
     "reportes nuevos",
   ],
+  notas_sin_leer: ["Notas sin leer", "nota sin leer", "notas sin leer"],
   onboarding: [
     "Materiales que le faltan aprobar",
     "material pendiente",
@@ -42,6 +43,14 @@ export const TEXTOS = {
     "observaciones por atender",
   ],
 };
+
+/** Las insignias que avisan sin ser un incumplimiento (las notas sin leer
+ * del Escritorio): van en el tono de información y no en el rojo de lo que
+ * pide atención (auditoría UX/UI, 06/11/2026). */
+const INFORMATIVAS = new Set(["notas_sin_leer"]);
+
+export const claseDeInsignia = (tipo) =>
+  INFORMATIVAS.has(tipo) ? "mz-badge mz-badge--info" : "mz-badge";
 
 /** El texto oculto que dice qué cuenta el número, en singular o plural. */
 export function sufijoDeInsignia(tipo, cantidad) {
@@ -77,7 +86,7 @@ export function AdminMenuItem({
             sobre un <span> sin rol el aria-label se ignora y se leía «Matriz
             3» sin decir qué era (auditoría UX/UI, fase 3, 28/10/2026). */}
         {insignia > 0 && (
-          <span className="mz-badge" title={titulo}>
+          <span className={claseDeInsignia(tipoInsignia)} title={titulo}>
             {insignia}
             <span className="visually-hidden"> {sufijo}</span>
           </span>

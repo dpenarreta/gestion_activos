@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { capacitacionService } from "../../../api/capacitacionService";
+import { escritorioService } from "../../../api/escritorioService";
 import { licenciasService } from "../../../api/licenciasService";
 import { proyectosService } from "../../../api/proyectosService";
 import { matrizService } from "../../../api/matrizService";
@@ -85,6 +86,8 @@ const FUENTES_DE_INSIGNIAS = {
   // Observaciones de roles: las que Talento Humano tiene por atender.
   observaciones_rol: () =>
     nominaService.resumenObservaciones().then((d) => d.abiertas),
+  // Escritorio de Gestión Humana: las notas que le dejaron y no ha leído.
+  notas_sin_leer: () => escritorioService.sinLeer().then((d) => d.unread),
   // Mi onboarding: los materiales que le faltan aprobar.
   onboarding: () =>
     capacitacionService

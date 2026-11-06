@@ -65,6 +65,10 @@ urlpatterns = [
     path("informes/", include("apps.informes.urls")),
     # --- Gestión Humana · Mejora continua (las «Ideas» de Nexo) ---
     path("mejora-continua/", include("apps.mejora_continua.urls")),
+    # --- Gestión Humana · Reuniones (sin Zoom: el enlace lo pega quien organiza) ---
+    path("reuniones/", include("apps.reuniones.urls")),
+    # --- Gestión Humana · Escritorio (notas, recordatorios y su bitácora) ---
+    path("escritorio/", include("apps.escritorio.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---

@@ -2,7 +2,12 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Icon } from "../../common/Icon/Icon";
-import { AdminMenuItem, TEXTOS, sufijoDeInsignia } from "./AdminMenuItem";
+import {
+  AdminMenuItem,
+  TEXTOS,
+  claseDeInsignia,
+  sufijoDeInsignia,
+} from "./AdminMenuItem";
 import { hasActiveDescendant } from "./adminMenuTree";
 
 /** Pantalla con mouse y menú de escritorio: donde tiene sentido desplegar al
@@ -386,7 +391,7 @@ function EntradasDelFlyout({
               <span>{hijo.name}</span>
               {insignias[hijo.insignia] > 0 && (
                 <span
-                  className="mz-badge"
+                  className={claseDeInsignia(hijo.insignia)}
                   title={(TEXTOS[hijo.insignia] ?? TEXTOS.atencion)[0]}
                 >
                   {insignias[hijo.insignia]}

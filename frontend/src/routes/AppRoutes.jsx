@@ -135,6 +135,8 @@ import { MarcoProyectos } from "../pages/GestionHumana/Proyectos/ContextoProyect
 import { MarcoKpi } from "../pages/GestionHumana/Desempeno/ContextoKpi";
 import { MarcoInformes } from "../pages/GestionHumana/Informes/ContextoInformes";
 import { MarcoMejoraContinua } from "../pages/GestionHumana/MejoraContinua/ContextoMejoraContinua";
+import { MarcoReuniones } from "../pages/GestionHumana/Reuniones/ContextoReuniones";
+import { MarcoEscritorio } from "../pages/GestionHumana/Escritorio/ContextoEscritorio";
 import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
@@ -158,6 +160,8 @@ import {
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
   PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
+  PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
+  ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
 } from "../modulos/permisosGestionHumana";
 
 // Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
@@ -243,6 +247,23 @@ const MejoraContinua = lazy(() =>
 const DetalleIdea = lazy(() =>
   import("../pages/GestionHumana/MejoraContinua/DetalleIdea").then((m) => ({
     default: m.DetalleIdea,
+  })),
+);
+// Reuniones y Escritorio, también bajo demanda; sus marcos conservan `me/`
+// (en Reuniones, al pasar del listado al detalle).
+const Reuniones = lazy(() =>
+  import("../pages/GestionHumana/Reuniones/Reuniones").then((m) => ({
+    default: m.Reuniones,
+  })),
+);
+const DetalleReunion = lazy(() =>
+  import("../pages/GestionHumana/Reuniones/DetalleReunion").then((m) => ({
+    default: m.DetalleReunion,
+  })),
+);
+const Escritorio = lazy(() =>
+  import("../pages/GestionHumana/Escritorio/Escritorio").then((m) => ({
+    default: m.Escritorio,
   })),
 );
 const VisorInforme = lazy(() =>
@@ -1003,6 +1024,39 @@ export function AppRoutes() {
               element={
                 <RequirePermission permission={GH_PERMISOS_MEJORA}>
                   <DetalleIdea />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Reuniones. `reuniones/<id>` es el enlace de los avisos de la
+              campana (`ENLACE_REUNION` del backend). Qué reunión ve cada
+              quien lo decide el servidor (una ajena es 404). */}
+          <Route element={<MarcoReuniones />}>
+            <Route
+              path="reuniones"
+              element={
+                <RequirePermission permission={GH_PERMISOS_REUNIONES}>
+                  <Reuniones />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="reuniones/:reunionId"
+              element={
+                <RequirePermission permission={GH_PERMISOS_REUNIONES}>
+                  <DetalleReunion />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Escritorio: notas y recordatorios personales. Es el destino de
+              los avisos de notas y de recordatorios vencidos. */}
+          <Route element={<MarcoEscritorio />}>
+            <Route
+              path="escritorio"
+              element={
+                <RequirePermission permission={GH_ESCRITORIO_ACCEDER}>
+                  <Escritorio />
                 </RequirePermission>
               }
             />

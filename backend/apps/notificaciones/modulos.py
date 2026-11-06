@@ -24,6 +24,8 @@ MODULOS = {
     "proyectos": ("Proyectos", "kanban"),
     "kpi": ("Gestión Humana · KPI", "speedometer2"),
     "mejora_continua": ("Gestión Humana · Mejora continua", "lightbulb"),
+    "reuniones": ("Gestión Humana · Reuniones", "camera-video"),
+    "escritorio": ("Gestión Humana · Escritorio", "sticky"),
 }
 
 SISTEMA = ("Sistema", "bell")

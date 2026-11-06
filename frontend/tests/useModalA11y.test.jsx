@@ -38,6 +38,27 @@ describe("useModalA11y", () => {
     expect(cerrarPanel).not.toHaveBeenCalled();
   });
 
+  it("si el marcado con data-autofocus está deshabilitado, el foco queda dentro", () => {
+    render(
+      <Ventana nombre="Nota" onCerrar={vi.fn()}>
+        <select data-autofocus disabled aria-label="Para">
+          <option>Cargando…</option>
+        </select>
+        <textarea aria-label="Mensaje" />
+      </Ventana>,
+    );
+    expect(screen.getByLabelText("Mensaje")).toHaveFocus();
+  });
+
+  it("sin nada enfocable, el foco va al panel", () => {
+    render(
+      <Ventana nombre="Vacía" onCerrar={vi.fn()}>
+        <p>Solo texto</p>
+      </Ventana>,
+    );
+    expect(screen.getByRole("dialog", { name: "Vacía" })).toHaveFocus();
+  });
+
   it("al cerrar, el foco vuelve a quien abrió la ventana", () => {
     function Pagina() {
       const [abierta, setAbierta] = useState(false);

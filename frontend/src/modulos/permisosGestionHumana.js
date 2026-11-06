@@ -85,6 +85,31 @@ export const PERMISOS_MEJORA_CONTINUA = [
   MEJORA_GESTIONAR,
 ];
 
+/*
+ * Reuniones (portado de Nexo, sin Zoom ni calendario de Institucional).
+ * `acceder` ve las que organiza o a las que lo invitaron y puede ser
+ * invitado; `crear` las programa; `administrar` ve todas las de la empresa y
+ * edita las ajenas. Quién ve cada reunión lo decide el servidor (una ajena es
+ * 404).
+ */
+export const REUNIONES_ACCEDER = "reuniones.acceder";
+export const REUNIONES_CREAR = "reuniones.crear";
+export const REUNIONES_ADMINISTRAR = "reuniones.administrar";
+/** Cualquiera de los tres abre la pantalla (como `DelModulo` del servidor). */
+export const PERMISOS_REUNIONES = [
+  REUNIONES_ACCEDER,
+  REUNIONES_CREAR,
+  REUNIONES_ADMINISTRAR,
+];
+
+/*
+ * Escritorio digital (portado de Nexo): notas entre personas y recordatorios
+ * personales. Un solo permiso; nadie ve las notas ni los recordatorios de
+ * otro, ni quien administra el módulo. Convertir un recordatorio en tarea
+ * pide además `tareas.acceder` (lo dice `escritorio/me/`).
+ */
+export const ESCRITORIO_ACCEDER = "escritorio.acceder";
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -97,6 +122,8 @@ export const PERMISOS_GESTION_HUMANA = [
   KPI_ACCEDER,
   ...PERMISOS_INFORMES,
   ...PERMISOS_MEJORA_CONTINUA,
+  ...PERMISOS_REUNIONES,
+  ESCRITORIO_ACCEDER,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

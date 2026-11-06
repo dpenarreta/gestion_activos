@@ -504,3 +504,11 @@
     white-space: nowrap;
   }
 }
+
+/* Insignia informativa (notas sin leer): el tono de información con su
+   borde en el color del texto, no el rojo de lo incumplido. */
+.mz-badge--info {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  border: 1px solid var(--mz-info-fg);
+}
