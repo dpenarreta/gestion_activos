@@ -23,6 +23,7 @@ MODULOS = {
     # Solicitud de proyectos de Institucional: comparten el nombre.
     "proyectos": ("Proyectos", "kanban"),
     "kpi": ("Gestión Humana · KPI", "speedometer2"),
+    "mejora_continua": ("Gestión Humana · Mejora continua", "lightbulb"),
 }
 
 SISTEMA = ("Sistema", "bell")

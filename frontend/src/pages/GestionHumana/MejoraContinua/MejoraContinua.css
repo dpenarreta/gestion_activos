@@ -1,0 +1,508 @@
+/*
+ * Mejora continua de Gestión Humana: el tablero por etapas, las tarjetas, el
+ * formulario y el detalle. Todo con los tokens `mz-*`, así sigue el tema
+ * claro (azul con acentos amarillos) y el oscuro (fondos #121212, acción
+ * amarilla con letra negra). Cada etapa lleva su texto e ícono: la raya de
+ * color de la columna es solo apoyo.
+ */
+
+/* --- Filtros --------------------------------------------------------------- */
+
+.mc-casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.mc-casilla .form-check-input {
+  margin: 0;
+}
+
+/* --- Tablero --------------------------------------------------------------- */
+
+/* `position: relative` contiene los `visually-hidden` (position: absolute)
+   de las columnas que quedan fuera de vista: sin él escapaban del
+   desplazamiento del tablero y la página entera se desplazaba en
+   horizontal. */
+.mc-tablero {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 6px;
+  align-items: flex-start;
+}
+
+.mc-tablero:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.mc-columna {
+  position: relative;
+  /* Con ideas, nunca por debajo de 240 px: si no caben, el tablero se
+     desplaza dentro de su región. Solo las vacías son estrechas. */
+  flex: 1 0 240px;
+  min-width: 240px;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border);
+  border-top: 4px solid var(--mz-border-strong);
+  border-radius: 12px;
+  padding: 10px;
+  min-width: 0;
+}
+
+.mc-columna--warn {
+  border-top-color: var(--mz-warn-line);
+}
+
+.mc-columna--info {
+  border-top-color: var(--mz-blue-400);
+}
+
+.mc-columna--ok {
+  border-top-color: var(--mz-ok-line);
+}
+
+.mc-columna--bad {
+  border-top-color: var(--mz-bad-line);
+}
+
+.mc-columna__titulo {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 10px;
+}
+
+.mc-columna__nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.mc-columna__cuenta {
+  flex: none;
+  white-space: nowrap;
+  margin-left: auto;
+  min-width: 24px;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border-strong);
+  font-size: 12px;
+  text-align: center;
+  color: var(--mz-ink-soft);
+}
+
+.mc-columna__vacia {
+  padding: 6px 2px;
+}
+
+/* Vacía: estrecha (solo el título y el 0), para que las siete etapas
+   entren o casi en el escritorio. */
+/* 170 px: lo justo para que «Implementada», el nombre más largo, no se
+   parta a mitad de palabra junto a su ícono y su contador. */
+.mc-columna--vacia {
+  flex: 0 0 170px;
+  min-width: 170px;
+}
+
+.mc-columna--vacia .mc-columna__titulo {
+  margin-bottom: 4px;
+}
+
+/* El «·» de «Etapa · 0» solo se ve en la línea del teléfono. */
+.mc-columna__punto {
+  display: none;
+}
+
+.mc-tarjetas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mc-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: var(--mz-shadow-1);
+  min-width: 0;
+}
+
+/* `break-word`: solo corta una palabra que no cabe sola en la línea
+   (`anywhere` partía palabras normales). */
+.mc-tarjeta__titulo {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--mz-link);
+  overflow-wrap: break-word;
+}
+
+.mc-tarjeta__motivo {
+  color: var(--mz-ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.mc-tarjeta__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mc-tarjeta__autor {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mc-innovador {
+  vertical-align: middle;
+}
+
+/* --- Avance y voto ---------------------------------------------------------- */
+
+.mc-avance__texto {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--mz-ink-soft);
+  margin-bottom: 4px;
+}
+
+.mc-avance__pista {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--mz-sunken);
+  border: 1px solid var(--mz-border-strong);
+  overflow: hidden;
+}
+
+.mc-avance__relleno {
+  display: block;
+  height: 100%;
+  background: var(--mz-link);
+}
+
+.mc-voto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  border: 1px solid var(--marca-borde-control, var(--mz-border-strong));
+  border-radius: 99px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  font-weight: 600;
+}
+
+/* Votado: fondo de información y la mano rellena (no solo el color). */
+/* El borde en el color del texto: ≥ 3:1 sobre el fondo en los dos temas. */
+.mc-voto--hecho {
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+  border-color: var(--mz-info-fg);
+}
+
+.mc-voto[aria-busy="true"] {
+  cursor: progress;
+}
+
+.mc-votos {
+  color: var(--mz-ink-soft);
+}
+
+/* --- Formulario ------------------------------------------------------------ */
+
+.mc-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mc-grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.mc-grupo__titulo {
+  float: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+}
+
+/* Las tres opciones de impacto en una fila (una por fila en el teléfono). */
+.mc-impactos {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mc-archivo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.mc-archivo__nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Detalle --------------------------------------------------------------- */
+
+/* Resumen e historial a la izquierda y la gestión a la derecha; en el
+   teléfono, en el orden del documento: resumen, gestión, historial. */
+.mc-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "resumen gestion"
+    "historial gestion";
+  gap: 14px;
+  align-items: start;
+}
+
+.mc-detalle--sin-gestion {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "resumen"
+    "historial";
+}
+
+.mc-detalle__resumen {
+  grid-area: resumen;
+  min-width: 0;
+}
+
+.mc-detalle__lateral {
+  grid-area: gestion;
+  min-width: 0;
+}
+
+.mc-detalle__historial {
+  grid-area: historial;
+  min-width: 0;
+}
+
+.mc-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.mc-datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 4px;
+}
+
+.mc-datos dd {
+  margin: 0;
+  color: var(--mz-ink);
+}
+
+.mc-subtitulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 6px;
+}
+
+/* Los saltos de línea que escribió quien propuso la idea, como texto. */
+.mc-descripcion {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--mz-ink);
+}
+
+.mc-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--mz-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mc-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mc-rechazo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.mc-avance-form__fila {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mc-avance-form__fila .form-control {
+  max-width: 110px;
+}
+
+/* El visor de imágenes compartido (`Soporte/VisorAdjunto`) trae sus reglas en
+   `Soporte.css`, que este módulo no carga: lo mínimo para que la imagen
+   quepa en la ventana. */
+.soporte-visor-imagen__cuerpo {
+  display: flex;
+  justify-content: center;
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.soporte-visor-imagen__cuerpo img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* --- Pantallas estrechas (≤ 880 px): lista en vez de columnas -------------- */
+
+@media (max-width: 880px) {
+  .mc-tablero {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: visible;
+  }
+
+  .mc-columna,
+  .mc-columna--vacia {
+    flex: none;
+    min-width: 0;
+  }
+
+  /* Vacía: una línea «Etapa · 0», no una caja completa. */
+  .mc-columna--vacia {
+    padding: 6px 10px;
+    border-top: 1px solid var(--mz-border);
+    border-left: 4px solid var(--mz-border-strong);
+  }
+
+  .mc-columna--vacia.mc-columna--warn {
+    border-left-color: var(--mz-warn-line);
+  }
+
+  .mc-columna--vacia.mc-columna--info {
+    border-left-color: var(--mz-blue-400);
+  }
+
+  .mc-columna--vacia.mc-columna--ok {
+    border-left-color: var(--mz-ok-line);
+  }
+
+  .mc-columna--vacia.mc-columna--bad {
+    border-left-color: var(--mz-bad-line);
+  }
+
+  .mc-columna--vacia .mc-columna__titulo {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  /* «Etapa · 0» se lee seguido: el nombre no empuja el 0 a la derecha. */
+  .mc-columna--vacia .mc-columna__nombre {
+    flex: none;
+  }
+
+  .mc-columna--vacia .mc-columna__cuenta {
+    margin-left: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .mc-columna--vacia .mc-columna__punto {
+    display: inline;
+  }
+
+  .mc-columna--vacia .mc-columna__vacia {
+    display: none;
+  }
+
+  .mc-detalle,
+  .mc-detalle--sin-gestion {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "resumen"
+      "gestion"
+      "historial";
+  }
+}
+
+@media (max-width: 480px) {
+  .mc-impactos {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Pantallas táctiles: objetivos de 44 px -------------------------------- */
+
+@media (pointer: coarse) {
+  .mc-filtros .form-select,
+  .mc-casilla,
+  .mc-voto,
+  .mc-acciones .btn,
+  .mc-archivo .btn,
+  .mc-avance-form .btn,
+  .mc-avance-form .form-control {
+    min-height: 44px;
+  }
+
+  .mc-voto {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .mc-casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* El título de la tarjeta es el enlace al detalle. */
+  .mc-tarjeta__titulo {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

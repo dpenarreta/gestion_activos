@@ -416,9 +416,9 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
     rol = Group.objects.get(name="Administrador de Gestión Humana")
     codenames = set(rol.permissions.values_list("codename", flat=True))
     # Desde la fase 2a (tasks/0002) administra también Tareas y Equipo, y desde
-    # la 2b (projects/0002, ausencias/0002) Proyectos y Ausencias, y desde la 2c
-    # (informes/0002) los Informes ejecutivos: todo Gestión Humana y nada de
-    # otro módulo.
+    # la 2b (projects/0002, ausencias/0002) Proyectos y Ausencias, desde la 2c
+    # (informes/0002) los Informes ejecutivos y desde mejora_continua/0002 la
+    # Mejora continua: todo Gestión Humana y nada de otro módulo.
     assert codenames == (
         set(PERMISSION_CATALOG["novedades"]["permissions"])
         | set(PERMISSION_CATALOG["tareas"]["permissions"])
@@ -428,6 +428,7 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
         | set(PERMISSION_CATALOG["kpi"]["permissions"])
         | set(PERMISSION_CATALOG["inteligencia_preventiva"]["permissions"])
         | set(PERMISSION_CATALOG["informes_gh"]["permissions"])
+        | set(PERMISSION_CATALOG["mejora_continua"]["permissions"])
     )
 
     admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
@@ -459,8 +460,9 @@ def test_destinatarios_unicos_dentro_de_la_empresa(courier):
 def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
     """Vienen de Nexo para que cada persona quede con su rol. En Novedades no
     conceden nada; desde la fase 2a (tasks/0002) dan lo suyo en Tareas y
-    Equipo, desde la 2b en Proyectos y Ausencias y desde la 2c en Informes
-    ejecutivos (Jefe y Coordinador Nacional); nada de otro módulo."""
+    Equipo, desde la 2b en Proyectos y Ausencias, desde la 2c en Informes
+    ejecutivos (Jefe y Coordinador Nacional) y luego en Mejora continua; nada
+    de otro módulo."""
     for nombre in ("JEFE_NACIONAL", "ANALISTA_CC", "TRABAJO_SOCIAL", "ASISTENTE_NOMINA"):
         codenames = set(
             Group.objects.get(name=nombre).permissions.values_list("codename", flat=True)
@@ -476,6 +478,7 @@ def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
                     "kpi.",
                     "inteligencia_preventiva.",
                     "informes_gh.",
+                    "mejora_continua.",
                 )
             )
             for c in codenames

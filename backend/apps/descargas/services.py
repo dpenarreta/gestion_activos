@@ -65,6 +65,7 @@ MODULOS = {
     "descargas": "Auditoría · Descargas",
     "analytics": "Gestión Humana · KPI",
     "informes": "Gestión Humana · Informes ejecutivos",
+    "mejora-continua": "Gestión Humana · Mejora continua",
 }
 #: Pantallas de Institucional con su propio nombre.
 INSTITUCIONAL = {"rol-pagos": "nomina", "permisos": "licencias", "proyectos": "proyectos"}

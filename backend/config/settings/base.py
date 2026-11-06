@@ -113,6 +113,7 @@ INSTALLED_APPS = [
     "apps.ausencias",
     "apps.analytics",
     "apps.informes",
+    "apps.mejora_continua",
 ]
 
 MIDDLEWARE = [

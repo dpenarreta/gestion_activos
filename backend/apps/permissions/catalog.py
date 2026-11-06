@@ -814,6 +814,31 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Mejora continua (las «Ideas» de Nexo, 06/11/2026). Es un
+    # módulo aparte del buzón de Sugerencias de Institucional (`sugerencias.*`),
+    # que es solo para opiniones y errores del sistema (decisión del usuario).
+    "mejora_continua": {
+        "label": "Mejora continua",
+        "description": (
+            "Ideas de mejora del equipo de Gestión Humana: se proponen con un adjunto, se votan "
+            "y avanzan por etapas (propuesta, en revisión, aprobada, en desarrollo, en pruebas, "
+            "implementada o rechazada). Cada quien ve las suyas y las de su equipo según el "
+            "organigrama."
+        ),
+        "permissions": {
+            "mejora_continua.acceder": (
+                "Entrar a Mejora continua: proponer ideas (con un adjunto), ver las propias y las "
+                "de su equipo según el organigrama y votar por las que ve"
+            ),
+            "mejora_continua.ver_todas": (
+                "Ver y votar todas las ideas de la empresa, no solo las de su equipo"
+            ),
+            "mejora_continua.gestionar": (
+                "Revisar las ideas de la empresa: moverlas de etapa (avanzar, retroceder, "
+                "rechazar con motivo y reabrir) y actualizar su avance; el autor recibe el aviso"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -945,10 +970,10 @@ MODULE_GROUPS = [
             "novedades (días laborados, horas extras, cierres, depuración e "
             "ingresos y salidas de colaboradores), las tareas del equipo, la "
             "pantalla de Equipo, los proyectos, las ausencias, el KPI con su "
-            "inteligencia preventiva y los informes ejecutivos. Los Supervisores, Asistentes y Jefes de "
-            "Operaciones tienen además reglas propias por rol; en Tareas, Equipo, "
-            "Proyectos, Ausencias, KPI e Informes, lo que cada quien ve lo decide "
-            "además el organigrama."
+            "inteligencia preventiva, los informes ejecutivos y la mejora continua. Los "
+            "Supervisores, Asistentes y Jefes de Operaciones tienen además reglas propias "
+            "por rol; en Tareas, Equipo, Proyectos, Ausencias, KPI, Informes y Mejora "
+            "continua, lo que cada quien ve lo decide además el organigrama."
         ),
         "modules": [
             "novedades",
@@ -959,6 +984,7 @@ MODULE_GROUPS = [
             "kpi",
             "inteligencia_preventiva",
             "informes_gh",
+            "mejora_continua",
         ],
     },
     {

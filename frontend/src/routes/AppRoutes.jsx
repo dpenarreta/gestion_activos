@@ -134,6 +134,7 @@ import { MarcoTareas } from "../pages/GestionHumana/Tareas/ContextoTareas";
 import { MarcoProyectos } from "../pages/GestionHumana/Proyectos/ContextoProyectos";
 import { MarcoKpi } from "../pages/GestionHumana/Desempeno/ContextoKpi";
 import { MarcoInformes } from "../pages/GestionHumana/Informes/ContextoInformes";
+import { MarcoMejoraContinua } from "../pages/GestionHumana/MejoraContinua/ContextoMejoraContinua";
 import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
@@ -156,6 +157,7 @@ import {
   KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
+  PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
 } from "../modulos/permisosGestionHumana";
 
 // Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
@@ -229,6 +231,18 @@ const AjustesKpi = lazy(() =>
 const Informes = lazy(() =>
   import("../pages/GestionHumana/Informes/Informes").then((m) => ({
     default: m.Informes,
+  })),
+);
+// Mejora continua, también bajo demanda; su marco conserva `me/` al pasar
+// del tablero al detalle.
+const MejoraContinua = lazy(() =>
+  import("../pages/GestionHumana/MejoraContinua/MejoraContinua").then((m) => ({
+    default: m.MejoraContinua,
+  })),
+);
+const DetalleIdea = lazy(() =>
+  import("../pages/GestionHumana/MejoraContinua/DetalleIdea").then((m) => ({
+    default: m.DetalleIdea,
   })),
 );
 const VisorInforme = lazy(() =>
@@ -968,6 +982,27 @@ export function AppRoutes() {
               element={
                 <RequirePermission permission={GH_PERMISOS_INFORMES}>
                   <VisorInforme />
+                </RequirePermission>
+              }
+            />
+          </Route>
+          {/* Mejora continua. `mejora-continua/<id>` es el enlace de los
+              avisos de la campana (`ENLACE_IDEA` del backend). Qué idea ve
+              cada quien lo decide el servidor (una ajena es 404). */}
+          <Route element={<MarcoMejoraContinua />}>
+            <Route
+              path="mejora-continua"
+              element={
+                <RequirePermission permission={GH_PERMISOS_MEJORA}>
+                  <MejoraContinua />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="mejora-continua/:ideaId"
+              element={
+                <RequirePermission permission={GH_PERMISOS_MEJORA}>
+                  <DetalleIdea />
                 </RequirePermission>
               }
             />

@@ -188,6 +188,14 @@
   color: var(--mz-on-action);
 }
 
+/* Casillas y botones de opción: el borde de Bootstrap (#dee2e6) da 1,6:1
+   sobre blanco y no se distingue (WCAG 1.4.11). Va el de los controles
+   (3:1). Marcadas, `identidad-puente.css` (`.form-check-input:checked`, más
+   específica) sigue poniendo el color de acción. */
+.form-check-input {
+  border-color: var(--marca-borde-control);
+}
+
 /* Las casillas marcadas toman el color de acción; en oscuro es amarillo y la
    marca blanca de Bootstrap no se vería: va negra. */
 :root[data-theme="dark"] .form-check-input:checked[type="checkbox"] {

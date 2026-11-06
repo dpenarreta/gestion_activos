@@ -69,6 +69,22 @@ export const PERMISOS_INFORMES = [
   INFORMES_ADMINISTRAR,
 ];
 
+/*
+ * Mejora continua: ideas de mejora de procesos (portado de Nexo). `acceder`
+ * propone, ve las suyas y las de su equipo y vota; `ver_todas` ve las de toda
+ * la empresa; `gestionar` las mueve de etapa y fija su avance. Qué idea ve
+ * cada quien lo decide el organigrama en el servidor.
+ */
+export const MEJORA_ACCEDER = "mejora_continua.acceder";
+export const MEJORA_VER_TODAS = "mejora_continua.ver_todas";
+export const MEJORA_GESTIONAR = "mejora_continua.gestionar";
+/** Cualquiera de los tres abre la pantalla (como `DelModulo` del servidor). */
+export const PERMISOS_MEJORA_CONTINUA = [
+  MEJORA_ACCEDER,
+  MEJORA_VER_TODAS,
+  MEJORA_GESTIONAR,
+];
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -80,6 +96,7 @@ export const PERMISOS_GESTION_HUMANA = [
   PROYECTOS_ACCEDER,
   KPI_ACCEDER,
   ...PERMISOS_INFORMES,
+  ...PERMISOS_MEJORA_CONTINUA,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

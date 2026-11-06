@@ -52,6 +52,7 @@ APPS_DE_NEGOCIO = frozenset(
         "ausencias",
         "analytics",
         "informes",
+        "mejora_continua",
     }
 )
 

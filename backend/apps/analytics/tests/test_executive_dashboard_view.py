@@ -147,18 +147,36 @@ def test_200_includes_subordinate_snapshot_and_ceo_block(coordinador_nacional, a
     assert set(ceo["operational_risk"]) == {"avg", "classification", "color"}
 
 
-def test_pending_ideas_is_empty_until_mejora_continua_is_ported(
+def test_pending_ideas_son_las_propuestas_y_en_revision_que_ve(
     coordinador_nacional, analista, equipo
 ):
-    """En Nexo: las ideas PROPUESTA/EN_REVISION. Mejora Continua
-    (`ImprovementIdea`) no está portado a la intranet: la lista va vacía y
-    con la misma forma (pendiente)."""
+    """En Nexo: las 10 ideas PROPUESTA/EN_REVISION más recientes. Aquí salen
+    de Mejora continua (`apps.mejora_continua`), las que la persona ve."""
+    from apps.mejora_continua.models import ImprovementIdea
+
     _create_task(
         assigned_to=analista, created_by=coordinador_nacional, status=Task.Status.COMPLETADA
     )
+    propuesta = ImprovementIdea.objects.create(
+        title="Pausas activas", description="Cada dos horas", impact="MEDIO", author=analista
+    )
+    ImprovementIdea.objects.create(
+        title="Ya implementada",
+        description="—",
+        impact="BAJO",
+        author=analista,
+        status=ImprovementIdea.Status.IMPLEMENTADA,
+    )
     response = _client_for(coordinador_nacional).get("/api/v1/analytics/kpis/executive/")
     assert response.status_code == 200
-    assert response.data["alerts"]["pending_ideas"] == []
+    assert response.data["alerts"]["pending_ideas"] == [
+        {
+            "id": propuesta.id,
+            "title": "Pausas activas",
+            "status": "PROPUESTA",
+            "author_name": analista.first_name or analista.username,
+        }
+    ]
 
 
 def test_trend_and_ranking_reflect_month_over_month_change(coordinador_nacional, analista, equipo):

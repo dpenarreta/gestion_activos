@@ -13,8 +13,9 @@ Adaptaciones de la intranet (las fórmulas no cambian):
   (`kpi.administrar`; en Nexo, el superusuario).
 - **Equipo** por organigrama (`access.team_members` /
   `executor_members`), sin el liderazgo en las vistas de ejecución.
-- **Ideas** (`ImprovementIdea`, Mejora Continua) no está portado: las ideas
-  pendientes del resumen ejecutivo van vacías (pendiente).
+- **Ideas pendientes** del resumen ejecutivo (`apps.mejora_continua`): en Nexo
+  las 10 más recientes en PROPUESTA o EN_REVISION de toda la base; aquí, de las
+  que la persona ve en Mejora continua (ninguna si no entra al módulo).
 - **Aviso de riesgo alto**: al jefe inmediato según el organigrama, en la
   campana de la intranet, una vez por persona y mes (la marca queda en
   `AnalyticsAuditLog`, que no se purga, y no en la notificación)."""
@@ -469,6 +470,23 @@ EMPTY_EXECUTIVE_DASHBOARD: dict = {
 }
 
 
+def _pending_ideas(actor) -> list:
+    """Las 10 ideas más recientes en PROPUESTA o EN_REVISION que `actor` ve en
+    Mejora continua (en Nexo, de toda la base). Quien no entra al módulo no ve
+    ninguna: el resumen no puede abrir una puerta que el módulo cierra."""
+    from apps.mejora_continua import access as ideas_access
+    from apps.mejora_continua.models import ImprovementIdea
+
+    if not ideas_access.effective_codenames(actor):
+        return []
+    return list(
+        ideas_access.ideas_visibles(actor)
+        .filter(status__in=[ImprovementIdea.Status.PROPUESTA, ImprovementIdea.Status.EN_REVISION])
+        .select_related("author")
+        .order_by("-created_at", "-id")[:10]
+    )
+
+
 def build_executive_dashboard_payload(*, actor, now: datetime | None = None) -> dict:
     """Payload de `GET /api/kpis/executive` — Fase 21 (ver
     docs/AUDIT_LOG.md § 2026-08-20). Réplica campo por campo de
@@ -547,9 +565,7 @@ def build_executive_dashboard_payload(*, actor, now: datetime | None = None) -> 
             author_id__in=user_ids, created_at__gte=range_real_start, created_at__lte=range_real_end
         ).only("author_id", "duration", "created_at")
     )
-    # PENDIENTE: Mejora Continua (`ImprovementIdea`) no está portado a la
-    # intranet. En Nexo eran las 10 ideas PROPUESTA/EN_REVISION más recientes.
-    pending_ideas_raw: list = []
+    pending_ideas_raw = _pending_ideas(actor)
 
     def biz_for_user(biz_info: dict, user_id: int) -> dict:
         return biz_info["per_user"].get(user_id, biz_info)

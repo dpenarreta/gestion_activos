@@ -36,6 +36,7 @@ import {
   KPI_ADMINISTRAR as GH_KPI_ADMINISTRAR,
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
+  PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -432,6 +433,18 @@ export const ADMIN_MENU = [
         icon: "folder2-open",
         path: `${RUTA_GESTION_HUMANA}/proyectos`,
         permission: GH_PROYECTOS_ACCEDER,
+      },
+      {
+        // Mejora continua: ideas de mejora de procesos. No depende de
+        // Tareas; el servidor pide uno de los tres `mejora_continua.*`. El
+        // detalle (`mejora-continua/<id>`, destino de los avisos) cuelga de
+        // aquí.
+        id: "gh-mejora-continua",
+        modulo: "gestion_humana",
+        name: "Mejora continua",
+        icon: "lightbulb",
+        path: `${RUTA_GESTION_HUMANA}/mejora-continua`,
+        permission: GH_PERMISOS_MEJORA,
       },
       {
         // Con `validar`, las de su equipo; con `regularizar`, toda la

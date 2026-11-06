@@ -27,7 +27,7 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
 
     # El Administrador (TI), además, sin lo de Gestión Humana que no es suyo:
     # tareas, equipo, proyectos, ausencias, KPI (decisión del usuario,
-    # 05/11/2026) e informes ejecutivos (06/11/2026).
+    # 05/11/2026), informes ejecutivos y mejora continua (06/11/2026).
     de_gestion_humana = {
         c
         for c in all_codenames()
@@ -40,6 +40,7 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 "kpi.",
                 "inteligencia_preventiva.",
                 "informes_gh.",
+                "mejora_continua.",
             )
         )
     }

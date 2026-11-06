@@ -32,10 +32,10 @@ ROLES = {
         # Todo el catálogo: es el rol que existe para no depender de una cuenta
         # de superusuario en el día a día. Salvo lo de Gestión Humana que no es
         # de TI (decisión del usuario, 05/11/2026; ver `tasks/0003`,
-        # `projects/0002`, `ausencias/0002`, `analytics/0002` e `informes/0002`):
-        # las tareas y horas del equipo, sus proyectos, sus ausencias, que
-        # incluyen datos de salud, su KPI con la inteligencia preventiva y sus
-        # informes ejecutivos.
+        # `projects/0002`, `ausencias/0002`, `analytics/0002`, `informes/0002` y
+        # `mejora_continua/0003`): las tareas y horas del equipo, sus proyectos,
+        # sus ausencias, que incluyen datos de salud, su KPI con la inteligencia
+        # preventiva, sus informes ejecutivos y sus ideas de mejora continua.
         "permisos": "*",
         "excluir_prefijos": (
             "tareas.",
@@ -45,6 +45,7 @@ ROLES = {
             "kpi.",
             "inteligencia_preventiva.",
             "informes_gh.",
+            "mejora_continua.",
         ),
     },
     "Superusuario": {
