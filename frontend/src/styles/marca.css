@@ -88,19 +88,21 @@
 }
 
 :root[data-theme="dark"] {
-  /* El menú, negro en vez del azul marino del tema claro. */
+  /* Solo el menú es negro; los fondos de la pantalla van en gris oscuro
+     (#121212), también los «hundidos» (encabezados de tabla, etiquetas,
+     buscador), que antes eran casi negros. */
   --mz-side-bg: #000000;
   --mz-bg: #121212;
   --mz-raised: #1c1c1c;
-  --mz-sunken: #0d0d0d;
+  --mz-sunken: #121212;
   --mz-border: #2e2e2e;
   --mz-border-strong: #3d3d3d;
   --mz-ink: #f2f2f2;
   --mz-ink-soft: #c4c4c4;
   --mz-ink-faint: #9a9a9a;
 
-  --mz-blue-950: #0a0a0a;
-  --mz-blue-900: #121212;
+  --mz-blue-950: #121212;
+  --mz-blue-900: #161616;
   --mz-blue-700: #ffe94d;
   --mz-blue-600: var(--marca-amarillo);
   --mz-blue-500: #bdbdbd;
@@ -147,8 +149,21 @@
 
 .form-control,
 .form-select,
-.btn-outline-secondary {
+.btn-outline-secondary,
+.mz-fb-search,
+.mz-shell .mz-switcher--select select {
   border-color: var(--marca-borde-control);
+}
+
+/* En oscuro lo «hundido» tiene el gris del fondo: lo que no lleva borde se
+   perdería fuera de una tarjeta. */
+:root[data-theme="dark"] .mz-note,
+:root[data-theme="dark"] .mz-view pre.mz-code {
+  border: 1px solid var(--mz-border);
+}
+
+:root[data-theme="dark"] .mz-progress {
+  background: var(--mz-border);
 }
 
 /* El filtro elegido: el color de acción con su letra. Fijo en blanco, en
@@ -188,6 +203,8 @@
 }
 
 /* ---------- Menú lateral ---------- */
+/* Con `.mz-shell` delante: el CSS de AdminSidebar se carga después de esta
+   hoja y, a igual especificidad, ganaría. */
 /* Contraído, el submenú no se ve: el grupo de la página abierta lleva la
    raya y el fondo, para no depender solo del color del ícono (WCAG 1.4.1). */
 .mz-shell--collapsed .mz-nav-item.is-active.mz-nav-group {
@@ -195,22 +212,28 @@
   box-shadow: inset 3px 0 0 var(--marca-amarillo);
 }
 
-.mz-flyout-item.is-active {
+/* El panel que se abre al pasar el mouse por un grupo es parte del menú:
+   su mismo color (azul marino en claro, negro en oscuro). */
+.mz-shell .mz-flyout {
+  background: var(--mz-side-bg);
+}
+
+.mz-shell .mz-flyout-item.is-active {
   box-shadow: inset 3px 0 0 var(--marca-amarillo);
 }
 
-.mz-nav-item.is-active {
+.mz-shell .mz-nav-item.is-active {
   color: #ffffff;
   border-color: transparent;
 }
 
 /* La raya, solo en la página abierta; el grupo que la contiene no la lleva. */
-.mz-nav-item.is-active:not(.mz-nav-group) {
+.mz-shell .mz-nav-item.is-active:not(.mz-nav-group) {
   box-shadow: inset 3px 0 0 var(--marca-amarillo);
 }
 
-.mz-nav-item.is-active i,
-.mz-nav-item.is-active .bi {
+.mz-shell .mz-nav-item.is-active i,
+.mz-shell .mz-nav-item.is-active .bi {
   color: var(--marca-amarillo);
 }
 
@@ -225,8 +248,8 @@
   --company-color: var(--marca-amarillo) !important;
 }
 
-.mz-collapse-handle:hover,
-.mz-collapse-handle:focus-visible {
+.mz-shell .mz-collapse-handle:hover,
+.mz-shell .mz-collapse-handle:focus-visible {
   background: var(--marca-amarillo);
   border-color: var(--marca-amarillo);
   color: var(--marca-negro);
@@ -304,6 +327,11 @@
       transparent 60%
     ),
     var(--mz-bg);
+}
+
+/* En oscuro el panel va en el gris de los fondos; negro, solo el menú. */
+:root[data-theme="dark"] .login-aside {
+  background: var(--mz-bg);
 }
 
 .login-aside {
