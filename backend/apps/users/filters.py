@@ -8,16 +8,15 @@ dependencia (`django-filter`) para un caso de uso acotado.
 from django.db.models import Q, QuerySet
 from django.utils.dateparse import parse_date
 
+from apps.core.busqueda import condicion_de_busqueda
+
 
 def filter_users(queryset: QuerySet, params) -> QuerySet:
-    query = params.get("q")
+    query = (params.get("q") or "").strip()
     if query:
-        search = (
-            Q(username__icontains=query)
-            | Q(email__icontains=query)
-            | Q(first_name__icontains=query)
-            | Q(last_name__icontains=query)
-        )
+        # Palabra por palabra y sin tildes (ver `apps.core.busqueda`); el id,
+        # con el término entero.
+        search = condicion_de_busqueda(query, ("username", "email", "first_name", "last_name"))
         if query.isdigit():
             search |= Q(id=int(query))
         queryset = queryset.filter(search)

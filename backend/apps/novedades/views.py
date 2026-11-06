@@ -8,13 +8,13 @@ gestores de los modelos ya acotan cada consulta a ella."""
 
 from functools import cached_property
 
-from django.db.models import Q
 from django.http import HttpResponse
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.request_meta import get_request_context
 from apps.core.responses import error_response
 
@@ -219,9 +219,8 @@ class CollaboratorListView(NovedadesView):
             qs = qs.filter(
                 current_supervisor_id=_parse_id_param(params["supervisor"], "supervisor")
             )
-        if params.get("q"):
-            q = params["q"].strip()
-            qs = qs.filter(Q(full_name__icontains=q) | Q(cedula__icontains=q))
+        # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+        qs = filtro_de_busqueda(qs, params.get("q"), ("full_name", "cedula"))
         return Response(self.out(CollaboratorSerializer, qs[:2000], many=True).data)
 
     def post(self, request):

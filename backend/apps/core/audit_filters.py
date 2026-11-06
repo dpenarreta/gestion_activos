@@ -4,6 +4,8 @@ filtros genérico: el conjunto de filtros es pequeño y fijo)."""
 from django.db.models import QuerySet
 from django.utils.dateparse import parse_date
 
+from apps.core.busqueda import filtro_de_busqueda
+
 
 def filter_audit_logs(queryset: QuerySet, params) -> QuerySet:
     actor = params.get("actor")
@@ -16,7 +18,9 @@ def filter_audit_logs(queryset: QuerySet, params) -> QuerySet:
     # todo auditor tiene.
     actor_username = params.get("actor_username")
     if actor_username:
-        queryset = queryset.filter(actor__username__icontains=actor_username)
+        # Sin tildes ni mayúsculas, como el resto de buscadores (ver
+        # `apps.core.busqueda`).
+        queryset = filtro_de_busqueda(queryset, actor_username, ("actor__username",))
 
     action = params.get("action")
     if action:

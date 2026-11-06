@@ -19,10 +19,11 @@ import hashlib
 from datetime import datetime, time, timedelta
 
 from django.core.files.base import File
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
 
+from apps.core.busqueda import filtro_de_busqueda
 from apps.permissions.authorization import user_has_permission
 
 from .models import ArchivoServido, CopiaArchivo, Descarga, ResumenDescargas
@@ -229,16 +230,19 @@ def consulta(actor, *, q="", desde="", hasta="", modulo="", usuario=None):
     """Las descargas, lo más reciente primero, con los filtros del reporte."""
     _exigir(actor)
     descargas = Descarga.objects.select_related("usuario")
-    q = (q or "").strip()
-    if q:
-        descargas = descargas.filter(
-            Q(usuario__first_name__icontains=q)
-            | Q(usuario__last_name__icontains=q)
-            | Q(usuario__email__icontains=q)
-            | Q(usuario__username__icontains=q)
-            | Q(nombre__icontains=q)
-            | Q(ip__icontains=q)
-        )
+    # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+    descargas = filtro_de_busqueda(
+        descargas,
+        q,
+        (
+            "usuario__first_name",
+            "usuario__last_name",
+            "usuario__email",
+            "usuario__username",
+            "nombre",
+            "ip",
+        ),
+    )
     inicio = _dia(desde)
     if inicio is not None:
         descargas = descargas.filter(created_at__gte=inicio)

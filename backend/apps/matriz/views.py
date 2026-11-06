@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.empresas.models import Empresa, MembresiaEmpresa
@@ -293,20 +294,23 @@ ORDENES = {
 
 
 def _filtrar(consulta, params, empresa, ahora):
-    q = (params.get("q") or "").strip()
-    if q:
-        consulta = consulta.filter(
-            Q(obligacion__nombre__icontains=q)
-            | Q(codigo__icontains=q)
-            | Q(etiqueta__icontains=q)
-            | Q(responsable__first_name__icontains=q)
-            | Q(responsable__last_name__icontains=q)
-            | Q(responsable__username__icontains=q)
-            | Q(obligacion__entidad__nombre__icontains=q)
-            | Q(obligacion__entidad__codigo__icontains=q)
-            | Q(obligacion__area__nombre__icontains=q)
-            | Q(obligacion__area__codigo__icontains=q)
-        )
+    # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+    consulta = filtro_de_busqueda(
+        consulta,
+        params.get("q"),
+        (
+            "obligacion__nombre",
+            "codigo",
+            "etiqueta",
+            "responsable__first_name",
+            "responsable__last_name",
+            "responsable__username",
+            "obligacion__entidad__nombre",
+            "obligacion__entidad__codigo",
+            "obligacion__area__nombre",
+            "obligacion__area__codigo",
+        ),
+    )
     for parametro, campo in (
         ("area", "obligacion__area_id"),
         ("entity", "obligacion__entidad_id"),

@@ -11,9 +11,10 @@ from pathlib import PurePath
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, F
 from django.utils import timezone
 
+from apps.core.busqueda import filtro_de_busqueda
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
@@ -384,15 +385,14 @@ def cursor_actual(usuario) -> int:
 
 
 def buscar_personas(texto="", limite=30):
+    """El directorio de la empresa filtrado por lo escrito.
+
+    Palabra por palabra y sin tildes ni mayúsculas (ver `apps.core.busqueda`):
+    «jose perez» encuentra a «José Pérez». Lo usan también los selectores de
+    personas de otros módulos (organización, soporte, capacitación).
+    """
     personas = personas_de_la_empresa().select_related("empleado__departamento")
-    texto = (texto or "").strip()
-    if texto:
-        personas = personas.filter(
-            Q(first_name__icontains=texto)
-            | Q(last_name__icontains=texto)
-            | Q(username__icontains=texto)
-            | Q(email__icontains=texto)
-        )
+    personas = filtro_de_busqueda(personas, texto, ("first_name", "last_name", "username", "email"))
     return personas.order_by("first_name", "last_name", "username")[:limite]
 
 

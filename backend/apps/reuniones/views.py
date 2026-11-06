@@ -24,6 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.request_meta import get_request_context
 from apps.core.responses import error_response
 from apps.permissions.permissions import Requiere
@@ -116,14 +117,8 @@ class InvitablesView(ReunionesView):
             )
         personas = services.invitables(excluir=request.user)
         texto = (request.query_params.get("q") or "").strip()[:100]
-        if texto:
-            from django.db.models import Q
-
-            personas = personas.filter(
-                Q(first_name__icontains=texto)
-                | Q(last_name__icontains=texto)
-                | Q(username__icontains=texto)
-            )
+        # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+        personas = filtro_de_busqueda(personas, texto, ("first_name", "last_name", "username"))
         return Response(serializers.personas(personas))
 
 

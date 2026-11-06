@@ -2,7 +2,7 @@ from urllib.parse import quote
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_client_ip, get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
@@ -55,7 +56,6 @@ from .permissions import (
     ArmarOAsignarPermission,
     AsignarCargosPermission,
     AvisoInicioPermission,
-    TextosLegalesPermission,
     CalendarioPermission,
     DocumentosPermission,
     GestionarHerramientasPermission,
@@ -64,6 +64,7 @@ from .permissions import (
     NoticiasPermission,
     OrganizacionPermission,
     PerfilCargoPermission,
+    TextosLegalesPermission,
     VacacionesDeTodosPermission,
     VerOrganigramaPermission,
 )
@@ -160,11 +161,7 @@ class DepartamentoViewSet(_CatalogoOrganizacionalViewSet):
             .order_by("nombre")
         )
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda) | Q(codigo__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(queryset, params.get("q"), ("nombre", "codigo"))
         estado = params.get("activo")
         if estado in {"true", "false"}:
             queryset = queryset.filter(activo=estado == "true")
@@ -205,13 +202,7 @@ class SedeViewSet(_CatalogoOrganizacionalViewSet):
             .order_by("nombre")
         )
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda)
-                | Q(ciudad__icontains=busqueda)
-                | Q(direccion__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(queryset, params.get("q"), ("nombre", "ciudad", "direccion"))
         estado = params.get("activa")
         if estado in {"true", "false"}:
             queryset = queryset.filter(activa=estado == "true")
@@ -261,13 +252,9 @@ class ProveedorViewSet(_CatalogoOrganizacionalViewSet):
             total_repuestos=Count("repuestos_vendidos", distinct=True),
         ).order_by("nombre")
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda)
-                | Q(identificacion__icontains=busqueda)
-                | Q(contacto__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(
+            queryset, params.get("q"), ("nombre", "identificacion", "contacto")
+        )
         estado = params.get("activo")
         if estado in {"true", "false"}:
             queryset = queryset.filter(activo=estado == "true")
@@ -317,13 +304,9 @@ class ConcesionarioViewSet(_CatalogoOrganizacionalViewSet):
             total_activos=Count("activos", distinct=True),
         ).order_by("nombre")
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda)
-                | Q(identificacion__icontains=busqueda)
-                | Q(contacto__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(
+            queryset, params.get("q"), ("nombre", "identificacion", "contacto")
+        )
         estado = params.get("activo")
         if estado in {"true", "false"}:
             queryset = queryset.filter(activo=estado == "true")
@@ -397,14 +380,9 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
             .order_by("apellidos", "nombres")
         )
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombres__icontains=busqueda)
-                | Q(apellidos__icontains=busqueda)
-                | Q(codigo_empleado__icontains=busqueda)
-                | Q(correo__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(
+            queryset, params.get("q"), ("nombres", "apellidos", "codigo_empleado", "correo")
+        )
         departamento = params.get("departamento")
         if departamento and departamento.isdigit():
             queryset = queryset.filter(departamento_id=int(departamento))

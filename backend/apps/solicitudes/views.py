@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
@@ -77,20 +78,21 @@ class SolicitudViewSet(viewsets.ModelViewSet):
         elif abiertas == "false":
             queryset = queryset.filter(estado__in=Solicitud.FINALES)
 
-        busqueda = self.request.query_params.get("q")
-        if busqueda:
-            termino = busqueda.strip()
-            queryset = queryset.filter(
-                Q(detalle__icontains=termino)
-                | Q(justificacion__icontains=termino)
-                | Q(tipo_dispositivo__nombre__icontains=termino)
-                | Q(componente__nombre__icontains=termino)
-                | Q(solicitante__first_name__icontains=termino)
-                | Q(solicitante__last_name__icontains=termino)
-                | Q(encargado__first_name__icontains=termino)
-                | Q(encargado__last_name__icontains=termino)
-            )
-        return queryset
+        # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+        return filtro_de_busqueda(
+            queryset,
+            self.request.query_params.get("q"),
+            (
+                "detalle",
+                "justificacion",
+                "tipo_dispositivo__nombre",
+                "componente__nombre",
+                "solicitante__first_name",
+                "solicitante__last_name",
+                "encargado__first_name",
+                "encargado__last_name",
+            ),
+        )
 
     def get_serializer_class(self):
         if self.action in {"create", "partial_update"}:

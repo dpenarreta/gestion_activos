@@ -8,6 +8,19 @@ Todas las respuestas de error siguen el contrato:
 { "error": { "code": "string", "message": "string", "details": {} } }
 ```
 
+## Búsqueda de texto en los listados
+
+Todo listado que acepta un texto de búsqueda (`q` y los filtros de texto como
+`name`, `cliente` o `actor_username`) lo compara igual que el buscador del
+frontend (`frontend/src/utils/busqueda.js`): **sin distinguir tildes ni
+mayúsculas** y **cada palabra en cualquier orden** —«ramirez jose» encuentra a
+«José Ramírez», «caida» a «Caída del sistema», «nandu» a «ÑANDÚ»—. Cada
+palabra tiene que aparecer en alguno de los campos del listado. No depende de la
+colación de la base: el servidor compara con `Latin1_General_100_CI_AI`
+(`apps.core.busqueda`). Los números de documento (`OT-…`, `TCK-…`), el `id` de
+usuario y la etiqueta escaneada del inventario se siguen buscando con el término
+entero.
+
 ## Autenticación
 
 | Método | Ruta | Auth | Permiso |
@@ -218,7 +231,7 @@ Base: `/api/v1/empresas/`
 | Método | Ruta | Permiso | Descripción |
 | --- | --- | --- | --- |
 | GET | `/empresas/mias/` | autenticado | Las empresas que la cuenta puede ver, en cuál está trabajando y `multiempresa` (si el sistema trabaja con varias) |
-| GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas |
+| GET | `/empresas/` | `empresas.ver` | Listado administrativo de todas las empresas. Filtro: `q` (nombre, código o identificación) |
 | POST | `/empresas/` | `empresas.editar` | Crear una empresa. Con `MULTIEMPRESA=False` (el valor actual) responde 400: el sistema trabaja con una sola |
 | GET/PATCH | `/empresas/{id}/` | `empresas.ver` / `empresas.editar` | Ficha de la empresa (sin `DELETE`: se desactiva) |
 | POST | `/admin/users/` | `usuarios.crear` (+ `empresas.asignar` si lleva `empresas`) | No recibe `username`: se compone de `first_name` y `last_name` (ver `docs/roles-and-permissions.md`). Acepta `empresas` con la misma forma, para que la cuenta nazca usable |

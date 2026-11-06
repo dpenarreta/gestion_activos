@@ -53,6 +53,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.core.busqueda import condicion_de_busqueda, filtro_de_busqueda
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.mejora_continua import services as adjuntos_comunes
 from apps.tasks.roles import gh_role_of, role_label
@@ -1073,9 +1074,15 @@ def buscar(user, *, q="", priority="", dia=None, sender="", recipient="", status
     Los filtros de remitente y destinatario solo aplican a las notas. `dia` es
     una fecha (el día entero en la hora local; Nexo lo tomaba en UTC)."""
     notas = notas_de(user)
-    if q:
-        con_respuesta = DeskNoteReply.objects.filter(message__icontains=q).values("note_id")
-        notas = notas.filter(Q(message__icontains=q) | Q(pk__in=con_respuesta))
+    # Palabra por palabra y sin tildes (ver `apps.core.busqueda`): la nota
+    # casa si su texto o el de alguna de sus respuestas tiene todas las
+    # palabras.
+    en_la_nota = condicion_de_busqueda(q, ("message",))
+    if en_la_nota is not None:
+        con_respuesta = filtro_de_busqueda(DeskNoteReply.objects.all(), q, ("message",)).values(
+            "note_id"
+        )
+        notas = notas.filter(en_la_nota | Q(pk__in=con_respuesta))
     if priority in DeskNote.Priority.values:
         notas = notas.filter(priority=priority)
     rango = None
@@ -1085,10 +1092,10 @@ def buscar(user, *, q="", priority="", dia=None, sender="", recipient="", status
         notas = notas.filter(created_at__range=rango)
     for campo, texto in (("sender", sender), ("recipient", recipient)):
         if texto:
-            notas = notas.filter(
-                Q(**{f"{campo}__first_name__icontains": texto})
-                | Q(**{f"{campo}__last_name__icontains": texto})
-                | Q(**{f"{campo}__username__icontains": texto})
+            notas = filtro_de_busqueda(
+                notas,
+                texto,
+                (f"{campo}__first_name", f"{campo}__last_name", f"{campo}__username"),
             )
     if status == "PENDIENTE":
         notas = notas.filter(read=False, archived=False)
@@ -1101,8 +1108,7 @@ def buscar(user, *, q="", priority="", dia=None, sender="", recipient="", status
     ]
 
     recordatorios = recordatorios_de(user)
-    if q:
-        recordatorios = recordatorios.filter(Q(title__icontains=q) | Q(description__icontains=q))
+    recordatorios = filtro_de_busqueda(recordatorios, q, ("title", "description"))
     if priority in PersonalReminder.Priority.values:
         recordatorios = recordatorios.filter(priority=priority)
     if rango is not None:

@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.permissions.authorization import user_has_permission
@@ -121,6 +122,16 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, EmpresasPermission]
     pagination_class = DefaultPagination
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
+
+    def get_queryset(self):
+        """`?q=` busca por nombre, código o identificación, palabra por palabra
+        y sin tildes (ver `apps.core.busqueda`). La pantalla ya lo mandaba y
+        el servidor lo ignoraba: escribir en el buscador no filtraba nada."""
+        return filtro_de_busqueda(
+            super().get_queryset(),
+            self.request.query_params.get("q"),
+            ("nombre", "codigo", "identificacion"),
+        )
 
     def perform_create(self, serializer):
         if not multiempresa() and Empresa.objects.exists():

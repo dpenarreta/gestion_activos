@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from apps.activos.barcode import aviso_del_lector, variantes_de_escaneo
 from apps.activos.exportacion import exportar_mantenimientos
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import condicion_de_busqueda, filtro_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 
@@ -39,11 +40,7 @@ class CatalogoComponenteViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = CatalogoComponente.objects.order_by("nombre")
         params = self.request.query_params
-        busqueda = params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda) | Q(codigo__icontains=busqueda)
-            )
+        queryset = filtro_de_busqueda(queryset, params.get("q"), ("nombre", "codigo"))
         critico = params.get("es_critico")
         if critico in {"true", "false"}:
             queryset = queryset.filter(es_critico=critico == "true")
@@ -121,12 +118,16 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
             etiqueta = Q()
             for variante in variantes_de_escaneo(termino):
                 etiqueta |= Q(activo__codigo_barras__icontains=variante)
-            queryset = queryset.filter(
-                etiqueta
-                | Q(responsable__icontains=termino)
-                | Q(descripcion__icontains=termino)
-                | Q(diagnostico__icontains=termino)
+            # El texto, palabra por palabra y sin tildes (ver
+            # `apps.core.busqueda`); también el nombre del equipo, que es lo
+            # que se ve en la fila de la bitácora.
+            texto = condicion_de_busqueda(
+                termino,
+                ("responsable", "descripcion", "diagnostico", "activo__nombre"),
             )
+            if texto is not None:
+                etiqueta |= texto
+            queryset = queryset.filter(etiqueta)
 
         desde = params.get("desde")
         if desde:

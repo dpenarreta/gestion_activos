@@ -25,6 +25,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import condicion_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.organizacion import contacto
@@ -45,13 +46,14 @@ from .models import (
     HorasFueraDeHorario,
     LlamadaTicket,
     NivelSoporte,
+    PesoArea,
     ReglaSLA,
     RespuestaPredefinida,
     Tecnico,
     Ticket,
-    PesoArea,
 )
 from .serializers import (
+    ESTADOS_PARA_QUIEN_PIDE,
     AgendaPropiaSerializer,
     AsignarSerializer,
     CambioEstadoSerializer,
@@ -74,10 +76,9 @@ from .serializers import (
     TicketDetalleSerializer,
     TicketInternoSerializer,
     TicketListaSerializer,
-    ESTADOS_PARA_QUIEN_PIDE,
     atrasado,
-    puede_encuestar,
     llamada_dict,
+    puede_encuestar,
     seguimiento,
     validar_adjuntos,
 )
@@ -607,7 +608,14 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
             ).order_by(F("vence_primero").asc(nulls_last=True), "-created_at")
         busqueda = (params.get("q") or "").strip()
         if busqueda:
-            filtro = Q(solicitante_nombre__icontains=busqueda) | Q(descripcion__icontains=busqueda)
+            # El texto, palabra por palabra y sin tildes (ver
+            # `apps.core.busqueda`): «caida» encuentra «Caída del sistema».
+            # También el caso y la categoría, que es lo que se lee en la fila
+            # de la bandeja. El número, con el término entero (TCK-2026-15).
+            filtro = condicion_de_busqueda(
+                busqueda,
+                ("solicitante_nombre", "descripcion", "caso__nombre", "categoria__nombre"),
+            )
             ultimo = busqueda.upper().replace("TCK-", "").split("-")[-1]
             if ultimo.isdigit():
                 filtro |= Q(secuencia=int(ultimo))

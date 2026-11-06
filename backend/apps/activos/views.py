@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import condicion_de_busqueda, filtro_de_busqueda
 from apps.core.cache import recordar
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
@@ -197,12 +198,9 @@ class TipoDispositivoViewSet(viewsets.ModelViewSet):
             .select_related("politica")
             .order_by("nombre")
         )
-        busqueda = self.request.query_params.get("q")
-        if busqueda:
-            queryset = queryset.filter(
-                Q(nombre__icontains=busqueda) | Q(codigo__icontains=busqueda)
-            )
-        return queryset
+        return filtro_de_busqueda(
+            queryset, self.request.query_params.get("q"), ("nombre", "codigo")
+        )
 
     def perform_create(self, serializer):
         """Las características declaradas en el alta dejan el mismo rastro.
@@ -273,16 +271,26 @@ class ActivoViewSet(viewsets.ModelViewSet):
             etiqueta = Q()
             for variante in variantes_de_escaneo(termino):
                 etiqueta |= Q(codigo_barras__iexact=variante) | Q(numero_serie__icontains=variante)
-            queryset = queryset.filter(
-                etiqueta
-                | Q(nombre__icontains=termino)
-                | Q(marca__icontains=termino)
-                | Q(modelo__icontains=termino)
-                | Q(responsables__nombres__icontains=termino)
-                | Q(responsables__apellidos__icontains=termino)
-                # Con varios responsables, un equipo casaría una vez por cada
-                # uno y saldría repetido en el listado.
-            ).distinct()
+            # Lo escrito a mano, palabra por palabra y sin tildes: «ramirez
+            # dell» encuentra la Dell de «Ramírez». La etiqueta va aparte y
+            # con el término entero porque es lo que emite la pistola, de una
+            # sola pieza.
+            texto = condicion_de_busqueda(
+                termino,
+                (
+                    "nombre",
+                    "marca",
+                    "modelo",
+                    "numero_serie",
+                    "responsables__nombres",
+                    "responsables__apellidos",
+                ),
+            )
+            if texto is not None:
+                etiqueta |= texto
+            # Con varios responsables, un equipo casaría una vez por cada uno y
+            # saldría repetido en el listado.
+            queryset = queryset.filter(etiqueta).distinct()
 
         for parametro, campo in (
             ("tipo", "tipo_id"),

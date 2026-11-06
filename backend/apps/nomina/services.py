@@ -760,20 +760,15 @@ def _persona_dict(usuario) -> dict:
 
 def habilitados(actor, buscar: str = "") -> list[dict]:
     """Las personas de la empresa: primero las habilitadas, con su código."""
-    from django.db.models import Q
-
     from apps.chat.services import personas_de_la_empresa
+    from apps.core.busqueda import filtro_de_busqueda
 
     _exigir_gestion(actor)
     personas = personas_de_la_empresa().prefetch_related("user_permissions")
-    buscar = (buscar or "").strip()
-    if buscar:
-        personas = personas.filter(
-            Q(first_name__icontains=buscar)
-            | Q(last_name__icontains=buscar)
-            | Q(email__icontains=buscar)
-            | Q(codigo_empleado__icontains=buscar)
-        )
+    # Palabra por palabra y sin tildes (ver `apps.core.busqueda`).
+    personas = filtro_de_busqueda(
+        personas, buscar, ("first_name", "last_name", "email", "codigo_empleado")
+    )
     filas = [_persona_dict(p) for p in personas.order_by("first_name", "last_name")[:300]]
     return sorted(filas, key=lambda f: (not f["habilitado"], f["nombre"].lower()))
 

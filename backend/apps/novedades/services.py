@@ -30,6 +30,7 @@ from django.utils import timezone
 from django.utils.html import escape
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import filtro_de_busqueda
 from apps.core.models import AuditLog
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual, usando_empresa
 from apps.permissions.authorization import user_has_permission
@@ -2600,11 +2601,11 @@ class OvertimeService:
             qs = qs.filter(date__lte=_parse_date_param(params["date_to"], "date_to"))
         if params.get("cedula"):
             qs = qs.filter(collaborator__cedula__icontains=normalize_cedula(params["cedula"]))
-        if params.get("name"):
-            qs = qs.filter(collaborator__full_name__icontains=params["name"].strip())
-        for field in ("regional", "area", "cargo"):
-            if params.get(field):
-                qs = qs.filter(**{f"collaborator__{field}__icontains": params[field].strip()})
+        # Los textos, palabra por palabra y sin tildes (ver `apps.core.busqueda`):
+        # «jose perez» encuentra a «PÉREZ JOSÉ», y «sur» a la regional «Sur».
+        for field in ("name", "regional", "area", "cargo"):
+            campo = "full_name" if field == "name" else field
+            qs = filtro_de_busqueda(qs, params.get(field), (f"collaborator__{campo}",))
         if params.get("supervisor"):
             qs = qs.filter(supervisor_id=_parse_id_param(params["supervisor"], "supervisor"))
         jornada = {"sabado": "is_saturday", "domingo": "is_sunday", "feriado": "is_holiday"}.get(
@@ -3521,8 +3522,7 @@ class HistoryService:
             qs = qs.filter(supervisor_id=_parse_id_param(params["supervisor"], "supervisor"))
         if params.get("action"):
             qs = qs.filter(action__startswith=params["action"])
-        if params.get("q"):
-            qs = qs.filter(target_label__icontains=params["q"].strip())
+        qs = filtro_de_busqueda(qs, params.get("q"), ("target_label",))
         # Desde/Hasta son días de Ecuador (UTC-5), no días UTC: un evento de
         # las 20:00 pertenece a su día local.
         if params.get("date_from"):
@@ -4020,9 +4020,7 @@ class DepurationService:
         qs = depuration.rows.select_related("source_record")
         if params.get("supervisor"):
             qs = qs.filter(supervisor_id=_parse_id_param(params["supervisor"], "supervisor"))
-        if params.get("q"):
-            needle = str(params["q"]).strip()
-            qs = qs.filter(Q(full_name__icontains=needle) | Q(cedula__icontains=needle))
+        qs = filtro_de_busqueda(qs, params.get("q"), ("full_name", "cedula"))
         result = []
         for r in qs:
             src = r.source_record
@@ -5355,11 +5353,7 @@ class MovementService:
         """Mismos filtros para altas (prefix="") y cambios de estado
         (prefix="collaborator__"). El supervisor filtra por el responsable EN
         EL MOMENTO del movimiento (anotación `event_supervisor`)."""
-        if f["q"]:
-            qs = qs.filter(
-                Q(**{f"{prefix}cedula__icontains": f["q"]})
-                | Q(**{f"{prefix}full_name__icontains": f["q"]})
-            )
+        qs = filtro_de_busqueda(qs, f["q"], (f"{prefix}cedula", f"{prefix}full_name"))
         if f["date_from"] or f["date_to"]:
             start, end = business_range(
                 f["date_from"] or date(2000, 1, 1), f["date_to"] or date(2100, 1, 1)
@@ -5706,14 +5700,7 @@ class MovementPermissionService:
             .distinct()
             .order_by("first_name", "last_name", "username")
         )
-        q = " ".join(str(q or "").split())
-        if q:
-            users = users.filter(
-                Q(first_name__icontains=q)
-                | Q(last_name__icontains=q)
-                | Q(username__icontains=q)
-                | Q(email__icontains=q)
-            )
+        users = filtro_de_busqueda(users, q, ("first_name", "last_name", "username", "email"))
         return [MovementPermissionService._serialize(u, permissions) for u in users]
 
     @staticmethod

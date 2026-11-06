@@ -9,6 +9,8 @@ usado por el drill-down de la categoría "OTRAS CIUDADES"/"OTRAS" del gráfico d
 causales, donde el usuario abre el detalle de varias categorías agrupadas a la vez.
 """
 
+from apps.core.busqueda import filtro_de_busqueda
+
 from ..utils.dates import parse_fecha
 
 FILTROS_DB_TEXTO = {
@@ -42,10 +44,9 @@ def aplicar_filtros_queryset(queryset, params):
         else:
             queryset = queryset.filter(**{f'{campo}__iexact': valor})
 
-    cliente = params.get('cliente')
-    if cliente:
-        from django.db.models import Q
-        queryset = queryset.filter(Q(cliente__icontains=cliente) | Q(ruc_cliente__icontains=cliente))
+    # Palabra por palabra y sin tildes, como el buscador de deudores (ver
+    # `apps.core.busqueda`): «pena» encuentra a «PEÑA».
+    queryset = filtro_de_busqueda(queryset, params.get('cliente'), ('cliente', 'ruc_cliente'))
 
     for campo, (parametro_desde, parametro_hasta) in FILTROS_DB_RANGO_FECHA.items():
         desde = parse_fecha(params.get(parametro_desde))

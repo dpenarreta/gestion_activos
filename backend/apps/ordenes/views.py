@@ -13,6 +13,7 @@ from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
+from apps.core.busqueda import condicion_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
@@ -100,12 +101,18 @@ class OrdenViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(tecnico=usuario)
         busqueda = (params.get("q") or "").strip()
         if busqueda:
-            filtro = (
-                Q(titulo__icontains=busqueda)
-                | Q(sede__nombre__icontains=busqueda)
-                | Q(sede__ciudad__icontains=busqueda)
-                | Q(tecnico__first_name__icontains=busqueda)
-                | Q(tecnico__last_name__icontains=busqueda)
+            # El texto, palabra por palabra y sin tildes (ver
+            # `apps.core.busqueda`); el número de la orden, con el término
+            # entero porque «OT-2026-15» es una sola cosa.
+            filtro = condicion_de_busqueda(
+                busqueda,
+                (
+                    "titulo",
+                    "sede__nombre",
+                    "sede__ciudad",
+                    "tecnico__first_name",
+                    "tecnico__last_name",
+                ),
             )
             partes = busqueda.upper().replace("OT-", "").split("-")
             if partes[-1].isdigit():
