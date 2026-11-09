@@ -18,6 +18,11 @@ LaarBox, que tampoco tienen Gerencia de Área. En local vivía dentro de
 Financiero Administrativo: `cambiar` la pasa bajo la Gerencia General. Los
 nombres «Jennifer Bailón» y «Belén Cuichán» se leían mal en la imagen; así los
 confirmó el usuario. Repetirlo no cambia nada.
+
+Ese mismo día el usuario pasó el organigrama de Financiero Administrativo:
+`financiero_2026` (migración 0044) reubica Cartera bajo ese departamento,
+con su Jefatura reportando todavía al Gerente General, y renombra sus cargos.
+Esta migración (0043) ya corrió; su lógica no se cambia.
 """
 
 from . import departamentos_del_organigrama, versiones
