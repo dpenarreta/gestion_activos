@@ -585,9 +585,13 @@ ANTHROPIC_API_KEY = env.str("ANTHROPIC_API_KEY", default="")
 # Id exacto del modelo, sin sufijo de fecha.
 ANTHROPIC_MODEL = env.str("ANTHROPIC_MODEL", default="claude-haiku-5-5")
 GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
-GEMINI_MODEL = env.str("GEMINI_MODEL", default="gemini-flash-latest")
+# 09/11/2026: «gemini-flash-latest» quedaba colgado (sin responder en 60 s) o
+# en 503 por alta demanda; gemini-3.5-flash respondía en ~3 s y las «lite» en
+# ~1-2 s con la misma clave.
+GEMINI_MODEL = env.str("GEMINI_MODEL", default="gemini-3.5-flash")
 GEMINI_MODELOS_RESPALDO = env.list(
-    "GEMINI_MODELOS_RESPALDO", default=["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    "GEMINI_MODELOS_RESPALDO",
+    default=["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.6-flash"],
 )
 # Nova (apps.nova): consultas diarias a la IA por persona (pasado el límite se
 # muestra la versión sin IA con un aviso), tiempo máximo por llamada (el del

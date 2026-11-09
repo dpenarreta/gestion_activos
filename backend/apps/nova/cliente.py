@@ -50,6 +50,10 @@ ESTADOS_REINTENTABLES = frozenset({429, 500, 502, 503, 504})
 # Un modelo que no existe (404) no mejora esperando, pero el siguiente puede andar.
 ESTADO_MODELO_AUSENTE = 404
 ESPERA_ENTRE_INTENTOS_SEGUNDOS = 1.5
+# Un modelo colgado (sin responder ni con error) no puede comerse todo el
+# presupuesto: cada intento tiene su tope, para que quede tiempo para los de
+# respaldo (09/11/2026: «gemini-flash-latest» no respondía en 60 s).
+TOPE_MINIMO_POR_MODELO_SEGUNDOS = 10
 
 #: Tope de salida en Anthropic cuando el pedido no fija uno. En Claude Opus 5.5
 #: el razonamiento (siempre activo) consume del mismo tope.
@@ -271,6 +275,7 @@ def _generar_gemini(peticion: PeticionIA, *, timeout: float, presupuesto: float)
     comenzo = time.monotonic()
     modelos = modelos_a_probar()
     ultimo_estado = None
+    tope_por_modelo = max(TOPE_MINIMO_POR_MODELO_SEGUNDOS, presupuesto / len(modelos))
 
     for indice, modelo in enumerate(modelos):
         restante = presupuesto - (time.monotonic() - comenzo)
@@ -284,7 +289,7 @@ def _generar_gemini(peticion: PeticionIA, *, timeout: float, presupuesto: float)
                 GEMINI_URL.format(model=modelo),
                 headers={"x-goog-api-key": settings.GEMINI_API_KEY},
                 json=payload,
-                timeout=min(timeout, restante),
+                timeout=min(timeout, restante, tope_por_modelo),
             )
         except requests.RequestException:
             logger.warning("Falló la llamada a Gemini (modelo=%s)", modelo, exc_info=True)

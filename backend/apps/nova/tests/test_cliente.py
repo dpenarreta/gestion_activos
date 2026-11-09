@@ -140,6 +140,28 @@ def test_gemini_arma_su_payload(settings):
     assert post.call_args.kwargs["headers"] == {"x-goog-api-key": "clave-de-prueba"}
 
 
+def test_gemini_un_modelo_colgado_no_se_come_todo_el_plazo(settings):
+    """09/11/2026: «gemini-flash-latest» no respondía ni en 60 s y el chat se
+    quedaba sin tiempo antes de probar los de respaldo."""
+    import requests
+
+    settings.IA_PROVEEDOR = "gemini"
+    settings.GEMINI_API_KEY = "clave-de-prueba"
+    settings.GEMINI_MODEL = "colgado"
+    settings.GEMINI_MODELOS_RESPALDO = ["rapido", "otro"]
+    ok = mock.Mock(status_code=200)
+    ok.json.return_value = {"candidates": [{"content": {"parts": [{"text": "hola"}]}}]}
+    with (
+        mock.patch("apps.nova.cliente.requests.post", side_effect=[requests.Timeout(), ok]) as post,
+        mock.patch("apps.nova.cliente.time.sleep"),
+    ):
+        respuesta = cliente._generar_gemini(_peticion(), timeout=45, presupuesto=45)
+    assert respuesta.texto == "hola"
+    assert post.call_args_list[1].args[0].endswith("/rapido:generateContent")
+    # El colgado tuvo su tope (45 s / 3 modelos), no los 45 s enteros.
+    assert post.call_args_list[0].kwargs["timeout"] == 15
+
+
 def test_extraer_json():
     assert cliente.extraer_json('```json\n{"a": 1}\n```') == {"a": 1}
     assert cliente.extraer_json("nada") is None
