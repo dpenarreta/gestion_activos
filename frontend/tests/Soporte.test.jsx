@@ -374,10 +374,47 @@ describe("Mis tickets: qué sigue (auditoría UX/UI, 30/10/2026)", () => {
       posicion: null,
       puede_responder: false,
     });
-    pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
-    expect(
-      await screen.findByRole("link", { name: "cree un ticket nuevo" }),
-    ).toHaveAttribute("href", "/admin/ayuda");
+    sesion.permisos = ["soporte.crear"];
+    try {
+      pintar(
+        <MiTicket />,
+        "/admin/ayuda/tickets/42",
+        "/admin/ayuda/tickets/:id",
+      );
+      expect(
+        await screen.findByRole("link", { name: "cree un ticket nuevo" }),
+      ).toHaveAttribute("href", "/admin/ayuda");
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+
+  it("un ticket cerrado, sin «Crear tickets», dice a quién pedir el permiso", async () => {
+    servicio.miTicket.mockResolvedValue({
+      ...SEGUIMIENTO,
+      estado: "cerrado",
+      estado_display: "Cerrado",
+      posicion: null,
+      puede_responder: false,
+    });
+    sesion.permisos = [];
+    try {
+      pintar(
+        <MiTicket />,
+        "/admin/ayuda/tickets/42",
+        "/admin/ayuda/tickets/:id",
+      );
+      expect(
+        await screen.findByText(
+          /pida a su jefe o a Tecnología el permiso para crear tickets/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "cree un ticket nuevo" }),
+      ).toBeNull();
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
   });
 
   it("responder vacío pide el mensaje o un archivo", async () => {
@@ -1467,6 +1504,55 @@ describe("Mis tickets: qué le toca y qué pasó (auditoría UX/UI, 30/10/2026)"
       const filas = within(tabla).getAllByRole("row").slice(1);
       expect(filas[0]).toHaveTextContent("Cuéntenos cómo le fue");
       expect(filas[1]).toHaveTextContent("Tarda más de lo previsto");
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+});
+
+// «Crear tickets» (`soporte.crear`, 09/11/2026): desde el módulo, un ticket a
+// su nombre con el formulario de «Soporte TI».
+describe("La bandeja: «Pedir ayuda (a mi nombre)»", () => {
+  const sinEquipo = () => {
+    servicio.misTickets.mockResolvedValue([]);
+  };
+
+  it("con el permiso ofrece crear un ticket propio", async () => {
+    sesion.permisos = ["soporte.crear"];
+    try {
+      sinEquipo();
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      const pedir = await screen.findByRole("link", {
+        name: "Pedir ayuda (a mi nombre)",
+      });
+      expect(pedir).toHaveAttribute("href", "/admin/soporte/nuevo");
+      // Sin ser técnico ni poder registrar, es la acción principal.
+      expect(pedir).toHaveClass("btn-primary");
+      // Sin tickets, la lista invita a pedir ayuda.
+      expect(
+        await screen.findAllByRole("link", {
+          name: "Pedir ayuda en Soporte TI",
+        }),
+      ).not.toHaveLength(0);
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+
+  it("sin el permiso no lo ofrece ni invita a pedir ayuda", async () => {
+    sesion.permisos = [];
+    try {
+      sinEquipo();
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      expect(
+        (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.queryByRole("link", { name: "Pedir ayuda (a mi nombre)" }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("link", { name: "Pedir ayuda en Soporte TI" }),
+      ).toBeNull();
     } finally {
       sesion.permisos = ["soporte.atender"];
     }

@@ -1,7 +1,9 @@
 """La API de la Mesa de ayuda.
 
-- **Quien pide soporte**: toda persona con sesión, sin permisos («Soporte TI»):
-  crear un ticket con sus datos de «Mi perfil» y seguir los suyos. Desde el
+- **Quien pide soporte** («Soporte TI»): crear un ticket a su nombre, con sus
+  datos de «Mi perfil», pide `soporte.crear` (09/11/2026; lo tienen todos los
+  roles al empezar y la cuenta sin ningún rol). Seguir y responder los suyos lo
+  puede toda persona con sesión, aunque luego pierda el permiso. Desde el
   20/10/2026 no hay formulario público ni enlace de seguimiento sin sesión.
 - **Del equipo**: bandeja, ficha y acciones sobre los tickets.
 - **Configuración**: niveles, categorías y casos, técnicos con su horario, SLA,
@@ -18,6 +20,7 @@ from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
+from rest_framework.exceptions import PermissionDenied as PermisoDenegado
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
 from rest_framework.response import Response
@@ -227,9 +230,20 @@ def _url_mia(ticket):
     return lambda adjunto: f"/soporte/mis-tickets/{ticket.id}/adjuntos/{adjunto.id}/"
 
 
+#: El 403 de quien no puede crear tickets: claro y con qué hacer.
+SIN_PERMISO_PARA_CREAR = "No tiene permiso para crear tickets; pídalo a su administrador."
+
+
 class SolicitarView(APIView):
-    """«Soporte TI → Nuevo ticket». Toda persona con sesión, sin permisos: sus
-    datos de contacto salen de «Mi perfil»; si falta algo, se le pide antes."""
+    """«Soporte TI → Nuevo ticket» (también «Nuevo ticket» en la Mesa de ayuda).
+
+    - `GET`: el formulario (lo puede abrir toda persona con sesión) y
+      `puede_crear`, para que la pantalla muestre el aviso en vez del
+      formulario a quien no tiene `soporte.crear`.
+    - `POST`: crea un ticket a nombre de quien envía. Exige `soporte.crear`
+      (403 `permission_denied` si no); sus datos de contacto salen de «Mi
+      perfil» y, si falta algo, se le pide antes (400 `faltan_datos`).
+    """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -251,9 +265,14 @@ class SolicitarView(APIView):
             **contacto.de(request.user),
             "cargos": contacto.opciones()["cargos"],
         }
+        datos["puede_crear"] = services.tiene(request.user, "crear")
         return Response(datos)
 
     def post(self, request):
+        # Antes de validar nada: sin permiso no se crea, venga lo que venga.
+        if not services.tiene(request.user, "crear"):
+            # El de DRF: el contrato de error lleva `code: permission_denied`.
+            raise PermisoDenegado(SIN_PERMISO_PARA_CREAR)
         entrada = SolicitudSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         persona, faltan = datos_de_la_persona(request.user)
@@ -309,7 +328,8 @@ def _es_sondeo(vista) -> bool:
 
 
 class MisTicketsView(APIView):
-    """«Soporte TI → Mis tickets»: lo que pidió, lo más reciente primero."""
+    """«Soporte TI → Mis tickets»: lo que pidió, lo más reciente primero. Sin
+    `soporte.crear` también: quitar el permiso no le quita sus tickets."""
 
     permission_classes = [IsAuthenticated]
 
@@ -708,6 +728,7 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                     else []
                 ),
                 "puede": {
+                    "crear": services.tiene(request.user, "crear"),
                     "ver_todos": services.tiene(request.user, "ver_todos"),
                     "asignar": services.tiene(request.user, "asignar"),
                     "registrar": services.tiene(request.user, "registrar"),

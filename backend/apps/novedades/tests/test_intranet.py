@@ -391,7 +391,11 @@ def test_el_catalogo_agrupa_novedades_en_gestion_humana(db):
 
 def test_la_migracion_siembra_los_roles_operativos(db):
     def de(rol):
-        return set(Group.objects.get(name=rol).permissions.values_list("codename", flat=True))
+        # «Crear tickets» lo reciben todos los roles (roles/0040, 09/11/2026):
+        # no es de Novedades.
+        return set(Group.objects.get(name=rol).permissions.values_list("codename", flat=True)) - {
+            "soporte.crear"
+        }
 
     assert de(perms.SUPERVISOR_ROLE) == {
         perms.ACCEDER,
@@ -419,7 +423,10 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
     # la 2b (projects/0002, ausencias/0002) Proyectos y Ausencias, desde la 2c
     # (informes/0002) los Informes ejecutivos, desde mejora_continua/0002 la
     # Mejora continua y desde reuniones/0002 y escritorio/0002 las Reuniones y
-    # el Escritorio: todo Gestión Humana y nada de otro módulo.
+    # el Escritorio: todo Gestión Humana y nada de otro módulo. La única
+    # excepción, desde privacidad/0002 (09/11/2026, decisión del usuario):
+    # atiende las solicitudes de derechos sobre datos personales de toda la
+    # intranet, porque Gestión Humana responde por los datos de las personas.
     assert codenames == (
         set(PERMISSION_CATALOG["novedades"]["permissions"])
         | set(PERMISSION_CATALOG["tareas"]["permissions"])
@@ -432,6 +439,9 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
         | set(PERMISSION_CATALOG["mejora_continua"]["permissions"])
         | set(PERMISSION_CATALOG["reuniones"]["permissions"])
         | set(PERMISSION_CATALOG["escritorio"]["permissions"])
+        | set(PERMISSION_CATALOG["privacidad"]["permissions"])
+        # Como todo rol desde roles/0040: crear tickets a su nombre.
+        | {"soporte.crear"}
     )
 
     admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
@@ -476,6 +486,8 @@ def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
                 (
                     "tareas.",
                     "equipo.",
+                    # Como todo rol desde roles/0040: crear tickets a su nombre.
+                    "soporte.crear",
                     "proyectos_gh.",
                     "ausencias.",
                     "kpi.",

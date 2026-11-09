@@ -28,8 +28,12 @@ const servicio = {
   registrar: vi.fn(),
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
+// Con «Crear tickets» (09/11/2026; sin él, ver `SoporteCrearTickets.test.jsx`).
 vi.mock("../src/hooks/useAuth", () => ({
-  useAuth: () => ({ user: { permissions: [] }, isAuthenticated: true }),
+  useAuth: () => ({
+    user: { permissions: ["soporte.crear"] },
+    isAuthenticated: true,
+  }),
 }));
 
 const { AyudaPage } = await import("../src/pages/Ayuda/AyudaPage");

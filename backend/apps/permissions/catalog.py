@@ -315,14 +315,28 @@ PERMISSION_CATALOG = {
     "soporte": {
         "label": "Mesa de ayuda",
         "description": (
-            "Tickets de soporte de TI. Pedir ayuda («Soporte TI», en la barra "
-            "superior) y seguir los propios tickets lo hace toda persona con "
-            "cuenta, sin permisos, con los datos de su perfil; aprobar una "
-            "solicitud lo hace quien figure como aprobador del servicio. Estos "
-            "permisos son los del equipo de la mesa: los tickets se reparten por "
-            "disponibilidad entre los técnicos de cada categoría y en su horario."
+            "Tickets de soporte de TI. Crear tickets a su nombre («Soporte TI», "
+            "en la barra superior, o «Nuevo ticket» en la Mesa de ayuda) pide "
+            "«Crear tickets», que tienen todos los roles al empezar y se puede "
+            "quitar al rol que no deba pedir ayuda; una cuenta sin ningún rol "
+            "también puede crearlos. Seguir y responder los propios tickets ya "
+            "creados lo puede siempre quien los pidió, aunque luego pierda el "
+            "permiso. Aprobar una solicitud lo hace quien figure como aprobador "
+            "del servicio. Los demás permisos son los del equipo de la mesa: los "
+            "tickets se reparten por disponibilidad entre los técnicos de cada "
+            "categoría y en su horario."
         ),
         "permissions": {
+            # Pedido del usuario (09/11/2026): pedir ayuda deja de ser de toda
+            # cuenta y pasa a ser un permiso que se puede quitar. Para que
+            # nadie lo pierda el día del cambio, `roles/0040` lo concede a
+            # todos los roles y `organizacion.roles_de_cargo` a los que nacen
+            # de un cargo; la cuenta sin ningún rol lo conserva por
+            # `authorization.PERMISOS_SIN_ROL`.
+            "soporte.crear": (
+                "Crear tickets a su nombre (desde «Soporte TI» o desde la Mesa "
+                "de ayuda) y seguir los propios"
+            ),
             "soporte.atender": (
                 "Atender tickets: bandeja propia, tomar de la cola, responder, "
                 "escalar, marcar como atendido y registrar horas fuera de horario"
@@ -880,6 +894,28 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Derechos sobre datos personales (LOPDP, 09/11/2026; portado de las
+    # «Solicitudes LOPD» de Nexo y ampliado a toda la intranet). Pedir y
+    # descargar lo propio no pide permiso: es un derecho del titular.
+    "privacidad": {
+        "label": "Protección de datos personales",
+        "description": (
+            "Solicitudes de acceso, rectificación y eliminación de datos personales que "
+            "cualquier persona hace desde «Mi perfil». Pedirlas y descargar los propios datos "
+            "no requiere permiso; estos son para quien las atiende."
+        ),
+        "permissions": {
+            "privacidad.ver": (
+                "Ver la bandeja de solicitudes de datos personales de la empresa y su detalle, "
+                "sin poder cambiarlas"
+            ),
+            "privacidad.atender": (
+                "Atender las solicitudes de datos personales: cambiar su estado con la respuesta "
+                "al titular y descargar los datos de un titular para responder su solicitud de "
+                "acceso"
+            ),
+        },
+    },
     "auditoria": {
         "label": "Auditoría",
         "description": "Consulta del registro de auditoría de operaciones administrativas.",
@@ -923,9 +959,10 @@ MODULE_GROUPS = [
         "alcance": "general",
         "description": (
             "La sección Auditoría del bloque «General»: el registro de lo que "
-            "se hizo en todo el sistema."
+            "se hizo en todo el sistema y las solicitudes de derechos sobre datos "
+            "personales (LOPDP), que valen para toda la intranet."
         ),
-        "modules": ["auditoria"],
+        "modules": ["auditoria", "privacidad"],
     },
     {
         "id": "configuracion",

@@ -908,7 +908,51 @@ PLANTILLAS_NOVEDADES = (
     ),
 )
 
-PLANTILLAS = PLANTILLAS + PLANTILLAS_SOPORTE + PLANTILLAS_NOVEDADES
+# --- Derechos sobre datos personales (LOPDP, apps.privacidad) ------------------------
+# El correo dice que la solicitud cambió de estado y lleva a la intranet; nunca
+# la respuesta: puede contener el dato que se pidió corregir o borrar, y el
+# correo sale del perímetro (se reenvía, se archiva, se sincroniza).
+
+PLANTILLAS_PRIVACIDAD = (
+    Plantilla(
+        clave="privacidad.solicitud_actualizada",
+        nombre="Solicitud sobre datos personales actualizada",
+        modulo="Protección de datos personales",
+        descripcion=(
+            "Cuando quien atiende cambia el estado de una solicitud de acceso, rectificación o "
+            "eliminación de datos personales. Llega al correo de la cuenta de quien la pidió."
+        ),
+        asunto="{{sistema}} | Su solicitud {{numero}}: {{estado}}",
+        html=_aviso(
+            encabezado="Su solicitud sobre sus datos personales cambió de estado",
+            saludo="Hola {{nombre}},",
+            filas=[
+                _fila("Solicitud", "{{numero}}", destacar=True, mono=True),
+                _fila("Tipo", "{{tipo}}"),
+                _fila("Estado", "{{estado}}", destacar=True),
+            ],
+            cuerpo=(
+                "La respuesta está en el sistema, en «Mi perfil» → «Mis derechos sobre mis "
+                "datos». Por su seguridad, no la enviamos por correo."
+            ),
+            boton="Ver mi solicitud",
+        ),
+        variables=(
+            Variable("nombre", "Nombre de quien pidió", "Begoña"),
+            Variable("numero", "Número de la solicitud", "LOPDP-00012"),
+            Variable("tipo", "Tipo de solicitud", "Corrección de datos"),
+            Variable("estado", "Estado nuevo", "Resuelta"),
+            Variable(
+                "enlace",
+                "La solicitud en «Mi perfil» → «Mis derechos» (exige iniciar sesión)",
+                "https://intranet.empresa.com/admin/perfil?seccion=mis-derechos&solicitud=12",
+            ),
+        ),
+        razon=("Le llega porque hizo una solicitud sobre sus datos personales en el sistema."),
+    ),
+)
+
+PLANTILLAS = PLANTILLAS + PLANTILLAS_SOPORTE + PLANTILLAS_NOVEDADES + PLANTILLAS_PRIVACIDAD
 
 POR_CLAVE = {plantilla.clave: plantilla for plantilla in PLANTILLAS}
 

@@ -165,14 +165,21 @@ def proxima_actualizacion(dashboard, hoy=None):
     return None
 
 
-def avanzar_fecha_corte(parametros, frecuencia, periodos=1):
+def avanzar_fecha_corte(parametros, frecuencia, periodos=1, tope=None):
     """Devuelve una copia de `parametros` con su (único) parámetro de fecha de corte — si existe y
     es una fecha ISO válida — avanzada un período según `frecuencia`: 7 días para semanal, 1 mes
     calendario para mensual. El NOMBRE de ese parámetro es configurable (`ConectarFuenteBDModal.jsx`,
     "Nombre del parámetro", guardado como la única clave de `Dashboard.fuente_bd_parametros`) —
     esta función no asume "FechaCorte" a propósito, toma la primera (y hoy única) entrada del
     dict, sea cual sea su nombre. Cualquier valor no parseable como fecha ISO queda sin tocar (de
-    mejor esfuerzo: un valor no-fecha no debe romper la actualización entera)."""
+    mejor esfuerzo: un valor no-fecha no debe romper la actualización entera).
+
+    `tope` (una `date`, normalmente hoy) impide que la fecha quede en el futuro: los períodos
+    pendientes se cuentan desde la última actualización, no desde la fecha guardada, así que si
+    esa fecha ya estaba al día (p. ej. alguien la fijó a mano o el dashboard se trasladó con la
+    fecha vigente) sumarlos todos la pasaba de largo — el Dashboard Directorio amaneció con
+    FechaCorte 29/11/2026 el 09/11/2026. Se retrocede de período en período, conservando el día
+    de la semana o del mes, hasta no pasar del tope, y nunca por debajo de la fecha guardada."""
     if not parametros:
         return dict(parametros or {})
     nombre_parametro, valor = next(iter(parametros.items()))
@@ -190,6 +197,13 @@ def avanzar_fecha_corte(parametros, frecuencia, periodos=1):
         nueva_fecha = fecha + relativedelta(months=periodos)
     else:
         return dict(parametros)
+
+    while tope is not None and nueva_fecha > tope and periodos > 0:
+        periodos -= 1
+        if frecuencia == Dashboard.FuenteBDFrecuencia.SEMANAL:
+            nueva_fecha = fecha + relativedelta(days=7 * periodos)
+        else:
+            nueva_fecha = fecha + relativedelta(months=periodos)
 
     return {**parametros, nombre_parametro: nueva_fecha.isoformat()}
 
@@ -246,7 +260,7 @@ def actualizar_dashboard(dashboard, hoy=None, fecha_corte=None):
     else:
         parametros_nuevos = avanzar_fecha_corte(
             dashboard.fuente_bd_parametros, dashboard.fuente_bd_frecuencia_actualizacion,
-            periodos=max(1, periodos_pendientes(dashboard, hoy)),
+            periodos=max(1, periodos_pendientes(dashboard, hoy)), tope=hoy,
         )
 
     try:

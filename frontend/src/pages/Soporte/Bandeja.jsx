@@ -49,6 +49,8 @@ export function Bandeja({ todos = false }) {
   const delEquipo = PERMISOS_SOPORTE.some((p) =>
     user?.permissions?.includes(p),
   );
+  // Crear un ticket propio desde el módulo (09/11/2026).
+  const puedeCrear = Boolean(user?.permissions?.includes("soporte.crear"));
   const [cabecera, setCabecera] = useState(null);
   const [parametros, setParametros] = useSearchParams();
   /* La pestaña va en la dirección (?vista=…): al recargar se queda donde
@@ -218,8 +220,22 @@ export function Bandeja({ todos = false }) {
               : "Sus solicitudes a la Mesa de ayuda de TI y en qué van."}
           </p>
         </div>
-        {(tecnico || cabecera?.puede.registrar) && (
+        {(tecnico || cabecera?.puede.registrar || puedeCrear) && (
           <div className="mz-view-actions">
+            {/* Un ticket a su nombre: el mismo formulario de «Soporte TI». */}
+            {/* Si es lo único que puede hacer aquí, es la acción principal. */}
+            {puedeCrear && (
+              <Link
+                className={`btn btn-sm ${
+                  !tecnico && !cabecera?.puede.registrar
+                    ? "btn-primary"
+                    : "btn-outline-primary"
+                }`}
+                to="/admin/soporte/nuevo"
+              >
+                <Icon name="plus-lg" /> Pedir ayuda (a mi nombre)
+              </Link>
+            )}
             {/* Lo que llega por teléfono, WhatsApp o en persona también se
                 registra: «sin ticket no hay atención». */}
             {cabecera?.puede.registrar && (
@@ -336,7 +352,7 @@ export function Bandeja({ todos = false }) {
         {ambito === null ? (
           <EstadoDeCarga cargando />
         ) : ambito === "creados" ? (
-          <MisSolicitudes />
+          <MisSolicitudes puedeCrear={puedeCrear} />
         ) : (
           <>
             <form
@@ -600,7 +616,7 @@ function QueSigue({ ticket }) {
  * respondieron», «Confirme si quedó resuelto»), con la columna «Qué sigue»;
  * la prioridad en palabras llanas (sin «P1») y un botón «Ver» por fila.
  */
-export function MisSolicitudes({ onCargados }) {
+export function MisSolicitudes({ onCargados, puedeCrear = true }) {
   // Con ref: la lista se consulta cada 30 s y no debe recargarse si cambia.
   const avisar = useRef(onCargados);
   avisar.current = onCargados;
@@ -636,6 +652,10 @@ export function MisSolicitudes({ onCargados }) {
   const peso = (t) => (queSigue(t).accion ? 0 : t.estado === "cerrado" ? 2 : 1);
   const ordenados = [...(tickets ?? [])].sort((a, b) => peso(a) - peso(b));
   const pendientes = ordenados.filter((t) => queSigue(t).accion).length;
+  // Sin «Crear tickets» no se invita a pedir ayuda (09/11/2026).
+  const pedirAyuda = puedeCrear ? (
+    <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
+  ) : undefined;
 
   return (
     <>
@@ -703,9 +723,7 @@ export function MisSolicitudes({ onCargados }) {
               onReintentar={cargar}
               vacio={tickets?.length === 0}
               textoVacio="Todavía no ha pedido ayuda."
-              accionVacio={
-                <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
-              }
+              accionVacio={pedirAyuda}
             />
           </tbody>
         </table>
@@ -719,9 +737,7 @@ export function MisSolicitudes({ onCargados }) {
             onReintentar={cargar}
             vacio={tickets?.length === 0}
             textoVacio="Todavía no ha pedido ayuda."
-            accionVacio={
-              <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
-            }
+            accionVacio={pedirAyuda}
           />
           {ordenados.length > 0 && (
             <ul className="mz-cards-lista" aria-label="Mis tickets">

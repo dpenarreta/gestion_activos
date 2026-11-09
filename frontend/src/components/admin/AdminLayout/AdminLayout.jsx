@@ -6,6 +6,7 @@ import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
 import { LlamadasProvider } from "../../../pages/Soporte/Llamadas";
 import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
+import { usePermission } from "../../../hooks/usePermission";
 import { cumpleConsulta, useMediaQuery } from "../../../hooks/useMediaQuery";
 import { EstadoModulosProvider } from "../../../modulos/EstadoModulos";
 import {
@@ -146,6 +147,8 @@ export function AdminLayout() {
   // (aviso del rol de pagos, 29/10/2026).
   const [avisoRolListo, setAvisoRolListo] = useState(false);
   const menu = useAdminMenu();
+  // «Soporte TI» en la barra solo para quien puede crear tickets (09/11/2026).
+  const puedeCrearTickets = usePermission("soporte.crear");
   const empresas = useMisEmpresas();
   const [isCollapsed, setIsCollapsed] = useState(() =>
     getInitialCollapsed(breakpoint),
@@ -269,20 +272,24 @@ export function AdminLayout() {
                   <h1>{titulo}</h1>
                   <div className="mz-spacer" />
                   <BusquedaGlobal />
-                  {/* Soporte TI: toda persona con sesión pide ayuda desde aquí, tenga el
-                rol que tenga. */}
-
-                  <Link
-                    to="/admin/ayuda"
-                    className="mz-icon-btn mz-topbar__soporte"
-                    title="Soporte TI: pedir ayuda y ver mis tickets"
-                  >
-                    {/* El texto antes del ícono: el audífono solo no se
-                      reconocía como «pedir ayuda». En el teléfono queda solo
-                      el ícono (el texto sigue para el lector de pantalla). */}
-                    <span className="mz-topbar__soporte-texto">Soporte TI</span>
-                    <Icon name="headset" />
-                  </Link>
+                  {/* Soporte TI: pide ayuda desde aquí quien tiene «Crear
+                    tickets» (`soporte.crear`, 09/11/2026; lo traen todos los
+                    roles). Sin él, sus tickets siguen en /admin/ayuda. */}
+                  {puedeCrearTickets && (
+                    <Link
+                      to="/admin/ayuda"
+                      className="mz-icon-btn mz-topbar__soporte"
+                      title="Soporte TI: pedir ayuda"
+                    >
+                      {/* El texto antes del ícono: el audífono solo no se
+                        reconocía como «pedir ayuda». En el teléfono queda solo
+                        el ícono (el texto sigue para el lector de pantalla). */}
+                      <span className="mz-topbar__soporte-texto">
+                        Soporte TI
+                      </span>
+                      <Icon name="headset" />
+                    </Link>
+                  )}
 
                   <CampanaNotificaciones />
                   <BotonTema />

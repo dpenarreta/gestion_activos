@@ -28,6 +28,7 @@ NOMBRES = {
     "chat": "Chat",
     "matriz": "Matriz de obligaciones",
     "tareas": "Gestión Humana · Tareas",
+    "privacidad": "Protección de datos personales",
 }
 
 

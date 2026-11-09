@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "apps.mejora_continua",
     "apps.reuniones",
     "apps.escritorio",
+    "apps.privacidad",
 ]
 
 MIDDLEWARE = [
@@ -366,6 +367,10 @@ REST_FRAMEWORK = {
         # Registro de descargas: cada «Descargar» manda su copia. Holgado para
         # quien baja muchos adjuntos seguidos; frena a quien lo use de bodega.
         "descargas": env.str("DESCARGAS_THROTTLE_RATE", default="120/min"),
+        # Derechos sobre datos personales: cada descarga de «mis datos» consulta
+        # todo el sistema. Holgado para quien la repite en otro formato; frena a
+        # quien la use en bucle.
+        "privacidad_datos": env.str("PRIVACIDAD_DATOS_THROTTLE_RATE", default="20/hour"),
         # Lo que la pantalla consulta sola cada pocos segundos (novedades del
         # chat, la campana): va aparte del límite general por persona. Si no,
         # el sondeo del chat (cada 4 s, ~900 por hora) agotaba él solo los 1000
@@ -449,6 +454,13 @@ ADMIN_USERS_PAGE_SIZE = env.int("ADMIN_USERS_PAGE_SIZE", default=20)
 
 # --- Paginación genérica (roles, auditoría, y futuros listados) ---
 DEFAULT_PAGE_SIZE = env.int("DEFAULT_PAGE_SIZE", default=20)
+
+# --- Derechos sobre datos personales (LOPDP, apps.privacidad) ---
+# Días corridos para responder una solicitud de acceso, rectificación o
+# eliminación. La LOPDP de Ecuador (arts. 13, 14 y 15) da quince días; ver
+# `apps.privacidad.services.plazo_dias` y docs/derechos-sobre-datos.md. Cada
+# solicitud guarda el plazo con que se recibió.
+PRIVACIDAD_PLAZO_DIAS = env.int("PRIVACIDAD_PLAZO_DIAS", default=15)
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[FRONTEND_URL])

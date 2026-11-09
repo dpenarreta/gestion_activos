@@ -44,6 +44,8 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 "mejora_continua.",
                 "reuniones.",
                 "escritorio.",
+                # Y las solicitudes de datos personales (09/11/2026).
+                "privacidad.",
             )
         )
     }

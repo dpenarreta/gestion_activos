@@ -22,7 +22,9 @@
 // script en un archivo aparte, que también tiene que quedar guardado.
 // v3 (05/11/2026): iconos y manifiesto con la marca LAARCOURIER.
 // v4 (06/11/2026): página sin conexión y manifiesto con el azul del tema claro.
-const VERSION = "v4";
+// v5 (09/11/2026): la página sin conexión explica qué revisar y cuándo avisar
+// a Tecnología (también aparece en computadoras, no solo en teléfonos).
+const VERSION = "v5";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";

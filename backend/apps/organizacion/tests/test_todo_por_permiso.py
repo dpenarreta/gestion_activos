@@ -3,12 +3,12 @@
 Lo que antes bastaba con tener sesión —consultar el propio rol de pagos,
 reportar sugerencias, solicitar permisos— y lo que estaba
 reservado al superusuario en los dashboards ahora pide su permiso. Los roles
-de nivel del organigrama traen los de todo empleado. El chat y Soporte TI
-siguen siendo de todo usuario, sin permiso.
+de nivel del organigrama traen los de todo empleado. El chat sigue siendo de
+todo usuario, sin permiso; Soporte TI pide `soporte.crear` desde el 09/11/2026,
+salvo a la cuenta sin ningún rol (ver `apps/soporte/tests/test_crear_tickets.py`).
 """
 
 import pytest
-from rest_framework.test import APIClient
 
 from apps.organizacion.roles_de_cargo import PERMISOS_BASE
 from apps.organizacion.tests.test_carga_personas import _cuenta
@@ -47,7 +47,9 @@ def test_sin_permiso_lo_de_todo_empleado_se_niega(db, metodo, ruta):
 
 
 def test_el_chat_y_soporte_ti_son_de_todo_usuario_aunque_no_tenga_permisos(db):
-    """Decisión del 21/10/2026: cualquiera, tenga el rol que tenga."""
+    """Decisión del 21/10/2026: cualquiera, tenga el rol que tenga. Desde el
+    09/11/2026 crear tickets pide `soporte.crear`, pero la cuenta sin ningún
+    rol lo conserva y seguir los suyos sigue siendo de todos."""
     _, cliente = _cuenta("sinrol")
     assert cliente.get("/api/v1/soporte/solicitar/").status_code == 200
     assert cliente.get("/api/v1/soporte/mis-tickets/").status_code == 200

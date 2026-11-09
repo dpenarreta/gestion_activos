@@ -45,3 +45,50 @@ Feature: Protección de datos personales
     When un administrador deshabilita la cuenta
     Then los datos y el historial se conservan (baja lógica, no eliminación física)
     And el usuario no puede volver a autenticarse mientras esté deshabilitado
+
+  # --- Derechos sobre datos personales (apps.privacidad, 09/11/2026) ---------
+
+  @AC-DP-007
+  Scenario: Cualquier persona con cuenta pide acceso, rectificación o eliminación
+    Given que una persona con sesión no tiene ningún permiso
+    When pide la rectificación de un dato desde «Mi perfil»
+    Then la solicitud queda pendiente con su fecha límite según el plazo legal configurado
+    And quienes atienden reciben el aviso en la campana, y ella no
+    And la auditoría registra el tipo de solicitud pero no su descripción
+
+  @AC-DP-008
+  Scenario: Nadie ve solicitudes ajenas sin permiso
+    Given que existen solicitudes de varias personas
+    When una persona sin "privacidad.ver" ni "privacidad.atender" pide la bandeja o una solicitud ajena
+    Then el backend responde acceso denegado o «no encontrada»
+    And la persona solo ve las suyas
+
+  @AC-DP-009
+  Scenario: Quien atiende responde y el titular se entera sin que la respuesta salga por correo
+    Given que una solicitud está pendiente
+    When quien tiene "privacidad.atender" la cierra con una respuesta
+    Then el titular recibe un aviso en la campana y un correo que no contiene la respuesta
+    And cerrar sin respuesta, repetir el estado o mover una ya movida por otra persona se rechaza
+
+  @AC-DP-010
+  Scenario: La descarga de «mis datos» trae solo lo de la persona y ningún secreto
+    Given que la persona tiene datos en varios módulos y otras personas también
+    When descarga sus datos en JSON o Excel
+    Then el archivo incluye lo suyo de cada módulo
+    And no incluye datos de otras personas, contraseñas, tokens, claves de reunión ni el rol de pagos
+    And la descarga queda en la auditoría y en el registro de descargas, sin copia
+
+  @AC-DP-011
+  Scenario: Quien atiende un acceso descarga los datos del titular con las reservas de cada módulo
+    Given que hay una solicitud de acceso abierta
+    When quien atiende descarga los datos del titular
+    Then el archivo no incluye el chat ni el Escritorio de la persona
+    And los datos de salud van enmascarados salvo que ya pudiera verlos
+    And solo es posible para una solicitud de acceso abierta
+
+  @AC-DP-012
+  Scenario: Las solicitudes y la descarga son de la empresa en que se piden
+    Given que una persona trabaja en dos empresas del grupo
+    When pide o descarga en una de ellas
+    Then la solicitud y los datos son los de esa empresa
+    And quien atiende en la otra empresa no la ve

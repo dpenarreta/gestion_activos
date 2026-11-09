@@ -90,7 +90,9 @@ def test_me_endpoint_only_lists_permissions_the_user_actually_has(api_client):
     response = api_client.get("/api/v1/auth/me/")
 
     assert response.status_code == 200
-    assert response.data["permissions"] == ["auditoria.ver"]
+    # `soporte.crear` lo tiene toda cuenta sin ningún rol (09/11/2026, ver
+    # `apps.permissions.authorization.PERMISOS_SIN_ROL`).
+    assert response.data["permissions"] == ["auditoria.ver", "soporte.crear"]
     assert "usuarios.ver" not in response.data["permissions"]
     assert "roles.ver" not in response.data["permissions"]
 

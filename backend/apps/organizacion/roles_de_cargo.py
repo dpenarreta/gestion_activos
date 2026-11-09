@@ -30,12 +30,15 @@ PERMISOS_BASE = (
     "licencias.solicitar",
     "sugerencias.reportar",
     "institucional.ver_area",
+    # Pedir ayuda a TI (09/11/2026): antes era de toda cuenta sin permiso.
+    "soporte.crear",
 )
 # Consultar el propio rol de pagos tampoco: va persona por persona, por la
 # lista de habilitados (22/10/2026). Los permisos que da cada cargo en
 # particular están en `permisos_por_cargo`.
-# El chat y Soporte TI no están aquí a propósito: son de todo usuario, tenga el
-# rol que tenga (decisión del 21/10/2026).
+# El chat no está aquí a propósito: es de todo usuario, tenga el rol que tenga
+# (decisión del 21/10/2026). Soporte TI sí, desde el 09/11/2026: crear tickets
+# es `soporte.crear` y se puede quitar a un rol.
 
 LARGO = 150
 

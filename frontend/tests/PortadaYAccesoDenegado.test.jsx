@@ -129,4 +129,38 @@ describe("Acceso denegado", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
     expect(logout).toHaveBeenCalled();
   });
+
+  it("con «Crear tickets» ofrece pedir soporte", () => {
+    sesion.autenticado = true;
+    sesion.permisos = ["soporte.crear"];
+
+    pintar(<Forbidden />);
+
+    expect(screen.getByText(/puede pedir soporte/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pedir soporte" })).toHaveAttribute(
+      "href",
+      "/admin/ayuda",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Ver mis tickets" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sin «Crear tickets» ofrece ver los suyos y a quién pedir acceso", () => {
+    sesion.autenticado = true;
+    sesion.permisos = [];
+
+    pintar(<Forbidden />);
+
+    expect(
+      screen.getByText(/hable con su jefe o con Tecnología/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/puede pedir soporte/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Pedir soporte" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ver mis tickets" }),
+    ).toHaveAttribute("href", "/admin/ayuda?vista=mios");
+  });
 });

@@ -114,6 +114,8 @@ const RUTAS_COMUNES = [
   "/admin/ayuda",
   "/admin/mis-datos",
   "/admin/perfil",
+  // Derechos sobre datos personales: de toda la intranet, no de un módulo.
+  "/admin/privacidad",
 ];
 
 function esRutaComun(pathname) {

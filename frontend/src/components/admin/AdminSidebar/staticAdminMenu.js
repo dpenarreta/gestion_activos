@@ -274,6 +274,18 @@ export const ADMIN_MENU = [
     rutas: [`${RUTA_SOPORTE}/tickets`],
   },
   {
+    // Un ticket a su nombre, con el formulario de «Soporte TI» (09/11/2026).
+    // Es de todo empleado (todos los roles lo traen): no hace de alguien
+    // «una cuenta con permisos» para la pantalla de 403 (ver `conPermiso`).
+    id: "soporte-nuevo",
+    modulo: "soporte",
+    name: "Nuevo ticket",
+    icon: "plus-lg",
+    path: `${RUTA_SOPORTE}/nuevo`,
+    permission: "soporte.crear",
+    deTodoEmpleado: true,
+  },
+  {
     id: "soporte-todos",
     modulo: "soporte",
     name: "Todos los tickets",
@@ -760,6 +772,20 @@ export const ADMIN_MENU = [
     rutas: ["/admin/auditoria"],
   },
   {
+    // Las solicitudes de derechos sobre datos personales (LOPDP), junto a
+    // Auditoría: son de toda la intranet, no de un módulo. Solo quien las ve
+    // o las atiende; cada persona pide las suyas desde «Mi perfil».
+    id: "privacidad",
+    modulo: "comun",
+    name: "Protección de datos",
+    icon: "shield-lock",
+    path: "/admin/privacidad/solicitudes",
+    permission: ["privacidad.ver", "privacidad.atender"],
+    // Las abiertas que ya pasaron su fecha límite.
+    insignia: "privacidad_vencidas",
+    rutas: ["/admin/privacidad"],
+  },
+  {
     // Una sola entrada, como en la Matriz: lo que contiene —empresas,
     // usuarios, roles, permisos, catálogos, notificaciones, identidad visual
     // y respaldos— se elige con las pestañas de la propia pantalla (ver
@@ -856,9 +882,12 @@ export function modulosConPermiso(permissions = []) {
   ];
 }
 
-/** Las opciones que exigen algún permiso (sin las que vería cualquiera).
- * Sirve para saber si alguien tiene permisos de verdad (la pantalla de inicio
- * y el 403). */
+/** Las opciones que exigen algún permiso (sin las que vería cualquiera, ni
+ * las de todo empleado, como «Nuevo ticket» de la Mesa de ayuda). Sirve para
+ * saber si alguien tiene permisos de verdad (la pantalla de inicio y el 403). */
 export function conPermiso(items) {
-  return items.filter((item) => item.permission || item.children?.length);
+  return items.filter(
+    (item) =>
+      (item.permission && !item.deTodoEmpleado) || item.children?.length,
+  );
 }

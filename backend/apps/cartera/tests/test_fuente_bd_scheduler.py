@@ -302,6 +302,29 @@ class AvanzarFechaCorteTests(TestCase):
                 self.assertEqual(resultado['FechaCorte'], '2026-08-07')
 
 
+    def test_con_tope_no_pasa_de_hoy_y_conserva_el_dia_de_la_semana(self):
+        """La fecha guardada ya estaba al día: sumar las 3 semanas pendientes la llevaba al
+        29/11 un 09/11 (Dashboard Directorio en producción)."""
+        resultado = fuente_bd_scheduler.avanzar_fecha_corte(
+            {'FechaCorte': '2026-11-08'}, Dashboard.FuenteBDFrecuencia.SEMANAL,
+            periodos=3, tope=date(2026, 11, 9),
+        )
+        self.assertEqual(resultado['FechaCorte'], '2026-11-08')
+
+    def test_con_tope_avanza_hasta_el_ultimo_periodo_que_no_lo_pasa(self):
+        resultado = fuente_bd_scheduler.avanzar_fecha_corte(
+            {'FechaCorte': '2026-10-25'}, Dashboard.FuenteBDFrecuencia.SEMANAL,
+            periodos=4, tope=date(2026, 11, 9),
+        )
+        self.assertEqual(resultado['FechaCorte'], '2026-11-08')
+
+    def test_con_tope_mensual(self):
+        resultado = fuente_bd_scheduler.avanzar_fecha_corte(
+            {'FechaCorte': '2026-10-31'}, Dashboard.FuenteBDFrecuencia.MENSUAL,
+            periodos=3, tope=date(2026, 11, 30),
+        )
+        self.assertEqual(resultado['FechaCorte'], '2026-11-30')
+
 class ActualizarDashboardTests(TestCase):
     def _dashboard_con_mapeo_confirmado(self, frecuencia='semanal'):
         import pandas as pd
@@ -417,6 +440,29 @@ class ActualizarDashboardTests(TestCase):
         )
         dashboard.refresh_from_db()
         self.assertEqual(dashboard.fuente_bd_parametros, {'FechaCorte': '2026-08-14'})
+
+    @mock.patch('apps.cartera.services.fuente_bd_scheduler.db_source.leer_fuente')
+    def test_una_fecha_de_corte_ya_al_dia_no_se_adelanta_al_futuro(self, leer_fuente_mock):
+        """Configurado hace semanas pero con la fecha de corte vigente (se trasladó así a
+        producción): la corrida del lunes consulta por el domingo, no por tres semanas después."""
+        import pandas as pd
+        dashboard = self._dashboard_con_mapeo_confirmado()
+        Dashboard.objects.filter(dashboard_id=dashboard.dashboard_id).update(
+            fuente_bd_parametros={'FechaCorte': '2026-11-08'},
+            fuente_bd_fecha_configuracion=date(2026, 10, 20),
+            fuente_bd_ultima_actualizacion_automatica=None,
+        )
+        dashboard.refresh_from_db()
+        leer_fuente_mock.return_value = pd.DataFrame({'Saldo': [500.0], 'Zona': ['Norte']})
+
+        resultado = fuente_bd_scheduler.actualizar_dashboard(dashboard, hoy=date(2026, 11, 9))
+
+        self.assertTrue(resultado['ok'], resultado['mensaje'])
+        leer_fuente_mock.assert_called_once_with(
+            'procedimiento', 'dbo.rpt_Reporte', {'FechaCorte': '2026-11-08'}, fecha_formato='YYYY-MM-DD',
+        )
+        dashboard.refresh_from_db()
+        self.assertEqual(dashboard.fuente_bd_parametros, {'FechaCorte': '2026-11-08'})
 
     @mock.patch('apps.cartera.services.fuente_bd_scheduler.db_source.leer_fuente')
     def test_reaplica_los_aliases_guardados(self, leer_fuente_mock):

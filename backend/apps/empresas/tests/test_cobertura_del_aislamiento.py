@@ -55,6 +55,7 @@ APPS_DE_NEGOCIO = frozenset(
         "mejora_continua",
         "reuniones",
         "escritorio",
+        "privacidad",
     }
 )
 

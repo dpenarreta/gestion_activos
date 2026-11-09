@@ -68,6 +68,7 @@ MODULOS = {
     "informes": "Gestión Humana · Informes ejecutivos",
     "mejora-continua": "Gestión Humana · Mejora continua",
     "escritorio": "Gestión Humana · Escritorio",
+    "privacidad": "Protección de datos personales",
 }
 #: Pantallas de Institucional con su propio nombre.
 INSTITUCIONAL = {"rol-pagos": "nomina", "permisos": "licencias", "proyectos": "proyectos"}

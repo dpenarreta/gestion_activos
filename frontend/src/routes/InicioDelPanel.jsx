@@ -23,6 +23,7 @@ export function InicioDelPanel() {
   const menu = conPermiso(useAdminMenu("activos"));
   const menuMatriz = useAdminMenu("matriz");
   const veLoSuyo = usePermission("activos.ver_asignados");
+  const puedeCrearTickets = usePermission("soporte.crear");
   const destino = primeraRuta(menu);
 
   // «Mis equipos» se quitó del menú: es una vista personal y no una de
@@ -41,9 +42,13 @@ export function InicioDelPanel() {
     return <Navigate to={moduloPorId("matriz").inicio} replace />;
   }
 
-  // Sin ningún permiso, igual puede pedir soporte (desde el 20/10/2026 la
-  // mesa de ayuda es para toda persona con sesión): no es un 403.
-  return <Navigate to={destino ?? "/admin/ayuda"} replace />;
+  // Sin ninguna pantalla, la salida es Soporte TI (para toda persona con
+  // sesión desde el 20/10/2026): no es un 403. Con «Crear tickets» entra a
+  // pedir ayuda; sin él (09/11/2026), a seguir los tickets que ya tiene.
+  const soporte = puedeCrearTickets
+    ? "/admin/ayuda"
+    : "/admin/ayuda?vista=mios";
+  return <Navigate to={destino ?? soporte} replace />;
 }
 
 /** La primera pantalla del menú, entrando en los grupos si hace falta. */

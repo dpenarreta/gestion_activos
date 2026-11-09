@@ -4,7 +4,7 @@ import { PlantillaCorreoEditor } from "../pages/Admin/Configuracion/PlantillaCor
 import { PlantillasCorreoPage } from "../pages/Admin/Configuracion/PlantillasCorreoPage";
 import { AuditoriaInicio } from "../components/admin/AuditoriaMarco/AuditoriaMarco";
 import { ReportesInicio } from "../components/admin/ReportesMarco/ReportesMarco";
-import { lazy } from "react";
+import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { InicioDeConfiguracion } from "../components/admin/ConfiguracionMarco/InicioDeConfiguracion";
@@ -55,6 +55,7 @@ import { NotificacionesPage } from "../pages/Notificaciones/NotificacionesPage";
 import { FormularioEditor } from "../pages/Soporte/FormularioEditor";
 import { HorasFuera } from "../pages/Soporte/HorasFuera";
 import { MiHorario } from "../pages/Soporte/MiHorario";
+import { NuevoTicketPropio } from "../pages/Soporte/NuevoTicketPropio";
 import { RegistrarTicket } from "../pages/Soporte/RegistrarTicket";
 import { AyudaPage } from "../pages/Ayuda/AyudaPage";
 import { MiTicket } from "../pages/Ayuda/MiTicket";
@@ -73,6 +74,8 @@ import {
 } from "../dashboards/paginas";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
+import { EstadoDeCarga } from "../components/common/EstadoDeCarga/EstadoDeCarga";
+import { PERMISOS_PRIVACIDAD } from "../pages/Privacidad/privacidadComunes";
 import { useAuth } from "../hooks/useAuth";
 import { Forbidden } from "../pages/Errors/Forbidden";
 import { NotFound } from "../pages/Errors/NotFound";
@@ -269,6 +272,20 @@ const Escritorio = lazy(() =>
 const VisorInforme = lazy(() =>
   import("../pages/GestionHumana/Informes/VisorInforme").then((m) => ({
     default: m.VisorInforme,
+  })),
+);
+
+// Derechos sobre datos personales (LOPDP): la bandeja y el detalle de quien
+// atiende, bajo demanda (pocas personas los abren). Lo del titular va en su
+// perfil.
+const BandejaPrivacidad = lazy(() =>
+  import("../pages/Privacidad/BandejaPrivacidad").then((m) => ({
+    default: m.BandejaPrivacidad,
+  })),
+);
+const DetalleSolicitudPrivacidad = lazy(() =>
+  import("../pages/Privacidad/DetalleSolicitudPrivacidad").then((m) => ({
+    default: m.DetalleSolicitudPrivacidad,
   })),
 );
 
@@ -613,6 +630,33 @@ export function AppRoutes() {
         <Route path="ayuda" element={<AyudaPage />} />
         <Route path="ayuda/tickets/:id" element={<MiTicket />} />
         <Route path="perfil" element={<MisDatosPage />} />
+        {/* Solicitudes de derechos sobre datos personales: la bandeja y el
+            detalle, con privacidad.ver o privacidad.atender (el servidor lo
+            vuelve a exigir). A estas direcciones llevan los avisos. */}
+        <Route
+          path="privacidad"
+          element={<Navigate to="/admin/privacidad/solicitudes" replace />}
+        />
+        <Route
+          path="privacidad/solicitudes"
+          element={
+            <RequirePermission permission={PERMISOS_PRIVACIDAD}>
+              <Suspense fallback={<EstadoDeCarga cargando />}>
+                <BandejaPrivacidad />
+              </Suspense>
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="privacidad/solicitudes/:id"
+          element={
+            <RequirePermission permission={PERMISOS_PRIVACIDAD}>
+              <Suspense fallback={<EstadoDeCarga cargando />}>
+                <DetalleSolicitudPrivacidad />
+              </Suspense>
+            </RequirePermission>
+          }
+        />
         <Route
           path="mis-datos"
           element={<Navigate to="/admin/perfil" replace />}
@@ -1090,6 +1134,16 @@ export function AppRoutes() {
               ]}
             >
               <TicketDetalle />
+            </RequirePermission>
+          }
+        />
+        {/* Un ticket a su nombre desde el módulo: el formulario de «Soporte
+            TI» (09/11/2026). */}
+        <Route
+          path="soporte/nuevo"
+          element={
+            <RequirePermission permission="soporte.crear">
+              <NuevoTicketPropio />
             </RequirePermission>
           }
         />

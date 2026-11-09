@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { misDatosService } from "../../api/misDatosService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import {
+  PanelDePestana,
+  Pestanas,
+} from "../../components/common/Pestanas/Pestanas";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { MiAniversario } from "./MiAniversario";
@@ -10,6 +15,19 @@ import { MiCargo } from "./MiCargo";
 import { MiCumpleanos } from "./MiCumpleanos";
 import { MisHerramientas } from "./MisHerramientas";
 import { MiSupervision } from "./MiSupervision";
+
+// «Mis derechos» se carga al abrir su pestaña: la mayoría entra al perfil a
+// revisar sus datos, no a ejercer un derecho.
+const MisDerechos = lazy(() =>
+  import("../Privacidad/MisDerechos").then((m) => ({ default: m.MisDerechos })),
+);
+
+/** Las pestañas del perfil; `?seccion=mis-derechos` abre la segunda (a ella
+ * llevan los avisos de la campana cuando cambia una solicitud). */
+const SECCIONES = [
+  { id: "mis-datos", etiqueta: "Mis datos", icono: "person-vcard" },
+  { id: "mis-derechos", etiqueta: "Mis derechos", icono: "shield-lock" },
+];
 
 const NOMBRES = {
   nombre: "nombre y apellido",
@@ -315,6 +333,50 @@ export function queFalta(faltan = []) {
  * los usa para cargar sus tickets por defecto.
  */
 export function MisDatosPage() {
+  const [parametros, setParametros] = useSearchParams();
+  const seccion =
+    parametros.get("seccion") === "mis-derechos" ? "mis-derechos" : "mis-datos";
+
+  function cambiarSeccion(id) {
+    setParametros(id === "mis-derechos" ? { seccion: id } : {}, {
+      replace: true,
+    });
+  }
+
+  return (
+    <div className="mz-stack">
+      <div className="mz-view-head">
+        <div>
+          <h2>Mi perfil</h2>
+          <p className="mz-desc">
+            {seccion === "mis-derechos"
+              ? "Lo que la ley le permite pedir sobre sus datos personales, y sus solicitudes."
+              : "Su información personal. Con ella se cargan sus pedidos de soporte: manténgala al día."}
+          </p>
+        </div>
+      </div>
+      <Pestanas
+        etiqueta="Secciones de su perfil"
+        idBase="perfil"
+        valor={seccion}
+        onCambio={cambiarSeccion}
+        opciones={SECCIONES}
+      />
+      <PanelDePestana idBase="perfil" valor={seccion} className="mz-stack">
+        {seccion === "mis-derechos" ? (
+          <Suspense fallback={<EstadoDeCarga cargando />}>
+            <MisDerechos />
+          </Suspense>
+        ) : (
+          <SeccionMisDatos />
+        )}
+      </PanelDePestana>
+    </div>
+  );
+}
+
+/** La pestaña «Mis datos»: el formulario y lo que cuelga de él. */
+function SeccionMisDatos() {
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -334,16 +396,7 @@ export function MisDatosPage() {
   }, [cargar]);
 
   return (
-    <div className="mz-stack">
-      <div className="mz-view-head">
-        <div>
-          <h2>Mi perfil</h2>
-          <p className="mz-desc">
-            Su información personal. Con ella se cargan sus pedidos de soporte:
-            manténgala al día.
-          </p>
-        </div>
-      </div>
+    <>
       {/* Cargando y error con «Reintentar»; antes la pantalla quedaba en
           blanco mientras llegaban los datos (auditoría UX/UI, fase 2,
           28/10/2026). */}
@@ -383,6 +436,6 @@ export function MisDatosPage() {
       {datos && <MisHerramientas />}
       {datos && <MiCumpleanos inicial={datos.cumpleanos} />}
       {datos && <MiAniversario inicial={datos.aniversario} />}
-    </div>
+    </>
   );
 }

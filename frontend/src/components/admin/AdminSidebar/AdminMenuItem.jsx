@@ -42,6 +42,11 @@ export const TEXTOS = {
     "observación por atender",
     "observaciones por atender",
   ],
+  privacidad_vencidas: [
+    "Solicitudes de datos personales vencidas",
+    "solicitud vencida",
+    "solicitudes vencidas",
+  ],
 };
 
 /** Las insignias que avisan sin ser un incumplimiento (las notas sin leer

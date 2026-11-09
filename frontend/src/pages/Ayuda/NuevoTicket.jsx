@@ -18,6 +18,11 @@ import {
 import { enLaCola } from "../Soporte/comunes";
 import "../Soporte/Soporte.css";
 
+/** Por defecto, tras crear: al detalle del ticket en «Soporte TI». */
+function alDetalle(creado) {
+  return { to: `/admin/ayuda/tickets/${creado.id}`, texto: "Ver mi ticket" };
+}
+
 /** Cuántos archivos acepta el servidor por ticket. */
 const MAX_ADJUNTOS = 3;
 
@@ -63,8 +68,13 @@ function SusDatos({ datos, onEditar }) {
  * sugiere la categoría y el caso; los errores salen bajo cada campo, en
  * «usted», y el del servidor junto al botón; «Cambiar mis datos» se puede
  * cancelar sin perder lo escrito.
+ *
+ * `irAlCreado` cambia a dónde lleva el botón tras crear el ticket: por defecto
+ * a su detalle en «Soporte TI»; desde la Mesa de ayuda («Nuevo ticket propio»)
+ * a «Mis solicitudes» de la bandeja, para no sacar a la persona del módulo.
+ * Recibe el ticket creado y devuelve `{ to, texto }`.
  */
-export function NuevoTicket() {
+export function NuevoTicket({ irAlCreado = alDetalle }) {
   const [datos, setDatos] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
   const [editando, setEditando] = useState(false);
@@ -204,11 +214,8 @@ export function NuevoTicket() {
             </div>
           )}
           <div className="mz-actions">
-            <Link
-              className="btn btn-primary"
-              to={`/admin/ayuda/tickets/${creado.id}`}
-            >
-              Ver mi ticket
+            <Link className="btn btn-primary" to={irAlCreado(creado).to}>
+              {irAlCreado(creado).texto}
             </Link>
             <button
               type="button"

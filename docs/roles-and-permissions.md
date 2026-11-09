@@ -34,6 +34,7 @@ de **módulo** solo sirven dentro de él.
 | --- | --- | --- | --- |
 | Reportes | general | `reportes` | `ver`, `exportar` |
 | Auditoría | general | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
+| | | `privacidad` | `ver`, `atender` |
 | Configuración | general | `empresas` | `ver`, `editar`, `asignar` |
 | | | `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password` |
 | | | `roles` | `ver`, `editar` |
@@ -50,7 +51,7 @@ de **módulo** solo sirven dentro de él.
 | | | `vacaciones` | `ver_todas` |
 | | | `licencias` | `configurar`, `ver_todas` |
 | Dashboards | módulo | `dashboard` | `crear`, `editar`, `eliminar`, `view`, `edit`, `layout.edit`, `component.style`, `component.create`, `component.delete`, `configuration.reset`, `interpretar`, `hallazgos_ia`, `fuente_bd.configurar`, `fuente_bd.actualizar`, `archivo.cargar`, `datos.editar` |
-| Mesa de ayuda | módulo | `soporte` | `atender`, `registrar`, `ver_todos`, `asignar`, `aprobar_horas`, `configurar`, `formulario`, `reportes` |
+| Mesa de ayuda | módulo | `soporte` | `crear`, `atender`, `registrar`, `ver_todos`, `asignar`, `aprobar_horas`, `configurar`, `formulario`, `reportes` |
 | Matriz de obligaciones | módulo | `matriz` | `ver_todas`, `crear`, `editar`, `cambiar_fecha`, `cargar`, `enviar`, `validar`, `recordar`, `exportar`, `ver_auditoria`, `configurar`, `gestionar_miembros` |
 | Órdenes de trabajo | módulo | `ordenes` | `ver`, `ver_todas`, `crear`, `gestionar`, `ejecutar`, `aceptar`, `ver_contacto`, `reportes` |
 | Gestión de Activos | módulo | `activos` | `ver`, `ver_asignados`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
@@ -61,7 +62,8 @@ de **módulo** solo sirven dentro de él.
 | | | `politicas` | `ver`, `editar` |
 
 **Sin ningún permiso**, toda persona con cuenta usa el chat, la campana de
-notificaciones, «Soporte TI» (pedir ayuda y seguir sus tickets), «Mi perfil»
+notificaciones, «Soporte TI» para seguir sus tickets (crearlos pide
+`soporte.crear`, ver abajo), «Mi perfil»
 (donde también elige su cargo del organigrama), Institucional → Inicio
 (a donde entra al iniciar sesión, siempre), los códigos de conducta y
 reglamentos (gestionarlos pide `codigos.*`, uno por pestaña) y
@@ -73,6 +75,17 @@ que no resuelve tickets, y lo que pregunta el formulario lo puede cuidar alguien
 que no decide plazos ni el equipo. Quien tenía `atender` o `asignar` recibió
 `registrar`, y quien tenía `configurar` recibió `formulario` (migración
 `roles.0012`).
+
+**`soporte.crear`** (2026-11-09): crear tickets a su nombre —desde «Soporte TI»
+en la barra superior o desde «Nuevo ticket» en la Mesa de ayuda— deja de ser
+de toda cuenta y pasa a ser un permiso. Para que nadie lo pierda el día del
+cambio, `roles.0040` lo concede a **todos los roles** existentes; los roles que
+nacen de un cargo lo traen en `PERMISOS_BASE` y Administrador y Superusuario
+por tener todo el catálogo. Se quita desde Configuración › Roles al rol que no
+deba crear tickets. Una **cuenta sin ningún rol** (ni global ni en la empresa
+activa) lo tiene igual (`authorization.PERMISOS_SIN_ROL`): suele ser una cuenta
+recién creada, que es quien más necesita pedir ayuda; en cuanto tiene un rol,
+manda ese rol. Ver y responder los tickets ya creados no pide el permiso.
 
 **`solicitudes`** separa pedir de gestionar a propósito: cualquiera que trabaje
 con equipos debería poder pedir uno (`crear`), y decidir si se compra es otro
@@ -210,3 +223,13 @@ GGHH», «Asistente Zona Sur»).
 - Los **roles personalizados** siguen igual y se suman al del cargo.
 - **Administrador** y **Superusuario** tienen todo el catálogo, salvo lo que va
   persona por persona.
+
+## Protección de datos personales (2026-11-09)
+
+`privacidad.ver` (bandeja de solicitudes de derechos, solo lectura) y
+`privacidad.atender` (responderlas y descargar los datos del titular de un
+ACCESO abierto) van en el grupo «Auditoría» porque valen para toda la intranet.
+Los tienen el Administrador de Gestión Humana y el Superusuario
+(`privacidad/0002`); el Administrador de TI no (`privacidad/0003` y
+`crear_roles_iniciales`). Pedir un derecho y descargar los propios datos no
+pide ningún permiso. Ver `docs/derechos-sobre-datos.md`.

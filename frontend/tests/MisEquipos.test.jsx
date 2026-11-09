@@ -243,7 +243,8 @@ describe("A dónde lleva /admin", () => {
   }
 
   function Destino() {
-    return <p>Destino: {useLocation().pathname}</p>;
+    const { pathname, search } = useLocation();
+    return <p>Destino: {pathname + search}</p>;
   }
 
   it("a quien solo ve lo suyo lo deja en su pantalla, no en un 403", async () => {
@@ -283,14 +284,24 @@ describe("A dónde lleva /admin", () => {
     expect(screen.getByText("Destino: /admin/dashboard")).toBeInTheDocument();
   });
 
-  it("sin ningún permiso, entra a Soporte TI y no a un 403", async () => {
+  it("sin ninguna pantalla, entra a Soporte TI y no a un 403", async () => {
     /* Desde el 20/10/2026 la mesa de ayuda es para toda persona con sesión:
        quien todavía no tiene nada asignado igual puede pedir soporte. */
-    permisos.lista = [];
+    permisos.lista = ["soporte.crear"];
 
     pintarInicio();
 
     expect(screen.getByText("Destino: /admin/ayuda")).toBeInTheDocument();
+  });
+
+  it("sin «Crear tickets», entra a seguir los suyos (09/11/2026)", async () => {
+    permisos.lista = [];
+
+    pintarInicio();
+
+    expect(
+      screen.getByText("Destino: /admin/ayuda?vista=mios"),
+    ).toBeInTheDocument();
   });
 });
 

@@ -5,6 +5,7 @@ import { capacitacionService } from "../../../api/capacitacionService";
 import { escritorioService } from "../../../api/escritorioService";
 import { licenciasService } from "../../../api/licenciasService";
 import { proyectosService } from "../../../api/proyectosService";
+import { privacidadService } from "../../../api/privacidadService";
 import { matrizService } from "../../../api/matrizService";
 import { nominaService } from "../../../api/nominaService";
 import { sugerenciasService } from "../../../api/sugerenciasService";
@@ -88,6 +89,9 @@ const FUENTES_DE_INSIGNIAS = {
     nominaService.resumenObservaciones().then((d) => d.abiertas),
   // Escritorio de Gestión Humana: las notas que le dejaron y no ha leído.
   notas_sin_leer: () => escritorioService.sinLeer().then((d) => d.unread),
+  // Protección de datos: las solicitudes abiertas ya vencidas (solo quien
+  // ve o atiende la bandeja tiene la entrada).
+  privacidad_vencidas: () => privacidadService.vencidas(),
   // Mi onboarding: los materiales que le faltan aprobar.
   onboarding: () =>
     capacitacionService

@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sin conexión · Intranet LCE</title>
+    <title>Sin conexión · Intranet</title>
     <style>
       /* Suelta a propósito: esta página tiene que poder dibujarse cuando no
          hay red, así que no pide ni una hoja de estilos ni una tipografía. */
       :root {
         color-scheme: light dark;
         /* Como la intranet: azul en claro, amarillo sobre negro en oscuro. */
-        --accion: #0d6efd;
+        --accion: #1c5da3;
         --sobre-accion: #fff;
       }
       body {
@@ -29,18 +29,41 @@
         background: #fff;
         color: #212529;
       }
+      /* Sigue el tema que la persona eligió en la intranet (sin-conexion.js
+         lo copia a data-theme); si eligió «sistema», el del equipo. */
       @media (prefers-color-scheme: dark) {
-        body {
+        :root:not([data-theme="light"]) body {
           background: #121212;
           color: #f2f2f2;
         }
-        :root {
+        :root:not([data-theme="light"]) {
           --accion: #fce200;
           --sobre-accion: #000;
         }
       }
+      :root[data-theme="dark"] body {
+        background: #121212;
+        color: #f2f2f2;
+      }
+      :root[data-theme="dark"] {
+        --accion: #fce200;
+        --sobre-accion: #000;
+      }
       main {
-        max-width: 26rem;
+        max-width: 28rem;
+      }
+      .cabecera {
+        text-align: center;
+      }
+      ol {
+        margin: 0 0 0.75rem;
+        padding-left: 1.4rem;
+        line-height: 1.5;
+      }
+      li + li {
+        margin-top: 0.5rem;
+      }
+      .acciones {
         text-align: center;
       }
       h1 {
@@ -57,6 +80,7 @@
       }
       button {
         margin-top: 1rem;
+        min-height: 44px;
         padding: 0.6rem 1.4rem;
         font: inherit;
         color: var(--sobre-accion);
@@ -74,32 +98,41 @@
   </head>
   <body>
     <main>
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        aria-hidden="true"
-      >
-        <path stroke-linecap="round" d="M2 2 L22 22" />
-        <path
-          stroke-linecap="round"
-          d="M5 12.5a10 10 0 0 1 4-2.4M15 10.1a10 10 0 0 1 4 2.4"
-        />
-        <path stroke-linecap="round" d="M8.5 16a5 5 0 0 1 7 0" />
-        <circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none" />
-      </svg>
-      <h1>No hay conexión</h1>
-      <p>
-        El teléfono no alcanza el servidor. Suele pasar dentro de una bodega o
-        en un andén.
-      </p>
-      <p class="apagado">
-        Lo que ya estaba abierto sigue en pantalla. Para consultar un equipo
-        hace falta red: el inventario cambia durante el día y enseñarle el de
-        ayer sería peor que no enseñarle nada.
-      </p>
-      <button type="button" id="reintentar">Reintentar</button>
+      <div class="cabecera">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" d="M2 2 L22 22" />
+          <path
+            stroke-linecap="round"
+            d="M5 12.5a10 10 0 0 1 4-2.4M15 10.1a10 10 0 0 1 4 2.4"
+          />
+          <path stroke-linecap="round" d="M8.5 16a5 5 0 0 1 7 0" />
+          <circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        <h1>No se pudo abrir la intranet</h1>
+        <p>Este equipo no logró comunicarse con el servidor de la intranet.</p>
+      </div>
+      <ol>
+        <li>
+          Abra otra página, por ejemplo su correo. Si tampoco abre, revise el
+          wifi o el cable de red.
+        </li>
+        <li>
+          Si otras páginas abren y esta no, avise a Tecnología por teléfono,
+          correo o en persona: sin conexión no se pueden registrar tickets en la
+          intranet. Dígales que ve esta pantalla y el nombre de su equipo. Puede
+          ser un ajuste de red de este equipo.
+        </li>
+      </ol>
+      <div class="acciones">
+        <button type="button" id="reintentar">Reintentar</button>
+        <p class="apagado" id="estado" aria-live="polite"></p>
+      </div>
     </main>
     <!-- En un archivo aparte por la CSP del sitio (auditoría de seguridad,
          29/10/2026): sin 'unsafe-inline' no corre ni un script escrito

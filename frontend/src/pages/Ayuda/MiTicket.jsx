@@ -5,6 +5,7 @@ import { soporteService } from "../../api/soporteService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { formatearFecha } from "../../utils/formato";
+import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
 import { fijarTituloPropio } from "../../utils/tituloDocumento";
 import { EstadoTicket, enLaCola, prioridadLlana } from "../Soporte/comunes";
@@ -65,6 +66,8 @@ function Aviso({ texto }) {
  */
 export function MiTicket() {
   const { id } = useParams();
+  // Sin «Crear tickets» no se invita a crear otro (09/11/2026).
+  const puedeCrearTickets = usePermission("soporte.crear");
   const [ticket, setTicket] = useState(null);
   // La carga inicial y el refresco fallan distinto: si falla la primera, no
   // hay nada que mostrar; si falla un refresco, el ticket se conserva con un
@@ -524,8 +527,15 @@ export function MiTicket() {
                 <div className="mz-alert mz-alert--info mt-3 mb-0">
                   <Icon name="info-circle" />
                   <span>
-                    Este ticket está cerrado. Si el problema volvió,{" "}
-                    <Link to="/admin/ayuda">cree un ticket nuevo</Link>.
+                    Este ticket está cerrado.{" "}
+                    {puedeCrearTickets ? (
+                      <>
+                        Si el problema volvió,{" "}
+                        <Link to="/admin/ayuda">cree un ticket nuevo</Link>.
+                      </>
+                    ) : (
+                      "Si el problema volvió, pida a su jefe o a Tecnología el permiso para crear tickets."
+                    )}
                   </span>
                 </div>
               )}

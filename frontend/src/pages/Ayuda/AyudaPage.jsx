@@ -8,6 +8,7 @@ import {
   PanelDePestana,
   Pestanas,
 } from "../../components/common/Pestanas/Pestanas";
+import { usePermission } from "../../hooks/usePermission";
 import { MisSolicitudes } from "../Soporte/Bandeja";
 import { NuevoTicket } from "./NuevoTicket";
 import "../Soporte/Soporte.css";
@@ -24,18 +25,39 @@ const PESTANAS = [
   { id: "mios", etiqueta: "Mis tickets" },
 ];
 
+/** El permiso para crear tickets a su nombre (09/11/2026). */
+export const PERMISO_CREAR_TICKETS = "soporte.crear";
+
 /**
- * «Soporte TI»: para toda persona con sesión, sin permisos. Pide soporte con
- * sus datos de «Mi perfil» y sigue sus tickets. (Desde el 20/10/2026 no hay
- * formulario público.)
+ * Encima de «Mis tickets», a quien no tiene «Crear tickets» (auditoría UX/UI,
+ * 09/11/2026): una nota en texto normal que dice qué permiso le falta y a
+ * quién pedírselo. No es un aviso que se anuncie: no cambia nada en pantalla.
+ */
+export function SinPermisoParaCrear() {
+  return (
+    <p className="mb-0">
+      Para crear tickets a su nombre necesita el permiso «Crear tickets»;
+      pídaselo a su jefe o a Tecnología.
+    </p>
+  );
+}
+
+/**
+ * «Soporte TI»: crear tickets a su nombre pide `soporte.crear` (09/11/2026);
+ * sin él no hay pestaña «Nuevo ticket»: se abre siempre «Mis tickets», con una
+ * nota de a quién pedir el permiso. Seguir sus tickets lo puede toda persona
+ * con sesión. Los datos de contacto salen de «Mi perfil». (Desde
+ * el 20/10/2026 no hay formulario público.)
  *
  * La pestaña va en la dirección (`?vista=mios`): así el enlace «Pedir ayuda
  * en Soporte TI» de la lista vacía, que lleva a `/admin/ayuda`, vuelve a
  * «Nuevo ticket» en vez de no hacer nada.
  */
 export function AyudaPage() {
+  const puedeCrear = usePermission(PERMISO_CREAR_TICKETS);
   const [parametros, setParametros] = useSearchParams();
-  const pestana = parametros.get("vista") === "mios" ? "mios" : "nuevo";
+  const pestana =
+    !puedeCrear || parametros.get("vista") === "mios" ? "mios" : "nuevo";
   // Cuántos tickets le piden algo: se dice en la pestaña (antes, quien
   // entraba a «Nuevo ticket» no se enteraba de que soporte le preguntó).
   const [pendientes, setPendientes] = useState(0);
@@ -67,27 +89,37 @@ export function AyudaPage() {
               (antes se repetía). */}
           <h2>¿Necesita ayuda con tecnología?</h2>
           <p className="mz-desc">
-            Cuéntenos qué pasa y el equipo de TI le ayuda. Aquí también sigue
-            sus tickets.
+            {puedeCrear
+              ? "Cuéntenos qué pasa y el equipo de TI le ayuda. Aquí también sigue sus tickets."
+              : "Aquí sigue los tickets que pidió al equipo de TI."}
           </p>
         </div>
       </div>
       {/* Pestañas comunes: flechas, una parada de Tab y panel asociado
-          (revisión final UX/UI, 28/10/2026). */}
-      <Pestanas
-        etiqueta="Soporte TI"
-        idBase="ayuda"
-        valor={pestana}
-        onCambio={cambiar}
-        opciones={opciones}
-      />
-      <PanelDePestana idBase="ayuda" valor={pestana}>
-        {pestana === "nuevo" ? (
-          <NuevoTicket />
-        ) : (
-          <MisSolicitudes onCargados={contar} />
-        )}
-      </PanelDePestana>
+          (revisión final UX/UI, 28/10/2026). Con una sola, no hay pestañas. */}
+      {puedeCrear ? (
+        <>
+          <Pestanas
+            etiqueta="Soporte TI"
+            idBase="ayuda"
+            valor={pestana}
+            onCambio={cambiar}
+            opciones={opciones}
+          />
+          <PanelDePestana idBase="ayuda" valor={pestana}>
+            {pestana === "mios" ? (
+              <MisSolicitudes onCargados={contar} puedeCrear />
+            ) : (
+              <NuevoTicket />
+            )}
+          </PanelDePestana>
+        </>
+      ) : (
+        <>
+          <SinPermisoParaCrear />
+          <MisSolicitudes onCargados={contar} puedeCrear={false} />
+        </>
+      )}
     </div>
   );
 }

@@ -26,6 +26,7 @@ MODULOS = {
     "mejora_continua": ("Gestión Humana · Mejora continua", "lightbulb"),
     "reuniones": ("Gestión Humana · Reuniones", "camera-video"),
     "escritorio": ("Gestión Humana · Escritorio", "sticky"),
+    "privacidad": ("Protección de datos personales", "shield-lock"),
 }
 
 SISTEMA = ("Sistema", "bell")

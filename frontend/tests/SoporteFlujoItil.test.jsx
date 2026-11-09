@@ -28,6 +28,11 @@ const servicio = {
   config: { mesa: vi.fn(), guardarMesa: vi.fn() },
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
+// MiTicket pregunta por «Crear tickets» para ofrecer abrir uno nuevo; aquí no
+// hay sesión, así que la persona lo tiene.
+vi.mock("../src/hooks/usePermission", () => ({
+  usePermission: (codename) => codename === "soporte.crear",
+}));
 
 const { TicketDetalle } = await import("../src/pages/Soporte/TicketDetalle");
 const { RegistrarTicket } =

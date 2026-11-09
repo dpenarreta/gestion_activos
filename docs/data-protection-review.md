@@ -340,3 +340,30 @@ Un permiso MÉDICO (`apps.ausencias.LeaveRecord`) y un estado especial
   `purgar_ausencias_medicas`, en la tarea programada, borra lo vencido y deja
   en la auditoría de cada empresa solo cuántos registros se borraron y entre
   qué fechas (`ausencias.retencion_purgada`). Con `--simular`, solo cuenta.
+
+## Derechos sobre los datos personales (09/11/2026)
+
+Portado de las «Solicitudes LOPD» de Nexo y ampliado a toda la intranet
+(`apps.privacidad`; detalle en `docs/derechos-sobre-datos.md`):
+
+- **Quién pide:** toda persona con cuenta, desde «Mi perfil», sin permiso:
+  acceso, rectificación o eliminación. Ve solo las suyas; una ajena responde 404.
+- **Quién atiende:** `privacidad.atender` (Administrador de Gestión Humana y
+  Superusuario; no el Administrador de TI). `privacidad.ver` solo lee.
+- **Plazo:** 15 días corridos (LOPDP arts. 13-15, a confirmar por el asesor
+  legal), configurable (`PRIVACIDAD_PLAZO_DIAS`); cada solicitud guarda su fecha
+  límite.
+- **Nada irreversible automático:** una eliminación se gestiona a mano y se
+  responde con lo hecho o con el motivo de la negativa (RECHAZADA).
+- **Descarga de «mis datos»:** JSON o Excel con lo de todos los módulos, por
+  lista blanca de campos. Excluye el rol de pagos (su propia descarga
+  protegida), secretos (contraseña, tokens, claves de reunión), notas internas
+  de soporte, contenido de archivos y datos de terceros; la cédula va
+  enmascarada. Queda en la auditoría y en el registro de descargas **sin
+  copia**.
+- **Quien atiende un ACCESO** descarga los datos del titular sin el chat ni el
+  Escritorio (nadie lee los de otra persona) y con los datos de salud según su
+  propio permiso.
+- **Auditoría y avisos sin texto libre:** ni la descripción ni la respuesta
+  van a la auditoría, a la campana ni al correo (el correo dice que cambió el
+  estado y lleva a la intranet).

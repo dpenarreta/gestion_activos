@@ -36,7 +36,8 @@ ROLES = {
         # `mejora_continua/0003`, `reuniones/0003` y `escritorio/0003`): las
         # tareas y horas del equipo, sus proyectos, sus ausencias, que incluyen
         # datos de salud, su KPI con la inteligencia preventiva, sus informes
-        # ejecutivos, sus ideas de mejora continua, sus reuniones y su escritorio.
+        # ejecutivos, sus ideas de mejora continua, sus reuniones y su escritorio;
+        # y las solicitudes de datos personales (`privacidad/0003`).
         "permisos": "*",
         "excluir_prefijos": (
             "tareas.",
@@ -49,6 +50,10 @@ ROLES = {
             "mejora_continua.",
             "reuniones.",
             "escritorio.",
+            # Las solicitudes de derechos sobre datos personales (09/11/2026,
+            # `privacidad/0003`): las atiende Gestión Humana, no TI. Atender
+            # abre los datos de cualquier persona; decisión del usuario.
+            "privacidad.",
         ),
     },
     "Superusuario": {

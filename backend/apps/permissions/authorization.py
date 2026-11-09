@@ -1,5 +1,14 @@
 """Resolución de permisos efectivos de un usuario contra el catálogo."""
 
+#: Lo que puede hacer una cuenta que no tiene **ningún rol** (ni global ni en
+#: la empresa activa). Crear tickets de soporte pasó a ser un permiso el
+#: 09/11/2026 (`soporte.crear`) y se concedió a todos los roles; quien todavía
+#: no tiene rol —una cuenta recién creada, sin cargo en el organigrama— es
+#: justo quien más necesita pedir ayuda, y quedarse sin poder hacerlo sería
+#: silencioso. En cuanto la cuenta tiene un rol, manda lo que diga ese rol: si
+#: no lo trae, no puede crear tickets.
+PERMISOS_SIN_ROL = frozenset({"soporte.crear"})
+
 
 def _permisos_de_la_empresa_activa(user) -> set[str]:
     """Los que la cuenta tiene por los roles que ejerce **en esta empresa**.
@@ -64,7 +73,35 @@ def get_user_permission_codenames(user) -> set[str]:
     # son generales del sistema. (Hasta el 15 de octubre de 2026 los de la
     # Matriz solo valían por la membresía; se unificó a pedido del negocio.)
     globales = {perm.partition(".")[2] for perm in user.get_all_permissions()}
-    return globales | _permisos_de_la_empresa_activa(user)
+    permisos = globales | _permisos_de_la_empresa_activa(user)
+    faltan = PERMISOS_SIN_ROL - permisos
+    if faltan and _sin_ningun_rol(user):
+        permisos |= faltan
+    return permisos
+
+
+def _sin_ningun_rol(user) -> bool:
+    """La cuenta no tiene roles globales ni de su membresía en la empresa
+    activa (ver `PERMISOS_SIN_ROL`). Fuera de una petición solo cuentan los
+    globales. Se memoriza en el objeto en memoria, como los permisos."""
+    from django.contrib.auth.models import Group
+    from django.db.models import Q
+
+    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+
+    empresa = empresa_actual()
+    if empresa is SIN_EMPRESA:
+        empresa = None
+    clave = empresa.pk if empresa is not None else None
+    memoria = getattr(user, "_sin_rol_por_empresa", None)
+    if memoria is None:
+        memoria = user._sin_rol_por_empresa = {}
+    if clave not in memoria:
+        roles = Q(user=user)
+        if empresa is not None:
+            roles |= Q(membresias__usuario=user, membresias__empresa=empresa)
+        memoria[clave] = not Group.objects.filter(roles).exists()
+    return memoria[clave]
 
 
 def permisos_que_no_tiene(usuario, codenames) -> list[str]:

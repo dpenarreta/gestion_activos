@@ -245,7 +245,17 @@ export function InicioInstitucional() {
           Para todos
         </h3>
         <div className="inicio-grilla">
-          {ACCESOS.map((a) => (
+          {/* Sin «Crear tickets», Soporte TI solo sirve para seguir los
+              propios (09/11/2026): el acceso lo dice. */}
+          {ACCESOS.map((a) =>
+            a.to === "/admin/ayuda" && !permisos.includes("soporte.crear")
+              ? {
+                  ...a,
+                  to: "/admin/ayuda?vista=mios",
+                  texto: "Seguir sus tickets",
+                }
+              : a,
+          ).map((a) => (
             <Link key={a.to} to={a.to} className="inicio-tarjeta">
               <span className="inicio-tarjeta__icono" aria-hidden="true">
                 <Icon name={a.icono} />

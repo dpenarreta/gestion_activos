@@ -1,0 +1,579 @@
+/*
+ * Derechos sobre datos personales: «Mis derechos» del perfil, la bandeja y el
+ * detalle. Solo tokens `mz-*`, así sigue el tema claro (azul con acentos
+ * amarillos) y el oscuro (fondos #121212, acción amarilla con letra negra).
+ * Estado, tipo y vencida llevan siempre su texto e ícono: el color es apoyo.
+ */
+
+/* La ventana compartida (`GestionHumana/Tareas/Ventanas`) usa estas dos
+   reglas de `Tareas.css`, que esta pantalla no carga: un título largo se
+   parte en vez de empujar la X fuera de la ventana. */
+.gt-min0 {
+  min-width: 0;
+}
+
+.gt-titulo-panel {
+  overflow-wrap: anywhere;
+}
+
+/* --- Piezas comunes -------------------------------------------------------- */
+
+.pv-aviso:empty {
+  display: none;
+}
+
+.pv-aviso .mz-alert:focus-visible,
+.pv-alerta:focus-visible,
+.pv-solicitud__titulo:focus-visible,
+.pv-detalle-pagina h3[tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.pv-plazo {
+  display: inline;
+  overflow-wrap: anywhere;
+}
+
+.pv-plazo .mz-pill {
+  vertical-align: middle;
+}
+
+/* Lo que escribió la persona (o quien atiende): sus saltos de línea, como
+   texto, y una palabra larga (un correo) que no desborda. */
+.pv-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--mz-ink);
+}
+
+.pv-respuesta {
+  padding: 10px 12px;
+  border-left: 4px solid var(--mz-blue-400);
+  background: var(--mz-sunken);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Avisos y aclaraciones que hay que leer: 13 px (`mz-small`, de 11,5 px,
+   queda para los metadatos: fechas, usuario, correo). */
+.pv-nota {
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.pv-formulario .form-text {
+  font-size: 13px;
+}
+
+/* El envío no se deshabilita (el foco no cae en <body>): se ve inactivo. */
+.pv-boton-envio[aria-disabled="true"] {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+.pv-etiqueta,
+.pv-subtitulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mz-heading, var(--mz-ink));
+  margin: 0 0 4px;
+}
+
+.pv-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--mz-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pv-descarga {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* `aria-disabled` mientras descarga: se ve inactivo sin perder el foco. */
+.pv-descarga .btn[aria-disabled="true"] {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+.pv-descarga__error {
+  flex-wrap: wrap;
+}
+
+.pv-descarga__listo:empty {
+  display: none;
+}
+
+.pv-descarga__listo .mz-alert {
+  font-size: 13px;
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
+}
+
+.pv-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* --- Mis derechos (perfil) ------------------------------------------------- */
+
+.pv-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pv-derechos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Cada derecho es una tarjeta que abre la solicitud con su tipo: el botón se
+   estira sobre toda la tarjeta (un clic en la explicación también vale) y el
+   foco se ve en la tarjeta entera. */
+.pv-derechos li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  min-width: 0;
+}
+
+.pv-derechos li:hover {
+  border-color: var(--mz-link);
+}
+
+.pv-derechos li:focus-within {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.pv-derechos__boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--mz-link);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pv-derechos__boton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+
+.pv-derechos__boton:focus,
+.pv-derechos__boton:focus-visible {
+  outline: none;
+}
+
+.pv-detalles summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--mz-link);
+  min-height: 32px;
+  display: list-item;
+}
+
+.pv-detalles summary:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.pv-detalles__cuerpo {
+  margin-top: 10px;
+}
+
+.pv-contenido {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+}
+
+.pv-secciones {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.pv-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-solicitud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  min-width: 0;
+}
+
+.pv-solicitud__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pv-solicitud__titulo {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--mz-heading, var(--mz-ink));
+  overflow-wrap: anywhere;
+}
+
+.pv-historial-caja {
+  margin-top: 8px;
+}
+
+/* --- Formularios ----------------------------------------------------------- */
+
+.pv-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pv-grupo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.pv-grupo__titulo {
+  float: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink);
+  margin-bottom: 6px;
+}
+
+.pv-tipos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Cada tipo es una tarjeta que se elige entera; el elegido se nota por el
+   borde grueso y el fondo, además del círculo marcado. */
+.pv-tipo {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 10px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.pv-tipo .form-check-input {
+  flex: none;
+  margin-top: 3px;
+}
+
+.pv-tipo--elegido {
+  border: 2px solid var(--mz-link);
+  padding: 9px 11px;
+  background: var(--mz-info-bg);
+}
+
+.pv-tipo:focus-within {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+/* Un solo anillo: el de la tarjeta. El del círculo (identidad base y la
+   ventana compartida) quedaba dentro del de la tarjeta, doble. */
+.pv-tipos .pv-tipo .form-check-input:focus,
+.pv-tipos .pv-tipo .form-check-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.pv-tipo__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pv-tipo__nombre {
+  font-weight: 700;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* La etiqueta se estira sobre toda la tarjeta: un clic en cualquier parte
+   (también en la explicación) elige el tipo, sin un clic en un <div>. */
+.pv-tipo__nombre::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+
+.pv-tipo__explicacion {
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.pv-pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pv-paso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.pv-paso .form-check-input {
+  margin: 0;
+  flex: none;
+}
+
+/* --- Bandeja --------------------------------------------------------------- */
+
+.pv-totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--mz-ink-soft);
+}
+
+.pv-totales:empty {
+  display: none;
+}
+
+.pv-totales--mal {
+  color: var(--mz-bad-fg);
+}
+
+.pv-casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 13px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.pv-casilla .form-check-input {
+  margin: 0;
+}
+
+.pv-numero {
+  font-weight: 600;
+  color: var(--mz-link);
+  white-space: nowrap;
+}
+
+.pv-titular {
+  overflow-wrap: anywhere;
+}
+
+.pv-tarjetas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pv-fila-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pv-fila-tarjeta .mz-pill-row {
+  margin-top: 0;
+}
+
+/* --- Detalle --------------------------------------------------------------- */
+
+/* Resumen e historial a la izquierda y la gestión a la derecha; en pantallas
+   estrechas, en el orden del documento: resumen, gestión, historial. */
+.pv-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas:
+    "resumen gestion"
+    "historial gestion";
+  /* El resumen a su alto y el historial con el resto: con una gestión alta,
+     el hueco no se reparte entre las dos filas. */
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.pv-detalle--sin-gestion {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "resumen"
+    "historial";
+}
+
+.pv-detalle__resumen {
+  grid-area: resumen;
+  min-width: 0;
+}
+
+.pv-detalle__lateral {
+  grid-area: gestion;
+  min-width: 0;
+}
+
+.pv-detalle__historial {
+  grid-area: historial;
+  min-width: 0;
+}
+
+.pv-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.pv-datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-faint);
+  margin-bottom: 4px;
+}
+
+.pv-datos dd {
+  margin: 0;
+  color: var(--mz-ink);
+  min-width: 0;
+}
+
+/* --- Pantallas estrechas (≤ 880 px) ---------------------------------------- */
+
+@media (max-width: 880px) {
+  .pv-derechos,
+  .pv-contenido {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pv-detalle,
+  .pv-detalle--sin-gestion {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      "resumen"
+      "gestion"
+      "historial";
+  }
+
+  /* El buscador ocupa la fila: el texto de ayuda se lee entero. */
+  .pv-filtros .mz-fb-search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .pv-filtros .mz-fb-search input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pv-cabecera .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* --- Pantallas táctiles: objetivos de 44 px -------------------------------- */
+
+@media (pointer: coarse) {
+  .pv-filtros .form-select,
+  .pv-casilla,
+  .pv-paso,
+  .pv-acciones .btn,
+  .pv-cabecera .btn,
+  .pv-enlace,
+  .pv-detalles summary,
+  .pv-derechos__boton,
+  .pv-descarga__error .btn,
+  .pv-aviso .mz-close {
+    min-height: 44px;
+  }
+
+  .pv-aviso .mz-close {
+    min-width: 44px;
+  }
+
+  .pv-casilla .form-check-input,
+  .pv-paso .form-check-input,
+  .pv-tipo .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Sin `display: flex`: quitaría el triángulo que dice que se despliega. */
+  .pv-detalles summary {
+    padding-top: 10px;
+  }
+
+  /* El número es el enlace al detalle. */
+  .pv-numero {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

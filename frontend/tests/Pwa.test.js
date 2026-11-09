@@ -23,9 +23,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const RAIZ = path.resolve(__dirname, "..");
 const leer = (relativa) => fs.readFileSync(path.join(RAIZ, relativa), "utf8");
 
-const { registrarServiceWorker } = await import(
-  "../src/pwa/registrarServiceWorker"
-);
+const { registrarServiceWorker } =
+  await import("../src/pwa/registrarServiceWorker");
 
 // --- Cuándo se registra y cuándo no -----------------------------------------
 
@@ -248,9 +247,17 @@ describe("La página de sin conexión", () => {
     expect(html).not.toMatch(/\son[a-z]+=/i);
   });
 
-  it("dice qué pasa y por qué no se enseña el inventario guardado", () => {
-    expect(html).toContain("No hay conexión");
-    expect(html).toMatch(/ayer sería peor/);
+  it("dice qué pasa, qué revisar y cuándo avisar a Tecnología", () => {
+    /* También sale en computadoras cuya red no encuentra el servidor (DNS):
+       ahí tener internet no basta, y la persona tiene que saber a quién
+       acudir. */
+    expect(html).toContain("No se pudo abrir la intranet");
+    expect(html).toMatch(/Abra otra página/);
+    expect(html).toMatch(/avise a Tecnología/);
+    // Sin red no hay Soporte TI: el aviso va por fuera de la intranet.
+    expect(html).toMatch(/no se pueden registrar tickets/);
+    // Al reintentar sin red la página vuelve igual: tiene que decirlo.
+    expect(html).toMatch(/id="estado" aria-live="polite"/);
   });
 
   it("vuelve sola en cuanto regresa la red", () => {

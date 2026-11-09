@@ -69,6 +69,8 @@ urlpatterns = [
     path("reuniones/", include("apps.reuniones.urls")),
     # --- Gestión Humana · Escritorio (notas, recordatorios y su bitácora) ---
     path("escritorio/", include("apps.escritorio.urls")),
+    # --- Derechos sobre datos personales (LOPDP): de toda la intranet ---
+    path("privacidad/", include("apps.privacidad.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---
     path("empresas/", include("apps.empresas.urls")),
     # --- Carga masiva de los catálogos, un archivo por catálogo ---
