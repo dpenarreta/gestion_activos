@@ -41,6 +41,8 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 "kpi.",
                 "inteligencia_preventiva.",
                 "informes_gh.",
+                # Nova, la IA (09/11/2026, `roles/0041` y `roles/0042`).
+                "nova.",
                 "mejora_continua.",
                 "reuniones.",
                 "escritorio.",

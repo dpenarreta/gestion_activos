@@ -117,6 +117,7 @@ INSTALLED_APPS = [
     "apps.reuniones",
     "apps.escritorio",
     "apps.privacidad",
+    "apps.nova",
 ]
 
 MIDDLEWARE = [
@@ -574,12 +575,36 @@ CARTERA_TEMP_UPLOADS_DIR = Path(MEDIA_ROOT) / "cartera" / "uploads_temp"
 CARTERA_ARCHIVOS_DIR = Path(MEDIA_ROOT) / "cartera" / "archivos_dashboard"
 # Filas por lote al insertar en SQL Server.
 CARTERA_BULK_BATCH_SIZE = 2000
-# IA opcional (Gemini): sin clave, la interpretación responde con un error claro.
+# IA opcional, compartida por toda la intranet (`apps.nova.cliente`): Cartera
+# (interpretación de dashboards) y Nova (Gestión Humana). Un proveedor a la vez:
+# IA_PROVEEDOR = "anthropic" | "gemini"; vacío, Anthropic si hay
+# ANTHROPIC_API_KEY, si no Gemini si hay GEMINI_API_KEY, si no sin IA (cada
+# función muestra su versión sin IA o su error claro).
+IA_PROVEEDOR = env.str("IA_PROVEEDOR", default="")
+ANTHROPIC_API_KEY = env.str("ANTHROPIC_API_KEY", default="")
+# Id exacto del modelo, sin sufijo de fecha.
+ANTHROPIC_MODEL = env.str("ANTHROPIC_MODEL", default="claude-haiku-5-5")
 GEMINI_API_KEY = env.str("GEMINI_API_KEY", default="")
 GEMINI_MODEL = env.str("GEMINI_MODEL", default="gemini-flash-latest")
 GEMINI_MODELOS_RESPALDO = env.list(
     "GEMINI_MODELOS_RESPALDO", default=["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 )
+# Nova (apps.nova): consultas diarias a la IA por persona (pasado el límite se
+# muestra la versión sin IA con un aviso), tiempo máximo por llamada (el del
+# informe aparte: su narrativa es larga) y minutos que se guarda un texto.
+NOVA_LIMITE_DIARIO_POR_USUARIO = env.int("NOVA_LIMITE_DIARIO_POR_USUARIO", default=40)
+NOVA_TIEMPO_ESPERA_SEGUNDOS = env.float("NOVA_TIEMPO_ESPERA_SEGUNDOS", default=15)
+NOVA_TIEMPO_ESPERA_INFORME_SEGUNDOS = env.float("NOVA_TIEMPO_ESPERA_INFORME_SEGUNDOS", default=60)
+NOVA_CACHE_MINUTOS = env.int("NOVA_CACHE_MINUTOS", default=60)
+# El chat de Nova: tiempo máximo de cada respuesta (más largo que el de las
+# frases), largo máximo de un mensaje y cuánto del historial (que guarda solo
+# el navegador) se reenvía en cada pregunta.
+NOVA_TIEMPO_ESPERA_CHAT_SEGUNDOS = env.float("NOVA_TIEMPO_ESPERA_CHAT_SEGUNDOS", default=45)
+NOVA_CHAT_MAX_CARACTERES = env.int("NOVA_CHAT_MAX_CARACTERES", default=2000)
+NOVA_CHAT_MAX_TURNOS = env.int("NOVA_CHAT_MAX_TURNOS", default=12)
+NOVA_CHAT_MAX_CARACTERES_HISTORIAL = env.int("NOVA_CHAT_MAX_CARACTERES_HISTORIAL", default=16000)
+# Base de conocimiento de Nova: tamaño máximo de cada PDF (MB).
+NOVA_CONOCIMIENTO_TAMANO_MAXIMO_MB = env.int("NOVA_CONOCIMIENTO_TAMANO_MAXIMO_MB", default=10)
 
 # --- Mantenimiento de sedes (órdenes de trabajo) ---
 # El IVA con el que se calcula el total de cada orden (materiales + mano de

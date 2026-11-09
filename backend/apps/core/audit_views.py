@@ -5,8 +5,8 @@ from django.http import HttpResponse
 from django.utils import timezone as django_timezone
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import HasModulePermission
@@ -40,6 +40,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
     actor_username = serializers.CharField(source="actor.username", default=None, read_only=True)
     created_at_local = serializers.SerializerMethodField()
     module_nombre = serializers.SerializerMethodField()
+    #: Traído de Nexo por `importar_nexo_auditoria`: la pantalla lo marca.
+    migrado_de_nexo = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = AuditLog
@@ -47,6 +49,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "id",
             "actor",
             "actor_username",
+            "actor_en_nexo",
+            "migrado_de_nexo",
             "action",
             "module",
             "module_nombre",
@@ -139,7 +143,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, AuditoriaPermission]
     serializer_class = AuditLogSerializer
     pagination_class = DefaultPagination
-    queryset = AuditLog.objects.all().order_by("-created_at")
+    queryset = AuditLog.objects.select_related("actor").order_by("-created_at")
 
     def get_queryset(self):
         return filter_audit_logs(
@@ -173,7 +177,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     )
     def export(self, request):
         queryset = filter_audit_logs(
-            _de_la_empresa_activa(AuditLog.objects.all().order_by("-created_at"), request.user),
+            _de_la_empresa_activa(
+                AuditLog.objects.select_related("actor").order_by("-created_at"), request.user
+            ),
             request.query_params,
         )[:EXPORT_ROW_LIMIT]
 
@@ -188,7 +194,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
                     [
                         entry.id,
                         django_timezone.localtime(entry.created_at).isoformat(),
-                        entry.actor.username if entry.actor else "",
+                        entry.actor.username if entry.actor else entry.actor_en_nexo,
                         entry.action,
                         entry.module,
                         entry.target_type,

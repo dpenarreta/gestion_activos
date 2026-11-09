@@ -145,3 +145,23 @@ def test_el_registro_de_auditoria_se_filtra_por_usuario_sin_tildes(db):
 
     filas = filter_audit_logs(AuditLog.objects.all(), {"actor_username": "MNUNEZ"})
     assert [f.actor_id for f in filas] == [nunez.pk]
+
+
+def test_el_filtro_de_usuario_de_auditoria_halla_el_autor_de_nexo(db):
+    """Los eventos migrados de Nexo de alguien sin cuenta llevan su nombre en
+    `actor_en_nexo`: la pantalla lo muestra como autor y el filtro lo halla."""
+    from apps.core.audit_filters import filter_audit_logs
+    from apps.core.models import AuditLog
+
+    de_nexo = AuditLog.objects.create(
+        action="user.updated",
+        module="usuarios",
+        actor_en_nexo="Íñigo Ramírez",
+        id_en_nexo=901,
+    )
+    AuditLog.objects.create(
+        action="user.updated", module="usuarios", actor_en_nexo="Ana Vera", id_en_nexo=902
+    )
+
+    filas = filter_audit_logs(AuditLog.objects.all(), {"actor_username": "inigo ramirez"})
+    assert [f.pk for f in filas] == [de_nexo.pk]

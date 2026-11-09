@@ -38,6 +38,24 @@ export function MarcaSinIa() {
   );
 }
 
+/** El texto de esta página lo redactó la IA (Nova). Aviso visible: puede
+ * contener errores. */
+export function MarcaIa() {
+  return (
+    <Semaforo tono="neutral" className="ie-con-ia">
+      Redactado por IA (Nova) · revíselo antes de decidir
+    </Semaforo>
+  );
+}
+
+/** La marca de una página narrativa: la del servidor (`conIa`, por sección)
+ * si viene; si no (informes anteriores a Nova), solo la de «sin IA» del
+ * informe entero (`sinIa`), como antes. */
+function marcaNarrativa(p, sinIa) {
+  if (p.conIa === undefined) return sinIa ? <MarcaSinIa /> : null;
+  return p.conIa ? <MarcaIa /> : <MarcaSinIa />;
+}
+
 function Pagina({
   numero,
   total,
@@ -219,7 +237,7 @@ function ResumenEjecutivo({ p, sinIa, ...marco }) {
     <Pagina
       {...marco}
       titulo="Resumen ejecutivo (Executive Summary)"
-      extra={sinIa && <MarcaSinIa />}
+      extra={marcaNarrativa(p, sinIa)}
     >
       <Bloque titulo="Situación general">
         <Parrafo>{p.situacionGeneral}</Parrafo>
@@ -497,7 +515,7 @@ function Hallazgos({ p, sinIa, ...marco }) {
     <Pagina
       {...marco}
       titulo="Hallazgos ejecutivos (Executive Insights)"
-      extra={sinIa && <MarcaSinIa />}
+      extra={marcaNarrativa(p, sinIa)}
     >
       <Bloque titulo="Patrones">
         <Lista elementos={p.patrones} />
@@ -529,12 +547,9 @@ function Evaluacion({ p, sinIa, ...marco }) {
   return (
     <Pagina
       {...marco}
-      titulo={
-        sinIa
-          ? "Evaluación ejecutiva (Executive Assessment)"
-          : "Evaluación ejecutiva (Executive Assessment by NOVA)"
-      }
-      extra={sinIa && <MarcaSinIa />}
+      // El origen (IA o no) lo dice la marca de al lado, no el título.
+      titulo="Evaluación ejecutiva (Executive Assessment)"
+      extra={marcaNarrativa(p, sinIa)}
     >
       <Bloque titulo="Diagnóstico general">
         <Parrafo>{p.diagnosticoGeneral}</Parrafo>
@@ -598,9 +613,15 @@ function GrupoDeRecomendaciones({ titulo, tono, filas }) {
   );
 }
 
-function Recomendaciones({ p, ...marco }) {
+function Recomendaciones({ p, sinIa, ...marco }) {
   return (
-    <Pagina {...marco} titulo="Recomendaciones">
+    <Pagina
+      {...marco}
+      titulo="Recomendaciones"
+      // Sin `conIa` (informes anteriores a Nova) las recomendaciones las daba
+      // el motor de reglas, no la narrativa: no llevan la marca «sin IA».
+      extra={p.conIa === undefined ? null : marcaNarrativa(p, sinIa)}
+    >
       <GrupoDeRecomendaciones titulo="Alta" tono="bad" filas={p.alta} />
       <GrupoDeRecomendaciones titulo="Media" tono="warn" filas={p.media} />
       {p.alta.length === 0 && p.media.length === 0 && (
@@ -741,8 +762,9 @@ const PAGINA = {
 };
 
 /**
- * El documento completo. `sinIa`: la narrativa (resumen, hallazgos y
- * evaluación) es el texto determinista y no de un modelo de IA.
+ * El documento completo. `sinIa`: la narrativa del informe entero es el
+ * texto sin IA (informes anteriores a Nova); desde Nova cada página narrativa
+ * trae su propio `conIa`, porque una sección puede quedar sin IA y otra no.
  */
 export function DocumentoInforme({
   pages,

@@ -1,0 +1,354 @@
+/* --- El botón flotante: sobre el del chat interno, abajo a la derecha ---- */
+
+.nova-lanzador {
+  position: fixed;
+  right: 16px;
+  bottom: 72px;
+  z-index: 1040;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--marca-borde-control, var(--mz-border-strong));
+  border-radius: 99px;
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+  box-shadow: var(--mz-shadow-2);
+  font-weight: 600;
+}
+
+/* Mientras el chat interno despliega su panel hacia arriba (ver
+   LanzadorNova). */
+.nova-lanzador[hidden] {
+  display: none;
+}
+
+.nova-lanzador:hover {
+  background: var(--mz-sunken);
+}
+
+.nova-lanzador .bi,
+.nova-cajon__titulo .bi,
+.nova-mensaje__autor .bi {
+  color: var(--mz-action);
+}
+
+/* El contenido deja espacio para los dos botones flotantes. */
+.mz-view--con-nova {
+  padding-bottom: 152px;
+}
+
+/* --- El panel lateral ------------------------------------------------- */
+
+.nova-cajon {
+  width: min(460px, 100%);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nova-cajon__cabecera {
+  align-items: center;
+}
+
+.nova-cajon__titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16.5px;
+}
+
+.nova-cajon__acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- La conversación ------------------------------------------------- */
+
+.nova-conversacion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.nova-conversacion--panel {
+  flex: 1;
+  padding: 16px 20px;
+}
+
+/* La página resta, además de la cabecera, el espacio del botón «Chat»
+   acoplado abajo (≈ 80 px): «Enviar» queda siempre por encima de él. */
+.nova-conversacion--pagina {
+  height: calc(100vh - 300px);
+  height: calc(100dvh - 300px);
+  min-height: 420px;
+}
+
+.nova-conversacion__arriba {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nova-modo {
+  flex: 1 1 220px;
+}
+
+.nova-aviso {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink-soft);
+}
+
+.nova-aviso__linea {
+  display: flex;
+  gap: 8px;
+}
+
+.nova-aviso__mas {
+  margin-top: 4px;
+  padding-left: 22px;
+}
+
+.nova-aviso__mas summary {
+  width: fit-content;
+  color: var(--mz-action);
+  cursor: pointer;
+}
+
+.nova-aviso__mas p {
+  margin-top: 4px;
+}
+
+.nova-mensajes {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.nova-vacio {
+  color: var(--mz-ink-soft);
+}
+
+.nova-sugerencias {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nova-sugerencias .btn {
+  text-align: left;
+}
+
+.nova-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nova-mensaje {
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--mz-border);
+  background: var(--mz-raised);
+}
+
+.nova-mensaje__texto {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.nova-mensaje--usuario {
+  align-self: flex-end;
+  border-color: transparent;
+  background: var(--mz-info-bg);
+  color: var(--mz-info-fg);
+}
+
+/* Sin respuesta de la IA: la burbuja queda atenuada con su estado escrito. */
+.nova-mensaje--no-enviado {
+  border: 1px dashed var(--mz-bad-line);
+  background: var(--mz-raised);
+  color: var(--mz-ink);
+}
+
+.nova-mensaje__estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-bad-fg);
+}
+
+.nova-mensaje--modelo {
+  align-self: flex-start;
+}
+
+.nova-mensaje--aviso {
+  align-self: stretch;
+  max-width: none;
+  display: flex;
+  gap: 8px;
+  border-color: var(--mz-warn-line);
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+}
+
+.nova-mensaje__autor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.nova-mensaje__fuentes {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--mz-border);
+  font-size: 12.5px;
+  color: var(--mz-ink-soft);
+}
+
+.nova-mensaje__fuentes ul {
+  margin: 2px 0 0;
+  padding-left: 18px;
+}
+
+.nova-escribiendo {
+  min-height: 1.5em;
+  margin-top: 8px;
+}
+
+.nova-fallo {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nova-fallo__texto {
+  flex: 1 1 200px;
+}
+
+.nova-redactar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nova-redactar textarea {
+  resize: vertical;
+  max-height: 40vh;
+}
+
+.nova-redactar__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nova-redactar__error {
+  color: var(--mz-bad-fg);
+}
+
+.nova-redactar__error:empty {
+  display: none;
+}
+
+/* Mientras se envía (o sin Nova disponible) los botones siguen enfocables
+   (`aria-disabled`), pero se ven inactivos. */
+.nova-redactar .btn[aria-disabled="true"],
+.nova-fallo .btn[aria-disabled="true"],
+.nova-conocimiento .btn[aria-disabled="true"] {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+.nova-redactar textarea[readonly] {
+  background: var(--mz-sunken);
+}
+
+@media (pointer: coarse) {
+  .nova-redactar .btn,
+  .nova-sugerencias .btn,
+  .nova-fallo .btn,
+  .nova-cajon__acciones .btn,
+  .nova-cajon__acciones .mz-close,
+  .nova-conversacion .form-select-sm,
+  .nova-aviso__mas summary,
+  .nova-pagina .btn,
+  .nova-conocimiento .btn,
+  .nova-conocimiento .form-select-sm,
+  .nova-conocimiento .form-control-sm {
+    min-height: 44px;
+  }
+
+  .nova-aviso__mas summary {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-mensajes {
+    scroll-behavior: auto;
+  }
+}
+
+/* En el teléfono: el botón solo con el ícono y el panel a pantalla completa
+   (`.mz-drawer` ya toma el 100 % del ancho). */
+@media (max-width: 575.98px) {
+  .nova-lanzador {
+    right: 8px;
+    bottom: 68px;
+  }
+
+  .nova-lanzador__texto {
+    display: none;
+  }
+
+  .nova-cajon {
+    width: 100%;
+  }
+
+  /* A pantalla completa no hay borde que arrastrar. */
+  .nova-conversacion--panel .nova-redactar textarea {
+    resize: none;
+  }
+
+  .nova-conversacion--panel {
+    padding: 12px;
+  }
+
+  .nova-conversacion--pagina {
+    height: auto;
+    min-height: 70vh;
+  }
+
+  .nova-cajon__acciones .btn {
+    display: none;
+  }
+}

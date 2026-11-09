@@ -63,6 +63,7 @@ urlpatterns = [
     path("analytics/", include("apps.analytics.urls")),
     # --- Gestión Humana · Informes ejecutivos (portados de Nexo) ---
     path("informes/", include("apps.informes.urls")),
+    path("nova/", include("apps.nova.urls")),
     # --- Gestión Humana · Mejora continua (las «Ideas» de Nexo) ---
     path("mejora-continua/", include("apps.mejora_continua.urls")),
     # --- Gestión Humana · Reuniones (sin Zoom: el enlace lo pega quien organiza) ---

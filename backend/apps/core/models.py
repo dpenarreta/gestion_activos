@@ -74,6 +74,15 @@ class AuditLog(BaseModel):
         blank=True,
         db_index=True,
     )
+    #: Id del evento en la auditoría de Nexo (`core_auditlog`) para los que
+    #: trajo `manage.py importar_nexo_auditoria`; nulo en los de la intranet.
+    #: Es lo que marca un evento como «Migrado de Nexo» y lo que impide
+    #: importarlo dos veces: la unicidad la garantiza la base (índice único
+    #: filtrado a los no nulos), no el comando.
+    id_en_nexo = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+    #: Quién lo hizo en Nexo, como texto, cuando esa persona no tiene cuenta en
+    #: la intranet (`actor` queda nulo). Vacío en todo lo demás.
+    actor_en_nexo = models.CharField(max_length=150, blank=True, default="", editable=False)
 
     class Meta:
         ordering = ["-created_at"]
@@ -81,9 +90,20 @@ class AuditLog(BaseModel):
             models.Index(fields=["target_type", "target_id"]),
             models.Index(fields=["created_at"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["id_en_nexo"],
+                condition=models.Q(id_en_nexo__isnull=False),
+                name="auditlog_id_en_nexo_unico",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.action} sobre {self.target_type}:{self.target_id}"
+
+    @property
+    def migrado_de_nexo(self) -> bool:
+        return self.id_en_nexo is not None
 
 
 #: Lunes es 0, como `weekday()` de Python. El número y no el nombre, para no

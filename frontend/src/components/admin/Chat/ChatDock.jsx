@@ -15,6 +15,9 @@ import { Presencia, usePresencia } from "./Presencia";
 import "./ChatDock.css";
 import { MiEstado } from "./MiEstado";
 
+/** Sin proveedor del chat no hay panel que abrir ni cerrar. */
+const SIN_PANEL = () => {};
+
 const PESTANAS = [
   ["conversaciones", "Chats"],
   ["personas", "Personas"],
@@ -93,7 +96,8 @@ function Ventana({ ventana }) {
 export function ChatDock() {
   const chat = useChat();
   const location = useLocation();
-  const [panel, setPanel] = useState(false);
+  const panel = Boolean(chat?.panelAbierto);
+  const setPanel = chat?.setPanelAbierto ?? SIN_PANEL;
   const [pestana, setPestana] = useState("conversaciones");
   const zona = useRef(null);
   const algoAbierto = panel || Boolean(chat?.ventanas.some((v) => v.abierta));
@@ -110,7 +114,7 @@ export function ChatDock() {
     }
     document.addEventListener("mousedown", fuera);
     return () => document.removeEventListener("mousedown", fuera);
-  }, [algoAbierto, minimizarTodo]);
+  }, [algoAbierto, minimizarTodo, setPanel]);
 
   if (!chat || location.pathname.startsWith("/admin/chat")) return null;
 

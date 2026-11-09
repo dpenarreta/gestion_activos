@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.core.request_meta import get_client_ip, get_request_context, get_user_agent
 from apps.permissions.authorization import get_user_permission_codenames
+from apps.privacidad import consentimiento
 from apps.users.serializers import UserPublicSerializer
 
 from .models import Session
@@ -182,4 +183,8 @@ class MeView(APIView):
         # Solo los nombres: lo que cada rol permite ya va en `permissions`.
         data["is_superuser"] = request.user.is_superuser
         data["roles"] = sorted(request.user.groups.values_list("name", flat=True))
+        # Si falta aceptar el aviso de privacidad de la empresa activa, con el
+        # texto: el frontend pone la pantalla obligatoria sin otra consulta
+        # (`apps.privacidad.consentimiento`, 09/11/2026).
+        data["consentimiento"] = consentimiento.para_la_sesion(request.user)
         return Response(data)

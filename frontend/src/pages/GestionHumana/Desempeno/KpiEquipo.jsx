@@ -9,8 +9,9 @@
  * `inteligencia_preventiva.ver` ve el riesgo del equipo; con `kpi.equipo`, todo.
  * Quién es de su equipo lo decide el organigrama en el servidor.
  *
- * Fuera de alcance: los «Nova insights» (IA) y los Informes mensuales de
- * Nexo (su backend no se portó).
+ * El «Análisis de Nova» (IA) de cada persona va en `DetalleKpi`, con
+ * `nova.analisis_kpi`. Fuera de alcance: los Informes mensuales de Nexo (su
+ * backend no se portó).
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";

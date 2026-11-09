@@ -47,6 +47,8 @@ ROLES = {
             "kpi.",
             "inteligencia_preventiva.",
             "informes_gh.",
+            # Nova, la IA de Gestión Humana (09/11/2026, `roles/0041`).
+            "nova.",
             "mejora_continua.",
             "reuniones.",
             "escritorio.",

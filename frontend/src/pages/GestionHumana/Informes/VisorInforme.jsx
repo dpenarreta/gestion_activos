@@ -276,7 +276,7 @@ function FichaDeEstado({ informe, sinIa }) {
               )}
               {informe.nova_degraded && (
                 <Semaforo tono="warn" className="ms-1">
-                  Narrativa degradada
+                  {sinIa ? "IA no disponible" : "Con secciones sin IA"}
                 </Semaforo>
               )}
             </dd>
@@ -295,6 +295,17 @@ function FichaDeEstado({ informe, sinIa }) {
             </dd>
           </div>
         </dl>
+        {!sinIa && informe.nova && (
+          <p className="mz-small mb-0 mt-2">
+            <Icon name="stars" /> La narrativa la redactó una IA (Nova) a partir
+            de los indicadores ya calculados, sin nombres de personas ni datos
+            de salud. Revísela antes de decidir: puede contener errores. Cada
+            página indica si su texto es de la IA o la versión sin IA.
+          </p>
+        )}
+        {sinIa && informe.data?.novaAviso && (
+          <p className="mz-small mb-0 mt-2">{informe.data.novaAviso}</p>
+        )}
         {informe.integrity_flag === "PARTIAL" && (
           <p className="mz-small mb-0 mt-2">
             El motor detectó diferencias entre los cálculos al generar este

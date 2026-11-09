@@ -1,0 +1,134 @@
+/* Pantalla de consentimiento: ocupa todo, sin menú ni barra. */
+.pv-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--mz-bg, var(--bs-body-bg));
+}
+
+.pv-gate__tarjeta {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+}
+
+/* El logotipo de la empresa, como en el acceso: aquí se elige la versión
+   según el tema. */
+.pv-gate__marca .marca-logo {
+  height: 30px;
+  width: auto;
+}
+
+.pv-gate__marca .marca-logo--negativo {
+  display: none;
+}
+
+:root[data-theme="dark"] .pv-gate__marca .marca-logo--positivo {
+  display: none;
+}
+
+:root[data-theme="dark"] .pv-gate__marca .marca-logo--negativo {
+  display: block;
+}
+
+.pv-gate__tarjeta h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.pv-gate__tarjeta h1:focus {
+  outline: none;
+}
+
+.pv-gate__tarjeta h1:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.pv-gate__consecuencia {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.pv-gate__texto {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--mz-border-strong, var(--bs-border-color));
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+/* Mientras no se llega al final, una sombra abajo dice que hay más texto. */
+.pv-gate__texto--pendiente {
+  box-shadow: inset 0 -14px 12px -12px var(--mz-ink-faint);
+}
+
+.pv-gate__sentinela {
+  height: 1px;
+}
+
+.pv-gate__casilla {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.pv-gate__casilla input {
+  margin-top: 0.2em;
+  flex-shrink: 0;
+}
+
+.pv-gate__error:empty {
+  display: none;
+}
+
+.pv-gate__acciones {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* El envío no se deshabilita (el foco no cae en <body>): se ve inactivo. */
+.pv-gate__acciones [aria-disabled="true"] {
+  opacity: 0.75;
+}
+
+.pv-aviso-texto p:last-child,
+.pv-aviso-texto ul:last-child {
+  margin-bottom: 0;
+}
+
+/* Teléfono: menos margen, botones a lo ancho y «Aceptar» arriba. */
+@media (max-width: 480px) {
+  .pv-gate__tarjeta {
+    padding: 16px;
+  }
+
+  .pv-gate__acciones {
+    flex-direction: column-reverse;
+  }
+
+  .pv-gate__acciones .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  .pv-gate__acciones .btn {
+    min-height: 44px;
+  }
+
+  .pv-gate__casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

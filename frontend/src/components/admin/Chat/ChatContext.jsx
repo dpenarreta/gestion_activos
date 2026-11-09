@@ -56,6 +56,9 @@ export function ChatProvider({ children }) {
   const [noLeidos, setNoLeidos] = useState({});
   const [mensajes, setMensajes] = useState({});
   const [ventanas, setVentanas] = useState(leerVentanas);
+  // El panel del botón «Chat» vive aquí (no en ChatDock) para que el botón
+  // flotante de Nova sepa cuándo se despliega hacia arriba y se aparte.
+  const [panelAbierto, setPanelAbierto] = useState(false);
   const cursor = useRef(null);
   const conocidas = useRef(new Set());
   const ventanasRef = useRef(ventanas);
@@ -272,6 +275,10 @@ export function ChatProvider({ children }) {
       totalNoLeidos: Object.values(noLeidos).reduce((a, b) => a + (b || 0), 0),
       mensajes,
       ventanas,
+      panelAbierto,
+      setPanelAbierto,
+      // Algo del chat se despliega sobre la esquina: el panel o una ventana.
+      abierto: panelAbierto || ventanas.some((v) => v.abierta),
       abrir,
       alternar,
       minimizarTodo,
@@ -284,6 +291,7 @@ export function ChatProvider({ children }) {
       cargarConversaciones,
     }),
     [
+      panelAbierto,
       conversaciones,
       noLeidos,
       mensajes,

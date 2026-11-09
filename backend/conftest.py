@@ -20,6 +20,24 @@ def _sin_lista_de_objetos_externos(settings):
     settings.EXTERNAL_DB_OBJETOS_PERMITIDOS = []
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _sin_proveedor_de_ia():
+    """Las pruebas nunca llaman a un proveedor de IA real ni dependen de las
+    claves del `.env` de cada equipo: sin clave no hay IA. Las que prueban la
+    IA fijan su clave (`settings` u `override_settings`, que quedan por encima
+    de esto) y parchean el proveedor (`requests.post` para Gemini,
+    `apps.nova.cliente.anthropic.Anthropic` para Anthropic)."""
+    from django.conf import settings
+
+    claves = ("IA_PROVEEDOR", "ANTHROPIC_API_KEY", "GEMINI_API_KEY")
+    previos = {clave: getattr(settings, clave, "") for clave in claves}
+    for clave in claves:
+        setattr(settings, clave, "")
+    yield
+    for clave, valor in previos.items():
+        setattr(settings, clave, valor)
+
+
 @pytest.fixture(autouse=True)
 def _multiempresa(settings):
     """Las pruebas siguen cubriendo la separación por empresa, que sigue por

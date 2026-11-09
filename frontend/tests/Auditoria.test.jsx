@@ -151,6 +151,34 @@ describe("El registro de auditoría", () => {
     expect(fila).toHaveTextContent("Fallido");
   });
 
+  it("un evento migrado de Nexo nombra al autor como de Nexo y lo explica", async () => {
+    listar.mockResolvedValue({
+      results: [
+        {
+          ...EVENTOS[0],
+          id: 9,
+          actor_username: null,
+          actor_en_nexo: "Íñigo Ramírez",
+          migrado_de_nexo: true,
+        },
+      ],
+      count: 1,
+      next: null,
+      previous: null,
+    });
+    pintar();
+
+    const fila = (
+      await screen.findByText("Activo modificado", EN_LA_TABLA)
+    ).closest("tr");
+    expect(fila).toHaveTextContent("Íñigo Ramírez (Nexo)");
+    expect(within(fila).getByText("Migrado de Nexo")).toBeInTheDocument();
+    fireEvent.click(within(fila).getByRole("button", { name: /^Ver detalle/ }));
+    expect(
+      await screen.findByText(/traído del sistema anterior \(Nexo\)/),
+    ).toHaveTextContent("no tiene cuenta en la intranet");
+  });
+
   it("el detalle enseña el antes y el después del cambio", async () => {
     pintar();
 

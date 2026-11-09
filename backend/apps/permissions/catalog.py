@@ -799,6 +799,47 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Nova, la IA (09/11/2026). Un permiso por función. A la
+    # IA nunca van nombres (seudónimos) ni datos de salud; cada persona tiene
+    # un límite diario de consultas (`NOVA_LIMITE_DIARIO_POR_USUARIO`).
+    "nova": {
+        "label": "Nova (IA)",
+        "description": (
+            "Textos redactados por IA a partir de los indicadores ya calculados de Gestión "
+            "Humana. A la IA nunca van nombres de personas (van seudónimos) ni datos de salud; "
+            "sin IA disponible se muestra la versión sin IA."
+        ),
+        "permissions": {
+            "nova.analisis_kpi": (
+                "Pedir el «Análisis de Nova» de los KPI: los propios y los de las personas que "
+                "ve según el organigrama (requiere además acceder a KPI)"
+            ),
+            "nova.mensaje_inicio": (
+                "Ver la frase de Nova sobre sus tareas y su carga del día en el inicio de "
+                "Gestión Humana"
+            ),
+            "nova.narrativa_informes": (
+                "Generar los informes ejecutivos con la narrativa redactada por Nova (sin este "
+                "permiso, el informe sale con la narrativa sin IA)"
+            ),
+            # El chat y la base de conocimiento (09/11/2026, `permissions/0056`).
+            "nova.chat": (
+                "Conversar con Nova en los modos General y Mis tareas (sus propias tareas, con "
+                "seudónimos)"
+            ),
+            "nova.chat_equipo": (
+                "Conversar con Nova en el modo Equipo, con las cifras de tareas y horas de su "
+                "equipo según el organigrama (con seudónimos; requiere tener equipo a cargo o ver "
+                "el equipo)"
+            ),
+            "nova.conocimiento_ver": (
+                "Ver los documentos de la base de conocimiento de Nova y abrirlos en el visor"
+            ),
+            "nova.conocimiento_gestionar": (
+                "Subir y eliminar los documentos PDF de la base de conocimiento de Nova"
+            ),
+        },
+    },
     # Gestión Humana · Informes ejecutivos (portado de Nexo, 06/11/2026). El
     # prefijo no es `reportes.` porque ese ya es de los Reportes generales de la
     # intranet (`apps.reportes`), que son otra cosa.
@@ -1063,6 +1104,7 @@ MODULE_GROUPS = [
             "kpi",
             "inteligencia_preventiva",
             "informes_gh",
+            "nova",
             "mejora_continua",
             "reuniones",
             "escritorio",

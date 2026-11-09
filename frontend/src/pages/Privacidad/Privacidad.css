@@ -95,6 +95,14 @@
   gap: 8px;
 }
 
+/* Vista previa del aviso mientras se edita (consentimiento). */
+.pv-aviso-previa {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 8px;
+}
+
 .pv-descarga {
   display: flex;
   flex-direction: column;

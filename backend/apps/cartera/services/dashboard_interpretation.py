@@ -25,11 +25,15 @@ import hashlib
 import json
 import logging
 import re
-import time
+import time  # noqa: F401
 
-import requests
-from django.conf import settings
+# `requests` y `time` ya no se usan aquí, pero se conservan: las pruebas parchean
+# `dashboard_interpretation.requests.post` y `.time.sleep`, que son los mismos objetos que usa
+# `apps.nova.cliente`.
+import requests  # noqa: F401
 from django.core.cache import cache
+
+from apps.nova import cliente as cliente_ia
 
 from ..exceptions import CarteraError
 from ..models import Dashboard
@@ -42,17 +46,10 @@ logger = logging.getLogger(__name__)
 # nadie va a volver a pedir. 12 horas cubre una jornada de trabajo.
 _TTL_CACHE_HALLAZGOS_SEGUNDOS = 12 * 60 * 60
 
-_GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
+# El transporte (URL, clave en el encabezado, modelos de respaldo, reintentos ante 503/429/404)
+# vive desde el 09/11/2026 en `apps.nova.cliente`, compartido con Nova (Gestión Humana). Aquí
+# quedan los tiempos propios de Cartera y la traducción de sus errores a `CarteraError`.
 _TIMEOUT_SEGUNDOS = 45
-
-# El servicio responde 503 UNAVAILABLE ("high demand… try again later") de forma intermitente, y
-# no de manera pareja: midiendo seis modelos en el mismo minuto, tres respondieron 200 y tres 503.
-# Sin reintento, un pico de dos segundos del lado de Google dejaba al dashboard sin hallazgos
-# hasta que alguien recargara la pantalla.
-_ESTADOS_REINTENTABLES = frozenset({429, 500, 502, 503, 504})
-# Un modelo que no existe (404) no mejora esperando, pero el siguiente de la lista puede andar.
-_ESTADO_MODELO_AUSENTE = 404
-_ESPERA_ENTRE_INTENTOS_SEGUNDOS = 1.5
 # Por debajo de los 60s que espera el frontend (`dashboardLayoutService.js::_TIMEOUT_IA_MS`), para
 # que el backend alcance a responder su propio error antes de que el navegador aborte la petición.
 _PRESUPUESTO_TOTAL_SEGUNDOS = 50
@@ -302,7 +299,7 @@ def _construir_prompt_hallazgos(dashboard, items):
 
 
 def _dashboard_y_componentes_visibles(dashboard_id, mensaje_sin_datos):
-    if not settings.GEMINI_API_KEY:
+    if not cliente_ia.configurada():
         raise CarteraError(
             'La interpretación con IA no está configurada en este entorno.', codigo='IA_NO_CONFIGURADA',
         )
@@ -324,90 +321,54 @@ def _dashboard_y_componentes_visibles(dashboard_id, mensaje_sin_datos):
     return dashboard, items
 
 
-def _modelos_a_probar():
-    """El modelo configurado primero, después los de respaldo, sin repetir."""
-    modelos = [settings.GEMINI_MODEL]
-    for modelo in settings.GEMINI_MODELOS_RESPALDO:
-        if modelo and modelo not in modelos:
-            modelos.append(modelo)
-    return modelos
+def _llamar_ia(peticion):
+    """La llamada a la IA con el cliente compartido (`apps.nova.cliente`), con el proveedor que
+    esté configurado (Anthropic o Gemini, `IA_PROVEEDOR`), traduciendo sus errores a los mensajes
+    y códigos de siempre de Cartera (`IA_ERROR`, `detalles.status_code`).
 
-
-def _texto_de_la_respuesta(cuerpo):
+    Cartera no pasa por el núcleo de Nova (seudónimos, límite diario, registro de uso): manda
+    cifras de cartera de clientes, no datos de personas del equipo.
+    """
     try:
-        return cuerpo['candidates'][0]['content']['parts'][0]['text']
-    except (KeyError, IndexError):
-        logger.error('Respuesta inesperada del servicio de IA: %s', str(cuerpo)[:500])
+        return cliente_ia.generar(
+            peticion, timeout=_TIMEOUT_SEGUNDOS, presupuesto=_PRESUPUESTO_TOTAL_SEGUNDOS,
+        ).texto
+    except cliente_ia.ErrorIA as error:
+        if error.codigo == 'sin_clave':
+            raise CarteraError(
+                'La interpretación con IA no está configurada en este entorno.',
+                codigo='IA_NO_CONFIGURADA',
+            ) from None
+        if error.codigo in ('respuesta_invalida', 'rechazo'):
+            raise CarteraError(
+                'El servicio de interpretación con IA no devolvió una respuesta utilizable.',
+                codigo='IA_ERROR',
+            ) from None
+        if error.status_code is None:
+            raise CarteraError(
+                'No se pudo contactar al servicio de interpretación con IA. Intente nuevamente.',
+                codigo='IA_ERROR',
+            ) from None
         raise CarteraError(
-            'El servicio de interpretación con IA no devolvió una respuesta utilizable.', codigo='IA_ERROR',
-        )
+            'El servicio de interpretación con IA respondió con un error. Intente nuevamente.',
+            codigo='IA_ERROR',
+            detalles={'status_code': error.status_code},
+        ) from None
 
 
 def _llamar_gemini(payload):
-    """Un intento por modelo, hasta que uno responda o se acabe el presupuesto de tiempo.
-
-    Los 503 son por MODELO y no por cuenta: pasar al siguiente de la lista suele resolver en el
-    acto, así que cada intento cambia de modelo en vez de repetir el mismo. Un 4xx que no sea 429
-    ni 404 corta enseguida — es un problema del pedido, y repetirlo contra otro modelo solo gasta
-    el tiempo que el usuario está esperando.
-    """
-    comenzo = time.monotonic()
-    modelos = _modelos_a_probar()
-    ultimo_estado = None
-
-    for indice, modelo in enumerate(modelos):
-        restante = _PRESUPUESTO_TOTAL_SEGUNDOS - (time.monotonic() - comenzo)
-        if restante <= 1:
-            break
-        if indice:
-            time.sleep(_ESPERA_ENTRE_INTENTOS_SEGUNDOS)
-
-        try:
-            # La credencial va en el encabezado `x-goog-api-key`, NUNCA como parámetro de URL: en
-            # la cadena de consulta la capturaba todo lo que registra URLs (logs de proxy, trazas
-            # de excepción de `requests`, monitoreo). Un encabezado no aparece en un registro de
-            # acceso.
-            respuesta = requests.post(
-                _GEMINI_URL.format(model=modelo),
-                headers={'x-goog-api-key': settings.GEMINI_API_KEY},
-                json=payload,
-                timeout=min(_TIMEOUT_SEGUNDOS, restante),
-            )
-        except requests.RequestException:
-            # El detalle real del fallo de red queda en el log del servidor: la respuesta al
-            # frontend es deliberadamente genérica, pero sin esto no había forma de diagnosticar.
-            logger.warning('Falló la llamada al servicio de IA (modelo=%s)', modelo, exc_info=True)
-            ultimo_estado = None
-            continue
-
-        if respuesta.status_code == 200:
-            if indice:
-                logger.info('El servicio de IA respondió con el modelo de respaldo "%s".', modelo)
-            return _texto_de_la_respuesta(respuesta.json())
-
-        ultimo_estado = respuesta.status_code
-        reintentable = respuesta.status_code in _ESTADOS_REINTENTABLES
-        ausente = respuesta.status_code == _ESTADO_MODELO_AUSENTE
-        logger.warning(
-            'El servicio de IA respondió %s con el modelo "%s": %s',
-            respuesta.status_code, modelo, respuesta.text[:300],
-        )
-        if not reintentable and not ausente:
-            break
-
-    logger.error(
-        'Ningún modelo de IA respondió (probados: %s; último estado: %s).',
-        ', '.join(modelos), ultimo_estado,
+    """Compatibilidad: el pedido con la forma de Gemini de antes (`contents`/`generationConfig`)
+    traducido al pedido neutro del cliente compartido."""
+    texto = ''.join(
+        parte.get('text', '')
+        for contenido in payload.get('contents') or []
+        for parte in contenido.get('parts') or []
     )
-    if ultimo_estado is None:
-        raise CarteraError(
-            'No se pudo contactar al servicio de interpretación con IA. Intente nuevamente.', codigo='IA_ERROR',
-        )
-    raise CarteraError(
-        'El servicio de interpretación con IA respondió con un error. Intente nuevamente.',
-        codigo='IA_ERROR',
-        detalles={'status_code': ultimo_estado},
-    )
+    configuracion = payload.get('generationConfig') or {}
+    return _llamar_ia(cliente_ia.PeticionIA(
+        turnos=[{'rol': 'usuario', 'texto': texto}],
+        json=configuracion.get('responseMimeType') == 'application/json',
+    ))
 
 
 def generar_interpretacion(dashboard_id):
@@ -415,7 +376,7 @@ def generar_interpretacion(dashboard_id):
         dashboard_id, 'Este dashboard no tiene componentes con datos para interpretar.',
     )
     prompt = _construir_prompt(dashboard, [texto for _, texto in items])
-    texto = _llamar_gemini({'contents': [{'parts': [{'text': prompt}]}]})
+    texto = _llamar_ia(cliente_ia.PeticionIA(turnos=[{'rol': 'usuario', 'texto': prompt}]))
     return texto.strip()
 
 
@@ -443,10 +404,18 @@ def generar_hallazgos_ia(dashboard_id):
     if en_cache is not None:
         return en_cache
 
-    texto_json = _llamar_gemini({
-        'contents': [{'parts': [{'text': prompt}]}],
-        'generationConfig': {'responseMimeType': 'application/json'},
-    })
+    # Con Anthropic, salidas estructuradas: un párrafo (texto) por cada ID, ni uno más.
+    ids = [component_id for component_id, _ in items]
+    texto_json = _llamar_ia(cliente_ia.PeticionIA(
+        turnos=[{'rol': 'usuario', 'texto': prompt}],
+        json=True,
+        esquema={
+            'type': 'object',
+            'properties': {component_id: {'type': 'string'} for component_id in ids},
+            'required': ids,
+            'additionalProperties': False,
+        },
+    ))
 
     try:
         hallazgos = json.loads(texto_json)

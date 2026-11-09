@@ -35,4 +35,31 @@ urlpatterns = [
         views.DatosDelTitularView.as_view(),
         name="privacidad-solicitud-datos",
     ),
+    # --- Consentimiento del tratamiento de datos ---
+    path("consentimiento/", views.ConsentimientoView.as_view(), name="privacidad-consentimiento"),
+    path(
+        "consentimiento/aviso/",
+        views.AvisoView.as_view(),
+        name="privacidad-consentimiento-aviso",
+    ),
+    path(
+        "consentimiento/personas/",
+        views.PersonasConsentimientoView.as_view(),
+        name="privacidad-consentimiento-personas",
+    ),
+    path(
+        "consentimiento/personas/<int:pk>/",
+        views.PersonaConsentimientoView.as_view(),
+        name="privacidad-consentimiento-persona",
+    ),
+    path(
+        "consentimiento/personas/<int:pk>/restablecer/",
+        views.RestablecerConsentimientoView.as_view(),
+        name="privacidad-consentimiento-restablecer",
+    ),
+    path(
+        "consentimiento/restablecer-todos/",
+        views.RestablecerTodosView.as_view(),
+        name="privacidad-consentimiento-restablecer-todos",
+    ),
 ]

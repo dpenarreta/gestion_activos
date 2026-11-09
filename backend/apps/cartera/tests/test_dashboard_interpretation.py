@@ -557,3 +557,60 @@ class ReintentoEntreModelosTests(TestCase):
             di._llamar_gemini({})
 
         self.assertEqual(self._modelos_llamados(post_mock), ['principal', 'respaldo-1'])
+
+
+class _AnthropicFalso:
+    """El SDK de Anthropic de mentira: guarda los pedidos y responde `texto`."""
+
+    def __init__(self, texto):
+        self.texto = texto
+        self.pedidos = []
+        self.messages = self
+
+    def __call__(self, **_opciones):
+        return self
+
+    def create(self, **parametros):
+        from types import SimpleNamespace
+
+        self.pedidos.append(parametros)
+        return SimpleNamespace(
+            content=[SimpleNamespace(type='text', text=self.texto)],
+            stop_reason='end_turn',
+            model=parametros['model'],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+
+@override_settings(
+    IA_PROVEEDOR='anthropic', ANTHROPIC_API_KEY='clave', ANTHROPIC_MODEL='claude-opus-5-5',
+    GEMINI_API_KEY='',
+)
+class CarteraConAnthropicTests(TestCase):
+    """Con `IA_PROVEEDOR=anthropic` Cartera usa Claude por el cliente compartido
+    (`apps.nova.cliente`), sin tocar a Gemini."""
+
+    def test_la_interpretacion_va_por_anthropic(self):
+        falso = _AnthropicFalso('el texto')
+        with mock.patch('apps.nova.cliente.anthropic.Anthropic', falso), \
+                mock.patch('apps.cartera.services.dashboard_interpretation.requests.post') as post:
+            self.assertEqual(di._llamar_gemini({'contents': [{'parts': [{'text': 'hola'}]}]}), 'el texto')
+        post.assert_not_called()
+        (pedido,) = falso.pedidos
+        self.assertEqual(pedido['messages'], [{'role': 'user', 'content': 'hola'}])
+        self.assertEqual(pedido['output_config'], {'effort': 'medium'})
+
+    def test_un_error_de_anthropic_es_ia_error(self):
+        falso = _AnthropicFalso('x')
+        falso.stop_reason = 'refusal'
+
+        def rechazo(**parametros):
+            from types import SimpleNamespace
+
+            return SimpleNamespace(content=[], stop_reason='refusal', model='m', usage=None)
+
+        falso.create = rechazo
+        with mock.patch('apps.nova.cliente.anthropic.Anthropic', falso):
+            with self.assertRaises(CarteraError) as ctx:
+                di._llamar_gemini({})
+        self.assertEqual(ctx.exception.codigo, 'IA_ERROR')

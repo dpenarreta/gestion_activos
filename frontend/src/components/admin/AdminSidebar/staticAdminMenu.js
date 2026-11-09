@@ -14,6 +14,11 @@ import {
 } from "../../../modulos/permisosDashboards";
 import { RUTA_SOPORTE } from "../../../modulos/permisosSoporte";
 import {
+  NOVA_CHAT,
+  NOVA_CONOCIMIENTO_GESTIONAR,
+  NOVA_CONOCIMIENTO_VER,
+} from "../../../modulos/permisosGestionHumana";
+import {
   ACCEDER as GH_ACCEDER,
   ADMINISTRAR as GH_ADMINISTRAR,
   CONSOLIDADO as GH_CONSOLIDADO,
@@ -581,6 +586,34 @@ export const ADMIN_MENU = [
         path: `${RUTA_GESTION_HUMANA}/ajustes-de-kpi`,
         permission: GH_KPI_ADMINISTRAR,
         requiere: GH_KPI_ACCEDER,
+      },
+    ],
+  },
+  {
+    // Nova, la asistente con IA (09/11/2026; en Nexo, «Asistente»): el chat
+    // y su base de conocimiento. Viven en `/admin/nova`, del módulo Gestión
+    // Humana (`modulos.js`). El servidor vuelve a autorizar cada petición.
+    id: "gh-nova",
+    modulo: "gestion_humana",
+    name: "Nova",
+    icon: "stars",
+    aplanarSiUno: true,
+    children: [
+      {
+        id: "gh-nova-chat",
+        modulo: "gestion_humana",
+        name: "Conversar con Nova",
+        icon: "stars",
+        path: "/admin/nova",
+        permission: NOVA_CHAT,
+      },
+      {
+        id: "gh-nova-conocimiento",
+        modulo: "gestion_humana",
+        name: "Base de conocimiento",
+        icon: "journal-text",
+        path: "/admin/nova/conocimiento",
+        permission: [NOVA_CONOCIMIENTO_VER, NOVA_CONOCIMIENTO_GESTIONAR],
       },
     ],
   },

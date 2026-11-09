@@ -288,13 +288,12 @@ function RegistroDelSistema({ modulo }) {
                     {/* Un evento puede no tener autor —lo dispara una tarea del
                       sistema, o el intento llegó sin sesión válida—, y ahí
                       «Sistema» dice más que una celda en blanco. */}
-                    <td className="mz-strong">
-                      {evento.actor_username || "Sistema"}
-                    </td>
+                    <td className="mz-strong">{autorDe(evento)}</td>
                     {/* Legible, con el código en el `title` para quien lo
                       busque en el servidor. */}
                     <td title={evento.action}>
                       {etiquetaDeAccion(evento.action)}
+                      <MarcaDeNexo evento={evento} />
                     </td>
                     <td>{evento.module_nombre || evento.module || "—"}</td>
                     <td title={evento.target_type || undefined}>
@@ -329,7 +328,7 @@ function RegistroDelSistema({ modulo }) {
                           <span className="visually-hidden">
                             {" "}
                             detalle de {etiquetaDeAccion(evento.action)},{" "}
-                            {evento.actor_username || "Sistema"},{" "}
+                            {autorDe(evento)},{" "}
                             {formatearFecha(evento.created_at_local, true)}
                           </span>
                         </button>
@@ -369,6 +368,7 @@ function RegistroDelSistema({ modulo }) {
                   <div className="mz-row-between">
                     <strong className="mz-card-row__titulo">
                       {etiquetaDeAccion(evento.action)}
+                      <MarcaDeNexo evento={evento} />
                     </strong>
                     <span
                       className={`mz-pill ${
@@ -384,7 +384,7 @@ function RegistroDelSistema({ modulo }) {
                     <span className="mz-mono">
                       {formatearFecha(evento.created_at_local, true)}
                     </span>
-                    <span>{evento.actor_username || "Sistema"}</span>
+                    <span>{autorDe(evento)}</span>
                     <span>{evento.module_nombre || evento.module || "—"}</span>
                     <span>
                       {etiquetaDeObjeto(evento.target_type)}
@@ -450,11 +450,47 @@ function RegistroDelSistema({ modulo }) {
   );
 }
 
+/** Quién lo hizo: «Sistema» si no hay autor; los traídos de Nexo de alguien
+ * sin cuenta en la intranet llevan su nombre de Nexo, marcado como tal para
+ * que no se confunda con una cuenta de la intranet. */
+function autorDe(evento) {
+  if (evento.actor_username) return evento.actor_username;
+  if (evento.actor_en_nexo) return `${evento.actor_en_nexo} (Nexo)`;
+  return "Sistema";
+}
+
+/** Los eventos traídos de la auditoría de Nexo (`importar_nexo_auditoria`),
+ * con la misma marca que los informes migrados. */
+function MarcaDeNexo({ evento }) {
+  if (!evento.migrado_de_nexo) return null;
+  return (
+    <>
+      {" "}
+      <span
+        className="mz-pill mz-pill--neutral"
+        title="Evento traído del sistema anterior (Nexo), con su fecha original"
+      >
+        Migrado de Nexo
+      </span>
+    </>
+  );
+}
+
 /** Antes y después de un evento, con desde dónde se hizo: en la fila
  * desplegada de la tabla y en la tarjeta del teléfono. */
 function DetalleDelEvento({ evento }) {
   return (
     <>
+      {/* La pill «Migrado de Nexo» explicada con texto visible: el `title`
+          no lo ven ni el teclado ni el teléfono. */}
+      {evento.migrado_de_nexo && (
+        <p className="mz-small mb-2">
+          Evento traído del sistema anterior (Nexo), con su fecha original.
+          {evento.actor_en_nexo && !evento.actor_username
+            ? ` Lo hizo ${evento.actor_en_nexo}, que no tiene cuenta en la intranet.`
+            : ""}
+        </p>
+      )}
       <div className="auditoria-detalle__columnas">
         <div className="mz-section">
           <h4>Antes</h4>

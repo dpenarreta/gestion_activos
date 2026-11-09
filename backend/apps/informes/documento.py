@@ -203,10 +203,17 @@ def _portada(doc: dict) -> dict:
     }
 
 
+def _con_ia(doc: dict, seccion: str) -> bool:
+    """Si el texto de `seccion` lo redactó la IA (Nova): el informe es de
+    origen NOVA y la sección no quedó entre las de respaldo."""
+    return doc.get("novaOrigen") == "NOVA" and seccion not in (doc.get("novaSeccionesSinIa") or [])
+
+
 def _resumen_ejecutivo(doc: dict) -> dict:
     s = (doc.get("nova") or {}).get("executiveSummary") or {}
     return {
         "kind": "executiveSummary",
+        "conIa": _con_ia(doc, "executiveSummary"),
         "situacionGeneral": s.get("situacionGeneral") or NO_DISPONIBLE,
         "fortalezas": s.get("fortalezas") or NO_DISPONIBLE,
         "aspectosAtencion": s.get("aspectosAtencion") or NO_DISPONIBLE,
@@ -314,6 +321,7 @@ def _insights(doc: dict) -> dict:
     i = (doc.get("nova") or {}).get("executiveInsights") or {}
     return {
         "kind": "insights",
+        "conIa": _con_ia(doc, "executiveInsights"),
         "patrones": i.get("patrones") or [],
         "cambios": i.get("cambios") or [],
         "anomalias": i.get("anomalias") or [],
@@ -327,6 +335,7 @@ def _evaluacion(doc: dict) -> dict:
     a = (doc.get("nova") or {}).get("executiveAssessment") or {}
     return {
         "kind": "assessment",
+        "conIa": _con_ia(doc, "executiveAssessment"),
         "diagnosticoGeneral": a.get("diagnosticoGeneral") or NO_DISPONIBLE,
         "fortalezasEstrategicas": a.get("fortalezasEstrategicas") or [],
         "riesgosDetectados": a.get("riesgosDetectados") or [],
@@ -352,6 +361,7 @@ def _recomendaciones(doc: dict) -> dict:
     ]
     return {
         "kind": "recommendations",
+        "conIa": _con_ia(doc, "recommendationEnrichment"),
         "alta": [f for f in filas if f["priority"] == "alta"],
         "media": [f for f in filas if f["priority"] == "media"],
     }
@@ -442,6 +452,8 @@ def _metadatos(doc: dict) -> dict:
         "narrativaLabel": (
             "Determinista (sin IA)"
             if doc.get("novaOrigen") == "DETERMINISTA"
+            else "NOVA (IA), con secciones sin IA"
+            if doc.get("nova") and doc.get("novaSeccionesSinIa")
             else "NOVA (IA)"
             if doc.get("nova")
             else "Sin narrativa"

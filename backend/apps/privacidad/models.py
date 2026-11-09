@@ -139,3 +139,87 @@ class MovimientoSolicitud(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.solicitud_id}: {self.estado_anterior} -> {self.estado_nuevo}"
+
+
+# ── Consentimiento del tratamiento de datos (09/11/2026) ──────────────────────
+#
+# Portado del «gate» de consentimiento de Nexo (`ConsentGate.tsx`,
+# `User.data_consent_accepted[_at]`, el texto editable `consent_text` y el
+# restablecer individual y masivo). Lo que cambia, y por qué, está en
+# `consentimiento.py`.
+
+AVISO_MAX = 20000
+
+
+class AvisoPrivacidad(ModeloDeEmpresa):
+    """El aviso de tratamiento de datos que cada persona acepta al entrar. Uno
+    por empresa (cada empresa es un responsable del tratamiento distinto).
+
+    `version` sube solo cuando quien administra la privacidad pide aceptarlo de
+    nuevo: corregir una coma no obliga a todos a aceptar otra vez; un cambio
+    sustancial, sí. Sin aviso en la empresa no se exige nada."""
+
+    texto = models.TextField()
+    version = models.PositiveIntegerField(default=1)
+    #: Desde cuándo rige la versión actual (cuándo se pidió aceptarla).
+    version_desde = models.DateTimeField()
+    editado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="+", null=True, blank=True, on_delete=models.PROTECT
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa"], name="privacidad_un_aviso_por_empresa")
+        ]
+        verbose_name = "aviso de privacidad"
+        verbose_name_plural = "avisos de privacidad"
+
+    def __str__(self) -> str:
+        return f"Aviso de privacidad v{self.version}"
+
+
+class AceptacionAviso(ModeloDeEmpresa):
+    """Una aceptación del aviso: quién, qué versión, cuándo, desde qué IP y el
+    texto exacto que leyó. Es la constancia legal: no se borra ni se edita,
+    salvo para marcarla restablecida (`restablecida_en`), que la deja sin
+    efecto sin perderla."""
+
+    class Origen(models.TextChoices):
+        INTRANET = "INTRANET", "Intranet"
+        NEXO = "NEXO", "Nexo (importada)"
+
+    #: La versión con que se registran las aceptaciones traídas de Nexo.
+    VERSION_NEXO = "Nexo"
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="aceptaciones_de_aviso", on_delete=models.PROTECT
+    )
+    #: «1», «2»… para las de la intranet; «Nexo» para las importadas.
+    version = models.CharField(max_length=20)
+    origen = models.CharField(max_length=10, choices=Origen.choices, default=Origen.INTRANET)
+    aceptado_en = models.DateTimeField()
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    #: El texto que se mostró al aceptar (vacío si no se conoce: Nexo).
+    texto = models.TextField(blank=True, default="")
+    restablecida_en = models.DateTimeField(null=True, blank=True)
+    restablecida_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="+", null=True, blank=True, on_delete=models.PROTECT
+    )
+    #: El id del usuario en Nexo, si vino de allí (`importar_nexo_consentimiento`).
+    id_nexo = models.PositiveBigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-aceptado_en", "-id"]
+        indexes = [models.Index(fields=["empresa", "usuario", "version"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "id_nexo", "aceptado_en"],
+                condition=models.Q(id_nexo__isnull=False),
+                name="privacidad_una_aceptacion_por_nexo",
+            )
+        ]
+        verbose_name = "aceptación del aviso de privacidad"
+        verbose_name_plural = "aceptaciones del aviso de privacidad"
+
+    def __str__(self) -> str:
+        return f"Aceptación {self.pk} (v{self.version})"

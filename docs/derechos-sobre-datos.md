@@ -230,3 +230,63 @@ datos» de Nexo: se importan como constancia y se cuentan en el informe.
   límite (iría en la tarea programada).
 - Validar con el asesor legal el plazo, los tipos (la LOPDP reconoce además
   oposición, portabilidad y suspensión) y los textos de la pantalla.
+
+## Consentimiento del tratamiento de datos (09/11/2026)
+
+Portado del consentimiento de Nexo. Detalle y decisiones en
+`backend/apps/privacidad/consentimiento.py`.
+
+- **Pantalla obligatoria.** Al entrar a la intranet, quien no aceptó el aviso
+  vigente de la empresa activa ve solo el aviso: lo acepta o cierra sesión.
+  `GET /api/v1/auth/me/` trae `consentimiento: {pendiente, version, texto}`.
+  Sin aviso en la empresa no se exige nada.
+- **Aviso por empresa, con versión.** Lo edita quien tiene `privacidad.atender`
+  en Protección de datos → Consentimiento. Editar no cambia la versión;
+  «pedir que todas las personas lo acepten de nuevo» la sube. `privacidad/0005`
+  siembra el aviso inicial (menciona que algunas funciones usan un proveedor
+  externo de IA, Google (Gemini), decisión del 09/11/2026, al que solo se envían
+  seudónimos). Si el proveedor cambia, se edita el aviso y se pide aceptarlo de
+  nuevo.
+- **Constancia.** Cada aceptación guarda la versión, la fecha, la IP y el texto
+  exacto (`AceptacionAviso`). Restablecer (una persona o todas, con
+  `privacidad.atender`) la marca sin borrarla. Todo queda en la auditoría
+  (`privacidad.consentimiento.*`).
+- **Nexo.** `manage.py importar_nexo_consentimiento --empresa N [--aplicar]`
+  registra los consentimientos dados en Nexo con la versión «Nexo» y su fecha
+  original. Son constancia previa: no cuentan como aceptación del aviso
+  vigente, que cada persona acepta una vez.
+
+| Método | Ruta (`/api/v1/privacidad/…`) | Permiso |
+| --- | --- | --- |
+| GET, POST | `consentimiento/` | sesión |
+| GET / PUT | `consentimiento/aviso/` | ver o atender / atender |
+| GET | `consentimiento/personas/`, `consentimiento/personas/<id>/` | ver o atender |
+| POST | `consentimiento/personas/<id>/restablecer/` | atender |
+| POST | `consentimiento/restablecer-todos/` (`{"confirmar": true}`) | atender |
+
+## Nova (IA): qué se envía y la regla de salud (09/11/2026)
+
+Detalle en `backend/apps/nova/seudonimos.py`, `nucleo.py` y `chat.py`. Todo lo
+que va a la IA pasa por el núcleo de Nova, que limpia y verifica el texto
+exacto antes de enviarlo.
+
+- **Siempre, en todas las funciones:** las personas van con seudónimo
+  («Persona A»), nunca con su nombre, usuario ni correo; se ocultan correos,
+  cédulas/RUC y teléfonos; la verificación final bloquea el envío si aún queda
+  alguno de esos datos.
+- **Salud.** En el análisis de KPI, la narrativa de los informes, la frase del
+  inicio y los modos «Mis tareas» y «Mi equipo» del chat nunca sale nada de
+  salud (maternidad, lactancia, permisos médicos, enfermedades…): un mensaje
+  del chat que la menciona no se envía y se le sugiere a la persona hacer la
+  pregunta en el modo General si es sobre políticas; los fragmentos de la base
+  de conocimiento pierden las oraciones de salud.
+- **Excepción: modo General del chat.** No lleva datos de personas (solo la
+  pregunta, el historial de ese modo y los fragmentos de la base de
+  conocimiento), así que se permiten las menciones de salud como tema general
+  («¿Cuántos días de licencia por maternidad da la empresa?») y los fragmentos
+  van completos: son políticas, no datos de personas. Se activa con
+  `Pedido.permitir_salud_general`, que solo pide el modo General del chat; el
+  núcleo lo ignora en cualquier otra función, modo o contexto con datos de
+  personas (una prueba lo asegura). La pantalla avisa: «Puede preguntar por
+  políticas sobre licencias o permisos médicos, pero no escriba datos de salud
+  suyos ni de otras personas.»

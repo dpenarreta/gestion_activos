@@ -33,7 +33,7 @@ from apps.core.responses import error_response
 from apps.descargas.middleware import marcar
 from apps.permissions.permissions import Requiere
 
-from . import access, mis_datos, serializers, services
+from . import access, consentimiento, mis_datos, serializers, services
 from .models import SolicitudDerechos
 from .services import PrivacidadError
 
@@ -287,3 +287,112 @@ class DatosDelTitularView(PrivacidadView):
             )
         formato = _formato(request)
         return _archivo(request, titular=solicitud.titular, solicitud=solicitud, formato=formato)
+
+
+# ── Consentimiento del tratamiento de datos ───────────────────────────────────
+
+
+class ConsentimientoView(PrivacidadView):
+    """`GET /privacidad/consentimiento/`: el aviso vigente y si la persona lo
+    aceptó. `POST` con `{"version"}`: lo acepta (toda cuenta con sesión). 201
+    al registrarla, 200 si ya lo había aceptado; 409 si el aviso cambió."""
+
+    def get(self, request):
+        return Response(consentimiento.estado_propio(request.user))
+
+    def post(self, request):
+        datos = self.validated(serializers.AceptarAvisoSerializer)
+        antes = consentimiento.acepto(request.user)
+        aceptacion = consentimiento.aceptar(
+            usuario=request.user, version=datos["version"], context=self.context
+        )
+        return Response(
+            consentimiento.de_aceptacion(aceptacion, con_texto=False),
+            status=status.HTTP_200_OK if antes else status.HTTP_201_CREATED,
+        )
+
+
+class AvisoView(PrivacidadView):
+    """`GET /privacidad/consentimiento/aviso/` (`privacidad.ver` o
+    `.atender`): el aviso con su versión y cuántos lo aceptaron. `PUT`
+    (`privacidad.atender`) con `{"texto", "pedir_aceptacion_de_nuevo"}`."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+
+    def get(self, request):
+        return Response(consentimiento.resumen_del_aviso(request.user))
+
+    def put(self, request):
+        datos = self.validated(serializers.GuardarAvisoSerializer)
+        consentimiento.guardar_aviso(
+            actor=request.user,
+            texto=datos["texto"],
+            pedir_de_nuevo=datos.get("pedir_aceptacion_de_nuevo", False),
+            context=self.context,
+        )
+        return Response(consentimiento.resumen_del_aviso(request.user))
+
+
+class PersonasConsentimientoView(PrivacidadView):
+    """`GET /privacidad/consentimiento/personas/?q=&estado=ACEPTADO|PENDIENTE`:
+    las personas de la empresa con su estado frente al aviso vigente,
+    paginadas."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+
+    def get(self, request):
+        filtros = self.validated(
+            serializers.FiltrosConsentimientoSerializer, data=request.query_params
+        )
+        consulta, aviso = consentimiento.listado(
+            request.user, q=filtros.get("q") or "", estado=filtros.get("estado") or ""
+        )
+        paginador = DefaultPagination()
+        pagina = paginador.paginate_queryset(consulta, request, view=self)
+        ultimas = consentimiento.ultimas_aceptaciones(u.pk for u in pagina)
+        return paginador.get_paginated_response(
+            [consentimiento.de_persona(u, aviso, ultimas) for u in pagina]
+        )
+
+
+class PersonaConsentimientoView(PrivacidadView):
+    """`GET /privacidad/consentimiento/personas/<id>/`: el historial de
+    aceptaciones de una persona, con el texto de cada una."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+
+    def get(self, request, pk):
+        return Response(consentimiento.historial(request.user, pk))
+
+
+class RestablecerConsentimientoView(PrivacidadView):
+    """`POST /privacidad/consentimiento/personas/<id>/restablecer/`
+    (`privacidad.atender`): la persona vuelve a aceptar al entrar."""
+
+    permission_classes = [IsAuthenticated, Requiere(access.ATENDER)]
+
+    def post(self, request, pk):
+        marcadas = consentimiento.restablecer(
+            actor=request.user, usuario_id=pk, context=self.context
+        )
+        datos = consentimiento.historial(request.user, pk)
+        datos["restablecidas"] = marcadas
+        return Response(datos)
+
+
+class RestablecerTodosView(PrivacidadView):
+    """`POST /privacidad/consentimiento/restablecer-todos/` con
+    `{"confirmar": true}` (`privacidad.atender`): toda la empresa vuelve a
+    aceptar al entrar."""
+
+    permission_classes = [IsAuthenticated, Requiere(access.ATENDER)]
+
+    def post(self, request):
+        datos = self.validated(serializers.ConfirmarSerializer)
+        if not datos["confirmar"]:
+            raise PrivacidadError(
+                "Confirme que quiere restablecer el consentimiento de todas las personas.",
+                details={"confirmar": ["Hace falta confirmarlo."]},
+            )
+        marcadas = consentimiento.restablecer_todos(actor=request.user, context=self.context)
+        return Response({"restablecidas": marcadas})

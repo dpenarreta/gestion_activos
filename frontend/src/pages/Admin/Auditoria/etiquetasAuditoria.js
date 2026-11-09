@@ -34,6 +34,14 @@ const ACCIONES = {
     "Restablecimiento de contraseña por un administrador",
   "user.password_reset_temporal": "Clave temporal asignada",
   "user.password_changed_self": "Contraseña cambiada por su dueño",
+  "privacidad.consentimiento.aceptado": "Aviso de privacidad aceptado",
+  "privacidad.consentimiento.aviso_creado": "Aviso de privacidad creado",
+  "privacidad.consentimiento.aviso_editado": "Aviso de privacidad editado",
+  "privacidad.consentimiento.aceptacion_pedida":
+    "Aceptación del aviso de privacidad pedida de nuevo",
+  "privacidad.consentimiento.restablecido": "Consentimiento restablecido",
+  "privacidad.consentimiento.restablecido_todos":
+    "Consentimiento restablecido a todas las personas",
   "role.created": "Rol creado",
   "role.updated": "Rol modificado",
   "role.deleted": "Rol eliminado",

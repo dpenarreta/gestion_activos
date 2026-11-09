@@ -133,4 +133,36 @@ export const privacidadService = {
       formato,
       `datos-del-titular-${id}.${formato}`,
     ),
+
+  // --- Consentimiento del tratamiento de datos (09/11/2026) ---
+  /** El aviso vigente y si la persona lo aceptó. */
+  miConsentimiento: () => apiClient.get(`${BASE}/consentimiento/`).then(datos),
+  /** Acepta la versión que leyó; 409 `aviso_cambiado` si ya hay otra. */
+  aceptarAviso: (version) =>
+    apiClient.post(`${BASE}/consentimiento/`, { version }).then(datos),
+  /** `{existe, texto, version, version_desde, totales, texto_inicial, puede_atender}`. */
+  aviso: () => apiClient.get(`${BASE}/consentimiento/aviso/`).then(datos),
+  /** Editar no cambia la versión; `pedirDeNuevo` la sube y todos vuelven a aceptar. */
+  guardarAviso: ({ texto, pedirDeNuevo }) =>
+    apiClient
+      .put(`${BASE}/consentimiento/aviso/`, {
+        texto,
+        pedir_aceptacion_de_nuevo: Boolean(pedirDeNuevo),
+      })
+      .then(datos),
+  /** Paginada: las personas de la empresa con su estado frente al aviso. */
+  personasConsentimiento: (params = {}) =>
+    apiClient
+      .get(`${BASE}/consentimiento/personas/`, { params: limpio(params) })
+      .then(datos),
+  historialConsentimiento: (id) =>
+    apiClient.get(`${BASE}/consentimiento/personas/${id}/`).then(datos),
+  restablecerConsentimiento: (id) =>
+    apiClient
+      .post(`${BASE}/consentimiento/personas/${id}/restablecer/`)
+      .then(datos),
+  restablecerTodos: () =>
+    apiClient
+      .post(`${BASE}/consentimiento/restablecer-todos/`, { confirmar: true })
+      .then(datos),
 };

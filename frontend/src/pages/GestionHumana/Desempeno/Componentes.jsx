@@ -171,6 +171,7 @@ export function Seccion({
   accion,
   children,
   className = "",
+  tituloRef,
 }) {
   return (
     <section
@@ -179,7 +180,13 @@ export function Seccion({
       aria-labelledby={id ? `${id}-titulo` : undefined}
     >
       <div className="mz-card-head">
-        <h3 id={id ? `${id}-titulo` : undefined}>
+        {/* Con `tituloRef` el título puede recibir el foco desde el código
+            (p. ej. al llegar un resultado que sustituye al botón). */}
+        <h3
+          id={id ? `${id}-titulo` : undefined}
+          ref={tituloRef}
+          tabIndex={tituloRef ? -1 : undefined}
+        >
           {titulo}
           {ayuda && <Ayuda clave={ayuda} />}
         </h3>

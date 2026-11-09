@@ -5,11 +5,11 @@ Portado de `src/lib/executiveReporting/` de Nexo: `indiceEjecutivo.ts`,
 documento ya construido (en camelCase, la forma de `ExecutiveReportSnapshotData`)
 y es puro: no consulta la base ni recalcula indicadores.
 
-**Sin IA en esta fase.** En Nexo, NOVA (Gemini) redactaba el resumen, los
-insights, la evaluación y el enriquecimiento de recomendaciones, y estos textos
-eran su respaldo cuando la IA no respondía. Aquí son la narrativa: se guardan en
-`nova` con la misma forma (`NovaSections`), así el visor no cambia el día que
-llegue la fase de IA, y el documento lo dice en `novaOrigen`.
+Estos textos son la narrativa SIN IA, con la misma forma (`NovaSections`) que
+la de la IA. Desde el 09/11/2026 `apps.nova.informes.narrar` los reemplaza por
+los de Nova (sección por sección) cuando quien genera tiene
+`nova.narrativa_informes` y la IA responde; si no, quedan estos, y el documento
+lo dice en `novaOrigen`/`novaSeccionesSinIa`.
 """
 
 from apps.tasks.rounding import round_half_up

@@ -73,6 +73,7 @@ import {
   DashboardsPlantillaBase,
 } from "../dashboards/paginas";
 import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
+import { ConsentimientoGate } from "../components/admin/ConsentimientoGate/ConsentimientoGate";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
 import { EstadoDeCarga } from "../components/common/EstadoDeCarga/EstadoDeCarga";
 import { PERMISOS_PRIVACIDAD } from "../pages/Privacidad/privacidadComunes";
@@ -166,6 +167,18 @@ import {
   PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
   ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
 } from "../modulos/permisosGestionHumana";
+
+// Nova (la asistente con IA de Gestión Humana): bajo demanda.
+const NovaPage = lazy(() =>
+  import("../pages/GestionHumana/Nova/NovaPage").then((m) => ({
+    default: m.NovaPage,
+  })),
+);
+const ConocimientoNova = lazy(() =>
+  import("../pages/GestionHumana/Nova/ConocimientoPage").then((m) => ({
+    default: m.ConocimientoPage,
+  })),
+);
 
 // Tareas y Equipo se cargan bajo demanda: solo las usa el equipo de Gestión
 // Humana. El marco (`MarcoTareas`) no es perezoso: conserva `tasks/me/` al
@@ -283,6 +296,11 @@ const BandejaPrivacidad = lazy(() =>
     default: m.BandejaPrivacidad,
   })),
 );
+const ConsentimientoPrivacidad = lazy(() =>
+  import("../pages/Privacidad/ConsentimientoPrivacidad").then((m) => ({
+    default: m.ConsentimientoPrivacidad,
+  })),
+);
 const DetalleSolicitudPrivacidad = lazy(() =>
   import("../pages/Privacidad/DetalleSolicitudPrivacidad").then((m) => ({
     default: m.DetalleSolicitudPrivacidad,
@@ -345,7 +363,16 @@ export function AppRoutes() {
       />
       <Route path="/403" element={<Forbidden />} />
 
-      <Route path="/admin" element={<AdminLayout />}>
+      {/* Sin aceptar el aviso de privacidad vigente no se entra: la pantalla
+          de consentimiento reemplaza toda la intranet (09/11/2026). */}
+      <Route
+        path="/admin"
+        element={
+          <ConsentimientoGate>
+            <AdminLayout />
+          </ConsentimientoGate>
+        }
+      >
         <Route index element={<InicioDelPanel />} />
         <Route
           path="users"
@@ -648,6 +675,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="privacidad/consentimiento"
+          element={
+            <RequirePermission permission={PERMISOS_PRIVACIDAD}>
+              <Suspense fallback={<EstadoDeCarga cargando />}>
+                <ConsentimientoPrivacidad />
+              </Suspense>
+            </RequirePermission>
+          }
+        />
+        <Route
           path="privacidad/solicitudes/:id"
           element={
             <RequirePermission permission={PERMISOS_PRIVACIDAD}>
@@ -826,6 +863,33 @@ export function AppRoutes() {
             vuelve a preguntar al servidor qué puede la persona
             (`novedades/me/`): el rol operativo y las excepciones mandan. */}
         {/* El enlace de los avisos de la campana (`ALERT_LINK` del backend). */}
+        {/* Nova: el chat (`nova.chat`) y su base de conocimiento. Son del
+            módulo Gestión Humana (`modulos.js`, otros prefijos). */}
+        <Route
+          path="nova"
+          element={
+            <RequirePermission permission="nova.chat">
+              <Suspense fallback={<EstadoDeCarga cargando />}>
+                <NovaPage />
+              </Suspense>
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="nova/conocimiento"
+          element={
+            <RequirePermission
+              permission={[
+                "nova.conocimiento_ver",
+                "nova.conocimiento_gestionar",
+              ]}
+            >
+              <Suspense fallback={<EstadoDeCarga cargando />}>
+                <ConocimientoNova />
+              </Suspense>
+            </RequirePermission>
+          }
+        />
         <Route
           path="gestion-humana/novedades"
           element={

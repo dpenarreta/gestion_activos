@@ -120,3 +120,31 @@ def de_bandeja(s: SolicitudDerechos, *, con_historial: bool = False, hoy=None) -
     if con_historial:
         datos["historial"] = _movimientos(s, con_actor=True)
     return datos
+
+
+# ── Consentimiento (ver `consentimiento.py`) ──────────────────────────────────
+
+
+class AceptarAvisoSerializer(serializers.Serializer):
+    version = serializers.IntegerField(
+        min_value=1, error_messages={"required": "Falta la versión del aviso que leyó."}
+    )
+
+
+class GuardarAvisoSerializer(serializers.Serializer):
+    texto = serializers.CharField(allow_blank=True, trim_whitespace=True)
+    pedir_aceptacion_de_nuevo = serializers.BooleanField(required=False, default=False)
+
+
+class FiltrosConsentimientoSerializer(serializers.Serializer):
+    estado = serializers.ChoiceField(
+        choices=[("ACEPTADO", "Aceptado"), ("PENDIENTE", "Pendiente")],
+        required=False,
+        allow_blank=True,
+        error_messages={"invalid_choice": "Estado inválido."},
+    )
+    q = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
+
+class ConfirmarSerializer(serializers.Serializer):
+    confirmar = serializers.BooleanField()

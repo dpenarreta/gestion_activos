@@ -29,6 +29,14 @@ NOMBRES = {
     "matriz": "Matriz de obligaciones",
     "tareas": "Gestión Humana · Tareas",
     "privacidad": "Protección de datos personales",
+    "novedades": "Gestión Humana · Novedades",
+    "proyectos_gh": "Gestión Humana · Proyectos",
+    "mejora_continua": "Gestión Humana · Mejora continua",
+    "reuniones": "Gestión Humana · Reuniones",
+    "nova": "Gestión Humana · Nova (IA)",
+    "capacitacion": "Onboarding y capacitación",
+    #: Lo traído de Nexo sin un módulo equivalente (`importar_nexo_auditoria`).
+    "nexo": "Nexo (histórico)",
 }
 
 

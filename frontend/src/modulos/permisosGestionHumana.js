@@ -142,3 +142,13 @@ export const PERM = {
   depurar: DEPURAR,
   diasEditar: "novedades.dias_editar",
 };
+
+/*
+ * Nova, la asistente con IA (09/11/2026): el chat (`/admin/nova`) y su base
+ * de conocimiento. El servidor exige el permiso en cada petición de
+ * `/nova/`; el modo Equipo pide además equipo a cargo o verlo (`nova/me/`).
+ */
+export const NOVA_CHAT = "nova.chat";
+export const NOVA_CHAT_EQUIPO = "nova.chat_equipo";
+export const NOVA_CONOCIMIENTO_VER = "nova.conocimiento_ver";
+export const NOVA_CONOCIMIENTO_GESTIONAR = "nova.conocimiento_gestionar";

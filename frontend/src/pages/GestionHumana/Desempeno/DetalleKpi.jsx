@@ -4,11 +4,13 @@
  * tareas, cumplimiento por prioridad, el análisis avanzado, el riesgo
  * operativo (solo con `inteligencia_preventiva.ver`, en la vista de equipo),
  * el Motor de Insights, la evolución, las consultas de seguimiento y la
- * tabla de tareas. Fuera de alcance: los «Nova insights» (IA).
+ * tabla de tareas, y el «Análisis de Nova» (IA, con `nova.analisis_kpi`).
  */
 import { useState } from "react";
 
+import { NOVA_ANALISIS_KPI } from "../../../api/novaService";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { useAuth } from "../../../hooks/useAuth";
 
 import { AnalisisAvanzado, HistorialDePuntaje } from "./AnalisisAvanzado";
 import { CargaLaboral } from "./CargaLaboral";
@@ -24,6 +26,7 @@ import {
 } from "./Componentes";
 import { LineaDeCumplimiento } from "./Graficos";
 import { PanelInsights } from "./PanelInsights";
+import { PanelNova } from "./PanelNova";
 import { RiesgoOperativo } from "./RiesgoOperativo";
 import {
   CUMPLIMIENTO_CORTO,
@@ -228,6 +231,8 @@ export function DetalleKpi({
   enCurso = true,
 }) {
   const [explicar, setExplicar] = useState(false);
+  const { user } = useAuth();
+  const conNova = (user?.permissions ?? []).includes(NOVA_ANALISIS_KPI);
   const c = kpi.cumplimiento;
   const carga = kpi.carga_laboral;
   const mensual = kpi.carga_tiempo?.mensual;
@@ -353,6 +358,7 @@ export function DetalleKpi({
           <AnalisisAvanzado usuarioId={usuarioId} propia={propia} />
           {conRiesgo && <RiesgoOperativo usuarioId={usuarioId} />}
           <PanelInsights usuarioId={usuarioId} propia={propia} />
+          {conNova && <PanelNova key={usuarioId} usuarioId={usuarioId} />}
         </>
       )}
       <HistorialDePuntaje

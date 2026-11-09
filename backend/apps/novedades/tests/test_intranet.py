@@ -440,6 +440,8 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
         | set(PERMISSION_CATALOG["reuniones"]["permissions"])
         | set(PERMISSION_CATALOG["escritorio"]["permissions"])
         | set(PERMISSION_CATALOG["privacidad"]["permissions"])
+        # Nova (roles/0041 y 0042): la IA de Gestión Humana.
+        | set(PERMISSION_CATALOG["nova"]["permissions"])
         # Como todo rol desde roles/0040: crear tickets a su nombre.
         | {"soporte.crear"}
     )
@@ -488,6 +490,8 @@ def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
                     "equipo.",
                     # Como todo rol desde roles/0040: crear tickets a su nombre.
                     "soporte.crear",
+                    # Nova (roles/0041 y 0042): la IA de Gestión Humana.
+                    "nova.",
                     "proyectos_gh.",
                     "ausencias.",
                     "kpi.",

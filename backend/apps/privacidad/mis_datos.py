@@ -58,6 +58,7 @@ TOPE_INICIOS_DE_SESION = 500
 TOPE_MENSAJES_CHAT = 5000
 TOPE_NOTIFICACIONES = 2000
 TOPE_DESCARGAS = 2000
+TOPE_USO_NOVA = 2000
 
 #: Lo que ve quien no puede ver el detalle de un dato de salud.
 RESERVADO = "(reservado)"
@@ -1078,7 +1079,45 @@ _PRIVADA = (
     "desde «Mi perfil»."
 )
 
+
 #: Las secciones, en el orden del archivo.
+def _uso_nova(ctx: Contexto) -> list[dict]:
+    """Cada consulta a Nova (la IA): solo metadatos, como se guardan. Ni la
+    pregunta ni la respuesta se guardan nunca."""
+    from apps.nova.models import UsoNova
+
+    filas = _filas(
+        UsoNova.objects.filter(usuario=ctx.titular).order_by("-creado")[:TOPE_USO_NOVA],
+        [
+            ("funcion", "funcion"),
+            ("proveedor", "proveedor"),
+            ("modelo", "modelo"),
+            ("resultado", "resultado"),
+            ("tokens_entrada", "tokens_entrada"),
+            ("tokens_salida", "tokens_salida"),
+            ("duracion_ms", "duracion_ms"),
+            ("fecha", "creado"),
+        ],
+    )
+    return list(reversed(filas))
+
+
+def _conocimiento_nova(ctx: Contexto) -> list[dict]:
+    """Los documentos que subió a la base de conocimiento de Nova (por su
+    nombre: el contenido se abre en la intranet)."""
+    from apps.nova.models import DocumentoConocimiento
+
+    return _filas(
+        DocumentoConocimiento.objects.filter(subido_por=ctx.titular).order_by("created_at"),
+        [
+            ("titulo", "titulo"),
+            ("archivo", "nombre_original"),
+            ("paginas", "paginas"),
+            ("fecha", "created_at"),
+        ],
+    )
+
+
 SECCIONES: tuple[Seccion, ...] = (
     Seccion(
         "cuenta",
@@ -1246,6 +1285,20 @@ SECCIONES: tuple[Seccion, ...] = (
         tope=TOPE_DESCARGAS,
     ),
     Seccion(
+        "uso_de_nova",
+        "Uso de Nova (IA)",
+        "Cada consulta a Nova: qué función, con qué proveedor y modelo, cómo terminó, cuántos "
+        "tokens y cuándo. Sus preguntas y las respuestas no se guardan.",
+        _uso_nova,
+        tope=TOPE_USO_NOVA,
+    ),
+    Seccion(
+        "conocimiento_de_nova",
+        "Documentos subidos a la base de conocimiento de Nova",
+        "Título, archivo, páginas y fecha de los documentos que subió.",
+        _conocimiento_nova,
+    ),
+    Seccion(
         "sesiones",
         "Sesiones e inicios de sesión",
         "Sus sesiones (dispositivo, navegador, "
@@ -1344,6 +1397,10 @@ APPS_REVISADAS: dict[str, str] = {
     "nomina": "Excluida: el rol de pagos tiene su propia descarga protegida (ver EXCLUIDO).",
     "notificaciones": "Secciones: notificaciones.",
     "novedades": "Secciones: novedades (si la persona es colaborador).",
+    "nova": (
+        "Secciones: uso_de_nova (metadatos; las conversaciones no se guardan), "
+        "conocimiento_de_nova."
+    ),
     "ordenes": "Secciones: ordenes_de_trabajo.",
     "organizacion": (
         "Secciones: perfil, ficha_de_empleado, cargo, herramientas, acuerdos_aceptados, "

@@ -181,6 +181,19 @@ def _desde_iso(texto: str) -> datetime:
     return datetime.fromisoformat(texto.replace("Z", "+00:00"))
 
 
+def _con_narrativa_de_nova(actor, doc: dict) -> dict:
+    """La narrativa con IA (`apps.nova.informes.narrar`) si quien genera tiene
+    `nova.narrativa_informes`; si no, o si algo falla, la narrativa sin IA que
+    el documento ya trae. La IA nunca hace fallar el informe."""
+    from apps.nova.informes import narrar
+
+    try:
+        return narrar(actor, doc)
+    except Exception:  # noqa: BLE001 — la narrativa nunca bloquea el informe
+        logger.exception("[informes] falló la narrativa de Nova; queda la versión sin IA")
+        return doc
+
+
 def generar_informe(actor, pedido: Pedido) -> tuple[ExecutiveReportSnapshot, bool]:
     """Resuelve el roster, construye el documento, lo guarda inmutable con su
     Report ID, registra los incidentes de integridad y audita. Devuelve
@@ -210,6 +223,7 @@ def generar_informe(actor, pedido: Pedido) -> tuple[ExecutiveReportSnapshot, boo
     inicio = timezone.now()
     try:
         doc, incidentes = _construir(actor, pedido, roster, now, provisional)
+        doc = _con_narrativa_de_nova(actor, doc)
         snapshot = _guardar(actor, doc, filtros, roster, now)
     except InformeError:
         raise
@@ -243,6 +257,17 @@ def generar_informe(actor, pedido: Pedido) -> tuple[ExecutiveReportSnapshot, boo
                 )
         except Exception:  # noqa: BLE001 — la validación nunca bloquea el informe
             logger.exception("[informes] no se pudo registrar un incidente de integridad")
+
+    if snapshot.nova_degraded:
+        # Como Nexo: queda constancia de que se esperaba la IA y alguna
+        # sección salió sin ella (cuáles, sin el contenido).
+        log_report_audit(
+            report_id=snapshot.report_id,
+            action=ExecutiveReportAuditLog.Action.NOVA_DEGRADED,
+            user=actor,
+            step="narrativa_nova",
+            message=", ".join(doc.get("novaSeccionesSinIa") or []) or None,
+        )
 
     log_report_audit(
         report_id=snapshot.report_id,

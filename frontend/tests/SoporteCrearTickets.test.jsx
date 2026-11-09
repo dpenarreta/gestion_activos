@@ -51,6 +51,7 @@ vi.mock("../src/modulos/EstadoModulos", () => ({
 }));
 vi.mock("../src/components/admin/Chat/ChatContext", () => ({
   ChatProvider: ({ children }) => children,
+  useChat: () => null,
 }));
 vi.mock("../src/components/admin/Chat/ChatDock", () => ({
   ChatDock: () => null,

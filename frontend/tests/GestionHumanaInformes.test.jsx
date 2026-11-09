@@ -428,9 +428,10 @@ describe("Visor del informe", () => {
     pintar(VISOR);
     expect(
       await screen.findByRole("heading", {
-        name: "Evaluación ejecutiva (Executive Assessment by NOVA)",
+        name: "Evaluación ejecutiva (Executive Assessment)",
       }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/by NOVA/)).not.toBeInTheDocument();
     expect(
       screen.queryByText("Narrativa sin IA (texto determinista)"),
     ).not.toBeInTheDocument();

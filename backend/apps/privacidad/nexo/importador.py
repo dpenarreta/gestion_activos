@@ -56,7 +56,7 @@ Estado = SolicitudDerechos.Estado
 
 NO_SE_MIGRA = {
     "User.dataConsentAccepted": (
-        "el consentimiento de Nexo es otro mecanismo y no se portó con las solicitudes"
+        "el consentimiento se importa aparte, con importar_nexo_consentimiento"
     ),
 }
 

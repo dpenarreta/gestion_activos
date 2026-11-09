@@ -31,6 +31,7 @@ import { fecha } from "../GestionHumana/comunes";
 import { PildoraEstado, PildoraTipo, Plazo } from "./Piezas";
 import {
   ESTADOS,
+  RUTA_CONSENTIMIENTO,
   TIPOS,
   idFilaSolicitud,
   rutaDeSolicitud,
@@ -130,7 +131,10 @@ export function BandejaPrivacidad() {
           <p className="mz-desc">
             Lo que las personas piden sobre sus datos personales (LOPDP):
             acceso, corrección y eliminación. Las abiertas van primero, por
-            fecha límite.
+            fecha límite.{" "}
+            <Link to={RUTA_CONSENTIMIENTO}>
+              Ver el aviso y el consentimiento de datos
+            </Link>
           </p>
         </div>
       </div>

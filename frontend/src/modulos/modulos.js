@@ -52,6 +52,8 @@ export const MODULOS = [
     icono: "people",
     inicio: "/admin/gestion-humana",
     prefijo: "/admin/gestion-humana",
+    // Nova, la asistente con IA (09/11/2026), vive en `/admin/nova`.
+    otrosPrefijos: ["/admin/nova"],
   },
   {
     id: "matriz",
@@ -94,11 +96,11 @@ export function moduloPorId(id) {
 
 /** El módulo al que pertenece una ruta por su prefijo, o `null` si es común. */
 export function moduloDeRuta(pathname) {
-  const propio = MODULOS.find(
-    (modulo) =>
-      modulo.prefijo &&
-      (pathname === modulo.prefijo ||
-        pathname.startsWith(`${modulo.prefijo}/`)),
+  const propio = MODULOS.find((modulo) =>
+    [modulo.prefijo, ...(modulo.otrosPrefijos ?? [])].some(
+      (prefijo) =>
+        prefijo && (pathname === prefijo || pathname.startsWith(`${prefijo}/`)),
+    ),
   );
   if (propio) return propio.id;
   return esRutaComun(pathname) ? null : MODULO_POR_DEFECTO;

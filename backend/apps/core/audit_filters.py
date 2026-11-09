@@ -19,8 +19,12 @@ def filter_audit_logs(queryset: QuerySet, params) -> QuerySet:
     actor_username = params.get("actor_username")
     if actor_username:
         # Sin tildes ni mayúsculas, como el resto de buscadores (ver
-        # `apps.core.busqueda`).
-        queryset = filtro_de_busqueda(queryset, actor_username, ("actor__username",))
+        # `apps.core.busqueda`). También el nombre de Nexo de quien no tiene
+        # cuenta en la intranet (`importar_nexo_auditoria`): la pantalla lo
+        # muestra como autor, así que el filtro «Usuario» tiene que hallarlo.
+        queryset = filtro_de_busqueda(
+            queryset, actor_username, ("actor__username", "actor_en_nexo")
+        )
 
     action = params.get("action")
     if action:

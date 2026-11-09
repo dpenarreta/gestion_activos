@@ -5,8 +5,9 @@
  * indicadores individuales de ejecución no son representativos: se dice y
  * se ofrece ir a los KPI del equipo.
  *
- * Fuera de alcance: el mensaje y los insights de Nova (IA). Los insights por
- * reglas sí van (Motor de Insights). Las descargas a Excel y PDF de Nexo
+ * El «Análisis de Nova» (IA) va en `DetalleKpi` con `nova.analisis_kpi`; la
+ * frase de Nova, en el inicio de Gestión Humana. Los insights por reglas
+ * también van (Motor de Insights). Las descargas a Excel y PDF de Nexo
  * quedan pendientes.
  */
 import { useRef, useState } from "react";

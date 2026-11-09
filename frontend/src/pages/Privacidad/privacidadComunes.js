@@ -11,6 +11,8 @@ export const PERMISOS_PRIVACIDAD = [PERMISO_VER, PERMISO_ATENDER];
 
 export const RUTA_BANDEJA = "/admin/privacidad/solicitudes";
 export const rutaDeSolicitud = (id) => `${RUTA_BANDEJA}/${id}`;
+/** El aviso de consentimiento y quién lo aceptó. */
+export const RUTA_CONSENTIMIENTO = "/admin/privacidad/consentimiento";
 /** La sección del perfil a la que llegan los avisos del titular. */
 export const SECCION_MIS_DERECHOS = "mis-derechos";
 export const RUTA_MIS_DERECHOS = `/admin/perfil?seccion=${SECCION_MIS_DERECHOS}`;
