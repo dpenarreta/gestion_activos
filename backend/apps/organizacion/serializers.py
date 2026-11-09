@@ -4,7 +4,14 @@ from rest_framework import serializers
 
 from apps.empresas.campos import RelacionDeEmpresa
 
-from . import departamentos_del_organigrama, documentos, niveles_cargo, noticias, organigrama
+from . import (
+    departamentos_del_organigrama,
+    documentos,
+    niveles_cargo,
+    noticias,
+    organigrama,
+    reportes,
+)
 from .models import (
     Cargo,
     Concesionario,
@@ -407,12 +414,33 @@ class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
 class CargoSerializer(serializers.ModelSerializer):
     unidad = RelacionDeEmpresa(UnidadOrganizacional)
     jefe = RelacionDeEmpresa(Cargo, required=False, allow_null=True)
+    #: El reporte secundario (línea punteada, `reportes.py`): ids al escribir;
+    #: al leer, también `jefes_secundarios_detalle` con sus nombres.
+    jefes_secundarios = RelacionDeEmpresa(Cargo, many=True, required=False)
+    jefes_secundarios_detalle = serializers.SerializerMethodField()
     plazas = serializers.IntegerField(min_value=1, max_value=999, default=1)
 
     class Meta:
         model = Cargo
-        fields = ["id", "nombre", "unidad", "jefe", "plazas", "nivel", "descripcion", "activo"]
+        fields = [
+            "id",
+            "nombre",
+            "unidad",
+            "jefe",
+            "jefes_secundarios",
+            "jefes_secundarios_detalle",
+            "plazas",
+            "nivel",
+            "descripcion",
+            "activo",
+        ]
         extra_kwargs = {"nivel": {"required": False}}
+
+    def get_jefes_secundarios_detalle(self, cargo):
+        return [
+            {"id": c.id, "nombre": c.nombre}
+            for c in sorted(cargo.jefes_secundarios.all(), key=lambda c: c.nombre)
+        ]
 
     def validate(self, datos):
         nombre = datos.get("nombre", getattr(self.instance, "nombre", "")).strip()
@@ -455,6 +483,15 @@ class CargoSerializer(serializers.ModelSerializer):
         organigrama.validar_jefe(self.instance, jefe)
         if "nivel" in datos or "jefe" in datos:
             niveles_cargo.validar_jefe(nivel, jefe)
+        # El reporte secundario: sin el propio cargo, sin repetir al jefe
+        # inmediato y sin círculos. Sin regla de niveles (`reportes.py`).
+        if "jefes_secundarios" in datos:
+            secundarios = list(datos["jefes_secundarios"])
+        elif self.instance is not None:
+            secundarios = list(self.instance.jefes_secundarios.all())
+        else:
+            secundarios = []
+        reportes.validar(self.instance, jefe, secundarios)
         datos["nombre"] = nombre
         return datos
 

@@ -500,6 +500,13 @@ class Cargo(ModeloDeEmpresa):
     jefe = models.ForeignKey(
         "self", on_delete=models.PROTECT, null=True, blank=True, related_name="subordinados"
     )
+    #: El reporte secundario o «línea punteada» (09/11/2026, ver `reportes.py`):
+    #: cargos a los que este también reporta, además de su jefe inmediato. Da
+    #: visibilidad sobre la persona y su equipo; las aprobaciones y los avisos
+    #: al jefe siguen yendo solo al jefe inmediato (`jefe`).
+    jefes_secundarios = models.ManyToManyField(
+        "self", symmetrical=False, blank=True, related_name="reportes_secundarios"
+    )
     plazas = models.PositiveSmallIntegerField(default=1)
     #: Su nivel jerárquico (27/10/2026, ver `niveles_cargo.py`): Gerencia
     #: General › Gerencia de Área › Jefatura › Coordinación › Operativo de área

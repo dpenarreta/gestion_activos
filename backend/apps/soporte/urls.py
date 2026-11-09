@@ -22,6 +22,17 @@ urlpatterns = [
     # Quien pide soporte, con sesión (no hay formulario público desde el 20/10/2026).
     path("solicitar/", views.SolicitarView.as_view(), name="soporte-solicitar"),
     path("mis-tickets/", views.MisTicketsView.as_view(), name="soporte-mis-tickets"),
+    # Lo mismo desde la Mesa de ayuda, cada uno con su permiso (09/11/2026).
+    path(
+        "mesa/solicitar/",
+        views.SolicitarDesdeLaMesaView.as_view(),
+        name="soporte-mesa-solicitar",
+    ),
+    path(
+        "mesa/mis-solicitudes/",
+        views.MisSolicitudesEnLaMesaView.as_view(),
+        name="soporte-mesa-mis-solicitudes",
+    ),
     path("mis-tickets/<int:pk>/", views.MiTicketView.as_view(), name="soporte-mi-ticket"),
     path("llamadas/", views.LlamadasView.as_view(), name="soporte-llamadas"),
     path("llamadas/<int:pk>/", views.LlamadaView.as_view(), name="soporte-llamada"),

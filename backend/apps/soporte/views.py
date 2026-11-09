@@ -5,6 +5,10 @@
   roles al empezar y la cuenta sin ningún rol). Seguir y responder los suyos lo
   puede toda persona con sesión, aunque luego pierda el permiso. Desde el
   20/10/2026 no hay formulario público ni enlace de seguimiento sin sesión.
+- **Quien pide soporte, desde la Mesa de ayuda** (09/11/2026): entrar a la
+  bandeja para ver «Mis solicitudes» pide `soporte.mesa_mis_tickets`, y crear un
+  ticket a su nombre desde ahí, `soporte.mesa_crear`. Ninguno de los dos hace a
+  nadie parte del equipo ni deja ver tickets ajenos.
 - **Del equipo**: bandeja, ficha y acciones sobre los tickets.
 - **Configuración**: niveles, categorías y casos, técnicos con su horario, SLA,
   respuestas predefinidas y los campos del formulario.
@@ -232,6 +236,13 @@ def _url_mia(ticket):
 
 #: El 403 de quien no puede crear tickets: claro y con qué hacer.
 SIN_PERMISO_PARA_CREAR = "No tiene permiso para crear tickets; pídalo a su administrador."
+SIN_PERMISO_PARA_CREAR_EN_LA_MESA = (
+    "No tiene permiso para crear tickets en la Mesa de ayuda; pídalo a su administrador."
+)
+SIN_PERMISO_PARA_VER_EN_LA_MESA = (
+    "No tiene permiso para ver sus tickets en la Mesa de ayuda; los sigue en "
+    "«Soporte TI › Mis tickets»."
+)
 
 
 class SolicitarView(APIView):
@@ -243,10 +254,16 @@ class SolicitarView(APIView):
     - `POST`: crea un ticket a nombre de quien envía. Exige `soporte.crear`
       (403 `permission_denied` si no); sus datos de contacto salen de «Mi
       perfil» y, si falta algo, se le pide antes (400 `faltan_datos`).
+
+    Desde la Mesa de ayuda se usa `SolicitarDesdeLaMesaView`, que pide
+    `soporte.mesa_crear` en vez de `soporte.crear`.
     """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    #: El permiso (sin el prefijo `soporte.`) que exige crear y su 403.
+    permiso_para_crear = "crear"
+    sin_permiso = SIN_PERMISO_PARA_CREAR
 
     def get_throttles(self):
         if self.request.method == "POST":
@@ -265,14 +282,14 @@ class SolicitarView(APIView):
             **contacto.de(request.user),
             "cargos": contacto.opciones()["cargos"],
         }
-        datos["puede_crear"] = services.tiene(request.user, "crear")
+        datos["puede_crear"] = services.tiene(request.user, self.permiso_para_crear)
         return Response(datos)
 
     def post(self, request):
         # Antes de validar nada: sin permiso no se crea, venga lo que venga.
-        if not services.tiene(request.user, "crear"):
+        if not services.tiene(request.user, self.permiso_para_crear):
             # El de DRF: el contrato de error lleva `code: permission_denied`.
-            raise PermisoDenegado(SIN_PERMISO_PARA_CREAR)
+            raise PermisoDenegado(self.sin_permiso)
         entrada = SolicitudSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         persona, faltan = datos_de_la_persona(request.user)
@@ -310,6 +327,15 @@ class SolicitarView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class SolicitarDesdeLaMesaView(SolicitarView):
+    """Mesa de ayuda → «Pedir ayuda (a mi nombre)» (09/11/2026): el mismo
+    formulario y el mismo ticket a su nombre que «Soporte TI», pero con su
+    propio permiso, `soporte.mesa_crear`. No da nada del equipo de la mesa."""
+
+    permiso_para_crear = "mesa_crear"
+    sin_permiso = SIN_PERMISO_PARA_CREAR_EN_LA_MESA
 
 
 def _limite_de_sondeo(vista, alcance="sondeo"):
@@ -361,6 +387,23 @@ class MisTicketsView(APIView):
                 for t in tickets
             ]
         )
+
+
+class VerMisTicketsEnLaMesaPermission(BasePermission):
+    message = SIN_PERMISO_PARA_VER_EN_LA_MESA
+
+    def has_permission(self, request, view) -> bool:
+        return services.tiene(request.user, "mesa_mis_tickets")
+
+
+class MisSolicitudesEnLaMesaView(MisTicketsView):
+    """Mesa de ayuda → «Mis solicitudes» (09/11/2026): los mismos tickets que
+    «Soporte TI › Mis tickets» —solo los que pidió la persona—, pero dentro
+    del módulo, con `soporte.mesa_mis_tickets`. Sin él, 403: entonces los
+    sigue desde «Soporte TI», que no pide permiso. No abre nada del equipo:
+    los tickets ajenos y las demás vistas siguen pidiendo sus permisos."""
+
+    permission_classes = [IsAuthenticated, VerMisTicketsEnLaMesaPermission]
 
 
 class MiTicketView(APIView):
@@ -729,6 +772,8 @@ class TicketViewSet(viewsets.ReadOnlyModelViewSet):
                 ),
                 "puede": {
                     "crear": services.tiene(request.user, "crear"),
+                    "mesa_crear": services.tiene(request.user, "mesa_crear"),
+                    "mesa_mis_tickets": services.tiene(request.user, "mesa_mis_tickets"),
                     "ver_todos": services.tiene(request.user, "ver_todos"),
                     "asignar": services.tiene(request.user, "asignar"),
                     "registrar": services.tiene(request.user, "registrar"),

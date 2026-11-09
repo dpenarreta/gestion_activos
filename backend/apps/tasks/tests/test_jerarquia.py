@@ -203,3 +203,56 @@ def test_fuera_de_una_peticion_y_sin_empresa_no_hay_organigrama(arbol):
     with usando_empresa(None):
         assert jerarquia.cargo_de(arbol["jefa"]) is None
         assert jerarquia.equipo_ids(arbol["jefa"]) == set()
+
+
+# --- Reporte secundario (línea punteada, 09/11/2026) ------------------------------
+
+
+@pytest.fixture
+def con_linea_punteada(arbol):
+    """Otra rama, la de Finanzas, y la Jefatura reportando también a ella."""
+    finanzas = cargo("Jefatura de Finanzas", jefe=Cargo.objects.get(nombre="Gerencia de GH"))
+    contador_c = cargo("Contador", jefe=finanzas)
+    for nombre, en in (("financiero", finanzas), ("contador", contador_c)):
+        arbol[nombre] = _persona(nombre)
+        poner_en_cargo(arbol[nombre], en)
+    Cargo.objects.get(nombre="Jefatura").jefes_secundarios.add(finanzas)
+    return arbol
+
+
+def test_el_jefe_secundario_ve_a_la_persona_y_a_todo_su_equipo(con_linea_punteada):
+    a = con_linea_punteada
+    assert _nombres(jerarquia.equipo_de(a["financiero"])) == {
+        "contador",
+        "jefa",
+        "par",
+        "analista",
+        "asistente",
+        "auxiliar",
+    }
+    assert jerarquia.puede_ver(a["financiero"], a["auxiliar"])
+    assert a["jefa"].pk in jerarquia.equipo_ids(a["financiero"])
+    # Hacia el otro lado no: la jefa no ve al jefe secundario ni a su equipo.
+    assert not jerarquia.puede_ver(a["jefa"], a["contador"])
+
+
+def test_el_reporte_secundario_no_cambia_jefes_ni_avisos(con_linea_punteada):
+    """Aprobaciones y avisos van solo al jefe inmediato (línea directa)."""
+    a = con_linea_punteada
+    assert _nombres(jerarquia.jefe_inmediato(a["jefa"])) == {"gerente"}
+    assert _nombres(jerarquia.jefes_de(a["jefa"])) == {"gerente"}
+    assert "financiero" not in _nombres(jerarquia.jefes_de(a["auxiliar"]))
+
+
+def test_las_aprobaciones_al_jefe_inmediato_no_van_al_jefe_secundario(con_linea_punteada):
+    from apps.licencias.services import jefes_de
+
+    assert _nombres(jefes_de(con_linea_punteada["jefa"])) == {"gerente"}
+
+
+def test_un_circulo_entre_las_dos_lineas_no_cuelga_el_recorrido(con_linea_punteada):
+    """`reportes.validar` lo impide; si una carga directa lo deja, termina."""
+    finanzas = Cargo.objects.get(nombre="Jefatura de Finanzas")
+    Cargo.objects.get(nombre="Auxiliar").reportes_secundarios.add(finanzas)
+    equipo = _nombres(jerarquia.equipo_de(con_linea_punteada["financiero"]))
+    assert "auxiliar" in equipo and "financiero" not in equipo

@@ -24,6 +24,7 @@ import { HerramientasPage } from "./HerramientasPage";
 import { PerfilesCargo } from "./PerfilesCargo";
 import { NivelDeCargo } from "./NivelDeCargo";
 import { NivelesJerarquicos } from "./NivelesJerarquicos";
+import { SelectorJefesSecundarios } from "./SelectorJefesSecundarios";
 import { armarArbol, nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
@@ -55,6 +56,8 @@ const VACIOS = {
     nombre: "",
     unidad: "",
     jefe: "",
+    // El reporte secundario o línea punteada (09/11/2026): ids de cargo.
+    jefes_secundarios: [],
     plazas: 1,
     nivel: "",
     descripcion: "",
@@ -207,7 +210,17 @@ function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
                 id="est-jefe"
                 className="form-select form-select-sm"
                 value={valores.jefe ?? ""}
-                onChange={fijar("jefe")}
+                onChange={(e) => {
+                  const jefe = e.target.value;
+                  // El jefe inmediato no es además jefe secundario.
+                  setValores((v) => ({
+                    ...v,
+                    jefe,
+                    jefes_secundarios: (v.jefes_secundarios ?? []).filter(
+                      (x) => String(x) !== jefe,
+                    ),
+                  }));
+                }}
               >
                 <option value="">Nadie (máxima autoridad)</option>
                 {datos.cargos
@@ -258,6 +271,17 @@ function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
                 onChange={fijar("plazas")}
               />
             </Campo>
+            <div className="col-12">
+              <SelectorJefesSecundarios
+                cargoId={valores.id}
+                jefeId={valores.jefe}
+                elegidos={valores.jefes_secundarios ?? []}
+                datos={datos}
+                onCambio={(jefes_secundarios) =>
+                  setValores((v) => ({ ...v, jefes_secundarios }))
+                }
+              />
+            </div>
           </>
         )}
 
@@ -402,6 +426,8 @@ function aEnviar(recurso, valores) {
   );
   const nulos = { unidades: ["padre"], cargos: ["jefe"] }[recurso];
   for (const campo of nulos ?? []) if (resto[campo] === "") resto[campo] = null;
+  if (recurso === "cargos")
+    resto.jefes_secundarios = (resto.jefes_secundarios ?? []).map(Number);
   // Un cargo sin nivel elegido toma el de su nombre (lo decide el servidor).
   if (recurso === "cargos" && !resto.nivel) delete resto.nivel;
   return resto;
@@ -510,6 +536,9 @@ export function EstructuraPage() {
           cargo.nombre,
           nombreDe(datos.unidades, cargo.unidad),
           nombreDe(datos.cargos, cargo.jefe),
+          ...(cargo.jefes_secundarios ?? []).map((id) =>
+            nombreDe(datos.cargos, id),
+          ),
           cargo.rol?.nombre,
         ),
     );
@@ -812,7 +841,19 @@ export function EstructuraPage() {
                               </td>
                             )}
                             {pestana === "cargos" && (
-                              <td>{cargoDe(fila.jefe) ?? "—"}</td>
+                              <td>
+                                {cargoDe(fila.jefe) ?? "—"}
+                                {/* El reporte secundario (línea punteada). */}
+                                {fila.jefes_secundarios?.length > 0 && (
+                                  <span className="d-block mz-small mz-faint">
+                                    También reporta a:{" "}
+                                    {fila.jefes_secundarios
+                                      .map(cargoDe)
+                                      .filter(Boolean)
+                                      .join(", ")}
+                                  </span>
+                                )}
+                              </td>
                             )}
                             {pestana === "cargos" && (
                               <td className="num">
@@ -864,6 +905,8 @@ export function EstructuraPage() {
                                           : undefined,
                                     padre: fila.padre ?? "",
                                     jefe: fila.jefe ?? "",
+                                    jefes_secundarios:
+                                      fila.jefes_secundarios ?? [],
                                   })
                                 }
                               >

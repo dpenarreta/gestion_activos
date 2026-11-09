@@ -6,8 +6,10 @@
 #: no tiene rol —una cuenta recién creada, sin cargo en el organigrama— es
 #: justo quien más necesita pedir ayuda, y quedarse sin poder hacerlo sería
 #: silencioso. En cuanto la cuenta tiene un rol, manda lo que diga ese rol: si
-#: no lo trae, no puede crear tickets.
-PERMISOS_SIN_ROL = frozenset({"soporte.crear"})
+#: no lo trae, no puede crear tickets. Lo mismo con ver sus tickets y crearlos
+#: desde la Mesa de ayuda (`soporte.mesa_mis_tickets`, `soporte.mesa_crear`),
+#: que se separaron el 09/11/2026.
+PERMISOS_SIN_ROL = frozenset({"soporte.crear", "soporte.mesa_mis_tickets", "soporte.mesa_crear"})
 
 
 def _permisos_de_la_empresa_activa(user) -> set[str]:

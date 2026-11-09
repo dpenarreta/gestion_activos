@@ -17,7 +17,7 @@ import unicodedata
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from . import niveles_cargo, perfiles_cargo
+from . import niveles_cargo, perfiles_cargo, reportes
 from .models import (
     Cargo,
     DatosDeContacto,
@@ -64,6 +64,8 @@ def validar_jefe(cargo, jefe):
                 {"jefe": "Un cargo no puede reportar a sí mismo ni a uno de sus subordinados."}
             )
         actual = actual.jefe
+    # Tampoco a uno que depende de él por un reporte secundario.
+    reportes.validar_jefe(cargo, jefe)
 
 
 def _persona(usuario):
@@ -96,6 +98,11 @@ def arbol() -> dict:
     """
     quienes = ocupantes()
     cargos = []
+    secundarios: dict[int, list[int]] = {}
+    for cargo_id, jefe_id in Cargo.jefes_secundarios.through.objects.filter(
+        from_cargo__in=Cargo.objects.all()
+    ).values_list("from_cargo_id", "to_cargo_id"):
+        secundarios.setdefault(cargo_id, []).append(jefe_id)
     for cargo in Cargo.objects.select_related("unidad", "jefe", "rol").order_by("nombre"):
         en_el = quienes.get(cargo.id, [])
         cargos.append(
@@ -104,6 +111,8 @@ def arbol() -> dict:
                 "nombre": cargo.nombre,
                 "unidad": cargo.unidad_id,
                 "jefe": cargo.jefe_id,
+                # El reporte secundario (línea punteada, `reportes.py`).
+                "jefes_secundarios": sorted(secundarios.get(cargo.id, [])),
                 "plazas": cargo.plazas,
                 "nivel": cargo.nivel,
                 "descripcion": cargo.descripcion,
@@ -166,7 +175,12 @@ def arbol_de_area(usuario) -> dict:
     """El organigrama de su área (21/10/2026): la unidad de su cargo y todas
     las que dependen de ella, con sus cargos y quién los ocupa. Sin cargo, nada
     más que el aviso. Se recorta aquí, en el servidor: lo que no es de su área
-    no sale de la base."""
+    no sale de la base.
+
+    Se suman los cargos de su equipo que están fuera de su área (09/11/2026):
+    sobre todo los que le reportan en línea punteada (el Jefe Financiero ve a
+    Cartera y a Gestión Humana aunque su jefe directo sea el Gerente General),
+    con sus unidades, que el dibujo pone aparte (`reportes.py`)."""
     unidad = unidad_de(usuario)
     completo = arbol()
     if unidad is None:
@@ -187,11 +201,15 @@ def arbol_de_area(usuario) -> dict:
             continue
         rama.add(actual)
         pendientes.extend(hijas.get(actual, []))
+    perfil = DatosDeContacto.objects.filter(usuario=usuario, cargo__isnull=False).first()
+    equipo = reportes.debajo(perfil.cargo_id, perfil.empresa_id) if perfil else set()
+    cargos = [c for c in completo["cargos"] if c["unidad"] in rama or c["id"] in equipo]
+    con_cargos = rama | {c["unidad"] for c in cargos}
     return {
         "niveles_cargo": completo["niveles_cargo"],
         "niveles": completo["niveles"],
-        "unidades": [u for u in completo["unidades"] if u["id"] in rama],
-        "cargos": [c for c in completo["cargos"] if c["unidad"] in rama],
+        "unidades": [u for u in completo["unidades"] if u["id"] in con_cargos],
+        "cargos": cargos,
         "alcance": {"tipo": "area", "unidad": {"id": unidad.id, "nombre": unidad.nombre}},
     }
 

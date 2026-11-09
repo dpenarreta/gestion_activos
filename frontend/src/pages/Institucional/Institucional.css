@@ -4278,3 +4278,37 @@
 .form-text .solicitud-ayuda-medica {
   font-size: 13px;
 }
+
+/* El reporte secundario (línea punteada, 09/11/2026): una marca en el cargo
+   con un trazo punteado delante, porque el árbol cuelga cada cargo solo de su
+   jefe inmediato. El texto lo dice todo; el trazo es decorativo. */
+.org-secundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 1px 8px;
+  border: 1px dashed var(--mz-border-strong);
+  /* 6 px y no una píldora: con varios jefes el texto ocupa varias líneas y
+     el borde redondo se deformaba (auditoría UX/UI, 09/11/2026). */
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--mz-ink-soft);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.org-secundario__linea {
+  flex: none;
+  width: 14px;
+  border-top: 2px dotted currentColor;
+}
+
+/* Sobre el azul marino del nivel 0 el gris suave quedaba en ~1,8:1: en
+   blanco, como las personas del cargo (auditoría UX/UI, 09/11/2026). */
+.org-nodo--nivel-0 .org-secundario {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}

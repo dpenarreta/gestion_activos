@@ -391,10 +391,12 @@ def test_el_catalogo_agrupa_novedades_en_gestion_humana(db):
 
 def test_la_migracion_siembra_los_roles_operativos(db):
     def de(rol):
-        # «Crear tickets» lo reciben todos los roles (roles/0040, 09/11/2026):
-        # no es de Novedades.
+        # «Crear tickets» lo reciben todos los roles (roles/0040, 09/11/2026),
+        # y los dos de la Mesa de ayuda (roles/0043): no son de Novedades.
         return set(Group.objects.get(name=rol).permissions.values_list("codename", flat=True)) - {
-            "soporte.crear"
+            "soporte.crear",
+            "soporte.mesa_crear",
+            "soporte.mesa_mis_tickets",
         }
 
     assert de(perms.SUPERVISOR_ROLE) == {
@@ -442,8 +444,9 @@ def test_el_administrador_de_gestion_humana_solo_administra_el_modulo(courier):
         | set(PERMISSION_CATALOG["privacidad"]["permissions"])
         # Nova (roles/0041 y 0042): la IA de Gestión Humana.
         | set(PERMISSION_CATALOG["nova"]["permissions"])
-        # Como todo rol desde roles/0040: crear tickets a su nombre.
-        | {"soporte.crear"}
+        # Como todo rol desde roles/0040: crear tickets a su nombre, y desde
+        # roles/0043 sus tickets y crearlos en la Mesa de ayuda.
+        | {"soporte.crear", "soporte.mesa_crear", "soporte.mesa_mis_tickets"}
     )
 
     admin_gh = _cuenta("admin_gh", {courier: ["Administrador de Gestión Humana"]})
@@ -488,8 +491,11 @@ def test_los_roles_de_gestion_humana_solo_conceden_tareas_y_equipo(db):
                 (
                     "tareas.",
                     "equipo.",
-                    # Como todo rol desde roles/0040: crear tickets a su nombre.
+                    # Como todo rol desde roles/0040: crear tickets a su nombre;
+                    # desde roles/0043, también sus tickets y crearlos en la Mesa.
                     "soporte.crear",
+                    "soporte.mesa_crear",
+                    "soporte.mesa_mis_tickets",
                     # Nova (roles/0041 y 0042): la IA de Gestión Humana.
                     "nova.",
                     "proyectos_gh.",

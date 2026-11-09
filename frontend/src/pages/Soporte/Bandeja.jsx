@@ -17,7 +17,11 @@ import { useAuth } from "../../hooks/useAuth";
 import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
-import { PERMISOS_SOPORTE } from "../../modulos/permisosSoporte";
+import {
+  PERMISO_MESA_CREAR,
+  PERMISO_MESA_MIS_TICKETS,
+  PERMISOS_SOPORTE,
+} from "../../modulos/permisosSoporte";
 import { formatearFecha } from "../../utils/formato";
 import { mensajeDeError } from "../../utils/errores";
 import {
@@ -36,8 +40,16 @@ const SIN_COLA = "No hay tickets en la cola que usted pueda atender.";
 /**
  * Bandeja de la mesa de ayuda.
  *
- * Toda persona ve aquí «Mis solicitudes»: lo que ella creó, en cualquier
- * estado, con su posición en la cola (21/10/2026); cada quien solo lo suyo.
+ * «Mis tickets» es lo que la persona creó, en cualquier estado, con su
+ * posición en la cola (21/10/2026); cada quien solo lo suyo. Desde el
+ * 09/11/2026 pide «Ver sus tickets en la Mesa de ayuda»
+ * (`soporte.mesa_mis_tickets`): quien no es del equipo entra a la bandeja solo
+ * con él y solo ve esa vista (el servidor tampoco le da otra). «Pedir ayuda a
+ * su nombre» pide «Crear tickets en la Mesa de ayuda» (`soporte.mesa_crear`).
+ *
+ * Auditoría UX/UI (09/11/2026): era «Mis solicitudes», como en Activos; ahora
+ * «Mis tickets», y la pestaña del técnico con lo que atiende, «Asignados a
+ * mí», para no repetir el nombre.
  * Quien es del equipo ve además, arriba, su estado (en horario, cuántos tiene
  * y cuántos esperan en la cola para él) y «Tomar siguiente», y abajo sus
  * tickets, la cola o —para quien coordina— todos los de la empresa.
@@ -49,27 +61,48 @@ export function Bandeja({ todos = false }) {
   const delEquipo = PERMISOS_SOPORTE.some((p) =>
     user?.permissions?.includes(p),
   );
-  // Crear un ticket propio desde el módulo (09/11/2026).
-  const puedeCrear = Boolean(user?.permissions?.includes("soporte.crear"));
+  // Crear un ticket propio desde el módulo y ver los suyos aquí: permisos
+  // propios de la Mesa, aparte de `soporte.crear` de «Soporte TI» (09/11/2026).
+  const puedeCrear = Boolean(user?.permissions?.includes(PERMISO_MESA_CREAR));
+  const veMisSolicitudes = Boolean(
+    user?.permissions?.includes(PERMISO_MESA_MIS_TICKETS),
+  );
+  // Sin «Crear tickets en la Mesa de ayuda», la salida es «Soporte TI».
+  const puedeCrearEnSoporteTI = Boolean(
+    user?.permissions?.includes("soporte.crear"),
+  );
   const [cabecera, setCabecera] = useState(null);
+  // Si la cabecera no carga, no se sabe qué pestaña abrir: antes quedaba una
+  // rueda girando para siempre (auditoría UX/UI, 09/11/2026).
+  const [errorCabecera, setErrorCabecera] = useState(null);
   const [parametros, setParametros] = useSearchParams();
   /* La pestaña va en la dirección (?vista=…): al recargar se queda donde
    * estaba. Sin elegir, la que corresponde una vez que se sabe quién es
    * (auditoría UX/UI, 30/10/2026: al recargar, el técnico caía en «Mis
    * solicitudes», porque se decidía antes de cargar sus permisos). */
+  // Una vista que no le corresponde no se toma de la dirección: «Mis
+  // tickets» (lo suyo) pide su permiso y las demás, ser del equipo.
   const elegida = parametros.get("vista");
-  const ambito = todos
-    ? "todos"
-    : elegida ||
-      (!delEquipo
+  const elegidaValida =
+    elegida && (elegida === "creados" ? veMisSolicitudes : delEquipo)
+      ? elegida
+      : null;
+  const porDefecto = !delEquipo
+    ? "creados"
+    : cabecera
+      ? cabecera.tecnico
+        ? "mios"
+        : cabecera.puede.ver_todos
+          ? "todos"
+          : veMisSolicitudes
+            ? "creados"
+            : "mios"
+      : // Sin cabecera por un error, a lo suyo si lo puede ver; si no, el
+        // error con «Reintentar».
+        errorCabecera && veMisSolicitudes
         ? "creados"
-        : cabecera
-          ? cabecera.tecnico
-            ? "mios"
-            : cabecera.puede.ver_todos
-              ? "todos"
-              : "creados"
-          : null);
+        : null;
+  const ambito = todos ? "todos" : elegidaValida || porDefecto;
   const setAmbito = (vista) =>
     setParametros(
       (actuales) => {
@@ -86,7 +119,7 @@ export function Bandeja({ todos = false }) {
 
   const cargar = useCallback(
     (params) =>
-      // «Mis solicitudes» tiene su propio listado (ver `MisSolicitudes`), y
+      // «Mis tickets» tiene su propio listado (ver `MisSolicitudes`), y
       // sin saber todavía la pestaña no se pide nada.
       ambito === "creados" || ambito === null
         ? Promise.resolve({ results: [], count: 0 })
@@ -115,11 +148,23 @@ export function Bandeja({ todos = false }) {
     // Quien no es del equipo no tiene estado de técnico que mostrar: pedirlo
     // solo dejaría un acceso denegado en la auditoría cada medio minuto.
     if (!delEquipo) return;
+    // Un fallo al refrescar no borra la cabecera que ya se tenía.
     soporteService
       .bandeja()
-      .then(setCabecera)
-      .catch(() => setCabecera(null));
+      .then((datos) => {
+        setCabecera(datos);
+        setErrorCabecera(null);
+      })
+      .catch((err) =>
+        setErrorCabecera(
+          mensajeDeError(err, "No se pudo cargar la bandeja de soporte."),
+        ),
+      );
   }, [delEquipo]);
+  const reintentarCabecera = () => {
+    setErrorCabecera(null);
+    cargarCabecera();
+  };
 
   useEffect(() => {
     cargarCabecera();
@@ -201,23 +246,31 @@ export function Bandeja({ todos = false }) {
   const ambitos = [
     ...(tecnico
       ? [
-          ["mios", "Mis tickets"],
+          ["mios", "Asignados a mí"],
           ["cola", "Cola"],
         ]
       : []),
     ...(cabecera?.puede.ver_todos ? [["todos", "Todos"]] : []),
-    ["creados", "Mis solicitudes"],
+    ...(veMisSolicitudes ? [["creados", "Mis tickets"]] : []),
   ];
 
   return (
     <div className="soporte-page">
       <div className="mz-view-head">
         <div>
-          <h2>{todos ? "Todos los tickets" : "Bandeja de soporte"}</h2>
+          {/* Quien no es del equipo solo tiene su vista: el título es el de
+              ella (auditoría UX/UI, 09/11/2026). */}
+          <h2>
+            {todos
+              ? "Todos los tickets"
+              : delEquipo
+                ? "Bandeja de soporte"
+                : "Mis tickets"}
+          </h2>
           <p className="mz-desc">
             {cabecera
               ? `${cabecera.cola_total} ticket(s) esperan en la cola de la empresa.`
-              : "Sus solicitudes a la Mesa de ayuda de TI y en qué van."}
+              : "Lo que ha pedido a la Mesa de ayuda de TI y en qué va."}
           </p>
         </div>
         {(tecnico || cabecera?.puede.registrar || puedeCrear) && (
@@ -233,7 +286,7 @@ export function Bandeja({ todos = false }) {
                 }`}
                 to="/admin/soporte/nuevo"
               >
-                <Icon name="plus-lg" /> Pedir ayuda (a mi nombre)
+                <Icon name="plus-lg" /> Pedir ayuda a su nombre
               </Link>
             )}
             {/* Lo que llega por teléfono, WhatsApp o en persona también se
@@ -329,6 +382,23 @@ export function Bandeja({ todos = false }) {
           {error}
         </div>
       )}
+      {/* Del equipo, sin cabecera y viendo lo suyo: que sepa por qué no
+          están sus pestañas y pueda reintentarlo. */}
+      {errorCabecera && !cabecera && ambito !== null && (
+        <div className="mz-alert mz-alert--bad" role="alert">
+          <Icon name="x-octagon" />
+          <span>
+            {errorCabecera}{" "}
+            <button
+              type="button"
+              className="btn btn-link btn-sm p-0 align-baseline"
+              onClick={reintentarCabecera}
+            >
+              Reintentar
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Pestañas de verdad (auditoría UX/UI, fase 2, 28/10/2026): antes era
           un <nav> con aria-current en botones que no navegan. */}
@@ -350,9 +420,20 @@ export function Bandeja({ todos = false }) {
         sinPestanas={!(ambitos.length > 1 && !todos)}
       >
         {ambito === null ? (
-          <EstadoDeCarga cargando />
+          errorCabecera ? (
+            <EstadoDeCarga
+              error={errorCabecera}
+              onReintentar={reintentarCabecera}
+            />
+          ) : (
+            <EstadoDeCarga cargando />
+          )
         ) : ambito === "creados" ? (
-          <MisSolicitudes puedeCrear={puedeCrear} />
+          <MisSolicitudes
+            desdeLaMesa
+            puedeCrear={puedeCrear}
+            puedeCrearEnSoporteTI={puedeCrearEnSoporteTI}
+          />
         ) : (
           <>
             <form
@@ -608,15 +689,27 @@ function QueSigue({ ticket }) {
 }
 
 /**
- * «Mis solicitudes»: los tickets que la persona creó, en cualquier estado.
+ * «Mis tickets»: los tickets que la persona creó, en cualquier estado.
  * Solo los suyos (el servidor no devuelve otros) y abren su ficha de
  * seguimiento, la de quien pide —sin notas internas—.
  *
  * Auditoría UX/UI (30/10/2026): primero los que le piden algo («Le
  * respondieron», «Confirme si quedó resuelto»), con la columna «Qué sigue»;
  * la prioridad en palabras llanas (sin «P1») y un botón «Ver» por fila.
+ *
+ * `desdeLaMesa`: la bandeja de la Mesa de ayuda, que pide sus propios
+ * permisos (09/11/2026): la lista, `soporte.mesa_mis_tickets`, y el enlace
+ * para pedir ayuda lleva al formulario del módulo (`puedeCrear` es entonces
+ * `soporte.mesa_crear`). En «Soporte TI» no se pide permiso para la lista.
+ * Sin él, pero con `soporte.crear` (`puedeCrearEnSoporteTI`), el vacío lleva
+ * a «Soporte TI» en vez de quedarse sin salida (auditoría UX/UI, 09/11/2026).
  */
-export function MisSolicitudes({ onCargados, puedeCrear = true }) {
+export function MisSolicitudes({
+  onCargados,
+  puedeCrear = true,
+  desdeLaMesa = false,
+  puedeCrearEnSoporteTI = false,
+}) {
   // Con ref: la lista se consulta cada 30 s y no debe recargarse si cambia.
   const avisar = useRef(onCargados);
   avisar.current = onCargados;
@@ -627,8 +720,10 @@ export function MisSolicitudes({ onCargados, puedeCrear = true }) {
   const cargar = useCallback(() => {
     // El error se borra al cargar bien: se consulta cada 30 s y, si se
     // borrara antes, el aviso se anunciaría de nuevo en cada vuelta.
-    soporteService
-      .misTickets()
+    (desdeLaMesa
+      ? soporteService.misSolicitudesEnLaMesa()
+      : soporteService.misTickets()
+    )
       .then((datos) => {
         setTickets(datos);
         setError(null);
@@ -637,7 +732,7 @@ export function MisSolicitudes({ onCargados, puedeCrear = true }) {
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudieron cargar sus solicitudes.")),
       );
-  }, []);
+  }, [desdeLaMesa]);
 
   useEffect(() => {
     cargar();
@@ -652,9 +747,16 @@ export function MisSolicitudes({ onCargados, puedeCrear = true }) {
   const peso = (t) => (queSigue(t).accion ? 0 : t.estado === "cerrado" ? 2 : 1);
   const ordenados = [...(tickets ?? [])].sort((a, b) => peso(a) - peso(b));
   const pendientes = ordenados.filter((t) => queSigue(t).accion).length;
-  // Sin «Crear tickets» no se invita a pedir ayuda (09/11/2026).
-  const pedirAyuda = puedeCrear ? (
-    <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>
+  // Sin el permiso de crear no se invita a pedir ayuda (09/11/2026).
+  const aSoporteTI = <Link to="/admin/ayuda">Pedir ayuda en Soporte TI</Link>;
+  const pedirAyuda = !desdeLaMesa ? (
+    puedeCrear ? (
+      aSoporteTI
+    ) : undefined
+  ) : puedeCrear ? (
+    <Link to="/admin/soporte/nuevo">Pedir ayuda a su nombre</Link>
+  ) : puedeCrearEnSoporteTI ? (
+    aSoporteTI
   ) : undefined;
 
   return (

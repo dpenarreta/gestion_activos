@@ -12,7 +12,12 @@ import {
   PERMISOS_DASHBOARDS,
   RUTA_DASHBOARDS,
 } from "../../../modulos/permisosDashboards";
-import { RUTA_SOPORTE } from "../../../modulos/permisosSoporte";
+import {
+  PERMISO_MESA_CREAR,
+  PERMISO_MESA_MIS_TICKETS,
+  PERMISOS_SOPORTE,
+  RUTA_SOPORTE,
+} from "../../../modulos/permisosSoporte";
 import {
   NOVA_CHAT,
   NOVA_CONOCIMIENTO_GESTIONAR,
@@ -273,21 +278,43 @@ export const ADMIN_MENU = [
     name: "Bandeja",
     icon: "inbox",
     path: `${RUTA_SOPORTE}/bandeja`,
-    // Sin permiso (21/10/2026): toda persona ve ahí sus solicitudes; lo del
-    // equipo (su bandeja, la cola, todos) lo decide cada pestaña.
+    // La del equipo (su bandeja, la cola, todos; cada pestaña según sus
+    // permisos). Quien no es del equipo entra por «Mis tickets».
     // La ficha de un ticket se abre desde la bandeja: la marca a ella.
+    permission: PERMISOS_SOPORTE,
     rutas: [`${RUTA_SOPORTE}/tickets`],
   },
   {
-    // Un ticket a su nombre, con el formulario de «Soporte TI» (09/11/2026).
+    // La bandeja solo en «Mis tickets»: lo que la persona creó, con «Ver
+    // sus tickets en la Mesa de ayuda» (09/11/2026). Quien es del equipo ya
+    // la tiene como pestaña de «Bandeja» y no la ve repetida (`salvoCon`).
     // Es de todo empleado (todos los roles lo traen): no hace de alguien
     // «una cuenta con permisos» para la pantalla de 403 (ver `conPermiso`).
+    // «Mis tickets» y no «Mis solicitudes», que es de Activos y con el mismo
+    // ícono (auditoría UX/UI, 09/11/2026).
+    id: "soporte-mis-solicitudes",
+    modulo: "soporte",
+    name: "Mis tickets",
+    icon: "ticket-perforated",
+    path: `${RUTA_SOPORTE}/bandeja?vista=creados`,
+    rutas: [`${RUTA_SOPORTE}/bandeja`],
+    permission: PERMISO_MESA_MIS_TICKETS,
+    salvoCon: PERMISOS_SOPORTE,
+    deTodoEmpleado: true,
+  },
+  {
+    // Un ticket a su nombre, con el formulario de «Soporte TI», pero con su
+    // propio permiso: «Crear tickets en la Mesa de ayuda» (09/11/2026).
+    // Es de todo empleado (todos los roles lo traen): no hace de alguien
+    // «una cuenta con permisos» para la pantalla de 403 (ver `conPermiso`).
+    // El mismo nombre que el botón de la bandeja y el título del formulario
+    // (auditoría UX/UI, 09/11/2026).
     id: "soporte-nuevo",
     modulo: "soporte",
-    name: "Nuevo ticket",
+    name: "Pedir ayuda a su nombre",
     icon: "plus-lg",
     path: `${RUTA_SOPORTE}/nuevo`,
-    permission: "soporte.crear",
+    permission: PERMISO_MESA_CREAR,
     deTodoEmpleado: true,
   },
   {
@@ -863,6 +890,10 @@ function filterByPermission(items, permissions, heredado = undefined) {
     .map((item) => {
       const propio = item.permission ?? heredado;
       if (item.requiere && !permissions.includes(item.requiere)) return null;
+      // `salvoCon`: no se muestra a quien ya tiene alguno de esos permisos
+      // (lo tiene por otra entrada, como «Mis solicitudes» dentro de la
+      // «Bandeja» del equipo de la Mesa).
+      if (item.salvoCon && esVisible(item.salvoCon, permissions)) return null;
       if (!item.children) {
         return esVisible(propio, permissions) ? item : null;
       }

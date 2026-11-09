@@ -73,8 +73,11 @@ function SusDatos({ datos, onEditar }) {
  * a su detalle en «Soporte TI»; desde la Mesa de ayuda («Nuevo ticket propio»)
  * a «Mis solicitudes» de la bandeja, para no sacar a la persona del módulo.
  * Recibe el ticket creado y devuelve `{ to, texto }`.
+ *
+ * `desdeLaMesa`: se crea por la ruta de la Mesa de ayuda, que pide
+ * `soporte.mesa_crear` y no `soporte.crear` (09/11/2026).
  */
-export function NuevoTicket({ irAlCreado = alDetalle }) {
+export function NuevoTicket({ irAlCreado = alDetalle, desdeLaMesa = false }) {
   const [datos, setDatos] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
   const [editando, setEditando] = useState(false);
@@ -94,14 +97,14 @@ export function NuevoTicket({ irAlCreado = alDetalle }) {
   const cargar = useCallback(() => {
     setErrorCarga(null);
     soporteService
-      .solicitar()
+      .solicitar({ desdeLaMesa })
       .then(setDatos)
       .catch((err) =>
         setErrorCarga(
           mensajeDeError(err, "No se pudo abrir la mesa de ayuda."),
         ),
       );
-  }, []);
+  }, [desdeLaMesa]);
 
   useEffect(() => {
     cargar();
@@ -145,7 +148,9 @@ export function NuevoTicket({ irAlCreado = alDetalle }) {
           .map((c) => [c.clave, adicionales[c.clave]]),
       );
       campos.adicionales = JSON.stringify(propios);
-      setCreado(await soporteService.crearTicket(campos, archivos));
+      setCreado(
+        await soporteService.crearTicket(campos, archivos, { desdeLaMesa }),
+      );
     } catch (err) {
       const delServidor = erroresPorCampo(err);
       setErrores(delServidor);

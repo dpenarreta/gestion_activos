@@ -315,13 +315,17 @@ PERMISSION_CATALOG = {
     "soporte": {
         "label": "Mesa de ayuda",
         "description": (
-            "Tickets de soporte de TI. Crear tickets a su nombre («Soporte TI», "
-            "en la barra superior, o «Nuevo ticket» en la Mesa de ayuda) pide "
-            "«Crear tickets», que tienen todos los roles al empezar y se puede "
-            "quitar al rol que no deba pedir ayuda; una cuenta sin ningún rol "
-            "también puede crearlos. Seguir y responder los propios tickets ya "
-            "creados lo puede siempre quien los pidió, aunque luego pierda el "
-            "permiso. Aprobar una solicitud lo hace quien figure como aprobador "
+            "Tickets de soporte de TI. Crear tickets a su nombre desde «Soporte "
+            "TI», en la barra superior, pide «Crear tickets». Dentro de la Mesa "
+            "de ayuda hay dos permisos aparte: «Ver sus tickets en la Mesa de "
+            "ayuda» (la bandeja, solo en «Mis solicitudes») y «Crear tickets en "
+            "la Mesa de ayuda» («Pedir ayuda (a mi nombre)»); ninguno hace a "
+            "nadie parte del equipo ni deja ver tickets ajenos. Los tres los "
+            "tienen todos los roles al empezar y se pueden quitar a un rol; una "
+            "cuenta sin ningún rol también los tiene. Seguir y responder los "
+            "propios tickets ya creados desde «Soporte TI › Mis tickets» lo "
+            "puede siempre quien los pidió, aunque luego pierda los permisos. "
+            "Aprobar una solicitud lo hace quien figure como aprobador "
             "del servicio. Los demás permisos son los del equipo de la mesa: los "
             "tickets se reparten por disponibilidad entre los técnicos de cada "
             "categoría y en su horario."
@@ -334,8 +338,23 @@ PERMISSION_CATALOG = {
             # de un cargo; la cuenta sin ningún rol lo conserva por
             # `authorization.PERMISOS_SIN_ROL`.
             "soporte.crear": (
-                "Crear tickets a su nombre (desde «Soporte TI» o desde la Mesa "
-                "de ayuda) y seguir los propios"
+                "Crear tickets a su nombre desde «Soporte TI» (la barra superior) "
+                "y seguir los propios"
+            ),
+            # La Mesa de ayuda por dentro, para quien no es del equipo
+            # (09/11/2026): dos permisos distintos de `soporte.crear` y entre
+            # sí. Los conceden a todos los roles `roles/0043`, a los de cargo
+            # `organizacion.roles_de_cargo.PERMISOS_BASE` y a la cuenta sin
+            # rol `authorization.PERMISOS_SIN_ROL`.
+            "soporte.mesa_mis_tickets": (
+                "Ver sus tickets en la Mesa de ayuda: entrar a la bandeja solo en "
+                "«Mis solicitudes», con los tickets que usted creó (no da acceso "
+                "a tickets de otros ni a las vistas del equipo)"
+            ),
+            "soporte.mesa_crear": (
+                "Crear tickets en la Mesa de ayuda: «Pedir ayuda (a mi nombre)» "
+                "desde la bandeja, un ticket a su nombre (no lo hace parte del "
+                "equipo ni le deja ver tickets de otros)"
             ),
             "soporte.atender": (
                 "Atender tickets: bandeja propia, tomar de la cola, responder, "

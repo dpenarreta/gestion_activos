@@ -37,9 +37,11 @@ Decisiones del usuario y del levantamiento:
 - «Ecuacopia», en el bloque de Quito, es un proveedor externo: no es cargo ni
   persona y no se carga.
 - Cartera cuelga de Financiero Administrativo, pero su Jefatura reporta al
-  Gerente General. El cargo tiene un solo jefe (no hay reporte funcional o
-  secundario en el modelo), así que la relación con el Jefe Financiero queda
-  solo en la unidad. Sus cargos de `cartera_2026` se renombran (conservan su
+  Gerente General. Cuando se hizo, el cargo tenía un solo jefe y la relación
+  con el Jefe Financiero quedó solo en la unidad; desde el mismo día hay
+  reporte secundario (`Cargo.jefes_secundarios`, `reportes.py`) y la
+  migración 0046 (`reporte_secundario_2026`) lo asigna: la Jefatura de
+  Cartera reporta también al Jefe Financiero Administrativo. Sus cargos de `cartera_2026` se renombran (conservan su
   rol): el Coordinador pasa a Coordinador de Cartera Zona Sur, la Asistente de
   Tesorería a Asistente de Cartera, las tres asistentes del Jefe a COD y los
   telecobradores y recaudadores llevan su ciudad; la Asistente de Cartera del
@@ -48,6 +50,8 @@ Decisiones del usuario y del levantamiento:
   reportando al Gerente General (`JEFE_DE_TALENTO_HUMANO`): es regla del
   usuario que el gerente de un área reporte al Gerente General, y una Gerencia
   de Área no puede reportar a una Jefatura (`niveles_cargo.validar_jefe`).
+  El reporte secundario al Jefe Financiero Administrativo, que no tiene esa
+  regla de niveles, lo asigna la migración 0046 (`reporte_secundario_2026`).
   El Jefe y la Asistente de Nómina salen de ahí al área Nómina, con su rol y
   quienes los ocupan.
 - Los cargos que ya estaban en Financiero Administrativo pasan a su área si

@@ -16,6 +16,11 @@ import { MatrizObligacionesPage } from "../pages/Matriz/MatrizObligacionesPage";
 import { ReportesMatriz } from "../pages/Matriz/ReportesMatriz";
 import { RequiereRolMatriz } from "../pages/Matriz/RequiereRolMatriz";
 import { PERMISOS_MATRIZ } from "../modulos/permisosMatriz";
+import {
+  PERMISO_MESA_CREAR,
+  PERMISO_MESA_MIS_TICKETS,
+  PERMISOS_SOPORTE,
+} from "../modulos/permisosSoporte";
 import { ResumenMatriz } from "../pages/Matriz/ResumenMatriz";
 import { OrdenDetalle } from "../pages/Ordenes/OrdenDetalle";
 import { CodigosConductaPage } from "../pages/Institucional/CodigosConductaPage";
@@ -1175,9 +1180,19 @@ export function AppRoutes() {
           path="soporte"
           element={<Navigate to="/admin/soporte/bandeja" replace />}
         />
-        {/* La Bandeja es de toda persona: «Mis solicitudes» muestra lo que
-            creó; las pestañas del equipo dependen de sus permisos. */}
-        <Route path="soporte/bandeja" element={<Bandeja />} />
+        {/* La Bandeja: la del equipo, o «Mis solicitudes» (lo que la persona
+            creó) con «Ver sus tickets en la Mesa de ayuda» (09/11/2026). Las
+            pestañas del equipo dependen de sus permisos. */}
+        <Route
+          path="soporte/bandeja"
+          element={
+            <RequirePermission
+              permission={[...PERMISOS_SOPORTE, PERMISO_MESA_MIS_TICKETS]}
+            >
+              <Bandeja />
+            </RequirePermission>
+          }
+        />
         <Route
           path="soporte/todos"
           element={
@@ -1202,11 +1217,12 @@ export function AppRoutes() {
           }
         />
         {/* Un ticket a su nombre desde el módulo: el formulario de «Soporte
-            TI» (09/11/2026). */}
+            TI», con su propio permiso, «Crear tickets en la Mesa de ayuda»
+            (09/11/2026). */}
         <Route
           path="soporte/nuevo"
           element={
-            <RequirePermission permission="soporte.crear">
+            <RequirePermission permission={PERMISO_MESA_CREAR}>
               <NuevoTicketPropio />
             </RequirePermission>
           }

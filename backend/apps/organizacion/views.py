@@ -578,7 +578,11 @@ class CargoViewSet(_EstructuraViewSet):
         return respuesta
 
     def get_queryset(self):
-        return Cargo.objects.select_related("unidad", "jefe").order_by("nombre")
+        return (
+            Cargo.objects.select_related("unidad", "jefe")
+            .prefetch_related("jefes_secundarios")
+            .order_by("nombre")
+        )
 
 
 class PerfilCargoView(APIView):

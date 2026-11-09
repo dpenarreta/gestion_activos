@@ -8,8 +8,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * - El botón «Soporte TI» de la barra superior solo se ofrece con el permiso.
  * - En /admin/ayuda, sin el permiso, no hay pestaña «Nuevo ticket»: se abre
  *   «Mis tickets» con una nota de a quién pedir el permiso.
- * - En la Mesa de ayuda, «Nuevo ticket» aparece en el menú con el permiso, y
- *   no hace de nadie «una cuenta con permisos» para el 403.
+ * - En la Mesa de ayuda, «Pedir ayuda a su nombre» aparece en el menú con su propio
+ *   permiso, «Crear tickets en la Mesa de ayuda» (`soporte.mesa_crear`), y
+ *   «Mis tickets» con «Ver sus tickets en la Mesa de ayuda»
+ *   (`soporte.mesa_mis_tickets`); ninguno hace de nadie «una cuenta con
+ *   permisos» para el 403 ni lo vuelve del equipo.
  */
 
 const permisos = { lista: [] };
@@ -24,6 +27,7 @@ vi.mock("../src/hooks/useAuth", () => ({
 
 const servicio = {
   misTickets: vi.fn(),
+  misSolicitudesEnLaMesa: vi.fn(),
   solicitar: vi.fn(),
   crearTicket: vi.fn(),
 };
@@ -182,9 +186,9 @@ describe("Soporte TI sin «Crear tickets»", () => {
   });
 });
 
-describe("«Nuevo ticket» de la Mesa de ayuda", () => {
-  it("el título no repite la barra y remite a «Registrar ticket» a quien puede", () => {
-    permisos.lista = ["soporte.crear", "soporte.registrar"];
+describe("«Pedir ayuda a su nombre» de la Mesa de ayuda", () => {
+  it("el título es el del menú y remite a «Registrar ticket» a quien puede", () => {
+    permisos.lista = ["soporte.mesa_crear", "soporte.registrar"];
     pintar(
       <NuevoTicketPropio />,
       "/admin/soporte/nuevo",
@@ -192,7 +196,7 @@ describe("«Nuevo ticket» de la Mesa de ayuda", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Pida ayuda a su nombre" }),
+      screen.getByRole("heading", { name: "Pedir ayuda a su nombre" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/¿Es para otra persona\?/)).toBeInTheDocument();
     expect(
@@ -201,7 +205,7 @@ describe("«Nuevo ticket» de la Mesa de ayuda", () => {
   });
 
   it("sin «Registrar ticket» no lo menciona", () => {
-    permisos.lista = ["soporte.crear"];
+    permisos.lista = ["soporte.mesa_crear"];
     pintar(
       <NuevoTicketPropio />,
       "/admin/soporte/nuevo",
@@ -210,26 +214,96 @@ describe("«Nuevo ticket» de la Mesa de ayuda", () => {
 
     expect(screen.queryByText(/¿Es para otra persona\?/)).toBeNull();
   });
+
+  it("pide el formulario por la ruta de la Mesa, no la de «Soporte TI»", () => {
+    permisos.lista = ["soporte.mesa_crear", "soporte.mesa_mis_tickets"];
+    pintar(
+      <NuevoTicketPropio />,
+      "/admin/soporte/nuevo",
+      "/admin/soporte/nuevo",
+    );
+
+    expect(servicio.solicitar).toHaveBeenCalledWith({ desdeLaMesa: true });
+    expect(
+      screen.getByRole("link", { name: "Volver a la bandeja" }),
+    ).toHaveAttribute("href", "/admin/soporte/bandeja?vista=creados");
+  });
+
+  it("sin ver sus tickets en la Mesa, no ofrece volver a la bandeja", () => {
+    permisos.lista = ["soporte.mesa_crear"];
+    pintar(
+      <NuevoTicketPropio />,
+      "/admin/soporte/nuevo",
+      "/admin/soporte/nuevo",
+    );
+
+    expect(
+      screen.queryByRole("link", { name: "Volver a la bandeja" }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/Lo sigue en «Soporte TI › Mis tickets»/),
+    ).toBeInTheDocument();
+  });
 });
 
-describe("«Nuevo ticket» en el menú de la Mesa de ayuda", () => {
+describe("«Pedir ayuda a su nombre» en el menú de la Mesa de ayuda", () => {
   const nuevo = (lista) =>
     getVisibleAdminMenu(lista, "soporte").find((i) => i.id === "soporte-nuevo");
 
   it("aparece con el permiso y lleva al formulario del módulo", () => {
-    const entrada = nuevo(["soporte.crear"]);
+    const entrada = nuevo(["soporte.mesa_crear"]);
     expect(entrada).toMatchObject({
-      name: "Nuevo ticket",
+      name: "Pedir ayuda a su nombre",
       path: "/admin/soporte/nuevo",
     });
   });
 
-  it("no aparece sin el permiso", () => {
+  it("no aparece sin el permiso, aunque pueda crear desde «Soporte TI»", () => {
     expect(nuevo(["soporte.atender"])).toBeUndefined();
+    expect(nuevo(["soporte.crear"])).toBeUndefined();
   });
 
   it("no cuenta como un permiso «de verdad» para la pantalla de 403", () => {
-    const menu = getVisibleAdminMenu(["soporte.crear"], "soporte");
+    const menu = getVisibleAdminMenu(["soporte.mesa_crear"], "soporte");
     expect(conPermiso(menu).map((i) => i.id)).not.toContain("soporte-nuevo");
+  });
+});
+
+describe("«Mis tickets» en el menú de la Mesa de ayuda", () => {
+  const ids = (lista) =>
+    getVisibleAdminMenu(lista, "soporte")
+      .filter((i) => i.modulo === "soporte")
+      .map((i) => i.id);
+
+  it("con solo «Ver sus tickets», «Mis tickets» y no la bandeja del equipo", () => {
+    const menu = getVisibleAdminMenu(["soporte.mesa_mis_tickets"], "soporte");
+    // No «Mis solicitudes»: esa es de Activos, con otro ícono.
+    expect(menu.find((i) => i.id === "soporte-mis-solicitudes")).toMatchObject({
+      name: "Mis tickets",
+      icon: "ticket-perforated",
+      path: "/admin/soporte/bandeja?vista=creados",
+    });
+    expect(ids(["soporte.mesa_mis_tickets"])).toEqual([
+      "soporte-mis-solicitudes",
+    ]);
+  });
+
+  it("sin permisos de la Mesa, el módulo no tiene nada", () => {
+    expect(ids(["soporte.crear"])).toEqual([]);
+    expect(ids([])).toEqual([]);
+  });
+
+  it("quien es del equipo la tiene dentro de «Bandeja», sin repetirla", () => {
+    const propios = ids(["soporte.atender", "soporte.mesa_mis_tickets"]);
+    expect(propios).toContain("soporte-bandeja");
+    expect(propios).not.toContain("soporte-mis-solicitudes");
+  });
+
+  it("no cuenta como un permiso «de verdad» para la pantalla de 403", () => {
+    const menu = getVisibleAdminMenu(
+      ["soporte.mesa_mis_tickets", "soporte.mesa_crear", "soporte.crear"],
+      "soporte",
+    );
+    expect(conPermiso(menu).filter((i) => i.modulo === "soporte")).toEqual([]);
   });
 });

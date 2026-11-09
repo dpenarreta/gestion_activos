@@ -72,6 +72,10 @@ CAMPOS_CARGO = (
     "competencias",
     "kpis",
 )
+#: El reporte secundario (`reportes.py`): una lista de ids de cargo, que se
+#: guarda y compara junto con los campos del cargo.
+SECUNDARIOS = "jefes_secundarios"
+CAMPOS_CARGO_COMPARADOS = (*CAMPOS_CARGO, SECUNDARIOS)
 PERFIL = ("objetivo", "funciones", "competencias", "kpis")
 ETIQUETAS = {
     "nombre": "nombre",
@@ -85,6 +89,7 @@ ETIQUETAS = {
     "activo": "activo",
     "unidad_id": "unidad",
     "jefe_id": "jefe inmediato",
+    SECUNDARIOS: "también reporta a",
     "plazas": "plazas",
     "nivel": "nivel jerárquico",
 }
@@ -96,6 +101,11 @@ ETIQUETAS = {
 def foto() -> dict:
     """Cómo está ahora toda la estructura del organigrama de la empresa."""
     cargos = list(Cargo.objects.select_related("rol").order_by("id"))
+    secundarios: dict[int, list[int]] = {}
+    for cargo_id, jefe_id in Cargo.jefes_secundarios.through.objects.filter(
+        from_cargo__in=Cargo.objects.all()
+    ).values_list("from_cargo_id", "to_cargo_id"):
+        secundarios.setdefault(cargo_id, []).append(jefe_id)
     permisos = {}
     for cargo in cargos:
         if cargo.rol_id:
@@ -113,6 +123,7 @@ def foto() -> dict:
             {
                 "id": c.id,
                 **{campo: getattr(c, campo) for campo in CAMPOS_CARGO},
+                SECUNDARIOS: sorted(secundarios.get(c.id, [])),
                 "permisos": permisos.get(c.id, []),
             }
             for c in cargos
@@ -155,6 +166,8 @@ def _nombres(datos) -> dict:
 
 
 def _valor(campo, valor, nombres) -> str:
+    if campo == SECUNDARIOS:
+        return ", ".join(nombres["cargo"].get(v, f"#{v}") for v in valor or []) or "—"
     if valor in (None, ""):
         return "—"
     if isinstance(valor, bool):
@@ -184,7 +197,9 @@ def _comparar(tipo, antes, despues, campos, nombres_antes, nombres_despues) -> l
             continue
         cambios, perfil = [], False
         for campo in campos:
-            if campo == "departamento_id" or viejo.get(campo) == nuevo.get(campo):
+            # Los respaldos de antes del reporte secundario no lo traen: es «ninguno».
+            defecto = [] if campo == SECUNDARIOS else None
+            if campo == "departamento_id" or viejo.get(campo, defecto) == nuevo.get(campo, defecto):
                 continue
             if campo in PERFIL:
                 perfil = True
@@ -205,7 +220,9 @@ def diferencias(antes: dict, despues: dict) -> list[str]:
     lineas = []
     lineas += _comparar("nivel", antes["niveles"], despues["niveles"], CAMPOS_NIVEL, na, nd)
     lineas += _comparar("unidad", antes["unidades"], despues["unidades"], CAMPOS_UNIDAD, na, nd)
-    lineas += _comparar("cargo", antes["cargos"], despues["cargos"], CAMPOS_CARGO, na, nd)
+    lineas += _comparar(
+        "cargo", antes["cargos"], despues["cargos"], CAMPOS_CARGO_COMPARADOS, na, nd
+    )
 
     cargo_antes = {a["usuario"]: a for a in antes["asignaciones"]}
     cargo_despues = {a["usuario"]: a for a in despues["asignaciones"]}
@@ -401,6 +418,15 @@ def restaurar(respaldo: dict, empresa) -> None:
         Cargo.objects.filter(pk=mapa_cargo[datos["id"]]).update(
             jefe_id=_remapear(datos["jefe_id"], mapa_cargo)
         )
+    # El reporte secundario (los respaldos de antes no lo traen: ninguno).
+    Linea = Cargo.jefes_secundarios.through
+    Linea.objects.filter(from_cargo_id__in=mapa_cargo.values()).delete()
+    Linea.objects.bulk_create(
+        Linea(from_cargo_id=mapa_cargo[datos["id"]], to_cargo_id=mapa_cargo[otro])
+        for datos in respaldo["cargos"]
+        for otro in datos.get(SECUNDARIOS, [])
+        if otro in mapa_cargo
+    )
 
     # Quién ocupa cada cargo.
     deben = {a["usuario"]: mapa_cargo.get(a["cargo"]) for a in respaldo["asignaciones"]}

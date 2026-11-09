@@ -51,7 +51,7 @@ de **módulo** solo sirven dentro de él.
 | | | `vacaciones` | `ver_todas` |
 | | | `licencias` | `configurar`, `ver_todas` |
 | Dashboards | módulo | `dashboard` | `crear`, `editar`, `eliminar`, `view`, `edit`, `layout.edit`, `component.style`, `component.create`, `component.delete`, `configuration.reset`, `interpretar`, `hallazgos_ia`, `fuente_bd.configurar`, `fuente_bd.actualizar`, `archivo.cargar`, `datos.editar` |
-| Mesa de ayuda | módulo | `soporte` | `crear`, `atender`, `registrar`, `ver_todos`, `asignar`, `aprobar_horas`, `configurar`, `formulario`, `reportes` |
+| Mesa de ayuda | módulo | `soporte` | `crear`, `mesa_mis_tickets`, `mesa_crear`, `atender`, `registrar`, `ver_todos`, `asignar`, `aprobar_horas`, `configurar`, `formulario`, `reportes` |
 | Matriz de obligaciones | módulo | `matriz` | `ver_todas`, `crear`, `editar`, `cambiar_fecha`, `cargar`, `enviar`, `validar`, `recordar`, `exportar`, `ver_auditoria`, `configurar`, `gestionar_miembros` |
 | Órdenes de trabajo | módulo | `ordenes` | `ver`, `ver_todas`, `crear`, `gestionar`, `ejecutar`, `aceptar`, `ver_contacto`, `reportes` |
 | Gestión de Activos | módulo | `activos` | `ver`, `ver_asignados`, `crear`, `editar`, `asignar`, `dar_baja`, `imprimir_etiqueta`, `exportar` |
@@ -76,9 +76,8 @@ que no decide plazos ni el equipo. Quien tenía `atender` o `asignar` recibió
 `registrar`, y quien tenía `configurar` recibió `formulario` (migración
 `roles.0012`).
 
-**`soporte.crear`** (2026-11-09): crear tickets a su nombre —desde «Soporte TI»
-en la barra superior o desde «Nuevo ticket» en la Mesa de ayuda— deja de ser
-de toda cuenta y pasa a ser un permiso. Para que nadie lo pierda el día del
+**`soporte.crear`** (2026-11-09): crear tickets a su nombre desde «Soporte TI»,
+en la barra superior, deja de ser de toda cuenta y pasa a ser un permiso. Para que nadie lo pierda el día del
 cambio, `roles.0040` lo concede a **todos los roles** existentes; los roles que
 nacen de un cargo lo traen en `PERMISOS_BASE` y Administrador y Superusuario
 por tener todo el catálogo. Se quita desde Configuración › Roles al rol que no
@@ -86,6 +85,30 @@ deba crear tickets. Una **cuenta sin ningún rol** (ni global ni en la empresa
 activa) lo tiene igual (`authorization.PERMISOS_SIN_ROL`): suele ser una cuenta
 recién creada, que es quien más necesita pedir ayuda; en cuanto tiene un rol,
 manda ese rol. Ver y responder los tickets ya creados no pide el permiso.
+
+**`soporte.mesa_mis_tickets` y `soporte.mesa_crear`** (2026-11-09): dentro de
+la Mesa de ayuda, lo de quien pide ayuda tiene permisos propios, distintos de
+`soporte.crear` y entre sí:
+
+- `mesa_mis_tickets` («Ver sus tickets en la Mesa de ayuda»): abre la bandeja
+  (`/admin/soporte/bandeja`) **solo en «Mis solicitudes»**, con los tickets que
+  la persona creó, y su entrada en el menú. El servidor lo exige en
+  `GET /api/v1/soporte/mesa/mis-solicitudes/` (403 sin él). Antes la bandeja la
+  abría toda cuenta.
+- `mesa_crear` («Crear tickets en la Mesa de ayuda»): «Pedir ayuda (a mi
+  nombre)» en la bandeja, «Nuevo ticket» del menú de la Mesa y la ruta
+  `/admin/soporte/nuevo`, que envía a `POST /api/v1/soporte/mesa/solicitar/`
+  (403 sin él, aunque se tenga `soporte.crear`). Antes era `soporte.crear`.
+
+Ninguno de los dos hace a nadie parte del equipo de la mesa: las demás vistas
+de la bandeja, la ficha de un ticket y los tickets ajenos siguen pidiendo
+`atender`, `ver_todos`, `asignar` o `registrar`, y el servidor no los da. Por lo
+mismo no cuentan como «tener un permiso» para la pantalla de acceso denegado
+(entradas `deTodoEmpleado` del menú). Se conceden igual que `soporte.crear`: a
+todos los roles existentes (`roles.0043`), a los de cargo por `PERMISOS_BASE`,
+a Administrador y Superusuario por el catálogo y a la cuenta sin ningún rol por
+`PERMISOS_SIN_ROL`. Ver y responder los propios desde «Soporte TI › Mis
+tickets» sigue sin pedir permiso.
 
 **`solicitudes`** separa pedir de gestionar a propósito: cualquiera que trabaje
 con equipos debería poder pedir uno (`crear`), y decidir si se compra es otro

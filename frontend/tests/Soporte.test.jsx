@@ -35,6 +35,7 @@ const servicio = {
   respuestas: vi.fn(),
   descargar: vi.fn(),
   misTickets: vi.fn(),
+  misSolicitudesEnLaMesa: vi.fn(),
 };
 vi.mock("../src/api/soporteService", () => ({ soporteService: servicio }));
 // Quien abre la bandeja: por defecto, alguien del equipo de la mesa.
@@ -126,7 +127,16 @@ function pintar(elemento, ruta, patron) {
 beforeEach(() => {
   vi.clearAllMocks();
   servicio.respuestas.mockResolvedValue([]);
+  // En la bandeja, «Mis tickets» pide la ruta de la Mesa (09/11/2026):
+  // los mismos tickets que «Soporte TI › Mis tickets».
+  servicio.misSolicitudesEnLaMesa.mockImplementation(() =>
+    servicio.misTickets(),
+  );
 });
+
+/** Quien no es del equipo y abre la bandeja: con «Ver sus tickets en la Mesa
+ * de ayuda» (sin él, la ruta no lo deja entrar). */
+const SOLO_SUS_TICKETS = ["soporte.mesa_mis_tickets"];
 
 describe("Soporte TI: nuevo ticket", () => {
   it("carga los datos de quien pide y solo pregunta el problema", async () => {
@@ -429,7 +439,7 @@ describe("Mis tickets: qué sigue (auditoría UX/UI, 30/10/2026)", () => {
   });
 
   it("la lista pone primero lo que le toca a la persona", async () => {
-    sesion.permisos = [];
+    sesion.permisos = SOLO_SUS_TICKETS;
     servicio.misTickets.mockResolvedValue([
       {
         id: 1,
@@ -688,10 +698,10 @@ describe("La bandeja: qué vence y qué falta", () => {
     });
     pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
 
-    // La pestaña se decide al saber que es técnico (antes caía en «Mis
-    // solicitudes» al recargar).
+    // La pestaña se decide al saber que es técnico (antes caía en lo que
+    // creó al recargar). La suya es «Asignados a mí» desde el 09/11/2026.
     expect(
-      await screen.findByRole("tab", { name: "Mis tickets" }),
+      await screen.findByRole("tab", { name: "Asignados a mí" }),
     ).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
       expect(servicio.tickets).toHaveBeenCalledWith(
@@ -1103,7 +1113,7 @@ describe("La ficha del ticket", () => {
 
 describe("Mis solicitudes en la bandeja", () => {
   it("quien no es del equipo ve solo lo que creó, en todos sus estados", async () => {
-    sesion.permisos = [];
+    sesion.permisos = SOLO_SUS_TICKETS;
     servicio.misTickets.mockResolvedValue([
       {
         id: 7,
@@ -1147,6 +1157,8 @@ describe("Mis solicitudes en la bandeja", () => {
         name: "Ver el ticket TCK-2026-000007",
       }),
     ).toHaveAttribute("href", "/admin/ayuda/tickets/7");
+    // Por la ruta de la Mesa, que pide su permiso.
+    expect(servicio.misSolicitudesEnLaMesa).toHaveBeenCalled();
     // Ni el estado de técnico ni las pestañas del equipo.
     expect(servicio.bandeja).not.toHaveBeenCalled();
     expect(servicio.tickets).not.toHaveBeenCalled();
@@ -1219,7 +1231,7 @@ describe("La bandeja en el teléfono", () => {
   });
 
   it("«Mis solicitudes» también va en tarjetas, hacia la ficha de quien pide", async () => {
-    sesion.permisos = [];
+    sesion.permisos = SOLO_SUS_TICKETS;
     servicio.misTickets.mockResolvedValue([
       {
         id: 7,
@@ -1469,7 +1481,7 @@ describe("Mis tickets: qué le toca y qué pasó (auditoría UX/UI, 30/10/2026)"
   });
 
   it("en la lista pide la encuesta pendiente y avisa los atrasados", async () => {
-    sesion.permisos = [];
+    sesion.permisos = SOLO_SUS_TICKETS;
     servicio.misTickets.mockResolvedValue([
       {
         id: 1,
@@ -1510,37 +1522,47 @@ describe("Mis tickets: qué le toca y qué pasó (auditoría UX/UI, 30/10/2026)"
   });
 });
 
-// «Crear tickets» (`soporte.crear`, 09/11/2026): desde el módulo, un ticket a
-// su nombre con el formulario de «Soporte TI».
-describe("La bandeja: «Pedir ayuda (a mi nombre)»", () => {
+// «Crear tickets en la Mesa de ayuda» (`soporte.mesa_crear`, 09/11/2026):
+// desde el módulo, un ticket a su nombre con el formulario de «Soporte TI».
+// Es un permiso aparte de `soporte.crear`, el de «Soporte TI».
+describe("La bandeja: «Pedir ayuda a su nombre»", () => {
   const sinEquipo = () => {
     servicio.misTickets.mockResolvedValue([]);
   };
 
   it("con el permiso ofrece crear un ticket propio", async () => {
-    sesion.permisos = ["soporte.crear"];
+    sesion.permisos = [...SOLO_SUS_TICKETS, "soporte.mesa_crear"];
     try {
       sinEquipo();
       pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
-      const pedir = await screen.findByRole("link", {
-        name: "Pedir ayuda (a mi nombre)",
+      // El de la cabecera y, sin tickets, el de la lista vacía: los dos
+      // al formulario del módulo.
+      const enlaces = await screen.findAllByRole("link", {
+        name: "Pedir ayuda a su nombre",
       });
-      expect(pedir).toHaveAttribute("href", "/admin/soporte/nuevo");
+      enlaces.forEach((enlace) =>
+        expect(enlace).toHaveAttribute("href", "/admin/soporte/nuevo"),
+      );
       // Sin ser técnico ni poder registrar, es la acción principal.
-      expect(pedir).toHaveClass("btn-primary");
-      // Sin tickets, la lista invita a pedir ayuda.
+      expect(enlaces[0]).toHaveClass("btn-primary");
       expect(
-        await screen.findAllByRole("link", {
-          name: "Pedir ayuda en Soporte TI",
-        }),
-      ).not.toHaveLength(0);
+        (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByRole("link", { name: "Pedir ayuda a su nombre" }).length,
+      ).toBeGreaterThan(1);
+      // Quien no es del equipo ve el título de su vista.
+      expect(
+        screen.getByRole("heading", { level: 2, name: "Mis tickets" }),
+      ).toBeInTheDocument();
     } finally {
       sesion.permisos = ["soporte.atender"];
     }
   });
 
-  it("sin el permiso no lo ofrece ni invita a pedir ayuda", async () => {
-    sesion.permisos = [];
+  // Auditoría UX/UI (09/11/2026): el vacío ya no se queda sin salida.
+  it("con «Crear tickets» de Soporte TI pero sin el de la Mesa lleva a Soporte TI", async () => {
+    sesion.permisos = [...SOLO_SUS_TICKETS, "soporte.crear"];
     try {
       sinEquipo();
       pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
@@ -1548,11 +1570,152 @@ describe("La bandeja: «Pedir ayuda (a mi nombre)»", () => {
         (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
       ).toBeGreaterThan(0);
       expect(
-        screen.queryByRole("link", { name: "Pedir ayuda (a mi nombre)" }),
+        screen.queryByRole("link", { name: "Pedir ayuda a su nombre" }),
       ).toBeNull();
+      screen
+        .getAllByRole("link", { name: "Pedir ayuda en Soporte TI" })
+        .forEach((enlace) =>
+          expect(enlace).toHaveAttribute("href", "/admin/ayuda"),
+        );
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+
+  it("sin permiso para crear en ningún lado no ofrece pedir ayuda", async () => {
+    sesion.permisos = SOLO_SUS_TICKETS;
+    try {
+      sinEquipo();
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
       expect(
-        screen.queryByRole("link", { name: "Pedir ayuda en Soporte TI" }),
-      ).toBeNull();
+        (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByRole("link", { name: /Pedir ayuda/ })).toBeNull();
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+});
+
+// «Ver sus tickets en la Mesa de ayuda» (`soporte.mesa_mis_tickets`,
+// 09/11/2026): «Mis tickets» de la bandeja pide su permiso, y quien no es
+// del equipo solo ve esa vista aunque la dirección pida otra.
+describe("La bandeja: «Mis tickets» con su permiso", () => {
+  const CABECERA = {
+    tecnico: {
+      id: 1,
+      nivel: "N1 · Mesa de ayuda",
+      categorias: ["Hardware"],
+      capacidad: 1,
+      en_horario: true,
+      abiertos: 0,
+      cola_para_mi: 0,
+    },
+    cola_total: 0,
+    puede: {
+      ver_todos: false,
+      asignar: false,
+      registrar: false,
+      aprobar_horas: false,
+    },
+  };
+  const VACIA = { results: [], count: 0, next: null, previous: null };
+
+  it("quien no es del equipo no entra a otra vista por la dirección", async () => {
+    sesion.permisos = SOLO_SUS_TICKETS;
+    servicio.misTickets.mockResolvedValue([]);
+    try {
+      pintar(
+        <Bandeja />,
+        "/admin/soporte/bandeja?vista=cola",
+        "/admin/soporte/bandeja",
+      );
+      expect(
+        (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
+      ).toBeGreaterThan(0);
+      expect(servicio.tickets).not.toHaveBeenCalled();
+      expect(servicio.bandeja).not.toHaveBeenCalled();
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+
+  it("del equipo y sin el permiso, no hay pestaña «Mis tickets»", async () => {
+    sesion.permisos = ["soporte.atender"];
+    servicio.bandeja.mockResolvedValue(CABECERA);
+    servicio.tickets.mockResolvedValue(VACIA);
+    pintar(
+      <Bandeja />,
+      "/admin/soporte/bandeja?vista=creados",
+      "/admin/soporte/bandeja",
+    );
+
+    expect(
+      await screen.findByRole("tab", { name: "Asignados a mí" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Mis tickets" })).toBeNull();
+    expect(servicio.misSolicitudesEnLaMesa).not.toHaveBeenCalled();
+  });
+
+  it("del equipo y con el permiso, la pestaña está", async () => {
+    sesion.permisos = ["soporte.atender", "soporte.mesa_mis_tickets"];
+    servicio.bandeja.mockResolvedValue(CABECERA);
+    servicio.tickets.mockResolvedValue(VACIA);
+    try {
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      expect(
+        await screen.findByRole("tab", { name: "Mis tickets" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: 2, name: "Bandeja de soporte" }),
+      ).toBeInTheDocument();
+    } finally {
+      sesion.permisos = ["soporte.atender"];
+    }
+  });
+
+  // Auditoría UX/UI (09/11/2026): si la cabecera fallaba, la rueda giraba
+  // para siempre.
+  it("si la cabecera falla, muestra el error y «Reintentar» la vuelve a pedir", async () => {
+    sesion.permisos = ["soporte.atender"];
+    servicio.bandeja
+      .mockRejectedValueOnce(new Error("red"))
+      .mockResolvedValue(CABECERA);
+    servicio.tickets.mockResolvedValue(VACIA);
+    pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+
+    const reintentar = await screen.findByRole("button", {
+      name: /Reintentar/,
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No se pudo cargar la bandeja de soporte.",
+    );
+    expect(servicio.tickets).not.toHaveBeenCalled();
+    fireEvent.click(reintentar);
+
+    expect(
+      await screen.findByRole("tab", { name: "Asignados a mí" }),
+    ).toHaveAttribute("aria-selected", "true");
+    // La primera, la de «Reintentar» y la del cambio de pestaña.
+    expect(servicio.bandeja.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("si la cabecera falla y puede ver lo suyo, abre «Mis tickets»", async () => {
+    sesion.permisos = ["soporte.atender", "soporte.mesa_mis_tickets"];
+    servicio.bandeja.mockRejectedValue(new Error("red"));
+    servicio.misTickets.mockResolvedValue([]);
+    try {
+      pintar(<Bandeja />, "/admin/soporte/bandeja", "/admin/soporte/bandeja");
+      expect(
+        (await screen.findAllByText("Todavía no ha pedido ayuda.")).length,
+      ).toBeGreaterThan(0);
+      expect(
+        await screen.findByText("No se pudo cargar la bandeja de soporte."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Reintentar" }),
+      ).toBeInTheDocument();
     } finally {
       sesion.permisos = ["soporte.atender"];
     }

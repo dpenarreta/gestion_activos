@@ -22,7 +22,9 @@ confirmó el usuario. Repetirlo no cambia nada.
 Ese mismo día el usuario pasó el organigrama de Financiero Administrativo:
 `financiero_2026` (migración 0044) reubica Cartera bajo ese departamento,
 con su Jefatura reportando todavía al Gerente General, y renombra sus cargos.
-Esta migración (0043) ya corrió; su lógica no se cambia.
+Esta migración (0043) ya corrió; su lógica no se cambia. El reporte
+secundario (línea punteada) de la Jefatura de Cartera al Jefe Financiero
+Administrativo lo asigna la migración 0046 (`reporte_secundario_2026`).
 """
 
 from . import departamentos_del_organigrama, versiones

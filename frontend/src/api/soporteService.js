@@ -18,17 +18,30 @@ const multipart = { headers: { "Content-Type": "multipart/form-data" } };
  * código de la empresa o por el enlace secreto del ticket. */
 export const soporteService = {
   // --- Quien pide soporte (con sesión) ---
-  /** Lo que muestra «Soporte TI → Nuevo ticket», con «Mi perfil». */
-  solicitar() {
-    return apiClient.get(`${BASE}/solicitar/`).then((r) => r.data);
-  },
-  crearTicket(campos, archivos) {
+  /** Lo que muestra «Soporte TI → Nuevo ticket», con «Mi perfil».
+   * `desdeLaMesa`: el mismo formulario desde la Mesa de ayuda, que pide
+   * `soporte.mesa_crear` en vez de `soporte.crear` (09/11/2026). */
+  solicitar({ desdeLaMesa = false } = {}) {
     return apiClient
-      .post(`${BASE}/solicitar/`, conArchivos(campos, archivos), multipart)
+      .get(`${BASE}/${desdeLaMesa ? "mesa/" : ""}solicitar/`)
+      .then((r) => r.data);
+  },
+  crearTicket(campos, archivos, { desdeLaMesa = false } = {}) {
+    return apiClient
+      .post(
+        `${BASE}/${desdeLaMesa ? "mesa/" : ""}solicitar/`,
+        conArchivos(campos, archivos),
+        multipart,
+      )
       .then((r) => r.data);
   },
   misTickets() {
     return apiClient.get(`${BASE}/mis-tickets/`).then((r) => r.data);
+  },
+  /** «Mis solicitudes» de la bandeja de la Mesa: los mismos tickets, con
+   * `soporte.mesa_mis_tickets` (09/11/2026). */
+  misSolicitudesEnLaMesa() {
+    return apiClient.get(`${BASE}/mesa/mis-solicitudes/`).then((r) => r.data);
   },
   /** `sondeo`: la consulta que la ficha abierta repite sola (va con su
    * propio límite en el servidor, no con el general de la persona). */

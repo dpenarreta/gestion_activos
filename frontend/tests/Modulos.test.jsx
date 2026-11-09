@@ -46,7 +46,13 @@ function pintar(ruta = "/admin/dashboard") {
 
 beforeEach(() => {
   sessionStorage.clear();
-  permisos.lista = ["activos.ver", "matriz.cargar", "usuarios.ver"];
+  permisos.lista = [
+    "activos.ver",
+    "matriz.cargar",
+    "usuarios.ver",
+    // Sus tickets en la Mesa de ayuda: todos los roles lo traen (09/11/2026).
+    "soporte.mesa_mis_tickets",
+  ];
 });
 
 describe("Cada módulo trae su menú", () => {
@@ -76,19 +82,24 @@ describe("Cada módulo trae su menú", () => {
     /* La Matriz depende del rol en la empresa activa: sin permisos de ella, no
        se ofrece. Configuración sola no cuenta como módulo. */
     // Institucional es de todos: es a donde se entra al iniciar sesión.
-    // Y la Mesa de ayuda, también de todos: su Bandeja muestra lo que cada uno
-    // creó (21/10/2026).
+    // La Mesa de ayuda, desde el 09/11/2026, con sus permisos: «Ver sus
+    // tickets en la Mesa de ayuda» (que traen todos los roles) o los del
+    // equipo. Antes su Bandeja era de todos.
     expect(modulosConAcceso(["activos.ver"]).sort()).toEqual([
       "activos",
       "institucional",
-      "soporte",
     ]);
     expect(modulosConAcceso(["matriz.ver_todas"]).sort()).toEqual([
       "institucional",
       "matriz",
-      "soporte",
     ]);
     expect(modulosConAcceso(["usuarios.ver"]).sort()).toEqual([
+      "institucional",
+    ]);
+    expect(
+      modulosConAcceso(["usuarios.ver", "soporte.mesa_mis_tickets"]).sort(),
+    ).toEqual(["institucional", "soporte"]);
+    expect(modulosConAcceso(["soporte.mesa_crear"]).sort()).toEqual([
       "institucional",
       "soporte",
     ]);
@@ -151,10 +162,15 @@ describe("El selector de módulos", () => {
     ).toBeInTheDocument();
   });
 
-  it("sin permisos ofrece Institucional y la Mesa de ayuda", () => {
-    /* Los dos son de todos: el de entrada y la Bandeja con lo que cada uno
-       creó. */
-    permisos.lista = [];
+  it("sin roles ofrece Institucional y la Mesa de ayuda", () => {
+    /* El de entrada es de todos; la Mesa, por lo que tiene toda cuenta sin
+       ningún rol (`PERMISOS_SIN_ROL`, 09/11/2026): crear tickets y ver los
+       suyos en la Mesa. */
+    permisos.lista = [
+      "soporte.crear",
+      "soporte.mesa_mis_tickets",
+      "soporte.mesa_crear",
+    ];
 
     pintar("/admin/institucional/inicio");
 

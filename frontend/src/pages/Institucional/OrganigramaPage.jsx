@@ -1,4 +1,11 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
@@ -24,6 +31,11 @@ function vistaGuardada() {
 }
 import { NivelDeCargo, NivelesDeCargo } from "./NivelDeCargo";
 import "./Institucional.css";
+
+/** Las unidades vigentes, para nombrar un cargo con la suya (dos «Jefe de
+ * Cartera» en unidades distintas no se confunden) sin pasarlas de rama en
+ * rama. */
+const UnidadesVigentes = createContext([]);
 
 const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 2;
@@ -185,6 +197,33 @@ function Plazas({ cargo }) {
   );
 }
 
+/**
+ * El reporte secundario (línea punteada, 09/11/2026): «También reporta a
+ * Jefe Financiero Administrativo». El dibujo del árbol cuelga cada cargo de
+ * su jefe inmediato, así que la línea punteada va como una marca con borde
+ * punteado en el cargo, con su texto completo para el lector de pantalla.
+ *
+ * Cada jefe con su unidad, como en el selector (`nombreDeCargo`): los cargos
+ * homónimos se distinguen. Sin `title`: repetía el texto visible (auditoría
+ * UX/UI, 09/11/2026).
+ */
+function TambienReportaA({ cargo, cargos }) {
+  const unidades = useContext(UnidadesVigentes);
+  const jefes = (cargo.jefes_secundarios ?? [])
+    .map((id) => cargos.find((c) => c.id === id))
+    .filter(Boolean);
+  if (jefes.length === 0) return null;
+  const nombres = jefes
+    .map((c) => nombreDeCargo(c, unidades, cargos))
+    .join(", ");
+  return (
+    <span className="org-secundario">
+      <span className="org-secundario__linea" aria-hidden="true" />
+      También reporta a {nombres}
+    </span>
+  );
+}
+
 function Cargo({ cargo, cargos, conPersonas }) {
   const jefe = cargos.find((c) => c.id === cargo.jefe);
   return (
@@ -197,6 +236,7 @@ function Cargo({ cargo, cargos, conPersonas }) {
         <Plazas cargo={cargo} />
       </div>
       {jefe && <span className="org-cargo__jefe">Reporta a {jefe.nombre}</span>}
+      <TambienReportaA cargo={cargo} cargos={cargos} />
       {conPersonas && (
         <ul className="org-personas">
           {cargo.ocupantes.map((p) => (
@@ -258,7 +298,7 @@ function PersonasDelCargo({ cargo }) {
 
 /** Un cargo del árbol con, debajo y uno al lado del otro, los que le
  * reportan. El color del borde dice su nivel dentro del área. */
-function RamaCargo({ rama, conPersonas }) {
+function RamaCargo({ rama, cargos, conPersonas }) {
   const { cargo, profundidad, hijos } = rama;
   const nivel = Math.min(profundidad, 3);
   const nivelDelCargo = useContext(NivelesDeCargo).find(
@@ -278,12 +318,18 @@ function RamaCargo({ rama, conPersonas }) {
           </span>
         )}
         {cargo.plazas > 1 && <Plazas cargo={cargo} />}
+        <TambienReportaA cargo={cargo} cargos={cargos} />
         {conPersonas && <PersonasDelCargo cargo={cargo} />}
       </div>
       {hijos.length > 0 && (
         <ul className="org-ct">
           {hijos.map((h) => (
-            <RamaCargo key={h.cargo.id} rama={h} conPersonas={conPersonas} />
+            <RamaCargo
+              key={h.cargo.id}
+              rama={h}
+              cargos={cargos}
+              conPersonas={conPersonas}
+            />
           ))}
         </ul>
       )}
@@ -313,6 +359,7 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
                 <RamaCargo
                   key={rama.cargo.id}
                   rama={rama}
+                  cargos={cargos}
                   conPersonas={conPersonas}
                 />
               ))}
@@ -405,6 +452,10 @@ function soloVigente(datos) {
   const cargos = datos.cargos.filter(cargoVigente).map((c) => ({
     ...c,
     jefe: c.jefe && primerVigente(c.jefe, cargoPorId, cargoVigente),
+    // La línea punteada a un cargo retirado no se dibuja.
+    jefes_secundarios: (c.jefes_secundarios ?? []).filter((id) =>
+      cargoPorId.has(id) ? cargoVigente(cargoPorId.get(id)) : false,
+    ),
   }));
   return { ...datos, unidades, cargos };
 }
@@ -629,19 +680,21 @@ export function OrganigramaPage() {
         (() => {
           const unidades = (
             <NivelesDeCargo.Provider value={datos.niveles_cargo ?? []}>
-              <ul className="org-arbol">
-                {arbol.map((nodo) => (
-                  <Unidad
-                    key={nodo.id}
-                    nodo={nodo}
-                    cargos={vigente.cargos}
-                    conPersonas={conPersonas}
-                    cerradas={cerradas}
-                    alternar={alternar}
-                    vista={vista}
-                  />
-                ))}
-              </ul>
+              <UnidadesVigentes.Provider value={vigente.unidades}>
+                <ul className="org-arbol">
+                  {arbol.map((nodo) => (
+                    <Unidad
+                      key={nodo.id}
+                      nodo={nodo}
+                      cargos={vigente.cargos}
+                      conPersonas={conPersonas}
+                      cerradas={cerradas}
+                      alternar={alternar}
+                      vista={vista}
+                    />
+                  ))}
+                </ul>
+              </UnidadesVigentes.Provider>
             </NivelesDeCargo.Provider>
           );
           // Árbol: horizontal, en el lienzo con zoom. Lista: vertical e

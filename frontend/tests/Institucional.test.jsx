@@ -143,13 +143,13 @@ describe("El árbol", () => {
       "institucional",
     );
     // Es el de entrada: toda persona lo tiene, aunque solo con su «Inicio».
-    // La Mesa de ayuda también es de todos: su Bandeja muestra lo que cada
-    // uno creó (21/10/2026).
-    expect(modulosConAcceso(["institucional.ver"])).toEqual([
-      "soporte",
-      "institucional",
-    ]);
-    expect(modulosConAcceso([])).toEqual(["soporte", "institucional"]);
+    // La Mesa de ayuda, con «Ver sus tickets en la Mesa de ayuda» (todos los
+    // roles lo traen, 09/11/2026); antes su Bandeja era de todos.
+    expect(modulosConAcceso(["institucional.ver"])).toEqual(["institucional"]);
+    expect(modulosConAcceso([])).toEqual(["institucional"]);
+    expect(
+      modulosConAcceso(["institucional.ver", "soporte.mesa_mis_tickets"]),
+    ).toEqual(["soporte", "institucional"]);
   });
 });
 
@@ -443,6 +443,7 @@ describe("La estructura", () => {
           nombre: "Técnico de soporte",
           unidad: "11",
           jefe: "20",
+          jefes_secundarios: [],
           plazas: "2",
           descripcion: "",
           activo: true,
@@ -554,6 +555,150 @@ describe("La estructura", () => {
   });
 });
 
+/** El Analista reporta al Gerente de TI y, en línea punteada, al Jefe
+ * Financiero (reporte secundario, 09/11/2026). */
+const CON_LINEA_PUNTEADA = {
+  ...ORGANIGRAMA,
+  cargos: [
+    { ...ORGANIGRAMA.cargos[0], jefes_secundarios: [22] },
+    { ...ORGANIGRAMA.cargos[1], jefes_secundarios: [] },
+    {
+      id: 22,
+      nombre: "Jefe Financiero",
+      unidad: 10,
+      jefe: null,
+      jefes_secundarios: [],
+      plazas: 1,
+      activo: true,
+      ocupantes: [],
+      vacantes: 1,
+    },
+  ],
+};
+
+describe("El reporte secundario (línea punteada)", () => {
+  it("el organigrama lo marca en el cargo, en árbol y en lista", async () => {
+    servicio.organigrama.mockResolvedValue(CON_LINEA_PUNTEADA);
+    pintar(<OrganigramaPage />);
+    const ti = await screen.findByRole("region", { name: "Gerencia de TI" });
+    expect(
+      within(ti).getByText(/También reporta a Jefe Financiero/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /Lista/ }));
+    const enLista = screen.getByRole("region", { name: "Gerencia de TI" });
+    expect(
+      within(enLista).getByText("Reporta a Gerente de TI"),
+    ).toBeInTheDocument();
+    expect(
+      within(enLista).getByText(/También reporta a Jefe Financiero/),
+    ).toBeInTheDocument();
+  });
+
+  it("la tabla de Cargos lo muestra y el buscador lo encuentra", async () => {
+    servicio.organigrama.mockResolvedValue(CON_LINEA_PUNTEADA);
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    const fila = screen
+      .getByRole("button", { name: "Editar Analista de TI" })
+      .closest("tr");
+    expect(
+      within(fila).getByText(/También reporta a: Jefe Financiero/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar cargos" }), {
+      target: { value: "financiero" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    ).toBeInTheDocument();
+  });
+
+  it("se elige con un buscador, sin ofrecer el propio cargo ni su jefe", async () => {
+    servicio.organigrama.mockResolvedValue(CON_LINEA_PUNTEADA);
+    servicio.actualizar.mockResolvedValue({});
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Editar cargo: Analista de TI",
+    });
+    const grupo = within(ventana).getByRole("group", {
+      name: "También reporta a (opcional)",
+    });
+    const lista = within(grupo).getByRole("list", {
+      name: "Cargos a los que también reporta",
+    });
+    // Ni él mismo ni su jefe inmediato (Gerente de TI).
+    expect(within(lista).getAllByRole("checkbox")).toHaveLength(1);
+    expect(
+      within(lista).getByRole("checkbox", { name: /Jefe Financiero/ }),
+    ).toBeChecked();
+    // Quitar lo saca, lo anuncia y devuelve el foco al buscador.
+    fireEvent.click(within(grupo).getByRole("button", { name: /Quitar/ }));
+    expect(within(grupo).getByLabelText("Buscar cargo")).toHaveFocus();
+    expect(within(grupo).getByRole("status")).toHaveTextContent(
+      /^Se quitó Jefe Financiero.*\./,
+    );
+    fireEvent.change(within(grupo).getByLabelText("Buscar cargo"), {
+      target: { value: "financ" },
+    });
+    expect(within(grupo).getByText("1 cargo encontrado.")).toBeInTheDocument();
+    fireEvent.click(
+      within(lista).getByRole("checkbox", { name: /Jefe Financiero/ }),
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await darMotivo();
+    await waitFor(() =>
+      expect(servicio.actualizar).toHaveBeenCalledWith(
+        "cargos",
+        21,
+        expect.objectContaining({ jefe: 20, jefes_secundarios: [22] }),
+        MOTIVO,
+      ),
+    );
+  });
+
+  it("al elegir como jefe inmediato a un jefe secundario, deja de serlo", async () => {
+    servicio.organigrama.mockResolvedValue(CON_LINEA_PUNTEADA);
+    servicio.actualizar.mockResolvedValue({});
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Editar cargo: Analista de TI",
+    });
+    fireEvent.change(
+      within(ventana).getByLabelText("Reporta a (jefe inmediato)"),
+      {
+        target: { value: "22" },
+      },
+    );
+    // Se anuncia en la región viva del selector.
+    expect(
+      within(ventana).getByText(
+        /Se quitó Jefe Financiero.*: ahora es el jefe inmediato\./,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await darMotivo();
+    await waitFor(() =>
+      expect(servicio.actualizar).toHaveBeenCalledWith(
+        "cargos",
+        21,
+        expect.objectContaining({ jefe: "22", jefes_secundarios: [] }),
+        MOTIVO,
+      ),
+    );
+  });
+});
+
 describe("La asignación de cargos, pestaña de Estructura", () => {
   it("pone a una persona en un cargo", async () => {
     servicio.asignaciones.mockResolvedValue([
@@ -590,14 +735,18 @@ describe("La asignación de cargos, pestaña de Estructura", () => {
 
 it("Estructura no tiene otra opción de menú para asignar: es su pestaña", () => {
   expect(modulosConAcceso(["institucional.asignar"])).toEqual([
-    "soporte",
     "institucional",
   ]);
 });
 
 describe("Inicio, a donde entra toda persona", () => {
   it("sin permisos ofrece lo de todos y pide elegir su cargo", async () => {
-    permisos.lista = [];
+    // Lo que tiene toda cuenta sin ningún rol (`PERMISOS_SIN_ROL`).
+    permisos.lista = [
+      "soporte.crear",
+      "soporte.mesa_mis_tickets",
+      "soporte.mesa_crear",
+    ];
     misDatos.obtener.mockResolvedValue({ nombres: "Rosa", cargo: null });
     pintar(
       <UnsavedChangesProvider>

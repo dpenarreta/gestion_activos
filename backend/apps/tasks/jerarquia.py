@@ -13,6 +13,11 @@ del país por el solo hecho de serlo. Aquí sale del organigrama institucional
 - **Sus jefes** son quienes ocupan los cargos de su línea de reporte hacia
   arriba, del más cercano al más lejano.
 - Sin cargo en el organigrama, la persona solo se ve a sí misma.
+- **El reporte secundario** (`Cargo.jefes_secundarios`, la línea punteada,
+  09/11/2026) cuenta para el equipo: quien es jefe secundario de un cargo ve
+  a quien lo ocupa y a su equipo. **No** cuenta para `jefes_de` ni
+  `jefe_inmediato`: las aprobaciones y los avisos al jefe siguen solo la línea
+  directa (ver `apps.organizacion.reportes`).
 
 Todo se resuelve dentro de la empresa activa (o la que se indique): el cargo
 que alguien tenga en otra empresa no cuenta. El organigrama no debería tener
@@ -20,12 +25,11 @@ ciclos (`organigrama.validar_jefe` los impide), pero el recorrido no se fía:
 lleva la cuenta de lo visitado y nunca da dos vueltas.
 """
 
-from collections import defaultdict
-
 from django.contrib.auth import get_user_model
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
-from apps.organizacion.models import Cargo, DatosDeContacto
+from apps.organizacion import reportes
+from apps.organizacion.models import DatosDeContacto
 
 
 def _empresa(empresa=None):
@@ -53,23 +57,9 @@ def cargo_de(usuario, empresa=None):
 
 
 def _cargos_debajo(cargo, empresa) -> set[int]:
-    """Los cargos que dependen de `cargo`, directa o indirectamente (sin él)."""
-    hijos: dict[int, list[int]] = defaultdict(list)
-    for cargo_id, jefe_id in (
-        Cargo.objects.todas().filter(empresa=empresa).values_list("id", "jefe_id")
-    ):
-        if jefe_id is not None:
-            hijos[jefe_id].append(cargo_id)
-    vistos: set[int] = {cargo.pk}
-    pendientes = list(hijos.get(cargo.pk, []))
-    while pendientes:
-        actual = pendientes.pop()
-        if actual in vistos:
-            continue
-        vistos.add(actual)
-        pendientes.extend(hijos.get(actual, []))
-    vistos.discard(cargo.pk)
-    return vistos
+    """Los cargos que dependen de `cargo`, directa o indirectamente (sin él),
+    por la línea directa o por un reporte secundario (`organizacion.reportes`)."""
+    return reportes.debajo(cargo.pk, empresa.pk)
 
 
 def _cargos_arriba(cargo) -> list:

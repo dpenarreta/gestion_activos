@@ -32,6 +32,9 @@ PERMISOS_BASE = (
     "institucional.ver_area",
     # Pedir ayuda a TI (09/11/2026): antes era de toda cuenta sin permiso.
     "soporte.crear",
+    # Sus tickets y pedir ayuda desde la Mesa de ayuda (09/11/2026).
+    "soporte.mesa_mis_tickets",
+    "soporte.mesa_crear",
 )
 # Consultar el propio rol de pagos tampoco: va persona por persona, por la
 # lista de habilitados (22/10/2026). Los permisos que da cada cargo en
