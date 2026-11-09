@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
 import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
@@ -19,7 +20,10 @@ import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo"
  * día.
  */
 export function AsignacionCargos({ datos, onAsignado }) {
-  const [buscar, setBuscar] = useState("");
+  // `?buscar=` llega desde la ficha de un usuario («Cambiar en Asignación de
+  // cargos»): la lista se abre ya en esa persona (09/11/2026).
+  const [parametros] = useSearchParams();
+  const [buscar, setBuscar] = useState(() => parametros.get("buscar") ?? "");
   const [personas, setPersonas] = useState(null);
   const [error, setError] = useState(null);
   // El fallo al cargar la lista va en la tabla, con «Reintentar» (auditoría

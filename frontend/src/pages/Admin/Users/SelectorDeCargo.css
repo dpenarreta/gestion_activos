@@ -1,0 +1,110 @@
+/*
+ * Selector del cargo en el alta de usuarios (09/11/2026). Copia la forma del
+ * selector de personas de Gestión Humana (`.gh-personas`) y no reutiliza sus
+ * clases: aquella hoja se carga con su módulo y esta pantalla vive en otro.
+ */
+
+.ua-cargo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* `float: none` y tamaño de etiqueta: la leyenda de Bootstrap ocupa todo el
+   ancho con letra grande y no se parecía al resto de etiquetas del alta. */
+.ua-cargo__titulo {
+  float: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+}
+
+.ua-cargo__elegido {
+  margin: 8px 0 4px;
+}
+
+/* Borde de control de la marca, como el resto de controles del alta: el
+   tenue de la tarjeta no la separaba del fondo (WCAG 1.4.11). */
+.ua-cargo__ficha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--marca-borde-control, var(--mz-border-strong));
+  border-radius: 99px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 13px;
+}
+
+/* 28 px también con ratón: con `btn-sm` y sin relleno vertical quedaba en
+   unos 22 px, por debajo del mínimo de 24 de WCAG 2.5.8. */
+.ua-cargo__ficha .btn {
+  border-radius: 99px;
+  padding: 0 10px;
+  min-height: 28px;
+  border-color: var(--marca-borde-control, var(--mz-border-strong));
+}
+
+/* En claro, el borde de control de la marca (#8a8a8a) da 2,92:1 sobre el
+   gris hundido de la ficha; #767676 da 3,9:1 y cumple el 3:1 de WCAG 1.4.11
+   (mismo ajuste que `.empresas-asignacion__empresa`). */
+:root:not([data-theme="dark"]) .ua-cargo__ficha,
+:root:not([data-theme="dark"]) .ua-cargo__ficha .btn {
+  border-color: #767676;
+}
+
+/* Nombres largos («Analista de Cobranza · Gestión de Cartera (reporta a
+   …)») se parten en vez de empujar la página hacia los lados en el móvil. */
+.ua-cargo__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* La lista se desplaza sola: con cientos de cargos no alarga el formulario. */
+.ua-cargo__resultados {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.ua-cargo__resultado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.ua-cargo__resultado:hover {
+  background: var(--mz-sunken);
+}
+
+.ua-cargo__resultado .form-check-input {
+  flex: none;
+  margin: 0;
+}
+
+/* Dedo y no ratón: 44 px de objetivo (WCAG 2.5.5). */
+@media (pointer: coarse) {
+  .ua-cargo__resultado,
+  .ua-cargo__ficha .btn {
+    min-height: 44px;
+  }
+
+  .ua-cargo__resultado .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

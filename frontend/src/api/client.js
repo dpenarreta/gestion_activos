@@ -82,12 +82,30 @@ apiClient.interceptors.request.use((config) => {
   // En qué empresa se pregunta. Va en cada llamada y no en la sesión del
   // servidor a propósito: así dos pestañas abiertas en empresas distintas no
   // se pisan, que es exactamente lo que hace quien compara dos inventarios.
+  // Si la petición ya dice su empresa, manda esa: el alta de un usuario en
+  // otra empresa del grupo pide los cargos de ESA empresa y lo asigna ahí,
+  // sin cambiar la pestaña de empresa (alta con cargo, 09/11/2026). El
+  // servidor comprueba igual que quien pregunta trabaje en ella.
   const empresa = getEmpresaActiva();
-  if (empresa) {
+  if (empresa && !traeCabecera(config.headers, "X-Empresa")) {
     config.headers["X-Empresa"] = empresa;
   }
   return config;
 });
+
+/**
+ * Si la petición ya trae esa cabecera, escrita como sea: las cabeceras HTTP no
+ * distinguen mayúsculas, y `x-empresa` no debe quedar pisada por la de la
+ * pestaña. `AxiosHeaders.has` ya compara así; el objeto plano, a mano.
+ */
+function traeCabecera(headers, nombre) {
+  if (!headers) return false;
+  if (typeof headers.has === "function") return headers.has(nombre);
+  const buscado = nombre.toLowerCase();
+  return Object.keys(headers).some(
+    (clave) => clave.toLowerCase() === buscado && headers[clave],
+  );
+}
 
 let pendingRefresh = null;
 

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { adminUsersService } from "../../../api/adminUsersService";
+import { getEmpresaActiva } from "../../../api/client";
+import { empresasService } from "../../../api/empresasService";
+import { institucionalService } from "../../../api/institucionalService";
 import {
   Campo,
   enfocarPrimerError,
@@ -21,6 +24,9 @@ import { baseDeUsername } from "../../../utils/nomenclatura";
 import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
+import { CargoDelUsuario } from "./CargoDelUsuario";
+import { motivoDelAlta } from "./cargosDelAlta";
+import { SelectorDeCargo } from "./SelectorDeCargo";
 
 const EMPTY_FORM = {
   username: "",
@@ -34,6 +40,8 @@ const EMPTY_FORM = {
 // ellos va bajo el campo; uno sobre otra cosa (p. ej. `empresas`), arriba.
 const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(EMPTY_FORM));
 const EMPTY_ALTA = { empresaId: null, rolId: null };
+const ASIGNACION_DE_CARGOS =
+  "/admin/institucional/estructura?pestana=asignaciones";
 /**
  * Qué se hizo de verdad al restablecer, en vez de «La acción se ejecutó
  * correctamente»: quien lo pidió necesita saber si el enlace salió o si las
@@ -67,11 +75,29 @@ export function UserForm() {
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
   const puedeAsignarEmpresas = usePermission("empresas.asignar");
+  // Poner a alguien en un cargo es el mismo poder que en Institucional ›
+  // Estructura › Asignación de cargos; el servidor lo vuelve a comprobar.
+  const puedeAsignarCargos = usePermission("institucional.asignar");
+  const location = useLocation();
   const multiempresa = useMultiempresa();
   const { setIsDirty, guardedNavigate } = useUnsavedChanges();
   // Con qué empresa y rol nace la cuenta. Solo se pregunta al crearla: en
   // la ficha ya está el bloque completo, con todas sus empresas.
   const [alta, setAlta] = useState(EMPTY_ALTA);
+  // El cargo del organigrama que ocupará (09/11/2026): de él sale el rol de
+  // cargo, que no se elige a mano. Es de la empresa elegida, así que cambiar
+  // de empresa lo borra.
+  const [cargo, setCargo] = useState(null);
+  // Lo que dejó el alta al llegar a la ficha: si el cargo quedó asignado o si
+  // falló y hay que asignarlo a mano. Llega en el estado de la navegación y
+  // se copia aquí (ver el efecto de abajo).
+  const [avisoAlta, setAvisoAlta] = useState(null);
+  // Las empresas en que trabaja quien crea la cuenta: `null` mientras carga,
+  // `undefined` si no se pudo saber. El organigrama de una empresa ajena le
+  // llega vacío, y la pantalla decía en falso «no tiene cargos» (revisión
+  // UX/UI, 09/11/2026). Los permisos por empresa no llegan al navegador: se
+  // aplica la regla de la membresía y el servidor comprueba el permiso.
+  const [misEmpresas, setMisEmpresas] = useState(null);
   // La empresa que propone el selector al montar: elegida por el sistema, no
   // por quien crea la cuenta, así que no es un cambio que avisar al salir.
   const [empresaPropuesta, setEmpresaPropuesta] = useState(null);
@@ -92,6 +118,50 @@ export function UserForm() {
   const [resetMessage, setResetMessage] = useState(null);
   const [resetError, setResetError] = useState(null);
   const formRef = useRef(null);
+  // Hay campo de cargo solo al crear, con los dos poderes que hacen falta
+  // (darle la empresa y ponerlo en el cargo) y con la empresa ya conocida:
+  // los cargos son de ella.
+  const puedeCargosAqui =
+    !isEditing &&
+    puedeAsignarEmpresas &&
+    puedeAsignarCargos &&
+    alta.empresaId !== null;
+  const empresaDelAlta = Array.isArray(misEmpresas)
+    ? misEmpresas.find((empresa) => empresa.id === alta.empresaId)
+    : null;
+  // Sin saber sus empresas (falló la consulta) se ofrece igual: el servidor
+  // rechaza la asignación si no corresponde, y la ficha lo avisa.
+  const trabajaEnLaEmpresa =
+    misEmpresas === undefined || Boolean(empresaDelAlta);
+  const conCargo = puedeCargosAqui && trabajaEnLaEmpresa;
+  const cargoAjeno =
+    puedeCargosAqui && Array.isArray(misEmpresas) && !empresaDelAlta;
+  const cargoElegido = conCargo ? cargo : null;
+  const nombreCompleto = `${form.first_name} ${form.last_name}`.trim();
+
+  // En un efecto y no al montar: las rutas «nuevo» y «ficha» pintan el mismo
+  // componente y React puede reutilizarlo al pasar de una a otra. Se quita
+  // de la navegación para que recargar la ficha no lo vuelva a mostrar.
+  useEffect(() => {
+    const aviso = location.state?.avisoAlta;
+    if (!aviso) return;
+    setAvisoAlta(aviso);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (isEditing || !puedeAsignarEmpresas || !puedeAsignarCargos) {
+      return undefined;
+    }
+    let vigente = true;
+    Promise.resolve()
+      .then(() => empresasService.mias())
+      .then((datos) => vigente && setMisEmpresas(datos?.empresas ?? []))
+      .catch(() => vigente && setMisEmpresas(undefined));
+    return () => {
+      vigente = false;
+    };
+  }, [isEditing, puedeAsignarEmpresas, puedeAsignarCargos]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -123,6 +193,7 @@ export function UserForm() {
     Object.keys(EMPTY_FORM).some((campo) => form[campo] !== original[campo]) ||
     (!isEditing &&
       (alta.rolId !== null ||
+        cargo !== null ||
         (alta.empresaId !== null && alta.empresaId !== empresaPropuesta)));
 
   useEffect(() => {
@@ -137,6 +208,51 @@ export function UserForm() {
     setMensajeDatos(null);
     if (erroresCampo[name]) {
       setErroresCampo({ ...erroresCampo, [name]: undefined });
+    }
+  }
+
+  /**
+   * Segundo paso del alta: la cuenta recién creada ocupa su cargo. Va en la
+   * empresa elegida en el alta (no en la de la pestaña) y con un motivo
+   * legible para la bitácora del organigrama. Nunca lanza: devuelve el aviso
+   * que verá la ficha, de éxito o de que falta asignar el cargo.
+   */
+  async function asignarCargoDelAlta(usuarioId) {
+    try {
+      await institucionalService.asignar(
+        usuarioId,
+        cargoElegido.id,
+        motivoDelAlta(nombreCompleto, cargoElegido),
+        { empresa: alta.empresaId },
+      );
+      return {
+        tipo: "ok",
+        texto: cargoElegido.rol
+          ? `Cuenta creada en el cargo ${cargoElegido.etiqueta}: ya tiene el rol ${cargoElegido.rol.nombre}.`
+          : `Cuenta creada en el cargo ${cargoElegido.etiqueta}.`,
+      };
+    } catch (errCargo) {
+      const motivo = mensajeDeError(errCargo, "el servidor no respondió");
+      // La empresa del alta, que puede no ser la de la pestaña: el aviso la
+      // nombra y el enlace abre Asignación de cargos en ella, ya filtrada
+      // por la persona (revisión UX/UI, 09/11/2026).
+      const empresa = empresaDelAlta?.nombre;
+      const otraEmpresa = String(alta.empresaId) !== String(getEmpresaActiva());
+      const buscar = `&buscar=${encodeURIComponent(nombreCompleto)}`;
+      return {
+        tipo: "falta-cargo",
+        texto: `La cuenta se creó, pero no se pudo asignar el cargo ${cargoElegido.etiqueta}${
+          empresa ? ` en la empresa ${empresa}` : ""
+        } (${motivo.replace(/\.$/, "")}). Sin el cargo no tiene el rol del cargo: asígneselo en Institucional › Estructura › Asignación de cargos${
+          empresa && otraEmpresa ? ` de ${empresa}` : ""
+        }.`,
+        // `?empresa=` lo toma la aplicación al cargar (`tomarEmpresaDeLaDireccion`):
+        // por eso, si es otra empresa, el enlace recarga en vez de navegar.
+        destino: otraEmpresa
+          ? `${ASIGNACION_DE_CARGOS}${buscar}&empresa=${alta.empresaId}`
+          : `${ASIGNACION_DE_CARGOS}${buscar}`,
+        recargar: otraEmpresa,
+      };
     }
   }
 
@@ -158,14 +274,18 @@ export function UserForm() {
       faltan.last_name = "Escriba los apellidos.";
     if (!(form.email ?? "").trim()) faltan.email = "Escriba el correo.";
     // Sin rol la cuenta nacería sin ver nada. Con `empresaId` vacío el
-    // selector no cargó o no hay empresas activas: entonces no se exige.
+    // selector no cargó o no hay empresas activas: entonces no se exige. Con
+    // un cargo tampoco: la cuenta recibe el rol del cargo.
     if (
       !isEditing &&
       puedeAsignarEmpresas &&
       alta.empresaId !== null &&
-      !alta.rolId
+      !alta.rolId &&
+      !cargoElegido
     )
-      faltan.rol = "Elija el rol con el que entra esta persona.";
+      faltan.rol = conCargo
+        ? "Elija un rol o, si ocupa un cargo, el cargo del organigrama."
+        : "Elija el rol con el que entra esta persona.";
     if (Object.keys(faltan).length > 0) {
       setErroresCampo(faltan);
       setError("Revise los campos marcados.");
@@ -203,22 +323,36 @@ export function UserForm() {
           ...(form.codigo_empleado.trim()
             ? { codigo_empleado: form.codigo_empleado.trim() }
             : {}),
-          ...(puedeAsignarEmpresas && alta.empresaId && alta.rolId
+          // Con cargo y sin rol adicional, la membresía nace sin roles: el
+          // del cargo se lo pone la asignación de abajo.
+          ...(puedeAsignarEmpresas &&
+          alta.empresaId &&
+          (alta.rolId || cargoElegido)
             ? {
                 empresas: [
                   {
                     empresa_id: alta.empresaId,
-                    roles: [alta.rolId],
+                    roles: alta.rolId ? [alta.rolId] : [],
                     es_predeterminada: true,
                   },
                 ],
               }
             : {}),
         });
+        // La cuenta ya existe: pase lo que pase con el cargo, se va a su
+        // ficha. Si el cargo falla se dice allí, con el camino para
+        // asignarlo: dejarla a medias en silencio es lo que se quiere evitar.
+        const avisoDelCargo = cargoElegido
+          ? await asignarCargoDelAlta(created.id)
+          : null;
         // Ya guardado: no queda nada que perder al pasar a su ficha.
         setOriginal(form);
         setAlta(EMPTY_ALTA);
-        navigate(`/admin/users/${created.id}`, { replace: true });
+        setCargo(null);
+        navigate(`/admin/users/${created.id}`, {
+          replace: true,
+          state: avisoDelCargo ? { avisoAlta: avisoDelCargo } : undefined,
+        });
       }
     } catch (err) {
       // Cada error bajo su campo y, arriba, un aviso general. Si alguno es de
@@ -294,6 +428,54 @@ export function UserForm() {
       </div>
 
       <div className="mz-stack">
+        {/* Montada desde el principio y vacía: el éxito del alta llega
+            después (al copiarse del estado de la navegación) y una región
+            viva que aparece ya llena no siempre se anuncia (revisión UX/UI,
+            09/11/2026). Fuera de la vista mientras no dice nada. */}
+        <div
+          role="status"
+          className={
+            isEditing && avisoAlta?.tipo === "ok"
+              ? undefined
+              : "visually-hidden"
+          }
+        >
+          {isEditing && avisoAlta?.tipo === "ok" && (
+            <div className="mz-alert mz-alert--ok">
+              <Icon name="check2-circle" />
+              <span>{avisoAlta.texto}</span>
+            </div>
+          )}
+        </div>
+        {isEditing && avisoAlta?.tipo === "falta-cargo" && (
+          <div className="mz-alert mz-alert--warn" role="alert">
+            <Icon name="exclamation-triangle" />
+            <span className="flex-grow-1">
+              {avisoAlta.texto}{" "}
+              {avisoAlta.recargar ? (
+                // Otra empresa: se recarga para que la tome la pestaña.
+                <a href={avisoAlta.destino}>Ir a Asignación de cargos</a>
+              ) : (
+                <Link
+                  to={avisoAlta.destino}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    guardedNavigate(avisoAlta.destino);
+                  }}
+                >
+                  Ir a Asignación de cargos
+                </Link>
+              )}
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => setAvisoAlta(null)}
+            >
+              Entendido
+            </button>
+          </div>
+        )}
         <section className="mz-card">
           <div className="mz-card-head">
             <h3>Datos de la cuenta</h3>
@@ -426,15 +608,57 @@ export function UserForm() {
               <div className="mz-section mt-3">
                 {/* Con una sola empresa el título repetía la etiqueta «Rol»
                     justo debajo (auditoría UX/UI, 06/11/2026). */}
-                {multiempresa && <h4>Empresa y rol</h4>}
+                {/* Con una sola empresa, título solo si hay cargo: «Rol» a
+                    secas repetía la etiqueta de abajo. */}
+                {(multiempresa || conCargo) && (
+                  <h4>
+                    {multiempresa
+                      ? conCargo
+                        ? "Empresa, cargo y rol"
+                        : "Empresa y rol"
+                      : "Cargo y rol"}
+                  </h4>
+                )}
                 <SeleccionEmpresaYRol
                   empresaId={alta.empresaId}
                   rolId={alta.rolId}
+                  rolOpcional={Boolean(cargoElegido)}
+                  ofreceCargo={conCargo}
+                  campoCargo={
+                    cargoAjeno ? (
+                      <p className="mz-small mz-faint mb-0">
+                        <Icon name="info-circle" /> No tiene acceso al
+                        organigrama de esta empresa porque no trabaja en ella:
+                        asigne el cargo después, desde esa empresa.
+                      </p>
+                    ) : (
+                      conCargo && (
+                        <SelectorDeCargo
+                          empresaId={alta.empresaId}
+                          cargo={cargo}
+                          nombreCompleto={nombreCompleto}
+                          onCambio={(elegido) => {
+                            setCargo(elegido);
+                            // Con cargo, el rol ya no falta.
+                            if (elegido && erroresCampo.rol) {
+                              setErroresCampo({
+                                ...erroresCampo,
+                                rol: undefined,
+                              });
+                            }
+                          }}
+                        />
+                      )
+                    )
+                  }
                   errores={{
                     empresa: erroresCampo.empresa,
                     rol: erroresCampo.rol,
                   }}
                   onChange={(siguiente, { propuesta = false } = {}) => {
+                    // Los cargos son de cada empresa: el elegido no sirve en
+                    // otra.
+                    if (siguiente.empresaId !== alta.empresaId) setCargo(null);
                     setAlta(siguiente);
                     if (propuesta) setEmpresaPropuesta(siguiente.empresaId);
                     if (erroresCampo.rol && siguiente.rolId) {
@@ -468,7 +692,12 @@ export function UserForm() {
           <AsignacionEmpresas
             usuarioId={id}
             onCambiosSinGuardar={setAccesosSinGuardar}
-          />
+          >
+            <CargoDelUsuario
+              usuarioId={id}
+              nombre={`${original.first_name} ${original.last_name}`}
+            />
+          </AsignacionEmpresas>
         )}
 
         {isEditing && canResetPassword && (

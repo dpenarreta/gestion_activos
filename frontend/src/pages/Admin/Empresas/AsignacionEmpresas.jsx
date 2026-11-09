@@ -45,7 +45,11 @@ import "./Empresas.css";
  * `.mz-table-wrap` por debajo de 880 px, y en el móvil la asignación entera
  * desaparecía.
  */
-export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
+export function AsignacionEmpresas({
+  usuarioId,
+  onCambiosSinGuardar,
+  children,
+}) {
   const puedeVer = usePermission("empresas.ver");
   const puedeAsignar = usePermission("empresas.asignar");
   const puedeRolesGlobales = usePermission("usuarios.editar");
@@ -346,6 +350,10 @@ export function AsignacionEmpresas({ usuarioId, onCambiosSinGuardar }) {
             </p>
           </>
         )}
+        {/* Lo que la ficha añade a la tarjeta (su cargo en el organigrama,
+            09/11/2026): va junto a los roles porque es de donde sale el rol
+            de cargo que se ve en la lista. */}
+        {children}
         <p className="visually-hidden" role="status">
           {anuncio}
         </p>

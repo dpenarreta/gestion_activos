@@ -25,12 +25,20 @@ import "./Empresas.css";
  * descarta si se envían a mano y el rol buscado quedaba enterrado entre ellos
  * (06/11/2026). No se agrupan con `<optgroup>`: el catálogo no trae área ni
  * nivel de los roles manuales, y quedan pocos.
+ *
+ * Los de cargo se dan eligiendo el cargo: quien puede asignar cargos recibe
+ * ese campo en `campoCargo`, entre la empresa (los cargos son de ella) y el
+ * rol. Con un cargo elegido, el rol deja de ser obligatorio (`rolOpcional`):
+ * la cuenta ya tiene el de su cargo (09/11/2026).
  */
 export function SeleccionEmpresaYRol({
   empresaId,
   rolId,
   onChange,
   errores = {},
+  campoCargo = null,
+  ofreceCargo = Boolean(campoCargo),
+  rolOpcional = false,
 }) {
   const [empresas, setEmpresas] = useState([]);
   // `null` mientras carga: con `[]` se leía «No hay roles creados todavía»
@@ -104,17 +112,27 @@ export function SeleccionEmpresaYRol({
         </Campo>
       )}
 
+      {campoCargo && <div className="mz-field--full">{campoCargo}</div>}
+
       <div>
         <Campo
           id="rol"
-          etiqueta="Rol"
-          obligatorio
+          etiqueta={rolOpcional ? "Rol adicional (opcional)" : "Rol"}
+          obligatorio={!rolOpcional}
           error={errores.rol}
           ayuda={`${
-            empresas.length > 1
-              ? "Lo que podrá hacer dentro de la empresa elegida. En otras empresas puede tener uno distinto."
-              : "Lo que podrá hacer dentro del sistema."
-          } Los roles de los cargos del organigrama no se eligen aquí: los recibe al ocupar su cargo.`}
+            rolOpcional
+              ? "Solo si necesita algo más de lo que le da su cargo."
+              : empresas.length > 1
+                ? "Lo que podrá hacer dentro de la empresa elegida. En otras empresas puede tener uno distinto."
+                : "Lo que podrá hacer dentro del sistema."
+          } ${
+            // `ofreceCargo` y no `campoCargo`: en una empresa ajena el hueco
+            // lleva una nota, no el selector, y no se puede elegir «arriba».
+            ofreceCargo
+              ? "Los roles de un cargo (p. ej. Jefe de Cartera) se dan eligiendo el cargo arriba."
+              : "Los roles de los cargos del organigrama no se eligen aquí: los recibe al ocupar su cargo."
+          }`}
         >
           <select
             className="form-select"
@@ -130,7 +148,11 @@ export function SeleccionEmpresaYRol({
             }
           >
             <option value="">
-              {roles === null ? "Cargando roles…" : "Seleccione un rol"}
+              {roles === null
+                ? "Cargando roles…"
+                : rolOpcional
+                  ? "Sin rol adicional"
+                  : "Seleccione un rol"}
             </option>
             {(roles ?? []).map((rol) => (
               <option key={rol.id} value={rol.id}>

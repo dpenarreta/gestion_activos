@@ -4,10 +4,18 @@ const BASE = "/organizacion/";
 
 /** El motivo de un cambio al organigrama (bitácora, 26/10/2026): va en un
  * encabezado, codificado para que lleve tildes. */
-function conMotivo(motivo) {
-  return motivo
-    ? { headers: { "X-Motivo-Cambio": encodeURIComponent(motivo) } }
-    : {};
+function conMotivo(motivo, empresa) {
+  const headers = {
+    ...(motivo ? { "X-Motivo-Cambio": encodeURIComponent(motivo) } : {}),
+    ...enEmpresa(empresa).headers,
+  };
+  return Object.keys(headers).length > 0 ? { headers } : {};
+}
+
+/** Pregunta en otra empresa que la de la pestaña (alta de un usuario en otra
+ * empresa del grupo, 09/11/2026). Sin `empresa`, la activa de siempre. */
+function enEmpresa(empresa) {
+  return empresa ? { headers: { "X-Empresa": String(empresa) } } : {};
 }
 
 /** Lo que se arma del organigrama: niveles, unidades y cargos. */
@@ -22,9 +30,12 @@ const RECURSOS = {
  * quién ocupa cada cargo.
  */
 export const institucionalService = {
-  /** Todo el organigrama, plano: niveles, unidades y cargos con ocupantes. */
-  organigrama() {
-    return apiClient.get(`${BASE}organigrama/`).then((res) => res.data);
+  /** Todo el organigrama, plano: niveles, unidades y cargos con ocupantes.
+   * Con `empresa`, el de esa empresa y no el de la pestaña. */
+  organigrama({ empresa } = {}) {
+    return apiClient
+      .get(`${BASE}organigrama/`, enEmpresa(empresa))
+      .then((res) => res.data);
   },
   crear(recurso, datos, motivo) {
     return apiClient
@@ -225,13 +236,14 @@ export const institucionalService = {
       .get(`${BASE}vacaciones/`, { params: { usuario } })
       .then((res) => res.data);
   },
-  /** Pone a la persona en el cargo; `cargo` vacío la saca. */
-  asignar(usuario, cargo, motivo) {
+  /** Pone a la persona en el cargo; `cargo` vacío la saca. Con `empresa`,
+   * en esa empresa y no en la de la pestaña. */
+  asignar(usuario, cargo, motivo, { empresa } = {}) {
     return apiClient
       .post(
         `${BASE}asignaciones/`,
         { usuario, cargo: cargo || null },
-        conMotivo(motivo),
+        conMotivo(motivo, empresa),
       )
       .then((res) => res.data);
   },

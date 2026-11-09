@@ -12,11 +12,12 @@ Lo que se protege:
   organigrama: es el mismo dato, así que nunca hay dos versiones.
 """
 
+import unicodedata
+
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from . import niveles_cargo, perfiles_cargo
-
 from .models import (
     Cargo,
     DatosDeContacto,
@@ -253,9 +254,49 @@ def nombre_con_unidad(cargo) -> str:
     return texto
 
 
+def _nombre_comparable(texto: str) -> str:
+    """«Sara  Fernanda MARROQUÍN» → «sara fernanda marroquin»: sin tildes, sin
+    mayúsculas y con un solo espacio entre palabras."""
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", texto or "") if unicodedata.category(c) != "Mn"
+    )
+    return " ".join(sin_tildes.lower().split())
+
+
+def _quitar_ocupante_sin_cuenta(usuario, cargo) -> None:
+    """Borra del cargo al ocupante sin cuenta que es esta misma persona.
+
+    Al levantar un área desde una imagen (p. ej. `cartera_2026.py`) quien no
+    tenía cuenta quedó como `OcupanteCargo`. Cuando después se le crea la
+    cuenta y se la pone en ese cargo, sin esto el organigrama mostraba dos
+    personas en la misma plaza —la cuenta y su «sin cuenta»— y la vacante se
+    contaba dos veces (alta de usuarios con cargo, 09/11/2026).
+
+    Solo en el MISMO cargo y con el nombre completo igual (nombres y apellidos,
+    sin tildes ni mayúsculas): un homónimo en otro cargo es otra persona, y un
+    nombre parecido pero distinto no se toca porque no hay forma segura de
+    saber que es la misma. El correo ya lo resuelve `enlazar_al_entrar`.
+    """
+    nombre = _nombre_comparable(f"{usuario.first_name} {usuario.last_name}")
+    if not nombre:
+        return
+    iguales = [
+        ocupante.pk
+        for ocupante in OcupanteCargo.objects.filter(cargo=cargo)
+        if _nombre_comparable(f"{ocupante.nombres} {ocupante.apellidos}") == nombre
+    ]
+    if iguales:
+        OcupanteCargo.objects.filter(pk__in=iguales).delete()
+
+
 def asignar(usuario, cargo) -> None:
     """Pone a la persona en el cargo (o la saca, con `cargo=None`), en su
-    perfil de la empresa activa."""
+    perfil de la empresa activa. Si en ese cargo figuraba ella misma como
+    ocupante sin cuenta, ese registro se borra (`_quitar_ocupante_sin_cuenta`).
+
+    Quien llama desde una vista lo envuelve en `versiones.cambio`, así que el
+    ocupante borrado queda también en la bitácora del organigrama y se puede
+    revertir."""
     with transaction.atomic():
         perfil = DatosDeContacto.objects.filter(usuario=usuario).first()
         if perfil is None:
@@ -264,6 +305,8 @@ def asignar(usuario, cargo) -> None:
             perfil = DatosDeContacto(usuario=usuario)
         perfil.cargo = cargo
         perfil.save()
+        if cargo is not None:
+            _quitar_ocupante_sin_cuenta(usuario, cargo)
 
 
 def no_se_puede_borrar(objeto) -> str | None:

@@ -224,9 +224,11 @@ describe("Editar una cuenta", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar datos" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Datos guardados.",
-    );
+    // Por su texto: la ficha tiene además la región vacía del aviso del
+    // alta (alta con cargo, 09/11/2026).
+    expect(
+      (await screen.findByText("Datos guardados.")).closest("[role='status']"),
+    ).not.toBeNull();
     expect(marcarSinGuardar).toHaveBeenLastCalledWith(false);
   });
 
@@ -317,9 +319,13 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     // Dice qué se hizo, no solo que «se ejecutó» (revisión final UX/UI,
     // 28/10/2026).
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Listo: se cerraron todas sus sesiones.",
-    );
+    // Por su texto: la ficha tiene además la región vacía del aviso del
+    // alta (alta con cargo, 09/11/2026).
+    expect(
+      (
+        await screen.findByText("Listo: se cerraron todas sus sesiones.")
+      ).closest("[role='status']"),
+    ).not.toBeNull();
     expect(screen.getByLabelText("Cerrar sesiones activas")).not.toBeChecked();
     expect(
       screen.getByRole("button", { name: "Aplicar restablecimiento" }),
