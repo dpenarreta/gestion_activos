@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { institucionalService } from "../../api/institucionalService";
+import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import {
   EstadoDeCarga,
   FilaDeEstado,
@@ -13,6 +14,7 @@ import {
 } from "../../components/common/Pestanas/Pestanas";
 import { useAuth } from "../../hooks/useAuth";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { coincideBusqueda } from "../../utils/busqueda";
 import { mensajeDeError } from "../../utils/errores";
 import { AsignacionCargos } from "./AsignacionCargos";
 import { CargaPersonas, descargarArchivoOrganigrama } from "./CargaPersonas";
@@ -428,6 +430,13 @@ export function EstructuraPage() {
   const [aviso, setAviso] = useState(null);
   const [cargaAbierta, setCargaAbierta] = useState(false);
   const [bitacoraAbierta, setBitacoraAbierta] = useState(false);
+  // Buscador de la pestaña Cargos (09/11/2026): con todas las áreas son
+  // cientos de cargos y, para saber si uno ya existe, había que recorrer la
+  // tabla. Filtra en cada tecla sin tildes ni mayúsculas, como el resto de
+  // buscadores de la intranet.
+  const [buscarCargo, setBuscarCargo] = useState("");
+  const [unidadDeCargo, setUnidadDeCargo] = useState("");
+  const campoBuscarCargo = useRef(null);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
   const puedeCargar = user?.permissions?.includes("institucional.asignar");
   const puedeRevertir = user?.permissions?.includes("institucional.editar");
@@ -491,8 +500,29 @@ export function EstructuraPage() {
   const filas = useMemo(() => {
     if (!datos) return [];
     if (pestana === "unidades") return unidadesEnOrden(datos);
-    return datos[pestana];
-  }, [datos, pestana]);
+    if (pestana !== "cargos") return datos[pestana];
+    const nombreDe = (lista, id) => lista.find((x) => x.id === id)?.nombre;
+    return datos.cargos.filter(
+      (cargo) =>
+        (unidadDeCargo === "" || String(cargo.unidad) === unidadDeCargo) &&
+        coincideBusqueda(
+          buscarCargo,
+          cargo.nombre,
+          nombreDe(datos.unidades, cargo.unidad),
+          nombreDe(datos.cargos, cargo.jefe),
+          cargo.rol?.nombre,
+        ),
+    );
+  }, [datos, pestana, buscarCargo, unidadDeCargo]);
+  const filtrandoCargos =
+    pestana === "cargos" && (buscarCargo.trim() !== "" || unidadDeCargo !== "");
+
+  // El vacío devuelve el foco al buscador (`campoBusquedaRef`), como el resto
+  // de listados.
+  function limpiarFiltroCargos() {
+    setBuscarCargo("");
+    setUnidadDeCargo("");
+  }
 
   const unidadDe = (id) => datos?.unidades.find((u) => u.id === id)?.nombre;
   const cargoDe = (id) => datos?.cargos.find((c) => c.id === id)?.nombre;
@@ -674,6 +704,61 @@ export function EstructuraPage() {
                       </button>
                     )}
                   </div>
+                  {pestana === "cargos" && (
+                    <>
+                      <div className="mz-filter-bar" role="search">
+                        <label className="mz-fb-search">
+                          <Icon name="search" />
+                          <span className="visually-hidden">Buscar cargos</span>
+                          <input
+                            ref={campoBuscarCargo}
+                            type="search"
+                            placeholder="Buscar cargo, unidad, jefe o rol"
+                            value={buscarCargo}
+                            onChange={(event) =>
+                              setBuscarCargo(event.target.value)
+                            }
+                          />
+                        </label>
+                        <select
+                          className="form-select form-select-sm"
+                          aria-label="Filtrar por unidad"
+                          value={unidadDeCargo}
+                          onChange={(event) =>
+                            setUnidadDeCargo(event.target.value)
+                          }
+                        >
+                          <option value="">Todas las unidades</option>
+                          {unidadesEnOrden(datos).map((unidad) => (
+                            <option key={unidad.id} value={String(unidad.id)}>
+                              {/* Sangría por nivel: un área y su subárea no se
+                                  confunden en una lista de 17. */}
+                              {"  ".repeat(unidad.profundidad ?? 0) +
+                                unidad.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="mz-faint mz-small mb-0" aria-hidden="true">
+                        {filtrandoCargos
+                          ? `${filas.length} de ${datos.cargos.length} cargos`
+                          : `${datos.cargos.length} cargos`}
+                      </p>
+                      <AnuncioDeResultados
+                        // Con solo la unidad elegida también se anuncia: el
+                        // contador visible va oculto al lector de pantalla.
+                        termino={
+                          buscarCargo.trim() ||
+                          (unidadDeCargo
+                            ? (unidadDe(Number(unidadDeCargo)) ?? "")
+                            : "")
+                        }
+                        total={filas.length}
+                        de={datos.cargos.length}
+                        sustantivo={["cargo", "cargos"]}
+                      />
+                    </>
+                  )}
                   <div className="mz-table-wrap">
                     <table className="mz-table">
                       <thead>
@@ -811,6 +896,15 @@ export function EstructuraPage() {
                             { niveles: 3, unidades: 4, cargos: 7 }[pestana]
                           }
                           vacio={filas.length === 0}
+                          hayFiltros={filtrandoCargos}
+                          termino={buscarCargo}
+                          onLimpiarFiltros={limpiarFiltroCargos}
+                          campoBusquedaRef={campoBuscarCargo}
+                          etiquetaLimpiar={
+                            unidadDeCargo
+                              ? "Limpiar filtros"
+                              : "Limpiar búsqueda"
+                          }
                         />
                       </tbody>
                     </table>

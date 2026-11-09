@@ -452,6 +452,33 @@ describe("La estructura", () => {
     );
   });
 
+  it("el buscador de Cargos filtra en cada tecla, sin tildes ni mayúsculas", async () => {
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    const campo = screen.getByRole("searchbox", { name: "Buscar cargos" });
+    fireEvent.change(campo, { target: { value: "ANALÍSTA" } });
+    expect(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Editar Gerente de TI" }),
+    ).toBeNull();
+    expect(screen.getByText("1 de 2 cargos")).toBeInTheDocument();
+  });
+
+  it("sin coincidencias lo dice y limpiar devuelve el foco al buscador", async () => {
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    const campo = screen.getByRole("searchbox", { name: "Buscar cargos" });
+    fireEvent.change(campo, { target: { value: "contador" } });
+    expect(
+      screen.getByText("Sin resultados para «contador»."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    expect(campo).toHaveValue("");
+    expect(campo).toHaveFocus();
+  });
+
   it("editar abre una ventana con los datos del cargo", async () => {
     servicio.actualizar.mockResolvedValue({});
     pintar(<EstructuraPage />);
