@@ -51,6 +51,21 @@ export const MODOS = [
   },
 ];
 
+/**
+ * El modo General con «Responder solo con las fuentes» activo (ajuste de la
+ * base de conocimiento, `estado.solo_fuentes`).
+ */
+export const DESCRIPCION_SOLO_FUENTES =
+  "Nova responde solo con los documentos de la base de conocimiento.";
+
+/** La descripción del modo, según el ajuste de fuentes. */
+export function descripcionDeModo(modo, estado) {
+  if (modo.id === "general" && estado?.solo_fuentes) {
+    return DESCRIPCION_SOLO_FUENTES;
+  }
+  return modo.descripcion;
+}
+
 /** Turnos que se reenvían como mucho (el servidor también recorta). */
 export const MAXIMO_TURNOS = 12;
 
@@ -203,6 +218,16 @@ export function NovaChatProvider({ children }) {
             texto: datos.respuesta,
             fuentes: datos.fuentes ?? [],
           });
+        } else if (datos.motivo === "sin_fuentes") {
+          // No es un error: la pregunta se recibió, pero no está en los
+          // documentos. Queda como aviso informativo; el mensaje no se marca
+          // «No se envió» ni vuelve a la caja.
+          agregar(enModo, {
+            rol: "aviso",
+            texto:
+              datos.mensaje ??
+              "No encontré esa información en los documentos de la base de conocimiento.",
+          });
         } else {
           noSeEnvio();
           const motivo = motivoSinIa(datos);
@@ -272,6 +297,12 @@ export function NovaChatProvider({ children }) {
     cargarEstado,
   };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
+}
+
+/** Como `useNovaChat`, pero null fuera del proveedor (la base de
+ * conocimiento lo usa para poner al día el estado del chat). */
+export function useNovaChatOpcional() {
+  return useContext(Contexto);
 }
 
 export function useNovaChat() {

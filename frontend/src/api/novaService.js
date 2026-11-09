@@ -63,6 +63,13 @@ export const novaService = {
   },
   eliminarDocumento: (id) =>
     apiClient.delete(`${BASE}/conocimiento/documentos/${id}/`),
+  /** «Responder solo con las fuentes» (`{ solo_fuentes, gestionar }`). */
+  ajustes: () => apiClient.get(`${BASE}/conocimiento/ajustes/`).then(datos),
+  /** Lo cambia quien gestiona la base (403 si no); queda en la auditoría. */
+  cambiarAjustes: ({ solo_fuentes }) =>
+    apiClient
+      .put(`${BASE}/conocimiento/ajustes/`, { solo_fuentes })
+      .then(datos),
   /** El PDF como blob, para el visor del sistema. */
   archivoDocumento: (id) =>
     apiClient

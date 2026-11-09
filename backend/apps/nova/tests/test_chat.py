@@ -8,7 +8,7 @@ import pytest
 from django.contrib.auth.models import Group, Permission
 
 from apps.informes.tests.conftest import client_for, congelar, make_user, organigrama, tarea
-from apps.nova import chat
+from apps.nova import ajustes, chat
 from apps.nova.conocimiento import terminos
 from apps.nova.models import DocumentoConocimiento, FragmentoConocimiento, UsoNova
 from apps.permissions.authorization import user_has_permission
@@ -59,6 +59,11 @@ def _documento(titulo: str, *textos: str) -> DocumentoConocimiento:
 
 
 # ── Permisos y validación ───────────────────────────────────────────────────
+
+
+def _sin_regla(usuario):
+    """Desactiva «Responder solo con las fuentes» (comportamiento anterior)."""
+    ajustes.cambiar_solo_fuentes(False, usuario)
 
 
 def _tiene(usuario, codename):
@@ -113,6 +118,7 @@ def test_modo_equipo_sin_equipo_ni_permiso_de_verlo(nino, proveedor_falso):
 
 
 def test_modo_general_responde_con_el_historial(ana, proveedor_falso):
+    _sin_regla(ana)
     proveedor_falso.respuesta = "Buenos días. ¿En qué le ayudo?"
     historial = [
         {"rol": "modelo", "texto": "Turno huérfano que se descarta."},
@@ -216,11 +222,11 @@ def test_suma_los_fragmentos_relevantes_y_devuelve_las_fuentes(ana, proveedor_fa
         "El horario de trabajo es de 8:00 a 17:00. El reposo médico se justifica.",
     )
     _documento("Otro", "Normas de uso del parqueadero.")
-    proveedor_falso.respuesta = "Son quince días (Fuente: Reglamento interno, pág. 1)."
+    proveedor_falso.respuesta = "Son quince días."
     respuesta = _pedir(ana, modo="general", mensaje="¿Cuántos días de vacaciones tengo?")
     assert respuesta.status_code == 200, respuesta.content
     assert respuesta.json()["fuentes"] == [
-        {"documento_id": documento.pk, "titulo": "Reglamento interno", "pagina": 1}
+        {"documento_id": documento.pk, "titulo": "Reglamento interno", "pagina": 1, "citada": False}
     ]
     documentos = _datos_enviados(proveedor_falso)["documentos"]
     assert len(documentos) == 1
@@ -286,6 +292,7 @@ def test_en_modo_general_la_pregunta_sobre_salud_se_envia_con_la_politica_comple
 
 def test_en_modo_general_se_siguen_ocultando_contacto_y_nombres(proveedor_falso):
     persona = make_user("mrios", "ANALISTA_CC", first_name="Marisol", last_name="Ríos")
+    _sin_regla(persona)
     proveedor_falso.respuesta = "Consulte a Gestión Humana."
     mensaje = (
         "Soy Marisol Ríos (mrios@example.com, cédula 0912345678, tel. 0991234567): "
@@ -327,6 +334,7 @@ def test_en_modo_tareas_el_historial_con_salud_no_sale(ana, proveedor_falso):
 
 
 def test_sin_clave_responde_claro(ana):
+    _sin_regla(ana)
     respuesta = _pedir(ana, modo="general", mensaje="Hola")
     assert respuesta.status_code == 200
     datos = respuesta.json()
@@ -336,6 +344,7 @@ def test_sin_clave_responde_claro(ana):
 
 
 def test_sin_consentimiento_responde_claro(ana, proveedor_falso, monkeypatch):
+    _sin_regla(ana)
     monkeypatch.setattr("apps.nova.nucleo.acepto_aviso_vigente", lambda _u: False)
     datos = _pedir(ana, modo="general", mensaje="Hola").json()
     assert datos["motivo"] == "sin_consentimiento"
@@ -345,6 +354,7 @@ def test_sin_consentimiento_responde_claro(ana, proveedor_falso, monkeypatch):
 
 def test_limite_diario(ana, proveedor_falso, settings):
     settings.NOVA_LIMITE_DIARIO_POR_USUARIO = 1
+    _sin_regla(ana)
     proveedor_falso.respuesta = "Hola."
     assert _pedir(ana, modo="general", mensaje="Hola").json()["con_ia"]
     datos = _pedir(ana, modo="general", mensaje="Otra").json()
@@ -353,6 +363,7 @@ def test_limite_diario(ana, proveedor_falso, settings):
 
 
 def test_fallo_del_proveedor_no_es_500(ana, proveedor_falso):
+    _sin_regla(ana)
     import anthropic
     import httpx2
 

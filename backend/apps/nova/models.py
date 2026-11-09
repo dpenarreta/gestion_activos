@@ -26,6 +26,9 @@ class UsoNova(models.Model):
         SIN_CONSENTIMIENTO = "sin_consentimiento", "Sin aceptar el aviso de datos (versión sin IA)"
         LIMITE = "limite", "Límite diario alcanzado (versión sin IA)"
         BLOQUEADO = "bloqueado", "Bloqueado por privacidad antes de enviar (versión sin IA)"
+        #: Chat General con «Responder solo con las fuentes»: la búsqueda no
+        #: encontró fragmentos y no se llamó a la IA (no cuenta para el límite).
+        SIN_FUENTES = "sin_fuentes", "Sin fragmentos en la base de conocimiento (no se llamó)"
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="+", on_delete=models.CASCADE

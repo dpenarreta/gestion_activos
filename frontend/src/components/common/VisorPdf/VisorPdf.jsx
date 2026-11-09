@@ -15,8 +15,15 @@ import { descargarBlob } from "../../../utils/descargas";
  * pública, así que se muestra desde una dirección `blob:` local, que se libera
  * al cerrar. Lo dibuja `LectorPdf` (pdf.js), con páginas y zoom propios, igual
  * en cualquier equipo (30/10/2026; antes el lector del navegador en un marco).
+ * `paginaInicial` abre el documento en esa página (las fuentes de Nova).
  */
-export function VisorPdf({ titulo, blob, nombreArchivo, onCerrar }) {
+export function VisorPdf({
+  titulo,
+  blob,
+  nombreArchivo,
+  onCerrar,
+  paginaInicial = 1,
+}) {
   const url = useUrlDePdf(blob);
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -59,7 +66,7 @@ export function VisorPdf({ titulo, blob, nombreArchivo, onCerrar }) {
           </button>
         </div>
         <div className="visor-pdf__cuerpo">
-          <MarcoPdf titulo={titulo} url={url} />
+          <MarcoPdf titulo={titulo} url={url} paginaInicial={paginaInicial} />
         </div>
       </div>
     </div>
@@ -92,6 +99,6 @@ export function useUrlDePdf(blob) {
 
 /** El PDF dentro de la página (sin ventana): lo usan el visor, los códigos
  * de conducta y el rol de pagos. */
-export function MarcoPdf({ titulo, url }) {
-  return <LectorPdf titulo={titulo} url={url} />;
+export function MarcoPdf({ titulo, url, paginaInicial = 1 }) {
+  return <LectorPdf titulo={titulo} url={url} paginaInicial={paginaInicial} />;
 }

@@ -16,7 +16,7 @@ Uno por función, para poder dar o quitar cada una a un rol:
   conocimiento y abrirlos en el visor. Sus fragmentos no se listan: solo los
   usa el chat en el servidor.
 - `nova.conocimiento_gestionar`: subir y eliminar documentos (y revisar el
-  texto extraído).
+  texto extraído) y cambiar «Responder solo con las fuentes» (`ajustes.py`).
 """
 
 from apps.permissions.authorization import user_has_permission

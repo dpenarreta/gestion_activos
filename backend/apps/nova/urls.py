@@ -25,6 +25,11 @@ urlpatterns = [
         name="nova-conocimiento-archivo",
     ),
     path(
+        "conocimiento/ajustes/",
+        views.AjustesView.as_view(),
+        name="nova-conocimiento-ajustes",
+    ),
+    path(
         "conocimiento/documentos/<int:pk>/fragmentos/",
         views.DocumentoFragmentosView.as_view(),
         name="nova-conocimiento-fragmentos",

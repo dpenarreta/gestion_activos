@@ -19,6 +19,10 @@ Humana: se apagan con él, ver `apps.empresas.modulos`).
 - `GET conocimiento/documentos/<id>/archivo/`: el PDF, para el visor.
 - `GET conocimiento/documentos/<id>/fragmentos/`: el texto extraído, solo
   para quien gestiona la base (en Nexo bastaba con estar autenticado).
+- `GET/PUT conocimiento/ajustes/`: «Responder solo con las fuentes»
+  (`{"solo_fuentes": bool}`); verlo quien ve o gestiona la base, cambiarlo
+  solo quien la gestiona (403 si no). `me/` también lo trae, con
+  `hay_documentos`.
 
 La narrativa de los informes no tiene endpoint propio: se genera con el
 informe (`apps.informes.services.generar_informe`).
@@ -49,6 +53,7 @@ from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
 
 from . import access, chat, cliente, conocimiento, inicio, kpi, nucleo
+from . import ajustes as ajustes_nova
 from .models import DocumentoConocimiento
 
 #: El módulo de los eventos de auditoría de Nova.
@@ -73,6 +78,10 @@ class MeView(_Base):
                 # El modo Equipo del chat (el permiso y equipo a cargo o verlo).
                 "chat_equipo": access.puede_chat_equipo(user),
                 "proveedor": cliente.proveedor(),
+                # «Responder solo con las fuentes» y si hay documentos en la
+                # base (el chat avisa antes de escribir si está vacía).
+                "solo_fuentes": ajustes_nova.solo_fuentes(),
+                "hay_documentos": DocumentoConocimiento.objects.exists(),
                 **nucleo.estado(user),
             }
         )
@@ -177,6 +186,7 @@ class DocumentosView(_Base):
             {
                 "resultados": [_documento(d) for d in documentos],
                 "gestionar": _gestiona(request.user),
+                "solo_fuentes": ajustes_nova.solo_fuentes(),
             }
         )
 
@@ -263,3 +273,45 @@ class DocumentoFragmentosView(_Base):
                 ],
             }
         )
+
+
+class AjustesView(_Base):
+    """«Responder solo con las fuentes» (`ajustes.py`): verlo quien ve o
+    gestiona la base; cambiarlo, solo quien la gestiona. Queda en la
+    auditoría (`nova.configuracion.cambiada`)."""
+
+    permission_classes = [
+        IsAuthenticated,
+        Requiere(access.CONOCIMIENTO_VER, access.CONOCIMIENTO_GESTIONAR),
+    ]
+
+    def get(self, request):
+        return Response(
+            {"solo_fuentes": ajustes_nova.solo_fuentes(), "gestionar": _gestiona(request.user)}
+        )
+
+    def put(self, request):
+        if not _gestiona(request.user):
+            return error_response(
+                "permission_denied",
+                "No tiene permiso para cambiar los ajustes de Nova.",
+                403,
+            )
+        valor = request.data.get("solo_fuentes") if isinstance(request.data, dict) else None
+        if not isinstance(valor, bool):
+            mensaje = "Indique si Nova responde solo con las fuentes (verdadero o falso)."
+            return error_response("validation_error", mensaje, 400, {"solo_fuentes": [mensaje]})
+        anterior = ajustes_nova.solo_fuentes()
+        if valor != anterior:
+            ajustes_nova.cambiar_solo_fuentes(valor, request.user)
+            record_audit_event(
+                actor=request.user,
+                action="nova.configuracion.cambiada",
+                target_type="AjusteNova",
+                target_id=ajustes_nova.CLAVE_SOLO_FUENTES,
+                module=MODULO_AUDITORIA,
+                previous_values={"solo_fuentes": anterior},
+                new_values={"solo_fuentes": valor},
+                context=get_request_context(request),
+            )
+        return Response({"solo_fuentes": valor, "gestionar": True})

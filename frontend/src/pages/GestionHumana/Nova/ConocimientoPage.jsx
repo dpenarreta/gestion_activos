@@ -12,6 +12,7 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { VisorPdf } from "../../../components/common/VisorPdf/VisorPdf";
 import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { usePermission } from "../../../hooks/usePermission";
+import { useNovaChatOpcional } from "../../../components/admin/NovaChat/NovaChatContext";
 import "../../../components/admin/NovaChat/ConversacionNova.css";
 
 /** Tope por defecto (`NOVA_CONOCIMIENTO_TAMANO_MAXIMO_MB`); el servidor manda. */
@@ -54,6 +55,81 @@ function MensajeResultado({ mensaje, className = "" }) {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * «Responder solo con las fuentes» (ajuste por empresa, activado por
+ * defecto). Solo para quien gestiona la base; el servidor lo vuelve a
+ * comprobar y lo deja en la auditoría.
+ */
+function AjusteSoloFuentes({ valor, onCambiado }) {
+  const id = useId();
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState(null);
+
+  async function cambiar(evento) {
+    if (guardando) return;
+    const nuevo = evento.target.checked;
+    setGuardando(true);
+    setMensaje(null);
+    try {
+      const datos = await novaService.cambiarAjustes({ solo_fuentes: nuevo });
+      onCambiado(datos.solo_fuentes);
+      setMensaje({
+        tipo: "ok",
+        texto: datos.solo_fuentes
+          ? "Listo: Nova responde solo con los documentos de la base de conocimiento."
+          : "Listo: si los documentos no cubren la pregunta, Nova puede responder con conocimiento general (y cita los documentos que use).",
+      });
+    } catch (err) {
+      setMensaje({
+        tipo: "bad",
+        texto: errorDeNova(err, "No se pudo guardar el ajuste.").mensaje,
+      });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <section className="mz-card p-3 mb-3" aria-labelledby={`${id}-titulo`}>
+      <h3 id={`${id}-titulo`} className="h6 mb-2">
+        Cómo responde Nova
+      </h3>
+      <div className="form-check form-switch mb-1">
+        <input
+          id={`${id}-solo`}
+          className="form-check-input"
+          type="checkbox"
+          role="switch"
+          checked={valor}
+          onChange={cambiar}
+          aria-describedby={`${id}-descripcion`}
+          aria-disabled={guardando}
+        />
+        <label className="form-check-label" htmlFor={`${id}-solo`}>
+          Responder solo con las fuentes
+        </label>
+        {guardando && (
+          <span className="mz-small ms-2" role="status">
+            <span
+              className="spinner-border spinner-border-sm me-1"
+              aria-hidden="true"
+            />
+            Guardando…
+          </span>
+        )}
+      </div>
+      {/* Vale para los dos estados: con el interruptor apagado, un texto
+          que solo describe el encendido sería falso. */}
+      <p id={`${id}-descripcion`} className="mz-small mz-faint mb-0">
+        Encendido: Nova responde solo con estos documentos y, si no encuentra la
+        respuesta en ellos, lo dice. Apagado: puede completar con conocimiento
+        general y cita los documentos que use.
+      </p>
+      <MensajeResultado mensaje={mensaje} className="mt-2" />
+    </section>
   );
 }
 
@@ -187,6 +263,12 @@ export function ConocimientoPage() {
   const [abriendo, setAbriendo] = useState(null);
   const campoBusqueda = useRef(null);
   const busqueda = useBusquedaEnVivo({ alBuscar: setTermino });
+  // «Responder solo con las fuentes» (llega con la lista); null hasta saberlo.
+  const [soloFuentes, setSoloFuentes] = useState(null);
+  // El chat (si esta página vive dentro de su proveedor) se pone al día al
+  // cambiar la base o el ajuste: avisa si la base está vacía.
+  const chat = useNovaChatOpcional();
+  const actualizarChat = useCallback(() => chat?.cargarEstado?.(true), [chat]);
 
   useEffect(() => {
     let vigente = true;
@@ -194,12 +276,14 @@ export function ConocimientoPage() {
     novaService
       .documentos(termino)
       .then((datos) => {
-        if (vigente)
-          setEstado({
-            cargando: false,
-            error: null,
-            documentos: datos.resultados,
-          });
+        if (!vigente) return;
+        setEstado({
+          cargando: false,
+          error: null,
+          documentos: datos.resultados,
+        });
+        if (typeof datos.solo_fuentes === "boolean")
+          setSoloFuentes(datos.solo_fuentes);
       })
       .catch((err) => {
         if (vigente)
@@ -218,6 +302,10 @@ export function ConocimientoPage() {
   }, [termino, vez]);
 
   const recargar = useCallback(() => setVez((v) => v + 1), []);
+  const alSubir = useCallback(() => {
+    recargar();
+    actualizarChat();
+  }, [recargar, actualizarChat]);
 
   async function abrir(documento) {
     if (abriendo) return;
@@ -244,6 +332,7 @@ export function ConocimientoPage() {
       setAviso({ tipo: "ok", texto: `Se eliminó «${borrando.titulo}».` });
       setBorrando(null);
       recargar();
+      actualizarChat();
       campoBusqueda.current?.focus();
     } catch (err) {
       setAviso({
@@ -271,7 +360,17 @@ export function ConocimientoPage() {
         </div>
       </div>
 
-      {gestiona && <FormularioSubida onSubido={recargar} />}
+      {gestiona && soloFuentes !== null && (
+        <AjusteSoloFuentes
+          valor={soloFuentes}
+          onCambiado={(valor) => {
+            setSoloFuentes(valor);
+            actualizarChat();
+          }}
+        />
+      )}
+
+      {gestiona && <FormularioSubida onSubido={alSubir} />}
 
       <form
         className="mz-filter-bar"

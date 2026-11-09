@@ -238,6 +238,17 @@
   padding-left: 18px;
 }
 
+/* Cada fuente abre el PDF en el visor, en la página citada. */
+.nova-fuente {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 2px 0;
+  font-size: inherit;
+  text-align: left;
+}
+
 .nova-escribiendo {
   min-height: 1.5em;
   margin-top: 8px;
@@ -302,7 +313,8 @@
   .nova-pagina .btn,
   .nova-conocimiento .btn,
   .nova-conocimiento .form-select-sm,
-  .nova-conocimiento .form-control-sm {
+  .nova-conocimiento .form-control-sm,
+  .nova-mensaje__fuentes .nova-fuente {
     min-height: 44px;
   }
 
@@ -351,4 +363,10 @@
   .nova-cajon__acciones .btn {
     display: none;
   }
+}
+
+.nova-mensaje__fuentes .nova-fuente[aria-disabled="true"],
+.nova-conocimiento .form-switch input[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: progress;
 }

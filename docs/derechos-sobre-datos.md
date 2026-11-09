@@ -290,3 +290,44 @@ exacto antes de enviarlo.
   personas (una prueba lo asegura). La pantalla avisa: «Puede preguntar por
   políticas sobre licencias o permisos médicos, pero no escriba datos de salud
   suyos ni de otras personas.»
+
+### Nova responde solo con sus fuentes (09/11/2026)
+
+Detalle en `backend/apps/nova/ajustes.py` y `chat.py`. Ajuste por empresa
+«Responder solo con las fuentes», **activado por defecto**: Nova responde
+siempre con sus fuentes (los documentos de la base de conocimiento y, según
+el modo, los datos que se le entregan), nunca con conocimiento general.
+
+- **Dónde vive.** En `novedades.SettingHistory` (clave `nova_solo_fuentes`,
+  la tabla de ajustes con vigencia de Gestión Humana, por empresa). Lo cambia
+  quien tiene `nova.conocimiento_gestionar` con el interruptor de Nova › Base
+  de conocimiento (`PUT /api/v1/nova/conocimiento/ajustes/`; 403 a quien no
+  gestiona). Cada cambio queda en la auditoría como
+  `nova.configuracion.cambiada`, con el valor anterior y el nuevo.
+- **Modo General.** Si la búsqueda en la base (BM25, en el servidor) no
+  encuentra fragmentos por encima del umbral, **no se llama a la IA**: se
+  responde «No encontré esa información en los documentos de la base de
+  conocimiento. Pruebe con otras palabras o consulte a Gestión Humana.»
+  (`motivo: "sin_fuentes"`). Queda el metadato en `UsoNova`
+  (`resultado=sin_fuentes`, `llamada=False`) y no cuenta para el límite
+  diario. Con fragmentos, la instrucción del sistema exige responder solo con
+  ellos, citar «[Título del documento, pág. N]» y decir explícitamente que
+  la respuesta no está en los documentos cuando no aparece; prohíbe completar
+  con conocimiento general.
+- **Mis tareas y Mi equipo.** No se cortan por falta de fragmentos: las
+  tareas o las cifras del equipo son fuente. La instrucción exige responder
+  solo con esos datos y los fragmentos, y decir si con eso no se puede
+  responder.
+- **Temperatura baja** (0,2) con el ajuste activo; Gemini la usa, Anthropic
+  no la admite.
+- **Desactivado**, vuelve el comportamiento anterior: si los documentos no
+  cubren la pregunta, Nova puede responder con buenas prácticas generales y
+  lo dice; siempre cita los documentos que usa.
+- **Pantalla.** `GET /api/v1/nova/me/` trae `solo_fuentes` y
+  `hay_documentos`. Con el ajuste activo el modo General dice «Nova responde
+  solo con los documentos de la base de conocimiento.» y, si la base está
+  vacía, lo avisa antes de escribir (con enlace a la base para quien la
+  gestiona). «sin_fuentes» se muestra como aviso informativo: el mensaje no
+  queda «No se envió» ni vuelve a la caja. Cada fuente de la respuesta (las
+  citadas, `citada: true`, o si no cita ninguna, las consultadas) abre el PDF
+  en el visor del sistema en la página indicada, para quien puede ver la base.

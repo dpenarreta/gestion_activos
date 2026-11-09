@@ -1,10 +1,24 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
-import { NOVA_CHAT_MAX_CARACTERES } from "../../../api/novaService";
+import {
+  NOVA_CHAT_MAX_CARACTERES,
+  NOVA_CONOCIMIENTO_GESTIONAR,
+  NOVA_CONOCIMIENTO_VER,
+  errorDeNova,
+  novaService,
+} from "../../../api/novaService";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
+import { usePermission } from "../../../hooks/usePermission";
 import { ConfirmDialog } from "../../common/ConfirmDialog/ConfirmDialog";
 import { Icon } from "../../common/Icon/Icon";
-import { MODOS, avisoDeEstado, useNovaChat } from "./NovaChatContext";
+import { VisorPdf } from "../../common/VisorPdf/VisorPdf";
+import {
+  MODOS,
+  avisoDeEstado,
+  descripcionDeModo,
+  useNovaChat,
+} from "./NovaChatContext";
 import "./ConversacionNova.css";
 
 /** Ideas para empezar, por modo (un clic las envía). */
@@ -35,7 +49,51 @@ function prefiereSinMovimiento() {
   );
 }
 
-function Mensaje({ mensaje }) {
+/**
+ * Las fuentes de una respuesta: las que la respuesta cita (`citada`) o, si no
+ * cita ninguna, todos los documentos consultados. Con permiso de ver la base,
+ * cada una abre el PDF en el visor del sistema en esa página.
+ */
+function Fuentes({ fuentes, onAbrir, abriendo }) {
+  const idTitulo = useId();
+  const citadas = fuentes.filter((f) => f.citada);
+  const lista = citadas.length > 0 ? citadas : fuentes;
+  return (
+    <div className="nova-mensaje__fuentes">
+      <span id={idTitulo} className="mz-strong">
+        {citadas.length > 0 ? "Fuentes citadas:" : "Documentos consultados:"}
+      </span>
+      <ul aria-labelledby={idTitulo}>
+        {lista.map((f) => {
+          const clave = `${f.documento_id}-${f.pagina}`;
+          const texto = `${f.titulo}, pág. ${f.pagina}`;
+          return (
+            <li key={clave}>
+              {onAbrir ? (
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm nova-fuente"
+                  onClick={() => onAbrir(f)}
+                  // Mientras se abre una, ninguna otra responde: que se vea.
+                  aria-disabled={Boolean(abriendo)}
+                >
+                  <Icon name="file-earmark-pdf" />
+                  <span className="visually-hidden">Abrir </span>
+                  {texto}
+                  {abriendo === clave && " (abriendo…)"}
+                </button>
+              ) : (
+                texto
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function Mensaje({ mensaje, onAbrirFuente, abriendoFuente }) {
   if (mensaje.rol === "usuario") {
     return (
       <li
@@ -73,16 +131,11 @@ function Mensaje({ mensaje }) {
       <span className="visually-hidden">Nova: </span>
       <p className="nova-mensaje__texto">{mensaje.texto}</p>
       {mensaje.fuentes?.length > 0 && (
-        <div className="nova-mensaje__fuentes">
-          <span className="mz-strong">Documentos consultados:</span>
-          <ul>
-            {mensaje.fuentes.map((f) => (
-              <li key={`${f.documento_id}-${f.pagina}`}>
-                {f.titulo}, pág. {f.pagina}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Fuentes
+          fuentes={mensaje.fuentes}
+          onAbrir={onAbrirFuente}
+          abriendo={abriendoFuente}
+        />
       )}
     </li>
   );
@@ -100,6 +153,11 @@ function Mensaje({ mensaje }) {
  * - El foco se queda en la caja de texto al enviar.
  * - Un mensaje sin respuesta de la IA queda «No se envió» y su texto vuelve a
  *   la caja; si fue la red o Nova tardó, una alerta ofrece «Reintentar».
+ *   Excepción: «sin_fuentes» (no está en los documentos) es un aviso
+ *   informativo, no un error.
+ * - Con «Responder solo con las fuentes» (`estado.solo_fuentes`) el modo
+ *   General lo dice y, con la base vacía, lo avisa antes de escribir. Las
+ *   fuentes abren el PDF en el visor, en la página citada.
  * - Con Nova no disponible (sin clave, límite…) no hay sugerencias y la caja
  *   queda de solo lectura, descrita por el aviso.
  *
@@ -126,6 +184,13 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
   } = useNovaChat();
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState("");
+  const gestionaBase = usePermission(NOVA_CONOCIMIENTO_GESTIONAR);
+  const veBase = usePermission(NOVA_CONOCIMIENTO_VER) || gestionaBase;
+  // La fuente abierta en el visor (`{ fuente, blob }`), la que se está
+  // trayendo y el error al abrirla.
+  const [fuenteAbierta, setFuenteAbierta] = useState(null);
+  const [abriendoFuente, setAbriendoFuente] = useState(null);
+  const [errorFuente, setErrorFuente] = useState("");
   const caja = useRef(null);
   const registro = useRef(null);
   const tactil = useMediaQuery(TACTIL);
@@ -178,6 +243,29 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
   }, [estado, modo, modos, setModo]);
   const actual = MODOS.find((m) => m.id === modo) ?? MODOS[0];
   const aviso = avisoDeEstado(estado);
+  // Con «solo fuentes» y la base vacía, el modo General no tiene de dónde
+  // responder: se avisa antes de escribir.
+  const baseVacia =
+    modo === "general" &&
+    Boolean(estado?.solo_fuentes) &&
+    estado?.hay_documentos === false;
+
+  async function abrirFuente(fuente) {
+    const clave = `${fuente.documento_id}-${fuente.pagina}`;
+    if (abriendoFuente) return;
+    setErrorFuente("");
+    setAbriendoFuente(clave);
+    try {
+      const blob = await novaService.archivoDocumento(fuente.documento_id);
+      setFuenteAbierta({ fuente, blob });
+    } catch (err) {
+      setErrorFuente(
+        errorDeNova(err, `No se pudo abrir «${fuente.titulo}».`).mensaje,
+      );
+    } finally {
+      setAbriendoFuente(null);
+    }
+  }
   const noDisponible = Boolean(aviso);
   const largo = borrador.length;
   const demasiado = largo > NOVA_CHAT_MAX_CARACTERES;
@@ -190,6 +278,7 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
 
   async function mandar(texto) {
     if (enviando || noDisponible) return;
+    setErrorFuente("");
     if (!String(texto ?? "").trim()) {
       setError("Escriba su mensaje para Nova.");
       caja.current?.focus();
@@ -242,7 +331,8 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
             ))}
           </select>
           <p id={`${id}-modo-ayuda`} className="mz-small mz-faint mb-0">
-            {actual.descripcion} Cada modo tiene su propia conversación.
+            {descripcionDeModo(actual, estado)} Cada modo tiene su propia
+            conversación.
           </p>
         </div>
         {mensajes.length > 0 && (
@@ -289,6 +379,21 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
         </p>
       )}
 
+      {baseVacia && !aviso && (
+        <p className="mz-alert mz-alert--info mb-0" role="note">
+          <Icon name="info-circle" />
+          <span>
+            Todavía no hay documentos en la base de conocimiento: por ahora Nova
+            no puede responder en el modo General.{" "}
+            {gestionaBase && (
+              <Link to="/admin/nova/conocimiento">
+                Subir documentos a la base de conocimiento
+              </Link>
+            )}
+          </span>
+        </p>
+      )}
+
       <div className="nova-mensajes" ref={registro}>
         {mensajes.length === 0 && !noDisponible ? (
           <div className="nova-vacio">
@@ -321,7 +426,12 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
           aria-label="Conversación con Nova"
         >
           {mensajes.map((m) => (
-            <Mensaje key={m.id} mensaje={m} />
+            <Mensaje
+              key={m.id}
+              mensaje={m}
+              onAbrirFuente={veBase ? abrirFuente : null}
+              abriendoFuente={abriendoFuente}
+            />
           ))}
         </ol>
         <p className="nova-escribiendo mz-small mz-faint mb-0" role="status">
@@ -336,6 +446,14 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
           )}
         </p>
       </div>
+
+      {/* Una alerta que aparece con su texto se anuncia al insertarse. */}
+      {errorFuente && (
+        <p className="mz-alert mz-alert--bad mb-0" role="alert">
+          <Icon name="exclamation-triangle" />
+          <span>{errorFuente}</span>
+        </p>
+      )}
 
       {fallo && (
         <div className="mz-alert mz-alert--bad nova-fallo mb-0" role="alert">
@@ -407,6 +525,16 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
           {alerta}
         </p>
       </form>
+
+      {fuenteAbierta && (
+        <VisorPdf
+          titulo={fuenteAbierta.fuente.titulo}
+          blob={fuenteAbierta.blob}
+          nombreArchivo={`${fuenteAbierta.fuente.titulo}.pdf`}
+          paginaInicial={fuenteAbierta.fuente.pagina}
+          onCerrar={() => setFuenteAbierta(null)}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={confirmando}

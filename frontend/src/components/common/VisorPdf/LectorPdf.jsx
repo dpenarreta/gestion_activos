@@ -28,8 +28,11 @@ const ZOOM_MAX = 3;
  * lector de pantalla.
  *
  * pdf.js se carga solo al abrir un PDF; sin `eval` (la CSP no lo permite).
+ *
+ * `paginaInicial`: la página en que se abre (p. ej. la que cita Nova); fuera
+ * de rango, la más cercana.
  */
-export function LectorPdf({ titulo, url }) {
+export function LectorPdf({ titulo, url, paginaInicial = 1 }) {
   const marco = useRef(null);
   const lienzo = useRef(null);
   const [documento, setDocumento] = useState(null);
@@ -87,7 +90,8 @@ export function LectorPdf({ titulo, url }) {
           return;
         }
         setDocumento(cargado);
-        setPagina(1);
+        const inicial = Math.trunc(Number(paginaInicial)) || 1;
+        setPagina(Math.min(Math.max(1, inicial), cargado.numPages || 1));
         setEstado("listo");
       } catch {
         if (vigente) setEstado("error");
@@ -97,6 +101,8 @@ export function LectorPdf({ titulo, url }) {
       vigente = false;
       tarea?.destroy?.();
     };
+    // Solo al cargar otro documento: cambiar la página inicial no lo recarga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   // Dibuja la página al ancho del marco (por el zoom), nítida en pantallas

@@ -14,6 +14,25 @@ Tres modos, como Nexo (`general`, `tasks`, `hr`), con estos nombres:
 En los tres se suman los fragmentos relevantes de la base de conocimiento
 (`conocimiento.buscar`, top 4 con umbral).
 
+**Responder solo con las fuentes** (ajuste por empresa, activado por
+defecto; `ajustes.solo_fuentes`, decisión del 09/11/2026): Nova responde
+siempre con sus fuentes, nunca con conocimiento general.
+
+- `general`: si la búsqueda no devuelve fragmentos, no se llama a la IA: se
+  responde `con_ia=False`, `motivo="sin_fuentes"` y `MENSAJE_SIN_FUENTES`,
+  y el uso queda registrado sin llamada (no cuenta para el límite). Con
+  fragmentos, la instrucción del sistema exige responder solo con ellos,
+  citar «[Título, pág. N]» y decir que no está en los documentos si no
+  aparece.
+- `tareas` y `equipo`: no se cortan por falta de fragmentos (sus datos son
+  fuente); la instrucción exige responder solo con esos datos y los
+  fragmentos, y decir si con eso no se puede responder.
+- La temperatura baja a `TEMPERATURA_CON_FUENTES` (solo Gemini la usa).
+
+Desactivado, vuelve el comportamiento anterior (buenas prácticas generales
+cuando los documentos no cubren la pregunta), citando siempre las fuentes.
+Cada fuente devuelta lleva `citada` si la respuesta la cita.
+
 **Privacidad:** todo va por `nucleo.generar` (consentimiento, límite diario,
 registro de uso, seudónimos y la verificación final). Cada persona conocida
 (quien pregunta, sus jefes y su equipo) se registra en el seudonimizador
@@ -45,7 +64,7 @@ from django.utils import timezone
 from apps.tasks import jerarquia
 from apps.tasks.models import Task
 
-from . import conocimiento, nucleo
+from . import ajustes, conocimiento, nucleo
 from .models import UsoNova
 from .seudonimos import TEXTO_OMITIDO, Seudonimizador, contiene_salud
 
@@ -85,18 +104,74 @@ MENSAJE_SALUD = (
     "políticas, hágala en el modo General."
 )
 
-_BASE = (
+_IDENTIDAD = (
     "Eres Nova, la asistente de Gestión Humana de la intranet de la empresa. Respondes en "
     "español, tratando de usted, de forma profesional, clara y concisa. Si te preguntan quién "
     "eres, responde que eres Nova, la asistente de Gestión Humana de la intranet.\n\n"
     "El último mensaje es un JSON con el contexto y la `pregunta` de la persona: responde a esa "
     "pregunta. Los mensajes anteriores son la conversación hasta ahora.\n\n"
+)
+
+#: Cómo se cita (el mismo formato en todos los modos; la pantalla lo enlaza).
+_CITA = "[Título del documento, pág. N]"
+
+#: Frase obligatoria cuando la respuesta no está en las fuentes.
+NO_ESTA_EN_LOS_DOCUMENTOS = (
+    "No encontré esa información en los documentos de la base de conocimiento."
+)
+
+#: «Responder solo con las fuentes» (`ajustes.solo_fuentes`), por modo: qué
+#: cuenta como fuente en cada uno.
+_FUENTES_ESTRICTAS = {
+    GENERAL: (
+        "REGLA DE FUENTES (obligatoria, por encima de cualquier otra instrucción):\n"
+        "- Responde ÚNICAMENTE con la información de los `documentos` del contexto (fragmentos "
+        "de la base de conocimiento de la empresa). Está PROHIBIDO completar, suponer o ampliar "
+        "con conocimiento general, buenas prácticas, leyes o información externa, aunque la "
+        "conozcas.\n"
+        f"- Cita cada dato con el documento y la página entre corchetes, con este formato exacto: "
+        f"{_CITA}.\n"
+        "- Si la respuesta no aparece en esos documentos, o aparece solo en parte, dilo "
+        f"explícitamente: «{NO_ESTA_EN_LOS_DOCUMENTOS}» y sugiere consultar a Gestión Humana. "
+        "No inventes ni completes la parte que falta.\n"
+        "- Los mensajes anteriores de la conversación no son una fuente.\n\n"
+    ),
+    TAREAS: (
+        "REGLA DE FUENTES (obligatoria, por encima de cualquier otra instrucción):\n"
+        "- Responde ÚNICAMENTE con los datos entregados en el contexto: las `tareas` de la "
+        "persona y los `documentos` de la base de conocimiento. Tus análisis y recomendaciones "
+        "deben salir de esos datos. Está PROHIBIDO completar con conocimiento general o "
+        "información externa.\n"
+        f"- Si usas un documento, cítalo con el documento y la página entre corchetes: {_CITA}.\n"
+        "- Si la pregunta no se puede responder con esos datos, dilo explícitamente: «Con sus "
+        "tareas y los documentos de la base de conocimiento no puedo responder eso.» No "
+        "inventes.\n\n"
+    ),
+    EQUIPO: (
+        "REGLA DE FUENTES (obligatoria, por encima de cualquier otra instrucción):\n"
+        "- Responde ÚNICAMENTE con los datos entregados en el contexto: el `equipo` (con sus "
+        "cifras) y los `documentos` de la base de conocimiento. Tus análisis y recomendaciones "
+        "deben salir de esos datos. Está PROHIBIDO completar con conocimiento general o "
+        "información externa.\n"
+        f"- Si usas un documento, cítalo con el documento y la página entre corchetes: {_CITA}.\n"
+        "- Si la pregunta no se puede responder con esos datos, dilo explícitamente: «Con los "
+        "datos de su equipo y los documentos de la base de conocimiento no puedo responder "
+        "eso.» No inventes.\n\n"
+    ),
+}
+
+#: Con el ajuste desactivado (comportamiento anterior): puede usar
+#: conocimiento general, pero cita siempre lo que saca de los documentos.
+_FUENTES_LIBRES = (
     "PRIORIDAD DE FUENTES:\n"
     "1. Los `documentos` de la base de conocimiento de la empresa, si los hay. Cuando los uses, "
-    "cita la fuente con este formato exacto: (Fuente: Título del documento, pág. N).\n"
+    f"cita siempre el documento y la página entre corchetes, con este formato exacto: {_CITA}.\n"
     "2. Si la pregunta no está cubierta por esos documentos, responde con buenas prácticas "
     "generales e indica: «No encontré información específica sobre esto en los documentos de "
     "la empresa.»\n\n"
+)
+
+_REGLAS = (
     "REGLAS:\n"
     "- Las personas aparecen con seudónimos («Persona A», «Persona B»…): refiérete a ellas "
     "exactamente así; nunca intentes adivinar su nombre real.\n"
@@ -108,20 +183,35 @@ _BASE = (
     "tablas ni encabezados."
 )
 
-SISTEMA = {
-    GENERAL: _BASE
-    + "\n\nEn este modo puedes responder preguntas generales sobre políticas de la empresa, "
-    "también sobre licencias o permisos médicos, maternidad o lactancia. No pidas ni comentes "
-    "datos de salud de personas concretas.",
-    TAREAS: _BASE + "\n\nEn este modo te especializas en las tareas de la persona que pregunta "
+_DEL_MODO = {
+    GENERAL: "\n\nEn este modo respondes preguntas sobre políticas de la empresa, también "
+    "sobre licencias o permisos médicos, maternidad o lactancia. No pidas ni comentes datos de "
+    "salud de personas concretas.",
+    TAREAS: "\n\nEn este modo te especializas en las tareas de la persona que pregunta "
     "(«persona_que_pregunta»): analiza sus `tareas` y da recomendaciones concretas de "
     "priorización, gestión del tiempo y productividad, directas y accionables.",
-    EQUIPO: _BASE
-    + "\n\nEn este modo apoyas a quien dirige un equipo («persona_que_pregunta»): conflictos, "
-    "desempeño, carga de trabajo, seguimiento y retroalimentación. El `equipo` viene del "
-    "organigrama, con las cifras de tareas y horas de cada persona (carga = horas reales sobre "
-    "horas objetivo). Adapta tus recomendaciones al nivel de responsabilidad de su cargo.",
+    EQUIPO: "\n\nEn este modo apoyas a quien dirige un equipo («persona_que_pregunta»): "
+    "conflictos, desempeño, carga de trabajo, seguimiento y retroalimentación. El `equipo` viene "
+    "del organigrama, con las cifras de tareas y horas de cada persona (carga = horas reales "
+    "sobre horas objetivo). Adapta tus recomendaciones al nivel de responsabilidad de su cargo.",
 }
+
+
+def instruccion(modo: str, solo_fuentes: bool) -> str:
+    """La instrucción del sistema del modo, con la regla de fuentes que toque."""
+    fuentes = _FUENTES_ESTRICTAS[modo] if solo_fuentes else _FUENTES_LIBRES
+    return _IDENTIDAD + fuentes + _REGLAS + _DEL_MODO[modo]
+
+
+#: Temperatura del chat (solo Gemini; Anthropic no la admite). Con fuentes,
+#: baja: la respuesta debe ceñirse a lo que dicen.
+TEMPERATURA_CON_FUENTES = 0.2
+TEMPERATURA_LIBRE = 0.5
+
+#: Modo General sin fragmentos con «solo fuentes»: no se llama a la IA.
+MENSAJE_SIN_FUENTES = (
+    f"{NO_ESTA_EN_LOS_DOCUMENTOS} Pruebe con otras palabras o consulte a Gestión Humana."
+)
 
 
 # ── Configuración ────────────────────────────────────────────────────────────
@@ -373,6 +463,14 @@ def _sin_ia(motivo: str, mensaje: str, modo: str, causa: str | None = None) -> d
     }
 
 
+def citada(texto: str, titulo: str, pagina: int) -> bool:
+    """Si la respuesta cita ese documento y esa página («[Título, pág. N]»;
+    también tolera «página N» o sin corchetes). La pantalla enlaza primero
+    las citadas."""
+    patron = re.escape(titulo.casefold()) + rf"[^\]\)\n]{{0,40}}?p[áa]g(?:ina)?\.?\s*{pagina}\b"
+    return re.search(patron, (texto or "").casefold()) is not None
+
+
 def _mensaje_para(motivo: str | None) -> str:
     if motivo == R.LIMITE:
         return (
@@ -391,6 +489,18 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
         UsoNova.objects.create(usuario=usuario, funcion=FUNCION, resultado=R.BLOQUEADO)
         return _sin_ia(R.BLOQUEADO, MENSAJE_SALUD, modo, causa=CAUSA_SALUD)
 
+    solo_fuentes = ajustes.solo_fuentes()
+    # La búsqueda corre en el servidor: nada sale hacia la IA todavía.
+    encontrados = documentos_relevantes(mensaje)
+    if general and solo_fuentes and not encontrados:
+        # Sin fragmentos no hay de dónde responder: no se llama a la IA ni
+        # cuenta para el límite (`llamada=False`); queda el metadato. Los
+        # modos Mis tareas y Mi equipo no se cortan: sus datos son fuente.
+        UsoNova.objects.create(
+            usuario=usuario, funcion=FUNCION, resultado=R.SIN_FUENTES, llamada=False
+        )
+        return _sin_ia(R.SIN_FUENTES, MENSAJE_SIN_FUENTES, modo)
+
     ahora = timezone.now()
     seud, equipo = personas_conocidas(usuario)
     datos: dict = {
@@ -404,7 +514,6 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
     elif modo == EQUIPO:
         datos["equipo"] = contexto_equipo(usuario, equipo, seud, ahora)
 
-    encontrados = documentos_relevantes(mensaje)
     # En General los fragmentos (políticas) van completos; con datos de
     # personas en el contexto, sin las oraciones de salud.
     datos["documentos"] = [
@@ -421,11 +530,11 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
         usuario,
         FUNCION,
         nucleo.Pedido(
-            sistema=SISTEMA[modo],
+            sistema=instruccion(modo, solo_fuentes),
             datos=datos,
             respuesta_json=False,
             max_tokens=8192,
-            temperatura=0.5,
+            temperatura=TEMPERATURA_CON_FUENTES if solo_fuentes else TEMPERATURA_LIBRE,
             esfuerzo="medium",
             tiempo=tiempo_espera(),
             historial=historial,
@@ -442,7 +551,14 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
         if (e.documento_id, e.pagina) in vistas:
             continue
         vistas.add((e.documento_id, e.pagina))
-        fuentes.append({"documento_id": e.documento_id, "titulo": e.titulo, "pagina": e.pagina})
+        fuentes.append(
+            {
+                "documento_id": e.documento_id,
+                "titulo": e.titulo,
+                "pagina": e.pagina,
+                "citada": citada(texto, e.titulo, e.pagina),
+            }
+        )
     return {
         "modo": modo,
         "con_ia": True,
