@@ -98,12 +98,22 @@ function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
     }));
   const ordenadas = useMemo(() => unidadesEnOrden(datos), [datos]);
   const editando = Boolean(valores.id);
+  // Mientras se pide el motivo y se guarda, el botón no vuelve a enviar: un
+  // segundo clic pedía otro motivo y podía guardar dos veces (auditoría
+  // UX/UI, 10/11/2026).
+  const [guardando, setGuardando] = useState(false);
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        onGuardar(valores);
+        if (guardando) return;
+        setGuardando(true);
+        try {
+          await onGuardar(valores);
+        } finally {
+          setGuardando(false);
+        }
       }}
     >
       <div className="row g-2">
@@ -322,8 +332,16 @@ function Formulario({ recurso, inicial, datos, onGuardar, onCancelar }) {
           >
             Cancelar
           </button>
-          <button type="submit" className="btn btn-primary btn-sm">
-            {editando ? "Guardar cambios" : "Agregar"}
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={guardando}
+          >
+            {guardando
+              ? "Guardando…"
+              : editando
+                ? "Guardar cambios"
+                : "Agregar"}
           </button>
         </div>
       </div>
@@ -338,7 +356,7 @@ const SINGULAR = { niveles: "nivel", unidades: "unidad", cargos: "cargo" };
  * con un organigrama real (más de cien cargos) el formulario quedaba muy
  * abajo y pulsar «Editar» parecía no hacer nada.
  */
-function Ventana({ recurso, valores, onCerrar, children }) {
+function Ventana({ recurso, valores, error, onCerrar, children }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -372,7 +390,18 @@ function Ventana({ recurso, valores, onCerrar, children }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <div className="mz-panel-body">{children}</div>
+        <div className="mz-panel-body">
+          {/* El error del guardado va dentro de la ventana: en la página
+              quedaba detrás y parecía que «Guardar cambios» no hacía nada
+              (auditoría UX/UI, 10/11/2026). */}
+          {error && (
+            <div className="mz-alert mz-alert--bad mb-3" role="alert">
+              <Icon name="x-octagon" />
+              {error}
+            </div>
+          )}
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -640,7 +669,7 @@ export function EstructuraPage() {
       <PanelDePestana idBase="estr" valor={pestana} className="mz-stack">
         {/* Mientras llega el organigrama (antes, la pestaña quedaba en blanco). */}
         {datos === null && !error && <EstadoDeCarga cargando />}
-        {error && (
+        {error && !editando && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
             {error}
@@ -959,7 +988,11 @@ export function EstructuraPage() {
                 <Ventana
                   recurso={pestana}
                   valores={editando}
-                  onCerrar={() => setEditando(null)}
+                  error={error}
+                  onCerrar={() => {
+                    setEditando(null);
+                    setError(null);
+                  }}
                 >
                   <Formulario
                     key={`${pestana}-${editando.id ?? "nuevo"}`}
@@ -967,7 +1000,10 @@ export function EstructuraPage() {
                     inicial={editando}
                     datos={datos}
                     onGuardar={guardar}
-                    onCancelar={() => setEditando(null)}
+                    onCancelar={() => {
+                      setEditando(null);
+                      setError(null);
+                    }}
                   />
                 </Ventana>
               )}

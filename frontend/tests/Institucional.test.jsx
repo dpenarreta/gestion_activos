@@ -511,6 +511,56 @@ describe("La estructura", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  // 10/11/2026: el motivo se pintaba antes que la ventana del formulario y,
+  // con el mismo z-index, quedaba debajo; «Guardar cambios» parecía no hacer
+  // nada. Tiene que ir después en el DOM para verse encima.
+  it("el motivo se abre encima de la ventana del formulario", async () => {
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Editar cargo: Analista de TI",
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+
+    const motivo = await screen.findByRole("dialog", {
+      name: "¿Por qué se hace este cambio?",
+    });
+    expect(
+      ventana.compareDocumentPosition(motivo) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("si el guardado falla, el error se ve dentro de la ventana", async () => {
+    servicio.actualizar.mockRejectedValue({
+      response: { data: { detail: "Ya existe un cargo con ese nombre." } },
+    });
+    pintar(<EstructuraPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Cargos/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Editar Analista de TI" }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Editar cargo: Analista de TI",
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    );
+    await darMotivo();
+
+    expect(
+      await within(ventana).findByText("Ya existe un cargo con ese nombre."),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("button", { name: "Guardar cambios" }),
+    ).toBeEnabled();
+  });
+
   it("las plazas se cambian en la misma tabla", async () => {
     servicio.actualizar.mockResolvedValue({});
     pintar(<EstructuraPage />);

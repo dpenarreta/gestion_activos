@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { ModalDialog } from "../ModalDialog/ModalDialog";
 
@@ -8,18 +9,10 @@ function DialogoMotivo({ titulo, detalle, textoConfirmar, onListo }) {
   const [motivo, setMotivo] = useState("");
   const valido = motivo.trim().length >= MINIMO;
 
-  // Se abre encima de otra ventana (el formulario del cambio): Escape cierra
-  // solo esta, sin perder lo escrito en la de abajo.
-  useEffect(() => {
-    function alEscape(evento) {
-      if (evento.key !== "Escape") return;
-      evento.stopImmediatePropagation();
-      onListo(null);
-    }
-    window.addEventListener("keydown", alEscape, true);
-    return () => window.removeEventListener("keydown", alEscape, true);
-  }, [onListo]);
-
+  // Escape lo resuelve la pila de useModalA11y: cierra solo esta ventana,
+  // sin perder lo escrito en la de abajo, y pregunta antes de descartar el
+  // motivo como la X y «Cancelar». El manejador propio que había se saltaba la
+  // pila y dejaba abierto el aviso de descarte (auditoría UX/UI, 10/11/2026).
   return (
     <ModalDialog
       titulo={titulo}
@@ -41,9 +34,11 @@ function DialogoMotivo({ titulo, detalle, textoConfirmar, onListo }) {
         className="form-control"
         rows={3}
         maxLength={1000}
-        // Se escribe enseguida: el diálogo se abrió para eso.
-        // eslint-disable-next-line jsx-a11y/no-autofocus
-        autoFocus
+        // Se escribe enseguida: el diálogo se abrió para eso. Con
+        // `data-autofocus` lo enfoca useModalA11y, que así recuerda el botón
+        // que lo abrió y le devuelve el foco al cerrar (con `autoFocus` el
+        // foco caía en la X y, al cerrar, en <body>).
+        data-autofocus
         placeholder="Por qué se hace este cambio"
         value={motivo}
         onChange={(e) => setMotivo(e.target.value)}
@@ -72,17 +67,25 @@ export function usePedirMotivo() {
     [],
   );
 
-  const dialogo = pedido ? (
-    <DialogoMotivo
-      titulo={pedido.opciones.titulo ?? "¿Por qué se hace este cambio?"}
-      textoConfirmar={pedido.opciones.textoConfirmar ?? "Guardar el cambio"}
-      detalle={pedido.detalle}
-      onListo={(motivo) => {
-        pedido.resolver(motivo);
-        setPedido(null);
-      }}
-    />
-  ) : null;
+  // Va al final de <body> con un portal: se pide desde dentro de otra ventana
+  // (el formulario del cambio), y si se pintaba donde se usaba el hook quedaba
+  // debajo de ella, con el mismo z-index (10/11/2026: al editar una unidad,
+  // «Guardar cambios» parecía no hacer nada y el motivo solo se veía al
+  // cancelar el formulario).
+  const dialogo = pedido
+    ? createPortal(
+        <DialogoMotivo
+          titulo={pedido.opciones.titulo ?? "¿Por qué se hace este cambio?"}
+          textoConfirmar={pedido.opciones.textoConfirmar ?? "Guardar el cambio"}
+          detalle={pedido.detalle}
+          onListo={(motivo) => {
+            pedido.resolver(motivo);
+            setPedido(null);
+          }}
+        />,
+        document.body,
+      )
+    : null;
 
   return [pedir, dialogo];
 }
