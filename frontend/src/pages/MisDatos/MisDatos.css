@@ -1,0 +1,55 @@
+/* «Mi perfil» → la pregunta del teléfono corporativo (10/11/2026). */
+.mis-datos__pregunta {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mis-datos__pregunta legend {
+  float: none;
+  width: auto;
+}
+
+.mis-datos__si-no {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+}
+
+/* Cada opción con su etiqueta: se elige tocando el texto, no solo el
+   círculo. */
+.mis-datos__si-no .form-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-left: 0;
+}
+
+.mis-datos__si-no .form-check-input {
+  margin: 0;
+}
+
+.mis-datos__si-no .form-check-label {
+  cursor: pointer;
+}
+
+/* Al tacto, cada opción mide al menos 44 px de alto y de ancho. */
+@media (pointer: coarse) {
+  .mis-datos__si-no .form-check {
+    min-height: 44px;
+    min-width: 88px;
+  }
+
+  .mis-datos__si-no .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mis-datos__si-no .form-check-label {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-right: 8px;
+  }
+}

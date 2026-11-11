@@ -9,10 +9,12 @@ from rest_framework import serializers
 
 from apps.adjuntos.validators import validar_archivo
 from apps.empresas.campos import RelacionDeEmpresa
+from apps.organizacion import ausencia
 from apps.organizacion.models import Departamento, Sede
 
 from . import etiquetas, formulario, services, sla
 from .models import (
+    AprobacionTicket,
     AusenciaTecnico,
     CampoFormulario,
     Canal,
@@ -144,7 +146,22 @@ def adjunto_dict(adjunto, url):
     }
 
 
-def aprobaciones_dict(ticket) -> list:
+def aprobaciones_dict(ticket, con_ausencia=True) -> list:
+    """Los vistos buenos del ticket. Si el aprobador de uno pendiente está
+    ausente, `aprobador_ausencia` lo dice (solo vacaciones o fuera de la
+    oficina, hasta cuándo y su reemplazo; 11/11/2026, US-001); si no, None."""
+    aprobaciones = list(ticket.aprobaciones.all())
+    ausentes = (
+        ausencia.ausencias_de(
+            {
+                a.aprobador_id
+                for a in aprobaciones
+                if a.aprobador_id and a.estado == AprobacionTicket.Estado.PENDIENTE
+            }
+        )
+        if con_ausencia
+        else {}
+    )
     return [
         {
             "id": a.id,
@@ -152,11 +169,17 @@ def aprobaciones_dict(ticket) -> list:
             "estado": a.estado,
             "estado_display": a.get_estado_display(),
             "aprobador": _nombre(a.aprobador) if a.aprobador_id else "",
+            "aprobador_id": a.aprobador_id,
+            "aprobador_ausencia": (
+                ausentes.get(a.aprobador_id)
+                if a.estado == AprobacionTicket.Estado.PENDIENTE
+                else None
+            ),
             "decidido_por": _nombre(a.decidido_por) if a.decidido_por_id else "",
             "decidido_en": a.decidido_en,
             "nota": a.nota,
         }
-        for a in ticket.aprobaciones.all()
+        for a in aprobaciones
     ]
 
 
@@ -277,7 +300,7 @@ def seguimiento(ticket, url_adjunto) -> dict:
         "tipo_display": ticket.get_tipo_display(),
         "aprobaciones": [
             {"rol": a["rol"], "estado": a["estado"], "estado_display": a["estado_display"]}
-            for a in aprobaciones_dict(ticket)
+            for a in aprobaciones_dict(ticket, con_ausencia=False)
         ],
         "descripcion": ticket.descripcion,
         "agencia": ticket.sede.nombre if ticket.sede_id else "",

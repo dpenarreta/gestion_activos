@@ -13,6 +13,9 @@ const servicio = {
   guardarEstado: vi.fn(),
 };
 vi.mock("../src/api/chatService", () => ({ chatService: servicio }));
+// Con vacaciones se pregunta quién aprueba por usted (11/11/2026, US-001).
+const reemplazo = { obtener: vi.fn(), guardar: vi.fn() };
+vi.mock("../src/api/reemplazoService", () => ({ reemplazoService: reemplazo }));
 
 const { AvisoDeEstado, Presencia, textoPresencia } =
   await import("../src/components/admin/Chat/Presencia");
@@ -35,6 +38,11 @@ const DISPONIBLE = {
 beforeEach(() => {
   vi.clearAllMocks();
   servicio.miEstado.mockResolvedValue(DISPONIBLE);
+  reemplazo.obtener.mockResolvedValue({
+    modo: "jefe",
+    persona: null,
+    jefe: { id: 4, nombre: "Julia Paz" },
+  });
 });
 
 describe("Lo que ven los demás", () => {
@@ -103,8 +111,8 @@ describe("Mi estado", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "aprobada: del 03/11/2026 al 10/11/2026",
     );
-    expect(screen.getByLabelText("Desde")).toHaveValue("2026-11-03");
-    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-11-10");
+    expect(screen.getByLabelText(/^Desde/)).toHaveValue("2026-11-03");
+    expect(screen.getByLabelText(/^Hasta/)).toHaveValue("2026-11-10");
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() =>
       expect(servicio.guardarEstado).toHaveBeenCalledWith(

@@ -31,6 +31,10 @@ Y el ciclo del Escritorio de Gestión Humana (`ciclo_escritorio`): el aviso en
 la campana de cada recordatorio que venció y las purgas del archivo y de la
 papelera de notas.
 
+Y la revisión de ausencias (`reasignar_por_ausencia`): las aprobaciones
+pendientes de quien está de vacaciones, con permiso de día completo o fuera de
+la oficina pasan a su reemplazo.
+
     pythonw.exe scripts\\tarea_respaldo.py
 """
 
@@ -114,6 +118,10 @@ def main() -> int:
         # Escritorio: avisa los recordatorios vencidos (una vez cada uno) y
         # purga las notas archivadas o en la papelera que cumplieron su plazo.
         ("ciclo_escritorio", []),
+        # Ausencias (11/11/2026, US-001): las aprobaciones pendientes de quien
+        # empezó hoy sus vacaciones o un permiso pasan a su reemplazo. Es
+        # idempotente: sin ausentes con pendientes, unas pocas consultas.
+        ("reasignar_por_ausencia", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

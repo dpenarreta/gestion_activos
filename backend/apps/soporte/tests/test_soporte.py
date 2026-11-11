@@ -208,6 +208,34 @@ def test_crear_un_ticket_fija_la_prioridad_y_avisa_con_el_enlace(mesa):
     assert f"/admin/ayuda/tickets/{ticket.id}" in mail.outbox[0].alternatives[0][0]
 
 
+def test_el_telefono_del_ticket_es_el_corporativo_si_lo_tiene(mesa):
+    """Desde el 10/11/2026 el ticket lleva por defecto el teléfono corporativo;
+    sin él, el personal. No haber respondido la pregunta del corporativo no
+    impide crear el ticket: eso lo pide el bloqueo de inicio."""
+    from apps.organizacion.models import DatosDeContacto
+
+    carla = _carla(mesa)
+    with mock.patch.object(services, "repartir", return_value=0):
+        sin_responder = _crear(mesa)
+    assert _ticket(sin_responder["id"], mesa).solicitante_telefono == "099 418 2273"
+
+    with usando_empresa(mesa["empresa"]):
+        DatosDeContacto.objects.filter(usuario=carla).update(
+            tiene_telefono_corporativo=True, telefono_corporativo="02 298 7654"
+        )
+    with mock.patch.object(services, "repartir", return_value=0):
+        corporativo = _crear(mesa)
+    assert _ticket(corporativo["id"], mesa).solicitante_telefono == "02 298 7654"
+
+    with usando_empresa(mesa["empresa"]):
+        DatosDeContacto.objects.filter(usuario=carla).update(
+            tiene_telefono_corporativo=False, telefono_corporativo=""
+        )
+    with mock.patch.object(services, "repartir", return_value=0):
+        sin_corporativo = _crear(mesa)
+    assert _ticket(sin_corporativo["id"], mesa).solicitante_telefono == "099 418 2273"
+
+
 def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
     nuevo = _usuario("marta", empresa=mesa["empresa"])
     nuevo.first_name = ""  # sin nombre ni «Mis datos»
@@ -231,6 +259,7 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
             "apellidos": "Mora",
             "telefono": "0991234567",
             "acepta_telefono": True,
+            "tiene_telefono_corporativo": False,
             "area": mesa["area"].id,
             "agencia": mesa["sede"].id,
             "cargo": cargo.id,
@@ -531,8 +560,35 @@ def test_quien_configura_da_de_alta_un_tecnico_con_su_horario(mesa):
     assert _equipo(nueva).get("/api/v1/soporte/config/tecnicos/").status_code == 403
 
 
+def _con_mi_horario(usuario):
+    usuario.user_permissions.add(
+        Permission.objects.get(
+            content_type=ContentType.objects.get_for_model(ModulePermission),
+            codename="soporte.mi_horario",
+        )
+    )
+    # De la base otra vez: el usuario en memoria guarda sus permisos en caché.
+    return User.objects.get(pk=usuario.pk)
+
+
+def test_mi_horario_pide_su_propio_permiso(mesa):
+    """10/11/2026: «Mi horario» deja de colgar de `soporte.atender`."""
+    jorge = mesa["jorge"].usuario
+    assert _equipo(jorge).get("/api/v1/soporte/mi-horario/").status_code == 403
+    jorge = _con_mi_horario(jorge)
+    assert _equipo(jorge).get("/api/v1/soporte/mi-horario/").status_code == 200
+
+
+def test_mi_horario_sin_ser_tecnico_dice_que_falta_el_alta(mesa):
+    """403 con su propio código: la pantalla no ofrece «Reintentar»."""
+    ajena = _con_mi_horario(_usuario("lucia", empresa=mesa["empresa"]))
+    respuesta = _equipo(ajena).get("/api/v1/soporte/mi-horario/")
+    assert respuesta.status_code == 403
+    assert respuesta.json()["error"]["code"] == "no_es_tecnico"
+
+
 def test_cada_tecnico_cambia_su_propio_horario(mesa):
-    cliente = _equipo(mesa["jorge"].usuario)
+    cliente = _equipo(_con_mi_horario(mesa["jorge"].usuario))
     respuesta = cliente.put(
         "/api/v1/soporte/mi-horario/",
         {

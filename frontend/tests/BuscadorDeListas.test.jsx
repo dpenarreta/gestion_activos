@@ -42,7 +42,7 @@ function Formulario({ onCambio = () => {}, ...props }) {
 }
 
 const abrir = () =>
-  fireEvent.mouseDown(screen.getByLabelText("Cargo"), { button: 0 });
+  fireEvent.mouseDown(screen.getByLabelText(/^Cargo/), { button: 0 });
 
 const buscador = () => screen.getByRole("combobox", { name: /^Buscar en/ });
 const opciones = () =>
@@ -78,9 +78,9 @@ describe("BuscadorDeListas", () => {
     fireEvent.change(buscar, { target: { value: "nacional" } });
     fireEvent.keyDown(buscar, { key: "Enter" });
     expect(onCambio).toHaveBeenCalledWith("3");
-    expect(screen.getByLabelText("Cargo")).toHaveValue("3");
+    expect(screen.getByLabelText(/^Cargo/)).toHaveValue("3");
     expect(screen.queryByRole("listbox")).toBeNull();
-    expect(screen.getByLabelText("Cargo")).toHaveFocus();
+    expect(screen.getByLabelText(/^Cargo/)).toHaveFocus();
   });
 
   it("con el mouse se elige; las deshabilitadas no se eligen", () => {
@@ -107,7 +107,7 @@ describe("BuscadorDeListas", () => {
 
   it("también se abre con el teclado, y los marcados quedan nativos", () => {
     const { unmount } = render(<Formulario />);
-    fireEvent.keyDown(screen.getByLabelText("Cargo"), { key: " " });
+    fireEvent.keyDown(screen.getByLabelText(/^Cargo/), { key: " " });
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     unmount();
     render(<Formulario data-sin-buscador />);

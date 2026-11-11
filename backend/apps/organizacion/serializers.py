@@ -15,6 +15,7 @@ from . import (
 from .models import (
     Cargo,
     Concesionario,
+    DatosDeContacto,
     Departamento,
     DocumentoInstitucional,
     Empleado,
@@ -331,6 +332,15 @@ class MisDatosSerializer(serializers.Serializer):
     cargo = RelacionDeEmpresa(Cargo, {"activo": True})
     #: Autoriza guardar su teléfono y que la empresa lo use para contactarlo.
     acepta_telefono = serializers.BooleanField(default=False)
+    #: «¿Tiene teléfono o línea corporativa asignada?» (10/11/2026): la respuesta es
+    #: obligatoria. Si es sí, el número también (lo exige contacto.guardar).
+    #: El corporativo no pide autorización: no es dato personal.
+    tiene_telefono_corporativo = serializers.BooleanField(
+        error_messages={"required": "Responda si tiene teléfono o línea corporativa asignada."}
+    )
+    telefono_corporativo = serializers.CharField(
+        max_length=30, required=False, allow_blank=True, default=""
+    )
 
     def validate_nombres(self, valor):
         if not valor.strip():
@@ -349,6 +359,22 @@ class MisDatosSerializer(serializers.Serializer):
         if not 7 <= len(digitos) <= 15:
             raise serializers.ValidationError("Escriba un teléfono de 7 a 15 dígitos.")
         return valor.strip()
+
+    def validate(self, datos):
+        # El corporativo, con el mismo formato que el personal, solo cuenta si
+        # respondió que lo tiene: con «no», lo que venga se descarta (la
+        # pantalla puede mandar el número que se escribió antes). Si dijo que
+        # sí y viene vacío, lo rechaza contacto.guardar.
+        if not datos.get("tiene_telefono_corporativo"):
+            datos["telefono_corporativo"] = ""
+        elif datos.get("telefono_corporativo", "").strip():
+            try:
+                datos["telefono_corporativo"] = self.validate_telefono(
+                    datos["telefono_corporativo"]
+                )
+            except serializers.ValidationError as error:
+                raise serializers.ValidationError({"telefono_corporativo": error.detail}) from None
+        return datos
 
 
 # --- Organigrama (módulo Institucional) ---------------------------------------
@@ -787,3 +813,15 @@ class AccesoHerramientaSerializer(serializers.Serializer):
     usuario = serializers.IntegerField()
     cuenta = serializers.CharField(max_length=150, allow_blank=True, default="")
     detalle = serializers.CharField(max_length=500, allow_blank=True, default="")
+
+
+class MiReemplazoSerializer(serializers.Serializer):
+    """Quién aprueba por la persona mientras está ausente (11/11/2026,
+    US-001): su jefe inmediato o otra persona de la empresa, que se busca por
+    nombre. Las reglas de la persona elegida están en `ausencia.py`."""
+
+    modo = serializers.ChoiceField(
+        choices=DatosDeContacto.ReemplazoModo.choices,
+        error_messages={"invalid_choice": "Elija «Mi jefe inmediato» u «Otra persona»."},
+    )
+    persona_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)

@@ -37,7 +37,7 @@ from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
 from apps.organizacion import contacto
 from apps.organizacion.models import Departamento, Sede
-from apps.permissions.permissions import HasActionPermission, HasModulePermission
+from apps.permissions.permissions import HasActionPermission, HasModulePermission, Requiere
 
 from . import criticidad, etiquetas, formulario, services, sla
 from .models import (
@@ -191,7 +191,8 @@ def datos_de_la_persona(usuario, extra=None):
     persona = {
         "nombre": perfil["nombre"],
         "correo": usuario.email,
-        "telefono": extra.get("telefono") or perfil["telefono"],
+        # El corporativo si lo tiene; si no, el personal (10/11/2026).
+        "telefono": extra.get("telefono") or perfil["telefono_corporativo"] or perfil["telefono"],
         "area": area,
         "sede": sede,
     }
@@ -199,7 +200,9 @@ def datos_de_la_persona(usuario, extra=None):
         contacto.ETIQUETAS[clave]
         for clave, valor in (
             ("nombre", persona["nombre"]),
-            # El teléfono es opcional desde el 26/10/2026 (contacto.py).
+            # Los teléfonos no bloquean el ticket: el personal es opcional
+            # (26/10/2026) y la respuesta del corporativo la pide el bloqueo
+            # de inicio de «Mi perfil» (10/11/2026, contacto.py).
             ("area", area),
             ("agencia", sede),
         )
@@ -1073,15 +1076,28 @@ class HorasViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(HorasSerializer(registro).data)
 
 
-class MiAgendaView(APIView):
-    """«Mi horario»: el técnico ve y cambia sus franjas y ausencias."""
+class NoEsTecnico(PermisoDenegado):
+    """Tiene el permiso de «Mi horario» pero no es técnico de la mesa: es una
+    falta de alta, no un fallo pasajero, y la pantalla lo muestra así."""
 
-    permission_classes = [IsAuthenticated, TicketsPermission]
+    default_code = "no_es_tecnico"
+    default_detail = (
+        "Todavía no está en el equipo de técnicos de la Mesa de ayuda. Pida a quien "
+        "coordina la mesa que lo agregue en Configuración → Técnicos."
+    )
+
+
+class MiAgendaView(APIView):
+    """«Mi horario»: el técnico ve y cambia sus franjas y ausencias. Pide su
+    propio permiso, `soporte.mi_horario`, y no `soporte.atender` (10/11/2026):
+    solo toca la agenda de quien llama, y además tiene que ser técnico."""
+
+    permission_classes = [IsAuthenticated, Requiere("soporte.mi_horario")]
 
     def _tecnico(self, request):
         tecnico = services.tecnico_de(request.user)
         if tecnico is None:
-            raise Http404("Usted no es parte del equipo de soporte de esta empresa.")
+            raise NoEsTecnico()
         return tecnico
 
     def get(self, request):

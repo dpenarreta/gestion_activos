@@ -40,7 +40,10 @@ function SusDatos({ datos, onEditar }) {
   const partes = [
     datos.nombre,
     datos.correo,
-    datos.telefono,
+    // El corporativo primero: es el que la Mesa de ayuda usa por defecto
+    // (10/11/2026).
+    datos.telefono_corporativo && `Corporativo ${datos.telefono_corporativo}`,
+    datos.telefono && `Personal ${datos.telefono}`,
     datos.area?.nombre,
     datos.agencia?.nombre,
   ].filter(Boolean);

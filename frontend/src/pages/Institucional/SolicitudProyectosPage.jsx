@@ -11,6 +11,11 @@ import {
   EstadoDeCarga,
   FilaDeEstado,
 } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import {
+  AprobadoresPendientes,
+  EscaladaPorAusencia,
+  esEscaladaPorAusencia,
+} from "../../components/common/Ausencia/EtiquetaAusencia";
 import { Icon } from "../../components/common/Icon/Icon";
 import {
   PanelDePestana,
@@ -550,7 +555,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           {solicitud.estado === "pendiente" && (
             <p className="mz-small mb-0">
               <strong>En el paso «{solicitud.paso_actual}»</strong>, pendiente
-              de: {solicitud.pendiente_de.map((p) => p.nombre).join(", ")}
+              de: <AprobadoresPendientes personas={solicitud.pendiente_de} />
             </p>
           )}
 
@@ -560,13 +565,24 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                 <span className="mz-faint mz-small">
                   {formatearFecha(a.created_at, true)}
                 </span>
-                <span>
-                  {a.actor && <strong>{a.actor} </strong>}
-                  {a.accion_display.toLowerCase()}
-                  {a.paso && a.accion !== "terminada" ? ` (${a.paso})` : ""}
-                  {a.detalle ? `: ${a.detalle}` : ""}
-                </span>
-                {a.comentario && <em className="mz-small">«{a.comentario}»</em>}
+                {/* Una escalada sin actor la hizo el sistema porque quien
+                    aprobaba está ausente (11/11/2026, US-001): una sola
+                    línea, sin el comentario aparte. */}
+                {esEscaladaPorAusencia(a) ? (
+                  <EscaladaPorAusencia accion={a} />
+                ) : (
+                  <>
+                    <span>
+                      {a.actor && <strong>{a.actor} </strong>}
+                      {a.accion_display.toLowerCase()}
+                      {a.paso && a.accion !== "terminada" ? ` (${a.paso})` : ""}
+                      {a.detalle ? `: ${a.detalle}` : ""}
+                    </span>
+                    {a.comentario && (
+                      <em className="mz-small">«{a.comentario}»</em>
+                    )}
+                  </>
+                )}
               </li>
             ))}
           </ol>
@@ -829,9 +845,14 @@ export function SolicitudProyectosPage() {
                     <span className={`mz-pill ${clase}`}>{estado}</span>
                   </td>
                   <td className="mz-small">
-                    {s.estado === "pendiente"
-                      ? `${s.paso_actual} · ${s.pendiente_de.map((p) => p.nombre).join(", ")}`
-                      : "—"}
+                    {s.estado === "pendiente" ? (
+                      <>
+                        {s.paso_actual} ·{" "}
+                        <AprobadoresPendientes personas={s.pendiente_de} />
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="mz-small">
                     {formatearFecha(s.created_at, true)}

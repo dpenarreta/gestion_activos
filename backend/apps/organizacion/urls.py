@@ -25,6 +25,7 @@ from .views import (
     MisDatosView,
     MisHerramientasView,
     MisVacacionesView,
+    MiReemplazoView,
     NivelJerarquicoViewSet,
     NoticiaInicioViewSet,
     OrganigramaView,
@@ -58,6 +59,7 @@ urlpatterns = [
     path("mis-datos/", MisDatosView.as_view(), name="mis-datos"),
     path("mis-datos/cumpleanos/", MiCumpleanosView.as_view(), name="mi-cumpleanos"),
     path("mis-datos/aniversario/", MiAniversarioView.as_view(), name="mi-aniversario"),
+    path("mi-reemplazo/", MiReemplazoView.as_view(), name="mi-reemplazo"),
     path("organigrama/", OrganigramaView.as_view(), name="organigrama"),
     path("asignaciones/", AsignacionesView.as_view(), name="asignaciones"),
     path(

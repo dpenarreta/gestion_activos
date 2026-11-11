@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { soporteService } from "../../api/soporteService";
+import { EtiquetaAusencia } from "../../components/common/Ausencia/EtiquetaAusencia";
 import { Campo } from "../../components/common/Campo/Campo";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
@@ -594,6 +595,13 @@ export function TicketDetalle() {
                 : a.aprobador
                   ? `Le toca a ${a.aprobador}`
                   : "Sin responsable con cuenta: decide quien coordina"}
+              {/* Si quien aprueba está ausente (11/11/2026, US-001). */}
+              {!a.decidido_por && a.aprobador_ausencia && (
+                <>
+                  {" "}
+                  <EtiquetaAusencia ausencia={a.aprobador_ausencia} />
+                </>
+              )}
             </div>
             {a.nota && <div className="mz-small">«{a.nota}»</div>}
           </li>

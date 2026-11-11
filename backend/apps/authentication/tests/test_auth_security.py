@@ -225,6 +225,12 @@ def test_el_refresco_tiene_su_propio_cupo(api_client):
     assert codigos[0] == 401, "las primeras se evalúan: el token no sirve"
     assert codigos[-1] == 429, "pasado el cupo, se corta"
     assert codigos.count(429) == 2, codigos
+    # Un 429 genérico no lleva `details` (hay pantallas que lo muestran tal
+    # cual) pero sí la cabecera `Retry-After` (US-002, 11/11/2026).
+    cortada = api_client.post("/api/v1/auth/token/refresh/", {"refresh": "no-vale"}, format="json")
+    assert cortada.status_code == 429
+    assert cortada.json()["error"]["details"] is None
+    assert int(cortada["Retry-After"]) > 0
 
 
 def test_el_limite_de_peticiones_se_explica_en_minutos():

@@ -3,6 +3,16 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { licenciasService } from "../../api/licenciasService";
 import {
+  AprobadoresPendientes,
+  EscaladaPorAusencia,
+  esEscaladaPorAusencia,
+} from "../../components/common/Ausencia/EtiquetaAusencia";
+import {
+  ReemplazoEnAusencia,
+  YA_QUEDO_GUARDADO,
+  useReemplazoEnAusencia,
+} from "../../components/common/Ausencia/ReemplazoEnAusencia";
+import {
   Campo,
   LeyendaObligatorios,
   enfocarPrimerError,
@@ -235,6 +245,10 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     Boolean(elegido) && (adjuntoObligatorio || elegido.adjunto !== "no");
   // Por horas (05/11/2026): un solo día, con hora de inicio y de fin.
   const porHoras = elegido?.unidad === "horas";
+  // Quién aprueba por usted mientras no está (11/11/2026, US-001). Solo con
+  // permisos por días: uno por horas no reasigna, la persona vuelve ese día.
+  const pideReemplazo = Boolean(elegido) && !porHoras;
+  const reemplazo = useReemplazoEnAusencia({ activo: pideReemplazo });
   const fijar = (campo) => (e) =>
     setValores((v) => ({ ...v, [campo]: e.target.value }));
   const fijarTipo = (e) => {
@@ -287,7 +301,8 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
       propios.adjunto = medico
         ? "Adjunte el certificado médico."
         : "Este permiso pide un documento de respaldo.";
-    if (Object.keys(propios).length) {
+    const errorDeReemplazo = pideReemplazo && reemplazo.validar();
+    if (Object.keys(propios).length || errorDeReemplazo) {
       setError(null);
       setErrores(propios);
       enfocarPrimerError(formulario.current);
@@ -308,6 +323,22 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     setEnviando(true);
     setError(null);
     setErrores({});
+    // El reemplazo se guarda con «Enviar solicitud» y antes de ella: es una
+    // sola acción para quien pide, y cuando el permiso se apruebe ya está la
+    // elección hecha. Si no se pudo guardar, la solicitud no sale: el aviso
+    // lo dice arriba y, si es de validación, también junto a la pregunta.
+    let reemplazoGuardado = false;
+    if (pideReemplazo) {
+      const resultado = await reemplazo.guardar();
+      if (!resultado.ok) {
+        setError(resultado.mensaje);
+        setEnviando(false);
+        enCurso.current = false;
+        enfocarPrimerError(formulario.current);
+        return;
+      }
+      reemplazoGuardado = resultado.guardado;
+    }
     try {
       onCreada(
         await licenciasService.solicitar(
@@ -317,7 +348,9 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
         ),
       );
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo enviar la solicitud."));
+      const mensaje = mensajeDeError(err, "No se pudo enviar la solicitud.");
+      // Si el reemplazo ya se guardó, se dice: no hace falta volver a elegir.
+      setError(reemplazoGuardado ? `${mensaje} ${YA_QUEDO_GUARDADO}` : mensaje);
       setErrores(erroresPorCampo(err));
       setEnviando(false);
       enfocarPrimerError(formulario.current);
@@ -554,6 +587,14 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
               />
             </Campo>
           )}
+          {pideReemplazo && (
+            <div className="col-12">
+              <ReemplazoEnAusencia
+                reemplazo={reemplazo}
+                deshabilitado={enviando}
+              />
+            </div>
+          )}
           <div className="col-12 mz-actions justify-content-end">
             <button
               type="button"
@@ -608,6 +649,9 @@ function textoDeAccion(a) {
         </>
       );
     case "escalada":
+      // Sin actor la pasó el sistema: quien aprobaba está ausente
+      // (11/11/2026, US-001). Una sola línea, sin el comentario aparte.
+      if (esEscaladaPorAusencia(a)) return <EscaladaPorAusencia accion={a} />;
       return (
         <>
           {a.actor && <strong>{a.actor}</strong>} escaló{paso}
@@ -1097,7 +1141,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                 <Icon name="hourglass-split" /> En el paso «
                 {solicitud.paso_actual}», esperando a{" "}
                 <strong>
-                  {solicitud.pendiente_de.map((p) => p.nombre).join(", ")}
+                  <AprobadoresPendientes personas={solicitud.pendiente_de} />
                 </strong>
                 .
               </p>
@@ -1213,7 +1257,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                     {formatearFecha(a.created_at, true)}
                   </span>
                   <span>{textoDeAccion(a)}</span>
-                  {a.comentario && (
+                  {a.comentario && !esEscaladaPorAusencia(a) && (
                     <blockquote className="solicitud-historial__comentario">
                       «{a.comentario}»
                     </blockquote>
@@ -1408,9 +1452,14 @@ export function SolicitudPermisosPage() {
                       <span className={`mz-pill ${clase}`}>{estado}</span>
                     </td>
                     <td className="mz-small">
-                      {s.estado === "pendiente"
-                        ? `${s.paso_actual} · ${s.pendiente_de.map((p) => p.nombre).join(", ")}`
-                        : "—"}
+                      {s.estado === "pendiente" ? (
+                        <>
+                          {s.paso_actual} ·{" "}
+                          <AprobadoresPendientes personas={s.pendiente_de} />
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="mz-small">
                       {formatearFecha(s.created_at, true)}
@@ -1479,6 +1528,15 @@ export function SolicitudPermisosPage() {
                       {DESCUENTOS[s.descuento] && (
                         <span>{DESCUENTOS[s.descuento]}</span>
                       )}
+                      {/* En el teléfono también se ve a quién espera y si
+                          está ausente (11/11/2026, US-001). */}
+                      {s.estado === "pendiente" &&
+                        s.pendiente_de?.length > 0 && (
+                          <span>
+                            Pendiente de:{" "}
+                            <AprobadoresPendientes personas={s.pendiente_de} />
+                          </span>
+                        )}
                     </div>
                   </li>
                 );

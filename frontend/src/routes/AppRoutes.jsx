@@ -1238,7 +1238,7 @@ export function AppRoutes() {
         <Route
           path="soporte/mi-horario"
           element={
-            <RequirePermission permission="soporte.atender">
+            <RequirePermission permission="soporte.mi_horario">
               <MiHorario />
             </RequirePermission>
           }

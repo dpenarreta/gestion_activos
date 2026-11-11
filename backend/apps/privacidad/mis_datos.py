@@ -183,6 +183,10 @@ def _perfil(ctx: Contexto) -> list[dict]:
             ("telefono_autorizado_el", "telefono_aceptado_en"),
             ("telefono_autorizado_desde_ip", "telefono_aceptado_ip"),
             ("version_del_texto_autorizado", "telefono_aceptado_version"),
+            # El corporativo (10/11/2026): no pide autorización, pero es de
+            # su perfil y lo guarda el sistema.
+            ("tiene_telefono_corporativo", "tiene_telefono_corporativo"),
+            ("telefono_corporativo", "telefono_corporativo"),
             ("correo_personal", "correo_personal"),
             ("correo_personal_autorizado_el", "correo_personal_aceptado_en"),
             ("area", "departamento__nombre"),
@@ -196,6 +200,11 @@ def _perfil(ctx: Contexto) -> list[dict]:
             ("aniversario_mes", "aniversario_mes"),
             ("aniversario_anio", "aniversario_anio"),
             ("aniversario_autorizado_el", "aniversario_aceptado_en"),
+            # Quién aprueba por la persona mientras está ausente (11/11/2026,
+            # US-001): su jefe inmediato u otra persona que ella eligió.
+            ("quien_aprueba_por_usted_si_esta_ausente", "reemplazo_modo"),
+            ("persona_elegida_nombres", "reemplazo__first_name"),
+            ("persona_elegida_apellidos", "reemplazo__last_name"),
         ],
     )
 
@@ -944,6 +953,8 @@ def _chat(ctx: Contexto) -> list[dict]:
             [
                 ("texto", "mensaje"),
                 ("estado", "estado"),
+                # Hasta cuándo dura (almuerzo, reunión, fuera de la oficina).
+                ("hasta", "hasta"),
                 ("vacaciones_desde", "vacaciones_desde"),
                 ("vacaciones_hasta", "vacaciones_hasta"),
                 ("mensaje_de_vacaciones", "mensaje_vacaciones"),
@@ -1327,8 +1338,9 @@ SECCIONES: tuple[Seccion, ...] = (
 EXCLUIDO: tuple[tuple[str, str], ...] = (
     (
         "Rol de pagos (consultas, documentos, observaciones y su seguimiento)",
-        "Tiene su propia descarga, protegida con la contraseña de su cuenta, en Institucional → "
-        "Rol de pagos. Copiarlo aquí lo dejaría sin esa protección.",
+        "Tiene su propia descarga, protegida con un código que llega al correo de su cuenta, en "
+        "Institucional → Rol de pagos. Copiarlo aquí lo dejaría sin esa protección. Los códigos "
+        "de consulta no se guardan en claro y caducan en minutos.",
     ),
     (
         "Contraseña, códigos de inicio de sesión y de recuperación de la cuenta, código de "

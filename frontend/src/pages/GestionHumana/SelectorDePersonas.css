@@ -1,0 +1,98 @@
+/*
+ * Selector de personas (invitados de Reuniones, «Para» del Escritorio,
+ * reemplazo en las ausencias). Vivía en `GestionHumana.css`; desde el
+ * 11/11/2026 (US-001) va con el componente porque también se usa fuera del
+ * módulo: en el chat y en la solicitud de permisos.
+ */
+
+.gh-personas {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.gh-personas__titulo {
+  float: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 6px;
+}
+
+.gh-personas__elegidos {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gh-personas__elegido {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 99px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 13px;
+}
+
+.gh-personas__elegido .btn {
+  border-radius: 99px;
+  padding: 0 10px;
+}
+
+.gh-personas__nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* La lista se desplaza sola: con muchas personas no empuja el pie de la
+   ventana fuera de la pantalla. */
+.gh-personas__resultados {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.gh-personas__resultado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--mz-ink);
+  cursor: pointer;
+}
+
+.gh-personas__resultado:hover {
+  background: var(--mz-sunken);
+}
+
+.gh-personas__resultado .form-check-input {
+  flex: none;
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  .gh-personas__resultado,
+  .gh-personas__elegido .btn {
+    min-height: 44px;
+  }
+
+  .gh-personas__resultado .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

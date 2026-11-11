@@ -25,6 +25,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.notificaciones import services as campana
+from apps.organizacion import ausencia
 from apps.permissions.authorization import user_has_permission
 from apps.users.models import User
 
@@ -142,6 +143,10 @@ def _asignar(solicitud, personas, paso, detalle_extra=""):
     # Nadie aprueba lo suyo, ni dos pasos de la misma solicitud.
     excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
     personas = [p for p in personas if p and p.pk not in excluidos]
+    # Quien está ausente (vacaciones, permiso de día completo o «Fuera de la
+    # oficina») no recibe la solicitud: pasa a su reemplazo, con las mismas
+    # exclusiones (11/11/2026, US-001).
+    personas, cambios = ausencia.sustituir_ausentes(personas, excluidos)
     sin_nadie = not personas
     if sin_nadie:
         personas = [p for p in administradores() if p.pk not in excluidos]
@@ -155,6 +160,14 @@ def _asignar(solicitud, personas, paso, detalle_extra=""):
             "quedó en manos de quien administra los flujos)"
         )
     _registrar(solicitud, AccionSolicitud.Accion.ASIGNADA, paso=paso, detalle=detalle)
+    for ausente, reemplazo in cambios:
+        _registrar(
+            solicitud,
+            AccionSolicitud.Accion.ESCALADA,
+            paso=paso,
+            comentario=ausencia.constancia(reemplazo, ausente),
+            detalle=_nombre(reemplazo),
+        )
     campana.notificar(
         unicos,
         tipo="licencias.por_aprobar",
@@ -207,6 +220,20 @@ def _terminar(solicitud, estado, actor=None):
         from apps.ausencias.services import create_from_request
 
         create_from_request(solicitud, actor=actor or solicitud.solicitante)
+        # Si el permiso es de día completo y ya empezó, lo que la persona
+        # tenía por aprobar pasa a su reemplazo (11/11/2026, US-001). Tras
+        # confirmar: con la transacción abierta el permiso aún no existe para
+        # nadie más, y un fallo aquí no debe deshacer la aprobación.
+        hoy = timezone.localdate()
+        if not solicitud.por_horas and solicitud.desde <= hoy <= solicitud.hasta:
+            transaction.on_commit(
+                lambda: ausencia.reasignar_pendientes(
+                    solicitud.solicitante, empresas=[solicitud.empresa]
+                ),
+                # Un fallo al reasignar no convierte la aprobación en un 500:
+                # queda en el registro y la revisión periódica lo repite.
+                robust=True,
+            )
     destinatarios = []
     for aviso in solicitud.flujo.avisos.filter(resultado=estado):
         destinatarios.extend(resolver(aviso, solicitud))
@@ -391,6 +418,54 @@ def escalar(solicitud, usuario, destino, comentario=""):
     )
     _asignar(solicitud, personas, solicitud.paso_actual)
     return solicitud
+
+
+def reasignar_por_ausencia(ausente, base=None) -> int:
+    """Pasa al reemplazo de `ausente` las solicitudes pendientes de él en la
+    empresa activa, con la constancia «Escalada a X por ausencia de Y» y el
+    aviso de siempre al reemplazo. Si no hay reemplazo, se quedan con él.
+    Idempotente: lo que ya pasó deja de estar pendiente de él.
+
+    `base` es su reemplazo sin exclusiones, ya calculado por quien llama; se
+    usa si no es el solicitante ni alguien que ya aprobó (si no, se
+    recalcula con esas exclusiones)."""
+    total = 0
+    pendientes = SolicitudPermiso.objects.filter(
+        estado=SolicitudPermiso.Estado.PENDIENTE, pendiente_de=ausente
+    ).select_related("solicitante", "flujo")
+    for solicitud in pendientes:
+        with transaction.atomic():
+            _bloquear(solicitud)
+            if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
+                continue
+            if not solicitud.pendiente_de.filter(pk=ausente.pk).exists():
+                continue
+            excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
+            reemplazo = (
+                base
+                if base is not None and base.pk not in excluidos
+                else ausencia.reemplazo_para(ausente, excluidos)
+            )
+            if reemplazo is None:
+                continue
+            solicitud.pendiente_de.remove(ausente)
+            solicitud.pendiente_de.add(reemplazo)
+            _registrar(
+                solicitud,
+                AccionSolicitud.Accion.ESCALADA,
+                paso=solicitud.paso_actual,
+                comentario=ausencia.constancia(reemplazo, ausente),
+                detalle=_nombre(reemplazo),
+            )
+            campana.notificar(
+                [reemplazo],
+                tipo="licencias.por_aprobar",
+                titulo=f"Solicitud de permiso por aprobar: {solicitud.flujo.nombre}",
+                resumen=_resumen(solicitud),
+                enlace=_enlace(solicitud),
+            )
+            total += 1
+    return total
 
 
 def puede_anular_aprobadas(usuario) -> bool:

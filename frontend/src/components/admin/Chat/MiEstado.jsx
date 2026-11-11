@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { chatService } from "../../../api/chatService";
 import { useModalA11y } from "../../../hooks/useModalA11y";
-import { mensajeDeError } from "../../../utils/errores";
+import { erroresPorCampo, mensajeDeError } from "../../../utils/errores";
+import {
+  Campo,
+  LeyendaObligatorios,
+  enfocarPrimerError,
+} from "../../common/Campo/Campo";
+import {
+  ReemplazoEnAusencia,
+  YA_QUEDO_GUARDADO,
+  useReemplazoEnAusencia,
+} from "../../common/Ausencia/ReemplazoEnAusencia";
 import { Icon } from "../../common/Icon/Icon";
 import "./Presencia.css";
 
@@ -13,13 +23,76 @@ export const ESTADOS = [
   ["reunion", "En reunión", "people"],
   ["no_disponible", "No disponible", "dash-circle"],
   ["vacaciones", "Vacaciones", "airplane"],
+  // Uno o varios días fuera, con su último día obligatorio; sus aprobaciones
+  // pasan a su reemplazo (11/11/2026, US-001).
+  ["fuera_oficina", "Fuera de la oficina", "box-arrow-right"],
 ];
+
+/** Los estados que son una ausencia: piden quién aprueba por usted. */
+const AUSENCIAS = ["vacaciones", "fuera_oficina"];
+
+/** Hasta cuántos días adelante se puede marcar «Fuera de la oficina»: el
+ * servidor pone el mismo tope de 6 meses (revisión de US-001, 11/11/2026). */
+const DIAS_MAXIMOS_FUERA = 180;
+
+const dos = (n) => String(n).padStart(2, "0");
+
+/** La fecha local (AAAA-MM-DD) de un momento ISO, o de hoy. Una fecha sola
+ * (AAAA-MM-DD) se deja como viene: `new Date` la leería en UTC y en Ecuador
+ * caería el día anterior. */
+function fechaLocal(iso) {
+  if (typeof iso === "string" && /^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const fecha = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(fecha.getTime())) return "";
+  return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
+}
+
+/** Hoy más `dias`, como AAAA-MM-DD local. */
+function enDias(dias) {
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() + dias);
+  return fechaLocal(fecha.toISOString());
+}
+
+/** Lo que falta o está mal en el último día de «Fuera de la oficina», o
+ * null. El servidor lo vuelve a revisar (400 en `hasta`). */
+export function errorDeRegreso(
+  regreso,
+  hoy = fechaLocal(),
+  maximo = enDias(DIAS_MAXIMOS_FUERA),
+) {
+  if (!regreso) return "Indique hasta cuándo estará fuera de la oficina.";
+  if (regreso < hoy) return "Elija como último día hoy o una fecha posterior.";
+  if (regreso > maximo)
+    return "Elija una fecha dentro de los próximos 6 meses.";
+  return null;
+}
+
+/** Lo que falta o está mal en las fechas de las vacaciones. */
+function erroresDeVacaciones(desde, hasta) {
+  const errores = {};
+  if (!desde)
+    errores.vacaciones_desde = "Indique desde cuándo estará de vacaciones.";
+  if (!hasta)
+    errores.vacaciones_hasta = "Indique hasta cuándo estará de vacaciones.";
+  else if (desde && hasta < desde)
+    errores.vacaciones_hasta = "«Hasta» no puede ser antes de «Desde».";
+  return errores;
+}
 
 /** AAAA-MM-DD → DD/MM/AAAA. */
 function fechaCorta(iso) {
   if (!iso) return "";
   const [a, m, d] = String(iso).slice(0, 10).split("-");
   return `${d}/${m}/${a}`;
+}
+
+/** Una fecha o un momento → DD/MM (local). */
+function diaYMes(valor) {
+  const fecha = fechaLocal(valor);
+  if (!fecha) return "";
+  const [, m, d] = fecha.split("-");
+  return `${d}/${m}`;
 }
 
 /** HH:MM de hoy → la fecha y hora (ISO) para «hasta»; si ya pasó, vacío. */
@@ -48,13 +121,34 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
     onRequestClose: onCerrar,
   });
   const sugeridas = datos.vacaciones_sugeridas;
+  const vigente = datos.vigente;
+  // Si lo que rige es una ausencia (también la de un permiso aprobado, que
+  // no cambió su estado), la ventana abre en ella.
   const [estado, setEstado] = useState(
-    datos.vigente?.clave === "vacaciones" ? "vacaciones" : datos.estado,
+    AUSENCIAS.includes(vigente?.clave) ? vigente.clave : datos.estado,
   );
+  // «Fuera de la oficina» por un permiso aprobado: no lo eligió la persona,
+  // lo pone el sistema mientras dure el permiso (US-001, CA-2).
+  const fueraPorPermiso =
+    vigente?.clave === "fuera_oficina" && datos.estado !== "fuera_oficina";
+  // Si eligió una opción a mano (también volver a pulsar «Fuera de la
+  // oficina»). Mientras no lo haga, la ausencia del permiso no se toca: no
+  // se pide fecha ni se manda `estado` (revisión UX/UI, ronda 2).
+  const [eligio, setEligio] = useState(false);
+  // El último día fuera: se manda la fecha sola y el servidor la toma hasta
+  // el final de ese día.
+  const [regresoFuera, setRegresoFuera] = useState(
+    datos.estado === "fuera_oficina" && datos.hasta
+      ? fechaLocal(datos.hasta)
+      : "",
+  );
+  const [errores, setErrores] = useState({});
+  const ausente = AUSENCIAS.includes(estado);
+  const porPermiso = fueraPorPermiso && !eligio && estado === "fuera_oficina";
+  const reemplazo = useReemplazoEnAusencia({ activo: ausente });
+  const formulario = useRef(null);
   const [mensaje, setMensaje] = useState(
-    datos.vigente?.clave === "vacaciones"
-      ? datos.mensaje_vacaciones
-      : datos.mensaje,
+    vigente?.clave === "vacaciones" ? datos.mensaje_vacaciones : datos.mensaje,
   );
   const [hasta, setHasta] = useState("");
   const [inicio, setInicio] = useState(datos.almuerzo_inicio || "");
@@ -68,13 +162,37 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
-  async function guardar(cambios) {
+  const limpiarError = (campo) =>
+    setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
+
+  async function guardar(cambios, conReemplazo = false) {
     setGuardando(true);
     setError(null);
+    setErrores({});
+    // Primero quién aprueba por usted: al guardar el estado, lo pendiente
+    // pasa a esa persona y tiene que encontrarla ya elegida.
+    let reemplazoGuardado = false;
+    if (conReemplazo) {
+      const resultado = await reemplazo.guardar();
+      if (!resultado.ok) {
+        setError(resultado.mensaje);
+        setGuardando(false);
+        enfocarPrimerError(formulario.current);
+        return;
+      }
+      reemplazoGuardado = resultado.guardado;
+    }
     try {
       onGuardado(await chatService.guardarEstado(cambios));
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar su estado."));
+      const campos = erroresPorCampo(err);
+      setErrores(campos);
+      const base =
+        campos.hasta || campos.vacaciones_desde || campos.vacaciones_hasta
+          ? "Revise las fechas marcadas."
+          : mensajeDeError(err, "No se pudo guardar su estado.");
+      setError(reemplazoGuardado ? `${base} ${YA_QUEDO_GUARDADO}` : base);
+      enfocarPrimerError(formulario.current);
     } finally {
       setGuardando(false);
     }
@@ -82,19 +200,40 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
 
   function enviar(evento) {
     evento.preventDefault();
-    const cambios = {
-      estado,
-      mensaje,
+    // Lo que se sabe sin ir al servidor: el error va junto a su campo y el
+    // foco al primero.
+    let propios = {};
+    if (estado === "fuera_oficina" && !porPermiso) {
+      const deRegreso = errorDeRegreso(regresoFuera);
+      if (deRegreso) propios.hasta = deRegreso;
+    }
+    if (estado === "vacaciones") propios = erroresDeVacaciones(desde, regreso);
+    const deReemplazo = ausente && reemplazo.validar();
+    if (Object.keys(propios).length || deReemplazo) {
+      setError(null);
+      setErrores(propios);
+      enfocarPrimerError(formulario.current);
+      return;
+    }
+    const almuerzo = {
       almuerzo_inicio: inicio || null,
       almuerzo_minutos: Number(minutos) || 60,
     };
+    // Con la ausencia del permiso sin tocar: solo el almuerzo y, antes, el
+    // reemplazo.
+    if (porPermiso) {
+      guardar(almuerzo, true);
+      return;
+    }
+    const cambios = { estado, mensaje, ...almuerzo };
     if (estado === "vacaciones") {
       cambios.vacaciones_desde = desde || null;
       cambios.vacaciones_hasta = regreso || null;
     }
     if (estado === "reunion" || estado === "no_disponible")
       cambios.hasta = horaDeHoy(hasta);
-    guardar(cambios);
+    if (estado === "fuera_oficina") cambios.hasta = regresoFuera;
+    guardar(cambios, ausente);
   }
 
   return (
@@ -122,7 +261,12 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
             <Icon name="x-lg" />
           </button>
         </div>
-        <form className="mz-panel-body mz-stack" onSubmit={enviar}>
+        <form
+          ref={formulario}
+          className="mz-panel-body mz-stack mi-estado__formulario"
+          onSubmit={enviar}
+          noValidate
+        >
           {error && (
             <div className="mz-alert mz-alert--bad" role="alert">
               <Icon name="x-octagon" />
@@ -143,12 +287,20 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
                   name="mi-estado"
                   className="visually-hidden"
                   checked={estado === id}
-                  onChange={() => setEstado(id)}
+                  onChange={() => {
+                    setEstado(id);
+                    setEligio(true);
+                    setErrores({});
+                  }}
+                  // Volver a pulsar la opción ya marcada no la cambia, pero
+                  // dice que quiere fijar su propio «Fuera de la oficina».
+                  onClick={() => setEligio(true)}
                 />
                 <Icon name={icono} /> {nombre}
               </label>
             ))}
           </fieldset>
+          {ausente && <LeyendaObligatorios />}
 
           {estado === "almuerzo" && (
             <p className="mz-small mb-0">
@@ -189,33 +341,41 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
                 </div>
               )}
               <div className="row g-2">
-                <div className="col-6">
-                  <label className="form-label mz-small" htmlFor="vac-desde">
-                    Desde
-                  </label>
+                <Campo
+                  id="vac-desde"
+                  etiqueta="Desde"
+                  obligatorio
+                  error={errores.vacaciones_desde}
+                  className="col-6"
+                >
                   <input
-                    id="vac-desde"
                     type="date"
                     className="form-control form-control-sm"
-                    required
                     value={desde ?? ""}
-                    onChange={(e) => setDesde(e.target.value)}
+                    onChange={(e) => {
+                      setDesde(e.target.value);
+                      limpiarError("vacaciones_desde");
+                    }}
                   />
-                </div>
-                <div className="col-6">
-                  <label className="form-label mz-small" htmlFor="vac-hasta">
-                    Hasta
-                  </label>
+                </Campo>
+                <Campo
+                  id="vac-hasta"
+                  etiqueta="Hasta"
+                  obligatorio
+                  error={errores.vacaciones_hasta}
+                  className="col-6"
+                >
                   <input
-                    id="vac-hasta"
                     type="date"
                     className="form-control form-control-sm"
-                    required
                     min={desde || undefined}
                     value={regreso ?? ""}
-                    onChange={(e) => setRegreso(e.target.value)}
+                    onChange={(e) => {
+                      setRegreso(e.target.value);
+                      limpiarError("vacaciones_hasta");
+                    }}
                   />
-                </div>
+                </Campo>
               </div>
               <small className="mz-faint">
                 Antes de salir, quien le escriba verá cuándo estará de
@@ -233,7 +393,47 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
               )}
             </div>
           )}
-          {estado !== "disponible" && (
+          {estado === "fuera_oficina" && fueraPorPermiso && (
+            <div className="mz-alert mz-alert--info" role="note">
+              <Icon name="calendar-check" />
+              <span>
+                Tiene un permiso aprobado hasta el {diaYMes(vigente.hasta)}:
+                mientras dure, quien le escriba verá «Fuera de la oficina».
+              </span>
+            </div>
+          )}
+          {porPermiso && (
+            <p className="mz-small mb-0">
+              <strong>Hasta el {diaYMes(vigente.hasta)}</strong>, por su permiso
+              aprobado.
+            </p>
+          )}
+          {estado === "fuera_oficina" && !porPermiso && (
+            // El backend toma la fecha como el último día fuera: vale hasta
+            // las 23:59 de ese día (revisión UX/UI de US-001, 11/11/2026).
+            <Campo
+              id="fuera-regreso"
+              etiqueta="Último día fuera de la oficina"
+              obligatorio
+              ayuda="Desde el día siguiente vuelve a «Disponible». Quien le escriba verá «Fuera de la oficina hasta el…»."
+              error={errores.hasta}
+            >
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                min={fechaLocal()}
+                max={enDias(DIAS_MAXIMOS_FUERA)}
+                value={regresoFuera}
+                onChange={(e) => {
+                  setRegresoFuera(e.target.value);
+                  limpiarError("hasta");
+                }}
+              />
+            </Campo>
+          )}
+          {/* Con la ausencia del permiso no se guarda un mensaje propio:
+              para dejarlo, se elige «Fuera de la oficina» a mano. */}
+          {estado !== "disponible" && !porPermiso && (
             <div>
               <label className="form-label mz-small" htmlFor="estado-mensaje">
                 Mensaje para quien le escriba (opcional)
@@ -243,14 +443,20 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
                 className="form-control form-control-sm"
                 maxLength={140}
                 placeholder={
-                  estado === "vacaciones"
-                    ? "Para lo urgente, escriba a…"
-                    : "Vuelvo pronto"
+                  ausente ? "Para lo urgente, escriba a…" : "Vuelvo pronto"
                 }
                 value={mensaje}
                 onChange={(e) => setMensaje(e.target.value)}
               />
             </div>
+          )}
+          {/* Después de la fecha y el mensaje, separado y con su
+              encabezado: quién aprueba por usted. */}
+          {ausente && (
+            <ReemplazoEnAusencia
+              reemplazo={reemplazo}
+              deshabilitado={guardando}
+            />
           )}
 
           <details className="mi-estado__almuerzo" open={estado === "almuerzo"}>
@@ -362,12 +568,17 @@ export function MiEstado() {
         onClick={() => setAbierta(true)}
       >
         <Icon name={icono} /> {nombre}
+        {/* El detalle (hasta cuándo) también para teclado y lector: el
+            `title` no les llega. */}
+        {vigente?.detalle && (
+          <span className="visually-hidden">: {vigente.detalle}</span>
+        )}
         <Icon name="chevron-down" />
       </button>
       {ofrecerAlmuerzo && (
         <button
           type="button"
-          className="btn btn-link btn-sm p-0 ms-1"
+          className="btn btn-link btn-sm ms-1 mi-estado__atajo"
           onClick={() =>
             chatService
               .guardarEstado({ estado: "almuerzo" })

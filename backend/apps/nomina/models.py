@@ -151,6 +151,40 @@ class ConsultaRolPagos(ModeloDeEmpresa):
         verbose_name_plural = "consultas del rol de pagos"
 
 
+class CodigoConsultaRol(ModeloDeEmpresa):
+    """El código de 6 dígitos que llega al correo de la cuenta para consultar
+    el rol de pagos de un período, en lugar de la contraseña (US-002,
+    11/11/2026). Uno por cada envío: vence, admite pocos intentos y se usa una
+    sola vez; al pedir otro, el anterior se anula.
+
+    **Nunca guarda el código**: solo su HMAC-SHA256 en hexadecimal
+    (`hash_codigo`), que se compara en tiempo constante. `enviado_a` es el
+    correo ya enmascarado («d***@dominio»), para la auditoría."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    codigo_empleado = models.CharField(max_length=40)
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    hash_codigo = models.CharField(max_length=64)
+    creado_en = models.DateTimeField(auto_now_add=True, db_index=True)
+    vence_en = models.DateTimeField()
+    intentos = models.PositiveSmallIntegerField(default=0)
+    usado_en = models.DateTimeField(null=True, blank=True)
+    anulado_en = models.DateTimeField(null=True, blank=True)
+    enviado_a = models.CharField(max_length=254, blank=True)
+
+    class Meta:
+        ordering = ["-creado_en"]
+        indexes = [
+            # El código vigente de la persona y el límite de envíos por hora.
+            models.Index(fields=["usuario", "creado_en"], name="nomina_codigo_usuario_creado"),
+        ]
+        verbose_name = "código de consulta del rol de pagos"
+        verbose_name_plural = "códigos de consulta del rol de pagos"
+
+
 class RolAceptado(ModeloDeEmpresa):
     """El rol de pagos que la persona aceptó (26/10/2026): sus datos —rubros
     y montos, no el PDF— tal como los vio. Desde entonces ese mes sale de

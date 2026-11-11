@@ -22,6 +22,8 @@ import "./Soporte.css";
 export function MiHorario() {
   const [agenda, setAgenda] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
+  // Tiene el permiso pero aún no es técnico de la mesa (11/11/2026).
+  const [sinAlta, setSinAlta] = useState(null);
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -32,14 +34,20 @@ export function MiHorario() {
 
   const cargar = useCallback(() => {
     setErrorCarga(null);
+    setSinAlta(null);
     soporteService
       .miHorario()
       .then((tecnico) =>
         setAgenda({ horarios: tecnico.horarios, ausencias: tecnico.ausencias }),
       )
-      .catch((err) =>
-        setErrorCarga(mensajeDeError(err, "No se pudo cargar su horario.")),
-      );
+      .catch((err) => {
+        // Tiene el permiso pero no es técnico: reintentar no lo arregla.
+        if (err?.response?.data?.error?.code === "no_es_tecnico") {
+          setSinAlta(mensajeDeError(err, "No es parte del equipo de soporte."));
+          return;
+        }
+        setErrorCarga(mensajeDeError(err, "No se pudo cargar su horario."));
+      });
   }, []);
 
   useEffect(() => {
@@ -92,7 +100,13 @@ export function MiHorario() {
           </p>
         </div>
       </div>
-      {!agenda && (
+      {sinAlta && (
+        <div className="mz-alert mz-alert--info" role="status">
+          <Icon name="info-circle" />
+          {sinAlta}
+        </div>
+      )}
+      {!agenda && !sinAlta && (
         <EstadoDeCarga
           cargando={!errorCarga}
           error={errorCarga}

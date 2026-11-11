@@ -53,7 +53,7 @@ def test_la_ficha_de_empleado_da_los_valores_iniciales(db):
     assert datos["en_nomina"] is True
     # La ficha de empleado no guarda la agencia; el cargo se elige. El
     # teléfono es opcional (26/10/2026) y no está autorizado todavía.
-    assert datos["faltan"] == ["agencia", "cargo"]
+    assert datos["faltan"] == ["agencia", "cargo", "telefono_corporativo"]
     assert datos["telefono_autorizacion"]["aceptado"] is False
 
 
@@ -67,7 +67,14 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
         cargo = Cargo.objects.create(nombre="Asesor comercial")
     usuario, cliente = _persona(empresa)
     inicial = cliente.get(URL).json()
-    assert inicial["faltan"] == ["nombres", "apellidos", "area", "agencia", "cargo"]
+    assert inicial["faltan"] == [
+        "nombres",
+        "apellidos",
+        "area",
+        "agencia",
+        "cargo",
+        "telefono_corporativo",
+    ]
     assert [a["nombre"] for a in inicial["areas"]] == ["Comercial"]
 
     malo = cliente.put(
@@ -89,6 +96,7 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
             "apellidos": "Vera",
             "telefono": "0991112222",
             "acepta_telefono": True,
+            "tiene_telefono_corporativo": False,
             "area": area.id,
             "agencia": sede.id,
             "cargo": cargo.id,
@@ -120,6 +128,7 @@ def test_el_cargo_se_elige_del_catalogo_y_es_obligatorio(db):
         "apellidos": "Vera",
         "telefono": "0991112222",
         "acepta_telefono": True,
+        "tiene_telefono_corporativo": False,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -187,6 +196,7 @@ def test_el_cargo_lo_elige_una_sola_vez_y_despues_lo_cambia_ti(db):
         "apellidos": "Vera",
         "telefono": "0991112222",
         "acepta_telefono": True,
+        "tiene_telefono_corporativo": False,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -226,6 +236,7 @@ def test_el_telefono_se_guarda_solo_con_autorizacion_y_queda_la_constancia(db):
         "nombres": "Rosa",
         "apellidos": "Vera",
         "telefono": "0991112222",
+        "tiene_telefono_corporativo": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,
@@ -278,6 +289,7 @@ def test_el_telefono_es_opcional_pero_si_se_escribe_pide_autorizacion(db):
     base = {
         "nombres": "Rosa",
         "apellidos": "Vera",
+        "tiene_telefono_corporativo": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,

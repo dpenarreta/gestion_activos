@@ -156,8 +156,8 @@ export function Directorio({ onElegida }) {
                   </span>
                 </span>
               </button>
-              {/* Ver su contacto (correo y, si lo autorizó, teléfono) sin
-                  abrir el chat. */}
+              {/* Ver su contacto (correo, teléfono corporativo y, si lo
+                  autorizó, el personal) sin abrir el chat. */}
               <button
                 type="button"
                 className={`chat-persona__contacto${contacto === p.id ? " is-active" : ""}`}

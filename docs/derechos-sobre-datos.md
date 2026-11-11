@@ -136,7 +136,7 @@ pasa por `neutralizar`. La definición está en
 
 | Qué | Por qué |
 | --- | --- |
-| Rol de pagos (consultas, documentos, observaciones) | Tiene su propia descarga, protegida con la contraseña, en Institucional → Rol de pagos |
+| Rol de pagos (consultas, documentos, observaciones) | Tiene su propia descarga, protegida con un código que llega al correo de la cuenta, en Institucional → Rol de pagos |
 | Contraseña, códigos de inicio de sesión y de recuperación, código de seguimiento de tickets, enlace y clave de reuniones | Son llaves de acceso: abren la cuenta, un ticket o una sala; no describen a la persona |
 | Notas internas de la Mesa de ayuda | Son del equipo de soporte; si la persona las pide, se revisan en una solicitud de ACCESO |
 | Contenido de los archivos | Se listan por nombre; se ven en su módulo |

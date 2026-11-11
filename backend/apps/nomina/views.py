@@ -80,18 +80,97 @@ class EstadoView(APIView):
         )
 
 
-class _Consulta(serializers.Serializer):
+class _PedirCodigo(serializers.Serializer):
     anio = serializers.IntegerField()
     mes = serializers.IntegerField()
     acepto = serializers.BooleanField()
     version = serializers.IntegerField()
-    password = serializers.CharField(write_only=True, trim_whitespace=False)
     codigo = serializers.CharField(required=False, allow_blank=True, max_length=40)
 
 
+class _Consulta(_PedirCodigo):
+    #: El código de 6 dígitos que llegó al correo (US-002, 11/11/2026; antes
+    #: era la contraseña de la cuenta).
+    codigo_verificacion = serializers.RegexField(
+        r"^\d{6}$",
+        write_only=True,
+        error_messages={
+            "required": "Escriba el código que le llegó al correo.",
+            "blank": "Escriba el código que le llegó al correo.",
+            "invalid": "El código tiene 6 dígitos.",
+        },
+    )
+
+
+class CodigoConsultaView(APIView):
+    """`POST /api/v1/nomina/rol-pagos/consultar/codigo/`: pide (o vuelve a
+    pedir) el código para consultar un período. Entrada `{anio, mes, acepto,
+    version, codigo?}`; salida `{enviado_a, vence_en, reenviar_en}` (en
+    segundos). Errores: 400 términos, período, código de empleado o cuenta sin
+    correo (`codigo_verificacion`); 403 el rol de otra persona sin
+    `roles_pago.consultar_todos`; 429 la espera de 60 s o el máximo por hora,
+    con `details.retry_after`; 503 si el correo no sale. Los mismos permisos y
+    límite que la consulta (`rol_pagos`). El código nunca va en la respuesta
+    ni en la auditoría."""
+
+    permission_classes = [IsAuthenticated, PROPIO]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "rol_pagos"
+
+    def post(self, request):
+        entrada = _PedirCodigo(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        empleado = datos.get("codigo") or services.codigo_de(request.user)
+        try:
+            enviado = services.emitir_codigo(
+                request.user,
+                anio=datos["anio"],
+                mes=datos["mes"],
+                acepto=datos["acepto"],
+                version=datos["version"],
+                codigo=datos.get("codigo"),
+                ip=_ip(request),
+            )
+        except Exception as error:
+            record_audit_event(
+                actor=request.user,
+                action="roles_pago.codigo.rechazado",
+                target=request.user,
+                module=MODULO,
+                result="failure",
+                new_values={
+                    "anio": datos["anio"],
+                    "mes": datos["mes"],
+                    "codigo_empleado": empleado,
+                    "motivo": str(getattr(error, "detail", error))[:200],
+                },
+                context=get_request_context(request),
+            )
+            raise
+        record_audit_event(
+            actor=request.user,
+            action="roles_pago.codigo.enviado",
+            target=enviado.registro,
+            module=MODULO,
+            new_values={
+                "anio": enviado.registro.anio,
+                "mes": enviado.registro.mes,
+                "codigo_empleado": enviado.registro.codigo_empleado,
+            },
+            context=get_request_context(request),
+        )
+        respuesta = Response(enviado.respuesta())
+        respuesta["Cache-Control"] = "no-store, private"
+        return respuesta
+
+
 class ConsultarView(APIView):
-    """Acepta los términos, confirma la contraseña y devuelve el PDF (que no
-    se guarda). Los intentos se limitan (`rol_pagos`)."""
+    """Acepta los términos, comprueba el código que llegó al correo
+    (`CodigoConsultaView`) y devuelve el PDF (que no se guarda). Los intentos
+    se limitan (`rol_pagos` y los del código) y los fallidos quedan en la
+    auditoría, sin el código. Errores del código: 400 en
+    `codigo_verificacion`."""
 
     permission_classes = [IsAuthenticated, PROPIO]
     throttle_classes = [ScopedRateThrottle]
@@ -108,13 +187,13 @@ class ConsultarView(APIView):
                 mes=datos["mes"],
                 acepto=datos["acepto"],
                 version=datos["version"],
-                password=datos["password"],
+                codigo_verificacion=datos["codigo_verificacion"],
                 codigo=datos.get("codigo"),
                 ip=_ip(request),
                 navegador=request.META.get("HTTP_USER_AGENT", ""),
             )
         except Exception as error:
-            # El intento fallido queda en la auditoría (sin la contraseña).
+            # El intento fallido queda en la auditoría (sin el código).
             record_audit_event(
                 actor=request.user,
                 action="roles_pago.consulta.rechazada",

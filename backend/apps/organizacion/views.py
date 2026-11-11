@@ -20,6 +20,7 @@ from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
 from . import (
+    ausencia,
     avisos_inicio,
     calendario,
     confidencialidad,
@@ -83,6 +84,7 @@ from .serializers import (
     EmpleadoSerializer,
     EventoCalendarioSerializer,
     HerramientaSerializer,
+    MiReemplazoSerializer,
     MisDatosSerializer,
     MisHerramientasSerializer,
     NivelJerarquicoSerializer,
@@ -419,9 +421,9 @@ class EmpleadoViewSet(_CatalogoOrganizacionalViewSet):
 
 
 class MisDatosView(APIView):
-    """«Mi perfil»: toda persona con sesión ve y actualiza su teléfono, área,
-    agencia y cargo en la empresa activa (y su nombre). No pide permisos: es de
-    ella."""
+    """«Mi perfil»: toda persona con sesión ve y actualiza sus teléfonos
+    (corporativo y personal, 10/11/2026), área, agencia y cargo en la empresa
+    activa (y su nombre). No pide permisos: es de ella."""
 
     permission_classes = [IsAuthenticated]
 
@@ -442,8 +444,51 @@ class MisDatosView(APIView):
             cargo=datos["cargo"],
             acepta_telefono=datos["acepta_telefono"],
             ip=get_client_ip(request),
+            tiene_telefono_corporativo=datos["tiene_telefono_corporativo"],
+            telefono_corporativo=datos["telefono_corporativo"],
         )
         return Response({**contacto.de(request.user), **contacto.opciones()})
+
+
+class MiReemplazoView(APIView):
+    """«¿Quién aprueba por usted mientras no está?» (11/11/2026, US-001).
+
+    - `GET`: `{modo: "jefe"|"persona", persona: {id, nombre}|null, jefe:
+      {id, nombre}|null}`; `jefe` es su jefe inmediato de hoy.
+    - `PUT` `{modo, persona_id?}`: lo guarda en la empresa activa y devuelve lo
+      mismo que `GET`. 400 si falta la persona con «persona», si se elige a sí
+      mismo o si la persona no es una cuenta activa de la empresa.
+
+    Es de cada persona: no pide permisos. Lo usan sus vacaciones, sus permisos
+    aprobados de día completo y «Fuera de la oficina» (`ausencia.py`).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if _empresa_activa() is None:
+            raise PermissionDenied("Elija una empresa para ver quién aprueba por usted.")
+        return Response(ausencia.mi_reemplazo(request.user))
+
+    def put(self, request):
+        entrada = MiReemplazoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        resultado = ausencia.guardar_reemplazo(
+            request.user, modo=datos["modo"], persona_id=datos.get("persona_id")
+        )
+        record_audit_event(
+            actor=request.user,
+            action="organizacion.reemplazo.guardado",
+            target=request.user,
+            module="institucional",
+            new_values={
+                "modo": resultado["modo"],
+                "persona": resultado["persona"]["id"] if resultado["persona"] else None,
+            },
+            context=get_request_context(request),
+        )
+        return Response(resultado)
 
 
 # --- Organigrama (módulo Institucional) ---------------------------------------

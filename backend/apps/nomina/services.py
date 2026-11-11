@@ -4,8 +4,12 @@
   o, si no la tiene, su usuario de inicio de sesión); nunca de lo que mande la
   pantalla. Otro código solo con `roles_pago.consultar_todos`.
 - **Para ver**: en cada consulta se aceptan los términos vigentes (se guarda
-  el texto tal cual se aceptó) y se confirma la contraseña de la cuenta. Los
-  intentos se limitan y los fallidos quedan en la auditoría.
+  el texto tal cual se aceptó) y se escribe el código de 6 dígitos que llega
+  al correo de la cuenta (`emitir_codigo`, reglas en `codigo.py`; US-002,
+  11/11/2026: antes era la contraseña). Los intentos se limitan y los
+  fallidos quedan en la auditoría. El historial de Talento Humano, la
+  descarga masiva y el rol auditado siguen pidiendo la contraseña
+  (`_confirmar_contrasena`).
 - **El PDF no se guarda**: se arma al vuelo y se vuelve a armar para enviarlo.
 - **Enviarlo**: al correo que la persona escriba en ese momento o al que
   guardó. Solo se envía lo que consultó en los últimos 15 minutos. El correo
@@ -30,6 +34,7 @@ from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
 
 from . import aceptado, fuente, pdf
+from . import codigo as codigo_correo
 from .models import ConfiguracionRolPagos, ConsultaRolPagos
 
 VIGENCIA_ENVIO = datetime.timedelta(minutes=15)
@@ -120,8 +125,11 @@ def _confirmar_contrasena(usuario, password, ip=None) -> None:
         raise PermissionDenied("La contraseña no es correcta.")
 
 
-def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=None, navegador=""):
-    """Valida todo, deja la constancia y devuelve `(consulta, pdf_bytes)`."""
+def _validar_solicitud(usuario, *, anio, mes, acepto, version, codigo=None):
+    """Lo que piden por igual pedir el código y consultar: los términos
+    vigentes aceptados, el código de empleado (el propio, u otro con
+    `roles_pago.consultar_todos`) y un período válido.
+    Devuelve `(config, codigo_de_empleado)`."""
     config = configuracion()
     if not acepto:
         raise ValidationError({"acepto": "Para ver su rol de pagos, acepte los términos."})
@@ -129,7 +137,6 @@ def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=
         raise ValidationError(
             {"acepto": "Los términos cambiaron mientras los leía: revíselos y acéptelos de nuevo."}
         )
-    _confirmar_contrasena(usuario, password, ip)
     propio = codigo_de(usuario)
     codigo = (codigo or "").strip() or propio
     if not codigo:
@@ -139,8 +146,73 @@ def consultar(usuario, *, anio, mes, acepto, version, password, codigo=None, ip=
     if codigo != propio and not consulta_otros(usuario):
         raise PermissionDenied("Solo puede consultar su propio rol de pagos.")
     _validar_periodo(anio, mes)
-    rol, rol_aceptado = aceptado.rol_del_periodo(codigo, anio, mes, _nombre_empresa())
-    contenido = pdf.construir(rol)
+    # No se exige `fuente.disponible()`: un rol ya aceptado se abre aunque
+    # nómina no responda (`aceptado.rol_del_periodo`).
+    return config, codigo
+
+
+def emitir_codigo(usuario, *, anio, mes, acepto, version, codigo=None, ip=None):
+    """Envía al correo de la cuenta el código para consultar ese período
+    (US-002). Devuelve un `codigo.CodigoEnviado`; su `.respuesta()` es lo que
+    ve la pantalla. Errores: los de `_validar_solicitud`, la cuenta sin correo
+    (400 en `codigo_verificacion`), la espera o el máximo por hora (429 con
+    `retry_after`) y el correo que no sale (503). `ip` queda para la
+    auditoría que hace la vista."""
+    _, codigo = _validar_solicitud(
+        usuario, anio=anio, mes=mes, acepto=acepto, version=version, codigo=codigo
+    )
+    return codigo_correo.emitir(
+        usuario,
+        codigo_empleado=codigo,
+        anio=anio,
+        mes=mes,
+        enviado_a=enmascarar((usuario.email or "").strip()),
+    )
+
+
+def verificar_codigo(usuario, *, codigo_empleado, anio, mes, codigo_verificacion):
+    """Comprueba el código del correo y lo deja usado (`codigo.verificar`)."""
+    return codigo_correo.verificar(
+        usuario, codigo_empleado=codigo_empleado, anio=anio, mes=mes, valor=codigo_verificacion
+    )
+
+
+def consultar(
+    usuario,
+    *,
+    anio,
+    mes,
+    acepto,
+    version,
+    codigo_verificacion,
+    codigo=None,
+    ip=None,
+    navegador="",
+):
+    """Valida todo, deja la constancia y devuelve `(consulta, pdf_bytes)`.
+    El código del correo se comprueba después de lo demás y antes de leer el
+    rol: nada del rol se lee sin él."""
+    config, codigo = _validar_solicitud(
+        usuario, anio=anio, mes=mes, acepto=acepto, version=version, codigo=codigo
+    )
+    usado = verificar_codigo(
+        usuario,
+        codigo_empleado=codigo,
+        anio=anio,
+        mes=mes,
+        codigo_verificacion=codigo_verificacion,
+    )
+    try:
+        rol, rol_aceptado = aceptado.rol_del_periodo(codigo, anio, mes, _nombre_empresa())
+        contenido = pdf.construir(rol)
+    except fuente.RolNoDisponible:
+        # «No hay rol de ese mes» es una respuesta: el código queda usado.
+        raise
+    except Exception:
+        # Nómina caída o un PDF que no se armó no son culpa de la persona:
+        # el código vuelve a servir para reintentar.
+        codigo_correo.devolver(usado)
+        raise
     consulta = ConsultaRolPagos.objects.create(
         usuario=usuario,
         codigo_empleado=codigo,

@@ -3,6 +3,9 @@ pytest==9.0.3
 pytest-django==4.9.0
 pytest-bdd==7.3.0
 pytest-cov==6.0.0
+# Pruebas en paralelo (`-n 4`): cada proceso usa su propia base de pruebas
+# (test_<base>_gw0, gw1…). Añadido el 11/11/2026.
+pytest-xdist==3.6.1
 ruff==0.8.4
 black==26.3.1
 isort==5.13.2

@@ -360,6 +360,15 @@ PERMISSION_CATALOG = {
                 "Atender tickets: bandeja propia, tomar de la cola, responder, "
                 "escalar, marcar como atendido y registrar horas fuera de horario"
             ),
+            # Aparte de atender (pedido del usuario, 10/11/2026): «Mi horario»
+            # deja configurar solo la agenda propia, y se puede dar o quitar
+            # sin tocar lo demás. Quien atendía lo conserva: `roles/0044` lo
+            # concede a los roles que tienen `soporte.atender`.
+            "soporte.mi_horario": (
+                "Configurar su horario en la Mesa de ayuda: sus franjas de "
+                "atención y sus ausencias, solo las suyas y siendo técnico del "
+                "equipo de la mesa (no cambia el horario de otros)"
+            ),
             # Aparte de atender porque no es la misma responsabilidad: quien
             # recibe la llamada o el WhatsApp (una recepción, un coordinador)
             # no siempre resuelve tickets. Quien atendía o coordinaba lo

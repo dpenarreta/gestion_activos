@@ -5,6 +5,7 @@ from apps.adjuntos.validators import validar_archivo
 from apps.empresas.campos import RelacionDeEmpresa
 from apps.licencias.models import APROBADORES_VALIDOS
 from apps.licencias.serializers import DestinoSerializer, describir_destino
+from apps.organizacion import ausencia
 
 from .models import (
     AccionProyecto,
@@ -362,6 +363,10 @@ class AccionSerializer(serializers.ModelSerializer):
         return _nombre(accion.actor)
 
 
+def _ids_pendientes(solicitud) -> set:
+    return {u.id for u in solicitud.pendiente_de.all()}
+
+
 class SolicitudSerializer(serializers.ModelSerializer):
     tipo_proyecto = serializers.CharField(source="tipo_proyecto.nombre", read_only=True)
     solicitante = serializers.SerializerMethodField()
@@ -389,7 +394,20 @@ class SolicitudSerializer(serializers.ModelSerializer):
         return {"id": solicitud.solicitante_id, "nombre": _nombre(solicitud.solicitante)}
 
     def get_pendiente_de(self, solicitud):
-        return [{"id": u.id, "nombre": _nombre(u)} for u in solicitud.pendiente_de.all()]
+        # Si quien tiene que aprobar está ausente, se dice junto a su nombre
+        # (solo vacaciones o fuera de la oficina, hasta cuándo y su
+        # reemplazo), calculado una vez para toda la respuesta (11/11/2026).
+        return [
+            {
+                "id": u.id,
+                "nombre": _nombre(u),
+                # Su reemplazo nunca es quien pidió la solicitud.
+                "ausencia": ausencia.ausencia_en_lote(
+                    self, u.id, _ids_pendientes, excluir=solicitud.solicitante_id
+                ),
+            }
+            for u in solicitud.pendiente_de.all()
+        ]
 
 
 class DetalleSolicitudSerializer(SolicitudSerializer):

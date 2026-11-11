@@ -301,6 +301,63 @@ describe("Solicitud de proyectos", () => {
   });
 });
 
+describe("Ausencias en los proyectos (11/11/2026, US-001)", () => {
+  it("la lista y el detalle dicen que el aprobador está fuera de la oficina", async () => {
+    const ausente = {
+      id: 5,
+      nombre: "Gerardo Ruiz",
+      ausencia: {
+        clave: "fuera_oficina",
+        texto: "Fuera de la oficina hasta el 18/11",
+        hasta: "2026-11-18",
+        reemplazo: { id: 9, nombre: "Tatiana Torres" },
+      },
+    };
+    servicio.solicitudes.mockResolvedValue([
+      { ...SOLICITUD, pendiente_de: [ausente] },
+    ]);
+    servicio.solicitud.mockResolvedValue({
+      ...DETALLE,
+      pendiente_de: [ausente],
+      acciones: [
+        ...DETALLE.acciones,
+        {
+          id: 2,
+          accion: "escalada",
+          accion_display: "Escaló",
+          actor: "",
+          paso: "Autorización",
+          comentario: "Escalada a Tatiana Torres por ausencia de Gerardo Ruiz",
+          detalle: "Tatiana Torres",
+          created_at: "2026-10-26T15:05:00Z",
+        },
+      ],
+    });
+    pagina("/admin/institucional/proyectos?solicitud=9");
+    const tabla = await screen.findByRole("table");
+    expect(
+      (await within(tabla).findByText("Gerardo Ruiz")).closest("td"),
+    ).toHaveTextContent(
+      "Autorización · Gerardo Ruiz (ausente: Fuera de la oficina hasta el 18/11 · Aprueba en su lugar: Tatiana Torres)",
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Solicitud PRY-2026-0009",
+    });
+    expect(
+      await within(ventana).findByText(/pendiente\s+de:/),
+    ).toHaveTextContent(
+      "pendiente de: Gerardo Ruiz (ausente: Fuera de la oficina hasta el 18/11 · Aprueba en su lugar: Tatiana Torres)",
+    );
+    const linea = within(ventana)
+      .getByText(/porque/)
+      .closest("li");
+    expect(linea).toHaveTextContent(
+      "Pasó a Tatiana Torres porque Gerardo Ruiz está ausente (paso «Autorización»)",
+    );
+    expect(linea).not.toHaveTextContent("Escalada a");
+  });
+});
+
 describe("Tipos de proyecto", () => {
   const CONFIGURADO = {
     id: 1,

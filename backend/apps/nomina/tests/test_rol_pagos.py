@@ -4,8 +4,8 @@ Lo que se protege, y cómo se intenta saltarlo:
 
 - El código sale de la sesión: mandar otro código sin
   `roles_pago.consultar_todos` se niega.
-- Sin aceptar los términos vigentes, o con la contraseña equivocada, no hay
-  PDF; los fallidos quedan en la auditoría; los términos aceptados se guardan
+- Sin aceptar los términos vigentes, o con el código del correo equivocado
+  (US-002, 11/11/2026; antes la contraseña), no hay PDF; los fallidos quedan en la auditoría; los términos aceptados se guardan
   tal cual y, si cambian, hay que aceptarlos de nuevo.
 - El PDF no se guarda: la constancia no tiene montos.
 - Enviar: solo una consulta propia y reciente; el correo escrito no se guarda
@@ -15,15 +15,18 @@ Lo que se protege, y cómo se intenta saltarlo:
 
 import datetime
 import json
+import re
 
 import pytest
 from django.core import mail
-from django.test import override_settings
+from django.core.cache import cache
+from django.db.models import F
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.core.models import AuditLog
 from apps.empresas.contexto import empresa_actual, usando_empresa
-from apps.nomina.models import ConsultaRolPagos
+from apps.nomina.models import CodigoConsultaRol, ConsultaRolPagos
 from apps.organizacion.models import DatosDeContacto
 from apps.organizacion.tests.test_carga_personas import _cuenta as _cuenta_sin_permisos
 
@@ -48,13 +51,48 @@ def _version(cliente):
     return cliente.get(BASE).json()["version"]
 
 
-def _consultar(cliente, **extra):
+def _pedir_codigo(cliente, **extra):
+    """Pulsa «Consultar»: pide el código. El correo sale al confirmarse la
+    transacción, que en las pruebas no se confirma: se ejecuta a mano."""
+    datos = {"anio": 2026, "mes": 9, "acepto": True, "version": _version(cliente), **extra}
+    with TestCase.captureOnCommitCallbacks(execute=True):
+        return cliente.post(f"{BASE}consultar/codigo/", datos, format="json")
+
+
+def _codigo_del_correo():
+    """El código del último correo, que se saca de la bandeja: las pruebas
+    que miran los correos del rol solo ven los suyos."""
+    correo = mail.outbox.pop()
+    return re.search(r"\b(\d{6})\b", correo.body).group(1)
+
+
+def _otro(codigo):
+    """Un código que seguro no es el enviado."""
+    return f"{(int(codigo) + 1) % 1_000_000:06d}"
+
+
+def _consultar(cliente, codigo_verificacion=None, **extra):
+    """Consulta como la pantalla: pide el código, lo lee del correo y lo
+    escribe. Con `codigo_verificacion` escribe uno equivocado («mal») o el que
+    se le dé. Si el pedido falla (términos, período, código de empleado), la
+    consulta va con uno cualquiera y devuelve su propio error.
+
+    Para que varias consultas seguidas en una prueba no choquen con la espera
+    de 60 s ni con el máximo por hora (que se prueban en
+    `test_codigo_consulta.py`), los códigos anteriores se corren una hora atrás
+    y se limpia el throttling."""
+    cache.clear()
+    CodigoConsultaRol.objects.todas().update(creado_en=F("creado_en") - datetime.timedelta(hours=1))
+    extra.setdefault("version", _version(cliente))
+    pedido = _pedir_codigo(cliente, **extra)
+    enviado = _codigo_del_correo() if pedido.status_code == 200 else "000000"
+    if codigo_verificacion == "mal":
+        codigo_verificacion = _otro(enviado)
     datos = {
         "anio": 2026,
         "mes": 9,
         "acepto": True,
-        "version": _version(cliente),
-        "password": CLAVE,
+        "codigo_verificacion": codigo_verificacion or enviado,
         **extra,
     }
     return cliente.post(f"{BASE}consultar/", datos, format="json")
@@ -74,7 +112,7 @@ def test_sin_codigo_de_empleado_no_hay_consulta(db):
     assert respuesta.status_code == 400
 
 
-def test_consulta_su_rol_con_terminos_y_contrasena(db):
+def test_consulta_su_rol_con_terminos_y_codigo_del_correo(db):
     usuario, rosa = _con_codigo("rosa", "20100001")
     estado = rosa.get(BASE).json()
     assert estado["codigo"] == "20100001"  # el de su cuenta
@@ -95,8 +133,11 @@ def test_los_intentos_de_saltarse_la_consulta(db):
     _, rosa = _con_codigo("rosa", "20100001")
     sin_aceptar = _consultar(rosa, acepto=False)
     assert sin_aceptar.status_code == 400
-    mala_clave = _consultar(rosa, password="otra")
-    assert mala_clave.status_code == 403
+    mal_codigo = _consultar(rosa, codigo_verificacion="mal")
+    assert mal_codigo.status_code == 400
+    assert mal_codigo.json()["error"]["details"] == {
+        "codigo_verificacion": "El código no es correcto."
+    }
     otro_codigo = _consultar(rosa, codigo="20100002")
     assert otro_codigo.status_code == 403
     futuro = _consultar(rosa, anio=timezone.localdate().year + 1)

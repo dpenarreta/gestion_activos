@@ -37,6 +37,11 @@ const servicio = {
   evaluar: vi.fn(),
 };
 vi.mock("../src/api/licenciasService", () => ({ licenciasService: servicio }));
+// Quién aprueba por usted mientras no está (11/11/2026, US-001).
+const reemplazo = { obtener: vi.fn(), guardar: vi.fn() };
+vi.mock("../src/api/reemplazoService", () => ({ reemplazoService: reemplazo }));
+const chat = { directorio: vi.fn() };
+vi.mock("../src/api/chatService", () => ({ chatService: chat }));
 
 const { SolicitudPermisosPage } =
   await import("../src/pages/Institucional/SolicitudPermisosPage");
@@ -124,6 +129,14 @@ beforeEach(() => {
   servicio.tipos.mockResolvedValue([VACACIONES]);
   servicio.solicitud.mockResolvedValue(DETALLE);
   servicio.opciones.mockResolvedValue(OPCIONES);
+  reemplazo.obtener.mockResolvedValue({
+    modo: "jefe",
+    persona: null,
+    jefe: { id: 4, nombre: "Julia Paz" },
+  });
+  chat.directorio.mockResolvedValue([
+    { id: 9, nombre: "Tatiana Torres", cargo: "Analista" },
+  ]);
 });
 
 describe("Solicitud de permisos", () => {
@@ -132,7 +145,9 @@ describe("Solicitud de permisos", () => {
     // La tabla; en el teléfono, la misma lista va en tarjetas.
     const tabla = screen.getByRole("table");
     expect(await within(tabla).findByText("Vacaciones")).toBeInTheDocument();
-    expect(within(tabla).getByText("Jefatura · Julia Paz")).toBeInTheDocument();
+    expect(
+      within(tabla).getByText("Julia Paz").closest("td"),
+    ).toHaveTextContent("Jefatura · Julia Paz");
     const tarjetas = screen.getByRole("list", {
       name: "Solicitudes de permiso",
     });
@@ -442,6 +457,218 @@ describe("Solicitud de permisos", () => {
  * decía nada mientras cargaba, al cambiar de pestaña pintaba las filas viejas
  * con las columnas corridas y un error viejo quedaba a la vista.
  */
+describe("Ausencias y reemplazo en los permisos (11/11/2026, US-001)", () => {
+  const AUSENTE = {
+    id: 4,
+    nombre: "Julia Paz",
+    ausencia: {
+      clave: "vacaciones",
+      texto: "De vacaciones hasta el 20/11",
+      hasta: "2026-11-20",
+      reemplazo: { id: 9, nombre: "Tatiana Torres" },
+    },
+  };
+
+  it("la lista, las tarjetas y el detalle dicen que el aprobador está ausente", async () => {
+    servicio.solicitudes.mockResolvedValue([
+      { ...SOLICITUD, pendiente_de: [AUSENTE] },
+    ]);
+    servicio.solicitud.mockResolvedValue({
+      ...DETALLE,
+      pendiente_de: [AUSENTE],
+      puedo: { resolver: false, escalar: false, cancelar: false },
+      acciones: [
+        ...DETALLE.acciones,
+        {
+          id: 3,
+          accion: "escalada",
+          accion_display: "Escaló",
+          actor: "",
+          paso: "Jefatura",
+          comentario: "Escalada a Tatiana Torres por ausencia de Julia Paz",
+          detalle: "Tatiana Torres",
+          created_at: "2026-10-19T15:05:00Z",
+        },
+      ],
+    });
+    pintar(<SolicitudPermisosPage />);
+    const tabla = screen.getByRole("table");
+    const celda = (await within(tabla).findByText("Julia Paz")).closest("td");
+    expect(celda).toHaveTextContent(
+      "Jefatura · Julia Paz (ausente: De vacaciones hasta el 20/11 · Aprueba en su lugar: Tatiana Torres)",
+    );
+    const tarjetas = screen.getByRole("list", {
+      name: "Solicitudes de permiso",
+    });
+    expect(tarjetas).toHaveTextContent(
+      "Pendiente de: Julia Paz (ausente: De vacaciones hasta el 20/11 · Aprueba en su lugar: Tatiana Torres)",
+    );
+
+    fireEvent.click(
+      within(tabla).getByRole("button", { name: /^Vacaciones de Ana Vera/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    expect(await within(ventana).findByText(/esperando a/)).toHaveTextContent(
+      "esperando a Julia Paz (ausente: De vacaciones hasta el 20/11 · Aprueba en su lugar: Tatiana Torres).",
+    );
+    // La escalada por ausencia, en una sola línea y sin el comentario
+    // aparte (revisión UX/UI, 11/11/2026).
+    const linea = within(ventana)
+      .getByText(/porque/)
+      .closest("li");
+    expect(linea).toHaveTextContent(
+      "Pasó a Tatiana Torres porque Julia Paz está ausente (paso «Jefatura»)",
+    );
+    expect(linea).not.toHaveTextContent("Escalada a");
+    expect(linea.querySelector("blockquote")).toBeNull();
+  });
+
+  async function abrirNueva() {
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    fireEvent.change(within(ventana).getByLabelText(/^Desde/), {
+      target: { value: "2026-11-02" },
+    });
+    fireEvent.change(within(ventana).getByLabelText(/^Hasta/), {
+      target: { value: "2026-11-06" },
+    });
+    return ventana;
+  }
+
+  it("pregunta quién aprueba por usted y lo guarda antes de enviar", async () => {
+    const orden = [];
+    reemplazo.guardar.mockImplementation(async () => {
+      orden.push("reemplazo");
+      return {
+        modo: "persona",
+        persona: { id: 9, nombre: "Tatiana Torres" },
+        jefe: { id: 4, nombre: "Julia Paz" },
+      };
+    });
+    servicio.solicitar.mockImplementation(async () => {
+      orden.push("solicitud");
+      return DETALLE;
+    });
+    const ventana = await abrirNueva();
+    expect(
+      await within(ventana).findByLabelText("Mi jefe inmediato (Julia Paz)"),
+    ).toBeChecked();
+    fireEvent.click(within(ventana).getByLabelText("Otra persona"));
+    fireEvent.click(await within(ventana).findByLabelText(/Tatiana Torres/));
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    await waitFor(() => expect(servicio.solicitar).toHaveBeenCalled());
+    expect(reemplazo.guardar).toHaveBeenCalledWith({
+      modo: "persona",
+      persona_id: 9,
+    });
+    expect(orden).toEqual(["reemplazo", "solicitud"]);
+  });
+
+  it("con «Otra persona» sin elegir, la solicitud no sale y el error va en el buscador", async () => {
+    const ventana = await abrirNueva();
+    fireEvent.click(await within(ventana).findByLabelText("Otra persona"));
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    const buscador = within(ventana).getByLabelText("Buscar por nombre");
+    await waitFor(() =>
+      expect(buscador).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(
+      within(ventana).getByText("Elija a la persona que aprobará por usted."),
+    ).toBeInTheDocument();
+    expect(servicio.solicitar).not.toHaveBeenCalled();
+  });
+
+  it("si el servidor rechaza a la persona, lo dice junto al campo y no envía", async () => {
+    reemplazo.guardar.mockRejectedValue({
+      response: {
+        data: {
+          error: {
+            code: "validation_error",
+            message: "Error en la solicitud.",
+            details: {
+              persona_id: [
+                "No puede elegirse a usted mismo: elija a otra persona.",
+              ],
+            },
+          },
+        },
+      },
+    });
+    const ventana = await abrirNueva();
+    fireEvent.click(await within(ventana).findByLabelText("Otra persona"));
+    fireEvent.click(await within(ventana).findByLabelText(/Tatiana Torres/));
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(
+      await within(ventana).findByText(
+        "No puede elegirse a usted mismo: elija a otra persona.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(ventana).getByLabelText("Buscar por nombre")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(servicio.solicitar).not.toHaveBeenCalled();
+    expect(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    ).toBeEnabled();
+  });
+
+  it("si la solicitud falla tras guardar el reemplazo, dice que este sí quedó", async () => {
+    reemplazo.guardar.mockResolvedValue({
+      modo: "persona",
+      persona: { id: 9, nombre: "Tatiana Torres" },
+      jefe: { id: 4, nombre: "Julia Paz" },
+    });
+    servicio.solicitar.mockRejectedValue({ message: "Network Error" });
+    const ventana = await abrirNueva();
+    await waitFor(() =>
+      expect(
+        within(ventana).getByRole("region", { name: "Mientras usted no está" }),
+      ).toHaveTextContent("Esta elección se guarda para todas sus ausencias."),
+    );
+    fireEvent.click(await within(ventana).findByLabelText("Otra persona"));
+    fireEvent.click(await within(ventana).findByLabelText(/Tatiana Torres/));
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(
+      await within(ventana).findByText(/No se pudo enviar la solicitud\./),
+    ).toHaveTextContent(
+      "Su elección de quién aprueba por usted sí quedó guardada.",
+    );
+  });
+
+  it("un permiso por horas no pregunta: la persona vuelve ese mismo día", async () => {
+    servicio.tipos.mockResolvedValue([
+      { ...VACACIONES, id: 2, nombre: "Cita", unidad: "horas" },
+    ]);
+    pintar(<SolicitudPermisosPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = screen.getByRole("dialog", {
+      name: "Nueva solicitud de permiso",
+    });
+    await within(ventana).findByText("Jefatura");
+    expect(within(ventana).queryByText("Mientras usted no está")).toBeNull();
+    expect(reemplazo.obtener).not.toHaveBeenCalled();
+  });
+});
+
 describe("Solicitar vacaciones desde Mis vacaciones (30/10/2026)", () => {
   it("?nueva=vacaciones abre la solicitud con el tipo de vacaciones elegido", async () => {
     servicio.tipos.mockResolvedValue([

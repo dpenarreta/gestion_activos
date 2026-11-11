@@ -52,6 +52,7 @@ def test_si_el_texto_cambia_se_vuelve_a_aceptar_con_constancia_nueva(db):
         "nombres": "Rosa",
         "apellidos": "Vera",
         "telefono": "0991112222",
+        "tiene_telefono_corporativo": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,

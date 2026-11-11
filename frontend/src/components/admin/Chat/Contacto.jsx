@@ -46,8 +46,8 @@ function Dato({ etiqueta, valor, icono }) {
 
 /**
  * El contacto de una persona, desde el buscador del chat: su correo
- * institucional y, si lo autorizó en «Mi perfil», su teléfono. Lo que no
- * tiene no se muestra.
+ * institucional, su teléfono corporativo y, si lo autorizó en «Mi perfil»,
+ * su teléfono personal. Lo que no tiene no se muestra.
  */
 export function TarjetaContacto({ persona }) {
   const [contacto, setContacto] = useState(null);
@@ -92,18 +92,29 @@ export function TarjetaContacto({ persona }) {
               valor={contacto.correo}
             />
           )}
+          {/* El corporativo es de la empresa: se ve siempre que lo tenga. El
+              personal, solo si autorizó compartirlo (10/11/2026). */}
+          {contacto.telefono_corporativo && (
+            <Dato
+              etiqueta="Teléfono corporativo"
+              icono="telephone"
+              valor={contacto.telefono_corporativo}
+            />
+          )}
           {contacto.telefono && (
             <Dato
-              etiqueta="Teléfono"
-              icono="telephone"
+              etiqueta="Teléfono personal"
+              icono="phone"
               valor={contacto.telefono}
             />
           )}
-          {!contacto.correo && !contacto.telefono && (
-            <p className="mz-small mz-faint mb-0">
-              No tiene datos de contacto para mostrar.
-            </p>
-          )}
+          {!contacto.correo &&
+            !contacto.telefono_corporativo &&
+            !contacto.telefono && (
+              <p className="mz-small mz-faint mb-0">
+                No tiene datos de contacto para mostrar.
+              </p>
+            )}
         </>
       )}
     </div>

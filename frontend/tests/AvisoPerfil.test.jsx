@@ -15,6 +15,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * con una ventana que no se cierra: informa qué falta, dice que es
  * obligatorio y solo se sale completándolo (o cerrando la sesión). Vuelve en
  * cada carga mientras falte algo.
+ *
+ * Desde el 10/11/2026 el teléfono se separa en dos: «¿Tiene teléfono
+ * corporativo asignado?» es obligatoria (con «Sí», el número también) y no
+ * pide autorización; el personal sigue opcional y con su casilla.
  */
 
 const misDatos = { obtener: vi.fn(), guardar: vi.fn() };
@@ -34,6 +38,8 @@ const COMPLETOS = {
   correo: "carla@grupolaar.com",
   correo_institucional: true,
   telefono: "0994182273",
+  tiene_telefono_corporativo: false,
+  telefono_corporativo: "",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },
   cargo: { id: 5, nombre: "Analista · Cobranzas" },
@@ -86,20 +92,21 @@ describe("Perfil obligatorio al entrar", () => {
       "Nombres: completo",
       "Apellidos: completo",
       "Correo institucional: completo",
+      "¿Tiene teléfono o línea corporativa?: completo",
       "Área: completo",
       "Agencia: falta",
       "Cargo: falta",
     ]);
-    expect(within(dialogo).getByLabelText("Cargo")).toBeRequired();
+    expect(within(dialogo).getByLabelText(/^Cargo/)).toBeRequired();
 
-    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono/), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono personal/), {
       target: { value: "0994182273" },
     });
     fireEvent.click(within(dialogo).getByLabelText(/Autorizo a la empresa/));
-    fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Agencia/), {
       target: { value: "1" },
     });
-    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Cargo/), {
       target: { value: "5" },
     });
     fireEvent.click(
@@ -128,11 +135,11 @@ describe("Perfil obligatorio al entrar", () => {
     });
     render(<AvisoPerfil />);
     const dialogo = await ventana();
-    const telefono = within(dialogo).getByLabelText(/^Teléfono/);
+    const telefono = within(dialogo).getByLabelText(/^Teléfono personal/);
     expect(telefono).not.toBeRequired();
     expect(telefono).toBeEnabled();
     expect(
-      within(dialogo).getByText(/es opcional, no es obligatorio/),
+      within(dialogo).getByText(/autorizar el uso de su número personal/),
     ).toBeInTheDocument();
     // Sin teléfono no se pide autorización.
     expect(
@@ -171,7 +178,7 @@ describe("Perfil obligatorio al entrar", () => {
     misDatos.obtener.mockResolvedValue(INCOMPLETOS);
     const { unmount } = render(<AvisoPerfil />);
     let dialogo = await ventana();
-    const cargo = within(dialogo).getByLabelText("Cargo");
+    const cargo = within(dialogo).getByLabelText(/^Cargo/);
     expect(cargo).not.toHaveAccessibleDescription(/no podrá cambiarlo/);
     fireEvent.change(cargo, {
       target: { value: "5" },
@@ -193,7 +200,7 @@ describe("Perfil obligatorio al entrar", () => {
     });
     render(<AvisoPerfil />);
     dialogo = await ventana();
-    expect(within(dialogo).getByLabelText("Cargo")).toBeDisabled();
+    expect(within(dialogo).getByLabelText(/^Cargo/)).toBeDisabled();
     expect(
       within(dialogo).getByText(/solo lo cambia TI o la administración/),
     ).toBeInTheDocument();
@@ -222,14 +229,14 @@ describe("Perfil obligatorio al entrar", () => {
     });
     render(<AvisoPerfil />);
     const dialogo = await ventana();
-    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono/), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Teléfono personal/), {
       target: { value: "0994182273" },
     });
     fireEvent.click(within(dialogo).getByLabelText(/Autorizo a la empresa/));
-    fireEvent.change(within(dialogo).getByLabelText("Agencia"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Agencia/), {
       target: { value: "1" },
     });
-    fireEvent.change(within(dialogo).getByLabelText("Cargo"), {
+    fireEvent.change(within(dialogo).getByLabelText(/^Cargo/), {
       target: { value: "5" },
     });
     fireEvent.click(
@@ -254,5 +261,185 @@ describe("Perfil obligatorio al entrar", () => {
       within(dialogo).getByRole("button", { name: /Cerrar sesión/ }),
     );
     expect(logout).toHaveBeenCalled();
+  });
+});
+
+// --- Teléfono corporativo (10/11/2026) -----------------------------------------
+
+const SIN_RESPONDER = {
+  ...COMPLETOS,
+  telefono: "",
+  tiene_telefono_corporativo: null,
+  telefono_corporativo: "",
+  faltan: ["telefono_corporativo"],
+};
+
+function pregunta(dialogo) {
+  return within(dialogo).getByRole("radiogroup", {
+    name: /^¿Tiene teléfono o línea corporativa asignada?/,
+  });
+}
+
+function guardarEn(dialogo) {
+  fireEvent.click(
+    within(dialogo).getByRole("button", { name: "Guardar y continuar" }),
+  );
+}
+
+describe("Teléfono corporativo en el perfil obligatorio", () => {
+  it("quien no respondió la ve sin preselección y no puede guardar", async () => {
+    misDatos.obtener.mockResolvedValue(SIN_RESPONDER);
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    const lista = within(dialogo).getByRole("list", {
+      name: "Datos obligatorios",
+    });
+    expect(
+      within(lista)
+        .getByText("¿Tiene teléfono o línea corporativa?")
+        .closest("li"),
+    ).toHaveTextContent("¿Tiene teléfono o línea corporativa?: falta");
+
+    const grupo = pregunta(dialogo);
+    const si = within(grupo).getByLabelText("Sí");
+    const no = within(grupo).getByLabelText("No");
+    expect(si).not.toBeChecked();
+    expect(no).not.toBeChecked();
+    expect(si).toBeRequired();
+
+    guardarEn(dialogo);
+    // Ni con la validación del navegador ni sin ella: el formulario no se
+    // envía y el motivo queda junto a la pregunta.
+    fireEvent.submit(si.closest("form"));
+    expect(
+      await within(dialogo).findByText(
+        "Indique si tiene teléfono o línea corporativa asignada.",
+      ),
+    ).toBeInTheDocument();
+    expect(si).toHaveFocus();
+    expect(grupo).toHaveAccessibleDescription(
+      "Indique si tiene teléfono o línea corporativa asignada.",
+    );
+    expect(misDatos.guardar).not.toHaveBeenCalled();
+  });
+
+  it("con «Sí» exige el número, y no pide la autorización de datos personales", async () => {
+    misDatos.obtener.mockResolvedValue(SIN_RESPONDER);
+    misDatos.guardar.mockResolvedValue({
+      ...COMPLETOS,
+      tiene_telefono_corporativo: true,
+      telefono_corporativo: "0987654321",
+    });
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    expect(
+      within(dialogo).queryByLabelText(/^Teléfono corporativo/),
+    ).toBeNull();
+    fireEvent.click(within(pregunta(dialogo)).getByLabelText("Sí"));
+
+    const corporativo = within(dialogo).getByLabelText(/^Teléfono corporativo/);
+    expect(corporativo).toBeRequired();
+    expect(corporativo).toHaveAttribute("inputmode", "tel");
+    expect(corporativo).toHaveAccessibleDescription(
+      /no requiere su autorización de datos personales/i,
+    );
+    expect(
+      within(dialogo).queryByLabelText(/Autorizo a la empresa/),
+    ).toBeNull();
+
+    // Vacío no se envía.
+    fireEvent.submit(corporativo.closest("form"));
+    expect(
+      await within(dialogo).findByText("Escriba su teléfono corporativo."),
+    ).toBeInTheDocument();
+    expect(corporativo).toHaveAttribute("aria-invalid", "true");
+    expect(misDatos.guardar).not.toHaveBeenCalled();
+
+    fireEvent.change(corporativo, { target: { value: " 0987654321 " } });
+    expect(corporativo).not.toHaveAttribute("aria-invalid");
+    // Con el número escrito sigue sin aparecer la casilla de autorización.
+    expect(
+      within(dialogo).queryByLabelText(/Autorizo a la empresa/),
+    ).toBeNull();
+    guardarEn(dialogo);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(misDatos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tiene_telefono_corporativo: true,
+        telefono_corporativo: "0987654321",
+        telefono: "",
+        acepta_telefono: false,
+      }),
+    );
+  });
+
+  it("con «No» el número desaparece y se envía vacío", async () => {
+    misDatos.obtener.mockResolvedValue({
+      ...SIN_RESPONDER,
+      tiene_telefono_corporativo: true,
+      telefono_corporativo: "0987654321",
+      agencia: null,
+      faltan: ["agencia"],
+    });
+    misDatos.guardar.mockResolvedValue(COMPLETOS);
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    const grupo = pregunta(dialogo);
+    expect(within(grupo).getByLabelText("Sí")).toBeChecked();
+    expect(within(dialogo).getByLabelText(/^Teléfono corporativo/)).toHaveValue(
+      "0987654321",
+    );
+    fireEvent.click(within(grupo).getByLabelText("No"));
+    expect(
+      within(dialogo).queryByLabelText(/^Teléfono corporativo/),
+    ).toBeNull();
+    fireEvent.change(within(dialogo).getByLabelText(/^Agencia/), {
+      target: { value: "1" },
+    });
+    guardarEn(dialogo);
+    await waitFor(() => expect(misDatos.guardar).toHaveBeenCalled());
+    expect(misDatos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tiene_telefono_corporativo: false,
+        telefono_corporativo: "",
+      }),
+    );
+  });
+
+  it("el error del servidor se muestra junto al teléfono corporativo", async () => {
+    misDatos.obtener.mockResolvedValue({
+      ...SIN_RESPONDER,
+      tiene_telefono_corporativo: true,
+      telefono_corporativo: "0987654321",
+      faltan: ["telefono_corporativo"],
+    });
+    misDatos.guardar.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: "validation_error",
+            message: "Error en la solicitud.",
+            details: {
+              telefono_corporativo: ["Escriba su teléfono corporativo."],
+            },
+          },
+        },
+      },
+    });
+    render(<AvisoPerfil />);
+    const dialogo = await ventana();
+    guardarEn(dialogo);
+    const corporativo = within(dialogo).getByLabelText(/^Teléfono corporativo/);
+    await waitFor(() =>
+      expect(corporativo).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(corporativo).toHaveAccessibleDescription(
+      /Escriba su teléfono corporativo\./,
+    );
+    expect(within(dialogo).getByRole("alert")).toHaveTextContent(
+      "Revise los campos marcados.",
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

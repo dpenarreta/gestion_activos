@@ -125,14 +125,19 @@ class EstadoChat(BaseModel):
         VACACIONES = "vacaciones", "De vacaciones"
         REUNION = "reunion", "En reunión"
         NO_DISPONIBLE = "no_disponible", "No disponible"
+        #: Ausente uno o varios días (11/11/2026, US-001): sus aprobaciones
+        #: pasan a su reemplazo (`DatosDeContacto.reemplazo_modo`). Usa
+        #: `hasta` (obligatorio) y `mensaje`, como los demás estados.
+        FUERA_OFICINA = "fuera_oficina", "Fuera de la oficina"
 
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="estado_chat"
     )
     estado = models.CharField(max_length=14, choices=Estado.choices, default=Estado.DISPONIBLE)
     mensaje = models.CharField(max_length=140, blank=True)
-    #: Hasta cuándo dura (almuerzo, reunión, no disponible); vacío, hasta que
-    #: lo cambie.
+    #: Hasta cuándo dura (almuerzo, reunión, no disponible, fuera de la
+    #: oficina); vacío, hasta que lo cambie. Fuera de la oficina siempre lo
+    #: lleva (11/11/2026).
     hasta = models.DateTimeField(null=True, blank=True)
     #: Las vacaciones van aparte: se programan y mandan mientras duran.
     vacaciones_desde = models.DateField(null=True, blank=True)

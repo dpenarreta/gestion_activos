@@ -328,10 +328,12 @@ export const ADMIN_MENU = [
   {
     id: "soporte-horario",
     modulo: "soporte",
-    name: "Mi horario",
+    // Como el título de la pantalla: no se confunde con el de almuerzo.
+    name: "Mi horario de atención",
     icon: "calendar-week",
     path: `${RUTA_SOPORTE}/mi-horario`,
-    permission: "soporte.atender",
+    // Su propio permiso desde el 10/11/2026 (antes, `soporte.atender`).
+    permission: "soporte.mi_horario",
   },
   {
     id: "soporte-horas",

@@ -578,6 +578,14 @@
   gap: 6px;
 }
 
+/* En pantallas táctiles, «Copiar» con el área mínima de 44 px. */
+@media (pointer: coarse) {
+  .chat-contacto__fila .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .chat-contacto__valor {
   flex: 1;
   min-width: 0;

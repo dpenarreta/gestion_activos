@@ -4,6 +4,7 @@ from .views import (
     AdjuntoObservacionView,
     AuditadoView,
     AvisoView,
+    CodigoConsultaView,
     ConfiguracionView,
     ConformidadView,
     ConsultarView,
@@ -27,6 +28,11 @@ from .views import (
 urlpatterns = [
     path("rol-pagos/", EstadoView.as_view(), name="rol-pagos"),
     path("rol-pagos/consultar/", ConsultarView.as_view(), name="rol-pagos-consultar"),
+    path(
+        "rol-pagos/consultar/codigo/",
+        CodigoConsultaView.as_view(),
+        name="rol-pagos-consultar-codigo",
+    ),
     path("rol-pagos/enviar/", EnviarView.as_view(), name="rol-pagos-enviar"),
     path("rol-pagos/conformidad/", ConformidadView.as_view(), name="rol-pagos-conformidad"),
     path("historial/", HistorialView.as_view(), name="rol-historial"),

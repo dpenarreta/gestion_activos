@@ -42,8 +42,14 @@ export function ChangePasswordRequired() {
       navigate(RUTA_DE_ENTRADA);
     } catch (err) {
       const details = err.response?.data?.error?.details;
+      // Solo los textos: un número (como `retry_after` en un 429) no
+      // reemplaza al mensaje (QA-TECH, US-002, 11/11/2026).
       const message =
-        (details && Object.values(details).flat().join(" ")) ||
+        (details &&
+          Object.values(details)
+            .flat()
+            .filter((v) => typeof v === "string")
+            .join(" ")) ||
         err.response?.data?.error?.message ||
         "No se pudo cambiar la contraseña.";
       setError(message);

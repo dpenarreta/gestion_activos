@@ -61,6 +61,17 @@
   box-shadow: none;
 }
 
+/* «Fuera de la oficina» (11/11/2026, US-001): el color de información del
+   tema (`--mz-info-fg`), con ícono además del color. */
+.presencia--fuera_oficina {
+  color: var(--mz-info-fg);
+}
+.presencia__icono {
+  font-size: 11px;
+  line-height: 1;
+  flex: none;
+}
+
 .chat-aviso-estado {
   margin: 0 10px 6px;
   padding: 6px 10px;
@@ -76,6 +87,9 @@
 .chat-aviso-estado--vacaciones_proximas {
   border-color: var(--presencia-vacaciones);
 }
+.chat-aviso-estado--fuera_oficina {
+  border-color: var(--mz-info-fg);
+}
 .chat-aviso-estado--reunion,
 .chat-aviso-estado--no_disponible {
   border-color: var(--mz-bad-line);
@@ -90,12 +104,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-height: 32px;
   padding: 2px 8px;
   border: 1px solid var(--mz-border);
   border-radius: 999px;
   background: var(--mz-raised);
   font-size: 12px;
   color: inherit;
+}
+/* «Salir a almorzar»: un enlace sin relleno en escritorio; en pantalla
+   táctil crece a 44 px (abajo). */
+.mi-estado__atajo {
+  min-height: 24px;
+  padding: 0;
 }
 .mi-estado__boton--disponible {
   color: var(--mz-ok-fg);
@@ -109,6 +130,9 @@
 }
 .mi-estado__boton--vacaciones {
   color: var(--presencia-vacaciones);
+}
+.mi-estado__boton--fuera_oficina {
+  color: var(--mz-info-fg);
 }
 .mi-estado__opciones {
   display: flex;
@@ -141,4 +165,19 @@
   gap: 6px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--mz-border);
+}
+
+/* Áreas táctiles de 44 px en «Mi estado» (11/11/2026, US-001): el botón
+   con su estado, el atajo «Salir a almorzar», las opciones y los campos de
+   la ventana. */
+@media (any-pointer: coarse) {
+  .mi-estado__boton,
+  .mi-estado__atajo {
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+  .mi-estado__opcion,
+  .mi-estado__formulario .form-control {
+    min-height: 44px;
+  }
 }

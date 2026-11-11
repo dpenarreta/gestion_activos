@@ -214,6 +214,33 @@ describe("Establecer la nueva contraseña", () => {
     );
   });
 
+  it("un 429 con retry_after muestra el mensaje y no el número", async () => {
+    confirmPasswordReset.mockRejectedValue({
+      response: {
+        status: 429,
+        data: {
+          error: {
+            code: "throttled",
+            message: "Demasiadas solicitudes seguidas.",
+            details: { retry_after: 60 },
+          },
+        },
+      },
+    });
+
+    pintar(<ResetPassword />, RUTA);
+
+    llenar("corta");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restablecer contraseña" }),
+    );
+
+    expect(
+      await screen.findByText("Demasiadas solicitudes seguidas."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("60")).toBeNull();
+  });
+
   it("un enlace vencido ofrece pedir otro, sin dejar al usuario parado", async () => {
     confirmPasswordReset.mockRejectedValue({
       response: { data: { error: { message: "El enlace ya no es válido." } } },
@@ -302,6 +329,32 @@ describe("El cambio de contraseña obligatorio", () => {
     expect(
       await screen.findByText("Destino: /admin/institucional/inicio"),
     ).toBeInTheDocument();
+  });
+
+  it("un 429 con retry_after muestra el mensaje y no el número", async () => {
+    changePassword.mockRejectedValue({
+      response: {
+        status: 429,
+        data: {
+          error: {
+            code: "throttled",
+            message: "Demasiadas solicitudes seguidas.",
+            details: { retry_after: 60 },
+          },
+        },
+      },
+    });
+
+    pintar(<ChangePasswordRequired />, RUTA);
+
+    llenar();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar contraseña" }));
+
+    expect(
+      await screen.findByText("Demasiadas solicitudes seguidas."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("60")).toBeNull();
+    expect(refreshUser).not.toHaveBeenCalled();
   });
 
   it("si la actual no es correcta, lo dice y no navega", async () => {

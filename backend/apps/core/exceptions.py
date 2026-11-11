@@ -138,16 +138,27 @@ def api_exception_handler(exc, context):
 
     code = getattr(exc, "default_code", exc.__class__.__name__.lower())
     message = response.data.get("detail") if isinstance(response.data, dict) else str(response.data)
+    details = (
+        response.data if isinstance(response.data, dict) and "detail" not in response.data else None
+    )
     if isinstance(exc, Throttled):
-        message = _mensaje_de_espera(exc.wait)
+        # Un límite propio puede traer su mensaje (`mensaje`), como los
+        # envíos del código del rol de pagos (US-002, 11/11/2026), y solo ese
+        # lleva la espera en el cuerpo para que su pantalla cuente los
+        # segundos. Los demás 429 siguen sin `details`: hay pantallas que
+        # unen sus valores como mensaje (recuperar la contraseña mostraba
+        # «60»). La cabecera `Retry-After` va en todos.
+        propio = getattr(exc, "mensaje", None)
+        message = propio or _mensaje_de_espera(exc.wait)
+        if exc.wait and propio:
+            details = {"retry_after": math.ceil(exc.wait)}
 
-    return error_response(
+    respuesta = error_response(
         code=str(code),
         message=str(message) if message else "Error en la solicitud.",
         status_code=response.status_code,
-        details=(
-            response.data
-            if isinstance(response.data, dict) and "detail" not in response.data
-            else None
-        ),
+        details=details,
     )
+    if "Retry-After" in response:
+        respuesta["Retry-After"] = response["Retry-After"]
+    return respuesta

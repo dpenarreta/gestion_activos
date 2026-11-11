@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { chatService } from "../../../api/chatService";
+import {
+  ICONOS_DE_AUSENCIA,
+  textoDeReemplazo,
+} from "../../common/Ausencia/EtiquetaAusencia";
+import { Icon } from "../../common/Icon/Icon";
 import { haceCuanto } from "../Notificaciones/CampanaNotificaciones";
 import "./Presencia.css";
 
@@ -47,20 +52,26 @@ export function textoPresencia(estado) {
 }
 
 /** El punto (verde si está en línea; del color de su estado si eligió
- * uno) y, si se pide, el texto. */
+ * uno) y, si se pide, el texto. De vacaciones o fuera de la oficina, un
+ * ícono en lugar del punto: no se distingue solo por el color (11/11/2026). */
 export function Presencia({ estado, conTexto = false }) {
   if (!estado) return null;
   const texto = textoPresencia(estado);
   const elegido = estado.estado;
   const clave =
     elegido && elegido.clave !== "vacaciones_proximas" ? elegido.clave : null;
-  const detalle = [
-    texto,
+  // Lo que se añade al texto: las próximas vacaciones, su mensaje y quién
+  // aprueba por la persona. Va en el `title` y también en texto oculto,
+  // porque el `title` no lo alcanzan el teclado ni muchos lectores de
+  // pantalla (revisión UX/UI de US-001, 11/11/2026).
+  const extra = [
     elegido?.clave === "vacaciones_proximas" && elegido.detalle,
     elegido?.mensaje,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    clave && elegido?.reemplazo?.nombre
+      ? textoDeReemplazo(elegido.reemplazo.nombre)
+      : null,
+  ].filter(Boolean);
+  const detalle = [texto, ...extra].join(" · ");
   return (
     <span
       className={[
@@ -72,18 +83,28 @@ export function Presencia({ estado, conTexto = false }) {
         .join(" ")}
       title={detalle}
     >
-      <span className="presencia__punto" aria-hidden="true" />
-      {conTexto ? (
-        <span className="presencia__texto">{texto}</span>
+      {ICONOS_DE_AUSENCIA[clave] ? (
+        <Icon name={ICONOS_DE_AUSENCIA[clave]} className="presencia__icono" />
       ) : (
-        <span className="visually-hidden">{texto}</span>
+        <span className="presencia__punto" aria-hidden="true" />
+      )}
+      {conTexto ? (
+        <>
+          <span className="presencia__texto">{texto}</span>
+          {extra.length > 0 && (
+            <span className="visually-hidden"> · {extra.join(" · ")}</span>
+          )}
+        </>
+      ) : (
+        <span className="visually-hidden">{detalle}</span>
       )}
     </span>
   );
 }
 
 /** El aviso de la conversación: la otra persona está en almuerzo, de
- * vacaciones (o lo estará), en reunión o no disponible. */
+ * vacaciones (o lo estará), en reunión, no disponible o fuera de la oficina.
+ * Si está ausente, también quién aprueba por ella (11/11/2026, US-001). */
 export function AvisoDeEstado({ nombre, estado }) {
   if (!estado) return null;
   const proximas = estado.clave === "vacaciones_proximas";
@@ -98,6 +119,12 @@ export function AvisoDeEstado({ nombre, estado }) {
         : `está ${estado.detalle.charAt(0).toLowerCase()}${estado.detalle.slice(1)}`}
       {!proximas && ": verá su mensaje al volver"}.
       {estado.mensaje && <em> «{estado.mensaje}»</em>}
+      {estado.reemplazo?.nombre && (
+        <span className="chat-aviso-estado__reemplazo">
+          {" "}
+          {textoDeReemplazo(estado.reemplazo.nombre)}.
+        </span>
+      )}
     </div>
   );
 }

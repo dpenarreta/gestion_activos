@@ -115,3 +115,29 @@ export function hayErroresGenerales(err) {
   const fuente = datos.error ? datos.error.details || {} : datos;
   return Boolean(fuente.non_field_errors || fuente.detail);
 }
+
+/**
+ * El mismo error con el cuerpo leído como JSON cuando la petición pedía un
+ * archivo (`responseType: "blob"`): axios entrega entonces el error también
+ * como Blob, y `mensajeDeError` / `erroresPorCampo` no lo pueden leer. Si el
+ * cuerpo no es JSON (o no es un Blob), devuelve el error tal cual (código por
+ * correo para el rol de pagos, US-002, 11/11/2026).
+ */
+export async function leerErrorDeBlob(err) {
+  const datos = err?.response?.data;
+  if (typeof Blob === "undefined" || !(datos instanceof Blob)) return err;
+  try {
+    const texto =
+      typeof datos.text === "function"
+        ? await datos.text()
+        : await new Promise((resolver, rechazar) => {
+            const lector = new FileReader();
+            lector.onload = () => resolver(lector.result);
+            lector.onerror = rechazar;
+            lector.readAsText(datos);
+          });
+    return { ...err, response: { ...err.response, data: JSON.parse(texto) } };
+  } catch {
+    return err;
+  }
+}

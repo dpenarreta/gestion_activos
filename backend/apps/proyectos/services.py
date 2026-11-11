@@ -24,6 +24,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from apps.licencias.models import Destino
 from apps.licencias.services import jefes_de, miembros_del_rol, ocupantes, personas_de_la_empresa
 from apps.notificaciones import services as campana
+from apps.organizacion import ausencia
 from apps.permissions.authorization import user_has_permission
 from apps.soporte.formulario import _normalizar, _vacio
 
@@ -132,6 +133,9 @@ def _asignar(solicitud, personas, paso):
     """Deja la solicitud pendiente de esas personas y les avisa."""
     excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
     personas = [p for p in personas if p and p.pk not in excluidos]
+    # Quien está ausente no recibe la solicitud: pasa a su reemplazo, con las
+    # mismas exclusiones (11/11/2026, US-001).
+    personas, cambios = ausencia.sustituir_ausentes(personas, excluidos)
     sin_nadie = not personas
     if sin_nadie:
         personas = [p for p in administradores() if p.pk not in excluidos]
@@ -145,6 +149,14 @@ def _asignar(solicitud, personas, paso):
             "quedó en manos de quien administra los tipos de proyecto)"
         )
     _registrar(solicitud, AccionProyecto.Accion.ASIGNADA, paso=paso, detalle=detalle)
+    for ausente, reemplazo in cambios:
+        _registrar(
+            solicitud,
+            AccionProyecto.Accion.ESCALADA,
+            paso=paso,
+            comentario=ausencia.constancia(reemplazo, ausente),
+            detalle=_nombre(reemplazo),
+        )
     campana.notificar(
         unicos,
         tipo="proyectos.por_atender",
@@ -237,7 +249,23 @@ def crear(solicitante, tipo_proyecto, *, titulo, respuestas, archivo, tipo_archi
     return solicitud
 
 
+def _bloquear(solicitud):
+    """Bloquea la fila de la solicitud y relee su estado y su paso, como en la
+    Solicitud de permisos: una decisión y una reasignación por ausencia a la
+    vez no se pisan (11/11/2026)."""
+    fila = (
+        SolicitudProyecto.objects.select_for_update()
+        .filter(pk=solicitud.pk)
+        .values("estado", "paso_actual_id")
+        .first()
+    )
+    if fila is not None:
+        solicitud.estado = fila["estado"]
+        solicitud.paso_actual_id = fila["paso_actual_id"]
+
+
 def _exigir_pendiente_de(solicitud, usuario):
+    _bloquear(solicitud)
     if solicitud.estado != SolicitudProyecto.Estado.PENDIENTE:
         raise ValidationError({"detail": "La solicitud ya está cerrada."})
     if not solicitud.pendiente_de.filter(pk=usuario.pk).exists():
@@ -314,8 +342,62 @@ def escalar(solicitud, usuario, destino, comentario=""):
     return solicitud
 
 
+def reasignar_por_ausencia(ausente, base=None) -> int:
+    """Pasa al reemplazo de `ausente` las solicitudes de proyecto pendientes de
+    él en la empresa activa, con la constancia «Escalada a X por ausencia de
+    Y» y el aviso de siempre. Si no hay reemplazo, se quedan con él.
+    Idempotente: lo que ya pasó deja de estar pendiente de él.
+
+    `base` es su reemplazo sin exclusiones, ya calculado por quien llama; se
+    usa si no es el solicitante ni alguien que ya aprobó (si no, se
+    recalcula con esas exclusiones)."""
+    total = 0
+    pendientes = SolicitudProyecto.objects.filter(
+        estado=SolicitudProyecto.Estado.PENDIENTE, pendiente_de=ausente
+    ).select_related("solicitante")
+    for solicitud in pendientes:
+        with transaction.atomic():
+            # Estado y paso se releen de la fila bloqueada, no de la consulta
+            # de arriba: alguien pudo aprobar entretanto.
+            _bloquear(solicitud)
+            if solicitud.estado != SolicitudProyecto.Estado.PENDIENTE:
+                continue
+            if not solicitud.pendiente_de.filter(pk=ausente.pk).exists():
+                continue
+            excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
+            reemplazo = (
+                base
+                if base is not None and base.pk not in excluidos
+                else ausencia.reemplazo_para(ausente, excluidos)
+            )
+            if reemplazo is None:
+                continue
+            solicitud.pendiente_de.remove(ausente)
+            solicitud.pendiente_de.add(reemplazo)
+            paso = solicitud.paso_actual
+            _registrar(
+                solicitud,
+                AccionProyecto.Accion.ESCALADA,
+                paso=paso,
+                comentario=ausencia.constancia(reemplazo, ausente),
+                detalle=_nombre(reemplazo),
+            )
+            campana.notificar(
+                [reemplazo],
+                tipo="proyectos.por_atender",
+                titulo=f"Solicitud de proyecto por atender ({paso.nombre if paso else ''})",
+                resumen=_resumen(solicitud),
+                enlace=_enlace(solicitud),
+            )
+            total += 1
+    return total
+
+
 @transaction.atomic
 def cancelar(solicitud, usuario, comentario=""):
+    # Relee el estado bloqueado, como `licencias.cancelar`: no se cancela lo
+    # que otra petición acaba de aprobar.
+    _bloquear(solicitud)
     if solicitud.solicitante_id != usuario.pk:
         raise PermissionDenied("Solo quien la solicitó puede cancelarla.")
     if solicitud.estado != SolicitudProyecto.Estado.PENDIENTE:

@@ -10,7 +10,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /*
  * El contacto desde el buscador del chat (26/10/2026): cada persona tiene un
  * botón para ver su correo institucional y, si lo autorizó, su teléfono; lo
- * que no tiene no se muestra, y cada dato se copia con un botón.
+ * que no tiene no se muestra, y cada dato se copia con un botón. Desde el
+ * 10/11/2026 también su teléfono corporativo, siempre que lo tenga: es de la
+ * empresa y no pide autorización.
  */
 
 const servicio = {
@@ -75,6 +77,7 @@ describe("El contacto de una persona en el chat", () => {
       within(tarjeta).getByText("Correo institucional"),
     ).toBeInTheDocument();
     expect(within(tarjeta).getByText("0991112222")).toBeInTheDocument();
+    expect(within(tarjeta).getByText("Teléfono personal")).toBeInTheDocument();
 
     fireEvent.click(
       within(tarjeta).getByRole("button", {
@@ -87,7 +90,7 @@ describe("El contacto de una persona en el chat", () => {
     expect(await within(tarjeta).findByText("Copiado")).toBeInTheDocument();
 
     fireEvent.click(
-      within(tarjeta).getByRole("button", { name: "Copiar teléfono" }),
+      within(tarjeta).getByRole("button", { name: "Copiar teléfono personal" }),
     );
     await waitFor(() => expect(copiarTexto).toHaveBeenCalledWith("0991112222"));
     // Ver el contacto no abre el chat.
@@ -105,7 +108,54 @@ describe("El contacto de una persona en el chat", () => {
     });
     const tarjeta = await abrirContacto();
     await within(tarjeta).findByText("beto@grupolaar.com");
-    expect(within(tarjeta).queryByText("Teléfono")).toBeNull();
+    expect(within(tarjeta).queryByText("Teléfono personal")).toBeNull();
+    expect(within(tarjeta).queryByText("Teléfono corporativo")).toBeNull();
+  });
+
+  it("muestra el teléfono corporativo aunque no haya autorizado el personal", async () => {
+    servicio.contacto.mockResolvedValue({
+      id: 4,
+      nombre: "Beto Ruiz",
+      correo: "beto@grupolaar.com",
+      telefono: "",
+      telefono_corporativo: "0987654321",
+      cargo: "",
+      area: "",
+    });
+    const tarjeta = await abrirContacto();
+    expect(await within(tarjeta).findByText("0987654321")).toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText("Teléfono corporativo"),
+    ).toBeInTheDocument();
+    expect(within(tarjeta).queryByText("Teléfono personal")).toBeNull();
+    fireEvent.click(
+      within(tarjeta).getByRole("button", {
+        name: "Copiar teléfono corporativo",
+      }),
+    );
+    await waitFor(() => expect(copiarTexto).toHaveBeenCalledWith("0987654321"));
+  });
+
+  it("con los dos teléfonos muestra el corporativo y el personal", async () => {
+    servicio.contacto.mockResolvedValue({
+      id: 4,
+      nombre: "Beto Ruiz",
+      correo: "",
+      telefono: "0991112222",
+      telefono_corporativo: "0987654321",
+      cargo: "",
+      area: "",
+    });
+    const tarjeta = await abrirContacto();
+    expect(await within(tarjeta).findByText("0987654321")).toBeInTheDocument();
+    expect(within(tarjeta).getByText("0991112222")).toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText("Teléfono corporativo"),
+    ).toBeInTheDocument();
+    expect(within(tarjeta).getByText("Teléfono personal")).toBeInTheDocument();
+    expect(
+      within(tarjeta).queryByText("No tiene datos de contacto para mostrar."),
+    ).toBeNull();
   });
 
   it("sin ningún dato lo dice", async () => {

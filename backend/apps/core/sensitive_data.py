@@ -20,6 +20,10 @@ SENSITIVE_FIELD_FRAGMENTS = [
     "key",
     "authorization",
     "credential",
+    # El código de un solo uso que llega al correo para consultar el rol de
+    # pagos (US-002, 11/11/2026). No basta «codigo»: el código de empleado sí
+    # se registra.
+    "codigo_verificacion",
     # --- Datos personales de contacto e identificación ---
     # La bitácora es append-only: lo que entra aquí no se puede editar ni
     # borrar después, así que un correo o un teléfono grabados quedarían

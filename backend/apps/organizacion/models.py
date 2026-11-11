@@ -702,6 +702,34 @@ class DatosDeContacto(ModeloDeEmpresa):
     telefono_aceptado_texto = models.TextField(blank=True)
     #: Qué versión del texto (TextoLegal) aceptó: si cambia, lo vuelve a aceptar.
     telefono_aceptado_version = models.PositiveIntegerField(null=True, blank=True)
+    #: Si la empresa le asignó un teléfono corporativo (10/11/2026). `None`:
+    #: todavía no respondió, y «Mi perfil» se lo pide al entrar. No es dato
+    #: personal: no lleva la autorización de `telefono` (que es el personal).
+    tiene_telefono_corporativo = models.BooleanField(null=True, blank=True)
+    #: El número corporativo; obligatorio si respondió que sí, vacío si no.
+    telefono_corporativo = models.CharField(max_length=30, blank=True)
+
+    class ReemplazoModo(models.TextChoices):
+        JEFE = "jefe", "Mi jefe inmediato"
+        PERSONA = "persona", "Otra persona"
+
+    #: Quién aprueba por la persona mientras está ausente (11/11/2026, US-001):
+    #: de vacaciones o fuera de la oficina, sus aprobaciones de permisos,
+    #: proyectos y Mesa de ayuda pasan a esta persona. Por defecto, su jefe
+    #: inmediato (`licencias.services.jefes_de`); con «persona», `reemplazo`.
+    #: Va por empresa porque el jefe depende de la empresa.
+    reemplazo_modo = models.CharField(
+        max_length=10, choices=ReemplazoModo.choices, default=ReemplazoModo.JEFE
+    )
+    #: La persona elegida si `reemplazo_modo` es «persona». Si se borra su
+    #: cuenta queda en nulo y se vuelve al jefe inmediato.
+    reemplazo = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reemplazo_de_contactos",
+    )
 
     class Meta:
         constraints = [

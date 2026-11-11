@@ -17,14 +17,25 @@ usar el sistema: mientras falte alguno, al entrar se bloquea con una ventana
 que los pide (frontend `AvisoPerfil`). El correo debe ser institucional y no
 lo cambia la persona: lo corrige la administración.
 
-**El teléfono es opcional y pide autorización** (26/10/2026, Ley Orgánica de
-Protección de Datos Personales). No es obligatorio para usar el sistema. Si la
-persona lo escribe, antes de guardar marca que autoriza a la empresa a guardar
-su número de contacto —personal o empresarial— y a que otras personas de la
-empresa lo usen para contactarla. El texto es parametrizable
-(`textos_legales.py`); se guarda cuándo, desde qué IP, el texto exacto y su
-versión. Si el texto cambia, lo vuelve a aceptar la próxima vez que guarde su
-teléfono.
+**Dos teléfonos: el corporativo y el personal** (10/11/2026).
+
+- **Teléfono corporativo**: la persona responde «¿Tiene teléfono corporativo
+  asignado?». La respuesta es obligatoria para usar el sistema (está en
+  `OBLIGATORIOS`): quien no respondió la ve al entrar. Si responde que sí, el
+  número es obligatorio; si responde que no, se borra. No es dato personal: no
+  pide autorización y se muestra a las demás personas de la empresa siempre
+  que lo tenga. La Mesa de ayuda lo usa como teléfono por defecto.
+- **Uno u otro** (11/11/2026): con «sí» se pide solo el corporativo y el
+  personal no se guarda; con «no», solo el personal, opcional. La autorización
+  de datos personales aparece únicamente en ese segundo caso.
+- **Teléfono personal** (`telefono`): es opcional y pide autorización (desde
+  el 26/10/2026, Ley Orgánica de Protección de Datos Personales). Si la
+  persona lo escribe, antes de guardar marca que autoriza a la empresa a
+  guardar su número de contacto y a que otras personas de la empresa lo usen
+  para contactarla. El texto es parametrizable (`textos_legales.py`); se
+  guarda cuándo, desde qué IP, el texto exacto y su versión. Si el texto
+  cambia, lo vuelve a aceptar la próxima vez que guarde su teléfono. Los
+  teléfonos guardados antes del 10/11/2026 quedan como personales.
 """
 
 from django.db import transaction
@@ -38,8 +49,17 @@ from .models import Cargo, DatosDeContacto, Departamento, Sede
 from .organigrama import linea_de_supervision, nombre_con_unidad
 
 #: Lo que toda persona debe tener completo para usar el sistema.
-#: El teléfono no está: es opcional desde el 26/10/2026 (ver arriba).
-OBLIGATORIOS = ("nombres", "apellidos", "correo", "area", "agencia", "cargo")
+#: El teléfono personal no está: es opcional desde el 26/10/2026. El
+#: corporativo sí (10/11/2026): responder si lo tiene y, si lo tiene, el número.
+OBLIGATORIOS = (
+    "nombres",
+    "apellidos",
+    "correo",
+    "area",
+    "agencia",
+    "cargo",
+    "telefono_corporativo",
+)
 
 #: Los dominios del correo institucional.
 DOMINIOS_INSTITUCIONALES = ("grupolaar.com",)
@@ -49,7 +69,10 @@ ETIQUETAS = {
     "nombres": "Nombres",
     "apellidos": "Apellidos",
     "correo": "Correo institucional",
-    "telefono": "Teléfono",
+    "telefono": "Teléfono personal",
+    # Lo que falta es la respuesta, y «No» vale: con «Teléfono corporativo»
+    # quien no tiene uno creía que debía conseguir un número (11/11/2026).
+    "telefono_corporativo": "¿Tiene teléfono o línea corporativa?",
     "area": "Área",
     "agencia": "Agencia",
     "cargo": "Cargo",
@@ -61,6 +84,12 @@ SIN_AUTORIZACION = (
     "Para guardar su teléfono, marque que autoriza a la empresa a guardarlo y a que "
     "otras personas de la empresa lo usen para contactarlo."
 )
+
+SIN_TELEFONO_CORPORATIVO = "Escriba su teléfono corporativo."
+
+#: Para quien llama a `guardar` sin la respuesta del teléfono corporativo: se
+#: conserva lo que ya estaba guardado (ni se borra ni se da por respondido).
+SIN_CAMBIOS = object()
 
 CARGO_FIJO = (
     "Su cargo ya está elegido y no puede cambiarlo usted. "
@@ -112,6 +141,8 @@ def de(usuario) -> dict:
         "area": {"id": area.id, "nombre": area.nombre} if area else None,
         "agencia": {"id": sede.id, "nombre": sede.nombre} if sede else None,
         "cargo": {"id": cargo.id, "nombre": nombre_con_unidad(cargo)} if cargo else None,
+        "tiene_telefono_corporativo": propios.tiene_telefono_corporativo if propios else None,
+        "telefono_corporativo": (propios.telefono_corporativo if propios else "") or "",
         "en_nomina": empleado is not None,
         "telefono_autorizacion": _autorizacion_telefono(propios),
         "cumpleanos": cumpleanos(usuario),
@@ -127,6 +158,9 @@ def de(usuario) -> dict:
         "nombres": (usuario.first_name or "").strip(),
         "apellidos": (usuario.last_name or "").strip(),
         "correo": datos["correo_institucional"],
+        # Respondió que no tiene, o que sí y escribió el número.
+        "telefono_corporativo": datos["tiene_telefono_corporativo"] is False
+        or bool(datos["tiene_telefono_corporativo"] and datos["telefono_corporativo"]),
     }
     datos["faltan"] = [clave for clave in OBLIGATORIOS if not presentes[clave]]
     return datos
@@ -134,10 +168,12 @@ def de(usuario) -> dict:
 
 def para_compartir(usuario) -> dict:
     """Lo que otra persona de la empresa ve de alguien para contactarlo
-    (26/10/2026, desde el chat): su correo, solo si es institucional, y su
-    teléfono, solo si lo cargó en «Mi perfil» y autorizó que la contacten por
-    él. El teléfono de la ficha de nómina no se muestra: no tiene esa
-    autorización. Lo que no hay viene vacío y no se dibuja."""
+    (26/10/2026, desde el chat): su correo, solo si es institucional; su
+    teléfono corporativo, siempre que lo tenga (10/11/2026: no es dato
+    personal), y su teléfono personal, solo si lo cargó en «Mi perfil» y
+    autorizó que la contacten por él. El teléfono de la ficha de nómina no se
+    muestra: no tiene esa autorización. Lo que no hay viene vacío y no se
+    dibuja."""
     propios = _propios(usuario)
     autorizado = bool(propios and propios.telefono and propios.telefono_aceptado_en)
     cargo = propios.cargo if propios and propios.cargo_id else None
@@ -147,6 +183,9 @@ def para_compartir(usuario) -> dict:
         "nombre": usuario.get_full_name().strip() or usuario.username,
         "correo": usuario.email if es_institucional(usuario.email) else "",
         "telefono": propios.telefono if autorizado else "",
+        "telefono_corporativo": (
+            propios.telefono_corporativo if propios and propios.tiene_telefono_corporativo else ""
+        ),
         "cargo": cargo.nombre if cargo else "",
         "area": area.nombre if area else "",
     }
@@ -198,12 +237,22 @@ def guardar(
     cargo=None,
     acepta_telefono=False,
     ip=None,
+    tiene_telefono_corporativo=SIN_CAMBIOS,
+    telefono_corporativo="",
 ) -> dict:
-    """Actualiza su nombre (en la cuenta) y su teléfono, área, agencia y cargo
-    (en «Mi perfil»). El teléfono es opcional; si lo escribe, solo se guarda
-    con su autorización (`acepta_telefono`): la primera vez se guarda cuándo,
-    desde qué `ip` y qué texto aceptó. Dejarlo vacío lo borra (la constancia
-    de la autorización se conserva)."""
+    """Actualiza su nombre (en la cuenta) y sus teléfonos, área, agencia y
+    cargo (en «Mi perfil»).
+
+    - El teléfono personal (`telefono`) es opcional; si lo escribe, solo se
+      guarda con su autorización (`acepta_telefono`): la primera vez se guarda
+      cuándo, desde qué `ip` y qué texto aceptó. Dejarlo vacío lo borra (la
+      constancia de la autorización se conserva).
+    - El corporativo (10/11/2026): con `tiene_telefono_corporativo=True` el
+      número es obligatorio; con `False` se borra. Nunca pide autorización.
+      Sin el argumento (`SIN_CAMBIOS`) o con `None` se conserva lo guardado:
+      quien llama sin la respuesta no la da por contestada.
+    - Uno u otro (11/11/2026): con `True` no se guarda el personal, aunque
+      llegue; solo quien no tiene corporativo da un número personal."""
     with transaction.atomic():
         usuario.first_name = nombres.strip()[:150]
         usuario.last_name = apellidos.strip()[:150]
@@ -213,6 +262,8 @@ def guardar(
         if propios.cargo_id and getattr(cargo, "pk", None) != propios.cargo_id:
             raise ValidationError({"cargo": [CARGO_FIJO]})
         telefono = (telefono or "").strip()[:30]
+        if tiene_telefono_corporativo is True:
+            telefono = ""
         if telefono:
             if not acepta_telefono:
                 raise ValidationError({"acepta_telefono": [SIN_AUTORIZACION]})
@@ -228,6 +279,12 @@ def guardar(
                 propios.telefono_aceptado_texto = vigente.texto
                 propios.telefono_aceptado_version = vigente.version
         propios.telefono = telefono
+        if tiene_telefono_corporativo is not SIN_CAMBIOS and tiene_telefono_corporativo is not None:
+            corporativo = (telefono_corporativo or "").strip()[:30]
+            if tiene_telefono_corporativo and not corporativo:
+                raise ValidationError({"telefono_corporativo": [SIN_TELEFONO_CORPORATIVO]})
+            propios.tiene_telefono_corporativo = bool(tiene_telefono_corporativo)
+            propios.telefono_corporativo = corporativo if tiene_telefono_corporativo else ""
         propios.departamento = departamento
         propios.sede = sede
         propios.cargo = cargo

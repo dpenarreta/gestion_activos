@@ -1,0 +1,110 @@
+/*
+ * Ausencias y reemplazo en las aprobaciones (11/11/2026, US-001).
+ */
+
+/* La etiqueta junto al aprobador: ícono y texto con el color de la tinta
+   normal (el contraste no depende del tono del borde). El borde toma el
+   color de cada ausencia: el violeta de «Vacaciones» del chat y el color de
+   información del tema (`--mz-info-fg`) para «Fuera de la oficina». */
+.etiqueta-ausencia {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 999px;
+  background: var(--mz-sunken);
+  color: var(--mz-ink);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: baseline;
+}
+
+.etiqueta-ausencia--vacaciones {
+  border-color: var(--presencia-vacaciones, var(--mz-border-strong));
+}
+
+.etiqueta-ausencia--fuera_oficina {
+  border-color: var(--mz-info-fg);
+}
+
+.aprobador-pendiente + .aprobador-pendiente {
+  margin-left: 2px;
+}
+
+/* Una escalada por ausencia en el historial: una sola línea. */
+.historial-ausencia .bi {
+  margin-right: 2px;
+}
+
+/* El bloque «Mientras usted no está»: separado del resto del formulario
+   por una línea y con su encabezado. */
+.reemplazo-ausencia__bloque {
+  border-top: 1px solid var(--mz-border);
+  padding-top: 10px;
+  min-width: 0;
+}
+
+.reemplazo-ausencia__encabezado {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mz-ink);
+}
+
+/* La pregunta del reemplazo. */
+.reemplazo-ausencia {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.reemplazo-ausencia__titulo {
+  float: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+  margin-bottom: 2px;
+}
+
+.reemplazo-ausencia__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.reemplazo-ausencia__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  cursor: pointer;
+  color: var(--mz-ink);
+}
+
+.reemplazo-ausencia__opcion .form-check-input {
+  flex: none;
+  margin: 0;
+}
+
+.reemplazo-ausencia__aviso {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--mz-warn-fg);
+}
+
+@media (any-pointer: coarse) {
+  .reemplazo-ausencia__opcion {
+    min-height: 44px;
+  }
+
+  .reemplazo-ausencia__opcion .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

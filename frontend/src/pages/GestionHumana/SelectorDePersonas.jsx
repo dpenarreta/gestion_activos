@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 
 import { Icon } from "../../components/common/Icon/Icon";
+import "./SelectorDePersonas.css";
 
 export const nombreDePersona = (persona) =>
   persona ? persona.full_name || persona.name || `#${persona.id}` : "—";

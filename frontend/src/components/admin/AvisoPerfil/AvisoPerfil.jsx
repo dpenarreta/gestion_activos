@@ -88,8 +88,9 @@ function Ventana({ datos, onGuardado, onSalir }) {
 
 /**
  * Al entrar al sistema (y en cada carga, mientras falte algo) se revisa el
- * perfil de la persona: nombres, apellidos, correo institucional, teléfono,
- * área, agencia y cargo. Si falta cualquiera, el sistema queda bloqueado con
+ * perfil de la persona: nombres, apellidos, correo institucional, si tiene
+ * teléfono corporativo (y cuál, si lo tiene; desde el 10/11/2026), área,
+ * agencia y cargo. Si falta cualquiera, el sistema queda bloqueado con
  * esta ventana, que no se cierra: solo se sale completándolos o cerrando la
  * sesión. El correo no lo cambia la persona; si no es institucional, lo
  * corrige la administración.

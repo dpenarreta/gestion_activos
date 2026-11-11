@@ -4,12 +4,23 @@ import { avisarCambioDeInsignias } from "../utils/insigniasDelMenu";
 const BASE = "/nomina/rol-pagos/";
 
 /** Consultar rol de pagos: el código sale de la sesión; ver pide aceptar los
- * términos y la contraseña de la cuenta. El PDF no se guarda. */
+ * términos y un código de 6 dígitos que llega al correo de la cuenta (US-002,
+ * 11/11/2026: antes era la contraseña). El PDF no se guarda. Las pantallas de
+ * Talento Humano (historial, descarga masiva, auditado) siguen con contraseña. */
 export const nominaService = {
   estado() {
     return apiClient.get(BASE).then((r) => r.data);
   },
-  /** Devuelve `{ blob, consulta, aceptado }`: el PDF, el número de la
+  /** Pide (o vuelve a pedir) el código para ver el rol: `{ anio, mes, acepto,
+   * version, codigo? }`. Devuelve `{ enviado_a, vence_en, reenviar_en }`
+   * (segundos); el anterior queda anulado. */
+  pedirCodigo(datos) {
+    return apiClient
+      .post(`${BASE}consultar/codigo/`, datos)
+      .then((r) => r.data);
+  },
+  /** `{ anio, mes, acepto, version, codigo?, codigo_verificacion }`.
+   * Devuelve `{ blob, consulta, aceptado }`: el PDF, el número de la
    * consulta (para enviarlo después al correo) y, si ese mes ya lo aceptó, la
    * constancia de la aceptación (es el rol guardado y no se vuelve a
    * preguntar). */

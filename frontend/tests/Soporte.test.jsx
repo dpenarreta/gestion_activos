@@ -73,6 +73,9 @@ const MIS_DATOS = {
   apellidos: "Ordóñez",
   correo: "carla@grupolaar.com",
   telefono: "0994182273",
+  // Respondió que no tiene teléfono corporativo (10/11/2026).
+  tiene_telefono_corporativo: false,
+  telefono_corporativo: "",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },
   cargo: { id: 5, nombre: "Analista · Cobranzas" },
@@ -223,7 +226,7 @@ describe("Soporte TI: nuevo ticket", () => {
       target: { value: "0994182273" },
     });
     fireEvent.click(screen.getByLabelText(/Autorizo a la empresa/));
-    fireEvent.change(screen.getByLabelText("Agencia"), {
+    fireEvent.change(screen.getByLabelText(/^Agencia/), {
       target: { value: "1" },
     });
     fireEvent.click(
@@ -1108,6 +1111,64 @@ describe("La ficha del ticket", () => {
     expect(
       screen.queryByRole("list", { name: "Respuestas predefinidas" }),
     ).toBeNull();
+  });
+});
+
+describe("La ficha del ticket: aprobador ausente (11/11/2026, US-001)", () => {
+  it("junto a quien le toca aprobar dice que está de vacaciones y su reemplazo", async () => {
+    servicio.ticket.mockResolvedValue(
+      ticket({
+        estado: "esperando_aprobacion",
+        estado_display: "Esperando aprobación",
+        aprobaciones: [
+          {
+            id: 1,
+            rol: "Jefe de área",
+            estado: "pendiente",
+            estado_display: "Pendiente",
+            aprobador: "Julia Paz",
+            aprobador_id: 4,
+            aprobador_ausencia: {
+              clave: "vacaciones",
+              texto: "De vacaciones hasta el 20/11",
+              hasta: "2026-11-20",
+              reemplazo: { id: 9, nombre: "Tatiana Torres" },
+            },
+            decidido_por: "",
+            decidido_en: null,
+            nota: "",
+          },
+          {
+            id: 2,
+            rol: "Talento Humano",
+            estado: "aprobada",
+            estado_display: "Aprobada",
+            aprobador: "Tatiana Torres",
+            aprobador_id: 9,
+            aprobador_ausencia: null,
+            decidido_por: "Tatiana Torres",
+            decidido_en: "2026-10-16T11:00:00Z",
+            nota: "",
+          },
+        ],
+      }),
+    );
+    pintar(
+      <TicketDetalle />,
+      "/admin/soporte/tickets/42",
+      "/admin/soporte/tickets/:id",
+    );
+    const fila = (await screen.findAllByText(/Le toca a Julia Paz/))[0];
+    expect(fila).toHaveTextContent(
+      "Le toca a Julia Paz (ausente: De vacaciones hasta el 20/11 · Aprueba en su lugar: Tatiana Torres)",
+    );
+    // Solo la pendiente lleva etiqueta.
+    expect(
+      screen.getAllByText(/De vacaciones hasta el 20\/11/).length,
+    ).toBeGreaterThan(0);
+    expect(document.querySelectorAll(".etiqueta-ausencia").length).toBe(
+      screen.getAllByText(/Le toca a Julia Paz/).length,
+    );
   });
 });
 

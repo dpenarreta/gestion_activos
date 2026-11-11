@@ -10,7 +10,11 @@ import {
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
-import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
+import {
+  erroresPorCampo,
+  leerErrorDeBlob,
+  mensajeDeError,
+} from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import "./Institucional.css";
 import { AdjuntosObservacion } from "./AdjuntosObservacion";
@@ -53,29 +57,16 @@ function esSinRol(err) {
 
 /** El detalle de un error que llega como blob (la consulta pide un PDF). */
 async function errorDeBlob(err, porDefecto) {
-  const datos = err?.response?.data;
-  if (datos instanceof Blob) {
-    try {
-      const texto =
-        typeof datos.text === "function"
-          ? await datos.text()
-          : await new Promise((resolver, rechazar) => {
-              const lector = new FileReader();
-              lector.onload = () => resolver(lector.result);
-              lector.onerror = rechazar;
-              lector.readAsText(datos);
-            });
-      const json = JSON.parse(texto);
-      const detalle =
-        json?.error?.message ??
-        json?.detail ??
-        Object.values(json?.error?.details ?? {}).flat()[0];
-      if (detalle) return String(detalle);
-    } catch {
-      /* No era JSON: el mensaje por defecto. */
-    }
+  const leido = await leerErrorDeBlob(err);
+  const json = leido?.response?.data;
+  if (json && typeof json === "object" && !(json instanceof Blob)) {
+    const detalle =
+      json?.error?.message ??
+      json?.detail ??
+      Object.values(json?.error?.details ?? {}).flat()[0];
+    if (detalle) return String(detalle);
   }
-  return mensajeDeError(err, porDefecto);
+  return mensajeDeError(leido, porDefecto);
 }
 
 function Ventana({ titulo, onCerrar, children }) {
@@ -114,24 +105,220 @@ function Ventana({ titulo, onCerrar, children }) {
   );
 }
 
-/** Aceptar los términos y confirmar la contraseña para ver el rol. */
-function Confirmar({ estado, periodo, onVisto, onSinRol, onCerrar }) {
-  const [acepto, setAcepto] = useState(false);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
-  const [consultando, setConsultando] = useState(false);
+/** Lo que dijo el servidor, sin el nombre del campo delante («Su cuenta no
+ * tiene un correo…» y no «codigo_verificacion: Su cuenta…»). */
+function mensajeSinCampos(err, porDefecto) {
+  const textos = Object.values(erroresPorCampo(err));
+  return textos.length ? textos.join(" ") : mensajeDeError(err, porDefecto);
+}
 
-  async function ver(evento) {
-    evento.preventDefault();
+/** Los segundos que pide esperar un 429: `details.retry_after` o la cabecera
+ * `Retry-After`. */
+function segundosDeEspera(err, porDefecto = 60) {
+  const valor = Number(
+    err?.response?.data?.error?.details?.retry_after ??
+      err?.response?.headers?.["retry-after"],
+  );
+  return Number.isFinite(valor) && valor > 0 ? Math.ceil(valor) : porDefecto;
+}
+
+/** «45 segundos» o, desde el minuto, «20 minutos» (el límite por hora da
+ * esperas largas: «1200 segundos» no se lee). */
+function tiempoDeEspera(segundos) {
+  if (segundos < 60) {
+    return segundos === 1 ? "1 segundo" : `${segundos} segundos`;
+  }
+  const minutos = Math.ceil(segundos / 60);
+  return minutos === 1 ? "1 minuto" : `${minutos} minutos`;
+}
+
+/** La hora a la que vence el código, «10:42» (QA-UX, US-002, 11/11/2026: una
+ * hora se compara con el reloj; «10 minutos» no dice desde cuándo). */
+function horaDeVencimiento(segundos) {
+  return new Date(Date.now() + segundos * 1000).toLocaleTimeString("es-EC", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/**
+ * La espera para pedir otro código: los segundos que faltan, cómo empezarla y
+ * un aviso que cambia solo al terminar (para `aria-live`: anunciar cada
+ * segundo abrumaría al lector de pantalla).
+ */
+function useEsperaDeReenvio() {
+  const [hasta, setHasta] = useState(0);
+  const [restantes, setRestantes] = useState(0);
+  const [aviso, setAviso] = useState("");
+
+  useEffect(() => {
+    if (!hasta) return undefined;
+    const contar = () => {
+      const quedan = Math.max(0, Math.ceil((hasta - Date.now()) / 1000));
+      setRestantes(quedan);
+      if (quedan === 0) {
+        setHasta(0);
+        setAviso("Ya puede pedir otro código.");
+      }
+    };
+    const intervalo = setInterval(contar, 1000);
+    return () => clearInterval(intervalo);
+  }, [hasta]);
+
+  function iniciar(segundos) {
+    setAviso("");
+    setRestantes(segundos);
+    setHasta(Date.now() + segundos * 1000);
+  }
+
+  return { restantes, iniciar, aviso };
+}
+
+/** Solo los dígitos, hasta 6: «Código: 123 456» queda «123456». */
+function soloDigitos(texto) {
+  return (texto ?? "").replace(/\D/g, "").slice(0, 6);
+}
+
+/**
+ * Aceptar los términos y confirmar con un código que llega al correo de la
+ * cuenta (US-002, 11/11/2026: reemplaza a la contraseña de la cuenta; el
+ * código solo lo recibe la persona). Dos pasos en la misma ventana: los
+ * términos y «Enviarme el código»; luego el código de 6 dígitos y
+ * «Confirmar», que abre el rol. El código está atado al período y a los
+ * términos aceptados: para cambiarlos se cierra la ventana y se pide otro.
+ */
+function Confirmar({
+  estado,
+  periodo,
+  onVisto,
+  onSinRol,
+  onCerrar,
+  onCambiarPeriodo,
+  onPeriodoCambiado,
+}) {
+  const [acepto, setAcepto] = useState(false);
+  const [paso, setPaso] = useState("terminos");
+  const [envio, setEnvio] = useState(null);
+  const [codigo, setCodigo] = useState("");
+  // `{ texto, porEspera }`: el aviso de arriba, solo para errores. El del
+  // límite por hora (`porEspera`) se quita al terminar la espera: si no,
+  // quedaría diciendo que espere cuando ya puede pedir otro.
+  const [error, setError] = useState(null);
+  const [errorCodigo, setErrorCodigo] = useState(null);
+  const [pidiendo, setPidiendo] = useState(false);
+  const [consultando, setConsultando] = useState(false);
+  const [enfocar, setEnfocar] = useState(0);
+  const espera = useEsperaDeReenvio();
+  const campoRef = useRef(null);
+  const formRef = useRef(null);
+  const idEnvio = useId();
+  const idPaso = useId();
+  // El período del código (QA-FUNC, US-002, 11/11/2026): se fija al pedirlo y
+  // es el que se confirma, aunque la página cambie detrás de la ventana.
+  const [fijado, setFijado] = useState(null);
+  const vigente = fijado ?? periodo;
+
+  // Si el período de la página cambia con el código ya pedido (llega otro
+  // `?anio=&mes=` por un aviso, por ejemplo), ese código ya no es del período
+  // elegido: se cierra la ventana, como con «Cambiar el período».
+  useEffect(() => {
+    if (
+      fijado &&
+      (fijado.anio !== periodo.anio ||
+        fijado.mes !== periodo.mes ||
+        fijado.codigo !== periodo.codigo)
+    ) {
+      onPeriodoCambiado();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fijado, periodo.anio, periodo.mes, periodo.codigo]);
+
+  // Al pasar al código y tras un error del código, el foco va al campo.
+  useEffect(() => {
+    if (enfocar) campoRef.current?.focus();
+  }, [enfocar]);
+
+  // Terminó la espera: el aviso del límite ya no vale.
+  useEffect(() => {
+    if (espera.aviso) setError((e) => (e?.porEspera ? null : e));
+  }, [espera.aviso]);
+
+  async function pedirCodigo() {
+    setPidiendo(true);
+    setError(null);
+    setErrorCodigo(null);
+    try {
+      const respuesta = await nominaService.pedirCodigo({
+        ...vigente,
+        acepto,
+        version: estado.version,
+      });
+      setFijado({
+        anio: vigente.anio,
+        mes: vigente.mes,
+        codigo: vigente.codigo,
+      });
+      setEnvio({
+        enviadoA: respuesta.enviado_a,
+        vence: horaDeVencimiento(respuesta.vence_en ?? 600),
+        nuevo: paso === "codigo",
+      });
+      setCodigo("");
+      setPaso("codigo");
+      espera.iniciar(respuesta.reenviar_en ?? 60);
+      setEnfocar((n) => n + 1);
+    } catch (err) {
+      const throttled = err?.response?.status === 429;
+      const segundos = throttled ? segundosDeEspera(err) : 0;
+      // El 429 propio del código trae `details.retry_after`; el genérico del
+      // throttle de la vista solo la cabecera Retry-After: ese no dice nada
+      // de un código enviado, así que no se pasa al campo (QA-TECH, US-002).
+      const delCodigo =
+        throttled && err?.response?.data?.error?.details?.retry_after != null;
+      // La espera corta entre envíos (reabrió la ventana) no es un error: se
+      // dice solo junto a «Enviar otro código». El límite por hora y el
+      // genérico sí van arriba. Se decide por los segundos, no por el texto.
+      const esperaCorta = delCodigo && segundos <= 60;
+      if (!esperaCorta) {
+        setError({
+          texto: mensajeSinCampos(err, "No se pudo enviar el código."),
+          porEspera: throttled,
+        });
+      }
+      if (throttled) {
+        espera.iniciar(segundos);
+        // Puede que ya tenga un código vigente de este período (cerró la
+        // ventana y la volvió a abrir): el campo para escribirlo.
+        if (delCodigo && paso === "terminos") {
+          setFijado({
+            anio: vigente.anio,
+            mes: vigente.mes,
+            codigo: vigente.codigo,
+          });
+          setPaso("codigo");
+        }
+      }
+      // El botón pulsado quedó desactivado: el foco va al aviso o, si no
+      // hay aviso (espera corta), al campo del código.
+      if (esperaCorta) setEnfocar((n) => n + 1);
+      else enfocarPrimerError(formRef.current);
+    } finally {
+      setPidiendo(false);
+    }
+  }
+
+  async function confirmar() {
     setConsultando(true);
     setError(null);
+    setErrorCodigo(null);
     try {
       onVisto(
         await nominaService.consultar({
-          ...periodo,
+          ...vigente,
           acepto,
           version: estado.version,
-          password,
+          codigo_verificacion: codigo,
         }),
       );
     } catch (err) {
@@ -139,57 +326,203 @@ function Confirmar({ estado, periodo, onVisto, onSinRol, onCerrar }) {
         onSinRol(await errorDeBlob(err, "No hay rol de pagos para ese mes."));
         return;
       }
-      setError(await errorDeBlob(err, "No se pudo consultar el rol de pagos."));
-      setPassword("");
+      const leido = await leerErrorDeBlob(err);
+      const delCodigo = erroresPorCampo(leido).codigo_verificacion;
+      if (delCodigo) {
+        // Junto al campo y con el campo vacío. Se limpia con cualquier error
+        // del código (no se decide por el texto): si venció o se agotó, el
+        // mensaje dice que pida otro y «Enviar otro código» queda a la mano.
+        setErrorCodigo(delCodigo);
+        setCodigo("");
+        setEnfocar((n) => n + 1);
+      } else {
+        setError({
+          texto: mensajeSinCampos(
+            leido,
+            "No se pudo consultar el rol de pagos.",
+          ),
+        });
+        // «Confirmar» quedó desactivado: el foco va al aviso.
+        enfocarPrimerError(formRef.current);
+      }
       setConsultando(false);
     }
   }
 
+  function enviar(evento) {
+    evento.preventDefault();
+    if (paso === "terminos") pedirCodigo();
+    else if (codigo.length === 6) confirmar();
+    else {
+      // Un botón desactivado no dice por qué (QA-UX, US-002, 11/11/2026).
+      // Se vacía y se vuelve a poner en el cuadro siguiente: con el mismo
+      // texto, la región aria-live no lo anunciaría otra vez.
+      const mensaje = `Escriba los 6 dígitos del código (lleva ${codigo.length}).`;
+      setErrorCodigo(null);
+      requestAnimationFrame(() => setErrorCodigo(mensaje));
+      setEnfocar((n) => n + 1);
+    }
+  }
+
+  const ocupado = pidiendo || consultando;
+
   return (
     <Ventana titulo="Confirmar consulta del rol de pagos" onCerrar={onCerrar}>
-      <form className="mz-stack" onSubmit={ver}>
+      {/* Marcar la casilla o escribir el código no son cambios que se
+          pierdan al cerrar: no pregunta «¿Descartar cambios?». */}
+      <form
+        ref={formRef}
+        className="mz-stack"
+        onSubmit={enviar}
+        noValidate
+        data-sin-descarte
+      >
+        <p id={idPaso} className="rol-pagos__paso mb-0">
+          {paso === "terminos"
+            ? "Paso 1 de 2 · Términos"
+            : "Paso 2 de 2 · Código de verificación"}
+        </p>
         {error && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
-            {error}
+            {error.texto}
           </div>
         )}
         <p className="mb-0">
           Rol de pagos de{" "}
           <strong>
-            {MESES[periodo.mes - 1]} de {periodo.anio}
+            {MESES[vigente.mes - 1]} de {vigente.anio}
           </strong>{" "}
-          · código <strong>{periodo.codigo || estado.codigo}</strong>
+          · código <strong>{vigente.codigo || estado.codigo}</strong>
         </p>
-        <div
-          className="rol-pagos__terminos"
-          aria-label="Términos y condiciones"
-        >
-          {estado.terminos}
-        </div>
-        <label className="form-check">
-          <input
-            type="checkbox"
-            className="form-check-input"
-            checked={acepto}
-            onChange={(e) => setAcepto(e.target.checked)}
-          />{" "}
-          <span className="form-check-label">
-            Acepto los términos y declaro que soy el propietario de este rol de
-            pagos.
-          </span>
-        </label>
-        {/* Obligatoria y marcada como tal (auditoría UX/UI, fase 2,
-            28/10/2026). */}
-        <Campo id="rol-password" etiqueta="Contraseña de su cuenta" obligatorio>
-          <input
-            type="password"
-            autoComplete="current-password"
-            className="form-control form-control-sm"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Campo>
+        {paso === "codigo" && (
+          <p className="mb-0">
+            <button
+              type="button"
+              className="btn btn-link btn-sm p-0 rol-pagos__cambiar-periodo"
+              onClick={onCambiarPeriodo}
+            >
+              Cambiar el período (pedirá otro código)
+            </button>
+          </p>
+        )}
+        {paso === "terminos" ? (
+          <>
+            <div
+              className="rol-pagos__terminos"
+              aria-label="Términos y condiciones"
+            >
+              {estado.terminos}
+            </div>
+            <label className="form-check">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                aria-describedby={idPaso}
+                checked={acepto}
+                onChange={(e) => setAcepto(e.target.checked)}
+              />{" "}
+              <span className="form-check-label">
+                Acepto los términos y declaro que soy el propietario de este rol
+                de pagos.
+              </span>
+            </label>
+            <p className="mz-faint mz-small mb-0">
+              Le enviaremos un código de 6 dígitos al correo de su cuenta.
+            </p>
+            {espera.restantes > 0 && (
+              <p className="mz-small mz-faint mb-0">
+                Podrá pedir otro código en {tiempoDeEspera(espera.restantes)}.
+              </p>
+            )}
+            <span className="visually-hidden" aria-live="polite">
+              {espera.aviso}
+            </span>
+          </>
+        ) : (
+          <>
+            <div
+              id={idEnvio}
+              className={`mz-alert ${envio ? "mz-alert--ok" : "mz-alert--info"}`}
+              role="status"
+            >
+              <Icon name={envio ? "envelope-check" : "envelope"} />
+              {envio ? (
+                <span>
+                  {envio.nuevo
+                    ? "Le enviamos un código nuevo de 6 dígitos a "
+                    : "Le enviamos un código de 6 dígitos a "}
+                  <strong>{envio.enviadoA}</strong>. Vence a las {envio.vence}.
+                  {envio.nuevo && " El anterior ya no sirve."}
+                </span>
+              ) : (
+                <span>
+                  Si ya le llegó un código pedido para{" "}
+                  {MESES[vigente.mes - 1].toLowerCase()} de {vigente.anio},
+                  escríbalo aquí. Un código pedido para otro período no sirve.
+                </span>
+              )}
+            </div>
+            <div>
+              <Campo
+                id="rol-codigo-verificacion"
+                etiqueta="Código de verificación (6 dígitos)"
+                obligatorio
+                ayuda="Puede tardar hasta un minuto. Revise también la carpeta de correo no deseado. Si ese no es su correo, pídale a Talento Humano que lo actualice."
+                error={errorCodigo}
+              >
+                {/* Sin `maxLength`: el navegador cortaría lo pegado
+                    («Código: 123456») antes de quitar lo que no es dígito. */}
+                <input
+                  ref={campoRef}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="\d{6}"
+                  className="form-control rol-pagos__codigo-verificacion"
+                  aria-describedby={`${idPaso} ${idEnvio}`}
+                  value={codigo}
+                  onChange={(e) => {
+                    setCodigo(soloDigitos(e.target.value));
+                    setErrorCodigo(null);
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    setCodigo(soloDigitos(e.clipboardData?.getData("text")));
+                    setErrorCodigo(null);
+                  }}
+                />
+              </Campo>
+              {/* Con Enter el foco ya estaba en el campo: sin esta región el
+                  error no se anunciaba (QA-TECH, US-002, 11/11/2026). */}
+              <span className="visually-hidden" aria-live="assertive">
+                {errorCodigo ?? ""}
+              </span>
+              <div className="rol-pagos__reenvio">
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0"
+                  onClick={pedirCodigo}
+                  disabled={espera.restantes > 0 || ocupado}
+                >
+                  {pidiendo ? "Enviando código…" : "Enviar otro código"}
+                </button>
+                {/* La espera, fuera del botón desactivado y sin aria-live
+                    (cambia cada segundo); al terminar desaparece y la región
+                    de abajo anuncia que ya puede pedir otro. */}
+                {espera.restantes > 0 && (
+                  <span className="mz-small mz-faint">
+                    Podrá pedir otro código en{" "}
+                    {tiempoDeEspera(espera.restantes)}.
+                  </span>
+                )}
+                <span className="visually-hidden" aria-live="polite">
+                  {espera.aviso}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
         <div className="mz-actions justify-content-end">
           <button
             type="button"
@@ -198,13 +531,23 @@ function Confirmar({ estado, periodo, onVisto, onSinRol, onCerrar }) {
           >
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={!acepto || !password || consultando}
-          >
-            {consultando ? "Consultando…" : "Ver rol de pagos"}
-          </button>
+          {paso === "terminos" ? (
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={!acepto || ocupado || espera.restantes > 0}
+            >
+              {pidiendo ? "Enviando código…" : "Enviarme el código"}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={ocupado}
+            >
+              {consultando ? "Consultando…" : "Confirmar"}
+            </button>
+          )}
         </div>
       </form>
     </Ventana>
@@ -716,11 +1059,6 @@ function Configurar({ estado, onGuardado, onCerrar }) {
   );
 }
 
-/**
- * Institucional → Consultar rol de pagos: se elige año y mes (el código de
- * empleado sale de la sesión), se aceptan los términos y se confirma la
- * contraseña. El PDF se ve y se descarga; se puede enviar al correo personal.
- */
 /** Las observaciones de la persona a sus roles de pagos, en todos sus
  * estados (22/10/2026): solo las suyas, con la conversación con Talento
  * Humano. */
@@ -876,6 +1214,12 @@ function MenuDeGestion({ etiqueta, acciones }) {
   );
 }
 
+/**
+ * Institucional → Consultar rol de pagos: se elige año y mes (el código de
+ * empleado sale de la sesión), se aceptan los términos y se confirma con el
+ * código de 6 dígitos que llega al correo de la cuenta (US-002, 11/11/2026).
+ * El PDF se ve y se descarga; se puede enviar al correo personal.
+ */
 export function RolPagosPage() {
   const hoy = new Date();
   const location = useLocation();
@@ -1006,10 +1350,10 @@ export function RolPagosPage() {
         <div>
           <h2>Consultar rol de pagos</h2>
           <p className="mz-desc">
-            Elija el año y el mes. Para verlo, acepte los términos y confirme
-            con la contraseña de su cuenta. El documento no se guarda en el
-            sistema; cuando acepta su rol, ese rol queda guardado como
-            constancia y es el que verá desde entonces.
+            Elija el año y el mes. Para verlo, acepte los términos y escriba el
+            código de 6 dígitos que le enviaremos al correo de su cuenta. El
+            documento no se guarda en el sistema; cuando acepta su rol, ese rol
+            queda guardado como constancia y es el que verá desde entonces.
           </p>
         </div>
         {/* Revisión final UX/UI (28/10/2026): eran hasta seis botones
@@ -1320,6 +1664,21 @@ export function RolPagosPage() {
           estado={estado}
           periodo={periodo}
           onCerrar={() => setConfirmando(false)}
+          onCambiarPeriodo={() => {
+            // El código es de ese período: se cierra la ventana, se elige
+            // otro y se pide un código nuevo (US-002, 11/11/2026).
+            setConfirmando(false);
+            requestAnimationFrame(() =>
+              document.getElementById("rol-anio")?.focus(),
+            );
+          }}
+          onPeriodoCambiado={() => {
+            // El período cambió detrás de la ventana (QA-UX, US-002).
+            setConfirmando(false);
+            setAviso(
+              "Cambió el período: pida un código nuevo para consultarlo.",
+            );
+          }}
           onSinRol={(mensaje) => {
             setConfirmando(false);
             setSinRol({ anio: periodo.anio, mes: periodo.mes, mensaje });

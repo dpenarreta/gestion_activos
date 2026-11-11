@@ -1,6 +1,8 @@
 """La API del chat. Toda persona con sesión y membresía en la empresa activa
 lo usa: no hay permisos que pedir, solo estar en la conversación."""
 
+import datetime
+
 from django.core.exceptions import ValidationError as ErrorDeModelo
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -383,8 +385,9 @@ AVISOS_HASTA = 25
 
 def _avisos(conversacion, autor) -> list[dict]:
     """Al enviar: quiénes de la conversación están en almuerzo, de vacaciones,
-    en reunión o no disponibles (o saldrán pronto de vacaciones), para
-    decírselo a quien escribe. No en el canal general."""
+    en reunión, no disponibles o fuera de la oficina (o saldrán pronto de
+    vacaciones), para decírselo a quien escribe. No en el canal general. Un
+    ausente lleva su `reemplazo` (11/11/2026, US-001)."""
     if conversacion.tipo == Conversacion.Tipo.GENERAL:
         return []
     ids = list(
@@ -406,10 +409,24 @@ def _avisos(conversacion, autor) -> list[dict]:
     ]
 
 
+class _FechaOMomento(serializers.DateTimeField):
+    """Un momento ISO-8601 o, para «Fuera de la oficina», solo la fecha
+    («2026-11-20»): entonces llega como `date` y `estados.guardar` la lleva
+    al final de ese día en hora local (11/11/2026, US-001)."""
+
+    def to_internal_value(self, value):
+        if isinstance(value, str) and len(value.strip()) == 10:
+            try:
+                return datetime.date.fromisoformat(value.strip())
+            except ValueError:
+                pass
+        return super().to_internal_value(value)
+
+
 class _MiEstado(serializers.Serializer):
     estado = serializers.ChoiceField(choices=EstadoChat.Estado.choices, required=False)
     mensaje = serializers.CharField(max_length=140, required=False, allow_blank=True)
-    hasta = serializers.DateTimeField(required=False, allow_null=True)
+    hasta = _FechaOMomento(required=False, allow_null=True)
     vacaciones_desde = serializers.DateField(required=False, allow_null=True)
     vacaciones_hasta = serializers.DateField(required=False, allow_null=True)
     quitar_vacaciones = serializers.BooleanField(required=False)

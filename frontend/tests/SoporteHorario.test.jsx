@@ -169,3 +169,27 @@ describe("Las horas fuera de horario", () => {
     expect(screen.queryByText("No hay horas por revisar.")).toBeNull();
   });
 });
+
+describe("Mi horario de quien aún no es técnico", () => {
+  // Auditoría UX/UI, 11/11/2026: tiene el permiso pero no está en el equipo;
+  // «Reintentar» no lo arreglaba.
+  it("explica cómo darse de alta y no ofrece reintentar", async () => {
+    servicio.miHorario.mockRejectedValue({
+      response: {
+        status: 403,
+        data: {
+          error: {
+            code: "no_es_tecnico",
+            message:
+              "Todavía no está en el equipo de técnicos de la Mesa de ayuda. Pida a quien coordina la mesa que lo agregue en Configuración → Técnicos.",
+          },
+        },
+      },
+    });
+    pintar(<MiHorario />);
+    expect(
+      await screen.findByText(/Todavía no está en el equipo de técnicos/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Reintentar/ })).toBeNull();
+  });
+});

@@ -952,7 +952,54 @@ PLANTILLAS_PRIVACIDAD = (
     ),
 )
 
-PLANTILLAS = PLANTILLAS + PLANTILLAS_SOPORTE + PLANTILLAS_NOVEDADES + PLANTILLAS_PRIVACIDAD
+# --- Rol de pagos (apps.nomina) ----------------------------------------------------
+# El código para consultar el rol (US-002, 11/11/2026). Va solo al correo de la
+# cuenta y nunca a la campana: es de un solo uso y no debe quedar guardado en
+# otro sitio (se envía directamente desde `apps.nomina.codigo`). Si una versión
+# personalizada pierde `{{codigo}}`, sale este diseño por defecto.
+
+PLANTILLAS_ROL_PAGOS = (
+    Plantilla(
+        clave="roles_pago.codigo_consulta",
+        nombre="Código para consultar el rol de pagos",
+        modulo="Institucional · Rol de pagos",
+        descripcion=(
+            "Cuando alguien pulsa «Consultar» en su rol de pagos o pide otro código. "
+            "Llega al correo de su cuenta."
+        ),
+        asunto="Su código para consultar el rol de pagos",
+        html=_aviso(
+            encabezado="Su código para consultar el rol de pagos",
+            saludo="Hola {{nombre}},",
+            filas=[
+                _fila("Código", "{{codigo}}", destacar=True, mono=True),
+                _fila("Rol de pagos de", "{{periodo}}"),
+                _fila("Vence en", "{{minutos}} minutos"),
+            ],
+            cuerpo=(
+                "Escríbalo en «Consultar rol de pagos» para ver su rol. Sirve una sola vez y "
+                "vence en {{minutos}} minutos. <strong>Nadie de la empresa le pedirá este "
+                "código</strong>: no lo comparta. Si usted no lo pidió, ignore este correo y "
+                "avise a Talento Humano."
+            ),
+        ),
+        variables=(
+            Variable("nombre", "Nombre de la persona", "Begoña"),
+            Variable("codigo", "El código de 6 dígitos (un solo uso)", "048213"),
+            Variable("periodo", "Mes y año que pidió consultar", "octubre de 2026"),
+            Variable("minutos", "Minutos de validez del código", "10"),
+        ),
+        razon="Le llega porque pidió consultar su rol de pagos en el sistema.",
+    ),
+)
+
+PLANTILLAS = (
+    PLANTILLAS
+    + PLANTILLAS_SOPORTE
+    + PLANTILLAS_NOVEDADES
+    + PLANTILLAS_PRIVACIDAD
+    + PLANTILLAS_ROL_PAGOS
+)
 
 POR_CLAVE = {plantilla.clave: plantilla for plantilla in PLANTILLAS}
 

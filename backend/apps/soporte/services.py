@@ -13,6 +13,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
 
+from apps.organizacion import ausencia
 from apps.permissions.authorization import user_has_permission
 
 from . import avisos, criticidad, sla
@@ -194,6 +195,22 @@ def _pedir_aprobaciones(ticket):
         )
     for departamento in caso.aprueban.select_related("responsable__usuario"):
         pedidos.append((departamento.nombre, _responsable_con_cuenta(departamento)))
+    # Un aprobador ausente (vacaciones, permiso de día completo o «Fuera de la
+    # oficina») no recibe el pedido: pasa a su reemplazo, nunca a quien pide
+    # (11/11/2026, US-001). Si no hay reemplazo, se queda con él.
+    escaladas = []
+    for i, (rol, aprobador) in enumerate(pedidos):
+        if aprobador is None:
+            continue
+        # Tampoco a quien ya aprueba otro visto bueno de este ticket: dos no
+        # se juntan en una sola persona.
+        excluir = {a.pk for j, (_, a) in enumerate(pedidos) if a is not None and j != i}
+        if ticket.solicitante_id:
+            excluir.add(ticket.solicitante_id)
+        sustitutos, cambios = ausencia.sustituir_ausentes([aprobador], excluir)
+        if cambios:
+            pedidos[i] = (rol, sustitutos[0])
+            escaladas.append((rol, *cambios[0]))
     for rol, aprobador in pedidos:
         aprobacion = AprobacionTicket.objects.create(ticket=ticket, rol=rol, aprobador=aprobador)
         transaction.on_commit(lambda a=aprobacion: avisos.aprobacion_pendiente(a))
@@ -203,6 +220,64 @@ def _pedir_aprobaciones(ticket):
         "Esperando aprobación de: " + ", ".join(rol for rol, _ in pedidos),
         nuevo=Estado.ESPERANDO_APROBACION,
     )
+    for rol, ausente, reemplazo in escaladas:
+        _movimiento(ticket, None, f"{ausencia.constancia(reemplazo, ausente)} ({rol})")
+
+
+def reasignar_por_ausencia(ausente, base=None) -> int:
+    """Pasa al reemplazo de `ausente` sus aprobaciones pendientes de la Mesa
+    de ayuda en la empresa activa: el historial del ticket lo dice («Escalada
+    a X por ausencia de Y») y el reemplazo recibe el correo de siempre. Si no
+    hay reemplazo, se quedan con él. Idempotente: lo que ya pasó deja de ser
+    suyo.
+
+    `base` es su reemplazo sin exclusiones, ya calculado por quien llama; se
+    usa si no choca con las exclusiones del ticket (si no, se recalcula)."""
+    total = 0
+    pendientes = AprobacionTicket.objects.filter(
+        aprobador=ausente,
+        estado=AprobacionTicket.Estado.PENDIENTE,
+        ticket__estado=Estado.ESPERANDO_APROBACION,
+    ).values_list("pk", "ticket_id")
+    for pk, ticket_id in list(pendientes):
+        with transaction.atomic():
+            # Bajo bloqueo: el ticket sigue esperando y el visto bueno sigue
+            # pendiente de él (nadie lo decidió ni lo reasignó entretanto).
+            ticket = Ticket.objects.select_for_update().filter(pk=ticket_id).first()
+            aprobacion = AprobacionTicket.objects.select_for_update().filter(pk=pk).first()
+            if (
+                ticket is None
+                or aprobacion is None
+                or ticket.estado != Estado.ESPERANDO_APROBACION
+                or aprobacion.estado != AprobacionTicket.Estado.PENDIENTE
+                or aprobacion.aprobador_id != ausente.pk
+            ):
+                continue
+            # Ni quien pidió, ni quien ya decidió otro visto bueno del ticket,
+            # ni quien tiene otro pendiente en él: dos vistos buenos no se
+            # juntan en una sola persona.
+            excluir = set()
+            for otro in ticket.aprobaciones.exclude(pk=aprobacion.pk).values(
+                "aprobador_id", "decidido_por_id"
+            ):
+                excluir.update(v for v in otro.values() if v)
+            if ticket.solicitante_id:
+                excluir.add(ticket.solicitante_id)
+            reemplazo = (
+                base
+                if base is not None and base.pk not in excluir
+                else ausencia.reemplazo_para(ausente, excluir)
+            )
+            if reemplazo is None:
+                continue
+            aprobacion.aprobador = reemplazo
+            aprobacion.save(update_fields=["aprobador", "updated_at"])
+            _movimiento(
+                ticket, None, f"{ausencia.constancia(reemplazo, ausente)} ({aprobacion.rol})"
+            )
+            transaction.on_commit(lambda a=aprobacion: avisos.aprobacion_pendiente(a), robust=True)
+            total += 1
+    return total
 
 
 def aprobaciones_de(usuario):
@@ -218,10 +293,7 @@ def aprobaciones_de(usuario):
     return pendientes.filter(filtro)
 
 
-def decidir_aprobacion(aprobacion, actor, *, aprobar: bool, nota="") -> Ticket:
-    """El aprobador (o quien coordina, si no hay aprobador) decide. Con todos
-    los vistos buenos, la solicitud entra a la cola y empiezan sus plazos; un
-    rechazo la cierra y se le avisa a quien pidió."""
+def _exigir_que_decida(aprobacion, actor) -> None:
     puede = aprobacion.aprobador_id == actor.id or (
         aprobacion.aprobador_id is None and tiene(actor, "asignar")
     )
@@ -229,21 +301,46 @@ def decidir_aprobacion(aprobacion, actor, *, aprobar: bool, nota="") -> Ticket:
         raise PermissionDenied("Esta aprobación le corresponde a otra persona.")
     if aprobacion.estado != AprobacionTicket.Estado.PENDIENTE:
         raise ValidationError({"estado": "Esta aprobación ya se decidió."})
+
+
+def decidir_aprobacion(aprobacion, actor, *, aprobar: bool, nota="") -> Ticket:
+    """El aprobador (o quien coordina, si no hay aprobador) decide. Con todos
+    los vistos buenos, la solicitud entra a la cola y empiezan sus plazos; un
+    rechazo la cierra y se le avisa a quien pidió."""
     nota = (nota or "").strip()
-    if not aprobar and not nota:
-        raise ValidationError(
-            {"nota": "Diga por qué no aprueba: es lo que le llega a quien pidió."}
-        )
     ticket = aprobacion.ticket
     ahora = timezone.now()
     with transaction.atomic():
+        # Primero el ticket y después el visto bueno, en el mismo orden que
+        # `reasignar_por_ausencia`: con órdenes distintos, dos transacciones
+        # podrían esperarse una a otra (deadlock 1205 en SQL Server).
+        Ticket.objects.select_for_update().filter(pk=aprobacion.ticket_id).values("pk").first()
+        # Se relee bloqueada: una reasignación por ausencia (o la decisión de
+        # otra pestaña) pudo cambiarla desde que se cargó (11/11/2026).
+        fila = (
+            AprobacionTicket.objects.select_for_update()
+            .filter(pk=aprobacion.pk)
+            .values("estado", "aprobador_id")
+            .first()
+        )
+        if fila is None:
+            raise ValidationError({"estado": "Esta aprobación ya no existe."})
+        aprobacion.estado = fila["estado"]
+        aprobacion.aprobador_id = fila["aprobador_id"]
+        _exigir_que_decida(aprobacion, actor)
+        if not aprobar and not nota:
+            raise ValidationError(
+                {"nota": "Diga por qué no aprueba: es lo que le llega a quien pidió."}
+            )
         aprobacion.estado = (
             AprobacionTicket.Estado.APROBADA if aprobar else AprobacionTicket.Estado.RECHAZADA
         )
         aprobacion.decidido_por = actor
         aprobacion.decidido_en = ahora
         aprobacion.nota = nota[:500]
-        aprobacion.save()
+        aprobacion.save(
+            update_fields=["estado", "decidido_por", "decidido_en", "nota", "updated_at"]
+        )
         quien = actor.get_full_name() or actor.username
         if not aprobar:
             ticket.estado = Estado.CERRADO
