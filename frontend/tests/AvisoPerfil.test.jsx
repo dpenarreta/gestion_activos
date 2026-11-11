@@ -46,6 +46,16 @@ const COMPLETOS = {
   areas: [{ id: 2, nombre: "Cobranzas" }],
   agencias: [{ id: 1, nombre: "Loja · Agencia" }],
   cargos: [{ id: 5, nombre: "Analista · Cobranzas" }],
+  // El texto vigente de la autorización llega siempre del servidor (US-004:
+  // ya no hay uno fijo de respaldo en la pantalla).
+  telefono_autorizacion: {
+    texto:
+      "Autorizo a la empresa a guardar mi número de teléfono de contacto y a que otras personas de la empresa lo usen para contactarme.",
+    version: 1,
+    aceptado: false,
+    aceptado_en: null,
+    version_aceptada: null,
+  },
   faltan: [],
 };
 const INCOMPLETOS = {
@@ -186,7 +196,7 @@ describe("Perfil obligatorio al entrar", () => {
     // La advertencia es la descripción del campo, no una alerta (auditoría
     // UX/UI, fase 2, 28/10/2026).
     expect(cargo).toHaveAccessibleDescription(
-      /no podrá cambiarlo usted: solo TI o la administración/,
+      /no podrá cambiarlos usted: si no lo son, pídalo a Gestión Humana por la Mesa de ayuda/,
     );
     expect(within(dialogo).queryByRole("alert")).toBeNull();
     unmount();
@@ -202,7 +212,9 @@ describe("Perfil obligatorio al entrar", () => {
     dialogo = await ventana();
     expect(within(dialogo).getByLabelText(/^Cargo/)).toBeDisabled();
     expect(
-      within(dialogo).getByText(/solo lo cambia TI o la administración/),
+      within(dialogo).getByText(
+        /Si no es el correcto, pídalo a Gestión Humana/,
+      ),
     ).toBeInTheDocument();
   });
 

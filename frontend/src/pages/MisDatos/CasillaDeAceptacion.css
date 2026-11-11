@@ -1,0 +1,71 @@
+/* La casilla de un texto de protección de datos (US-004, 11/11/2026). Solo
+   tokens `mz-*`: sigue el tema claro y el oscuro. */
+
+.md-casilla {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* El texto que no se puede aceptar todavía: con el color normal del texto,
+   no atenuado (contraste AA). */
+.md-casilla__texto {
+  color: var(--mz-ink);
+}
+
+.md-casilla__fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.md-casilla__fila .form-check-input {
+  margin: 0;
+}
+
+.md-casilla__etiqueta {
+  color: var(--mz-ink);
+}
+
+/* Vacía no ocupa lugar, pero sigue visible para el lector de pantalla (con
+   `display: none` no anunciaría lo que entra). */
+.md-casilla__estado:empty {
+  margin-top: -6px;
+}
+
+.md-casilla__esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.md-casilla__esqueleto span {
+  display: block;
+  height: 0.9em;
+  border-radius: 4px;
+  /* Con el borde fuerte: el fondo hundido apenas se distinguía (QA-UX). */
+  background: var(--mz-border-strong);
+}
+
+.md-casilla__esqueleto span:last-child {
+  width: 60%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .md-casilla__esqueleto span {
+    animation: md-casilla-latido 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes md-casilla-latido {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (any-pointer: coarse) {
+  .md-casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

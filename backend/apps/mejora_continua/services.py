@@ -48,6 +48,7 @@ from django.db.models import Q
 from rest_framework import serializers as drf_serializers
 
 from apps.adjuntos.validators import validar_archivo
+from apps.core.archivos import mensaje_de_tamano
 from apps.core.audit import record_audit_event
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.tasks.roles import gh_role_of, in_active_company, role_label
@@ -363,10 +364,8 @@ def validar_adjunto(archivo) -> tuple[str, str]:
         raise _invalido("attachment", "Falta el nombre del archivo.")
     archivo.name = nombre
     if archivo.size > TAMANO_MAXIMO_ADJUNTO:
-        megas = TAMANO_MAXIMO_ADJUNTO // (1024 * 1024)
         raise _invalido(
-            "attachment",
-            f"El archivo pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es {megas} MB.",
+            "attachment", mensaje_de_tamano("El archivo", archivo.size, TAMANO_MAXIMO_ADJUNTO)
         )
     try:
         extension = validar_archivo(

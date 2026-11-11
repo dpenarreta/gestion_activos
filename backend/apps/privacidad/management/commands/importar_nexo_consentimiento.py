@@ -112,6 +112,7 @@ class Command(BaseCommand):
         w(f"  Ya importadas antes (se saltan): {informe.ya_importadas}")
         w(f"  Sin fecha (no se importan): {informe.sin_fecha}")
         w(f"  Sin texto de Nexo vigente en su fecha (regía el de por defecto): {informe.sin_texto}")
+        w(f"  Copiadas al registro común de Protección de datos: {informe.en_registro_comun}")
         w(
             "  Se registran con la versión «Nexo» como constancia previa: cada persona "
             "acepta una vez el aviso vigente de la intranet."

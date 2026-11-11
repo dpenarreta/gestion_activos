@@ -25,6 +25,12 @@ import {
   mensajeDeError,
 } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
+import {
+  olvidarTextosVigentes,
+  useTextoVigente,
+} from "../../hooks/useTextoVigente";
+import { CLAVES_TEXTO } from "../Privacidad/privacidadComunes";
+import { CasillaDeAceptacion } from "./CasillaDeAceptacion";
 import { MiAniversario } from "./MiAniversario";
 import { MiCargo } from "./MiCargo";
 import { MiCumpleanos } from "./MiCumpleanos";
@@ -90,6 +96,9 @@ const CAMPOS_PROPIOS = new Set([
   "telefono_corporativo",
   "telefono",
   "acepta_telefono",
+  // El área también (US-005, 11/11/2026): el rechazo «la cambia Gestión
+  // Humana» o «elija un área activa» se entiende junto al campo.
+  "area",
 ]);
 
 /**
@@ -107,7 +116,7 @@ export function FormularioMisDatos({
     nombres: datos.nombres ?? "",
     apellidos: datos.apellidos ?? "",
     telefono: datos.telefono ?? "",
-    area: datos.area?.id ?? "",
+    area: areaInicial(datos),
     agencia: datos.agencia?.id ?? "",
     cargo: datos.cargo?.id ?? "",
     // Autoriza guardar su teléfono y que la empresa lo use para contactarlo
@@ -130,12 +139,82 @@ export function FormularioMisDatos({
   // grupo es un `radiogroup` con `aria-invalid`, y cada radio enlaza el
   // motivo).
   const primeraOpcion = useRef(null);
+  // La casilla de la autorización cuando no hay texto: su «Reintentar».
+  const casillaTelefono = useRef(null);
   // Ya tiene cargo: lo eligió (o se lo asignaron) y no lo cambia desde aquí.
   const cargoFijo = Boolean(datos.cargo);
-  const avisoCargo = !cargoFijo && valores.cargo !== "";
+  // El área se elige una sola vez, como el cargo (US-005, 11/11/2026): con
+  // `area_fija` ya la guardó y solo la cambia Gestión Humana. Se usa la
+  // marca del servidor y no si `area` viene vacía: puede venir de nómina sin
+  // que la persona la haya guardado.
+  const areaFija = Boolean(datos.area_fija);
+  // El área que hay en el campo es la del cargo (el elegido ahora o el que ya
+  // tenía asignado): se dice con una nota, que desaparece si la persona la
+  // cambia.
+  const [areaDelCargo, setAreaDelCargo] = useState(
+    () => areaInicial(datos) !== (datos.area?.id ?? ""),
+  );
+  // Elegir el cargo cambió el área (la llenó, la reemplazó o la vació): se
+  // dice junto al cargo, que es donde está la persona (auditoría UX,
+  // 11/11/2026).
+  const [anuncioArea, setAnuncioArea] = useState(null);
+  // Lo que se elige una sola vez y cambió: se advierte antes de guardar.
+  const eligeCargo = !cargoFijo && valores.cargo !== "";
+  const eligeArea =
+    !areaFija && String(valores.area) !== String(datos.area?.id ?? "");
+  const avisoUnaVez = eligeCargo || eligeArea;
   const fijar = (campo) => (e) =>
     setValores((actual) => ({ ...actual, [campo]: e.target.value }));
+
+  /** Elegir un cargo propone su área (la de su unidad del organigrama o la de
+   * la superior). Si el cargo no tiene una, el área queda como estaba. */
+  function elegirCargo(e) {
+    const cargo = e.target.value;
+    const area = areaFija
+      ? null
+      : (datos.cargos ?? []).find((c) => String(c.id) === cargo)?.area;
+    const habia = String(valores.area);
+    // Sin área en el cargo nuevo, la que venía del cargo anterior ya no vale:
+    // se vacía para que la elija. La elegida a mano se respeta.
+    const nueva = area ? String(area.id) : areaDelCargo ? "" : habia;
+    setValores((actual) => ({ ...actual, cargo, area: nueva }));
+    // Todo cambio del área se anuncia junto al cargo, venga de donde venga
+    // (QA-UX N2, 11/11/2026).
+    if (habia === nueva) setAnuncioArea(null);
+    else if (area)
+      setAnuncioArea(`Al elegirlo, su área pasó a «${area.nombre}».`);
+    else setAnuncioArea("Este cargo no tiene un área asignada: elíjala.");
+    setAreaDelCargo(Boolean(area));
+    if (area) setErrores((actual) => ({ ...actual, area: undefined }));
+  }
+
+  function elegirArea(e) {
+    fijar("area")(e);
+    setAreaDelCargo(false);
+    setAnuncioArea(null);
+    setErrores((actual) => ({ ...actual, area: undefined }));
+  }
   const autorizacion = datos.telefono_autorizacion;
+  // El texto de la autorización llega con los datos; si no llegó, se pide al
+  // catálogo de protección de datos (US-004). Sin texto del servidor no se
+  // puede autorizar: no hay respaldo fijo.
+  // Si el servidor dice que el texto cambió mientras se leía (400 en
+  // `acepta_telefono`), se trae el vigente del catálogo y se pide de nuevo.
+  const [textoDelCatalogo, setTextoDelCatalogo] = useState(false);
+  const usarCatalogo = textoDelCatalogo || !autorizacion?.texto;
+  const textoTelefono = useTextoVigente(
+    usarCatalogo ? CLAVES_TEXTO.TELEFONO : null,
+  );
+  const textoDeAutorizacion = usarCatalogo
+    ? textoTelefono.delServidor
+      ? textoTelefono.texto
+      : ""
+    : autorizacion.texto;
+  // La versión que se muestra viaja al guardar: si ya no es la vigente, el
+  // servidor lo rechaza junto a la casilla.
+  const versionTelefono = usarCatalogo
+    ? textoTelefono.version
+    : (autorizacion?.version ?? null);
   const conCorporativo = valores.tiene_telefono_corporativo === true;
   // Uno u otro (11/11/2026): con «Sí» solo el corporativo, obligatorio y sin
   // autorización; con «No» solo el personal, opcional, y solo entonces la
@@ -164,11 +243,27 @@ export function FormularioMisDatos({
     } else if (conCorporativo && valores.telefono_corporativo.trim() === "") {
       faltan.telefono_corporativo = "Escriba su teléfono corporativo.";
     }
-    if (conTelefono && !valores.acepta_telefono) {
+    if (conTelefono && !textoDeAutorizacion) {
+      // Sin el texto del servidor no hay qué autorizar (cargando o no
+      // llegó): se dice qué hacer en vez de cortar sin aviso (QA-UX US-004).
+      faltan.acepta_telefono = SIN_AUTORIZACION;
+    } else if (conTelefono && !valores.acepta_telefono) {
       faltan.acepta_telefono =
         "Para guardar su teléfono personal, marque la autorización.";
     }
     return faltan;
+  }
+
+  /** Sin texto de la autorización, el foco va a «Reintentar» (si el texto
+   * no llegó) o, mientras carga, al teléfono personal, que es lo que se
+   * puede borrar para guardar lo demás. */
+  function enfocarSinAutorizacion() {
+    requestAnimationFrame(() => {
+      const destino =
+        casillaTelefono.current?.querySelector("button") ??
+        formulario.current?.querySelector("#md-telefono");
+      destino?.focus();
+    });
   }
 
   async function guardar(evento) {
@@ -178,7 +273,9 @@ export function FormularioMisDatos({
       setErrores(faltan);
       setError(null);
       if (faltan.tiene_telefono_corporativo) primeraOpcion.current?.focus();
-      else enfocarPrimerError(formulario.current);
+      else if (faltan.acepta_telefono === SIN_AUTORIZACION) {
+        enfocarSinAutorizacion();
+      } else enfocarPrimerError(formulario.current);
       return;
     }
     setGuardando(true);
@@ -195,6 +292,9 @@ export function FormularioMisDatos({
             : "",
           telefono: sinCorporativo ? valores.telefono : "",
           acepta_telefono: conTelefono && valores.acepta_telefono,
+          ...(conTelefono && valores.acepta_telefono && versionTelefono
+            ? { version_telefono: versionTelefono }
+            : {}),
         }),
       );
     } catch (err) {
@@ -205,6 +305,15 @@ export function FormularioMisDatos({
         Object.entries(porCampo).filter(([campo]) => CAMPOS_PROPIOS.has(campo)),
       );
       setErrores(propios);
+      if (propios.acepta_telefono && conTelefono) {
+        // El texto cambió: se trae el nuevo y la casilla vuelve a vacía.
+        if (usarCatalogo) textoTelefono.reintentar();
+        else {
+          olvidarTextosVigentes(CLAVES_TEXTO.TELEFONO);
+          setTextoDelCatalogo(true);
+        }
+        setValores((actual) => ({ ...actual, acepta_telefono: false }));
+      }
       const soloPropios =
         Object.keys(porCampo).length > 0 &&
         Object.keys(porCampo).every((campo) => CAMPOS_PROPIOS.has(campo)) &&
@@ -224,7 +333,21 @@ export function FormularioMisDatos({
   const errorPregunta = errores.tiene_telefono_corporativo;
   const errorCorporativo = errores.telefono_corporativo;
   const errorPersonal = errores.telefono;
-  const errorAutorizacion = errores.acepta_telefono;
+  // Si el texto llega después, el aviso de que faltaba ya no aplica.
+  const errorAutorizacion =
+    errores.acepta_telefono === SIN_AUTORIZACION && textoDeAutorizacion
+      ? undefined
+      : errores.acepta_telefono;
+  const errorArea = errores.area;
+  const descripcionArea =
+    [
+      errorArea && "md-area-error",
+      "md-area-ayuda",
+      areaDelCargo && "md-area-nota",
+      avisoUnaVez && !areaFija && "md-una-vez",
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
   // Tenía un número guardado y cambia la respuesta: al guardar se quita.
   const quitaCorporativo =
     sinCorporativo && Boolean(datos.telefono_corporativo);
@@ -460,7 +583,17 @@ export function FormularioMisDatos({
         </div>
       )}
       {/* La autorización es solo del personal: el corporativo no la pide. */}
-      {conTelefono && (
+      {conTelefono && !textoDeAutorizacion && (
+        <div className="col-12" ref={casillaTelefono}>
+          <CasillaDeAceptacion
+            id="md-acepta-telefono"
+            vigente={textoTelefono}
+            etiquetaNeutra="Autorizo el uso de mi teléfono personal"
+            error={errorAutorizacion}
+          />
+        </div>
+      )}
+      {conTelefono && textoDeAutorizacion && (
         <div className="col-12">
           <div className="form-check mis-datos__autorizacion">
             <input
@@ -491,8 +624,7 @@ export function FormularioMisDatos({
               }}
             />
             <label className="form-check-label" htmlFor="md-acepta-telefono">
-              {autorizacion?.texto ??
-                "Autorizo a la empresa a guardar mi número de teléfono personal y a que otras personas de la empresa lo usen para contactarme."}
+              {textoDeAutorizacion}
             </label>
             {errorAutorizacion && (
               <div
@@ -516,93 +648,146 @@ export function FormularioMisDatos({
           </div>
         </div>
       )}
-      <div className="col-12 col-md-4">
-        <label className="form-label" htmlFor="md-area">
-          Área
-          <MarcaObligatorio />
-        </label>
-        <select
-          id="md-area"
-          className="form-select"
-          required
-          value={valores.area}
-          onChange={fijar("area")}
-        >
-          <option value="">Elija su área</option>
-          {(datos.areas ?? []).map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.nombre}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="col-12 col-md-4">
-        <label className="form-label" htmlFor="md-agencia">
-          Agencia
-          <MarcaObligatorio />
-        </label>
-        <select
-          id="md-agencia"
-          className="form-select"
-          required
-          value={valores.agencia}
-          onChange={fijar("agencia")}
-        >
-          <option value="">Elija su agencia</option>
-          {(datos.agencias ?? []).map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.nombre}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="col-12 col-md-4">
-        <label className="form-label" htmlFor="md-cargo">
-          Cargo
-          <MarcaObligatorio />
-        </label>
-        {/* Del catálogo del organigrama; obligatorio. Se elige una sola vez:
-            después lo cambia TI o la administración. */}
-        <select
-          id="md-cargo"
-          className="form-select"
-          required
-          disabled={cargoFijo}
-          aria-describedby={
-            avisoCargo ? "md-cargo-ayuda md-cargo-aviso" : "md-cargo-ayuda"
-          }
-          value={valores.cargo}
-          onChange={fijar("cargo")}
-        >
-          <option value="">
-            {(datos.cargos ?? []).length > 0
-              ? "Elija su cargo"
-              : "Sin cargos disponibles"}
-          </option>
-          {(datos.cargos ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
-        <div id="md-cargo-ayuda" className="form-text">
-          {cargoFijo
-            ? "Su cargo solo lo cambia TI o la administración del sistema."
-            : "Lo elige una sola vez."}
+      {/* Cargo y área juntos y en ese orden, en su propia fila: elegir el
+          cargo llena el área (auditoría UX, 11/11/2026). */}
+      <fieldset className="col-12 mis-datos__puesto">
+        <legend className="form-label fw-semibold">Su puesto</legend>
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <label className="form-label" htmlFor="md-cargo">
+              Cargo
+              <MarcaObligatorio />
+            </label>
+            {/* Del catálogo del organigrama; obligatorio. Se elige una sola vez:
+            después lo cambia Gestión Humana. */}
+            <select
+              id="md-cargo"
+              className="form-select"
+              required
+              disabled={cargoFijo}
+              aria-describedby={[
+                "md-cargo-ayuda",
+                anuncioArea && "md-cargo-area",
+                avisoUnaVez && !cargoFijo && "md-una-vez",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              value={valores.cargo}
+              onChange={elegirCargo}
+            >
+              <option value="">
+                {(datos.cargos ?? []).length > 0
+                  ? "Elija su cargo"
+                  : "Sin cargos disponibles"}
+              </option>
+              {(datos.cargos ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            <div id="md-cargo-ayuda" className="form-text">
+              {cargoFijo ? (
+                <>
+                  <Icon name="lock" /> Si no es el correcto, pídalo a Gestión
+                  Humana por la Mesa de ayuda.
+                </>
+              ) : (
+                "Lo elige una sola vez."
+              )}
+            </div>
+            {/* Montado siempre para que el lector anuncie el cambio del área. */}
+            <div role="status" aria-live="polite">
+              {anuncioArea && (
+                <div id="md-cargo-area" className="form-text">
+                  <Icon name="arrow-left-right" /> {anuncioArea}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="col-12 col-md-4">
+            <label className="form-label" htmlFor="md-area">
+              Área
+              <MarcaObligatorio />
+            </label>
+            <select
+              id="md-area"
+              className={`form-select${errorArea ? " is-invalid" : ""}`}
+              required
+              disabled={areaFija}
+              aria-invalid={errorArea ? "true" : undefined}
+              aria-describedby={descripcionArea}
+              value={valores.area}
+              onChange={elegirArea}
+            >
+              <option value="">Elija su área</option>
+              {/* La guardada puede estar inactiva y no venir en la lista: se
+              muestra igual, marcada, para que el campo no aparezca vacío
+              (QA-FUNC O-4). */}
+              {datos.area &&
+                !(datos.areas ?? []).some((a) => a.id === datos.area.id) && (
+                  <option value={datos.area.id}>
+                    {datos.area.nombre} (inactiva)
+                  </option>
+                )}
+              {(datos.areas ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre}
+                </option>
+              ))}
+            </select>
+            {errorArea && (
+              <div id="md-area-error" className="invalid-feedback d-block">
+                <Icon name="exclamation-circle" /> {errorArea}
+              </div>
+            )}
+            <div id="md-area-ayuda" className="form-text">
+              {areaFija ? (
+                <>
+                  <Icon name="lock" /> Si no es la correcta, pídala a Gestión
+                  Humana por la Mesa de ayuda.
+                </>
+              ) : (
+                "La elige una sola vez; revise que sea la de su trabajo."
+              )}
+            </div>
+            {areaDelCargo && (
+              <div id="md-area-nota" className="form-text">
+                <Icon name="diagram-3" /> Área de su cargo
+              </div>
+            )}
+          </div>
+          <div className="col-12 col-md-4">
+            <label className="form-label" htmlFor="md-agencia">
+              Agencia
+              <MarcaObligatorio />
+            </label>
+            <select
+              id="md-agencia"
+              className="form-select"
+              required
+              value={valores.agencia}
+              onChange={fijar("agencia")}
+            >
+              <option value="">Elija su agencia</option>
+              {(datos.agencias ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      </fieldset>
       {/* No es una alerta: no es un error, y anunciarla interrumpía al elegir
-          el cargo. Es la descripción del campo, que el lector de pantalla lee
-          al llegar a él (auditoría UX/UI, fase 2, 28/10/2026). */}
-      {avisoCargo && (
+          el cargo. Es la descripción del cargo y del área, que el lector de
+          pantalla lee al llegar a ellos (auditoría UX/UI, fase 2, 28/10/2026;
+          con el área, US-005). */}
+      {avisoUnaVez && (
         <div className="col-12">
           <div className="mz-alert mz-alert--warn">
             <Icon name="exclamation-triangle" />
-            <span id="md-cargo-aviso">
-              <strong>Revise que su cargo sea el correcto.</strong> Una vez
-              guardado, no podrá cambiarlo usted: solo TI o la administración
-              del sistema pueden modificarlo.
-            </span>
+            <span id="md-una-vez">{textoUnaVez(!cargoFijo, !areaFija)}</span>
           </div>
         </div>
       )}
@@ -613,6 +798,49 @@ export function FormularioMisDatos({
         </button>
       </div>
     </form>
+  );
+}
+
+/** Se guarda con un teléfono personal pero no hay texto de la autorización
+ * (cargando o no llegó). */
+const SIN_AUTORIZACION =
+  "No se pudo cargar la autorización: reintente o borre el teléfono personal para guardar lo demás.";
+
+/** El área con que abre el formulario: la guardada o, si todavía no tiene
+ * ninguna, la del cargo que ya le asignaron (QA-FUNC O-1, 11/11/2026). */
+function areaInicial(datos) {
+  if (datos.area) return datos.area.id;
+  if (!datos.area_fija && datos.area_del_cargo) {
+    return String(datos.area_del_cargo.id);
+  }
+  return "";
+}
+
+/** El aviso de lo que se elige una sola vez, según lo que todavía puede
+ * elegir. Quién lo cambia después y cómo pedirlo es el mismo texto en toda
+ * la pantalla (auditoría UX, 11/11/2026). */
+function textoUnaVez(cargo, area) {
+  if (cargo && area) {
+    return (
+      <>
+        <strong>Revise que su cargo y su área sean los correctos.</strong> Una
+        vez guardados, no podrá cambiarlos usted: si no lo son, pídalo a Gestión
+        Humana por la Mesa de ayuda.
+      </>
+    );
+  }
+  return cargo ? (
+    <>
+      <strong>Revise que su cargo sea el correcto.</strong> Una vez guardado, no
+      podrá cambiarlo usted: si no lo es, pídalo a Gestión Humana por la Mesa de
+      ayuda.
+    </>
+  ) : (
+    <>
+      <strong>Revise que su área sea la correcta.</strong> Una vez guardada, no
+      podrá cambiarla usted: si no lo es, pídala a Gestión Humana por la Mesa de
+      ayuda.
+    </>
   );
 }
 
@@ -723,6 +951,9 @@ function SeccionMisDatos() {
                 datos.tiene_telefono_corporativo,
                 datos.telefono_corporativo,
                 datos.area,
+                // Al guardarla por primera vez el área queda fija aunque
+                // sea la misma que traía de nómina (US-005).
+                datos.area_fija,
                 datos.agencia,
               ])}
               datos={datos}

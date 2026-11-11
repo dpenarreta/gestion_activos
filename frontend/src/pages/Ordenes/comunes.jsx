@@ -76,3 +76,10 @@ export function Sede({ sede }) {
     </>
   );
 }
+
+/** El día de hoy en el navegador, aaaa-mm-dd (local, no UTC: a las 19:00 de
+ * Ecuador `toISOString()` ya da el día siguiente). */
+export function hoyLocal() {
+  const ahora = new Date();
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+}

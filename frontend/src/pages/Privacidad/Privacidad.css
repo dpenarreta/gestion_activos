@@ -585,3 +585,199 @@
     min-height: 44px;
   }
 }
+
+/* --- Protección de datos: textos y aceptaciones (US-004, 11/11/2026) ------- */
+
+.pv-modulo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-modulo__titulo {
+  margin: 8px 0 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--mz-border-strong);
+}
+
+.pv-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pv-seccion__titulo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mz-ink-soft);
+  margin: 0;
+}
+
+.pv-lista-textos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pv-texto-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pv-texto-tarjeta:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.pv-texto-tarjeta__nombre {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Los textos largos: tres líneas y «Ver el texto completo». */
+.pv-texto-resumen {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.pv-texto-linea,
+.pv-texto-tarjeta__texto {
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.pv-aviso-previa .pv-aviso-texto p:last-child,
+.pv-texto-tarjeta__texto p:last-child {
+  margin-bottom: 0;
+}
+
+/* El índice de módulos y el buscador del catálogo. */
+.pv-indice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pv-indice__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pv-indice__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 99px;
+  color: var(--mz-link);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.pv-indice__chip:hover {
+  background: var(--mz-sunken);
+}
+
+.pv-indice__chip:focus-visible {
+  outline: 2px solid var(--mz-foco);
+  outline-offset: 2px;
+}
+
+.pv-indice__buscar {
+  margin-left: auto;
+  min-width: 240px;
+}
+
+/* Al saltar con el índice, el módulo no queda bajo la barra superior. */
+.pv-modulo {
+  scroll-margin-top: 80px;
+}
+
+/* La tabla de aceptaciones: la persona no se parte letra a letra y «Ver
+   texto» va en una línea. */
+.pv-aceptaciones .mz-table th:first-child,
+.pv-aceptaciones .mz-table td:first-child {
+  min-width: 160px;
+}
+
+.pv-boton-ver {
+  white-space: nowrap;
+}
+
+.pv-estado-aceptacion {
+  display: inline-block;
+}
+
+.pv-vistas {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+
+.pv-datos__ancho {
+  grid-column: 1 / -1;
+}
+
+.pv-aceptaciones .mz-table td {
+  vertical-align: top;
+}
+
+@media (max-width: 880px) {
+  .pv-filtros .mz-inline-field {
+    flex: 1 1 100%;
+  }
+
+  .pv-filtros .mz-inline-field .form-select {
+    width: 100%;
+  }
+
+  .pv-filtros .btn {
+    flex: 1 1 100%;
+    margin-left: 0 !important;
+  }
+
+  .pv-indice__buscar {
+    flex: 1 1 100%;
+    margin-left: 0;
+    min-width: 0;
+  }
+}
+
+@media (any-pointer: coarse) {
+  .pv-filtros .form-select,
+  .pv-filtros .btn,
+  .pv-filtros .mz-fb-search input,
+  .pv-vistas .btn,
+  .pv-acciones .btn,
+  .pv-casilla,
+  .pv-enlace,
+  .pv-detalles summary,
+  .pv-indice__chip,
+  .pv-indice__buscar input,
+  .pv-formulario .form-control,
+  .pv-consentimiento .form-select {
+    min-height: 44px;
+  }
+
+  .pv-casilla .form-check-input {
+    width: 24px;
+    height: 24px;
+  }
+}

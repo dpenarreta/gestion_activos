@@ -147,6 +147,9 @@ function errorApi(status, code, message, details = null) {
 const servicio = {};
 function reiniciarServicio() {
   Object.assign(servicio, {
+    // Los textos del catálogo (US-004): por defecto no llegan y se ve el de
+    // respaldo, que es el de siempre.
+    textoVigente: vi.fn().mockRejectedValue(new Error("sin servidor")),
     yo: vi.fn().mockResolvedValue(ME_TITULAR),
     misSolicitudes: vi.fn().mockResolvedValue([solicitud(), RESUELTA, VENCIDA]),
     miSolicitud: vi
@@ -254,6 +257,48 @@ describe("Mi perfil: pestañas", () => {
 });
 
 describe("Mis derechos: explicación y lista", () => {
+  it("la explicación y la de cada tipo son las del catálogo (US-004)", async () => {
+    servicio.yo.mockResolvedValue({ ...ME_TITULAR, plazo_dias: 10 });
+    const textos = {
+      derechos_explicacion:
+        "La ley le permite pedir sus datos; le respondemos en 10 días como máximo.",
+      derechos_rectificacion: "Arreglar un dato suyo que no está bien.",
+    };
+    servicio.textoVigente.mockImplementation((clave) =>
+      textos[clave]
+        ? Promise.resolve({
+            clave,
+            version: 2,
+            texto: textos[clave],
+            titulo: "",
+          })
+        : Promise.reject(new Error("no está")),
+    );
+    pintarPerfil();
+    expect(
+      await screen.findByText(/La ley le permite pedir sus datos/),
+    ).toBeInTheDocument();
+    // «10 días» sigue resaltado.
+    expect(screen.getByText("10 días").tagName).toBe("STRONG");
+    const derechos = screen.getByRole("region", {
+      name: /Sus derechos sobre sus datos personales/,
+    });
+    await waitFor(() =>
+      expect(
+        within(derechos).getByRole("button", {
+          name: "Pedir corrección de mis datos",
+        }),
+      ).toHaveAccessibleDescription("Arreglar un dato suyo que no está bien."),
+    );
+    // La que no llegó queda con el texto de siempre.
+    expect(
+      within(derechos).getByRole("button", {
+        name: "Pedir acceso a mis datos",
+      }),
+    ).toHaveAccessibleDescription(/Saber qué datos personales suyos/);
+    expect(servicio.textoVigente).toHaveBeenCalledWith("derechos_explicacion");
+  });
+
   it("explica los derechos con el plazo del servidor", async () => {
     servicio.yo.mockResolvedValue({ ...ME_TITULAR, plazo_dias: 10 });
     pintarPerfil();
@@ -1206,11 +1251,22 @@ describe("Protección de datos en el menú", () => {
     expect(ids(["auditoria.ver", "activos.ver"])).not.toContain("privacidad");
   });
 
+  it("aparece con solo privacidad.textos (US-004), sin la insignia", () => {
+    const item = getVisibleAdminMenu(["privacidad.textos"]).find(
+      (i) => i.id === "privacidad",
+    );
+    expect(item).toBeDefined();
+    expect(item.path).toBe("/admin/privacidad");
+    // Las vencidas son de las solicitudes: sin verlas, no se piden.
+    expect(item.insignia).toBeUndefined();
+  });
+
   it("lleva la insignia de vencidas, dicha en texto", () => {
     const item = getVisibleAdminMenu(["privacidad.ver"]).find(
       (i) => i.id === "privacidad",
     );
-    expect(item.path).toBe("/admin/privacidad/solicitudes");
+    // `/admin/privacidad` lleva a la primera pestaña que puede abrir.
+    expect(item.path).toBe("/admin/privacidad");
     expect(item.insignia).toBe("privacidad_vencidas");
     expect(TEXTOS.privacidad_vencidas[0]).toMatch(/vencidas/);
     expect(sufijoDeInsignia("privacidad_vencidas", 1)).toBe(

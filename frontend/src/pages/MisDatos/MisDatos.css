@@ -1,11 +1,13 @@
-/* «Mi perfil» → la pregunta del teléfono corporativo (10/11/2026). */
+/* «Mi perfil» → la pregunta del teléfono corporativo (10/11/2026) y el
+   grupo «Su puesto» (cargo, área y agencia; US-005). */
 .mis-datos__pregunta {
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-.mis-datos__pregunta legend {
+.mis-datos__pregunta legend,
+.mis-datos__puesto legend {
   float: none;
   width: auto;
 }
@@ -35,7 +37,7 @@
 }
 
 /* Al tacto, cada opción mide al menos 44 px de alto y de ancho. */
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   .mis-datos__si-no .form-check {
     min-height: 44px;
     min-width: 88px;
@@ -51,5 +53,15 @@
     align-items: center;
     min-height: 44px;
     padding-right: 8px;
+  }
+}
+
+/* Los desplegables del perfil (área, agencia, cargo) al tacto miden 44 px
+   (US-005, 11/11/2026). */
+@media (any-pointer: coarse) {
+  #md-area,
+  #md-agencia,
+  #md-cargo {
+    min-height: 44px;
   }
 }

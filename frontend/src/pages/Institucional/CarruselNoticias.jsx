@@ -5,10 +5,13 @@ import { Icon } from "../../components/common/Icon/Icon";
 import { blobDeImagen } from "../../utils/blobs";
 
 /**
- * La medida en que se deben hacer las imágenes del carrusel. En Inicio ocupa
- * la mitad del ancho y siempre 16:10 (es el que fija el alto de la fila; el
- * calendario se ajusta a él), así que una imagen de esta medida se ve
- * completa en cualquier pantalla.
+ * Las medidas recomendadas para las imágenes del carrusel. En Inicio ocupa la
+ * mitad del ancho y su marco es siempre 16:10 (es el que fija el alto de la
+ * fila; el calendario se ajusta a él). El 16:10 es el marco, no una exigencia
+ * (US-007, 11/11/2026): cada imagen se muestra completa (`contain`) y el
+ * espacio que sobra se rellena con ella misma desenfocada, así que una
+ * vertical (1000 × 1600, un afiche) también se ve entera, sin recortes. Una
+ * horizontal de esta medida es la que llena el marco.
  */
 export const MEDIDAS_CARRUSEL = {
   ancho: 1600,
@@ -21,6 +24,16 @@ export const MEDIDAS_CARRUSEL = {
 /** Lo mínimo que se deja una noticia antes de pasar a la siguiente: menos
  * no alcanza para leerla (auditoría UX/UI, 27/10/2026). */
 export const SEGUNDOS_MINIMOS = 5;
+
+/**
+ * La parte de abajo del marco que pueden tapar los puntos y la franja del
+ * título en escritorio. Se publica el peor caso (título y descripción de 2
+ * líneas cada uno, con relleno de 20 px arriba y 30 px abajo: ~38 % del
+ * alto), para que «Medidas» diga la verdad con cualquier texto. La misma
+ * cifra vale para horizontales y verticales, porque la franja cruza el marco
+ * entero (revisión UX de US-007, 11/11/2026).
+ */
+export const ZONA_INFERIOR = 0.4;
 
 /**
  * Trae las imágenes como blobs (no tienen URL pública) y devuelve sus
@@ -64,6 +77,42 @@ export function useImagenesDeNoticias(noticias) {
   }, [clave]);
 
   return { urls, fallidas };
+}
+
+/**
+ * La imagen completa (`object-fit: contain`) sobre ella misma desenfocada y
+ * oscurecida, para que una vertical o de otra proporción no deje bandas vacías
+ * ni se recorte (US-007, 11/11/2026). El fondo es decorativo: `aria-hidden` y
+ * como `background-image`, para que la única imagen que se anuncia sea la de
+ * delante, con su texto alternativo. Se usa en el carrusel y en la vista
+ * previa del formulario, para que esta muestre lo mismo que se verá.
+ */
+export function ImagenConFondo({ src, alt }) {
+  // En `url()` solo entran direcciones `blob:` creadas aquí (las imágenes no
+  // tienen URL pública): otra cosa podría cerrar las comillas e inyectar CSS.
+  // Sin una válida, queda el color de respaldo del fondo.
+  const fondo =
+    typeof src === "string" && /^blob:[^"\\\s()]+$/.test(src)
+      ? { backgroundImage: `url("${src}")` }
+      : undefined;
+  return (
+    <>
+      <div className="carrusel__fondo" aria-hidden="true" style={fondo} />
+      <img className="carrusel__imagen" src={src} alt={alt} />
+    </>
+  );
+}
+
+/** La franja con el título y la descripción, igual en el carrusel y en la
+ * vista previa del formulario. Sin ninguno de los dos, no se pinta. */
+export function TextoDeDiapositiva({ titulo, descripcion }) {
+  if (!titulo && !descripcion) return null;
+  return (
+    <div className="carrusel__texto">
+      {titulo && <strong>{titulo}</strong>}
+      {descripcion && <span>{descripcion}</span>}
+    </div>
+  );
 }
 
 /** Si la persona pidió menos movimiento en su sistema. */
@@ -154,33 +203,37 @@ export function CarruselNoticias({ noticias, segundos = 6 }) {
           aria-roledescription="diapositiva"
           aria-label={`${actual + 1} de ${total}${noticia.titulo ? `: ${noticia.titulo}` : ""}`}
         >
-          {url ? (
-            // Sin texto alternativo, la imagen es decorativa: el título y la
-            // descripción, que se leen debajo, dicen lo importante.
-            <img src={url} alt={noticia.texto_alternativo || ""} />
-          ) : fallo ? (
-            <div className="carrusel__cargando carrusel__cargando--fallo">
-              <Icon name="image" />
-              <span>Imagen no disponible</span>
-              {noticia.texto_alternativo && (
-                <small>{noticia.texto_alternativo}</small>
-              )}
-            </div>
-          ) : (
-            <div className="carrusel__cargando" role="status">
-              <span
-                className="spinner-border spinner-border-sm"
-                aria-hidden="true"
-              />
-              <span className="visually-hidden">Cargando imagen…</span>
-            </div>
-          )}
-          {(noticia.titulo || noticia.descripcion) && (
-            <div className="carrusel__texto">
-              {noticia.titulo && <strong>{noticia.titulo}</strong>}
-              {noticia.descripcion && <span>{noticia.descripcion}</span>}
-            </div>
-          )}
+          {/* La imagen va en su propio marco y la franja del título es su
+              hermana: en escritorio la franja va encima del marco; en el
+              teléfono, debajo, y el marco 16:10 queda entero para la imagen
+              (revisión UX de US-007). */}
+          <div className="carrusel__medio">
+            {url ? (
+              // Sin texto alternativo, la imagen es decorativa: el título y la
+              // descripción de la franja dicen lo importante.
+              <ImagenConFondo src={url} alt={noticia.texto_alternativo || ""} />
+            ) : fallo ? (
+              <div className="carrusel__cargando carrusel__cargando--fallo">
+                <Icon name="image" />
+                <span>Imagen no disponible</span>
+                {noticia.texto_alternativo && (
+                  <small>{noticia.texto_alternativo}</small>
+                )}
+              </div>
+            ) : (
+              <div className="carrusel__cargando" role="status">
+                <span
+                  className="spinner-border spinner-border-sm"
+                  aria-hidden="true"
+                />
+                <span className="visually-hidden">Cargando imagen…</span>
+              </div>
+            )}
+          </div>
+          <TextoDeDiapositiva
+            titulo={noticia.titulo}
+            descripcion={noticia.descripcion}
+          />
         </div>
       </div>
 

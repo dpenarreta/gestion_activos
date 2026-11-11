@@ -143,7 +143,10 @@ def test_el_cargo_se_elige_del_catalogo_y_es_obligatorio(db):
         analista = Cargo.objects.create(nombre="Analista de TI")
     respuesta = cliente.put(URL, {**base, "cargo": analista.id}, format="json")
     assert respuesta.json()["cargo"] == {"id": analista.id, "nombre": "Analista de TI"}
-    assert respuesta.json()["cargos"] == [{"id": analista.id, "nombre": "Analista de TI"}]
+    # Sin unidad, el cargo no tiene área que proponer (US-005).
+    assert respuesta.json()["cargos"] == [
+        {"id": analista.id, "nombre": "Analista de TI", "area": None}
+    ]
     assert respuesta.json()["faltan"] == []
 
 

@@ -84,13 +84,28 @@ def escenario(db):
     }
 
 
+def _proveedor_por_defecto():
+    proveedor, _ = Proveedor.objects.get_or_create(
+        nombre="Electro Servicios Andinos", defaults={"telefono": "02 245 1180"}
+    )
+    return proveedor
+
+
 def _crear(cliente, sede, **extra):
+    """Crea una orden como la crea la pantalla: desde US-006 con responsable
+    y fecha. Si la prueba no dice quién, la realiza un proveedor sin persona
+    (nadie más la ve ni recibe aviso) y la fecha es hoy."""
+    responsable = {}
+    if "tecnico" not in extra and "proveedor" not in extra:
+        responsable["proveedor"] = _proveedor_por_defecto().id
     datos = {
         "sede": sede.id,
         "categoria": "electrico",
         "prioridad": "alta",
         "titulo": "Sin luz en el área de cajas",
         "telefono_contacto": "099 418 2273",
+        "fecha_programada": timezone.localdate().isoformat(),
+        **responsable,
         **extra,
     }
     respuesta = cliente.post(BASE, datos, format="json")
@@ -98,14 +113,16 @@ def _crear(cliente, sede, **extra):
     return respuesta.data
 
 
-def test_la_orden_nace_numerada_por_anio_y_solicitada(escenario):
+def test_la_orden_nace_numerada_por_anio_y_programada(escenario):
     cliente = _cliente(escenario["solicitante"])
     primera = _crear(cliente, escenario["quito"])
     segunda = _crear(cliente, escenario["manta"])
     anio = timezone.localdate().year
     assert primera["numero"] == f"OT-{anio}-000001"
     assert segunda["numero"] == f"OT-{anio}-000002"
-    assert primera["estado"] == "solicitada"
+    # Desde US-006 nace con responsable y fecha: programada, como si se la
+    # hubiera asignado en el mismo momento.
+    assert primera["estado"] == "programada"
     assert primera["movimientos"][0]["descripcion"].startswith("Solicitó la orden")
 
 
@@ -262,7 +279,21 @@ def test_quien_pide_corrige_solo_mientras_nadie_la_tomo(escenario):
         .status_code
         == 200
     )
+    # Reasignada sigue siendo corregible: aún nadie empezó el trabajo.
     _cliente(e["coordinador"]).post(f"{url}asignar/", {"tecnico": e["tecnico"].id}, format="json")
+    assert (
+        _cliente(e["solicitante"])
+        .patch(url, {"descripcion": "También la bodega"}, format="json")
+        .status_code
+        == 200
+    )
+    # En ejecución ya la tomó alguien: no se corrige.
+    assert (
+        _cliente(e["tecnico"])
+        .post(f"{url}cambiar-estado/", {"estado": "en_ejecucion"}, format="json")
+        .status_code
+        == 200
+    )
     assert (
         _cliente(e["solicitante"]).patch(url, {"titulo": "Otra cosa"}, format="json").status_code
         == 403
@@ -284,14 +315,14 @@ def test_el_panel_cuenta_lo_mismo_que_el_listado(escenario):
     e = escenario
     cliente = _cliente(e["coordinador"])
     vencida = _crear(cliente, e["quito"], prioridad="media")
-    cliente.post(
-        f"{BASE}{vencida['id']}/asignar/",
-        {
-            "tecnico": e["tecnico"].id,
-            "fecha_programada": (timezone.localdate() - datetime.timedelta(days=3)).isoformat(),
-        },
-        format="json",
-    )
+    r = cliente.post(f"{BASE}{vencida['id']}/asignar/", {"tecnico": e["tecnico"].id}, format="json")
+    assert r.status_code == 200, r.data
+    # Desde US-006 nadie programa en el pasado: la orden se vence con el
+    # tiempo, y aquí se simula que ya pasaron tres días.
+    with usando_empresa(Empresa.objects.get(codigo="EMP")):
+        OrdenTrabajo.objects.filter(pk=vencida["id"]).update(
+            fecha_programada=timezone.localdate() - datetime.timedelta(days=3)
+        )
     _crear(cliente, e["manta"], prioridad="critica")
     _crear(cliente, e["manta"], prioridad="baja")
 

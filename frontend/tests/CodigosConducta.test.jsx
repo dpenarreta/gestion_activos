@@ -31,7 +31,6 @@ const servicio = {
   archivoDocumento: vi.fn(),
   confidencialidad: vi.fn(),
   aceptarConfidencialidad: vi.fn(),
-  guardarConfidencialidad: vi.fn(),
   aceptacionesConfidencialidad: vi.fn(),
   exportarAceptaciones: vi.fn(),
 };
@@ -243,8 +242,51 @@ describe("El acuerdo de confidencialidad", () => {
       await screen.findByTitle("Documento: Código de conducta"),
     ).toBeInTheDocument();
     expect(servicio.aceptarConfidencialidad).toHaveBeenCalledTimes(1);
+    // Con la versión que leyó (US-004).
+    expect(servicio.aceptarConfidencialidad).toHaveBeenCalledWith(4);
     expect(screen.getByText(/Aceptó el acuerdo de/)).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("si el acuerdo cambió mientras lo leía, trae el nuevo y lo dice", async () => {
+    servicio.aceptarConfidencialidad.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: "validation_error",
+            message: "Revise los datos.",
+            details: {
+              acepto: [
+                "El texto cambió mientras lo leía. Léalo de nuevo y acéptelo.",
+              ],
+            },
+          },
+        },
+      },
+    });
+    servicio.confidencialidad
+      .mockResolvedValueOnce({ ...ACUERDO, aceptado: false, aceptado_en: null })
+      .mockResolvedValueOnce({
+        ...ACUERDO,
+        version: 5,
+        texto: "Texto nuevo del acuerdo.",
+        aceptado: false,
+        aceptado_en: null,
+      });
+    pintar();
+    const ventana = await screen.findByRole("dialog", {
+      name: /Acuerdo de confidencialidad/,
+    });
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Acepto el acuerdo" }),
+    );
+    expect(
+      await within(ventana).findByText(/Léalo de nuevo y acéptelo/),
+    ).toBeInTheDocument();
+    expect(
+      await within(ventana).findByText("Texto nuevo del acuerdo."),
+    ).toBeInTheDocument();
   });
 
   it("aceptado, no se vuelve a presentar", async () => {
@@ -354,26 +396,44 @@ describe("Gestionar documentos", () => {
     ).toBeInTheDocument();
   });
 
-  it("configura el título y el texto del acuerdo", async () => {
-    servicio.guardarConfidencialidad.mockResolvedValue({
-      ...ACUERDO,
-      titulo: "Compromiso de reserva",
-    });
+  it("el acuerdo se ve de solo lectura y se edita en Protección de datos (US-004)", async () => {
+    // Quien tenía `codigos.acuerdo` recibió `privacidad.textos`.
+    permisos.lista = [...GESTION, "privacidad.textos"];
     pintar(<GestionDocumentosPage />);
     fireEvent.click(
       await screen.findByRole("tab", { name: "Acuerdo de confidencialidad" }),
     );
-    fireEvent.change(await screen.findByLabelText(/^Título/), {
-      target: { value: "Compromiso de reserva" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar acuerdo" }));
-    await waitFor(() =>
-      expect(servicio.guardarConfidencialidad).toHaveBeenCalledWith({
-        titulo: "Compromiso de reserva",
-        texto: ACUERDO.texto,
-      }),
+    expect(
+      await screen.findByRole("heading", { name: ACUERDO.titulo }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Texto del acuerdo" }),
+    ).toHaveTextContent(ACUERDO.texto);
+    // Ni campos ni «Guardar acuerdo»: un enlace a su texto en el catálogo.
+    expect(screen.queryByLabelText(/^Título/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Guardar acuerdo" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Protección de datos → Textos" }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/privacidad/textos?texto=acuerdo_confidencialidad",
     );
-    expect(await screen.findByText("Acuerdo guardado.")).toBeInTheDocument();
+  });
+
+  it("sin permiso para ver los textos, el aviso va sin enlace", async () => {
+    permisos.lista = ["codigos.acuerdo"];
+    pintar(<GestionDocumentosPage />);
+    expect(
+      await screen.findByRole("heading", { name: ACUERDO.titulo }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/se editan en/)).toHaveTextContent(
+      "Protección de datos → Textos",
+    );
+    expect(
+      screen.queryByRole("link", { name: /Protección de datos/ }),
+    ).toBeNull();
   });
 
   it("muestra quién falta, quién aceptó y cuándo", async () => {
@@ -488,6 +548,25 @@ describe("Gestionar documentos", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Publicar/ })).toBeNull();
     expect(servicio.documentos).not.toHaveBeenCalled();
+  });
+
+  it("las aceptaciones enlazan al registro completo de Protección de datos (US-004)", async () => {
+    permisos.lista = ["codigos.ver_aceptaciones", "privacidad.ver"];
+    servicio.aceptacionesConfidencialidad.mockResolvedValue({
+      total: 0,
+      aceptaron: 0,
+      pendientes: 0,
+      personas: [],
+    });
+    pintar(<GestionDocumentosPage />);
+    expect(
+      await screen.findByRole("link", {
+        name: "Protección de datos → Aceptaciones",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/privacidad/aceptaciones?clave=acuerdo_confidencialidad",
+    );
   });
 
   it("con cualquiera de los permisos se ofrece «Gestionar documentos»", async () => {

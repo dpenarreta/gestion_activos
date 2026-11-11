@@ -288,7 +288,7 @@ describe("Proponer idea", () => {
     );
     expect(problemaDelAdjunto(archivo("a.PDF", 10))).toBeNull();
     expect(problemaDelAdjunto(archivo("a.pdf", 9 * 1024 * 1024))).toBe(
-      "El archivo pesa 9 MB: el máximo es 8 MB.",
+      "El archivo pesa 9,00 MB: el máximo es 8 MB.",
     );
   });
 
@@ -305,7 +305,7 @@ describe("Proponer idea", () => {
     });
     expect(
       await within(ventana).findByText(
-        "El archivo pesa 9 MB: el máximo es 8 MB.",
+        "El archivo pesa 9,00 MB: el máximo es 8 MB.",
       ),
     ).toBeInTheDocument();
     expect(within(ventana).queryByText("grande.pdf")).not.toBeInTheDocument();

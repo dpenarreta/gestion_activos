@@ -61,4 +61,25 @@ export const ordenesService = {
   catalogos() {
     return apiClient.get(`${ORDENES}catalogos/`).then((res) => res.data);
   },
+  /**
+   * Quién puede realizar una orden, para «Quién la realiza» (US-006):
+   * `{proveedores: [{id, nombre}], personas: [{id, nombre, proveedor}]}`.
+   * El `proveedor` de cada persona es una aproximación (el de su última orden
+   * con proveedor): la pantalla lo propone, no lo fija.
+   */
+  responsables(q = "", { solo } = {}) {
+    // `solo: "proveedores"` deja fuera a las personas (el campo «Proveedor»).
+    return apiClient
+      .get(`${ORDENES}responsables/`, { params: solo ? { q, solo } : { q } })
+      .then((res) => res.data);
+  },
+  /**
+   * Registra un proveedor con los datos mínimos desde la orden (US-006):
+   * `{nombre, telefono?, correo?, contacto?, identificacion?}` → `{id, nombre}`.
+   */
+  registrarProveedor(payload) {
+    return apiClient
+      .post(`${ORDENES}proveedores/`, payload)
+      .then((res) => res.data);
+  },
 };

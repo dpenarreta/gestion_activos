@@ -37,6 +37,10 @@ SENSITIVE_FIELD_FRAGMENTS = [
     "documento",
     "cedula",
     "cédula",
+    # RUC o cédula de un proveedor: si es un técnico independiente registrado
+    # como proveedor (US-006, 11/11/2026), es su número de cédula.
+    "identificacion",
+    "identificación",
 ]
 
 

@@ -165,3 +165,168 @@
 .ordenes-recorrido .nota {
   white-space: pre-wrap;
 }
+
+/* «Quién la realiza» al crear una orden (US-006, 11/11/2026): la lista de
+   proveedores y personas cuelga del campo. */
+.ordenes-responsable {
+  position: relative;
+}
+
+.ordenes-responsable__control {
+  display: flex;
+  gap: 8px;
+}
+
+.ordenes-responsable__control .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ordenes-responsable__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  margin-top: 4px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border-strong);
+  border-radius: 8px;
+  box-shadow: var(--mz-shadow-2);
+  max-height: min(22rem, 60vh);
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.ordenes-responsable__panel[hidden] {
+  display: none;
+}
+
+/* Mientras llegan las nuevas, las anteriores se quedan, atenuadas. */
+.ordenes-responsable__panel[aria-busy="true"] [role="listbox"] {
+  opacity: 0.6;
+}
+
+.ordenes-responsable__grupo {
+  padding: 6px 10px 2px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mz-ink-soft);
+}
+
+.ordenes-responsable__opcion {
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--mz-ink);
+  overflow-wrap: anywhere;
+}
+
+.ordenes-responsable__opcion small {
+  display: block;
+  color: var(--mz-ink-soft);
+}
+
+.ordenes-responsable__opcion.is-activa {
+  background: var(--mz-sunken);
+  outline: 2px solid var(--mz-foco);
+  outline-offset: -2px;
+}
+
+.ordenes-responsable__opcion.is-elegida {
+  font-weight: 600;
+}
+
+.ordenes-responsable__check {
+  margin-right: 6px;
+  color: var(--mz-blue-500);
+}
+
+/* La fila de registrar cierra siempre la lista. */
+.ordenes-responsable__opcion--registrar {
+  border-top: 1px solid var(--mz-border);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.ordenes-responsable__vacio {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--mz-ink-soft);
+}
+
+/* Los dos bloques del alta: «Qué y dónde» y «Quién y para cuándo». */
+.ordenes-grupo {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ordenes-grupo__titulo {
+  float: none;
+  width: 100%;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--mz-border);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+/* «Proveedor (opcional)» cuelga de la persona elegida: sangrado y con borde
+   a la izquierda, para que se lea como parte de «Quién la realiza». */
+.ordenes-proveedor-de-persona {
+  margin-left: 12px;
+  padding-left: 14px;
+  border-left: 3px solid var(--mz-border-strong);
+}
+
+.ordenes-aviso {
+  margin: 6px 0 0;
+  color: var(--mz-ink-soft);
+}
+
+/* «Contacto (al menos uno)» en la ventana del proveedor nuevo. */
+.ordenes-contacto {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ordenes-contacto__titulo {
+  float: none;
+  width: 100%;
+  font-size: inherit;
+}
+
+.ordenes-registrar-proveedor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Táctil: opciones, botones y campos a 44 px como mínimo. `any-pointer` y
+   no `pointer`: un portátil con pantalla táctil también se toca. */
+@media (any-pointer: coarse) {
+  .ordenes-responsable__opcion {
+    min-height: 44px;
+    padding-block: 10px;
+  }
+
+  /* Todos los controles de las pantallas de órdenes y de sus ventanas
+     (QA-UX, ronda 2, 11/11/2026). */
+  .ordenes-page .form-control,
+  .ordenes-page .form-select,
+  .ordenes-page .btn,
+  .ordenes-page .mz-close,
+  .ordenes-responsable__reintentar {
+    min-height: 44px;
+  }
+
+  .ordenes-page .mz-close {
+    min-width: 44px;
+  }
+}

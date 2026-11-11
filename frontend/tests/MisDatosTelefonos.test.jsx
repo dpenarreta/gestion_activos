@@ -24,6 +24,15 @@ const misDatos = {
   herramientas: vi.fn(),
 };
 vi.mock("../src/api/misDatosService", () => ({ misDatosService: misDatos }));
+// Si los datos no traen el texto de la autorización, se pide al catálogo
+// (US-004). Por defecto no responde.
+const privacidad = {
+  textoVigente: vi.fn(() => Promise.reject(new Error("sin servidor"))),
+};
+vi.mock("../src/api/privacidadService", async (importOriginal) => ({
+  ...(await importOriginal()),
+  privacidadService: privacidad,
+}));
 // Lo que cuelga del formulario no se prueba aquí.
 vi.mock("../src/pages/MisDatos/MiCargo", () => ({ MiCargo: () => null }));
 vi.mock("../src/pages/MisDatos/MiSupervision", () => ({
@@ -186,6 +195,72 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     expect(screen.getByLabelText(/Autorizo a la empresa/)).toBeRequired();
   });
 
+  it("sin el texto de la autorización lo pide al catálogo y, si falla, no deja autorizar (US-004)", async () => {
+    const grupo = await pintar({
+      ...DATOS,
+      telefono_autorizacion: { ...DATOS.telefono_autorizacion, texto: "" },
+    });
+    fireEvent.click(within(grupo).getByLabelText("No"));
+    fireEvent.change(screen.getByLabelText(/^Teléfono personal/), {
+      target: { value: "0991112222" },
+    });
+    // Sin servidor simulado, el catálogo no responde: alerta con
+    // «Reintentar» y la casilla deshabilitada con una etiqueta neutra.
+    expect(
+      await screen.findByText(/No se pudo cargar el texto vigente/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Autorizo el uso de mi teléfono personal"),
+    ).toBeDisabled();
+    expect(screen.queryByLabelText(/Autorizo a la empresa/)).toBeNull();
+  });
+
+  it("sin texto de la autorización, al guardar con teléfono dice qué hacer y lleva el foco a «Reintentar»", async () => {
+    const grupo = await pintar({
+      ...DATOS,
+      telefono_autorizacion: { ...DATOS.telefono_autorizacion, texto: "" },
+    });
+    fireEvent.click(within(grupo).getByLabelText("No"));
+    fireEvent.change(screen.getByLabelText(/^Teléfono personal/), {
+      target: { value: "0991112222" },
+    });
+    await screen.findByText(/No se pudo cargar el texto vigente/);
+    fireEvent.submit(grupo.closest("form"));
+    expect(
+      await screen.findByText(
+        "No se pudo cargar la autorización: reintente o borre el teléfono personal para guardar lo demás.",
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Reintentar" })).toHaveFocus(),
+    );
+    expect(misDatos.guardar).not.toHaveBeenCalled();
+  });
+
+  it("si el catálogo responde, se autoriza con su texto", async () => {
+    privacidad.textoVigente.mockResolvedValueOnce({
+      clave: "autorizacion_telefono",
+      version: 2,
+      texto:
+        "Autorizo a la empresa a usar mi teléfono personal para contactarme.",
+      titulo: "",
+    });
+    const grupo = await pintar({
+      ...DATOS,
+      telefono_autorizacion: { ...DATOS.telefono_autorizacion, texto: "" },
+    });
+    fireEvent.click(within(grupo).getByLabelText("No"));
+    fireEvent.change(screen.getByLabelText(/^Teléfono personal/), {
+      target: { value: "0991112222" },
+    });
+    expect(
+      await screen.findByLabelText(/Autorizo a la empresa a usar mi teléfono/),
+    ).toBeEnabled();
+    expect(privacidad.textoVigente).toHaveBeenCalledWith(
+      "autorizacion_telefono",
+    );
+  });
+
   it("con «Sí» no envía el personal que tenía guardado y lo avisa", async () => {
     misDatos.guardar.mockResolvedValue({ ...DATOS, faltan: [] });
     const grupo = await pintar({
@@ -211,6 +286,56 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
       telefono: "",
       acepta_telefono: false,
     });
+  });
+});
+
+describe("Mi perfil: la versión del texto de la autorización (US-004)", () => {
+  it("envía la versión mostrada y, si cambió, trae el texto nuevo", async () => {
+    misDatos.guardar.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: "validation_error",
+            message: "Revise los datos.",
+            details: {
+              acepta_telefono: [
+                "El texto cambió mientras lo leía. Léalo de nuevo y acéptelo.",
+              ],
+            },
+          },
+        },
+      },
+    });
+    privacidad.textoVigente.mockResolvedValueOnce({
+      clave: "autorizacion_telefono",
+      version: 4,
+      texto: "Autorizo a la empresa con el texto nuevo de la autorización.",
+      titulo: "",
+    });
+    const grupo = await pintar({
+      ...DATOS,
+      telefono_autorizacion: { ...DATOS.telefono_autorizacion, version: 3 },
+    });
+    fireEvent.click(within(grupo).getByLabelText("No"));
+    fireEvent.change(screen.getByLabelText(/^Teléfono personal/), {
+      target: { value: "0991112222" },
+    });
+    fireEvent.click(screen.getByLabelText(/Autorizo a la empresa/));
+    fireEvent.submit(grupo.closest("form"));
+    await waitFor(() => expect(misDatos.guardar).toHaveBeenCalled());
+    expect(misDatos.guardar.mock.calls[0][0]).toMatchObject({
+      acepta_telefono: true,
+      version_telefono: 3,
+    });
+    const nueva = await screen.findByLabelText(
+      /con el texto nuevo de la autorización/,
+    );
+    expect(nueva).not.toBeChecked();
+    expect(screen.getByText(/Léalo de nuevo y acéptelo/)).toBeInTheDocument();
+    expect(privacidad.textoVigente).toHaveBeenCalledWith(
+      "autorizacion_telefono",
+    );
   });
 });
 

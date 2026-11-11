@@ -12,6 +12,11 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { descargarBlob } from "../../utils/descargas";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
+import { TextoDelAviso } from "../Privacidad/TextoDelAviso";
+import {
+  esTextoCambiado,
+  mensajeDeTextoCambiado,
+} from "../Privacidad/privacidadComunes";
 
 /*
  * Lo que comparten las dos pantallas de los códigos de conducta: la de leer
@@ -425,7 +430,11 @@ export function VentanaAcuerdo({ acuerdo, onAceptar, onCerrar }) {
     try {
       await onAceptar();
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo registrar la aceptación."));
+      setError(
+        esTextoCambiado(err)
+          ? mensajeDeTextoCambiado(err)
+          : mensajeDeError(err, "No se pudo registrar la aceptación."),
+      );
       setAceptando(false);
     }
   }
@@ -465,7 +474,7 @@ export function VentanaAcuerdo({ acuerdo, onAceptar, onCerrar }) {
             </div>
           )}
           <div id="acuerdo-texto" className="acuerdo-texto">
-            {acuerdo.texto}
+            <TextoDelAviso texto={acuerdo.texto} />
           </div>
           <div className="mz-actions justify-content-end mt-3">
             <button

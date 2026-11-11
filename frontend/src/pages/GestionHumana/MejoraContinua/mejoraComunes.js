@@ -4,6 +4,10 @@
  * sirven para rotular; qué se puede hacer lo dice `allowed_actions`.
  */
 import { RUTA_GESTION_HUMANA } from "../../../modulos/permisosGestionHumana";
+import {
+  formatearMaximoMegabytes,
+  formatearMegabytes,
+} from "../../../utils/formato";
 
 export const RUTA_MEJORA = `${RUTA_GESTION_HUMANA}/mejora-continua`;
 export const rutaDeIdea = (id) => `${RUTA_MEJORA}/${id}`;
@@ -89,7 +93,8 @@ export function tamano(bytes) {
   const n = Number(bytes) || 0;
   if (n >= 1024 * 1024) {
     const mb = n / (1024 * 1024);
-    return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
+    // Coma decimal, como el resto de la interfaz (revisión de US-007).
+    return `${mb.toLocaleString("es-EC", { maximumFractionDigits: 1 })} MB`;
   }
   if (n >= 1024) return `${Math.round(n / 1024)} KB`;
   return `${n} B`;
@@ -107,8 +112,10 @@ export function problemaDelAdjunto(archivo, reglas = ADJUNTO_POR_DEFECTO) {
   const admitidas = (reglas.extensions ?? []).map((e) => e.toLowerCase());
   if (!extension || !admitidas.includes(extension))
     return `Formato no admitido. Use ${listaDeFormatos(admitidas)}.`;
+  // El peso con dos decimales y redondeado hacia arriba, como el servidor
+  // (US-007, 11/11/2026): con un decimal, 8,01 MB se leía «8.0 MB».
   if (archivo.size > reglas.max_bytes)
-    return `El archivo pesa ${tamano(archivo.size)}: el máximo es ${tamano(reglas.max_bytes)}.`;
+    return `El archivo pesa ${formatearMegabytes(archivo.size)}: el máximo es ${formatearMaximoMegabytes(reglas.max_bytes)}.`;
   if (archivo.size === 0) return "El archivo está vacío.";
   return null;
 }

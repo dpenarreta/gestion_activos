@@ -10,8 +10,17 @@ import { useEffect, useRef, useState } from "react";
 
 import { errorDeNova, novaService } from "../../../api/novaService";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { useTextoVigente } from "../../../hooks/useTextoVigente";
+import { CLAVES_TEXTO } from "../../Privacidad/privacidadComunes";
+import { TextoDeProteccion } from "../../Privacidad/TextoDelAviso";
 import { AvisoIa, AvisoSinIa } from "../Nova/AvisosNova";
 import { Seccion } from "./Componentes";
+
+/** El aviso de privacidad del panel: se edita en «Protección de datos» →
+ * «Textos» (US-004, 11/11/2026); este es el respaldo mientras llega. */
+const CLAVE_AVISO = CLAVES_TEXTO.NOVA_PANEL_DESEMPENO;
+const AVISO_RESPALDO =
+  "Nova explica en lenguaje natural los indicadores de este mes. A la IA no se envía el nombre de la persona ni datos de salud.";
 
 function Lista({ titulo, elementos }) {
   if (!elementos?.length) return null;
@@ -54,6 +63,7 @@ function Resultado({ datos }) {
  * @param {number} props.usuarioId la persona cuyos KPI se analizan
  */
 export function PanelNova({ usuarioId }) {
+  const aviso = useTextoVigente(CLAVE_AVISO, AVISO_RESPALDO);
   const [estado, setEstado] = useState({ cargando: false });
   const titulo = useRef(null);
 
@@ -109,10 +119,11 @@ export function PanelNova({ usuarioId }) {
       {/* Sin región viva propia: anuncian el `status` y el `alert` de dentro. */}
       <div className="mz-stack">
         {!datos && !cargando && !error && (
-          <p className="mz-small mz-faint mb-0">
-            Nova explica en lenguaje natural los indicadores de este mes. A la
-            IA no se envía el nombre de la persona ni datos de salud.
-          </p>
+          <TextoDeProteccion
+            clave={CLAVE_AVISO}
+            texto={aviso.texto}
+            className="mz-small mz-faint"
+          />
         )}
         {cargando && (
           <p className="mb-0" role="status">

@@ -354,3 +354,29 @@ def test_la_pantalla_puede_explicar_que_incluye(begona):
     privadas = {s["clave"] for s in datos["secciones"] if s["solo_el_titular"]}
     assert privadas == {"chat", "escritorio"}
     assert len(datos["no_incluido"]) == len(mis_datos.EXCLUIDO)
+
+
+def test_trae_sus_aceptaciones_de_textos_con_ip_y_navegador(begona, nunez):
+    """US-004 (11/11/2026): lo que la intranet guarda de cada aceptación suya
+    (IP y navegador incluidos) es dato personal y va en su descarga. Los
+    términos de cada consulta del rol de pagos no: van con el rol."""
+    from apps.privacidad import catalogo_textos as cat
+    from apps.privacidad import textos
+
+    textos.aceptar(begona, cat.AUTORIZACION_TELEFONO, ip="10.0.5.21", navegador="Firefox/140")
+    textos.aceptar(begona, cat.CUMPLEANOS_PUBLICO, ip="10.0.5.21")
+    textos.retirar(begona, cat.CUMPLEANOS_PUBLICO)
+    textos.aceptar(begona, cat.ROL_PAGOS_TERMINOS_CLAVE, referencia="nomina.ConsultaRolPagos:1")
+    textos.aceptar(nunez, cat.AUTORIZACION_TELEFONO, ip="10.9.9.9")
+
+    contenido = _json(client_for(begona).get(f"{BASE}/mis-datos/"))
+    filas = _seccion(contenido, "aceptaciones_de_textos")
+    assert [f["texto"] for f in filas] == [
+        "Autorización del teléfono personal",
+        "Cumpleaños público",
+    ]
+    telefono, cumple = filas
+    assert telefono["desde_ip"] == "10.0.5.21" and telefono["navegador"] == "Firefox/140"
+    assert telefono["texto_aceptado"] == textos.obtener(cat.AUTORIZACION_TELEFONO).texto
+    assert cumple["retirada_el"] is not None
+    assert "10.9.9.9" not in json.dumps(contenido)

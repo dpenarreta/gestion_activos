@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { errorDeNova, novaService } from "../../../api/novaService";
+import { CLAVES_TEXTO } from "../../../pages/Privacidad/privacidadComunes";
 
 /**
  * El chat de Nova (portado de `useNovaChat` de Nexo, 09/11/2026).
@@ -26,9 +27,23 @@ import { errorDeNova, novaService } from "../../../api/novaService";
  */
 const SALUD_NO_SE_ENVIA = "En este modo no se envían datos de salud.";
 
+/*
+ * Desde US-004 (11/11/2026) los avisos de privacidad de Nova se editan en
+ * «Protección de datos» → «Textos» y se leen con `useTextoVigente`: cada modo
+ * dice su `clavePrivacidad`, y `privacidad` queda como el texto de respaldo
+ * mientras llega (o si no llega). Son avisos que se leen, no se aceptan.
+ */
+export const CLAVE_AVISO_IA = CLAVES_TEXTO.NOVA_IA;
+export const AVISO_IA_RESPALDO =
+  "Nova es una IA y puede equivocarse. No se envían nombres.";
+export const CLAVE_COMO_SE_PROTEGEN = CLAVES_TEXTO.NOVA_COMO_SE_PROTEGEN;
+export const COMO_SE_PROTEGEN_RESPALDO =
+  "Revise las respuestas antes de decidir. Las personas se envían con seudónimos («Persona A»), nunca con su nombre, y antes de enviar se ocultan correos, cédulas y teléfonos. En el modo General puede preguntar por políticas de salud (licencias, permisos médicos, maternidad); en Mis tareas y Mi equipo los mensajes que mencionan salud no se envían. La conversación no se guarda: se pierde al cerrar sesión o recargar la página.";
+
 export const MODOS = [
   {
     id: "general",
+    clavePrivacidad: CLAVES_TEXTO.NOVA_GENERAL,
     nombre: "General",
     descripcion:
       "Preguntas generales y sobre los documentos de la base de conocimiento.",
@@ -37,6 +52,7 @@ export const MODOS = [
   },
   {
     id: "tareas",
+    clavePrivacidad: CLAVES_TEXTO.NOVA_TAREAS,
     nombre: "Mis tareas",
     descripcion:
       "Nova ve sus tareas (título, prioridad, fechas, horas y avance) para ayudarle a priorizar.",
@@ -44,6 +60,7 @@ export const MODOS = [
   },
   {
     id: "equipo",
+    clavePrivacidad: CLAVES_TEXTO.NOVA_EQUIPO,
     nombre: "Mi equipo",
     descripcion:
       "Nova ve las cifras de tareas y horas de su equipo según el organigrama, con seudónimos.",

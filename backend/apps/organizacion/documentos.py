@@ -11,6 +11,7 @@ from pathlib import PurePath
 from rest_framework import serializers
 
 from apps.adjuntos.models import FIRMAS
+from apps.core.archivos import mensaje_de_tamano
 
 EXTENSIONES = {".pdf", ".docx"}
 
@@ -29,8 +30,7 @@ def validar(archivo) -> str:
         raise serializers.ValidationError("El archivo está vacío.")
     if archivo.size > TAMANO_MAXIMO_BYTES:
         raise serializers.ValidationError(
-            f"El archivo pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es "
-            f"{TAMANO_MAXIMO_BYTES // (1024 * 1024)} MB."
+            mensaje_de_tamano("El archivo", archivo.size, TAMANO_MAXIMO_BYTES)
         )
     extension = PurePath(archivo.name).suffix.lower()
     if extension not in EXTENSIONES:

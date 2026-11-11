@@ -11,6 +11,9 @@ Lo que se protege, y cómo se intenta saltarlo:
 - Enviar: solo una consulta propia y reciente; el correo escrito no se guarda
   salvo que se pida y se acepte; el guardado se puede retirar.
 - Sin procedimiento y fuera de desarrollo, la consulta se niega.
+- Desde US-004 (11/11/2026) los términos y el consentimiento del correo se
+  leen del catálogo de Protección de datos y se editan solo allí; cada
+  consulta y cada correo guardado deja su aceptación en el registro común.
 """
 
 import datetime
@@ -29,6 +32,9 @@ from apps.empresas.contexto import empresa_actual, usando_empresa
 from apps.nomina.models import CodigoConsultaRol, ConsultaRolPagos
 from apps.organizacion.models import DatosDeContacto
 from apps.organizacion.tests.test_carga_personas import _cuenta as _cuenta_sin_permisos
+from apps.privacidad.models import AceptacionTexto
+
+TEXTOS = "/api/v1/privacidad/textos/"
 
 
 def _cuenta(nombre, *permisos):
@@ -127,6 +133,23 @@ def test_consulta_su_rol_con_terminos_y_codigo_del_correo(db):
     assert (consulta.codigo_empleado, consulta.anio, consulta.mes) == ("20100001", 2026, 9)
     assert consulta.terminos_aceptados == estado["terminos"]
     assert AuditLog.objects.filter(action="roles_pago.consulta.realizada").exists()
+    # La aceptación de los términos, en el registro común (US-004).
+    aceptacion = AceptacionTexto.objects.get(referencia=f"nomina.ConsultaRolPagos:{consulta.pk}")
+    assert aceptacion.usuario == usuario
+    assert aceptacion.texto_proteccion.clave == "rol_pagos_terminos"
+    assert aceptacion.version == estado["version"]
+    assert aceptacion.texto_aceptado == estado["terminos"]
+    assert aceptacion.ip == "127.0.0.1"
+
+    # Cada consulta acepta de nuevo: otra fila.
+    otra = _consultar(rosa)
+    assert otra.status_code == 200
+    assert (
+        AceptacionTexto.objects.filter(
+            usuario=usuario, texto_proteccion__clave="rol_pagos_terminos"
+        ).count()
+        == 2
+    )
 
 
 def test_los_intentos_de_saltarse_la_consulta(db):
@@ -146,13 +169,15 @@ def test_los_intentos_de_saltarse_la_consulta(db):
     assert AuditLog.objects.filter(action="roles_pago.consulta.rechazada").count() == 4
 
     # Si los términos cambian mientras los lee, hay que aceptarlos de nuevo.
-    _, th = _cuenta("tatiana", "roles_pago.configurar", "roles_pago.consultar_todos")
+    # Desde US-004 se cambian en Protección de datos.
+    _, th = _cuenta("tatiana", "privacidad.textos")
     version = _version(rosa)
-    th.put(
-        f"{BASE}configuracion/",
-        {"terminos": "Nuevos términos.", "consentimiento_correo": "Autorizo."},
+    cambio = th.put(
+        f"{TEXTOS}rol_pagos_terminos/",
+        {"texto": "Nuevos términos de la consulta del rol de pagos."},
         format="json",
     )
+    assert cambio.status_code == 200
     viejo = _consultar(rosa, version=version)
     assert viejo.status_code == 400
     assert _consultar(rosa).status_code == 200
@@ -161,12 +186,7 @@ def test_los_intentos_de_saltarse_la_consulta(db):
 def test_talento_humano_consulta_otros_y_configura(db):
     _, rosa = _con_codigo("rosa", "20100001")
     _, th = _cuenta("tatiana", "roles_pago.consultar_todos", "roles_pago.configurar")
-    assert (
-        rosa.put(
-            f"{BASE}configuracion/", {"terminos": "x", "consentimiento_correo": "y"}, format="json"
-        ).status_code
-        == 403
-    )
+    assert rosa.put(f"{BASE}configuracion/", {}, format="json").status_code == 403
     otro = _consultar(th, codigo="20100001")
     assert otro.status_code == 200
     assert ConsultaRolPagos.objects.todas().get().codigo_empleado == "20100001"
@@ -208,6 +228,11 @@ def test_enviar_al_correo_y_guardarlo_solo_si_se_acepta(db):
     with usando_empresa(empresa_actual()):
         perfil = DatosDeContacto.objects.get(usuario=usuario)
     assert perfil.correo_personal == "rosa.vera@gmail.com" and perfil.correo_personal_aceptado_en
+    (consentimiento,) = AceptacionTexto.objects.filter(
+        usuario=usuario, texto_proteccion__clave="rol_pagos_correo"
+    )
+    assert consentimiento.texto_aceptado == rosa.get(BASE).json()["consentimiento_correo"]
+    assert consentimiento.ip == "127.0.0.1" and consentimiento.retirada_en is None
 
     # Con el correo guardado basta la consulta. A la cuarta, hay que volver a consultar.
     assert rosa.post(url, {"consulta": consulta}, format="json").status_code == 200
@@ -217,6 +242,8 @@ def test_enviar_al_correo_y_guardarlo_solo_si_se_acepta(db):
     # Se retira cuando quiera.
     assert rosa.delete(f"{BASE}correo-personal/").status_code == 204
     assert rosa.get(BASE).json()["correo_guardado"] == ""
+    consentimiento.refresh_from_db()
+    assert consentimiento.retirada_en is not None
 
 
 def test_solo_se_envia_una_consulta_propia_y_reciente(db):
@@ -480,3 +507,70 @@ def test_desde_el_historial_se_ve_el_rol_con_contrasena(db):
     assert respuesta["Cache-Control"] == "no-store, private"
     assert AuditLog.objects.filter(action="roles_pago.historial.rol_visto").exists()
     assert AuditLog.objects.filter(action="roles_pago.historial.rol_rechazado").exists()
+
+
+def test_si_los_terminos_cambian_durante_la_consulta_no_queda_nada(db, monkeypatch):
+    """QA-TECH (11/11/2026): la constancia y la aceptación van en la misma
+    transacción con la versión validada. Si los términos cambian mientras se
+    lee el rol, 400 en `acepto`, sin consulta ni aceptación, y el código del
+    correo vuelve a servir."""
+    from apps.nomina import services
+    from apps.privacidad import textos
+
+    usuario, rosa = _con_codigo("rosa", "20100001")
+    editora, _ = _cuenta("eugenia", "privacidad.textos")
+    construir = services.pdf.construir
+
+    def cambia_los_terminos(rol):
+        textos.guardar(
+            "rol_pagos_terminos",
+            texto="Términos nuevos publicados mientras se leía el rol de pagos.",
+            actor=editora,
+        )
+        return construir(rol)
+
+    monkeypatch.setattr(services.pdf, "construir", cambia_los_terminos)
+    respuesta = _consultar(rosa)
+    assert respuesta.status_code == 400
+    assert respuesta.json()["error"]["details"] == {"acepto": services.TERMINOS_CAMBIARON}
+    assert not ConsultaRolPagos.objects.todas().exists()
+    assert not AceptacionTexto.objects.filter(
+        usuario=usuario, texto_proteccion__clave="rol_pagos_terminos"
+    ).exists()
+    assert CodigoConsultaRol.objects.todas().filter(usuario=usuario, usado_en__isnull=True).exists()
+
+
+def test_guardar_el_correo_con_una_version_vieja_no_envia_ni_guarda(db):
+    from apps.privacidad import textos
+
+    usuario, rosa = _con_codigo("rosa", "20100001")
+    consulta = _consultar(rosa)["X-Consulta-Rol"]
+    leida = rosa.get(BASE).json()["version_correo"]
+    editora, _ = _cuenta("eugenia", "privacidad.textos")
+    textos.guardar(
+        "rol_pagos_correo",
+        texto="Autorizo guardar mi correo personal para recibir el rol de pagos.",
+        actor=editora,
+    )
+    enviados = len(mail.outbox)
+    cuerpo = {
+        "consulta": consulta,
+        "correo": "rosa.vera@gmail.com",
+        "guardar": True,
+        "acepto_guardar": True,
+    }
+    vieja = rosa.post(f"{BASE}enviar/", {**cuerpo, "version_correo": leida}, format="json")
+    assert vieja.status_code == 400
+    assert "acepto_guardar" in vieja.json()["error"]["details"]
+    assert len(mail.outbox) == enviados
+    assert rosa.get(BASE).json()["correo_guardado"] == ""
+    # Se guarda antes de enviar: al fallar, ni correo ni envío contado.
+    assert ConsultaRolPagos.objects.todas().get(pk=consulta).envios == 0
+    assert not AceptacionTexto.objects.filter(
+        usuario=usuario, texto_proteccion__clave="rol_pagos_correo"
+    ).exists()
+    nueva = rosa.post(f"{BASE}enviar/", {**cuerpo, "version_correo": leida + 1}, format="json")
+    assert nueva.status_code == 200
+    assert rosa.get(BASE).json()["correo_guardado"] == "r***@gmail.com"
+    assert ConsultaRolPagos.objects.todas().get(pk=consulta).envios == 1
+    assert len(mail.outbox) == enviados + 1

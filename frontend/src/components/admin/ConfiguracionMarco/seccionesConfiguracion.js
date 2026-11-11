@@ -176,15 +176,9 @@ export const SECCIONES_CONFIGURACION = [
     permission: "configuracion.modulos",
     rutas: ["/admin/configuracion/modulos"],
   },
-  {
-    // Los textos de tratamiento de datos personales que aceptan las personas
-    // (26/10/2026): parametrizables y con versión.
-    id: "textos-legales",
-    nombre: "Textos legales",
-    path: "/admin/configuracion/textos-legales",
-    permission: "configuracion.textos_legales",
-    rutas: ["/admin/configuracion/textos-legales"],
-  },
+  // «Textos legales» (26/10/2026) salió de aquí con US-004 (11/11/2026, CA-7):
+  // todos los textos de protección de datos se editan en «Protección de
+  // datos» → «Textos». Su dirección redirige allá.
   {
     // La ventana destacada que ve toda persona al entrar al sistema.
     id: "aviso-inicio",

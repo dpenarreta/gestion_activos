@@ -251,14 +251,35 @@ def _herramientas(ctx: Contexto) -> list[dict]:
 
 
 def _aceptaciones(ctx: Contexto) -> list[dict]:
-    from apps.organizacion.models import AceptacionConfidencialidad
+    """Cada aceptación de un texto de protección de datos (US-004,
+    11/11/2026): el aviso general, la autorización del teléfono, el cumpleaños
+    y el aniversario públicos, el correo personal y el acuerdo de
+    confidencialidad, con la versión, el texto exacto, la IP, el navegador y
+    si la retiró. Reemplaza a la sección de los acuerdos aceptados: sus filas
+    pasaron al registro común (`privacidad/0007`).
+
+    Sin los términos de cada consulta del rol de pagos: son la constancia de
+    cada consulta, que tiene su propia descarga protegida (ver `EXCLUIDO`)."""
+    from .catalogo_textos import ROL_PAGOS_TERMINOS_CLAVE
+    from .models import AceptacionTexto
 
     return _filas(
-        AceptacionConfidencialidad.objects.filter(usuario=ctx.titular).order_by("aceptado_en"),
+        AceptacionTexto.objects.filter(usuario=ctx.titular)
+        .exclude(texto_proteccion__clave=ROL_PAGOS_TERMINOS_CLAVE)
+        .order_by("aceptado_en", "id"),
         [
-            ("acuerdo", "titulo_aceptado"),
-            ("version_de_los_documentos", "version_documentos"),
+            ("modulo", "texto_proteccion__modulo"),
+            ("seccion", "texto_proteccion__seccion"),
+            ("texto", "texto_proteccion__nombre"),
+            ("version", "version"),
             ("aceptado_el", "aceptado_en"),
+            ("desde_ip", "ip"),
+            ("navegador", "navegador"),
+            ("origen", "origen"),
+            ("retirada_el", "retirada_en"),
+            ("restablecida_el", "restablecida_en"),
+            ("titulo_aceptado", "titulo_aceptado"),
+            ("texto_aceptado", "texto_aceptado"),
         ],
     )
 
@@ -1170,9 +1191,12 @@ SECCIONES: tuple[Seccion, ...] = (
         _herramientas,
     ),
     Seccion(
-        "acuerdos_aceptados",
-        "Acuerdos aceptados",
-        "Cada aceptación del acuerdo de " "confidencialidad de los códigos de conducta.",
+        "aceptaciones_de_textos",
+        "Textos de protección de datos aceptados",
+        "Cada aceptación del aviso de tratamiento de datos, de la autorización del teléfono, "
+        "del cumpleaños y el aniversario públicos, del correo personal y del acuerdo de "
+        "confidencialidad: la versión, el texto aceptado, cuándo, desde qué IP y navegador, y "
+        "si la retiró.",
         _aceptaciones,
     ),
     Seccion("vacaciones", "Vacaciones", "Períodos de vacaciones y cada goce.", _vacaciones),
@@ -1340,7 +1364,8 @@ EXCLUIDO: tuple[tuple[str, str], ...] = (
         "Rol de pagos (consultas, documentos, observaciones y su seguimiento)",
         "Tiene su propia descarga, protegida con un código que llega al correo de su cuenta, en "
         "Institucional → Rol de pagos. Copiarlo aquí lo dejaría sin esa protección. Los códigos "
-        "de consulta no se guardan en claro y caducan en minutos.",
+        "de consulta no se guardan en claro y caducan en minutos. Por lo mismo no van los "
+        "términos que aceptó en cada consulta; sí el consentimiento de su correo personal.",
     ),
     (
         "Contraseña, códigos de inicio de sesión y de recuperación de la cuenta, código de "
@@ -1415,12 +1440,12 @@ APPS_REVISADAS: dict[str, str] = {
     ),
     "ordenes": "Secciones: ordenes_de_trabajo.",
     "organizacion": (
-        "Secciones: perfil, ficha_de_empleado, cargo, herramientas, acuerdos_aceptados, "
-        "vacaciones."
+        "Secciones: perfil, ficha_de_empleado, cargo, herramientas, vacaciones. El acuerdo de "
+        "confidencialidad, en aceptaciones_de_textos."
     ),
     "permissions": "Secciones: permisos.",
     "politicas": "Políticas de renovación de equipos: sin datos personales.",
-    "privacidad": "Secciones: solicitudes_de_derechos.",
+    "privacidad": "Secciones: solicitudes_de_derechos, aceptaciones_de_textos.",
     "projects": "Secciones: proyectos, comentarios.",
     "proyectos": "Secciones: solicitudes_de_proyectos.",
     "reportes": "Reportes calculados al vuelo: no guarda datos propios.",

@@ -62,14 +62,6 @@ class DocumentosPermission(HasModulePermission):
     write_permission = "codigos.publicar"
 
 
-class AcuerdoPermission(HasModulePermission):
-    """Ver el acuerdo de confidencialidad es de todos (se acepta antes de
-    leer); cambiar su título y texto pide `codigos.acuerdo`."""
-
-    view_permission = None
-    write_permission = "codigos.acuerdo"
-
-
 class AceptacionesPermission(HasModulePermission):
     """Ver quién aceptó el acuerdo y cuándo pide `codigos.ver_aceptaciones`."""
 

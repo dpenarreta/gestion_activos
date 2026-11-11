@@ -24,6 +24,13 @@ vi.mock("../src/api/novaService", async (importOriginal) => ({
   novaService: servicio,
 }));
 const permisos = { lista: [] };
+// Los avisos de privacidad (US-004): sin servidor, el texto de respaldo.
+vi.mock("../src/api/privacidadService", async (importOriginal) => ({
+  ...(await importOriginal()),
+  privacidadService: {
+    textoVigente: () => Promise.reject(new Error("sin servidor")),
+  },
+}));
 vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: 1, permissions: permisos.lista } }),
 }));
@@ -279,7 +286,9 @@ describe("interruptor de la base de conocimiento", () => {
       solo_fuentes: false,
     });
     expect(interruptor).not.toBeChecked();
-    const exito = await screen.findByText(/Listo: si los documentos no cubren/i);
+    const exito = await screen.findByText(
+      /Listo: si los documentos no cubren/i,
+    );
     expect(exito.closest('[role="status"]')).toBeInTheDocument();
   });
 

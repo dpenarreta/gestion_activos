@@ -1,12 +1,13 @@
 /*
- * Consentimiento del tratamiento de datos (`/admin/privacidad/consentimiento`,
- * 09/11/2026): el aviso que cada persona acepta al entrar, con su versión, y
- * quién lo aceptó. Con `privacidad.ver` se consulta; con `privacidad.atender`
- * además se edita el texto, se pide aceptarlo de nuevo y se restablece el
- * consentimiento de una persona o de todas. El servidor vuelve a exigir cada
- * permiso.
+ * Las personas frente al aviso de tratamiento de datos (09/11/2026), dentro de
+ * «Protección de datos» → «Aceptaciones» con el aviso elegido (US-004,
+ * 11/11/2026; antes `/admin/privacidad/consentimiento`, que hoy redirige
+ * aquí). Quién lo aceptó y a quién le falta, su historial y, con
+ * `privacidad.atender`, restablecer el consentimiento de una persona o de
+ * todas. El texto del aviso se edita en «Textos». El servidor vuelve a exigir
+ * cada permiso.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -25,13 +26,10 @@ import { useBusquedaEnVivo } from "../../hooks/useBusquedaEnVivo";
 import { useListadoPaginado } from "../../hooks/useListadoPaginado";
 import { useVistaDeTarjetas } from "../../hooks/useMediaQuery";
 import { fechaHora } from "../GestionHumana/comunes";
-import { RUTA_BANDEJA } from "./privacidadComunes";
-import { TextoDelAviso } from "./TextoDelAviso";
+import { CLAVES_TEXTO, rutaDeTexto } from "./privacidadComunes";
 import "./Privacidad.css";
 
-const AVISO_MAX = 20000;
-
-export function ConsentimientoPrivacidad() {
+export function PersonasDelAviso() {
   const [resumen, setResumen] = useState(null);
   const [errorResumen, setErrorResumen] = useState("");
   // { tipo: "ok" | "error", texto }: el éxito se anuncia con cortesía y el
@@ -82,7 +80,12 @@ export function ConsentimientoPrivacidad() {
 
   const puedeAtender = Boolean(resumen?.puede_atender);
 
+  // Mientras restablece a todas: el botón dice «Restableciendo…» y no repite
+  // el pedido (sin `disabled`: el foco no cae en <body>).
+  const [restableciendoTodas, setRestableciendoTodas] = useState(false);
+
   async function restablecerTodos() {
+    if (restableciendoTodas) return;
     limpiarAnuncio();
     const si = await confirmar({
       titulo: "¿Restablecer el consentimiento de todas las personas?",
@@ -91,6 +94,7 @@ export function ConsentimientoPrivacidad() {
       accion: "Restablecer a todas",
     });
     if (!si) return;
+    setRestableciendoTodas(true);
     try {
       const r = await privacidadService.restablecerTodos();
       refrescar(
@@ -100,6 +104,8 @@ export function ConsentimientoPrivacidad() {
       );
     } catch (err) {
       anunciarError(errorDePrivacidad(err).mensaje);
+    } finally {
+      setRestableciendoTodas(false);
     }
   }
 
@@ -127,17 +133,6 @@ export function ConsentimientoPrivacidad() {
 
   return (
     <div className="mz-stack pv-consentimiento">
-      <div className="mz-view-head">
-        <div>
-          <h2>Protección de datos: consentimiento</h2>
-          <p className="mz-desc">
-            El aviso de tratamiento de datos que cada persona acepta al entrar a
-            la intranet, y quién lo aceptó.{" "}
-            <Link to={RUTA_BANDEJA}>Ver las solicitudes de derechos</Link>
-          </p>
-        </div>
-      </div>
-
       {/* Las dos regiones existen siempre (vacías): así se anuncia lo que
           entra en ellas. */}
       <div role="status">
@@ -160,19 +155,15 @@ export function ConsentimientoPrivacidad() {
       ) : !resumen ? (
         <EstadoDeCarga cargando />
       ) : (
-        <EditorDelAviso
+        <ResumenDelAviso
           resumen={resumen}
           puedeAtender={puedeAtender}
-          alEmpezar={limpiarAnuncio}
-          alGuardar={(r, mensaje) => {
-            setResumen(r);
-            refrescar(mensaje);
-          }}
           alRestablecerTodos={restablecerTodos}
+          restableciendo={restableciendoTodas}
         />
       )}
 
-      <h3 className="h5 mb-0">Personas de la empresa</h3>
+      <h4 className="h6 mb-0">Personas de la empresa</h4>
       <form
         className="mz-filter-bar"
         role="search"
@@ -231,6 +222,9 @@ export function ConsentimientoPrivacidad() {
       ) : (
         <div className="mz-table-wrap" aria-busy={listado.isLoading}>
           <table className="mz-table">
+            <caption className="visually-hidden">
+              Personas de la empresa frente al aviso de tratamiento de datos
+            </caption>
             <thead>
               <tr>
                 <th scope="col">Persona</th>
@@ -262,121 +256,33 @@ export function ConsentimientoPrivacidad() {
   );
 }
 
-function EditorDelAviso({
+/** La versión vigente, cuántos lo aceptaron y «Restablecer a todas». */
+function ResumenDelAviso({
   resumen,
   puedeAtender,
-  alEmpezar,
-  alGuardar,
   alRestablecerTodos,
+  restableciendo,
 }) {
-  const [editando, setEditando] = useState(false);
-  const [texto, setTexto] = useState("");
-  const [pedirDeNuevo, setPedirDeNuevo] = useState(false);
-  const [error, setError] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const campo = useRef(null);
-  const botonEditar = useRef(null);
-  // Al cerrar el editor (Guardar o Cancelar) el foco vuelve al botón que lo
-  // abrió: si no, cae en <body> al desaparecer el formulario.
-  const volverAlBoton = useRef(false);
-
-  useEffect(() => {
-    if (editando) {
-      campo.current?.focus();
-    } else if (volverAlBoton.current) {
-      volverAlBoton.current = false;
-      botonEditar.current?.focus();
-    }
-  }, [editando]);
-
-  function empezar() {
-    alEmpezar();
-    setTexto(resumen.existe ? resumen.texto : resumen.texto_inicial);
-    setPedirDeNuevo(false);
-    setError("");
-    setEditando(true);
-  }
-
-  function cerrar() {
-    volverAlBoton.current = true;
-    setEditando(false);
-  }
-
-  async function guardar(e) {
-    e.preventDefault();
-    if (guardando) return;
-    if (!texto.trim()) {
-      setError("Escriba el texto del aviso.");
-      campo.current?.focus();
-      return;
-    }
-    if (resumen.existe && pedirDeNuevo) {
-      const si = await confirmar({
-        titulo: "¿Pedir que todas las personas acepten el aviso de nuevo?",
-        mensaje:
-          "Sube la versión del aviso: nadie lo tendrá aceptado y cada persona lo aceptará la próxima vez que entre.",
-        accion: "Guardar y pedir aceptación",
-      });
-      if (!si) return;
-    }
-    setGuardando(true);
-    setError("");
-    try {
-      const r = await privacidadService.guardarAviso({ texto, pedirDeNuevo });
-      cerrar();
-      alGuardar(
-        r,
-        !resumen.existe
-          ? "Aviso creado: cada persona lo aceptará al entrar."
-          : pedirDeNuevo
-            ? `Aviso guardado como versión ${r.version}: todas las personas lo aceptarán de nuevo.`
-            : "Aviso guardado. La versión no cambió.",
-      );
-    } catch (err) {
-      const e2 = errorDePrivacidad(err, "No se pudo guardar el aviso.");
-      setError(e2.campos.texto || e2.mensaje);
-    } finally {
-      setGuardando(false);
-    }
-  }
-
   const { totales } = resumen;
-  const describe = [
-    "pv-aviso-ayuda",
-    "pv-aviso-contador",
-    error ? "pv-aviso-error" : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
     <section className="mz-card pv-aviso" aria-labelledby="pv-aviso-titulo">
       <div className="mz-row-between">
-        <h3 id="pv-aviso-titulo" className="h5 mb-0">
+        <h4 id="pv-aviso-titulo" className="h6 mb-0">
           {resumen.existe
             ? `Aviso vigente (versión ${resumen.version})`
             : "Sin aviso"}
-        </h3>
-        {puedeAtender && !editando && (
+        </h4>
+        {puedeAtender && resumen.existe && (
           <div className="pv-acciones">
             <button
-              ref={botonEditar}
               type="button"
-              className="btn btn-sm btn-outline-primary"
-              onClick={empezar}
+              className="btn btn-sm btn-outline-danger pv-boton-envio"
+              onClick={alRestablecerTodos}
+              aria-disabled={restableciendo}
             >
-              <Icon name="pencil" />{" "}
-              {resumen.existe ? "Editar el aviso" : "Crear el aviso"}
+              <Icon name="arrow-counterclockwise" />{" "}
+              {restableciendo ? "Restableciendo…" : "Restablecer a todas"}
             </button>
-            {resumen.existe && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-danger"
-                onClick={alRestablecerTodos}
-              >
-                <Icon name="arrow-counterclockwise" /> Restablecer a todas
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -395,75 +301,13 @@ function EditorDelAviso({
           Esta empresa no tiene aviso: no se le pide aceptarlo a nadie.
         </p>
       )}
-
-      {editando ? (
-        <form onSubmit={guardar} noValidate className="mz-stack">
-          <label htmlFor="pv-aviso-texto" className="form-label mb-0">
-            Texto del aviso
-          </label>
-          <p id="pv-aviso-ayuda" className="mz-small mz-faint mb-0">
-            Una línea en blanco separa párrafos; las líneas que empiezan con «-
-            » forman una lista.
-          </p>
-          <textarea
-            id="pv-aviso-texto"
-            ref={campo}
-            className={`form-control${error ? " is-invalid" : ""}`}
-            rows={14}
-            maxLength={AVISO_MAX}
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            aria-describedby={describe}
-            aria-invalid={Boolean(error)}
-          />
-          <p id="pv-aviso-contador" className="mz-small mz-faint mb-0">
-            {texto.length}/{AVISO_MAX} caracteres
-          </p>
-          {error && (
-            <div id="pv-aviso-error" className="invalid-feedback d-block">
-              {error}
-            </div>
-          )}
-          {/* Cómo lo verá cada persona al entrar, con párrafos y listas. */}
-          <details className="pv-detalles">
-            <summary>Vista previa</summary>
-            <div className="pv-aviso-previa">
-              <TextoDelAviso texto={texto} />
-            </div>
-          </details>
-          {resumen.existe && (
-            <label className="pv-casilla">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={pedirDeNuevo}
-                onChange={(e) => setPedirDeNuevo(e.target.checked)}
-              />
-              Es un cambio sustancial: pedir que todas las personas lo acepten
-              de nuevo
-            </label>
-          )}
-          <div className="pv-acciones">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={cerrar}
-            >
-              Cancelar
-            </button>
-            {/* Sin `disabled` mientras guarda: el foco no cae en <body>. */}
-            <button
-              type="submit"
-              className="btn btn-primary pv-boton-envio"
-              aria-disabled={guardando}
-            >
-              {guardando ? "Guardando…" : "Guardar"}
-            </button>
-          </div>
-        </form>
-      ) : (
-        resumen.existe && <TextoDelAviso texto={resumen.texto} />
-      )}
+      <p className="mz-small mb-0">
+        <Icon name="pencil-square" /> El texto del aviso está en{" "}
+        <Link to={rutaDeTexto(CLAVES_TEXTO.AVISO)}>
+          Protección de datos → Textos
+        </Link>
+        .
+      </p>
     </section>
   );
 }
@@ -473,6 +317,7 @@ function usePersona(persona, { alEmpezar, alRestablecer, alFallar }) {
   const [historial, setHistorial] = useState(null);
   const [abierto, setAbierto] = useState(false);
   const [error, setError] = useState("");
+  const [restableciendo, setRestableciendo] = useState(false);
 
   const cargarHistorial = useCallback(async () => {
     setError("");
@@ -495,6 +340,7 @@ function usePersona(persona, { alEmpezar, alRestablecer, alFallar }) {
   }
 
   async function restablecer() {
+    if (restableciendo) return;
     alEmpezar();
     const si = await confirmar({
       titulo: `¿Restablecer el consentimiento de ${persona.nombre}?`,
@@ -503,16 +349,27 @@ function usePersona(persona, { alEmpezar, alRestablecer, alFallar }) {
       accion: "Restablecer",
     });
     if (!si) return;
+    setRestableciendo(true);
     try {
       const r = await privacidadService.restablecerConsentimiento(persona.id);
       setHistorial(r);
       alRestablecer(`Consentimiento de ${persona.nombre} restablecido.`);
     } catch (err) {
       alFallar(errorDePrivacidad(err).mensaje);
+    } finally {
+      setRestableciendo(false);
     }
   }
 
-  return { historial, abierto, error, alternar, restablecer, cargarHistorial };
+  return {
+    historial,
+    abierto,
+    error,
+    alternar,
+    restablecer,
+    restableciendo,
+    cargarHistorial,
+  };
 }
 
 function AccionesPersona({ persona, puedeAtender, estado, idHistorial }) {
@@ -531,10 +388,11 @@ function AccionesPersona({ persona, puedeAtender, estado, idHistorial }) {
       {puedeAtender && persona.estado === "ACEPTADO" && (
         <button
           type="button"
-          className="btn btn-sm btn-outline-danger"
+          className="btn btn-sm btn-outline-danger pv-boton-envio"
           onClick={estado.restablecer}
+          aria-disabled={estado.restableciendo}
         >
-          Restablecer
+          {estado.restableciendo ? "Restableciendo…" : "Restablecer"}
           <span className="visually-hidden"> a {persona.nombre}</span>
         </button>
       )}

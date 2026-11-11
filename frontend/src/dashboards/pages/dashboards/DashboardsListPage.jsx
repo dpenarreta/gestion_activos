@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Accordion, Alert, Button, Form, Modal, Spinner } from 'react-bootstrap'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Accordion, Alert, Button, Form, Modal, Spinner, Table } from 'react-bootstrap'
 import ModalConCambios from '../../components/common/ModalConCambios'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -9,6 +9,12 @@ import * as usersService from '../../services/usersService'
 
 function rutaDashboard(dashboardId) {
   return `/admin/dashboards/${dashboardId}`
+}
+
+// El buscador de roles no distingue mayúsculas ni tildes (US-003, 11/11/2026): «analisis»
+// encuentra «Análisis».
+function normalizarTexto(texto) {
+  return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
 function ModalCrearDashboard({ show, onHide, onCreado }) {
@@ -111,6 +117,14 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
   const [lectores, setLectores] = useState([])
   const [duenoId, setDuenoId] = useState('')
   const [duenoOriginalId, setDuenoOriginalId] = useState('')
+  const [busquedaRol, setBusquedaRol] = useState('')
+  const [errorAcceso, setErrorAcceso] = useState(false)
+  const [intentoAcceso, setIntentoAcceso] = useState(0)
+  // `n` cambia en cada anuncio para que se repita aunque el texto sea el mismo.
+  const [anuncioAcceso, setAnuncioAcceso] = useState({ texto: '', n: 0 })
+  const buscadorRef = useRef(null)
+  const reintentarRef = useRef(null)
+  const enfocarTrasReintento = useRef(false)
 
   useEffect(() => {
     if (dashboard) {
@@ -122,39 +136,128 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
   }, [dashboard])
 
   useEffect(() => {
-    if (!show || !dashboard || !dashboard.puede_administrar_acceso) return
+    if (!show || !dashboard || !dashboard.puede_administrar_acceso) return undefined
+    // Cada apertura empieza en blanco (US-003, 11/11/2026): si la carga falla, no deben quedar los
+    // roles y el dueño del dashboard abierto antes, que se guardarían sobre este.
+    let vigente = true
     setCargandoAcceso(true)
+    setErrorAcceso(false)
+    setBusquedaRol('')
+    setAnuncioAcceso((actual) => ({ texto: '', n: actual.n }))
+    setRolesDisponibles([])
+    setUsuariosDisponibles([])
+    setEditores([])
+    setLectores([])
+    setDuenoId('')
+    setDuenoOriginalId('')
     const solicitudes = [rolesService.list(), dashboardLayoutService.obtenerAcceso(dashboard.dashboard_id)]
     if (puedeReasignarDueno) solicitudes.push(usersService.list({ page_size: 200 }))
 
     Promise.all(solicitudes)
       .then(([rolesData, acceso, usuariosData]) => {
+        if (!vigente) return
+        const idsEditores = acceso.roles_editores.map((r) => r.id)
         setRolesDisponibles(rolesData.results || [])
-        setEditores(acceso.roles_editores.map((r) => r.id))
-        setLectores(acceso.roles_lectores.map((r) => r.id))
+        setEditores(idsEditores)
+        // Un rol nunca va en las dos listas: si el backend lo trae en ambas, gana «editor».
+        setLectores(acceso.roles_lectores.map((r) => r.id).filter((id) => !idsEditores.includes(id)))
         const ownerId = acceso.owner?.id || ''
         setDuenoId(ownerId)
         setDuenoOriginalId(ownerId)
         if (usuariosData) setUsuariosDisponibles(usuariosData.results || [])
       })
-      .catch(() => setError('No se pudo cargar el acceso de este dashboard.'))
-      .finally(() => setCargandoAcceso(false))
-  }, [show, dashboard, puedeReasignarDueno])
+      .catch(() => { if (vigente) setErrorAcceso(true) })
+      .finally(() => { if (vigente) setCargandoAcceso(false) })
+    return () => { vigente = false }
+  }, [show, dashboard, puedeReasignarDueno, intentoAcceso])
 
-  const marcarEditor = (rolId, marcado) => {
-    setEditores((actual) => (marcado ? [...actual, rolId] : actual.filter((id) => id !== rolId)))
-    if (marcado) setLectores((actual) => actual.filter((id) => id !== rolId))
+  // Tras «Reintentar», el foco no se pierde en la página: va al buscador si cargó o al nuevo
+  // «Reintentar» si volvió a fallar.
+  useEffect(() => {
+    if (cargandoAcceso || !enfocarTrasReintento.current) return
+    enfocarTrasReintento.current = false
+    ;(errorAcceso ? reintentarRef : buscadorRef).current?.focus()
+  }, [cargandoAcceso, errorAcceso])
+
+  const reintentarAcceso = () => {
+    enfocarTrasReintento.current = true
+    setIntentoAcceso((n) => n + 1)
   }
 
-  const marcarLector = (rolId, marcado) => {
-    setLectores((actual) => (marcado ? [...actual, rolId] : actual.filter((id) => id !== rolId)))
-    if (marcado) setEditores((actual) => actual.filter((id) => id !== rolId))
+  // Una fila por rol con «Ver» y «Editar» (US-003, 11/11/2026). El contrato sigue siendo dos listas
+  // excluyentes: `editores` (ver y editar) y `lectores` (solo ver). Editar sin ver no existe, así
+  // que marcar «Editar» deja «Ver» marcado y quitar «Ver» quita las dos.
+  // Cada clic lee las dos listas del mismo render y escribe las dos: no se mezclan valores del
+  // render con actualizaciones funcionales.
+  const marcarVer = (rolId, marcado) => {
+    const esEditor = editores.includes(rolId)
+    const esLector = lectores.includes(rolId)
+    if (marcado) {
+      if (!esEditor && !esLector) setLectores([...lectores, rolId])
+      return
+    }
+    setLectores(lectores.filter((id) => id !== rolId))
+    setEditores(editores.filter((id) => id !== rolId))
+    // Quitar «Ver» a un editor también le quita «Editar»: se anuncia para que no pase inadvertido.
+    if (esEditor) {
+      const rol = rolesDisponibles.find((r) => r.id === rolId)
+      setAnuncioAcceso({ texto: `${rol?.name || 'El rol'} ya no puede ver ni editar`, n: anuncioAcceso.n + 1 })
+    }
+  }
+
+  const marcarEditar = (rolId, marcado) => {
+    const esEditor = editores.includes(rolId)
+    const esLector = lectores.includes(rolId)
+    if (marcado) {
+      if (!esEditor) setEditores([...editores, rolId])
+      if (esLector) setLectores(lectores.filter((id) => id !== rolId))
+      return
+    }
+    if (esEditor) setEditores(editores.filter((id) => id !== rolId))
+    if (!esLector) setLectores([...lectores, rolId])
+  }
+
+  // Escape con texto en el buscador solo lo limpia; con el buscador vacío cierra como siempre.
+  // Enter no debe guardar ni cerrar la ventana.
+  const teclaEnBuscador = (e) => {
+    if (e.key === 'Enter') e.preventDefault()
+    if (e.key === 'Escape' && busquedaRol) {
+      e.preventDefault()
+      e.stopPropagation()
+      setBusquedaRol('')
+    }
+  }
+
+  const busquedaNormalizada = normalizarTexto(busquedaRol.trim())
+  const rolesFiltrados = useMemo(
+    () => (busquedaNormalizada
+      ? rolesDisponibles.filter((rol) => normalizarTexto(rol.name).includes(busquedaNormalizada))
+      : rolesDisponibles),
+    [rolesDisponibles, busquedaNormalizada],
+  )
+  const { totalPuedenVer, totalPuedenEditar } = useMemo(() => ({
+    totalPuedenVer: rolesDisponibles.filter((rol) => lectores.includes(rol.id) || editores.includes(rol.id)).length,
+    totalPuedenEditar: rolesDisponibles.filter((rol) => editores.includes(rol.id)).length,
+  }), [rolesDisponibles, lectores, editores])
+
+  // Una sola región viva para la carga y el filtro (también el «ningún rol coincide»).
+  let anuncioLista = ''
+  if (cargandoAcceso) anuncioLista = 'Cargando roles…'
+  else if (!errorAcceso && busquedaNormalizada) {
+    anuncioLista = rolesFiltrados.length
+      ? `Mostrando ${rolesFiltrados.length} de ${rolesDisponibles.length} roles`
+      : `Ningún rol coincide con «${busquedaRol.trim()}»`
   }
 
   const cerrar = () => { setError(''); onHide() }
 
+  // Sin el acceso cargado no se guarda nada (US-003, 11/11/2026): se mandarían listas vacías y se
+  // quitaría el acceso a todos los roles. «Guardar cambios» queda deshabilitado hasta reintentar.
+  const accesoSinCargar = puedeAdministrarAcceso && (cargandoAcceso || errorAcceso)
+
   const enviar = async (e) => {
     e.preventDefault()
+    if (accesoSinCargar) return
     setGuardando(true)
     setError('')
     try {
@@ -225,45 +328,107 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
               <Accordion.Item eventKey="permisos">
                 <Accordion.Header>Permisos de visualización y edición</Accordion.Header>
                 <Accordion.Body>
-                  <p className="chart-panel__subtitle">
-                    Roles con acceso a este dashboard. Un dashboard sin ningún rol asignado sigue
-                    siendo visible para cualquiera con el permiso general de ver dashboards.
-                  </p>
+                  <div className="dashboard-permisos">
+                    {/* La explicación de «sin roles» vive solo en el resumen (QA-UX, 11/11/2026). */}
+                    <p className="dashboard-permisos__ayuda">Roles con acceso a este dashboard.</p>
+                    <p className="dashboard-permisos__ayuda" id="acceso-ayuda-reglas">
+                      Marcar Editar da también Ver. Quitar Ver quita las dos.
+                    </p>
 
-                  {cargandoAcceso ? (
-                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
-                  ) : (
-                    <div className="d-flex gap-4 flex-wrap">
-                      <div style={{ minWidth: 220 }}>
-                        <Form.Label className="fw-bold">Ver y editar</Form.Label>
-                        {rolesDisponibles.map((rol) => (
-                          <Form.Check
-                            key={`editor-${rol.id}`}
-                            type="checkbox"
-                            id={`acceso-editor-${rol.id}`}
-                            label={rol.name}
-                            checked={editores.includes(rol.id)}
-                            onChange={(e) => marcarEditor(rol.id, e.target.checked)}
+                    {/* Regiones vivas siempre montadas: un lector de pantalla solo anuncia cambios
+                        en una región que ya existía. El anuncio de «Ver» cambia de nodo (key) en
+                        cada clic para repetirse aunque el texto sea el mismo. */}
+                    <p className="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="anuncio-lista-roles">{anuncioLista}</p>
+                    <p className="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="anuncio-acceso">
+                      <span key={anuncioAcceso.n}>{anuncioAcceso.texto}</span>
+                    </p>
+
+                    {cargandoAcceso ? (
+                      <div className="text-center"><Spinner animation="border" aria-hidden="true" /></div>
+                    ) : errorAcceso ? (
+                      <Alert variant="danger" className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-0">
+                        <span>No se pudo cargar el acceso de este dashboard.</span>
+                        <Button ref={reintentarRef} size="sm" variant="outline-danger" onClick={reintentarAcceso}>Reintentar</Button>
+                      </Alert>
+                    ) : (
+                      <>
+                        <Form.Group className="mb-2" controlId="acceso-buscar-rol">
+                          <Form.Label>Buscar rol</Form.Label>
+                          <Form.Control
+                            ref={buscadorRef}
+                            type="search"
+                            value={busquedaRol}
+                            onChange={(e) => setBusquedaRol(e.target.value)}
+                            onKeyDown={teclaEnBuscador}
+                            placeholder="Escriba parte del nombre del rol"
+                            autoComplete="off"
+                            data-sin-descarte
                             disabled={guardando}
                           />
-                        ))}
-                      </div>
-                      <div style={{ minWidth: 220 }}>
-                        <Form.Label className="fw-bold">Solo ver</Form.Label>
-                        {rolesDisponibles.map((rol) => (
-                          <Form.Check
-                            key={`lector-${rol.id}`}
-                            type="checkbox"
-                            id={`acceso-lector-${rol.id}`}
-                            label={rol.name}
-                            checked={lectores.includes(rol.id)}
-                            onChange={(e) => marcarLector(rol.id, e.target.checked)}
-                            disabled={guardando}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </Form.Group>
+
+                        <p className="dashboard-permisos__resumen">
+                          {totalPuedenVer === 0
+                            ? 'Sin roles asignados: lo ve cualquiera con el permiso general de dashboards.'
+                            : `${totalPuedenVer} ${totalPuedenVer === 1 ? 'rol puede' : 'roles pueden'} ver · ${totalPuedenEditar} ${totalPuedenEditar === 1 ? 'puede' : 'pueden'} editar`}
+                        </p>
+
+                        {rolesDisponibles.length === 0 ? (
+                          <p className="dashboard-permisos__vacio mb-0">No hay roles registrados. Créelos en Configuración → Roles.</p>
+                        ) : rolesFiltrados.length === 0 ? (
+                          <p className="dashboard-permisos__vacio mb-0">
+                            Ningún rol coincide con «{busquedaRol.trim()}».
+                          </p>
+                        ) : (
+                          <div className="dashboard-permisos__lista">
+                            <Table size="sm" className="mb-0 align-middle" aria-describedby="acceso-ayuda-reglas">
+                              <caption className="visually-hidden">Acceso de cada rol a este dashboard</caption>
+                              <thead>
+                                <tr>
+                                  <th scope="col">Rol</th>
+                                  <th scope="col" className="dashboard-permisos__col-casilla">Ver</th>
+                                  <th scope="col" className="dashboard-permisos__col-casilla">
+                                    Editar<span className="d-none d-sm-inline"> (incluye ver)</span>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rolesFiltrados.map((rol) => (
+                                  <tr key={rol.id}>
+                                    <th scope="row" className="fw-normal">{rol.name}</th>
+                                    <td className="dashboard-permisos__col-casilla">
+                                      <label className="dashboard-permisos__casilla" htmlFor={`acceso-ver-${rol.id}`}>
+                                        <Form.Check.Input
+                                          type="checkbox"
+                                          id={`acceso-ver-${rol.id}`}
+                                          checked={lectores.includes(rol.id) || editores.includes(rol.id)}
+                                          onChange={(e) => marcarVer(rol.id, e.target.checked)}
+                                          disabled={guardando}
+                                        />
+                                        <span className="visually-hidden">Ver: {rol.name}</span>
+                                      </label>
+                                    </td>
+                                    <td className="dashboard-permisos__col-casilla">
+                                      <label className="dashboard-permisos__casilla" htmlFor={`acceso-editar-${rol.id}`}>
+                                        <Form.Check.Input
+                                          type="checkbox"
+                                          id={`acceso-editar-${rol.id}`}
+                                          checked={editores.includes(rol.id)}
+                                          onChange={(e) => marcarEditar(rol.id, e.target.checked)}
+                                          disabled={guardando}
+                                        />
+                                        <span className="visually-hidden">Editar: {rol.name}</span>
+                                      </label>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </Table>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </Accordion.Body>
               </Accordion.Item>
             )}
@@ -273,7 +438,13 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                 <Accordion.Header>Dueño del tablero</Accordion.Header>
                 <Accordion.Body>
                   {cargandoAcceso ? (
-                    <div className="text-center" role="status" aria-live="polite"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando…</span></div>
+                    <div className="text-center"><Spinner animation="border" aria-hidden="true" /><span className="visually-hidden">Cargando dueño…</span></div>
+                  ) : errorAcceso ? (
+                    // Sin el acceso cargado, «Sin dueño» no es el dueño real: no se ofrece el selector.
+                    // Sin `role="alert"`: el fallo ya lo anuncia la alerta de Permisos.
+                    <p className="dashboard-permisos__vacio mb-0">
+                      No se pudo cargar el dueño. Use «Reintentar» en Permisos.
+                    </p>
                   ) : puedeReasignarDueno ? (
                     <Form.Group controlId="acceso-dueno">
                       <Form.Label className="fw-bold">Dueño</Form.Label>
@@ -297,7 +468,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={cerrar} disabled={guardando} type="button">Cancelar</Button>
-          <Button variant="primary" type="submit" disabled={guardando || cargandoAcceso}>
+          <Button variant="primary" type="submit" disabled={guardando || accesoSinCargar}>
             {guardando ? <><Spinner size="sm" animation="border" aria-hidden="true" /><span className="visually-hidden">Guardando…</span></> : 'Guardar cambios'}
           </Button>
         </Modal.Footer>
@@ -475,7 +646,10 @@ export default function DashboardsListPage() {
         onCreado={cargar}
       />
 
+      {/* Una instancia por dashboard: cada uno abre con estado nuevo y una respuesta tardía del
+          anterior no puede pisarlo. */}
       <ModalEditarDashboard
+        key={dashboardAEditar?.dashboard_id || 'ninguno'}
         show={Boolean(dashboardAEditar)}
         dashboard={dashboardAEditar}
         onHide={() => setDashboardAEditar(null)}

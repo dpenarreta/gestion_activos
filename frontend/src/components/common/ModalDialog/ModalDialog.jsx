@@ -30,6 +30,11 @@ export function ModalDialog({
   anchoMaximo,
   // El nombre accesible de la X (por defecto, «Cerrar» como hasta ahora).
   etiquetaCerrar = "Cerrar",
+  // Sin la burbuja del navegador: el formulario valida y pone su error junto
+  // al campo (Órdenes, US-006, 11/11/2026). Por defecto, como hasta ahora.
+  noValidate = false,
+  // Lo que dice el botón mientras se envía.
+  textoGuardando = "Guardando…",
 }) {
   // Un id por ventana: con un id fijo, dos ventanas anidadas compartían
   // «modal-dialog-titulo» y la de dentro se anunciaba con el título de la de
@@ -55,7 +60,11 @@ export function ModalDialog({
         ref={panelRef}
         tabIndex={-1}
       >
-        <form onSubmit={onSubmit} className="mz-modal-form">
+        <form
+          onSubmit={onSubmit}
+          className="mz-modal-form"
+          noValidate={noValidate || undefined}
+        >
           <div className="mz-panel-head">
             <div>
               <h3 id={idTitulo}>{titulo}</h3>
@@ -87,7 +96,7 @@ export function ModalDialog({
                 className={`btn btn-${variante}`}
                 disabled={isSaving || !puedeConfirmar}
               >
-                {isSaving ? "Guardando…" : textoConfirmar}
+                {isSaving ? textoGuardando : textoConfirmar}
               </button>
             )}
           </div>

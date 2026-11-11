@@ -31,7 +31,6 @@ import { fecha } from "../GestionHumana/comunes";
 import { PildoraEstado, PildoraTipo, Plazo } from "./Piezas";
 import {
   ESTADOS,
-  RUTA_CONSENTIMIENTO,
   TIPOS,
   idFilaSolicitud,
   rutaDeSolicitud,
@@ -125,18 +124,15 @@ export function BandejaPrivacidad() {
 
   return (
     <div className="mz-stack pv-bandeja">
-      <div className="mz-view-head">
-        <div>
-          <h2>Protección de datos: solicitudes</h2>
-          <p className="mz-desc">
-            Lo que las personas piden sobre sus datos personales (LOPDP):
-            acceso, corrección y eliminación. Las abiertas van primero, por
-            fecha límite.{" "}
-            <Link to={RUTA_CONSENTIMIENTO}>
-              Ver el aviso y el consentimiento de datos
-            </Link>
-          </p>
-        </div>
+      {/* El título de la página y las pestañas los pone «Protección de
+          datos» (US-004); el aviso y quién lo aceptó están en «Textos» y
+          «Aceptaciones». */}
+      <div>
+        <h3 className="h5 mb-1">Solicitudes de derechos</h3>
+        <p className="mz-desc mb-0">
+          Lo que las personas piden sobre sus datos personales (LOPDP): acceso,
+          corrección y eliminación. Las abiertas van primero, por fecha límite.
+        </p>
       </div>
 
       {/* Sin región viva: el resultado de cada filtro ya lo anuncia

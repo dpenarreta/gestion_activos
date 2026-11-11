@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DashboardsListPage from '../pages/dashboards/DashboardsListPage'
@@ -248,7 +248,7 @@ describe('DashboardsListPage', () => {
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
-    expect(await screen.findByText('Ver y editar')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Buscar rol')).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Área')).not.toBeInTheDocument()
   })
@@ -266,8 +266,8 @@ describe('DashboardsListPage', () => {
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
-    await userEvent.click(await screen.findByLabelText('Analista', { selector: '#acceso-editor-1' }))
-    await userEvent.click(screen.getByLabelText('Supervisor', { selector: '#acceso-lector-2' }))
+    await userEvent.click(await screen.findByLabelText('Editar: Analista'))
+    await userEvent.click(screen.getByLabelText('Ver: Supervisor'))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [1], rolesLectores: [2] })
@@ -285,7 +285,7 @@ describe('DashboardsListPage', () => {
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
-    await screen.findByText('Ver y editar')
+    await screen.findByLabelText('Buscar rol')
     expect(screen.queryByLabelText('Dueño')).not.toBeInTheDocument()
     // El texto nombra el permiso que de verdad decide (`dashboard.reasignar_dueno`), no «superusuario».
     expect(screen.getByText(/requiere el permiso «Reasignar el dueño de cualquier dashboard»/)).toBeInTheDocument()
@@ -330,9 +330,9 @@ describe('DashboardsListPage', () => {
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
-    expect(screen.getByText('Ver y editar')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Buscar rol')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByLabelText('Analista', { selector: '#acceso-editor-1' }))
+    await userEvent.click(screen.getByLabelText('Editar: Analista'))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(dashboardLayoutService.actualizarDashboard).toHaveBeenCalledWith('finanzas', { name: 'Finanzas', area: 'Finanzas y Contabilidad', contexto: '' })
@@ -397,5 +397,356 @@ describe('DashboardsListPage', () => {
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Eliminar' }))
 
     expect(await screen.findByText('El nombre ingresado no coincide.')).toBeInTheDocument()
+  })
+})
+
+// US-003, 11/11/2026: los permisos del dashboard pasan de dos columnas de roles repetidos
+// («Ver y editar» / «Solo ver») a una fila por rol con «Ver» y «Editar» y un buscador.
+describe('DashboardsListPage — permisos por rol con buscador', () => {
+  const roles = [
+    { id: 1, name: 'Analista' },
+    { id: 2, name: 'Supervisor' },
+    { id: 3, name: 'Análisis de cartera' },
+    { id: 4, name: 'Gerente General' },
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rolesService.list.mockResolvedValue({ results: roles })
+    dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
+      { dashboard_id: 'finanzas', name: 'Finanzas', area: '', puede_administrar_acceso: true },
+    ])
+    dashboardLayoutService.actualizarAcceso.mockResolvedValue({})
+  })
+
+  async function abrirPermisos({ editores = [], lectores = [] } = {}) {
+    dashboardLayoutService.obtenerAcceso.mockResolvedValue({
+      dashboard_id: 'finanzas',
+      owner: null,
+      roles_editores: editores.map((id) => roles.find((r) => r.id === id)),
+      roles_lectores: lectores.map((id) => roles.find((r) => r.id === id)),
+    })
+    renderPagina([])
+    const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
+    return screen.findByLabelText('Buscar rol')
+  }
+
+  const ver = (nombre) => screen.getByLabelText(`Ver: ${nombre}`)
+  const editar = (nombre) => screen.getByLabelText(`Editar: ${nombre}`)
+  const guardar = () => userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+  it('muestra una sola fila por rol, con «Ver» y «Editar» nombrados con el rol', async () => {
+    await abrirPermisos()
+    const tabla = screen.getByRole('table')
+    expect(within(tabla).getAllByRole('row')).toHaveLength(roles.length + 1)
+    for (const rol of roles) {
+      expect(within(tabla).getByRole('rowheader', { name: rol.name })).toBeInTheDocument()
+      expect(ver(rol.name)).toHaveAttribute('type', 'checkbox')
+      expect(editar(rol.name)).toHaveAttribute('type', 'checkbox')
+    }
+    // La ayuda de arriba es corta: lo de «sin roles asignados» lo explica el resumen.
+    expect(screen.getByText('Roles con acceso a este dashboard.')).toBeInTheDocument()
+  })
+
+  it('al cargar, el lector tiene «Ver», el editor «Ver» y «Editar» y el resto ninguna marca', async () => {
+    await abrirPermisos({ editores: [2], lectores: [1] })
+
+    expect(ver('Analista')).toBeChecked()
+    expect(editar('Analista')).not.toBeChecked()
+    expect(ver('Supervisor')).toBeChecked()
+    expect(editar('Supervisor')).toBeChecked()
+    expect(ver('Gerente General')).not.toBeChecked()
+    expect(editar('Gerente General')).not.toBeChecked()
+  })
+
+  it('sin roles asignados, el resumen explica quién lo ve en lugar de decir «0 roles»', async () => {
+    await abrirPermisos()
+    expect(screen.getByText('Sin roles asignados: lo ve cualquiera con el permiso general de dashboards.')).toBeInTheDocument()
+    expect(screen.queryByText(/0 roles pueden ver/)).not.toBeInTheDocument()
+  })
+
+  it('explica la regla de Ver y Editar y la enlaza con la tabla', async () => {
+    await abrirPermisos()
+    const tabla = screen.getByRole('table')
+    expect(tabla).toHaveAccessibleDescription('Marcar Editar da también Ver. Quitar Ver quita las dos.')
+    expect(within(tabla).getByRole('columnheader', { name: 'Editar (incluye ver)' })).toBeInTheDocument()
+  })
+
+  it('al quitar «Ver» a un editor se anuncia que ya no puede ver ni editar', async () => {
+    await abrirPermisos({ editores: [1] })
+    await userEvent.click(ver('Analista'))
+    expect(screen.getByText('Analista ya no puede ver ni editar')).toBeInTheDocument()
+  })
+
+  it('al filtrar se anuncia cuántos roles se muestran', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.type(buscador, 'analis')
+    expect(screen.getByText('Mostrando 2 de 4 roles')).toBeInTheDocument()
+  })
+
+  it('Enter en el buscador no envía el formulario ni cierra la ventana', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.type(buscador, 'super{Enter}')
+    expect(dashboardLayoutService.actualizarAcceso).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(ver('Supervisor')).toBeInTheDocument()
+  })
+
+  it('escribir en el buscador no cuenta como cambio: Cancelar cierra sin preguntar', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.type(buscador, 'super')
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('button', { name: 'Descartar' })).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByLabelText('Buscar rol')).not.toBeInTheDocument())
+  })
+
+  it('si no hay roles registrados lo dice y explica dónde crearlos', async () => {
+    rolesService.list.mockResolvedValue({ results: [] })
+    await abrirPermisos()
+    expect(screen.getByText('No hay roles registrados. Créelos en Configuración → Roles.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('mientras carga el acceso, «Guardar cambios» está deshabilitado', async () => {
+    dashboardLayoutService.obtenerAcceso.mockReturnValue(new Promise(() => {}))
+    renderPagina([])
+    const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
+    expect(await screen.findByText('Cargando roles…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+  })
+
+  it('si la carga del acceso falla, no se guarda el acceso y se puede reintentar', async () => {
+    dashboardLayoutService.obtenerAcceso.mockRejectedValueOnce(new Error('caída'))
+    renderPagina(['dashboard.editar'])
+    const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
+
+    expect(await screen.findByText('No se pudo cargar el acceso de este dashboard.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const botonGuardar = screen.getByRole('button', { name: 'Guardar cambios' })
+    expect(botonGuardar).toBeDisabled()
+    await userEvent.click(botonGuardar)
+    expect(dashboardLayoutService.actualizarAcceso).not.toHaveBeenCalled()
+    expect(dashboardLayoutService.actualizarDashboard).not.toHaveBeenCalled()
+
+    dashboardLayoutService.obtenerAcceso.mockResolvedValueOnce({
+      dashboard_id: 'finanzas', owner: null, roles_editores: [roles[1]], roles_lectores: [],
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    expect(await screen.findByLabelText('Editar: Supervisor')).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled()
+  })
+
+  it('al abrir otro dashboard no quedan las marcas del anterior, y lo duplicado cuenta como editor', async () => {
+    dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
+      { dashboard_id: 'finanzas', name: 'Finanzas', area: '', puede_administrar_acceso: true },
+      { dashboard_id: 'ventas', name: 'Ventas', area: '', puede_administrar_acceso: true },
+    ])
+    dashboardLayoutService.obtenerAcceso
+      .mockResolvedValueOnce({ dashboard_id: 'finanzas', owner: null, roles_editores: [roles[0]], roles_lectores: [roles[0], roles[1]] })
+      .mockRejectedValueOnce(new Error('caída'))
+    renderPagina([])
+
+    await userEvent.click(within(await screen.findByTestId('dashboard-card-finanzas')).getByRole('button', { name: 'Editar "Finanzas"' }))
+    expect(await screen.findByLabelText('Editar: Analista')).toBeChecked()
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [1], rolesLectores: [2] })
+    await waitFor(() => expect(screen.queryByLabelText('Buscar rol')).not.toBeInTheDocument())
+
+    await userEvent.click(within(screen.getByTestId('dashboard-card-ventas')).getByRole('button', { name: 'Editar "Ventas"' }))
+    expect(await screen.findByText('No se pudo cargar el acceso de este dashboard.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Editar: Analista')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+  })
+
+  it('si la carga falla, «Dueño del tablero» no ofrece «Sin dueño» y remite a Reintentar', async () => {
+    dashboardLayoutService.obtenerAcceso.mockRejectedValueOnce(new Error('caída'))
+    usersService.list.mockResolvedValue({ results: [{ id: 5, username: 'ana' }] })
+    renderPagina(['dashboard.reasignar_dueno'])
+    await userEvent.click(within(await screen.findByTestId('dashboard-card-finanzas')).getByRole('button', { name: 'Editar "Finanzas"' }))
+
+    expect(await screen.findByText('No se pudo cargar el dueño. Use «Reintentar» en Permisos.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Dueño')).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Sin dueño' })).not.toBeInTheDocument()
+  })
+
+  it('tras «Reintentar», el foco va al nuevo «Reintentar» si falla otra vez y al buscador si carga', async () => {
+    dashboardLayoutService.obtenerAcceso
+      .mockRejectedValueOnce(new Error('caída'))
+      .mockRejectedValueOnce(new Error('caída'))
+      .mockResolvedValueOnce({ dashboard_id: 'finanzas', owner: null, roles_editores: [], roles_lectores: [] })
+    renderPagina([])
+    await userEvent.click(within(await screen.findByTestId('dashboard-card-finanzas')).getByRole('button', { name: 'Editar "Finanzas"' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reintentar' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reintentar' })).toHaveFocus())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await waitFor(() => expect(screen.getByLabelText('Buscar rol')).toHaveFocus())
+  })
+
+  it('Escape con texto en el buscador lo limpia sin cerrar; con el buscador vacío cierra', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.type(buscador, 'super')
+    expect(screen.queryByLabelText('Ver: Analista')).not.toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(buscador).toHaveValue('')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(ver('Analista')).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByLabelText('Buscar rol')).not.toBeInTheDocument())
+  })
+
+  it('el anuncio de quitar «Ver» se repite aunque el texto sea el mismo', async () => {
+    await abrirPermisos({ editores: [1] })
+    const region = screen.getByTestId('anuncio-acceso')
+
+    await userEvent.click(ver('Analista'))
+    const primero = within(region).getByText('Analista ya no puede ver ni editar')
+
+    await userEvent.click(editar('Analista'))
+    await userEvent.click(ver('Analista'))
+    const segundo = within(region).getByText('Analista ya no puede ver ni editar')
+    // Nodo nuevo dentro de la misma región viva: el lector de pantalla lo vuelve a leer.
+    expect(segundo).not.toBe(primero)
+  })
+
+  it('si la respuesta de un dashboard llega después de abrir otro, no pisa sus marcas', async () => {
+    dashboardLayoutService.obtenerDashboardsAutorizados.mockResolvedValue([
+      { dashboard_id: 'finanzas', name: 'Finanzas', area: '', puede_administrar_acceso: true },
+      { dashboard_id: 'ventas', name: 'Ventas', area: '', puede_administrar_acceso: true },
+    ])
+    let responderFinanzas
+    dashboardLayoutService.obtenerAcceso.mockImplementation((id) => (id === 'finanzas'
+      ? new Promise((resolve) => { responderFinanzas = resolve })
+      : Promise.resolve({ dashboard_id: 'ventas', owner: null, roles_editores: [roles[1]], roles_lectores: [] })))
+    renderPagina([])
+
+    await userEvent.click(within(await screen.findByTestId('dashboard-card-finanzas')).getByRole('button', { name: 'Editar "Finanzas"' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await userEvent.click(within(screen.getByTestId('dashboard-card-ventas')).getByRole('button', { name: 'Editar "Ventas"' }))
+    expect(await screen.findByLabelText('Editar: Supervisor')).toBeChecked()
+
+    responderFinanzas({ dashboard_id: 'finanzas', owner: null, roles_editores: [roles[0]], roles_lectores: [roles[3]] })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(editar('Supervisor')).toBeChecked()
+    expect(ver('Analista')).not.toBeChecked()
+    expect(ver('Gerente General')).not.toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('ventas', { rolesEditores: [2], rolesLectores: [] })
+  })
+
+  it('el resumen cuenta a los editores también entre quienes pueden ver', async () => {
+    await abrirPermisos({ editores: [2], lectores: [1] })
+    expect(screen.getByText('2 roles pueden ver · 1 puede editar')).toBeInTheDocument()
+
+    await userEvent.click(editar('Gerente General'))
+    expect(screen.getByText('3 roles pueden ver · 2 pueden editar')).toBeInTheDocument()
+  })
+
+  it('el buscador filtra por nombre sin distinguir mayúsculas ni tildes', async () => {
+    const buscador = await abrirPermisos()
+    expect(buscador).toHaveAttribute('type', 'search')
+
+    await userEvent.type(buscador, 'ANALIS')
+    expect(ver('Analista')).toBeInTheDocument()
+    expect(ver('Análisis de cartera')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver: Supervisor')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver: Gerente General')).not.toBeInTheDocument()
+
+    await userEvent.clear(buscador)
+    await userEvent.type(buscador, 'análisis')
+    expect(ver('Análisis de cartera')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Ver: Analista')).not.toBeInTheDocument()
+  })
+
+  it('si ningún rol coincide, lo dice con el texto buscado', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.type(buscador, 'zzz')
+    expect(screen.getByText('Ningún rol coincide con «zzz».')).toBeInTheDocument()
+    // Se anuncia una sola vez, desde la región viva de la lista.
+    expect(screen.getByTestId('anuncio-lista-roles')).toHaveTextContent('Ningún rol coincide con «zzz»')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('filtrar no borra lo marcado, ni lo que queda oculto ni lo que se ve', async () => {
+    const buscador = await abrirPermisos()
+    await userEvent.click(editar('Supervisor'))
+    await userEvent.click(ver('Analista'))
+
+    await userEvent.type(buscador, 'super')
+    expect(editar('Supervisor')).toBeChecked()
+    expect(screen.queryByLabelText('Ver: Analista')).not.toBeInTheDocument()
+
+    await userEvent.clear(buscador)
+    expect(ver('Analista')).toBeChecked()
+    expect(editar('Supervisor')).toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [2], rolesLectores: [1] })
+  })
+
+  it('solo «Ver» deja al rol como lector', async () => {
+    await abrirPermisos()
+    await userEvent.click(ver('Analista'))
+    expect(ver('Analista')).toBeChecked()
+    expect(editar('Analista')).not.toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [], rolesLectores: [1] })
+  })
+
+  it('marcar «Editar» marca «Ver» y deja al rol como editor, no en las dos listas', async () => {
+    await abrirPermisos({ lectores: [1] })
+    await userEvent.click(editar('Analista'))
+    expect(ver('Analista')).toBeChecked()
+    expect(editar('Analista')).toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [1], rolesLectores: [] })
+  })
+
+  it('desmarcar «Editar» deja al rol solo con «Ver»', async () => {
+    await abrirPermisos({ editores: [1] })
+    await userEvent.click(editar('Analista'))
+    expect(ver('Analista')).toBeChecked()
+    expect(editar('Analista')).not.toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [], rolesLectores: [1] })
+  })
+
+  it('desmarcar «Ver» de un editor quita las dos marcas y el rol queda sin acceso', async () => {
+    await abrirPermisos({ editores: [1], lectores: [2] })
+    await userEvent.click(ver('Analista'))
+    expect(ver('Analista')).not.toBeChecked()
+    expect(editar('Analista')).not.toBeChecked()
+
+    await guardar()
+    expect(dashboardLayoutService.actualizarAcceso).toHaveBeenCalledWith('finanzas', { rolesEditores: [], rolesLectores: [2] })
+  })
+
+  it('tras muchos cambios, ningún rol se envía en las dos listas', async () => {
+    await abrirPermisos({ editores: [1], lectores: [2] })
+    await userEvent.click(editar('Supervisor'))
+    await userEvent.click(editar('Supervisor'))
+    await userEvent.click(editar('Supervisor'))
+    await userEvent.click(editar('Analista'))
+    await userEvent.click(ver('Gerente General'))
+    await userEvent.click(editar('Gerente General'))
+
+    await guardar()
+    const [, { rolesEditores, rolesLectores }] = dashboardLayoutService.actualizarAcceso.mock.calls[0]
+    expect([...rolesEditores].sort()).toEqual([2, 4])
+    expect(rolesLectores).toEqual([1])
+    expect(rolesEditores.filter((id) => rolesLectores.includes(id))).toEqual([])
   })
 })

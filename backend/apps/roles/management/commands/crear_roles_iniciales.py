@@ -57,6 +57,11 @@ ROLES = {
             # abre los datos de cualquier persona; decisión del usuario.
             "privacidad.",
         ),
+        # Lo que sí lleva aunque su prefijo esté excluido. Editar los textos de
+        # protección de datos (US-004, decisión del usuario del 11/11/2026,
+        # `roles/0045`): TI los edita, pero sigue sin `privacidad.ver` ni
+        # `privacidad.atender`, que son las solicitudes de derechos.
+        "excepto": ("privacidad.textos",),
     },
     "Superusuario": {
         "descripcion": "Todo el sistema, para asignar a quien lo administra por completo.",
@@ -99,7 +104,8 @@ class Command(BaseCommand):
                 else definicion["permisos"]
             )
             excluidos = definicion.get("excluir_prefijos", ())
-            codenames = [c for c in codenames if not c.startswith(excluidos)]
+            excepto = set(definicion.get("excepto", ()))
+            codenames = [c for c in codenames if c in excepto or not c.startswith(excluidos)]
 
             desconocidos = [c for c in codenames if c not in disponibles]
             if desconocidos:

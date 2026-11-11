@@ -585,19 +585,47 @@
   box-shadow: var(--mz-shadow-1);
 }
 
-/* Por defecto 16:5; en Inicio va a 16:10 (`.inicio-destacados`), la medida
-   publicada en MEDIDAS_CARRUSEL (1600 × 1000), para que la imagen hecha a
-   esa medida se vea completa, sin recortes. */
+/* Por defecto 16:5; en Inicio va a 16:10 (`.inicio-destacados`), el marco
+   de MEDIDAS_CARRUSEL. El alto no depende de la imagen: lo fija el marco. */
 .carrusel__diapositiva {
   position: relative;
   aspect-ratio: 16 / 5;
   width: 100%;
+  overflow: hidden;
 }
 
-.carrusel__diapositiva img {
+/* El marco de la imagen. En escritorio ocupa toda la diapositiva y la franja
+   del título va encima; en el teléfono la franja sale debajo (al final). */
+.carrusel__medio {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Cada imagen completa, horizontal o vertical (US-007, 11/11/2026): antes
+   `cover` recortaba los afiches arriba y abajo. Lo que sobra del marco lo
+   rellena la misma imagen desenfocada y oscurecida (`ImagenConFondo`). Se
+   sale 48 px por cada lado (el marco lo recorta) para que no se vean las
+   orillas claras que deja el desenfoque. Es estático, sin animación que
+   frenar con `prefers-reduced-motion`. */
+.carrusel__fondo {
+  position: absolute;
+  inset: -48px;
+  /* Fijo, no del tema: es el respaldo de una foto oscurecida y lo que hay
+     debajo de los controles blancos; con el tema claro, un gris claro
+     dejaría los puntos y la franja sin contraste. */
+  background-color: #121212;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(24px) brightness(0.6);
+}
+
+.carrusel__imagen {
+  position: relative;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -627,9 +655,19 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 28px 20px 34px;
+  padding: 20px 20px 30px;
   background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72) 24px);
   color: #fff;
+}
+
+/* Título y descripción, de 2 líneas como mucho cada uno: así la franja no
+   pasa de la zona segura publicada (`ZONA_INFERIOR`, revisión UX de US-007). */
+.carrusel__texto strong,
+.carrusel__texto span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .carrusel__texto strong {
@@ -744,18 +782,13 @@
   outline-offset: 2px;
 }
 
+/* La imagen entera, también las verticales, como el carrusel (US-007). */
 .noticias-miniatura {
   width: 96px;
   height: 40px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 6px;
   background: var(--mz-sunken);
-}
-
-@media (max-width: 560px) {
-  .carrusel__texto strong {
-    font-size: 15px;
-  }
 }
 
 /* Guía de medidas para quien diseña las imágenes. */
@@ -773,7 +806,7 @@
 .medidas-guia__segura {
   position: absolute;
   top: 10%;
-  bottom: 22%;
+  bottom: 40%; /* `ZONA_INFERIOR`; el estilo en línea manda */
   left: 10%;
   right: 10%;
   border: 1.5px solid var(--mz-ok-fg);
@@ -792,7 +825,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 22%;
+  height: 40%; /* `ZONA_INFERIOR`; el estilo en línea manda */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3357,35 +3390,6 @@
   }
 }
 
-/* El carrusel en el teléfono: el texto ocupa menos y las flechas bajan junto
-   a los puntos, para no tapar la imagen. */
-@media (max-width: 560px) {
-  .carrusel__texto {
-    padding: 16px 12px 30px;
-  }
-
-  .carrusel__texto span {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .carrusel__flecha {
-    top: auto;
-    bottom: 0;
-    transform: none;
-  }
-
-  .carrusel__flecha--anterior {
-    left: 4px;
-  }
-
-  .carrusel__flecha--siguiente {
-    right: 4px;
-  }
-}
-
 /* Re-auditoría final (27/10/2026). */
 
 @media (pointer: coarse) {
@@ -3396,13 +3400,6 @@
   .mz-close {
     min-width: 44px;
     min-height: 44px;
-  }
-}
-
-/* En el teléfono, el texto del carrusel deja libre la franja de las flechas. */
-@media (max-width: 560px) {
-  .carrusel__texto {
-    padding-bottom: 50px;
   }
 }
 
@@ -4344,5 +4341,160 @@
   .rol-pagos__reenvio .btn,
   .rol-pagos__cambiar-periodo {
     min-height: 44px;
+  }
+}
+
+/* Vista previa del formulario de noticias: el mismo marco 16:10, la misma
+   imagen con fondo desenfocado y la misma franja de título que el carrusel
+   de Inicio (US-007, CA-4). Va con `.carrusel__diapositiva` y la misma
+   estructura, así que en el teléfono también saca la franja debajo. */
+.noticias-vista-previa {
+  width: min(100%, 400px);
+  aspect-ratio: 16 / 10;
+  margin-top: 8px;
+  border-radius: 10px;
+  background: #121212;
+}
+
+.noticias-vista-previa .carrusel__texto {
+  padding: 18px 12px 14px;
+}
+
+.noticias-vista-previa .carrusel__texto strong {
+  font-size: 15px;
+}
+
+.noticias-vista-previa .carrusel__texto span {
+  font-size: 12.5px;
+}
+
+/* Los avisos de éxito de Gestionar noticias: `text-success` daba 3,76:1 en
+   el tema oscuro (revisión UX de US-007); el color del tema pasa de 4,5:1 en
+   ambos. */
+.noticias-aviso-ok {
+  color: var(--mz-ok-fg);
+}
+
+/* «Quitar imagen» se toca con el dedo: 44 px (WCAG 2.5.8 holgado). */
+@media (any-pointer: coarse) {
+  .noticias-quitar-imagen {
+    min-height: 44px;
+  }
+}
+
+/* Los puntos se ven sobre cualquier foto sin necesitar la franja oscura
+   detrás (revisión UX de US-007). */
+.carrusel__punto::before {
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85));
+}
+
+/* En el teléfono (revisión UX de US-007, 11/11/2026): la franja restaba alto
+   y la imagen se quedaba con la mitad del marco. Ahora el marco 16:10 es solo
+   para la imagen; debajo va la franja del título como bloque y, en una fila
+   propia, anterior · puntos · siguiente. El carrusel crece lo que haga falta
+   (deja de medir 16:10 entero). El fondo pasa a ser el oscuro fijo, porque
+   los controles blancos están pensados para ir sobre la foto. */
+@media (max-width: 560px) {
+  .carrusel,
+  .inicio-destacados__columna > .carrusel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    aspect-ratio: auto;
+    background: #121212;
+  }
+
+  .carrusel__marco {
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  .carrusel__diapositiva,
+  .inicio-destacados__columna > .carrusel .carrusel__diapositiva,
+  .noticias-vista-previa {
+    position: relative;
+    inset: auto;
+    aspect-ratio: auto;
+  }
+
+  .carrusel__medio {
+    position: relative;
+    inset: auto;
+    aspect-ratio: 16 / 10;
+  }
+
+  .carrusel__texto,
+  .noticias-vista-previa .carrusel__texto {
+    position: static;
+    padding: 10px 12px;
+    background: #121212;
+  }
+
+  .carrusel__texto strong {
+    font-size: 15px;
+  }
+
+  .carrusel__texto span {
+    -webkit-line-clamp: 2;
+  }
+
+  .carrusel__flecha {
+    position: static;
+    transform: none;
+    flex: none;
+    margin: 6px;
+  }
+
+  .carrusel__flecha--anterior {
+    order: 1;
+  }
+
+  /* Con muchas noticias los puntos pasan a otra línea entre las flechas, y
+     «siguiente» no salta de fila. */
+  .carrusel__puntos {
+    position: static;
+    order: 2;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .carrusel__flecha--siguiente {
+    order: 3;
+  }
+}
+
+/* «Asignación de cargos» → el área de cada persona y su botón para guardarla
+   (US-005, 11/11/2026). En móvil el botón baja debajo del select. */
+.asignacion-area__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.asignacion-area__fila .form-select {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* Mientras guarda, el botón sigue enfocable (`aria-disabled`) pero se ve
+   deshabilitado. */
+.asignacion-area__fila .btn[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+/* `any-pointer`: un portátil con pantalla táctil también se toca. */
+@media (any-pointer: coarse) {
+  .asignacion-area__fila .form-select,
+  .asignacion-area__fila .btn,
+  .asignacion-cargos .mz-table .form-select,
+  .asignacion-cargos input[type="search"] {
+    min-height: 44px;
+  }
+
+  .asignacion-area__fila .btn {
+    min-width: 44px;
   }
 }

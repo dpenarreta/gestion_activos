@@ -45,10 +45,10 @@ function nombreDelArchivo(cabecera, porDefecto) {
  * Si falla, el cuerpo llega como blob: se lee para mostrar el mensaje del
  * servidor (p. ej. el 429 dice cuánto esperar).
  */
-async function bajar(ruta, formato, porDefecto) {
+async function bajar(ruta, params, porDefecto) {
   try {
     const r = await apiClient.get(ruta, {
-      params: { formato },
+      params,
       responseType: "blob",
     });
     const nombre = nombreDelArchivo(
@@ -101,7 +101,7 @@ export const privacidadService = {
   secciones: () => apiClient.get(`${BASE}/mis-datos/secciones/`).then(datos),
   /** `formato`: `json` o `xlsx`. Devuelve el nombre del archivo. */
   descargarMisDatos: (formato) =>
-    bajar(`${BASE}/mis-datos/`, formato, `mis-datos.${formato}`),
+    bajar(`${BASE}/mis-datos/`, { formato }, `mis-datos.${formato}`),
 
   // --- Quien ve o atiende ---
   /** Paginada: `{count, next, previous, results, totales{abiertas, vencidas}}`. */
@@ -130,7 +130,7 @@ export const privacidadService = {
   descargarDatosDelTitular: (id, formato) =>
     bajar(
       `${BASE}/solicitudes/${id}/datos/`,
-      formato,
+      { formato },
       `datos-del-titular-${id}.${formato}`,
     ),
 
@@ -140,16 +140,9 @@ export const privacidadService = {
   /** Acepta la versión que leyó; 409 `aviso_cambiado` si ya hay otra. */
   aceptarAviso: (version) =>
     apiClient.post(`${BASE}/consentimiento/`, { version }).then(datos),
-  /** `{existe, texto, version, version_desde, totales, texto_inicial, puede_atender}`. */
+  /** `{existe, texto, version, version_desde, totales, texto_inicial, puede_atender}`.
+   * Desde US-004 el aviso se edita con `guardarTexto` («Textos»). */
   aviso: () => apiClient.get(`${BASE}/consentimiento/aviso/`).then(datos),
-  /** Editar no cambia la versión; `pedirDeNuevo` la sube y todos vuelven a aceptar. */
-  guardarAviso: ({ texto, pedirDeNuevo }) =>
-    apiClient
-      .put(`${BASE}/consentimiento/aviso/`, {
-        texto,
-        pedir_aceptacion_de_nuevo: Boolean(pedirDeNuevo),
-      })
-      .then(datos),
   /** Paginada: las personas de la empresa con su estado frente al aviso. */
   personasConsentimiento: (params = {}) =>
     apiClient
@@ -165,4 +158,46 @@ export const privacidadService = {
     apiClient
       .post(`${BASE}/consentimiento/restablecer-todos/`, { confirmar: true })
       .then(datos),
+
+  // --- Textos de protección de datos y sus aceptaciones (US-004) ---
+  /** `{puede_editar, modulos: [{modulo, secciones: [{seccion, textos}]}]}`
+   * (`privacidad.ver`, `.atender` o `.textos`). */
+  textos: () => apiClient.get(`${BASE}/textos/`).then(datos),
+  /** `privacidad.textos`. Devuelve el texto como en el catálogo; 400 con
+   * `details.texto`, `details.titulo` o `details.motivo`. `pedirDeNuevo`
+   * solo cuenta en el aviso general. */
+  guardarTexto: (clave, { texto, titulo, motivo, pedirDeNuevo }) =>
+    apiClient
+      .put(`${BASE}/textos/${encodeURIComponent(clave)}/`, {
+        texto,
+        ...(titulo !== undefined ? { titulo } : {}),
+        motivo: motivo || "",
+        pedir_de_nuevo: Boolean(pedirDeNuevo),
+      })
+      .then(datos),
+  /** `{clave, version, texto, titulo}` para mostrarlo o aceptarlo (toda
+   * persona con sesión), con las variables ya reemplazadas. */
+  textoVigente: (clave) =>
+    apiClient
+      .get(`${BASE}/textos/${encodeURIComponent(clave)}/vigente/`)
+      .then(datos),
+  /** Cada versión, de la más nueva a la más vieja. */
+  versionesTexto: (clave) =>
+    apiClient
+      .get(`${BASE}/textos/${encodeURIComponent(clave)}/versiones/`)
+      .then(datos),
+  /** Paginada; filtros `clave, modulo, seccion, persona, estado`. */
+  aceptaciones: (params = {}) =>
+    apiClient
+      .get(`${BASE}/aceptaciones/`, { params: limpio(params) })
+      .then(datos),
+  /** Con el texto exacto aceptado (o el de su versión, `texto_de_la_version`). */
+  aceptacion: (id) => apiClient.get(`${BASE}/aceptaciones/${id}/`).then(datos),
+  /** Los mismos filtros del listado. Devuelve el nombre del archivo. */
+  exportarAceptaciones: (params = {}) =>
+    bajar(
+      `${BASE}/aceptaciones/excel/`,
+      limpio(params),
+      "aceptaciones-proteccion-datos.xlsx",
+    ),
 };

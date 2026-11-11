@@ -3,7 +3,19 @@ import { useState } from "react";
 import { misDatosService } from "../../api/misDatosService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { useTextoVigente } from "../../hooks/useTextoVigente";
 import { mensajeDeError } from "../../utils/errores";
+import {
+  CLAVES_TEXTO,
+  esTextoCambiado,
+  mensajeDeTextoCambiado,
+} from "../Privacidad/privacidadComunes";
+import { CasillaDeAceptacion } from "./CasillaDeAceptacion";
+
+/** El texto que estuvo fijo hasta US-004 (11/11/2026): hoy se lee del
+ * catálogo y este es solo el respaldo mientras llega. */
+const RESPALDO =
+  "Acepto que mi aniversario en la empresa sea información pública dentro de la empresa.";
 
 const MESES = [
   "enero",
@@ -29,7 +41,11 @@ function fechaDeIngreso({ dia, mes, anio }) {
 function VentanaPublicar({ onPublicado, onCerrar }) {
   const [valores, setValores] = useState({ dia: "", mes: "", anio: "" });
   const [acepto, setAcepto] = useState(false);
+  // Lo que se acepta es el texto vigente del servidor; sin él, no se acepta.
+  const vigente = useTextoVigente(CLAVES_TEXTO.ANIVERSARIO, RESPALDO);
   const [error, setError] = useState(null);
+  // El error de la casilla (el texto cambió mientras se leía), junto a ella.
+  const [errorCasilla, setErrorCasilla] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
@@ -46,18 +62,27 @@ function VentanaPublicar({ onPublicado, onCerrar }) {
     }
     setGuardando(true);
     setError(null);
+    setErrorCasilla(null);
     try {
       onPublicado(
         await misDatosService.guardarAniversario({
           mostrar: true,
           acepto,
+          // La versión que leyó: si cambió, el servidor lo rechaza.
+          version: vigente.version,
           dia: Number(valores.dia),
           mes: Number(valores.mes),
           anio: valores.anio ? Number(valores.anio) : null,
         }),
       );
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar."));
+      if (esTextoCambiado(err)) {
+        setAcepto(false);
+        vigente.reintentar();
+        setErrorCasilla(mensajeDeTextoCambiado(err));
+      } else {
+        setError(mensajeDeError(err, "No se pudo guardar."));
+      }
       setGuardando(false);
     }
   }
@@ -157,30 +182,29 @@ function VentanaPublicar({ onPublicado, onCerrar }) {
               />
             </div>
           </fieldset>
-          <label className="form-check">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              checked={acepto}
-              onChange={(e) => setAcepto(e.target.checked)}
-            />{" "}
-            <span className="form-check-label">
-              Acepto que mi aniversario en la empresa sea información pública
-              dentro de la empresa.
-            </span>
-          </label>
+          <CasillaDeAceptacion
+            id="aniversario-acepto"
+            vigente={vigente}
+            error={errorCasilla}
+            etiquetaNeutra="Acepto que mi aniversario sea público"
+            acepto={acepto}
+            onCambio={(si) => {
+              setAcepto(si);
+              setErrorCasilla(null);
+            }}
+          />
           <div className="mz-actions justify-content-end">
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-outline-secondary btn-sm mz-tactil"
               onClick={onCerrar}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!acepto || guardando}
+              className="btn btn-primary btn-sm mz-tactil"
+              disabled={!acepto || !vigente.delServidor || guardando}
             >
               {guardando ? "Guardando…" : "Aceptar y mostrar"}
             </button>

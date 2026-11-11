@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { institucionalService } from "../../api/institucionalService";
-import {
-  Campo,
-  LeyendaObligatorios,
-  enfocarPrimerError,
-} from "../../components/common/Campo/Campo";
 import {
   EstadoDeCarga,
   FilaDeEstado,
@@ -13,32 +8,35 @@ import {
 import { AnuncioDeResultados } from "../../components/common/AnuncioDeResultados/AnuncioDeResultados";
 import { Icon } from "../../components/common/Icon/Icon";
 import { coincideBusqueda } from "../../utils/busqueda";
-import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
+import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
 import { descargarBlob } from "../../utils/descargas";
+import {
+  SeConsultaEnProteccionDeDatos,
+  SeEditaEnProteccionDeDatos,
+} from "../Privacidad/SeEditaEnProteccionDeDatos";
+import { CLAVES_TEXTO } from "../Privacidad/privacidadComunes";
+import { TextoDelAviso } from "../Privacidad/TextoDelAviso";
 
 /**
  * Gestionar documentos → «Acuerdo de confidencialidad»: el título y el texto
- * que se presentan antes de leer los documentos. Cambiarlos no obliga a nadie
- * a aceptar de nuevo; lo que lo obliga es un cambio de contenido: publicar un
- * documento, reemplazar su archivo o volver a publicar uno retirado.
+ * que se presentan antes de leer los documentos, de solo lectura. Desde
+ * US-004 (11/11/2026, CA-7) se editan en «Protección de datos» → «Textos»;
+ * aquí se ve el vigente con el enlace. Se vuelve a pedir aceptarlo cuando
+ * cambia su texto o un documento (publicar, reemplazar el archivo o volver a
+ * publicar uno retirado).
  */
 export function AcuerdoConfidencialidad() {
   const [valores, setValores] = useState(null);
-  const [error, setError] = useState(null);
-  // Cargando, error al cargar con «Reintentar» y errores por campo
-  // (auditoría UX/UI, fase 2, 28/10/2026).
   const [errorCarga, setErrorCarga] = useState(null);
-  const [errores, setErrores] = useState({});
-  const [aviso, setAviso] = useState(null);
-  const [guardando, setGuardando] = useState(false);
-  const formulario = useRef(null);
 
   const cargar = useCallback(() => {
     setErrorCarga(null);
     institucionalService
       .confidencialidad()
-      .then(({ titulo, texto }) => setValores({ titulo, texto }))
+      .then(({ titulo, texto, version }) =>
+        setValores({ titulo, texto, version }),
+      )
       .catch((err) =>
         setErrorCarga(mensajeDeError(err, "No se pudo cargar el acuerdo.")),
       );
@@ -48,101 +46,45 @@ export function AcuerdoConfidencialidad() {
     cargar();
   }, [cargar]);
 
-  async function guardar(evento) {
-    evento.preventDefault();
-    setGuardando(true);
-    setError(null);
-    setErrores({});
-    setAviso(null);
-    try {
-      const { titulo, texto } =
-        await institucionalService.guardarConfidencialidad(valores);
-      setValores({ titulo, texto });
-      setAviso("Acuerdo guardado.");
-    } catch (err) {
-      setError(mensajeDeError(err, "No se pudo guardar el acuerdo."));
-      setErrores(erroresPorCampo(err));
-      enfocarPrimerError(formulario.current);
-    } finally {
-      setGuardando(false);
-    }
-  }
-
   if (!valores) {
     return <EstadoDeCarga cargando error={errorCarga} onReintentar={cargar} />;
   }
 
   return (
-    <form ref={formulario} className="mz-card" onSubmit={guardar}>
-      <div className="mz-card-body row g-2">
-        <p className="col-12 mz-faint mb-1">
+    <section className="mz-card" aria-labelledby="acuerdo-vigente-titulo">
+      <div className="mz-card-body mz-stack">
+        {/* El título primero: es lo que lee cada persona (QA-UX). */}
+        <div className="mz-row-between">
+          <h3 id="acuerdo-vigente-titulo" className="h6 mb-0">
+            {valores.titulo}
+          </h3>
+          {valores.version && (
+            <span className="mz-pill">Versión {valores.version}</span>
+          )}
+        </div>
+        <div
+          className="acuerdo-texto"
+          // Una región con desplazamiento tiene que poder recibir el foco.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          role="region"
+          aria-label="Texto del acuerdo"
+        >
+          <TextoDelAviso texto={valores.texto} />
+        </div>
+        <p className="mz-faint mb-0">
           Se presenta a cada persona al entrar a «Códigos de conducta». Sin
-          aceptarlo no ve el contenido. Se vuelve a pedir cuando se publica un
-          documento, se reemplaza su archivo o se vuelve a publicar uno retirado
-          (corregir datos, retirarlo o borrarlo no lo pide).
+          aceptarlo no ve el contenido. Se vuelve a pedir cuando cambia su
+          texto, se publica un documento, se reemplaza su archivo o se vuelve a
+          publicar uno retirado (corregir datos, retirarlo o borrarlo no lo
+          pide).
         </p>
-        {error && (
-          <div className="col-12">
-            <div className="mz-alert mz-alert--bad" role="alert">
-              <Icon name="x-octagon" />
-              {error}
-            </div>
-          </div>
-        )}
-        {aviso && (
-          <div className="col-12">
-            <div className="mz-alert mz-alert--ok" role="status">
-              <Icon name="check-circle" />
-              {aviso}
-            </div>
-          </div>
-        )}
-        <div className="col-12">
-          <LeyendaObligatorios />
-        </div>
-        <Campo
-          id="acuerdo-titulo-campo"
-          etiqueta="Título"
-          obligatorio
-          error={errores.titulo}
-          className="col-12"
-        >
-          <input
-            className="form-control form-control-sm"
-            maxLength={200}
-            value={valores.titulo}
-            onChange={(e) =>
-              setValores((v) => ({ ...v, titulo: e.target.value }))
-            }
-          />
-        </Campo>
-        <Campo
-          id="acuerdo-texto-campo"
-          etiqueta="Texto del acuerdo"
-          obligatorio
-          error={errores.texto}
-          className="col-12"
-        >
-          <textarea
-            className="form-control form-control-sm"
-            rows={10}
-            value={valores.texto}
-            onChange={(e) =>
-              setValores((v) => ({ ...v, texto: e.target.value }))
-            }
-          />
-        </Campo>
-        <div className="col-12 mz-actions justify-content-end">
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={guardando}
-          >
-            {guardando ? "Guardando…" : "Guardar acuerdo"}
-          </button>
-        </div>
+        <SeEditaEnProteccionDeDatos
+          que="El título y el texto del acuerdo"
+          clave={CLAVES_TEXTO.ACUERDO}
+        />
       </div>
-    </form>
+    </section>
   );
 }
 
@@ -237,6 +179,14 @@ export function AceptacionesConfidencialidad() {
 
   return (
     <div className="mz-stack">
+      {/* Esta lista es de solo lectura y sigue aquí para quien gestiona los
+          documentos; el registro completo, con IP, versión y el texto
+          aceptado, está en Protección de datos (US-004, CA-7). */}
+      <SeConsultaEnProteccionDeDatos
+        que="El registro completo de aceptaciones del acuerdo, con la versión, la IP y el texto aceptado,"
+        clave={CLAVES_TEXTO.ACUERDO}
+        plural={false}
+      />
       {datos && (
         <section className="mz-card" aria-label="Resumen de aceptaciones">
           <div className="mz-card-body aceptaciones-resumen">

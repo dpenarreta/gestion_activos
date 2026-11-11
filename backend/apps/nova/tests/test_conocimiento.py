@@ -125,6 +125,9 @@ def test_sin_titulo_usa_el_nombre_del_archivo(admin_gh):
         (b"", "vacio.pdf", "vacío"),
         (b"%PDF-1.4\n basura sin estructura", "roto.pdf", "No se pudo leer"),
     ],
+    # Ids fijos: el PDF generado lleva la hora y, con pytest-xdist, cada
+    # proceso recolectaría un id distinto.
+    ids=["ejecutable", "no-es-pdf", "vacio", "roto"],
 )
 def test_rechaza_lo_que_no_es_un_pdf_valido(admin_gh, contenido, nombre, mensaje):
     respuesta = subir(admin_gh, contenido, nombre=nombre)

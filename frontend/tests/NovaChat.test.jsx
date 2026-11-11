@@ -20,6 +20,13 @@ vi.mock("../src/api/novaService", async (importOriginal) => ({
   ...(await importOriginal()),
   novaService: servicio,
 }));
+// Los avisos de privacidad se leen del catálogo de protección de datos
+// (US-004, 11/11/2026). Por defecto no llegan: se ve el texto de respaldo.
+const privacidad = { textoVigente: vi.fn() };
+vi.mock("../src/api/privacidadService", async (importOriginal) => ({
+  ...(await importOriginal()),
+  privacidadService: privacidad,
+}));
 const permisos = { lista: [] };
 vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: 1, permissions: permisos.lista } }),
@@ -84,6 +91,8 @@ beforeEach(() => {
   chatInterno.valor = null;
   modulos.apagados = new Set();
   servicio.me.mockResolvedValue(ESTADO);
+  privacidad.textoVigente.mockReset();
+  privacidad.textoVigente.mockRejectedValue(new Error("sin servidor"));
 });
 
 describe("historial del chat", () => {
@@ -370,6 +379,35 @@ describe("conversación", () => {
         ),
       ).toBeInTheDocument();
     }
+  });
+
+  it("los avisos de privacidad son los del catálogo cuando llegan (US-004)", async () => {
+    const textos = {
+      nova_aviso_ia: "Nova es una IA: revise lo que responde.",
+      nova_aviso_general: "En General no escriba datos de salud.",
+      nova_como_se_protegen: "Así se protegen sus datos, según la empresa.",
+    };
+    privacidad.textoVigente.mockImplementation((clave) =>
+      textos[clave]
+        ? Promise.resolve({
+            clave,
+            version: 2,
+            texto: textos[clave],
+            titulo: "",
+          })
+        : Promise.reject(new Error("no está")),
+    );
+    conChat(<ConversacionNova />);
+    expect(
+      await screen.findByText(
+        "Nova es una IA: revise lo que responde. En General no escriba datos de salud.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Así se protegen sus datos, según la empresa."),
+    ).toBeInTheDocument();
+    expect(privacidad.textoVigente).toHaveBeenCalledWith("nova_aviso_ia");
+    expect(privacidad.textoVigente).toHaveBeenCalledWith("nova_aviso_general");
   });
 
   it("el aviso de privacidad es una línea con el detalle plegado", async () => {

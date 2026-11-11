@@ -50,10 +50,21 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 "privacidad.",
             )
         )
+        # Salvo editar los textos de protección de datos (US-004, 11/11/2026).
+        and c != "privacidad.textos"
     }
     assert de_gestion_humana
     assert _permisos_de("Administrador") == all_codenames() - SOLO_POR_PERSONA - de_gestion_humana
     assert _permisos_de("Superusuario") == all_codenames() - SOLO_POR_PERSONA
+
+
+def test_el_administrador_edita_los_textos_de_privacidad_sin_atender_solicitudes():
+    """US-004 (decisión del usuario del 11/11/2026): TI edita los textos de
+    protección de datos, pero no ve ni atiende las solicitudes de derechos."""
+    call_command("crear_roles_iniciales", verbosity=0)
+
+    privacidad = {c for c in _permisos_de("Administrador") if c.startswith("privacidad.")}
+    assert privacidad == {"privacidad.textos"}
 
 
 def test_los_dos_roles_pueden_anular_permisos_aprobados():

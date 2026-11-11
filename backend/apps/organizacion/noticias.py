@@ -11,6 +11,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.adjuntos.models import FIRMAS
+from apps.core.archivos import mensaje_de_tamano
 
 from .models import AjustesCarrusel, NoticiaInicio
 
@@ -26,7 +27,7 @@ def validar_imagen(archivo) -> str:
         raise serializers.ValidationError("La imagen está vacía.")
     if archivo.size > TAMANO_MAXIMO_BYTES:
         raise serializers.ValidationError(
-            f"La imagen pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es 5 MB."
+            mensaje_de_tamano("La imagen", archivo.size, TAMANO_MAXIMO_BYTES)
         )
     extension = PurePath(archivo.name).suffix.lower()
     if extension not in EXTENSIONES:

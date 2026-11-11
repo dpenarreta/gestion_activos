@@ -134,15 +134,22 @@ def test_sin_aceptar_el_acuerdo_no_se_entrega_el_documento(db):
     assert AuditLog.objects.filter(action="institucional.confidencialidad.aceptada").exists()
 
 
-def test_se_acepta_una_vez_hasta_que_cambian_los_documentos(db):
-    from apps.organizacion.models import AceptacionConfidencialidad
+def _aceptaciones_del_acuerdo():
+    from apps.privacidad.models import AceptacionTexto
 
+    return AceptacionTexto.objects.filter(texto_proteccion__clave="acuerdo_confidencialidad")
+
+
+def test_se_acepta_una_vez_hasta_que_cambian_los_documentos(db):
     _, rrhh = _cuenta("talia", *GESTION)
     documento = _publicar(rrhh).json()
     _, empleado = _cuenta("ema")
-    empleado.post(CONFIDENCIALIDAD + "aceptar/")
+    empleado.post(CONFIDENCIALIDAD + "aceptar/", REMOTE_ADDR="10.0.5.21", HTTP_USER_AGENT="Edge")
     empleado.post(CONFIDENCIALIDAD + "aceptar/")  # aceptar dos veces no duplica
-    assert AceptacionConfidencialidad.objects.count() == 1
+    (primera,) = _aceptaciones_del_acuerdo()
+    # Desde US-004, con IP y navegador en el registro común.
+    assert (primera.ip, primera.navegador) == ("10.0.5.21", "Edge")
+    assert primera.titulo_aceptado == "Acuerdo de confidencialidad"
     assert empleado.get(CONFIDENCIALIDAD).json()["aceptado"] is True
 
     # Solo un cambio de contenido lo vuelve a pedir (auditoría UX/UI,
@@ -175,18 +182,36 @@ def test_se_acepta_una_vez_hasta_que_cambian_los_documentos(db):
     # Y puede volver a leer lo que aceptó.
     assert estado["texto_aceptado"]
 
-    # Cada aceptación queda guardada, con su fecha.
-    assert AceptacionConfidencialidad.objects.count() == 5
+    # Cada aceptación queda guardada, con su fecha; las versiones nuevas por
+    # los documentos quedan en el historial con su motivo.
+    assert _aceptaciones_del_acuerdo().count() == 5
+    from apps.privacidad.models import VersionTextoProteccion
+
+    assert VersionTextoProteccion.objects.filter(
+        texto_proteccion__clave="acuerdo_confidencialidad", motivo__startswith="Cambiaron"
+    ).exists()
 
 
-def test_el_titulo_y_el_texto_se_configuran_con_permiso(db):
+def test_el_titulo_y_el_texto_se_editan_en_proteccion_de_datos(db):
+    """US-004 (CA-7): «Gestionar documentos» ya no edita el acuerdo (410);
+    se edita en Protección de datos y el cambio pide aceptarlo de nuevo."""
     _, rrhh = _cuenta("talia", *GESTION)
     _, empleado = _cuenta("ema")
-    nuevo = {"titulo": "Compromiso de reserva", "texto": "No compartir."}
-    assert empleado.put(CONFIDENCIALIDAD, nuevo, format="json").status_code == 403
-    assert rrhh.put(CONFIDENCIALIDAD, nuevo, format="json").status_code == 200
+    _, editora = _cuenta("eugenia", "privacidad.textos")
+    nuevo = {"titulo": "Compromiso de reserva", "texto": "No compartir los documentos internos."}
+    retirada = rrhh.put(CONFIDENCIALIDAD, nuevo, format="json")
+    assert retirada.status_code == 410
+    assert retirada.json()["error"]["code"] == "edicion_trasladada"
+
+    empleado.post(CONFIDENCIALIDAD + "aceptar/")
+    assert empleado.get(CONFIDENCIALIDAD).json()["aceptado"] is True
+    editada = editora.put(
+        "/api/v1/privacidad/textos/acuerdo_confidencialidad/", nuevo, format="json"
+    )
+    assert editada.status_code == 200
     estado = empleado.get(CONFIDENCIALIDAD).json()
-    assert (estado["titulo"], estado["texto"]) == ("Compromiso de reserva", "No compartir.")
+    assert (estado["titulo"], estado["texto"]) == (nuevo["titulo"], nuevo["texto"])
+    assert estado["aceptado"] is False and estado["aceptado_antes_en"]
 
     empleado.post(CONFIDENCIALIDAD + "aceptar/")
     # Cada persona activa, con su estado y el resumen «X de Y».
@@ -207,14 +232,11 @@ def test_cada_pestana_de_la_gestion_pide_su_permiso(db):
     _, publica = _cuenta("pablo", "codigos.publicar")
     _, acuerdo = _cuenta("ana", "codigos.acuerdo")
     _, auditora = _cuenta("aida", "codigos.ver_aceptaciones")
-    texto = {"titulo": "Reserva", "texto": "No compartir."}
 
     assert _publicar(publica).status_code == 201
-    assert publica.put(CONFIDENCIALIDAD, texto, format="json").status_code == 403
     assert publica.get(CONFIDENCIALIDAD + "aceptaciones/").status_code == 403
 
     assert _publicar(acuerdo).status_code == 403
-    assert acuerdo.put(CONFIDENCIALIDAD, texto, format="json").status_code == 200
 
     assert _publicar(auditora).status_code == 403
     assert auditora.get(CONFIDENCIALIDAD + "aceptaciones/").status_code == 200
@@ -233,3 +255,21 @@ def test_los_nuevos_documentos_solo_en_pdf(db):
     )
     assert respuesta.status_code == 400
     assert "PDF" in str(respuesta.data)
+
+
+def test_si_el_acuerdo_cambio_mientras_lo_leia_se_pide_de_nuevo(db):
+    """QA-FUNC O-2: la pantalla manda la versión que mostró; si cambió
+    (texto o documentos), 400 en `acepto`."""
+    _, rrhh = _cuenta("talia", *GESTION)
+    _, empleado = _cuenta("ema")
+    leida = empleado.get(CONFIDENCIALIDAD).json()["version"]
+    _publicar(rrhh)  # cambian los documentos: versión nueva
+    vieja = empleado.post(CONFIDENCIALIDAD + "aceptar/", {"version": leida}, format="json")
+    assert vieja.status_code == 400
+    assert "acepto" in vieja.json()["error"]["details"]
+    assert empleado.get(CONFIDENCIALIDAD).json()["aceptado"] is False
+    actual = empleado.get(CONFIDENCIALIDAD).json()["version"]
+    nueva = empleado.post(CONFIDENCIALIDAD + "aceptar/", {"version": actual}, format="json")
+    assert nueva.status_code == 200 and nueva.json()["aceptado"] is True
+    invalida = empleado.post(CONFIDENCIALIDAD + "aceptar/", {"version": "x"}, format="json")
+    assert invalida.status_code == 400

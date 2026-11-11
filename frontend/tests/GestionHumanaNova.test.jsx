@@ -17,6 +17,12 @@ vi.mock("../src/api/novaService", async (importOriginal) => ({
   ...(await importOriginal()),
   novaService: servicio,
 }));
+// El aviso del panel se lee del catálogo de protección de datos (US-004).
+const privacidad = { textoVigente: vi.fn() };
+vi.mock("../src/api/privacidadService", async (importOriginal) => ({
+  ...(await importOriginal()),
+  privacidadService: privacidad,
+}));
 const permisos = { lista: [] };
 vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: 1, permissions: permisos.lista } }),
@@ -32,9 +38,35 @@ const { DocumentoInforme } =
 beforeEach(() => {
   vi.clearAllMocks();
   permisos.lista = [];
+  privacidad.textoVigente.mockRejectedValue(new Error("sin servidor"));
 });
 
 describe("Análisis de Nova en los KPI", () => {
+  it("el aviso de privacidad es el del catálogo; si no llega, el de siempre", async () => {
+    privacidad.textoVigente.mockResolvedValueOnce({
+      clave: "nova_panel_desempeno",
+      version: 2,
+      texto: "Nova resume los indicadores sin enviar nombres a la IA.",
+      titulo: "",
+    });
+    const { unmount } = render(<PanelNova usuarioId={7} />);
+    expect(
+      await screen.findByText(
+        "Nova resume los indicadores sin enviar nombres a la IA.",
+      ),
+    ).toBeInTheDocument();
+    expect(privacidad.textoVigente).toHaveBeenCalledWith(
+      "nova_panel_desempeno",
+    );
+    unmount();
+    globalThis.__textosVigentesDeProteccion.clear();
+
+    render(<PanelNova usuarioId={7} />);
+    expect(
+      await screen.findByText(/Nova explica en lenguaje natural/),
+    ).toBeInTheDocument();
+  });
+
   it("se pide a mano y avisa que es texto de IA", async () => {
     servicio.analisisKpi.mockResolvedValue({
       variante: "completo",

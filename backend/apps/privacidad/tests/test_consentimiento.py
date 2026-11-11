@@ -1,6 +1,10 @@
 """Consentimiento del tratamiento de datos: el aviso por empresa con versión, la
 aceptación con su constancia, el restablecer individual y masivo, `/auth/me/`
-y los permisos (`privacidad.ver` / `privacidad.atender`)."""
+y los permisos (`privacidad.ver` / `privacidad.atender`; editar,
+`privacidad.textos`).
+
+Desde US-004 (11/11/2026) el aviso es la clave `aviso_privacidad` del catálogo
+de textos y sus aceptaciones están en el registro común (`AceptacionTexto`)."""
 
 import pytest
 from django.utils import timezone
@@ -9,7 +13,12 @@ from apps.core.models import AuditLog
 from apps.empresas.contexto import empresa_actual, usando_empresa
 from apps.empresas.models import Empresa, MembresiaEmpresa
 from apps.privacidad import consentimiento
-from apps.privacidad.models import AceptacionAviso, AvisoPrivacidad
+from apps.privacidad.catalogo_textos import AVISO_PRIVACIDAD
+from apps.privacidad.models import (
+    AceptacionTexto,
+    TextoProteccion,
+    VersionTextoProteccion,
+)
 
 from .conftest import BASE, client_for
 
@@ -21,23 +30,46 @@ AVISO = f"{BASE}/consentimiento/aviso/"
 PERSONAS = f"{BASE}/consentimiento/personas/"
 
 
+TEXTO = "Aviso de prueba: tratamos sus datos."
+
+
+def _crear_aviso(texto=TEXTO):
+    """El aviso de la empresa activa, en la versión 1."""
+    aviso = TextoProteccion.objects.create(
+        clave=AVISO_PRIVACIDAD,
+        modulo="General",
+        seccion="Entrada a la intranet",
+        nombre="Aviso de tratamiento de datos",
+        requiere_aceptacion=True,
+        texto=texto,
+    )
+    VersionTextoProteccion.objects.create(
+        texto_proteccion=aviso, version=1, texto=texto, editado_en=timezone.now()
+    )
+    return aviso
+
+
+def _borrar_aviso():
+    AceptacionTexto.objects.filter(texto_proteccion__clave=AVISO_PRIVACIDAD).delete()
+    VersionTextoProteccion.objects.filter(texto_proteccion__clave=AVISO_PRIVACIDAD).delete()
+    TextoProteccion.objects.filter(clave=AVISO_PRIVACIDAD).delete()
+
+
+def _del_aviso():
+    return AceptacionTexto.objects.filter(texto_proteccion__clave=AVISO_PRIVACIDAD)
+
+
 @pytest.fixture
 def aviso():
-    """El aviso de la empresa de pruebas (lo siembra `privacidad/0005` si la
-    empresa ya existía al migrar)."""
-    existente = AvisoPrivacidad.objects.first()
-    if existente:
-        existente.texto, existente.version = "Aviso de prueba: tratamos sus datos.", 1
-        existente.save()
-        return existente
-    return AvisoPrivacidad.objects.create(
-        texto="Aviso de prueba: tratamos sus datos.", version=1, version_desde=timezone.now()
-    )
+    """El aviso de la empresa de pruebas, en la versión 1 y sin aceptaciones
+    (`privacidad/0007` lo siembra si la empresa ya existía al migrar)."""
+    _borrar_aviso()
+    return _crear_aviso()
 
 
 @pytest.fixture
 def sin_aviso():
-    AvisoPrivacidad.objects.all().delete()
+    _borrar_aviso()
 
 
 def aceptar(usuario, version=1):
@@ -108,10 +140,11 @@ def test_aceptar_deja_la_constancia_y_quita_la_pantalla(begona, aviso):
     respuesta = aceptar(begona)
     assert respuesta.status_code == 201
     assert respuesta.json()["version"] == "1"
-    aceptacion = AceptacionAviso.objects.get(usuario=begona)
+    aceptacion = _del_aviso().get(usuario=begona)
     assert aceptacion.empresa == empresa_actual()
     assert aceptacion.origen == "INTRANET"
-    assert aceptacion.texto == "Aviso de prueba: tratamos sus datos."
+    assert aceptacion.texto_aceptado == "Aviso de prueba: tratamos sus datos."
+    assert aceptacion.version == 1
     assert aceptacion.ip == "127.0.0.1"
     assert aceptacion.aceptado_en is not None
     assert client_for(begona).get(ME).json()["consentimiento"] == {"pendiente": False}
@@ -122,7 +155,7 @@ def test_aceptar_deja_la_constancia_y_quita_la_pantalla(begona, aviso):
 def test_aceptar_dos_veces_no_duplica(begona, aviso):
     assert aceptar(begona).status_code == 201
     assert aceptar(begona).status_code == 200
-    assert AceptacionAviso.objects.filter(usuario=begona).count() == 1
+    assert _del_aviso().filter(usuario=begona).count() == 1
 
 
 def test_aceptar_una_version_vieja_responde_409(begona, aviso):
@@ -131,7 +164,8 @@ def test_aceptar_una_version_vieja_responde_409(begona, aviso):
     respuesta = aceptar(begona, version=1)
     assert respuesta.status_code == 409
     assert respuesta.json()["error"]["code"] == "aviso_cambiado"
-    assert not AceptacionAviso.objects.exists()
+    assert respuesta.json()["error"]["details"] == {"version": 2}
+    assert not _del_aviso().exists()
 
 
 def test_sin_aviso_aceptar_responde_409(begona, sin_aviso):
@@ -153,13 +187,11 @@ def test_el_aviso_es_de_cada_empresa(begona, aviso):
     MembresiaEmpresa.objects.create(usuario=begona, empresa=otra)
     with usando_empresa(otra):
         assert consentimiento.para_la_sesion(begona) == {"pendiente": False}
-        AvisoPrivacidad.objects.create(
-            texto="Aviso de la otra.", version=1, version_desde=timezone.now()
-        )
+        _crear_aviso("Aviso de la otra empresa, con su propio texto.")
         assert consentimiento.para_la_sesion(begona) == {
             "pendiente": True,
             "version": 1,
-            "texto": "Aviso de la otra.",
+            "texto": "Aviso de la otra empresa, con su propio texto.",
         }
     assert consentimiento.para_la_sesion(begona) == {"pendiente": False}
 
@@ -173,9 +205,11 @@ def test_editar_el_texto_no_obliga_a_aceptar_de_nuevo(begona, admin_gh, aviso):
         AVISO, {"texto": "Aviso de prueba: tratamos sus datos (corregido)."}, format="json"
     )
     assert respuesta.status_code == 200
-    assert respuesta.json()["version"] == 1
+    # Desde US-004 la versión del texto sube, pero no la exigida.
+    assert respuesta.json()["version"] == 2
+    assert respuesta.json()["version_exigida"] == 1
     assert client_for(begona).get(ME).json()["consentimiento"] == {"pendiente": False}
-    evento = AuditLog.objects.get(action="privacidad.consentimiento.aviso_editado")
+    evento = AuditLog.objects.get(action="privacidad.texto.editado")
     assert evento.previous_values["texto"] == "Aviso de prueba: tratamos sus datos."
 
 
@@ -183,18 +217,26 @@ def test_pedir_aceptacion_de_nuevo_sube_la_version_y_todos_aceptan(begona, admin
     aceptar(begona)
     respuesta = client_for(admin_gh).put(
         AVISO,
-        {"texto": "Aviso nuevo, sustancial.", "pedir_aceptacion_de_nuevo": True},
+        {"texto": "Aviso nuevo, cambia el proveedor.", "pedir_aceptacion_de_nuevo": True},
         format="json",
     )
     assert respuesta.json()["version"] == 2
+    assert respuesta.json()["version_exigida"] == 2
     datos = client_for(begona).get(ME).json()["consentimiento"]
-    assert datos == {"pendiente": True, "version": 2, "texto": "Aviso nuevo, sustancial."}
-    assert AuditLog.objects.filter(action="privacidad.consentimiento.aceptacion_pedida").exists()
+    assert datos == {
+        "pendiente": True,
+        "version": 2,
+        "texto": "Aviso nuevo, cambia el proveedor.",
+    }
+    assert AuditLog.objects.filter(action="privacidad.texto.aceptacion_pedida").exists()
     # La aceptación anterior se conserva.
     aceptar(begona, version=2)
     assert list(
-        AceptacionAviso.objects.filter(usuario=begona).values_list("version", flat=True)
-    ) == ["2", "1"]
+        _del_aviso()
+        .filter(usuario=begona)
+        .order_by("-aceptado_en", "-id")
+        .values_list("version", flat=True)
+    ) == [2, 1]
 
 
 def test_crear_el_aviso_de_una_empresa_sin_aviso(begona, admin_gh, sin_aviso):
@@ -207,7 +249,7 @@ def test_crear_el_aviso_de_una_empresa_sin_aviso(begona, admin_gh, sin_aviso):
     respuesta = cliente.put(AVISO, {"texto": resumen["texto_inicial"]}, format="json")
     assert respuesta.status_code == 200 and respuesta.json()["version"] == 1
     assert client_for(begona).get(ME).json()["consentimiento"]["pendiente"] is True
-    assert AuditLog.objects.filter(action="privacidad.consentimiento.aviso_creado").exists()
+    assert AuditLog.objects.filter(action="privacidad.texto.creado").exists()
 
 
 def test_el_texto_vacio_no_se_guarda(admin_gh, aviso):
@@ -297,7 +339,7 @@ def test_restablecer_una_persona(begona, nunez, admin_gh, aviso):
     assert respuesta.json()["restablecidas"] == 1
     assert respuesta.json()["estado"] == "PENDIENTE"
     # Su aceptación queda, marcada; la de la otra persona sigue valiendo.
-    aceptacion = AceptacionAviso.objects.get(usuario=begona)
+    aceptacion = _del_aviso().get(usuario=begona)
     assert aceptacion.restablecida_en is not None
     assert aceptacion.restablecida_por == admin_gh
     assert client_for(begona).get(ME).json()["consentimiento"]["pendiente"] is True
@@ -306,7 +348,7 @@ def test_restablecer_una_persona(begona, nunez, admin_gh, aviso):
     assert evento.target_id == str(begona.pk)
     # Vuelve a aceptar: dos filas en su historial.
     assert aceptar(begona).status_code == 201
-    assert AceptacionAviso.objects.filter(usuario=begona).count() == 2
+    assert _del_aviso().filter(usuario=begona).count() == 2
 
 
 def test_restablecer_a_todos_pide_confirmacion(begona, nunez, admin_gh, aviso):
@@ -315,10 +357,10 @@ def test_restablecer_a_todos_pide_confirmacion(begona, nunez, admin_gh, aviso):
     cliente = client_for(admin_gh)
     ruta = f"{BASE}/consentimiento/restablecer-todos/"
     assert cliente.post(ruta, {"confirmar": False}, format="json").status_code == 400
-    assert AceptacionAviso.objects.filter(restablecida_en__isnull=True).count() == 2
+    assert _del_aviso().filter(restablecida_en__isnull=True).count() == 2
     respuesta = cliente.post(ruta, {"confirmar": True}, format="json")
     assert respuesta.json() == {"restablecidas": 2}
-    assert not AceptacionAviso.objects.filter(restablecida_en__isnull=True).exists()
+    assert not _del_aviso().filter(restablecida_en__isnull=True).exists()
     assert client_for(begona).get(ME).json()["consentimiento"]["pendiente"] is True
     evento = AuditLog.objects.get(action="privacidad.consentimiento.restablecido_todos")
     assert evento.new_values == {"aceptaciones_restablecidas": 2}
@@ -327,8 +369,11 @@ def test_restablecer_a_todos_pide_confirmacion(begona, nunez, admin_gh, aviso):
 def test_restablecer_a_todos_no_toca_otra_empresa(begona, admin_gh, aviso):
     otra = Empresa.objects.create(codigo="OTRA", nombre="Otra empresa")
     with usando_empresa(otra):
-        ajena = AceptacionAviso.objects.create(
-            usuario=begona, version="1", aceptado_en=timezone.now()
+        ajena = AceptacionTexto.objects.create(
+            texto_proteccion=_crear_aviso(),
+            usuario=begona,
+            version=1,
+            aceptado_en=timezone.now(),
         )
     client_for(admin_gh).post(
         f"{BASE}/consentimiento/restablecer-todos/", {"confirmar": True}, format="json"
@@ -338,11 +383,14 @@ def test_restablecer_a_todos_no_toca_otra_empresa(begona, admin_gh, aviso):
 
 
 def test_una_aceptacion_de_nexo_no_cuenta_para_el_aviso_vigente(begona, aviso):
-    AceptacionAviso.objects.create(
+    AceptacionTexto.objects.create(
+        texto_proteccion=aviso,
         usuario=begona,
-        version=AceptacionAviso.VERSION_NEXO,
-        origen=AceptacionAviso.Origen.NEXO,
+        version=None,
+        origen=AceptacionTexto.Origen.NEXO,
         aceptado_en=timezone.now(),
         id_nexo=77,
     )
     assert client_for(begona).get(ME).json()["consentimiento"]["pendiente"] is True
+    importada = _del_aviso().get(usuario=begona)
+    assert consentimiento.de_aceptacion(importada)["version"] == "Nexo"

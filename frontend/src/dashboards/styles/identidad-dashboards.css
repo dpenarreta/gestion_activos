@@ -763,3 +763,110 @@
   }
 }
 
+
+/* Permisos de un dashboard en «Editar dashboard» (US-003, 11/11/2026): una fila por rol con
+   «Ver» y «Editar». El modal se monta en un portal, fuera de `.modulo-dashboards`, así que estas
+   reglas no se acotan a esa raíz (por eso tampoco sirve `.chart-panel__subtitle`). La lista larga
+   se desplaza dentro de su caja y el encabezado queda fijo para no perder de vista las columnas. */
+.dashboard-permisos .table {
+  --bs-table-bg: var(--mz-raised);
+  --bs-table-color: var(--mz-ink);
+  --bs-table-border-color: var(--mz-border);
+}
+
+.dashboard-permisos__ayuda {
+  margin-bottom: 0.5rem;
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
+.dashboard-permisos__resumen {
+  margin-bottom: 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.dashboard-permisos__vacio {
+  padding: 0.75rem;
+  border: 1px dashed var(--mz-border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+  text-align: center;
+}
+
+.dashboard-permisos__lista {
+  max-height: 320px;
+  overflow-y: auto;
+  /* El encabezado fijo no tapa la casilla que recibe el foco al desplazarse con Tab. */
+  scroll-padding-top: 2.5rem;
+  border: 1px solid var(--mz-border);
+  border-radius: 10px;
+}
+
+.dashboard-permisos__lista thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--mz-sunken);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mz-ink-soft);
+}
+
+.dashboard-permisos__lista th[scope='row'] {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-permisos__col-casilla {
+  width: 5.5rem;
+  text-align: center;
+}
+
+.dashboard-permisos__casilla {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.dashboard-permisos__casilla .form-check-input {
+  margin: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-permisos__lista {
+    max-height: 50vh;
+  }
+
+  .dashboard-permisos__col-casilla {
+    width: 3.5rem;
+  }
+
+  .dashboard-permisos__lista th {
+    overflow-wrap: break-word;
+  }
+}
+
+/* `any-pointer` y no `pointer`: un portátil con pantalla táctil también debe tener casillas
+   de 44 px aunque su puntero principal sea el ratón. */
+@media (any-pointer: coarse) {
+  .dashboard-permisos__casilla {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .dashboard-permisos__casilla .form-check-input {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .dashboard-permisos input[type='search'] {
+    min-height: 44px;
+  }
+}

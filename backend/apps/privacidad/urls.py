@@ -62,4 +62,28 @@ urlpatterns = [
         views.RestablecerTodosView.as_view(),
         name="privacidad-consentimiento-restablecer-todos",
     ),
+    # --- Textos de protección de datos y sus aceptaciones (US-004) ---
+    path("textos/", views.TextosView.as_view(), name="privacidad-textos"),
+    path("textos/<slug:clave>/", views.TextoView.as_view(), name="privacidad-texto"),
+    path(
+        "textos/<slug:clave>/vigente/",
+        views.TextoVigenteView.as_view(),
+        name="privacidad-texto-vigente",
+    ),
+    path(
+        "textos/<slug:clave>/versiones/",
+        views.VersionesTextoView.as_view(),
+        name="privacidad-texto-versiones",
+    ),
+    path("aceptaciones/", views.AceptacionesView.as_view(), name="privacidad-aceptaciones"),
+    path(
+        "aceptaciones/excel/",
+        views.AceptacionesExcelView.as_view(),
+        name="privacidad-aceptaciones-excel",
+    ),
+    path(
+        "aceptaciones/<int:pk>/",
+        views.AceptacionView.as_view(),
+        name="privacidad-aceptacion",
+    ),
 ]

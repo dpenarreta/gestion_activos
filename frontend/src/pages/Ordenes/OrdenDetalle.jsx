@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ordenesService } from "../../api/ordenesService";
+import { Campo, enfocarPrimerError } from "../../components/common/Campo/Campo";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
 import { formatearFecha } from "../../utils/formato";
-import { mensajeDeError } from "../../utils/errores";
+import {
+  erroresPorCampo,
+  hayErroresGenerales,
+  mensajeDeError,
+} from "../../utils/errores";
 import {
   CumplimientoOrden,
   EstadoOrden,
   PrioridadOrden,
+  hoyLocal,
   moneda,
 } from "./comunes";
 import "./Ordenes.css";
@@ -37,6 +43,7 @@ export function OrdenDetalle() {
   const { id } = useParams();
   const [orden, setOrden] = useState(null);
   const [catalogos, setCatalogos] = useState(null);
+  const [errorCatalogos, setErrorCatalogos] = useState(false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,16 +58,23 @@ export function OrdenDetalle() {
       );
   }, [id]);
 
-  useEffect(() => {
-    cargar();
+  const cargarCatalogos = useCallback(() => {
+    setErrorCatalogos(false);
+    setCatalogos(null);
     ordenesService
       .catalogos()
       .then(setCatalogos)
-      .catch(() => setCatalogos(null));
-  }, [cargar]);
+      .catch(() => setErrorCatalogos(true));
+  }, []);
+
+  useEffect(() => {
+    cargar();
+    cargarCatalogos();
+  }, [cargar, cargarCatalogos]);
 
   /** Ejecuta una acción y deja la ficha con lo que devolvió el servidor. */
-  async function hacer(accion, mensaje) {
+  /** `alFallar(err)` devuelve `true` si el bloque ya mostró el error. */
+  async function hacer(accion, mensaje, alFallar) {
     setIsSaving(true);
     setError(null);
     setAviso(null);
@@ -69,7 +83,9 @@ export function OrdenDetalle() {
       setAviso(mensaje);
       return true;
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo completar la acción."));
+      if (!alFallar?.(err)) {
+        setError(mensajeDeError(err, "No se pudo completar la acción."));
+      }
       return false;
     } finally {
       setIsSaving(false);
@@ -147,15 +163,20 @@ export function OrdenDetalle() {
               )
             }
           />
-          {permisos.asignar && catalogos?.tecnicos && (
+          {/* Con catálogos que no traen técnicos, quien mira no asigna; si no
+              cargaron (o están cargando), la tarjeta lo dice. */}
+          {permisos.asignar && (!catalogos || catalogos.tecnicos) && (
             <Asignacion
               orden={orden}
               catalogos={catalogos}
+              errorCatalogos={errorCatalogos}
+              onReintentar={cargarCatalogos}
               isSaving={isSaving}
-              onAsignar={(datos) =>
+              onAsignar={(datos, alFallar, mensaje) =>
                 hacer(
                   () => ordenesService.asignar(orden.id, datos),
-                  "Orden asignada.",
+                  mensaje,
+                  alFallar,
                 )
               }
             />
@@ -414,101 +435,289 @@ function Dato({ etiqueta, completo = false, children }) {
   );
 }
 
-function Asignacion({ orden, catalogos, isSaving, onAsignar }) {
+/** Los mismos mensajes que el alta (`validar_responsable_y_fecha`). */
+const SIN_RESPONSABLE_ASIGNAR =
+  "Indique el técnico o el proveedor que realizará la orden.";
+const SIN_FECHA = "Indique la fecha en que debe cumplirse la orden.";
+const FECHA_PASADA = "La fecha programada no puede ser anterior a hoy.";
+
+/**
+ * Asignar o reasignar quién realiza la orden y para cuándo. Desde US-006
+ * (11/11/2026) el responsable puede ser solo un proveedor, como al crearla:
+ * hace falta el técnico, el proveedor o los dos. Con los datos actuales ya
+ * puestos, cambiar solo la fecha es reprogramar.
+ *
+ * Mismo patrón que el resto de formularios (QA-UX, ronda 2): `Campo` con su
+ * error, sin la burbuja del navegador, y el foco al primer error tras
+ * validar y tras un 400.
+ *
+ * Si los catálogos no cargan, la tarjeta sigue ahí con el motivo y un
+ * reintento: antes desaparecía sin decir nada.
+ */
+function Asignacion({
+  orden,
+  catalogos,
+  errorCatalogos,
+  onReintentar,
+  isSaving,
+  onAsignar,
+}) {
+  const tarjetaRef = useRef(null);
   const [valores, setValores] = useState({
     tecnico: orden.tecnico?.id ?? "",
     proveedor: orden.proveedor?.id ?? "",
     fecha_programada: orden.fecha_programada ?? "",
     nota: "",
   });
-  const fijar = (campo) => (evento) =>
-    setValores((actual) => ({ ...actual, [campo]: evento.target.value }));
+  const [errores, setErrores] = useState({});
+  const [errorBloque, setErrorBloque] = useState(null);
+  const tieneResponsable = Boolean(orden.tecnico || orden.proveedor);
+  const accion = tieneResponsable ? "Reasignar" : "Asignar";
+  const cargando = !catalogos && !errorCatalogos;
+  const tecnicos = catalogos?.tecnicos ?? [];
+  const proveedores = catalogos?.proveedores ?? [];
+  const fechaInicial = orden.fecha_programada ?? "";
+  const fechaCambio = valores.fecha_programada !== fechaInicial;
 
-  function asignar(evento) {
-    evento.preventDefault();
-    onAsignar({
-      tecnico: valores.tecnico,
-      proveedor: valores.proveedor || null,
-      fecha_programada: valores.fecha_programada || null,
-      nota: valores.nota,
+  const fijar = (campo) => (evento) => {
+    const valor = evento.target.value;
+    setValores((actual) => ({ ...actual, [campo]: valor }));
+    setErrorBloque(null);
+    setErrores((actuales) => {
+      // El error de «técnico o proveedor» lo resuelve cualquiera de los dos.
+      const afectados =
+        campo === "proveedor" ? ["proveedor", "tecnico"] : [campo];
+      if (!afectados.some((c) => actuales[c])) return actuales;
+      const resto = { ...actuales };
+      afectados.forEach((c) => delete resto[c]);
+      return resto;
     });
+  };
+
+  /**
+   * Solo lo que cambió respecto de la orden (contrato de `asignar`, US-006,
+   * 11/11/2026): un campo que no se envía conserva su valor y `null` lo
+   * quita. Así reprogramar manda solo la fecha, y cambiar el técnico no
+   * borra el proveedor que nadie tocó. La fecha no se quita con `null` (el
+   * servidor conserva la anterior): se manda solo con valor.
+   */
+  function cambios() {
+    const datos = {};
+    const inicial = {
+      tecnico: orden.tecnico?.id ?? "",
+      proveedor: orden.proveedor?.id ?? "",
+    };
+    for (const campo of ["tecnico", "proveedor"]) {
+      if (String(valores[campo]) !== String(inicial[campo])) {
+        datos[campo] = valores[campo] ? Number(valores[campo]) : null;
+      }
+    }
+    if (valores.fecha_programada && fechaCambio) {
+      datos.fecha_programada = valores.fecha_programada;
+    }
+    if (valores.nota.trim()) datos.nota = valores.nota.trim();
+    return datos;
+  }
+
+  function validar() {
+    const faltan = {};
+    if (!valores.tecnico && !valores.proveedor) {
+      faltan.tecnico = SIN_RESPONSABLE_ASIGNAR;
+    }
+    // Vaciar una fecha que existía no la quita: se pide una.
+    if (!valores.fecha_programada && fechaInicial) {
+      faltan.fecha_programada = SIN_FECHA;
+    } else if (
+      valores.fecha_programada &&
+      fechaCambio &&
+      valores.fecha_programada < hoyLocal()
+    ) {
+      faltan.fecha_programada = FECHA_PASADA;
+    }
+    return faltan;
+  }
+
+  /** El 400 del servidor: cada error junto a su campo y el resto en el
+   * bloque (`responsable`, `estado`). Devuelve `true`: ya está a la vista. */
+  function mostrarErrores(err) {
+    const porCampo = erroresPorCampo(err);
+    const deCampo = {};
+    const delBloque = [];
+    for (const [campo, mensaje] of Object.entries(porCampo)) {
+      if (["tecnico", "proveedor", "fecha_programada"].includes(campo)) {
+        deCampo[campo] = mensaje;
+      } else {
+        delBloque.push(mensaje);
+      }
+    }
+    if (hayErroresGenerales(err) || Object.keys(porCampo).length === 0) {
+      delBloque.push(mensajeDeError(err, "No se pudo asignar la orden."));
+    }
+    setErrores(deCampo);
+    setErrorBloque(delBloque.length ? delBloque.join(" ") : null);
+    enfocarPrimerError(tarjetaRef.current);
+    return true;
+  }
+
+  async function asignar(evento) {
+    evento.preventDefault();
+    setErrorBloque(null);
+    const faltan = validar();
+    setErrores(faltan);
+    if (Object.keys(faltan).length > 0) {
+      enfocarPrimerError(tarjetaRef.current);
+      return;
+    }
+    const datos = cambios();
+    const claves = Object.keys(datos).filter((campo) => campo !== "nota");
+    if (claves.length === 0) {
+      setErrorBloque(
+        "No cambió nada: elija otro técnico, otro proveedor u otra fecha.",
+      );
+      enfocarPrimerError(tarjetaRef.current);
+      return;
+    }
+    const soloFecha = claves.length === 1 && claves[0] === "fecha_programada";
+    let mensaje = "Orden asignada.";
+    if (soloFecha) mensaje = "Orden reprogramada.";
+    else if (tieneResponsable) mensaje = "Orden reasignada.";
+    const ok = await onAsignar(datos, mostrarErrores, mensaje);
+    if (ok) setValores((actual) => ({ ...actual, nota: "" }));
+  }
+
+  if (errorCatalogos) {
+    return (
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>{accion}</h3>
+        </div>
+        <div className="mz-card-body">
+          <div className="mz-alert mz-alert--bad mb-0" role="alert">
+            <Icon name="x-octagon" />
+            <span>No se pudieron cargar los técnicos y proveedores.</span>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm ms-auto"
+              onClick={onReintentar}
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="mz-card">
+    <section className="mz-card" ref={tarjetaRef}>
       <div className="mz-card-head">
-        <h3>{orden.tecnico ? "Reasignar" : "Asignar"}</h3>
+        <h3>{accion}</h3>
       </div>
-      <form onSubmit={asignar} className="mz-card-body row g-3">
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="oa-tecnico">
-            Técnico
-          </label>
+      <form onSubmit={asignar} className="mz-card-body row g-3" noValidate>
+        {/* «Quedarían los dos vacíos», «no cambia nada» o el estado: es del
+            bloque, no de un campo. */}
+        {errorBloque && (
+          <div className="col-12">
+            <div className="mz-alert mz-alert--bad mb-0" role="alert">
+              <Icon name="x-octagon" />
+              {errorBloque}
+            </div>
+          </div>
+        )}
+        <Campo
+          id="oa-tecnico"
+          etiqueta="Técnico"
+          ayuda={
+            !cargando && tecnicos.length === 0
+              ? "Nadie tiene todavía el permiso «Ejecutar las órdenes asignadas» en esta empresa: asígneselo a un rol en Configuración → Roles."
+              : "Indique el técnico, el proveedor o los dos."
+          }
+          error={errores.tecnico}
+          className="col-12 col-md-6"
+        >
           <select
-            id="oa-tecnico"
             className="form-select"
-            required
             value={valores.tecnico}
+            disabled={cargando}
             onChange={fijar("tecnico")}
           >
-            <option value="">Elija quién ejecuta</option>
-            {catalogos.tecnicos.map((t) => (
+            <option value="">
+              {cargando
+                ? "Cargando…"
+                : valores.proveedor
+                  ? "Ninguno: lo realiza el proveedor"
+                  : "Elija quién ejecuta"}
+            </option>
+            {tecnicos.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.nombre}
               </option>
             ))}
           </select>
-          {catalogos.tecnicos.length === 0 && (
-            <div className="form-text">
-              Nadie tiene todavía el permiso «Ejecutar las órdenes asignadas» en
-              esta empresa: asígneselo a un rol en Configuración → Roles.
-            </div>
-          )}
-        </div>
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="oa-proveedor">
-            Proveedor (si es externo)
-          </label>
+        </Campo>
+        <Campo
+          id="oa-proveedor"
+          etiqueta="Proveedor (opcional)"
+          error={errores.proveedor}
+          className="col-12 col-md-6"
+        >
           <select
-            id="oa-proveedor"
             className="form-select"
             value={valores.proveedor}
+            disabled={cargando}
             onChange={fijar("proveedor")}
           >
-            <option value="">Personal interno</option>
-            {(catalogos.proveedores ?? []).map((p) => (
+            <option value="">
+              {cargando ? "Cargando…" : "Ninguno: personal interno"}
+            </option>
+            {proveedores.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
               </option>
             ))}
           </select>
-        </div>
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="oa-fecha">
-            Fecha programada
-          </label>
+        </Campo>
+        <Campo
+          id="oa-fecha"
+          etiqueta="Fecha programada"
+          ayuda="El día en que debe cumplirse: hoy o después."
+          error={errores.fecha_programada}
+          className="col-12 col-md-6"
+        >
           <input
-            id="oa-fecha"
             type="date"
             className="form-control"
+            // Solo al cambiarla: una orden ya vencida conserva su fecha sin
+            // que el campo se marque inválido.
+            min={fechaCambio ? hoyLocal() : undefined}
             value={valores.fecha_programada}
             onChange={fijar("fecha_programada")}
           />
-        </div>
-        <div className="col-12 col-md-6">
-          <label className="form-label" htmlFor="oa-nota">
-            Nota (opcional)
-          </label>
+        </Campo>
+        <Campo
+          id="oa-nota"
+          etiqueta="Nota (opcional)"
+          error={errores.nota}
+          className="col-12 col-md-6"
+        >
           <input
-            id="oa-nota"
             className="form-control"
+            maxLength={2000}
             value={valores.nota}
             onChange={fijar("nota")}
           />
-        </div>
+        </Campo>
         <div className="col-12 mz-actions justify-content-end">
-          <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {orden.tecnico ? "Reasignar" : "Asignar"}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={isSaving || cargando}
+          >
+            {isSaving
+              ? tieneResponsable
+                ? "Reasignando…"
+                : "Asignando…"
+              : accion}
           </button>
         </div>
       </form>

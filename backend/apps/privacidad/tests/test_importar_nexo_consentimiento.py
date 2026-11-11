@@ -181,3 +181,67 @@ def test_el_informe_csv_fuera_del_repositorio(cuentas, tmp_path):
     importar("--informe", str(ruta))
     contenido = ruta.read_text(encoding="utf-8-sig")
     assert "sin_fecha" in contenido and "verificacion" in contenido
+
+
+# ── Registro común (US-004, 11/11/2026) ───────────────────────────────────────
+
+
+def _en_registro_comun():
+    from apps.privacidad.models import AceptacionTexto
+
+    return AceptacionTexto.objects.filter(texto_proteccion__clave="aviso_privacidad")
+
+
+@pytest.fixture
+def con_aviso():
+    """El aviso de la empresa en el catálogo (lo siembra `privacidad/0007` en
+    la empresa de pruebas; se crea si faltara)."""
+    from apps.privacidad import textos
+
+    aviso = textos.obtener("aviso_privacidad", crear=False)
+    assert aviso is not None
+    return aviso
+
+
+def test_cada_aceptacion_queda_tambien_en_el_registro_comun(cuentas, con_aviso):
+    salida = importar("--aplicar")
+    assert "Copiadas al registro común de Protección de datos: 3" in salida
+    filas = _en_registro_comun()
+    assert filas.count() == 3
+    ana = filas.get(usuario=cuentas[ANA])
+    assert (ana.origen, ana.id_nexo, ana.version, ana.ip) == ("NEXO", ANA, None, None)
+    assert ana.aceptado_en == t(8, 20) and ana.texto_aceptado == ""
+    assert filas.get(usuario=cuentas[NINO]).texto_aceptado == "Texto editado en Nexo."
+    # No vale para el aviso vigente.
+    assert consentimiento.acepto(cuentas[ANA]) is False
+
+
+def test_reimportar_no_duplica_en_el_registro_comun(cuentas, con_aviso):
+    importar("--aplicar")
+    salida = importar("--aplicar")
+    assert "Copiadas al registro común de Protección de datos: 0" in salida
+    assert "Importación confirmada." in salida
+    assert _en_registro_comun().count() == 3
+    # Una aceptación nueva en Nexo entra como una fila más.
+    datos = datos_nexo()
+    datos["aceptacion"][1]["data_consent_accepted_at"] = t(10, 1)
+    importar("--aplicar", lector=LectorEnMemoria(datos))
+    assert _en_registro_comun().filter(usuario=cuentas[NINO]).count() == 2
+    assert _en_registro_comun().count() == 4
+
+
+def test_el_simulacro_no_deja_nada_en_el_registro_comun(cuentas, con_aviso):
+    importar()
+    assert not _en_registro_comun().exists()
+
+
+def test_sin_aviso_se_avisa_y_queda_solo_en_el_registro_anterior(cuentas):
+    from apps.privacidad.models import TextoProteccion, VersionTextoProteccion
+
+    _en_registro_comun().delete()
+    VersionTextoProteccion.objects.filter(texto_proteccion__clave="aviso_privacidad").delete()
+    TextoProteccion.objects.filter(clave="aviso_privacidad").delete()
+    salida = importar("--aplicar")
+    assert "no tiene aviso de privacidad" in salida
+    assert AceptacionAviso.objects.count() == 3
+    assert not TextoProteccion.objects.filter(clave="aviso_privacidad").exists()

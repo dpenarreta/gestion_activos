@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Icon } from "../../components/common/Icon/Icon";
+import { useTextoVigente } from "../../hooks/useTextoVigente";
 import { fecha, fechaHora } from "../GestionHumana/comunes";
 import { errorDePrivacidad } from "../../api/privacidadService";
 import {
@@ -15,6 +16,16 @@ import {
   textoDeDiasRestantes,
   textoDeEstado,
 } from "./privacidadComunes";
+
+/**
+ * La explicación de un tipo de solicitud: la del catálogo de textos (US-004,
+ * se edita en «Protección de datos» → «Textos») y, mientras llega o si no
+ * llega, la de siempre. No se acepta: el respaldo basta para leerla.
+ */
+export function ExplicacionDeTipo({ tipo }) {
+  const { texto } = useTextoVigente(tipo.clave, tipo.explicacion);
+  return texto;
+}
 
 export function PildoraEstado({ estado, texto }) {
   const e = ESTADO[estado];

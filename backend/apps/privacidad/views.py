@@ -24,7 +24,7 @@ from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.pagination import DefaultPagination
@@ -33,7 +33,7 @@ from apps.core.responses import error_response
 from apps.descargas.middleware import marcar
 from apps.permissions.permissions import Requiere
 
-from . import access, consentimiento, mis_datos, serializers, services
+from . import access, consentimiento, mis_datos, serializers, services, textos
 from .models import SolicitudDerechos
 from .services import PrivacidadError
 
@@ -314,10 +314,16 @@ class ConsentimientoView(PrivacidadView):
 
 class AvisoView(PrivacidadView):
     """`GET /privacidad/consentimiento/aviso/` (`privacidad.ver` o
-    `.atender`): el aviso con su versión y cuántos lo aceptaron. `PUT`
-    (`privacidad.atender`) con `{"texto", "pedir_aceptacion_de_nuevo"}`."""
+    `.atender`): el aviso con su versión, la versión exigida y cuántos lo
+    aceptaron. `PUT` (`privacidad.textos` desde US-004) con
+    `{"texto", "pedir_aceptacion_de_nuevo"}`: se mantiene para la pantalla de
+    hoy y hace lo mismo que `PUT /privacidad/textos/aviso_privacidad/`, que es
+    donde se edita desde US-004 (CA-7)."""
 
-    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+    def get_permissions(self):
+        if self.request.method == "PUT":
+            return [IsAuthenticated(), Requiere(access.TEXTOS)()]
+        return [IsAuthenticated(), Requiere(*access.ALL_CODENAMES)()]
 
     def get(self, request):
         return Response(consentimiento.resumen_del_aviso(request.user))
@@ -396,3 +402,151 @@ class RestablecerTodosView(PrivacidadView):
             )
         marcadas = consentimiento.restablecer_todos(actor=request.user, context=self.context)
         return Response({"restablecidas": marcadas})
+
+
+# ── Textos de protección de datos y sus aceptaciones (US-004) ─────────────────
+
+
+class TextosView(PrivacidadView):
+    """`GET /privacidad/textos/` (`privacidad.ver`, `.atender` o `.textos`):
+    el catálogo de la empresa activa, agrupado por módulo y sección:
+    `{"puede_editar", "modulos": [{"modulo", "secciones": [{"seccion",
+    "textos": [...]}]}]}`. Cada texto: `textos.de_texto`."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.VER_TEXTOS)]
+
+    def get(self, request):
+        return Response(
+            {
+                "puede_editar": access.puede_editar_textos(request.user),
+                "modulos": textos.catalogo(),
+            }
+        )
+
+
+class TextoView(PrivacidadView):
+    """`PUT /privacidad/textos/<clave>/` (`privacidad.textos`) con
+    `{"texto", "titulo"?, "motivo"?, "pedir_de_nuevo"?}`: guarda el texto
+    (20 a 6000 caracteres; el título solo en el acuerdo de confidencialidad;
+    `pedir_de_nuevo` solo cuenta en el aviso general). Devuelve el texto como
+    en el catálogo. 404 si la clave no existe."""
+
+    permission_classes = [IsAuthenticated, Requiere(access.TEXTOS)]
+
+    def put(self, request, clave):
+        datos_catalogo = textos.entrada(clave)
+        datos = self.validated(serializers.GuardarTextoSerializer)
+        texto = textos.guardar(
+            clave,
+            texto=datos["texto"],
+            titulo=datos.get("titulo"),
+            motivo=datos.get("motivo") or "",
+            pedir_de_nuevo=datos.get("pedir_de_nuevo"),
+            actor=request.user,
+            context=self.context,
+        )
+        return Response(textos.de_texto(datos_catalogo, texto))
+
+
+class TextoVigenteView(PrivacidadView):
+    """`GET /privacidad/textos/<clave>/vigente/` (toda cuenta con sesión):
+    `{"clave", "version", "texto", "titulo"}`, el texto que se le muestra
+    para aceptarlo o leerlo, con las variables (`{plazo}`) ya reemplazadas.
+    404 si la clave no existe o si es el aviso general y la empresa no tiene."""
+
+    def get(self, request, clave):
+        datos = textos.vigente(clave)
+        if datos is None:
+            raise PrivacidadError("Texto no encontrado.", code="not_found", status=404)
+        return Response(datos)
+
+
+class VersionesTextoView(PrivacidadView):
+    """`GET /privacidad/textos/<clave>/versiones/` (`privacidad.ver`,
+    `.atender` o `.textos`): cada versión, de la más nueva a la más vieja,
+    con quién la guardó, cuándo y por qué."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.VER_TEXTOS)]
+
+    def get(self, request, clave):
+        textos.entrada(clave)
+        return Response(textos.versiones(clave))
+
+
+class AceptacionesView(PrivacidadView):
+    """`GET /privacidad/aceptaciones/?clave=&modulo=&seccion=&persona=&estado=
+    vigente|retirada|restablecida&page=&page_size=` (`privacidad.ver` o `.atender`): las
+    aceptaciones de la empresa activa, de la más reciente, paginadas."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+
+    def get(self, request):
+        filtros = self.validated(serializers.FiltrosAceptacionesSerializer, request.query_params)
+        consulta = textos.aceptaciones(**_filtros_de_aceptaciones(filtros))
+        paginador = DefaultPagination()
+        pagina = paginador.paginate_queryset(consulta, request, view=self)
+        return paginador.get_paginated_response([textos.de_aceptacion(a) for a in pagina])
+
+
+class AceptacionView(PrivacidadView):
+    """`GET /privacidad/aceptaciones/<id>/`: una aceptación con el texto y el
+    título exactos que se aceptaron. La de otra empresa, 404."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+
+    def get(self, request, pk):
+        return Response(textos.de_aceptacion(textos.obtener_aceptacion(pk), con_texto=True))
+
+
+class _ExcelDeAceptacionesThrottle(UserRateThrottle):
+    """Límite propio del Excel de aceptaciones (QA-TECH, 11/11/2026): no
+    comparte el cupo de la descarga de «mis datos». La tasa se puede fijar en
+    `DEFAULT_THROTTLE_RATES["privacidad_aceptaciones_excel"]`; si no está,
+    30 por hora."""
+
+    scope = "privacidad_aceptaciones_excel"
+    POR_DEFECTO = "30/hour"
+
+    def get_rate(self):
+        from django.conf import settings
+
+        tasas = settings.REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})
+        return tasas.get(self.scope) or self.POR_DEFECTO
+
+
+class AceptacionesExcelView(PrivacidadView):
+    """`GET /privacidad/aceptaciones/excel/?…` (los filtros del listado): las
+    aceptaciones en Excel. Queda en la auditoría y en el registro de
+    descargas (lleva IP y navegador de las personas)."""
+
+    permission_classes = [IsAuthenticated, Requiere(*access.ALL_CODENAMES)]
+    throttle_classes = [_ExcelDeAceptacionesThrottle]
+
+    def get(self, request):
+        filtros = _filtros_de_aceptaciones(
+            self.validated(serializers.FiltrosAceptacionesSerializer, request.query_params)
+        )
+        consulta = textos.aceptaciones(**filtros)
+        cuerpo = textos.a_excel(consulta)
+        usados = {k: v for k, v in filtros.items() if v}
+        marcar(request, modulo="privacidad", tipo="aceptaciones", **usados)
+        services._audit(
+            request.user,
+            "aceptaciones.exportadas",
+            nuevo={"filtros": usados},
+            context=self.context,
+        )
+        respuesta = HttpResponse(cuerpo, content_type=mis_datos.CONTENT_TYPE_XLSX)
+        respuesta["Content-Disposition"] = (
+            'attachment; filename="aceptaciones-proteccion-datos.xlsx"'
+        )
+        respuesta["Cache-Control"] = "no-store"
+        respuesta["X-Content-Type-Options"] = "nosniff"
+        return respuesta
+
+
+def _filtros_de_aceptaciones(filtros: dict) -> dict:
+    return {
+        campo: filtros.get(campo) or ""
+        for campo in ("clave", "modulo", "seccion", "persona", "estado")
+    }

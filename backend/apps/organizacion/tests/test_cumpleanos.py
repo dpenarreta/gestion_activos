@@ -104,3 +104,66 @@ def test_el_aniversario_se_publica_aceptando_y_dice_los_anios(db):
         None,
         None,
     )
+
+
+def test_publicar_y_retirar_quedan_en_el_registro_de_proteccion_de_datos(db):
+    """US-004 (11/11/2026): cada publicación es una aceptación del texto del
+    catálogo, con IP y navegador; retirarla la marca como retirada sin
+    borrarla, y volver a publicar deja otra fila."""
+    from apps.privacidad import catalogo_textos as cat
+    from apps.privacidad.models import AceptacionTexto
+
+    usuario, rosa = _cuenta("rosa")
+    for url, clave, texto in (
+        (CUMPLE, "cumpleanos_publico", cat.CUMPLEANOS),
+        (ANIVERSARIO, "aniversario_publico", cat.ANIVERSARIO),
+    ):
+        publicar = {"mostrar": True, "acepto": True, "dia": 25, "mes": 10}
+        rosa.put(url, publicar, format="json", REMOTE_ADDR="10.0.5.21", HTTP_USER_AGENT="Safari")
+        rosa.put(url, publicar, format="json")  # guardar igual no duplica
+        with usando_empresa(empresa_actual()):
+            filas = AceptacionTexto.objects.filter(usuario=usuario, texto_proteccion__clave=clave)
+            (primera,) = filas
+        assert (primera.ip, primera.navegador, primera.texto_aceptado) == (
+            "10.0.5.21",
+            "Safari",
+            texto,
+        )
+        rosa.put(url, {"mostrar": False}, format="json")
+        primera.refresh_from_db()
+        assert primera.retirada_en is not None
+        rosa.put(url, publicar, format="json")
+        with usando_empresa(empresa_actual()):
+            assert filas.all().count() == 2
+            assert filas.filter(retirada_en__isnull=True).count() == 1
+
+
+def test_si_el_texto_cambio_mientras_lo_leia_se_pide_de_nuevo(db):
+    """QA-TECH (11/11/2026): la pantalla manda la versión que mostró; si el
+    texto cambió entretanto, 400 en `acepto` y no se publica."""
+    from apps.privacidad import textos
+    from apps.privacidad.models import AceptacionTexto
+
+    usuario, rosa = _cuenta("rosa")
+    editora, _ = _cuenta("eugenia", "privacidad.textos")
+    for url, clave in ((CUMPLE, "cumpleanos_publico"), (ANIVERSARIO, "aniversario_publico")):
+        leida = textos.obtener(clave).version
+        textos.guardar(
+            clave, texto="Acepto que mi fecha se vea en el calendario de Inicio.", actor=editora
+        )
+        publicar = {"mostrar": True, "acepto": True, "dia": 25, "mes": 10}
+        vieja = rosa.put(url, {**publicar, "version": leida}, format="json")
+        assert vieja.status_code == 400
+        assert vieja.json()["error"]["details"]["acepto"] == [textos.TEXTO_CAMBIADO]
+        with usando_empresa(empresa_actual()):
+            assert not AceptacionTexto.objects.filter(
+                usuario=usuario, texto_proteccion__clave=clave
+            ).exists()
+        nueva = rosa.put(url, {**publicar, "version": leida + 1}, format="json")
+        assert nueva.status_code == 200 and nueva.json()["mostrar"] is True
+        # Sin versión, como hasta hoy.
+        assert rosa.put(url, publicar, format="json").status_code == 200
+    invalida = rosa.put(
+        CUMPLE, {"mostrar": True, "acepto": True, "dia": 1, "mes": 1, "version": 0}, format="json"
+    )
+    assert invalida.status_code == 400

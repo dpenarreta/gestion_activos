@@ -80,6 +80,16 @@ const MIS_DATOS = {
   agencia: { id: 1, nombre: "Loja · Agencia" },
   cargo: { id: 5, nombre: "Analista · Cobranzas" },
   cargos: [{ id: 5, nombre: "Analista · Cobranzas" }],
+  // El texto de la autorización llega siempre del servidor (US-004: ya no
+  // hay uno fijo de respaldo en la pantalla).
+  telefono_autorizacion: {
+    texto:
+      "Autorizo a la empresa a guardar mi número de teléfono de contacto y a que otras personas de la empresa lo usen para contactarme.",
+    version: 1,
+    aceptado: false,
+    aceptado_en: null,
+    version_aceptada: null,
+  },
   faltan: [],
 };
 

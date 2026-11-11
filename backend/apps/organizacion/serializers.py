@@ -326,12 +326,18 @@ class MisDatosSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=150)
     #: Opcional (26/10/2026); si viene, con su autorización (acepta_telefono).
     telefono = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
-    area = RelacionDeEmpresa(Departamento, {"activo": True})
+    #: De la empresa, activa o no (US-005, 11/11/2026): quien ya tiene guardada
+    #: un área que después se desactivó la reenvía para guardar lo demás. Que
+    #: sea activa lo exige `contacto.guardar` cuando la fija por primera vez.
+    area = RelacionDeEmpresa(Departamento)
     agencia = RelacionDeEmpresa(Sede, {"activa": True})
     #: Obligatorio desde el 20/10/2026, como el resto de «Mi perfil».
     cargo = RelacionDeEmpresa(Cargo, {"activo": True})
     #: Autoriza guardar su teléfono y que la empresa lo use para contactarlo.
     acepta_telefono = serializers.BooleanField(default=False)
+    #: La versión de la autorización que se le mostró (US-004, opcional): si
+    #: el texto cambió mientras la leía, 400 en `acepta_telefono`.
+    version_telefono = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     #: «¿Tiene teléfono o línea corporativa asignada?» (10/11/2026): la respuesta es
     #: obligatoria. Si es sí, el número también (lo exige contacto.guardar).
     #: El corporativo no pide autorización: no es dato personal.
@@ -529,6 +535,19 @@ class AsignacionSerializer(serializers.Serializer):
     cargo = RelacionDeEmpresa(Cargo, {"activo": True}, allow_null=True)
 
 
+class CambioAreaSerializer(serializers.Serializer):
+    """Cambiar el área de una persona desde la administración (US-005). El
+    área es obligatoria y activa de la empresa: quitarla volvería a pedírsela
+    a la persona, que entonces podría elegir cualquiera."""
+
+    usuario = serializers.IntegerField()
+    area = RelacionDeEmpresa(Departamento, {"activo": True})
+    #: Por qué se cambia (opcional): queda en la auditoría.
+    motivo = serializers.CharField(
+        max_length=300, required=False, allow_blank=True, default="", trim_whitespace=True
+    )
+
+
 class DocumentoInstitucionalSerializer(serializers.ModelSerializer):
     """Un código o reglamento. El archivo se sube al crear (y puede
     reemplazarse al editar); nunca se devuelve su ruta, solo lo que hace falta
@@ -592,11 +611,6 @@ class DocumentoInstitucionalSerializer(serializers.ModelSerializer):
             datos["tamano_bytes"] = archivo.size
             datos["content_type"] = documentos.TIPOS[self._extension]
         return datos
-
-
-class AcuerdoConfidencialidadSerializer(serializers.Serializer):
-    titulo = serializers.CharField(max_length=200)
-    texto = serializers.CharField()
 
 
 class NoticiaInicioSerializer(serializers.ModelSerializer):
@@ -711,6 +725,9 @@ class CumpleanosSerializer(serializers.Serializer):
 
     mostrar = serializers.BooleanField()
     acepto = serializers.BooleanField(default=False)
+    #: La versión del texto que se le mostró (US-004, opcional): si cambió
+    #: mientras lo leía, 400 en `acepto`.
+    version = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     dia = serializers.IntegerField(min_value=1, max_value=31, required=False, allow_null=True)
     mes = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
 
@@ -740,6 +757,9 @@ class AniversarioSerializer(serializers.Serializer):
 
     mostrar = serializers.BooleanField()
     acepto = serializers.BooleanField(default=False)
+    #: La versión del texto que se le mostró (US-004, opcional): si cambió
+    #: mientras lo leía, 400 en `acepto`.
+    version = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     dia = serializers.IntegerField(min_value=1, max_value=31, required=False, allow_null=True)
     mes = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
     anio = serializers.IntegerField(min_value=1950, max_value=2100, required=False, allow_null=True)

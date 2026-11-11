@@ -58,7 +58,9 @@ export function AdminTabs({ tabs }) {
             role="tab"
             id={`admin-tab-${tab.key}`}
             aria-selected={isActive}
-            aria-controls={`admin-tabpanel-${tab.key}`}
+            // Solo la activa: el panel de las demás no existe en la página
+            // (QA-UX, US-004).
+            aria-controls={isActive ? `admin-tabpanel-${tab.key}` : undefined}
             tabIndex={isActive ? 0 : -1}
             className={isActive ? "is-active" : undefined}
             onClick={() => guardedNavigate(tab.path)}

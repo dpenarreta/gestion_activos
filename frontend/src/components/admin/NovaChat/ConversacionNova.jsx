@@ -9,11 +9,17 @@ import {
   novaService,
 } from "../../../api/novaService";
 import { useMediaQuery } from "../../../hooks/useMediaQuery";
+import { useTextoVigente } from "../../../hooks/useTextoVigente";
+import { TextoDelAviso } from "../../../pages/Privacidad/TextoDelAviso";
 import { usePermission } from "../../../hooks/usePermission";
 import { ConfirmDialog } from "../../common/ConfirmDialog/ConfirmDialog";
 import { Icon } from "../../common/Icon/Icon";
 import { VisorPdf } from "../../common/VisorPdf/VisorPdf";
 import {
+  AVISO_IA_RESPALDO,
+  CLAVE_AVISO_IA,
+  CLAVE_COMO_SE_PROTEGEN,
+  COMO_SE_PROTEGEN_RESPALDO,
   MODOS,
   avisoDeEstado,
   descripcionDeModo,
@@ -242,6 +248,17 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
     if (estado && !modos.some((m) => m.id === modo)) setModo("general");
   }, [estado, modo, modos, setModo]);
   const actual = MODOS.find((m) => m.id === modo) ?? MODOS[0];
+  // Los avisos de privacidad, del catálogo (US-004); mientras llegan, los de
+  // siempre.
+  const avisoIa = useTextoVigente(CLAVE_AVISO_IA, AVISO_IA_RESPALDO);
+  const avisoDelModo = useTextoVigente(
+    actual.clavePrivacidad,
+    actual.privacidad,
+  );
+  const comoSeProtegen = useTextoVigente(
+    CLAVE_COMO_SE_PROTEGEN,
+    COMO_SE_PROTEGEN_RESPALDO,
+  );
   const aviso = avisoDeEstado(estado);
   // Con «solo fuentes» y la base vacía, el modo General no tiene de dónde
   // responder: se avisa antes de escribir.
@@ -350,21 +367,12 @@ export function ConversacionNova({ variante = "panel", enfocar = false }) {
         <p className="nova-aviso__linea mb-0">
           <Icon name="shield-lock" />
           <span>
-            Nova es una IA y puede equivocarse. No se envían nombres.{" "}
-            {actual.privacidad}
+            {avisoIa.texto} {avisoDelModo.texto}
           </span>
         </p>
         <details className="nova-aviso__mas">
           <summary>Cómo se protegen sus datos</summary>
-          <p className="mb-0">
-            Revise las respuestas antes de decidir. Las personas se envían con
-            seudónimos («Persona A»), nunca con su nombre, y antes de enviar se
-            ocultan correos, cédulas y teléfonos. En el modo General puede
-            preguntar por políticas de salud (licencias, permisos médicos,
-            maternidad); en Mis tareas y Mi equipo los mensajes que mencionan
-            salud no se envían. La conversación no se guarda: se pierde al
-            cerrar sesión o recargar la página.
-          </p>
+          <TextoDelAviso texto={comoSeProtegen.texto} />
         </details>
       </div>
 

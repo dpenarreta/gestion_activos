@@ -2247,6 +2247,20 @@ body {
   }
 }
 
+/* `mz-tactil` (US-004, 11/11/2026): 44 px también en equipos con pantalla
+   táctil y ratón (`any-pointer`), donde `pointer` dice «fine». Se pone a los
+   botones que la auditoría pidió y al «Reintentar» de los estados de carga. */
+@media (any-pointer: coarse) {
+  .mz-tactil,
+  .mz-estado__error .btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* --- Fase 2 de la auditoría UX/UI (28/10/2026) --------------------------- */
 
 /* Cargando / vacío de las listas (EstadoDeCarga). */

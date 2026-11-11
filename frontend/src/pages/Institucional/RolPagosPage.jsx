@@ -26,6 +26,13 @@ import { HistorialRolPagos } from "./HistorialRolPagos";
 import { VisorRolPagos } from "./VisorRolPagos";
 import { AuditadoRolPagos } from "./AuditadoRolPagos";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
+import { SeEditaEnProteccionDeDatos } from "../Privacidad/SeEditaEnProteccionDeDatos";
+import {
+  CLAVES_TEXTO,
+  esTextoCambiado,
+  mensajeDeTextoCambiado,
+} from "../Privacidad/privacidadComunes";
+import { TextoDelAviso } from "../Privacidad/TextoDelAviso";
 
 const MESES = [
   "Enero",
@@ -69,10 +76,13 @@ async function errorDeBlob(err, porDefecto) {
   return mensajeDeError(leido, porDefecto);
 }
 
-function Ventana({ titulo, onCerrar, children }) {
+function Ventana({ titulo, onCerrar, pie, bloqueada = false, children }) {
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
+    // `bloqueada` (mientras guarda): ni Escape ni la X la cierran.
+    closeOnEscape: !bloqueada,
+    guardClose: () => !bloqueada,
   });
   return (
     <div
@@ -93,13 +103,15 @@ function Ventana({ titulo, onCerrar, children }) {
           <button
             type="button"
             className="mz-close"
-            onClick={onCerrar}
+            onClick={bloqueada ? undefined : onCerrar}
+            aria-disabled={bloqueada ? "true" : undefined}
             aria-label="Cerrar"
           >
             <Icon name="x-lg" />
           </button>
         </div>
         <div className="mz-panel-body">{children}</div>
+        {pie && <div className="mz-panel-foot">{pie}</div>}
       </div>
     </div>
   );
@@ -196,6 +208,7 @@ function Confirmar({
   onCerrar,
   onCambiarPeriodo,
   onPeriodoCambiado,
+  onTextoCambiado,
 }) {
   const [acepto, setAcepto] = useState(false);
   const [paso, setPaso] = useState("terminos");
@@ -214,6 +227,7 @@ function Confirmar({
   const formRef = useRef(null);
   const idEnvio = useId();
   const idPaso = useId();
+  const idTerminos = useId();
   // El período del código (QA-FUNC, US-002, 11/11/2026): se fija al pedirlo y
   // es el que se confirma, aunque la página cambie detrás de la ventana.
   const [fijado, setFijado] = useState(null);
@@ -336,6 +350,14 @@ function Confirmar({
         setCodigo("");
         setEnfocar((n) => n + 1);
       } else {
+        if (esTextoCambiado(leido)) {
+          // Los términos cambiaron mientras los leía (US-004): se recarga el
+          // estado con los nuevos y se vuelven a aceptar.
+          setAcepto(false);
+          setCodigo("");
+          setPaso("terminos");
+          onTextoCambiado?.();
+        }
         setError({
           texto: mensajeSinCampos(
             leido,
@@ -408,17 +430,23 @@ function Confirmar({
         )}
         {paso === "terminos" ? (
           <>
+            {/* Una región con desplazamiento recibe el foco; la casilla la
+                enlaza como su descripción (como el acuerdo, US-004). */}
             <div
+              id={idTerminos}
               className="rol-pagos__terminos"
+              role="region"
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+              tabIndex={0}
               aria-label="Términos y condiciones"
             >
-              {estado.terminos}
+              <TextoDelAviso texto={estado.terminos} />
             </div>
             <label className="form-check">
               <input
                 type="checkbox"
                 className="form-check-input"
-                aria-describedby={idPaso}
+                aria-describedby={`${idTerminos} ${idPaso}`}
                 checked={acepto}
                 onChange={(e) => setAcepto(e.target.checked)}
               />{" "}
@@ -557,6 +585,8 @@ function Confirmar({
 /** Enviar el último rol consultado al correo personal (se regenera). */
 function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
   const [correo, setCorreo] = useState("");
+  // El consentimiento cambió mientras lo leía: junto a su casilla (US-004).
+  const [errorConsentimiento, setErrorConsentimiento] = useState(null);
   const [guardar, setGuardar] = useState(false);
   const [aceptoGuardar, setAceptoGuardar] = useState(false);
   const [aviso, setAviso] = useState(null);
@@ -568,13 +598,19 @@ function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
     evento.preventDefault();
     setEnviando(true);
     setError(null);
+    setErrorConsentimiento(null);
     setAviso(null);
+    const guardaCorreo = guardar && Boolean(correo.trim());
     try {
       const respuesta = await nominaService.enviar({
         consulta: ultima.consulta,
         correo: correo.trim(),
-        guardar: guardar && Boolean(correo.trim()),
+        guardar: guardaCorreo,
         acepto_guardar: aceptoGuardar,
+        // La versión del consentimiento que leyó, solo si guarda el correo.
+        ...(guardaCorreo && estado.version_correo
+          ? { version_correo: estado.version_correo }
+          : {}),
       });
       setAviso(`Listo: se envió a ${respuesta.enviado_a}.`);
       if (guardar && aceptoGuardar && correo.trim()) onCorreoGuardado();
@@ -582,7 +618,15 @@ function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
       setGuardar(false);
       setAceptoGuardar(false);
     } catch (err) {
-      setError(mensajeDeError(err, "No se pudo enviar el correo."));
+      if (guardaCorreo && esTextoCambiado(err, "acepto_guardar")) {
+        // Se trae el consentimiento nuevo (recarga el estado) y se pide de
+        // nuevo.
+        setAceptoGuardar(false);
+        setErrorConsentimiento(mensajeDeTextoCambiado(err, "acepto_guardar"));
+        onCorreoGuardado();
+      } else {
+        setError(mensajeDeError(err, "No se pudo enviar el correo."));
+      }
     } finally {
       setEnviando(false);
     }
@@ -651,18 +695,33 @@ function EnviarCorreo({ estado, ultima, onCorreoGuardado }) {
         )}
         {guardar && correo.trim() && (
           <div className="rol-pagos__consentimiento">
-            <p className="mz-small mb-2">{estado.consentimiento_correo}</p>
+            <TextoDelAviso
+              texto={estado.consentimiento_correo}
+              className="mz-small mb-2"
+            />
             <label className="form-check mb-0">
               <input
                 type="checkbox"
-                className="form-check-input"
+                className={`form-check-input${errorConsentimiento ? " is-invalid" : ""}`}
                 checked={aceptoGuardar}
-                onChange={(e) => setAceptoGuardar(e.target.checked)}
+                aria-invalid={errorConsentimiento ? "true" : undefined}
+                aria-describedby={
+                  errorConsentimiento ? "rol-acepto-guardar-error" : undefined
+                }
+                onChange={(e) => {
+                  setAceptoGuardar(e.target.checked);
+                  setErrorConsentimiento(null);
+                }}
               />{" "}
               <span className="form-check-label">
                 Acepto que se almacene mi correo personal.
               </span>
             </label>
+            {errorConsentimiento && (
+              <div id="rol-acepto-guardar-error" className="mz-field-error">
+                {errorConsentimiento}
+              </div>
+            )}
           </div>
         )}
         <div className="mz-actions justify-content-end">
@@ -925,12 +984,11 @@ function SeccionAviso({ aviso, habiles = [], errores, onCambio }) {
   );
 }
 
-/** Los textos de la consulta (con `roles_pago.configurar`). */
-function Configurar({ estado, onGuardado, onCerrar }) {
-  const [terminos, setTerminos] = useState(estado.terminos);
-  const [consentimiento, setConsentimiento] = useState(
-    estado.consentimiento_correo,
-  );
+/** Los textos de la consulta (con `roles_pago.configurar`). Los términos y
+ * el consentimiento del correo son de protección de datos: desde US-004
+ * (11/11/2026, CA-7) se editan en «Protección de datos» → «Textos» y aquí
+ * solo se enlazan. */
+function Configurar({ onGuardado, onCerrar }) {
   // Los textos del aviso del primer día hábil llegan aparte (aviso del rol
   // de pagos, 29/10/2026); si no cargan, se guarda lo demás y el aviso se
   // queda como estaba.
@@ -969,11 +1027,7 @@ function Configurar({ estado, onGuardado, onCerrar }) {
     setError(null);
     setErrores({});
     try {
-      await nominaService.configurar({
-        terminos,
-        consentimiento_correo: consentimiento,
-        ...(aviso ?? {}),
-      });
+      await nominaService.configurar({ ...(aviso ?? {}) });
       onGuardado();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo guardar."));
@@ -984,8 +1038,38 @@ function Configurar({ estado, onGuardado, onCerrar }) {
   }
 
   return (
-    <Ventana titulo="Textos de la consulta" onCerrar={onCerrar}>
-      <form ref={formulario} className="mz-stack" onSubmit={guardar}>
+    <Ventana
+      titulo="Aviso del primer día hábil"
+      onCerrar={onCerrar}
+      bloqueada={guardando}
+      pie={
+        <>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm mz-tactil"
+            onClick={onCerrar}
+            disabled={guardando}
+          >
+            Cancelar
+          </button>
+          {/* Sin el aviso cargado no hay nada que guardar. */}
+          <button
+            type="submit"
+            form="rol-cfg-formulario"
+            className="btn btn-primary btn-sm mz-tactil"
+            disabled={guardando || !aviso}
+          >
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </>
+      }
+    >
+      <form
+        id="rol-cfg-formulario"
+        ref={formulario}
+        className="mz-stack"
+        onSubmit={guardar}
+      >
         {error && (
           <div className="mz-alert mz-alert--bad" role="alert">
             <Icon name="x-octagon" />
@@ -993,35 +1077,19 @@ function Configurar({ estado, onGuardado, onCerrar }) {
           </div>
         )}
         <LeyendaObligatorios />
-        <Campo
-          id="rol-cfg-terminos"
-          etiqueta="Términos que se aceptan en cada consulta"
-          obligatorio
-          ayuda={`Si los cambia, quien consulte después los aceptará de nuevo. Versión actual: ${estado.version}.`}
-          error={errores.terminos}
-        >
-          <textarea
-            rows={6}
-            maxLength={4000}
-            className="form-control form-control-sm"
-            value={terminos}
-            onChange={(e) => setTerminos(e.target.value)}
-          />
-        </Campo>
-        <Campo
-          id="rol-cfg-correo"
-          etiqueta="Consentimiento para guardar el correo personal"
-          obligatorio
-          error={errores.consentimiento_correo}
-        >
-          <textarea
-            rows={4}
-            maxLength={2000}
-            className="form-control form-control-sm"
-            value={consentimiento}
-            onChange={(e) => setConsentimiento(e.target.value)}
-          />
-        </Campo>
+        <SeEditaEnProteccionDeDatos
+          que="Los términos de la consulta y el consentimiento para guardar el correo personal"
+          enlaces={[
+            {
+              clave: CLAVES_TEXTO.ROL_PAGOS_TERMINOS,
+              nombre: "Términos de la consulta",
+            },
+            {
+              clave: CLAVES_TEXTO.ROL_PAGOS_CORREO,
+              nombre: "Consentimiento del correo personal",
+            },
+          ]}
+        />
         {aviso ? (
           <SeccionAviso
             aviso={aviso}
@@ -1038,22 +1106,6 @@ function Configurar({ estado, onGuardado, onCerrar }) {
             onReintentar={cargarAviso}
           />
         )}
-        <div className="mz-actions justify-content-end">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={onCerrar}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-            disabled={guardando}
-          >
-            {guardando ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
       </form>
     </Ventana>
   );
@@ -1320,7 +1372,7 @@ export function RolPagosPage() {
     estado?.puede_configurar && {
       id: "textos",
       icono: "gear",
-      texto: "Textos de la consulta",
+      texto: "Aviso del primer día hábil",
       abrir: () => setConfigurando(true),
     },
   ].filter(Boolean);
@@ -1663,6 +1715,7 @@ export function RolPagosPage() {
         <Confirmar
           estado={estado}
           periodo={periodo}
+          onTextoCambiado={cargar}
           onCerrar={() => setConfirmando(false)}
           onCambiarPeriodo={() => {
             // El código es de ese período: se cierra la ventana, se elige
@@ -1741,7 +1794,6 @@ export function RolPagosPage() {
       {auditado && <AuditadoRolPagos onCerrar={() => setAuditado(false)} />}
       {configurando && estado && (
         <Configurar
-          estado={estado}
           onCerrar={() => setConfigurando(false)}
           onGuardado={() => {
             setConfigurando(false);

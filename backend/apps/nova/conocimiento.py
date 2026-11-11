@@ -33,6 +33,8 @@ from pathlib import PurePath
 from django.conf import settings
 from django.db import transaction
 
+from apps.core.archivos import mensaje_de_tamano
+
 from .models import DocumentoConocimiento, FragmentoConocimiento
 
 logger = logging.getLogger(__name__)
@@ -152,10 +154,7 @@ def validar_archivo(archivo) -> None:
     if not archivo or archivo.size == 0:
         raise DocumentoInvalido("El archivo está vacío.")
     if archivo.size > maximo:
-        raise DocumentoInvalido(
-            f"El archivo pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es "
-            f"{maximo // (1024 * 1024)} MB."
-        )
+        raise DocumentoInvalido(mensaje_de_tamano("El archivo", archivo.size, maximo))
     if PurePath(archivo.name or "").suffix.lower() != ".pdf":
         raise DocumentoInvalido("Solo se admiten documentos PDF (.pdf).")
     cabecera = archivo.read(1024)

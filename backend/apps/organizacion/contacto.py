@@ -11,6 +11,11 @@ ticket (decidido el 20/10/2026). El orden de las fuentes:
 - **Cargo**: el de «Mi perfil», del catálogo del organigrama. La persona lo
   elige **una sola vez**; después lo cambia solo TI o la administración
   (Estructura → Asignación de cargos), no ella desde «Mi perfil».
+- **Área** (US-005, 11/11/2026): la misma regla que el cargo. La pantalla
+  propone el área del cargo elegido (`areas.area_del_cargo`); la persona la
+  guarda una sola vez y después la cambia Gestión Humana o quien tenga
+  `organizacion.cambiar_area`. `area_fija` dice si ya la tiene guardada (el
+  área que viene de la ficha de empleado no la fija).
 
 Desde el 20/10/2026 los siete datos de `OBLIGATORIOS` son obligatorios para
 usar el sistema: mientras falte alguno, al entrar se bloquea con una ventana
@@ -36,15 +41,24 @@ lo cambia la persona: lo corrige la administración.
   guarda cuándo, desde qué IP, el texto exacto y su versión. Si el texto
   cambia, lo vuelve a aceptar la próxima vez que guarde su teléfono. Los
   teléfonos guardados antes del 10/11/2026 quedan como personales.
+
+**Textos y aceptaciones en Protección de datos** (US-004, 11/11/2026). La
+autorización del teléfono, el cumpleaños y el aniversario leen su texto del
+catálogo (`apps.privacidad.textos`) y cada aceptación queda en el registro
+común (`AceptacionTexto`, con IP y navegador); retirar el teléfono, el
+cumpleaños o el aniversario marca la aceptación como retirada. Las columnas
+`*_aceptado_*` de `DatosDeContacto` se siguen llenando igual que antes: las
+leen el chat, la Mesa de ayuda y «Mis datos».
 """
 
-from django.db import transaction
-from django.utils import timezone
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+from apps.privacidad import catalogo_textos as catalogo
+from apps.privacidad import textos
 
-from . import perfiles_cargo, textos_legales
+from . import areas, perfiles_cargo
 from .models import Cargo, DatosDeContacto, Departamento, Sede
 from .organigrama import linea_de_supervision, nombre_con_unidad
 
@@ -79,7 +93,9 @@ ETIQUETAS = {
 }
 
 
-TELEFONO = "autorizacion_telefono"
+TELEFONO = catalogo.AUTORIZACION_TELEFONO
+CUMPLEANOS = catalogo.CUMPLEANOS_PUBLICO
+ANIVERSARIO = catalogo.ANIVERSARIO_PUBLICO
 SIN_AUTORIZACION = (
     "Para guardar su teléfono, marque que autoriza a la empresa a guardarlo y a que "
     "otras personas de la empresa lo usen para contactarlo."
@@ -108,6 +124,12 @@ def _propios(usuario):
         .select_related("departamento", "sede", "cargo__unidad")
         .first()
     )
+
+
+def _bloquear(usuario):
+    """Su perfil bloqueado hasta el fin de la transacción, sin JOIN (el
+    `FOR UPDATE` no debe bloquear también el área, la agencia o el cargo)."""
+    return DatosDeContacto.objects.select_for_update().filter(usuario=usuario).first()
 
 
 def _empleado(usuario):
@@ -139,12 +161,24 @@ def de(usuario) -> dict:
         "telefono": (propios.telefono if propios and propios.telefono else "")
         or (empleado.telefono if empleado else ""),
         "area": {"id": area.id, "nombre": area.nombre} if area else None,
+        # Ya la guardó en «Mi perfil»: no la cambia ella (US-005).
+        "area_fija": bool(propios and propios.departamento_id),
+        # El área del cargo asignado (US-005, QA-FUNC O-1): la pantalla la
+        # propone si el cargo ya viene fijo y aún no hay área guardada.
+        # Solo sin área fija (QA-TECH, 11/11/2026): con ella no se propone
+        # nada y así no suma consultas a quien llama `de()` por muchas personas
+        # (soporte).
+        "area_del_cargo": (
+            None
+            if propios and propios.departamento_id
+            else areas.como_dato(areas.area_del_cargo(cargo))
+        ),
         "agencia": {"id": sede.id, "nombre": sede.nombre} if sede else None,
         "cargo": {"id": cargo.id, "nombre": nombre_con_unidad(cargo)} if cargo else None,
         "tiene_telefono_corporativo": propios.tiene_telefono_corporativo if propios else None,
         "telefono_corporativo": (propios.telefono_corporativo if propios else "") or "",
         "en_nomina": empleado is not None,
-        "telefono_autorizacion": _autorizacion_telefono(propios),
+        "telefono_autorizacion": _autorizacion_telefono(usuario),
         "cumpleanos": cumpleanos(usuario),
         "aniversario": aniversario(usuario),
         # Lo que se espera de su cargo (perfiles_cargo.py).
@@ -191,22 +225,31 @@ def para_compartir(usuario) -> dict:
     }
 
 
-def _autorizacion_telefono(propios) -> dict:
-    """El texto vigente y si la persona aceptó esa versión. Si aceptó una
-    anterior, `aceptado` es falso y lo vuelve a aceptar al guardar."""
-    vigente = textos_legales.actual(TELEFONO)
-    aceptada = propios.telefono_aceptado_version if propios else None
+def _autorizacion_telefono(usuario) -> dict:
+    """El texto vigente (del catálogo de Protección de datos) y si la persona
+    lo tiene aceptado. Si aceptó una versión anterior, o la retiró,
+    `aceptado` es falso y lo vuelve a aceptar al guardar. `aceptado_en` y
+    `version_aceptada` son los de su última aceptación sin retirar. El texto
+    se memoriza en la petición: la Mesa de ayuda arma esto por cada
+    solicitante (QA-TECH, 11/11/2026)."""
+    datos = textos.autorizacion(usuario, TELEFONO)
     return {
-        "texto": vigente.texto,
-        "version": vigente.version,
-        "aceptado": bool(propios and propios.telefono_aceptado_en and aceptada == vigente.version),
-        "aceptado_en": propios.telefono_aceptado_en if propios else None,
-        "version_aceptada": aceptada,
+        "texto": datos["texto"],
+        "version": datos["version"],
+        "aceptado": datos["aceptado"],
+        "aceptado_en": datos["aceptado_en"],
+        "version_aceptada": datos["version_aceptada"],
     }
 
 
 def opciones() -> dict:
     """Las áreas, agencias y cargos de la empresa activa, para elegir."""
+    cargos = list(
+        Cargo.objects.filter(activo=True)
+        .select_related("unidad")
+        .order_by("unidad__nombre", "nombre")
+    )
+    area_de = areas.areas_de_cargos(cargos)
     return {
         "areas": [
             {"id": d.id, "nombre": d.nombre}
@@ -216,12 +259,15 @@ def opciones() -> dict:
             {"id": s.id, "nombre": s.nombre, "ciudad": s.ciudad}
             for s in Sede.objects.filter(activa=True).order_by("nombre")
         ],
-        # Con su unidad: el mismo nombre se repite entre unidades.
+        # Con su unidad: el mismo nombre se repite entre unidades. Y con su
+        # área (US-005), que la pantalla propone al elegirlo.
         "cargos": [
-            {"id": c.id, "nombre": nombre_con_unidad(c)}
-            for c in Cargo.objects.filter(activo=True)
-            .select_related("unidad")
-            .order_by("unidad__nombre", "nombre")
+            {
+                "id": c.id,
+                "nombre": nombre_con_unidad(c),
+                "area": areas.como_dato(area_de.get(c.pk)),
+            }
+            for c in cargos
         ],
     }
 
@@ -237,6 +283,8 @@ def guardar(
     cargo=None,
     acepta_telefono=False,
     ip=None,
+    navegador="",
+    version_telefono=None,
     tiene_telefono_corporativo=SIN_CAMBIOS,
     telefono_corporativo="",
 ) -> dict:
@@ -245,54 +293,138 @@ def guardar(
 
     - El teléfono personal (`telefono`) es opcional; si lo escribe, solo se
       guarda con su autorización (`acepta_telefono`): la primera vez se guarda
-      cuándo, desde qué `ip` y qué texto aceptó. Dejarlo vacío lo borra (la
-      constancia de la autorización se conserva).
+      cuándo, desde qué `ip` y `navegador` y qué texto aceptó (en el registro
+      común de Protección de datos). Dejarlo vacío lo borra y retira la
+      autorización (la constancia se conserva, marcada como retirada). Con
+      `version_telefono` (la versión del texto que se le mostró), si cambió
+      entretanto: 400 en `acepta_telefono`.
     - El corporativo (10/11/2026): con `tiene_telefono_corporativo=True` el
       número es obligatorio; con `False` se borra. Nunca pide autorización.
       Sin el argumento (`SIN_CAMBIOS`) o con `None` se conserva lo guardado:
       quien llama sin la respuesta no la da por contestada.
     - Uno u otro (11/11/2026): con `True` no se guarda el personal, aunque
-      llegue; solo quien no tiene corporativo da un número personal."""
+      llegue; solo quien no tiene corporativo da un número personal.
+    - El área (US-005) y el cargo se eligen una sola vez: si ya tiene uno y
+      llega otro, `ValidationError` en `area` o `cargo`."""
     with transaction.atomic():
         usuario.first_name = nombres.strip()[:150]
         usuario.last_name = apellidos.strip()[:150]
         usuario.save(update_fields=["first_name", "last_name", "updated_at"])
-        propios = _propios(usuario) or DatosDeContacto(usuario=usuario)
-        # El cargo se elige una sola vez: si ya tiene uno, no lo cambia ella.
-        if propios.cargo_id and getattr(cargo, "pk", None) != propios.cargo_id:
-            raise ValidationError({"cargo": [CARGO_FIJO]})
-        telefono = (telefono or "").strip()[:30]
-        if tiene_telefono_corporativo is True:
-            telefono = ""
-        if telefono:
-            if not acepta_telefono:
-                raise ValidationError({"acepta_telefono": [SIN_AUTORIZACION]})
-            vigente = textos_legales.actual(TELEFONO)
-            # Una constancia por versión del texto: si ya aceptó la vigente, se
-            # conserva la original; si cambió, se registra la nueva.
+
+        def _aplicar(propios):
+            # El cargo se elige una sola vez: si ya tiene uno, no lo cambia ella.
+            if propios.cargo_id and getattr(cargo, "pk", None) != propios.cargo_id:
+                raise ValidationError({"cargo": [CARGO_FIJO]})
+            # El área también (US-005): la primera vez se guarda la que mande;
+            # después solo la cambia la administración (`areas.cambiar_area`).
             if (
-                propios.telefono_aceptado_version != vigente.version
-                or not propios.telefono_aceptado_en
+                propios.departamento_id
+                and getattr(departamento, "pk", None) != propios.departamento_id
             ):
-                propios.telefono_aceptado_en = timezone.now()
-                propios.telefono_aceptado_ip = ip
-                propios.telefono_aceptado_texto = vigente.texto
-                propios.telefono_aceptado_version = vigente.version
-        propios.telefono = telefono
-        if tiene_telefono_corporativo is not SIN_CAMBIOS and tiene_telefono_corporativo is not None:
-            corporativo = (telefono_corporativo or "").strip()[:30]
-            if tiene_telefono_corporativo and not corporativo:
-                raise ValidationError({"telefono_corporativo": [SIN_TELEFONO_CORPORATIVO]})
-            propios.tiene_telefono_corporativo = bool(tiene_telefono_corporativo)
-            propios.telefono_corporativo = corporativo if tiene_telefono_corporativo else ""
-        propios.departamento = departamento
-        propios.sede = sede
-        propios.cargo = cargo
-        propios.save()
+                raise ValidationError({"area": [areas.AREA_FIJA]})
+            # La misma ya guardada vale aunque se haya desactivado (decisión del
+            # Tech Lead, 11/11/2026); al fijarla por primera vez, solo una activa.
+            # Sin área (quien llama sin ella; la API la exige en su serializer) no
+            # hay nada que comprobar: antes esto rechazaba también `None`.
+            if (
+                not propios.departamento_id
+                and departamento is not None
+                and not getattr(departamento, "activo", False)
+            ):
+                raise ValidationError({"area": [areas.AREA_INACTIVA]})
+            numero = (telefono or "").strip()[:30]
+            if tiene_telefono_corporativo is True:
+                numero = ""
+            if numero:
+                if not acepta_telefono:
+                    raise ValidationError({"acepta_telefono": [SIN_AUTORIZACION]})
+                # Una constancia por versión del texto: si ya tiene aceptada la
+                # vigente, se conserva la original; si cambió (o la retiró), se
+                # registra la nueva.
+                aceptacion, nueva = textos.aceptar_en_campo(
+                    usuario,
+                    TELEFONO,
+                    campo="acepta_telefono",
+                    ip=ip,
+                    navegador=navegador,
+                    version=version_telefono,
+                )
+                if nueva or not propios.telefono_aceptado_en:
+                    propios.telefono_aceptado_en = aceptacion.aceptado_en
+                    propios.telefono_aceptado_ip = aceptacion.ip
+                    propios.telefono_aceptado_texto = aceptacion.texto_aceptado
+                    propios.telefono_aceptado_version = aceptacion.version
+            else:
+                # Sin teléfono personal no hay autorización que mantener.
+                textos.retirar(usuario, TELEFONO)
+            propios.telefono = numero
+            if (
+                tiene_telefono_corporativo is not SIN_CAMBIOS
+                and tiene_telefono_corporativo is not None
+            ):
+                corporativo = (telefono_corporativo or "").strip()[:30]
+                if tiene_telefono_corporativo and not corporativo:
+                    raise ValidationError({"telefono_corporativo": [SIN_TELEFONO_CORPORATIVO]})
+                propios.tiene_telefono_corporativo = bool(tiene_telefono_corporativo)
+                propios.telefono_corporativo = corporativo if tiene_telefono_corporativo else ""
+            propios.departamento = departamento
+            propios.sede = sede
+            propios.cargo = cargo
+            propios.save()
+
+        # Con bloqueo (US-005, 11/11/2026): si Gestión Humana cambia el área o
+        # el cargo a la vez (`areas.cambiar_area` también bloquea), «Mi perfil»
+        # espera y valida contra lo recién guardado en vez de pisarlo.
+        propios = _bloquear(usuario)
+        if propios is None:
+            # Sin perfil se crea; si `areas.cambiar_area` lo crea a la vez, el
+            # INSERT choca con `datos_de_contacto_unicos`: se deshace lo hecho
+            # (savepoint) y se vuelve a aplicar sobre la fila que creó, ya
+            # bloqueada, así que también se valida contra su área.
+            try:
+                with transaction.atomic():
+                    propios = DatosDeContacto(usuario=usuario)
+                    _aplicar(propios)
+            except IntegrityError:
+                propios = _bloquear(usuario)
+                if propios is None:
+                    raise
+                _aplicar(propios)
+        else:
+            _aplicar(propios)
         from .roles_de_cargo import sincronizar
 
         sincronizar(propios.empresa, [usuario])
     return de(usuario)
+
+
+#: Las columnas que escriben el cumpleaños y el aniversario.
+CAMPOS_CUMPLEANOS = (
+    "mostrar_cumpleanos",
+    "cumpleanos_dia",
+    "cumpleanos_mes",
+    "cumpleanos_aceptado_en",
+)
+CAMPOS_ANIVERSARIO = (
+    "mostrar_aniversario",
+    "aniversario_dia",
+    "aniversario_mes",
+    "aniversario_anio",
+    "aniversario_aceptado_en",
+)
+
+
+def _guardar_solo(propios, campos) -> None:
+    """Guarda solo `campos` si el perfil ya existe (QA-TECH, 11/11/2026).
+
+    El cumpleaños y el aniversario se leen sin bloqueo; guardar la fila
+    completa devolvería el área o el cargo que tenía al leerla si Gestión
+    Humana los cambió entretanto (`areas.cambiar_area`). Un perfil nuevo no
+    tiene nada que pisar: se guarda entero."""
+    if propios.pk:
+        propios.save(update_fields=[*campos, "updated_at"])
+    else:
+        propios.save()
 
 
 def cumpleanos(usuario) -> dict:
@@ -309,24 +441,31 @@ def cumpleanos(usuario) -> dict:
     }
 
 
-def guardar_cumpleanos(usuario, *, mostrar, dia=None, mes=None) -> dict:
-    """Publica su cumpleaños (día y mes) o lo retira. Retirarlo borra la
-    fecha: no se guarda lo que no se muestra."""
-    from django.utils import timezone
-
+def guardar_cumpleanos(
+    usuario, *, mostrar, dia=None, mes=None, ip=None, navegador="", version=None
+) -> dict:
+    """Publica su cumpleaños (día y mes) o lo retira. Publicarlo registra la
+    aceptación del texto vigente (con `ip` y `navegador`); si ya la tenía
+    aceptada, vale la que tenía. Retirarlo borra la fecha (no se guarda lo
+    que no se muestra) y marca la aceptación como retirada. Con `version` (la
+    que se le mostró), si el texto cambió entretanto: 400 en `acepto`."""
     with transaction.atomic():
         propios = _propios(usuario) or DatosDeContacto(usuario=usuario)
         if mostrar:
+            aceptacion, _ = textos.aceptar_en_campo(
+                usuario, CUMPLEANOS, ip=ip, navegador=navegador, version=version
+            )
             propios.mostrar_cumpleanos = True
             propios.cumpleanos_dia = dia
             propios.cumpleanos_mes = mes
-            propios.cumpleanos_aceptado_en = timezone.now()
+            propios.cumpleanos_aceptado_en = aceptacion.aceptado_en
         else:
+            textos.retirar(usuario, CUMPLEANOS)
             propios.mostrar_cumpleanos = False
             propios.cumpleanos_dia = None
             propios.cumpleanos_mes = None
             propios.cumpleanos_aceptado_en = None
-        propios.save()
+        _guardar_solo(propios, CAMPOS_CUMPLEANOS)
     return cumpleanos(usuario)
 
 
@@ -345,17 +484,26 @@ def aniversario(usuario) -> dict:
     }
 
 
-def guardar_aniversario(usuario, *, mostrar, dia=None, mes=None, anio=None) -> dict:
+def guardar_aniversario(
+    usuario, *, mostrar, dia=None, mes=None, anio=None, ip=None, navegador="", version=None
+) -> dict:
     """Publica su aniversario (día y mes de ingreso, y el año si lo da) o lo
-    retira. Retirarlo borra la fecha."""
-    from django.utils import timezone
-
+    retira. Como el cumpleaños: publicarlo registra la aceptación; retirarlo
+    borra la fecha y marca la aceptación como retirada."""
     with transaction.atomic():
         propios = _propios(usuario) or DatosDeContacto(usuario=usuario)
+        aceptado_en = None
+        if mostrar:
+            aceptacion, _ = textos.aceptar_en_campo(
+                usuario, ANIVERSARIO, ip=ip, navegador=navegador, version=version
+            )
+            aceptado_en = aceptacion.aceptado_en
+        else:
+            textos.retirar(usuario, ANIVERSARIO)
         propios.mostrar_aniversario = bool(mostrar)
         propios.aniversario_dia = dia if mostrar else None
         propios.aniversario_mes = mes if mostrar else None
         propios.aniversario_anio = anio if mostrar else None
-        propios.aniversario_aceptado_en = timezone.now() if mostrar else None
-        propios.save()
+        propios.aniversario_aceptado_en = aceptado_en
+        _guardar_solo(propios, CAMPOS_ANIVERSARIO)
     return aniversario(usuario)

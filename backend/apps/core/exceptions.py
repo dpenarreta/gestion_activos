@@ -126,6 +126,16 @@ def api_exception_handler(exc, context):
                 status=400,
             )
 
+    # Los errores de negocio de Protección de datos (`PrivacidadError`) llegan
+    # también desde otros módulos que usan su servicio de textos (US-004,
+    # 11/11/2026): Mi perfil, Rol de pagos, Códigos de conducta. Ya traen el
+    # contrato uniforme; sin esto saldrían como 500.
+    if response is None:
+        from apps.privacidad.services import PrivacidadError
+
+        if isinstance(exc, PrivacidadError):
+            return error_response(exc.code, exc.message, exc.status, exc.details)
+
     if response is None:
         logger.exception("Error no controlado", exc_info=exc)
         return error_response(

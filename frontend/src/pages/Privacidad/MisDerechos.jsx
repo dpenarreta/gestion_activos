@@ -23,14 +23,23 @@ import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCar
 import { Icon } from "../../components/common/Icon/Icon";
 import { fechaHora } from "../GestionHumana/comunes";
 import { NuevaSolicitud } from "./NuevaSolicitud";
+import { useTextoVigente } from "../../hooks/useTextoVigente";
 import {
   AvisoVivo,
   BotonesDeDescarga,
+  ExplicacionDeTipo,
   Historial,
   PildoraEstado,
   Plazo,
 } from "./Piezas";
-import { PLAZO_POR_DEFECTO, TIPO, TIPOS } from "./privacidadComunes";
+import {
+  CLAVES_TEXTO,
+  DERECHOS_EXPLICACION_RESPALDO,
+  PLAZO_POR_DEFECTO,
+  TIPO,
+  TIPOS,
+} from "./privacidadComunes";
+import { TextoDelAviso } from "./TextoDelAviso";
 import "./Privacidad.css";
 
 /** El id del título de cada solicitud: el foco va ahí tras crearla. */
@@ -218,6 +227,13 @@ function fechaCorta(iso) {
 }
 
 function QueDerechosTiene({ plazo, onPedir }) {
+  // Se edita en «Protección de datos» → «Textos» (US-004, 11/11/2026); el
+  // servidor ya reemplaza `{plazo}`. Mientras llega, el texto de siempre.
+  const { texto } = useTextoVigente(
+    CLAVES_TEXTO.DERECHOS_EXPLICACION,
+    DERECHOS_EXPLICACION_RESPALDO,
+    { plazo },
+  );
   return (
     <section className="mz-card" aria-labelledby="pv-sus-derechos">
       <div className="mz-card-head">
@@ -226,13 +242,8 @@ function QueDerechosTiene({ plazo, onPedir }) {
         </h3>
       </div>
       <div className="mz-card-body mz-stack">
-        <p className="mb-0">
-          La Ley Orgánica de Protección de Datos Personales (LOPDP) le da
-          derecho a saber qué datos suyos guarda la empresa, a pedir que los
-          corrijan y a pedir que los borren cuando ya no hacen falta. Aquí puede
-          hacerlo. La empresa debe responderle en un plazo de{" "}
-          <strong>{plazo} días</strong> desde que envía su solicitud.
-        </p>
+        {/* Como en la vista previa de «Textos», con «N días» resaltado. */}
+        <TextoDelAviso texto={texto} resaltar={`${plazo} días`} />
         {/* Cada tarjeta es el botón que abre la solicitud con su tipo ya
             elegido; la explicación va como descripción del botón. */}
         <ul className="pv-derechos">
@@ -246,7 +257,9 @@ function QueDerechosTiene({ plazo, onPedir }) {
               >
                 <Icon name={t.icono} /> {t.accion}
               </button>
-              <span id={`pv-derecho-${t.id}`}>{t.explicacion}</span>
+              <span id={`pv-derecho-${t.id}`}>
+                <ExplicacionDeTipo tipo={t} />
+              </span>
             </li>
           ))}
         </ul>

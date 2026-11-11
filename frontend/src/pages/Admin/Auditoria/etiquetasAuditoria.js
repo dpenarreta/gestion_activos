@@ -42,6 +42,15 @@ const ACCIONES = {
   "privacidad.consentimiento.restablecido": "Consentimiento restablecido",
   "privacidad.consentimiento.restablecido_todos":
     "Consentimiento restablecido a todas las personas",
+  // Textos de protección de datos y sus aceptaciones (US-004, 11/11/2026).
+  "privacidad.texto.creado": "Texto de protección de datos creado",
+  "privacidad.texto.editado": "Texto de protección de datos editado",
+  "privacidad.texto.aceptacion_pedida":
+    "Aceptación de un texto de protección de datos pedida de nuevo",
+  "privacidad.texto.nueva_version":
+    "Nueva versión de un texto de protección de datos",
+  "privacidad.aceptaciones.exportadas":
+    "Aceptaciones de protección de datos exportadas",
   "role.created": "Rol creado",
   "role.updated": "Rol modificado",
   "role.deleted": "Rol eliminado",
@@ -76,6 +85,8 @@ const ACCIONES = {
   "alertas.configuracion_actualizada": "Alertas configuradas",
   "configuracion.texto_legal.actualizado": "Texto legal actualizado",
   "ticket.aprobado": "Ticket aprobado",
+  // Desde «Asignación de cargos», con `organizacion.cambiar_area` (US-005).
+  "organizacion.area_cambiada": "Cambió el área de una persona",
 };
 
 /** El verbo, lo último del código. */
@@ -218,6 +229,7 @@ const CAMPOS = {
   empresa: "Empresa",
   empresas: "Empresas",
   departamento: "Departamento",
+  area: "Área",
   cargo: "Cargo",
   sede: "Sede",
   proveedor: "Proveedor",

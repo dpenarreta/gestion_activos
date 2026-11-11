@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 /*
  * Consentimiento del tratamiento de datos (09/11/2026): la pantalla
  * obligatoria al entrar (foco, aceptar, 409 si el aviso cambió, cerrar
- * sesión), el texto en párrafos y listas sin HTML, y la pantalla de quien
- * administra (editar, pedir aceptación de nuevo, restablecer). Los servicios
- * van simulados; los datos son ficticios.
+ * sesión), el texto en párrafos y listas sin HTML, y las personas frente al
+ * aviso de quien administra (restablecer). Desde US-004 el editor del aviso
+ * está en «Protección de datos» → «Textos» (ver `ProteccionDatos.test.jsx`).
+ * Los servicios van simulados; los datos son ficticios.
  */
 
 const AVISO =
@@ -27,7 +28,6 @@ function reiniciarServicio() {
       totales: { personas: 3, aceptaron: 1, pendientes: 2 },
       puede_atender: true,
     }),
-    guardarAviso: vi.fn(),
     personasConsentimiento: vi.fn().mockResolvedValue({
       count: 2,
       next: null,
@@ -96,8 +96,8 @@ vi.mock("../src/hooks/useAuth", () => ({
 
 const { ConsentimientoGate } =
   await import("../src/components/admin/ConsentimientoGate/ConsentimientoGate");
-const { ConsentimientoPrivacidad } =
-  await import("../src/pages/Privacidad/ConsentimientoPrivacidad");
+const { PersonasDelAviso } =
+  await import("../src/pages/Privacidad/PersonasDelAviso");
 const { bloquesDelAviso } =
   await import("../src/pages/Privacidad/TextoDelAviso");
 
@@ -333,12 +333,28 @@ describe("Pantalla de consentimiento con texto largo", () => {
 function pintarAdministracion() {
   return render(
     <MemoryRouter>
-      <ConsentimientoPrivacidad />
+      <PersonasDelAviso />
     </MemoryRouter>,
   );
 }
 
-describe("Administración del consentimiento", () => {
+describe("Personas frente al aviso (Protección de datos → Aceptaciones)", () => {
+  it("el texto del aviso ya no se edita aquí: enlaza a «Textos»", async () => {
+    pintarAdministracion();
+    expect(
+      await screen.findByRole("heading", { name: "Aviso vigente (versión 2)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Editar el aviso/ }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Protección de datos → Textos" }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/privacidad/textos?texto=aviso_privacidad",
+    );
+  });
+
   it("muestra el aviso, los totales y el estado de cada persona", async () => {
     pintarAdministracion();
     expect(
@@ -350,60 +366,6 @@ describe("Administración del consentimiento", () => {
     expect(await screen.findByText("Ana Pérez")).toBeInTheDocument();
     expect(screen.getByText("Aceptó antes en Nexo")).toBeInTheDocument();
     expect(screen.getByText("Pendiente")).toBeInTheDocument();
-  });
-
-  it("editar sin pedir aceptación de nuevo no confirma ni sube la versión", async () => {
-    servicio.guardarAviso.mockResolvedValue({
-      existe: true,
-      texto: "Corregido.",
-      version: 2,
-      version_desde: "2026-11-09T10:00:00-05:00",
-      totales: { personas: 3, aceptaron: 1, pendientes: 2 },
-      puede_atender: true,
-    });
-    pintarAdministracion();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Editar el aviso/ }),
-    );
-    const campo = screen.getByLabelText("Texto del aviso");
-    expect(campo).toHaveFocus();
-    fireEvent.change(campo, { target: { value: "Corregido." } });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    await waitFor(() =>
-      expect(servicio.guardarAviso).toHaveBeenCalledWith({
-        texto: "Corregido.",
-        pedirDeNuevo: false,
-      }),
-    );
-    expect(confirmar).not.toHaveBeenCalled();
-    const anuncio = await screen.findByText(/La versión no cambió/);
-    expect(anuncio.closest('[role="status"]')).not.toBeNull();
-    expect(anuncio.closest(".mz-alert--ok")).not.toBeNull();
-    // El foco vuelve al botón que abrió el editor.
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /Editar el aviso/ }),
-      ).toHaveFocus(),
-    );
-  });
-
-  it("el editor cuenta caracteres, previsualiza y al cancelar devuelve el foco", async () => {
-    pintarAdministracion();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Editar el aviso/ }),
-    );
-    const campo = screen.getByLabelText("Texto del aviso");
-    fireEvent.change(campo, { target: { value: "Hola\n\n- Uno" } });
-    const contador = screen.getByText("11/20000 caracteres");
-    expect(campo.getAttribute("aria-describedby")).toContain(contador.id);
-    expect(screen.getByText("Vista previa")).toBeInTheDocument();
-    expect(screen.getByText("Uno").closest("li")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /Editar el aviso/ }),
-      ).toHaveFocus(),
-    );
   });
 
   it("si restablecer falla, el error va en una alerta y no como éxito", async () => {
@@ -431,46 +393,6 @@ describe("Administración del consentimiento", () => {
     expect(
       await screen.findByText(/Versión Nexo \(Nexo \(importada\)\)/),
     ).toBeInTheDocument();
-  });
-
-  it("pedir aceptación de nuevo pide confirmación", async () => {
-    servicio.guardarAviso.mockResolvedValue({
-      existe: true,
-      texto: AVISO,
-      version: 3,
-      version_desde: "2026-11-09T12:00:00-05:00",
-      totales: { personas: 3, aceptaron: 0, pendientes: 3 },
-      puede_atender: true,
-    });
-    pintarAdministracion();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Editar el aviso/ }),
-    );
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /cambio sustancial/ }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    await waitFor(() => expect(confirmar).toHaveBeenCalled());
-    expect(servicio.guardarAviso).toHaveBeenCalledWith({
-      texto: AVISO,
-      pedirDeNuevo: true,
-    });
-    expect(await screen.findByText(/versión 3: todas/)).toBeInTheDocument();
-  });
-
-  it("el texto vacío no se envía", async () => {
-    pintarAdministracion();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Editar el aviso/ }),
-    );
-    fireEvent.change(screen.getByLabelText("Texto del aviso"), {
-      target: { value: "  " },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(
-      await screen.findByText("Escriba el texto del aviso."),
-    ).toBeInTheDocument();
-    expect(servicio.guardarAviso).not.toHaveBeenCalled();
   });
 
   it("restablece a una persona tras confirmar", async () => {
@@ -506,7 +428,7 @@ describe("Administración del consentimiento", () => {
     ).toBeInTheDocument();
   });
 
-  it("con solo privacidad.ver no ofrece editar ni restablecer", async () => {
+  it("con solo privacidad.ver no ofrece restablecer", async () => {
     servicio.aviso.mockResolvedValue({
       existe: true,
       texto: AVISO,

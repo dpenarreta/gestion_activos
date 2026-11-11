@@ -1,65 +1,38 @@
-"""Los textos de tratamiento de datos personales que aceptan las personas
-(26/10/2026, Ley Orgánica de Protección de Datos Personales).
+"""Los textos de tratamiento de datos personales de Configuración → Textos
+legales (26/10/2026, Ley Orgánica de Protección de Datos Personales).
 
-Cada texto es parametrizable: se edita en Configuración → Textos legales, con
-`configuracion.textos_legales`, y lleva una **versión** que sube con cada
-cambio. Cada aceptación guarda la fecha y hora, la IP, el texto exacto y su
-versión; si el texto cambia, la persona vuelve a aceptarlo la próxima vez (su
-constancia anterior queda igual). Los cambios quedan en la auditoría con el
-texto anterior y el nuevo.
+Desde US-004 (11/11/2026) viven en el catálogo de Protección de datos
+(`apps.privacidad.textos`) y se editan solo allí (CA-7). Lo que queda aquí es
+la lectura con la forma de siempre, para la pantalla vieja mientras exista:
+`TextosLegalesView` ya no guarda (responde 410). `organizacion.TextoLegal`
+deja de usarse (`privacidad/0007` copió su texto y su versión).
 """
 
-from .models import TextoLegal
+from apps.privacidad import catalogo_textos as catalogo
+from apps.privacidad import textos
 
-#: Cada texto con su nombre y su redacción inicial (la que rige hasta que alguien
-#: la cambie).
+#: Cada texto con su nombre (el del catálogo de Protección de datos).
 TEXTOS = {
-    TextoLegal.Clave.AUTORIZACION_TELEFONO: {
+    catalogo.AUTORIZACION_TELEFONO: {
         "nombre": "Autorización para guardar el teléfono",
-        "descripcion": (
-            "Lo acepta quien escribe su teléfono en «Mi perfil» o en «Complete su "
-            "información». Sin aceptarlo no se guarda el número."
-        ),
-        "inicial": (
-            "Autorizo a la empresa a guardar mi número de teléfono de contacto, sea "
-            "personal o empresarial, y a que otras personas de la empresa lo usen para "
-            "contactarme, conforme a la Ley Orgánica de Protección de Datos Personales. "
-            "Puedo retirar esta autorización en cualquier momento."
-        ),
+        "descripcion": catalogo.POR_CLAVE[catalogo.AUTORIZACION_TELEFONO].descripcion,
     },
 }
 
 
-def actual(clave: str) -> TextoLegal:
-    """El texto vigente de la empresa activa; la primera vez, el inicial."""
-    texto = TextoLegal.objects.filter(clave=clave).first()
-    if texto is None:
-        texto = TextoLegal.objects.create(clave=clave, texto=TEXTOS[clave]["inicial"], version=1)
-    return texto
-
-
-def guardar(clave: str, texto: str) -> tuple[TextoLegal, str]:
-    """Cambia el texto; si cambió de verdad, sube la versión. Devuelve el texto
-    guardado y el anterior."""
-    vigente = actual(clave)
-    anterior = vigente.texto
-    nuevo = (texto or "").strip()
-    if nuevo and nuevo != anterior:
-        vigente.texto = nuevo
-        vigente.version += 1
-        vigente.save(update_fields=["texto", "version", "updated_at"])
-    return vigente, anterior
-
-
 def de(clave: str) -> dict:
-    vigente = actual(clave)
+    vigente = textos.obtener(clave)
+    leido = textos.vigente_o_inicial(clave)
     return {
         "clave": clave,
         "nombre": TEXTOS[clave]["nombre"],
         "descripcion": TEXTOS[clave]["descripcion"],
-        "texto": vigente.texto,
-        "version": vigente.version,
-        "actualizado": vigente.updated_at,
+        "texto": leido["texto"],
+        "version": leido["version"],
+        "actualizado": (vigente.editado_en or vigente.updated_at) if vigente else None,
+        # Desde US-004 se edita en Protección de datos (CA-7).
+        "solo_lectura": True,
+        "se_edita_en": "/admin/privacidad/textos",
     }
 
 

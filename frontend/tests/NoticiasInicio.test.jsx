@@ -297,7 +297,11 @@ describe("Gestionar noticias", () => {
     fireEvent.change(within(ventana).getByLabelText(/^Publicar hasta/), {
       target: { value: "2026-10-25" },
     });
-    fireEvent.click(within(ventana).getByRole("button", { name: "Agregar" }));
+    // La imagen se optimiza al elegirla y, mientras, no se puede enviar
+    // (US-007): jsdom no sabe leer imágenes, así que sube el original.
+    fireEvent.click(
+      await within(ventana).findByRole("button", { name: "Agregar" }),
+    );
 
     await waitFor(() =>
       expect(servicio.guardarNoticia).toHaveBeenCalledWith(

@@ -22,7 +22,7 @@ CUMPLIMIENTO = {
 
 def _responsable(orden):
     if not orden.tecnico_id:
-        return "Sin asignar"
+        return orden.proveedor.nombre if orden.proveedor_id else "Sin asignar"
     nombre = orden.tecnico.get_full_name() or orden.tecnico.username
     return f"{nombre} ({orden.proveedor.nombre})" if orden.proveedor_id else nombre
 

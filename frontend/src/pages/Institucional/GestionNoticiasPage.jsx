@@ -11,8 +11,19 @@ import { FilaDeEstado } from "../../components/common/EstadoDeCarga/EstadoDeCarg
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
-import { formatearFecha } from "../../utils/formato";
-import { MEDIDAS_CARRUSEL, useImagenesDeNoticias } from "./CarruselNoticias";
+import {
+  formatearFecha,
+  formatearMaximoMegabytes,
+  formatearMegabytes,
+} from "../../utils/formato";
+import { MAXIMO_BYTES_IMAGEN, optimizarImagen } from "../../utils/imagenes";
+import {
+  ImagenConFondo,
+  MEDIDAS_CARRUSEL,
+  TextoDeDiapositiva,
+  ZONA_INFERIOR,
+  useImagenesDeNoticias,
+} from "./CarruselNoticias";
 import "./Institucional.css";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
@@ -22,6 +33,17 @@ const ESTADOS = {
   vencida: ["Vencida", "mz-pill--neutral"],
 };
 
+/** La ayuda de la imagen, igual en el formulario y en «Medidas de las
+ * imágenes» (US-007, CA-4). */
+function ayudaDeLaImagen() {
+  const { ancho, alto } = MEDIDAS_CARRUSEL;
+  return (
+    `JPG, PNG o WebP, hasta 5 MB. Horizontales o verticales; recomendado ` +
+    `${ancho} × ${alto} px (horizontal) o ${alto} × ${ancho} px (vertical). ` +
+    `Las imágenes grandes se optimizan solas.`
+  );
+}
+
 function hoyIso() {
   const ahora = new Date();
   const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000);
@@ -29,17 +51,28 @@ function hoyIso() {
 }
 
 /** Agregar o editar una imagen del carrusel, en una ventana. */
-function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
+function FormularioNoticia({ inicial, urlActual, onGuardar, onCerrar }) {
   const [valores, setValores] = useState(inicial);
   const [imagen, setImagen] = useState(null);
-  const [vista, setVista] = useState(null);
+  const [vistaNueva, setVistaNueva] = useState(null);
   const [error, setError] = useState(null);
   // Errores junto a su campo y foco al primero (auditoría UX/UI, fase 2,
   // 28/10/2026).
   const [errores, setErrores] = useState({});
   const formulario = useRef(null);
   const [guardando, setGuardando] = useState(false);
+  // La imagen se optimiza en el navegador al elegirla (US-007, 11/11/2026):
+  // mientras tanto no se puede enviar; luego se dice cuánto bajó o, si aun
+  // así pasa del límite, cuánto pesa de verdad.
+  const [optimizando, setOptimizando] = useState(false);
+  const [avisoImagen, setAvisoImagen] = useState(null);
+  const [errorImagen, setErrorImagen] = useState(null);
+  const eleccion = useRef(0);
+  const campoImagen = useRef(null);
   const editando = Boolean(inicial.id);
+  // Al editar, la vista previa parte de la imagen guardada (revisión UX de
+  // US-007): así se ve cómo queda el título nuevo sobre ella.
+  const vista = vistaNueva ?? urlActual ?? null;
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
@@ -49,16 +82,84 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
 
   useEffect(() => {
     if (!imagen) {
-      setVista(null);
+      setVistaNueva(null);
       return undefined;
     }
     const url = URL.createObjectURL(imagen);
-    setVista(url);
+    setVistaNueva(url);
     return () => URL.revokeObjectURL(url);
   }, [imagen]);
 
+  async function elegirImagen(evento) {
+    const elegida = evento.target.files?.[0] ?? null;
+    // Si se elige otra mientras la anterior se optimiza, solo cuenta la última.
+    const turno = (eleccion.current += 1);
+    setAvisoImagen(null);
+    setErrorImagen(null);
+    setErrores((actuales) => ({ ...actuales, imagen: undefined }));
+    if (!elegida) {
+      setImagen(null);
+      setOptimizando(false);
+      return;
+    }
+    setOptimizando(true);
+    let resultado;
+    try {
+      resultado = await optimizarImagen(elegida);
+    } catch {
+      // La utilidad no debería fallar; si lo hace, se sigue con la original
+      // y decide el servidor.
+      resultado = {
+        archivo: elegida,
+        optimizada: false,
+        antes: elegida.size,
+        despues: elegida.size,
+      };
+    }
+    if (turno !== eleccion.current) return;
+    setOptimizando(false);
+    const { archivo, optimizada, antes, despues } = resultado;
+    if (archivo.size > MAXIMO_BYTES_IMAGEN) {
+      setImagen(null);
+      setErrorImagen(
+        `${optimizada ? "Aun optimizada, la imagen pesa" : "La imagen pesa"} ` +
+          `${formatearMegabytes(archivo.size)} y el máximo es ${formatearMaximoMegabytes(MAXIMO_BYTES_IMAGEN)}. ` +
+          "Redúzcala a 2400 px por el lado mayor o guárdela como JPG.",
+      );
+      return;
+    }
+    setImagen(archivo);
+    if (optimizada) {
+      setAvisoImagen(
+        `Se optimizó la imagen: de ${formatearMegabytes(antes)} a ${formatearMegabytes(despues)}.`,
+      );
+    }
+  }
+
+  /** Deja el campo como al abrir: sin archivo, sin aviso y sin error. Al
+   * editar, así se pueden guardar los cambios de texto aunque la imagen
+   * elegida no sirviera (revisión funcional de US-007). */
+  function quitarImagen() {
+    eleccion.current += 1;
+    setOptimizando(false);
+    setImagen(null);
+    setAvisoImagen(null);
+    setErrorImagen(null);
+    setErrores((actuales) => ({ ...actuales, imagen: undefined }));
+    if (campoImagen.current) {
+      campoImagen.current.value = "";
+      campoImagen.current.focus();
+    }
+  }
+
   async function enviar(evento) {
     evento.preventDefault();
+    if (optimizando) return;
+    if (errorImagen) {
+      setError(null);
+      enfocarPrimerError(formulario.current);
+      return;
+    }
     if (!editando && !imagen) {
       setError(null);
       setErrores({ imagen: "Adjunte la imagen." });
@@ -145,23 +246,70 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
               id="noticia-imagen"
               etiqueta={editando ? "Reemplazar imagen (opcional)" : "Imagen"}
               obligatorio={!editando}
-              ayuda={`JPG, PNG o WebP, hasta 5 MB. Medida: ${MEDIDAS_CARRUSEL.ancho} × ${MEDIDAS_CARRUSEL.alto} px (proporción ${MEDIDAS_CARRUSEL.proporcion}).`}
-              error={errores.imagen}
+              ayuda={ayudaDeLaImagen()}
+              error={errorImagen || errores.imagen}
             >
               <input
+                ref={campoImagen}
                 type="file"
                 className="form-control form-control-sm"
                 accept=".jpg,.jpeg,.png,.webp"
-                onChange={(e) => setImagen(e.target.files?.[0] ?? null)}
+                onChange={elegirImagen}
               />
             </Campo>
+            <div className="d-flex flex-wrap align-items-center gap-2 mt-1">
+              <p className="mz-small mb-0" role="status">
+                {optimizando ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm me-1"
+                      aria-hidden="true"
+                    />
+                    Optimizando la imagen…
+                  </>
+                ) : (
+                  avisoImagen && (
+                    <span className="noticias-aviso-ok">
+                      <Icon name="check-circle" /> {avisoImagen}
+                    </span>
+                  )
+                )}
+              </p>
+              {(imagen || errorImagen) && !optimizando && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm ms-auto noticias-quitar-imagen"
+                  onClick={quitarImagen}
+                >
+                  <Icon name="x-lg" /> Quitar imagen
+                </button>
+              )}
+            </div>
+            {/* El error se ve bajo el campo, pero ahí no se anuncia: se repite
+                oculto en una región viva (revisión UX de US-007). */}
+            <p className="visually-hidden" role="alert">
+              {errorImagen}
+            </p>
             {vista && (
-              <img
-                src={vista}
-                alt="Vista previa"
-                className="d-block mt-2 rounded"
-                style={{ maxHeight: 140, maxWidth: "100%" }}
-              />
+              // Como se verá en el carrusel: marco 16:10, imagen completa,
+              // fondo desenfocado y la franja con el título y la descripción
+              // que se están escribiendo (US-007, CA-4).
+              <figure className="mb-0">
+                <div className="carrusel__diapositiva noticias-vista-previa">
+                  <div className="carrusel__medio">
+                    <ImagenConFondo src={vista} alt="" />
+                  </div>
+                  <TextoDeDiapositiva
+                    titulo={valores.titulo}
+                    descripcion={valores.descripcion}
+                  />
+                </div>
+                <figcaption className="mz-small mz-faint mt-1">
+                  {vistaNueva
+                    ? "Vista previa: así se verá en el carrusel de Inicio."
+                    : "Imagen actual. Así se ve en el carrusel de Inicio."}
+                </figcaption>
+              </figure>
             )}
           </div>
           <Campo
@@ -259,13 +407,15 @@ function FormularioNoticia({ inicial, onGuardar, onCerrar }) {
             <button
               type="submit"
               className="btn btn-primary btn-sm"
-              disabled={guardando}
+              disabled={guardando || optimizando}
             >
-              {guardando
-                ? "Guardando…"
-                : editando
-                  ? "Guardar cambios"
-                  : "Agregar"}
+              {optimizando
+                ? "Optimizando…"
+                : guardando
+                  ? "Guardando…"
+                  : editando
+                    ? "Guardar cambios"
+                    : "Agregar"}
             </button>
           </div>
         </form>
@@ -335,7 +485,7 @@ function AjusteSegundos() {
           Guardar
         </button>
         {mensaje && (
-          <span className="mz-small text-success" role="status">
+          <span className="mz-small noticias-aviso-ok" role="status">
             <Icon name="check-circle" /> {mensaje}
           </span>
         )}
@@ -354,49 +504,67 @@ function AjusteSegundos() {
 }
 
 /**
- * Las medidas exactas de las imágenes, para que marketing las haga a la
- * medida: tamaño, proporción, formato, peso y la zona segura (lo que no tapan
- * las flechas, los puntos ni la franja del título).
+ * Las medidas de las imágenes, para que marketing las haga a la medida:
+ * tamaño recomendado (horizontal o vertical), marco, formato, peso y la zona
+ * segura (lo que no tapan las flechas, los puntos ni la franja del título).
  */
 function MedidasDeLasImagenes() {
   const { ancho, alto, proporcion, minimoAncho, minimoAlto } = MEDIDAS_CARRUSEL;
+  // La misma cifra en el texto y en la guía dibujada (revisión UX de US-007).
+  const porcentajeInferior = Math.round(ZONA_INFERIOR * 100);
   return (
     <section className="mz-card" aria-labelledby="medidas-titulo">
       <div className="mz-card-body">
         <h3 id="medidas-titulo" className="inicio-titulo">
           <Icon name="aspect-ratio" /> Medidas de las imágenes
         </h3>
+        <p className="mz-small">{ayudaDeLaImagen()}</p>
         <div className="row g-4 align-items-center">
           <div className="col-12 col-lg-6">
             <dl className="row mb-0 mz-small">
-              <dt className="col-5">Tamaño exacto</dt>
+              <dt className="col-5">Tamaño recomendado</dt>
               <dd className="col-7">
                 <strong>
                   {ancho} × {alto} px
                 </strong>{" "}
-                (ancho × alto)
+                (horizontal) o{" "}
+                <strong>
+                  {alto} × {ancho} px
+                </strong>{" "}
+                (vertical), ancho × alto
               </dd>
-              <dt className="col-5">Proporción</dt>
-              <dd className="col-7">{proporcion} (horizontal)</dd>
               <dt className="col-5">Tamaño mínimo</dt>
               <dd className="col-7">
-                {minimoAncho} × {minimoAlto} px; más pequeña se ve borrosa
+                {minimoAncho} × {minimoAlto} px (horizontal) o {minimoAlto} ×{" "}
+                {minimoAncho} px (vertical); más pequeña se ve borrosa
+              </dd>
+              <dt className="col-5">Marco del carrusel</dt>
+              <dd className="col-7">
+                {proporcion} (horizontal). Una vertical ocupa cerca del 40 % del
+                ancho del marco: use letra grande.
               </dd>
               <dt className="col-5">Formato y peso</dt>
-              <dd className="col-7">JPG, PNG o WebP, hasta 5 MB</dd>
+              <dd className="col-7">
+                JPG, PNG o WebP, hasta 5 MB. Las de más de 5 MB o 2400 px se
+                reducen solas al elegirlas. Evite fondos transparentes.
+              </dd>
               <dt className="col-5">Zona segura</dt>
               <dd className="col-7">
                 Textos y logos dentro del recuadro verde: a{" "}
                 {Math.round(ancho * 0.1)} px de los lados (ahí van las flechas)
-                y a {Math.round(alto * 0.22)} px del borde de abajo (ahí van los
-                puntos y, si la imagen tiene título, su franja).
+                y fuera del {porcentajeInferior} % inferior,{" "}
+                {Math.round(alto * ZONA_INFERIOR)} px (ahí van los puntos y, si
+                la imagen tiene título, su franja). En verticales, deje libre el
+                mismo {porcentajeInferior} % inferior (
+                {Math.round(ancho * ZONA_INFERIOR)} px de {ancho}).
               </dd>
             </dl>
             <p className="mz-faint mz-small mb-0">
-              En Inicio el carrusel ocupa la mitad del ancho y se ve siempre en{" "}
-              {proporcion}, junto al calendario: una imagen de esta medida se ve
-              completa, sin recortes. Otra proporción se recorta para llenar el
-              espacio.
+              En Inicio el carrusel ocupa la mitad del ancho y su marco es
+              siempre {proporcion}, junto al calendario. Toda imagen se ve
+              completa, sin recortes: una horizontal de {ancho} × {alto} px
+              llena el marco, y a una vertical o de otra proporción la rodea la
+              misma imagen desenfocada.
             </p>
           </div>
           <div className="col-12 col-lg-6">
@@ -411,8 +579,16 @@ function MedidasDeLasImagenes() {
               <span className="medidas-guia__cota medidas-guia__cota--alto">
                 {alto} px
               </span>
-              <div className="medidas-guia__segura">Zona segura</div>
-              <div className="medidas-guia__franja">
+              <div
+                className="medidas-guia__segura"
+                style={{ bottom: `${porcentajeInferior}%` }}
+              >
+                Zona segura
+              </div>
+              <div
+                className="medidas-guia__franja"
+                style={{ height: `${porcentajeInferior}%` }}
+              >
                 Puntos y título (evitar textos)
               </div>
             </div>
@@ -623,6 +799,7 @@ export function GestionNoticiasPage() {
       {editando && (
         <FormularioNoticia
           inicial={editando}
+          urlActual={editando.id ? miniaturas[editando.id] : undefined}
           onGuardar={guardar}
           onCerrar={() => setEditando(null)}
         />

@@ -14,6 +14,13 @@
 - **Enviarlo**: al correo que la persona escriba en ese momento o al que
   guardó. Solo se envía lo que consultó en los últimos 15 minutos. El correo
   escrito no se guarda salvo que lo pida y acepte el tratamiento de datos.
+- **Textos de protección de datos** (US-004, 11/11/2026): los términos de la
+  consulta y el consentimiento del correo personal se leen del catálogo de
+  Protección de datos (`apps.privacidad.textos`) y se editan solo allí. Cada
+  consulta deja además su aceptación de los términos en el registro común
+  (`AceptacionTexto`, referencia `nomina.ConsultaRolPagos:<id>`), y guardar
+  o retirar el correo personal, la suya. `ConfiguracionRolPagos.terminos`,
+  `.version` y `.consentimiento_correo` dejan de usarse.
 """
 
 import datetime
@@ -32,6 +39,8 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from apps.core.audit import record_audit_event
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
+from apps.privacidad import catalogo_textos as catalogo
+from apps.privacidad import textos
 
 from . import aceptado, fuente, pdf
 from . import codigo as codigo_correo
@@ -41,9 +50,24 @@ VIGENCIA_ENVIO = datetime.timedelta(minutes=15)
 ENVIOS_POR_CONSULTA = 3
 
 
+TERMINOS = catalogo.ROL_PAGOS_TERMINOS_CLAVE
+TERMINOS_CAMBIARON = "Los términos cambiaron mientras los leía: revíselos y acéptelos de nuevo."
+CORREO = catalogo.ROL_PAGOS_CORREO_CLAVE
+
+
 def configuracion() -> ConfiguracionRolPagos:
     actual = ConfiguracionRolPagos.objects.first()
     return actual or ConfiguracionRolPagos.objects.create()
+
+
+def terminos():
+    """Los términos vigentes de la consulta (`TextoProteccion`)."""
+    return textos.obtener(TERMINOS)
+
+
+def consentimiento_correo():
+    """El consentimiento vigente para guardar el correo personal."""
+    return textos.obtener(CORREO)
 
 
 #: Los campos del aviso del primer día hábil (aviso del rol de pagos,
@@ -60,18 +84,11 @@ CAMPOS_AVISO = (
 )
 
 
-def guardar_configuracion(
-    terminos: str, consentimiento_correo: str, **aviso
-) -> ConfiguracionRolPagos:
-    """Guarda los textos; si cambian los términos, sube su versión (quien
-    consulte después los acepta de nuevo). Los del aviso (`CAMPOS_AVISO`) que
-    no lleguen se quedan como están."""
+def guardar_configuracion(**aviso) -> ConfiguracionRolPagos:
+    """Guarda el aviso del primer día hábil (`CAMPOS_AVISO`); los que no
+    lleguen se quedan como están. Los términos y el consentimiento del correo
+    ya no se guardan aquí: se editan en Protección de datos (US-004, CA-7)."""
     config = configuracion()
-    terminos = terminos.strip()
-    if terminos != config.terminos:
-        config.version += 1
-    config.terminos = terminos
-    config.consentimiento_correo = consentimiento_correo.strip()
     for campo in CAMPOS_AVISO:
         if campo in aviso:
             valor = aviso[campo]
@@ -129,14 +146,12 @@ def _validar_solicitud(usuario, *, anio, mes, acepto, version, codigo=None):
     """Lo que piden por igual pedir el código y consultar: los términos
     vigentes aceptados, el código de empleado (el propio, u otro con
     `roles_pago.consultar_todos`) y un período válido.
-    Devuelve `(config, codigo_de_empleado)`."""
-    config = configuracion()
+    Devuelve `(terminos_vigentes, codigo_de_empleado)`."""
+    vigentes = terminos()
     if not acepto:
         raise ValidationError({"acepto": "Para ver su rol de pagos, acepte los términos."})
-    if version != config.version:
-        raise ValidationError(
-            {"acepto": "Los términos cambiaron mientras los leía: revíselos y acéptelos de nuevo."}
-        )
+    if vigentes is None or version != vigentes.version:
+        raise ValidationError({"acepto": TERMINOS_CAMBIARON})
     propio = codigo_de(usuario)
     codigo = (codigo or "").strip() or propio
     if not codigo:
@@ -148,7 +163,7 @@ def _validar_solicitud(usuario, *, anio, mes, acepto, version, codigo=None):
     _validar_periodo(anio, mes)
     # No se exige `fuente.disponible()`: un rol ya aceptado se abre aunque
     # nómina no responda (`aceptado.rol_del_periodo`).
-    return config, codigo
+    return vigentes, codigo
 
 
 def emitir_codigo(usuario, *, anio, mes, acepto, version, codigo=None, ip=None):
@@ -191,8 +206,9 @@ def consultar(
 ):
     """Valida todo, deja la constancia y devuelve `(consulta, pdf_bytes)`.
     El código del correo se comprueba después de lo demás y antes de leer el
-    rol: nada del rol se lee sin él."""
-    config, codigo = _validar_solicitud(
+    rol: nada del rol se lee sin él. Cada consulta registra la aceptación
+    de los términos en el registro común de Protección de datos."""
+    vigentes, codigo = _validar_solicitud(
         usuario, anio=anio, mes=mes, acepto=acepto, version=version, codigo=codigo
     )
     usado = verificar_codigo(
@@ -213,17 +229,37 @@ def consultar(
         # el código vuelve a servir para reintentar.
         codigo_correo.devolver(usado)
         raise
-    consulta = ConsultaRolPagos.objects.create(
-        usuario=usuario,
-        codigo_empleado=codigo,
-        anio=anio,
-        mes=mes,
-        version_terminos=config.version,
-        terminos_aceptados=config.terminos,
-        ip=ip,
-        navegador=(navegador or "")[:300],
-        huella_rol=aceptado.huella(rol),
-    )
+    # La constancia de la consulta y la aceptación de los términos, juntas
+    # (QA-TECH, 11/11/2026): si los términos cambiaron mientras se leía el rol
+    # (la versión ya no es la que se validó), no queda ninguna de las dos, el
+    # código vuelve a servir y se piden aceptar de nuevo. La llamada a nómina
+    # queda fuera: no se sostiene una transacción mientras responde.
+    try:
+        with transaction.atomic():
+            consulta = ConsultaRolPagos.objects.create(
+                usuario=usuario,
+                codigo_empleado=codigo,
+                anio=anio,
+                mes=mes,
+                version_terminos=vigentes.version,
+                terminos_aceptados=vigentes.texto,
+                ip=ip,
+                navegador=(navegador or "")[:300],
+                huella_rol=aceptado.huella(rol),
+            )
+            textos.aceptar(
+                usuario,
+                TERMINOS,
+                ip=ip,
+                navegador=navegador,
+                referencia=f"nomina.ConsultaRolPagos:{consulta.pk}",
+                version=vigentes.version,
+            )
+    except textos.PrivacidadError as error:
+        if error.code != "texto_cambiado":
+            raise
+        codigo_correo.devolver(usado)
+        raise ValidationError({"acepto": TERMINOS_CAMBIARON}) from error
     # Si ya lo aceptó, la pantalla muestra la aceptación y no vuelve a
     # preguntar (no es un campo: va con la respuesta).
     consulta.aceptacion = rol_aceptado
@@ -245,21 +281,46 @@ def correo_guardado(usuario) -> str:
     return perfil.correo_personal if perfil else ""
 
 
-def guardar_correo(usuario, correo: str | None):
-    """Guarda (con consentimiento) o borra el correo personal."""
+def guardar_correo(usuario, correo: str | None, *, ip=None, navegador="", version=None):
+    """Guarda (con consentimiento) o borra el correo personal. Guardarlo
+    registra la aceptación del consentimiento vigente (si ya lo tenía
+    aceptado, vale esa); borrarlo la marca como retirada. Con `version` (la
+    que se le mostró), si cambió entretanto: 400 en `acepto_guardar`."""
     from apps.organizacion.models import DatosDeContacto
 
-    perfil = DatosDeContacto.objects.filter(usuario=usuario).first()
-    if perfil is None:
-        if not correo:
-            return
-        perfil = DatosDeContacto(usuario=usuario)
-    perfil.correo_personal = correo or ""
-    perfil.correo_personal_aceptado_en = timezone.now() if correo else None
-    perfil.save()
+    with transaction.atomic():
+        if correo:
+            aceptacion, _ = textos.aceptar_en_campo(
+                usuario,
+                CORREO,
+                campo="acepto_guardar",
+                ip=ip,
+                navegador=navegador,
+                version=version,
+            )
+        else:
+            textos.retirar(usuario, CORREO)
+        perfil = DatosDeContacto.objects.filter(usuario=usuario).first()
+        if perfil is None:
+            if not correo:
+                return
+            perfil = DatosDeContacto(usuario=usuario)
+        perfil.correo_personal = correo or ""
+        perfil.correo_personal_aceptado_en = aceptacion.aceptado_en if correo else None
+        perfil.save()
 
 
-def enviar(usuario, consulta_id, *, correo="", guardar=False, acepto_guardar=False):
+def enviar(
+    usuario,
+    consulta_id,
+    *,
+    correo="",
+    guardar=False,
+    acepto_guardar=False,
+    version_correo=None,
+    ip=None,
+    navegador="",
+):
     """Vuelve a generar el PDF de una consulta reciente y lo envía. Devuelve el
     correo enmascarado al que se envió."""
     consulta = ConsultaRolPagos.objects.filter(pk=consulta_id, usuario=usuario).first()
@@ -284,6 +345,13 @@ def enviar(usuario, consulta_id, *, correo="", guardar=False, acepto_guardar=Fal
         if not correo:
             raise ValidationError({"correo": "Escriba el correo al que quiere enviarlo."})
 
+    if guardar and acepto_guardar:
+        # Se guarda ANTES de enviar (QA, 11/11/2026), con su aceptación y su
+        # versión en una transacción (`guardar_correo`): si el consentimiento
+        # cambió mientras lo leía (400 en `acepto_guardar`), no se envía nada
+        # ni se cuenta el envío.
+        guardar_correo(usuario, correo, ip=ip, navegador=navegador, version=version_correo)
+
     rol, _ = aceptado.rol_del_periodo(
         consulta.codigo_empleado, consulta.anio, consulta.mes, _nombre_empresa()
     )
@@ -302,8 +370,6 @@ def enviar(usuario, consulta_id, *, correo="", guardar=False, acepto_guardar=Fal
     mensaje.send(fail_silently=False)
     consulta.envios += 1
     consulta.save(update_fields=["envios", "updated_at"])
-    if guardar and acepto_guardar:
-        guardar_correo(usuario, correo)
     return enmascarar(correo)
 
 

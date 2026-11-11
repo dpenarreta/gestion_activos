@@ -148,3 +148,52 @@ class FiltrosConsentimientoSerializer(serializers.Serializer):
 
 class ConfirmarSerializer(serializers.Serializer):
     confirmar = serializers.BooleanField()
+
+
+# ── Textos y aceptaciones (US-004, ver `textos.py`) ───────────────────────────
+
+
+class GuardarTextoSerializer(serializers.Serializer):
+    """`PUT /privacidad/textos/<clave>/`. Las longitudes del texto y del
+    título las valida `textos.guardar` (el mismo error, junto al campo, para
+    la API y para quien llame al servicio)."""
+
+    texto = serializers.CharField(allow_blank=True, trim_whitespace=True)
+    titulo = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, trim_whitespace=True
+    )
+    motivo = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, trim_whitespace=True
+    )
+    pedir_de_nuevo = serializers.BooleanField(required=False, allow_null=True, default=None)
+
+
+class FiltrosAceptacionesSerializer(serializers.Serializer):
+    clave = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    modulo = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    seccion = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    persona = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    estado = serializers.ChoiceField(
+        choices=[
+            ("vigente", "Vigente"),
+            ("retirada", "Retirada"),
+            ("restablecida", "Restablecida"),
+        ],
+        required=False,
+        allow_blank=True,
+        error_messages={"invalid_choice": "Estado inválido: use vigente, retirada o restablecida."},
+    )
+
+    def validate_clave(self, valor):
+        from .catalogo_textos import POR_CLAVE
+
+        if valor and valor not in POR_CLAVE:
+            raise serializers.ValidationError("Ese texto no existe en el catálogo.")
+        return valor
+
+    def validate_modulo(self, valor):
+        from .catalogo_textos import CATALOGO
+
+        if valor and valor not in {e.modulo for e in CATALOGO}:
+            raise serializers.ValidationError("Ese módulo no existe en el catálogo.")
+        return valor

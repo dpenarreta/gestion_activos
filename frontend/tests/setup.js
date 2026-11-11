@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+
+// Los textos de protección de datos se guardan un rato por clave
+// (`useTextoVigente`): cada prueba empieza sin ninguno. Se vacía por
+// `globalThis` para no importar el hook (y con él el servicio real) antes de
+// los `vi.mock` de cada prueba.
+afterEach(() => globalThis.__textosVigentesDeProteccion?.clear());
 
 // Cada descarga se registra en el servidor (`registroDescargas`, 26/10/2026):
 // en las pruebas no hay servidor, así que no sale. Su prueba usa el real.

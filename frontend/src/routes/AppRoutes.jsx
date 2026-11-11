@@ -45,7 +45,6 @@ import {
 import { OrganigramaPage } from "../pages/Institucional/OrganigramaPage";
 import { Bandeja } from "../pages/Soporte/Bandeja";
 import { AvisoInicioPage } from "../pages/Admin/Configuracion/AvisoInicioPage";
-import { TextosLegalesPage } from "../pages/Admin/Configuracion/TextosLegalesPage";
 import { ModulosPage } from "../pages/Admin/Configuracion/ModulosPage";
 import {
   CategoriasSoporte,
@@ -81,7 +80,16 @@ import { AdminLayout } from "../components/admin/AdminLayout/AdminLayout";
 import { ConsentimientoGate } from "../components/admin/ConsentimientoGate/ConsentimientoGate";
 import { RequirePermission } from "../components/common/RequirePermission/RequirePermission";
 import { EstadoDeCarga } from "../components/common/EstadoDeCarga/EstadoDeCarga";
-import { PERMISOS_PRIVACIDAD } from "../pages/Privacidad/privacidadComunes";
+import {
+  PERMISOS_PRIVACIDAD,
+  PERMISOS_VER_TEXTOS,
+  RUTA_PERSONAS_DEL_AVISO,
+  RUTA_TEXTOS,
+} from "../pages/Privacidad/privacidadComunes";
+import {
+  ProteccionDatosInicio,
+  ProteccionDatosMarco,
+} from "../pages/Privacidad/ProteccionDatos";
 import { useAuth } from "../hooks/useAuth";
 import { Forbidden } from "../pages/Errors/Forbidden";
 import { NotFound } from "../pages/Errors/NotFound";
@@ -301,9 +309,14 @@ const BandejaPrivacidad = lazy(() =>
     default: m.BandejaPrivacidad,
   })),
 );
-const ConsentimientoPrivacidad = lazy(() =>
-  import("../pages/Privacidad/ConsentimientoPrivacidad").then((m) => ({
-    default: m.ConsentimientoPrivacidad,
+const TextosPrivacidad = lazy(() =>
+  import("../pages/Privacidad/TextosPrivacidad").then((m) => ({
+    default: m.TextosPrivacidad,
+  })),
+);
+const AceptacionesPrivacidad = lazy(() =>
+  import("../pages/Privacidad/AceptacionesPrivacidad").then((m) => ({
+    default: m.AceptacionesPrivacidad,
   })),
 );
 const DetalleSolicitudPrivacidad = lazy(() =>
@@ -662,32 +675,53 @@ export function AppRoutes() {
         <Route path="ayuda" element={<AyudaPage />} />
         <Route path="ayuda/tickets/:id" element={<MiTicket />} />
         <Route path="perfil" element={<MisDatosPage />} />
-        {/* Solicitudes de derechos sobre datos personales: la bandeja y el
-            detalle, con privacidad.ver o privacidad.atender (el servidor lo
-            vuelve a exigir). A estas direcciones llevan los avisos. */}
-        <Route
-          path="privacidad"
-          element={<Navigate to="/admin/privacidad/solicitudes" replace />}
-        />
+        {/* Protección de datos: solicitudes de derechos (la bandeja y el
+            detalle, con privacidad.ver o privacidad.atender; a estas
+            direcciones llevan los avisos), y desde US-004 los textos
+            (también con privacidad.textos) y sus aceptaciones, en pestañas.
+            El servidor vuelve a exigir cada permiso. */}
+        <Route path="privacidad" element={<ProteccionDatosInicio />} />
         <Route
           path="privacidad/solicitudes"
           element={
             <RequirePermission permission={PERMISOS_PRIVACIDAD}>
-              <Suspense fallback={<EstadoDeCarga cargando />}>
-                <BandejaPrivacidad />
-              </Suspense>
+              <ProteccionDatosMarco seccion="solicitudes">
+                <Suspense fallback={<EstadoDeCarga cargando />}>
+                  <BandejaPrivacidad />
+                </Suspense>
+              </ProteccionDatosMarco>
             </RequirePermission>
           }
         />
         <Route
-          path="privacidad/consentimiento"
+          path="privacidad/textos"
           element={
-            <RequirePermission permission={PERMISOS_PRIVACIDAD}>
-              <Suspense fallback={<EstadoDeCarga cargando />}>
-                <ConsentimientoPrivacidad />
-              </Suspense>
+            <RequirePermission permission={PERMISOS_VER_TEXTOS}>
+              <ProteccionDatosMarco seccion="textos">
+                <Suspense fallback={<EstadoDeCarga cargando />}>
+                  <TextosPrivacidad />
+                </Suspense>
+              </ProteccionDatosMarco>
             </RequirePermission>
           }
+        />
+        <Route
+          path="privacidad/aceptaciones"
+          element={
+            <RequirePermission permission={PERMISOS_PRIVACIDAD}>
+              <ProteccionDatosMarco seccion="aceptaciones">
+                <Suspense fallback={<EstadoDeCarga cargando />}>
+                  <AceptacionesPrivacidad />
+                </Suspense>
+              </ProteccionDatosMarco>
+            </RequirePermission>
+          }
+        />
+        {/* La pantalla del aviso y su consentimiento (09/11/2026) se
+            repartió en «Textos» y «Aceptaciones» (US-004). */}
+        <Route
+          path="privacidad/consentimiento"
+          element={<Navigate to={RUTA_PERSONAS_DEL_AVISO} replace />}
         />
         <Route
           path="privacidad/solicitudes/:id"
@@ -1269,13 +1303,13 @@ export function AppRoutes() {
             </RequirePermission>
           }
         />
+        {/* «Textos legales» salió de Configuración (US-004, CA-7): se
+            edita en Protección de datos → Textos. La dirección vieja lleva
+            allá (quien tenía configuracion.textos_legales recibió
+            privacidad.textos). */}
         <Route
           path="configuracion/textos-legales"
-          element={
-            <RequirePermission permission="configuracion.textos_legales">
-              <TextosLegalesPage />
-            </RequirePermission>
-          }
+          element={<Navigate to={RUTA_TEXTOS} replace />}
         />
         <Route
           path="configuracion/aviso-inicio"

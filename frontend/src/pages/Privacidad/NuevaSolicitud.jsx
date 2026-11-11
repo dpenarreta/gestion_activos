@@ -19,6 +19,7 @@ import {
 } from "../../components/common/Campo/Campo";
 import { Icon } from "../../components/common/Icon/Icon";
 import { Ventana } from "../GestionHumana/Tareas/Ventanas";
+import { ExplicacionDeTipo } from "./Piezas";
 import { DESCRIPCION_MAX, TIPOS } from "./privacidadComunes";
 
 const ORDEN = ["tipo", "descripcion"];
@@ -254,7 +255,7 @@ export function NuevaSolicitud({
                       id={`${idOpcion}-explicacion`}
                       className="pv-tipo__explicacion"
                     >
-                      {t.explicacion}
+                      <ExplicacionDeTipo tipo={t} />
                     </span>
                   </div>
                 </div>

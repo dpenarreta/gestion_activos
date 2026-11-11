@@ -45,21 +45,34 @@ La pantalla la pone el frontend con lo que dice `GET /auth/me/`
 API mientras falta aceptar: hacerlo exigiría tocar la autenticación de toda la
 intranet y excepciones para la sesión, las notificaciones y el cierre de
 sesión; lo que se protege aquí es la constancia, y esa la da el registro.
+
+**Desde US-004 (11/11/2026)** el aviso es la clave `aviso_privacidad` del
+catálogo de textos de protección de datos y sus aceptaciones van al registro
+común (`privacidad.textos`, `TextoProteccion` y `AceptacionTexto`).
+`AvisoPrivacidad` y `AceptacionAviso` dejan de usarse (`privacidad/0007`
+copió lo que tenían). Las respuestas de este módulo son las mismas, con una
+diferencia: ahora toda edición del texto sube la `version` (queda su fila en
+el historial de versiones), y lo que decide si hay que aceptar otra vez es la
+`version_exigida`, que solo sube con «pedir aceptarlo de nuevo». Editar el
+aviso pide `privacidad.textos`.
 """
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
 from django.db.models import Exists, OuterRef
-from django.utils import timezone
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
-from . import access
-from .models import AVISO_MAX, AceptacionAviso, AvisoPrivacidad
-from .services import PrivacidadError, _audit, _invalido, nombre
+from . import access, textos
+from .catalogo_textos import AVISO_PRIVACIDAD
+from .models import AceptacionTexto, TextoProteccion
+from .services import PrivacidadError, _audit, nombre
 
 User = get_user_model()
-Origen = AceptacionAviso.Origen
+Origen = AceptacionTexto.Origen
+
+#: La versión con que se muestran las aceptaciones traídas de Nexo (no tienen
+#: versión numérica).
+VERSION_NEXO = "Nexo"
 
 #: El aviso con que se siembra cada empresa (`privacidad/0005`) y el que se
 #: propone al crear el de una empresa nueva. Adaptado del de Nexo: sin nombres
@@ -108,22 +121,25 @@ def _hay_empresa() -> bool:
     return empresa is not None and empresa is not SIN_EMPRESA
 
 
-def aviso_vigente() -> AvisoPrivacidad | None:
+def aviso_vigente() -> TextoProteccion | None:
     """El aviso de la empresa activa, o `None` si no tiene (o no hay empresa)."""
     if not _hay_empresa():
         return None
-    return AvisoPrivacidad.objects.select_related("editado_por").first()
+    return textos.obtener(AVISO_PRIVACIDAD, crear=False)
 
 
-def _vigentes(aviso: AvisoPrivacidad):
-    """Las aceptaciones que valen para ese aviso: de la intranet, de su
-    versión y sin restablecer."""
-    return AceptacionAviso.objects.filter(
-        origen=Origen.INTRANET, version=str(aviso.version), restablecida_en__isnull=True
-    )
+def _vigentes(aviso: TextoProteccion):
+    """Las aceptaciones que valen para ese aviso (ver `textos.validas`)."""
+    return textos.validas(aviso)
 
 
-def acepto(usuario, aviso: AvisoPrivacidad | None = None) -> bool:
+def _del_aviso(aviso: TextoProteccion | None):
+    if aviso is None:
+        return AceptacionTexto.objects.none()
+    return AceptacionTexto.objects.todas().filter(texto_proteccion=aviso)
+
+
+def acepto(usuario, aviso: TextoProteccion | None = None) -> bool:
     aviso = aviso if aviso is not None else aviso_vigente()
     if aviso is None:
         return True
@@ -143,7 +159,7 @@ def estado_propio(usuario) -> dict:
     """`GET /privacidad/consentimiento/`: el aviso vigente y lo que aceptó la
     persona (su última aceptación, de cualquier versión)."""
     aviso = aviso_vigente()
-    ultima = AceptacionAviso.objects.filter(usuario=usuario).first() if _hay_empresa() else None
+    ultima = _del_aviso(aviso).filter(usuario=usuario).order_by("-aceptado_en", "-id").first()
     return {
         "exigido": aviso is not None,
         "pendiente": aviso is not None and not acepto(usuario, aviso),
@@ -156,93 +172,57 @@ def estado_propio(usuario) -> dict:
 # ── Escritura ─────────────────────────────────────────────────────────────────
 
 
-def aceptar(*, usuario, version, context=None) -> AceptacionAviso:
+def aceptar(*, usuario, version, context=None) -> AceptacionTexto:
     """Registra que la persona acepta el aviso vigente. `version` es la que
     leyó: si entretanto cambió, 409 (tiene que leer la nueva). Idempotente:
-    si ya la había aceptado, devuelve esa aceptación."""
-    with transaction.atomic():
-        aviso = AvisoPrivacidad.objects.select_for_update().first() if _hay_empresa() else None
-        if aviso is None:
-            raise PrivacidadError(
-                "No hay un aviso de privacidad que aceptar.", code="sin_aviso", status=409
-            )
-        if str(version) != str(aviso.version):
+    si ya tiene una aceptación que vale, devuelve esa."""
+    if aviso_vigente() is None:
+        raise PrivacidadError(
+            "No hay un aviso de privacidad que aceptar.", code="sin_aviso", status=409
+        )
+    contexto = context or {}
+    try:
+        aceptacion, creada = textos.aceptar(
+            usuario,
+            AVISO_PRIVACIDAD,
+            ip=contexto.get("ip_address"),
+            navegador=contexto.get("user_agent", ""),
+            version=version,
+        )
+    except PrivacidadError as error:
+        if error.code == "texto_cambiado":
             raise PrivacidadError(
                 "El aviso cambió mientras lo leía. Lea la versión nueva y acéptela.",
                 code="aviso_cambiado",
                 status=409,
-                details={"version": aviso.version},
-            )
-        existente = _vigentes(aviso).filter(usuario=usuario).first()
-        if existente is not None:
-            return existente
-        contexto = context or {}
-        aceptacion = AceptacionAviso.objects.create(
-            usuario=usuario,
-            version=str(aviso.version),
-            origen=Origen.INTRANET,
-            aceptado_en=timezone.now(),
-            ip=contexto.get("ip_address") or None,
-            texto=aviso.texto,
+                details=error.details,
+            ) from error
+        raise
+    if creada:
+        _audit(
+            usuario,
+            "consentimiento.aceptado",
+            aceptacion,
+            nuevo={"version": str(aceptacion.version)},
+            context=context,
         )
-    _audit(
-        usuario,
-        "consentimiento.aceptado",
-        aceptacion,
-        nuevo={"version": aceptacion.version},
-        context=context,
-    )
     return aceptacion
 
 
 def guardar_aviso(*, actor, texto: str, pedir_de_nuevo: bool = False, context=None):
-    """Crea o cambia el aviso de la empresa activa (`privacidad.atender`).
-
-    Editar el texto no cambia la versión. `pedir_de_nuevo` la sube: desde ese
-    momento nadie lo tiene aceptado y todos lo aceptan al entrar. El primer
-    aviso de una empresa nace en la versión 1 (nadie lo tiene aceptado)."""
-    _exigir_atender(actor)
+    """Crea o cambia el aviso de la empresa activa (`privacidad.textos`): es
+    `textos.guardar` del aviso general. Editar sube la versión del texto pero
+    no la exigida; `pedir_de_nuevo` sube la exigida y todos lo aceptan al
+    entrar. El primer aviso de una empresa nace en la versión 1."""
     if not _hay_empresa():
         raise PrivacidadError("Elija la empresa del aviso.", code="sin_empresa", status=400)
-    texto = (texto or "").strip()
-    if not texto:
-        raise _invalido("texto", "Escriba el texto del aviso.")
-    if len(texto) > AVISO_MAX:
-        raise _invalido("texto", f"El aviso admite hasta {AVISO_MAX} caracteres.")
-
-    ahora = timezone.now()
-    with transaction.atomic():
-        aviso = AvisoPrivacidad.objects.select_for_update().first()
-        if aviso is None:
-            aviso = AvisoPrivacidad.objects.create(
-                texto=texto, version=1, version_desde=ahora, editado_por=actor
-            )
-            _audit(
-                actor,
-                "consentimiento.aviso_creado",
-                aviso,
-                nuevo={"version": 1, "texto": texto},
-                context=context,
-            )
-            return aviso
-        previo = {"version": aviso.version, "texto": aviso.texto}
-        if texto == aviso.texto and not pedir_de_nuevo:
-            return aviso
-        aviso.texto = texto
-        aviso.editado_por = actor
-        if pedir_de_nuevo:
-            aviso.version += 1
-            aviso.version_desde = ahora
-        aviso.save()
-    _audit(
-        actor,
-        "consentimiento.aceptacion_pedida" if pedir_de_nuevo else "consentimiento.aviso_editado",
-        aviso,
-        previo=previo,
-        nuevo={"version": aviso.version, "texto": aviso.texto},
+    return textos.guardar(
+        AVISO_PRIVACIDAD,
+        texto=texto,
+        actor=actor,
+        pedir_de_nuevo=pedir_de_nuevo,
         context=context,
     )
-    return aviso
 
 
 def restablecer(*, actor, usuario_id, context=None) -> int:
@@ -253,9 +233,7 @@ def restablecer(*, actor, usuario_id, context=None) -> int:
     usuario = personas().filter(pk=usuario_id).first()
     if usuario is None:
         raise PrivacidadError("Persona no encontrada.", code="not_found", status=404)
-    marcadas = AceptacionAviso.objects.filter(
-        usuario=usuario, origen=Origen.INTRANET, restablecida_en__isnull=True
-    ).update(restablecida_en=timezone.now(), restablecida_por=actor)
+    marcadas = textos.restablecer(AVISO_PRIVACIDAD, actor=actor, usuario=usuario)
     _audit(
         actor,
         "consentimiento.restablecido",
@@ -271,9 +249,7 @@ def restablecer_todos(*, actor, context=None) -> int:
     _exigir_atender(actor)
     if not _hay_empresa():
         raise PrivacidadError("Elija la empresa.", code="sin_empresa", status=400)
-    marcadas = AceptacionAviso.objects.filter(
-        origen=Origen.INTRANET, restablecida_en__isnull=True
-    ).update(restablecida_en=timezone.now(), restablecida_por=actor)
+    marcadas = textos.restablecer(AVISO_PRIVACIDAD, actor=actor)
     _audit(
         actor,
         "consentimiento.restablecido_todos",
@@ -327,18 +303,27 @@ def resumen_del_aviso(actor) -> dict:
             "texto_inicial": _texto_inicial_de_la_empresa(),
             "totales": {"personas": total, "aceptaron": 0, "pendientes": 0},
             "puede_atender": access.puede_atender(actor),
+            "puede_editar": access.puede_editar_textos(actor),
         }
     aceptaron = personas().filter(pk__in=_vigentes(aviso).values("usuario_id")).count()
+    desde = (
+        aviso.versiones.filter(version=aviso.version_exigida)
+        .values_list("editado_en", flat=True)
+        .first()
+    )
     return {
         "existe": True,
         "texto": aviso.texto,
         "version": aviso.version,
-        "version_desde": aviso.version_desde.isoformat(),
+        "version_exigida": aviso.version_exigida,
+        # Desde cuándo rige la versión exigida (cuándo se pidió aceptarla).
+        "version_desde": (desde or aviso.created_at).isoformat(),
         "editado_por": nombre(aviso.editado_por) or None,
-        "actualizado": aviso.updated_at.isoformat(),
+        "actualizado": (aviso.editado_en or aviso.updated_at).isoformat(),
         "texto_inicial": _texto_inicial_de_la_empresa(),
         "totales": {"personas": total, "aceptaron": aceptaron, "pendientes": total - aceptaron},
         "puede_atender": access.puede_atender(actor),
+        "puede_editar": access.puede_editar_textos(actor),
     }
 
 
@@ -357,11 +342,11 @@ def listado(actor, *, q: str = "", estado: str = ""):
             consulta = consulta.filter(_acepto=True)
         elif estado == PENDIENTE:
             consulta = consulta.filter(_acepto=False)
+        consulta = consulta.annotate(
+            _de_nexo=Exists(_del_aviso(aviso).filter(usuario=OuterRef("pk"), origen=Origen.NEXO))
+        )
     elif estado == ACEPTADO:
         consulta = consulta.none()
-    consulta = consulta.annotate(
-        _de_nexo=Exists(AceptacionAviso.objects.filter(usuario=OuterRef("pk"), origen=Origen.NEXO))
-    )
     condicion = condicion_de_busqueda(q, ("first_name", "last_name", "username", "email"))
     if condicion is not None:
         consulta = consulta.filter(condicion)
@@ -388,8 +373,10 @@ def de_persona(usuario, aviso, ultimas: dict) -> dict:
 def ultimas_aceptaciones(ids) -> dict:
     """La última aceptación (de cualquier versión) de cada persona."""
     ultimas = {}
-    for aceptacion in AceptacionAviso.objects.filter(usuario_id__in=list(ids)).order_by(
-        "usuario_id", "-aceptado_en", "-id"
+    for aceptacion in (
+        _del_aviso(aviso_vigente())
+        .filter(usuario_id__in=list(ids))
+        .order_by("usuario_id", "-aceptado_en", "-id")
     ):
         ultimas.setdefault(aceptacion.usuario_id, aceptacion)
     return ultimas
@@ -402,8 +389,11 @@ def historial(actor, usuario_id) -> dict:
     if usuario is None:
         raise PrivacidadError("Persona no encontrada.", code="not_found", status=404)
     aviso = aviso_vigente()
-    aceptaciones = AceptacionAviso.objects.filter(usuario=usuario).select_related(
-        "restablecida_por"
+    aceptaciones = (
+        _del_aviso(aviso)
+        .filter(usuario=usuario)
+        .select_related("restablecida_por")
+        .order_by("-aceptado_en", "-id")
     )
     return {
         "id": usuario.pk,
@@ -415,10 +405,17 @@ def historial(actor, usuario_id) -> dict:
     }
 
 
-def de_aceptacion(aceptacion: AceptacionAviso, *, con_texto: bool = True) -> dict:
+def _version_mostrada(aceptacion: AceptacionTexto) -> str:
+    """«1», «2»… como hasta hoy (texto); «Nexo» para las importadas."""
+    if aceptacion.version is None:
+        return VERSION_NEXO if aceptacion.origen == Origen.NEXO else ""
+    return str(aceptacion.version)
+
+
+def de_aceptacion(aceptacion: AceptacionTexto, *, con_texto: bool = True) -> dict:
     datos = {
         "id": aceptacion.pk,
-        "version": aceptacion.version,
+        "version": _version_mostrada(aceptacion),
         "origen": aceptacion.origen,
         "origen_label": aceptacion.get_origen_display(),
         "aceptado_en": aceptacion.aceptado_en.isoformat(),
@@ -428,6 +425,6 @@ def de_aceptacion(aceptacion: AceptacionAviso, *, con_texto: bool = True) -> dic
         ),
     }
     if con_texto:
-        datos["texto"] = aceptacion.texto
+        datos["texto"] = aceptacion.texto_aceptado
         datos["restablecida_por"] = nombre(aceptacion.restablecida_por) or None
     return datos

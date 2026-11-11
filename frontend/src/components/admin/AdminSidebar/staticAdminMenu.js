@@ -56,6 +56,10 @@ import {
 } from "../../../modulos/permisosOrdenes";
 import { PERMISOS_AUDITORIA } from "../AuditoriaMarco/AuditoriaMarco";
 import { PERMISOS_REPORTES } from "../ReportesMarco/ReportesMarco";
+import {
+  PERMISOS_PRIVACIDAD,
+  PERMISOS_PROTECCION_DE_DATOS,
+} from "../../../pages/Privacidad/privacidadComunes";
 
 // En su propio módulo: Configuración también lo usa, y este archivo ya
 // importa de Configuración (sería una importación circular).
@@ -837,14 +841,22 @@ export const ADMIN_MENU = [
     // Las solicitudes de derechos sobre datos personales (LOPDP), junto a
     // Auditoría: son de toda la intranet, no de un módulo. Solo quien las ve
     // o las atiende; cada persona pide las suyas desde «Mi perfil».
+    //
+    // Desde US-004 (11/11/2026) también los textos de protección de datos y
+    // sus aceptaciones, en pestañas. La entrada se ve con `privacidad.textos`
+    // aunque no se vean las solicitudes (el Administrador de TI solo tiene
+    // ese): `/admin/privacidad` lleva a la primera pestaña que puede abrir.
     id: "privacidad",
     modulo: "comun",
     name: "Protección de datos",
     icon: "shield-lock",
-    path: "/admin/privacidad/solicitudes",
-    permission: ["privacidad.ver", "privacidad.atender"],
-    // Las abiertas que ya pasaron su fecha límite.
+    path: "/admin/privacidad",
+    permission: PERMISOS_PROTECCION_DE_DATOS,
+    // Las abiertas que ya pasaron su fecha límite: solo para quien ve las
+    // solicitudes (con solo `privacidad.textos` el servidor respondería 403
+    // cada minuto).
     insignia: "privacidad_vencidas",
+    insigniaRequiere: PERMISOS_PRIVACIDAD,
     rutas: ["/admin/privacidad"],
   },
   {
@@ -897,7 +909,15 @@ function filterByPermission(items, permissions, heredado = undefined) {
       // «Bandeja» del equipo de la Mesa).
       if (item.salvoCon && esVisible(item.salvoCon, permissions)) return null;
       if (!item.children) {
-        return esVisible(propio, permissions) ? item : null;
+        if (!esVisible(propio, permissions)) return null;
+        // `insigniaRequiere`: la insignia se pide solo con esos permisos.
+        if (
+          item.insigniaRequiere &&
+          !esVisible(item.insigniaRequiere, permissions)
+        ) {
+          return { ...item, insignia: undefined };
+        }
+        return item;
       }
       const children = filterByPermission(item.children, permissions, propio);
       return children.length > 0 ? { ...item, children } : null;

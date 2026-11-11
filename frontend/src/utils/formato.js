@@ -117,3 +117,30 @@ export function formatearMeses(meses) {
   if (resto > 0) partes.push(_plural(resto, "mes", "meses"));
   return _enumerar(partes);
 }
+
+const BYTES_POR_MEGA = 1024 * 1024;
+
+/**
+ * El peso de un archivo en los mensajes de tamaño: «5,04 MB», «5,00 MB».
+ *
+ * Igual que el servidor (`apps.core.archivos.megas_para_mostrar`, US-007,
+ * 11/11/2026): dos decimales fijos, coma decimal y redondeado **hacia
+ * arriba**. Con `toFixed(1)` un archivo de 5 242 881 bytes salía «5.0 MB y el
+ * máximo es 5 MB» y no se entendía por qué se rechazaba. Se calcula en
+ * centésimas enteras para que la coma flotante no reste una.
+ */
+export function formatearMegabytes(bytes) {
+  const n = Math.max(0, Number(bytes) || 0);
+  const centesimas = Math.ceil((n * 100) / BYTES_POR_MEGA);
+  const enteros = Math.floor(centesimas / 100);
+  const decimales = String(centesimas % 100).padStart(2, "0");
+  return `${enteros},${decimales} MB`;
+}
+
+/** El máximo en MB: entero si es exacto («5 MB»), si no como el peso
+ * (`apps.core.archivos.maximo_para_mostrar`). */
+export function formatearMaximoMegabytes(bytes) {
+  const n = Math.max(0, Number(bytes) || 0);
+  if (n % BYTES_POR_MEGA === 0) return `${n / BYTES_POR_MEGA} MB`;
+  return formatearMegabytes(n);
+}

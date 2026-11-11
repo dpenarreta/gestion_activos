@@ -64,6 +64,9 @@ REGLAS: dict[str, set[str]] = {
     # ello, el organigrama de todas las áreas).
     "institucional.editar": _ESTRUCTURA,
     "institucional.asignar": _ESTRUCTURA,
+    # Cambiar el área de una persona (US-005, 11/11/2026): a quien asigna
+    # cargos, porque se cambia en la misma pantalla.
+    "organizacion.cambiar_area": _ESTRUCTURA,
     "institucional.perfil_cargo": _ESTRUCTURA,
     "herramientas.gestionar": _ESTRUCTURA,
     # Solicitud de permisos.
@@ -81,6 +84,11 @@ REGLAS: dict[str, set[str]] = {
     "roles_pago.historial": GH_NOMINA,
     "roles_pago.configurar": GH_NOMINA,
     "roles_pago.observaciones": GH_NOMINA,
+    # Editar los textos de protección de datos (US-004, 11/11/2026): desde
+    # entonces los términos del rol de pagos se editan ahí, así que lo llevan
+    # los mismos cargos que `roles_pago.configurar` (QA-FUNC O-4). Así un
+    # cargo de nómina creado después también puede editarlos.
+    "privacidad.textos": GH_NOMINA,
     # Descarga masiva por área (22/10/2026): un ZIP con un PDF por persona.
     "roles_pago.descarga_masiva": DESCARGA_MASIVA,
     # Roles sin abrir (26/10/2026): todo Gestión Humana, para acercarse a

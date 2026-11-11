@@ -1,6 +1,5 @@
 """La API de órdenes de trabajo (mantenimiento de sedes)."""
 
-from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as ErrorDeModelo
 from django.db.models import Q
@@ -16,7 +15,6 @@ from apps.core.audit import record_audit_event
 from apps.core.busqueda import condicion_de_busqueda
 from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_request_context
-from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.organizacion.models import Proveedor, Sede
 from apps.permissions.permissions import HasActionPermission
 from apps.reportes import render_excel, render_pdf
@@ -29,13 +27,14 @@ from .serializers import (
     ManoDeObraSerializer,
     MaterialSerializer,
     MovimientoSerializer,
+    OrdenCreacionSerializer,
     OrdenDetalleSerializer,
     OrdenEscrituraSerializer,
     OrdenListaSerializer,
+    ProveedorRapidoSerializer,
 )
 
 MODULO = "ordenes"
-User = get_user_model()
 
 FORMATOS = {
     "xlsx": (
@@ -55,7 +54,9 @@ class OrdenesPermission(HasActionPermission):
         accion = getattr(view, "action", None)
         if accion in {"reportes", "exportar"}:
             return "ordenes.reportes"
-        if accion == "create":
+        # Buscar quién la realiza y registrar un proveedor nuevo son parte del
+        # alta (US-006): los usa quien crea órdenes, sin más permisos.
+        if accion in {"create", "responsables", "proveedores"}:
             return "ordenes.crear"
         if request.method in SAFE_METHODS:
             return "ordenes.ver"
@@ -112,6 +113,7 @@ class OrdenViewSet(viewsets.ModelViewSet):
                     "sede__ciudad",
                     "tecnico__first_name",
                     "tecnico__last_name",
+                    "proveedor__nombre",
                 ),
             )
             partes = busqueda.upper().replace("OT-", "").split("-")
@@ -121,7 +123,9 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return queryset
 
     def get_serializer_class(self):
-        if self.action in {"create", "partial_update"}:
+        if self.action == "create":
+            return OrdenCreacionSerializer
+        if self.action == "partial_update":
             return OrdenEscrituraSerializer
         if self.action == "retrieve":
             return OrdenDetalleSerializer
@@ -158,6 +162,10 @@ class OrdenViewSet(viewsets.ModelViewSet):
                 "categoria": orden.categoria,
                 "prioridad": orden.prioridad,
                 "titulo": orden.titulo,
+                "tecnico": orden.tecnico_id,
+                "proveedor": orden.proveedor_id,
+                "fecha_programada": orden.fecha_programada.isoformat(),
+                "estado": orden.estado,
             },
         )
         return Response(self._detalle(orden), status=status.HTTP_201_CREATED)
@@ -193,28 +201,21 @@ class OrdenViewSet(viewsets.ModelViewSet):
         entrada = AsignacionSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
-        if datos["tecnico"].pk not in set(_tecnicos().values_list("pk", flat=True)):
-            raise serializers.ValidationError(
-                {"tecnico": "Esa persona no puede ejecutar órdenes en esta empresa."}
-            )
-        previos = {"tecnico": orden.tecnico_id, "estado": orden.estado}
+        # Lo que no se envía conserva lo que había; `null` lo quita (ver
+        # `services.NO_ENVIADO`). Quién puede atender lo decide el servicio.
+        responsable = {campo: datos[campo] for campo in ("tecnico", "proveedor") if campo in datos}
+        previos = _responsable_para_bitacora(orden)
         try:
             orden = services.OrdenService.asignar(
                 orden=orden,
                 actor=request.user,
-                tecnico=datos["tecnico"],
-                proveedor=datos.get("proveedor"),
                 fecha_programada=datos.get("fecha_programada"),
                 nota=datos.get("nota", ""),
+                **responsable,
             )
         except ErrorDeModelo as error:
             raise serializers.ValidationError(_errores(error)) from error
-        self._auditar(
-            "orden.asignada",
-            orden,
-            {"tecnico": orden.tecnico_id, "estado": orden.estado},
-            previos,
-        )
+        self._auditar("orden.asignada", orden, _responsable_para_bitacora(orden), previos)
         return Response(self._detalle(orden))
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
@@ -349,6 +350,58 @@ class OrdenViewSet(viewsets.ModelViewSet):
         return respuesta
 
     @action(detail=False, methods=["get"])
+    def responsables(self, request):
+        """Quién puede realizar la orden, para el campo «Quién la realiza».
+
+        `GET ?q=texto` → `{"proveedores": [{id, nombre}], "personas": [{id,
+        nombre, proveedor: {id, nombre} | null}]}`, de la empresa activa y
+        como mucho 20 por grupo. Con `solo=proveedores` no trae `personas`.
+        Permiso: `ordenes.crear`. Ver `services.buscar_responsables`.
+        """
+        termino = (request.query_params.get("q") or "").strip()[:100]
+        solo_proveedores = request.query_params.get("solo") == "proveedores"
+        return Response(
+            services.buscar_responsables(request.user, termino, solo_proveedores=solo_proveedores)
+        )
+
+    @action(detail=False, methods=["post"])
+    def proveedores(self, request):
+        """Registra un proveedor nuevo desde la orden (US-006).
+
+        Entrada: `nombre` (obligatorio), `telefono` o `correo` (al menos uno),
+        `contacto` e `identificacion` opcionales. Responde `201 {id, nombre}`.
+        Duplicado por nombre sin tildes ni mayúsculas → 400 en `nombre`.
+        Permiso: `ordenes.crear`; el catálogo de Organización exige el suyo,
+        que quien crea órdenes no suele tener.
+        """
+        entrada = ProveedorRapidoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            proveedor = services.registrar_proveedor(actor=request.user, **entrada.validated_data)
+        except ErrorDeModelo as error:
+            raise serializers.ValidationError(_errores(error)) from error
+        record_audit_event(
+            actor=request.user,
+            action="proveedor.created",
+            target=proveedor,
+            module=MODULO,
+            # Cédula o RUC, teléfono, correo y quien atiende pueden ser datos
+            # de una persona (un técnico independiente). La bitácora es de
+            # solo agregar: guarda qué se aportó, no los valores.
+            new_values={
+                "nombre": proveedor.nombre,
+                "origen": "orden de trabajo",
+                "datos_aportados": sorted(
+                    campo for campo, valor in entrada.validated_data.items() if valor
+                ),
+            },
+            context=get_request_context(request),
+        )
+        return Response(
+            {"id": proveedor.id, "nombre": proveedor.nombre}, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=False, methods=["get"])
     def catalogos(self, request):
         """Lo que piden los formularios y los permisos de quien pregunta."""
         usuario = request.user
@@ -405,23 +458,21 @@ def _alcance(usuario) -> str:
     return "Solo " + ", ".join(partes[:-1]) + (" y " if len(partes) > 1 else "") + partes[-1] + "."
 
 
+def _responsable_para_bitacora(orden) -> dict:
+    return {
+        "tecnico": orden.tecnico_id,
+        "proveedor": orden.proveedor_id,
+        "fecha_programada": (
+            orden.fecha_programada.isoformat() if orden.fecha_programada else None
+        ),
+        "estado": orden.estado,
+    }
+
+
 def _tecnicos():
-    """Quien puede ejecutar órdenes en la empresa activa (técnicos internos y
-    personal de proveedores con cuenta)."""
-    permiso = "ordenes.ejecutar"
-    candidatos = (
-        Q(groups__permissions__codename=permiso)
-        | Q(user_permissions__codename=permiso)
-        | Q(is_superuser=True)
-    )
-    empresa = empresa_actual()
-    queryset = User.objects.filter(is_active=True)
-    if empresa is not None and empresa is not SIN_EMPRESA:
-        candidatos |= Q(
-            membresias__empresa=empresa, membresias__roles__permissions__codename=permiso
-        )
-        queryset = queryset.filter(membresias__empresa=empresa)
-    return queryset.filter(candidatos).distinct().order_by("first_name", "last_name", "username")
+    """Quien puede ejecutar órdenes en la empresa activa. La regla vive en
+    `services.tecnicos`: la comparten la asignación y la creación."""
+    return services.tecnicos()
 
 
 def _describir(filtros: dict) -> str:

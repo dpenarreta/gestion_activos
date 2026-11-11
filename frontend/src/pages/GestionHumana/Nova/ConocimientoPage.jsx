@@ -14,6 +14,7 @@ import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { usePermission } from "../../../hooks/usePermission";
 import { useNovaChatOpcional } from "../../../components/admin/NovaChat/NovaChatContext";
 import "../../../components/admin/NovaChat/ConversacionNova.css";
+import { formatearMegabytes } from "../../../utils/formato";
 
 /** Tope por defecto (`NOVA_CONOCIMIENTO_TAMANO_MAXIMO_MB`); el servidor manda. */
 const MAXIMO_MB = 10;
@@ -21,7 +22,8 @@ const MAXIMO_MB = 10;
 function tamano(bytes) {
   if (!bytes) return "—";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // Coma decimal, como el resto de la interfaz (revisión de US-007).
+  return `${(bytes / (1024 * 1024)).toLocaleString("es-EC", { maximumFractionDigits: 1 })} MB`;
 }
 
 function fecha(iso) {
@@ -154,7 +156,9 @@ function FormularioSubida({ onSubido }) {
     }
     if (archivo.size > MAXIMO_MB * 1024 * 1024) {
       setError(
-        `El archivo pesa ${tamano(archivo.size)} y el máximo es ${MAXIMO_MB} MB.`,
+        // Dos decimales y hacia arriba, como el servidor (US-007): con
+        // `toFixed(1)` un PDF de 10,01 MB se rechazaba como «10.0 MB».
+        `El archivo pesa ${formatearMegabytes(archivo.size)} y el máximo es ${MAXIMO_MB} MB.`,
       );
       campoArchivo.current?.focus();
       return;

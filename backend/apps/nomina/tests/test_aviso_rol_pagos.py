@@ -278,3 +278,25 @@ def test_los_marcadores_de_fecha():
         )
         == "miércoles 4 de noviembre – viernes 6 de noviembre"
     )
+
+
+def test_la_configuracion_ya_no_edita_los_textos_de_proteccion_de_datos(db):
+    """US-004 (CA-7, 11/11/2026): los términos y el consentimiento del correo
+    se muestran de solo lectura y se editan en Protección de datos; si llegan
+    en el PUT, se ignoran."""
+    _, th = _cuenta("tatiana", "roles_pago.configurar")
+    actual = th.get(CONFIG).json()
+    assert actual["textos_solo_lectura"] is True
+    assert actual["textos_se_editan_en"] == "/admin/privacidad/textos"
+    respuesta = th.put(
+        CONFIG,
+        {"terminos": "Términos cambiados por aquí.", "consentimiento_correo": "Otro."},
+        format="json",
+    )
+    assert respuesta.status_code == 200
+    datos = respuesta.json()
+    assert (datos["terminos"], datos["version"], datos["consentimiento_correo"]) == (
+        actual["terminos"],
+        actual["version"],
+        actual["consentimiento_correo"],
+    )

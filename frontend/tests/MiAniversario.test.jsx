@@ -15,10 +15,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const servicio = { guardarAniversario: vi.fn() };
 vi.mock("../src/api/misDatosService", () => ({ misDatosService: servicio }));
+// El texto que se acepta es el vigente del catálogo (US-004, 11/11/2026).
+const privacidad = { textoVigente: vi.fn() };
+vi.mock("../src/api/privacidadService", async (importOriginal) => ({
+  ...(await importOriginal()),
+  privacidadService: privacidad,
+}));
 
 const { MiAniversario } = await import("../src/pages/MisDatos/MiAniversario");
 
-beforeEach(() => vi.clearAllMocks());
+const VIGENTE = {
+  clave: "aniversario_publico",
+  version: 1,
+  texto:
+    "Acepto que mi aniversario en la empresa sea información pública dentro de la empresa.",
+  titulo: "",
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  privacidad.textoVigente.mockResolvedValue(VIGENTE);
+});
 
 describe("Mi aniversario en el calendario", () => {
   it("activarlo pide aceptar y la fecha de ingreso; el año es opcional", async () => {
@@ -48,12 +65,18 @@ describe("Mi aniversario en el calendario", () => {
     fireEvent.change(within(ventana).getByLabelText("Año (opcional)"), {
       target: { value: "2019" },
     });
-    fireEvent.click(within(ventana).getByRole("checkbox"));
+    // Llega el texto vigente: la casilla lo lleva como etiqueta.
+    const casilla = await within(ventana).findByRole("checkbox", {
+      name: VIGENTE.texto,
+    });
+    expect(casilla).toBeEnabled();
+    fireEvent.click(casilla);
     fireEvent.click(aceptar);
     await waitFor(() =>
       expect(servicio.guardarAniversario).toHaveBeenCalledWith({
         mostrar: true,
         acepto: true,
+        version: 1,
         dia: 15,
         mes: 10,
         anio: 2019,
@@ -62,6 +85,28 @@ describe("Mi aniversario en el calendario", () => {
     expect(
       await screen.findByText(/se muestra cada 15 de octubre/),
     ).toBeInTheDocument();
+  });
+
+  it("sin el texto del servidor no se puede aceptar", async () => {
+    privacidad.textoVigente.mockRejectedValue(new Error("sin red"));
+    render(<MiAniversario inicial={{ mostrar: false }} />);
+    fireEvent.click(screen.getByRole("switch"));
+    const ventana = screen.getByRole("dialog", { name: /aniversario/ });
+    expect(
+      await within(ventana).findByText(/No se pudo cargar el texto vigente/),
+    ).toBeInTheDocument();
+    // Se lee el texto de siempre, pero la casilla y el botón no responden.
+    expect(
+      within(ventana).getByRole("checkbox", {
+        name: "Acepto que mi aniversario sea público",
+      }),
+    ).toBeDisabled();
+    expect(
+      within(ventana).getByText(/Acepto que mi aniversario en la empresa/),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("button", { name: "Aceptar y mostrar" }),
+    ).toBeDisabled();
   });
 
   it("desactivarlo lo retira", async () => {

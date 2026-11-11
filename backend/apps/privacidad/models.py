@@ -223,3 +223,218 @@ class AceptacionAviso(ModeloDeEmpresa):
 
     def __str__(self) -> str:
         return f"Aceptación {self.pk} (v{self.version})"
+
+
+# ── Textos de protección de datos y sus aceptaciones (US-004, 11/11/2026) ─────
+#
+# Hasta hoy cada módulo guardaba su texto y su constancia a su manera: el aviso
+# aquí, la autorización del teléfono en `organizacion.TextoLegal` y en cuatro
+# columnas de `DatosDeContacto`, los términos del rol de pagos en `nomina`, el
+# acuerdo de confidencialidad en `organizacion`, y el cumpleaños, el
+# aniversario, los derechos y los avisos de Nova fijos en el frontend. Desde
+# US-004 todos viven en un catálogo (`TextoProteccion`; la lista cerrada de
+# claves está en `catalogo_textos.py`) y todas las aceptaciones en un registro
+# común (`AceptacionTexto`). Los modelos de antes no se borran en esta
+# historia (decisión del 11/11/2026): `privacidad/0007` copia sus datos y se
+# dejan de usar, para poder volver atrás.
+
+
+class TextoProteccion(ModeloDeEmpresa):
+    """Un texto sobre datos personales que la intranet muestra, por empresa
+    (cada empresa es un responsable del tratamiento distinto). Uno por clave.
+
+    `modulo`, `seccion` y `nombre` se copian del catálogo al crearlo: así la
+    pantalla y el Excel de aceptaciones agrupan con una sola consulta, y un
+    texto cuya clave saliera del catálogo seguiría identificado.
+
+    `version` sube con cada cambio del texto (o del título). `version_exigida`
+    es la versión más antigua cuya aceptación sigue valiendo: la mayoría de los
+    textos la igualan a `version` en cada cambio (hay que aceptar de nuevo),
+    pero el aviso general solo la sube si se marca «Pedir aceptarlo de nuevo»
+    (CA-3): corregir una coma no obliga a todos. Los que no piden aceptación
+    la llevan igual a `version`."""
+
+    clave = models.SlugField(max_length=60)
+    modulo = models.CharField(max_length=80)
+    seccion = models.CharField(max_length=80)
+    nombre = models.CharField(max_length=150)
+    #: Su posición en el catálogo, para listarlo siempre en el mismo orden.
+    orden = models.PositiveSmallIntegerField(default=0)
+    requiere_aceptacion = models.BooleanField(default=False)
+    #: Solo lo usa el acuerdo de confidencialidad.
+    titulo = models.CharField(max_length=200, blank=True, default="")
+    texto = models.TextField()
+    version = models.PositiveIntegerField(default=1)
+    version_exigida = models.PositiveIntegerField(default=1)
+    #: La última edición; vacío mientras rige el texto con que se sembró.
+    editado_en = models.DateTimeField(null=True, blank=True)
+    editado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="+",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+
+    class Meta:
+        ordering = ["orden", "clave"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "clave"], name="privacidad_un_texto_por_clave"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(version__gte=1), name="privacidad_texto_version_positiva"
+            ),
+            # La versión exigida no puede ser una que todavía no existe.
+            models.CheckConstraint(
+                condition=models.Q(version_exigida__gte=1)
+                & models.Q(version_exigida__lte=models.F("version")),
+                name="privacidad_texto_version_exigida_valida",
+            ),
+        ]
+        verbose_name = "texto de protección de datos"
+        verbose_name_plural = "textos de protección de datos"
+
+    def __str__(self) -> str:
+        return f"{self.nombre} (v{self.version})"
+
+
+class VersionTextoProteccion(BaseModel):
+    """Cada versión de un texto, también la vigente: lo que decía, quién la
+    guardó, cuándo y por qué. Append-only. Sirve para ver versiones anteriores
+    y para saber qué decía la versión que alguien aceptó cuando la aceptación
+    no guarda el texto."""
+
+    texto_proteccion = models.ForeignKey(
+        TextoProteccion, related_name="versiones", on_delete=models.PROTECT
+    )
+    version = models.PositiveIntegerField()
+    titulo = models.CharField(max_length=200, blank=True, default="")
+    texto = models.TextField()
+    editado_en = models.DateTimeField()
+    editado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="+",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    motivo = models.CharField(max_length=300, blank=True, default="")
+
+    objects = gestor_de_lo_que_cuelga("texto_proteccion__empresa")
+
+    class Meta:
+        ordering = ["texto_proteccion", "-version"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["texto_proteccion", "version"], name="privacidad_una_fila_por_version"
+            )
+        ]
+        verbose_name = "versión de un texto de protección de datos"
+        verbose_name_plural = "versiones de los textos de protección de datos"
+
+    def __str__(self) -> str:
+        return f"{self.texto_proteccion_id} v{self.version}"
+
+
+class AceptacionTexto(ModeloDeEmpresa):
+    """Una aceptación de un texto del catálogo: quién, qué versión, el texto
+    exacto, cuándo, desde qué IP y navegador, y de dónde vino. Es la constancia
+    legal (CA-4): no se sobrescribe ni se borra. Retirar una autorización
+    (teléfono, cumpleaños, aniversario, correo) llena `retirada_en`;
+    restablecer el aviso general (la administración pide que la persona lo
+    acepte otra vez) llena `restablecida_en`. Las dos dejan la fila sin efecto
+    sin perderla; se distinguen porque una la decide el titular y la otra la
+    administración.
+
+    Cuelga del texto por FK y no por la clave: agrupar por módulo y sección es
+    un `select_related`, y la base garantiza que no hay aceptaciones de un
+    texto que no existe. El texto nunca se borra (`PROTECT`), así que la FK no
+    pone en riesgo la constancia. La persona también es `PROTECT`, como en
+    `AceptacionAviso`: las cuentas no se borran (baja lógica)."""
+
+    class Origen(models.TextChoices):
+        INTRANET = "INTRANET", "Intranet"
+        NEXO = "NEXO", "Nexo (importada)"
+        #: De una fuente que solo guardaba la fecha (cumpleaños, aniversario,
+        #: correo personal): sin IP ni texto (CA-6).
+        MIGRADA = "MIGRADA", "Migrada (solo fecha)"
+
+    texto_proteccion = models.ForeignKey(
+        TextoProteccion, related_name="aceptaciones", on_delete=models.PROTECT
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="aceptaciones_de_textos", on_delete=models.PROTECT
+    )
+    #: La versión aceptada. `None` si no se conoce (importada de Nexo, o el
+    #: correo personal migrado, cuyo consentimiento no tenía versión).
+    version = models.PositiveIntegerField(null=True, blank=True)
+    #: Lo que se mostró al aceptar, tal cual. Vacío si no se conoce.
+    texto_aceptado = models.TextField(blank=True, default="")
+    titulo_aceptado = models.CharField(max_length=200, blank=True, default="")
+    aceptado_en = models.DateTimeField(db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    navegador = models.CharField(max_length=300, blank=True, default="")
+    origen = models.CharField(max_length=10, choices=Origen.choices, default=Origen.INTRANET)
+    retirada_en = models.DateTimeField(null=True, blank=True)
+    retirada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="+", null=True, blank=True, on_delete=models.PROTECT
+    )
+    restablecida_en = models.DateTimeField(null=True, blank=True)
+    restablecida_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="+", null=True, blank=True, on_delete=models.PROTECT
+    )
+    #: De dónde sale la fila: «nomina.ConsultaRolPagos:<id>» para cada consulta
+    #: del rol, o la fila de origen de las migradas
+    #: («privacidad.AceptacionAviso:<id>», «organizacion.DatosDeContacto:<id>:telefono»…).
+    #: Única por texto cuando no está vacía: la migración no copia dos veces.
+    referencia = models.CharField(max_length=80, blank=True, default="")
+    #: El id del usuario en Nexo, si vino de allí (como en `AceptacionAviso`).
+    id_nexo = models.PositiveBigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-aceptado_en", "-id"]
+        indexes = [
+            # El listado de «Aceptaciones» de la empresa, del más reciente.
+            models.Index(fields=["empresa", "aceptado_en"], name="privacidad_acep_emp_fecha"),
+            # El listado filtrado por texto (o por módulo, que es un conjunto
+            # de textos), del más reciente.
+            models.Index(
+                fields=["texto_proteccion", "aceptado_en"], name="privacidad_acep_texto_fecha"
+            ),
+            # «¿Aceptó esta persona la versión vigente?»: se pregunta en cada
+            # pantalla que pide aceptación, y el filtro por persona.
+            models.Index(
+                fields=["usuario", "texto_proteccion", "aceptado_en"],
+                name="privacidad_acep_usu_texto",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["texto_proteccion", "referencia"],
+                # «referencia > ''» y no «NOT (referencia = '')»: los índices
+                # filtrados de SQL Server no admiten NOT.
+                condition=models.Q(referencia__gt=""),
+                name="privacidad_acep_una_por_referencia",
+            ),
+            models.UniqueConstraint(
+                fields=["texto_proteccion", "id_nexo", "aceptado_en"],
+                condition=models.Q(id_nexo__isnull=False),
+                name="privacidad_acep_una_por_nexo",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(version__isnull=True) | models.Q(version__gte=1),
+                name="privacidad_acep_version_positiva",
+            ),
+        ]
+        verbose_name = "aceptación de un texto de protección de datos"
+        verbose_name_plural = "aceptaciones de los textos de protección de datos"
+
+    def __str__(self) -> str:
+        return f"Aceptación {self.pk} (v{self.version})"
+
+    @property
+    def vigente(self) -> bool:
+        """Sin retirar ni restablecer. Si vale para la versión exigida lo dice
+        el servicio, que conoce la regla de cada texto."""
+        return self.retirada_en is None and self.restablecida_en is None

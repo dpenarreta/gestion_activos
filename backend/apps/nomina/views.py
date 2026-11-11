@@ -15,6 +15,7 @@ from apps.core.request_meta import get_request_context
 from apps.descargas.middleware import marcar
 from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import Requiere
+from apps.privacidad import textos
 
 from . import auditado, aviso, dias_habiles, fuente, services
 from .models import AVISO_DIAS_MAXIMO
@@ -51,14 +52,18 @@ class EstadoView(APIView):
     permission_classes = [IsAuthenticated, PANTALLA]
 
     def get(self, request):
-        config = services.configuracion()
+        terminos = textos.vigente_o_inicial(services.TERMINOS)
+        consentimiento = textos.vigente_o_inicial(services.CORREO)
         guardado = services.correo_guardado(request.user)
         return Response(
             {
                 "codigo": services.codigo_de(request.user),
-                "terminos": config.terminos,
-                "version": config.version,
-                "consentimiento_correo": config.consentimiento_correo,
+                "terminos": terminos["texto"],
+                "version": terminos["version"],
+                # La versión del consentimiento del correo (US-004): la pantalla
+                # la manda en `version_correo` al guardarlo.
+                "consentimiento_correo": consentimiento["texto"],
+                "version_correo": consentimiento["version"],
                 "correo_guardado": services.enmascarar(guardado),
                 "disponible": fuente.disponible(),
                 "puede_consultar_otros": services.consulta_otros(request.user),
@@ -254,6 +259,8 @@ class _Envio(serializers.Serializer):
     correo = serializers.CharField(required=False, allow_blank=True, max_length=254)
     guardar = serializers.BooleanField(default=False)
     acepto_guardar = serializers.BooleanField(default=False)
+    #: La versión del consentimiento que se le mostró (US-004, opcional).
+    version_correo = serializers.IntegerField(min_value=1, required=False, allow_null=True)
 
 
 class EnviarView(APIView):
@@ -274,6 +281,9 @@ class EnviarView(APIView):
             correo=datos.get("correo", ""),
             guardar=datos["guardar"],
             acepto_guardar=datos["acepto_guardar"],
+            version_correo=datos.get("version_correo"),
+            ip=_ip(request),
+            navegador=request.META.get("HTTP_USER_AGENT", ""),
         )
         record_audit_event(
             actor=request.user,
@@ -349,8 +359,8 @@ class CorreoPersonalView(APIView):
 
 
 class _Configuracion(serializers.Serializer):
-    terminos = serializers.CharField(max_length=4000)
-    consentimiento_correo = serializers.CharField(max_length=2000)
+    # Desde US-004 (CA-7, 11/11/2026) los términos y el consentimiento del
+    # correo se editan en Protección de datos: si llegan aquí, se ignoran.
     # El aviso del primer día hábil (aviso del rol de pagos, 29/10/2026).
     # Opcionales: lo que no llegue se queda como está.
     aviso_activo = serializers.BooleanField(required=False)
@@ -389,10 +399,14 @@ class _Configuracion(serializers.Serializer):
 
 def _textos(config) -> dict:
     hoy = timezone.localdate()
+    terminos = textos.vigente_o_inicial(services.TERMINOS)
     return {
-        "terminos": config.terminos,
-        "version": config.version,
-        "consentimiento_correo": config.consentimiento_correo,
+        # De solo lectura desde US-004: se editan en Protección de datos.
+        "terminos": terminos["texto"],
+        "version": terminos["version"],
+        "consentimiento_correo": textos.vigente_o_inicial(services.CORREO)["texto"],
+        "textos_solo_lectura": True,
+        "textos_se_editan_en": "/admin/privacidad/textos",
         **{campo: getattr(config, campo) for campo in services.CAMPOS_AVISO},
         # Los días hábiles del mes en curso, para que la vista previa del aviso
         # calcule {primer_dia} y {fecha_limite} con los feriados reales.
@@ -409,9 +423,10 @@ def _aviso_auditado(config) -> dict:
 
 
 class ConfiguracionView(APIView):
-    """Los textos (términos, consentimiento del correo y el aviso del primer
-    día hábil), con `roles_pago.configurar`. Cambiar los términos sube su
-    versión."""
+    """El aviso del primer día hábil, con `roles_pago.configurar`. `GET`
+    devuelve también los términos y el consentimiento del correo, de solo
+    lectura: desde US-004 (CA-7) se editan en Protección de datos, y si un
+    `PUT` los trae se ignoran."""
 
     permission_classes = [IsAuthenticated]
 
@@ -433,18 +448,15 @@ class ConfiguracionView(APIView):
         entrada = _Configuracion(data=request.data)
         entrada.is_valid(raise_exception=True)
         actual = services.configuracion()
-        anterior = {"version": actual.version, **_aviso_auditado(actual)}
-        datos = dict(entrada.validated_data)
-        config = services.guardar_configuracion(
-            datos.pop("terminos"), datos.pop("consentimiento_correo"), **datos
-        )
+        anterior = _aviso_auditado(actual)
+        config = services.guardar_configuracion(**entrada.validated_data)
         record_audit_event(
             actor=request.user,
             action="roles_pago.configuracion",
             target=config,
             module=MODULO,
             previous_values=anterior,
-            new_values={"version": config.version, **_aviso_auditado(config)},
+            new_values=_aviso_auditado(config),
             context=get_request_context(request),
         )
         return Response(_textos(config))

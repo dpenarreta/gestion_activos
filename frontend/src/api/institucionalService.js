@@ -140,16 +140,18 @@ export const institucionalService = {
   confidencialidad() {
     return apiClient.get(`${BASE}confidencialidad/`).then((res) => res.data);
   },
-  aceptarConfidencialidad() {
+  /** `version`: la del acuerdo que leyó (US-004). Si ya no es la vigente,
+   * 400 en `acepto`. */
+  aceptarConfidencialidad(version) {
     return apiClient
-      .post(`${BASE}confidencialidad/aceptar/`)
+      .post(
+        `${BASE}confidencialidad/aceptar/`,
+        version ? { version } : undefined,
+      )
       .then((res) => res.data);
   },
-  guardarConfidencialidad(datos) {
-    return apiClient
-      .put(`${BASE}confidencialidad/`, datos)
-      .then((res) => res.data);
-  },
+  // Editar el acuerdo pasó a «Protección de datos» → «Textos» (US-004,
+  // 11/11/2026): el `PUT` del servidor responde 410.
   aceptacionesConfidencialidad() {
     return apiClient
       .get(`${BASE}confidencialidad/aceptaciones/`)
@@ -246,5 +248,20 @@ export const institucionalService = {
         conMotivo(motivo, empresa),
       )
       .then((res) => res.data);
+  },
+  /** Cambiar el área de una persona (US-005, 11/11/2026): la elige una sola
+   * vez en «Mi perfil» y después la cambia quien tenga
+   * `organizacion.cambiar_area`. El motivo (hasta 300 caracteres) queda en
+   * la auditoría. Devuelve `{usuario, area: {id, nombre}}`. */
+  cambiarArea(usuario, area, motivo) {
+    return apiClient
+      .put(`${BASE}asignaciones/area/`, { usuario, area, motivo })
+      .then((res) => res.data);
+  },
+  /** Las áreas activas que se pueden asignar (las mismas de «Mi perfil»). */
+  areasParaAsignar() {
+    return apiClient
+      .get(`${BASE}asignaciones/area/`)
+      .then((res) => res.data.areas ?? []);
   },
 };

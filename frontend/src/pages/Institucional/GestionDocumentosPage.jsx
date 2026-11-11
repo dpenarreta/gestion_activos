@@ -232,7 +232,8 @@ export function GestionDocumentosPage() {
   const DESCRIPCION = {
     documentos:
       "Los códigos de conducta y reglamentos cargados. Los vigentes los ve toda persona en «Códigos de conducta»; los retirados, solo aquí.",
-    acuerdo: "El acuerdo que cada persona acepta antes de leer los documentos.",
+    acuerdo:
+      "El acuerdo que cada persona acepta antes de leer los documentos. Se edita en Protección de datos.",
     aceptaciones:
       "Quién aceptó el acuerdo vigente y quién falta, de todas las personas activas.",
   };

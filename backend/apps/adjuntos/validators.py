@@ -9,6 +9,8 @@ from pathlib import PurePath
 
 from rest_framework import serializers
 
+from apps.core.archivos import mensaje_de_tamano
+
 from .models import EXTENSIONES_PERMITIDAS, FIRMAS, TAMANO_MAXIMO_BYTES
 
 #: Cuántos bytes se leen para comprobar la firma. Con 8 basta para todas las
@@ -51,9 +53,8 @@ def validar_archivo(archivo, *, formatos: dict[str, list[bytes]] | None = None):
         raise serializers.ValidationError("El archivo está vacío.")
 
     if archivo.size > TAMANO_MAXIMO_BYTES:
-        megas = TAMANO_MAXIMO_BYTES // (1024 * 1024)
         raise serializers.ValidationError(
-            f"El archivo pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es {megas} MB."
+            mensaje_de_tamano("El archivo", archivo.size, TAMANO_MAXIMO_BYTES)
         )
 
     extension = PurePath(archivo.name).suffix.lower()

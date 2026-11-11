@@ -16,6 +16,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.adjuntos.models import TAMANO_MAXIMO_BYTES
 from apps.chat import services
 from apps.chat.models import Conversacion, Mensaje
 from apps.empresas.contexto import usando_empresa
@@ -214,12 +215,20 @@ def test_fotos_y_archivos_y_lo_que_pasa_el_limite_sugiere_el_correo(empresa, set
     descarga = _cliente(beto, empresa).get(f"/api/v1{enviado.json()['archivo']['url']}")
     assert descarga.status_code == 200
 
-    grande = SimpleUploadedFile("video.png", PNG + b"0" * (11 * 1024 * 1024))
+    # Un byte por encima del límite: el peso se redondea hacia arriba (US-007),
+    # nunca «10.0 MB y el máximo es 10 MB».
+    grande = SimpleUploadedFile("video.png", PNG + b"0" * (TAMANO_MAXIMO_BYTES + 1 - len(PNG)))
     rechazo = cliente.post(url, {"archivo": grande}, format="multipart")
     assert rechazo.status_code == 400
     error = rechazo.json()["error"]
     assert error["code"] == "archivo_grande"
     assert error["details"]["correos"] == ["beto@grupolaar.com"]
+    megas = TAMANO_MAXIMO_BYTES // (1024 * 1024)
+    # El manejador de errores entrega los detalles como texto (contrato previo).
+    assert error["details"]["limite_mb"] == str(megas)
+    assert error["details"]["archivo"] == [
+        f"El archivo pesa {megas},01 MB y el máximo es {megas} MB. Envíelo por correo."
+    ]
 
 
 def test_el_historial_visible_es_de_6_meses_y_12_con_el_permiso(empresa):

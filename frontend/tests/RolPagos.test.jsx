@@ -48,6 +48,11 @@ vi.mock("../src/components/common/VisorPdf/VisorPdf", () => ({
 }));
 
 vi.mock("../src/utils/descargas", () => ({ descargarBlob: vi.fn() }));
+// Solo para el enlace a «Protección de datos» de la ventana «Textos de la
+// consulta» (US-004): quien configura recibió `privacidad.textos`.
+vi.mock("../src/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: 1, permissions: ["privacidad.textos"] } }),
+}));
 const { descargarBlob } = await import("../src/utils/descargas");
 
 const { RolPagosPage } =
@@ -305,6 +310,134 @@ describe("Consultar rol de pagos", () => {
     expect(
       await screen.findByText("Listo: se envió a r***@gmail.com."),
     ).toBeInTheDocument();
+  });
+
+  it("guardar el correo envía la versión del consentimiento; si cambió, lo dice junto a la casilla (US-004)", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, version_correo: 2 });
+    servicio.consultar.mockResolvedValue({
+      blob: new Blob(["%PDF"]),
+      consulta: 41,
+    });
+    servicio.enviar.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          error: {
+            code: "validation_error",
+            message: "Revise los datos.",
+            details: {
+              acepto_guardar: [
+                "El texto cambió mientras lo leía. Léalo de nuevo y acéptelo.",
+              ],
+            },
+          },
+        },
+      },
+    });
+    const ventana = await consultar();
+    await verConCodigo(ventana);
+    fireEvent.change(await screen.findByLabelText("Correo personal"), {
+      target: { value: "rosa@gmail.com" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Guardar este correo/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Acepto que se almacene/ }),
+    );
+    const llamadasAntes = servicio.estado.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await waitFor(() =>
+      expect(servicio.enviar).toHaveBeenCalledWith(
+        expect.objectContaining({ version_correo: 2, acepto_guardar: true }),
+      ),
+    );
+    const casilla = screen.getByRole("checkbox", {
+      name: /Acepto que se almacene/,
+    });
+    await waitFor(() =>
+      expect(casilla).toHaveAccessibleDescription(
+        "El texto cambió mientras lo leía. Léalo de nuevo y acéptelo.",
+      ),
+    );
+    expect(casilla).not.toBeChecked();
+    // Recarga el estado para traer el consentimiento nuevo.
+    expect(servicio.estado.mock.calls.length).toBeGreaterThan(llamadasAntes);
+  });
+
+  it("si los términos cambiaron mientras los leía, lo dice y recarga el estado (US-004)", async () => {
+    servicio.consultar.mockRejectedValue(
+      errorEnBlob(400, {
+        error: {
+          code: "validation_error",
+          message: "Revise los datos.",
+          details: {
+            acepto: [
+              "Los términos cambiaron mientras los leía: revíselos y acéptelos de nuevo.",
+            ],
+          },
+        },
+      }),
+    );
+    const ventana = await consultar();
+    const llamadasAntes = servicio.estado.mock.calls.length;
+    await verConCodigo(ventana);
+    expect(
+      await within(ventana).findByText(
+        /Los términos cambiaron mientras los leía/,
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(servicio.estado.mock.calls.length).toBeGreaterThan(llamadasAntes),
+    );
+    // Vuelve a los términos, sin aceptar.
+    expect(within(ventana).getByRole("checkbox")).not.toBeChecked();
+  });
+
+  it("los términos son una región enfocable que describe la casilla (US-004)", async () => {
+    const ventana = await consultar();
+    const region = within(ventana).getByRole("region", {
+      name: "Términos y condiciones",
+    });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region).toHaveTextContent(ESTADO.terminos);
+    const casilla = within(ventana).getByRole("checkbox", {
+      name: /Acepto los términos/,
+    });
+    expect(casilla.getAttribute("aria-describedby")).toContain(region.id);
+    expect(casilla).toHaveAccessibleDescription(new RegExp(ESTADO.terminos));
+  });
+
+  it("mientras guarda la configuración, la ventana no se cierra", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_configurar: true });
+    servicio.configuracion.mockResolvedValue({
+      aviso_activo: false,
+      aviso_titulo: "",
+      aviso_mensaje: "",
+      aviso_titulo_vencido: "",
+      aviso_mensaje_vencido: "",
+      aviso_dias_habiles: 3,
+    });
+    servicio.configurar.mockReturnValue(new Promise(() => {}));
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Aviso del primer día hábil/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Aviso del primer día hábil",
+    });
+    await within(ventana).findByRole("group", {
+      name: "Aviso del primer día hábil",
+    });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Guardar" }));
+    expect(
+      await within(ventana).findByRole("button", { name: "Guardando…" }),
+    ).toBeDisabled();
+    expect(
+      within(ventana).getByRole("button", { name: "Cancelar" }),
+    ).toBeDisabled();
+    fireEvent.click(within(ventana).getByRole("button", { name: "Cerrar" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("sin código de empleado lo dice y no deja consultar", async () => {
@@ -663,7 +796,7 @@ describe("Consultar rol de pagos", () => {
       "Usuarios habilitados",
       "Descargar rol auditado",
       "Historial por empleado",
-      "Textos de la consulta",
+      "Aviso del primer día hábil",
     ]);
 
     // Escape la cierra y el foco vuelve al botón.
@@ -1429,7 +1562,7 @@ describe("El aviso del rol de pagos (29/10/2026)", () => {
     expect(screen.getByLabelText("Año")).toHaveValue("2025");
   });
 
-  it("en «Textos de la consulta» se administra el aviso y se guarda con los términos", async () => {
+  it("«Aviso del primer día hábil» administra el aviso; los términos se editan en Protección de datos", async () => {
     servicio.estado.mockResolvedValue({ ...ESTADO, puede_configurar: true });
     servicio.configuracion.mockResolvedValue({
       terminos: ESTADO.terminos,
@@ -1444,16 +1577,38 @@ describe("El aviso del rol de pagos (29/10/2026)", () => {
     });
     servicio.configurar.mockResolvedValue({});
     render(<RolPagosPage />, { wrapper: MemoryRouter });
-    // Con solo ese permiso, «Textos de la consulta» está a la vista.
+    // Con solo ese permiso, «Aviso del primer día hábil» está a la vista.
     fireEvent.click(
-      await screen.findByRole("button", { name: /Textos de la consulta/ }),
+      await screen.findByRole("button", { name: /Aviso del primer día hábil/ }),
     );
     const ventana = await screen.findByRole("dialog", {
-      name: "Textos de la consulta",
+      name: "Aviso del primer día hábil",
     });
     const seccion = await within(ventana).findByRole("group", {
       name: "Aviso del primer día hábil",
     });
+    // Los términos y el consentimiento del correo ya no se editan aquí
+    // (US-004, CA-7): un enlace lleva a su texto en Protección de datos.
+    expect(
+      within(ventana).queryByLabelText(/Términos que se aceptan/),
+    ).toBeNull();
+    expect(
+      within(ventana).queryByLabelText(/Consentimiento para guardar/),
+    ).toBeNull();
+    expect(
+      within(ventana).getByRole("link", { name: "Términos de la consulta" }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/privacidad/textos?texto=rol_pagos_terminos",
+    );
+    expect(
+      within(ventana).getByRole("link", {
+        name: "Consentimiento del correo personal",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/admin/privacidad/textos?texto=rol_pagos_correo",
+    );
     expect(
       within(seccion).getByRole("switch", { name: /Aviso encendido/ }),
     ).toBeChecked();
@@ -1474,8 +1629,6 @@ describe("El aviso del rol de pagos (29/10/2026)", () => {
 
     await waitFor(() =>
       expect(servicio.configurar).toHaveBeenCalledWith({
-        terminos: ESTADO.terminos,
-        consentimiento_correo: ESTADO.consentimiento_correo,
         aviso_activo: true,
         aviso_titulo: "Su rol de pagos ya está disponible",
         aviso_mensaje: "Revise su rol de {mes} de {anio}.",
@@ -1484,6 +1637,21 @@ describe("El aviso del rol de pagos (29/10/2026)", () => {
         aviso_dias_habiles: 5,
       }),
     );
+  });
+
+  it("sin el aviso cargado, «Guardar» queda deshabilitado", async () => {
+    servicio.estado.mockResolvedValue({ ...ESTADO, puede_configurar: true });
+    servicio.configuracion.mockReturnValue(new Promise(() => {}));
+    render(<RolPagosPage />, { wrapper: MemoryRouter });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Aviso del primer día hábil/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Aviso del primer día hábil",
+    });
+    expect(
+      within(ventana).getByRole("button", { name: "Guardar" }),
+    ).toBeDisabled();
   });
 
   it("el error del servidor sale bajo su campo del aviso", async () => {
@@ -1508,9 +1676,9 @@ describe("El aviso del rol de pagos (29/10/2026)", () => {
       },
     });
     render(<RolPagosPage />, { wrapper: MemoryRouter });
-    // Con solo ese permiso, «Textos de la consulta» está a la vista.
+    // Con solo ese permiso, «Aviso del primer día hábil» está a la vista.
     fireEvent.click(
-      await screen.findByRole("button", { name: /Textos de la consulta/ }),
+      await screen.findByRole("button", { name: /Aviso del primer día hábil/ }),
     );
     const titulo = await screen.findByLabelText(/^Título del aviso/);
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));

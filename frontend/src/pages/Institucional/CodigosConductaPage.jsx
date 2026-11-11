@@ -20,6 +20,8 @@ import { formatearFecha } from "../../utils/formato";
 import { CATEGORIAS, VentanaAcuerdo, tamano } from "./documentosComunes";
 import "./Institucional.css";
 import { descargarBlob } from "../../utils/descargas";
+import { TextoDelAviso } from "../Privacidad/TextoDelAviso";
+import { esTextoCambiado } from "../Privacidad/privacidadComunes";
 
 const NOMBRE_CATEGORIA = Object.fromEntries(CATEGORIAS);
 
@@ -152,7 +154,7 @@ function VentanaAceptado({ acuerdo, onCerrar }) {
             Lo aceptó el {formatearFecha(acuerdo.aceptado_en, true)}
           </p>
           <div className="acuerdo-texto" data-autofocus tabIndex={-1}>
-            {acuerdo.texto_aceptado || acuerdo.texto}
+            <TextoDelAviso texto={acuerdo.texto_aceptado || acuerdo.texto} />
           </div>
           <div className="mz-actions justify-content-end mt-3">
             <button
@@ -212,8 +214,22 @@ export function CodigosConductaPage() {
   }, [cargarAcuerdo]);
 
   async function aceptar() {
-    setAcuerdo(await institucionalService.aceptarConfidencialidad());
-    setVerAcuerdo(false);
+    try {
+      setAcuerdo(
+        await institucionalService.aceptarConfidencialidad(acuerdo?.version),
+      );
+      setVerAcuerdo(false);
+    } catch (err) {
+      // El acuerdo cambió mientras lo leía: se trae el nuevo (la ventana
+      // dice por qué) y se acepta ese.
+      if (esTextoCambiado(err)) {
+        institucionalService
+          .confidencialidad()
+          .then(setAcuerdo)
+          .catch(() => {});
+      }
+      throw err;
+    }
   }
 
   const cargarDocumentos = useCallback(() => {

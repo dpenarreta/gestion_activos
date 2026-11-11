@@ -116,6 +116,10 @@ PERMISSION_CATALOG = {
         "permissions": {
             "organizacion.ver": "Ver sedes, departamentos y empleados",
             "organizacion.editar": "Crear y editar sedes, departamentos y empleados",
+            # US-005 (11/11/2026): la persona elige su área una sola vez en «Mi
+            # perfil»; después la cambia quien tenga este permiso, desde
+            # «Asignación de cargos».
+            "organizacion.cambiar_area": "Cambiar el área de una persona",
         },
     },
     "mantenimientos": {
@@ -983,6 +987,12 @@ PERMISSION_CATALOG = {
                 "al titular y descargar los datos de un titular para responder su solicitud de "
                 "acceso"
             ),
+            # US-004 (11/11/2026): todos los textos de datos personales se
+            # editan en Protección de datos. Reemplaza, para esos textos, a
+            # `configuracion.textos_legales`, `roles_pago.configurar` y
+            # `codigos.acuerdo`; verlos y ver las aceptaciones sigue con
+            # `privacidad.ver` o `privacidad.atender`.
+            "privacidad.textos": "Editar textos de protección de datos",
         },
     },
     "auditoria": {

@@ -93,7 +93,9 @@ class OrdenListaSerializer(_ConUsuario, serializers.ModelSerializer):
 
     def get_responsable(self, orden):
         if not orden.tecnico_id:
-            return "Sin asignar"
+            # Desde US-006 una orden puede quedar a cargo de un proveedor sin
+            # persona con cuenta (p. ej. un técnico independiente).
+            return orden.proveedor.nombre if orden.proveedor_id else "Sin asignar"
         texto = _nombre(orden.tecnico)
         return f"{texto} ({orden.proveedor.nombre})" if orden.proveedor_id else texto
 
@@ -222,8 +224,92 @@ class OrdenEscrituraSerializer(serializers.ModelSerializer):
         return valor
 
 
+class OrdenCreacionSerializer(OrdenEscrituraSerializer):
+    """El alta: los datos de la orden más quién la realiza y para cuándo
+    (11/11/2026, US-006).
+
+    Aparte del de corrección a propósito: el responsable no se cambia con un
+    `PATCH`, se reasigna con `asignar`, que tiene su permiso y su historial.
+    Los tres campos llegan opcionales aquí y los exige
+    `services.validar_responsable_y_fecha`, que da el error en `responsable`
+    cuando faltan los dos y el mensaje propio de la fecha.
+    """
+
+    tecnico = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_active=True), required=False, allow_null=True
+    )
+    proveedor = serializers.PrimaryKeyRelatedField(
+        queryset=Proveedor.objects.none(), required=False, allow_null=True
+    )
+    fecha_programada = serializers.DateField(required=False, allow_null=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["proveedor"].queryset = Proveedor.objects.all()
+
+    class Meta(OrdenEscrituraSerializer.Meta):
+        fields = OrdenEscrituraSerializer.Meta.fields + [
+            "tecnico",
+            "proveedor",
+            "fecha_programada",
+        ]
+
+
+class ProveedorRapidoSerializer(serializers.Serializer):
+    """Los datos mínimos de un proveedor nuevo registrado desde la orden.
+
+    Nombre o razón social y una forma de contactarlo (teléfono o correo): es
+    lo que se necesita cuando hay que llamarlo. El resto de la ficha (RUC,
+    observaciones) se completa en el catálogo de proveedores.
+    """
+
+    nombre = serializers.CharField(max_length=150)
+    contacto = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    telefono = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    correo = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    identificacion = serializers.CharField(max_length=20, required=False, allow_blank=True)
+
+    def validate_nombre(self, valor):
+        valor = " ".join((valor or "").split())
+        if not valor:
+            raise serializers.ValidationError("Escriba el nombre o la razón social.")
+        return valor
+
+    def validate_identificacion(self, valor):
+        """Cédula (10 dígitos) o RUC (13) si es un número; una identificación
+        tributaria extranjera puede llevar letras y se deja pasar."""
+        valor = (valor or "").strip()
+        if valor.isdigit() and len(valor) not in (10, 13):
+            raise serializers.ValidationError(
+                "Escriba la cédula (10 dígitos) o el RUC (13 dígitos)."
+            )
+        return valor
+
+    def validate_telefono(self, valor):
+        valor = (valor or "").strip()
+        digitos = [c for c in valor if c.isdigit()]
+        if valor and not 7 <= len(digitos) <= 15:
+            raise serializers.ValidationError("Escriba un teléfono de 7 a 15 dígitos.")
+        return valor
+
+    def validate(self, datos):
+        datos = {k: (v.strip() if isinstance(v, str) else v) for k, v in datos.items()}
+        if not datos.get("telefono") and not datos.get("correo"):
+            raise serializers.ValidationError(
+                {"telefono": "Indique un teléfono o un correo para contactarlo."}
+            )
+        return datos
+
+
 class AsignacionSerializer(serializers.Serializer):
-    tecnico = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True))
+    """Asignar, reasignar o reprogramar. Desde US-006 el técnico es opcional
+    (una orden puede quedar solo a cargo de un proveedor): el campo que no se
+    envía conserva lo que había y `null` lo quita. Las reglas, en
+    `services.OrdenService.asignar`."""
+
+    tecnico = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_active=True), required=False, allow_null=True
+    )
     proveedor = serializers.PrimaryKeyRelatedField(
         queryset=Proveedor.objects.none(), required=False, allow_null=True
     )

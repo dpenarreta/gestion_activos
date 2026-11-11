@@ -29,6 +29,16 @@ Decisiones propias (salen en el informe):
 - **Repetible.** Se salta lo ya importado (mismo usuario de Nexo y misma
   fecha). Si en Nexo alguien volvió a aceptar después de un restablecimiento,
   entra como una aceptación más.
+- **También en el registro común** (US-004, 11/11/2026). Desde US-004 las
+  aceptaciones del aviso viven en `AceptacionTexto` (clave
+  `aviso_privacidad`); `AceptacionAviso` se sigue llenando para poder volver
+  atrás. Cada aceptación válida de Nexo queda también allí, con origen NEXO,
+  su `id_nexo`, su fecha, el texto que regía y la versión vacía (Nexo no
+  tenía versión numérica: no vale para el aviso vigente). Repetible por
+  `id_nexo` + fecha, como la migración `privacidad/0007`: lo ya copiado (por
+  la migración o por una importación anterior) no se copia otra vez. Si la
+  empresa no tiene aviso, no hay texto al que colgarlas: se avisa y quedan
+  solo en `AceptacionAviso` (crear el aviso aquí empezaría a exigirlo).
 """
 
 from dataclasses import dataclass, field
@@ -38,10 +48,22 @@ from django.db import transaction
 from apps.empresas.contexto import usando_empresa
 from apps.novedades.nexo.comun import ImportadorBase, InformeBase, ambito
 
-from ..models import AceptacionAviso
+from ..catalogo_textos import AVISO_PRIVACIDAD
+from ..models import AceptacionAviso, AceptacionTexto
 from .lector_consentimiento import TABLAS, LectorNexoConsentimiento
 
-MODELOS = {"aceptacion": AceptacionAviso}
+MODELOS = {"aceptacion": AceptacionAviso, "registro_comun": AceptacionTexto}
+
+#: Ids por consulta al verificar: SQL Server admite hasta 2100 parámetros.
+LOTE_IDS = 1000
+
+
+def _en_lotes(consulta, ids_nexo):
+    """Las filas de `consulta` con esos `id_nexo`, pedidas de a `LOTE_IDS`."""
+    ids_nexo = sorted(set(ids_nexo))
+    for inicio in range(0, len(ids_nexo), LOTE_IDS):
+        yield from consulta.filter(id_nexo__in=ids_nexo[inicio : inicio + LOTE_IDS])
+
 
 NO_SE_MIGRA = {
     "Historial de aceptaciones de Nexo": (
@@ -65,6 +87,8 @@ class InformeConsentimiento(InformeBase):
     sin_fecha: int = 0
     #: Sin texto de Nexo vigente en su fecha (regía el texto por defecto).
     sin_texto: int = 0
+    #: Copiadas al registro común (`AceptacionTexto`) en esta corrida.
+    en_registro_comun: int = 0
 
 
 class ImportadorNexoConsentimiento(ImportadorBase):
@@ -166,6 +190,52 @@ class ImportadorNexoConsentimiento(ImportadorBase):
                 )
             )
         self._insertar("aceptacion", pares)
+        self._al_registro_comun()
+
+    def _al_registro_comun(self):
+        """Cada aceptación válida de Nexo, también en `AceptacionTexto` (ver
+        el docstring). Recorre todas las válidas y no solo las nuevas: así
+        cubre también las importadas antes de US-004 que la migración no
+        hubiera copiado."""
+        from .. import textos
+
+        self.aviso = textos.obtener(AVISO_PRIVACIDAD, self.empresa, crear=False)
+        self.al_comun = []
+        if self.aviso is None:
+            if self.validas:
+                self.informe.avisos.append(
+                    "La empresa no tiene aviso de privacidad: las aceptaciones de Nexo quedan "
+                    "solo en el registro anterior, no en el registro común."
+                )
+            return
+        ya = set(
+            AceptacionTexto.objects.todas()
+            .filter(texto_proteccion=self.aviso, id_nexo__isnull=False)
+            .values_list("id_nexo", "aceptado_en")
+        )
+        pares = []
+        for f in self.validas:
+            if (f["id"], f["data_consent_accepted_at"]) in ya:
+                continue
+            self.al_comun.append(f)
+            pares.append(
+                (
+                    f["id"],
+                    AceptacionTexto(
+                        empresa=self.empresa,
+                        texto_proteccion=self.aviso,
+                        usuario_id=self._u(f["id"]),
+                        version=None,
+                        texto_aceptado=self._texto_en(f["data_consent_accepted_at"]),
+                        aceptado_en=f["data_consent_accepted_at"],
+                        ip=None,
+                        origen=AceptacionTexto.Origen.NEXO,
+                        id_nexo=f["id"],
+                    ),
+                )
+            )
+        self.informe.en_registro_comun = len(pares)
+        self._insertar("registro_comun", pares)
 
     # 3. Verificación -------------------------------------------------------------
 
@@ -177,9 +247,9 @@ class ImportadorNexoConsentimiento(ImportadorBase):
             self.informe.leidos.get("aceptacion"),
         )
         importadas = list(
-            ambito(AceptacionAviso, self.empresa).filter(
-                origen=AceptacionAviso.Origen.NEXO,
-                id_nexo__in=[f["id"] for f in self.nuevas] or [0],
+            _en_lotes(
+                ambito(AceptacionAviso, self.empresa).filter(origen=AceptacionAviso.Origen.NEXO),
+                [f["id"] for f in self.nuevas],
             )
         )
         claves = {(f["id"], f["data_consent_accepted_at"]) for f in self.nuevas}
@@ -203,6 +273,23 @@ class ImportadorNexoConsentimiento(ImportadorBase):
                 and a.origen == AceptacionAviso.Origen.NEXO
             ),
         )
+        if self.aviso is not None:
+            # Cada válida de Nexo, una sola vez en el registro común.
+            en_comun = sorted(
+                (a.id_nexo, a.aceptado_en)
+                for a in _en_lotes(
+                    AceptacionTexto.objects.todas()
+                    .filter(texto_proteccion=self.aviso, origen=AceptacionTexto.Origen.NEXO)
+                    .only("id_nexo", "aceptado_en"),
+                    [f["id"] for f in self.validas],
+                )
+            )
+            esperadas = {(f["id"], f["data_consent_accepted_at"]) for f in self.validas}
+            anotar(
+                "Registro común: cada aceptación de Nexo una vez",
+                sorted(esperadas),
+                [par for par in en_comun if par in esperadas],
+            )
 
     def ejecutar(self) -> InformeConsentimiento:
         self._leer()

@@ -18,8 +18,10 @@ from apps.core.pagination import DefaultPagination
 from apps.core.request_meta import get_client_ip, get_request_context
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 from apps.permissions.authorization import user_has_permission
+from apps.permissions.permissions import Requiere
 
 from . import (
+    areas,
     ausencia,
     avisos_inicio,
     calendario,
@@ -53,7 +55,6 @@ from .models import (
 )
 from .permissions import (
     AceptacionesPermission,
-    AcuerdoPermission,
     ArmarOAsignarPermission,
     AsignarCargosPermission,
     AvisoInicioPermission,
@@ -71,11 +72,11 @@ from .permissions import (
 )
 from .serializers import (
     AccesoHerramientaSerializer,
-    AcuerdoConfidencialidadSerializer,
     AjustesCarruselSerializer,
     AniversarioSerializer,
     AsignacionSerializer,
     AvisoInicioSerializer,
+    CambioAreaSerializer,
     CargoSerializer,
     ConcesionarioSerializer,
     CumpleanosSerializer,
@@ -444,6 +445,8 @@ class MisDatosView(APIView):
             cargo=datos["cargo"],
             acepta_telefono=datos["acepta_telefono"],
             ip=get_client_ip(request),
+            navegador=request.META.get("HTTP_USER_AGENT", ""),
+            version_telefono=datos.get("version_telefono"),
             tiene_telefono_corporativo=datos["tiene_telefono_corporativo"],
             telefono_corporativo=datos["telefono_corporativo"],
         )
@@ -758,12 +761,13 @@ class AsignacionesView(APIView):
         from apps.chat.services import buscar_personas
 
         personas = list(buscar_personas(request.query_params.get("q", ""), limite=50))
-        cargos = {
-            fila.usuario_id: fila.cargo
-            for fila in DatosDeContacto.objects.filter(
-                usuario__in=personas, cargo__isnull=False
-            ).select_related("cargo__unidad")
+        perfiles = {
+            fila.usuario_id: fila
+            for fila in DatosDeContacto.objects.filter(usuario__in=personas).select_related(
+                "cargo__unidad", "departamento"
+            )
         }
+        cargos = {uid: fila.cargo for uid, fila in perfiles.items() if fila.cargo_id}
         return Response(
             [
                 {
@@ -776,6 +780,13 @@ class AsignacionesView(APIView):
                             "nombre": organigrama.nombre_con_unidad(cargos[p.id]),
                         }
                         if p.id in cargos
+                        else None
+                    ),
+                    # El área guardada en su perfil (US-005); la cambia
+                    # `AreaDePersonaView`.
+                    "area": areas.como_dato(
+                        perfiles[p.id].departamento
+                        if p.id in perfiles and perfiles[p.id].departamento_id
                         else None
                     ),
                 }
@@ -813,6 +824,64 @@ class AsignacionesView(APIView):
             context=get_request_context(request),
         )
         return Response({"usuario": usuario.id, "cargo": cargo.id if cargo else None})
+
+
+class AreaDePersonaView(APIView):
+    """Cambiar el área de una persona (US-005, 11/11/2026), desde «Asignación
+    de cargos». La persona la elige una sola vez en «Mi perfil»; después la
+    cambia quien tenga `organizacion.cambiar_area`.
+
+    - `GET` → `{"areas": [{"id", "nombre"}]}`: las que se pueden elegir, las
+      mismas de «Mi perfil» (áreas activas de la empresa).
+    - `PUT {"usuario": id, "area": id, "motivo"?: str}` →
+      `{"usuario", "area": {"id", "nombre"}}`. La persona tiene que ser de la
+      empresa activa y el área, activa de la empresa. El motivo es opcional
+      (hasta 300 caracteres); si no viene en el cuerpo se toma el encabezado
+      `X-Motivo-Cambio`, como en el cambio de cargo.
+
+    El cambio, los roles del cargo y la auditoría (`organizacion.area_cambiada`,
+    con la anterior, la nueva, el motivo y quién la cambió) van en una sola
+    transacción: o queda todo o nada. Mandar la misma que ya tiene no escribe
+    ni audita nada."""
+
+    permission_classes = [IsAuthenticated, Requiere(areas.PERMISO_CAMBIAR)]
+
+    def get(self, request):
+        return Response({"areas": areas.catalogo()})
+
+    def put(self, request):
+        from urllib.parse import unquote
+
+        from apps.chat.services import personas_de_la_empresa
+
+        entrada = CambioAreaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        usuario = personas_de_la_empresa().filter(pk=datos["usuario"]).first()
+        if usuario is None:
+            raise ValidationError({"usuario": ["Esa persona no está registrada en esta empresa."]})
+        area = datos["area"]
+        motivo = (
+            datos["motivo"]
+            or unquote(request.META.get(versiones.ENCABEZADO, "") or "").strip()[:300]
+        )
+        with transaction.atomic():
+            anterior, cambio = areas.cambiar_area(usuario, area)
+            if cambio:
+                roles_de_cargo.sincronizar(_empresa_activa(), [usuario])
+                nuevos = {"area": areas.como_dato(area)}
+                if motivo:
+                    nuevos["motivo"] = motivo
+                record_audit_event(
+                    actor=request.user,
+                    action="organizacion.area_cambiada",
+                    target=usuario,
+                    module=MODULO,
+                    previous_values={"area": areas.como_dato(anterior)},
+                    new_values=nuevos,
+                    context=get_request_context(request),
+                )
+        return Response({"usuario": usuario.id, "area": areas.como_dato(area)})
 
 
 class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
@@ -865,7 +934,9 @@ class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
         documento = serializer.save(subido_por=self.request.user)
         self._uno_predeterminado(documento)
         if documento.activo:
-            confidencialidad.documentos_cambiaron()
+            confidencialidad.documentos_cambiaron(
+                self.request.user, get_request_context(self.request)
+            )
         self._auditar("publicado", documento, {"titulo": documento.titulo})
 
     def perform_update(self, serializer):
@@ -875,7 +946,9 @@ class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
         self._uno_predeterminado(documento)
         nuevo_archivo = "archivo" in serializer.validated_data
         if documento.activo and (nuevo_archivo or not estaba_activo):
-            confidencialidad.documentos_cambiaron()
+            confidencialidad.documentos_cambiaron(
+                self.request.user, get_request_context(self.request)
+            )
         if nuevo_archivo and anterior:
             # Se reemplazó el archivo: el viejo no queda huérfano en el disco.
             documento.archivo.storage.delete(anterior)
@@ -920,54 +993,81 @@ class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
         return respuesta
 
 
-class ConfidencialidadView(APIView):
-    """El acuerdo de confidencialidad: verlo (con si la persona ya lo aceptó
-    para la versión vigente de los documentos) y, con
-    `codigos.acuerdo`, cambiar su título y texto."""
+def _edicion_trasladada(donde: str) -> Response:
+    """Lo que responde una edición retirada por US-004 (CA-7, 11/11/2026):
+    410 Gone con el lugar donde se edita ahora. No se borra la ruta para que
+    una pantalla vieja (en caché) reciba un mensaje claro y no un 404."""
+    return Response(
+        {
+            "error": {
+                "code": "edicion_trasladada",
+                "message": (
+                    "Este texto ya no se edita aquí: se edita en Protección de datos → Textos."
+                ),
+                "details": {"se_edita_en": donde},
+            }
+        },
+        status=status.HTTP_410_GONE,
+    )
 
-    permission_classes = [IsAuthenticated, AcuerdoPermission]
+
+#: Dónde se editan desde US-004 los textos de protección de datos (frontend).
+TEXTOS_DE_PRIVACIDAD = "/admin/privacidad/textos"
+
+
+class ConfidencialidadView(APIView):
+    """El acuerdo de confidencialidad: verlo, con si la persona ya lo aceptó
+    para la versión vigente (de los documentos y del texto). Desde US-004 el
+    título y el texto se editan en Protección de datos: `PUT` responde 410
+    (`edicion_trasladada`)."""
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(confidencialidad.estado(request.user))
 
     def put(self, request):
-        entrada = AcuerdoConfidencialidadSerializer(data=request.data)
-        entrada.is_valid(raise_exception=True)
-        vigente = confidencialidad.acuerdo()
-        anteriores = {"titulo": vigente.titulo, "texto": vigente.texto}
-        vigente.titulo = entrada.validated_data["titulo"].strip()
-        vigente.texto = entrada.validated_data["texto"].strip()
-        vigente.save(update_fields=["titulo", "texto", "updated_at"])
-        record_audit_event(
-            actor=request.user,
-            action="institucional.confidencialidad.editada",
-            target=vigente,
-            module=MODULO_INSTITUCIONAL,
-            previous_values=anteriores,
-            new_values={"titulo": vigente.titulo, "texto": vigente.texto},
-            context=get_request_context(request),
-        )
-        return Response(confidencialidad.estado(request.user))
+        return _edicion_trasladada(TEXTOS_DE_PRIVACIDAD)
 
 
 class AceptarConfidencialidadView(APIView):
-    """Aceptar el acuerdo: toda persona con sesión. Queda con su fecha."""
+    """Aceptar el acuerdo: toda persona con sesión. Queda con su fecha, la
+    IP y el navegador en el registro común de Protección de datos. Cuerpo
+    opcional `{"version"}` (la que se le mostró, US-004): si cambió mientras
+    lo leía, 400 en `acepto`."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        aceptacion = confidencialidad.aceptar(request.user)
-        record_audit_event(
-            actor=request.user,
-            action="institucional.confidencialidad.aceptada",
-            target=request.user,
-            module=MODULO_INSTITUCIONAL,
-            new_values={
-                "version_documentos": aceptacion.version_documentos,
-                "aceptado_en": aceptacion.aceptado_en.isoformat(),
-            },
-            context=get_request_context(request),
+        version = request.data.get("version") if hasattr(request.data, "get") else None
+        if version in ("", None):
+            version = None
+        else:
+            try:
+                version = int(version)
+                if version < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValidationError({"version": ["Versión inválida."]}) from None
+        contexto = get_request_context(request)
+        aceptacion, creada = confidencialidad.aceptar(
+            request.user,
+            ip=contexto.get("ip_address"),
+            navegador=contexto.get("user_agent", ""),
+            version=version,
         )
+        if creada:
+            record_audit_event(
+                actor=request.user,
+                action="institucional.confidencialidad.aceptada",
+                target=request.user,
+                module=MODULO_INSTITUCIONAL,
+                new_values={
+                    "version": aceptacion.version,
+                    "aceptado_en": aceptacion.aceptado_en.isoformat(),
+                },
+                context=contexto,
+            )
         return Response(confidencialidad.estado(request.user))
 
 
@@ -1242,7 +1342,13 @@ class MiCumpleanosView(APIView):
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
         resultado = contacto.guardar_cumpleanos(
-            request.user, mostrar=datos["mostrar"], dia=datos.get("dia"), mes=datos.get("mes")
+            request.user,
+            mostrar=datos["mostrar"],
+            dia=datos.get("dia"),
+            mes=datos.get("mes"),
+            ip=get_client_ip(request),
+            navegador=request.META.get("HTTP_USER_AGENT", ""),
+            version=datos.get("version"),
         )
         record_audit_event(
             actor=request.user,
@@ -1276,6 +1382,9 @@ class MiAniversarioView(APIView):
             dia=datos.get("dia"),
             mes=datos.get("mes"),
             anio=datos.get("anio"),
+            ip=get_client_ip(request),
+            navegador=request.META.get("HTTP_USER_AGENT", ""),
+            version=datos.get("version"),
         )
         record_audit_event(
             actor=request.user,
@@ -1443,9 +1552,11 @@ class UsoHerramientasView(APIView):
 
 
 class TextosLegalesView(APIView):
-    """Configuración → Textos legales (26/10/2026): los textos de tratamiento
-    de datos personales que aceptan las personas. Cambiar uno sube su versión
-    y queda en la auditoría con el texto anterior y el nuevo."""
+    """Configuración → Textos legales (26/10/2026). Desde US-004 (CA-7,
+    11/11/2026) la pantalla desaparece y el texto se edita en Protección de
+    datos: `GET` sigue respondiendo lo mismo, de solo lectura y leído del
+    catálogo, mientras la pantalla vieja exista; `PUT` responde 410
+    (`edicion_trasladada`)."""
 
     permission_classes = [IsAuthenticated, TextosLegalesPermission]
 
@@ -1459,23 +1570,7 @@ class TextosLegalesView(APIView):
     def put(self, request, clave=None):
         if clave not in textos_legales.TEXTOS:
             raise Http404()
-        texto = (request.data.get("texto") or "").strip()
-        if len(texto) < 20:
-            raise ValidationError({"texto": "Escriba el texto completo (al menos 20 caracteres)."})
-        if len(texto) > 4000:
-            raise ValidationError({"texto": "Como máximo 4000 caracteres."})
-        vigente, anterior = textos_legales.guardar(clave, texto)
-        if vigente.texto != anterior:
-            record_audit_event(
-                actor=request.user,
-                action="configuracion.texto_legal.actualizado",
-                target=vigente,
-                module="configuracion",
-                previous_values={"texto": anterior, "version": vigente.version - 1},
-                new_values={"texto": vigente.texto, "version": vigente.version},
-                context=get_request_context(request),
-            )
-        return Response(textos_legales.de(clave))
+        return _edicion_trasladada(TEXTOS_DE_PRIVACIDAD)
 
 
 # --- Bitácora del organigrama (26/10/2026) -----------------------------------------------

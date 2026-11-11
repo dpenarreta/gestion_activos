@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from apps.adjuntos.models import TAMANO_MAXIMO_BYTES
 from apps.adjuntos.validators import tipo_por_extension, validar_archivo
+from apps.core.archivos import mensaje_de_tamano
 from apps.organizacion.contacto import para_compartir
 from apps.organizacion.models import Departamento
 from apps.permissions.authorization import user_has_permission
@@ -225,8 +226,8 @@ class MensajesView(APIView):
                 raise ArchivoGrande(
                     {
                         "archivo": [
-                            f"El archivo pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo "
-                            f"es {TAMANO_MAXIMO_BYTES // (1024 * 1024)} MB. Envíelo por correo."
+                            mensaje_de_tamano("El archivo", archivo.size, TAMANO_MAXIMO_BYTES)
+                            + " Envíelo por correo."
                         ],
                         "correos": correos,
                         "limite_mb": TAMANO_MAXIMO_BYTES // (1024 * 1024),
