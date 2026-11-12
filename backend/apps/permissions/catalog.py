@@ -666,9 +666,14 @@ PERMISSION_CATALOG = {
         "description": (
             "Los procesos que se piden con una plantilla: cada tipo tiene su "
             "plantilla, su formulario y sus pasos (aprobación, autorización, "
-            "revisión…). Solicitar y decidir lo que a uno le toca no piden permiso."
+            "revisión…). Solicitar pide `procesos.solicitar` (de todos los roles de "
+            "cargo); decidir lo que a uno le toca no pide permiso."
         ),
         "permissions": {
+            # Todo lo nuevo nace con sus permisos (regla del usuario, US-008,
+            # 12/11/2026): pedir un proceso se puede quitar a un rol. Lo traen
+            # los roles de cargo por `roles_de_cargo.PERMISOS_BASE`.
+            "procesos.solicitar": "Solicitar procesos y seguir las propias solicitudes",
             "procesos.configurar": (
                 "Crear y editar los tipos de proceso: su plantilla, los campos de su "
                 "formulario (obligatorios u opcionales) y sus pasos con quién decide cada uno"

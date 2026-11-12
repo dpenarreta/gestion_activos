@@ -35,6 +35,9 @@ PERMISOS_BASE = (
     # Sus tickets y pedir ayuda desde la Mesa de ayuda (09/11/2026).
     "soporte.mesa_mis_tickets",
     "soporte.mesa_crear",
+    # Pedir procesos (US-008, 12/11/2026): nace con su permiso, que se puede
+    # quitar a un rol. Pedir proyectos sigue sin pedir permiso.
+    "procesos.solicitar",
 )
 # Consultar el propio rol de pagos tampoco: va persona por persona, por la
 # lista de habilitados (22/10/2026). Los permisos que da cada cargo en

@@ -346,6 +346,7 @@ describe("El organigrama", () => {
         "institucional.editar",
         "institucional.asignar",
         "licencias.solicitar",
+        "procesos.solicitar",
         "roles_pago.consultar",
         "sugerencias.reportar",
       ],
@@ -382,8 +383,17 @@ describe("El organigrama", () => {
     ]);
     // Sin permiso para pedir permisos, el grupo queda con proyectos y procesos.
     expect(
-      solicitudes(getVisibleAdminMenu(["institucional.ver"], "institucional")),
+      solicitudes(
+        getVisibleAdminMenu(
+          ["institucional.ver", "procesos.solicitar"],
+          "institucional",
+        ),
+      ),
     ).toEqual(["institucional-proyectos", "institucional-procesos"]);
+    // Sin ninguno de los dos, solo queda proyectos, y va directa.
+    expect(sinBase).toContain("institucional-proyectos");
+    expect(sinBase).not.toContain("institucional-solicitudes");
+    expect(sinBase).not.toContain("institucional-procesos");
     expect(sinBase).not.toContain("institucional-permisos");
     expect(sinBase).not.toContain("institucional-rol-pagos");
     expect(sinBase).not.toContain("institucional-rol-pagos-consultar");

@@ -21,6 +21,8 @@ import re
 import pytest
 from django.apps import apps as django_apps
 from django.contrib.auth.models import Group, Permission
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.core.models import AuditLog
 from apps.licencias.tests.test_licencias import _persona
@@ -87,8 +89,13 @@ def _solicitar_proceso(cliente, tipo, categoria="proceso", titulo="Alta de Ñand
 def proceso(proyecto):  # noqa: F811
     """Lo de `proyecto` (un tipo de proyecto activo, con Inés que configura
     proyectos y ve todas) más Pedro, que configura procesos y ve todas, y un
-    tipo de proceso activo que decide Tatiana (Talento Humano)."""
+    tipo de proceso activo que decide Tatiana (Talento Humano). El rol de
+    cargo de todos («Colaborador») trae `procesos.solicitar`, como
+    `PERMISOS_BASE`."""
     e = proyecto
+    Group.objects.get(name="Colaborador").permissions.add(
+        Permission.objects.get(content_type__app_label="permissions", codename="procesos.solicitar")
+    )
     _, ines = e["admin"]
     e["tipo"] = _activar(ines, e["tipo"])
     e["pedro"] = _persona("pedro", "procesos.configurar", "procesos.ver_todas")
@@ -564,3 +571,120 @@ def test_los_permisos_de_procesos_estan_en_el_catalogo_del_grupo_institucional()
 
     assert {"procesos.configurar", "procesos.ver_todas"} <= set(all_codenames())
     assert PERMISSION_CATALOG["procesos"]["grupo"]["id"] == "institucional"
+
+
+# --- Pedir un proceso pide `procesos.solicitar` -----------------------------------------
+
+
+def test_pedir_un_proceso_pide_procesos_solicitar_y_un_proyecto_nada(proceso):
+    noelia, sin_permiso = _persona("noelia", con_rol=False)
+    respuesta = _solicitar_proceso(sin_permiso, proceso["tipo_proceso"])
+    assert respuesta.status_code == 403
+    assert "procesos.solicitar" in respuesta.json()["error"]["message"]
+    denegados = AuditLog.objects.filter(action="access_denied", actor=noelia)
+    assert [a.new_values["required_permission"] for a in denegados] == ["procesos.solicitar"]
+
+    # Proyectos sigue sin pedir permiso para solicitar.
+    de_proyecto = _solicitar(sin_permiso, proceso["tipo"])
+    assert de_proyecto.status_code == 201, de_proyecto.data
+
+    # Ver, listar y el resumen de procesos no lo exigen.
+    assert sin_permiso.get(_q(SOLICITUDES)).status_code == 200
+    assert sin_permiso.get(_q(RESUMEN)).json() == {"por_atender": 0}
+    assert sin_permiso.get(_q(PARA_SOLICITAR)).status_code == 200
+
+    # Con el permiso, sin ningún rol (la caché de permisos va por instancia:
+    # otra cuenta en vez de añadírselo a Noelia a mitad de la prueba).
+    _, con_el_permiso = _persona("nuria", "procesos.solicitar", con_rol=False)
+    con_permiso = _solicitar_proceso(con_el_permiso, proceso["tipo_proceso"])
+    assert con_permiso.status_code == 201, con_permiso.data
+    assert con_permiso.json()["numero"].startswith("PRC-")
+
+
+def test_decidir_un_proceso_no_pide_procesos_solicitar(proceso):
+    """Tatiana decide el paso; quitarle `procesos.solicitar` no se lo impide."""
+    _, ana = proceso["ana"]
+    th, tatiana = proceso["th"]
+    sid = _solicitar_proceso(ana, proceso["tipo_proceso"]).json()["id"]
+    Group.objects.get(name="Colaborador").permissions.remove(
+        Permission.objects.get(content_type__app_label="permissions", codename="procesos.solicitar")
+    )
+    assert tatiana.get(_q(RESUMEN)).json() == {"por_atender": 1}
+    aprobada = tatiana.post(_q(f"{SOLICITUDES}{sid}/aprobar/"), {}, format="json")
+    assert aprobada.status_code == 200, aprobada.data
+
+
+def test_permisos_base_trae_procesos_solicitar():
+    from apps.organizacion.roles_de_cargo import PERMISOS_BASE
+    from apps.permissions.catalog import PERMISSION_CATALOG
+
+    assert "procesos.solicitar" in PERMISOS_BASE
+    assert "procesos.solicitar" in PERMISSION_CATALOG["procesos"]["permissions"]
+
+
+def test_la_migracion_0049_da_solicitar_procesos_a_los_roles_de_cargo(db):
+    migracion = importlib.import_module("apps.roles.migrations.0049_permiso_solicitar_procesos")
+    tipo = {"content_type__app_label": "permissions"}
+    base = Permission.objects.get(codename="licencias.solicitar", **tipo)
+    nuevo = Permission.objects.get(codename="procesos.solicitar", **tipo)
+
+    de_cargo = Group.objects.create(name="Asistente de Compras (prueba)")
+    de_cargo.permissions.add(base)
+    personalizado = Group.objects.create(name="Auditor externo (prueba)")
+    administrador, _ = Group.objects.get_or_create(name="Administrador")
+    superusuario, _ = Group.objects.get_or_create(name="Superusuario")
+    for rol in (de_cargo, administrador, superusuario):
+        rol.permissions.remove(nuevo)
+
+    migracion.conceder(django_apps, None)
+    migracion.conceder(django_apps, None)  # idempotente
+
+    for rol in (de_cargo, administrador, superusuario):
+        assert rol.permissions.filter(pk=nuevo.pk).count() == 1, rol.name
+    assert not personalizado.permissions.filter(pk=nuevo.pk).exists()
+
+    migracion.retirar(django_apps, None)
+    assert not Group.objects.filter(permissions=nuevo).exists()
+    assert de_cargo.permissions.filter(pk=base.pk).exists()
+
+
+# --- El listado de tipos no hace consultas por tipo ------------------------------------
+
+
+def test_el_listado_de_tipos_no_crece_en_consultas_por_tipo(proceso):
+    """QA-TECH (US-008): `solicitudes`, los campos, los pasos con quién decide
+    y lo que está en curso vienen en un número fijo de consultas."""
+    _, pedro = proceso["pedro"]
+    _, ana = proceso["ana"]
+    th, _ = proceso["th"]
+    assert _solicitar_proceso(ana, proceso["tipo_proceso"]).status_code == 201
+
+    def contar():
+        with CaptureQueriesContext(connection) as consultas:
+            respuesta = pedro.get(_q(TIPOS))
+        assert respuesta.status_code == 200
+        return len(consultas), respuesta.json()
+
+    antes, tipos = contar()
+    assert len(tipos) == 1
+    assert tipos[0]["solicitudes"] == 1 and tipos[0]["solicitudes_en_curso"] == 1
+
+    rol = Group.objects.create(name="Mejora continua (prueba)")
+    rol.user_set.add(th)
+    for nombre, aprobadores in (
+        ("Rediseño de cobranzas", [{"tipo": "rol", "rol": rol.id}]),
+        ("Cierre contable", [{"tipo": "cargo", "cargo": proceso["gg"].id}]),
+        ("Inventario anual", [{"tipo": "jefe_inmediato"}, {"tipo": "persona", "usuario": th.id}]),
+    ):
+        nuevo = _crear_tipo_de_proceso(pedro, nombre=nombre, aprobadores=aprobadores)
+        assert _solicitar_proceso(ana, nuevo, titulo=f"Pedido de {nombre}").status_code == 201
+
+    despues, tipos = contar()
+    assert len(tipos) == 4
+    assert all(t["solicitudes"] == 1 for t in tipos)
+    assert {d["descripcion"] for t in tipos for p in t["pasos"] for d in p["aprobadores"]} >= {
+        "Rol Mejora continua (prueba)",
+        "Cargo Gerente General",
+        "Tatiana",
+    }
+    assert despues == antes

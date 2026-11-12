@@ -11,4 +11,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-005](US-005-area-del-cargo-y-bloqueo-en-mi-perfil.md) | El área sale del cargo y queda bloqueada en «Mi perfil» | Historia de Usuario | COMPLETADA | 2026-11-11 |
 | [US-006](US-006-responsable-y-fecha-al-crear-una-orden.md) | Responsable y fecha programada obligatorios al crear una orden de trabajo | Historia de Usuario | COMPLETADA | 2026-11-11 |
 | [US-007](US-007-imagenes-del-carrusel-tamano-y-orientacion.md) | Imágenes del carrusel institucional: límite de 5 MB bien medido e imágenes verticales | Bug + Historia de Usuario | COMPLETADA | 2026-11-11 |
-| [US-008](US-008-solicitudes-agrupadas-y-solicitud-de-procesos.md) | Menú «Solicitudes» y nueva «Solicitud de procesos» | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
+| [US-008](US-008-solicitudes-agrupadas-y-solicitud-de-procesos.md) | Menú «Solicitudes» y nueva «Solicitud de procesos» | Historia de Usuario | COMPLETADA | 2026-11-12 |

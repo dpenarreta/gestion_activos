@@ -21,6 +21,8 @@ export const CATEGORIAS_SOLICITUD = {
     permisos: {
       verTodas: "proyectos.ver_todas",
       configurar: "proyectos.configurar",
+      // Pedir proyectos no exige permiso.
+      solicitar: null,
     },
     textos: {
       titulo: "Solicitud de proyectos",
@@ -43,9 +45,12 @@ export const CATEGORIAS_SOLICITUD = {
       configurarTipos: "Configurar tipos de proyecto",
       vacioSinTipos:
         "Todavía no hay proyectos para pedir. Cuando el área responsable los publique, aparecerán aquí.",
+      // Sin permiso para pedir ni configurar: sin invitar a pedir.
+      vacioSinPermiso: "Todavía no hay tipos de proyecto.",
       // Un enlace `?solicitud=` de la otra categoría (el servidor da 404).
+      // Sin el número (PRY/PRC): quien sigue el enlace no lo ve.
       noEncontrada:
-        "No se encontró la solicitud aquí. Si es de proceso (PRC-…), ábrala en «Solicitud de procesos».",
+        "No se encontró la solicitud aquí. Puede que sea de Solicitud de procesos.",
       abrirEnOtra: "Abrir en Solicitud de procesos",
       // Tipos de proyecto (configuración)
       descripcionTipos:
@@ -82,6 +87,8 @@ export const CATEGORIAS_SOLICITUD = {
     permisos: {
       verTodas: "procesos.ver_todas",
       configurar: "procesos.configurar",
+      // De todo cargo (`PERMISOS_BASE`), como `licencias.solicitar`.
+      solicitar: "procesos.solicitar",
     },
     textos: {
       titulo: "Solicitud de procesos",
@@ -103,8 +110,9 @@ export const CATEGORIAS_SOLICITUD = {
       configurarTipos: "Configurar tipos de proceso",
       vacioSinTipos:
         "Todavía no hay procesos para pedir. Cuando el área responsable los publique, aparecerán aquí.",
+      vacioSinPermiso: "Todavía no hay tipos de proceso.",
       noEncontrada:
-        "No se encontró la solicitud aquí. Si es de proyecto (PRY-…), ábrala en «Solicitud de proyectos».",
+        "No se encontró la solicitud aquí. Puede que sea de Solicitud de proyectos.",
       abrirEnOtra: "Abrir en Solicitud de proyectos",
       descripcionTipos:
         "Los procesos que se pueden solicitar: su plantilla, los datos que se piden y quién aprueba, autoriza y revisa antes de iniciarlos.",

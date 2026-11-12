@@ -4,7 +4,7 @@
 - **Tipo:** Historia de Usuario
 - **Fecha:** 2026-11-12
 - **Sprint / Módulo:** Institucional › Solicitudes (`backend/apps/proyectos`, `frontend/src/pages/Institucional/SolicitudProyectosPage.jsx`, `TiposProyectoPage.jsx`, `staticAdminMenu.js`)
-- **Estado:** COMPLETADA CON PENDIENTES
+- **Estado:** COMPLETADA
 - **Tech Lead Asignado:** Tech-Lead Orchestrator
 - **Desarrolladores Requeridos:** DEV-2 (incluye la migración), DEV-4
 
@@ -99,12 +99,18 @@ Los endpoints existentes de `/api/v1/proyectos/` aceptan el parámetro de consul
 - **Permisos propios para procesos.** Quien configura proyectos no configura procesos por defecto. La migración los concede a quien ya tiene los equivalentes de proyectos, para que nadie quede sin acceso. Se pueden quitar desde Roles.
 - **DEV-4, `conPermiso` en `staticAdminMenu.js`.** El grupo «Solicitudes» no lleva permiso propio, porque proyectos y procesos son de todos. Ahora un grupo sin permiso propio cuenta solo por los hijos que piden uno. Sin este cambio, todo empleado habría figurado «con permiso» en el módulo Institucional para la pantalla 403 y para `InicioDelPanel`. Los demás grupos sin permiso no cambian. El Tech Lead lo aceptó.
 - **DEV-2, diferencias de contrato:** (1) crear una solicitud con un tipo de la otra categoría da 400 en `tipo_proyecto`, igual que con un tipo inexistente; (2) el nombre de un tipo sigue siendo único por empresa entre las dos categorías (la restricción `tipo_proyecto_unico` no distingue la categoría); (3) `categoria` es de solo lectura: otra distinta en el cuerpo da 400; (4) los números PRC y PRY salen de la misma tabla, así que dentro de cada flujo puede haber saltos. Aceptadas por el Tech Lead.
+- **Ronda de pendientes (pedido del usuario, 12/11/2026):** se corrigen los pendientes menores y se crea el permiso `procesos.solicitar`, «Solicitar procesos y seguir las propias solicitudes». Regla del usuario: todo lo nuevo nace con sus permisos.
+  - El permiso es de todo cargo: va en `roles_de_cargo.PERMISOS_BASE`, igual que `licencias.solicitar`, y la migración `roles/0049` lo concede a los roles de cargo existentes y a Administrador y Superusuario.
+  - Pedir un proceso (POST de una solicitud con `categoria=proceso`) lo exige y, sin él, responde 403.
+  - Atender, ver las propias y lo que ya existe no lo exigen, para que quien deba aprobar no quede bloqueado.
+  - En el menú, «Solicitud de procesos» pide `procesos.solicitar`, `procesos.ver_todas` o `procesos.configurar`.
+  - Los proyectos siguen como estaban, sin permiso para pedir.
 - **Sin despliegue por ahora:** el usuario no tiene acceso a la red del servidor. El commit se suma a los despliegues pendientes, que llevan migraciones.
 
 ---
 
 ### 6. Registro de Cierre
-- **Estado final:** COMPLETADA CON PENDIENTES (solo observaciones menores; aún no desplegada).
+- **Estado final:** COMPLETADA. Los pendientes menores se corrigieron en una ronda posterior, el 12/11/2026.
 - **Fecha de cierre:** 2026-11-12
 - **QA-FUNC:** APROBADO CON OBSERVACIONES (6 de 6 criterios) · **QA-TECH:** APROBADO CON OBSERVACIONES (solo P3) · **QA-UX:** aprobado en ronda 2. En la ronda 1 había un hallazgo Alto, el estado vacío sin tipos; quedó corregido.
 - **Criterios de aceptación:** CA-1 a CA-6 cumplidos. CA-3, sobre crear con un tipo de la otra categoría, responde 400 en `tipo_proyecto` en lugar de 404, como un tipo inexistente; diferencia aceptada.
@@ -125,9 +131,12 @@ Los endpoints existentes de `/api/v1/proyectos/` aceptan el parámetro de consul
   - `makemigrations --check`: sin cambios.
   - `pytest` de proyectos, descargas, privacidad, notificaciones, permissions, roles, core, ausencias y licencias con `-n 4`: 712 passed.
   - vitest completo: 3168 passed. eslint y prettier, limpios sobre lo tocado. `vite build`: correcto. Estas tres verificaciones las corrió DEV-4.
+- **Ronda de pendientes (12/11/2026):**
+  - Corregidos el rebote del 404 entre pantallas (marca `&desde=` y mensaje final sin enlace), el parpadeo de «Nueva solicitud» y el mensaje vacío duplicado, ahora un aviso compacto.
+  - El listado de tipos ya no hace consultas por tipo: anotación y precarga, cubiertas por una prueba de consultas fijas.
+  - Permiso nuevo `procesos.solicitar`, que va en `PERMISOS_BASE` con las migraciones permissions 0063 y roles 0049 y se exige solo al pedir un proceso. El menú «Solicitud de procesos» pide `procesos.solicitar`, `procesos.ver_todas` o `procesos.configurar`.
+  - El grupo «Solicitudes» usa `aplanarSiUno`: quien solo puede ver proyectos tiene la entrada directa.
+  - Verificación: pytest de proyectos, roles, permissions y organizacion con `-n 4`, 375 passed; vitest completo, 3176 passed; eslint y prettier limpios; `vite build` correcto.
 - **Pendientes:**
-  - (UX, Media-baja) El enlace «Abrir en Solicitud de …» del 404 puede rebotar entre las dos pantallas si la solicitud no existe o no hay acceso. Habría que marcar `&desde=` y, en el segundo 404, mostrar «No se encontró la solicitud o no tiene acceso a ella», además de quitar del texto el prefijo PRY/PRC.
-  - (UX, Baja) «Nueva solicitud» aparece y desaparece mientras cargan los tipos el primer día. Habría que distinguir «cargando» de «falló».
-  - (UX, Baja) Con `ver_todas` y sin tipos se ven dos mensajes vacíos a la vez. Lo de la cabecera del grupo que repite el total y el fallo silencioso del resumen ya venía así.
-  - (QA-TECH P3, anterior) `get_solicitudes` hace un `count()` por tipo en la configuración.
-  - Prueba manual en el navegador y despliegue con `-Migrar` (proyectos 0003, permissions 0062, roles 0048) cuando haya acceso a la red del servidor.
+  - Ninguno de código.
+  - Falta la prueba manual en el navegador, tras desplegar, con una cuenta de empleado y otra con `procesos.configurar`.

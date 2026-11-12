@@ -133,7 +133,10 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
         return bool(tipo.plantilla)
 
     def get_solicitudes(self, tipo) -> int:
-        return tipo.solicitudes.count()
+        # Anotado por `TipoProyectoViewSet.get_queryset` (una sola consulta para
+        # todo el listado); un tipo recién creado no lo trae.
+        anotado = getattr(tipo, "num_solicitudes", None)
+        return tipo.solicitudes.count() if anotado is None else anotado
 
     def _categoria(self) -> str:
         """La del tipo que se edita o, al crear, la que pidió la vista."""
@@ -211,11 +214,17 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
         datos = super().to_representation(tipo)
         # Lo que está en curso: el editor avisa y no deja quitar esos pasos
         # (auditoría UX/UI, 30/10/2026).
-        pendientes = SolicitudProyecto.objects.filter(
-            tipo_proyecto=tipo, estado=SolicitudProyecto.Estado.PENDIENTE
-        )
+        # Las precargadas por la vista (`solicitudes_en_curso`) o, si no
+        # vienen, una consulta.
+        en_curso = getattr(tipo, "solicitudes_en_curso", None)
+        if en_curso is None:
+            pasos_en_curso = SolicitudProyecto.objects.filter(
+                tipo_proyecto=tipo, estado=SolicitudProyecto.Estado.PENDIENTE
+            ).values_list("paso_actual_id", flat=True)
+        else:
+            pasos_en_curso = [s.paso_actual_id for s in en_curso]
         por_paso = {}
-        for paso_id in pendientes.values_list("paso_actual_id", flat=True):
+        for paso_id in pasos_en_curso:
             por_paso[paso_id] = por_paso.get(paso_id, 0) + 1
         datos["solicitudes_en_curso"] = sum(por_paso.values())
         datos["campos"] = [
@@ -228,7 +237,9 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
                 "obligatorio": c.obligatorio,
                 "ayuda": c.ayuda,
             }
-            for c in tipo.campos.order_by("orden", "id")
+            # `.all()` usa lo precargado; el orden es el de `Meta.ordering`
+            # (orden, id).
+            for c in tipo.campos.all()
         ]
         datos["pasos"] = [
             {
@@ -239,7 +250,7 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
                     DestinoSerializer().to_representation(a) for a in paso.aprobadores.all()
                 ],
             }
-            for paso in tipo.pasos.order_by("orden", "id")
+            for paso in tipo.pasos.all()
         ]
         return datos
 

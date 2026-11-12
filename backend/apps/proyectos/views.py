@@ -1,6 +1,8 @@
 from urllib.parse import quote
 
 from django.contrib.auth.models import Group
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Subquery
+from django.db.models.functions import Coalesce
 from django.http import FileResponse, Http404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -20,7 +22,7 @@ from apps.permissions.permissions import HasActionPermission
 
 from . import services
 from .categorias import PorCategoriaMixin
-from .models import SolicitudProyecto
+from .models import AprobadorPasoProyecto, SolicitudProyecto
 from .serializers import (
     DetalleSolicitudSerializer,
     NuevaSolicitudSerializer,
@@ -70,7 +72,38 @@ class TipoProyectoViewSet(PorCategoriaMixin, viewsets.ModelViewSet):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
-        return self.tipos().prefetch_related("campos", "pasos__aprobadores")
+        """Todo lo que pinta el serializer viene en un número fijo de consultas,
+        tenga los tipos que tenga (QA-TECH, US-008): cuántas solicitudes tiene
+        cada tipo (subconsulta, con el filtro por empresa del gestor), sus
+        campos, sus pasos con quién decide y las solicitudes en curso."""
+        cuantas = (
+            SolicitudProyecto.objects.filter(tipo_proyecto=OuterRef("pk"))
+            .order_by()
+            .values("tipo_proyecto")
+            .annotate(total=Count("pk"))
+            .values("total")
+        )
+        return (
+            self.tipos()
+            .annotate(num_solicitudes=Coalesce(Subquery(cuantas, output_field=IntegerField()), 0))
+            .prefetch_related(
+                "campos",
+                "pasos",
+                Prefetch(
+                    "pasos__aprobadores",
+                    queryset=AprobadorPasoProyecto.objects.select_related(
+                        "usuario", "rol", "cargo"
+                    ),
+                ),
+                Prefetch(
+                    "solicitudes",
+                    queryset=SolicitudProyecto.objects.filter(
+                        estado=SolicitudProyecto.Estado.PENDIENTE
+                    ).only("id", "tipo_proyecto_id", "paso_actual_id"),
+                    to_attr="solicitudes_en_curso",
+                ),
+            )
+        )
 
     def get_serializer_context(self):
         return {**super().get_serializer_context(), "categoria": self.categoria}
@@ -204,12 +237,24 @@ class _Comentario(serializers.Serializer):
     comentario = serializers.CharField(allow_blank=True, default="")
 
 
+class SolicitarPermission(HasActionPermission):
+    """Pedir (crear) una solicitud exige el permiso de la categoría, si tiene:
+    `procesos.solicitar` para procesos; proyectos no pide nada (US-008). Ver
+    las propias, atender, decidir y el resumen no lo exigen. Se evalúa
+    después de `IsAuthenticated` y audita el intento denegado."""
+
+    def get_required_permission(self, request, view):
+        if getattr(view, "action", None) != "create":
+            return None
+        return view.datos_categoria.permiso_solicitar
+
+
 class SolicitudViewSet(PorCategoriaMixin, viewsets.GenericViewSet):
     """Las solicitudes de la categoría: las mías, las que tengo por atender y,
     con el `*.ver_todas` de la categoría, todas las de la empresa. Una de otra
     categoría responde 404 en todas las acciones."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SolicitarPermission]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):

@@ -258,6 +258,7 @@ describe("Insignias del menú", () => {
     resumenProyectos.mockResolvedValue({ por_atender: 2 });
     resumenProcesos.mockResolvedValue({ por_atender: 3 });
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    permisos.lista = ["licencias.solicitar", "procesos.solicitar"];
     pintar("/admin/institucional/procesos/tipos");
 
     // La cabecera suma lo de sus tres entradas: 1 + 2 + 3.
@@ -301,7 +302,7 @@ describe("Insignias del menú", () => {
   });
 
   it("sin permiso para pedir permisos, Solicitudes muestra proyectos y procesos", async () => {
-    permisos.lista = [];
+    permisos.lista = ["procesos.solicitar"];
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
     resumenProcesos.mockResolvedValue({ por_atender: 1 });
     pintar("/admin/institucional/procesos");
@@ -318,5 +319,22 @@ describe("Insignias del menú", () => {
       screen.queryByRole("link", { name: /Solicitud de permisos/ }),
     ).toBeNull();
     expect(resumenLicencias).not.toHaveBeenCalled();
+  });
+
+  it("sin procesos.solicitar ni licencias.solicitar, Solicitud de proyectos va directa", async () => {
+    permisos.lista = [];
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    resumenProyectos.mockResolvedValue({ por_atender: 1 });
+    pintar("/admin/institucional/proyectos");
+    expect(
+      await screen.findByRole("link", {
+        name: /Solicitud de proyectos\s*1 por atender/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Solicitudes/ })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /Solicitud de procesos/ }),
+    ).toBeNull();
+    expect(resumenProcesos).not.toHaveBeenCalled();
   });
 });

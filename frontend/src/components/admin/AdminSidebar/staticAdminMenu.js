@@ -685,11 +685,15 @@ export const ADMIN_MENU = [
     // suma lo pendiente de cada uno.
     //
     // Sin `permission` propio: un hijo sin el suyo heredaría el del grupo, y
-    // proyectos y procesos no piden ninguno. Cada hijo se filtra por el suyo.
+    // proyectos no pide ninguno. Cada hijo se filtra por el suyo.
     id: "institucional-solicitudes",
     modulo: "institucional",
     name: "Solicitudes",
     icon: "inbox",
+    // Quien solo puede abrir una (sin `licencias.solicitar` ni
+    // `procesos.solicitar`) la ve directa: un grupo de una entrada es un clic
+    // de más.
+    aplanarSiUno: true,
     children: [
       {
         // Cada persona pide sus permisos y aprueba lo que le toca;
@@ -715,12 +719,19 @@ export const ADMIN_MENU = [
         rutas: [`${RUTA_INSTITUCIONAL}/proyectos`],
       },
       {
-        // Sin permiso, como proyectos: el mismo motor con sus propios tipos
-        // (`?categoria=proceso`); configurarlos pide `procesos.configurar`.
+        // El mismo motor que proyectos con sus propios tipos
+        // (`?categoria=proceso`). A diferencia de proyectos, pedir procesos
+        // pide `procesos.solicitar` (de todo cargo); también la ven quienes
+        // ven todas o configuran los tipos.
         id: "institucional-procesos",
         name: "Solicitud de procesos",
         icon: "clipboard-check",
         path: `${RUTA_INSTITUCIONAL}/procesos`,
+        permission: [
+          "procesos.solicitar",
+          "procesos.ver_todas",
+          "procesos.configurar",
+        ],
         insignia: "procesos_por_atender",
         rutas: [
           `${RUTA_INSTITUCIONAL}/procesos`,
@@ -1004,7 +1015,7 @@ export function conPermiso(items) {
       if (item.permission && !item.deTodoEmpleado) return item;
       // Un grupo sin permiso propio cuenta por los hijos que piden uno
       // (US-008, 12/11/2026): «Solicitudes» no pide ninguno porque proyectos
-      // y procesos son de todos, y no por eso todos tienen permisos.
+      // es de todos, y no por eso todos tienen permisos.
       if (item.children?.length) {
         const children = conPermiso(item.children);
         return children.length ? { ...item, children } : null;

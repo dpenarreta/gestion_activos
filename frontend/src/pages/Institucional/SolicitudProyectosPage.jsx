@@ -433,7 +433,7 @@ function tamano(bytes) {
 
 /** El detalle: lo que se cargó (respuestas y plantilla llena), en qué paso
  * va, su historial y, a quien le toca, aprobar, rechazar o escalar. */
-function DetalleSolicitud({ id, onCambio, onCerrar }) {
+function DetalleSolicitud({ id, desde, onCambio, onCerrar }) {
   const { categoria, textos, rutaOtra } = useCategoriaSolicitud();
   const servicio = servicioDe(categoria);
   const [solicitud, setSolicitud] = useState(null);
@@ -517,12 +517,24 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       {noEncontrada && (
         <div className="mz-alert mz-alert--warn" role="alert">
           <Icon name="exclamation-triangle" />
-          <span>
-            {textos.noEncontrada}{" "}
-            <Link to={`${rutaOtra}?solicitud=${encodeURIComponent(id)}`}>
-              {textos.abrirEnOtra}
-            </Link>
-          </span>
+          {/* Si ya se llegó desde la otra pantalla (`desde`) y aquí tampoco
+              está, no se ofrece volver: el enlace rebotaría de una a otra
+              (QA de US-008, 12/11/2026). */}
+          {desde ? (
+            <span>No se encontró la solicitud o no tiene acceso a ella.</span>
+          ) : (
+            <span>
+              {textos.noEncontrada}{" "}
+              <Link
+                to={`${rutaOtra}?${new URLSearchParams({
+                  solicitud: id,
+                  desde: categoria,
+                })}`}
+              >
+                {textos.abrirEnOtra}
+              </Link>
+            </span>
+          )}
         </div>
       )}
       {/* Mientras llegan los datos, la ventana no queda en blanco. */}
@@ -767,15 +779,21 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
   const servicio = servicioDe(categoria);
   const verTodas = usePermission(permisos.verTodas);
   const configura = usePermission(permisos.configurar);
+  // Procesos exige `procesos.solicitar` para pedir; proyectos no exige nada
+  // (`solicitar: null`).
+  const tienePermisoSolicitar = usePermission(permisos.solicitar);
+  const puedeSolicitar = !permisos.solicitar || tienePermisoSolicitar;
   const [parametros, setParametros] = useSearchParams();
   const [pestana, setPestana] = useState("mias");
   const [lista, setLista] = useState(null);
   // null mientras llega el resumen: el estado vacío del primer día espera a
   // saber que no hay nada por atender.
   const [porAtender, setPorAtender] = useState(null);
-  // Los tipos que se pueden pedir: null mientras cargan o si fallaron (en
-  // ese caso se ofrece «Nueva solicitud», que dice el error y reintenta).
-  const [tiposActivos, setTiposActivos] = useState(null);
+  // Los tipos que se pueden pedir: `undefined` mientras cargan, `null` si
+  // fallaron (se ofrece «Nueva solicitud», que dice el error y reintenta) y
+  // la lista si llegaron. Mientras cargan, el botón no se muestra: antes
+  // aparecía y desaparecía en el primer día.
+  const [tiposActivos, setTiposActivos] = useState(undefined);
   const [nueva, setNueva] = useState(false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -818,6 +836,22 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
   // pedir, «Nueva solicitud» llevaba a una ventana vacía. Sin tipos no se
   // ofrece, y se dice por qué y, a quien configura, cómo empezar.
   const sinTipos = Array.isArray(tiposActivos) && tiposActivos.length === 0;
+  const ofrecerNueva =
+    puedeSolicitar &&
+    (tiposActivos === null ||
+      (Array.isArray(tiposActivos) && tiposActivos.length > 0));
+  // Sin permiso para pedir ni para configurar, el vacío no invita a pedir.
+  const textoSinTipos = configura
+    ? textos.vacioConfigura
+    : puedeSolicitar
+      ? textos.vacioSinTipos
+      : textos.vacioSinPermiso;
+  const enlaceConfigurar = (clase) =>
+    configura && (
+      <Link to={`${config.ruta}/tipos`} className={clase}>
+        <Icon name="gear" /> {textos.configurarTipos}
+      </Link>
+    );
   // La tabla y las pestañas solo se reemplazan si no hay nada que ver: sin
   // solicitudes propias ni por atender. Con «Todas» puede haber solicitudes
   // de otros de tipos ya desactivados, así que a quien las ve se le dejan las
@@ -829,18 +863,21 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
     pestana === "mias" &&
     lista?.length === 0 &&
     !error;
-  const estadoSinTipos = sinTipos && (
+  // En el vacío total, el bloque grande en lugar de la tabla; si la tabla
+  // sigue (con su propio «No hay solicitudes»), un aviso compacto encima, para
+  // no mostrar dos vacíos a la vez (QA-UX de US-008, 12/11/2026).
+  const estadoSinTipos = !sinTipos ? null : vacioTotal ? (
     <EstadoDeCarga
       vacio
-      textoVacio={configura ? textos.vacioConfigura : textos.vacioSinTipos}
-      accionVacio={
-        configura && (
-          <Link to={`${config.ruta}/tipos`} className="btn btn-primary btn-sm">
-            <Icon name="gear" /> {textos.configurarTipos}
-          </Link>
-        )
-      }
+      textoVacio={textoSinTipos}
+      accionVacio={enlaceConfigurar("btn btn-primary btn-sm")}
     />
+  ) : (
+    <div className="mz-alert mz-alert--info mz-alert--accion" role="note">
+      <Icon name="info-circle" />
+      <span>{textoSinTipos}</span>
+      {enlaceConfigurar("btn btn-outline-primary btn-sm ms-auto")}
+    </div>
   );
 
   function abrir(id) {
@@ -864,7 +901,7 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
                 <Icon name="gear" /> {textos.tipos}
               </Link>
             )}
-            {!sinTipos && (
+            {ofrecerNueva && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -990,6 +1027,7 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
         {abierta && (
           <DetalleSolicitud
             id={abierta}
+            desde={parametros.get("desde")}
             onCambio={cargar}
             onCerrar={() => abrir(null)}
           />

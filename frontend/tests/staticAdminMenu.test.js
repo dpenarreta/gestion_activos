@@ -94,7 +94,10 @@ describe("Menú administrativo", () => {
   });
 
   it("Solicitudes agrupa permisos, proyectos y procesos (US-008)", () => {
-    const menu = getVisibleAdminMenu(["licencias.solicitar"], "institucional");
+    const menu = getVisibleAdminMenu(
+      ["licencias.solicitar", "procesos.solicitar"],
+      "institucional",
+    );
     const grupo = buscar(menu, "institucional-solicitudes");
     expect(grupo.name).toBe("Solicitudes");
     expect(grupo.children.map((h) => [h.name, h.path, h.insignia])).toEqual([
@@ -116,13 +119,15 @@ describe("Menú administrativo", () => {
   });
 
   it("un grupo sin permiso propio no hace a nadie «una cuenta con permisos»", () => {
-    // Proyectos y procesos son de todos: el grupo «Solicitudes» se ve sin
-    // permisos, pero no cuenta como permiso de verdad (pantalla de 403).
+    // Proyectos es de todos: se ve sin permisos (directa, porque el grupo
+    // queda con una sola entrada), pero no cuenta como permiso de verdad
+    // (pantalla de 403).
     expect(modulosConPermiso([])).not.toContain("institucional");
     const sinPermisos = getVisibleAdminMenu([], "institucional");
-    expect(buscar(sinPermisos, "institucional-solicitudes")).toBeDefined();
+    expect(buscar(sinPermisos, "institucional-proyectos")).toBeDefined();
+    expect(buscar(sinPermisos, "institucional-solicitudes")).toBeUndefined();
     expect(
-      buscar(conPermiso(sinPermisos), "institucional-solicitudes"),
+      buscar(conPermiso(sinPermisos), "institucional-proyectos"),
     ).toBeUndefined();
     // Con permiso para pedir permisos, sí, y solo con esa entrada.
     const conLicencias = conPermiso(
@@ -133,5 +138,27 @@ describe("Menú administrativo", () => {
         (h) => h.id,
       ),
     ).toEqual(["institucional-permisos"]);
+  });
+
+  it("Solicitud de procesos se ve con procesos.solicitar, ver_todas o configurar, y sin ninguno no", () => {
+    for (const permiso of [
+      "procesos.solicitar",
+      "procesos.ver_todas",
+      "procesos.configurar",
+    ]) {
+      const menu = getVisibleAdminMenu([permiso], "institucional");
+      expect(buscar(menu, "institucional-procesos")).toBeDefined();
+      // Con procesos y proyectos, el grupo se mantiene.
+      expect(buscar(menu, "institucional-solicitudes")).toBeDefined();
+    }
+    const sinNinguno = getVisibleAdminMenu(
+      ["proyectos.configurar", "proyectos.ver_todas"],
+      "institucional",
+    );
+    expect(buscar(sinNinguno, "institucional-procesos")).toBeUndefined();
+    // Y con él, procesos cuenta como permiso de verdad.
+    expect(modulosConPermiso(["procesos.solicitar"])).toContain(
+      "institucional",
+    );
   });
 });

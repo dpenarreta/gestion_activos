@@ -32,6 +32,8 @@ class Datos:
     pantalla: str
     #: Prefijo de la numeración: `PRY-AAAA-NNNN` o `PRC-AAAA-NNNN`.
     prefijo: str
+    #: El que hace falta para pedir una solicitud; `None` si no hace falta.
+    permiso_solicitar: str | None
     permiso_configurar: str
     permiso_ver_todas: str
     #: La pantalla a la que llevan los avisos de la campana.
@@ -47,6 +49,8 @@ CATEGORIAS = {
         singular="proyecto",
         pantalla="Solicitud de proyectos",
         prefijo="PRY",
+        # Pedir proyectos nunca pidió permiso, y sigue así (US-008).
+        permiso_solicitar=None,
         permiso_configurar="proyectos.configurar",
         permiso_ver_todas="proyectos.ver_todas",
         enlace="/admin/institucional/proyectos",
@@ -57,6 +61,7 @@ CATEGORIAS = {
         singular="proceso",
         pantalla="Solicitud de procesos",
         prefijo="PRC",
+        permiso_solicitar="procesos.solicitar",
         permiso_configurar="procesos.configurar",
         permiso_ver_todas="procesos.ver_todas",
         enlace="/admin/institucional/procesos",
