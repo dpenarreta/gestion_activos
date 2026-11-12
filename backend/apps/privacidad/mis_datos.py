@@ -868,14 +868,18 @@ def _solicitudes_de_equipos(ctx: Contexto) -> list[dict]:
     )
 
 
-def _solicitudes_de_proyectos(ctx: Contexto) -> list[dict]:
+def _solicitudes_de_la_categoria(ctx: Contexto, categoria: str, columna_tipo: str) -> list[dict]:
+    """Las solicitudes de proyecto o de proceso (US-008, 12/11/2026): el mismo
+    motor (`apps.proyectos`), separadas por la categoría de su tipo."""
     from apps.proyectos.models import SolicitudProyecto
 
     return _filas(
-        SolicitudProyecto.objects.filter(solicitante=ctx.titular).order_by("created_at"),
+        SolicitudProyecto.objects.filter(
+            solicitante=ctx.titular, tipo_proyecto__categoria=categoria
+        ).order_by("created_at"),
         [
             ("numero", "numero"),
-            ("tipo_de_proyecto", "tipo_proyecto__nombre"),
+            (columna_tipo, "tipo_proyecto__nombre"),
             ("titulo", "titulo"),
             ("respuestas_del_formulario", "respuestas"),
             ("archivo", "archivo_nombre"),
@@ -884,6 +888,14 @@ def _solicitudes_de_proyectos(ctx: Contexto) -> list[dict]:
             ("cerrada_el", "cerrada_en"),
         ],
     )
+
+
+def _solicitudes_de_proyectos(ctx: Contexto) -> list[dict]:
+    return _solicitudes_de_la_categoria(ctx, "proyecto", "tipo_de_proyecto")
+
+
+def _solicitudes_de_procesos(ctx: Contexto) -> list[dict]:
+    return _solicitudes_de_la_categoria(ctx, "proceso", "tipo_de_proceso")
 
 
 def _sugerencias(ctx: Contexto) -> list[dict]:
@@ -1287,6 +1299,12 @@ SECCIONES: tuple[Seccion, ...] = (
         _solicitudes_de_proyectos,
     ),
     Seccion(
+        "solicitudes_de_procesos",
+        "Solicitudes de procesos",
+        "Las que pidió en Institucional, con sus respuestas al formulario.",
+        _solicitudes_de_procesos,
+    ),
+    Seccion(
         "sugerencias", "Sugerencias y errores", "Lo que reportó y sus comentarios.", _sugerencias
     ),
     Seccion("equipos", "Equipos", "Los equipos a su cargo y los que pidió.", _equipos),
@@ -1447,7 +1465,7 @@ APPS_REVISADAS: dict[str, str] = {
     "politicas": "Políticas de renovación de equipos: sin datos personales.",
     "privacidad": "Secciones: solicitudes_de_derechos, aceptaciones_de_textos.",
     "projects": "Secciones: proyectos, comentarios.",
-    "proyectos": "Secciones: solicitudes_de_proyectos.",
+    "proyectos": "Secciones: solicitudes_de_proyectos, solicitudes_de_procesos.",
     "reportes": "Reportes calculados al vuelo: no guarda datos propios.",
     "reuniones": "Secciones: reuniones.",
     "roles": "Secciones: empresas_y_roles.",

@@ -43,8 +43,20 @@ def ruta_archivo(instance, filename: str) -> str:
 
 class TipoProyecto(ModeloDeEmpresa):
     """Un tipo de proyecto que se puede solicitar: su plantilla, su formulario
-    y sus pasos. Solo se activa con plantilla y con al menos un paso."""
+    y sus pasos. Solo se activa con plantilla y con al menos un paso.
 
+    Desde el 12/11/2026 (US-008) el mismo motor sirve a dos flujos separados,
+    según la **categoría** del tipo: la Solicitud de proyectos y la Solicitud
+    de procesos. La categoría se fija al crear el tipo y no cambia después:
+    sus solicitudes, su numeración y sus permisos dependen de ella."""
+
+    class Categoria(models.TextChoices):
+        PROYECTO = "proyecto", "Proyecto"
+        PROCESO = "proceso", "Proceso"
+
+    categoria = models.CharField(
+        max_length=10, choices=Categoria.choices, default=Categoria.PROYECTO
+    )
     nombre = models.CharField(max_length=120)
     descripcion = models.TextField(blank=True)
     activo = models.BooleanField(default=False)
@@ -58,6 +70,9 @@ class TipoProyecto(ModeloDeEmpresa):
         constraints = [
             models.UniqueConstraint(fields=["empresa", "nombre"], name="tipo_proyecto_unico")
         ]
+        # Cada pantalla filtra los tipos (y, por ellos, las solicitudes) de su
+        # categoría dentro de la empresa.
+        indexes = [models.Index(fields=["empresa", "categoria"], name="tipo_proyecto_categoria")]
         verbose_name = "tipo de proyecto"
         verbose_name_plural = "tipos de proyecto"
 

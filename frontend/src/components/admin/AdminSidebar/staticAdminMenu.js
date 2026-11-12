@@ -678,29 +678,56 @@ export const ADMIN_MENU = [
     rutas: [`${RUTA_INSTITUCIONAL}/estructura`],
   },
   {
-    // Sin permiso: cada persona pide sus permisos y aprueba lo que le toca;
-    // configurar los flujos cuelga de aquí (con su permiso).
-    id: "institucional-permisos",
+    // Un grupo (US-008, 12/11/2026): todo lo que se pide a la empresa tiene
+    // un solo punto de entrada. Antes, permisos y proyectos eran entradas
+    // sueltas. Los hijos conservan su id, su dirección y su insignia: los
+    // enlaces de los avisos ya enviados siguen funcionando, y la cabecera
+    // suma lo pendiente de cada uno.
+    //
+    // Sin `permission` propio: un hijo sin el suyo heredaría el del grupo, y
+    // proyectos y procesos no piden ninguno. Cada hijo se filtra por el suyo.
+    id: "institucional-solicitudes",
     modulo: "institucional",
-    name: "Solicitud de permisos",
-    icon: "calendar-check",
-    path: `${RUTA_INSTITUCIONAL}/permisos`,
-    permission: ["licencias.solicitar", "licencias.ver_todas"],
-    // Cuántas solicitudes tiene por aprobar quien entra.
-    insignia: "por_aprobar",
-    rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
-  },
-  {
-    // Sin permiso: toda persona pide proyectos con su plantilla llena y
-    // atiende los que le tocan; configurar los tipos cuelga de aquí.
-    id: "institucional-proyectos",
-    modulo: "institucional",
-    name: "Solicitud de proyectos",
-    icon: "kanban",
-    path: `${RUTA_INSTITUCIONAL}/proyectos`,
-    // Cuántas solicitudes tiene por atender quien entra.
-    insignia: "proyectos_por_atender",
-    rutas: [`${RUTA_INSTITUCIONAL}/proyectos`],
+    name: "Solicitudes",
+    icon: "inbox",
+    children: [
+      {
+        // Cada persona pide sus permisos y aprueba lo que le toca;
+        // configurar los flujos cuelga de aquí (con su permiso).
+        id: "institucional-permisos",
+        name: "Solicitud de permisos",
+        icon: "calendar-check",
+        path: `${RUTA_INSTITUCIONAL}/permisos`,
+        permission: ["licencias.solicitar", "licencias.ver_todas"],
+        // Cuántas solicitudes tiene por aprobar quien entra.
+        insignia: "por_aprobar",
+        rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
+      },
+      {
+        // Sin permiso: toda persona pide proyectos con su plantilla llena y
+        // atiende los que le tocan; configurar los tipos cuelga de aquí.
+        id: "institucional-proyectos",
+        name: "Solicitud de proyectos",
+        icon: "kanban",
+        path: `${RUTA_INSTITUCIONAL}/proyectos`,
+        // Cuántas solicitudes tiene por atender quien entra.
+        insignia: "proyectos_por_atender",
+        rutas: [`${RUTA_INSTITUCIONAL}/proyectos`],
+      },
+      {
+        // Sin permiso, como proyectos: el mismo motor con sus propios tipos
+        // (`?categoria=proceso`); configurarlos pide `procesos.configurar`.
+        id: "institucional-procesos",
+        name: "Solicitud de procesos",
+        icon: "clipboard-check",
+        path: `${RUTA_INSTITUCIONAL}/procesos`,
+        insignia: "procesos_por_atender",
+        rutas: [
+          `${RUTA_INSTITUCIONAL}/procesos`,
+          `${RUTA_INSTITUCIONAL}/procesos/tipos`,
+        ],
+      },
+    ],
   },
   {
     // Sin permiso: cada persona ve sus días de vacaciones.
@@ -972,8 +999,17 @@ export function modulosConPermiso(permissions = []) {
  * las de todo empleado, como «Nuevo ticket» de la Mesa de ayuda). Sirve para
  * saber si alguien tiene permisos de verdad (la pantalla de inicio y el 403). */
 export function conPermiso(items) {
-  return items.filter(
-    (item) =>
-      (item.permission && !item.deTodoEmpleado) || item.children?.length,
-  );
+  return items
+    .map((item) => {
+      if (item.permission && !item.deTodoEmpleado) return item;
+      // Un grupo sin permiso propio cuenta por los hijos que piden uno
+      // (US-008, 12/11/2026): «Solicitudes» no pide ninguno porque proyectos
+      // y procesos son de todos, y no por eso todos tienen permisos.
+      if (item.children?.length) {
+        const children = conPermiso(item.children);
+        return children.length ? { ...item, children } : null;
+      }
+      return null;
+    })
+    .filter(Boolean);
 }

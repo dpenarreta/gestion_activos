@@ -788,13 +788,29 @@ export function AppRoutes() {
             piden permiso; configurar los tipos, sí. */}
         <Route
           path="institucional/proyectos"
-          element={<SolicitudProyectosPage />}
+          element={<SolicitudProyectosPage key="proyecto" />}
         />
         <Route
           path="institucional/proyectos/tipos"
           element={
             <RequirePermission permission="proyectos.configurar">
-              <TiposProyectoPage />
+              <TiposProyectoPage key="proyecto" />
+            </RequirePermission>
+          }
+        />
+        {/* Solicitud de procesos (US-008, 12/11/2026): las mismas pantallas
+            con la categoría «proceso» y sus permisos `procesos.*`. La `key`
+            evita que, al pasar de proyectos a procesos, la pantalla conserve
+            la pestaña o la ventana abierta de la otra. */}
+        <Route
+          path="institucional/procesos"
+          element={<SolicitudProyectosPage key="proceso" categoria="proceso" />}
+        />
+        <Route
+          path="institucional/procesos/tipos"
+          element={
+            <RequirePermission permission="procesos.configurar">
+              <TiposProyectoPage key="proceso" categoria="proceso" />
             </RequirePermission>
           }
         />

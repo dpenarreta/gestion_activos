@@ -4,7 +4,10 @@ import { Link, useLocation } from "react-router-dom";
 import { capacitacionService } from "../../../api/capacitacionService";
 import { escritorioService } from "../../../api/escritorioService";
 import { licenciasService } from "../../../api/licenciasService";
-import { proyectosService } from "../../../api/proyectosService";
+import {
+  procesosService,
+  proyectosService,
+} from "../../../api/proyectosService";
 import { privacidadService } from "../../../api/privacidadService";
 import { matrizService } from "../../../api/matrizService";
 import { nominaService } from "../../../api/nominaService";
@@ -59,6 +62,9 @@ const FUENTES_DE_INSIGNIAS = {
   // Solicitud de proyectos: lo que tiene por atender.
   proyectos_por_atender: () =>
     proyectosService.resumen().then((d) => d.por_atender),
+  // Solicitud de procesos: lo mismo, con `?categoria=proceso` (US-008).
+  procesos_por_atender: () =>
+    procesosService.resumen().then((d) => d.por_atender),
   // Sugerencias y errores: los reportes nuevos (solo quien los gestiona).
   sugerencias: () => sugerenciasService.resumen().then((d) => d.nuevos),
   // Consultar rol de pagos: el rol del mes que aún no acepta (el mismo que

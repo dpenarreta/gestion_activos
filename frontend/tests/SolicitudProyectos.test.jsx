@@ -41,11 +41,15 @@ const servicio = {
   plantillaConfigurada: vi.fn(),
 };
 const guardarArchivo = vi.fn();
+// Las pantallas piden el servicio de su categoría (US-008): se anota cuál.
+const servicioDe = vi.fn(() => servicio);
 vi.mock("../src/api/proyectosService", () => ({
   proyectosService: servicio,
+  servicioDe: (...args) => servicioDe(...args),
   guardarArchivo: (...args) => guardarArchivo(...args),
 }));
 
+const { EVENTO_INSIGNIAS } = await import("../src/utils/insigniasDelMenu");
 const { SolicitudProyectosPage } =
   await import("../src/pages/Institucional/SolicitudProyectosPage");
 const { TiposProyectoPage } =
@@ -154,6 +158,25 @@ describe("Solicitud de proyectos", () => {
     // Sin permiso no se ven «Todas» ni la configuración.
     expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
     expect(screen.queryByText("Tipos de proyecto")).toBeNull();
+  });
+
+  it("sin categoría usa el servicio de proyectos", async () => {
+    pagina();
+    await screen.findByText("Nuevo CRM");
+    expect(servicioDe).toHaveBeenCalled();
+    expect(servicioDe.mock.calls.every(([c]) => c === "proyecto")).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "Solicitud de proyectos" }),
+    ).toBeInTheDocument();
+  });
+
+  it("con los permisos de procesos no ofrece Todas ni los tipos de proyecto", async () => {
+    // Los permisos de una categoría no sirven para la otra (US-008, CA-4).
+    permisos.lista = ["procesos.configurar", "procesos.ver_todas"];
+    pagina();
+    await screen.findByText("Nuevo CRM");
+    expect(screen.queryByRole("link", { name: /Tipos de/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
   });
 
   it("pide descargar la plantilla, cargarla llena y los campos del tipo", async () => {
@@ -584,5 +607,380 @@ describe("Tipos de proyecto", () => {
         expect.anything(),
       ),
     );
+  });
+});
+
+/*
+ * Solicitud de procesos (US-008, 12/11/2026): las mismas pantallas con
+ * `categoria="proceso"`, sus textos y sus permisos `procesos.*`.
+ */
+describe("Solicitud de procesos", () => {
+  function procesos(ruta = "/admin/institucional/procesos") {
+    return render(
+      <MemoryRouter initialEntries={[ruta]}>
+        <SolicitudProyectosPage categoria="proceso" />
+      </MemoryRouter>,
+    );
+  }
+
+  it("pide el servicio de procesos y habla de procesos", async () => {
+    servicio.solicitudes.mockResolvedValue([
+      {
+        ...SOLICITUD,
+        numero: "PRC-2026-0001",
+        titulo: "Alta de proveedor",
+        tipo_proyecto: "Alta",
+      },
+    ]);
+    procesos();
+    expect(await screen.findByText("Alta de proveedor")).toBeInTheDocument();
+    expect(servicioDe).toHaveBeenCalled();
+    expect(servicioDe.mock.calls.every(([c]) => c === "proceso")).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "Solicitud de procesos" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Pida un proceso con su plantilla/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Proceso" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tablist", { name: "Solicitudes de proceso" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/proyecto/i)).toBeNull();
+  });
+
+  it("con procesos.* ofrece Todas y los tipos de proceso; con proyectos.*, no", async () => {
+    permisos.lista = ["proyectos.configurar", "proyectos.ver_todas"];
+    const { unmount } = procesos();
+    await screen.findByText("Nuevo CRM");
+    expect(screen.queryByRole("link", { name: /Tipos de/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Todas" })).toBeNull();
+    unmount();
+
+    permisos.lista = ["procesos.configurar", "procesos.ver_todas"];
+    procesos();
+    expect(
+      await screen.findByRole("link", { name: /Tipos de proceso/ }),
+    ).toHaveAttribute("href", "/admin/institucional/procesos/tipos");
+    expect(screen.getByRole("tab", { name: "Todas" })).toBeInTheDocument();
+  });
+
+  it("la nueva solicitud dice proceso, también al faltar el nombre", async () => {
+    servicio.tipos.mockResolvedValue([
+      { ...TIPO, nombre: "Alta de proveedor", plantilla_nombre: "Alta.docx" },
+    ]);
+    procesos();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Nueva solicitud de proceso",
+    });
+    expect(
+      await within(ventana).findByLabelText(/Tipo de proceso/),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByLabelText(/Nombre del proceso/),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByText("Complete los datos del proceso"),
+    ).toBeInTheDocument();
+    fireEvent.change(
+      within(ventana).getByLabelText(/Cargue la plantilla llena/),
+      { target: { files: [new File(["x"], "a.docx")] } },
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(
+      await within(ventana).findByText("Escriba el nombre del proceso."),
+    ).toBeInTheDocument();
+    expect(servicio.solicitar).not.toHaveBeenCalled();
+  });
+
+  it("la ventana sin tipos tiene Cerrar y, si falla la carga, Reintentar", async () => {
+    // La pantalla sí encontró tipos; la ventana, al abrirse, falla y luego
+    // ya no queda ninguno (se desactivaron entre medio).
+    servicio.tipos
+      .mockResolvedValueOnce([TIPO])
+      .mockRejectedValueOnce(new Error("red"))
+      .mockResolvedValueOnce([]);
+    procesos();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = await screen.findByRole("dialog", {
+      name: "Nueva solicitud de proceso",
+    });
+    expect(
+      await within(ventana).findByText(
+        "No se pudieron cargar los tipos de proceso.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Reintentar" }),
+    );
+    expect(
+      await within(ventana).findByText(
+        "Todavía no hay tipos de proceso para solicitar.",
+      ),
+    ).toBeInTheDocument();
+    expect(servicio.tipos).toHaveBeenCalledTimes(3);
+    // El del cuerpo, con texto (la X de la cabecera también se llama «Cerrar»).
+    fireEvent.click(
+      within(ventana).getByText("Cerrar", { selector: "button" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  describe("sin tipos activos (el primer día)", () => {
+    beforeEach(() => {
+      servicio.tipos.mockResolvedValue([]);
+      servicio.solicitudes.mockResolvedValue([]);
+      servicio.resumen.mockResolvedValue({ por_atender: 0 });
+    });
+
+    it("a quien configura lo invita a crear el primer tipo", async () => {
+      permisos.lista = ["procesos.configurar"];
+      procesos();
+      expect(
+        await screen.findByText(
+          "Todavía no hay tipos de proceso. Cree el primero para que se puedan pedir.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /Configurar tipos de proceso/ }),
+      ).toHaveAttribute("href", "/admin/institucional/procesos/tipos");
+      // Reemplaza la tabla vacía y las pestañas, y no ofrece pedir.
+      expect(screen.queryByRole("tablist")).toBeNull();
+      expect(screen.queryByRole("table")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /Nueva solicitud/ }),
+      ).toBeNull();
+    });
+
+    it("a quien no configura le dice que aún no hay procesos para pedir", async () => {
+      procesos();
+      expect(
+        await screen.findByText(
+          "Todavía no hay procesos para pedir. Cuando el área responsable los publique, aparecerán aquí.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: /Configurar tipos/ }),
+      ).toBeNull();
+      expect(screen.queryByRole("table")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /Nueva solicitud/ }),
+      ).toBeNull();
+    });
+
+    it("en proyectos, los mismos textos dicen proyecto", async () => {
+      permisos.lista = ["proyectos.configurar"];
+      pagina();
+      expect(
+        await screen.findByText(
+          "Todavía no hay tipos de proyecto. Cree el primero para que se puedan pedir.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /Configurar tipos de proyecto/ }),
+      ).toHaveAttribute("href", "/admin/institucional/proyectos/tipos");
+    });
+
+    it("con solicitudes propias o por atender, la tabla y las pestañas siguen", async () => {
+      servicio.solicitudes.mockResolvedValue([SOLICITUD]);
+      servicio.resumen.mockResolvedValue({ por_atender: 1 });
+      procesos();
+      expect(await screen.findByText("Nuevo CRM")).toBeInTheDocument();
+      expect(screen.getByRole("tablist")).toBeInTheDocument();
+      // El aviso va encima, y sin tipos sigue sin ofrecerse pedir.
+      expect(
+        await screen.findByText(/Todavía no hay procesos para pedir/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Nueva solicitud/ }),
+      ).toBeNull();
+    });
+
+    it("con algo por atender, aunque las propias estén vacías, la tabla sigue", async () => {
+      servicio.resumen.mockResolvedValue({ por_atender: 2 });
+      procesos();
+      await screen.findByText(/Todavía no hay procesos para pedir/);
+      await waitFor(() =>
+        expect(
+          screen.getByRole("tab", { name: /Por atender\s*2/ }),
+        ).toBeInTheDocument(),
+      );
+    });
+
+    it("quien ve todas conserva las pestañas para llegar a «Todas»", async () => {
+      permisos.lista = ["procesos.ver_todas"];
+      procesos();
+      await screen.findByText(/Todavía no hay procesos para pedir/);
+      await waitFor(() =>
+        expect(screen.getByRole("tab", { name: "Todas" })).toBeInTheDocument(),
+      );
+    });
+  });
+
+  it("abre ?solicitud= con el servicio de procesos y aprueba con él", async () => {
+    servicio.solicitud.mockResolvedValue({
+      ...DETALLE,
+      numero: "PRC-2026-0009",
+    });
+    servicio.aprobar.mockResolvedValue({
+      ...DETALLE,
+      numero: "PRC-2026-0009",
+      puedo: { resolver: false, escalar: false, cancelar: false },
+    });
+    const insignias = vi.fn();
+    window.addEventListener(EVENTO_INSIGNIAS, insignias);
+    procesos("/admin/institucional/procesos?solicitud=9");
+    const ventana = await screen.findByRole("dialog", {
+      name: "Solicitud PRC-2026-0009",
+    });
+    expect(servicio.solicitud).toHaveBeenCalledWith("9");
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: /Aprobar «Autorización»/ }),
+    );
+    await waitFor(() => expect(servicio.aprobar).toHaveBeenCalledWith("9", ""));
+    // Todo lo pidió el servicio de procesos.
+    expect(servicioDe.mock.calls.every(([c]) => c === "proceso")).toBe(true);
+    // Y el menú se entera enseguida de que cambió lo pendiente.
+    await waitFor(() => expect(insignias).toHaveBeenCalled());
+    window.removeEventListener(EVENTO_INSIGNIAS, insignias);
+  });
+
+  it("crear una solicitud también avisa al menú", async () => {
+    servicio.solicitar.mockResolvedValue({
+      ...DETALLE,
+      numero: "PRC-2026-0010",
+      paso_actual: "Aprobación",
+      pendiente_de: [{ id: 4, nombre: "Julia Paz" }],
+    });
+    const insignias = vi.fn();
+    window.addEventListener(EVENTO_INSIGNIAS, insignias);
+    procesos();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    const ventana = await screen.findByRole("dialog");
+    fireEvent.change(
+      await within(ventana).findByLabelText(/Nombre del proceso/),
+      { target: { value: "Alta" } },
+    );
+    fireEvent.change(within(ventana).getByLabelText(/Objetivo/), {
+      target: { value: "Ordenar" },
+    });
+    fireEvent.change(
+      within(ventana).getByLabelText(/Cargue la plantilla llena/),
+      { target: { files: [new File(["x"], "a.docx")] } },
+    );
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Enviar solicitud" }),
+    );
+    expect(
+      await screen.findByText(/Solicitud PRC-2026-0010 enviada/),
+    ).toBeInTheDocument();
+    expect(insignias).toHaveBeenCalled();
+    window.removeEventListener(EVENTO_INSIGNIAS, insignias);
+  });
+
+  it("una solicitud de proyecto abierta en procesos dice dónde buscarla", async () => {
+    servicio.solicitud.mockRejectedValue({
+      response: { status: 404, data: { error: { message: "No encontrado." } } },
+    });
+    procesos("/admin/institucional/procesos?solicitud=9");
+    const ventana = await screen.findByRole("dialog");
+    expect(
+      await within(ventana).findByText(
+        /No se encontró la solicitud aquí\. Si es de proyecto \(PRY-…\), ábrala en «Solicitud de proyectos»\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("link", {
+        name: "Abrir en Solicitud de proyectos",
+      }),
+    ).toHaveAttribute("href", "/admin/institucional/proyectos?solicitud=9");
+  });
+
+  it("y una de proceso abierta en proyectos, al revés", async () => {
+    servicio.solicitud.mockRejectedValue({ response: { status: 404 } });
+    pagina("/admin/institucional/proyectos?solicitud=9");
+    const ventana = await screen.findByRole("dialog");
+    expect(
+      await within(ventana).findByText(/Si es de proceso \(PRC-…\)/),
+    ).toBeInTheDocument();
+    expect(
+      within(ventana).getByRole("link", {
+        name: "Abrir en Solicitud de procesos",
+      }),
+    ).toHaveAttribute("href", "/admin/institucional/procesos?solicitud=9");
+  });
+
+  it("si fallan los tipos, el error habla de procesos", async () => {
+    servicio.tipos.mockRejectedValue(new Error("red"));
+    procesos();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Nueva solicitud/ }),
+    );
+    expect(
+      await screen.findByText("No se pudieron cargar los tipos de proceso."),
+    ).toBeInTheDocument();
+  });
+
+  it("Tipos de proceso: textos, enlace de vuelta y tipo nuevo de proceso", async () => {
+    servicio.tiposConfigurados.mockResolvedValue([]);
+    servicio.opciones.mockResolvedValue({
+      personas: [],
+      roles: [],
+      cargos: [],
+    });
+    render(
+      <MemoryRouter>
+        <TiposProyectoPage categoria="proceso" />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText(
+        "Todavía no hay tipos de proceso. Cree el primero con «Nuevo tipo de proceso»: su plantilla, su formulario y quién lo aprueba.",
+      ),
+    ).toBeInTheDocument();
+    expect(servicioDe.mock.calls.every(([c]) => c === "proceso")).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "Tipos de proceso" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Volver a Solicitud de procesos" }),
+    ).toHaveAttribute("href", "/admin/institucional/procesos");
+
+    // El botón principal se repite en el estado vacío: los dos abren el editor.
+    const botones = screen.getAllByRole("button", {
+      name: /Nuevo tipo de proceso/,
+    });
+    expect(botones).toHaveLength(2);
+    fireEvent.click(botones[1]);
+    const editor = await screen.findByRole("dialog", {
+      name: "Nuevo tipo de proceso",
+    });
+    expect(
+      within(editor).getByLabelText(/Nombre del tipo de proceso/),
+    ).toBeInTheDocument();
+    expect(
+      within(editor).getByDisplayValue("Objetivo del proceso"),
+    ).toBeInTheDocument();
+    expect(within(editor).queryByText(/proyecto/i)).toBeNull();
+
+    // Sin nombre, el aviso habla del tipo de proceso.
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Crear tipo de proceso" }),
+    );
+    expect(
+      await within(editor).findByText("Nombre del tipo de proceso: escríbalo."),
+    ).toBeInTheDocument();
+    expect(servicio.guardarTipo).not.toHaveBeenCalled();
   });
 });

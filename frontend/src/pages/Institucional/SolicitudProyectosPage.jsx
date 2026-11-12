@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { guardarArchivo, proyectosService } from "../../api/proyectosService";
+import { guardarArchivo, servicioDe } from "../../api/proyectosService";
 import {
   Campo,
   LeyendaObligatorios,
@@ -24,9 +24,15 @@ import {
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { usePermission } from "../../hooks/usePermission";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
+import { avisarCambioDeInsignias } from "../../utils/insigniasDelMenu";
 import { formatearFecha } from "../../utils/formato";
 import { ControlPropio } from "../Soporte/Publico/CamposFormulario";
 import { DESTINOS_ESCALAR, SelectorDestino } from "./licenciasComunes";
+import {
+  CategoriaSolicitudContext,
+  configDeCategoria,
+  useCategoriaSolicitud,
+} from "./categoriasSolicitud";
 import "./Institucional.css";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
@@ -102,9 +108,11 @@ function erroresDeCampos(err) {
   return { ...propios, ...generales };
 }
 
-/** Pedir un proyecto: el tipo (con su plantilla y sus pasos a la vista), el
- * nombre, los campos del formulario y la plantilla llena. */
+/** Pedir un proyecto (o un proceso): el tipo (con su plantilla y sus pasos a
+ * la vista), el nombre, los campos del formulario y la plantilla llena. */
 function NuevaSolicitud({ onCreada, onCerrar }) {
+  const { categoria, textos } = useCategoriaSolicitud();
+  const servicio = servicioDe(categoria);
   const [tipos, setTipos] = useState(null);
   const [tipoId, setTipoId] = useState("");
   const [titulo, setTitulo] = useState("");
@@ -115,8 +123,10 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   const [enviando, setEnviando] = useState(false);
   const formulario = useRef(null);
 
-  useEffect(() => {
-    proyectosService
+  const cargarTipos = useCallback(() => {
+    setTipos(null);
+    setError(null);
+    servicio
       .tipos()
       .then((lista) => {
         setTipos(lista);
@@ -124,19 +134,21 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
       })
       .catch((err) => {
         // Antes un fallo se veía como «no hay tipos» (auditoría UX/UI, fase 2).
-        setError(
-          mensajeDeError(err, "No se pudieron cargar los tipos de proyecto."),
-        );
+        setError(mensajeDeError(err, textos.errorTipos));
         setTipos([]);
       });
-  }, []);
+  }, [servicio, textos]);
+
+  useEffect(() => {
+    cargarTipos();
+  }, [cargarTipos]);
 
   const elegido = tipos?.find((t) => String(t.id) === tipoId);
 
   async function descargarPlantilla() {
     try {
       guardarArchivo(
-        await proyectosService.plantilla(elegido.id),
+        await servicio.plantilla(elegido.id),
         elegido.plantilla_nombre,
       );
     } catch (err) {
@@ -152,7 +164,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
     if (!archivo)
       faltan._archivo =
         "Cargue la plantilla llena: descárguela, complétela y súbala aquí.";
-    if (!titulo.trim()) faltan._titulo = "Escriba el nombre del proyecto.";
+    if (!titulo.trim()) faltan._titulo = textos.faltaNombre;
     if (Object.keys(faltan).length) {
       setError(null);
       setErrores(faltan);
@@ -164,7 +176,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
     setErrores({});
     try {
       onCreada(
-        await proyectosService.solicitar(
+        await servicio.solicitar(
           { tipo_proyecto: elegido.id, titulo, respuestas },
           archivo,
         ),
@@ -178,17 +190,29 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
   }
 
   return (
-    <Ventana titulo="Nueva solicitud de proyecto" onCerrar={onCerrar}>
+    <Ventana titulo={textos.nuevaSolicitud} onCerrar={onCerrar}>
       {tipos === null ? (
         <EstadoDeCarga cargando />
       ) : tipos.length === 0 ? (
-        error ? (
-          <EstadoDeCarga error={error} />
-        ) : (
-          <p className="mz-faint mb-0">
-            Todavía no hay tipos de proyecto para solicitar.
-          </p>
-        )
+        // Sin tipos no hay formulario: un «Cerrar» a mano en el cuerpo (no
+        // solo la X de la cabecera) y, si falló la carga, «Reintentar»
+        // (auditoría UX/UI de US-008, 12/11/2026).
+        <div className="mz-stack">
+          {error ? (
+            <EstadoDeCarga error={error} onReintentar={cargarTipos} />
+          ) : (
+            <p className="mz-faint mb-0">{textos.sinTiposParaSolicitar}</p>
+          )}
+          <div className="mz-actions justify-content-end">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={onCerrar}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
       ) : (
         // noValidate: lo obligatorio se revisa aquí y en el servidor, y el
         // error se muestra junto a cada campo.
@@ -207,7 +231,7 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
           <div className="col-12">
             <Campo
               id="pr-tipo"
-              etiqueta="Tipo de proyecto"
+              etiqueta={textos.tipoDe}
               obligatorio
               error={errores._tipo_proyecto}
             >
@@ -285,14 +309,14 @@ function NuevaSolicitud({ onCreada, onCerrar }) {
               </div>
               <div className="proyecto-plantilla">
                 <span className="proyecto-plantilla__numero">3</span>
-                <strong>Complete los datos del proyecto</strong>
+                <strong>{textos.completeDatos}</strong>
               </div>
             </div>
           )}
 
           <Campo
             id="pr-titulo"
-            etiqueta="Nombre del proyecto"
+            etiqueta={textos.nombre}
             obligatorio
             error={errores._titulo}
             className="col-12"
@@ -410,7 +434,11 @@ function tamano(bytes) {
 /** El detalle: lo que se cargó (respuestas y plantilla llena), en qué paso
  * va, su historial y, a quien le toca, aprobar, rechazar o escalar. */
 function DetalleSolicitud({ id, onCambio, onCerrar }) {
+  const { categoria, textos, rutaOtra } = useCategoriaSolicitud();
+  const servicio = servicioDe(categoria);
   const [solicitud, setSolicitud] = useState(null);
+  // 404: el enlace es de la otra categoría (o no existe).
+  const [noEncontrada, setNoEncontrada] = useState(false);
   const [comentario, setComentario] = useState("");
   const [escalando, setEscalando] = useState(false);
   const [destino, setDestino] = useState({
@@ -424,17 +452,20 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
   const [trabajando, setTrabajando] = useState(false);
 
   useEffect(() => {
-    proyectosService
+    servicio
       .solicitud(id)
       .then(setSolicitud)
-      .catch((err) =>
-        setError(mensajeDeError(err, "No se pudo abrir la solicitud.")),
-      );
-  }, [id]);
+      .catch((err) => {
+        // El servidor responde 404 a una solicitud de la otra categoría
+        // (US-008): se dice dónde buscarla en vez de «no se pudo abrir».
+        if (err?.response?.status === 404) setNoEncontrada(true);
+        else setError(mensajeDeError(err, "No se pudo abrir la solicitud."));
+      });
+  }, [id, servicio]);
 
   useEffect(() => {
     if (escalando && !opciones) {
-      proyectosService
+      servicio
         .opciones()
         .then(setOpciones)
         // Sin las opciones no hay a quién escalar: se avisa en vez de dejar
@@ -443,7 +474,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           setError(mensajeDeError(err, "No se pudo cargar a quién escalar.")),
         );
     }
-  }, [escalando, opciones]);
+  }, [escalando, opciones, servicio]);
 
   async function hacer(accion) {
     setTrabajando(true);
@@ -453,6 +484,8 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
       setComentario("");
       setEscalando(false);
       onCambio();
+      // Lo pendiente cambió: el menú se pone al día enseguida.
+      avisarCambioDeInsignias();
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo completar."));
     } finally {
@@ -462,10 +495,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
 
   async function descargar() {
     try {
-      guardarArchivo(
-        await proyectosService.archivo(id),
-        solicitud.archivo_nombre,
-      );
+      guardarArchivo(await servicio.archivo(id), solicitud.archivo_nombre);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo descargar el archivo."));
     }
@@ -475,9 +505,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
 
   return (
     <Ventana
-      titulo={
-        solicitud ? `Solicitud ${solicitud.numero}` : "Solicitud de proyecto"
-      }
+      titulo={solicitud ? `Solicitud ${solicitud.numero}` : textos.solicitudDe}
       onCerrar={onCerrar}
     >
       {error && (
@@ -486,8 +514,19 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           {error}
         </div>
       )}
+      {noEncontrada && (
+        <div className="mz-alert mz-alert--warn" role="alert">
+          <Icon name="exclamation-triangle" />
+          <span>
+            {textos.noEncontrada}{" "}
+            <Link to={`${rutaOtra}?solicitud=${encodeURIComponent(id)}`}>
+              {textos.abrirEnOtra}
+            </Link>
+          </span>
+        </div>
+      )}
       {/* Mientras llegan los datos, la ventana no queda en blanco. */}
-      {!solicitud && !error && <EstadoDeCarga cargando />}
+      {!solicitud && !error && !noEncontrada && <EstadoDeCarga cargando />}
       {solicitud && (
         <div className="mz-stack">
           <div className="solicitud-cabecera">
@@ -639,8 +678,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                         accion: "Cancelar solicitud",
                         cancelar: "Volver",
                       });
-                      if (si)
-                        hacer(() => proyectosService.cancelar(id, comentario));
+                      if (si) hacer(() => servicio.cancelar(id, comentario));
                     }}
                   >
                     Cancelar solicitud
@@ -653,9 +691,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                       className="btn btn-outline-primary btn-sm"
                       disabled={trabajando}
                       onClick={() =>
-                        hacer(() =>
-                          proyectosService.escalar(id, destino, comentario),
-                        )
+                        hacer(() => servicio.escalar(id, destino, comentario))
                       }
                     >
                       <Icon name="send" /> Confirmar escalamiento
@@ -683,10 +719,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                             "La solicitud termina aquí y se avisa a quien la hizo con su comentario.",
                           accion: "Rechazar",
                         });
-                        if (si)
-                          hacer(() =>
-                            proyectosService.rechazar(id, comentario),
-                          );
+                        if (si) hacer(() => servicio.rechazar(id, comentario));
                       }}
                     >
                       <Icon name="x-circle" /> Rechazar
@@ -696,7 +729,7 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                       className="btn btn-success btn-sm"
                       disabled={trabajando}
                       onClick={() =>
-                        hacer(() => proyectosService.aprobar(id, comentario))
+                        hacer(() => servicio.aprobar(id, comentario))
                       }
                     >
                       <Icon name="check-circle" /> Aprobar «
@@ -724,14 +757,25 @@ const PESTANAS = [
  * llena y seguir su aprobación; atender (aprobar, rechazar o escalar) lo que
  * a uno le toca. Con `proyectos.ver_todas`, todas las de la empresa; con
  * `proyectos.configurar`, el botón para configurar los tipos de proyecto.
+ *
+ * Con `categoria="proceso"` es «Solicitud de procesos» (US-008, 12/11/2026):
+ * el mismo flujo con sus propios tipos, textos y permisos (`procesos.*`).
  */
-export function SolicitudProyectosPage() {
-  const verTodas = usePermission("proyectos.ver_todas");
-  const configura = usePermission("proyectos.configurar");
+export function SolicitudProyectosPage({ categoria = "proyecto" }) {
+  const config = configDeCategoria(categoria);
+  const { textos, permisos } = config;
+  const servicio = servicioDe(categoria);
+  const verTodas = usePermission(permisos.verTodas);
+  const configura = usePermission(permisos.configurar);
   const [parametros, setParametros] = useSearchParams();
   const [pestana, setPestana] = useState("mias");
   const [lista, setLista] = useState(null);
-  const [porAtender, setPorAtender] = useState(0);
+  // null mientras llega el resumen: el estado vacío del primer día espera a
+  // saber que no hay nada por atender.
+  const [porAtender, setPorAtender] = useState(null);
+  // Los tipos que se pueden pedir: null mientras cargan o si fallaron (en
+  // ese caso se ofrece «Nueva solicitud», que dice el error y reintenta).
+  const [tiposActivos, setTiposActivos] = useState(null);
   const [nueva, setNueva] = useState(false);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -743,24 +787,60 @@ export function SolicitudProyectosPage() {
     // (auditoría UX/UI, fase 2, 28/10/2026).
     setLista(null);
     setError(null);
-    proyectosService
+    servicio
       .solicitudes(pestana)
       .then(setLista)
       .catch((err) =>
         setError(mensajeDeError(err, "No se pudieron cargar las solicitudes.")),
       );
-    proyectosService
+    servicio
       .resumen()
       .then((r) => setPorAtender(r.por_atender))
       .catch(() => null);
-  }, [pestana]);
+  }, [pestana, servicio]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
+  useEffect(() => {
+    servicio
+      .tipos()
+      .then(setTiposActivos)
+      .catch(() => setTiposActivos(null));
+  }, [servicio]);
+
   const pestanas = PESTANAS.filter((p) => p.id !== "todas" || verTodas).map(
-    (p) => (p.id === "por_atender" ? { ...p, cuenta: porAtender } : p),
+    (p) => (p.id === "por_atender" ? { ...p, cuenta: porAtender ?? 0 } : p),
+  );
+
+  // El primer día (auditoría UX/UI de US-008, 12/11/2026): sin tipos que
+  // pedir, «Nueva solicitud» llevaba a una ventana vacía. Sin tipos no se
+  // ofrece, y se dice por qué y, a quien configura, cómo empezar.
+  const sinTipos = Array.isArray(tiposActivos) && tiposActivos.length === 0;
+  // La tabla y las pestañas solo se reemplazan si no hay nada que ver: sin
+  // solicitudes propias ni por atender. Con «Todas» puede haber solicitudes
+  // de otros de tipos ya desactivados, así que a quien las ve se le dejan las
+  // pestañas y el aviso va encima.
+  const vacioTotal =
+    sinTipos &&
+    !verTodas &&
+    porAtender === 0 &&
+    pestana === "mias" &&
+    lista?.length === 0 &&
+    !error;
+  const estadoSinTipos = sinTipos && (
+    <EstadoDeCarga
+      vacio
+      textoVacio={configura ? textos.vacioConfigura : textos.vacioSinTipos}
+      accionVacio={
+        configura && (
+          <Link to={`${config.ruta}/tipos`} className="btn btn-primary btn-sm">
+            <Icon name="gear" /> {textos.configurarTipos}
+          </Link>
+        )
+      }
+    />
   );
 
   function abrir(id) {
@@ -768,136 +848,153 @@ export function SolicitudProyectosPage() {
   }
 
   return (
-    <div className="institucional-page mz-stack">
-      <div className="mz-view-head">
-        <div>
-          <h2>Solicitud de proyectos</h2>
-          <p className="mz-desc">
-            Pida un proyecto con su plantilla llena y siga su aprobación;
-            atienda los que le toquen.
-          </p>
+    <CategoriaSolicitudContext.Provider value={config}>
+      <div className="institucional-page mz-stack">
+        <div className="mz-view-head">
+          <div>
+            <h2>{textos.titulo}</h2>
+            <p className="mz-desc">{textos.descripcion}</p>
+          </div>
+          <div className="mz-actions">
+            {configura && (
+              <Link
+                to={`${config.ruta}/tipos`}
+                className="btn btn-outline-secondary btn-sm"
+              >
+                <Icon name="gear" /> {textos.tipos}
+              </Link>
+            )}
+            {!sinTipos && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setNueva(true)}
+              >
+                <Icon name="plus-lg" /> Nueva solicitud
+              </button>
+            )}
+          </div>
         </div>
-        <div className="mz-actions">
-          {configura && (
-            <Link
-              to="/admin/institucional/proyectos/tipos"
-              className="btn btn-outline-secondary btn-sm"
-            >
-              <Icon name="gear" /> Tipos de proyecto
-            </Link>
-          )}
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setNueva(true)}
-          >
-            <Icon name="plus-lg" /> Nueva solicitud
-          </button>
-        </div>
-      </div>
 
-      <Pestanas
-        etiqueta="Solicitudes de proyecto"
-        idBase="pr"
-        valor={pestana}
-        onCambio={setPestana}
-        opciones={pestanas}
-      />
+        {estadoSinTipos}
 
-      {aviso && (
-        <div className="mz-alert mz-alert--ok" role="status">
-          <Icon name="check-circle" />
-          {aviso}
-        </div>
-      )}
-
-      <PanelDePestana idBase="pr" valor={pestana} className="mz-table-wrap">
-        <table className="mz-table solicitudes-tabla">
-          <thead>
-            <tr>
-              <th>Número</th>
-              <th>Proyecto</th>
-              <th>Tipo</th>
-              {pestana !== "mias" && <th>Solicitante</th>}
-              <th>Estado</th>
-              <th>Paso / pendiente de</th>
-              <th>Solicitada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(lista ?? []).map((s) => {
-              const [estado, clase] = ESTADOS_PROYECTO[s.estado] ?? ["", ""];
-              return (
-                <tr key={s.id}>
-                  <td className="text-nowrap">{s.numero}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm p-0 text-start"
-                      onClick={() => abrir(s.id)}
-                    >
-                      {s.titulo}
-                    </button>
-                  </td>
-                  <td className="mz-small">{s.tipo_proyecto}</td>
-                  {pestana !== "mias" && <td>{s.solicitante.nombre}</td>}
-                  <td>
-                    <span className={`mz-pill ${clase}`}>{estado}</span>
-                  </td>
-                  <td className="mz-small">
-                    {s.estado === "pendiente" ? (
-                      <>
-                        {s.paso_actual} ·{" "}
-                        <AprobadoresPendientes personas={s.pendiente_de} />
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="mz-small">
-                    {formatearFecha(s.created_at, true)}
-                  </td>
-                </tr>
-              );
-            })}
-            <FilaDeEstado
-              columnas={pestana === "mias" ? 6 : 7}
-              cargando={lista === null}
-              error={error}
-              onReintentar={cargar}
-              vacio={lista?.length === 0}
-              textoVacio={
-                pestana === "por_atender"
-                  ? "No tiene solicitudes por atender."
-                  : "No hay solicitudes."
-              }
+        {!vacioTotal && (
+          <>
+            <Pestanas
+              etiqueta={textos.pestanas}
+              idBase="pr"
+              valor={pestana}
+              onCambio={setPestana}
+              opciones={pestanas}
             />
-          </tbody>
-        </table>
-      </PanelDePestana>
 
-      {nueva && (
-        <NuevaSolicitud
-          onCerrar={() => setNueva(false)}
-          onCreada={(s) => {
-            setNueva(false);
-            setAviso(
-              `Solicitud ${s.numero} enviada: queda pendiente de ${s.pendiente_de
-                .map((p) => p.nombre)
-                .join(", ")} («${s.paso_actual}»).`,
-            );
-            setPestana("mias");
-            cargar();
-          }}
-        />
-      )}
-      {abierta && (
-        <DetalleSolicitud
-          id={abierta}
-          onCambio={cargar}
-          onCerrar={() => abrir(null)}
-        />
-      )}
-    </div>
+            {aviso && (
+              <div className="mz-alert mz-alert--ok" role="status">
+                <Icon name="check-circle" />
+                {aviso}
+              </div>
+            )}
+
+            <PanelDePestana
+              idBase="pr"
+              valor={pestana}
+              className="mz-table-wrap"
+            >
+              <table className="mz-table solicitudes-tabla">
+                <thead>
+                  <tr>
+                    <th>Número</th>
+                    <th>{textos.columna}</th>
+                    <th>Tipo</th>
+                    {pestana !== "mias" && <th>Solicitante</th>}
+                    <th>Estado</th>
+                    <th>Paso / pendiente de</th>
+                    <th>Solicitada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(lista ?? []).map((s) => {
+                    const [estado, clase] = ESTADOS_PROYECTO[s.estado] ?? [
+                      "",
+                      "",
+                    ];
+                    return (
+                      <tr key={s.id}>
+                        <td className="text-nowrap">{s.numero}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 text-start"
+                            onClick={() => abrir(s.id)}
+                          >
+                            {s.titulo}
+                          </button>
+                        </td>
+                        <td className="mz-small">{s.tipo_proyecto}</td>
+                        {pestana !== "mias" && <td>{s.solicitante.nombre}</td>}
+                        <td>
+                          <span className={`mz-pill ${clase}`}>{estado}</span>
+                        </td>
+                        <td className="mz-small">
+                          {s.estado === "pendiente" ? (
+                            <>
+                              {s.paso_actual} ·{" "}
+                              <AprobadoresPendientes
+                                personas={s.pendiente_de}
+                              />
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="mz-small">
+                          {formatearFecha(s.created_at, true)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <FilaDeEstado
+                    columnas={pestana === "mias" ? 6 : 7}
+                    cargando={lista === null}
+                    error={error}
+                    onReintentar={cargar}
+                    vacio={lista?.length === 0}
+                    textoVacio={
+                      pestana === "por_atender"
+                        ? "No tiene solicitudes por atender."
+                        : "No hay solicitudes."
+                    }
+                  />
+                </tbody>
+              </table>
+            </PanelDePestana>
+          </>
+        )}
+
+        {nueva && (
+          <NuevaSolicitud
+            onCerrar={() => setNueva(false)}
+            onCreada={(s) => {
+              setNueva(false);
+              setAviso(
+                `Solicitud ${s.numero} enviada: queda pendiente de ${s.pendiente_de
+                  .map((p) => p.nombre)
+                  .join(", ")} («${s.paso_actual}»).`,
+              );
+              setPestana("mias");
+              cargar();
+              avisarCambioDeInsignias();
+            }}
+          />
+        )}
+        {abierta && (
+          <DetalleSolicitud
+            id={abierta}
+            onCambio={cargar}
+            onCerrar={() => abrir(null)}
+          />
+        )}
+      </div>
+    </CategoriaSolicitudContext.Provider>
   );
 }

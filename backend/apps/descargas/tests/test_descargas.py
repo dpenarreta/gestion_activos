@@ -46,6 +46,22 @@ def _guardar(cliente, contenido=b"%PDF-1.4 hola", nombre="acta.pdf", **extra):
     return cliente.post(URL, datos, format="multipart", REMOTE_ADDR="10.0.2.80")
 
 
+@pytest.mark.parametrize(
+    ("pantalla", "modulo"),
+    [
+        ("/admin/institucional/procesos?solicitud=7", "Solicitud de procesos"),
+        ("/admin/institucional/procesos/tipos", "Solicitud de procesos"),
+        ("/admin/institucional/proyectos?solicitud=7", "Solicitud de proyectos"),
+        ("", "Solicitud de proyectos"),
+    ],
+)
+def test_lo_bajado_de_la_api_de_proyectos_es_de_procesos_si_viene_de_su_pantalla(pantalla, modulo):
+    """US-008: la Solicitud de procesos usa la API de proyectos
+    (`?categoria=proceso`); la pantalla dice de cuál de las dos es."""
+    origen = "/api/v1/proyectos/solicitudes/7/archivo/?categoria=proceso"
+    assert services.modulo_de(origen, pantalla) == modulo
+
+
 def test_cualquier_persona_registra_lo_que_guarda_con_su_copia(db):
     ana, cliente = _cuenta("ana")
     respuesta = _guardar(cliente)

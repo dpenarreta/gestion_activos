@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { guardarArchivo, proyectosService } from "../../api/proyectosService";
+import { guardarArchivo, servicioDe } from "../../api/proyectosService";
 import {
   Campo,
   LeyendaObligatorios,
@@ -18,6 +18,11 @@ import {
   nuevaClave,
 } from "./FlujosPermisoPage";
 import { DESTINOS, DESTINOS_APROBADOR } from "./licenciasComunes";
+import {
+  CategoriaSolicitudContext,
+  configDeCategoria,
+  useCategoriaSolicitud,
+} from "./categoriasSolicitud";
 import "./Institucional.css";
 import { confirmar } from "../../components/common/Confirmar/confirmar";
 
@@ -32,20 +37,21 @@ export const TIPOS_DE_CAMPO = [
   ["telefono", "Teléfono"],
 ];
 
-const NUEVO = {
+/** Un tipo nuevo, con el campo de objetivo de su categoría. */
+const nuevoTipo = (textos) => ({
   nombre: "",
   descripcion: "",
   activo: false,
   tiene_plantilla: false,
   campos: [
-    { etiqueta: "Objetivo del proyecto", tipo: "parrafo", obligatorio: true },
+    { etiqueta: textos.campoInicial, tipo: "parrafo", obligatorio: true },
   ],
   pasos: [
     { nombre: "Aprobación", aprobadores: [{ tipo: "jefe_inmediato" }] },
     { nombre: "Autorización", aprobadores: [{ tipo: "persona" }] },
     { nombre: "Revisión", aprobadores: [{ tipo: "persona" }] },
   ],
-};
+});
 
 const ACEPTA = ".docx,.xlsx,.pdf";
 const EXTENSIONES = ["docx", "xlsx", "pdf"];
@@ -107,11 +113,11 @@ const VACIO = { campos: {}, filas: {}, pasos: {}, mensajes: [] };
 /** Lo que falta antes de enviar, con la forma de los errores del servidor
  * (auditoría UX/UI, 30/10/2026: antes nada se revisaba y el error llegaba
  * como «pasos 2 › aprobadores 1 › usuario: …»). */
-function validar(tipo, plantilla) {
+function validar(tipo, plantilla, textos) {
   const e = { campos: {}, filas: {}, pasos: {}, mensajes: [] };
   if (!tipo.nombre.trim()) {
-    e.campos.nombre = "Escriba el nombre del tipo de proyecto.";
-    e.mensajes.push("Nombre del tipo de proyecto: escríbalo.");
+    e.campos.nombre = textos.faltaNombreDelTipo;
+    e.mensajes.push(textos.mensajeNombreDelTipo);
   }
   if (plantilla) {
     const extension = plantilla.name.split(".").pop().toLowerCase();
@@ -161,8 +167,9 @@ function validar(tipo, plantilla) {
   return e;
 }
 
+/** El nombre legible de cada campo del servidor; el del nombre, según la
+ * categoría (`erroresDelServidor`). */
 const NOMBRE_CAMPO = {
-  nombre: "Nombre del tipo de proyecto",
   descripcion: "Indicaciones",
   activo: "Activo",
   plantilla: "Plantilla",
@@ -177,7 +184,7 @@ const texto = (v) =>
       : "";
 
 /** Los errores del servidor con la forma de `validar`. */
-function erroresDelServidor(err, porDefecto) {
+function erroresDelServidor(err, porDefecto, textos) {
   const datos = err?.response?.data;
   const fuente = datos?.error?.details ?? (datos?.error ? {} : datos) ?? {};
   const e = {
@@ -189,7 +196,11 @@ function erroresDelServidor(err, porDefecto) {
   for (const [campo, valor] of Object.entries(e.campos)) {
     // «pasos» y «campos» van abajo, con su nombre legible.
     if (campo === "pasos" || campo === "campos") continue;
-    e.mensajes.push(`${NOMBRE_CAMPO[campo] ?? campo}: ${valor}`);
+    const nombre =
+      campo === "nombre"
+        ? textos.nombreDelTipo
+        : (NOMBRE_CAMPO[campo] ?? campo);
+    e.mensajes.push(`${nombre}: ${valor}`);
   }
   if (Array.isArray(fuente.campos) && !e.campos.campos) {
     fuente.campos.forEach((c, i) => {
@@ -268,6 +279,7 @@ function pasosSinQuienDecida(pasos) {
 
 /** El recorrido que queda configurado. */
 function RutaDeAprobacion({ pasos, opciones }) {
+  const { textos } = useCategoriaSolicitud();
   const sinNadie = pasosSinQuienDecida(pasos);
   return (
     <section className="flujo-ruta" aria-labelledby="tp-ruta">
@@ -276,8 +288,7 @@ function RutaDeAprobacion({ pasos, opciones }) {
       </h4>
       <ol className="flujo-ruta__pasos">
         <li>
-          <strong>Solicita</strong> quien pide el proyecto, con la plantilla
-          llena
+          <strong>Solicita</strong> {textos.rutaSolicita}
         </li>
         {pasos.map((p, i) => (
           <li key={p._k}>
@@ -290,7 +301,7 @@ function RutaDeAprobacion({ pasos, opciones }) {
           </li>
         ))}
         <li>
-          <strong>Aprobado el último paso</strong>, el proyecto se puede iniciar
+          <strong>Aprobado el último paso</strong>, {textos.rutaFin}
         </li>
       </ol>
       {sinNadie.length > 0 && (
@@ -301,16 +312,15 @@ function RutaDeAprobacion({ pasos, opciones }) {
             <strong>{sinNadie.map((i) => i + 1).join(", ")}</strong>{" "}
             {sinNadie.length === 1 ? "lo decide" : "los decide"} quien ya
             decidió uno anterior. Como nadie decide dos pasos de la misma
-            solicitud, {sinNadie.length === 1 ? "pasará" : "pasarán"} a quien
-            administra los tipos de proyecto. Elija a otra persona, un rol o un
-            cargo.
+            solicitud, {sinNadie.length === 1 ? "pasará" : "pasarán"} a{" "}
+            {textos.administra}. Elija a otra persona, un rol o un cargo.
           </span>
         </div>
       )}
       <p className="mz-faint mz-small mb-0">
         Nadie decide dos pasos de la misma solicitud. Si un paso no encuentra a
         nadie (por ejemplo, quien solicita no tiene jefe en el organigrama), la
-        solicitud pasa a quien administra los tipos de proyecto.
+        solicitud pasa a {textos.administra}.
       </p>
     </section>
   );
@@ -419,6 +429,7 @@ function EditorDeCampos({
   anunciar,
   alCambiarOrden,
 }) {
+  const { textos } = useCategoriaSolicitud();
   const cambiar = (i, cambios) =>
     onCambio(campos.map((c, j) => (j === i ? { ...c, ...cambios } : c)));
   const orden = useListaOrdenada(
@@ -432,10 +443,7 @@ function EditorDeCampos({
   return (
     <div className="mz-stack">
       {campos.length === 0 && (
-        <p className="mz-faint mz-small mb-0">
-          Sin campos propios: solo se pide el nombre del proyecto y la plantilla
-          llena.
-        </p>
+        <p className="mz-faint mz-small mb-0">{textos.sinCamposPropios}</p>
       )}
       <ol className="flujo-pasos">
         {campos.map((campo, i) => {
@@ -564,8 +572,8 @@ function EditorDeCampos({
   );
 }
 
-/** Crear o editar un tipo de proyecto: datos, plantilla, formulario y
- * aprobaciones (auditoría UX/UI, 30/10/2026). */
+/** Crear o editar un tipo de proyecto (o de proceso): datos, plantilla,
+ * formulario y aprobaciones (auditoría UX/UI, 30/10/2026). */
 function EditorTipo({
   inicial,
   opciones,
@@ -574,6 +582,7 @@ function EditorTipo({
   onGuardado,
   onCerrar,
 }) {
+  const { textos } = useCategoriaSolicitud();
   const [tipo, setTipo] = useState(() => conClaves(inicial));
   const original = useMemo(
     () => JSON.stringify(paraEnviar(conClaves(inicial))),
@@ -624,7 +633,7 @@ function EditorTipo({
   async function guardar(evento) {
     evento.preventDefault();
     setErrores(VACIO);
-    const propios = validar(tipo, plantilla);
+    const propios = validar(tipo, plantilla, textos);
     if (propios.mensajes.length) {
       setErrores(propios);
       enfocarPrimerError(formulario.current);
@@ -634,9 +643,7 @@ function EditorTipo({
     try {
       await onGuardado(paraEnviar(tipo), plantilla, Boolean(tipo.activo));
     } catch (err) {
-      setErrores(
-        erroresDelServidor(err, "No se pudo guardar el tipo de proyecto."),
-      );
+      setErrores(erroresDelServidor(err, textos.errorGuardarTipo, textos));
       setGuardando(false);
       enfocarPrimerError(formulario.current);
     }
@@ -658,7 +665,7 @@ function EditorTipo({
       >
         <div className="mz-panel-head">
           <h3 id="tp-editor-titulo">
-            {editando ? `Editar «${inicial.nombre}»` : "Nuevo tipo de proyecto"}
+            {editando ? `Editar «${inicial.nombre}»` : textos.nuevoTipo}
           </h3>
           <button
             type="button"
@@ -730,7 +737,7 @@ function EditorTipo({
             <div className="row g-2">
               <Campo
                 id="tp-nombre"
-                etiqueta="Nombre del tipo de proyecto"
+                etiqueta={textos.nombreDelTipo}
                 obligatorio
                 error={errores.campos.nombre}
                 className="col-12"
@@ -738,7 +745,7 @@ function EditorTipo({
                 <input
                   className="form-control form-control-sm"
                   maxLength={120}
-                  placeholder="Ej.: Desarrollo de un reporte"
+                  placeholder={textos.ejemploNombreDelTipo}
                   value={tipo.nombre}
                   onChange={fijar("nombre")}
                   data-autofocus
@@ -821,11 +828,7 @@ function EditorTipo({
             <h4 id="tp-campos" className="flujo-seccion">
               Formulario
             </h4>
-            <p className="mz-faint mz-small mb-2">
-              Además del nombre del proyecto y la plantilla llena, se piden
-              estos campos, en este orden. Los obligatorios no dejan enviar la
-              solicitud vacíos.
-            </p>
+            <p className="mz-faint mz-small mb-2">{textos.formularioAyuda}</p>
             <EditorDeCampos
               campos={tipo.campos}
               onCambio={(campos) => setTipo((t) => ({ ...t, campos }))}
@@ -839,11 +842,7 @@ function EditorTipo({
             <h4 id="tp-pasos" className="flujo-seccion">
               Aprobaciones antes de iniciar
             </h4>
-            <p className="mz-faint mz-small mb-2">
-              Cada paso lo decide cualquiera de los indicados; aprobado, pasa al
-              siguiente. Aprobado el último, el proyecto se puede iniciar. Si
-              alguien lo rechaza, no se inicia.
-            </p>
+            <p className="mz-faint mz-small mb-2">{textos.pasosAyuda}</p>
             {!opciones && !errorOpciones && (
               <p className="mz-faint mz-small" role="status">
                 Cargando personas, roles y cargos…
@@ -980,7 +979,7 @@ function EditorTipo({
               ? "Guardando…"
               : editando
                 ? "Guardar cambios"
-                : "Crear tipo de proyecto"}
+                : textos.crearTipo}
           </button>
         </div>
       </div>
@@ -992,8 +991,14 @@ function EditorTipo({
  * Solicitud de proyectos → Tipos de proyecto (pide `proyectos.configurar`):
  * cada tipo con su plantilla, su formulario (campos obligatorios u
  * opcionales) y sus pasos con quién decide cada uno.
+ *
+ * Con `categoria="proceso"`, Solicitud de procesos → Tipos de proceso (pide
+ * `procesos.configurar`; US-008, 12/11/2026).
  */
-export function TiposProyectoPage() {
+export function TiposProyectoPage({ categoria = "proyecto" }) {
+  const config = configDeCategoria(categoria);
+  const { textos } = config;
+  const servicio = servicioDe(categoria);
   const [tipos, setTipos] = useState(null);
   const [opciones, setOpciones] = useState(null);
   const [errorOpciones, setErrorOpciones] = useState(null);
@@ -1006,21 +1011,17 @@ export function TiposProyectoPage() {
 
   const cargar = useCallback(() => {
     setErrorCarga(null);
-    return proyectosService
+    return servicio
       .tiposConfigurados()
       .then(setTipos)
-      .catch((err) =>
-        setErrorCarga(
-          mensajeDeError(err, "No se pudieron cargar los tipos de proyecto."),
-        ),
-      );
-  }, []);
+      .catch((err) => setErrorCarga(mensajeDeError(err, textos.errorTipos)));
+  }, [servicio, textos]);
 
   // Sin las opciones no se pueden elegir aprobadores: el aviso va dentro del
   // editor (antes quedaba tapado detrás de la ventana), con «Reintentar».
   const cargarOpciones = useCallback(() => {
     setErrorOpciones(null);
-    proyectosService
+    servicio
       .opciones()
       .then(setOpciones)
       .catch((err) =>
@@ -1031,7 +1032,7 @@ export function TiposProyectoPage() {
           ),
         ),
       );
-  }, []);
+  }, [servicio]);
 
   useEffect(() => {
     cargar();
@@ -1042,13 +1043,13 @@ export function TiposProyectoPage() {
    * falla, el tipo ya quedó guardado: el editor pasa a editarlo (con su id),
    * así el reintento no lo duplica, y lo dice (auditoría UX/UI, 30/10/2026). */
   async function guardar(datos, plantilla, activar) {
-    const guardado = await proyectosService.guardarTipo(editando.id, datos);
+    const guardado = await servicio.guardarTipo(editando.id, datos);
     const nuevo = !editando.id;
     if (plantilla) {
       try {
-        await proyectosService.cargarPlantilla(guardado.id, plantilla);
+        await servicio.cargarPlantilla(guardado.id, plantilla);
         if (activar && !datos.activo) {
-          await proyectosService.activarTipo(guardado.id, true);
+          await servicio.activarTipo(guardado.id, true);
         }
       } catch (err) {
         setEditando((e) => ({ ...e, ...guardado, id: guardado.id }));
@@ -1067,8 +1068,8 @@ export function TiposProyectoPage() {
     }
     setAviso(
       nuevo
-        ? `Tipo de proyecto «${datos.nombre}» creado.`
-        : `Tipo de proyecto «${datos.nombre}» actualizado.`,
+        ? textos.tipoCreado(datos.nombre)
+        : textos.tipoActualizado(datos.nombre),
     );
     setEditando(null);
     await cargar();
@@ -1089,7 +1090,7 @@ export function TiposProyectoPage() {
   async function descargar(tipo) {
     try {
       guardarArchivo(
-        await proyectosService.plantillaConfigurada(tipo.id),
+        await servicio.plantillaConfigurada(tipo.id),
         tipo.plantilla_nombre,
       );
     } catch (err) {
@@ -1110,7 +1111,7 @@ export function TiposProyectoPage() {
     )
       return;
     hacer(
-      () => proyectosService.activarTipo(t.id, !t.activo),
+      () => servicio.activarTipo(t.id, !t.activo),
       t.activo
         ? `«${t.nombre}» ya no se puede solicitar.`
         : `«${t.nombre}» ya se puede solicitar.`,
@@ -1118,186 +1119,194 @@ export function TiposProyectoPage() {
   }
 
   return (
-    <div className="institucional-page mz-stack">
-      <div className="mz-view-head">
-        <div>
-          <h2>Tipos de proyecto</h2>
-          <p className="mz-desc">
-            Los proyectos que se pueden solicitar: su plantilla, los datos que
-            se piden y quién aprueba, autoriza y revisa antes de iniciarlos.
-          </p>
-        </div>
-        <div className="mz-actions">
-          <Link
-            to="/admin/institucional/proyectos"
-            className="btn btn-outline-secondary btn-sm"
-          >
-            <Icon name="arrow-left" /> Volver a las solicitudes
-          </Link>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setEditando({ ...NUEVO })}
-          >
-            <Icon name="plus-lg" /> Nuevo tipo de proyecto
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mz-alert mz-alert--bad" role="alert">
-          <Icon name="x-octagon" />
-          {error}
-        </div>
-      )}
-      {aviso && (
-        <div className="mz-alert mz-alert--ok" role="status">
-          <Icon name="check-circle" />
-          {aviso}
-        </div>
-      )}
-
-      <EstadoDeCarga
-        cargando={tipos === null}
-        error={errorCarga}
-        onReintentar={cargar}
-        vacio={tipos?.length === 0}
-        textoVacio="Todavía no hay tipos de proyecto."
-      />
-      <div className="flujos-lista">
-        {(tipos ?? []).map((t) => {
-          const obligatorios = t.campos.filter((c) => c.obligatorio).length;
-          return (
-            <section
-              key={t.id}
-              className={`flujo-tarjeta${t.activo ? "" : " flujo-tarjeta--inactivo"}`}
-              aria-label={t.nombre}
+    <CategoriaSolicitudContext.Provider value={config}>
+      <div className="institucional-page mz-stack">
+        <div className="mz-view-head">
+          <div>
+            <h2>{textos.tipos}</h2>
+            <p className="mz-desc">{textos.descripcionTipos}</p>
+          </div>
+          <div className="mz-actions">
+            <Link to={config.ruta} className="btn btn-outline-secondary btn-sm">
+              <Icon name="arrow-left" /> {textos.volver}
+            </Link>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEditando(nuevoTipo(textos))}
             >
-              <header className="flujo-tarjeta__cabecera">
-                <div>
-                  <strong>{t.nombre}</strong>{" "}
-                  {!t.activo && (
-                    <span className="mz-pill mz-pill--neutral">Inactivo</span>
-                  )}
-                  {t.descripcion && <small>{t.descripcion}</small>}
-                </div>
-                <span className="flujo-tarjeta__acciones">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    aria-label={`Editar ${t.nombre}`}
-                    onClick={() => setEditando(t)}
-                  >
-                    <Icon name="pencil" />
-                  </button>
-                  {t.solicitudes > 0 ? (
-                    t.tiene_plantilla && (
+              <Icon name="plus-lg" /> {textos.nuevoTipo}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mz-alert mz-alert--bad" role="alert">
+            <Icon name="x-octagon" />
+            {error}
+          </div>
+        )}
+        {aviso && (
+          <div className="mz-alert mz-alert--ok" role="status">
+            <Icon name="check-circle" />
+            {aviso}
+          </div>
+        )}
+
+        <EstadoDeCarga
+          cargando={tipos === null}
+          error={errorCarga}
+          onReintentar={cargar}
+          vacio={tipos?.length === 0}
+          textoVacio={textos.sinTipos}
+          // El botón principal, repetido donde se mira (auditoría UX/UI de
+          // US-008, 12/11/2026).
+          accionVacio={
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setEditando(nuevoTipo(textos))}
+            >
+              <Icon name="plus-lg" /> {textos.nuevoTipo}
+            </button>
+          }
+        />
+        <div className="flujos-lista">
+          {(tipos ?? []).map((t) => {
+            const obligatorios = t.campos.filter((c) => c.obligatorio).length;
+            return (
+              <section
+                key={t.id}
+                className={`flujo-tarjeta${t.activo ? "" : " flujo-tarjeta--inactivo"}`}
+                aria-label={t.nombre}
+              >
+                <header className="flujo-tarjeta__cabecera">
+                  <div>
+                    <strong>{t.nombre}</strong>{" "}
+                    {!t.activo && (
+                      <span className="mz-pill mz-pill--neutral">Inactivo</span>
+                    )}
+                    {t.descripcion && <small>{t.descripcion}</small>}
+                  </div>
+                  <span className="flujo-tarjeta__acciones">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      aria-label={`Editar ${t.nombre}`}
+                      onClick={() => setEditando(t)}
+                    >
+                      <Icon name="pencil" />
+                    </button>
+                    {t.solicitudes > 0 ? (
+                      t.tiene_plantilla && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          aria-label={`${t.activo ? "Desactivar" : "Activar"} ${t.nombre}`}
+                          title={
+                            t.activo
+                              ? "Tiene solicitudes: no se borra, se desactiva."
+                              : "Volver a permitir que se solicite."
+                          }
+                          onClick={() => cambiarActivo(t)}
+                        >
+                          <Icon
+                            name={t.activo ? "pause-circle" : "play-circle"}
+                          />
+                        </button>
+                      )
+                    ) : (
                       <button
                         type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        aria-label={`${t.activo ? "Desactivar" : "Activar"} ${t.nombre}`}
-                        title={
-                          t.activo
-                            ? "Tiene solicitudes: no se borra, se desactiva."
-                            : "Volver a permitir que se solicite."
-                        }
-                        onClick={() => cambiarActivo(t)}
+                        className="btn btn-outline-danger btn-sm"
+                        aria-label={`Borrar ${t.nombre}`}
+                        onClick={async () => {
+                          const si = await confirmar({
+                            titulo: textos.borrarTipo(t.nombre),
+                            mensaje:
+                              "No tiene solicitudes. Se borra con su plantilla, su formulario y sus pasos.",
+                            accion: "Borrar",
+                          });
+                          if (si) {
+                            hacer(
+                              () => servicio.eliminarTipo(t.id),
+                              `«${t.nombre}» se borró.`,
+                            );
+                          }
+                        }}
                       >
-                        <Icon
-                          name={t.activo ? "pause-circle" : "play-circle"}
-                        />
+                        <Icon name="trash" />
                       </button>
-                    )
+                    )}
+                  </span>
+                </header>
+                <div className="mz-small d-flex flex-wrap gap-2 align-items-center">
+                  {t.tiene_plantilla ? (
+                    <button
+                      type="button"
+                      className="btn btn-link btn-sm p-0"
+                      onClick={() => descargar(t)}
+                    >
+                      <Icon name="file-earmark-arrow-down" />{" "}
+                      {t.plantilla_nombre}
+                    </button>
                   ) : (
                     <button
                       type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      aria-label={`Borrar ${t.nombre}`}
-                      onClick={async () => {
-                        const si = await confirmar({
-                          titulo: `¿Borrar el tipo de proyecto «${t.nombre}»?`,
-                          mensaje:
-                            "No tiene solicitudes. Se borra con su plantilla, su formulario y sus pasos.",
-                          accion: "Borrar",
-                        });
-                        if (si) {
-                          hacer(
-                            () => proyectosService.eliminarTipo(t.id),
-                            `«${t.nombre}» se borró.`,
-                          );
-                        }
-                      }}
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setEditando(t)}
                     >
-                      <Icon name="trash" />
+                      <Icon name="upload" /> Cargar plantilla
                     </button>
                   )}
-                </span>
-              </header>
-              <div className="mz-small d-flex flex-wrap gap-2 align-items-center">
-                {t.tiene_plantilla ? (
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0"
-                    onClick={() => descargar(t)}
-                  >
-                    <Icon name="file-earmark-arrow-down" /> {t.plantilla_nombre}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => setEditando(t)}
-                  >
-                    <Icon name="upload" /> Cargar plantilla
-                  </button>
-                )}
-                <span className="mz-faint">
-                  {t.campos.length} {t.campos.length === 1 ? "campo" : "campos"}{" "}
-                  ({obligatorios}{" "}
-                  {obligatorios === 1 ? "obligatorio" : "obligatorios"}) ·{" "}
-                  {t.solicitudes}{" "}
-                  {t.solicitudes === 1 ? "solicitud" : "solicitudes"}
-                </span>
-                {t.solicitudes_en_curso > 0 && (
-                  <span className="mz-pill mz-pill--warn">
-                    {t.solicitudes_en_curso} en curso
+                  <span className="mz-faint">
+                    {t.campos.length}{" "}
+                    {t.campos.length === 1 ? "campo" : "campos"} ({obligatorios}{" "}
+                    {obligatorios === 1 ? "obligatorio" : "obligatorios"}) ·{" "}
+                    {t.solicitudes}{" "}
+                    {t.solicitudes === 1 ? "solicitud" : "solicitudes"}
                   </span>
-                )}
-                {t.tiene_plantilla && !t.solicitudes && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm ms-auto"
-                    onClick={() => cambiarActivo(t)}
-                  >
-                    {t.activo ? "Desactivar" : "Activar"}
-                  </button>
-                )}
-              </div>
-              <ol className="flujo-tarjeta__pasos">
-                {t.pasos.map((p) => (
-                  <li key={p.id}>
-                    <strong>{p.nombre}</strong>
-                    <span className="mz-faint mz-small">
-                      {p.aprobadores.map((a) => a.descripcion).join(" o ")}
+                  {t.solicitudes_en_curso > 0 && (
+                    <span className="mz-pill mz-pill--warn">
+                      {t.solicitudes_en_curso} en curso
                     </span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          );
-        })}
-      </div>
+                  )}
+                  {t.tiene_plantilla && !t.solicitudes && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm ms-auto"
+                      onClick={() => cambiarActivo(t)}
+                    >
+                      {t.activo ? "Desactivar" : "Activar"}
+                    </button>
+                  )}
+                </div>
+                <ol className="flujo-tarjeta__pasos">
+                  {t.pasos.map((p) => (
+                    <li key={p.id}>
+                      <strong>{p.nombre}</strong>
+                      <span className="mz-faint mz-small">
+                        {p.aprobadores.map((a) => a.descripcion).join(" o ")}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            );
+          })}
+        </div>
 
-      {editando && (
-        <EditorTipo
-          inicial={editando}
-          opciones={opciones}
-          errorOpciones={errorOpciones}
-          onReintentarOpciones={cargarOpciones}
-          onGuardado={guardar}
-          onCerrar={() => setEditando(null)}
-        />
-      )}
-    </div>
+        {editando && (
+          <EditorTipo
+            inicial={editando}
+            opciones={opciones}
+            errorOpciones={errorOpciones}
+            onReintentarOpciones={cargarOpciones}
+            onGuardado={guardar}
+            onCerrar={() => setEditando(null)}
+          />
+        )}
+      </div>
+    </CategoriaSolicitudContext.Provider>
   );
 }

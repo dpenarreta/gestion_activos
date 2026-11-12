@@ -6,12 +6,16 @@ se toman el jefe inmediato, los ocupantes de un cargo y los miembros de un
 rol:
 
 - **Nadie para decidir**: si un paso no encuentra a nadie, queda en manos de
-  quien administra los tipos de proyecto (`proyectos.configurar`), para que la
-  solicitud no se pierda.
+  quien administra los tipos de su categoría (`proyectos.configurar` o
+  `procesos.configurar`), para que la solicitud no se pierda.
 - Quien solicita nunca decide su propia solicitud, y nadie decide dos pasos
   de la misma: quien ya aprobó uno queda fuera de los siguientes.
 - No se escala a uno mismo.
 - Quien solicita recibe en la campana cada paso aprobado y el resultado.
+
+Desde el 12/11/2026 (US-008) las mismas reglas sirven a la Solicitud de
+procesos: lo que cambia según la categoría del tipo (permisos, numeración,
+enlace y palabras de los avisos) sale de `categorias`.
 """
 
 import json
@@ -28,9 +32,8 @@ from apps.organizacion import ausencia
 from apps.permissions.authorization import user_has_permission
 from apps.soporte.formulario import _normalizar, _vacio
 
+from . import categorias
 from .models import AccionProyecto, SolicitudProyecto, TipoCampo
-
-ENLACE = "/admin/institucional/proyectos"
 
 
 def _nombre(usuario) -> str:
@@ -51,8 +54,10 @@ def resolver(destino, solicitud) -> list:
     return []
 
 
-def administradores() -> list:
-    return [u for u in personas_de_la_empresa() if user_has_permission(u, "proyectos.configurar")]
+def administradores(categoria=categorias.Categoria.PROYECTO) -> list:
+    """Quienes administran los tipos de esa categoría."""
+    permiso = categorias.datos(categoria).permiso_configurar
+    return [u for u in personas_de_la_empresa() if user_has_permission(u, permiso)]
 
 
 # --- El formulario --------------------------------------------------------------------------
@@ -107,7 +112,7 @@ def _resumen(solicitud) -> str:
 
 
 def _enlace(solicitud) -> str:
-    return f"{ENLACE}?solicitud={solicitud.id}"
+    return f"{categorias.de_la_solicitud(solicitud).enlace}?solicitud={solicitud.id}"
 
 
 def _registrar(solicitud, accion, actor=None, paso=None, comentario="", detalle=""):
@@ -131,6 +136,7 @@ def _ya_aprobaron(solicitud) -> set:
 
 def _asignar(solicitud, personas, paso):
     """Deja la solicitud pendiente de esas personas y les avisa."""
+    categoria = categorias.de_la_solicitud(solicitud)
     excluidos = _ya_aprobaron(solicitud) | {solicitud.solicitante_id}
     personas = [p for p in personas if p and p.pk not in excluidos]
     # Quien está ausente no recibe la solicitud: pasa a su reemplazo, con las
@@ -138,7 +144,7 @@ def _asignar(solicitud, personas, paso):
     personas, cambios = ausencia.sustituir_ausentes(personas, excluidos)
     sin_nadie = not personas
     if sin_nadie:
-        personas = [p for p in administradores() if p.pk not in excluidos]
+        personas = [p for p in administradores(categoria.clave) if p.pk not in excluidos]
     unicos = list({p.pk: p for p in personas}.values())
     solicitud.pendiente_de.set(unicos)
     nombres = ", ".join(_nombre(p) for p in unicos) or "nadie"
@@ -146,7 +152,7 @@ def _asignar(solicitud, personas, paso):
     if sin_nadie:
         detalle = (
             f"{nombres} (el paso «{paso.nombre if paso else ''}» no encontró a nadie: "
-            "quedó en manos de quien administra los tipos de proyecto)"
+            f"quedó en manos de quien administra los tipos de {categoria.singular})"
         )
     _registrar(solicitud, AccionProyecto.Accion.ASIGNADA, paso=paso, detalle=detalle)
     for ausente, reemplazo in cambios:
@@ -159,8 +165,8 @@ def _asignar(solicitud, personas, paso):
         )
     campana.notificar(
         unicos,
-        tipo="proyectos.por_atender",
-        titulo=f"Solicitud de proyecto por atender ({paso.nombre if paso else ''})",
+        tipo=f"{categoria.modulo}.por_atender",
+        titulo=f"Solicitud de {categoria.singular} por atender ({paso.nombre if paso else ''})",
         resumen=_resumen(solicitud),
         enlace=_enlace(solicitud),
     )
@@ -199,13 +205,14 @@ def _terminar(solicitud, estado):
     if estado == SolicitudProyecto.Estado.CANCELADA:
         return
     aprobada = estado == SolicitudProyecto.Estado.APROBADA
+    categoria = categorias.de_la_solicitud(solicitud)
     campana.notificar(
         [solicitud.solicitante],
-        tipo=f"proyectos.{estado}",
+        tipo=f"{categoria.modulo}.{estado}",
         titulo=(
-            "Su proyecto fue aprobado: se puede iniciar"
+            f"Su {categoria.singular} fue aprobado: se puede iniciar"
             if aprobada
-            else "Su solicitud de proyecto fue rechazada"
+            else f"Su solicitud de {categoria.singular} fue rechazada"
         ),
         resumen=_resumen(solicitud),
         enlace=_enlace(solicitud),
@@ -217,11 +224,17 @@ def _terminar(solicitud, estado):
 
 @transaction.atomic
 def crear(solicitante, tipo_proyecto, *, titulo, respuestas, archivo, tipo_archivo=""):
+    categoria = categorias.datos(tipo_proyecto.categoria)
     if not tipo_proyecto.activo:
-        raise ValidationError({"tipo_proyecto": "Ese tipo de proyecto no está disponible."})
+        raise ValidationError(
+            {"tipo_proyecto": f"Ese tipo de {categoria.singular} no está disponible."}
+        )
     if not tipo_proyecto.pasos.exists():
         raise ValidationError(
-            {"tipo_proyecto": "Ese tipo de proyecto todavía no tiene pasos de aprobación."}
+            {
+                "tipo_proyecto": f"Ese tipo de {categoria.singular} todavía no tiene pasos de "
+                "aprobación."
+            }
         )
     if not archivo:
         raise ValidationError(
@@ -229,7 +242,7 @@ def crear(solicitante, tipo_proyecto, *, titulo, respuestas, archivo, tipo_archi
         )
     titulo = (titulo or "").strip()
     if not titulo:
-        raise ValidationError({"titulo": "Escriba el nombre del proyecto."})
+        raise ValidationError({"titulo": f"Escriba el nombre del {categoria.singular}."})
     copia = validar_respuestas(tipo_proyecto, respuestas)
     solicitud = SolicitudProyecto(
         tipo_proyecto=tipo_proyecto,
@@ -242,7 +255,11 @@ def crear(solicitante, tipo_proyecto, *, titulo, respuestas, archivo, tipo_archi
     )
     solicitud.archivo.save(archivo.name, archivo, save=False)
     solicitud.save()
-    solicitud.numero = f"PRY-{solicitud.created_at:%Y}-{solicitud.pk:04d}"
+    # PRY-AAAA-NNNN para proyectos y PRC-AAAA-NNNN para procesos (US-008,
+    # 12/11/2026). El número sale del id de la tabla común: cada flujo tiene su
+    # prefijo, no su propio contador, así que entre dos números seguidos de un
+    # mismo flujo puede haber saltos.
+    solicitud.numero = f"{categoria.prefijo}-{solicitud.created_at:%Y}-{solicitud.pk:04d}"
     solicitud.save(update_fields=["numero"])
     _registrar(solicitud, AccionProyecto.Accion.CREADA, actor=solicitante)
     _iniciar_paso(solicitud, _siguiente_paso(solicitud))
@@ -283,10 +300,11 @@ def aprobar(solicitud, usuario, comentario=""):
     if siguiente is None:
         _terminar(solicitud, SolicitudProyecto.Estado.APROBADA)
         return solicitud
+    categoria = categorias.de_la_solicitud(solicitud)
     campana.notificar(
         [solicitud.solicitante],
-        tipo="proyectos.avanza",
-        titulo=f"Su solicitud de proyecto pasó «{paso.nombre if paso else ''}»",
+        tipo=f"{categoria.modulo}.avanza",
+        titulo=f"Su solicitud de {categoria.singular} pasó «{paso.nombre if paso else ''}»",
         resumen=f"{_resumen(solicitud)} · ahora en «{siguiente.nombre}»",
         enlace=_enlace(solicitud),
     )
@@ -317,7 +335,7 @@ def escalar(solicitud, usuario, destino, comentario=""):
     if solicitud.estado != SolicitudProyecto.Estado.PENDIENTE:
         raise ValidationError({"detail": "La solicitud ya está cerrada."})
     puede = solicitud.pendiente_de.filter(pk=usuario.pk).exists() or user_has_permission(
-        usuario, "proyectos.ver_todas"
+        usuario, categorias.de_la_solicitud(solicitud).permiso_ver_todas
     )
     if not puede:
         raise PermissionDenied("Esta solicitud no está pendiente de usted.")
@@ -343,8 +361,8 @@ def escalar(solicitud, usuario, destino, comentario=""):
 
 
 def reasignar_por_ausencia(ausente, base=None) -> int:
-    """Pasa al reemplazo de `ausente` las solicitudes de proyecto pendientes de
-    él en la empresa activa, con la constancia «Escalada a X por ausencia de
+    """Pasa al reemplazo de `ausente` las solicitudes de proyecto y de proceso
+    pendientes de él en la empresa activa, con la constancia «Escalada a X por ausencia de
     Y» y el aviso de siempre. Si no hay reemplazo, se quedan con él.
     Idempotente: lo que ya pasó deja de estar pendiente de él.
 
@@ -354,7 +372,7 @@ def reasignar_por_ausencia(ausente, base=None) -> int:
     total = 0
     pendientes = SolicitudProyecto.objects.filter(
         estado=SolicitudProyecto.Estado.PENDIENTE, pendiente_de=ausente
-    ).select_related("solicitante")
+    ).select_related("solicitante", "tipo_proyecto")
     for solicitud in pendientes:
         with transaction.atomic():
             # Estado y paso se releen de la fila bloqueada, no de la consulta
@@ -382,10 +400,14 @@ def reasignar_por_ausencia(ausente, base=None) -> int:
                 comentario=ausencia.constancia(reemplazo, ausente),
                 detalle=_nombre(reemplazo),
             )
+            categoria = categorias.de_la_solicitud(solicitud)
             campana.notificar(
                 [reemplazo],
-                tipo="proyectos.por_atender",
-                titulo=f"Solicitud de proyecto por atender ({paso.nombre if paso else ''})",
+                tipo=f"{categoria.modulo}.por_atender",
+                titulo=(
+                    f"Solicitud de {categoria.singular} por atender "
+                    f"({paso.nombre if paso else ''})"
+                ),
                 resumen=_resumen(solicitud),
                 enlace=_enlace(solicitud),
             )
@@ -412,5 +434,5 @@ def puede_ver(solicitud, usuario) -> bool:
         solicitud.solicitante_id == usuario.pk
         or solicitud.pendiente_de.filter(pk=usuario.pk).exists()
         or solicitud.acciones.filter(actor=usuario).exists()
-        or user_has_permission(usuario, "proyectos.ver_todas")
+        or user_has_permission(usuario, categorias.de_la_solicitud(solicitud).permiso_ver_todas)
     )

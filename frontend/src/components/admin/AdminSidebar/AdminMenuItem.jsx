@@ -12,12 +12,17 @@ export const TEXTOS = {
     "que piden atención",
   ],
   por_aprobar: [
-    "Solicitudes que tiene por aprobar",
+    "Solicitudes de permiso que tiene por aprobar",
     "por aprobar",
     "por aprobar",
   ],
   proyectos_por_atender: [
-    "Solicitudes que tiene por atender",
+    "Solicitudes de proyecto que tiene por atender",
+    "por atender",
+    "por atender",
+  ],
+  procesos_por_atender: [
+    "Solicitudes de proceso que tiene por atender",
     "por atender",
     "por atender",
   ],

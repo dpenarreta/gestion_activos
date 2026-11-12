@@ -48,6 +48,9 @@ MODULOS = {
     "nomina": "Rol de pagos",
     "licencias": "Solicitud de permisos",
     "proyectos": "Solicitud de proyectos",
+    # La API de procesos es la de proyectos (`?categoria=proceso`, US-008): se
+    # reconoce por la pantalla (ver `modulo_de`).
+    "procesos": "Solicitud de procesos",
     "capacitacion": "Onboarding y capacitación",
     "sugerencias": "Sugerencias y errores",
     "soporte": "Mesa de ayuda",
@@ -71,7 +74,12 @@ MODULOS = {
     "privacidad": "Protección de datos personales",
 }
 #: Pantallas de Institucional con su propio nombre.
-INSTITUCIONAL = {"rol-pagos": "nomina", "permisos": "licencias", "proyectos": "proyectos"}
+INSTITUCIONAL = {
+    "rol-pagos": "nomina",
+    "permisos": "licencias",
+    "proyectos": "proyectos",
+    "procesos": "procesos",
+}
 
 
 def puede_ver(usuario) -> bool:
@@ -95,6 +103,10 @@ def modulo_de(origen: str, pantalla: str) -> str:
     tramo = _tramo(origen, "/api/v1/")
     if tramo == "audit":
         tramo = "auditoria"
+    # La Solicitud de procesos usa la API de proyectos (US-008, 12/11/2026):
+    # lo que se descarga desde su pantalla es de procesos.
+    if tramo == "proyectos" and _tramo(pantalla, "/admin/institucional/") == "procesos":
+        tramo = "procesos"
     if tramo not in MODULOS:
         tramo = _tramo(pantalla, "/admin/") or tramo
         if tramo == "institucional":

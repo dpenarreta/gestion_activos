@@ -7,6 +7,7 @@ from apps.licencias.models import APROBADORES_VALIDOS
 from apps.licencias.serializers import DestinoSerializer, describir_destino
 from apps.organizacion import ausencia
 
+from . import categorias
 from .models import (
     AccionProyecto,
     AprobadorPasoProyecto,
@@ -113,6 +114,7 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
         model = TipoProyecto
         fields = [
             "id",
+            "categoria",
             "nombre",
             "descripcion",
             "activo",
@@ -123,7 +125,9 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
             "pasos",
             "solicitudes",
         ]
-        read_only_fields = ["plantilla_nombre"]
+        # La categoría la pone la vista al crear (sale de `?categoria=`) y no
+        # cambia después (US-008, 12/11/2026); ver `validate`.
+        read_only_fields = ["categoria", "plantilla_nombre"]
 
     def get_tiene_plantilla(self, tipo) -> bool:
         return bool(tipo.plantilla)
@@ -131,14 +135,32 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
     def get_solicitudes(self, tipo) -> int:
         return tipo.solicitudes.count()
 
+    def _categoria(self) -> str:
+        """La del tipo que se edita o, al crear, la que pidió la vista."""
+        if self.instance is not None:
+            return self.instance.categoria
+        return self.context.get("categoria", TipoProyecto.Categoria.PROYECTO)
+
     def validate_nombre(self, valor):
         valor = valor.strip()
+        # El nombre es único en la empresa entre las dos categorías (la
+        # restricción `tipo_proyecto_unico` no distingue): se busca en todas
+        # para responder 400 y no un error de la base.
         repetido = TipoProyecto.objects.filter(nombre__iexact=valor)
         if self.instance is not None:
             repetido = repetido.exclude(pk=self.instance.pk)
-        if repetido.exists():
-            raise serializers.ValidationError(f"Ya hay un tipo de proyecto «{valor}».")
-        return valor
+        otro = repetido.first()
+        if otro is None:
+            return valor
+        if otro.categoria == self._categoria():
+            raise serializers.ValidationError(
+                f"Ya hay un tipo de {categorias.datos(otro.categoria).singular} con ese nombre."
+            )
+        datos = categorias.datos(otro.categoria)
+        raise serializers.ValidationError(
+            f"Ese nombre ya lo usa un tipo de {datos.singular} (en «{datos.pantalla}»). "
+            "Use otro nombre."
+        )
 
     def validate_pasos(self, pasos):
         if not pasos:
@@ -162,6 +184,18 @@ class TipoProyectoSerializer(serializers.ModelSerializer):
         return campos
 
     def validate(self, datos):
+        # La categoría no se cambia (US-008, 12/11/2026): sus solicitudes ya
+        # tienen número, permisos y avisos de ella. Si el cuerpo la repite tal
+        # cual (el formulario devuelve lo que recibió) se acepta; si pide otra,
+        # 400 en vez de ignorarla en silencio.
+        pedida = (self.initial_data or {}).get("categoria")
+        if pedida not in (None, "") and pedida != self._categoria():
+            raise serializers.ValidationError(
+                {
+                    "categoria": "La categoría de un tipo no se cambia: cree el tipo en la "
+                    "pantalla de la otra categoría."
+                }
+            )
         activo = datos.get("activo", getattr(self.instance, "activo", False))
         tiene_plantilla = bool(self.instance and self.instance.plantilla)
         if activo and not tiene_plantilla:
@@ -300,7 +334,7 @@ class TipoParaSolicitarSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TipoProyecto
-        fields = ["id", "nombre", "descripcion", "plantilla_nombre", "campos", "pasos"]
+        fields = ["id", "categoria", "nombre", "descripcion", "plantilla_nombre", "campos", "pasos"]
 
     def get_campos(self, tipo):
         return [
@@ -325,8 +359,17 @@ class TipoParaSolicitarSerializer(serializers.ModelSerializer):
         ]
 
 
+class _TipoDeLaCategoria(RelacionDeEmpresa):
+    """Un tipo activo de la categoría que pidió la vista (`context["categoria"]`).
+    Uno de la otra categoría responde igual que uno que no existe (US-008)."""
+
+    def get_queryset(self):
+        categoria = self.parent.context.get("categoria", TipoProyecto.Categoria.PROYECTO)
+        return super().get_queryset().filter(categoria=categoria)
+
+
 class NuevaSolicitudSerializer(serializers.Serializer):
-    tipo_proyecto = RelacionDeEmpresa(TipoProyecto, {"activo": True})
+    tipo_proyecto = _TipoDeLaCategoria(TipoProyecto, {"activo": True})
     titulo = serializers.CharField(max_length=200)
     respuestas = serializers.CharField(allow_blank=True, required=False, default="")
     archivo = serializers.FileField(
@@ -452,8 +495,9 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
         usuario = self.context["request"].user
         pendiente = solicitud.estado == SolicitudProyecto.Estado.PENDIENTE
         mia = solicitud.pendiente_de.filter(pk=usuario.pk).exists()
+        ver_todas = categorias.de_la_solicitud(solicitud).permiso_ver_todas
         return {
             "resolver": pendiente and mia,
-            "escalar": pendiente and (mia or user_has_permission(usuario, "proyectos.ver_todas")),
+            "escalar": pendiente and (mia or user_has_permission(usuario, ver_todas)),
             "cancelar": pendiente and solicitud.solicitante_id == usuario.pk,
         }

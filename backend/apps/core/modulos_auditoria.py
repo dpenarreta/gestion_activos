@@ -17,6 +17,8 @@ NOMBRES = {
     "dashboards": "Dashboards",
     "institucional": "Institucional",
     "licencias": "Institucional · Solicitud de permisos",
+    "proyectos": "Institucional · Solicitud de proyectos",
+    "procesos": "Institucional · Solicitud de procesos",
     "organizacion": "Configuración · Catálogos",
     "empresas": "Configuración · Empresas",
     "usuarios": "Configuración · Usuarios",

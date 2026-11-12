@@ -357,8 +357,8 @@ describe("El organigrama", () => {
     expect(ids).toEqual([
       "institucional-inicio",
       "institucional-organigrama",
-      "institucional-permisos",
-      "institucional-proyectos",
+      // Permisos, proyectos y procesos, dentro del grupo «Solicitudes» (US-008).
+      "institucional-solicitudes",
       "institucional-vacaciones",
       "institucional-onboarding",
       // Sin observaciones a cargo, el grupo «Rol de pagos» va directo a consultar.
@@ -371,6 +371,19 @@ describe("El organigrama", () => {
       ["institucional.ver"],
       "institucional",
     ).map((i) => i.id);
+    const solicitudes = (menuDe) =>
+      menuDe
+        .find((i) => i.id === "institucional-solicitudes")
+        .children.map((h) => h.id);
+    expect(solicitudes(menu)).toEqual([
+      "institucional-permisos",
+      "institucional-proyectos",
+      "institucional-procesos",
+    ]);
+    // Sin permiso para pedir permisos, el grupo queda con proyectos y procesos.
+    expect(
+      solicitudes(getVisibleAdminMenu(["institucional.ver"], "institucional")),
+    ).toEqual(["institucional-proyectos", "institucional-procesos"]);
     expect(sinBase).not.toContain("institucional-permisos");
     expect(sinBase).not.toContain("institucional-rol-pagos");
     expect(sinBase).not.toContain("institucional-rol-pagos-consultar");

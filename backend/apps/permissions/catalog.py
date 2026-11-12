@@ -658,6 +658,27 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Solicitud de procesos (US-008, 12/11/2026): el mismo motor que la de
+    # proyectos (`apps.proyectos`, tipos con `categoria="proceso"`), con
+    # permisos propios: quien configura proyectos no configura procesos.
+    "procesos": {
+        "label": "Solicitud de procesos",
+        "description": (
+            "Los procesos que se piden con una plantilla: cada tipo tiene su "
+            "plantilla, su formulario y sus pasos (aprobación, autorización, "
+            "revisión…). Solicitar y decidir lo que a uno le toca no piden permiso."
+        ),
+        "permissions": {
+            "procesos.configurar": (
+                "Crear y editar los tipos de proceso: su plantilla, los campos de su "
+                "formulario (obligatorios u opcionales) y sus pasos con quién decide cada uno"
+            ),
+            "procesos.ver_todas": (
+                "Ver todas las solicitudes de proceso de la empresa y escalar cualquiera "
+                "que esté en curso"
+            ),
+        },
+    },
     # Gestión Humana · Control Operativo de Novedades (portado de Nexo,
     # 04/11/2026). Los roles operativos (SUPERVISOR_OPERACIONES,
     # ASISTENTE_OPERACIONES y JEFE_OPERACIONES) tienen además una matriz propia
@@ -1099,6 +1120,7 @@ MODULE_GROUPS = [
             "vacaciones",
             "licencias",
             "proyectos",
+            "procesos",
             "herramientas",
             "sugerencias",
             "roles_pago",

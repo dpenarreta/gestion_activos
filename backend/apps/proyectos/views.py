@@ -16,10 +16,11 @@ from apps.licencias.models import Destino
 from apps.licencias.serializers import DestinoSerializer
 from apps.organizacion.models import Cargo
 from apps.permissions.authorization import user_has_permission
-from apps.permissions.permissions import HasModulePermission
+from apps.permissions.permissions import HasActionPermission
 
 from . import services
-from .models import SolicitudProyecto, TipoProyecto
+from .categorias import PorCategoriaMixin
+from .models import SolicitudProyecto
 from .serializers import (
     DetalleSolicitudSerializer,
     NuevaSolicitudSerializer,
@@ -29,7 +30,11 @@ from .serializers import (
     TipoProyectoSerializer,
 )
 
-MODULO = "proyectos"
+# Todas las vistas aceptan `?categoria=proyecto|proceso` (US-008, 12/11/2026;
+# ver `categorias.PorCategoriaMixin`): sin él vale `proyecto`, con otro valor
+# 400. Lo de otra categoría responde 404, como lo que no existe. El módulo de
+# la auditoría y el prefijo de sus acciones son los de la categoría
+# («proyectos» o «procesos»).
 
 
 def _descargar(campo, nombre, tipo):
@@ -44,35 +49,45 @@ def _descargar(campo, nombre, tipo):
     return respuesta
 
 
-class ConfigurarPermission(HasModulePermission):
-    view_permission = "proyectos.configurar"
-    write_permission = "proyectos.configurar"
+class ConfigurarPermission(HasActionPermission):
+    """`proyectos.configurar` o `procesos.configurar`, según la categoría
+    pedida: uno no sirve para la otra (US-008). Se evalúa después de
+    `IsAuthenticated`, así que sin sesión sigue siendo 401; con una categoría
+    inválida, 400."""
+
+    def get_required_permission(self, request, view) -> str:
+        return view.datos_categoria.permiso_configurar
 
 
-class TipoProyectoViewSet(viewsets.ModelViewSet):
-    """Los tipos de proyecto, para configurarlos (pide `proyectos.configurar`):
-    su formulario, sus pasos y su plantilla. Un tipo con solicitudes no se
-    borra: se desactiva."""
+class TipoProyectoViewSet(PorCategoriaMixin, viewsets.ModelViewSet):
+    """Los tipos de proyecto o de proceso, para configurarlos (pide el
+    `*.configurar` de la categoría): su formulario, sus pasos y su plantilla.
+    Un tipo con solicitudes no se borra: se desactiva. La categoría de un tipo
+    nuevo es la de `?categoria=` y no cambia después."""
 
     permission_classes = [IsAuthenticated, ConfigurarPermission]
     serializer_class = TipoProyectoSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
-        return TipoProyecto.objects.prefetch_related("campos", "pasos__aprobadores")
+        return self.tipos().prefetch_related("campos", "pasos__aprobadores")
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "categoria": self.categoria}
 
     def _auditar(self, accion, tipo, **valores):
+        modulo = self.datos_categoria.modulo
         record_audit_event(
             actor=self.request.user,
-            action=f"proyectos.tipo.{accion}",
+            action=f"{modulo}.tipo.{accion}",
             target=tipo,
-            module=MODULO,
-            new_values={"nombre": tipo.nombre, **valores},
+            module=modulo,
+            new_values={"nombre": tipo.nombre, "categoria": tipo.categoria, **valores},
             context=get_request_context(self.request),
         )
 
     def perform_create(self, serializer):
-        self._auditar("creado", serializer.save())
+        self._auditar("creado", serializer.save(categoria=self.categoria))
 
     def perform_update(self, serializer):
         self._auditar("editado", serializer.save())
@@ -82,8 +97,8 @@ class TipoProyectoViewSet(viewsets.ModelViewSet):
         if tipo.solicitudes.exists():
             return Response(
                 {
-                    "detail": "Este tipo de proyecto ya tiene solicitudes: desactívelo en lugar "
-                    "de borrarlo."
+                    "detail": f"Este tipo de {self.datos_categoria.singular} ya tiene "
+                    "solicitudes: desactívelo en lugar de borrarlo."
                 },
                 status=status.HTTP_409_CONFLICT,
             )
@@ -99,7 +114,9 @@ class TipoProyectoViewSet(viewsets.ModelViewSet):
         tipo = self.get_object()
         if request.method == "GET":
             if not tipo.plantilla:
-                raise Http404("Este tipo de proyecto todavía no tiene plantilla.")
+                raise Http404(
+                    f"Este tipo de {self.datos_categoria.singular} todavía no tiene plantilla."
+                )
             return _descargar(tipo.plantilla, tipo.plantilla_nombre, tipo.plantilla_tipo)
         entrada = PlantillaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -115,24 +132,27 @@ class TipoProyectoViewSet(viewsets.ModelViewSet):
         return Response(TipoProyectoSerializer(tipo).data)
 
 
-class OpcionesView(APIView):
+class OpcionesView(PorCategoriaMixin, APIView):
     """Personas, roles y cargos para elegir quién decide un paso o a quién se
-    escala. La ve quien configura, quien ve todas o quien tiene alguna
-    solicitud pendiente de decidir."""
+    escala. La ve, en su categoría, quien configura, quien ve todas o quien
+    tiene alguna solicitud pendiente de decidir."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         usuario = request.user
+        datos = self.datos_categoria
         puede = (
-            user_has_permission(usuario, "proyectos.configurar")
-            or user_has_permission(usuario, "proyectos.ver_todas")
-            or SolicitudProyecto.objects.filter(
-                estado=SolicitudProyecto.Estado.PENDIENTE, pendiente_de=usuario
+            user_has_permission(usuario, datos.permiso_configurar)
+            or user_has_permission(usuario, datos.permiso_ver_todas)
+            or self.de_la_categoria(
+                SolicitudProyecto.objects.filter(
+                    estado=SolicitudProyecto.Estado.PENDIENTE, pendiente_de=usuario
+                )
             ).exists()
         )
         if not puede:
-            raise PermissionDenied("No tiene el permiso requerido: proyectos.configurar.")
+            raise PermissionDenied(f"No tiene el permiso requerido: {datos.permiso_configurar}.")
         return Response(
             {
                 "personas": [
@@ -156,25 +176,25 @@ class OpcionesView(APIView):
         )
 
 
-class TiposParaSolicitarView(APIView):
-    """Los tipos de proyecto que se pueden solicitar: toda persona con sesión."""
+class TiposParaSolicitarView(PorCategoriaMixin, APIView):
+    """Los tipos de la categoría que se pueden solicitar: toda persona con
+    sesión."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        tipos = TipoProyecto.objects.filter(activo=True).prefetch_related(
-            "campos", "pasos__aprobadores"
-        )
+        tipos = self.tipos().filter(activo=True).prefetch_related("campos", "pasos__aprobadores")
         return Response(TipoParaSolicitarSerializer(tipos, many=True).data)
 
 
-class PlantillaParaSolicitarView(APIView):
-    """La plantilla de un tipo activo, para descargarla y llenarla."""
+class PlantillaParaSolicitarView(PorCategoriaMixin, APIView):
+    """La plantilla de un tipo activo de la categoría, para descargarla y
+    llenarla."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        tipo = TipoProyecto.objects.filter(pk=pk, activo=True).first()
+        tipo = self.tipos().filter(pk=pk, activo=True).first()
         if tipo is None or not tipo.plantilla:
             raise Http404("No se encontró la plantilla.")
         return _descargar(tipo.plantilla, tipo.plantilla_nombre, tipo.plantilla_tipo)
@@ -184,17 +204,31 @@ class _Comentario(serializers.Serializer):
     comentario = serializers.CharField(allow_blank=True, default="")
 
 
-class SolicitudViewSet(viewsets.GenericViewSet):
-    """Las solicitudes de proyecto: las mías, las que tengo por atender y, con
-    `proyectos.ver_todas`, todas las de la empresa."""
+class SolicitudViewSet(PorCategoriaMixin, viewsets.GenericViewSet):
+    """Las solicitudes de la categoría: las mías, las que tengo por atender y,
+    con el `*.ver_todas` de la categoría, todas las de la empresa. Una de otra
+    categoría responde 404 en todas las acciones."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
-        return SolicitudProyecto.objects.select_related(
-            "tipo_proyecto", "solicitante", "paso_actual"
-        ).prefetch_related("pendiente_de")
+        return self.de_la_categoria(
+            SolicitudProyecto.objects.select_related(
+                "tipo_proyecto", "solicitante", "paso_actual"
+            ).prefetch_related("pendiente_de")
+        )
+
+    def _auditar(self, request, accion, solicitud, **valores):
+        modulo = self.datos_categoria.modulo
+        record_audit_event(
+            actor=request.user,
+            action=f"{modulo}.solicitud.{accion}",
+            target=solicitud,
+            module=modulo,
+            new_values={"numero": solicitud.numero, **valores},
+            context=get_request_context(request),
+        )
 
     def list(self, request):
         vista = request.query_params.get("vista", "mias")
@@ -204,9 +238,10 @@ class SolicitudViewSet(viewsets.GenericViewSet):
                 estado=SolicitudProyecto.Estado.PENDIENTE, pendiente_de=request.user
             )
         elif vista == "todas":
-            if not user_has_permission(request.user, "proyectos.ver_todas"):
+            permiso = self.datos_categoria.permiso_ver_todas
+            if not user_has_permission(request.user, permiso):
                 return Response(
-                    {"detail": "No tiene el permiso requerido: proyectos.ver_todas."},
+                    {"detail": f"No tiene el permiso requerido: {permiso}."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
@@ -227,7 +262,11 @@ class SolicitudViewSet(viewsets.GenericViewSet):
         return self._detalle(request, self._solicitud(request, pk))
 
     def create(self, request):
-        entrada = NuevaSolicitudSerializer(data=request.data)
+        # El tipo tiene que ser de la categoría pedida: uno de la otra responde
+        # como uno que no existe.
+        entrada = NuevaSolicitudSerializer(
+            data=request.data, context={"request": request, "categoria": self.categoria}
+        )
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
         solicitud = services.crear(
@@ -238,17 +277,12 @@ class SolicitudViewSet(viewsets.GenericViewSet):
             archivo=datos["archivo"],
             tipo_archivo=getattr(entrada, "_tipo", ""),
         )
-        record_audit_event(
-            actor=request.user,
-            action="proyectos.solicitud.creada",
-            target=solicitud,
-            module=MODULO,
-            new_values={
-                "numero": solicitud.numero,
-                "tipo": solicitud.tipo_proyecto.nombre,
-                "titulo": solicitud.titulo,
-            },
-            context=get_request_context(request),
+        self._auditar(
+            request,
+            "creada",
+            solicitud,
+            tipo=solicitud.tipo_proyecto.nombre,
+            titulo=solicitud.titulo,
         )
         return Response(
             DetalleSolicitudSerializer(solicitud, context={"request": request}).data,
@@ -257,10 +291,14 @@ class SolicitudViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=["get"])
     def resumen(self, request):
+        """Lo que tengo por atender en la categoría pedida (la insignia del
+        menú: `proyectos_por_atender` o `procesos_por_atender`)."""
         return Response(
             {
-                "por_atender": SolicitudProyecto.objects.filter(
-                    pendiente_de=request.user, estado=SolicitudProyecto.Estado.PENDIENTE
+                "por_atender": self.de_la_categoria(
+                    SolicitudProyecto.objects.filter(
+                        pendiente_de=request.user, estado=SolicitudProyecto.Estado.PENDIENTE
+                    )
                 ).count()
             }
         )
@@ -270,14 +308,7 @@ class SolicitudViewSet(viewsets.GenericViewSet):
         entrada = _Comentario(data=request.data)
         entrada.is_valid(raise_exception=True)
         hacer(solicitud, request.user, entrada.validated_data["comentario"])
-        record_audit_event(
-            actor=request.user,
-            action=f"proyectos.solicitud.{nombre}",
-            target=solicitud,
-            module=MODULO,
-            new_values={"numero": solicitud.numero, "estado": solicitud.estado},
-            context=get_request_context(request),
-        )
+        self._auditar(request, nombre, solicitud, estado=solicitud.estado)
         return self._detalle(request, solicitud)
 
     @action(detail=True, methods=["post"])

@@ -36,6 +36,13 @@ const resumenLicencias = vi.fn();
 vi.mock("../src/api/licenciasService", () => ({
   licenciasService: { resumen: resumenLicencias },
 }));
+// Proyectos y procesos: el mismo resumen, cada uno con su categoría (US-008).
+const resumenProyectos = vi.fn();
+const resumenProcesos = vi.fn();
+vi.mock("../src/api/proyectosService", () => ({
+  proyectosService: { resumen: resumenProyectos },
+  procesosService: { resumen: resumenProcesos },
+}));
 const miOnboarding = vi.fn();
 vi.mock("../src/api/capacitacionService", () => ({
   capacitacionService: { miOnboarding },
@@ -81,6 +88,8 @@ beforeEach(() => {
   permisos.lista = ["licencias.solicitar"];
   resumenSugerencias.mockResolvedValue({ nuevos: 0 });
   avisoRol.mockResolvedValue({ mostrar: false });
+  resumenProyectos.mockResolvedValue({ por_atender: 0 });
+  resumenProcesos.mockResolvedValue({ por_atender: 0 });
 });
 
 describe("Insignias del menú", () => {
@@ -242,5 +251,72 @@ describe("Insignias del menú", () => {
     ).toHaveAccessibleName(
       /Consultar rol de pagos\s*1 pendiente de aceptar o confirmar/,
     );
+  });
+
+  it("Solicitudes agrupa permisos, proyectos y procesos, cada uno con lo suyo y la suma arriba", async () => {
+    resumenLicencias.mockResolvedValue({ por_aprobar: 1 });
+    resumenProyectos.mockResolvedValue({ por_atender: 2 });
+    resumenProcesos.mockResolvedValue({ por_atender: 3 });
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    pintar("/admin/institucional/procesos/tipos");
+
+    // La cabecera suma lo de sus tres entradas: 1 + 2 + 3.
+    const grupo = await screen.findByRole("button", { name: /Solicitudes/ });
+    expect(await within(grupo).findByText("6")).toBeInTheDocument();
+    expect(grupo).toHaveAccessibleName(/Solicitudes\s*6 pendientes/);
+
+    const procesos = await screen.findByRole("link", {
+      name: /Solicitud de procesos\s*3 por atender/,
+    });
+    expect(procesos).toHaveAttribute("href", "/admin/institucional/procesos");
+    // Juntas en un grupo, cada insignia dice de qué solicitudes habla.
+    expect(within(procesos).getByText("3")).toHaveAttribute(
+      "title",
+      "Solicitudes de proceso que tiene por atender",
+    );
+    expect(
+      within(
+        screen.getByRole("link", { name: /Solicitud de proyectos/ }),
+      ).getByText("2"),
+    ).toHaveAttribute("title", "Solicitudes de proyecto que tiene por atender");
+    expect(
+      within(
+        screen.getByRole("link", { name: /Solicitud de permisos/ }),
+      ).getByText("1"),
+    ).toHaveAttribute("title", "Solicitudes de permiso que tiene por aprobar");
+    // «Tipos de proceso» cuelga de «Solicitud de procesos»: queda marcada.
+    expect(procesos).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("link", {
+        name: /Solicitud de proyectos\s*2 por atender/,
+      }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.getByRole("link", {
+        name: /Solicitud de permisos\s*1 por aprobar/,
+      }),
+    ).toHaveAttribute("href", "/admin/institucional/permisos");
+    expect(resumenProcesos).toHaveBeenCalled();
+    expect(resumenProyectos).toHaveBeenCalled();
+  });
+
+  it("sin permiso para pedir permisos, Solicitudes muestra proyectos y procesos", async () => {
+    permisos.lista = [];
+    miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
+    resumenProcesos.mockResolvedValue({ por_atender: 1 });
+    pintar("/admin/institucional/procesos");
+    await screen.findByRole("button", { name: /Solicitudes/ });
+    expect(
+      await screen.findByRole("link", {
+        name: /Solicitud de procesos\s*1 por atender/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Solicitud de proyectos/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Solicitud de permisos/ }),
+    ).toBeNull();
+    expect(resumenLicencias).not.toHaveBeenCalled();
   });
 });

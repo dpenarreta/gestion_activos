@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getVisibleAdminMenu } from "../src/components/admin/AdminSidebar/staticAdminMenu";
+import {
+  conPermiso,
+  getVisibleAdminMenu,
+  modulosConPermiso,
+} from "../src/components/admin/AdminSidebar/staticAdminMenu";
 
 function buscar(menu, id) {
   for (const item of menu) {
@@ -87,5 +91,47 @@ describe("Menú administrativo", () => {
     expect(buscar(soloVer, "solicitudes-mias")).toBeDefined();
     expect(buscar(soloVer, "solicitudes-nueva")).toBeUndefined();
     expect(buscar(verYCrear, "solicitudes-nueva")).toBeDefined();
+  });
+
+  it("Solicitudes agrupa permisos, proyectos y procesos (US-008)", () => {
+    const menu = getVisibleAdminMenu(["licencias.solicitar"], "institucional");
+    const grupo = buscar(menu, "institucional-solicitudes");
+    expect(grupo.name).toBe("Solicitudes");
+    expect(grupo.children.map((h) => [h.name, h.path, h.insignia])).toEqual([
+      ["Solicitud de permisos", "/admin/institucional/permisos", "por_aprobar"],
+      [
+        "Solicitud de proyectos",
+        "/admin/institucional/proyectos",
+        "proyectos_por_atender",
+      ],
+      [
+        "Solicitud de procesos",
+        "/admin/institucional/procesos",
+        "procesos_por_atender",
+      ],
+    ]);
+    expect(buscar(menu, "institucional-procesos").rutas).toContain(
+      "/admin/institucional/procesos/tipos",
+    );
+  });
+
+  it("un grupo sin permiso propio no hace a nadie «una cuenta con permisos»", () => {
+    // Proyectos y procesos son de todos: el grupo «Solicitudes» se ve sin
+    // permisos, pero no cuenta como permiso de verdad (pantalla de 403).
+    expect(modulosConPermiso([])).not.toContain("institucional");
+    const sinPermisos = getVisibleAdminMenu([], "institucional");
+    expect(buscar(sinPermisos, "institucional-solicitudes")).toBeDefined();
+    expect(
+      buscar(conPermiso(sinPermisos), "institucional-solicitudes"),
+    ).toBeUndefined();
+    // Con permiso para pedir permisos, sí, y solo con esa entrada.
+    const conLicencias = conPermiso(
+      getVisibleAdminMenu(["licencias.solicitar"], "institucional"),
+    );
+    expect(
+      buscar(conLicencias, "institucional-solicitudes").children.map(
+        (h) => h.id,
+      ),
+    ).toEqual(["institucional-permisos"]);
   });
 });
