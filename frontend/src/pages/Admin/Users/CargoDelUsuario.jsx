@@ -17,8 +17,8 @@ const ASIGNACION_DE_CARGOS =
  * › Estructura › Asignación de cargos, donde además se pide el motivo para la
  * bitácora. Un segundo editor aquí serían dos caminos para el mismo dato.
  *
- * Lo ve quien ve el organigrama completo (`institucional.ver`, `editar`,
- * `asignar` o `perfil_cargo`, como `OrganigramaView`); el enlace para
+ * Lo ve quien abre el organigrama (`institucional.ver`, `ver_todo`,
+ * `editar`, `asignar` o `perfil_cargo`); el enlace para
  * cambiarlo, solo quien asigna cargos. Es el cargo en la empresa de la
  * pestaña: el organigrama es de cada empresa, y con varias se dice de cuál
  * («Sin cargo en el organigrama de LaarCourier»), porque en otra puede
@@ -26,10 +26,16 @@ const ASIGNACION_DE_CARGOS =
  */
 export function CargoDelUsuario({ usuarioId, nombre = "" }) {
   const puedeAsignar = usePermission("institucional.asignar");
-  const puedeVerTodo = usePermission("institucional.ver");
+  const puedeVerTodo = usePermission("institucional.ver_todo");
+  const puedeVerOrganigrama = usePermission("institucional.ver");
   const puedeEditar = usePermission("institucional.editar");
   const puedePerfil = usePermission("institucional.perfil_cargo");
-  const puedeVer = puedeAsignar || puedeVerTodo || puedeEditar || puedePerfil;
+  const puedeVer =
+    puedeAsignar ||
+    puedeVerTodo ||
+    puedeVerOrganigrama ||
+    puedeEditar ||
+    puedePerfil;
   const { guardedNavigate } = useUnsavedChanges();
   // `undefined` mientras carga; `null` si no ocupa ninguno.
   const [cargo, setCargo] = useState(undefined);

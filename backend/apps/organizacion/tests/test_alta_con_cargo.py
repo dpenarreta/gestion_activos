@@ -44,6 +44,7 @@ def _admin():
     usuario.user_permissions.set(
         _permisos(
             "institucional.ver",
+            "institucional.ver_todo",
             "institucional.editar",
             "institucional.asignar",
             "usuarios.ver",

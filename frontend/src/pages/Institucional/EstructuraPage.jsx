@@ -29,6 +29,7 @@ import { armarArbol, nombreDeCargo } from "./organigrama";
 import "./Institucional.css";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 import { BitacoraOrganigrama } from "./BitacoraOrganigrama";
+import { usePermission } from "../../hooks/usePermission";
 
 /** Cada pestaña con el permiso que la abre: armar la estructura o asignar. */
 const PESTANAS = [
@@ -495,6 +496,7 @@ export function EstructuraPage() {
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
   const puedeCargar = user?.permissions?.includes("institucional.asignar");
   const puedeRevertir = user?.permissions?.includes("institucional.editar");
+  const veTodo = usePermission("institucional.ver_todo");
 
   async function descargar(tipo) {
     setError(null);
@@ -613,13 +615,17 @@ export function EstructuraPage() {
           >
             <Icon name="file-earmark-arrow-down" /> Plantilla de carga masiva
           </button>
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm"
-            onClick={() => descargar("completo")}
-          >
-            <Icon name="file-earmark-spreadsheet" /> Organigrama completo
-          </button>
+          {/* Con nombres y correos de todas las áreas: solo quien ve todo
+              el organigrama (12/11/2026). */}
+          {veTodo && (
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => descargar("completo")}
+            >
+              <Icon name="file-earmark-spreadsheet" /> Organigrama completo
+            </button>
+          )}
           {puedeCargar && (
             <button
               type="button"

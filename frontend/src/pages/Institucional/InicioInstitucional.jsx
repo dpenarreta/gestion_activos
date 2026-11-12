@@ -125,6 +125,7 @@ export function InicioInstitucional() {
   );
   const veOrganigrama = [
     "institucional.ver",
+    "institucional.ver_todo",
     "institucional.editar",
     "institucional.asignar",
   ].some((p) => permisos.includes(p));

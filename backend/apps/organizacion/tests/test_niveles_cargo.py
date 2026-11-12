@@ -48,7 +48,7 @@ def _unidad():
 
 def test_un_cargo_nuevo_toma_el_nivel_de_su_nombre_y_se_puede_cambiar(db):
     unidad = _unidad()
-    _, cliente = _cuenta("ana", "institucional.ver", "institucional.editar")
+    _, cliente = _cuenta("ana", "institucional.ver", "institucional.ver_todo", "institucional.editar")
     jefe = cliente.post(f"{BASE}cargos/", {"nombre": "Jefe TI", "unidad": unidad.id}, format="json")
     assert jefe.status_code == 201, jefe.data
     assert jefe.data["nivel"] == "jefatura"
@@ -75,7 +75,7 @@ def test_un_cargo_nuevo_toma_el_nivel_de_su_nombre_y_se_puede_cambiar(db):
 def test_no_se_reporta_a_un_cargo_de_nivel_mas_bajo(db):
     unidad = _unidad()
     coordinador = Cargo.objects.create(nombre="Coordinador TI", unidad=unidad, nivel="coordinacion")
-    _, cliente = _cuenta("ana", "institucional.ver", "institucional.editar")
+    _, cliente = _cuenta("ana", "institucional.ver", "institucional.ver_todo", "institucional.editar")
     respuesta = cliente.post(
         f"{BASE}cargos/",
         {
@@ -109,7 +109,7 @@ def test_no_se_baja_el_nivel_si_le_reportan_cargos_mas_altos(db):
     unidad = _unidad()
     jefe = Cargo.objects.create(nombre="Jefe TI", unidad=unidad, nivel="jefatura")
     Cargo.objects.create(nombre="Coordinador TI", unidad=unidad, jefe=jefe, nivel="coordinacion")
-    _, cliente = _cuenta("ana", "institucional.ver", "institucional.editar")
+    _, cliente = _cuenta("ana", "institucional.ver", "institucional.ver_todo", "institucional.editar")
     respuesta = cliente.patch(f"{BASE}cargos/{jefe.id}/", {"nivel": "operativo"}, format="json")
     assert respuesta.status_code == 400
     assert "Coordinador TI" in str(respuesta.data["error"]["details"]["nivel"])

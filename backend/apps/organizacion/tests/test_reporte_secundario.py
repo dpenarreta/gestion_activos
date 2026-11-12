@@ -81,7 +81,9 @@ def _estructura():
 
 
 def _editor():
-    return _cuenta("editora", "institucional.ver", "institucional.editar")[1]
+    return _cuenta(
+        "editora", "institucional.ver", "institucional.ver_todo", "institucional.editar"
+    )[1]
 
 
 def _patch(cliente, cargo, **datos):

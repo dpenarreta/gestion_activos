@@ -3,6 +3,7 @@ import { useState } from "react";
 import { institucionalService } from "../../api/institucionalService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { usePermission } from "../../hooks/usePermission";
 import { descargarBlob } from "../../utils/descargas";
 import { mensajeDeError } from "../../utils/errores";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
@@ -89,6 +90,7 @@ export function CargaPersonas({ onCerrar, onCargado }) {
   const [error, setError] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
   const [pedirMotivo, dialogoMotivo] = usePedirMotivo();
+  const veTodo = usePermission("institucional.ver_todo");
 
   async function descargar(tipo) {
     setError(null);
@@ -158,11 +160,23 @@ export function CargaPersonas({ onCerrar, onCargado }) {
           )}
           <ol className="carga-personas__pasos">
             <li>
-              <strong>Descargue un archivo.</strong> La plantilla trae la
-              estructura vacía; el organigrama completo trae además a quien
-              ocupa hoy cada plaza, para corregir lo ya cargado. Los dos tienen
-              una hoja por unidad, con su gerente de área arriba y debajo toda
-              su cadena de mando, nivel por nivel.
+              {veTodo ? (
+                <>
+                  <strong>Descargue un archivo.</strong> La plantilla trae la
+                  estructura vacía; el organigrama completo trae además a quien
+                  ocupa hoy cada plaza, para corregir lo ya cargado. Los dos
+                  tienen una hoja por unidad, con su gerente de área arriba y
+                  debajo toda su cadena de mando, nivel por nivel.
+                </>
+              ) : (
+                <>
+                  <strong>Descargue la plantilla.</strong> Trae la estructura
+                  vacía, con una hoja por unidad: su gerente de área arriba y
+                  debajo toda su cadena de mando, nivel por nivel. El
+                  organigrama completo, con quién ocupa hoy cada plaza, lo
+                  descarga quien tiene el permiso «Ver todo el organigrama».
+                </>
+              )}
               <div className="d-flex flex-wrap gap-2 mt-2">
                 <button
                   type="button"
@@ -172,13 +186,18 @@ export function CargaPersonas({ onCerrar, onCargado }) {
                   <Icon name="file-earmark-arrow-down" /> Plantilla de carga
                   masiva
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => descargar("completo")}
-                >
-                  <Icon name="file-earmark-spreadsheet" /> Organigrama completo
-                </button>
+                {/* Con nombres y correos de todas las áreas: solo quien ve
+                    todo el organigrama (12/11/2026). */}
+                {veTodo && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => descargar("completo")}
+                  >
+                    <Icon name="file-earmark-spreadsheet" /> Organigrama
+                    completo
+                  </button>
+                )}
               </div>
             </li>
             <li>

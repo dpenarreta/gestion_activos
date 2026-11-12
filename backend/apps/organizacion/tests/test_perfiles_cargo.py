@@ -30,7 +30,8 @@ def _cargo():
 
 def test_solo_quien_tiene_el_permiso_escribe_el_perfil(db):
     cargo = _cargo()
-    _, rrhh = _cuenta("tatiana", "institucional.perfil_cargo")
+    # Lee el organigrama completo al final: con «Ver todo» (12/11/2026).
+    _, rrhh = _cuenta("tatiana", "institucional.perfil_cargo", "institucional.ver_todo")
     _, arma = _cuenta("ines", "institucional.editar")
     url = f"{BASE}cargos/{cargo.id}/perfil/"
     assert arma.put(url, PERFIL, format="json").status_code == 403

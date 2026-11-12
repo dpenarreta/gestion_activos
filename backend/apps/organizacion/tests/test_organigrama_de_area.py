@@ -1,9 +1,13 @@
 """Cada persona ve el organigrama de su área (21/10/2026).
 
 Con `institucional.ver_area` (lo trae todo cargo) se ve la unidad del cargo y
-las que dependen de ella; con `institucional.ver`, toda la empresa. El recorte
-lo hace el servidor: lo de otras áreas no sale de la base.
+las que dependen de ella. Toda la empresa la ven solo el superusuario y quien
+tenga `institucional.ver_todo` (decisión del usuario, 12/11/2026): ni
+`institucional.ver` ni armar o asignar el organigrama la dan ya. El recorte lo
+hace el servidor: lo de otras áreas no sale de la base.
 """
+
+import pytest
 
 from apps.organizacion.models import (
     Cargo,
@@ -50,12 +54,49 @@ def test_con_su_area_ve_su_unidad_y_las_que_dependen_de_ella(db):
     assert "Vendedor" not in str(datos) and "Gerente General" not in _nombres(datos, "cargos")
 
 
-def test_con_ver_ve_toda_la_empresa(db):
+def test_con_ver_todo_ve_toda_la_empresa(db):
     _empresa()
-    _, cliente = _cuenta("gerencia", "institucional.ver")
+    _, cliente = _cuenta("gerencia", "institucional.ver_todo")
     datos = cliente.get(URL).json()
     assert datos["alcance"] == {"tipo": "empresa"}
     assert len(datos["unidades"]) == 4 and len(datos["cargos"]) == 4
+
+
+def test_el_superusuario_ve_toda_la_empresa(db):
+    _empresa()
+    admin, cliente = _cuenta("raiz")
+    admin.is_superuser = True
+    admin.save(update_fields=["is_superuser"])
+    datos = cliente.get(URL).json()
+    assert datos["alcance"] == {"tipo": "empresa"}
+    assert len(datos["cargos"]) == 4
+
+
+@pytest.mark.parametrize(
+    "permisos",
+    [
+        ("institucional.ver",),
+        ("institucional.editar",),
+        ("institucional.asignar",),
+        ("institucional.perfil_cargo",),
+        (
+            "institucional.ver",
+            "institucional.editar",
+            "institucional.asignar",
+            "institucional.perfil_cargo",
+        ),
+    ],
+    ids=["ver", "editar", "asignar", "perfil_cargo", "todos-menos-ver-todo"],
+)
+def test_sin_ver_todo_ve_solo_su_area_aunque_arme_el_organigrama(db, permisos):
+    # TI ve TI (12/11/2026): quien arma o asigna el organigrama sin
+    # `institucional.ver_todo` ve el de su área, como cualquier persona.
+    e = _empresa()
+    jefe, cliente = _cuenta("jefe", "institucional.ver_area", *permisos)
+    DatosDeContacto.objects.create(usuario=jefe, cargo=e["jefe_ti"])
+    datos = cliente.get(URL).json()
+    assert datos["alcance"]["tipo"] == "area"
+    assert _nombres(datos, "cargos") == ["Jefe TI", "Técnico"]
 
 
 def test_sin_cargo_no_ve_ninguna_rama(db):

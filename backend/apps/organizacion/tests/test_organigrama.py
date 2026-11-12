@@ -42,7 +42,7 @@ def _cuenta(nombre, *permisos):
 @pytest.fixture
 def estructura(db):
     """Presidencia > Gerencia de TI > Soporte, con sus cargos."""
-    _, admin = _cuenta("ines", "ver", "editar", "asignar")
+    _, admin = _cuenta("ines", "ver", "ver_todo", "editar", "asignar")
 
     def crear(ruta, **datos):
         respuesta = admin.post(f"{BASE}{ruta}/", datos, format="json")

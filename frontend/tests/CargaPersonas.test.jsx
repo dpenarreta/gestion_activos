@@ -17,6 +17,11 @@ vi.mock("../src/api/institucionalService", () => ({
 }));
 const descargarBlob = vi.fn();
 vi.mock("../src/utils/descargas", () => ({ descargarBlob }));
+// El organigrama completo pide «Ver todo el organigrama» (12/11/2026).
+const permisos = { lista: ["institucional.asignar", "institucional.ver_todo"] };
+vi.mock("../src/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { permissions: permisos.lista } }),
+}));
 
 const { CargaPersonas } =
   await import("../src/pages/Institucional/CargaPersonas");
@@ -33,7 +38,10 @@ const VALIDO = {
   aplicado: false,
 };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  permisos.lista = ["institucional.asignar", "institucional.ver_todo"];
+});
 
 function subir() {
   const archivo = new File(["x"], "organigrama-personas.xlsx");
@@ -44,6 +52,19 @@ function subir() {
 }
 
 describe("Carga masiva de personas", () => {
+  it("sin «Ver todo el organigrama» solo ofrece la plantilla y lo explica", () => {
+    permisos.lista = ["institucional.asignar"];
+    render(<CargaPersonas onCerrar={() => {}} />);
+    expect(
+      screen.getByRole("button", { name: /Plantilla de carga masiva/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Organigrama completo/ }),
+    ).toBeNull();
+    expect(screen.getByText(/Descargue la plantilla\./)).toBeInTheDocument();
+    expect(screen.getByText(/Ver todo el organigrama/)).toBeInTheDocument();
+  });
+
   it("descarga la plantilla vacía o el organigrama completo", async () => {
     const plantilla = new Blob(["vacía"]);
     const completo = new Blob(["completo"]);

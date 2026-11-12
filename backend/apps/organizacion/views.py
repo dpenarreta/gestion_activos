@@ -60,6 +60,7 @@ from .permissions import (
     AvisoInicioPermission,
     CalendarioPermission,
     DocumentosPermission,
+    ExportarOrganigramaPermission,
     GestionarHerramientasPermission,
     HerramientasPermission,
     InstitucionalPermission,
@@ -501,17 +502,16 @@ MODULO_INSTITUCIONAL = "institucional"
 
 class OrganigramaView(APIView):
     """El organigrama de la empresa activa: niveles, unidades, cargos y quién
-    ocupa cada uno. Completo con `institucional.ver` (o quien lo arma o asigna
-    cargos); con solo `institucional.ver_area`, el de su área (21/10/2026)."""
+    ocupa cada uno. Completo solo para el superusuario y quien tenga
+    `institucional.ver_todo`; los demás, aunque lo armen o asignen cargos, ven
+    el de su área (decisión del usuario, 12/11/2026; antes lo daban
+    `institucional.ver`, `editar`, `asignar` y `perfil_cargo`)."""
 
     permission_classes = [IsAuthenticated, VerOrganigramaPermission]
 
     def get(self, request):
-        completo = any(
-            user_has_permission(request.user, f"institucional.{p}")
-            for p in ("ver", "editar", "asignar", "perfil_cargo")
-        )
-        if completo:
+        # `user_has_permission` ya deja pasar al superusuario.
+        if user_has_permission(request.user, "institucional.ver_todo"):
             return Response({**organigrama.arbol(), "alcance": {"tipo": "empresa"}})
         return Response(organigrama.arbol_de_area(request.user))
 
@@ -697,7 +697,7 @@ class ExportarOrganigramaView(APIView):
     """El organigrama completo en .xlsx: estructura, quién ocupa cada plaza
     (con nombre y correo) y el resumen por unidad. Queda en la auditoría."""
 
-    permission_classes = [IsAuthenticated, ArmarOAsignarPermission]
+    permission_classes = [IsAuthenticated, ExportarOrganigramaPermission]
 
     def get(self, request):
         from django.utils import timezone

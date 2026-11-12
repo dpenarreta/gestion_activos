@@ -388,7 +388,19 @@ describe("El organigrama", () => {
 });
 
 describe("La estructura", () => {
+  it("sin «Ver todo el organigrama» la estructura no ofrece el organigrama completo", async () => {
+    pintar(<EstructuraPage />);
+    expect(
+      await screen.findByRole("button", { name: /Plantilla de carga masiva/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Organigrama completo/ }),
+    ).toBeNull();
+  });
+
   it("desde la estructura se descargan la plantilla y el organigrama completo", async () => {
+    // Con nombres de todas las áreas: pide «Ver todo el organigrama» (12/11/2026).
+    permisos.lista = [...permisos.lista, "institucional.ver_todo"];
     servicio.plantillaPersonas.mockResolvedValue(new Blob(["p"]));
     servicio.exportarOrganigrama.mockResolvedValue(new Blob(["c"]));
     URL.createObjectURL = vi.fn(() => "blob:x");

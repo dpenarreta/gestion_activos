@@ -24,12 +24,24 @@ class AsignarCargosPermission(HasModulePermission):
 
 
 class ArmarOAsignarPermission(BasePermission):
-    """Descargar la plantilla o el organigrama completo (con nombres y
-    correos): quien arma la estructura o asigna cargos."""
+    """Descargar la plantilla (la estructura, sin personas): quien arma la
+    estructura o asigna cargos."""
 
     def has_permission(self, request, view) -> bool:
         return any(
             user_has_permission(request.user, f"institucional.{p}") for p in ("editar", "asignar")
+        )
+
+
+class ExportarOrganigramaPermission(BasePermission):
+    """Descargar el organigrama completo, con nombres y correos de todas las
+    áreas: quien arma o asigna y además ve todo el organigrama
+    (`institucional.ver_todo`, 12/11/2026). Sin ese permiso solo se ve su área,
+    así que tampoco se descarga lo de las demás."""
+
+    def has_permission(self, request, view) -> bool:
+        return ArmarOAsignarPermission().has_permission(request, view) and user_has_permission(
+            request.user, "institucional.ver_todo"
         )
 
 
@@ -40,7 +52,7 @@ class VerOrganigramaPermission(BasePermission):
     def has_permission(self, request, view) -> bool:
         return any(
             user_has_permission(request.user, f"institucional.{p}")
-            for p in ("ver", "ver_area", "editar", "asignar", "perfil_cargo")
+            for p in ("ver", "ver_todo", "ver_area", "editar", "asignar", "perfil_cargo")
         )
 
 
