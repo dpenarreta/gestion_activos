@@ -1,8 +1,8 @@
 """Control de acceso por dashboard: 2 grupos de roles (`roles_editores` puede ver y editar,
-`roles_lectores` solo puede ver) más un dueño reasignable por un superusuario. Un dashboard sin
-ningún rol asignado en ninguno de los 2 grupos no tiene ACL activa: se sigue autorizando por el
-permiso global de siempre (`cartera/permisos.py::tiene_acceso_dashboard`) — verificado acá mismo
-como caso de regresión."""
+`roles_lectores` solo puede ver) más un dueño reasignable por un superusuario. Regla del usuario
+(12/11/2026): sin «Ver» ni «Editar» no se ve el dashboard; uno sin roles asignados solo lo ven
+su dueño y el superusuario, aunque se tenga el permiso global
+(`cartera/permisos.py::tiene_acceso_dashboard`)."""
 
 import json
 
@@ -52,13 +52,24 @@ class AccesoPorAclTests(TestCase):
             {'version': version, 'components': []}, format='json',
         )
 
-    def test_sin_acl_el_permiso_global_alcanza_para_ver(self):
+    def test_sin_roles_el_permiso_global_no_alcanza_para_ver(self):
         usuario = _con_permiso(_usuario('con_view'), 'dashboard.view')
-        self.assertEqual(self._get_layout(usuario).status_code, 200)
+        self.assertEqual(self._get_layout(usuario).status_code, 403)
 
-    def test_sin_acl_el_permiso_global_alcanza_para_editar(self):
+    def test_sin_roles_el_permiso_global_no_alcanza_para_editar(self):
         usuario = _con_permiso(_usuario('con_edit'), 'dashboard.view', 'dashboard.layout.edit')
-        self.assertEqual(self._put_layout(usuario).status_code, 200)
+        self.assertEqual(self._put_layout(usuario).status_code, 403)
+
+    def test_sin_roles_el_dueno_ve_y_edita_sin_permiso_global(self):
+        self.raiz.owner = _usuario('dueno_sin_roles')
+        self.raiz.save(update_fields=['owner'])
+        self.assertEqual(self._get_layout(self.raiz.owner).status_code, 200)
+        self.assertEqual(self._put_layout(self.raiz.owner).status_code, 200)
+
+    def test_sin_roles_el_superusuario_ve_y_edita(self):
+        admin = User.objects.create_superuser(username='admin_sin_roles', email='admin_sin_roles@example.com', password='Clave-Segura-123')
+        self.assertEqual(self._get_layout(admin).status_code, 200)
+        self.assertEqual(self._put_layout(admin).status_code, 200)
 
     def test_con_acl_el_permiso_global_ya_no_alcanza(self):
         self.raiz.roles_lectores.add(Group.objects.create(name='Lectores acceso 1'))
@@ -228,13 +239,33 @@ class DashboardsAutorizadosConAclTests(TestCase):
         ids = [d['dashboard_id'] for d in resp.json()]
         self.assertNotIn(self.raiz.dashboard_id, ids)
 
+    def test_sin_ver_ni_editar_mis_dashboards_queda_vacia(self):
+        # Regla del usuario (12/11/2026): con el permiso global pero sin «Ver» ni «Editar» en
+        # ningún dashboard, la lista llega vacía (uno sin roles y otro restringido a otro rol).
+        self.raiz.roles_lectores.add(Group.objects.create(name='Lectores lista 3'))
+        crear_dashboard(nombre='Sin roles')
+        usuario = _con_permiso(_usuario('sin_nada'), 'dashboard.view')
+        self.client.force_authenticate(user=usuario)
+        resp = self.client.get('/api/v1/dashboards/authorized')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+    def test_el_dueno_ve_su_dashboard_sin_roles_y_sin_permiso_global(self):
+        dueno = _usuario('dueno_sin_global')
+        propio = crear_dashboard(nombre='Propio', creado_por=dueno)
+        self.client.force_authenticate(user=dueno)
+        ids = [d['dashboard_id'] for d in self.client.get('/api/v1/dashboards/authorized').json()]
+        self.assertEqual(ids, [propio.dashboard_id])
+
     def test_puede_administrar_acceso_en_la_lista(self):
-        # Sin ACL configurada, el dueño igual necesita `dashboard.view` global para verlo en la
-        # lista (comportamiento sin cambios respecto a hoy) — `puede_administrar_acceso` es
-        # independiente de eso, refleja únicamente si puede editar el ACL en sí.
-        dueno = _con_permiso(_usuario('dueno_lista'), 'dashboard.view')
+        # `puede_administrar_acceso` refleja solo si puede editar los roles del dashboard: el
+        # dueño sí; un lector con «Ver» lo ve en la lista, pero no administra el acceso.
+        dueno = _usuario('dueno_lista')
         raiz_con_dueno = crear_dashboard(nombre='Con dueño', creado_por=dueno)
-        otro = _con_permiso(_usuario('otro_lista'), 'dashboard.view')
+        grupo = Group.objects.create(name='Lectores lista 4')
+        raiz_con_dueno.roles_lectores.add(grupo)
+        otro = _usuario('otro_lista')
+        otro.groups.add(grupo)
 
         self.client.force_authenticate(user=dueno)
         resp = self.client.get('/api/v1/dashboards/authorized')

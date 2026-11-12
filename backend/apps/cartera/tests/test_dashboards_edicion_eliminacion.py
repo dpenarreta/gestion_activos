@@ -18,6 +18,17 @@ from apps.cartera.services.dashboards import (
 User = get_user_model()
 
 
+def _editor_de(dashboard, usuario):
+    """Pone a `usuario` en «Editar» (`roles_editores`) de `dashboard` con un rol propio.
+
+    Desde la regla del 12/11/2026 el permiso global ya no abre un dashboard sin roles: solo lo
+    ven y editan su dueño y el superusuario. Las pruebas «con permiso» conservan el permiso global
+    que tenían y suman este rol."""
+    rol = Group.objects.create(name=f'Editores de {dashboard.dashboard_id} {usuario.pk}')
+    usuario.groups.add(rol)
+    dashboard.roles_editores.add(rol)
+
+
 class ActualizarDashboardServiceTests(TestCase):
     def test_actualiza_nombre_y_area(self):
         dashboard = crear_dashboard(nombre='Finanzas', area='Finanzas')
@@ -105,6 +116,7 @@ class DashboardDetailViewTests(TestCase):
     def test_patch_con_permiso_actualiza(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.editar', username='con_editar')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.patch(f'/api/v1/dashboards/{dashboard.dashboard_id}/', {'name': 'Ventas Nacionales', 'area': 'Comercial'}, format='json')
         self.assertEqual(resp.status_code, 200)
@@ -115,6 +127,7 @@ class DashboardDetailViewTests(TestCase):
     def test_patch_actualiza_el_contexto(self):
         dashboard = crear_dashboard(nombre='Ventas', contexto='Original.')
         usuario = self._usuario_con('dashboard.editar', username='con_editar_contexto')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.patch(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/', {'name': 'Ventas', 'contexto': 'Nuevo contexto para la IA.'}, format='json',
@@ -134,6 +147,7 @@ class DashboardDetailViewTests(TestCase):
     def test_delete_con_permiso_y_confirmacion_correcta_elimina(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.eliminar', username='con_eliminar')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.delete(f'/api/v1/dashboards/{dashboard.dashboard_id}/', {'confirmation_name': 'Ventas'}, format='json')
         self.assertEqual(resp.status_code, 204)
@@ -142,6 +156,7 @@ class DashboardDetailViewTests(TestCase):
     def test_delete_con_confirmacion_incorrecta_devuelve_400(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.eliminar', username='con_eliminar2')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.delete(f'/api/v1/dashboards/{dashboard.dashboard_id}/', {'confirmation_name': 'otro nombre'}, format='json')
         self.assertEqual(resp.status_code, 400)
@@ -249,6 +264,7 @@ class DashboardBorrarDatosViewTests(TestCase):
         dashboard = crear_dashboard(nombre='Ventas')
         CargaArchivo.objects.create(dashboard_id=dashboard.dashboard_id, nombre_original='datos.xlsx')
         usuario = self._usuario_con('dashboard.configuration.reset', username='con_permiso_borrar')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.post(f'/api/v1/dashboards/{dashboard.dashboard_id}/borrar-datos', {'confirmation_name': 'Ventas'}, format='json')
         self.assertEqual(resp.status_code, 204)
@@ -259,6 +275,7 @@ class DashboardBorrarDatosViewTests(TestCase):
     def test_con_confirmacion_incorrecta_devuelve_400(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.configuration.reset', username='con_permiso_borrar2')
+        _editor_de(dashboard, usuario)
         self.client.force_authenticate(user=usuario)
         resp = self.client.post(f'/api/v1/dashboards/{dashboard.dashboard_id}/borrar-datos', {'confirmation_name': 'otro'}, format='json')
         self.assertEqual(resp.status_code, 400)

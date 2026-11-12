@@ -103,13 +103,19 @@ def _es_dueno_o_superusuario(request, dashboard):
 
 
 def tiene_acceso_dashboard(request, dashboard_id, *, permiso_global, requiere_edicion=False, dashboard=None):
-    """Punto único de autorización por dashboard (control de acceso por roles editores/lectores +
-    dueño). Si el dashboard no existe o no tiene ACL propia configurada (sin roles asignados a
-    ninguno de los 2 grupos — el caso de todo dashboard hoy y por defecto), se comporta exactamente
-    igual que siempre: `tiene_permiso(request, permiso_global)`. En cuanto se le asignan roles a
-    cualquiera de los 2 grupos, ese dashboard queda restringido a su dueño, al superusuario, o a
-    quien tenga uno de esos roles — `roles_editores` alcanza para ver Y editar; `roles_lectores`
-    solo para ver.
+    """Punto único de autorización por dashboard: sus roles editores/lectores (las casillas
+    «Editar» y «Ver»), más el dueño y el superusuario, que siempre entran.
+
+    Regla del usuario (12/11/2026): quien no tiene «Ver» ni «Editar» no ve el dashboard, y «Mis
+    dashboards» le aparece vacía. Antes, un dashboard sin roles asignados lo veía cualquiera con
+    el permiso global (`permiso_global`); ahora sin roles solo entran su dueño y el superusuario.
+    `roles_editores` alcanza para ver y editar; `roles_lectores`, solo para ver.
+
+    Una pestaña sin roles propios se rige por los de su dashboard raíz, que es donde se marcan
+    las casillas; el dueño de la raíz también entra a sus pestañas.
+
+    `permiso_global` solo cuenta si el `dashboard_id` no existe en ninguna empresa (se conserva
+    el comportamiento del origen para esos llamadores).
 
     `dashboard`: instancia ya cargada, para no volver a consultarla (ver `_resolver_dashboard`)."""
     dashboard = _resolver_dashboard(dashboard_id, dashboard)
@@ -121,11 +127,14 @@ def tiene_acceso_dashboard(request, dashboard_id, *, permiso_global, requiere_ed
         if Dashboard.objects.todas().filter(dashboard_id=dashboard_id).exists():
             return False
         return tiene_permiso(request, permiso_global)
-    if not _acl_configurada(dashboard):
-        return tiene_permiso(request, permiso_global)
 
     if _es_dueno_o_superusuario(request, dashboard):
         return True
+    regla = _con_roles_de_acceso(dashboard)
+    if regla is not dashboard and _es_dueno_o_superusuario(request, regla):
+        return True
+    if not _acl_configurada(regla):
+        return False
 
     usuario = getattr(request, 'user', None)
     if not usuario or not usuario.is_authenticated:
@@ -134,10 +143,24 @@ def tiene_acceso_dashboard(request, dashboard_id, *, permiso_global, requiere_ed
     # Los ids salen del prefetch (en memoria) y la pertenencia se compara contra los grupos del
     # usuario, que Django ya cachea por instancia — antes esto armaba un queryset combinado con
     # una subconsulta y emitía un SELECT por cada dashboard evaluado.
-    ids_permitidos = {rol.pk for rol in dashboard.roles_editores.all()}
+    ids_permitidos = {rol.pk for rol in regla.roles_editores.all()}
     if not requiere_edicion:
-        ids_permitidos |= {rol.pk for rol in dashboard.roles_lectores.all()}
-    return bool(ids_permitidos & _ids_de_roles(usuario, dashboard))
+        ids_permitidos |= {rol.pk for rol in regla.roles_lectores.all()}
+    return bool(ids_permitidos & _ids_de_roles(usuario, regla))
+
+
+def _con_roles_de_acceso(dashboard):
+    """El dashboard cuyos roles deciden el acceso: el propio si tiene roles asignados o es una
+    raíz; si es una pestaña sin roles propios, su raíz (las casillas se marcan en la raíz)."""
+    if dashboard.parent_id is None or _acl_configurada(dashboard):
+        return dashboard
+    raiz = (
+        Dashboard.objects.todas()
+        .prefetch_related('roles_editores', 'roles_lectores')
+        .filter(pk=dashboard.parent_id)
+        .first()
+    )
+    return raiz or dashboard
 
 
 def _ids_de_roles(usuario, dashboard):

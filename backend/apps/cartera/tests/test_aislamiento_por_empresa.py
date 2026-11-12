@@ -80,11 +80,14 @@ def test_el_dashboard_nace_en_la_empresa_activa_y_su_layout_tambien(courier):
 
 
 def test_cada_empresa_ve_solo_sus_dashboards(courier, seguridad):
-    _dashboard_de(courier, "Cobranza Courier")
-    _dashboard_de(seguridad, "Cobranza Seguridad")
+    # Un dashboard sin roles solo lo ve su dueño: los dos llevan el rol en «Ver»,
+    # y la cuenta lo tiene en ambas empresas, así que solo la empresa separa.
+    lectores = _rol("Lectores de cobranza", "dashboard.view")
+    _dashboard_de(courier, "Cobranza Courier").roles_lectores.set([lectores])
+    _dashboard_de(seguridad, "Cobranza Seguridad").roles_lectores.set([lectores])
     cuenta = _cuenta("ana", "dashboard.view")
-    _membresia(cuenta, courier)
-    _membresia(cuenta, seguridad)
+    _membresia(cuenta, courier, lectores)
+    _membresia(cuenta, seguridad, lectores)
 
     en_courier = [d["name"] for d in _cliente(cuenta, courier).get("/api/v1/dashboards/authorized").data]
     en_seguridad = [d["name"] for d in _cliente(cuenta, seguridad).get("/api/v1/dashboards/authorized").data]
@@ -94,9 +97,12 @@ def test_cada_empresa_ve_solo_sus_dashboards(courier, seguridad):
 
 def test_el_dashboard_de_otra_empresa_no_se_abre_ni_se_edita(courier, seguridad):
     ajeno = _dashboard_de(seguridad, "Directorio")
+    editores = _rol("Editores del directorio", "dashboard.view", "dashboard.editar")
+    ajeno.roles_editores.set([editores])
     cuenta = _cuenta("beto", "dashboard.view", "dashboard.layout.edit", "dashboard.editar")
-    _membresia(cuenta, courier)
-    _membresia(cuenta, seguridad)
+    # El rol de «Editar» en las dos empresas: lo único que le cierra el paso es la empresa.
+    _membresia(cuenta, courier, editores)
+    _membresia(cuenta, seguridad, editores)
     cliente = _cliente(cuenta, courier)
 
     assert cliente.get(f"/api/v1/dashboards/{ajeno.dashboard_id}/layout").status_code == 403

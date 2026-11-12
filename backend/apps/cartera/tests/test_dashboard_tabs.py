@@ -3,16 +3,32 @@ propia plantilla de 13 posiciones, su propio archivo), enlazado a una raíz por 
 Máximo 5 pestañas por familia (la raíz cuenta como la primera)."""
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.cartera.exceptions import CarteraError
 from apps.cartera.models import CargaArchivo, Dashboard, DashboardComponent, DashboardLayout
 from apps.cartera.services import plantilla
-from apps.cartera.services.dashboards import actualizar_dashboard, crear_dashboard, crear_pestana, eliminar_dashboard, listar_pestanas
+from apps.cartera.services.dashboards import (
+    actualizar_dashboard,
+    crear_dashboard,
+    crear_pestana,
+    eliminar_dashboard,
+    listar_pestanas,
+)
 
 User = get_user_model()
+
+
+def _con_rol_en(dashboard, usuario, *, editar):
+    """Pone a `usuario` en «Editar» (`roles_editores`) o en «Ver» (`roles_lectores`) de
+    `dashboard` con un rol propio. Desde la regla del 12/11/2026 un dashboard sin roles solo lo
+    abren su dueño y el superusuario: el permiso global ya no basta."""
+    rol = Group.objects.create(name=f'Rol de {dashboard.dashboard_id} {usuario.pk}')
+    usuario.groups.add(rol)
+    (dashboard.roles_editores if editar else dashboard.roles_lectores).add(rol)
+    return rol
 
 
 class CrearPestanaServiceTests(TestCase):
@@ -116,6 +132,9 @@ class DashboardsAutorizadosSinPestanasTests(TestCase):
         client = APIClient()
         usuario = User.objects.create_user(username='con_permiso3', email='cp3@example.com', password='Clave-Segura-123')
         usuario.user_permissions.add(Permission.objects.get(codename='dashboard.view', content_type__app_label='permissions'))
+        # Con «Ver» en la raíz, la pestaña (sin roles propios) también le es accesible: aun así
+        # no debe listarse como un dashboard aparte.
+        _con_rol_en(raiz, usuario, editar=False)
         client.force_authenticate(user=usuario)
 
         resp = client.get('/api/v1/dashboards/authorized')
@@ -144,6 +163,7 @@ class DashboardTabsViewTests(TestCase):
 
     def test_get_devuelve_la_familia(self):
         usuario = self._usuario_con('dashboard.view', username='con_ver')
+        _con_rol_en(self.raiz, usuario, editar=False)
         self.client.force_authenticate(user=usuario)
         resp = self.client.get(f'/api/v1/dashboards/{self.raiz.dashboard_id}/pestanas')
         self.assertEqual(resp.status_code, 200)
@@ -157,6 +177,7 @@ class DashboardTabsViewTests(TestCase):
 
     def test_post_con_permiso_crea_la_pestana(self):
         usuario = self._usuario_con('dashboard.crear', username='con_crear')
+        _con_rol_en(self.raiz, usuario, editar=True)
         self.client.force_authenticate(user=usuario)
         resp = self.client.post(f'/api/v1/dashboards/{self.raiz.dashboard_id}/pestanas', {'name': 'Pestaña 2'}, format='json')
         self.assertEqual(resp.status_code, 201)
@@ -167,6 +188,7 @@ class DashboardTabsViewTests(TestCase):
 
     def test_post_en_el_maximo_devuelve_400(self):
         usuario = self._usuario_con('dashboard.crear', username='con_crear2')
+        _con_rol_en(self.raiz, usuario, editar=True)
         self.client.force_authenticate(user=usuario)
         for i in range(4):
             resp = self.client.post(f'/api/v1/dashboards/{self.raiz.dashboard_id}/pestanas', {'name': f'Pestaña {i + 2}'}, format='json')
@@ -175,3 +197,28 @@ class DashboardTabsViewTests(TestCase):
         resp = self.client.post(f'/api/v1/dashboards/{self.raiz.dashboard_id}/pestanas', {'name': 'Pestaña 6'}, format='json')
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json()['error'], 'MAXIMO_PESTANAS_ALCANZADO')
+
+    def test_el_rol_en_ver_de_la_raiz_abre_las_pestanas_sin_roles_propios(self):
+        """Las casillas «Ver»/«Editar» se marcan en la raíz: una pestaña sin roles propios se rige
+        por los de su raíz. Con «Ver» se listan y se abren todas, pero no se crean pestañas."""
+        segunda = crear_pestana(self.raiz.dashboard_id, nombre='Pestaña 2')
+        tercera = crear_pestana(self.raiz.dashboard_id, nombre='Pestaña 3')
+        self.assertFalse(segunda.roles_editores.exists() or segunda.roles_lectores.exists())
+        usuario = self._usuario_con(username='lector_raiz')
+        _con_rol_en(self.raiz, usuario, editar=False)
+        self.client.force_authenticate(user=usuario)
+
+        resp = self.client.get(f'/api/v1/dashboards/{segunda.dashboard_id}/pestanas')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            [p['dashboard_id'] for p in resp.json()],
+            [self.raiz.dashboard_id, segunda.dashboard_id, tercera.dashboard_id],
+        )
+        self.assertEqual(self.client.get(f'/api/v1/dashboards/{tercera.dashboard_id}/layout').status_code, 200)
+        resp = self.client.post(f'/api/v1/dashboards/{self.raiz.dashboard_id}/pestanas', {'name': 'Pestaña 4'}, format='json')
+        self.assertEqual(resp.status_code, 403)
+
+        # Sin el rol, la misma pestaña no se abre.
+        ajeno = self._usuario_con('dashboard.view', username='sin_rol_raiz')
+        self.client.force_authenticate(user=ajeno)
+        self.assertEqual(self.client.get(f'/api/v1/dashboards/{tercera.dashboard_id}/layout').status_code, 403)

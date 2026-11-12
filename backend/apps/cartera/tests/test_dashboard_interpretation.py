@@ -24,11 +24,15 @@ def _cliente_autenticado():
     return client
 
 
-def _cliente_con_permisos(*codenames):
+def _cliente_con_permisos(*codenames, lector_de=None):
     """A diferencia de `_cliente_autenticado` (superusuario, tiene todo el catálogo), arma un
     usuario normal con exactamente los codenames indicados — para probar que `dashboard.interpretar`/
-    `dashboard.hallazgos_ia` son permisos propios, no un alias de `dashboard.view`."""
-    from django.contrib.auth.models import Permission
+    `dashboard.hallazgos_ia` son permisos propios, no un alias de `dashboard.view`.
+
+    `lector_de`: `dashboard_id` en cuyo «Ver» (`roles_lectores`) entra el usuario con un rol propio.
+    Desde la regla del 12/11/2026 un dashboard sin roles solo lo abren su dueño y el superusuario,
+    así que sin ese rol el usuario ni siquiera llega a la comprobación del permiso de IA."""
+    from django.contrib.auth.models import Group, Permission
 
     client = APIClient()
     usuario = User.objects.create_user(
@@ -37,6 +41,10 @@ def _cliente_con_permisos(*codenames):
     )
     for codename in codenames:
         usuario.user_permissions.add(Permission.objects.get(codename=codename, content_type__app_label='permissions'))
+    if lector_de is not None:
+        rol = Group.objects.create(name=f'Lectores de {lector_de} {usuario.pk}')
+        usuario.groups.add(rol)
+        Dashboard.objects.get(dashboard_id=lector_de).roles_lectores.add(rol)
     client.force_authenticate(user=usuario)
     return client
 
@@ -237,9 +245,10 @@ class DashboardInterpretacionViewTests(TestCase):
     def test_post_con_dashboard_view_pero_sin_dashboard_interpretar_responde_403(self):
         # Ver el dashboard no alcanza — dashboard.interpretar es un permiso propio, separado a
         # propósito para poder controlar el uso de IA sin depender de quién puede ver el dashboard.
-        cliente = _cliente_con_permisos('dashboard.view')
+        cliente = _cliente_con_permisos('dashboard.view', lector_de='finanzas')
         resp = cliente.post('/api/v1/dashboards/finanzas/interpretacion')
         self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json()['mensaje'], 'No tiene permiso para generar interpretaciones con IA.')
 
     @override_settings(GEMINI_API_KEY='clave-de-prueba')
     @mock.patch('apps.cartera.services.dashboard_interpretation.requests.post')
@@ -249,7 +258,7 @@ class DashboardInterpretacionViewTests(TestCase):
             'datos': {'tipo': 'kpi', 'valor': 1.0},
         })
         post_mock.return_value = _respuesta_gemini('Interpretación de prueba.')
-        cliente = _cliente_con_permisos('dashboard.view', 'dashboard.interpretar')
+        cliente = _cliente_con_permisos('dashboard.view', 'dashboard.interpretar', lector_de='finanzas')
 
         resp = cliente.post('/api/v1/dashboards/finanzas/interpretacion')
 
@@ -378,9 +387,10 @@ class DashboardHallazgosIAViewTests(TestCase):
         self.assertEqual(resp.status_code, 401)
 
     def test_post_con_dashboard_view_pero_sin_dashboard_hallazgos_ia_responde_403(self):
-        cliente = _cliente_con_permisos('dashboard.view')
+        cliente = _cliente_con_permisos('dashboard.view', lector_de='finanzas')
         resp = cliente.post('/api/v1/dashboards/finanzas/hallazgos-ia')
         self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json()['mensaje'], 'No tiene permiso para generar hallazgos con IA.')
 
     @override_settings(GEMINI_API_KEY='clave-de-prueba')
     @mock.patch('apps.cartera.services.dashboard_interpretation.requests.post')
@@ -390,7 +400,7 @@ class DashboardHallazgosIAViewTests(TestCase):
             'datos': {'tipo': 'kpi', 'valor': 1.0},
         })
         post_mock.return_value = _respuesta_gemini_json({'total': 'Hallazgo de prueba.'})
-        cliente = _cliente_con_permisos('dashboard.view', 'dashboard.hallazgos_ia')
+        cliente = _cliente_con_permisos('dashboard.view', 'dashboard.hallazgos_ia', lector_de='finanzas')
 
         resp = cliente.post('/api/v1/dashboards/finanzas/hallazgos-ia')
 

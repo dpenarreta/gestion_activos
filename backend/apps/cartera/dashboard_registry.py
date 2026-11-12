@@ -17,10 +17,10 @@ def dashboards_autorizados(request):
     # Las pestañas de un dashboard (`Dashboard.parent`) no son dashboards sueltos — se navega a
     # ellas desde la barra de pestañas del dashboard raíz, no deben aparecer acá como una entrada
     # aparte. Cada dashboard se filtra individualmente por `tiene_acceso_dashboard` (control de
-    # acceso por roles editores/lectores + dueño) en vez de un único chequeo global: un dashboard
-    # sin ACL propia se ve igual que siempre (basta `dashboard.view`), uno con ACL configurada solo
-    # lo ven su dueño/el superusuario/quien tenga uno de los roles asignados — aunque no tenga el
-    # permiso global. `puede_administrar_acceso` le indica al frontend si mostrar el botón para
+    # acceso por roles editores/lectores + dueño) en vez de un único chequeo global: solo lo ven
+    # su dueño, el superusuario y quien tenga uno de los roles asignados («Ver» o «Editar»). Sin
+    # roles asignados no lo ve nadie más, y «Mis dashboards» puede quedar vacía (regla del
+    # usuario, 12/11/2026). `puede_administrar_acceso` le indica al frontend si mostrar el botón para
     # configurar esa ACL.
     # `prefetch_related` + pasar `dashboard=d`: cada iteración ya tiene el objeto cargado, así que
     # `tiene_acceso_dashboard`/`puede_administrar_acceso` no vuelven a consultarlo. Antes eran ~5

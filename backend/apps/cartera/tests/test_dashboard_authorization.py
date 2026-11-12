@@ -132,7 +132,9 @@ class DashboardsAuthorizedViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
 
-    def test_usuario_con_dashboard_view_ve_los_dashboards_existentes(self):
+    def test_con_dashboard_view_pero_sin_ver_ni_editar_no_ve_nada(self):
+        # Regla del usuario (12/11/2026): el permiso global ya no muestra un dashboard; hace falta
+        # «Ver» o «Editar» en ese dashboard (o ser su dueño o superusuario).
         crear_dashboard(nombre='Cobranza', area='Cartera')
         client = APIClient()
         usuario = User.objects.create_user(username='con_permiso', email='cp2@example.com', password='Clave-Segura-123')
@@ -140,12 +142,26 @@ class DashboardsAuthorizedViewTests(TestCase):
         client.force_authenticate(user=usuario)
         resp = client.get('/api/v1/dashboards/authorized')
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+    def test_con_ver_marcado_ve_el_dashboard(self):
+        dashboard = crear_dashboard(nombre='Cobranza', area='Cartera')
+        grupo = Group.objects.create(name='Lectores cobranza')
+        dashboard.roles_lectores.add(grupo)
+        client = APIClient()
+        usuario = User.objects.create_user(username='lector_cobranza', email='lc@example.com', password='Clave-Segura-123')
+        usuario.groups.add(grupo)
+        client.force_authenticate(user=usuario)
+        resp = client.get('/api/v1/dashboards/authorized')
+        self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [{
             'dashboard_id': 'cobranza', 'name': 'Cobranza', 'area': 'Cartera', 'contexto': '', 'puede_administrar_acceso': False,
         }])
 
-    def test_administrador_general_ve_todos_los_dashboards_autorizados(self):
-        crear_dashboard(nombre='Cobranza', area='Cartera')
+    def test_administrador_general_ve_los_dashboards_donde_su_rol_tiene_acceso(self):
+        dashboard = crear_dashboard(nombre='Cobranza', area='Cartera')
+        crear_dashboard(nombre='Sin roles', area='Cartera')
+        dashboard.roles_editores.add(Group.objects.get(name='Administrador'))
         client = APIClient()
         usuario = User.objects.create_user(username='gerente2', email='gerente2@example.com', password='Clave-Segura-123')
         usuario.groups.add(Group.objects.get(name='Administrador'))

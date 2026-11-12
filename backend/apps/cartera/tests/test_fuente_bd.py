@@ -646,6 +646,14 @@ class DashboardFuenteBDViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
+    def _con_rol_en(self, dashboard, usuario, *, editar):
+        """Pone a `usuario` en «Editar» (`roles_editores`) o en «Ver» (`roles_lectores`) de
+        `dashboard`. Desde la regla del 12/11/2026 un dashboard sin roles solo lo abren su dueño y
+        el superusuario: el permiso global que ya tenía el usuario no basta por sí solo."""
+        rol = Group.objects.create(name=f'Rol de {dashboard.dashboard_id} {usuario.pk}')
+        usuario.groups.add(rol)
+        (dashboard.roles_editores if editar else dashboard.roles_lectores).add(rol)
+
     def _usuario_con(self, *codenames, username):
         usuario = User.objects.create_user(username=username, email=f'{username}@example.com', password='Clave-Segura-123')
         for codename in codenames:
@@ -663,6 +671,7 @@ class DashboardFuenteBDViewTests(TestCase):
         dashboard = crear_dashboard(nombre='Ventas')
         actualizar_fuente_bd(dashboard.dashboard_id, tipo='procedimiento', nombre='dbo.rpt_x', parametros={'FechaCorte': '2026-07-31'})
         usuario = self._usuario_con('dashboard.view', username='con_vista')
+        self._con_rol_en(dashboard, usuario, editar=False)
         self.client.force_authenticate(user=usuario)
         resp = self.client.get(f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd')
         self.assertEqual(resp.status_code, 200)
@@ -682,6 +691,7 @@ class DashboardFuenteBDViewTests(TestCase):
     def test_put_con_permiso_configura(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.fuente_bd.configurar', username='con_editar')
+        self._con_rol_en(dashboard, usuario, editar=True)
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd', {'tipo': 'procedimiento', 'nombre': 'dbo.rpt_y'}, format='json',
@@ -697,6 +707,7 @@ class DashboardFuenteBDViewTests(TestCase):
     def test_put_con_parametros_los_guarda(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.fuente_bd.configurar', username='con_editar_parametros')
+        self._con_rol_en(dashboard, usuario, editar=True)
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd',
@@ -711,6 +722,7 @@ class DashboardFuenteBDViewTests(TestCase):
     def test_put_con_fecha_formato_lo_guarda(self):
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.fuente_bd.configurar', username='con_editar_formato')
+        self._con_rol_en(dashboard, usuario, editar=True)
         self.client.force_authenticate(user=usuario)
         resp = self.client.put(
             f'/api/v1/dashboards/{dashboard.dashboard_id}/fuente-bd',
@@ -723,8 +735,9 @@ class DashboardFuenteBDViewTests(TestCase):
         self.assertEqual(dashboard.fuente_bd_fecha_formato, 'DD/MM/YYYY')
 
     def test_put_con_solo_permiso_de_actualizar_devuelve_403(self):
-        """`dashboard.fuente_bd.actualizar` (forzar una recarga) NO alcanza para reconfigurar a
-        qué vista/procedimiento apunta el dashboard — son permisos deliberadamente separados."""
+        """Un permiso global (aquí `dashboard.fuente_bd.actualizar`) no alcanza para reconfigurar
+        la fuente: sin «Editar» en el dashboard ni ser su dueño, 403 (regla del 12/11/2026). Con
+        roles asignados, el `PUT` lo decide `roles_editores` (ver la prueba siguiente)."""
         dashboard = crear_dashboard(nombre='Ventas')
         usuario = self._usuario_con('dashboard.fuente_bd.actualizar', username='solo_actualizar')
         self.client.force_authenticate(user=usuario)
