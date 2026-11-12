@@ -113,8 +113,9 @@ def asegurar_rol(cargo, *, con_homonimos=True) -> Group:
         if rol.name != nombre:
             rol.name = nombre
             rol.save(update_fields=["name"])
-    # Lo que da este cargo en particular (Gestión Humana, TI…).
-    sincronizar_rol(rol, cargo.nombre)
+    # Lo que da este cargo en particular (Gestión Humana, TI…) y lo que da
+    # tener a alguien a cargo (`POR_TENER_EQUIPO`, US-013).
+    sincronizar_rol(rol, cargo.nombre, cargo=cargo)
     if con_homonimos:
         for otro in (
             Cargo.objects.todas()

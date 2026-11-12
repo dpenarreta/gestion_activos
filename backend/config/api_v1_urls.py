@@ -70,6 +70,8 @@ urlpatterns = [
     path("reuniones/", include("apps.reuniones.urls")),
     # --- Gestión Humana · Escritorio (notas, recordatorios y su bitácora) ---
     path("escritorio/", include("apps.escritorio.urls")),
+    # --- Gestión Humana · Llamados de atención (US-013) ---
+    path("llamados/", include("apps.llamados.urls")),
     # --- Derechos sobre datos personales (LOPDP): de toda la intranet ---
     path("privacidad/", include("apps.privacidad.urls")),
     # --- Empresas: el selector del menú y la empresa activa ---

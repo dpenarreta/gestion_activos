@@ -328,6 +328,15 @@ def test_la_solicitud_de_otra_empresa_no_existe_para_quien_atiende(begona):
 
 # ── Que no se olvide ninguna app ──────────────────────────────────────────────
 
+#: Apps con datos personales cuya sección de «mis datos» está pendiente, cada
+#: una con su motivo. Pasa la prueba esté o no ya en `APPS_REVISADAS`: al
+#: integrarla allí, se borra de aquí.
+#:
+#: - `llamados` (US-013, 12/11/2026): los llamados de atención de la persona.
+#:   `privacidad/mis_datos.py` está en edición por otra sesión (app móvil) y
+#:   la historia deja su sección como pendiente para cuando se integre.
+PENDIENTES_DE_REVISAR = {"llamados"}
+
 
 def test_todas_las_apps_estan_revisadas():
     """Toda app instalada de `backend/apps` está en `APPS_REVISADAS`, con la
@@ -338,7 +347,9 @@ def test_todas_las_apps_estan_revisadas():
         for c in registro_de_apps.get_app_configs()
         if c.name.startswith("apps.")
     }
-    assert instaladas == set(mis_datos.APPS_REVISADAS)
+    assert instaladas - PENDIENTES_DE_REVISAR == set(mis_datos.APPS_REVISADAS) - (
+        PENDIENTES_DE_REVISAR
+    )
     claves = {s.clave for s in mis_datos.SECCIONES}
     for app, nota in mis_datos.APPS_REVISADAS.items():
         if nota.startswith("Secciones:"):

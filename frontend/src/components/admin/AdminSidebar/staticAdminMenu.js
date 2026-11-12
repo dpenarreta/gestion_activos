@@ -49,6 +49,7 @@ import {
   PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
   PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
   ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
+  PERMISOS_LLAMADOS as GH_PERMISOS_LLAMADOS,
 } from "../../../modulos/permisosGestionHumana";
 import {
   PERMISOS_ORDENES,
@@ -446,6 +447,18 @@ export const ADMIN_MENU = [
         permission: [GH_PERMISOS, GH_ADMINISTRAR],
       },
     ],
+  },
+  {
+    // Llamados de atención (US-013, 12/11/2026): Gestión Humana los emite, y
+    // el jefe con `llamados.solicitar` los pide para su equipo. Sin
+    // `requiere`: el jefe no tiene `novedades.acceder`, y con esta entrada
+    // entra al módulo sin ver el resto (cada entrada se filtra por el suyo).
+    id: "gh-llamados",
+    modulo: "gestion_humana",
+    name: "Llamados de atención",
+    icon: "exclamation-octagon",
+    path: `${RUTA_GESTION_HUMANA}/llamados-de-atencion`,
+    permission: GH_PERMISOS_LLAMADOS,
   },
   {
     // Tareas y Equipo (fase 2a, portado de Nexo). Cada entrada exige además

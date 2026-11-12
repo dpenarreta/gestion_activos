@@ -13,3 +13,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-007](US-007-imagenes-del-carrusel-tamano-y-orientacion.md) | Imágenes del carrusel institucional: límite de 5 MB bien medido e imágenes verticales | Bug + Historia de Usuario | COMPLETADA | 2026-11-11 |
 | [US-008](US-008-solicitudes-agrupadas-y-solicitud-de-procesos.md) | Menú «Solicitudes» y nueva «Solicitud de procesos» | Historia de Usuario | COMPLETADA | 2026-11-12 |
 | [US-012](US-012-cancelar-vacaciones-aprobadas.md) | Cancelar vacaciones aprobadas desde «Mis vacaciones» | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
+| [US-013](US-013-llamados-de-atencion.md) | Llamados de atención en Gestión Humana | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |

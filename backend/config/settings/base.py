@@ -118,6 +118,7 @@ INSTALLED_APPS = [
     "apps.escritorio",
     "apps.privacidad",
     "apps.nova",
+    "apps.llamados",
 ]
 
 MIDDLEWARE = [

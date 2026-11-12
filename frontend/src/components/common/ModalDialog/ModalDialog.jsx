@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 
 import { useModalA11y } from "../../../hooks/useModalA11y";
 import { Icon } from "../Icon/Icon";
@@ -40,18 +40,25 @@ export function ModalDialog({
   // Sin nada que perder (p. ej. el formulario ya se quitó): la X y el pie
   // cierran sin preguntar «¿Descartar?».
   sinPreguntarAlDescartar = false,
+  // Un cambio que no es de un campo (agregar, quitar o mover una fila): con
+  // `true`, cerrar pregunta «¿Descartar?».
+  sucio = false,
 }) {
   // Un id por ventana: con un id fijo, dos ventanas anidadas compartían
   // «modal-dialog-titulo» y la de dentro se anunciaba con el título de la de
   // fuera (auditoría UX/UI, fase 3, 28/10/2026).
   const idTitulo = `${useId()}-titulo`;
-  const { panelRef, handleBackdropClick } = useModalA11y({
+  const { panelRef, handleBackdropClick, marcarCambio } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
     // Mientras se envía no se cierra (ni con Escape): se perdería el
     // resultado de lo que ya salió al servidor.
     guardClose: isSaving ? () => false : undefined,
   });
+
+  useEffect(() => {
+    if (sucio) marcarCambio(true);
+  }, [sucio, marcarCambio]);
 
   return (
     <div

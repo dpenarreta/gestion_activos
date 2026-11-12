@@ -36,6 +36,7 @@ import { MiCargo } from "./MiCargo";
 import { MiCumpleanos } from "./MiCumpleanos";
 import { MisHerramientas } from "./MisHerramientas";
 import { MiSupervision } from "./MiSupervision";
+import { MisLlamados } from "./MisLlamados";
 import "./MisDatos.css";
 
 // «Mis derechos» se carga al abrir su pestaña: la mayoría entra al perfil a
@@ -970,6 +971,7 @@ function SeccionMisDatos() {
       {datos && <MisHerramientas />}
       {datos && <MiCumpleanos inicial={datos.cumpleanos} />}
       {datos && <MiAniversario inicial={datos.aniversario} />}
+      {datos && <MisLlamados />}
     </>
   );
 }

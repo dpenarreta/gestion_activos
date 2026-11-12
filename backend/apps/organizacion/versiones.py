@@ -40,6 +40,7 @@ from .models import (
     UnidadOrganizacional,
     VersionOrganigrama,
 )
+from .senales_equipo import en_lote
 
 ENCABEZADO = "HTTP_X_MOTIVO_CAMBIO"
 MINIMO_MOTIVO = 5
@@ -365,6 +366,7 @@ def _remapear(valor, mapa):
     return mapa.get(valor, valor) if valor is not None else None
 
 
+@en_lote()  # recalcula `llamados.solicitar` una vez al terminar (US-013)
 def restaurar(respaldo: dict, empresa) -> None:
     """Deja la estructura como en el respaldo: actualiza lo que existe, crea
     de nuevo lo que se borró (con id nuevo) y borra lo que se agregó después.

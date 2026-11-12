@@ -56,6 +56,9 @@ ROLES = {
             # `privacidad/0003`): las atiende Gestión Humana, no TI. Atender
             # abre los datos de cualquier persona; decisión del usuario.
             "privacidad.",
+            # Los llamados de atención (US-013, 12/11/2026, `roles/0051`):
+            # sanciones del personal, de Gestión Humana y no de TI.
+            "llamados.",
         ),
         # Lo que sí lleva aunque su prefijo esté excluido. Editar los textos de
         # protección de datos (US-004, decisión del usuario del 11/11/2026,

@@ -1007,6 +1007,38 @@ PERMISSION_CATALOG = {
             ),
         },
     },
+    # Gestión Humana · Llamados de atención (US-013, 12/11/2026). Gestión
+    # Humana emite y confirma; los jefes del organigrama solicitan para su
+    # equipo (`llamados.solicitar` lo da el organigrama a los cargos con
+    # alguien a cargo: `organizacion.permisos_por_cargo.POR_TENER_EQUIPO`).
+    # La persona ve los suyos en «Mi perfil» sin ningún permiso.
+    "llamados": {
+        "label": "Llamados de atención",
+        "description": (
+            "Llamados de atención por causas configurables, con niveles progresivos (verbal, "
+            "escrito y sanción económica) y su correo personalizable. Gestión Humana los "
+            "emite, confirma, rechaza y anula; los jefes los solicitan para su equipo según "
+            "el organigrama. La persona ve los suyos en «Mi perfil»."
+        ),
+        "permissions": {
+            "llamados.ver": (
+                "Ver todos los llamados de atención de la empresa, con su detalle, su historial "
+                "y el correo enviado"
+            ),
+            "llamados.emitir": (
+                "Emitir llamados de atención a cualquier persona de la empresa, confirmar o "
+                "rechazar los solicitados por los jefes y anular los emitidos"
+            ),
+            "llamados.configurar": (
+                "Configurar las causas de los llamados de atención, sus niveles y el correo "
+                "de cada nivel"
+            ),
+            "llamados.solicitar": (
+                "Solicitar llamados de atención para las personas de su equipo según el "
+                "organigrama y seguir sus solicitudes (Gestión Humana los confirma)"
+            ),
+        },
+    },
     # Derechos sobre datos personales (LOPDP, 09/11/2026; portado de las
     # «Solicitudes LOPD» de Nexo y ampliado a toda la intranet). Pedir y
     # descargar lo propio no pide permiso: es un derecho del titular.
@@ -1169,7 +1201,7 @@ MODULE_GROUPS = [
             "ingresos y salidas de colaboradores), las tareas del equipo, la "
             "pantalla de Equipo, los proyectos, las ausencias, el KPI con su "
             "inteligencia preventiva, los informes ejecutivos, la mejora continua, las "
-            "reuniones y el escritorio. Los "
+            "reuniones, el escritorio y los llamados de atención. Los "
             "Supervisores, Asistentes y Jefes de Operaciones tienen además reglas propias "
             "por rol; en Tareas, Equipo, Proyectos, Ausencias, KPI, Informes y Mejora "
             "continua, lo que cada quien ve lo decide además el organigrama."
@@ -1187,6 +1219,7 @@ MODULE_GROUPS = [
             "mejora_continua",
             "reuniones",
             "escritorio",
+            "llamados",
         ],
     },
     {

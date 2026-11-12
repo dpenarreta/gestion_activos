@@ -23,6 +23,7 @@ from .models import (
     UnidadOrganizacional,
 )
 from .permisos_por_cargo import normalizar as _normal
+from .senales_equipo import en_lote
 
 
 def _ocupantes(cargo) -> int:
@@ -99,6 +100,7 @@ def _unidad(nombre_unidad, nombres_anteriores, padre):
     return unidad
 
 
+@en_lote()  # recalcula `llamados.solicitar` una vez al terminar (US-013)
 def levantar(
     nombre_unidad: str,
     cargos: dict,

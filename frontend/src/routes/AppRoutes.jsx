@@ -162,6 +162,7 @@ import {
   INGRESOS as GH_INGRESOS,
   PERMISOS as GH_PERMISOS,
   PERMISOS_GESTION_HUMANA,
+  PERMISOS_LLAMADOS as GH_PERMISOS_LLAMADOS,
   SALIDAS as GH_SALIDAS,
   EQUIPO_VER as GH_EQUIPO_VER,
   TAREAS_ACCEDER as GH_TAREAS_ACCEDER,
@@ -277,6 +278,12 @@ const DetalleIdea = lazy(() =>
   import("../pages/GestionHumana/MejoraContinua/DetalleIdea").then((m) => ({
     default: m.DetalleIdea,
   })),
+);
+// Llamados de atención (US-013), bajo demanda como las demás.
+const LlamadosAtencion = lazy(() =>
+  import("../pages/GestionHumana/LlamadosAtencion/LlamadosAtencion").then(
+    (m) => ({ default: m.LlamadosAtencion }),
+  ),
 );
 // Reuniones y Escritorio, también bajo demanda; sus marcos conservan `me/`
 // (en Reuniones, al pasar del listado al detalle).
@@ -1191,6 +1198,16 @@ export function AppRoutes() {
               }
             />
           </Route>
+          {/* Llamados de atención (US-013): el jefe con solo `solicitar` entra
+              sin `novedades.*`; el servidor limita lo que ve a su equipo. */}
+          <Route
+            path="llamados-de-atencion"
+            element={
+              <RequirePermission permission={GH_PERMISOS_LLAMADOS}>
+                <LlamadosAtencion />
+              </RequirePermission>
+            }
+          />
           {/* Reuniones. `reuniones/<id>` es el enlace de los avisos de la
               campana (`ENLACE_REUNION` del backend). Qué reunión ve cada
               quien lo decide el servidor (una ajena es 404). */}

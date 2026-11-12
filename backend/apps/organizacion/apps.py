@@ -7,5 +7,7 @@ class OrganizacionConfig(AppConfig):
     verbose_name = "Organización"
 
     def ready(self):
-        # Enlaza a quien figuraba sin cuenta cuando entra a la empresa.
-        from . import carga_personas  # noqa: F401
+        # Enlaza a quien figuraba sin cuenta cuando entra a la empresa; y
+        # `llamados.solicitar` (lo que da tener a alguien a cargo) sigue al
+        # organigrama (US-013, 12/11/2026).
+        from . import carga_personas, senales_equipo  # noqa: F401

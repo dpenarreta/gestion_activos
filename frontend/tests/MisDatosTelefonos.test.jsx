@@ -47,6 +47,9 @@ vi.mock("../src/pages/MisDatos/MiCumpleanos", () => ({
 vi.mock("../src/pages/MisDatos/MiAniversario", () => ({
   MiAniversario: () => null,
 }));
+vi.mock("../src/pages/MisDatos/MisLlamados", () => ({
+  MisLlamados: () => null,
+}));
 
 const { MisDatosPage } = await import("../src/pages/MisDatos/MisDatosPage");
 

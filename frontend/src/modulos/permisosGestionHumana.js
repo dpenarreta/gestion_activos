@@ -110,6 +110,25 @@ export const PERMISOS_REUNIONES = [
  */
 export const ESCRITORIO_ACCEDER = "escritorio.acceder";
 
+/*
+ * Llamados de atención (US-013). `ver` los ve todos; `emitir` los asienta,
+ * confirma, rechaza y anula (y también los ve todos); `configurar`
+ * administra las causas y sus niveles; `solicitar` es del jefe, que pide un
+ * llamado para alguien de su equipo y ve solo los que pidió. Quién es de su
+ * equipo lo decide el organigrama en el servidor.
+ */
+export const LLAMADOS_VER = "llamados.ver";
+export const LLAMADOS_EMITIR = "llamados.emitir";
+export const LLAMADOS_CONFIGURAR = "llamados.configurar";
+export const LLAMADOS_SOLICITAR = "llamados.solicitar";
+/** Cualquiera abre la pantalla (como `DelModulo` del servidor). */
+export const PERMISOS_LLAMADOS = [
+  LLAMADOS_VER,
+  LLAMADOS_EMITIR,
+  LLAMADOS_CONFIGURAR,
+  LLAMADOS_SOLICITAR,
+];
+
 /** Lo que abre alguna pantalla del módulo (las rutas lo exigen igual). */
 export const PERMISOS_GESTION_HUMANA = [
   ACCEDER,
@@ -124,6 +143,7 @@ export const PERMISOS_GESTION_HUMANA = [
   ...PERMISOS_MEJORA_CONTINUA,
   ...PERMISOS_REUNIONES,
   ESCRITORIO_ACCEDER,
+  ...PERMISOS_LLAMADOS,
 ];
 
 /** Los códigos del módulo tal como los usa `GET novedades/me/`. */

@@ -101,6 +101,24 @@ REGLAS: dict[str, set[str]] = {
 #: Los que no se dan por rol: solo persona por persona.
 SOLO_POR_PERSONA = {"roles_pago.consultar"}
 
+#: Los que no dependen del nombre del cargo sino de su lugar en el organigrama
+#: (US-013, 12/11/2026): los lleva el rol de todo cargo que **tiene a alguien a
+#: cargo**, es decir, al que le reporta al menos otro cargo **activo** por la
+#: línea directa (`Cargo.jefe`) o por la punteada (`Cargo.jefes_secundarios`), la
+#: misma regla de equipo de `reportes.debajo` y `tasks.jerarquia.equipo_de`.
+#: Solicitar un llamado de atención es para el jefe; el servidor exige además
+#: que la persona sea de su equipo. Un cargo desactivado no cuenta como
+#: subordinado (decisión del Tech Lead, 12/11/2026).
+#:
+#: Son permisos **gobernados** en los roles de cargo, como los de `REGLAS`: se
+#: dan y se quitan solos cuando cambia el organigrama (al crear, editar o
+#: borrar un cargo, al cambiar su jefe o sus reportes secundarios; ver
+#: `senales_equipo`). Marcarlo o desmarcarlo a mano en el rol de un cargo no
+#: dura: el siguiente cambio del organigrama lo devuelve a la regla. Los roles
+#: que no son de cargo (Administrador, Superusuario, los personalizados) no se
+#: tocan.
+POR_TENER_EQUIPO = frozenset({"llamados.solicitar"})
+
 
 def normalizar(nombre: str) -> str:
     return "".join(
@@ -125,14 +143,111 @@ def permisos_del_cargo(nombre: str, nombre_del_rol: str = "") -> set[str]:
     return debidos
 
 
-def sincronizar_rol(rol, nombre_del_cargo: str) -> None:
+def tiene_equipo(cargo) -> bool:
+    """Si al cargo le reporta al menos otro cargo activo, por la línea directa o
+    por la punteada."""
+    if cargo is None or cargo.pk is None:
+        return False
+    # Sin acotar a la empresa activa: el cargo ya es de una empresa, y esto
+    # también corre desde comandos y señales fuera de una petición.
+    return cargo.pk in con_equipo(cargo.empresa_id, [cargo.pk])
+
+
+def con_equipo(empresa_id, cargo_ids=None) -> set[int]:
+    """De los cargos de la empresa (o de `cargo_ids`), los que tienen a alguien
+    a cargo: un subordinado con cargo activo. Dos consultas, tenga los cargos
+    que tenga."""
+    from .models import Cargo
+
+    directos = Cargo.objects.todas().filter(
+        empresa_id=empresa_id, jefe_id__isnull=False, activo=True
+    )
+    punteados = Cargo.jefes_secundarios.through.objects.filter(
+        from_cargo__empresa_id=empresa_id, from_cargo__activo=True
+    )
+    if cargo_ids is not None:
+        directos = directos.filter(jefe_id__in=list(cargo_ids))
+        punteados = punteados.filter(to_cargo_id__in=list(cargo_ids))
+    jefes = {jefe for cargo, jefe in directos.values_list("id", "jefe_id") if jefe != cargo}
+    jefes |= {
+        jefe
+        for cargo, jefe in punteados.values_list("from_cargo_id", "to_cargo_id")
+        if jefe != cargo
+    }
+    return jefes
+
+
+def sincronizar_por_equipo(empresa_id) -> int:
+    """Recalcula `POR_TENER_EQUIPO` en los roles de todos los cargos de la
+    empresa: lo da a los que tienen a alguien a cargo y lo quita a los que no.
+    Lo llaman las señales del organigrama (`senales_equipo`), porque un cambio
+    en un cargo cambia a su jefe de antes y al de ahora. Devuelve cuántos roles
+    cambió. Unas pocas consultas, tenga los cargos que tenga."""
+    from django.contrib.auth.models import Group, Permission
+    from django.db import IntegrityError, transaction
+
+    from .models import Cargo
+
+    if empresa_id is None:
+        return 0
+    permisos = list(
+        Permission.objects.filter(
+            content_type__app_label="permissions", codename__in=POR_TENER_EQUIPO
+        )
+    )
+    if not permisos:
+        return 0  # antes de migrar `permissions`: no hay nada que dar
+    rol_de = dict(
+        Cargo.objects.todas()
+        .filter(empresa_id=empresa_id, rol__isnull=False)
+        .values_list("id", "rol_id")
+    )
+    if not rol_de:
+        return 0
+    jefes = con_equipo(empresa_id)
+    deben = {rol for cargo, rol in rol_de.items() if cargo in jefes}
+    Enlace = Group.permissions.through
+    cambios = 0
+    for permiso in permisos:
+        tienen = set(
+            Enlace.objects.filter(
+                permission=permiso, group_id__in=list(rol_de.values())
+            ).values_list("group_id", flat=True)
+        )
+        sobran = tienen - deben
+        faltan = deben - tienen
+        if sobran:
+            Enlace.objects.filter(permission=permiso, group_id__in=list(sobran)).delete()
+        if faltan:
+            try:
+                # Con savepoint: si otra petición lo dio a la vez, el choque
+                # con la clave única no rompe la transacción de quien llama.
+                with transaction.atomic():
+                    Enlace.objects.bulk_create(
+                        [Enlace(group_id=rol, permission=permiso) for rol in faltan]
+                    )
+            except IntegrityError:
+                # SQL Server no admite `ignore_conflicts`: uno por uno, con
+                # `add`, que salta los que ya están.
+                for rol in Group.objects.filter(pk__in=faltan):
+                    rol.permissions.add(permiso)
+        cambios += len(sobran) + len(faltan)
+    return cambios
+
+
+def sincronizar_rol(rol, nombre_del_cargo: str, cargo=None) -> None:
     """Deja en el rol del cargo los permisos de la tabla que le tocan y quita
-    los de la tabla que no (si el cargo se renombró). Los demás permisos del
-    rol, los marcados a mano en Roles, no se tocan."""
+    los de la tabla que no (si el cargo se renombró). Con `cargo`, también los
+    de `POR_TENER_EQUIPO`, según tenga o no a alguien a cargo. Los demás
+    permisos del rol, los marcados a mano en Roles, no se tocan."""
     from django.contrib.auth.models import Permission
 
     debidos = permisos_del_cargo(nombre_del_cargo, rol.name)
     gobernados = set(REGLAS)
+    if cargo is not None:
+        gobernados |= POR_TENER_EQUIPO
+        if tiene_equipo(cargo):
+            debidos |= POR_TENER_EQUIPO
     actuales = set(
         rol.permissions.filter(codename__in=gobernados).values_list("codename", flat=True)
     )
