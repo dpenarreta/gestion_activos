@@ -386,6 +386,7 @@ function EntradasDelFlyout({
               }
               onClick={(evento) => onNavigate(evento, hijo.path)}
               onKeyDown={onTecla}
+              title={hijo.nombreCompleto}
             >
               <Icon name={hijo.icon} />
               <span>{hijo.name}</span>

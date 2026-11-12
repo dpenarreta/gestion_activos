@@ -92,7 +92,7 @@ export function tituloDeRuta(menu, pathname) {
     }
   }
   recorrer(menu);
-  return mejor?.name || tituloDeRespaldo(pathname);
+  return mejor?.titulo || mejor?.name || tituloDeRespaldo(pathname);
 }
 
 /**

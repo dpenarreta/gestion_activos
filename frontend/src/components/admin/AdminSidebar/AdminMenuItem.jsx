@@ -12,17 +12,17 @@ export const TEXTOS = {
     "que piden atención",
   ],
   por_aprobar: [
-    "Solicitudes de permiso que tiene por aprobar",
+    "Solicitudes de permisos que tiene por aprobar",
     "por aprobar",
     "por aprobar",
   ],
   proyectos_por_atender: [
-    "Solicitudes de proyecto que tiene por atender",
+    "Solicitudes de proyectos que tiene por atender",
     "por atender",
     "por atender",
   ],
   procesos_por_atender: [
-    "Solicitudes de proceso que tiene por atender",
+    "Solicitudes de procesos que tiene por atender",
     "por atender",
     "por atender",
   ],
@@ -88,7 +88,7 @@ export function AdminMenuItem({
         className={`mz-nav-item ${isActive ? "is-active" : ""}`}
         aria-current={isActive ? "page" : undefined}
         onClick={(event) => onNavigate(event, item.path)}
-        title={isCollapsed ? item.name : undefined}
+        title={item.nombreCompleto ?? (isCollapsed ? item.name : undefined)}
       >
         <Icon name={item.icon} />
         {!isCollapsed && <span className="mz-nav-label">{item.name}</span>}

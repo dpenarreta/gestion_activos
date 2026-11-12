@@ -106,7 +106,7 @@ describe("Insignias del menú", () => {
     // antes era un aria-label sobre un <span>, que los lectores ignoran.
     expect(
       await screen.findByRole("link", {
-        name: /Solicitud de permisos\s*1 por aprobar/,
+        name: /^Permisos\s*1 por aprobar/,
       }),
     ).toBeInTheDocument();
     expect(
@@ -136,7 +136,7 @@ describe("Insignias del menú", () => {
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
     pintar();
     const permisos = await screen.findByRole("link", {
-      name: /Solicitud de permisos/,
+      name: /^Permisos/,
     });
     await new Promise((r) => setTimeout(r, 0));
     expect(within(permisos).queryByText("0")).toBeNull();
@@ -267,34 +267,43 @@ describe("Insignias del menú", () => {
     expect(grupo).toHaveAccessibleName(/Solicitudes\s*6 pendientes/);
 
     const procesos = await screen.findByRole("link", {
-      name: /Solicitud de procesos\s*3 por atender/,
+      name: /^Procesos\s*3 por atender/,
     });
     expect(procesos).toHaveAttribute("href", "/admin/institucional/procesos");
+    // Dentro del grupo el nombre es corto; al pasar el mouse se lee completo.
+    expect(procesos).toHaveAttribute("title", "Solicitudes de procesos");
+    expect(screen.getByRole("link", { name: /^Proyectos/ })).toHaveAttribute(
+      "title",
+      "Solicitudes de proyectos",
+    );
+    expect(screen.getByRole("link", { name: /^Permisos/ })).toHaveAttribute(
+      "title",
+      "Solicitudes de permisos",
+    );
     // Juntas en un grupo, cada insignia dice de qué solicitudes habla.
     expect(within(procesos).getByText("3")).toHaveAttribute(
       "title",
-      "Solicitudes de proceso que tiene por atender",
+      "Solicitudes de procesos que tiene por atender",
     );
     expect(
-      within(
-        screen.getByRole("link", { name: /Solicitud de proyectos/ }),
-      ).getByText("2"),
-    ).toHaveAttribute("title", "Solicitudes de proyecto que tiene por atender");
+      within(screen.getByRole("link", { name: /^Proyectos/ })).getByText("2"),
+    ).toHaveAttribute(
+      "title",
+      "Solicitudes de proyectos que tiene por atender",
+    );
     expect(
-      within(
-        screen.getByRole("link", { name: /Solicitud de permisos/ }),
-      ).getByText("1"),
-    ).toHaveAttribute("title", "Solicitudes de permiso que tiene por aprobar");
+      within(screen.getByRole("link", { name: /^Permisos/ })).getByText("1"),
+    ).toHaveAttribute("title", "Solicitudes de permisos que tiene por aprobar");
     // «Tipos de proceso» cuelga de «Solicitud de procesos»: queda marcada.
     expect(procesos).toHaveAttribute("aria-current", "page");
     expect(
       screen.getByRole("link", {
-        name: /Solicitud de proyectos\s*2 por atender/,
+        name: /^Proyectos\s*2 por atender/,
       }),
     ).not.toHaveAttribute("aria-current");
     expect(
       screen.getByRole("link", {
-        name: /Solicitud de permisos\s*1 por aprobar/,
+        name: /^Permisos\s*1 por aprobar/,
       }),
     ).toHaveAttribute("href", "/admin/institucional/permisos");
     expect(resumenProcesos).toHaveBeenCalled();
@@ -309,15 +318,13 @@ describe("Insignias del menú", () => {
     await screen.findByRole("button", { name: /Solicitudes/ });
     expect(
       await screen.findByRole("link", {
-        name: /Solicitud de procesos\s*1 por atender/,
+        name: /^Procesos\s*1 por atender/,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Solicitud de proyectos/ }),
+      screen.getByRole("link", { name: /^Proyectos/ }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /Solicitud de permisos/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Permisos/ })).toBeNull();
     expect(resumenLicencias).not.toHaveBeenCalled();
   });
 

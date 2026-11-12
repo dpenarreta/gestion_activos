@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { tituloDeRuta } from "../src/components/admin/AdminLayout/AdminLayout";
 
 import {
   conPermiso,
@@ -93,6 +94,27 @@ describe("Menú administrativo", () => {
     expect(buscar(verYCrear, "solicitudes-nueva")).toBeDefined();
   });
 
+  it("la entrada aplanada de Solicitudes usa el título y no trae nombreCompleto", () => {
+    const [proyectos] = getVisibleAdminMenu([], "institucional").filter(
+      (item) => item.id === "institucional-proyectos",
+    );
+    expect(proyectos.name).toBe("Solicitud de proyectos");
+    expect(proyectos.nombreCompleto).toBeUndefined();
+  });
+
+  it("la cabecera de las solicitudes dice «Solicitud de …», no el nombre corto", () => {
+    const menu = getVisibleAdminMenu(
+      ["licencias.solicitar", "procesos.solicitar"],
+      "institucional",
+    );
+    expect(tituloDeRuta(menu, "/admin/institucional/procesos/tipos")).toBe(
+      "Solicitud de procesos",
+    );
+    expect(tituloDeRuta(menu, "/admin/institucional/permisos")).toBe(
+      "Solicitud de permisos",
+    );
+  });
+
   it("Solicitudes agrupa permisos, proyectos y procesos (US-008)", () => {
     const menu = getVisibleAdminMenu(
       ["licencias.solicitar", "procesos.solicitar"],
@@ -101,21 +123,19 @@ describe("Menú administrativo", () => {
     const grupo = buscar(menu, "institucional-solicitudes");
     expect(grupo.name).toBe("Solicitudes");
     expect(grupo.children.map((h) => [h.name, h.path, h.insignia])).toEqual([
-      ["Solicitud de permisos", "/admin/institucional/permisos", "por_aprobar"],
-      [
-        "Solicitud de proyectos",
-        "/admin/institucional/proyectos",
-        "proyectos_por_atender",
-      ],
-      [
-        "Solicitud de procesos",
-        "/admin/institucional/procesos",
-        "procesos_por_atender",
-      ],
+      ["Permisos", "/admin/institucional/permisos", "por_aprobar"],
+      ["Proyectos", "/admin/institucional/proyectos", "proyectos_por_atender"],
+      ["Procesos", "/admin/institucional/procesos", "procesos_por_atender"],
     ]);
     expect(buscar(menu, "institucional-procesos").rutas).toContain(
       "/admin/institucional/procesos/tipos",
     );
+    // Al pasar el mouse, el nombre completo; en la cabecera, el título.
+    expect(grupo.children.map((h) => [h.nombreCompleto, h.titulo])).toEqual([
+      ["Solicitudes de permisos", "Solicitud de permisos"],
+      ["Solicitudes de proyectos", "Solicitud de proyectos"],
+      ["Solicitudes de procesos", "Solicitud de procesos"],
+    ]);
   });
 
   it("un grupo sin permiso propio no hace a nadie «una cuenta con permisos»", () => {

@@ -699,7 +699,12 @@ export const ADMIN_MENU = [
         // Cada persona pide sus permisos y aprueba lo que le toca;
         // configurar los flujos cuelga de aquí (con su permiso).
         id: "institucional-permisos",
-        name: "Solicitud de permisos",
+        // Dentro de «Solicitudes» basta el nombre corto; al pasar el mouse
+        // se lee completo (`nombreCompleto`), y la cabecera y la entrada
+        // aplanada usan `titulo` (decisión del usuario, 12/11/2026).
+        name: "Permisos",
+        nombreCompleto: "Solicitudes de permisos",
+        titulo: "Solicitud de permisos",
         icon: "calendar-check",
         path: `${RUTA_INSTITUCIONAL}/permisos`,
         permission: ["licencias.solicitar", "licencias.ver_todas"],
@@ -711,7 +716,12 @@ export const ADMIN_MENU = [
         // Sin permiso: toda persona pide proyectos con su plantilla llena y
         // atiende los que le tocan; configurar los tipos cuelga de aquí.
         id: "institucional-proyectos",
-        name: "Solicitud de proyectos",
+        // Dentro de «Solicitudes» basta el nombre corto; al pasar el mouse
+        // se lee completo (`nombreCompleto`), y la cabecera y la entrada
+        // aplanada usan `titulo` (decisión del usuario, 12/11/2026).
+        name: "Proyectos",
+        nombreCompleto: "Solicitudes de proyectos",
+        titulo: "Solicitud de proyectos",
         icon: "kanban",
         path: `${RUTA_INSTITUCIONAL}/proyectos`,
         // Cuántas solicitudes tiene por atender quien entra.
@@ -724,7 +734,12 @@ export const ADMIN_MENU = [
         // pide `procesos.solicitar` (de todo cargo); también la ven quienes
         // ven todas o configuran los tipos.
         id: "institucional-procesos",
-        name: "Solicitud de procesos",
+        // Dentro de «Solicitudes» basta el nombre corto; al pasar el mouse
+        // se lee completo (`nombreCompleto`), y la cabecera y la entrada
+        // aplanada usan `titulo` (decisión del usuario, 12/11/2026).
+        name: "Procesos",
+        nombreCompleto: "Solicitudes de procesos",
+        titulo: "Solicitud de procesos",
         icon: "clipboard-check",
         path: `${RUTA_INSTITUCIONAL}/procesos`,
         permission: [
@@ -976,7 +991,14 @@ export function getVisibleAdminMenu(
   );
   return filterByPermission(delModulo, permissions).map((item) =>
     item.aplanarSiUno && item.children?.length === 1
-      ? { ...item.children[0], modulo: item.modulo }
+      ? {
+          ...item.children[0],
+          // Fuera del grupo, el nombre corto («Proyectos») no diría de qué es.
+          name: item.children[0].titulo ?? item.children[0].name,
+          // Ya dice el nombre completo: sin el texto de más al pasar el mouse.
+          nombreCompleto: undefined,
+          modulo: item.modulo,
+        }
       : item,
   );
 }
