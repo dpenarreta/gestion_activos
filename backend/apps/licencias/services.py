@@ -14,15 +14,18 @@ avanza, se rechaza o se escala, y a quién se avisa el resultado.
   asignársela y aprobarla saltándose a los aprobadores del flujo.
 - **Ausencias de Gestión Humana (05/11/2026)**: al aprobarse, la solicitud
   genera sus `LeaveRecord` (`apps.ausencias.services.create_from_request`);
-  si Gestión Humana cancela una aprobada, se borran y sus días de vacaciones
-  vuelven a quedar pendientes. Todo en la transacción de la aprobación o de
-  la cancelación.
+  si se cancela una aprobada, se borran y sus días de vacaciones vuelven a
+  quedar pendientes, todos o en parte según su momento y la opción elegida
+  (US-012, ver «Cancelar una aprobada» más abajo). Todo en la transacción de
+  la aprobación o de la cancelación.
 """
+
+from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 
 from apps.notificaciones import services as campana
 from apps.organizacion import ausencia
@@ -30,9 +33,20 @@ from apps.permissions.authorization import user_has_permission
 from apps.users.models import User
 
 from . import restricciones
-from .models import AccionSolicitud, Destino, PasoFlujo, SolicitudPermiso
+from .models import AccionSolicitud, Destino, FlujoPermiso, PasoFlujo, SolicitudPermiso
 
 ENLACE = "/admin/institucional/permisos"
+
+
+class SolicitudCerrada(APIException):
+    """Cancelar una solicitud ya cancelada o rechazada, o cancelada a la vez
+    por otro (US-012, 12/11/2026): 400 con un código propio y estable,
+    `solicitud_cerrada`, para que la pantalla lo reconozca sin comparar el
+    texto (`core.exceptions` toma el `code` de `default_code`)."""
+
+    status_code = 400
+    default_detail = "La solicitud ya está cerrada."
+    default_code = "solicitud_cerrada"
 
 
 def personas_de_la_empresa():
@@ -468,51 +482,365 @@ def reasignar_por_ausencia(ausente, base=None) -> int:
     return total
 
 
+PERMISO_ANULAR = "licencias.anular_aprobadas"
+PERMISO_CANCELAR_PROPIAS = "licencias.cancelar_aprobadas_propias"
+
+
 def puede_anular_aprobadas(usuario) -> bool:
-    """Quién cancela una solicitud ya aprobada: quien tiene
-    `licencias.anular_aprobadas` (decisión del usuario, 05/11/2026; antes
-    bastaba `licencias.ver_todas`, y `permissions/0049` se lo dio a quien lo
-    tenía). Anular borra sus ausencias de Gestión Humana y devuelve los días de
-    vacaciones: no es lo mismo que consultarlas. Quien la pidió solo cancela la
-    suya pendiente."""
-    return user_has_permission(usuario, "licencias.anular_aprobadas")
+    """Gestión Humana: quien tiene `licencias.anular_aprobadas` (decisión del
+    usuario, 05/11/2026; antes bastaba `licencias.ver_todas`, y
+    `permissions/0049` se lo dio a quien lo tenía). Anular borra sus ausencias
+    de Gestión Humana y devuelve los días de vacaciones: no es lo mismo que
+    consultarlas. Desde US-012 (12/11/2026) la persona también cancela las
+    suyas aprobadas, con otro permiso y menos opciones
+    (`opciones_de_cancelacion`)."""
+    return user_has_permission(usuario, PERMISO_ANULAR)
+
+
+# --- Cancelar una aprobada (US-012, 12/11/2026) -----------------------------------------
+#
+# El momento de la solicitud decide qué se puede hacer con sus días:
+#
+# - **Por empezar** (`desde` posterior a hoy): se devuelven todos sus días y se
+#   borran todas sus ausencias; `devolver` no se pide (se ignora).
+# - **En curso** (hoy entre `desde` y `hasta`) o **terminada** (`hasta`
+#   anterior a hoy): quien cancela elige qué pasa con los días:
+#   - `restantes` (solo en curso): vuelven los días de hoy en adelante; lo ya
+#     gozado sigue contando.
+#   - `todos`: vuelven todos los días.
+#   - `ninguno`: los días siguen contando como gozados.
+#
+# Las ausencias de Gestión Humana siguen a esa decisión: las de hoy en adelante
+# se borran siempre (la persona ya no está ausente: si quedaran, su trabajo
+# seguiría pasando a su reemplazo); las pasadas solo se borran con `todos`,
+# porque entonces esos días dejan de ser vacaciones. Con `restantes` y con
+# `ninguno` las pasadas se quedan: la persona sí faltó esos días.
+#
+# Quién puede (decisión del usuario, 12/11/2026):
+#
+# - **La persona**, con `licencias.cancelar_aprobadas_propias`: por empezar,
+#   siempre; en curso, solo `restantes`; terminada, no (recuperar días ya
+#   gozados es decisión de Gestión Humana).
+# - **Gestión Humana**, con `licencias.anular_aprobadas`: cualquier momento y
+#   cualquier opción, en las de otra persona. En las suyas tiene las reglas de
+#   la persona: nadie decide sobre sus propios días, igual que nadie aprueba su
+#   propia solicitud.
+#
+# Se avisa siempre al jefe inmediato y a la persona (si canceló otro); en curso
+# o terminada, también a quienes la aprobaron. Nunca a quien canceló.
+
+POR_EMPEZAR, EN_CURSO, TERMINADA = "por_empezar", "en_curso", "terminada"
+MOMENTOS = {POR_EMPEZAR: "Por empezar", EN_CURSO: "En curso", TERMINADA: "Terminada"}
+RESTANTES, TODOS, NINGUNO = "restantes", "todos", "ninguno"
+OPCIONES_DEVOLVER = {
+    RESTANTES: "Devolver los días que faltan",
+    TODOS: "Devolver todos los días",
+    NINGUNO: "No devolver días",
+}
+_DE_GESTION_HUMANA = {
+    POR_EMPEZAR: [],
+    EN_CURSO: [RESTANTES, TODOS, NINGUNO],
+    TERMINADA: [TODOS, NINGUNO],
+}
+_DE_LA_PERSONA = {POR_EMPEZAR: [], EN_CURSO: [RESTANTES]}
+
+
+def hoy():
+    """La fecha de hoy en la zona del proyecto (`TIME_ZONE`)."""
+    return timezone.localdate()
+
+
+def momento(solicitud, dia=None) -> str:
+    """`por_empezar`, `en_curso` o `terminada` respecto a `dia` (hoy)."""
+    dia = dia or hoy()
+    if solicitud.desde > dia:
+        return POR_EMPEZAR
+    if solicitud.hasta < dia:
+        return TERMINADA
+    return EN_CURSO
+
+
+def opciones_de_cancelacion(solicitud, usuario, dia=None) -> tuple[bool, list[str]]:
+    """Si `usuario` puede cancelar la solicitud aprobada y qué opciones de
+    `devolver` tiene. Una lista vacía con `True` es «no se elige»: por
+    empezar (se devuelve todo) o una solicitud que no descuenta vacaciones.
+    No mira si la ve (`puede_ver`): eso lo resuelve la API.
+
+    Un permiso que no descuenta vacaciones (médico, con descuento de sueldo…)
+    no tiene días que devolver (decisión del Tech Lead, 12/11/2026): nunca
+    hay opciones, pero quién puede y cuándo es igual que en las vacaciones."""
+    if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+        return False, []
+    cuando = momento(solicitud, dia)
+    if solicitud.solicitante_id == usuario.pk:
+        if cuando in _DE_LA_PERSONA and user_has_permission(usuario, PERMISO_CANCELAR_PROPIAS):
+            return True, _con_dias(solicitud, _DE_LA_PERSONA[cuando])
+        return False, []
+    if puede_anular_aprobadas(usuario):
+        return True, _con_dias(solicitud, _DE_GESTION_HUMANA[cuando])
+    return False, []
+
+
+def _con_dias(solicitud, opciones) -> list[str]:
+    return list(opciones) if solicitud.descuenta_vacaciones else []
+
+
+def permiso_para_cancelar(solicitud, usuario, dia=None) -> str | None:
+    """El permiso que habría hecho falta para cancelarla, para el 403 y su
+    auditoría:
+
+    - Pendiente de otra persona: ninguno (`None`): solo la cancela quien la
+      pidió.
+    - Aprobada propia: `cancelar_aprobadas_propias`, salvo si ya terminó: esa
+      solo la cancela Gestión Humana (`anular_aprobadas`), y no en las suyas.
+    - Aprobada de otra persona: `anular_aprobadas`.
+
+    Lee el estado que dejó `_bloquear` en la solicitud."""
+    if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+        return None
+    if solicitud.solicitante_id != usuario.pk:
+        return PERMISO_ANULAR
+    if momento(solicitud, dia) == TERMINADA and user_has_permission(
+        usuario, PERMISO_CANCELAR_PROPIAS
+    ):
+        return PERMISO_ANULAR
+    return PERMISO_CANCELAR_PROPIAS
+
+
+class Cancelacion:
+    """Lo que hizo una cancelación, para la auditoría de la API
+    (`solicitud.cancelacion`). `estado_anterior` es el leído con la fila
+    bloqueada; el resto solo aplica a una aprobada."""
+
+    def __init__(
+        self, estado_anterior, momento=None, devolver=None, dias_devueltos=0, ausencias_borradas=0
+    ):
+        self.estado_anterior = estado_anterior
+        self.momento = momento
+        self.devolver = devolver
+        self.dias_devueltos = dias_devueltos
+        self.ausencias_borradas = ausencias_borradas
+
+    def como_dict(self) -> dict:
+        if self.momento is None:
+            return {}
+        return {
+            "momento": self.momento,
+            "devolver": self.devolver,
+            "dias_devueltos": self.dias_devueltos,
+            "ausencias_borradas": self.ausencias_borradas,
+        }
 
 
 @transaction.atomic
-def cancelar(solicitud, usuario, comentario=""):
-    """Quien la pidió cancela la suya mientras está pendiente. Una aprobada la
-    cancela Gestión Humana (`puede_anular_aprobadas`), diciendo por qué: se
-    borran sus ausencias de Gestión Humana y, si se descontó de vacaciones,
-    sus días vuelven a quedar pendientes, todo en esta misma transacción."""
+def cancelar(solicitud, usuario, comentario="", devolver=None):
+    """Quien la pidió cancela la suya mientras está pendiente, como siempre
+    (`devolver` no aplica). Una aprobada, según `opciones_de_cancelacion`, con
+    el comentario obligatorio. Todo en esta transacción y con la fila
+    bloqueada: dos cancelaciones a la vez no devuelven dos veces los días (la
+    segunda encuentra la solicitud cerrada)."""
     _bloquear(solicitud)
-    if solicitud.estado == SolicitudPermiso.Estado.APROBADA and puede_anular_aprobadas(usuario):
-        return _cancelar_aprobada(solicitud, usuario, comentario)
+    if solicitud.estado == SolicitudPermiso.Estado.APROBADA:
+        return _cancelar_aprobada(solicitud, usuario, comentario, devolver)
+    if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
+        raise SolicitudCerrada()
     if solicitud.solicitante_id != usuario.pk:
         raise PermissionDenied("Solo quien la solicitó puede cancelarla.")
-    if solicitud.estado != SolicitudPermiso.Estado.PENDIENTE:
-        raise ValidationError({"detail": "La solicitud ya está cerrada."})
     _registrar(solicitud, AccionSolicitud.Accion.CANCELADA, actor=usuario, comentario=comentario)
     _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA, actor=usuario)
+    solicitud.cancelacion = Cancelacion(SolicitudPermiso.Estado.PENDIENTE)
     return solicitud
 
 
-def _cancelar_aprobada(solicitud, usuario, comentario):
+def _negar_cancelacion(solicitud, usuario, cuando):
+    if solicitud.solicitante_id != usuario.pk:
+        raise PermissionDenied(
+            "Solo Gestión Humana cancela una solicitud aprobada de otra persona "
+            f"(permiso {PERMISO_ANULAR})."
+        )
+    if not user_has_permission(usuario, PERMISO_CANCELAR_PROPIAS):
+        raise PermissionDenied(f"No tiene el permiso requerido: {PERMISO_CANCELAR_PROPIAS}.")
+    if cuando == TERMINADA:
+        raise PermissionDenied("Esta solicitud ya terminó: solo Gestión Humana puede cancelarla.")
+    raise PermissionDenied("No puede cancelar esta solicitud.")
+
+
+def _exigir_opcion(devolver, opciones, cuando):
+    if devolver in opciones:
+        return devolver
+    permitidas = "; ".join(f"«{OPCIONES_DEVOLVER[o]}» ({o})" for o in opciones)
+    if not devolver:
+        mensaje = f"Elija qué pasa con los días: {permitidas}."
+    else:
+        etapa = "en curso" if cuando == EN_CURSO else "terminada"
+        mensaje = (
+            f"Con la solicitud {etapa}, usted puede elegir: {permitidas}."
+            if len(opciones) > 1
+            else f"Con la solicitud {etapa}, usted solo puede elegir {permitidas}."
+        )
+    raise ValidationError({"devolver": mensaje})
+
+
+def _plural_dias(n) -> str:
+    return f"{n} día" if n == 1 else f"{n} días"
+
+
+def _cancelar_aprobada(solicitud, usuario, comentario, devolver):
     from apps.ausencias.services import delete_for_request
 
+    dia = hoy()
+    cuando = momento(solicitud, dia)
+    puede, opciones = opciones_de_cancelacion(solicitud, usuario, dia)
+    if not puede:
+        _negar_cancelacion(solicitud, usuario, cuando)
     if not (comentario or "").strip():
         raise ValidationError({"comentario": "Diga por qué se cancela una solicitud aprobada."})
-    _registrar(solicitud, AccionSolicitud.Accion.CANCELADA, actor=usuario, comentario=comentario)
-    delete_for_request(solicitud, actor=usuario)
-    restricciones.anular_goce(solicitud)  # Nada si no descontó vacaciones.
+    if not solicitud.descuenta_vacaciones:
+        return _cancelar_sin_descuento(solicitud, usuario, comentario, cuando, dia)
+    devolver = TODOS if cuando == POR_EMPEZAR else _exigir_opcion(devolver, opciones, cuando)
+
+    if devolver == TODOS:
+        devueltos = restricciones.devolver_goce(solicitud)
+        borradas = delete_for_request(solicitud, actor=usuario)
+    else:
+        devueltos = (
+            restricciones.devolver_goce(solicitud, desde=dia) if devolver == RESTANTES else 0
+        )
+        borradas = delete_for_request(solicitud, actor=usuario, desde=dia)
+
+    detalle = f"{MOMENTOS[cuando]} · {OPCIONES_DEVOLVER[devolver]}"
+    if solicitud.descuenta_vacaciones:
+        detalle += f" · {_plural_dias(devueltos)} de vacaciones devueltos"
+    _registrar(
+        solicitud,
+        AccionSolicitud.Accion.CANCELADA,
+        actor=usuario,
+        comentario=comentario,
+        detalle=detalle,
+    )
     _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA, actor=usuario)
+    solicitud.cancelacion = Cancelacion(
+        SolicitudPermiso.Estado.APROBADA, cuando, devolver, devueltos, borradas
+    )
+    _avisar_cancelacion(solicitud, usuario, cuando, detalle)
+    return solicitud
+
+
+def _cancelar_sin_descuento(solicitud, usuario, comentario, cuando, dia):
+    """Un permiso aprobado que no descuenta vacaciones (decisión del Tech
+    Lead, 12/11/2026): `devolver` se ignora. Gestión Humana borra todas sus
+    ausencias, como antes de US-012; la persona, por empezar, todas, y en
+    curso, las de hoy en adelante (las pasadas se quedan: sí faltó)."""
+    from apps.ausencias.services import delete_for_request
+
+    desde = dia if solicitud.solicitante_id == usuario.pk and cuando == EN_CURSO else None
+    borradas = delete_for_request(solicitud, actor=usuario, desde=desde)
+    alcance = "Se borraron sus ausencias desde hoy" if desde else "Se borraron todas sus ausencias"
+    detalle = f"{MOMENTOS[cuando]} · {alcance}"
+    _registrar(
+        solicitud,
+        AccionSolicitud.Accion.CANCELADA,
+        actor=usuario,
+        comentario=comentario,
+        detalle=detalle,
+    )
+    _terminar(solicitud, SolicitudPermiso.Estado.CANCELADA, actor=usuario)
+    solicitud.cancelacion = Cancelacion(SolicitudPermiso.Estado.APROBADA, cuando, None, 0, borradas)
+    _avisar_cancelacion(solicitud, usuario, cuando, detalle)
+    return solicitud
+
+
+def _avisar_cancelacion(solicitud, usuario, cuando, detalle):
+    destinatarios = list(jefes_de(solicitud.solicitante))
+    destinatarios.append(solicitud.solicitante)
+    if cuando != POR_EMPEZAR:
+        destinatarios.extend(User.objects.filter(pk__in=_ya_aprobaron(solicitud)))
+    unicos = {p.pk: p for p in destinatarios if p is not None and p.pk != usuario.pk}
     campana.notificar(
-        [solicitud.solicitante],
+        list(unicos.values()),
         tipo="licencias.cancelada",
         titulo=f"Solicitud de permiso cancelada: {solicitud.flujo.nombre}",
-        resumen=_resumen(solicitud),
+        resumen=f"{_resumen(solicitud)} · {detalle}",
         enlace=_enlace(solicitud),
     )
-    return solicitud
+
+
+def _dias_por_opcion(goces, dia) -> dict:
+    return {
+        RESTANTES: restricciones.dias_de_goces(goces, desde=dia),
+        TODOS: restricciones.dias_de_goces(goces),
+        NINGUNO: 0,
+    }
+
+
+def dias_por_opcion(solicitud, dia=None) -> dict | None:
+    """Los días de vacaciones que volverían a quedar pendientes con cada
+    opción, para que la confirmación diga cuántos se devuelven. `None` si la
+    solicitud no descuenta vacaciones: no hay días que devolver."""
+    if not solicitud.descuenta_vacaciones:
+        return None
+    return _dias_por_opcion(list(restricciones.goces_de(solicitud)), dia or hoy())
+
+
+#: Hasta cuándo atrás se listan las aprobadas en «Mis vacaciones»: las que
+#: terminaron hace más de un año ya no se cancelan en la práctica y harían la
+#: lista larga (decisión del Tech Lead, 12/11/2026). Siguen en Solicitud de
+#: permisos.
+DIAS_DE_APROBADAS_TERMINADAS = 365
+
+
+def _visibles(solicitudes, persona, usuario) -> set:
+    """Cuáles de esas solicitudes aprobadas de `persona` ve `usuario`, como
+    `puede_ver`, en una consulta como mucho: las propias o con `ver_todas`,
+    todas; si no, aquellas en las que intervino (una aprobada ya no está
+    pendiente de nadie, y `ver_por_aprobar` es solo de las pendientes)."""
+    ids = {s.id for s in solicitudes}
+    if not ids or persona.pk == usuario.pk or user_has_permission(usuario, "licencias.ver_todas"):
+        return ids
+    return set(
+        AccionSolicitud.objects.filter(solicitud_id__in=ids, actor=usuario).values_list(
+            "solicitud_id", flat=True
+        )
+    )
+
+
+def aprobadas_para(persona, usuario) -> list[dict]:
+    """Las vacaciones aprobadas y sin cancelar de `persona` (solicitudes que
+    se descuentan de vacaciones), con lo que `usuario` puede hacer con cada
+    una: para «Mis vacaciones» (US-012). `puede_cancelar` exige además que la
+    vea (`puede_ver`): si no, la API respondería 404 al cancelar.
+
+    Solo las que terminaron hace `DIAS_DE_APROBADAS_TERMINADAS` días o menos.
+    Consultas fijas, tenga las que tenga: las solicitudes, sus goces
+    (`goces_por_solicitud`) y, si hace falta, en cuáles intervino."""
+    dia = hoy()
+    solicitudes = list(
+        SolicitudPermiso.objects.filter(
+            solicitante=persona,
+            estado=SolicitudPermiso.Estado.APROBADA,
+            descuento=FlujoPermiso.Descuento.VACACIONES,
+            hasta__gte=dia - timedelta(days=DIAS_DE_APROBADAS_TERMINADAS),
+        ).order_by("desde", "id")
+    )
+    goces = restricciones.goces_por_solicitud(persona, [s.id for s in solicitudes])
+    visibles = _visibles(solicitudes, persona, usuario)
+    lista = []
+    for solicitud in solicitudes:
+        puede, opciones = opciones_de_cancelacion(solicitud, usuario, dia)
+        puede = puede and solicitud.id in visibles
+        lista.append(
+            {
+                "id": solicitud.id,
+                "desde": solicitud.desde,
+                "hasta": solicitud.hasta,
+                "dias": solicitud.dias,
+                "momento": momento(solicitud, dia),
+                "puede_cancelar": puede,
+                "opciones_devolver": opciones if puede else [],
+                "dias_por_opcion": _dias_por_opcion(goces[solicitud.id], dia),
+            }
+        )
+    return lista
 
 
 def puede_ver(solicitud, usuario) -> bool:

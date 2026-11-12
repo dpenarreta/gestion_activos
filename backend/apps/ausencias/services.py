@@ -533,10 +533,16 @@ def create_from_request(solicitud, *, actor) -> list[LeaveRecord]:
     return records
 
 
-def delete_for_request(solicitud, *, actor) -> int:
+def delete_for_request(solicitud, *, actor, desde: date | None = None) -> int:
     """Al cancelarse una solicitud aprobada: borra sus ausencias, dentro de la
-    transacción de la cancelación. Auditoría genérica, sin tipo."""
+    transacción de la cancelación. Auditoría genérica, sin tipo.
+
+    Con `desde`, solo las de esa fecha en adelante (US-012, 12/11/2026): al
+    cancelar unas vacaciones en curso, las de los días ya pasados se quedan
+    (la persona faltó esos días) y siguen ligadas a la solicitud."""
     registros = LeaveRecord.objects.todas().filter(solicitud=solicitud)
+    if desde is not None:
+        registros = registros.filter(date__gte=desde)
     fechas = list(registros.order_by("date").values_list("date", flat=True))
     if not fechas:
         return 0

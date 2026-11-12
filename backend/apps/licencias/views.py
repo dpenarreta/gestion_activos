@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.audit import record_audit_event
+from apps.core.models import AuditLog
 from apps.core.request_meta import get_request_context
 from apps.organizacion.models import Cargo
 from apps.permissions.authorization import user_has_permission
@@ -153,6 +154,20 @@ class _Comentario(serializers.Serializer):
     comentario = serializers.CharField(allow_blank=True, default="")
 
 
+class _Cancelacion(serializers.Serializer):
+    """`POST …/cancelar/` (US-012): el comentario (obligatorio en una
+    aprobada) y, en una aprobada en curso o terminada, qué pasa con sus días."""
+
+    comentario = serializers.CharField(allow_blank=True, default="", max_length=2000)
+    devolver = serializers.ChoiceField(
+        choices=list(services.OPCIONES_DEVOLVER),
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None,
+    )
+
+
 class SolicitudViewSet(viewsets.GenericViewSet):
     """Las solicitudes de permiso: las mías, las que tengo por aprobar y, con
     `licencias.ver_todas`, todas las de la empresa."""
@@ -256,7 +271,51 @@ class SolicitudViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=["post"])
     def cancelar(self, request, pk=None):
-        return self._accion(request, pk, services.cancelar)
+        """Cancela una solicitud. Pendiente: solo quien la pidió. Aprobada
+        (US-012): la persona con `licencias.cancelar_aprobadas_propias` o
+        Gestión Humana con `licencias.anular_aprobadas`, según su momento
+        (`services.opciones_de_cancelacion`); pide `comentario` y, en curso o
+        terminada, `devolver` (`restantes`, `todos` o `ninguno`). 403 si no
+        puede (queda en auditoría), 400 por campo o «La solicitud ya está
+        cerrada»."""
+        solicitud = self._solicitud(request, pk)
+        entrada = _Cancelacion(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        try:
+            services.cancelar(
+                solicitud, request.user, datos["comentario"], devolver=datos["devolver"] or None
+            )
+        except PermissionDenied as error:
+            record_audit_event(
+                actor=request.user,
+                action="access_denied",
+                target=solicitud,
+                module=MODULO,
+                new_values={
+                    # Con el estado que leyó `_bloquear` dentro de `cancelar`.
+                    "required_permission": services.permiso_para_cancelar(solicitud, request.user),
+                    "method": request.method,
+                    "path": request.path,
+                    "motivo": str(error.detail),
+                    "devolver": datos["devolver"] or "",
+                },
+                result=AuditLog.Result.FAILURE,
+                context=get_request_context(request),
+            )
+            raise
+        cancelacion = solicitud.cancelacion
+        record_audit_event(
+            actor=request.user,
+            action="licencias.solicitud.cancelada",
+            target=solicitud,
+            module=MODULO,
+            # El estado leído con la fila bloqueada, no el de antes del bloqueo.
+            previous_values={"estado": cancelacion.estado_anterior},
+            new_values={"estado": SolicitudPermiso.Estado.CANCELADA, **cancelacion.como_dict()},
+            context=get_request_context(request),
+        )
+        return self._detalle(request, solicitud)
 
     @action(detail=True, methods=["post"])
     def escalar(self, request, pk=None):

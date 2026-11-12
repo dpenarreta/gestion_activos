@@ -638,6 +638,12 @@ PERMISSION_CATALOG = {
                 "Anular solicitudes de permiso ya aprobadas (quita sus ausencias y "
                 "devuelve vacaciones)"
             ),
+            # US-012 (12/11/2026): la persona cancela las suyas ya aprobadas
+            # (antes de empezar o, en curso, devolviendo los días que faltan).
+            # Lo trae todo cargo (`PERMISOS_BASE`) y se puede quitar a un rol.
+            "licencias.cancelar_aprobadas_propias": (
+                "Cancelar sus vacaciones o permisos ya aprobados"
+            ),
         },
     },
     "proyectos": {

@@ -4498,3 +4498,51 @@
     min-width: 44px;
   }
 }
+
+/* Cancelar vacaciones aprobadas (US-012): sin viñeta ni borde de fieldset, y
+   cada opción de días con 44 px en pantallas táctiles. */
+.cancelar-devolver {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.vacaciones-aprobadas ul {
+  padding-left: 0;
+  font-size: 13.5px;
+}
+
+.vacaciones-aprobadas li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.vacaciones-aprobadas li + li {
+  border-top: 1px solid var(--mz-border);
+}
+
+@media (any-pointer: coarse) {
+  .cancelar-devolver .form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding-left: 0;
+  }
+
+  .cancelar-devolver .form-check-input {
+    float: none;
+    margin: 0;
+    width: 1.4em;
+    height: 1.4em;
+  }
+
+  .cancelar-devolver .form-check-label {
+    flex: 1;
+    padding: 10px 0;
+  }
+}

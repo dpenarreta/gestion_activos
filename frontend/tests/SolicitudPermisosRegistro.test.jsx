@@ -805,7 +805,7 @@ describe("Detalle y lista: descuento, horario y cancelar una aprobada", () => {
     expect(
       within(ventana).getByText("(obligatorio para cancelar)"),
     ).toBeInTheDocument();
-    const comentario = within(ventana).getByLabelText(/Comentario/);
+    const comentario = within(ventana).getByLabelText(/^Justificación/);
     expect(comentario).toHaveAttribute("aria-required", "true");
 
     // Sin comentario no se pregunta ni se envía: el error va bajo el campo.
@@ -871,7 +871,7 @@ describe("Detalle y lista: descuento, horario y cancelar una aprobada", () => {
     const ventana = await screen.findByRole("dialog", {
       name: "Vacaciones · Ana Vera",
     });
-    const comentario = within(ventana).getByLabelText(/Comentario/);
+    const comentario = within(ventana).getByLabelText(/^Justificación/);
     fireEvent.change(comentario, { target: { value: "Por error" } });
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Cancelar solicitud" }),
@@ -922,6 +922,184 @@ describe("Detalle y lista: descuento, horario y cancelar una aprobada", () => {
     );
     await waitFor(() =>
       expect(servicio.cancelar).toHaveBeenCalledWith("7", ""),
+    );
+  });
+});
+
+describe("Cancelar vacaciones aprobadas desde el detalle (US-012)", () => {
+  const puedo = (opciones) => ({
+    resolver: false,
+    escalar: false,
+    cancelar: true,
+    cancelar_pide_comentario: true,
+    opciones_devolver: opciones,
+  });
+  const EN_CURSO = {
+    ...DETALLE,
+    estado: "aprobada",
+    momento: "en_curso",
+    dias: 5,
+    // Total del servidor: no es lo que vuelve si no se devuelve nada.
+    dias_a_devolver: 5,
+    dias_por_opcion: { restantes: 2, todos: 5, ninguno: 0 },
+    puedo: puedo(["restantes", "todos", "ninguno"]),
+  };
+
+  async function abrirVentana(solicitud) {
+    servicio.solicitud.mockResolvedValue(solicitud);
+    pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+    const detalle = await screen.findByRole("dialog", {
+      name: "Vacaciones · Ana Vera",
+    });
+    const boton = within(detalle).getByRole("button", {
+      name: "Cancelar vacaciones",
+    });
+    // La misma ventana que en «Mis vacaciones», sin comentario en el pie.
+    expect(boton).toHaveClass("btn-outline-danger", "mz-tactil");
+    expect(within(detalle).queryByLabelText(/Comentario/)).toBeNull();
+    fireEvent.click(boton);
+    const ventana = await screen.findByRole("dialog", {
+      name: "Cancelar vacaciones",
+    });
+    return { detalle, ventana };
+  }
+
+  const enviar = (ventana) =>
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Cancelar vacaciones" }),
+    );
+
+  it("en curso: radios con días reales y el éxito sigue la opción enviada", async () => {
+    servicio.cancelar.mockResolvedValue({
+      ...DETALLE,
+      estado: "cancelada",
+      puedo: { resolver: false, escalar: false, cancelar: false },
+    });
+    const { detalle, ventana } = await abrirVentana(EN_CURSO);
+    expect(ventana).toHaveTextContent(
+      "Las vacaciones de Ana Vera ya empezaron.",
+    );
+    const grupo = within(ventana).getByRole("radiogroup", {
+      name: /¿Qué pasa con los días\?/,
+    });
+    expect(
+      within(grupo)
+        .getAllByRole("radio")
+        .map((r) => r.labels[0].textContent),
+    ).toEqual([
+      "Devolver los días que faltan: 2 días (desde hoy, incluido)",
+      "Devolver todos los días: 5 días",
+      "No devolver días: los 5 días siguen contando como gozados",
+    ]);
+    fireEvent.change(within(ventana).getByLabelText(/^Justificación/), {
+      target: { value: "Error de carga" },
+    });
+    // Sin elegir los días no se envía.
+    enviar(ventana);
+    expect(grupo).toHaveAccessibleDescription(/Elija qué pasa con los días/);
+    expect(servicio.cancelar).not.toHaveBeenCalled();
+
+    fireEvent.click(within(grupo).getByLabelText(/^No devolver días/));
+    enviar(ventana);
+    await waitFor(() =>
+      expect(servicio.cancelar).toHaveBeenCalledWith(
+        7,
+        "Error de carga",
+        "ninguno",
+      ),
+    );
+    const exito = await within(detalle).findByText(/Se cancelaron/);
+    expect(exito).toHaveTextContent("No se devolvieron días.");
+    // El total de la solicitud (5) no se cuela en el mensaje.
+    expect(exito).not.toHaveTextContent(/5 días/);
+    expect(exito).toHaveTextContent(
+      "Se avisó a su jefe inmediato, a Ana Vera y a quienes las aprobaron.",
+    );
+  });
+
+  it.each([["sueldo"], ["ninguno"]])(
+    "un permiso con descuento «%s» no usa la ventana de vacaciones",
+    async (descuento) => {
+      servicio.solicitud.mockResolvedValue({
+        ...EN_CURSO,
+        flujo: "Permiso médico",
+        descuento,
+        dias_a_devolver: 0,
+        opciones_devolver: [],
+        dias_por_opcion: null,
+        puedo: puedo([]),
+      });
+      servicio.cancelar.mockResolvedValue({ ...DETALLE, estado: "cancelada" });
+      pintar(<SolicitudPermisosPage />, "/?solicitud=7");
+      const detalle = await screen.findByRole("dialog", {
+        name: "Permiso médico · Ana Vera",
+      });
+      expect(
+        within(detalle).queryByRole("button", { name: "Cancelar vacaciones" }),
+      ).toBeNull();
+      expect(detalle).not.toHaveTextContent(/siguen contando como gozados/);
+      // Sigue el flujo de antes: comentario obligatorio y confirmación.
+      expect(detalle).toHaveTextContent(
+        "Se quitarán las ausencias de Ana Vera en Gestión Humana.",
+      );
+      fireEvent.change(within(detalle).getByLabelText(/^Justificación/), {
+        target: { value: "Se reincorporó" },
+      });
+      fireEvent.click(
+        within(detalle).getByRole("button", { name: "Cancelar solicitud" }),
+      );
+      const pregunta = await screen.findByRole("dialog", { name: /¿Cancelar/ });
+      fireEvent.click(
+        within(pregunta).getByRole("button", {
+          name: "Cancelar solicitud aprobada",
+        }),
+      );
+      // Sin `devolver`: el servidor no lo exige.
+      await waitFor(() =>
+        expect(servicio.cancelar).toHaveBeenCalledWith("7", "Se reincorporó"),
+      );
+    },
+  );
+
+  it("con una sola opción: se lee en el texto y se envía esa opción", async () => {
+    servicio.cancelar.mockResolvedValue({ ...DETALLE, estado: "cancelada" });
+    const { ventana } = await abrirVentana({
+      ...EN_CURSO,
+      puedo: puedo(["restantes"]),
+    });
+    expect(within(ventana).queryByRole("radio")).toBeNull();
+    expect(ventana).toHaveTextContent(
+      "Se le devolverán los 2 días que faltan (desde hoy, incluido).",
+    );
+    fireEvent.change(within(ventana).getByLabelText(/^Justificación/), {
+      target: { value: "Cambio de planes" },
+    });
+    enviar(ventana);
+    await waitFor(() =>
+      expect(servicio.cancelar).toHaveBeenCalledWith(
+        7,
+        "Cambio de planes",
+        "restantes",
+      ),
+    );
+  });
+
+  it("el error de «devolver» del servidor va junto a los radios", async () => {
+    servicio.cancelar.mockRejectedValue(
+      errorDeCampos({ devolver: ["Esa opción no está permitida."] }),
+    );
+    const { ventana } = await abrirVentana(EN_CURSO);
+    fireEvent.change(within(ventana).getByLabelText(/^Justificación/), {
+      target: { value: "Error de carga" },
+    });
+    fireEvent.click(within(ventana).getByLabelText(/^Devolver todos/));
+    enviar(ventana);
+    await waitFor(() =>
+      expect(
+        within(ventana).getByRole("radiogroup", {
+          name: /¿Qué pasa con los días\?/,
+        }),
+      ).toHaveAccessibleDescription("Esa opción no está permitida."),
     );
   });
 });

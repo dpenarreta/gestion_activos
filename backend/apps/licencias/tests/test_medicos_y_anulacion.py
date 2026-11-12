@@ -71,7 +71,8 @@ def test_con_el_permiso_cancela_una_aprobada_aunque_no_vea_todas(e):  # noqa: F8
     detalle = cliente.get(f"{SOLICITUDES}{solicitud_id}/").json()
     assert detalle["puedo"]["cancelar"] is True
     respuesta = cliente.post(
-        f"{SOLICITUDES}{solicitud_id}/cancelar/", {"comentario": "Se reincorporó antes"}
+        f"{SOLICITUDES}{solicitud_id}/cancelar/",
+        {"comentario": "Se reincorporó antes", "devolver": "todos"},
     )
     assert respuesta.status_code == 200, respuesta.data
     assert respuesta.json()["estado"] == "cancelada"

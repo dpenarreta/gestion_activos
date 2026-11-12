@@ -8,6 +8,12 @@ import { usePermission } from "../../hooks/usePermission";
 import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { mensajeDeError } from "../../utils/errores";
 import { formatearFecha } from "../../utils/formato";
+import { avisarCambioDeInsignias } from "../../utils/insigniasDelMenu";
+import {
+  CancelarVacacionesDialog,
+  MOMENTOS,
+  mensajeDeExito,
+} from "./CancelarVacaciones";
 import "./Institucional.css";
 
 function dias(n) {
@@ -174,8 +180,65 @@ function PeriodoGozado({ periodo }) {
   );
 }
 
+const CLASE_MOMENTO = {
+  por_empezar: "mz-pill--ok",
+  en_curso: "mz-pill--warn",
+  terminada: "mz-pill--neutral",
+};
+
+/** Las vacaciones ya aprobadas, con «Cancelar vacaciones» en las que quien
+ * mira puede cancelar (US-012). */
+function VacacionesAprobadas({ aprobadas, propias, onCancelar }) {
+  return (
+    <section
+      className="mz-card vacaciones-aprobadas"
+      aria-labelledby="vac-aprobadas"
+    >
+      <div className="mz-card-body">
+        <h3 id="vac-aprobadas" className="vacaciones-seccion">
+          Vacaciones aprobadas
+        </h3>
+        <ul className="mb-0">
+          {aprobadas.map((a) => (
+            <li key={a.id}>
+              {propias ? (
+                <Link to={`/admin/institucional/permisos?solicitud=${a.id}`}>
+                  {formatearFecha(a.desde)} al {formatearFecha(a.hasta)}
+                </Link>
+              ) : (
+                <span>
+                  {formatearFecha(a.desde)} al {formatearFecha(a.hasta)}
+                </span>
+              )}
+              <span className="mz-faint">· {dias(a.dias)}</span>
+              <span className={`mz-pill ${CLASE_MOMENTO[a.momento] ?? ""}`}>
+                {MOMENTOS[a.momento] ?? a.momento}
+              </span>
+              {a.puede_cancelar && (
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm mz-tactil ms-auto"
+                  aria-label={`Cancelar vacaciones del ${formatearFecha(a.desde)} al ${formatearFecha(a.hasta)}`}
+                  onClick={() => onCancelar(a)}
+                >
+                  Cancelar vacaciones
+                </button>
+              )}
+              {!a.puede_cancelar && propias && a.momento === "terminada" && (
+                <span className="mz-faint mz-small ms-auto">
+                  Para cancelarlas, pídalo a Gestión Humana.
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 /** El resumen y los períodos de una persona. */
-function Vacaciones({ datos, propias }) {
+function Vacaciones({ datos, propias, onCancelar }) {
   if (datos.periodos.length === 0) {
     return (
       <div className="mz-card">
@@ -266,6 +329,14 @@ function Vacaciones({ datos, propias }) {
         </section>
       )}
 
+      {datos.aprobadas?.length > 0 && (
+        <VacacionesAprobadas
+          aprobadas={datos.aprobadas}
+          propias={propias}
+          onCancelar={onCancelar}
+        />
+      )}
+
       {(regla?.sabados > 0 || regla?.domingos > 0) && (
         <details className="vacaciones-regla">
           <summary>¿Por qué se cuentan los fines de semana?</summary>
@@ -341,6 +412,11 @@ export function MisVacacionesPage() {
   const [errorMias, setErrorMias] = useState(null);
   const [errorPersonas, setErrorPersonas] = useState(null);
   const titulo = useRef(null);
+  // Cancelar vacaciones aprobadas (US-012): la ventana abierta y el aviso de
+  // éxito, que recibe el foco porque el botón pulsado desaparece de la lista.
+  const [cancelando, setCancelando] = useState(null);
+  const [exito, setExito] = useState(null);
+  const avisoExito = useRef(null);
 
   const cargarMias = useCallback(() => {
     setErrorMias(null);
@@ -394,6 +470,7 @@ export function MisVacacionesPage() {
   async function verDe(persona) {
     if (abriendo) return;
     setError(null);
+    setExito(null);
     setAbriendo(persona.id);
     try {
       setOtra(await institucionalService.vacacionesDe(persona.id));
@@ -408,7 +485,34 @@ export function MisVacacionesPage() {
   function volver() {
     setOtra(null);
     setError(null);
+    setExito(null);
     enfocarTitulo();
+  }
+
+  async function recargar() {
+    try {
+      if (otra)
+        setOtra(await institucionalService.vacacionesDe(otra.persona.id));
+      else cargarMias();
+    } catch (err) {
+      setError(mensajeDeError(err, "No se pudieron cargar sus vacaciones."));
+    }
+  }
+
+  async function alCancelar(_solicitud, devolver) {
+    const vacaciones = cancelando;
+    setCancelando(null);
+    setExito(
+      mensajeDeExito({
+        vacaciones,
+        devolver,
+        propia: !otra,
+        nombre: otra?.persona.nombre,
+      }),
+    );
+    requestAnimationFrame(() => avisoExito.current?.focus());
+    avisarCambioDeInsignias();
+    await recargar();
   }
 
   const mostradas = otra ?? mias;
@@ -514,6 +618,18 @@ export function MisVacacionesPage() {
         </div>
       )}
 
+      {exito && (
+        <div
+          ref={avisoExito}
+          tabIndex={-1}
+          className="mz-alert mz-alert--ok"
+          role="status"
+        >
+          <Icon name="check-circle" />
+          {exito}
+        </div>
+      )}
+
       {!otra && (
         <EstadoDeCarga
           cargando={mias === null && !errorMias}
@@ -521,7 +637,28 @@ export function MisVacacionesPage() {
           onReintentar={cargarMias}
         />
       )}
-      {mostradas && <Vacaciones datos={mostradas} propias={!otra} />}
+      {mostradas && (
+        <Vacaciones
+          datos={mostradas}
+          propias={!otra}
+          onCancelar={(a) => {
+            setExito(null);
+            setCancelando(a);
+          }}
+        />
+      )}
+      {cancelando && (
+        <CancelarVacacionesDialog
+          vacaciones={cancelando}
+          propia={!otra}
+          nombre={otra?.persona.nombre}
+          onCerrar={({ recargar: obsoleta }) => {
+            setCancelando(null);
+            if (obsoleta) recargar();
+          }}
+          onListo={alCancelar}
+        />
+      )}
     </div>
   );
 }

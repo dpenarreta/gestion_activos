@@ -31,6 +31,7 @@ Contra los flanqueos (ver docs/solicitud-de-permisos.md):
 """
 
 import datetime
+import re
 
 from rest_framework.exceptions import ValidationError
 
@@ -551,12 +552,53 @@ def goces_de(solicitud):
     )
 
 
-def dias_a_devolver(solicitud) -> int:
+def _dias_desde(goce, desde) -> int:
+    """De un goce, los días que caen de `desde` en adelante (todos si
+    `desde` es `None`)."""
+    if desde is None or goce.desde >= desde:
+        return goce.dias
+    if goce.hasta < desde:
+        return 0
+    # Los goces de una solicitud son tramos de días seguidos (`_tramos`):
+    # los que se quedan son los anteriores a `desde`.
+    return max(goce.dias - (desde - goce.desde).days, 0)
+
+
+def dias_de_goces(goces, desde=None) -> int:
+    """Los días de esos goces de `desde` en adelante (todos sin `desde`)."""
+    return sum(_dias_desde(goce, desde) for goce in goces)
+
+
+_DE_LA_SOLICITUD = re.compile(r"\(solicitud n\.º (\d+)\)$")
+
+
+def goces_por_solicitud(persona, ids) -> dict:
+    """Los goces que `registrar_goce` dejó para cada una de esas solicitudes
+    de `persona`, en una sola consulta (para listas como «Mis vacaciones»,
+    US-012): `{id: [goces]}`. Se reconocen por su descripción, como en
+    `goces_de`."""
+    ids = set(ids)
+    por_solicitud = {i: [] for i in ids}
+    if not ids:
+        return por_solicitud
+    goces = GoceVacaciones.objects.filter(
+        periodo__usuario_id=persona.pk, descripcion__contains="(solicitud n.º "
+    )
+    for goce in goces:
+        encontrado = _DE_LA_SOLICITUD.search(goce.descripcion)
+        if encontrado and int(encontrado.group(1)) in ids:
+            por_solicitud[int(encontrado.group(1))].append(goce)
+    return por_solicitud
+
+
+def dias_a_devolver(solicitud, desde=None) -> int:
     """Los días de vacaciones que volverían a quedar pendientes si se
-    cancela esta solicitud aprobada (0 si no descontó vacaciones)."""
+    cancela esta solicitud aprobada (0 si no descontó vacaciones). Con
+    `desde`, solo los de esa fecha en adelante («Devolver los días que
+    faltan», US-012)."""
     if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
         return 0
-    return sum(goces_de(solicitud).values_list("dias", flat=True))
+    return dias_de_goces(goces_de(solicitud), desde)
 
 
 def anular_goce(solicitud):
@@ -570,3 +612,28 @@ def anular_goce(solicitud):
     quitan: no nombran la solicitud y pueden deberse también a otras; si
     sobran, Talento Humano los corrige en Vacaciones."""
     return goces_de(solicitud).delete()[0]
+
+
+def devolver_goce(solicitud, desde=None) -> int:
+    """Al cancelar una solicitud aprobada (US-012, 12/11/2026): sus días
+    gozados vuelven a quedar pendientes, todos (`desde=None`) o solo los de
+    `desde` en adelante. Un goce que empieza antes de `desde` y sigue después
+    se recorta: se queda con lo ya gozado, que sigue nombrando la solicitud.
+    Devuelve cuántos días volvieron a quedar pendientes.
+
+    Como `anular_goce`, no toca los fines de semana marcados por defecto. No
+    bloquea los goces: quien llama ya tiene bloqueada la solicitud
+    (`services._bloquear`), y solo ella los toca."""
+    devueltos = 0
+    for goce in goces_de(solicitud).order_by("desde"):
+        dias = _dias_desde(goce, desde)
+        if not dias:
+            continue
+        devueltos += dias
+        if dias >= goce.dias:
+            goce.delete()
+            continue
+        goce.hasta = desde - datetime.timedelta(days=1)
+        goce.dias -= dias
+        goce.save(update_fields=["hasta", "dias", "updated_at"])
+    return devueltos

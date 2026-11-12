@@ -107,6 +107,8 @@ export function useModalA11y({
       }
       if (event.key === "Escape") {
         if (!closeOnEscape) return;
+        // Un cierre bloqueado (p. ej. mientras se envía) no pregunta nada.
+        if (guardCloseRef.current && guardCloseRef.current() === false) return;
         if (vigilancia?.estaSucio()) {
           confirmarDescarte().then((descartar) => {
             if (descartar) {

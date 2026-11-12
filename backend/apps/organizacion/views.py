@@ -1297,6 +1297,18 @@ class ImagenAvisoInicioView(APIView):
         return respuesta
 
 
+def _vacaciones_con_aprobadas(persona, usuario) -> dict:
+    """El resumen de vacaciones de `persona` más sus vacaciones aprobadas sin
+    cancelar (`aprobadas`), con lo que `usuario` puede hacer con cada una:
+    `momento`, `puede_cancelar`, `opciones_devolver` y `dias_por_opcion`
+    (US-012, 12/11/2026)."""
+    from apps.licencias.services import aprobadas_para
+
+    datos = vacaciones.resumen(persona)
+    datos["aprobadas"] = aprobadas_para(persona, usuario)
+    return datos
+
+
 class MisVacacionesView(APIView):
     """Mis vacaciones: por período, los días que me corresponden, los que
     gocé y los que me quedan. Toda persona con sesión ve las suyas."""
@@ -1304,7 +1316,7 @@ class MisVacacionesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(vacaciones.resumen(request.user))
+        return Response(_vacaciones_con_aprobadas(request.user, request.user))
 
 
 class VacacionesDeTodosView(APIView):
@@ -1323,7 +1335,7 @@ class VacacionesDeTodosView(APIView):
         persona = personas_de_la_empresa().filter(pk=int(usuario)).first()
         if persona is None:
             raise Http404("Esa persona no está en esta empresa.")
-        return Response(vacaciones.resumen(persona))
+        return Response(_vacaciones_con_aprobadas(persona, request.user))
 
 
 def _empresa_activa():

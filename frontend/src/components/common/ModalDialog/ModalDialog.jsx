@@ -35,6 +35,11 @@ export function ModalDialog({
   noValidate = false,
   // Lo que dice el botón mientras se envía.
   textoGuardando = "Guardando…",
+  // El botón que cierra sin enviar («Volver» en las acciones destructivas).
+  textoCancelar = "Cancelar",
+  // Sin nada que perder (p. ej. el formulario ya se quitó): la X y el pie
+  // cierran sin preguntar «¿Descartar?».
+  sinPreguntarAlDescartar = false,
 }) {
   // Un id por ventana: con un id fijo, dos ventanas anidadas compartían
   // «modal-dialog-titulo» y la de dentro se anunciaba con el título de la de
@@ -43,6 +48,9 @@ export function ModalDialog({
   const { panelRef, handleBackdropClick } = useModalA11y({
     isOpen: true,
     onRequestClose: onCerrar,
+    // Mientras se envía no se cierra (ni con Escape): se perdería el
+    // resultado de lo que ya salió al servidor.
+    guardClose: isSaving ? () => false : undefined,
   });
 
   return (
@@ -64,6 +72,7 @@ export function ModalDialog({
           onSubmit={onSubmit}
           className="mz-modal-form"
           noValidate={noValidate || undefined}
+          data-no-descarta={sinPreguntarAlDescartar || undefined}
         >
           <div className="mz-panel-head">
             <div>
@@ -74,6 +83,7 @@ export function ModalDialog({
               type="button"
               className="mz-close"
               onClick={onCerrar}
+              disabled={isSaving}
               aria-label={etiquetaCerrar}
             >
               <Icon name="x-lg" />
@@ -87,8 +97,9 @@ export function ModalDialog({
               type="button"
               className="btn btn-cancelar"
               onClick={onCerrar}
+              disabled={isSaving}
             >
-              Cancelar
+              {textoCancelar}
             </button>
             {onSubmit && (
               <button

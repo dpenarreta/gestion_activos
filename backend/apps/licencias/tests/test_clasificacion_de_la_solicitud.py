@@ -75,7 +75,8 @@ def test_reclasificar_unas_vacaciones_aprobadas_no_cambia_lo_que_se_devuelve(e):
     assert detalle["dias_a_devolver"] == 5
     assert detalle["ausencias_a_borrar"] == 5
     cancelada = admin.post(
-        f"{SOLICITUDES}{solicitud['id']}/cancelar/", {"comentario": "Cambio de fechas"}
+        f"{SOLICITUDES}{solicitud['id']}/cancelar/",
+        {"comentario": "Cambio de fechas", "devolver": "todos"},
     )
     assert cancelada.status_code == 200, cancelada.data
     with usando_empresa(empresa_actual()):
@@ -102,7 +103,9 @@ def test_dias_a_devolver_solo_cuando_se_descontaron_vacaciones(e):  # noqa: F811
     _clasificar(e, "medico", descuento="vacaciones")
     detalle = admin.get(f"{SOLICITUDES}{medico['id']}/").json()
     assert (detalle["dias_a_devolver"], detalle["ausencias_a_borrar"]) == (0, 2)
-    respuesta = admin.post(f"{SOLICITUDES}{medico['id']}/cancelar/", {"comentario": "Volvió"})
+    respuesta = admin.post(
+        f"{SOLICITUDES}{medico['id']}/cancelar/", {"comentario": "Volvió", "devolver": "todos"}
+    )
     assert respuesta.status_code == 200, respuesta.data
     with usando_empresa(empresa_actual()):
         # Las vacaciones aprobadas siguen descontadas.

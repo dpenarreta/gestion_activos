@@ -175,8 +175,9 @@ def test_no_se_aprueba_dos_veces_ni_lo_ya_cerrado(empresa_con_organigrama):
     assert _aprobar(th, solicitud["id"]).status_code == 400
     rechazo = th.post(f"{SOLICITUDES}{solicitud['id']}/rechazar/", {"comentario": "No"})
     assert rechazo.status_code == 400
-    # Tampoco se cancela lo aprobado (sus días ya se registraron).
-    assert ana.post(f"{SOLICITUDES}{solicitud['id']}/cancelar/").status_code == 400
+    # Tampoco se cancela lo aprobado: sin `licencias.cancelar_aprobadas_propias`
+    # (US-012), quien la pidió recibe 403.
+    assert ana.post(f"{SOLICITUDES}{solicitud['id']}/cancelar/").status_code == 403
 
 
 # --- Escalar -------------------------------------------------------------------------------

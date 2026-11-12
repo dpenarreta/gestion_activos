@@ -373,8 +373,9 @@ def test_gestion_humana_cancela_una_aprobada_y_se_borran_sus_ausencias(e):
     _aprobar_medico(e, solicitud["id"])
     assert len(_ausencias(solicitud["id"])) == 2
 
-    # Quien la pidió ya no la cancela (como antes); Gestión Humana sí, con motivo.
-    assert ana.post(f"{SOLICITUDES}{solicitud['id']}/cancelar/").status_code == 400
+    # Quien la pidió, sin `licencias.cancelar_aprobadas_propias` (US-012), no
+    # la cancela; Gestión Humana sí, con motivo y eligiendo qué pasa con los días.
+    assert ana.post(f"{SOLICITUDES}{solicitud['id']}/cancelar/").status_code == 403
     detalle = admin.get(f"{SOLICITUDES}{solicitud['id']}/").json()
     assert detalle["puedo"]["cancelar"] is True
     assert detalle["puedo"]["cancelar_pide_comentario"] is True
@@ -383,7 +384,8 @@ def test_gestion_humana_cancela_una_aprobada_y_se_borran_sus_ausencias(e):
     assert len(_ausencias(solicitud["id"])) == 2
 
     cancelada = admin.post(
-        f"{SOLICITUDES}{solicitud['id']}/cancelar/", {"comentario": "Se reincorporó antes"}
+        f"{SOLICITUDES}{solicitud['id']}/cancelar/",
+        {"comentario": "Se reincorporó antes", "devolver": "todos"},
     )
     assert cancelada.status_code == 200, cancelada.data
     assert cancelada.json()["estado"] == "cancelada"
@@ -402,7 +404,10 @@ def test_cancelar_unas_vacaciones_aprobadas_devuelve_sus_dias(e):
     with usando_empresa(empresa_actual()):
         assert sum(g.dias for g in periodo.goces.all()) == 5
 
-    admin.post(f"{SOLICITUDES}{solicitud['id']}/cancelar/", {"comentario": "Error de fechas"})
+    admin.post(
+        f"{SOLICITUDES}{solicitud['id']}/cancelar/",
+        {"comentario": "Error de fechas", "devolver": "todos"},
+    )
     with usando_empresa(empresa_actual()):
         assert not periodo.goces.exists()
     assert _ausencias(solicitud["id"]) == []

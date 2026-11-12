@@ -34,6 +34,13 @@ import { formatearFecha } from "../../utils/formato";
 import { CalendarioDeRango } from "./CalendarioDeRango";
 import { CalendarioSolicitado } from "./CalendarioSolicitado";
 import {
+  CancelarVacacionesDialog,
+  etiquetaDelComentario,
+  hayQueElegir,
+  mensajeDeExito,
+  momentoDe,
+} from "./CancelarVacaciones";
+import {
   DESCUENTOS,
   DESTINOS_ESCALAR,
   ESTADOS,
@@ -720,6 +727,8 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
   const [solicitud, setSolicitud] = useState(null);
   const [comentario, setComentario] = useState("");
   const [errorComentario, setErrorComentario] = useState(null);
+  // La ventana de «Cancelar vacaciones» de una aprobada (US-012).
+  const [cancelandoVac, setCancelandoVac] = useState(false);
   const [escalando, setEscalando] = useState(false);
   const [destino, setDestino] = useState(DESTINO_VACIO);
   const [opciones, setOpciones] = useState(null);
@@ -846,7 +855,28 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
     solicitud?.estado === "aprobada" &&
     Boolean(solicitud?.puedo?.cancelar_pide_comentario);
 
+  // Vacaciones aprobadas: la misma ventana que en «Mis vacaciones», con los
+  // días de cada opción. Las demás aprobadas siguen con el comentario del pie.
+  const usaVentana = Boolean(
+    cancelaAprobada &&
+    solicitud?.descuento === "vacaciones" &&
+    solicitud?.dias_por_opcion &&
+    solicitud?.momento,
+  );
+  const propia = solicitud?.solicitante?.id === user?.id;
+  // Motivo antes de empezar, Justificación después.
+  const etiquetaCancelar = solicitud
+    ? etiquetaDelComentario(
+        solicitud.momento ?? momentoDe(solicitud.desde, solicitud.hasta),
+      )
+    : "Motivo";
+
   async function cancelar() {
+    if (usaVentana) {
+      setHecho(null);
+      setCancelandoVac(true);
+      return;
+    }
     const motivo = comentario.trim();
     if (cancelaAprobada && !motivo) {
       setErrorComentario(
@@ -943,35 +973,43 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
           {error}
         </div>
       )}
-      <label className="form-label mz-small mb-1" htmlFor="sp-comentario">
-        Comentario para el solicitante{" "}
-        {cancelaAprobada && !escalando ? (
-          <span className="mz-faint">(obligatorio para cancelar)</span>
-        ) : (
-          solicitud.puedo.resolver &&
-          !escalando && (
-            <span className="mz-faint">(obligatorio para rechazar)</span>
-          )
-        )}
-      </label>
-      <textarea
-        id="sp-comentario"
-        ref={campoComentario}
-        rows={2}
-        className={`form-control form-control-sm${errorComentario ? " is-invalid" : ""}`}
-        value={comentario}
-        onChange={(e) => {
-          setComentario(e.target.value);
-          setErrorComentario(null);
-        }}
-        aria-required={cancelaAprobada && !escalando ? true : undefined}
-        aria-invalid={errorComentario ? true : undefined}
-        aria-describedby={errorComentario ? "sp-comentario-error" : undefined}
-      />
-      {errorComentario && (
-        <div id="sp-comentario-error" className="mz-field-error">
-          {errorComentario}
-        </div>
+      {!usaVentana && (
+        <>
+          <label className="form-label mz-small mb-1" htmlFor="sp-comentario">
+            {cancelaAprobada && !escalando
+              ? etiquetaCancelar
+              : "Comentario para el solicitante"}{" "}
+            {cancelaAprobada && !escalando ? (
+              <span className="mz-faint">(obligatorio para cancelar)</span>
+            ) : (
+              solicitud.puedo.resolver &&
+              !escalando && (
+                <span className="mz-faint">(obligatorio para rechazar)</span>
+              )
+            )}
+          </label>
+          <textarea
+            id="sp-comentario"
+            ref={campoComentario}
+            rows={2}
+            className={`form-control form-control-sm${errorComentario ? " is-invalid" : ""}`}
+            value={comentario}
+            onChange={(e) => {
+              setComentario(e.target.value);
+              setErrorComentario(null);
+            }}
+            aria-required={cancelaAprobada && !escalando ? true : undefined}
+            aria-invalid={errorComentario ? true : undefined}
+            aria-describedby={
+              errorComentario ? "sp-comentario-error" : undefined
+            }
+          />
+          {errorComentario && (
+            <div id="sp-comentario-error" className="mz-field-error">
+              {errorComentario}
+            </div>
+          )}
+        </>
       )}
       {escalando && (
         <div className="mt-2">
@@ -992,11 +1030,19 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
         {solicitud.puedo.cancelar && !escalando && (
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm me-auto"
+            className={
+              usaVentana
+                ? "btn btn-outline-danger btn-sm mz-tactil me-auto"
+                : "btn btn-outline-secondary btn-sm me-auto"
+            }
             disabled={Boolean(trabajando)}
             onClick={cancelar}
           >
-            {trabajando === "cancelar" ? "Cancelando…" : "Cancelar solicitud"}
+            {trabajando === "cancelar"
+              ? "Cancelando…"
+              : usaVentana
+                ? "Cancelar vacaciones"
+                : "Cancelar solicitud"}
           </button>
         )}
         {escalando ? (
@@ -1077,198 +1123,258 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
     </div>
   ) : null;
 
+  const ventanaDeCancelar = usaVentana && cancelandoVac && (
+    <CancelarVacacionesDialog
+      vacaciones={{
+        id: solicitud.id,
+        desde: solicitud.desde,
+        hasta: solicitud.hasta,
+        dias: solicitud.dias,
+        momento: solicitud.momento,
+        opciones_devolver: solicitud.puedo.opciones_devolver,
+        dias_por_opcion: solicitud.dias_por_opcion,
+      }}
+      propia={propia}
+      nombre={solicitud.solicitante.nombre}
+      onCerrar={({ recargar }) => {
+        setCancelandoVac(false);
+        if (recargar) {
+          cargar();
+          onCambio();
+        }
+      }}
+      onListo={(datos, devolver) => {
+        // El éxito se calcula con la opción enviada y con lo que quedó
+        // después de la respuesta: no con el total de la solicitud.
+        const mensaje = mensajeDeExito({
+          vacaciones: {
+            desde: solicitud.desde,
+            hasta: solicitud.hasta,
+            momento: solicitud.momento,
+            dias_por_opcion: solicitud.dias_por_opcion,
+          },
+          devolver,
+          propia,
+          nombre: solicitud.solicitante.nombre,
+        });
+        setCancelandoVac(false);
+        setSolicitud(datos);
+        setHecho(mensaje);
+        requestAnimationFrame(() => avisoHecho.current?.focus());
+        onCambio();
+      }}
+    />
+  );
+
   return (
-    <Ventana
-      titulo={
-        solicitud
-          ? `${solicitud.flujo} · ${solicitud.solicitante.nombre}`
-          : "Solicitud de permiso"
-      }
-      onCerrar={onCerrar}
-      ancha
-      clase="solicitud-ventana"
-      pie={pie}
-    >
-      {/* Mientras llegan los datos, la ventana no queda en blanco; si no
+    <>
+      <Ventana
+        titulo={
+          solicitud
+            ? `${solicitud.flujo} · ${solicitud.solicitante.nombre}`
+            : "Solicitud de permiso"
+        }
+        onCerrar={onCerrar}
+        ancha
+        clase="solicitud-ventana"
+        pie={pie}
+      >
+        {/* Mientras llegan los datos, la ventana no queda en blanco; si no
           llegan, se puede reintentar. */}
-      {!solicitud && (
-        <EstadoDeCarga
-          cargando={!errorCarga}
-          error={errorCarga}
-          onReintentar={cargar}
-        />
-      )}
-      {solicitud && (
-        <div className="mz-stack">
-          {hecho && (
-            <div
-              className="mz-alert mz-alert--ok"
-              role="status"
-              ref={avisoHecho}
-              tabIndex={-1}
-            >
-              <Icon name="check-circle" />
-              {hecho}
-            </div>
-          )}
-          {!puedeActuar && error && (
-            <div className="mz-alert mz-alert--bad" role="alert">
-              <Icon name="x-octagon" />
-              {error}
-            </div>
-          )}
-          {cancelaAprobada && (
-            <div className="mz-alert mz-alert--warn" role="note">
-              <Icon name="exclamation-triangle" />
-              <span>
-                Esta solicitud ya está aprobada. Si la cancela:{" "}
-                {consecuenciaDeCancelar(solicitud).futuro} Debe explicar por qué
-                en el comentario.
-              </span>
-            </div>
-          )}
-          {solicitud.estado === "pendiente" &&
-            (solicitud.puedo.resolver ? (
-              <div className="mz-alert mz-alert--info" role="note">
-                <Icon name="hand-index-thumb" />
-                <span>
-                  <strong>Le toca decidir a usted</strong> (paso «
-                  {solicitud.paso_actual}»).
-                </span>
-              </div>
-            ) : (
-              <p className="solicitud-espera mb-0">
-                <Icon name="hourglass-split" /> En el paso «
-                {solicitud.paso_actual}», esperando a{" "}
-                <strong>
-                  <AprobadoresPendientes personas={solicitud.pendiente_de} />
-                </strong>
-                .
-              </p>
-            ))}
-
-          <div className="solicitud-cabecera">
-            <dl className="solicitud-datos">
-              <div>
-                <dt>Solicitante</dt>
-                <dd>
-                  <strong>{solicitud.solicitante.nombre}</strong>
-                  {(solicitud.cargo || solicitud.area) && (
-                    <small>
-                      {[solicitud.cargo, solicitud.area]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </small>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>{porHoras ? "Fecha" : "Fechas"}</dt>
-                <dd>
-                  {fechas(solicitud.desde, solicitud.hasta, formatearFecha)}
-                </dd>
-              </div>
-              {porHoras ? (
-                <>
-                  {/* Sin horario (datos incompletos), no se muestra « a ». */}
-                  {horas && (
-                    <div>
-                      <dt>Horario</dt>
-                      <dd>{horas}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>Duración</dt>
-                    <dd>{duracionDeSolicitud(solicitud)}</dd>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <dt>Días</dt>
-                  <dd>{solicitud.dias}</dd>
-                </div>
-              )}
-              {DESCUENTOS[solicitud.descuento] && (
-                <div>
-                  <dt>Descuento</dt>
-                  <dd>{DESCUENTOS[solicitud.descuento]}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Solicitada el</dt>
-                <dd>{formatearFecha(solicitud.created_at, true)}</dd>
-              </div>
-              {solicitud.cerrada_en && (
-                <div>
-                  <dt>Cerrada el</dt>
-                  <dd>{formatearFecha(solicitud.cerrada_en, true)}</dd>
-                </div>
-              )}
-            </dl>
-            <span className={`mz-pill ${clase}`}>{estado}</span>
-          </div>
-
-          {solicitud.evaluacion?.reglas?.length > 0 && (
-            <RestriccionesDelPermiso
-              evaluacion={solicitud.evaluacion}
-              titulo="Para decidir: saldo y restricciones"
-            />
-          )}
-
-          <CalendarioSolicitado
-            desde={solicitud.desde}
-            hasta={solicitud.hasta}
-            feriados={solicitud.feriados}
+        {!solicitud && (
+          <EstadoDeCarga
+            cargando={!errorCarga}
+            error={errorCarga}
+            onReintentar={cargar}
           />
-
-          {solicitud.motivo && (
-            <section aria-labelledby="sp-detalle-motivo">
-              <h4 id="sp-detalle-motivo" className="solicitud-seccion">
-                Motivo
-              </h4>
-              <p className="mb-0">{solicitud.motivo}</p>
-            </section>
-          )}
-          {solicitud.tiene_adjunto && (
-            <section aria-labelledby="sp-detalle-adjunto">
-              <h4 id="sp-detalle-adjunto" className="solicitud-seccion">
-                Documento de respaldo
-              </h4>
-              <button
-                type="button"
-                className="btn btn-link btn-sm px-0"
-                onClick={verAdjunto}
-                disabled={descargando}
+        )}
+        {solicitud && (
+          <div className="mz-stack">
+            {hecho && (
+              <div
+                className="mz-alert mz-alert--ok"
+                role="status"
+                ref={avisoHecho}
+                tabIndex={-1}
               >
-                <Icon name="paperclip" />{" "}
-                {descargando ? "Descargando…" : solicitud.adjunto_nombre}
-              </button>
-            </section>
-          )}
-
-          <section aria-labelledby="sp-historial">
-            <h4 id="sp-historial" className="solicitud-seccion">
-              Historial
-            </h4>
-            <ol className="solicitud-historial" aria-labelledby="sp-historial">
-              {solicitud.acciones.map((a) => (
-                <li key={a.id} className={`solicitud-historial__${a.accion}`}>
-                  <span className="mz-faint mz-small">
-                    {formatearFecha(a.created_at, true)}
+                <Icon name="check-circle" />
+                {hecho}
+              </div>
+            )}
+            {!puedeActuar && error && (
+              <div className="mz-alert mz-alert--bad" role="alert">
+                <Icon name="x-octagon" />
+                {error}
+              </div>
+            )}
+            {cancelaAprobada && (
+              <div className="mz-alert mz-alert--warn" role="note">
+                <Icon name="exclamation-triangle" />
+                {usaVentana ? (
+                  <span>
+                    Esta solicitud ya está aprobada. Con «Cancelar vacaciones»
+                    se le pedirá {etiquetaCancelar.toLowerCase()}
+                    {hayQueElegir(solicitud.puedo.opciones_devolver)
+                      ? " y qué pasa con los días"
+                      : ""}
+                    .
                   </span>
-                  <span>{textoDeAccion(a)}</span>
-                  {a.comentario && !esEscaladaPorAusencia(a) && (
-                    <blockquote className="solicitud-historial__comentario">
-                      «{a.comentario}»
-                    </blockquote>
-                  )}
-                </li>
+                ) : (
+                  <span>
+                    Esta solicitud ya está aprobada. Si la cancela:{" "}
+                    {consecuenciaDeCancelar(solicitud).futuro} Debe explicar por
+                    qué en el comentario.
+                  </span>
+                )}
+              </div>
+            )}
+            {solicitud.estado === "pendiente" &&
+              (solicitud.puedo.resolver ? (
+                <div className="mz-alert mz-alert--info" role="note">
+                  <Icon name="hand-index-thumb" />
+                  <span>
+                    <strong>Le toca decidir a usted</strong> (paso «
+                    {solicitud.paso_actual}»).
+                  </span>
+                </div>
+              ) : (
+                <p className="solicitud-espera mb-0">
+                  <Icon name="hourglass-split" /> En el paso «
+                  {solicitud.paso_actual}», esperando a{" "}
+                  <strong>
+                    <AprobadoresPendientes personas={solicitud.pendiente_de} />
+                  </strong>
+                  .
+                </p>
               ))}
-            </ol>
-          </section>
-        </div>
-      )}
-    </Ventana>
+
+            <div className="solicitud-cabecera">
+              <dl className="solicitud-datos">
+                <div>
+                  <dt>Solicitante</dt>
+                  <dd>
+                    <strong>{solicitud.solicitante.nombre}</strong>
+                    {(solicitud.cargo || solicitud.area) && (
+                      <small>
+                        {[solicitud.cargo, solicitud.area]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </small>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{porHoras ? "Fecha" : "Fechas"}</dt>
+                  <dd>
+                    {fechas(solicitud.desde, solicitud.hasta, formatearFecha)}
+                  </dd>
+                </div>
+                {porHoras ? (
+                  <>
+                    {/* Sin horario (datos incompletos), no se muestra « a ». */}
+                    {horas && (
+                      <div>
+                        <dt>Horario</dt>
+                        <dd>{horas}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>Duración</dt>
+                      <dd>{duracionDeSolicitud(solicitud)}</dd>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <dt>Días</dt>
+                    <dd>{solicitud.dias}</dd>
+                  </div>
+                )}
+                {DESCUENTOS[solicitud.descuento] && (
+                  <div>
+                    <dt>Descuento</dt>
+                    <dd>{DESCUENTOS[solicitud.descuento]}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Solicitada el</dt>
+                  <dd>{formatearFecha(solicitud.created_at, true)}</dd>
+                </div>
+                {solicitud.cerrada_en && (
+                  <div>
+                    <dt>Cerrada el</dt>
+                    <dd>{formatearFecha(solicitud.cerrada_en, true)}</dd>
+                  </div>
+                )}
+              </dl>
+              <span className={`mz-pill ${clase}`}>{estado}</span>
+            </div>
+
+            {solicitud.evaluacion?.reglas?.length > 0 && (
+              <RestriccionesDelPermiso
+                evaluacion={solicitud.evaluacion}
+                titulo="Para decidir: saldo y restricciones"
+              />
+            )}
+
+            <CalendarioSolicitado
+              desde={solicitud.desde}
+              hasta={solicitud.hasta}
+              feriados={solicitud.feriados}
+            />
+
+            {solicitud.motivo && (
+              <section aria-labelledby="sp-detalle-motivo">
+                <h4 id="sp-detalle-motivo" className="solicitud-seccion">
+                  Motivo
+                </h4>
+                <p className="mb-0">{solicitud.motivo}</p>
+              </section>
+            )}
+            {solicitud.tiene_adjunto && (
+              <section aria-labelledby="sp-detalle-adjunto">
+                <h4 id="sp-detalle-adjunto" className="solicitud-seccion">
+                  Documento de respaldo
+                </h4>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm px-0"
+                  onClick={verAdjunto}
+                  disabled={descargando}
+                >
+                  <Icon name="paperclip" />{" "}
+                  {descargando ? "Descargando…" : solicitud.adjunto_nombre}
+                </button>
+              </section>
+            )}
+
+            <section aria-labelledby="sp-historial">
+              <h4 id="sp-historial" className="solicitud-seccion">
+                Historial
+              </h4>
+              <ol
+                className="solicitud-historial"
+                aria-labelledby="sp-historial"
+              >
+                {solicitud.acciones.map((a) => (
+                  <li key={a.id} className={`solicitud-historial__${a.accion}`}>
+                    <span className="mz-faint mz-small">
+                      {formatearFecha(a.created_at, true)}
+                    </span>
+                    <span>{textoDeAccion(a)}</span>
+                    {a.comentario && !esEscaladaPorAusencia(a) && (
+                      <blockquote className="solicitud-historial__comentario">
+                        «{a.comentario}»
+                      </blockquote>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </div>
+        )}
+      </Ventana>
+      {ventanaDeCancelar}
+    </>
   );
 }
 

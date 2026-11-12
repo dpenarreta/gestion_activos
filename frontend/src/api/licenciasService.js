@@ -46,9 +46,12 @@ export const licenciasService = {
       .post(`${BASE}solicitudes/${id}/rechazar/`, { comentario })
       .then((res) => res.data);
   },
-  cancelar(id, comentario) {
+  /** `devolver` ("todos" | "restantes" | "ninguno") solo al cancelar una
+   * aprobada; sin él, el cuerpo es el de siempre. */
+  cancelar(id, comentario, devolver) {
+    const cuerpo = devolver ? { comentario, devolver } : { comentario };
     return apiClient
-      .post(`${BASE}solicitudes/${id}/cancelar/`, { comentario })
+      .post(`${BASE}solicitudes/${id}/cancelar/`, cuerpo)
       .then((res) => res.data);
   },
   /** `destino`: { tipo: "persona" | "rol" | "cargo", usuario | rol | cargo }. */

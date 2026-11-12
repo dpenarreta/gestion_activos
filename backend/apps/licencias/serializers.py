@@ -550,6 +550,8 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
     feriados = serializers.SerializerMethodField()
     dias_a_devolver = serializers.SerializerMethodField()
     ausencias_a_borrar = serializers.SerializerMethodField()
+    momento = serializers.SerializerMethodField()
+    dias_por_opcion = serializers.SerializerMethodField()
 
     class Meta(SolicitudSerializer.Meta):
         fields = SolicitudSerializer.Meta.fields + [
@@ -561,7 +563,28 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
             "feriados",
             "dias_a_devolver",
             "ausencias_a_borrar",
+            "momento",
+            "dias_por_opcion",
         ]
+
+    def get_momento(self, solicitud) -> str | None:
+        """De una aprobada: `por_empezar`, `en_curso` o `terminada` (US-012);
+        `None` en los demás estados."""
+        if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+            return None
+        from .services import momento
+
+        return momento(solicitud)
+
+    def get_dias_por_opcion(self, solicitud) -> dict | None:
+        """De una aprobada, los días de vacaciones que vuelven con cada opción
+        de `devolver` (US-012); `None` en los demás estados y si no descuenta
+        vacaciones."""
+        if solicitud.estado != SolicitudPermiso.Estado.APROBADA:
+            return None
+        from .services import dias_por_opcion
+
+        return dias_por_opcion(solicitud)
 
     def get_dias_a_devolver(self, solicitud) -> int:
         """Lo que de verdad se descontó: los días de vacaciones que vuelven a
@@ -618,19 +641,19 @@ class DetalleSolicitudSerializer(SolicitudSerializer):
     def get_puedo(self, solicitud):
         from apps.permissions.authorization import user_has_permission
 
-        from .services import puede_anular_aprobadas
+        from .services import opciones_de_cancelacion
 
         usuario = self.context["request"].user
         pendiente = solicitud.estado == SolicitudPermiso.Estado.PENDIENTE
         mia = solicitud.pendiente_de.filter(pk=usuario.pk).exists()
-        # Una aprobada la cancela Gestión Humana (con comentario obligatorio):
-        # borra sus ausencias y devuelve sus días de vacaciones.
-        anular = solicitud.estado == SolicitudPermiso.Estado.APROBADA and puede_anular_aprobadas(
-            usuario
-        )
+        # Una aprobada (US-012, 12/11/2026) la cancela la persona o Gestión
+        # Humana según su momento, siempre con comentario; `opciones_devolver`
+        # son las que puede elegir (vacía antes de empezar: se devuelve todo).
+        anular, opciones = opciones_de_cancelacion(solicitud, usuario)
         return {
             "resolver": pendiente and mia,
             "escalar": pendiente and (mia or user_has_permission(usuario, "licencias.ver_todas")),
             "cancelar": (pendiente and solicitud.solicitante_id == usuario.pk) or anular,
             "cancelar_pide_comentario": anular,
+            "opciones_devolver": opciones,
         }
