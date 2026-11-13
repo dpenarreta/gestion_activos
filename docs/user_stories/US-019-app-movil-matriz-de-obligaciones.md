@@ -4,7 +4,7 @@
 - **Tipo:** Historia de Usuario
 - **Fecha:** 2026-11-13
 - **Sprint / Módulo:** App móvil «Intranet LCE» · Matriz de obligaciones
-- **Estado:** Pendiente (empieza cuando cierre US-016, porque usa su catálogo de módulos)
+- **Estado:** En Progreso
 - **Tech Lead Asignado:** Tech-Lead Orchestrator
 - **Desarrolladores Requeridos:** DEV-1
 
@@ -126,3 +126,20 @@ DEV-1 debe verificar cada llamada contra `views.py`, `serializers.py` y las pant
 
 ### 6. Registro de Cierre
 *(Lo completa el Tech Lead al finalizar).*
+
+**Avance al 13/11/2026 (sigue En Progreso):**
+- DEV-1 la implementó y aplicó la ronda 1 de QA:
+  - QA-FUNC: aprobado con observaciones.
+  - QA-TECH: rechazado por dos P2, ya corregidos (caché entre cuentas; cerrar durante un envío).
+  - QA-UX: H-01 y H-02 corregidos.
+- Jest: 23 suites, 654 de 654 en verde.
+- Verificado en el Samsung SM-A075M con datos reales:
+  - Bandeja (74, 286, 1 y 0);
+  - lista de incumplidas, detalle, calendario y lista del día;
+  - en la obligación de prueba OBL-0361 (período 361, responsable dpenarreta): «Reenviar recordatorio» y «Editar seguimiento» (avance a 50 %).
+- Pedidos del usuario: «hora de Ecuador», el calendario sin desbordarse y los títulos sin duplicar.
+- Pendientes:
+  - probar «Cambiar fecha» en el dispositivo;
+  - ver en el teléfono que el calendario ya no se sale del borde;
+  - nueva revisión de QA;
+  - push real: el identificador de la app pasó a `com.laarcourier.applce`, el del proyecto de Firebase «applce». Faltan la cuenta de Expo (`eas login` y `eas init`), la clave FCM v1 en EAS y volver a compilar el dev-client. Las credenciales de Firebase están fuera del repo, en `%USERPROFILE%\.deploy\firebase-applce\`.

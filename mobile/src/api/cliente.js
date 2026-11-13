@@ -280,6 +280,10 @@ export function crearCliente({
       solicitar("POST", ruta, { ...opciones, cuerpo: cuerpo ?? {} }),
     put: (ruta, cuerpo, opciones = {}) =>
       solicitar("PUT", ruta, { ...opciones, cuerpo: cuerpo ?? {} }),
+    /** US-019 (13/11/2026): «Editar seguimiento» de la Matriz es un PATCH,
+     * como en la web. */
+    patch: (ruta, cuerpo, opciones = {}) =>
+      solicitar("PATCH", ruta, { ...opciones, cuerpo: cuerpo ?? {} }),
     /** URL absoluta de un recurso (las imágenes de las noticias). */
     url: (ruta) => `${baseUrl}${ruta}`,
     /** Cabeceras para un recurso que no pasa por `fetch` (un `<Image>`).

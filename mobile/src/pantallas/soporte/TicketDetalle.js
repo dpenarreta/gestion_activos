@@ -1,14 +1,15 @@
 import * as Linking from "expo-linking";
 import { useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { anunciar } from "../../accesibilidad/anunciar";
 import { useIrAlBloque } from "../../accesibilidad/irAlBloque";
 import { soporteService } from "../../api/servicios";
 import { Alerta, Boton, BotonIcono, Cargando, Desplegable, ErrorConReintento } from "../../componentes/comunes";
+import { confirmarDescarte as confirmarDescarteComun } from "../../componentes/confirmarDescarte";
 import { Icono } from "../../componentes/Icono";
+import { Ventana } from "../../componentes/Ventana";
 import { OpcionesEnLinea, SelectorDeLista } from "../../componentes/Selectores";
 import { VisorDeImagen } from "../../componentes/VisorDeImagen";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
@@ -94,51 +95,10 @@ export const TEXTO_SIN_CORREO = "No se pudo abrir la app de correo. Escriba a:";
 export const TEXTO_BORRADOR_SIN_ENVIAR =
   "Ya no se puede responder este ticket (se cerró o cambió de manos). Su texto no se envió; puede copiarlo:";
 
-/** H-17: cerrar con algo escrito pide confirmación. */
+/** H-17: cerrar con algo escrito pide confirmación (desde la US-019, la
+ * pregunta es común: `componentes/confirmarDescarte.js`). */
 function confirmarDescarte() {
-  return new Promise((resolver) => {
-    Alert.alert(
-      "¿Descartar lo que escribió?",
-      "La nota no se guardó.",
-      [
-        { text: "Seguir escribiendo", style: "cancel", onPress: () => resolver(false) },
-        { text: "Descartar", style: "destructive", onPress: () => resolver(true) },
-      ],
-      { cancelable: true, onDismiss: () => resolver(false) },
-    );
-  });
-}
-
-/** Una ventana a pantalla completa con su título y «Cancelar». */
-function Ventana({ titulo, onCerrar, children, testID }) {
-  const alturaCabecera = useAlturaCabecera();
-  return (
-    <Modal visible animationType="slide" onRequestClose={onCerrar}>
-      <SafeAreaView style={estilos.ventana}>
-        <View style={estilos.ventanaCabecera}>
-          <Text style={estilos.ventanaTitulo} accessibilityRole="header">
-            {titulo}
-          </Text>
-          <BotonIcono icono="close" etiqueta="Cancelar" onPress={onCerrar} testID={testID ? `${testID}-cerrar` : undefined} />
-        </View>
-        <KeyboardAvoidingView
-          style={estilos.ventana}
-          behavior="padding"
-          enabled={Platform.OS === "android"}
-          keyboardVerticalOffset={alturaCabecera}
-        >
-          <ScrollView
-            contentContainerStyle={estilos.ventanaContenido}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets
-            testID={testID}
-          >
-            {children}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
-  );
+  return confirmarDescarteComun({ mensaje: "La nota no se guardó." });
 }
 
 /** CA-12, CA-14 y CA-15: la ventana de un paso, con su nota. */
@@ -172,7 +132,7 @@ function DialogoDeAccion({ dialogo, ocupado, error, onCerrar, onConfirmar }) {
   }
 
   return (
-    <Ventana titulo={dialogo.titulo} onCerrar={cerrar} testID="dialogo">
+    <Ventana titulo={dialogo.titulo} onCerrar={cerrar} ocupada={Boolean(ocupado)} testID="dialogo">
       <Text style={estilos.texto}>{dialogo.explicacion}</Text>
       {error ? <Alerta tipo="mal" texto={error.texto} clave={error.clave} testID="dialogo-error" /> : null}
       <CampoTexto
@@ -259,7 +219,7 @@ function DialogoDePrioridad({ ticket, prioridades, ocupado, error, onCerrar, onC
   }
 
   return (
-    <Ventana titulo="Ajustar prioridad" onCerrar={cerrar} testID="dialogo-prioridad">
+    <Ventana titulo="Ajustar prioridad" onCerrar={cerrar} ocupada={Boolean(ocupado)} testID="dialogo-prioridad">
       <OpcionesEnLinea
         testID="prioridad-modo"
         etiqueta="Cómo se calcula"
@@ -1308,17 +1268,4 @@ const estilos = crearEstilos({
     backgroundColor: colores.fondo,
     borderRadius: 6,
   },
-  ventana: { flex: 1, backgroundColor: colores.fondo },
-  ventanaCabecera: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colores.superficie,
-    borderBottomWidth: 1,
-    borderBottomColor: colores.borde,
-  },
-  ventanaTitulo: { flex: 1, fontSize: 18, fontWeight: "700", color: colores.titulo },
-  ventanaContenido: { padding: 16, gap: 14, paddingBottom: 40 },
 });

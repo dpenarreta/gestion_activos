@@ -12,6 +12,7 @@ import { tomarAviso } from "../../soporte/avisoPendiente";
 import { accesosEnElNavegador, rutaDeAltaPropia } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
 import { AREA_TACTIL, colores } from "../../tema/colores";
+import { CONTROLES } from "../../tema/controles";
 import { crearEstilos } from "../../tema/tipografia";
 import { Aprobaciones } from "./Aprobaciones";
 import { Bandeja } from "./Bandeja";
@@ -162,7 +163,7 @@ export function MesaDeAyuda() {
 
 const estilos = crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
+  tituloVista: CONTROLES.tituloVista,
   aviso: { paddingHorizontal: 16 },
   tenue: { fontSize: 14, color: colores.tintaSuave },
   navegador: { gap: 8 },

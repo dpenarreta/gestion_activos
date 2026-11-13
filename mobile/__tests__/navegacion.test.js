@@ -102,13 +102,28 @@ beforeEach(() => {
 });
 
 describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
-  it("CA-1: Institucional · Chat · Mesa de ayuda; el Inicio es de Institucional", () => {
-    expect(MODULOS.map((m) => m.texto)).toEqual(["Institucional", "Chat", "Mesa de ayuda"]);
-    expect(MODULOS.map((m) => m.pantallas)).toEqual([["index", "permisos"], ["chat"], ["soporte"]]);
+  it("CA-1: Institucional · Chat · Mesa de ayuda · Matriz de obligaciones (US-019); el Inicio es de Institucional", () => {
+    expect(MODULOS.map((m) => m.texto)).toEqual(["Institucional", "Chat", "Mesa de ayuda", "Matriz de obligaciones"]);
+    expect(MODULOS.map((m) => m.pantallas)).toEqual([["index", "permisos"], ["chat"], ["soporte"], ["matriz"]]);
     expect(moduloDePantalla("index").id).toBe("institucional");
     expect(moduloDePantalla("permisos").id).toBe("institucional");
     expect(moduloDePantalla("soporte").id).toBe("mesa");
+    expect(moduloDePantalla("matriz").id).toBe("matriz");
     expect(moduloDePantalla("otra")).toBeNull();
+  });
+
+  it("US-019, CA-1: la Matriz aparece con cualquier permiso matriz.* y no sin él", () => {
+    expect(ids(modulosVisibles(contexto()))).toEqual(["institucional", "chat", "mesa"]);
+    for (const permiso of ["matriz.ver_todas", "matriz.recordar", "matriz.gestionar_miembros"]) {
+      expect(ids(modulosVisibles(contexto({ permisos: [permiso] })))).toEqual(["institucional", "chat", "mesa", "matriz"]);
+    }
+    expect(ids(modulosVisibles(contexto({ permisos: ["soporte.crear", "catalogos.ver"] })))).not.toContain("matriz");
+    expect(idsDe("matriz", contexto({ permisos: ["matriz.editar"] }))).toEqual(["bandeja", "calendario"]);
+    expect(
+      funcionalidadesVisibles(moduloPorId("matriz"), contexto({ permisos: ["matriz.editar"] })).map((f) =>
+        nombreAccesible(f),
+      ),
+    ).toEqual(["Bandeja de la Matriz", "Calendario de vencimientos"]);
   });
 
   it("CA-3: cada módulo trae sus funcionalidades en el orden que pidió el usuario", () => {
@@ -261,6 +276,14 @@ describe("la vista marcada en la barra sale de la ruta (CA-8)", () => {
     expect(vistaActiva(mesa, soporte({ vista: "mis" }), contexto({ soporte: { delEquipo: true } }))).toBe("mis");
   });
 
+  it("US-019: Matriz, ?vista=; sin ella, la Bandeja", () => {
+    const matriz = moduloPorId("matriz");
+    const c = contexto({ permisos: ["matriz.editar"] });
+    expect(vistaActiva(matriz, { name: "matriz" }, c)).toBe("bandeja");
+    expect(vistaActiva(matriz, { name: "matriz", params: { vista: "calendario" } }, c)).toBe("calendario");
+    expect(vistaActiva(matriz, { name: "matriz", params: { vista: "otra" } }, c)).toBe("bandeja");
+  });
+
   it("Chat: /chat son las conversaciones; ?vista=grupos, «Mis grupos»", () => {
     expect(vistaActiva(chat, { name: "chat" }, contexto())).toBe("conversaciones");
     expect(vistaActiva(chat, { name: "chat", params: { vista: "grupos" } }, contexto())).toBe("grupos");
@@ -286,7 +309,10 @@ describe("la vista marcada en la barra sale de la ruta (CA-8)", () => {
     ["/soporte", true],
     ["/soporte/", true],
     ["/chat", true],
+    ["/matriz", true],
+    ["/matriz?vista=calendario", true],
     [{ pathname: "/soporte", params: { vista: "mis" } }, true],
+    ["/matriz/periodo/5?empresa=2", false],
     ["/soporte/nuevo", false],
     ["/chat/conversacion/5", false],
     ["/notificaciones", false],
@@ -822,7 +848,7 @@ describe("el navegador de módulos ((tabs)/_layout.js)", () => {
     expect(screen.getByTestId("pantalla-con-foco").props.pointerEvents).toBe("auto");
   });
 
-  it.each(["index", "permisos", "chat", "soporte"])("la pantalla «%s» va dentro de SoloConFoco", (nombre) => {
+  it.each(["index", "permisos", "chat", "soporte", "matriz"])("la pantalla «%s» va dentro de SoloConFoco", (nombre) => {
     const fs = require("fs");
     const path = require("path");
     const fuente = fs.readFileSync(path.join(__dirname, `../src/app/(app)/(tabs)/${nombre}.js`), "utf8");
@@ -835,7 +861,7 @@ describe("el navegador de módulos ((tabs)/_layout.js)", () => {
     await render(<ModulosLayout />);
     expect(mockTabs.props.backBehavior).toBe("firstRoute");
     expect(typeof mockTabs.props.tabBar).toBe("function");
-    expect(mockTabs.pantallas.map((p) => p.name)).toEqual(["index", "permisos", "chat", "soporte"]);
+    expect(mockTabs.pantallas.map((p) => p.name)).toEqual(["index", "permisos", "chat", "soporte", "matriz"]);
     // La primera es Institucional › Inicio: Atrás vuelve a ella y desde ella
     // sale de la app.
     expect(mockTabs.pantallas.map((p) => p.name)).toEqual(MODULOS.flatMap((m) => m.pantallas));

@@ -17,9 +17,9 @@ import { colores } from "../../../tema/colores";
  *
  * Todo sale del catálogo `navegacion/modulos.js`. Institucional son dos
  * pantallas: el Inicio (`index`, `/`, por donde se entra) y los permisos
- * (`/permisos?seccion=`); Chat (`/chat?vista=`) y la Mesa (`/soporte?vista=`),
- * una cada uno. La vista va en la ruta: los enlaces y los push siguen igual
- * (CA-8).
+ * (`/permisos?seccion=`); Chat (`/chat?vista=`), la Mesa (`/soporte?vista=`)
+ * y la Matriz (`/matriz?vista=`, US-019), una cada uno. La vista va en la
+ * ruta: los enlaces y los push siguen igual (CA-8).
  *
  * `backBehavior="firstRoute"` (CA-9): en Android, Atrás desde otro módulo
  * vuelve a Institucional › Inicio y desde ahí sale de la app.
@@ -52,6 +52,8 @@ export default function ModulosLayout() {
           <Tabs.Screen name="permisos" options={{ title: "Solicitud de permisos" }} />
           <Tabs.Screen name="chat" options={{ title: "Chat" }} />
           <Tabs.Screen name="soporte" options={{ title: "Mesa de ayuda" }} />
+          {/* US-019: `/matriz?vista=bandeja|calendario`. */}
+          <Tabs.Screen name="matriz" options={{ title: "Matriz de obligaciones" }} />
         </Tabs>
       </View>
     </ProveedorDeModulos>

@@ -2,12 +2,13 @@
  * El catálogo de la navegación de la app (US-016, 13/11/2026): los MÓDULOS
  * van en las pestañas de arriba y las FUNCIONALIDADES del módulo activo en la
  * barra flotante de abajo, como la app de Uber. Las pestañas, la barra y los
- * enlaces salen de aquí: un módulo nuevo (la «Matriz de obligaciones», en otra
- * historia) es una entrada más, a la derecha (decisión del usuario).
+ * enlaces salen de aquí: un módulo nuevo es una entrada más, a la derecha
+ * (decisión del usuario).
  *
  * Estructura (decisión del usuario, 13/11/2026, ronda 1): Institucional ·
- * Chat · Mesa de ayuda. El Inicio ya no es un módulo: es la primera
- * funcionalidad de Institucional y donde se entra por defecto.
+ * Chat · Mesa de ayuda · Matriz de obligaciones (US-019). El Inicio ya no es
+ * un módulo: es la primera funcionalidad de Institucional y donde se entra
+ * por defecto.
  *
  * Es código puro (sin React) para poder probarlo solo. Las reglas de
  * visibilidad son las de antes de esta historia; el acceso efectivo lo sigue
@@ -34,6 +35,7 @@
  * - `tipo: "accion"` abre otra pantalla del Stack (`ruta`), con su cabecera
  *   y «Volver».
  */
+import { tieneAccesoALaMatriz } from "../matriz/formato";
 import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
 
 function plural(n, uno, varios) {
@@ -69,6 +71,13 @@ export function veLasPorAprobar(contexto) {
     permisosDe(contexto).includes("licencias.ver_por_aprobar") ||
     contexto?.vistas?.institucional === "por_aprobar"
   );
+}
+
+/** La Matriz de obligaciones, con cualquier permiso `matriz.*` en la empresa
+ * activa, como el menú de la web (US-019, CA-1). Al cambiar de empresa la
+ * app vuelve a leer los permisos y se reevalúa. */
+export function veLaMatriz(contexto) {
+  return tieneAccesoALaMatriz(permisosDe(contexto));
 }
 
 export const MODULOS = Object.freeze([
@@ -233,6 +242,39 @@ export const MODULOS = Object.freeze([
         tipo: "accion",
         ruta: "/soporte/registrar",
         visible: (c) => permisosDe(c).includes("soporte.registrar") && !c?.soporte?.noEsDelEquipo,
+      },
+    ],
+  },
+  {
+    // US-019 (13/11/2026): después de la Mesa de ayuda, con «Bandeja» por
+    // defecto y «Calendario». El detalle y los ajustes rápidos se abren desde
+    // ellas, en el Stack (`/matriz/periodo/ID`).
+    id: "matriz",
+    texto: "Matriz de obligaciones",
+    icono: "book-check-outline",
+    pantallas: ["matriz"],
+    pantalla: "matriz",
+    pathnames: ["/matriz"],
+    parametro: "vista",
+    vistaPorDefecto: () => "bandeja",
+    funcionalidades: [
+      {
+        id: "bandeja",
+        texto: "Bandeja",
+        dicho: "Bandeja de la Matriz",
+        icono: "view-grid-outline",
+        tipo: "vista",
+        params: { vista: "bandeja" },
+        visible: veLaMatriz,
+      },
+      {
+        id: "calendario",
+        texto: "Calendario",
+        dicho: "Calendario de vencimientos",
+        icono: "calendar-month-outline",
+        tipo: "vista",
+        params: { vista: "calendario" },
+        visible: veLaMatriz,
       },
     ],
   },

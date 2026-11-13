@@ -1,6 +1,8 @@
-import { memo, useCallback, useState } from "react";
-import { FlatList, Modal, Pressable, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useState } from "react";
+import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { normalizar } from "../utils/texto";
 
 import { AREA_TACTIL, colores } from "../tema/colores";
 import { CONTROLES } from "../tema/controles";
@@ -140,6 +142,10 @@ const FilaDeOpcion = memo(function FilaDeOpcion({ opcion, activa, onElegir, test
  * Muchas opciones: un campo que abre la lista. `opciones`: `[{valor, texto,
  * detalle?}]`. `vacio`: lo que dice sin elegir; con `conVacio`, también es
  * una opción de la lista (los filtros: «Todas»).
+ *
+ * `buscable` (US-019, 13/11/2026: las personas de la empresa en «Editar
+ * seguimiento» de la Matriz): arriba de la lista, un campo que la filtra
+ * palabra por palabra y sin tildes. La opción vacía siempre queda.
  */
 export function SelectorDeLista({
   etiqueta,
@@ -157,14 +163,29 @@ export function SelectorDeLista({
   refFoco,
   testID,
   compacto = false,
+  buscable = false,
 }) {
   const [abierta, setAbierta] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
   const elegida = opciones.find((o) => String(o.valor) === String(valor ?? ""));
   const visible = elegida?.texto ?? (deshabilitado && textoDeshabilitado ? textoDeshabilitado : vacio);
-  const lista = conVacio ? [{ valor: "", texto: vacio }, ...opciones] : opciones;
+  const filtradas = useMemo(() => {
+    const palabras = normalizar(busqueda.trim()).split(/\s+/).filter(Boolean);
+    if (!buscable || palabras.length === 0) return opciones;
+    return opciones.filter((o) => {
+      const texto = normalizar(`${o.texto} ${o.detalle ?? ""}`);
+      return palabras.every((p) => texto.includes(p));
+    });
+  }, [opciones, busqueda, buscable]);
+  const lista = conVacio ? [{ valor: "", texto: vacio }, ...filtradas] : filtradas;
+  const cerrar = useCallback(() => {
+    setAbierta(false);
+    setBusqueda("");
+  }, []);
   const elegir = useCallback(
     (nuevo) => {
       setAbierta(false);
+      setBusqueda("");
       onCambio(nuevo);
     },
     [onCambio],
@@ -204,7 +225,7 @@ export function SelectorDeLista({
         />
       </Pressable>
       {compacto ? null : <ErrorDeCampo error={error} />}
-      <Modal visible={abierta} animationType="slide" onRequestClose={() => setAbierta(false)}>
+      <Modal visible={abierta} animationType="slide" onRequestClose={cerrar}>
         <SafeAreaView style={estilos.modal}>
           <View style={estilos.modalCabecera}>
             <Text style={estilos.modalTitulo} accessibilityRole="header">
@@ -213,12 +234,35 @@ export function SelectorDeLista({
             <BotonIcono
               icono="close"
               etiqueta="Cerrar sin elegir"
-              onPress={() => setAbierta(false)}
+              onPress={cerrar}
               testID={testID ? `${testID}-cerrar` : undefined}
             />
           </View>
+          {buscable ? (
+            <View style={estilos.buscador}>
+              <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
+                {`Buscar en ${etiqueta.toLowerCase()}`}
+              </Text>
+              <TextInput
+                testID={testID ? `${testID}-buscar` : undefined}
+                value={busqueda}
+                onChangeText={setBusqueda}
+                placeholder="Escriba para filtrar"
+                placeholderTextColor={colores.tintaTenue}
+                accessibilityLabel={`Buscar en ${etiqueta.toLowerCase()}`}
+                autoCorrect={false}
+                style={estilos.buscar}
+              />
+              {busqueda.trim() && filtradas.length === 0 ? (
+                <Text style={estilos.ayuda} accessibilityLiveRegion="polite">
+                  {`Nada coincide con «${busqueda.trim()}».`}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           <FlatList
             data={lista}
+            keyboardShouldPersistTaps="handled"
             keyExtractor={(o) => String(o.valor)}
             contentContainerStyle={estilos.modalLista}
             accessibilityRole="radiogroup"
@@ -315,4 +359,6 @@ const estilos = crearEstilos({
   },
   modalTitulo: { flex: 1, fontSize: 18, fontWeight: "700", color: colores.titulo },
   modalLista: { padding: 16, gap: 6 },
+  buscador: { paddingHorizontal: 16, paddingTop: 12, gap: 6 },
+  buscar: CONTROLES.entrada,
 });

@@ -8,10 +8,12 @@
  * archivo termina dentro del binario que se publica en las tiendas.
  */
 
+// Identificador de la app en las tiendas, el del proyecto de Firebase «applce»
+// (decisión del usuario, 13/11/2026). Antes era «com.grupolaar.intranetlce».
 // Identificadores de la app en las tiendas: a confirmar con la cuenta de la
 // empresa (Apple Developer y Google Play Console) antes del primer build de
 // producción. Cambiarlos después de publicar crea una app distinta.
-const IDENTIFICADOR = "com.grupolaar.intranetlce";
+const IDENTIFICADOR = "com.laarcourier.applce";
 
 // El projectId lo crea `eas init` en la cuenta de Expo de la empresa. Sin él,
 // la app funciona igual pero no obtiene el token push (ver README). No es un

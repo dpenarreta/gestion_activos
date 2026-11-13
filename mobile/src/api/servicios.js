@@ -451,3 +451,81 @@ export const soporteService = {
     return api.url(ruta);
   },
 };
+
+/**
+ * La Matriz de obligaciones (US-019, 13/11/2026), con las mismas rutas que
+ * `matrizService` de la web (`backend/apps/matriz/urls.py`). Todo trabaja
+ * sobre la empresa activa (`X-Empresa`); `empresa`: la de un aviso, que va
+ * como `X-Empresa` solo en esa petición (B3 de la US-009). La app solo lee y
+ * hace los tres ajustes rápidos (editar el seguimiento, cambiar la fecha y
+ * reenviar el recordatorio); lo demás se hace en la web.
+ */
+export const matrizService = {
+  /** `{empresas: [{id, nombre, codigo, color, zona_horaria, roles,
+   * capacidades}]}`: donde la cuenta tiene algún permiso `matriz.*`. */
+  misEmpresas() {
+    return api.get("/matriz/empresas/mias/");
+  },
+  /** `{counts: {overdue, in_progress, due_soon, done, done_on_time,
+   * done_late, attention}, upcoming, recent_closures}`. 404 sin rol de la
+   * Matriz en la empresa activa. */
+  resumen() {
+    return api.get("/matriz/resumen/");
+  },
+  /** Paginado (`{count, next, results}`, de a 20): `status`
+   * (`incumplido`, `en_progreso`, `finalizado`), `sort` (`due`…), `page`,
+   * `due_from` y `due_to` (AAAA-MM-DD, en la hora de la empresa). */
+  periodos(params = {}) {
+    return api.get("/matriz/periodos/", { params });
+  },
+  /** El detalle, con `acciones` calculadas por el servidor. 404 si no lo
+   * puede ver. */
+  periodo(id, { empresa } = {}) {
+    return api.get(`/matriz/periodos/${idSeguro(id)}/`, conEmpresa(empresa));
+  },
+  /** «Editar seguimiento»: `{responsable, suplente, supervisor, aprobador,
+   * prioridad, avance, observaciones, sede}`. Devuelve el detalle con
+   * `visible` (falso si dejó de ser suyo). */
+  editarSeguimiento(id, datos, { empresa } = {}) {
+    return api.patch(`/matriz/periodos/${idSeguro(id)}/`, datos, conEmpresa(empresa));
+  },
+  /** `[{id, created_at, actor, accion, descripcion, motivo, valor_anterior,
+   * valor_nuevo}]`, del más reciente al más antiguo. */
+  historial(id, { empresa } = {}) {
+    return api.get(`/matriz/periodos/${idSeguro(id)}/historial/`, conEmpresa(empresa));
+  },
+  /** Las evidencias: `[{id, nombre_original, version, tamano, estado,
+   * created_at, subido_por, motivo_rechazo, rechazado_por}]`. */
+  documentos(id, { empresa } = {}) {
+    return api.get(`/matriz/periodos/${idSeguro(id)}/documentos/`, conEmpresa(empresa));
+  },
+  /** La URL del PDF: se descarga con la sesión (`src/matriz/documentos.js`),
+   * nunca se abre en el navegador. */
+  urlArchivo(documentoId) {
+    return api.url(`/matriz/documentos/${idSeguro(documentoId)}/archivo/`);
+  },
+  /** `{due_date: "AAAA-MM-DD", due_time: "HH:MM"|null, reason}` → el
+   * detalle. */
+  cambiarVencimiento(id, datos, { empresa } = {}) {
+    return api.post(`/matriz/periodos/${idSeguro(id)}/vencimiento/`, datos, conEmpresa(empresa));
+  },
+  /** «Reenviar recordatorio»: 201 con las notificaciones enviadas. */
+  enviarRecordatorio(id, { empresa } = {}) {
+    return api.post(`/matriz/periodos/${idSeguro(id)}/recordatorios/enviar/`, {}, conEmpresa(empresa));
+  },
+  /** `{year, month, periods}`: lo que vence en el mes, en la hora de la
+   * empresa. */
+  calendario(year, month) {
+    return api.get("/matriz/calendario/", { params: { year, month } });
+  },
+  /** `[{id, nombre, email}]`: quienes trabajan en la empresa (pide crear,
+   * editar o gestionar miembros). */
+  personas({ empresa } = {}) {
+    return api.get("/matriz/personas/", conEmpresa(empresa));
+  },
+  /** `{reglas, areas, entidades, sedes: [{id, nombre}], tipos,
+   * periodicidades, prioridades: [{valor, nombre}], etapas}`. */
+  catalogos({ empresa } = {}) {
+    return api.get("/matriz/catalogos/", conEmpresa(empresa));
+  },
+};

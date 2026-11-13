@@ -10,6 +10,8 @@
  *   (`rutaDeChat`).
  * - US-014 (Fase 4, 13/11/2026): `soporte` → la ficha del ticket, las
  *   aprobaciones o la Mesa de ayuda (`rutaDeSoporte`).
+ * - US-019 (Fase 5, 13/11/2026): `matriz` → el detalle de la obligación
+ *   (`rutaDeMatriz`); antes iba a la web.
  */
 import { conversacionDelEnlace } from "../chat/enlace";
 
@@ -91,10 +93,40 @@ export function rutaDeSoporte(notificacion) {
   return "/soporte";
 }
 
+/**
+ * A dónde lleva un aviso de la Matriz (CA-8 de la US-019). Los recordatorios,
+ * los avisos de vencimiento y los escalamientos (`matriz.recordatorios.
+ * _enlace`) llevan `/admin/matriz/obligaciones?periodo=ID&empresa=ID`: van al
+ * detalle de ese período, con la empresa de la notificación (o la del
+ * enlace) como `X-Empresa` (B3 de la US-009). Sin un período válido, a la
+ * Bandeja de la Matriz. El enlace puede venir con la web delante.
+ */
+export function rutaDeMatriz(notificacion) {
+  const enlace = typeof notificacion?.enlace === "string" ? notificacion.enlace : "";
+  const [camino, consulta = ""] = enlace
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("#")[0]
+    .split("?");
+  const parametros = Object.fromEntries(
+    consulta
+      .split("&")
+      .filter(Boolean)
+      .map((par) => par.split("=")),
+  );
+  const periodo = parametros.periodo;
+  const empresa = idDeEmpresa(notificacion?.empresa) ?? idDeEmpresa(parametros.empresa);
+  const ruta = camino.replace(/\/+$/, "");
+  if (ruta.startsWith("/admin/matriz") && periodo && /^\d{1,12}$/.test(periodo)) {
+    return `/matriz/periodo/${periodo}${empresa ? `?empresa=${empresa}` : ""}`;
+  }
+  return "/matriz";
+}
+
 export const MODULOS_EN_APP = Object.freeze({
   licencias: rutaDeLicencias,
   chat: rutaDeChat,
   soporte: rutaDeSoporte,
+  matriz: rutaDeMatriz,
 });
 
 /**

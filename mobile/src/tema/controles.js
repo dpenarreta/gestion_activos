@@ -55,6 +55,10 @@ export const CONTROLES = {
   pildoraTexto: { fontSize: 15, fontWeight: "600", color: colores.tinta, flexShrink: 1 },
   pildoraTextoActivo: { color: colores.sobrePrimario },
 
+  /** El título pequeño de la vista de un módulo («Bandeja», «Mis
+   * tickets»…, H-10 de la US-016; en `tema/` desde la US-019, H-21). */
+  tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
+
   /** El número rojo de pendientes: blanco sobre `malTexto` (7,3:1). */
   insignia: {
     minWidth: 22,

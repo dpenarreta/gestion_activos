@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { almacen } from "../api/almacen";
 import { escucharSesion } from "../api/api";
 import { authService, empresasService } from "../api/servicios";
+import { olvidarEmpresaDeLaMatriz } from "../matriz/empresaGuardada";
 import { darDeBajaDispositivo, registrarDispositivo } from "../notificaciones/push";
 import { borrarDocumentosDescargados } from "../permisos/documentos";
 import {
@@ -90,6 +91,9 @@ export function SesionProvider({ children }) {
   );
 
   const limpiarEstado = useCallback((avisoFinal) => {
+    // US-019 (P2-1 de QA-TECH): lo que la Matriz guardó de esta cuenta no
+    // pasa a la siguiente.
+    olvidarEmpresaDeLaMatriz();
     if (!montado.current) return;
     setUsuario(null);
     setEmpresas({ empresas: [], activa: null });
@@ -134,11 +138,12 @@ export function SesionProvider({ children }) {
     } catch {
       // Un almacén ilegible equivale a no tener sesión.
     }
+    // US-019 (QA-TECH, ronda 1): al arrancar no queda nada descargado de la
+    // vez anterior, haya sesión o no (el sistema pudo matar la app con una
+    // evidencia de la Matriz o un adjunto abiertos; LOPDP).
+    borrarDocumentosDescargados();
     const { access, refresh } = almacen.tokens();
     if (!access && !refresh) {
-      // Sin sesión no debe quedar ningún documento de permisos (la app pudo
-      // cerrarse a la fuerza antes de borrarlos).
-      borrarDocumentosDescargados();
       if (montado.current) setEstado("anonimo");
       procesarCierrePendiente();
       return;

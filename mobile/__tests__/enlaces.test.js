@@ -13,8 +13,8 @@ import {
 const BASE = "https://intranet.laarcourier.com";
 
 describe("MODULOS_EN_APP", () => {
-  it("desde la Fase 4 trae «licencias», «chat» y «soporte»; lo demás va al detalle con «Abrir en el navegador»", () => {
-    expect(Object.keys(MODULOS_EN_APP)).toEqual(["licencias", "chat", "soporte"]);
+  it("desde la Fase 5 trae «licencias», «chat», «soporte» y «matriz»; lo demás va al detalle con «Abrir en el navegador»", () => {
+    expect(Object.keys(MODULOS_EN_APP)).toEqual(["licencias", "chat", "soporte", "matriz"]);
     expect(rutaEnApp({ id: 4, modulo: "activos", enlace: "/admin/activos/4" })).toBeNull();
     expect(destinoDeNotificacion({ id: 4, modulo: "activos" })).toBe("/notificacion/4");
     // US-014: la Mesa de ayuda ya no va al detalle de la notificación.

@@ -168,7 +168,7 @@ de la empresa y en EAS:
 
 1. **Cuentas de desarrollador de la empresa:** Apple Developer Program y Google
    Play Console.
-2. **Identificadores:** confirmar `com.grupolaar.intranetlce` en
+2. **Identificadores:** `com.laarcourier.applce` (el del proyecto de Firebase «applce», 13/11/2026) en
    `app.config.js` (iOS `bundleIdentifier` y Android `package`) antes del primer
    envío. Después de publicar ya no se pueden cambiar.
 3. **projectId de EAS:** `eas init` lo genera. Como la configuración es

@@ -1,3 +1,7 @@
+import { normalizar } from "../utils/texto";
+
+export { normalizar };
+
 /*
  * Sugerir la categoría y el caso con las palabras de la descripción: la misma
  * lógica que la web (`frontend/src/pages/Soporte/Publico/sugerirCaso.js`,
@@ -58,21 +62,6 @@ const VACIAS = new Set([
 ]);
 
 const CRITICO = { baja: 1, media: 2, alta: 3, critica: 4 };
-
-/** Lo que hace `normalize("NFD")` + quitar las marcas, para las letras con
- * tilde, diéresis o virgulilla de los idiomas latinos. */
-const SIN_MARCA = {
-  á: "a", à: "a", â: "a", ä: "a", ã: "a", å: "a",
-  é: "e", è: "e", ê: "e", ë: "e",
-  í: "i", ì: "i", î: "i", ï: "i",
-  ó: "o", ò: "o", ô: "o", ö: "o", õ: "o",
-  ú: "u", ù: "u", û: "u", ü: "u",
-  ñ: "n", ç: "c", ý: "y", ÿ: "y",
-};
-
-export function normalizar(texto) {
-  return (texto ?? "").toLowerCase().replace(/[àáâãäåèéêëìíîïñòóôõöùúûüçýÿ]/g, (c) => SIN_MARCA[c] ?? c);
-}
 
 /** Las raíces (cinco letras) de las palabras con significado. */
 export function raices(texto) {

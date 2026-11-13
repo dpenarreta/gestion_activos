@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import { ChatProvider } from "../../chat/ChatContext";
+import { estadoDeLaBandeja } from "../../matriz/formato";
 import { ContadorProvider } from "../../notificaciones/ContadorContext";
 import { escucharRotacionDelToken } from "../../notificaciones/push";
 import { useAbrirAlTocarPush } from "../../notificaciones/useAbrirAlTocarPush";
@@ -30,6 +31,11 @@ function cabecera() {
     headerTintColor: colores.sobreCabecera,
     headerTitleStyle: { fontFamily: familia(600) },
   };
+}
+
+/** El título de la lista de un estado de la Matriz («Incumplidas»…). */
+function tituloDeLaLista(estado) {
+  return estadoDeLaBandeja(Array.isArray(estado) ? estado[0] : estado)?.titulo ?? "Matriz de obligaciones";
 }
 
 export default function AppLayout() {
@@ -74,6 +80,13 @@ export default function AppLayout() {
               <Stack.Screen name="soporte/registrar" options={{ ...cabecera(), title: "Registrar ticket" }} />
               <Stack.Screen name="soporte/mi-ticket/[id]" options={{ ...cabecera(), title: "Mi ticket" }} />
               <Stack.Screen name="soporte/ticket/[id]" options={{ ...cabecera(), title: "Ticket" }} />
+              {/* US-019: la Matriz de obligaciones. */}
+              <Stack.Screen
+                name="matriz/estado/[estado]"
+                options={({ route }) => ({ ...cabecera(), title: tituloDeLaLista(route?.params?.estado) })}
+              />
+              <Stack.Screen name="matriz/dia/[fecha]" options={{ ...cabecera(), title: "Vencimientos del día" }} />
+              <Stack.Screen name="matriz/periodo/[id]" options={{ ...cabecera(), title: "Obligación" }} />
             </Stack>
           </ResumenSoporteProvider>
         </ChatProvider>
