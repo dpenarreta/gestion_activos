@@ -463,7 +463,52 @@ describe("Textos: catálogo agrupado", () => {
       exact: false,
     });
     expect(resumen.closest("summary")).not.toBeNull();
-    expect(screen.getByText("Dato final").closest("li")).not.toBeNull();
+    // Está en el resumen y en el texto completo.
+    expect(screen.getAllByText("Dato final")[0].closest("li")).not.toBeNull();
+  });
+
+  it("el texto vigente conserva saltos de línea y viñetas, y lleva rótulos", async () => {
+    servicio.textos.mockResolvedValue({
+      puede_editar: true,
+      modulos: [
+        {
+          modulo: "General",
+          secciones: [
+            {
+              seccion: "Entrada a la intranet",
+              textos: [
+                {
+                  ...AVISO,
+                  texto:
+                    "Primera línea\nSegunda línea\n\n- Viñeta uno\n- Viñeta dos",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    pintar(<TextosPrivacidad />);
+    const tarjeta = (
+      await screen.findByRole("heading", {
+        name: "Aviso de tratamiento de datos",
+      })
+    ).closest("li");
+    expect(within(tarjeta).getByText("Texto que ve la persona")).toBeVisible();
+    expect(within(tarjeta).getByText("Dónde se muestra")).toBeInTheDocument();
+    expect(within(tarjeta).getByText("Última edición")).toBeInTheDocument();
+    // Cada línea por separado (no unidas en una sola) y las viñetas en lista.
+    const primera = within(tarjeta).getByText("Primera línea");
+    const segunda = within(tarjeta).getByText("Segunda línea");
+    expect(primera).not.toBe(segunda);
+    expect(primera.closest("p")).toBe(segunda.closest("p"));
+    expect(primera.closest("p").querySelectorAll("br")).toHaveLength(1);
+    const items = within(tarjeta).getAllByRole("listitem");
+    expect(items.map((i) => i.textContent)).toEqual([
+      "Viñeta uno",
+      "Viñeta dos",
+    ]);
+    expect(tarjeta).not.toHaveTextContent("Segunda línea - Viñeta");
   });
 
   it("sin permiso de edición solo se consulta", async () => {

@@ -360,11 +360,11 @@ function TarjetaTexto({
   const id = idDeTexto(entrada.clave);
   return (
     <li id={id} className="mz-card pv-texto-tarjeta" tabIndex={-1}>
-      <div className="mz-row-between">
+      <div className="pv-texto-tarjeta__cabecera">
         <h6 id={`${id}-nombre`} className="pv-texto-tarjeta__nombre">
           {entrada.nombre}
         </h6>
-        <div className="mz-pill-row mt-0">
+        <div className="mz-pill-row mt-0 pv-texto-tarjeta__pildoras">
           {entrada.requiere_aceptacion ? (
             <span className="mz-pill mz-pill--info">
               <Icon name="check2-square" /> Pide aceptación
@@ -377,39 +377,51 @@ function TarjetaTexto({
           <Versiones entrada={entrada} />
         </div>
       </div>
-      {entrada.descripcion && (
-        <p className="pv-nota mb-0">{entrada.descripcion}</p>
-      )}
-      <p className="mz-small mz-faint mb-0">
-        {!entrada.existe
-          ? "Esta empresa todavía no tiene este texto: no se le pide a nadie. El de abajo es el que se propone."
-          : entrada.editado_en
-            ? `Editado el ${fechaHora(entrada.editado_en)}${
-                entrada.editado_por ? ` por ${entrada.editado_por.nombre}` : ""
-              }`
-            : "Sin ediciones: es el texto inicial."}
-      </p>
-      {entrada.variables?.length > 0 && (
-        <p className="mz-small mb-0">
-          Variables:{" "}
-          {entrada.variables.map((v, i) => (
-            <span key={v}>
-              {i > 0 && ", "}
-              <code>{`{${v}}`}</code>
-              {AYUDA_VARIABLES[v] ? ` (${AYUDA_VARIABLES[v]})` : ""}
-            </span>
-          ))}
-        </p>
-      )}
+      <dl className="pv-texto-meta">
+        {entrada.descripcion && (
+          <div className="pv-texto-meta__fila">
+            <dt>Dónde se muestra</dt>
+            <dd>{entrada.descripcion}</dd>
+          </div>
+        )}
+        <div className="pv-texto-meta__fila">
+          <dt>Última edición</dt>
+          <dd>
+            {!entrada.existe
+              ? "Todavía no existe: la empresa no lo tiene y no se le pide a nadie. El de abajo es el que se propone."
+              : entrada.editado_en
+                ? `${fechaHora(entrada.editado_en)}${
+                    entrada.editado_por
+                      ? ` por ${entrada.editado_por.nombre}`
+                      : ""
+                  }`
+                : "Sin ediciones (texto inicial)"}
+          </dd>
+        </div>
+        {entrada.variables?.length > 0 && (
+          <div className="pv-texto-meta__fila">
+            <dt>Variables</dt>
+            <dd>
+              {entrada.variables.map((v, i) => (
+                <span key={v}>
+                  {i > 0 && ", "}
+                  <code>{`{${v}}`}</code>
+                  {AYUDA_VARIABLES[v] ? ` (${AYUDA_VARIABLES[v]})` : ""}
+                </span>
+              ))}
+            </dd>
+          </div>
+        )}
+      </dl>
       {exigidaDistinta(entrada) && (
-        <p className="mz-small mb-0">
+        <p className="pv-nota mb-0">
           Se pide aceptar desde la versión {entrada.version_exigida}: quien
           aceptó la {entrada.version_exigida} o posterior no tiene que volver a
           aceptar.
         </p>
       )}
       <TextoDeLaTarjeta entrada={entrada} />
-      <div className="pv-acciones">
+      <div className="pv-acciones pv-texto-tarjeta__pie">
         {puedeEditar && (
           <button
             type="button"
@@ -453,36 +465,38 @@ const LARGO_CORTO = 220;
  * desplazamiento obligaba a desplazar dentro de cada tarjeta).
  */
 function TextoDeLaTarjeta({ entrada }) {
-  if (esDeUnaLinea(entrada)) {
-    return <p className="pv-texto-linea mb-0">{enUnaLinea(entrada.texto)}</p>;
-  }
-  if (entrada.texto.length <= LARGO_CORTO && !entrada.lleva_titulo) {
-    return (
-      <TextoDelAviso
-        texto={entrada.texto}
-        className="pv-texto-tarjeta__texto"
-      />
-    );
-  }
+  const unaLinea = esDeUnaLinea(entrada);
+  const largo =
+    !unaLinea && (entrada.texto.length > LARGO_CORTO || entrada.lleva_titulo);
   return (
-    <div className="pv-texto-tarjeta__texto">
+    <div className="pv-texto-vigente">
+      <p className="pv-texto-vigente__rotulo">Texto que ve la persona</p>
       {entrada.lleva_titulo && entrada.titulo && (
         <p className="pv-etiqueta">{entrada.titulo}</p>
       )}
-      {/* El resumen es para la vista; el lector de pantalla lee el completo
-          al desplegarlo. */}
-      <p className="pv-texto-resumen mb-1" aria-hidden="true">
-        {enUnaLinea(entrada.texto)}
-      </p>
-      <details className="pv-detalles">
-        <summary>
-          Ver el texto completo
-          <span className="visually-hidden"> de «{entrada.nombre}»</span>
-        </summary>
-        <div className="pv-aviso-previa">
-          <TextoDelAviso texto={entrada.texto} />
-        </div>
-      </details>
+      {unaLinea ? (
+        <p className="pv-texto-linea mb-0">{enUnaLinea(entrada.texto)}</p>
+      ) : largo ? (
+        <>
+          {/* El resumen es para la vista, con sus párrafos y viñetas
+              recortados por altura; el lector de pantalla lee el completo al
+              desplegarlo. */}
+          <div className="pv-texto-resumen" aria-hidden="true">
+            <TextoDelAviso texto={entrada.texto} />
+          </div>
+          <details className="pv-detalles">
+            <summary>
+              Ver el texto completo
+              <span className="visually-hidden"> de «{entrada.nombre}»</span>
+            </summary>
+            <div className="pv-aviso-previa">
+              <TextoDelAviso texto={entrada.texto} />
+            </div>
+          </details>
+        </>
+      ) : (
+        <TextoDelAviso texto={entrada.texto} />
+      )}
     </div>
   );
 }
