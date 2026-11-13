@@ -947,7 +947,14 @@ describe("Configurar flujos", () => {
             },
           ],
           avisos_aprobada: [
-            { tipo: "solicitante", usuario: null, rol: null, cargo: null },
+            {
+              tipo: "solicitante",
+              usuario: null,
+              rol: null,
+              cargo: null,
+              // US-019: si también va por correo (por omisión, no).
+              correo: false,
+            },
           ],
         }),
       ),

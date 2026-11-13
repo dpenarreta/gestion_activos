@@ -110,6 +110,14 @@ const limpiarDestinos = (lista) =>
     cargo: cargo ?? null,
   }));
 
+/** Los avisos llevan además si van también por correo (US-019); solo los de
+ * «Si se aprueba»: en «Si se rechaza» no existe. */
+const limpiarAvisos = (lista, conCorreo) =>
+  lista.map((d, i) => ({
+    ...limpiarDestinos([d])[0],
+    ...(conCorreo ? { correo: Boolean(lista[i].correo) } : {}),
+  }));
+
 /** Lo que se envía (y con lo que se compara si hubo cambios). */
 function paraEnviar(flujo) {
   return {
@@ -146,8 +154,8 @@ function paraEnviar(flujo) {
       nombre: p.nombre,
       aprobadores: limpiarDestinos(p.aprobadores),
     })),
-    avisos_aprobada: limpiarDestinos(flujo.avisos_aprobada),
-    avisos_rechazada: limpiarDestinos(flujo.avisos_rechazada),
+    avisos_aprobada: limpiarAvisos(flujo.avisos_aprobada, true),
+    avisos_rechazada: limpiarAvisos(flujo.avisos_rechazada, false),
   };
 }
 
@@ -332,6 +340,9 @@ export function ListaDeDestinos({
   errores = {},
   errorLista,
   anunciar = () => {},
+  // Avisos de «Si se aprueba» de un tipo de permiso (US-019): cada destino
+  // puede recibir además un correo con el documento de respaldo.
+  conCorreo = false,
 }) {
   // Sin `idBase` ni claves (la usan también los tipos de proyecto), se arma
   // con el prefijo y la posición.
@@ -385,7 +396,15 @@ export function ListaDeDestinos({
                 valor={destino}
                 onCambio={(nuevo) =>
                   onCambio(
-                    lista.map((d, j) => (j === i ? { ...nuevo, _k: d._k } : d)),
+                    lista.map((d, j) =>
+                      j === i
+                        ? {
+                            ...nuevo,
+                            ...(conCorreo ? { correo: d.correo } : {}),
+                            _k: d._k,
+                          }
+                        : d,
+                    ),
                   )
                 }
                 opciones={opciones}
@@ -412,6 +431,32 @@ export function ListaDeDestinos({
                 <Icon name="x-lg" />
               </button>
             </div>
+            {conCorreo && (
+              <div className="form-check flujo-destinos__correo">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id={`${idDe(destino, i)}-correo`}
+                  checked={Boolean(destino.correo)}
+                  onChange={(evento) =>
+                    onCambio(
+                      lista.map((d, j) =>
+                        j === i ? { ...d, correo: evento.target.checked } : d,
+                      ),
+                    )
+                  }
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor={`${idDe(destino, i)}-correo`}
+                >
+                  También por correo, con el documento de respaldo
+                  <span className="visually-hidden">
+                    {` (${prefijo}, opción ${i + 1})`}
+                  </span>
+                </label>
+              </div>
+            )}
             {error && (
               <small id={idError} className="invalid-feedback d-block">
                 {error}
@@ -1336,7 +1381,10 @@ function EditorFlujo({
             </h4>
             <p className="mz-faint mz-small mb-2">
               Al terminar la solicitud, reciben el aviso en la campana{" "}
-              <strong>todos</strong> los de la lista que corresponda.
+              <strong>todos</strong> los de la lista que corresponda. Si se
+              aprueba, a quien marque «También por correo» le llega además un
+              correo con los datos y el documento de respaldo adjunto (por
+              ejemplo, a quien registra las novedades del mes).
             </p>
             <div className="flujo-avisos">
               {[
@@ -1369,6 +1417,7 @@ function EditorFlujo({
                     vacio="Nadie recibe aviso."
                     errores={errores.avisos[clave]?.destinos}
                     anunciar={setAnuncio}
+                    conCorreo={resultado === "aprobada"}
                     onCambio={(avisos) =>
                       setFlujo((f) => ({ ...f, [clave]: avisos }))
                     }

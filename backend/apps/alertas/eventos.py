@@ -78,7 +78,13 @@ def resolver(responsables, actor) -> Destinatarios:
 
 
 def enviar(
-    *, clave: str, variables: dict, destinatarios: Destinatarios, prefijo_asunto: str = ""
+    *,
+    clave: str,
+    variables: dict,
+    destinatarios: Destinatarios,
+    prefijo_asunto: str = "",
+    adjuntos=(),
+    con_campana: bool = True,
 ) -> bool:
     """Manda el aviso con su plantilla (`apps.correos`). Devuelve si salió algo.
 
@@ -95,11 +101,12 @@ def enviar(
     asunto = f"{prefijo_asunto}{correo['asunto']}"
     # La campana recibe el aviso aunque el correo no salga: así quien tiene
     # cuenta se entera igual si el SMTP está caído.
-    from apps.notificaciones import services as campana
+    if con_campana:
+        from apps.notificaciones import services as campana
 
-    campana.desde_correo(
-        clave=clave, asunto=asunto, variables=variables, direcciones=destinatarios.direcciones
-    )
+        campana.desde_correo(
+            clave=clave, asunto=asunto, variables=variables, direcciones=destinatarios.direcciones
+        )
     try:
         mensaje = EmailMultiAlternatives(
             subject=asunto,
@@ -110,6 +117,9 @@ def enviar(
             bcc=destinatarios.direcciones,
         )
         mensaje.attach_alternative(correo["html"], "text/html")
+        # `adjuntos`: [(nombre, contenido en bytes, tipo MIME)].
+        for nombre, contenido, tipo in adjuntos:
+            mensaje.attach(nombre, contenido, tipo)
         mensaje.send(fail_silently=False)
     except Exception:
         logger.exception(

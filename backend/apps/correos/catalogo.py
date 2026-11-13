@@ -1013,9 +1013,62 @@ PLANTILLAS_ROL_PAGOS = (
     ),
 )
 
+# --- Solicitud de permisos (apps.licencias) -----------------------------------------
+# Lo pide el flujo de Gestión Humana (13/11/2026, US-019): la solicitud aprobada
+# llega por correo a quien registra las novedades (la Analista de Clima y
+# Cultura), con el documento de respaldo adjunto.
+
+PLANTILLAS_LICENCIAS = (
+    Plantilla(
+        clave="licencias.solicitud_aprobada",
+        nombre="Solicitud de permiso aprobada",
+        modulo="Solicitud de permisos",
+        descripcion=(
+            "Cuando se aprueba una solicitud de permiso o vacaciones. Llega a quienes el "
+            "tipo de permiso avisa «también por correo» (Solicitudes › Permisos › Tipos de "
+            "permiso), con el documento de respaldo adjunto si lo tiene."
+        ),
+        asunto="Permiso aprobado: {{tipo}} — {{nombre}}",
+        html=_aviso(
+            encabezado="Solicitud de permiso aprobada",
+            saludo="Se aprobó esta solicitud. Regístrela en el reporte de novedades del mes.",
+            filas=[
+                _fila("Persona", "{{nombre}}", destacar=True),
+                _fila("Correo", "{{correo}}", condicion="correo"),
+                _fila("Permiso", "{{tipo}}"),
+                _fila("Fechas", "{{fechas}}"),
+                _fila("Motivo", "{{motivo}}", condicion="motivo"),
+                _fila("Aprobado por", "{{aprobado_por}}", condicion="aprobado_por"),
+            ],
+            cuerpo="{{#adjunto}}El documento de respaldo va adjunto a este correo."
+            "{{/adjunto}}{{^adjunto}}La solicitud no tiene documento de respaldo.{{/adjunto}}",
+            boton="Ver la solicitud",
+        ),
+        variables=(
+            Variable("nombre", "Quién pidió el permiso", "Carla Ordóñez"),
+            Variable("correo", "Su correo", "carla.ordonez@empresa.com"),
+            Variable("tipo", "Tipo de permiso", "Vacaciones"),
+            Variable("fechas", "Fechas (y horas, si es por horas)", "del 12/11/2026 al 20/11/2026"),
+            Variable("motivo", "Motivo que escribió", "Viaje familiar"),
+            Variable("aprobado_por", "Quiénes lo aprobaron", "Julia Andrade"),
+            Variable("adjunto", "«sí» si lleva documento de respaldo", "sí"),
+            Variable(
+                "enlace",
+                "La solicitud en el sistema (exige iniciar sesión)",
+                "https://activos.empresa.com/admin/institucional/permisos?solicitud=42",
+            ),
+        ),
+        razon=(
+            "Le llega porque el tipo de permiso le avisa por correo cuando se aprueba una "
+            "solicitud."
+        ),
+    ),
+)
+
 PLANTILLAS = (
     PLANTILLAS
     + PLANTILLAS_SOPORTE
+    + PLANTILLAS_LICENCIAS
     + PLANTILLAS_NOVEDADES
     + PLANTILLAS_PRIVACIDAD
     + PLANTILLAS_ROL_PAGOS

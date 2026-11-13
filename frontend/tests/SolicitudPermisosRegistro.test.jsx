@@ -176,6 +176,40 @@ async function abrirEditorNuevo() {
   return { ventana, seccion };
 }
 
+describe("Configurar flujos: aviso también por correo (US-019)", () => {
+  it("solo los avisos de «Si se aprueba» se pueden marcar también por correo", async () => {
+    const { ventana } = await abrirEditorNuevo();
+    const aprobada = within(ventana).getByRole("group", {
+      name: /Si se aprueba, se avisa a:/,
+    });
+    const rechazada = within(ventana).getByRole("group", {
+      name: /Si se rechaza, se avisa a:/,
+    });
+    const casilla = within(aprobada).getByRole("checkbox", {
+      name: /También por correo, con el documento de respaldo/,
+    });
+    expect(casilla).not.toBeChecked();
+    expect(within(rechazada).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(casilla);
+    fireEvent.click(
+      within(ventana).getByRole("button", { name: "Crear tipo de permiso" }),
+    );
+    await waitFor(() =>
+      expect(servicio.guardarFlujo).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          avisos_aprobada: [
+            expect.objectContaining({ tipo: "solicitante", correo: true }),
+          ],
+          avisos_rechazada: [
+            expect.not.objectContaining({ correo: expect.anything() }),
+          ],
+        }),
+      ),
+    );
+  });
+});
+
 describe("Configurar flujos: cómo se registra", () => {
   it("«vacaciones» fija el tipo de ausencia (como texto) y la unidad días", async () => {
     const { ventana, seccion } = await abrirEditorNuevo();

@@ -57,6 +57,9 @@ class DestinoSerializer(serializers.Serializer):
         queryset=Group.objects.all(), required=False, allow_null=True
     )
     cargo = RelacionDeEmpresa(Cargo, required=False, allow_null=True)
+    #: Solo en los avisos: también por correo, con el documento de respaldo
+    #: (US-019). En los aprobadores se ignora.
+    correo = serializers.BooleanField(required=False, default=False)
     descripcion = serializers.SerializerMethodField()
 
     def get_descripcion(self, destino) -> str:
@@ -77,6 +80,7 @@ class DestinoSerializer(serializers.Serializer):
             "usuario": instancia.usuario_id,
             "rol": instancia.rol_id,
             "cargo": instancia.cargo_id,
+            "correo": bool(getattr(instancia, "correo", False)),
             "descripcion": describir_destino(instancia),
         }
 
@@ -326,6 +330,8 @@ class FlujoSerializer(serializers.ModelSerializer):
                     usuario=aviso.get("usuario"),
                     rol=aviso.get("rol"),
                     cargo=aviso.get("cargo"),
+                    # El correo solo existe para «Si se aprueba» (US-019).
+                    correo=bool(aviso.get("correo")) and resultado == "aprobada",
                 )
 
     def _separar(self, datos):

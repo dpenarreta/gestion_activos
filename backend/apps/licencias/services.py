@@ -248,9 +248,18 @@ def _terminar(solicitud, estado, actor=None):
                 # queda en el registro y la revisión periódica lo repite.
                 robust=True,
             )
-    destinatarios = []
+    destinatarios, por_correo = [], []
     for aviso in solicitud.flujo.avisos.filter(resultado=estado):
-        destinatarios.extend(resolver(aviso, solicitud))
+        personas = resolver(aviso, solicitud)
+        destinatarios.extend(personas)
+        if aviso.correo and estado == SolicitudPermiso.Estado.APROBADA:
+            por_correo.extend(personas)
+    if por_correo:
+        # Tras confirmar: el correo no sale si la aprobación se deshace, y un
+        # SMTP caído no la deshace (`eventos.enviar` nunca levanta).
+        from . import correos
+
+        transaction.on_commit(lambda: correos.solicitud_aprobada(solicitud, por_correo))
     etiqueta = "aprobada" if estado == SolicitudPermiso.Estado.APROBADA else "rechazada"
     campana.notificar(
         destinatarios,

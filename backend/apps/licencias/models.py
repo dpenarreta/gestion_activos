@@ -208,6 +208,9 @@ class AvisoFlujo(_ConDestino):
 
     flujo = models.ForeignKey(FlujoPermiso, on_delete=models.CASCADE, related_name="avisos")
     resultado = models.CharField(max_length=10, choices=Resultado.choices)
+    #: Además de la campana, un correo con los datos de la solicitud y su
+    #: documento de respaldo adjunto (US-019; solo en «Si se aprueba»).
+    correo = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "aviso del flujo"

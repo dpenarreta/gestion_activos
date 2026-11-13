@@ -1664,6 +1664,13 @@
   justify-self: start;
 }
 
+/* «También por correo» bajo cada aviso de «Si se aprueba» (US-019). */
+.flujo-destinos__correo {
+  margin: 2px 0 4px;
+  font-size: 13px;
+  color: var(--mz-ink-soft);
+}
+
 .selector-destino {
   flex: 1;
   min-width: 0;
