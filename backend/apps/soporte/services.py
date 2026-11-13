@@ -446,6 +446,7 @@ def _asignar(ticket, tecnico, actor, descripcion, nota="") -> bool:
         return False
     ticket.refresh_from_db()
     _movimiento(ticket, actor, descripcion, anterior=Estado.NUEVO, nuevo=Estado.ASIGNADO, nota=nota)
+    _avisar_estado_al_solicitante(ticket, actor, Estado.ASIGNADO)
     if actor is None or actor.pk != tecnico.usuario_id:
         # Quien lo toma por su cuenta ya sabe que lo tiene.
         _a_la_campana(
@@ -468,6 +469,45 @@ def _a_la_campana(ticket, usuarios, tipo, titulo, resumen):
             titulo=titulo,
             resumen=resumen,
             enlace=f"/admin/soporte/tickets/{ticket.id}",
+            empresa=ticket.empresa,
+        )
+    )
+
+
+#: Lo que lee quien pidió en la campana (y en la app) cuando su ticket cambia
+#: de estado. El título lleva el nombre del estado que use la empresa.
+_RESUMEN_PARA_EL_SOLICITANTE = {
+    Estado.ASIGNADO: "{tecnico} tomó su ticket y empezará a atenderlo.",
+    Estado.EN_CURSO: "El equipo de soporte está trabajando en su ticket.",
+    Estado.ESPERANDO_USUARIO: "El equipo de soporte necesita una respuesta suya para continuar.",
+    Estado.ATENDIDO: "Confirme que quedó resuelto o responda si el problema sigue.",
+    Estado.CERRADO: "Su ticket quedó cerrado.",
+}
+
+
+def _avisar_estado_al_solicitante(ticket, actor, nuevo):
+    """Campana (y push de la app) a quien pidió el ticket cuando cambia de
+    estado (13/11/2026: «En curso» no avisaba nada y «Atendido» solo por
+    correo). No se avisa a sí mismo a quien hizo el cambio."""
+    if not ticket.solicitante_id or (actor is not None and actor.pk == ticket.solicitante_id):
+        return
+    plantilla = _RESUMEN_PARA_EL_SOLICITANTE.get(nuevo)
+    if plantilla is None:
+        return
+    from apps.notificaciones import services as campana
+
+    from .etiquetas import de_la_empresa
+
+    nombre = de_la_empresa(ticket.empresa_id)["estados"].get(nuevo, Estado(nuevo).label)
+    tecnico = str(ticket.tecnico) if ticket.tecnico_id else "El equipo de soporte"
+    solicitante = ticket.solicitante
+    transaction.on_commit(
+        lambda: campana.notificar(
+            [solicitante],
+            tipo="soporte.estado_del_ticket",
+            titulo=f"{ticket.numero} · {nombre}",
+            resumen=plantilla.format(tecnico=tecnico),
+            enlace=f"/admin/ayuda/tickets/{ticket.id}",
             empresa=ticket.empresa,
         )
     )
@@ -646,7 +686,8 @@ def cambiar_estado(ticket, actor, estado, nota="") -> Ticket:
     return ticket
 
 
-def _mover(ticket, actor, estado, nota="", descripcion=None):
+def _mover(ticket, actor, estado, nota="", descripcion=None, avisar=True):
+    """`avisar=False` cuando el cambio lo provoca quien pidió (ya lo sabe)."""
     anterior = ticket.estado
     ahora = timezone.now()
     sla.al_cambiar_de_estado(ticket, anterior, estado, ahora)
@@ -663,6 +704,8 @@ def _mover(ticket, actor, estado, nota="", descripcion=None):
     # derecha»).
     texto = descripcion or f"Pasó de {Estado(anterior).label} a {Estado(estado).label}"
     _movimiento(ticket, actor, texto, anterior=anterior, nuevo=estado, nota=nota)
+    if avisar and anterior != estado:
+        _avisar_estado_al_solicitante(ticket, actor, estado)
 
 
 def escalar(ticket, actor, motivo: str) -> Ticket:
@@ -739,9 +782,15 @@ def mensaje_del_solicitante(ticket, texto) -> MensajeTicket:
     with transaction.atomic():
         mensaje = MensajeTicket.objects.create(ticket=ticket, texto=texto, del_solicitante=True)
         if ticket.estado == Estado.ESPERANDO_USUARIO:
-            _mover(ticket, None, Estado.EN_CURSO, descripcion="El usuario respondió")
+            _mover(ticket, None, Estado.EN_CURSO, descripcion="El usuario respondió", avisar=False)
         elif ticket.estado == Estado.ATENDIDO:
-            _mover(ticket, None, Estado.EN_CURSO, descripcion="El usuario reabrió el ticket")
+            _mover(
+                ticket,
+                None,
+                Estado.EN_CURSO,
+                descripcion="El usuario reabrió el ticket",
+                avisar=False,
+            )
         if ticket.tecnico_id:
             _a_la_campana(
                 ticket,
@@ -1051,7 +1100,13 @@ def confirmar_solucion(ticket) -> Ticket:
     if ticket.estado != Estado.ATENDIDO:
         raise ValidationError({"estado": "Solo se confirma un ticket atendido."})
     with transaction.atomic():
-        _mover(ticket, None, Estado.CERRADO, descripcion="El usuario confirmó la solución")
+        _mover(
+            ticket,
+            None,
+            Estado.CERRADO,
+            descripcion="El usuario confirmó la solución",
+            avisar=False,
+        )
     return ticket
 
 
