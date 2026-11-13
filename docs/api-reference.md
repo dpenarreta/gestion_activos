@@ -52,6 +52,8 @@ entero.
 | POST | `admin/users/{id}/password-reset/` | `usuarios.restablecer_password` |
 | POST | `admin/users/{id}/password/` | `usuarios.cambiar_password` |
 | POST | `admin/users/{id}/clave-temporal/` | `usuarios.clave_temporal` |
+| GET | `admin/users/{id}/reemplazo/` | `usuarios.ver` — quién aprueba por la persona mientras está ausente (US-018) |
+| PATCH | `admin/users/{id}/reemplazo/` | `usuarios.reemplazo` — `{modo, persona_id?}` (US-018) |
 | POST | `admin/users/{id}/roles/` | `usuarios.editar` |
 | POST | `admin/users/{id}/permissions/` | `usuarios.editar` |
 

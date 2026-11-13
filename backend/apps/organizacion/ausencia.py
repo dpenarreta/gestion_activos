@@ -366,25 +366,40 @@ def mi_reemplazo(usuario) -> dict:
     }
 
 
-def guardar_reemplazo(usuario, *, modo, persona_id=None) -> dict:
+def guardar_reemplazo(usuario, *, modo, persona_id=None, por_otra=False) -> dict:
     """Guarda quién aprueba por la persona en la empresa activa. Con
     «persona», `persona_id` es obligatorio, no puede ser ella misma y tiene
     que ser una cuenta activa de la empresa. Con «jefe» se olvida la persona
-    elegida."""
+    elegida. `por_otra`: lo configura un administrador desde la ficha del
+    usuario (US-018); los mensajes hablan de «esta persona»."""
     from rest_framework.exceptions import PermissionDenied, ValidationError
 
     from apps.organizacion.models import DatosDeContacto
 
     if _empresa() is None:
-        raise PermissionDenied("Elija una empresa para configurar quién aprueba por usted.")
+        raise PermissionDenied(
+            "Elija una empresa para configurar quién aprueba por "
+            + ("esta persona." if por_otra else "usted.")
+        )
     Modo = DatosDeContacto.ReemplazoModo
     elegido = None
     if modo == Modo.PERSONA:
         if not persona_id:
-            raise ValidationError({"persona_id": "Elija a la persona que aprobará por usted."})
+            raise ValidationError(
+                {
+                    "persona_id": "Elija a la persona que aprobará por "
+                    + ("ella." if por_otra else "usted.")
+                }
+            )
         if int(persona_id) == usuario.pk:
             raise ValidationError(
-                {"persona_id": "No puede elegirse a usted mismo: elija a otra persona."}
+                {
+                    "persona_id": (
+                        "No puede aprobar por sí misma: elija a otra persona."
+                        if por_otra
+                        else "No puede elegirse a usted mismo: elija a otra persona."
+                    )
+                }
             )
         elegido = _miembro_activo(persona_id)
         if elegido is None:

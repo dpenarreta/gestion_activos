@@ -47,6 +47,14 @@ class UsuariosCambiarPasswordPermission(HasModulePermission):
     write_permission = "usuarios.cambiar_password"
 
 
+class UsuariosReemplazoPermission(HasModulePermission):
+    """Usada en la acción `reemplazo` (US-018): verlo con `usuarios.ver`,
+    cambiarlo con `usuarios.reemplazo`."""
+
+    view_permission = "usuarios.ver"
+    write_permission = "usuarios.reemplazo"
+
+
 class UsuariosClaveTemporalPermission(HasModulePermission):
     """Usada en la acción `clave_temporal` (US-015)."""
 

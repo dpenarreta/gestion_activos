@@ -75,6 +75,17 @@ export const adminUsersService = {
       .post(`/admin/users/${id}/password/`, datos)
       .then((res) => res.data);
   },
+  /** Quién aprueba por esta persona mientras está ausente (US-018):
+   * `{modo, persona, jefe, ausencia}` de la empresa activa. */
+  reemplazo(id) {
+    return apiClient.get(`/admin/users/${id}/reemplazo/`).then((r) => r.data);
+  },
+  /** `{modo, persona_id?}` (`usuarios.reemplazo`); 400 en `persona_id`/`modo`. */
+  guardarReemplazo(id, datos) {
+    return apiClient
+      .patch(`/admin/users/${id}/reemplazo/`, datos)
+      .then((r) => r.data);
+  },
   // US-015: la deja en la contraseña temporal del servidor, sin cuerpo.
   restablecerClaveTemporal(id) {
     return apiClient

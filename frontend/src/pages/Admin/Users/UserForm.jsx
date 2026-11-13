@@ -25,6 +25,7 @@ import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 import { CargoDelUsuario } from "./CargoDelUsuario";
 import { ContrasenaDeLaCuenta } from "./ContrasenaDeLaCuenta";
+import { ReemplazoDeLaCuenta } from "./ReemplazoDeLaCuenta";
 import { motivoDelAlta } from "./cargosDelAlta";
 import { SelectorDeCargo } from "./SelectorDeCargo";
 
@@ -49,6 +50,8 @@ export function UserForm() {
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
   const puedeCambiarPassword = usePermission("usuarios.cambiar_password");
+  // US-018: quién aprueba por la persona mientras está ausente.
+  const puedeConfigurarReemplazo = usePermission("usuarios.reemplazo");
   const puedeClaveTemporal = usePermission("usuarios.clave_temporal");
   // Si la cuenta que se mira es de un superusuario (para ocultar acciones).
   const [esSuperusuario, setEsSuperusuario] = useState(false);
@@ -663,6 +666,13 @@ export function UserForm() {
               puedeClaveTemporal={puedeClaveTemporal}
             />
           )}
+
+        {isEditing && (
+          <ReemplazoDeLaCuenta
+            usuarioId={id}
+            puedeEditar={puedeConfigurarReemplazo}
+          />
+        )}
       </div>
     </div>
   );

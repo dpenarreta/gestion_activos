@@ -30,6 +30,15 @@ vi.mock("../src/api/adminUsersService", () => ({
   adminUsersService: {
     create: (...args) => crear(...args),
     get: vi.fn(() => Promise.resolve({})),
+    // US-018: la tarjeta «Mientras no está» de la ficha.
+    reemplazo: () =>
+      Promise.resolve({
+        modo: "jefe",
+        persona: null,
+        jefe: null,
+        ausencia: null,
+      }),
+    guardarReemplazo: () => Promise.resolve({}),
   },
 }));
 

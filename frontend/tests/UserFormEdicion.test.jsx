@@ -29,6 +29,15 @@ vi.mock("../src/api/adminUsersService", () => ({
     resetPassword: (...args) => restablecer(...args),
     assignEmpresas: (...args) => asignarEmpresas(...args),
     assignRoles: (...args) => asignarRoles(...args),
+    // US-018: la tarjeta «Mientras no está».
+    reemplazo: () =>
+      Promise.resolve({
+        modo: "jefe",
+        persona: null,
+        jefe: null,
+        ausencia: null,
+      }),
+    guardarReemplazo: () => Promise.resolve({}),
   },
 }));
 

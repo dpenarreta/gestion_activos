@@ -35,6 +35,11 @@ PERMISSION_CATALOG = {
             "usuarios.clave_temporal": (
                 "Restablecer la contraseña de otra cuenta a la clave temporal"
             ),
+            # US-018 (13/11/2026): desde la ficha del usuario.
+            "usuarios.reemplazo": (
+                "Configurar quién aprueba por otra persona mientras está ausente "
+                "(vacaciones, permisos de día completo o fuera de la oficina)"
+            ),
         },
     },
     "roles": {

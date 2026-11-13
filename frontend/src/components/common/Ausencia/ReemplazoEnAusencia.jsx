@@ -25,6 +25,41 @@ import "./EtiquetaAusencia.css";
 /** El aviso general cuando no se pudo guardar el reemplazo. */
 export const MENSAJE_DE_FALLO = "No se pudo guardar quién aprueba por usted.";
 
+/**
+ * Los textos del bloque. Por omisión, la persona habla de sí misma («Mi
+ * estado», su solicitud). En la ficha del usuario (US-018) lo configura un
+ * administrador por otra persona: `TEXTOS_POR_OTRA`.
+ */
+export const TEXTOS_PROPIOS = {
+  encabezado: "Mientras usted no está",
+  pregunta: "¿Quién aprueba por usted?",
+  ayuda:
+    "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Esta elección se guarda para todas sus ausencias.",
+  jefe: "Mi jefe inmediato",
+  sinJefe:
+    "Usted no tiene un jefe inmediato registrado: sus aprobaciones se quedarán con usted. Si alguien debe aprobar por usted, elija «Otra persona».",
+  leyendaPersona: "Persona que aprobará por usted",
+  elijaPersona: "Elija a la persona que aprobará por usted.",
+  cargando: "Cargando quién aprueba por usted…",
+  errorCarga: "No se pudo cargar quién aprueba por usted.",
+  fallo: MENSAJE_DE_FALLO,
+};
+
+export const TEXTOS_POR_OTRA = {
+  encabezado: "Mientras no está",
+  pregunta: "¿Quién aprueba por esta persona?",
+  ayuda:
+    "Si a esta persona le toca aprobar solicitudes, mientras esté ausente pasan a quien se elija aquí. Vale para todas sus ausencias en esta empresa y es la misma elección que ella ve en «Mi estado».",
+  jefe: "Su jefe inmediato",
+  sinJefe:
+    "No tiene un jefe inmediato registrado: sus aprobaciones se quedarán con ella. Si alguien debe aprobar por ella, elija «Otra persona».",
+  leyendaPersona: "Persona que aprobará por ella",
+  elijaPersona: "Elija a la persona que aprobará por ella.",
+  cargando: "Cargando quién aprueba por esta persona…",
+  errorCarga: "No se pudo cargar quién aprueba por esta persona.",
+  fallo: "No se pudo guardar quién aprueba por esta persona.",
+};
+
 /** Lo que se añade al error de una solicitud o de un estado que falló
  * después de guardar el reemplazo: la elección sí quedó. */
 export const YA_QUEDO_GUARDADO =
@@ -53,7 +88,11 @@ function buscarPersonas(texto) {
  *   de red o del servidor, solo en el aviso general (revisión UX/UI de
  *   US-001, 11/11/2026).
  */
-export function useReemplazoEnAusencia({ activo = true } = {}) {
+export function useReemplazoEnAusencia({
+  activo = true,
+  servicio = reemplazoService,
+  textos = TEXTOS_PROPIOS,
+} = {}) {
   const [datos, setDatos] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
   const [modo, setModoElegido] = useState("jefe");
@@ -64,18 +103,14 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
   const cargar = useCallback(() => {
     setErrorCarga(null);
     Promise.resolve()
-      .then(() => reemplazoService.obtener())
+      .then(() => servicio.obtener())
       .then((d) => {
         setDatos(d);
         setModoElegido(d?.modo === "persona" ? "persona" : "jefe");
         setPersonaElegida(d?.persona ?? null);
       })
-      .catch((err) =>
-        setErrorCarga(
-          mensajeDeError(err, "No se pudo cargar quién aprueba por usted."),
-        ),
-      );
-  }, []);
+      .catch((err) => setErrorCarga(mensajeDeError(err, textos.errorCarga)));
+  }, [servicio, textos]);
 
   useEffect(() => {
     if (activo && !datos) cargar();
@@ -100,7 +135,7 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
   /** Lo que se sabe sin ir al servidor: con «Otra persona», hay que elegirla. */
   function validar() {
     if (datos && modo === "persona" && !persona) {
-      const mensaje = "Elija a la persona que aprobará por usted.";
+      const mensaje = textos.elijaPersona;
       setError(mensaje);
       return mensaje;
     }
@@ -112,12 +147,12 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
     // Sin datos (aún cargando o falló la carga) no hay elección que guardar:
     // queda la que ya tenía.
     if (!activo || !datos) return { ok: true, guardado: false };
-    if (validar()) return fallo(MENSAJE_DE_FALLO);
+    if (validar()) return fallo(textos.fallo);
     if (!cambiado) return { ok: true, guardado: false };
     setGuardando(true);
     setError(null);
     try {
-      const guardado = await reemplazoService.guardar(
+      const guardado = await servicio.guardar(
         modo === "persona" ? { modo, persona_id: persona.id } : { modo },
       );
       setDatos(guardado);
@@ -127,9 +162,9 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
       const delCampo = campos.persona_id || campos.modo;
       if (delCampo) {
         setError(delCampo);
-        return fallo(MENSAJE_DE_FALLO);
+        return fallo(textos.fallo);
       }
-      return fallo(mensajeDeError(err, MENSAJE_DE_FALLO));
+      return fallo(mensajeDeError(err, textos.fallo));
     } finally {
       setGuardando(false);
     }
@@ -148,6 +183,7 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
     cambiado,
     validar,
     guardar,
+    textos,
   };
 }
 
@@ -159,11 +195,21 @@ export function useReemplazoEnAusencia({ activo = true } = {}) {
 export function ReemplazoEnAusencia({ reemplazo, deshabilitado = false }) {
   const base = useId();
   const idTitulo = `${base}-titulo`;
+  // `encabezado: null` lo quita: la tarjeta que lo contiene ya tiene título
+  // (la ficha del usuario, US-018).
+  const encabezado = reemplazo.textos
+    ? reemplazo.textos.encabezado
+    : TEXTOS_PROPIOS.encabezado;
   return (
-    <section className="reemplazo-ausencia__bloque" aria-labelledby={idTitulo}>
-      <h4 id={idTitulo} className="reemplazo-ausencia__encabezado">
-        Mientras usted no está
-      </h4>
+    <section
+      className="reemplazo-ausencia__bloque"
+      aria-labelledby={encabezado ? idTitulo : undefined}
+    >
+      {encabezado && (
+        <h4 id={idTitulo} className="reemplazo-ausencia__encabezado">
+          {encabezado}
+        </h4>
+      )}
       <Pregunta
         base={base}
         reemplazo={reemplazo}
@@ -188,6 +234,7 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
     error,
     guardando,
   } = reemplazo;
+  const textos = reemplazo.textos ?? TEXTOS_PROPIOS;
   const bloqueado = deshabilitado || guardando;
 
   if (errorCarga) {
@@ -208,7 +255,7 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
   if (!datos) {
     return (
       <p className="mz-small mz-faint mb-0" aria-busy="true">
-        Cargando quién aprueba por usted…
+        {textos.cargando}
       </p>
     );
   }
@@ -226,12 +273,9 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
         undefined
       }
     >
-      <legend className="reemplazo-ausencia__titulo">
-        ¿Quién aprueba por usted?
-      </legend>
+      <legend className="reemplazo-ausencia__titulo">{textos.pregunta}</legend>
       <p id={idAyuda} className="form-text mt-0">
-        Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a
-        esta persona. Esta elección se guarda para todas sus ausencias.
+        {textos.ayuda}
       </p>
       <div className="reemplazo-ausencia__opciones">
         <label className="reemplazo-ausencia__opcion">
@@ -243,9 +287,7 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
             disabled={bloqueado}
             onChange={() => setModo("jefe")}
           />
-          <span>
-            {jefe ? `Mi jefe inmediato (${jefe.nombre})` : "Mi jefe inmediato"}
-          </span>
+          <span>{jefe ? `${textos.jefe} (${jefe.nombre})` : textos.jefe}</span>
         </label>
         <label className="reemplazo-ausencia__opcion">
           <input
@@ -261,9 +303,7 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
       </div>
       {!jefe && modo === "jefe" && (
         <p className="reemplazo-ausencia__aviso mb-0">
-          <Icon name="exclamation-triangle" /> Usted no tiene un jefe inmediato
-          registrado: sus aprobaciones se quedarán con usted. Si alguien debe
-          aprobar por usted, elija «Otra persona».
+          <Icon name="exclamation-triangle" /> {textos.sinJefe}
         </p>
       )}
       {errorDelGrupo && (
@@ -275,7 +315,7 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
         <div className="mt-2">
           <SelectorDePersonas
             id={idBuscador}
-            leyenda="Persona que aprobará por usted"
+            leyenda={textos.leyendaPersona}
             etiquetaBuscador="Buscar por nombre"
             obligatorio
             multiple={false}

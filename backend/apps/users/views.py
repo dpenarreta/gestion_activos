@@ -25,6 +25,7 @@ from .permissions import (
     UsuariosCreatePermission,
     UsuariosDeshabilitarPermission,
     UsuariosPermission,
+    UsuariosReemplazoPermission,
     UsuariosRestablecerPasswordPermission,
 )
 from .serializers import (
@@ -74,6 +75,8 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         # US-015: dos poderes distintos de enviar el enlace; cada uno con el suyo.
         "cambiar_password": [IsAuthenticated, UsuariosCambiarPasswordPermission],
         "clave_temporal": [IsAuthenticated, UsuariosClaveTemporalPermission],
+        # US-018: verlo con `usuarios.ver`, cambiarlo con `usuarios.reemplazo`.
+        "reemplazo": [IsAuthenticated, UsuariosReemplazoPermission],
     }
     DEFAULT_PERMISSION_CLASSES = [IsAuthenticated, UsuariosPermission]
 
@@ -275,6 +278,35 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             actor=request.user, user=self.get_object(), context=get_request_context(request)
         )
         return Response(resumen)
+
+    @action(detail=True, methods=["get", "patch"], url_path="reemplazo")
+    def reemplazo(self, request, pk=None):
+        """Quién aprueba por esta persona mientras está ausente (US-018).
+
+        `GET` (`usuarios.ver`): `{modo, persona, jefe, ausencia}` de la
+        empresa activa. `PATCH` (`usuarios.reemplazo`) `{modo, persona_id?}`:
+        lo guarda (la misma configuración de «Mi estado»), avisa a la persona
+        y devuelve lo mismo que `GET`. 400 por campo o sin empresa; 403 sobre
+        un superusuario sin serlo; 404 fuera de su alcance."""
+        from apps.organizacion.serializers import MiReemplazoSerializer
+
+        from .services import configurar_reemplazo, reemplazo_de
+
+        objetivo = self.get_object()
+        if request.method == "GET":
+            return Response(reemplazo_de(objetivo))
+        entrada = MiReemplazoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.validated_data
+        return Response(
+            configurar_reemplazo(
+                actor=request.user,
+                usuario=objetivo,
+                modo=datos["modo"],
+                persona_id=datos.get("persona_id"),
+                context=get_request_context(request),
+            )
+        )
 
     @action(detail=True, methods=["post"])
     def roles(self, request, pk=None):

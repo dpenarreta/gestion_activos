@@ -4,6 +4,8 @@ Las vistas (controladores) delegan aquí — nunca acceden al ORM ni aplican
 reglas de negocio directamente.
 """
 
+import logging
+
 from django.contrib.auth.models import Group, Permission
 from rest_framework import serializers
 
@@ -13,6 +15,8 @@ from apps.permissions.authorization import permisos_que_no_tiene
 
 from .models import User
 from .nomenclatura import generar_username
+
+logger = logging.getLogger(__name__)
 
 
 # AC-038: el sistema nunca debe quedar sin al menos un administrador activo
@@ -417,3 +421,98 @@ class UserAdminService:
             context=context,
         )
         return user
+
+
+# --- Quién aprueba por la persona mientras está ausente (US-018) ----------------------
+
+
+def reemplazo_de(usuario) -> dict:
+    """Lo que muestra la tarjeta «Mientras no está» de la ficha:
+    `{modo, persona, jefe, ausencia}` de la empresa activa. `ausencia` es
+    `{clave, texto, hasta}` si hoy está ausente (nunca el tipo de permiso)."""
+    from apps.organizacion import ausencia
+
+    _exigir_de_la_empresa_activa(usuario)
+    datos = ausencia.mi_reemplazo(usuario)
+    hoy = ausencia.ausencias_de([usuario], con_reemplazo=False).get(usuario.pk)
+    datos["ausencia"] = (
+        {"clave": hoy["clave"], "texto": hoy["texto"], "hasta": hoy["hasta"]} if hoy else None
+    )
+    return datos
+
+
+def _exigir_de_la_empresa_activa(usuario) -> None:
+    from rest_framework.exceptions import ValidationError
+
+    from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
+    from apps.organizacion import ausencia
+
+    if empresa_actual() in (None, SIN_EMPRESA):
+        raise ValidationError(
+            {"detail": "Elija una empresa para ver quién aprueba por esta persona."}
+        )
+    if ausencia._miembro_activo(usuario.pk) is None:
+        raise ValidationError(
+            {
+                "detail": "Esta persona no tiene una cuenta activa en la empresa en la que "
+                "está trabajando: cambie de empresa para configurar quién aprueba por ella."
+            }
+        )
+
+
+def configurar_reemplazo(*, actor, usuario, modo, persona_id=None, context=None) -> dict:
+    """Guarda, por un administrador, quién aprueba por `usuario` mientras está
+    ausente (la misma configuración de «Mi estado»). Avisa a la persona en la
+    campana, lo deja en la auditoría y, si hoy está ausente, pasa enseguida
+    sus aprobaciones pendientes al nuevo reemplazo."""
+    from django.db import transaction
+    from rest_framework.exceptions import PermissionDenied
+
+    from apps.notificaciones import services as campana
+    from apps.organizacion import ausencia
+
+    if usuario.is_superuser and not actor.is_superuser:
+        raise PermissionDenied("Solo un superusuario configura esto para otro superusuario.")
+    _exigir_de_la_empresa_activa(usuario)
+    antes = ausencia.mi_reemplazo(usuario)
+    ausencia.guardar_reemplazo(usuario, modo=modo, persona_id=persona_id, por_otra=True)
+    resultado = reemplazo_de(usuario)
+
+    def _id(datos):
+        return datos["persona"]["id"] if datos["persona"] else None
+
+    record_audit_event(
+        actor=actor,
+        action="usuarios.reemplazo.configurado",
+        target=usuario,
+        module="usuarios",
+        previous_values={"modo": antes["modo"], "persona": _id(antes)},
+        new_values={"modo": resultado["modo"], "persona": _id(resultado)},
+        context=context,
+    )
+    if actor.pk != usuario.pk:
+        if resultado["modo"] == "persona" and resultado["persona"]:
+            quien = resultado["persona"]["nombre"]
+        elif resultado["jefe"]:
+            quien = f"su jefe inmediato ({resultado['jefe']['nombre']})"
+        else:
+            quien = "su jefe inmediato"
+        nombre_actor = actor.get_full_name() or actor.username
+        transaction.on_commit(
+            lambda: campana.notificar(
+                [usuario],
+                tipo="organizacion.reemplazo_configurado",
+                titulo="Cambió quién aprueba por usted",
+                resumen=f"{nombre_actor} configuró que, mientras usted no esté, apruebe "
+                f"por usted {quien}. Puede cambiarlo en Chat › Mi estado.",
+                enlace="/admin/chat",
+            )
+        )
+    if resultado["ausencia"]:
+        # Como al guardar «Mi estado» (`chat.estados._reasignar`): si falla, la
+        # configuración queda igual y la revisión periódica lo reintenta.
+        try:
+            ausencia.reasignar_pendientes(usuario)
+        except Exception:  # noqa: BLE001
+            logger.exception("No se pudieron reasignar las aprobaciones de %s", usuario.pk)
+    return resultado
