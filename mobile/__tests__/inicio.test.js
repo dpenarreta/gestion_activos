@@ -8,7 +8,15 @@ import { CarruselNoticias } from "../src/pantallas/CarruselNoticias";
 import * as ChatContext from "../src/chat/ChatContext";
 import * as ContadorContext from "../src/notificaciones/ContadorContext";
 import * as ResumenPermisos from "../src/permisos/ResumenPermisosContext";
-import { ACCESOS, avisosDeOtrosModulos, Inicio, pendientesDeHoy, TEXTO_SIN_CARGO } from "../src/pantallas/Inicio";
+import * as ResumenSoporte from "../src/soporte/ResumenSoporteContext";
+import {
+  accesosPara,
+  ACCESOS,
+  avisosDeOtrosModulos,
+  Inicio,
+  pendientesDeHoy,
+  TEXTO_SIN_CARGO,
+} from "../src/pantallas/Inicio";
 
 const mockRouter = { push: jest.fn() };
 jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
@@ -322,6 +330,44 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
     expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/chat", params: { n: expect.any(String) } });
     await fireEvent.press(screen.getByTestId("para-hoy-avisos"));
     expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/notificaciones", params: { n: expect.any(String) } });
+  });
+
+  it("US-014: «Mesa de ayuda» está en la app (sustituye «Soporte TI») y abre la sección", async () => {
+    conPendientes({});
+    await render(<Inicio />);
+    await screen.findByText("No hay noticias publicadas por ahora.");
+    expect(screen.queryByText("Soporte TI")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: /^Mesa de ayuda\. / }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/soporte", params: { n: expect.any(String) } });
+    expect(accesosPara(["soporte.atender"]).find((a) => a.to === "/admin/ayuda").texto).toMatch(/^Su bandeja/);
+    expect(accesosPara([]).find((a) => a.to === "/admin/ayuda").texto).toBe("Seguir sus tickets");
+  });
+
+  it("US-014 (CA-2): «Para hoy» cuenta la Mesa de ayuda con el plural correcto y lleva a cada vista", async () => {
+    expect(
+      pendientesDeHoy({ ticketsAsignados: 1, ticketsMios: 1, ticketsPorAprobar: 1 }).map((p) => p.texto),
+    ).toEqual(["1 ticket asignado a usted", "1 ticket suyo necesita algo de usted", "1 ticket por aprobar"]);
+    expect(
+      pendientesDeHoy({ ticketsAsignados: 3, ticketsMios: 2, ticketsPorAprobar: 4 }).map((p) => p.texto),
+    ).toEqual(["3 tickets asignados a usted", "2 tickets suyos necesitan algo de usted", "4 tickets por aprobar"]);
+
+    conPendientes({});
+    jest
+      .spyOn(ResumenSoporte, "useResumenSoporte")
+      .mockReturnValue({ asignados: 2, misPendientes: 1, aprobaciones: 3, recargar: jest.fn() });
+    await render(<Inicio />);
+    await fireEvent.press(await screen.findByRole("button", { name: "2 tickets asignados a usted" }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/soporte",
+      params: { vista: "bandeja", n: expect.any(String) },
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "1 ticket suyo necesita algo de usted" }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/soporte", params: { vista: "mis", n: expect.any(String) } });
+    await fireEvent.press(screen.getByRole("button", { name: "3 tickets por aprobar" }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/soporte",
+      params: { vista: "aprobaciones", n: expect.any(String) },
+    });
   });
 
   it("separa los accesos «En la app» y «En el navegador»", async () => {

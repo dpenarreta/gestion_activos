@@ -11,6 +11,8 @@ import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useContador } from "../notificaciones/ContadorContext";
 import { useResumenPermisos } from "../permisos/ResumenPermisosContext";
 import { useSesion } from "../sesion/SesionContext";
+import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
+import { useResumenSoporte } from "../soporte/ResumenSoporteContext";
 import { AREA_TACTIL, colores } from "../tema/colores";
 import { CarruselNoticias } from "./CarruselNoticias";
 import { crearEstilos } from "../tema/tipografia";
@@ -22,10 +24,17 @@ export const TEXTO_SIN_CARGO = "Todavía no tiene un cargo asignado en el organi
  * sus rutas web. Los que ya están en la app llevan `rutaApp` y se abren
  * dentro de ella; los demás, en el navegador (CA-5 de US-009). Desde la
  * US-010 (12/11/2026): «Solicitud de permisos» y «Mis vacaciones». Desde la
- * US-011 (12/11/2026): «Chat» abre la pestaña.
+ * US-011 (12/11/2026): «Chat» abre la pestaña. Desde la US-014 (13/11/2026):
+ * «Soporte TI» pasa a «Mesa de ayuda», dentro de la app.
  */
 export const ACCESOS = [
-  { to: "/admin/ayuda", icono: "headset", nombre: "Soporte TI", texto: "Pedir ayuda y seguir sus tickets" },
+  {
+    to: "/admin/ayuda",
+    icono: "headset",
+    nombre: "Mesa de ayuda",
+    texto: "Pedir ayuda a TI y seguir sus tickets",
+    rutaApp: { pathname: "/soporte", params: {} },
+  },
   {
     to: "/admin/chat",
     icono: "chat-dots",
@@ -73,8 +82,41 @@ export function avisosDeOtrosModulos(noLeidas, noLeidosChat = {}) {
   return Math.max(0, (Number(noLeidas) || 0) - conversaciones);
 }
 
-export function pendientesDeHoy({ porAprobar = 0, mensajes = 0, avisos = 0 } = {}) {
+export function pendientesDeHoy({
+  porAprobar = 0,
+  mensajes = 0,
+  avisos = 0,
+  ticketsAsignados = 0,
+  ticketsMios = 0,
+  ticketsPorAprobar = 0,
+} = {}) {
   const lista = [];
+  // US-014 (CA-2): la Mesa de ayuda, cada uno a su vista.
+  if (ticketsAsignados > 0) {
+    lista.push({
+      clave: "soporte-asignados",
+      icono: "headset",
+      texto:
+        ticketsAsignados === 1 ? "1 ticket asignado a usted" : `${ticketsAsignados} tickets asignados a usted`,
+      ruta: { pathname: "/soporte", params: { vista: "bandeja" } },
+    });
+  }
+  if (ticketsMios > 0) {
+    lista.push({
+      clave: "soporte-mios",
+      icono: "ticket-outline",
+      texto: ticketsMios === 1 ? "1 ticket suyo necesita algo de usted" : `${ticketsMios} tickets suyos necesitan algo de usted`,
+      ruta: { pathname: "/soporte", params: { vista: "mis" } },
+    });
+  }
+  if (ticketsPorAprobar > 0) {
+    lista.push({
+      clave: "soporte-aprobaciones",
+      icono: "clipboard-check-outline",
+      texto: ticketsPorAprobar === 1 ? "1 ticket por aprobar" : `${ticketsPorAprobar} tickets por aprobar`,
+      ruta: { pathname: "/soporte", params: { vista: "aprobaciones" } },
+    });
+  }
   if (porAprobar > 0) {
     lista.push({
       clave: "por-aprobar",
@@ -102,14 +144,15 @@ export function pendientesDeHoy({ porAprobar = 0, mensajes = 0, avisos = 0 } = {
   return lista;
 }
 
-/** Sin «Crear tickets», Soporte TI solo sirve para seguir los propios
- * (decisión de la web, 09/11/2026). */
+/** Sin permiso para crear tickets, la Mesa de ayuda sirve para seguir los
+ * propios (decisión de la web, 09/11/2026); al equipo se le dice que ahí
+ * atiende (US-014). */
 export function accesosPara(permisos = []) {
-  return ACCESOS.map((a) =>
-    a.to === "/admin/ayuda" && !permisos.includes("soporte.crear")
-      ? { ...a, to: "/admin/ayuda?vista=mios", texto: "Seguir sus tickets" }
-      : a,
-  );
+  return ACCESOS.map((a) => {
+    if (a.to !== "/admin/ayuda") return a;
+    if (esDelEquipo(permisos)) return { ...a, texto: "Su bandeja, sus tickets y pedir ayuda a TI" };
+    return rutaDeAltaPropia(permisos) ? a : { ...a, texto: "Seguir sus tickets" };
+  });
 }
 
 export function Inicio() {
@@ -191,10 +234,14 @@ export function Inicio() {
   const { porAprobar } = useResumenPermisos();
   const { totalNoLeidos, noLeidos: noLeidosChat } = useChat();
   const { noLeidas } = useContador();
+  const soporte = useResumenSoporte();
   const paraHoy = pendientesDeHoy({
     porAprobar,
     mensajes: totalNoLeidos,
     avisos: avisosDeOtrosModulos(noLeidas, noLeidosChat),
+    ticketsAsignados: soporte.asignados,
+    ticketsMios: soporte.misPendientes,
+    ticketsPorAprobar: soporte.aprobaciones,
   });
   const accesos = accesosPara(usuario?.permissions);
   const enLaApp = accesos.filter((a) => a.rutaApp);

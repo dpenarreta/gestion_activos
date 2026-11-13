@@ -45,6 +45,9 @@ export const colores = {
   sobreCabecera: "#ffffff",
   acento: "#FCE200",
   tintaInactivaOscuro: "#C8C8C8",
+  // Lo presionado sobre la cabecera y la barra oscuras (US-016, H-12): el
+  // texto blanco sigue en 13,3:1 y el #C8C8C8 en 7,9:1.
+  presionadoOscuro: "#2E2E2E",
   enlace: "#6B5B00",
   realce: "#FFF9D1",
 

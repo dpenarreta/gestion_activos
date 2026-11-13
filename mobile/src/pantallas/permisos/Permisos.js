@@ -1,36 +1,41 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { FlatList, RefreshControl, Text, View } from "react-native";
 
 import { mensajeDeError } from "../../api/errores";
 import { licenciasService } from "../../api/servicios";
-import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import {
+  Alerta,
+  Boton,
+  BotonIcono,
+  Cargando,
+  ErrorConReintento,
+  Vacio,
+} from "../../componentes/comunes";
 import { TEXTO_SIN_ROL, useResumenPermisos } from "../../permisos/ResumenPermisosContext";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { colores } from "../../tema/colores";
 import { MisVacaciones } from "./MisVacaciones";
 import { AbrirEnLaWeb, TarjetaSolicitud } from "./piezas";
 import { crearEstilos } from "../../tema/tipografia";
 
 /**
- * La pestaña «Permisos» (US-010, CA-1): «Mis solicitudes», «Por aprobar» y
- * «Mis vacaciones». «Por aprobar» está siempre, como en la web: vacía y sin
- * insignia si no hay nada pendiente (revisión de QA, D-1).
- *
- * `?seccion=` (desde el Inicio o un aviso) elige la sección; `n` cambia en
- * cada toque para que el mismo acceso vuelva a llevar a ella.
+ * Los permisos del módulo «Institucional» (US-010, CA-1; US-016): «Solicitud
+ * de permisos» (las mías), «Por aprobar» y «Consulta de vacaciones». Desde la US-016 (13/11/2026) no hay controles
+ * segmentados arriba: las secciones se eligen en la barra de abajo
+ * (`navegacion/modulos.js`) y la sección sale de `?seccion=` de la ruta, que
+ * ya usaban el Inicio y los avisos.
  */
 export const SECCIONES = [
-  // WCAG 2.5.3: el nombre accesible empieza por lo que se ve (N-03).
-  { id: "mias", titulo: "Mías: mis solicitudes", corto: "Mías" },
-  { id: "por_aprobar", titulo: "Por aprobar", corto: "Por aprobar" },
-  { id: "vacaciones", titulo: "Mis vacaciones", corto: "Vacaciones" },
+  { id: "mias", titulo: "Solicitud de permisos" },
+  { id: "por_aprobar", titulo: "Por aprobar" },
+  { id: "vacaciones", titulo: "Consulta de vacaciones" },
 ];
 
-/** Con la letra del sistema a partir de este tamaño, los segmentos pasan a
- * una columna: en una fila de 360 dp no caben sin cortarse (N-01). */
-export const ESCALA_SEGMENTOS_EN_COLUMNA = 1.15;
+/** La sección de `?seccion=`; sin ella o si no vale, la de mis solicitudes. */
+export function seccionDeLaRuta(pedida) {
+  return SECCIONES.some((s) => s.id === pedida) ? pedida : "mias";
+}
 
 export const TEXTO_SOLO_EN_LA_WEB =
   "Ver todas las solicitudes de la empresa, escalar, anular una aprobada y configurar los tipos de permiso se hace en la web.";
@@ -42,22 +47,12 @@ function primero(valor) {
 export function Permisos() {
   const router = useRouter();
   const parametros = useLocalSearchParams();
-  const pedida = primero(parametros.seccion);
-  const toque = primero(parametros.n);
+  const seccion = seccionDeLaRuta(primero(parametros.seccion));
   const { usuario, empresaActiva } = useSesion();
-  const { porAprobar, puedeSolicitar, cargado, recargar } = useResumenPermisos();
-  const [seccion, setSeccion] = useState(
-    SECCIONES.some((s) => s.id === pedida) ? pedida : "mias",
-  );
+  const { puedeSolicitar, cargado, recargar } = useResumenPermisos();
   // Sube al volver a la pestaña: las listas se refrescan sin «Cargando».
   const [foco, setFoco] = useState(0);
   const permisos = usuario?.permissions ?? [];
-  const { fontScale } = useWindowDimensions();
-  const enColumna = fontScale >= ESCALA_SEGMENTOS_EN_COLUMNA;
-
-  useEffect(() => {
-    if (SECCIONES.some((s) => s.id === pedida)) setSeccion(pedida);
-  }, [pedida, toque]);
 
   const primeraVez = useRef(true);
   useFocusEffect(
@@ -71,7 +66,6 @@ export function Permisos() {
     }, [recargar]),
   );
 
-  const visibles = SECCIONES;
   const soloEnLaWeb = permisos.includes("licencias.ver_todas") || permisos.includes("licencias.configurar");
 
   const abrir = useCallback(
@@ -95,40 +89,11 @@ export function Permisos() {
   );
 
   return (
-    <View style={estilos.pantalla}>
-      <View
-        style={[estilos.secciones, enColumna && estilos.seccionesEnColumna]}
-        accessibilityRole="tablist"
-        accessibilityLabel="Secciones de permisos"
-        testID="secciones"
-      >
-        {visibles.map((s) => {
-          const activa = s.id === seccion;
-          const cuenta = s.id === "por_aprobar" && porAprobar > 0 ? porAprobar : 0;
-          return (
-            <Pressable
-              key={s.id}
-              testID={`seccion-${s.id}`}
-              onPress={() => setSeccion(s.id)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activa }}
-              accessibilityLabel={cuenta ? `${s.titulo}, ${cuenta} por aprobar` : s.titulo}
-              style={[estilos.seccion, enColumna && estilos.seccionEnColumna, activa && estilos.seccionActiva]}
-            >
-              {/* Texto corto para que quepan en una fila; el lector dice el
-                  título completo. Sin `numberOfLines`: con la letra al 200 %
-                  baja a dos líneas dentro del segmento (auditoría UX, H-02). */}
-              <Text style={[estilos.seccionTexto, activa && estilos.seccionTextoActivo]}>{s.corto}</Text>
-              {cuenta ? (
-                <View style={estilos.insignia}>
-                  <Text style={estilos.insigniaTexto}>{cuenta > 99 ? "99+" : cuenta}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
-
+    <View style={estilos.pantalla} testID={`institucional-${seccion}`}>
+      {/* H-10: qué vista es, sin mirar la barra de abajo. */}
+      <Text style={estilos.tituloVista} accessibilityRole="header">
+        {SECCIONES.find((s) => s.id === seccion).titulo}
+      </Text>
       {seccion === "vacaciones" ? (
         <MisVacaciones foco={foco} />
       ) : (
@@ -279,37 +244,7 @@ function Separador() {
 
 const estilos = crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
-  // Control segmentado de una fila (auditoría UX, H-02): cada segmento
-  // ocupa lo mismo; el activo, negro con texto blanco (16,7:1).
-  secciones: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 4,
-    gap: 4,
-    borderRadius: 10,
-    backgroundColor: colores.hundido,
-  },
-  seccion: {
-    flex: 1,
-    minHeight: AREA_TACTIL,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  seccionActiva: { backgroundColor: colores.primario },
-  seccionesEnColumna: { flexDirection: "column" },
-  seccionEnColumna: { flex: 0, justifyContent: "flex-start", paddingHorizontal: 12 },
-  seccionTexto: { fontSize: 15, fontWeight: "600", color: colores.tinta, textAlign: "center", flexShrink: 1 },
-  seccionTextoActivo: { color: colores.sobrePrimario },
-  insignia: CONTROLES.insignia,
-  insigniaTexto: CONTROLES.insigniaTexto,
+  tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32 },
   cabeceraLista: { gap: 10, marginBottom: 10 },

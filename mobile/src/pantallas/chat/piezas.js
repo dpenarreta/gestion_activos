@@ -165,7 +165,7 @@ const estilos = crearEstilos({
   },
   avisoTexto: { flex: 1, fontSize: 14, color: colores.avisoTexto },
   // Sin alto fijo: con la letra al 200 % el número crece y la insignia con
-  // él (N-01). La misma de los segmentos de «Permisos».
+  // él (N-01).
   insignia: { ...CONTROLES.insignia, minWidth: 24, borderRadius: 12, justifyContent: "center" },
   insigniaTexto: CONTROLES.insigniaTexto,
   miEstado: {

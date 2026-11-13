@@ -8,6 +8,8 @@
  *   vacaciones (`rutaDeLicencias`).
  * - US-011 (Fase 3, 12/11/2026): `chat` → la conversación del aviso
  *   (`rutaDeChat`).
+ * - US-014 (Fase 4, 13/11/2026): `soporte` → la ficha del ticket, las
+ *   aprobaciones o la Mesa de ayuda (`rutaDeSoporte`).
  */
 import { conversacionDelEnlace } from "../chat/enlace";
 
@@ -56,9 +58,43 @@ export function rutaDeChat(notificacion) {
   return `/chat/conversacion/${conversacion}${empresa ? `?empresa=${empresa}` : ""}`;
 }
 
+/**
+ * A dónde lleva un aviso de la Mesa de ayuda (CA-19 de la US-014):
+ *
+ * - `/admin/soporte/tickets/ID` (lo que avisa al equipo: asignado, respuesta
+ *   del usuario…) → la ficha del técnico;
+ * - `/admin/ayuda/tickets/ID` (lo que avisa a quien pidió, también con
+ *   `#encuesta`) → la ficha de quien pide;
+ * - `/admin/aprobaciones` → «Aprobaciones»;
+ * - cualquier otro → la Mesa de ayuda.
+ *
+ * Las fichas llevan la empresa de la notificación como `X-Empresa` (B3 de la
+ * US-009). El enlace puede venir con la web delante (los de los correos): se
+ * toma solo la ruta.
+ */
+export function rutaDeSoporte(notificacion) {
+  const enlace = typeof notificacion?.enlace === "string" ? notificacion.enlace : "";
+  const ruta = enlace
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("#")[0]
+    .split("?")[0]
+    .replace(/\/+$/, "");
+  const empresa = idDeEmpresa(notificacion?.empresa);
+  const conEmpresa = empresa ? `?empresa=${empresa}` : "";
+  const delEquipo = /^\/admin\/soporte\/tickets\/(\d{1,12})$/.exec(ruta);
+  if (delEquipo) return `/soporte/ticket/${delEquipo[1]}${conEmpresa}`;
+  const propio = /^\/admin\/ayuda\/tickets\/(\d{1,12})$/.exec(ruta);
+  if (propio) return `/soporte/mi-ticket/${propio[1]}${conEmpresa}`;
+  // `n` cambia en cada toque: la Mesa vuelve a esa vista aunque ya estuviera
+  // abierta en otra.
+  if (ruta === "/admin/aprobaciones") return `/soporte?vista=aprobaciones&n=${Date.now()}`;
+  return "/soporte";
+}
+
 export const MODULOS_EN_APP = Object.freeze({
   licencias: rutaDeLicencias,
   chat: rutaDeChat,
+  soporte: rutaDeSoporte,
 });
 
 /**

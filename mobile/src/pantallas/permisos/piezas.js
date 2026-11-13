@@ -86,6 +86,11 @@ export function CampoTexto({
   testID,
   deshabilitado = false,
   refFoco,
+  // US-014: el teclado del campo («phone-pad», «email-address»…), un
+  // ejemplo dentro del campo y si se marca «(opcional)».
+  teclado,
+  placeholder,
+  opcional = false,
 }) {
   const etiquetaAccesible = [
     `${etiqueta}${obligatorio ? " (obligatorio)" : ""}`,
@@ -99,6 +104,7 @@ export function CampoTexto({
       <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
         {etiqueta}
         {obligatorio ? <Text style={estilos.obligatorio}> *</Text> : null}
+        {opcional ? <Text style={estilos.opcional}> (opcional)</Text> : null}
       </Text>
       {ayuda ? (
         <Text style={estilos.ayuda} importantForAccessibility="no" accessibilityElementsHidden>
@@ -113,6 +119,8 @@ export function CampoTexto({
         editable={!deshabilitado}
         multiline={multilinea}
         maxLength={maximo}
+        keyboardType={teclado}
+        placeholder={placeholder}
         textAlignVertical={multilinea ? "top" : "center"}
         accessibilityLabel={etiquetaAccesible}
         style={[estilos.entrada, multilinea && estilos.entradaMultilinea, error && estilos.entradaConError]}
@@ -216,6 +224,7 @@ export const estilos = crearEstilos({
   campo: { gap: 4 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   obligatorio: { color: colores.malTexto },
+  opcional: { fontSize: 14, fontWeight: "400", color: colores.tintaSuave },
   ayuda: { fontSize: 13, color: colores.tintaSuave },
   entrada: { ...CONTROLES.entrada, paddingVertical: 8 },
   entradaMultilinea: { minHeight: 96 },

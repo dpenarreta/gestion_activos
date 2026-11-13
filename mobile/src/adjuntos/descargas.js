@@ -11,9 +11,10 @@ import { api } from "../api/api";
  *
  * LOPDP: cada carpeta se registra en `CARPETAS_DE_DESCARGAS` y se borra al
  * cerrar sesión (`borrarDescargas`), junto con las copias que dejan la
- * cámara y los selectores de archivos.
+ * cámara y los selectores de archivos. Desde la US-014 (13/11/2026), también
+ * los adjuntos de los tickets de la Mesa de ayuda (`soporte-adjuntos`).
  */
-export const CARPETAS_DE_DESCARGAS = ["permisos-documentos", "chat-archivos"];
+export const CARPETAS_DE_DESCARGAS = ["permisos-documentos", "chat-archivos", "soporte-adjuntos"];
 
 /** Las carpetas de la caché donde `expo-image-picker` y
  * `expo-document-picker` copian lo que se elige. */

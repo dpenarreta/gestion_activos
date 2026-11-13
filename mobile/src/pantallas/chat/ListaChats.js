@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } 
 
 import { useChat, useChatVisible } from "../../chat/ChatContext";
 import {
+  esDeMisGrupos,
   esGrupal,
   horaDeLista,
   ICONO_DE_TIPO,
@@ -38,7 +39,11 @@ export const CANDADO_NUEVO_MS = 1000;
 export const TEXTO_GRUPOS_EN_LA_WEB =
   "Crear, editar o salir de un grupo se hace en la web. En la app puede leer y escribir en sus grupos.";
 
-export function ListaChats() {
+/**
+ * `soloGrupos` (US-016): la vista «Mis grupos» del módulo Chat, la misma
+ * lista filtrada en el teléfono a los grupos (sin API nueva).
+ */
+export function ListaChats({ soloGrupos = false }) {
   useChatVisible();
   const router = useRouter();
   const { empresaActiva } = useSesion();
@@ -102,7 +107,9 @@ export function ListaChats() {
   if (estado === "cargando") vacio = <Cargando texto="Cargando conversaciones…" />;
   else if (estado === "error")
     vacio = <ErrorConReintento texto={error || "No se pudieron cargar las conversaciones."} onReintentar={() => cargarConversaciones()} />;
+  else if (soloGrupos) vacio = <Vacio texto="No pertenece a ningún grupo." icono="account-group-outline" />;
   else vacio = <Vacio texto="Todavía no tiene conversaciones." icono="chat-outline" />;
+  const visibles = soloGrupos ? conversaciones.filter(esDeMisGrupos) : conversaciones;
 
   return (
     <View style={estilos.pantalla}>
@@ -125,7 +132,7 @@ export function ListaChats() {
         testID="lista-chats"
         style={estilos.pantalla}
         contentContainerStyle={estilos.contenido}
-        data={estado === "listo" ? conversaciones : []}
+        data={estado === "listo" ? visibles : []}
         keyExtractor={(c) => String(c.id)}
         ListHeaderComponent={cabecera}
         ListEmptyComponent={<View style={estilos.vacio}>{vacio}</View>}

@@ -38,6 +38,23 @@ function porCampo(datos) {
   );
 }
 
+/**
+ * G-1 de la US-014 (13/11/2026): algunas vistas del backend pasan a
+ * `serializers.ValidationError` la lista de mensajes de un error de Django y
+ * el `message` llega como `"[ErrorDetail(string='Otra persona lo tomó
+ * mientras tanto.', code='invalid')]"` o `"['…']"`. La app saca los textos y
+ * los une; la corrección de fondo, en el servidor, queda para DEV-2.
+ */
+export function limpiarMensaje(mensaje) {
+  if (typeof mensaje !== "string") return mensaje;
+  const detalles = [...mensaje.matchAll(/ErrorDetail\(string=(['"])([\s\S]*?)\1,\s*code=/g)].map((m) => m[2]);
+  if (detalles.length) return detalles.join(" ");
+  const lista = /^\s*\[\s*(['"])[\s\S]*\1\s*\]\s*$/.test(mensaje)
+    ? [...mensaje.matchAll(/(['"])([\s\S]*?)\1/g)].map((m) => m[2]).filter(Boolean)
+    : [];
+  return lista.length ? lista.join(" ") : mensaje;
+}
+
 /** Lo que pone `api_exception_handler` cuando el error no trae un mensaje
  * propio (los de validación de un serializer). */
 const MENSAJE_GENERICO = "Error en la solicitud.";
@@ -63,7 +80,7 @@ export function mensajeDeError(
     // Una página HTML (proxy, IIS) no es un mensaje para nadie.
     return /^\s*</.test(datos) ? mensajePorDefecto : datos;
   }
-  const mensaje = datos.error?.message;
+  const mensaje = limpiarMensaje(datos.error?.message);
   if (mensaje && mensaje !== MENSAJE_GENERICO) return mensaje;
   const detalles = datos.error?.details;
   if (detalles && typeof detalles === "object") {
@@ -107,7 +124,7 @@ export function erroresPorCampo(err) {
  * detalle ya va junto a cada campo. */
 export function mensajeDeFormulario(err, porDefecto) {
   const porCampo = erroresPorCampo(err);
-  const mensaje = err?.response?.data?.error?.message;
+  const mensaje = limpiarMensaje(err?.response?.data?.error?.message);
   if (Object.keys(porCampo).length > 0 && (!mensaje || mensaje === MENSAJE_GENERICO)) {
     return "Revise los campos marcados.";
   }

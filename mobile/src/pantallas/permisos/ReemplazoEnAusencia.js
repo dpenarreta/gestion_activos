@@ -10,6 +10,7 @@ import { AREA_TACTIL, colores } from "../../tema/colores";
 import { CONTROLES } from "../../tema/controles";
 import { crearEstilos } from "../../tema/tipografia";
 import {
+  ESPERA_BUSCAR_MS,
   MAXIMO_RESULTADOS,
   MINIMO_BUSQUEDA,
   TEXTO_HAY_MAS,
@@ -24,7 +25,8 @@ import {
  * fuera a quien pregunta; el servidor también lo rechaza). `reemplazo` es lo
  * que devuelve `useReemplazoEnAusencia`.
  */
-export const ESPERA_BUSCAR_MS = 300;
+// Una sola pausa para todos los buscadores (US-014, QA-TECH).
+export { ESPERA_BUSCAR_MS };
 
 export const TEXTO_AYUDA_REEMPLAZO =
   "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Esta elección se guarda para todas sus ausencias.";

@@ -12,7 +12,7 @@ import {
 } from "../src/pantallas/DetalleNotificacion";
 import { agruparPorDia, ListaNotificaciones, TEXTO_TODAS_LEIDAS } from "../src/pantallas/ListaNotificaciones";
 
-const mockRouter = { push: jest.fn(), replace: jest.fn() };
+const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
 jest.mock("expo-router", () => {
   const React = require("react");
   return {
@@ -47,14 +47,15 @@ jest.mock("../src/api/servicios", () => ({
   },
 }));
 
-/** Con la forma real de `NotificacionSerializer`. */
+/** Con la forma real de `NotificacionSerializer`. Un módulo que no está en
+ * la app: desde la US-014 la Mesa de ayuda sí lo está. */
 function notificacion(campos = {}) {
   return {
     id: 10,
-    modulo: "soporte",
-    modulo_nombre: "Mesa de ayuda",
-    icono: "headset",
-    tipo: "soporte.ticket_asignado",
+    modulo: "activos",
+    modulo_nombre: "Gestión de Activos",
+    icono: "pc-display",
+    tipo: "activos.asignado",
     titulo: "Le asignaron un ticket",
     resumen: "Ticket #55: impresora",
     enlace: "/admin/ayuda/55",
@@ -89,10 +90,10 @@ describe("lista de notificaciones", () => {
     await render(<ListaNotificaciones />);
 
     expect(await screen.findByText("Le asignaron un ticket")).toBeTruthy();
-    expect(screen.getAllByText("Mesa de ayuda")).toHaveLength(2);
+    expect(screen.getAllByText("Gestión de Activos")).toHaveLength(2);
     expect(screen.getAllByText("Ticket #55: impresora")).toHaveLength(2);
     expect(notificacionesService.listar).toHaveBeenCalledWith({ pagina: 1, soloNoLeidas: false });
-    expect(screen.getByLabelText(/^Sin leer\. Mesa de ayuda\. Le asignaron un ticket/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Sin leer\. Gestión de Activos\. Le asignaron un ticket/)).toBeTruthy();
   });
 
   it("filtra por no leídas", async () => {
@@ -118,12 +119,23 @@ describe("lista de notificaciones", () => {
   it("si el módulo está en el mapa, la marca leída y va a su pantalla", async () => {
     notificacionesService.listar.mockResolvedValue(pagina([notificacion()]));
     notificacionesService.leer.mockResolvedValue(notificacion({ leida: true }));
-    await render(<ListaNotificaciones mapa={{ soporte: "/ficticio" }} />);
+    await render(<ListaNotificaciones mapa={{ activos: "/ficticio" }} />);
 
     await fireEvent.press(await screen.findByTestId("notificacion-10"));
 
     expect(notificacionesService.leer).toHaveBeenCalledWith(10);
     expect(mockRouter.push).toHaveBeenCalledWith("/ficticio");
+  });
+
+  it("US-016 (O-3): si lleva a un módulo, vuelve a los de debajo con dismissTo, sin apilar otra copia", async () => {
+    notificacionesService.listar.mockResolvedValue(pagina([notificacion()]));
+    notificacionesService.leer.mockResolvedValue(notificacion({ leida: true }));
+    await render(<ListaNotificaciones mapa={{ activos: "/soporte?vista=aprobaciones" }} />);
+
+    await fireEvent.press(await screen.findByTestId("notificacion-10"));
+
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith("/soporte?vista=aprobaciones");
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it("marca todas como leídas y lo anuncia", async () => {
@@ -266,7 +278,7 @@ describe("detalle de una notificación fuera de la app", () => {
     notificacionesService.detalle.mockResolvedValue(notificacion({ enlace: "", leida: true }));
     await render(<DetalleNotificacion id="10" />);
 
-    expect(await screen.findByText(textoSinEnlace("Mesa de ayuda"))).toBeTruthy();
+    expect(await screen.findByText(textoSinEnlace("Gestión de Activos"))).toBeTruthy();
     expect(screen.queryByText(TEXTO_FUERA_DE_LA_APP)).toBeNull();
     expect(screen.queryByRole("button", { name: "Abrir en el navegador" })).toBeNull();
     expect(notificacionesService.leer).not.toHaveBeenCalled();
@@ -293,6 +305,14 @@ describe("detalle de una notificación fuera de la app", () => {
     // Nunca dijo «Cargando la notificación…»: solo un estado neutro (H-21).
     expect(screen.queryByText("Cargando la notificación…")).toBeNull();
     expect(screen.getByTestId("abriendo-notificacion")).toBeTruthy();
+  });
+
+  it("US-016 (O-3): si lleva a un módulo, cierra el detalle con dismissTo en lugar de replace", async () => {
+    notificacionesService.detalle.mockResolvedValue(notificacion({ modulo: "ficticio", leida: true }));
+    await render(<DetalleNotificacion id="10" mapa={{ ficticio: () => "/permisos?seccion=vacaciones" }} />);
+
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith("/permisos?seccion=vacaciones"));
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
   it("si tarda, al rato sí dice «Cargando la notificación…» (H-21)", async () => {

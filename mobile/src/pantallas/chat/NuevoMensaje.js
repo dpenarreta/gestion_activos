@@ -8,7 +8,7 @@ import { chatService, directorioService } from "../../api/servicios";
 import { useChat, useChatVisible } from "../../chat/ChatContext";
 import { iniciales, textoPresencia } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
-import { MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
+import { ESPERA_BUSCAR_MS, MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
 import { Alerta, ErrorConReintento } from "../../componentes/comunes";
 import { AREA_TACTIL, colores } from "../../tema/colores";
 import { CONTROLES } from "../../tema/controles";
@@ -23,7 +23,8 @@ import { Presencia } from "./piezas";
  * escribir, el número de resultados anunciado y «Reintentar» si falla.
  * Elegir dos veces no crea ni abre dos veces.
  */
-export const ESPERA_BUSCAR_MS = 300;
+// Una sola pausa para todos los buscadores (US-014, QA-TECH).
+export { ESPERA_BUSCAR_MS };
 
 export function NuevoMensaje() {
   useChatVisible();

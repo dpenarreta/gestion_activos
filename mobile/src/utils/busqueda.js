@@ -3,6 +3,10 @@
  * reemplazo en una ausencia y el de «Nuevo mensaje».
  */
 
+/** La pausa al escribir antes de buscar (US-014: compartida por la Mesa de
+ * ayuda). */
+export const ESPERA_BUSCAR_MS = 300;
+
 /** Con menos letras la lista sería toda la empresa. */
 export const MINIMO_BUSQUEDA = 2;
 /** Más de 8 nombres no se leen de un vistazo: se pide afinar. */

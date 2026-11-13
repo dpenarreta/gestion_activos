@@ -6,8 +6,14 @@ import { useContext } from "react";
 // permitida por los `exports` del paquete, `./build/*.js`) y se lee sin lanzar.
 import { HeaderHeightContext } from "expo-router/build/react-navigation/elements/Header/HeaderHeightContext.js";
 
+import { AlturaCabeceraDeModulosContext } from "../navegacion/EstadoDeModulos";
+
 /** La altura de la cabecera de la pantalla, o 0 si no tiene: el
- * `keyboardVerticalOffset` de un `KeyboardAvoidingView` (revisión UX, M-1). */
+ * `keyboardVerticalOffset` de un `KeyboardAvoidingView` (revisión UX, M-1).
+ * En las pantallas de los módulos (US-016, ronda 2) la cabecera no es de
+ * React Navigation: es la de los módulos, que mide su alto. */
 export function useAlturaCabecera() {
-  return useContext(HeaderHeightContext) ?? 0;
+  const deLaPantalla = useContext(HeaderHeightContext) ?? 0;
+  const deLosModulos = useContext(AlturaCabeceraDeModulosContext);
+  return Math.max(deLaPantalla, deLosModulos);
 }

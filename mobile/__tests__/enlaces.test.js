@@ -13,10 +13,14 @@ import {
 const BASE = "https://intranet.laarcourier.com";
 
 describe("MODULOS_EN_APP", () => {
-  it("desde la Fase 3 trae «licencias» y «chat»; lo demás va al detalle con «Abrir en el navegador»", () => {
-    expect(Object.keys(MODULOS_EN_APP)).toEqual(["licencias", "chat"]);
-    expect(rutaEnApp({ id: 4, modulo: "soporte", enlace: "/admin/ayuda/4" })).toBeNull();
-    expect(destinoDeNotificacion({ id: 4, modulo: "soporte" })).toBe("/notificacion/4");
+  it("desde la Fase 4 trae «licencias», «chat» y «soporte»; lo demás va al detalle con «Abrir en el navegador»", () => {
+    expect(Object.keys(MODULOS_EN_APP)).toEqual(["licencias", "chat", "soporte"]);
+    expect(rutaEnApp({ id: 4, modulo: "activos", enlace: "/admin/activos/4" })).toBeNull();
+    expect(destinoDeNotificacion({ id: 4, modulo: "activos" })).toBe("/notificacion/4");
+    // US-014: la Mesa de ayuda ya no va al detalle de la notificación.
+    expect(destinoDeNotificacion({ id: 4, modulo: "soporte", enlace: "/admin/soporte/tickets/9" })).toBe(
+      "/soporte/ticket/9",
+    );
   });
 
   it("con un módulo ficticio en el mapa, lleva a su pantalla", () => {

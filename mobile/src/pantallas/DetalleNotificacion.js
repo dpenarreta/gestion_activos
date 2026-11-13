@@ -10,6 +10,8 @@ import { anunciar } from "../accesibilidad/anunciar";
 import { useSesion } from "../sesion/SesionContext";
 import { estaLeida, iconoDe } from "../notificaciones/abrir";
 import { useContador } from "../notificaciones/ContadorContext";
+import { volverAlModulo } from "../navegacion/abrir";
+import { esRutaDeModulo } from "../navegacion/modulos";
 import { rutaEnApp } from "../notificaciones/modulosEnApp";
 import {
   abrirEnNavegador,
@@ -104,7 +106,9 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
       if (ruta) {
         // Sigue en el estado neutro hasta que la otra pantalla la reemplaza.
         setEstado("redirigiendo");
-        router.replace(ruta);
+        // US-016: si lleva a un módulo, se vuelve a los de debajo.
+        if (esRutaDeModulo(ruta)) volverAlModulo(router, ruta);
+        else router.replace(ruta);
         return;
       }
       setNotificacion(datos);

@@ -17,5 +17,8 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-011](US-011-app-movil-chat.md) | App móvil · Fase 3: Chat (general, directos, grupos, adjuntos y presencia) | Historia de Usuario | Completada con pendientes | 2026-11-12 |
 | [US-012](US-012-cancelar-vacaciones-aprobadas.md) | Cancelar vacaciones aprobadas desde «Mis vacaciones» | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
 | [US-013](US-013-llamados-de-atencion.md) | Llamados de atención en Gestión Humana | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
+| [US-014](US-014-app-movil-mesa-de-ayuda.md) | App móvil · Fase 4: Mesa de ayuda (crear, seguir y gestionar tickets) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-13 |
 | [US-015](US-015-cambiar-y-restablecer-contrasena-por-administracion.md) | Cambiar la contraseña de una cuenta o restablecerla a la temporal, por permiso | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-13 |
+| [US-016](US-016-app-movil-navegacion-por-modulos.md) | App móvil: navegación por módulos arriba y funcionalidades abajo | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-13 |
 | [US-017](US-017-nova-dos-fuentes.md) | Nova con dos fuentes: los documentos y, si no responden, Claude | Historia de Usuario | COMPLETADA | 2026-11-13 |
+| [US-019](US-019-app-movil-matriz-de-obligaciones.md) | App móvil · Fase 5: Matriz de obligaciones (Bandeja y Calendario) | Historia de Usuario | Pendiente | 2026-11-13 |

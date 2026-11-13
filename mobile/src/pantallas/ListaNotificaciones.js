@@ -7,6 +7,8 @@ import { mensajeDeError } from "../api/errores";
 import { notificacionesService } from "../api/servicios";
 import { Alerta, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
+import { volverAlModulo } from "../navegacion/abrir";
+import { esRutaDeModulo } from "../navegacion/modulos";
 import { destinoDeNotificacion, estaLeida, iconoDe } from "../notificaciones/abrir";
 import { useContador } from "../notificaciones/ContadorContext";
 import { rutaEnApp } from "../notificaciones/modulosEnApp";
@@ -185,7 +187,11 @@ export function ListaNotificaciones({ mapa } = {}) {
           .catch(() => {});
       }
     }
-    router.push(destinoDeNotificacion(notificacion, mapa));
+    const destino = destinoDeNotificacion(notificacion, mapa);
+    // US-016: Avisos es una pantalla del Stack; lo que lleva a un módulo
+    // vuelve a los de debajo en lugar de apilar otra copia.
+    if (esRutaDeModulo(destino)) volverAlModulo(router, destino);
+    else router.push(destino);
   }
 
   // El día de hoy en las dependencias: tras la medianoche, el siguiente

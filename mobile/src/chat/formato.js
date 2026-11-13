@@ -26,6 +26,12 @@ export function esGrupal(conversacion) {
   return conversacion?.tipo !== "directa";
 }
 
+/** «Mis grupos» (US-016, 13/11/2026): los grupos y los de área a los que
+ * pertenece; sin el canal general (es de toda la empresa) ni los directos. */
+export function esDeMisGrupos(conversacion) {
+  return conversacion?.tipo === "grupo" || conversacion?.tipo === "area";
+}
+
 /** «1 mensaje sin leer», «3 mensajes sin leer» (lo que oye el lector en
  * lugar del número de la insignia, como la web). */
 export function textoSinLeer(cantidad) {

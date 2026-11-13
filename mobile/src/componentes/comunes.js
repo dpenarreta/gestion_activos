@@ -21,13 +21,28 @@ export function Boton({
   etiqueta,
   pista,
   testID,
+  expandido,
 }) {
   const inactivo = deshabilitado || cargando;
   const esPrimario = variante === "primario";
   // `sobreOscuro`: contorno y texto claros sobre el negro de la marca (el
   // visor de imágenes, N-18): 21:1.
   const sobreOscuro = variante === "sobreOscuro";
-  const colorTexto = esPrimario ? colores.sobrePrimario : sobreOscuro ? colores.sobreCabecera : colores.primario;
+  // `aviso` (US-014, H-09): lo que no llega al usuario (la nota interna), con
+  // el fondo y el borde de aviso (4,8:1). Aditiva: no cambia las demás.
+  const aviso = variante === "aviso";
+  // `peligro` (US-014, N-04): lo que no tiene vuelta atrás («Cerrar» un
+  // ticket): texto `malTexto` sobre `malFondo` (6,3:1) y borde de 2.
+  const peligro = variante === "peligro";
+  const colorTexto = esPrimario
+    ? colores.sobrePrimario
+    : sobreOscuro
+      ? colores.sobreCabecera
+      : aviso
+        ? colores.avisoTexto
+        : peligro
+          ? colores.malTexto
+          : colores.primario;
   return (
     <Pressable
       testID={testID}
@@ -36,10 +51,23 @@ export function Boton({
       accessibilityRole="button"
       accessibilityLabel={etiqueta || titulo}
       accessibilityHint={pista}
-      accessibilityState={{ disabled: inactivo, busy: cargando }}
+      // `expandido`: el que abre opciones («Adjuntar», US-014).
+      accessibilityState={
+        expandido === undefined
+          ? { disabled: inactivo, busy: cargando }
+          : { disabled: inactivo, busy: cargando, expanded: expandido }
+      }
       style={({ pressed }) => [
         estilos.boton,
-        esPrimario ? estilos.botonPrimario : sobreOscuro ? estilos.botonSobreOscuro : estilos.botonSecundario,
+        esPrimario
+          ? estilos.botonPrimario
+          : sobreOscuro
+            ? estilos.botonSobreOscuro
+            : aviso
+              ? estilos.botonAviso
+              : peligro
+                ? estilos.botonPeligro
+                : estilos.botonSecundario,
         inactivo && estilos.botonInactivo,
         pressed && !inactivo && estilos.botonPresionado,
       ]}
@@ -215,6 +243,8 @@ export const estilos = crearEstilos({
     borderWidth: 1,
     borderColor: colores.sobreCabecera,
   },
+  botonAviso: { backgroundColor: colores.avisoFondo, borderWidth: 2, borderColor: colores.avisoTexto },
+  botonPeligro: { backgroundColor: colores.malFondo, borderWidth: 2, borderColor: colores.malTexto },
   botonInactivo: { opacity: 0.6 },
   botonPresionado: { opacity: 0.85 },
   botonTexto: { fontSize: 16, fontWeight: "600", flexShrink: 1, textAlign: "center" },

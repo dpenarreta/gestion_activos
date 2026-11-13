@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import { AppState, Text } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { chatService } from "../src/api/servicios";
-import PestanasLayout from "../src/app/(app)/(tabs)/_layout";
 import {
   ChatProvider,
   INTERVALO_FUERA_DEL_CHAT_MS,
@@ -12,28 +12,15 @@ import {
   useChat,
   useChatVisible,
 } from "../src/chat/ChatContext";
+import { CabeceraDeModulos } from "../src/navegacion/CabeceraDeModulos";
 import { ListaChats } from "../src/pantallas/chat/ListaChats";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 jest.mock("expo-router", () => {
   const React = require("react");
-  const { Text: TextoRN } = require("react-native");
-  function Tabs({ children }) {
-    return children;
-  }
-  Tabs.Screen = function Pantalla({ name, options }) {
-    return React.createElement(
-      TextoRN,
-      { testID: `pestana-${name}` },
-      `${options.title}|${options.tabBarBadge ?? ""}|${options.tabBarAccessibilityLabel ?? ""}${
-        options.tabBarLabel ? `|${options.tabBarLabel}` : ""
-      }`,
-    );
-  };
   return {
     useRouter: () => mockRouter,
     useFocusEffect: (efecto) => React.useEffect(efecto, [efecto]),
-    Tabs,
   };
 });
 
@@ -57,6 +44,8 @@ jest.mock("../src/api/servicios", () => ({
     miEstado: jest.fn(),
   },
 }));
+
+const METRICAS = { frame: { x: 0, y: 0, width: 360, height: 800 }, insets: { top: 24, left: 0, right: 0, bottom: 0 } };
 
 /** Los oyentes de `AppState` que registran el proveedor y las pantallas. */
 let oyentesApp = [];
@@ -340,24 +329,43 @@ describe("pestaña «Chat» (CA-1)", () => {
     expect(await screen.findByText("Canal general")).toBeTruthy();
   });
 
-  it("la pestaña lleva la insignia con el total de no leídos, dicho en palabras", async () => {
+  it("US-016: «Mis grupos» filtra la lista en el teléfono a los grupos y los de área", async () => {
+    chatService.conversaciones.mockResolvedValue([
+      ...CONVERSACIONES,
+      { ...CONVERSACIONES[0], id: 7, tipo: "grupo", nombre: "Equipo TI" },
+      { ...CONVERSACIONES[0], id: 8, tipo: "area", nombre: "Cartera" },
+    ]);
     await render(
       <ChatProvider>
-        <PestanasLayout />
+        <ListaChats soloGrupos />
       </ChatProvider>,
     );
-    await act(async () => {});
-    expect(screen.getByTestId("pestana-chat")).toHaveTextContent("Chat|3|Chat, 3 mensajes sin leer");
+    expect(await screen.findByText("Equipo TI")).toBeTruthy();
+    expect(screen.getByText("Cartera")).toBeTruthy();
+    expect(screen.queryByText("Canal general")).toBeNull();
+    expect(screen.queryByText("Carla Ruiz")).toBeNull();
+    // Sin API nueva: la misma lista de conversaciones.
+    expect(chatService.conversaciones).toHaveBeenCalledTimes(1);
   });
 
-  it("la pestaña de notificaciones se llama «Avisos» y su nombre accesible empieza por lo que se ve (H-01, N-03)", async () => {
+  it("US-016: sin grupos, «Mis grupos» lo dice", async () => {
     await render(
       <ChatProvider>
-        <PestanasLayout />
+        <ListaChats soloGrupos />
       </ChatProvider>,
     );
+    expect(await screen.findByText("No pertenece a ningún grupo.")).toBeTruthy();
+  });
+
+  it("US-016 (CA-7): la pestaña del módulo «Chat» lleva el total de no leídos, dicho en el nombre", async () => {
+    await render(
+      <SafeAreaProvider initialMetrics={METRICAS}>
+        <ChatProvider>
+          <CabeceraDeModulos />
+        </ChatProvider>
+      </SafeAreaProvider>,
+    );
     await act(async () => {});
-    // WCAG 2.5.3: el texto visible, «Avisos», va al principio del nombre.
-    expect(screen.getByTestId("pestana-notificaciones")).toHaveTextContent("Notificaciones||Avisos: notificaciones|Avisos");
+    expect(screen.getByRole("tab", { name: "Chat, 3 sin leer" })).toHaveTextContent("·Chat3");
   });
 });

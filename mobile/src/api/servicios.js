@@ -288,3 +288,166 @@ export const chatService = {
     return api.url(ruta);
   },
 };
+
+/** Subir hasta 3 adjuntos de 10 MB por datos móviles tarda. */
+const ESPERA_CON_ADJUNTOS_MS = 180_000;
+
+/**
+ * Los campos y los adjuntos de un envío de la Mesa de ayuda, en
+ * `multipart/form-data` como la web (`conArchivos` de `soporteService`):
+ * cada archivo va con la clave `adjuntos` (`request.FILES.getlist`).
+ */
+function conAdjuntos(campos, archivos = []) {
+  const datos = new FormData();
+  Object.entries(campos).forEach(([clave, valor]) => {
+    if (valor !== undefined && valor !== null) datos.append(clave, String(valor));
+  });
+  (archivos ?? []).forEach((a) => datos.append("adjuntos", { uri: a.uri, name: a.name, type: a.type }));
+  return datos;
+}
+
+function conAdjuntosYEmpresa(archivos, empresa) {
+  return {
+    ...conEmpresa(empresa),
+    timeoutMs: archivos?.length ? ESPERA_CON_ADJUNTOS_MS : undefined,
+  };
+}
+
+/**
+ * La Mesa de ayuda (US-014, 13/11/2026), con las mismas rutas que
+ * `soporteService` de la web (`backend/apps/soporte/urls.py`). `empresa`: la
+ * de un push, que va como `X-Empresa` solo en esa petición (B3 de la US-009).
+ * Los campos reales están en la sección 4 de la US-014.
+ */
+export const soporteService = {
+  // --- Quien pide ayuda ---
+  /** El formulario del alta propia con «Mi perfil» (`mis_datos`) y
+   * `puede_crear`. `desdeLaMesa`: la ruta de la Mesa (`soporte.mesa_crear`)
+   * en vez de la de «Soporte TI» (`soporte.crear`). */
+  formularioPropio({ desdeLaMesa = false } = {}) {
+    return api.get(`/soporte/${desdeLaMesa ? "mesa/" : ""}solicitar/`);
+  },
+  /** 201 `{id, numero, posicion, estado, fuera_de_horario}`. */
+  crearTicket(campos, archivos = [], { desdeLaMesa = false } = {}) {
+    return api.post(
+      `/soporte/${desdeLaMesa ? "mesa/" : ""}solicitar/`,
+      conAdjuntos(campos, archivos),
+      conAdjuntosYEmpresa(archivos),
+    );
+  },
+  /** Los tickets que pidió la persona (hasta 100), sin permiso especial. */
+  misTickets() {
+    return api.get("/soporte/mis-tickets/");
+  },
+  /** `sondeo`: la consulta que la ficha repite sola (otro límite en el
+   * servidor). */
+  miTicket(id, { sondeo = false, empresa } = {}) {
+    return api.get(`/soporte/mis-tickets/${idSeguro(id)}/`, {
+      ...conEmpresa(empresa),
+      params: sondeo ? { sondeo: 1 } : undefined,
+    });
+  },
+  responderMiTicket(id, texto, archivos = [], { empresa } = {}) {
+    return api.post(
+      `/soporte/mis-tickets/${idSeguro(id)}/`,
+      conAdjuntos({ texto: texto ?? "" }, archivos),
+      conAdjuntosYEmpresa(archivos, empresa),
+    );
+  },
+  confirmarMiTicket(id, { empresa } = {}) {
+    return api.post(`/soporte/mis-tickets/${idSeguro(id)}/`, { confirmar: true }, conEmpresa(empresa));
+  },
+  /** `{calificacion 1-5, resuelto, comentario?}` → 201 con el seguimiento. */
+  encuestaMiTicket(id, datos, { empresa } = {}) {
+    return api.post(`/soporte/mis-tickets/${idSeguro(id)}/encuesta/`, datos, conEmpresa(empresa));
+  },
+
+  // --- Equipo ---
+  /** La cabecera de la bandeja: `{tecnico, cola_total,
+   * categorias_sin_tecnicos, puede}`. 403 si no es del equipo. */
+  bandeja() {
+    return api.get("/soporte/tickets/bandeja/");
+  },
+  /** Paginado: `ambito` (`mios`, `cola`, `todos`), `estado`, `prioridad`,
+   * `vencidos`, `q`, `page`, `page_size`. */
+  tickets(params = {}) {
+    return api.get("/soporte/tickets/", { params });
+  },
+  ticket(id, { sondeo = false, empresa } = {}) {
+    return api.get(`/soporte/tickets/${idSeguro(id)}/`, {
+      ...conEmpresa(empresa),
+      params: sondeo ? { sondeo: 1 } : undefined,
+    });
+  },
+  tomar(id, { empresa } = {}) {
+    return api.post(`/soporte/tickets/${idSeguro(id)}/tomar/`, {}, conEmpresa(empresa));
+  },
+  /** 404 si no hay nada en la cola para quien lo pide. */
+  tomarSiguiente() {
+    return api.post("/soporte/tickets/tomar-siguiente/", {});
+  },
+  cambiarEstado(id, estado, nota = "", { empresa } = {}) {
+    return api.post(`/soporte/tickets/${idSeguro(id)}/cambiar-estado/`, { estado, nota }, conEmpresa(empresa));
+  },
+  /** `{prioridad?, impacto?, urgencia?, justificacion}`. */
+  cambiarPrioridad(id, datos, { empresa } = {}) {
+    return api.post(`/soporte/tickets/${idSeguro(id)}/prioridad/`, datos, conEmpresa(empresa));
+  },
+  /** `[{id, nombre, nivel, abiertos}]` (quien coordina). */
+  tecnicos({ empresa } = {}) {
+    return api.get("/soporte/tickets/tecnicos/", conEmpresa(empresa));
+  },
+  /** El detalle o `{visible: false}` si deja de verlo. */
+  asignar(id, tecnico, nota = "", { empresa } = {}) {
+    return api.post(`/soporte/tickets/${idSeguro(id)}/asignar/`, { tecnico, nota }, conEmpresa(empresa));
+  },
+  /** El detalle o `{visible: false}` si deja de verlo. */
+  escalar(id, motivo, { empresa } = {}) {
+    return api.post(`/soporte/tickets/${idSeguro(id)}/escalar/`, { motivo }, conEmpresa(empresa));
+  },
+  /** Respuesta al usuario o nota interna, en multipart como la web. */
+  responder(id, { texto, interno }, archivos = [], { empresa } = {}) {
+    return api.post(
+      `/soporte/tickets/${idSeguro(id)}/responder/`,
+      conAdjuntos({ texto: texto ?? "", interno: interno ? "true" : "false" }, archivos),
+      conAdjuntosYEmpresa(archivos, empresa),
+    );
+  },
+  /** `[{id, atajo, titulo, texto}]`. */
+  respuestas({ empresa } = {}) {
+    return api.get("/soporte/config/respuestas/", conEmpresa(empresa));
+  },
+  /** `{estados: [[valor, nombre]], prioridades: [[valor, nombre]]}`. */
+  etiquetas() {
+    return api.get("/soporte/etiquetas/");
+  },
+  /** Lo que pide el alta interna, con `canales` y `soy_tecnico`. */
+  formularioInterno() {
+    return api.get("/soporte/tickets/formulario/");
+  },
+  /** Las personas con cuenta de la empresa, con sus datos de contacto
+   * (hasta 20). */
+  personas(texto = "") {
+    const q = texto.trim();
+    return api.get("/soporte/tickets/personas/", q ? { params: { q } } : undefined);
+  },
+  /** 201 con el detalle (o `{visible: false}`). */
+  registrar(campos, archivos = []) {
+    return api.post("/soporte/tickets/registrar/", conAdjuntos(campos, archivos), conAdjuntosYEmpresa(archivos));
+  },
+
+  // --- Aprobaciones ---
+  aprobaciones() {
+    return api.get("/soporte/aprobaciones/");
+  },
+  /** `{numero, estado}`. La nota es obligatoria para no aprobar. */
+  decidirAprobacion(id, aprobar, nota = "") {
+    return api.post(`/soporte/aprobaciones/${idSeguro(id)}/decidir/`, { aprobar, nota });
+  },
+
+  /** La URL de un adjunto (`url` de la API, relativa a `/api/v1`): se
+   * descarga con la sesión, nunca se abre en el navegador. */
+  urlAdjunto(ruta) {
+    return api.url(ruta);
+  },
+};

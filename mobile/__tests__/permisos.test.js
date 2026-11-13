@@ -1138,24 +1138,16 @@ describe("pestaña Permisos (CA-1, CA-3, CA-10 y CA-13)", () => {
     expect(await screen.findByText("por aprobar: 0")).toBeTruthy();
   });
 
-  it("con pendientes ofrece «Por aprobar» con su número, y lista con el solicitante", async () => {
+  it("US-016: ?seccion=por_aprobar (la barra de abajo) lista lo pendiente con el solicitante", async () => {
     licenciasService.resumen.mockResolvedValue({ por_aprobar: 2, puede_solicitar: true });
     licenciasService.solicitudes.mockImplementation(async (vista) =>
       vista === "por_aprobar" ? [detalle({ id: 50, solicitante: { id: 8, nombre: "Pedro Gil" } })] : [],
     );
+    mockParametros.seccion = "por_aprobar";
     await render(conResumen(<Permisos />));
 
-    const pestana = await screen.findByLabelText("Por aprobar, 2 por aprobar");
-    // Los segmentos dicen el título completo aunque se vea el corto (H-02).
-    // Con la letra al 200 % (la de Jest), los segmentos van en columna (N-01).
-    const { StyleSheet } = require("react-native");
-    expect(StyleSheet.flatten(screen.getByTestId("secciones").props.style).flexDirection).toBe("column");
-    // WCAG 2.5.3: el nombre empieza por lo que se ve (N-03).
-    expect(screen.getByRole("tab", { name: "Mías: mis solicitudes" })).toBeTruthy();
-    expect(screen.getByText("Mías")).toBeTruthy();
-    await fireEvent.press(pestana);
-
     expect(await screen.findByText("Pedro Gil")).toBeTruthy();
+    expect(screen.getByTestId("institucional-por_aprobar")).toBeTruthy();
     expect(licenciasService.solicitudes).toHaveBeenLastCalledWith("por_aprobar");
     // En «Por aprobar» el título es quién pide; el tipo, debajo (H-17).
     const textos = within(screen.getByTestId("solicitud-50"))
@@ -1166,32 +1158,34 @@ describe("pestaña Permisos (CA-1, CA-3, CA-10 y CA-13)", () => {
     expect(mockRouter.push).toHaveBeenCalledWith("/permisos/solicitud/50");
   });
 
-  it("con letra normal los segmentos van en una fila; desde 1,15 pasan a columna (N-01)", async () => {
-    const { Dimensions, StyleSheet } = require("react-native");
-    const ventana = Dimensions.get("window");
-    const pantalla = Dimensions.get("screen");
-    const conLetra = (escala) =>
-      act(async () => Dimensions.set({ window: { ...ventana, fontScale: escala }, screen: { ...pantalla, fontScale: escala } }));
-    try {
-      await conLetra(1);
-      await render(conResumen(<Permisos />));
-      const direccion = () => StyleSheet.flatten(screen.getByTestId("secciones").props.style).flexDirection;
-      expect(direccion()).toBe("row");
-      await conLetra(1.15);
-      expect(direccion()).toBe("column");
-    } finally {
-      await act(async () => Dimensions.set({ window: ventana, screen: pantalla }));
-    }
-  });
-
-  it("sin pendientes, «Por aprobar» sigue a la vista, vacía y sin insignia (D-1)", async () => {
+  it("US-016 (CA-3): sin controles segmentados arriba; sin ?seccion= abre «Mis solicitudes»", async () => {
     await render(conResumen(<Permisos />));
     expect(await screen.findByText("No tiene solicitudes.")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Por aprobar" })).toBeTruthy();
-    expect(screen.getByTestId("seccion-vacaciones")).toBeTruthy();
+    expect(screen.getByTestId("institucional-mias")).toBeTruthy();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByTestId("secciones")).toBeNull();
+  });
 
-    await fireEvent.press(screen.getByTestId("seccion-por_aprobar"));
+  it("una sección que no existe en ?seccion= vuelve a «Mis solicitudes»", async () => {
+    mockParametros.seccion = "otra";
+    await render(conResumen(<Permisos />));
+    expect(await screen.findByText("No tiene solicitudes.")).toBeTruthy();
+    expect(licenciasService.solicitudes).toHaveBeenLastCalledWith("mias");
+  });
+
+  it("«Por aprobar» vacía lo dice", async () => {
+    mockParametros.seccion = "por_aprobar";
+    await render(conResumen(<Permisos />));
     expect(await screen.findByText("No tiene solicitudes por aprobar.")).toBeTruthy();
+  });
+
+  it("al cambiar ?seccion= cambia la lista sin apilar pantallas", async () => {
+    const { rerender } = await render(conResumen(<Permisos />));
+    await screen.findByText("No tiene solicitudes.");
+    mockParametros.seccion = "por_aprobar";
+    await rerender(conResumen(<Permisos />));
+    expect(await screen.findByText("No tiene solicitudes por aprobar.")).toBeTruthy();
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it("«Actualizar» vuelve a pedir la lista, como deslizar hacia abajo", async () => {

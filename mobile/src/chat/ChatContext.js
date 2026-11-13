@@ -40,6 +40,9 @@ export const INTERVALO_MS = 4000;
 export const INTERVALO_FUERA_DEL_CHAT_MS = 30000;
 
 const ChatContext = createContext(null);
+/** Solo el total sin leer (US-016, QA-TECH): la navegación lo lee sin
+ * volver a pintarse con cada cambio de la lista de conversaciones. */
+const TotalNoLeidosContext = createContext(0);
 
 function enPrimerPlano(estado) {
   return estado !== "background" && estado !== "inactive";
@@ -280,7 +283,11 @@ export function ChatProvider({ children }) {
     ],
   );
 
-  return <ChatContext.Provider value={valor}>{children}</ChatContext.Provider>;
+  return (
+    <ChatContext.Provider value={valor}>
+      <TotalNoLeidosContext.Provider value={totalNoLeidos}>{children}</TotalNoLeidosContext.Provider>
+    </ChatContext.Provider>
+  );
 }
 
 const SIN_CHAT = {
@@ -298,6 +305,11 @@ const SIN_CHAT = {
 
 export function useChat() {
   return useContext(ChatContext) ?? SIN_CHAT;
+}
+
+/** El total de mensajes sin leer, sin el resto del chat. */
+export function useTotalNoLeidos() {
+  return useContext(TotalNoLeidosContext);
 }
 
 /** La pantalla que lo usa cuenta como «viendo el chat» mientras tiene el
