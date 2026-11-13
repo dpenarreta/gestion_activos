@@ -3,7 +3,7 @@
 Documento de referencia para el Tech Lead (`/equipo`) y todos los subagentes. Lo que se define aquí prevalece sobre las reglas genéricas de `~/.claude/agents/*.md`. Mantenerlo actualizado es responsabilidad del Tech Lead.
 
 ## 1. Arquitectura
-- Monolito Django + DRF (`backend/`) que expone `/api/v1/…`, y SPA React + Vite (`frontend/`) que solo habla con la API. La interfaz nunca accede a la base.
+- Monolito Django + DRF (`backend/`) que expone `/api/v1/…`, SPA React + Vite (`frontend/`) y app móvil «Intranet LCE» (`mobile/`, React Native + Expo, desde el 12/11/2026). Ambas interfaces solo hablan con la misma API y comparten los datos; ninguna accede a la base.
 - SQL Server (local en Docker, puerto 14331; producción en SER-WEBAI detrás de IIS, por HTTPS).
 - Multiempresa: los modelos por empresa heredan de `ModeloDeEmpresa` y se filtran con `apps.empresas.contexto` (`empresa_actual`, `usando_empresa`). Ver `docs/multiempresa.md`.
 - Permisos: catálogo en `backend/apps/permissions/catalog.py`, comprobados con `Requiere("modulo.accion")` en la API y con `RequirePermission` / `staticAdminMenu.js` en la interfaz. Un permiso nuevo lleva migración en `permissions` y, si se reparte a roles, en `roles`. Ver `docs/roles-and-permissions.md`.
@@ -17,9 +17,10 @@ Documento de referencia para el Tech Lead (`/equipo`) y todos los subagentes. Lo
 | DEV-3 Datos e Integraciones | `dev-database` | `backend/apps/*/models.py`, `backend/apps/*/migrations/` | |
 | DEV-2 Backend | `dev-backend` | `backend/apps/**` (servicios, vistas, serializers, tests) salvo modelos/migraciones | |
 | DEV-4 Web | `dev-web` | `frontend/src/**`, `frontend/tests/**` | |
-| DEV-1 Mobile | `dev-mobile` | No aplica | No hay app móvil |
+| DEV-1 Mobile | `dev-mobile` | `mobile/**` | App «Intranet LCE»: replica solo algunos módulos (mapa `MODULOS_EN_APP`); lo demás se abre en el navegador |
 | QA-FUNC / QA-TECH | `qa-functional` / `qa-technical` | Solo lectura | |
 | QA-UX | `auditor-ux-ui` (`.claude/agents/`) | Solo lectura | Navegador en `http://localhost:5174` |
+| QA-UX móvil | `auditor-ux-ui-movil` (`.claude/agents/`) | Solo lectura | App «Intranet LCE» (`mobile/`): 8 pilares, marca LAARCOURIER y P1/P2/P3. Se usa en las historias de la app en lugar de `ux-ui-auditor` |
 
 ## 3. Stack fijo por capa (no mezclar alternativas)
 | Capa | Tecnología y versión |
@@ -27,7 +28,8 @@ Documento de referencia para el Tech Lead (`/equipo`) y todos los subagentes. Lo
 | Backend | Python 3.12, Django 5.2, Django REST Framework 3.17, SimpleJWT |
 | Base de datos | SQL Server (mssql-django 1.8, ODBC Driver 17) |
 | Frontend | React 18, Vite 6, Bootstrap 5.3 / react-bootstrap, clases propias `mz-*` |
-| Pruebas | pytest (backend), Vitest + Testing Library (frontend) |
+| Móvil | React Native + Expo (SDK estable), Expo Router, JavaScript, `expo-secure-store`, `expo-notifications`, EAS Build (Android e iOS, tiendas) |
+| Pruebas | pytest (backend), Vitest + Testing Library (frontend), jest-expo + @testing-library/react-native (móvil) |
 
 ## 4. Convenciones y contrato entre capas
 - Textos, nombres de dominio y comentarios en español, con tildes. Tratamiento de «usted» en la interfaz.
@@ -43,6 +45,8 @@ Documento de referencia para el Tech Lead (`/equipo`) y todos los subagentes. Lo
 | Backend | `cd backend && .venv/Scripts/python.exe manage.py makemigrations --check --dry-run` | Que no falten migraciones |
 | Frontend | `cd frontend && npx vitest run` | Suite completa (~3 min) |
 | Frontend | `cd frontend && npx eslint <archivos>` | Lint de lo tocado |
+| Móvil | `cd mobile && npx jest` | Pruebas de la app |
+| Móvil | `cd mobile && npx expo export --platform android` | Que el bundle compila |
 
 ## 6. Reglas específicas por rol
 ### DEV-3
@@ -52,8 +56,12 @@ Documento de referencia para el Tech Lead (`/equipo`) y todos los subagentes. Lo
 - El `runserver` local corre con `--noreload` en el puerto 8010: hay que reiniciarlo tras cambiar Python.
 ### DEV-4
 - Accesibilidad WCAG 2.1 AA; áreas táctiles de 44 px con `pointer: coarse`; obligatorio marcado con `mz-campo__obligatorio` + texto oculto «(obligatorio)».
+### DEV-1
+- Marca LAARCOURIER (Brand Book 2026, decisión del usuario, 12/11/2026): amarillo #FCE200, negro #000000, gris #E1E1E1; fuente Poppins (auxiliar oficial de Mazzard); logotipo LAARCOURIER sin alterar (`frontend/src/assets/marca/`); ícono de la app «LCE». Igual que la web (`branding/0004_marca_laarcourier`). El amarillo nunca va como texto sobre fondo claro.
+- Tokens solo en `expo-secure-store`. El push nunca lleva datos personales (solo el nombre del módulo y los IDs). La sesión se comporta igual que en la web. Nada de secretos en `mobile/`. Áreas táctiles de 44 pt o más y etiquetas de accesibilidad.
 ### DEV-5
 - Todo cambio probado se despliega a producción; las migraciones se aplican con `ga_migraciones`.
 
 ## 7. Estado actual / Estado de implementación
 - Andamiaje del equipo creado el 11/11/2026 con US-001.
+- App móvil iniciada el 12/11/2026 con US-009 (Fase 1); siguen US-010 y US-011.
