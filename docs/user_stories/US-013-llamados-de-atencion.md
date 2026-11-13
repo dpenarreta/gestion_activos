@@ -187,8 +187,7 @@
   - `pytest` de llamados, organizacion, roles, permissions, privacidad y empresas con `-n 4`: 1915 passed, 9 skipped y 1 failed. El fallo es de `notificaciones.DispositivoPush`, un modelo sin commit de la sesión de la app móvil ajeno a US-013. Los modelos de `llamados` pasan la prueba de aislamiento por empresa.
   - DEV-4 corrió vitest completo (3275 passed), eslint y prettier sobre lo tocado y `vite build`, todo correcto.
 - **Pendientes:**
-  - Exportación LOPDP del titular: falta la sección `llamados_de_atencion` en `privacidad/mis_datos.py` y quitar `llamados` de `PENDIENTES_DE_REVISAR`. El archivo está en edición por la sesión de la app móvil.
-  - Campana: falta la entrada `"llamados"` en `notificaciones/modulos.py`, también de esa sesión. Hasta entonces, los avisos salen como «Sistema».
+  - ~~Exportación LOPDP y nombre del módulo en la campana~~: integrados el 13/11/2026, después del commit de la sesión de la app móvil. La sección `llamados_de_atencion` está en `privacidad/mis_datos.py`, `PENDIENTES_DE_REVISAR` quedó vacío y `"llamados"` está en `notificaciones/modulos.py`. Pruebas en `apps/llamados/tests/test_mis_datos_llamados.py`.
   - La causa inicial solo existe en las empresas actuales.
   - Los permisos de Gestión Humana están fuera de `REGLAS`: un cargo nuevo de Gestión Humana no los recibe solo.
   - Los topes legales de las multas los debe validar Gestión Humana (Código del Trabajo); el sistema no los aplica.

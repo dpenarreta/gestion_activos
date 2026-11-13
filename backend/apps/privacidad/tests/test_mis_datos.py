@@ -330,12 +330,9 @@ def test_la_solicitud_de_otra_empresa_no_existe_para_quien_atiende(begona):
 
 #: Apps con datos personales cuya sección de «mis datos» está pendiente, cada
 #: una con su motivo. Pasa la prueba esté o no ya en `APPS_REVISADAS`: al
-#: integrarla allí, se borra de aquí.
-#:
-#: - `llamados` (US-013, 12/11/2026): los llamados de atención de la persona.
-#:   `privacidad/mis_datos.py` está en edición por otra sesión (app móvil) y
-#:   la historia deja su sección como pendiente para cuando se integre.
-PENDIENTES_DE_REVISAR = {"llamados"}
+#: integrarla allí, se borra de aquí. Hoy no queda ninguna (los llamados de
+#: atención se integraron el 13/11/2026).
+PENDIENTES_DE_REVISAR: set[str] = set()
 
 
 def test_todas_las_apps_estan_revisadas():

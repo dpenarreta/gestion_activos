@@ -898,6 +898,32 @@ def _solicitudes_de_procesos(ctx: Contexto) -> list[dict]:
     return _solicitudes_de_la_categoria(ctx, "proceso", "tipo_de_proceso")
 
 
+def _llamados_de_atencion(ctx: Contexto) -> list[dict]:
+    """Los llamados de atención emitidos a la persona y los anulados (US-013):
+    lo mismo que ve en «Mi perfil». Sin quién lo solicitó ni lo emitió, sin el
+    correo y sin la evidencia, que pueden traer datos de otras personas."""
+    from apps.llamados.models import LlamadoAtencion
+
+    return _filas(
+        LlamadoAtencion.objects.filter(
+            persona=ctx.titular,
+            estado__in=[LlamadoAtencion.Estado.EMITIDO, LlamadoAtencion.Estado.ANULADO],
+        ).order_by("fecha_hecho", "id"),
+        [
+            ("numero", "numero"),
+            ("fecha_del_hecho", "fecha_hecho"),
+            ("causa", "causa_nombre"),
+            ("nivel", "nivel_nombre"),
+            ("tipo_de_nivel", "nivel_tipo"),
+            ("descripcion", "descripcion"),
+            ("monto", "monto"),
+            ("estado", "estado"),
+            ("emitido_el", "emitido_en"),
+            ("anulado_el", "anulado_en"),
+        ],
+    )
+
+
 def _sugerencias(ctx: Contexto) -> list[dict]:
     from apps.sugerencias.models import ComentarioReporte, Reporte
 
@@ -1322,6 +1348,12 @@ SECCIONES: tuple[Seccion, ...] = (
         _solicitudes_de_procesos,
     ),
     Seccion(
+        "llamados_de_atencion",
+        "Llamados de atención",
+        "Los emitidos a su nombre y los anulados, sin quién los solicitó.",
+        _llamados_de_atencion,
+    ),
+    Seccion(
         "sugerencias", "Sugerencias y errores", "Lo que reportó y sus comentarios.", _sugerencias
     ),
     Seccion("equipos", "Equipos", "Los equipos a su cargo y los que pidió.", _equipos),
@@ -1471,6 +1503,10 @@ APPS_REVISADAS: dict[str, str] = {
     "escritorio": "Secciones: escritorio (solo el titular).",
     "informes": "Informes ejecutivos de equipos: datos de terceros (ver EXCLUIDO).",
     "licencias": "Secciones: solicitudes_de_permiso.",
+    "llamados": (
+        "Secciones: llamados_de_atencion (los emitidos y anulados de la persona, sin quién los "
+        "solicitó)."
+    ),
     "mantenimientos": "Bitácora de equipos: datos de la operación (ver EXCLUIDO).",
     "matriz": "Secciones: matriz.",
     "mejora_continua": "Secciones: mejora_continua.",

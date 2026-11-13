@@ -24,6 +24,8 @@ MODULOS = {
     "proyectos": ("Proyectos", "kanban"),
     # Los de la Solicitud de procesos de Institucional (US-008, 12/11/2026).
     "procesos": ("Solicitud de procesos", "clipboard-check"),
+    # Los llamados de atención (US-013, 12/11/2026).
+    "llamados": ("Gestión Humana · Llamados de atención", "exclamation-octagon"),
     "kpi": ("Gestión Humana · KPI", "speedometer2"),
     "mejora_continua": ("Gestión Humana · Mejora continua", "lightbulb"),
     "reuniones": ("Gestión Humana · Reuniones", "camera-video"),
