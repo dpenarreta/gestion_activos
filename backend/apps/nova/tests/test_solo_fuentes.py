@@ -1,7 +1,9 @@
 """«Responder solo con las fuentes» (ajuste por empresa, 09/11/2026): sin
 fragmentos el modo General no llama a la IA ni cuenta para el límite; con
 fragmentos la instrucción del sistema exige responder solo con ellos; los
-modos Mis tareas y Mi equipo no se cortan. Proveedor siempre falso."""
+modos Mis tareas y Mi equipo no se cortan. Desde el 13/11/2026 viene
+desactivado (dos fuentes: `test_dos_fuentes.py`), así que estas pruebas lo
+activan. Proveedor siempre falso."""
 
 from datetime import UTC, datetime
 
@@ -47,11 +49,12 @@ VACACIONES = "Las vacaciones anuales son de quince días hábiles."
 # ── Modo General ────────────────────────────────────────────────────────────
 
 
-def test_esta_activado_por_defecto():
-    assert ajustes.solo_fuentes() is True
+def test_esta_desactivado_por_defecto():
+    assert ajustes.solo_fuentes() is False
 
 
-def test_sin_fragmentos_no_llama_ni_cuenta_para_el_limite(ana, peticiones, settings):
+def test_sin_fragmentos_no_llama_ni_cuenta_para_el_limite(ana, admin_gh, peticiones, settings):
+    ajustes.cambiar_solo_fuentes(True, admin_gh)
     settings.NOVA_LIMITE_DIARIO_POR_USUARIO = 1
     _documento("Reglamento interno", VACACIONES)
     for pregunta in ("¿Cuál es la capital de Francia?", "Hola"):
@@ -76,7 +79,10 @@ def test_sin_fragmentos_no_llama_ni_cuenta_para_el_limite(ana, peticiones, setti
     assert len(peticiones) == 1
 
 
-def test_con_fragmentos_la_instruccion_exige_solo_fuentes(ana, peticiones, proveedor_falso):
+def test_con_fragmentos_la_instruccion_exige_solo_fuentes(
+    ana, admin_gh, peticiones, proveedor_falso
+):
+    ajustes.cambiar_solo_fuentes(True, admin_gh)
     documento = _documento("Reglamento interno", VACACIONES)
     proveedor_falso.respuesta = "Son quince días hábiles [Reglamento interno, pág. 1]."
     respuesta = _pedir(ana, modo="general", mensaje="¿Cuántos días de vacaciones tengo?")
@@ -97,23 +103,22 @@ def test_con_fragmentos_la_instruccion_exige_solo_fuentes(ana, peticiones, prove
     assert peticion.temperatura == chat.TEMPERATURA_CON_FUENTES
 
 
-def test_ajuste_desactivado_vuelve_al_comportamiento_anterior(ana, admin_gh, peticiones):
-    ajustes.cambiar_solo_fuentes(False, admin_gh)
+def test_ajuste_desactivado_usa_las_dos_fuentes(ana, peticiones):
     respuesta = _pedir(ana, modo="general", mensaje="¿Cuál es la capital de Francia?")
     assert respuesta.json()["con_ia"] is True
     (peticion,) = peticiones
-    assert "REGLA DE FUENTES" not in peticion.sistema
-    assert "PRIORIDAD DE FUENTES" in peticion.sistema
-    assert "buenas prácticas" in peticion.sistema
-    # Aun así, cita siempre lo que saca de los documentos.
-    assert "cita siempre el documento y la página entre corchetes" in peticion.sistema
+    assert "PROHIBIDO completar" not in peticion.sistema
+    assert "responde ÚNICAMENTE con ellos" in peticion.sistema
+    assert chat.MARCA_GENERAL in peticion.sistema
+    assert "[Título del documento, pág. N]" in peticion.sistema
     assert peticion.temperatura == chat.TEMPERATURA_LIBRE
 
 
 # ── Mis tareas y Mi equipo ──────────────────────────────────────────────────
 
 
-def test_mis_tareas_no_se_bloquea_por_falta_de_fragmentos(ana, peticiones):
+def test_mis_tareas_no_se_bloquea_por_falta_de_fragmentos(ana, admin_gh, peticiones):
+    ajustes.cambiar_solo_fuentes(True, admin_gh)
     respuesta = _pedir(ana, modo="tareas", mensaje="¿Qué priorizo esta semana?")
     assert respuesta.json()["con_ia"] is True
     (peticion,) = peticiones
@@ -123,7 +128,10 @@ def test_mis_tareas_no_se_bloquea_por_falta_de_fragmentos(ana, peticiones):
     assert peticion.temperatura == chat.TEMPERATURA_CON_FUENTES
 
 
-def test_mi_equipo_no_se_bloquea_por_falta_de_fragmentos(coordinadora, equipo, peticiones):
+def test_mi_equipo_no_se_bloquea_por_falta_de_fragmentos(
+    coordinadora, equipo, admin_gh, peticiones
+):
+    ajustes.cambiar_solo_fuentes(True, admin_gh)
     respuesta = _pedir(coordinadora, modo="equipo", mensaje="Resumen del equipo")
     assert respuesta.json()["con_ia"] is True
     (peticion,) = peticiones
@@ -143,25 +151,25 @@ def test_citada_reconoce_el_formato():
 
 def test_solo_quien_gestiona_cambia_el_ajuste(ana, admin_gh):
     # Quien solo ve la base lo ve, pero no lo cambia.
-    assert client_for(ana).get(URL_AJUSTES).json() == {"solo_fuentes": True, "gestionar": False}
-    respuesta = client_for(ana).put(URL_AJUSTES, {"solo_fuentes": False}, format="json")
+    assert client_for(ana).get(URL_AJUSTES).json() == {"solo_fuentes": False, "gestionar": False}
+    respuesta = client_for(ana).put(URL_AJUSTES, {"solo_fuentes": True}, format="json")
     assert respuesta.status_code == 403
-    assert ajustes.solo_fuentes() is True
+    assert ajustes.solo_fuentes() is False
     assert not AuditLog.objects.filter(action="nova.configuracion.cambiada").exists()
 
-    respuesta = client_for(admin_gh).put(URL_AJUSTES, {"solo_fuentes": False}, format="json")
+    respuesta = client_for(admin_gh).put(URL_AJUSTES, {"solo_fuentes": True}, format="json")
     assert respuesta.status_code == 200, respuesta.content
-    assert respuesta.json()["solo_fuentes"] is False
-    assert ajustes.solo_fuentes() is False
+    assert respuesta.json()["solo_fuentes"] is True
+    assert ajustes.solo_fuentes() is True
     evento = AuditLog.objects.get(action="nova.configuracion.cambiada")
-    assert evento.previous_values == {"solo_fuentes": True}
-    assert evento.new_values == {"solo_fuentes": False}
+    assert evento.previous_values == {"solo_fuentes": False}
+    assert evento.new_values == {"solo_fuentes": True}
     assert evento.module == "nova"
     # /me/ y la lista de documentos lo reflejan.
     me = client_for(ana).get("/api/v1/nova/me/").json()
-    assert me["solo_fuentes"] is False and me["hay_documentos"] is False
+    assert me["solo_fuentes"] is True and me["hay_documentos"] is False
     lista = client_for(ana).get("/api/v1/nova/conocimiento/documentos/").json()
-    assert lista["solo_fuentes"] is False
+    assert lista["solo_fuentes"] is True
 
 
 def test_el_ajuste_valida_el_valor(admin_gh):
@@ -179,4 +187,4 @@ def test_me_dice_si_hay_documentos(ana):
     assert client_for(ana).get("/api/v1/nova/me/").json()["hay_documentos"] is False
     _documento("Reglamento interno", VACACIONES)
     me = client_for(ana).get("/api/v1/nova/me/").json()
-    assert me["hay_documentos"] is True and me["solo_fuentes"] is True
+    assert me["hay_documentos"] is True and me["solo_fuentes"] is False

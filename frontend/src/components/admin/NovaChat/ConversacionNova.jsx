@@ -136,6 +136,12 @@ function Mensaje({ mensaje, onAbrirFuente, abriendoFuente }) {
       </span>
       <span className="visually-hidden">Nova: </span>
       <p className="nova-mensaje__texto">{mensaje.texto}</p>
+      {mensaje.avisoOrigen && (
+        <p className="nova-mensaje__origen">
+          <Icon name="exclamation-triangle" />
+          <span>{mensaje.avisoOrigen}</span>
+        </p>
+      )}
       {mensaje.fuentes?.length > 0 && (
         <Fuentes
           fuentes={mensaje.fuentes}

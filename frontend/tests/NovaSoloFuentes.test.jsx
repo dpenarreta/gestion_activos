@@ -107,8 +107,54 @@ describe("chat con «solo fuentes»", () => {
     servicio.me.mockResolvedValue({ ...ESTADO, solo_fuentes: false });
     conChat(<ConversacionNova />);
     expect(
-      await screen.findByText(/preguntas generales y sobre los documentos/i),
+      await screen.findByText(/primero busca en los documentos/i),
     ).toBeInTheDocument();
+  });
+
+  it("una respuesta general (dos fuentes) lleva el aviso visible", async () => {
+    servicio.me.mockResolvedValue({ ...ESTADO, solo_fuentes: false });
+    const AVISO =
+      "Esta respuesta no está en los documentos de la empresa: es información general de la IA. Confírmela con Gestión Humana antes de aplicarla.";
+    servicio.chat.mockResolvedValueOnce({
+      con_ia: true,
+      respuesta: "París es la capital de Francia.",
+      fuentes: [],
+      origen: "general",
+      aviso_origen: AVISO,
+    });
+    conChat(<ConversacionNova />);
+    await preguntar("¿Cuál es la capital de Francia?");
+    const registro = screen.getByRole("log");
+    const respuesta = await within(registro).findByText(
+      "París es la capital de Francia.",
+    );
+    const mensaje = respuesta.closest("li");
+    expect(mensaje).toHaveClass("nova-mensaje--modelo");
+    expect(within(mensaje).getByText(AVISO).closest("p")).toHaveClass(
+      "nova-mensaje__origen",
+    );
+  });
+
+  it("una respuesta de los documentos no lleva el aviso", async () => {
+    servicio.me.mockResolvedValue({ ...ESTADO, solo_fuentes: false });
+    servicio.chat.mockResolvedValueOnce({
+      con_ia: true,
+      respuesta: "Son quince días [Reglamento interno, pág. 3].",
+      fuentes: [
+        {
+          documento_id: 7,
+          titulo: "Reglamento interno",
+          pagina: 3,
+          citada: true,
+        },
+      ],
+      origen: "documentos",
+      aviso_origen: null,
+    });
+    const { container } = conChat(<ConversacionNova />);
+    await preguntar("¿Cuántos días de vacaciones tengo?");
+    expect(await screen.findByText("Fuentes citadas:")).toBeInTheDocument();
+    expect(container.querySelector(".nova-mensaje__origen")).toBeNull();
   });
 
   it("«sin_fuentes» es un aviso informativo, no un error", async () => {

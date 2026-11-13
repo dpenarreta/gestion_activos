@@ -4,8 +4,10 @@ Viven en `novedades.SettingHistory`, la tabla de ajustes con vigencia de
 Gestión Humana (por empresa, con quién y cuándo los cambió): no hace falta un
 modelo propio.
 
-- `nova_solo_fuentes` («Responder solo con las fuentes»), activado por
-  defecto: Nova responde solo con los documentos de la base de conocimiento
+- `nova_solo_fuentes` («Responder solo con las fuentes»), **desactivado
+  por defecto desde el 13/11/2026** (decisión del usuario: Nova tiene dos
+  fuentes, los documentos y, si no responden, el conocimiento general de la
+  IA con un aviso visible; ver `chat.py`). Activado, Nova responde solo con los documentos de la base de conocimiento
   y, en los modos Mis tareas y Mi equipo, con los datos que se le entregan;
   nunca con conocimiento general. En el modo General, si la búsqueda no
   encuentra fragmentos, ni siquiera se llama a la IA (`chat.conversar`). Lo
@@ -16,8 +18,8 @@ modelo propio.
 from apps.novedades.configuracion import current_record, set_config_value
 
 CLAVE_SOLO_FUENTES = "nova_solo_fuentes"
-#: Activado mientras nadie lo cambie.
-SOLO_FUENTES_POR_DEFECTO = True
+#: Desactivado mientras nadie lo cambie (dos fuentes, 13/11/2026).
+SOLO_FUENTES_POR_DEFECTO = False
 
 
 def solo_fuentes() -> bool:

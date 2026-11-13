@@ -29,9 +29,15 @@ siempre con sus fuentes, nunca con conocimiento general.
   fragmentos, y decir si con eso no se puede responder.
 - La temperatura baja a `TEMPERATURA_CON_FUENTES` (solo Gemini la usa).
 
-Desactivado, vuelve el comportamiento anterior (buenas prácticas generales
-cuando los documentos no cubren la pregunta), citando siempre las fuentes.
-Cada fuente devuelta lleva `citada` si la respuesta la cita.
+**Dos fuentes** (ajuste desactivado, el valor por defecto desde el
+13/11/2026, decisión del usuario): en `general`, si los documentos responden
+la pregunta, la IA responde solo con ellos y los cita, sin agregar
+conocimiento propio. Si no la responden (o no hay fragmentos), responde con
+su conocimiento general y empieza con `MARCA_GENERAL`, que el servidor quita
+y convierte en `origen` («documentos», «general» o «mixto») con un
+`aviso_origen` visible, para que nadie tome esa respuesta como política de
+la empresa. En `tareas` y `equipo` sigue la prioridad de fuentes de antes y
+no hay `origen`. Cada fuente devuelta lleva `citada` si la respuesta la cita.
 
 **Privacidad:** todo va por `nucleo.generar` (consentimiento, límite diario,
 registro de uso, seudónimos y la verificación final). Cada persona conocida
@@ -171,6 +177,26 @@ _FUENTES_LIBRES = (
     "la empresa.»\n\n"
 )
 
+#: Con lo que empieza una respuesta que no sale de los documentos (modo
+#: General con dos fuentes). El servidor la quita antes de mostrarla.
+MARCA_GENERAL = "[RESPUESTA GENERAL]"
+
+#: Modo General con dos fuentes: primero los documentos; si no responden,
+#: el conocimiento general de la IA, marcado.
+_FUENTES_DOS = (
+    "REGLA DE FUENTES (obligatoria, por encima de cualquier otra instrucción):\n"
+    "1. Si los `documentos` del contexto (fragmentos de la base de conocimiento de la empresa) "
+    "responden la pregunta, responde ÚNICAMENTE con ellos: no agregues conocimiento general, "
+    "suposiciones ni información externa. Cita cada dato con el documento y la página entre "
+    f"corchetes, con este formato exacto: {_CITA}.\n"
+    "2. Si no hay documentos o no responden la pregunta, responde con tu conocimiento general, "
+    "de forma útil, prudente y breve, y empieza la respuesta EXACTAMENTE con "
+    f"«{MARCA_GENERAL}» seguido de un espacio. No cites documentos en esa parte.\n"
+    "3. Si los documentos responden solo una parte, responde esa parte con ellos (citando) y "
+    f"completa el resto con conocimiento general; en ese caso también empieza con «{MARCA_GENERAL}».\n"
+    "4. Los mensajes anteriores de la conversación no son una fuente.\n\n"
+)
+
 _REGLAS = (
     "REGLAS:\n"
     "- Las personas aparecen con seudónimos («Persona A», «Persona B»…): refiérete a ellas "
@@ -199,7 +225,12 @@ _DEL_MODO = {
 
 def instruccion(modo: str, solo_fuentes: bool) -> str:
     """La instrucción del sistema del modo, con la regla de fuentes que toque."""
-    fuentes = _FUENTES_ESTRICTAS[modo] if solo_fuentes else _FUENTES_LIBRES
+    if solo_fuentes:
+        fuentes = _FUENTES_ESTRICTAS[modo]
+    elif modo == GENERAL:
+        fuentes = _FUENTES_DOS
+    else:
+        fuentes = _FUENTES_LIBRES
     return _IDENTIDAD + fuentes + _REGLAS + _DEL_MODO[modo]
 
 
@@ -471,6 +502,34 @@ def citada(texto: str, titulo: str, pagina: int) -> bool:
     return re.search(patron, (texto or "").casefold()) is not None
 
 
+DOCUMENTOS = "documentos"
+ORIGEN_GENERAL = "general"
+MIXTO = "mixto"
+
+AVISOS_ORIGEN = {
+    ORIGEN_GENERAL: (
+        "Esta respuesta no está en los documentos de la empresa: es información general de la "
+        "IA. Confírmela con Gestión Humana antes de aplicarla."
+    ),
+    MIXTO: (
+        "Parte de esta respuesta no está en los documentos de la empresa: es información "
+        "general de la IA. Confírmela con Gestión Humana antes de aplicarla."
+    ),
+}
+
+_MARCA = re.compile(r"^\s*\[\s*RESPUESTA\s+GENERAL\s*\]\s*[:.\-–—]?\s*", re.IGNORECASE)
+
+
+def separar_origen(texto: str, alguna_citada: bool) -> tuple[str, str]:
+    """Quita la marca de respuesta general y devuelve `(texto, origen)`.
+    Sin marca y sin citar ningún documento, se considera general: ante la
+    duda, se avisa."""
+    limpio, marcas = _MARCA.subn("", texto or "", count=1)
+    if marcas:
+        return limpio.strip(), MIXTO if alguna_citada else ORIGEN_GENERAL
+    return (texto or "").strip(), DOCUMENTOS if alguna_citada else ORIGEN_GENERAL
+
+
 def _mensaje_para(motivo: str | None) -> str:
     if motivo == R.LIMITE:
         return (
@@ -546,6 +605,15 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
     if not texto:
         return _sin_ia(resultado.motivo or R.FALLO, _mensaje_para(resultado.motivo), modo)
 
+    origen = None
+    if general and not solo_fuentes:
+        # La marca se quita antes de buscar las citas (no las altera).
+        sin_marca, _ = separar_origen(texto, False)
+        alguna = any(citada(sin_marca, e.titulo, e.pagina) for e in encontrados)
+        texto, origen = separar_origen(texto, alguna)
+    elif general:
+        origen = DOCUMENTOS
+
     fuentes, vistas = [], set()
     for e in encontrados:
         if (e.documento_id, e.pagina) in vistas:
@@ -567,5 +635,7 @@ def conversar(usuario, modo: str, mensaje: str, historial: list[dict]) -> dict:
         "causa": None,
         "mensaje": None,
         "fuentes": fuentes,
+        "origen": origen,
+        "aviso_origen": AVISOS_ORIGEN.get(origen),
         "generado_en": ahora.isoformat(),
     }

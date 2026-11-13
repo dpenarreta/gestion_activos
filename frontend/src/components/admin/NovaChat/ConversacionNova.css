@@ -215,6 +215,27 @@
   color: var(--mz-warn-fg);
 }
 
+/* Respuesta que no sale de los documentos (modo General, dos fuentes). */
+.nova-mensaje__origen {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border: 1px solid var(--mz-warn-line);
+  border-radius: 6px;
+  background: var(--mz-warn-bg);
+  color: var(--mz-warn-fg);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nova-mensaje__origen .bi,
+.nova-mensaje__origen svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 .nova-mensaje__autor {
   display: inline-flex;
   align-items: center;

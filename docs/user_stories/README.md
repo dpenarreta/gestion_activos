@@ -18,3 +18,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-012](US-012-cancelar-vacaciones-aprobadas.md) | Cancelar vacaciones aprobadas desde «Mis vacaciones» | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
 | [US-013](US-013-llamados-de-atencion.md) | Llamados de atención en Gestión Humana | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-12 |
 | [US-015](US-015-cambiar-y-restablecer-contrasena-por-administracion.md) | Cambiar la contraseña de una cuenta o restablecerla a la temporal, por permiso | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-13 |
+| [US-017](US-017-nova-dos-fuentes.md) | Nova con dos fuentes: los documentos y, si no responden, Claude | Historia de Usuario | COMPLETADA | 2026-11-13 |

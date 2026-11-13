@@ -46,7 +46,7 @@ export const MODOS = [
     clavePrivacidad: CLAVES_TEXTO.NOVA_GENERAL,
     nombre: "General",
     descripcion:
-      "Preguntas generales y sobre los documentos de la base de conocimiento.",
+      "Primero busca en los documentos de la base de conocimiento; si no está ahí, responde con información general y se lo avisa.",
     privacidad:
       "Puede preguntar por políticas sobre licencias o permisos médicos, pero no escriba datos de salud suyos ni de otras personas.",
   },
@@ -234,6 +234,10 @@ export function NovaChatProvider({ children }) {
             rol: "modelo",
             texto: datos.respuesta,
             fuentes: datos.fuentes ?? [],
+            // Modo General con dos fuentes: «general» o «mixto» llevan un
+            // aviso visible (no es política de la empresa).
+            origen: datos.origen ?? null,
+            avisoOrigen: datos.aviso_origen ?? null,
           });
         } else if (datos.motivo === "sin_fuentes") {
           // No es un error: la pregunta se recibió, pero no está en los
