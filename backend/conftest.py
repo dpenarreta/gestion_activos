@@ -39,6 +39,13 @@ def _sin_proveedor_de_ia():
 
 
 @pytest.fixture(autouse=True)
+def _sin_push(settings):
+    """Las pruebas nunca mandan un push real a Expo (US-009). Las del push lo
+    encienden ellas mismas y parchean `requests.post`."""
+    settings.PUSH_HABILITADO = False
+
+
+@pytest.fixture(autouse=True)
 def _multiempresa(settings):
     """Las pruebas siguen cubriendo la separación por empresa, que sigue por
     dentro aunque el sistema trabaje con una sola (ver apps.empresas.una_sola,

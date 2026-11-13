@@ -1027,6 +1027,23 @@ def _notificaciones(ctx: Contexto) -> list[dict]:
     return list(reversed(filas))
 
 
+def _dispositivos_push(ctx: Contexto) -> list[dict]:
+    """Los teléfonos con la app «Intranet LCE» registrados para avisos (US-009).
+    Sin el token del aviso: con él se le podrían mandar avisos al teléfono."""
+    from apps.notificaciones.models import DispositivoPush
+
+    return _filas(
+        DispositivoPush.objects.filter(usuario=ctx.titular).order_by("created_at"),
+        [
+            ("plataforma", "plataforma"),
+            ("modelo", "nombre"),
+            ("activo", "activo"),
+            ("registrado_el", "created_at"),
+            ("ultimo_aviso", "ultimo_envio_en"),
+        ],
+    )
+
+
 def _descargas(ctx: Contexto) -> list[dict]:
     from apps.descargas.models import Descarga
 
@@ -1331,6 +1348,14 @@ SECCIONES: tuple[Seccion, ...] = (
         tope=TOPE_NOTIFICACIONES,
     ),
     Seccion(
+        "dispositivos_para_avisos",
+        "Dispositivos para avisos",
+        "Los teléfonos con la app «Intranet LCE» registrados para recibir avisos: plataforma, "
+        "modelo, si siguen activos, cuándo se registraron y el último aviso enviado. Sin el "
+        "código del aviso del teléfono.",
+        _dispositivos_push,
+    ),
+    Seccion(
         "descargas",
         "Descargas",
         "Los archivos que descargó del sistema, con la IP.",
@@ -1450,7 +1475,9 @@ APPS_REVISADAS: dict[str, str] = {
     "matriz": "Secciones: matriz.",
     "mejora_continua": "Secciones: mejora_continua.",
     "nomina": "Excluida: el rol de pagos tiene su propia descarga protegida (ver EXCLUIDO).",
-    "notificaciones": "Secciones: notificaciones.",
+    "notificaciones": (
+        "Secciones: notificaciones, dispositivos_para_avisos (sin el token del push)."
+    ),
     "novedades": "Secciones: novedades (si la persona es colaborador).",
     "nova": (
         "Secciones: uso_de_nova (metadatos; las conversaciones no se guardan), "

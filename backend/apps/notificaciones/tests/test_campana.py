@@ -148,3 +148,21 @@ def test_las_viejas_se_limpian(empresa):
     )
     assert services.limpiar() == 1
     assert list(Notificacion.objects.todas().values_list("titulo", flat=True)) == ["Reciente"]
+
+
+def test_la_notificacion_dice_su_empresa_o_null_si_es_de_la_cuenta(empresa):
+    """La app abre el enlace en el navegador con `?empresa=ID` (US-009, CA-7)."""
+    ana = _usuario("ana", empresa)
+    services.notificar([ana], tipo="soporte.x", titulo="Ticket de la empresa", empresa=empresa)
+    services.notificar([ana], tipo="privacidad.respuesta", titulo="De la cuenta")
+    de_empresa = Notificacion.objects.todas().get(titulo="Ticket de la empresa")
+    de_cuenta = Notificacion.objects.todas().get(titulo="De la cuenta")
+    assert de_cuenta.empresa_id is None
+    cliente = _cliente(ana, empresa)
+
+    lista = {n["titulo"]: n["empresa"] for n in cliente.get(URL).json()["results"]}
+    assert lista == {"Ticket de la empresa": empresa.id, "De la cuenta": None}
+    assert cliente.get(f"{URL}{de_empresa.id}/").json()["empresa"] == empresa.id
+    assert cliente.get(f"{URL}{de_cuenta.id}/").json()["empresa"] is None
+    recientes = cliente.get(f"{URL}resumen/").json()["recientes"]
+    assert {n["empresa"] for n in recientes} == {empresa.id, None}

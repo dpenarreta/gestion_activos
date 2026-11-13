@@ -18,6 +18,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.utils import timezone
@@ -88,10 +89,62 @@ def notificar(
             )
         for notificacion in nuevas:
             notificacion.save()
-        return len(nuevas)
     except Exception:  # noqa: BLE001
         logger.exception("No se pudo registrar la notificación «%s»", tipo)
         return 0
+    _programar_push(nuevas)
+    return len(nuevas)
+
+
+def _programar_push(nuevas) -> None:
+    """El push de la app, después del commit y fuera del request (US-009,
+    12/11/2026): si la transacción de origen se deshace, no sale ningún aviso
+    de una notificación que no existe; y Expo nunca demora ni tumba la
+    operación que notificó (`robust=True` y `push.programar` no lanzan)."""
+    if not nuevas or not settings.PUSH_HABILITADO:
+        return
+    try:
+        datos = [
+            {
+                "id": n.pk,
+                "usuario_id": n.usuario_id,
+                "modulo": n.modulo,
+                "empresa_id": n.empresa_id,
+            }
+            for n in nuevas
+        ]
+    except Exception:  # noqa: BLE001
+        logger.exception("No se pudo programar el push de las notificaciones")
+        return
+    programar_push_de(datos)
+
+
+def programar_push_de(notificaciones) -> None:
+    """El push de notificaciones que ya existen y se actualizaron, como el
+    aviso del chat que se reescribe con el último mensaje (US-011, CA-10).
+
+    `notificaciones`: `[{"id", "usuario_id", "modulo", "empresa_id"}]`, tal
+    cual lo da `.values("id", "usuario_id", "modulo", "empresa_id")` en una
+    sola consulta. Mismas reglas que el de `notificar`: después del commit,
+    genérico (`push.mensaje`), respeta `PUSH_HABILITADO` y nunca lanza.
+    """
+    if not notificaciones or not settings.PUSH_HABILITADO:
+        return
+    try:
+        from . import push
+
+        datos = [
+            {
+                "id": n["id"],
+                "usuario_id": n["usuario_id"],
+                "modulo": n["modulo"],
+                "empresa_id": n["empresa_id"],
+            }
+            for n in notificaciones
+        ]
+        transaction.on_commit(lambda: push.programar(datos), robust=True)
+    except Exception:  # noqa: BLE001
+        logger.exception("No se pudo programar el push de las notificaciones")
 
 
 def desde_correo(*, clave: str, asunto: str, variables: dict, direcciones, empresa=None) -> int:
@@ -157,3 +210,92 @@ def limpiar(ahora=None) -> int:
         .delete()
     )
     return borradas
+
+
+# --- Dispositivos de la app (push) ------------------------------------------------------
+
+
+#: Cuántas veces se intenta el registro si choca con otro simultáneo.
+INTENTOS_REGISTRO = 3
+
+
+class RegistroEnConflicto(Exception):
+    """El mismo teléfono se registró a la vez varias veces y no se resolvió."""
+
+    code = "dispositivo_en_conflicto"
+    message = "No se pudo registrar el teléfono para avisos. Intente de nuevo en un momento."
+    status = 409
+
+
+def registrar_dispositivo(*, usuario, session, token: str, plataforma: str, nombre: str = ""):
+    """Une el teléfono a la persona y la sesión actuales. Devuelve
+    `(dispositivo, creado)`.
+
+    El token es único: si ya existía —de otra cuenta u otro inicio de sesión—
+    se mueve aquí, y un teléfono nunca recibe avisos de dos cuentas (US-009,
+    12/11/2026). Y una sesión es un teléfono: si la app renueva su token, el
+    anterior de esa misma sesión se apaga para no duplicar los avisos.
+    """
+    from .models import DispositivoPush
+
+    valores = {
+        "usuario": usuario,
+        "session": session,
+        "plataforma": plataforma,
+        "nombre": nombre,
+        "activo": True,
+    }
+    # Registros simultáneos del mismo token (la app reintentó): el otro gana
+    # la carrera, este choca con el índice único y se vuelve a intentar, ya
+    # sobre la fila que existe. Tres choques seguidos no son normales: se
+    # responde un error controlado y la app reintenta más tarde.
+    for intento in range(1, INTENTOS_REGISTRO + 1):
+        try:
+            with transaction.atomic():
+                dispositivo, creado = DispositivoPush.objects.update_or_create(
+                    token=token, defaults=valores
+                )
+            break
+        except IntegrityError:
+            if intento == INTENTOS_REGISTRO:
+                logger.warning("El registro de un dispositivo push chocó %s veces", intento)
+                raise RegistroEnConflicto() from None
+    DispositivoPush.objects.filter(session=session, activo=True).exclude(pk=dispositivo.pk).update(
+        activo=False, updated_at=timezone.now()
+    )
+    return dispositivo, creado
+
+
+def dar_de_baja_dispositivo(*, usuario, token: str) -> int:
+    """Apaga el push de un teléfono, solo si es de esta persona. Idempotente:
+    un token ajeno o desconocido no hace nada y no se revela."""
+    from .models import DispositivoPush
+
+    return DispositivoPush.objects.filter(token=token, usuario=usuario, activo=True).update(
+        activo=False, updated_at=timezone.now()
+    )
+
+
+def desactivar_dispositivos_sin_sesion(usuario) -> int:
+    """Apaga los teléfonos de la persona cuya sesión ya no está vigente.
+
+    Lo llama `SessionService` al cerrar sesiones (logout, logout-all, cambio de
+    contraseña, usuario deshabilitado, cierre desde «Sesiones»). El envío
+    igual filtra por sesión vigente (`push.enviar`): esto deja la tabla al día.
+    Nunca lanza excepciones: cerrar la sesión es lo importante.
+    """
+    try:
+        from .models import DispositivoPush
+
+        with transaction.atomic():
+            return (
+                DispositivoPush.objects.filter(usuario=usuario, activo=True)
+                .filter(
+                    Q(session__revoked_at__isnull=False)
+                    | Q(session__expires_at__lte=timezone.now())
+                )
+                .update(activo=False, updated_at=timezone.now())
+            )
+    except Exception:  # noqa: BLE001
+        logger.exception("No se pudieron desactivar los dispositivos push de una sesión cerrada")
+        return 0

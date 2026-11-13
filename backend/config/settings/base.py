@@ -388,6 +388,10 @@ REST_FRAMEWORK = {
         # conversación llegue al momento (antes eso lo hacía un chat aparte).
         "conversacion": env.str("CONVERSACION_THROTTLE_RATE", default="600/min"),
         "soporte_formulario": env.str("SOPORTE_FORMULARIO_THROTTLE_RATE", default="5/min"),
+        # Alta y baja del teléfono para el push de la app (US-009): la app lo
+        # hace al entrar y al salir. Holgado para eso; frena a quien lo use
+        # para registrar tokens en bucle.
+        "dispositivos_push": env.str("DISPOSITIVOS_PUSH_THROTTLE_RATE", default="30/hour"),
     },
 }
 
@@ -463,6 +467,16 @@ DEFAULT_PAGE_SIZE = env.int("DEFAULT_PAGE_SIZE", default=20)
 # `apps.privacidad.services.plazo_dias` y docs/derechos-sobre-datos.md. Cada
 # solicitud guarda el plazo con que se recibió.
 PRIVACIDAD_PLAZO_DIAS = env.int("PRIVACIDAD_PLAZO_DIAS", default=15)
+
+# --- Push de la app «Intranet LCE» (US-009, 12/11/2026) ---
+# Encendido por defecto: el servidor nuevo avisa a los teléfonos. Se apaga con
+# PUSH_HABILITADO=False si el servidor no tiene salida a exp.host (la app sigue
+# funcionando, sin push). Las pruebas lo apagan en `conftest.py`.
+PUSH_HABILITADO = env.bool("PUSH_HABILITADO", default=True)
+# Opcional: el token de acceso de Expo, si se activa la seguridad del envío en
+# la cuenta de Expo. Solo en el .env del servidor, nunca en `mobile/`.
+EXPO_ACCESS_TOKEN = env.str("EXPO_ACCESS_TOKEN", default="")
+EXPO_PUSH_URL = env.str("EXPO_PUSH_URL", default="https://exp.host/--/api/v2/push/send")
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[FRONTEND_URL])

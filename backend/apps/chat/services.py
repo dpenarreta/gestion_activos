@@ -264,16 +264,20 @@ def nombre_de(conversacion, para=None) -> str:
 def avisar(mensaje):
     """Una notificación por conversación en la campana de cada destinatario:
     si ya tenía una sin leer, se actualiza con el último mensaje (no se apilan
-    una por mensaje)."""
+    una por mensaje).
+
+    Cada mensaje genera además un push a todos los destinatarios, menos al
+    autor, aunque ya tuvieran el aviso sin leer (US-011, CA-10, 12/11/2026;
+    también en el canal general). Las notificaciones nuevas lo programan en
+    `notificar`; las actualizadas, aquí: nadie recibe dos por un mensaje."""
     from apps.notificaciones import services as campana
     from apps.notificaciones.models import Notificacion
 
     conversacion = mensaje.conversacion
-    destinatarios = list(
-        User.objects.filter(
-            participaciones_chat__conversacion=conversacion, is_active=True
-        ).exclude(pk=mensaje.autor_id)
-    )
+    de_la_conversacion = User.objects.filter(
+        participaciones_chat__conversacion=conversacion, is_active=True
+    ).exclude(pk=mensaje.autor_id)
+    destinatarios = list(de_la_conversacion)
     if not destinatarios:
         return
     titulo = titulo_para(conversacion, mensaje.autor)
@@ -281,11 +285,24 @@ def avisar(mensaje):
         mensaje.texto[:160] if mensaje.texto else f"envió {mensaje.nombre_archivo}"
     )
     destino = enlace(conversacion)
+    # Los destinatarios van como subconsulta y no como lista: un `IN` con un
+    # parámetro por persona pasa el tope de 2100 de SQL Server en un canal
+    # general grande.
     pendientes = Notificacion.objects.todas().filter(
-        usuario__in=destinatarios, tipo="chat.mensaje", enlace=destino, leida_en__isnull=True
+        usuario__in=de_la_conversacion.values("pk"),
+        tipo="chat.mensaje",
+        enlace=destino,
+        leida_en__isnull=True,
     )
-    ya_avisados = set(pendientes.values_list("usuario_id", flat=True))
+    # Una sola consulta da quiénes ya tenían aviso y lo que necesita su push
+    # (el canal general puede tener cientos). Uno por persona aunque, por un
+    # descuido viejo, tuviera dos avisos sin leer de la conversación.
+    actualizadas = {}
+    for fila in pendientes.order_by("id").values("id", "usuario_id", "modulo", "empresa_id"):
+        actualizadas[fila["usuario_id"]] = fila
+    ya_avisados = set(actualizadas)
     pendientes.update(titulo=titulo[:150], resumen=resumen[:300], created_at=timezone.now())
+    campana.programar_push_de(list(actualizadas.values()))
     campana.notificar(
         [u for u in destinatarios if u.pk not in ya_avisados],
         tipo="chat.mensaje",

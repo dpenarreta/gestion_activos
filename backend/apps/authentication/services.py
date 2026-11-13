@@ -94,6 +94,32 @@ class BruteForceProtectionService:
             )
 
 
+#: El user-agent de la app móvil: «IntranetLCE/<versión> (<android|ios>)».
+APP_MOVIL_PREFIJO = "IntranetLCE/"
+
+
+def dispositivo_de(user_agent: str) -> str:
+    """Cómo se ve la sesión en «Sesiones»: la app se nombra por sí misma
+    («Intranet LCE · Android/iOS», US-009, 12/11/2026); lo demás, como antes."""
+    ua = user_agent or ""
+    if ua.startswith(APP_MOVIL_PREFIJO):
+        resto = ua[len(APP_MOVIL_PREFIJO) :].lower()
+        if "android" in resto:
+            return "Intranet LCE · Android"
+        if "ios" in resto:
+            return "Intranet LCE · iOS"
+        return "Intranet LCE"
+    return parse_user_agent(user_agent)["device"]
+
+
+def _cortar_push(user: User) -> None:
+    """Los teléfonos de las sesiones recién cerradas dejan de recibir push
+    (US-009). No lanza: cerrar la sesión es lo que importa."""
+    from apps.notificaciones.services import desactivar_dispositivos_sin_sesion
+
+    desactivar_dispositivos_sin_sesion(user)
+
+
 class SessionService:
     @staticmethod
     def create_session(*, user: User, ip_address: str | None, user_agent: str) -> Session:
@@ -103,7 +129,7 @@ class SessionService:
             # Placeholder único y temporal: se reemplaza por el jti real del
             # refresh token justo después de emitirlo (ver AuthenticationService).
             refresh_token_jti=f"pending:{uuid.uuid4()}",
-            device=parse_user_agent(user_agent)["device"],
+            device=dispositivo_de(user_agent),
             user_agent=(user_agent or "")[:255],
             ip_address=ip_address,
             expires_at=timezone.now() + refresh_lifetime,
@@ -112,6 +138,7 @@ class SessionService:
     @staticmethod
     def logout(session: Session) -> None:
         session.revoke()
+        _cortar_push(session.user)
 
     @staticmethod
     def logout_all(user: User, *, exclude_session_id=None) -> int:
@@ -119,7 +146,10 @@ class SessionService:
         queryset = Session.objects.filter(user=user, revoked_at__isnull=True)
         if exclude_session_id is not None:
             queryset = queryset.exclude(id=exclude_session_id)
-        return queryset.update(revoked_at=now)
+        revocadas = queryset.update(revoked_at=now)
+        if revocadas:
+            _cortar_push(user)
+        return revocadas
 
 
 class AuthenticationService:
