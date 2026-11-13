@@ -50,9 +50,21 @@ def send_password_reset_email(*, user, raw_token: str) -> None:
     )
 
 
-def send_password_changed_notification(*, user) -> None:
+def send_password_changed_notification(
+    *, user, por_administracion: bool = False, debe_cambiarla: bool = False
+) -> None:
+    """Avisa a la persona que su contraseña cambió. Nunca lleva la contraseña.
+
+    `por_administracion` dice que la cambió un administrador desde
+    Configuración › Usuarios y `debe_cambiarla`, que se le pedirá otra al
+    entrar (US-015, 13/11/2026). Van como «sí» o vacías porque la plantilla
+    las usa como secciones (`{{#por_administracion}}…`)."""
     _send_transactional_email(
         clave="acceso.contrasena_cambiada",
-        variables=_variables_de_la_cuenta(user),
+        variables={
+            **_variables_de_la_cuenta(user),
+            "por_administracion": "sí" if por_administracion else "",
+            "debe_cambiarla": "sí" if debe_cambiarla else "",
+        },
         to=user.email,
     )

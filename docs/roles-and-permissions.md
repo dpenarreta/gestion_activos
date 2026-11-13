@@ -36,7 +36,7 @@ de **módulo** solo sirven dentro de él.
 | Auditoría | general | `auditoria` | `ver`, `ver_detalle`, `ver_ubicacion`, `exportar` |
 | | | `privacidad` | `ver`, `atender` |
 | Configuración | general | `empresas` | `ver`, `editar`, `asignar` |
-| | | `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password` |
+| | | `usuarios` | `ver`, `crear`, `editar`, `deshabilitar`, `restablecer_password`, `cambiar_password`, `clave_temporal` |
 | | | `roles` | `ver`, `editar` |
 | | | `permisos` | `ver` |
 | | | `organizacion` | `ver`, `editar` |

@@ -87,7 +87,13 @@ class ChangeOwnPasswordSerializer(serializers.Serializer):
         return value
 
     def validate_new_password(self, value):
-        validate_password(value)
+        user = self.context["request"].user
+        # Con la cuenta, para que no se parezca a sus datos; y distinta de la
+        # actual: si un administrador la fijó (US-015, QA-FUNC, 13/11/2026),
+        # repetirla dejaría la cuenta con una clave que conoce otra persona.
+        validate_password(value, user=user)
+        if user.check_password(value):
+            raise serializers.ValidationError("La contraseña nueva debe ser distinta de la actual.")
         return value
 
     def validate(self, attrs):
@@ -109,4 +115,32 @@ class AdminPasswordResetSerializer(serializers.Serializer):
     def validate(self, attrs):
         if not any(attrs.values()):
             raise serializers.ValidationError("Debe seleccionar al menos una acción.")
+        return attrs
+
+
+class AdminSetPasswordSerializer(serializers.Serializer):
+    """Cambiar la contraseña de otra cuenta por una indicada (US-015, CA-1).
+
+    La cuenta destino llega en el contexto (`objetivo`) para que los
+    validadores la tengan en cuenta (no parecida al usuario, al nombre o al
+    correo). Pasa por todos, incluido que no sea la clave temporal. Sin
+    recortar espacios: son parte de la contraseña. El tope de 128 evita
+    calcular el hash de un texto enorme."""
+
+    password = serializers.CharField(write_only=True, max_length=128, trim_whitespace=False)
+    password_confirmacion = serializers.CharField(
+        write_only=True, max_length=128, trim_whitespace=False
+    )
+    forzar_cambio = serializers.BooleanField(default=True)
+    cerrar_sesiones = serializers.BooleanField(default=True)
+
+    def validate_password(self, value):
+        validate_password(value, user=self.context.get("objetivo"))
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirmacion"]:
+            raise serializers.ValidationError(
+                {"password_confirmacion": "Las contraseñas no coinciden."}
+            )
         return attrs

@@ -91,6 +91,42 @@ ruta no esté en una lista corta de excepciones
 `/auth/me/`), con `403 password_change_required`. El frontend intercepta
 ese código (`src/api/client.js`) y redirige a `/change-password-required`.
 
+## Cambiar o restablecer la contraseña de otra cuenta (US-015)
+
+Dos acciones de Configuración › Usuarios, cada una con su permiso, separadas
+de `password-reset` (que solo envía el enlace):
+
+- `POST /api/v1/admin/users/{id}/password/` (`usuarios.cambiar_password`).
+  Cuerpo: `password`, `password_confirmacion`, `forzar_cambio` (por omisión
+  `true`) y `cerrar_sesiones` (por omisión `true`). La contraseña pasa por
+  todos los validadores con la cuenta destino (`validate_password(..., user=)`),
+  incluido que no sea la clave temporal. Errores por campo en `password` y
+  `password_confirmacion`.
+- `POST /api/v1/admin/users/{id}/clave-temporal/` (`usuarios.clave_temporal`),
+  sin cuerpo. Pone `CLAVE_INICIAL_USUARIOS` sin validadores (la pone el
+  sistema, como al crear cuentas), siempre con `must_change_password` y
+  cierre de sesiones. Sin clave configurada: `400 sin_clave_temporal`, sin
+  cambiar nada.
+
+Las dos, en una transacción con la fila del usuario bloqueada: invalidan los
+enlaces de recuperación pendientes, quitan el bloqueo por intentos fallidos
+(`BruteForceProtectionService.desbloquear`: borra los fallos que siguen en la
+ventana con el usuario o el correo de la cuenta), avisan por correo
+(`acceso.contrasena_cambiada` con `por_administracion`) sin la contraseña y
+auditan (`user.password_set_by_admin` / `user.password_temporal_by_admin`) las
+opciones y los conteos, nunca la contraseña. No cambian `status`. Responden
+`200` con `{forzar_cambio, cerrar_sesiones, sesiones_cerradas,
+enlaces_invalidados, intentos_fallidos_descartados}`. Sobre la propia cuenta,
+`403 propia_cuenta`; sobre un superusuario, o sobre quien tiene en **alguna de
+sus empresas** permisos que el actor no tiene allí (o en una empresa donde el
+actor no está), solo un superusuario (`403 permission_denied`,
+`users.services.exigir_alcance_en_todas_sus_empresas`; con una sola empresa
+se mira solo la activa). Los límites se comprueban antes de validar la
+contraseña y su rechazo se audita como `<acción>_rejected` con resultado
+FAILURE y `motivo` (`propia_cuenta` / `fuera_de_alcance`). La auditoría del
+éxito lleva además `ips_de_intentos_descartados`. En el cambio obligatorio
+(`/auth/password/change/`) la nueva no puede ser igual a la actual.
+
 ## Recuperación de contraseña autoservicio
 
 `apps.authentication.services.PasswordResetService`:

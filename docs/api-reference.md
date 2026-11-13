@@ -50,6 +50,8 @@ entero.
 | GET | `admin/users/{id}/sessions/` | `usuarios.editar` |
 | POST | `admin/users/{id}/sessions/revoke/` | `usuarios.editar` |
 | POST | `admin/users/{id}/password-reset/` | `usuarios.restablecer_password` |
+| POST | `admin/users/{id}/password/` | `usuarios.cambiar_password` |
+| POST | `admin/users/{id}/clave-temporal/` | `usuarios.clave_temporal` |
 | POST | `admin/users/{id}/roles/` | `usuarios.editar` |
 | POST | `admin/users/{id}/permissions/` | `usuarios.editar` |
 

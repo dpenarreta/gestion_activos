@@ -21,7 +21,12 @@ export function cumpleReglas(clave) {
   return REGLAS_CONTRASENA.every(([, , cumple]) => cumple(clave ?? ""));
 }
 
-export function ReglasContrasena({ clave = "", id }) {
+/**
+ * `adicionales`: requisitos que el navegador no puede comprobar (los decide el
+ * servidor, p. ej. «No puede ser la contraseña temporal»): se listan sin marca
+ * de cumplido.
+ */
+export function ReglasContrasena({ clave = "", id, adicionales = [] }) {
   return (
     <ul
       id={id}
@@ -48,6 +53,12 @@ export function ReglasContrasena({ clave = "", id }) {
           </li>
         );
       })}
+      {adicionales.map((texto) => (
+        <li key={texto} className="reglas-contrasena__falta">
+          <i className="bi bi-info-circle" aria-hidden="true" />
+          {texto}
+        </li>
+      ))}
     </ul>
   );
 }

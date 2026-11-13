@@ -67,4 +67,18 @@ export const adminUsersService = {
       .post(`/admin/users/${id}/password-reset/`, options)
       .then((res) => res.data);
   },
+  // US-015: cambia la contraseña de otra cuenta por una indicada. Responde
+  // 200: no se usa el cuerpo (y la clave nunca vuelve del servidor).
+  // `datos`: {password, password_confirmacion, forzar_cambio, cerrar_sesiones}.
+  cambiarPassword(id, datos) {
+    return apiClient
+      .post(`/admin/users/${id}/password/`, datos)
+      .then((res) => res.data);
+  },
+  // US-015: la deja en la contraseña temporal del servidor, sin cuerpo.
+  restablecerClaveTemporal(id) {
+    return apiClient
+      .post(`/admin/users/${id}/clave-temporal/`)
+      .then((res) => res.data);
+  },
 };

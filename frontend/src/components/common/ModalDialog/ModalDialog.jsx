@@ -88,7 +88,7 @@ export function ModalDialog({
             </div>
             <button
               type="button"
-              className="mz-close"
+              className="mz-close mz-tactil"
               onClick={onCerrar}
               disabled={isSaving}
               aria-label={etiquetaCerrar}

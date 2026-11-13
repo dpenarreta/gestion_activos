@@ -72,6 +72,49 @@ def exigir_alcance_sobre(actor: User, user: User) -> None:
         raise PermissionDenied(CUENTA_FUERA_DE_ALCANCE)
 
 
+def exigir_alcance_en_todas_sus_empresas(actor: User, user: User) -> None:
+    """`exigir_alcance_sobre`, pero en **cada** empresa del objetivo (US-015,
+    QA-TECH, 13/11/2026).
+
+    Los roles cuelgan de la membresía: Ana puede ser básica en A y
+    Administradora en B. Mirar solo la empresa activa dejaba al administrador
+    de A cambiarle la contraseña a Ana y entrar con ella a B como
+    Administrador, una escalada entre empresas. Por eso, para tocar las
+    credenciales de una cuenta, el actor tiene que estar en cada empresa del
+    objetivo y no tener allí menos permisos que él; los dos se evalúan dentro
+    de esa empresa (`usando_empresa`). Cuentan todas sus membresías, también
+    las de una empresa inactiva: reactivarla devolvería esos permisos.
+
+    Se salta con una sola empresa (no hay entre qué escalar: queda la regla de
+    la empresa activa, como antes) y para el superusuario. Sobre la propia
+    cuenta no decide: eso lo resuelve quien llama.
+    """
+    from rest_framework.exceptions import PermissionDenied
+
+    from apps.empresas.contexto import usando_empresa
+    from apps.empresas.models import Empresa, MembresiaEmpresa
+    from apps.permissions.authorization import get_user_permission_codenames
+
+    exigir_alcance_sobre(actor, user)
+    if actor is None or actor.is_superuser or actor.pk == user.pk:
+        return
+    if Empresa.objects.count() <= 1:
+        return
+
+    empresas_del_objetivo = list(
+        Empresa.objects.filter(membresias__usuario=user).distinct().order_by("pk")
+    )
+    del_actor = set(
+        MembresiaEmpresa.objects.filter(usuario=actor).values_list("empresa_id", flat=True)
+    )
+    for empresa in empresas_del_objetivo:
+        if empresa.pk not in del_actor:
+            raise PermissionDenied(CUENTA_FUERA_DE_ALCANCE)
+        with usando_empresa(empresa):
+            if permisos_que_no_tiene(actor, get_user_permission_codenames(user)):
+                raise PermissionDenied(CUENTA_FUERA_DE_ALCANCE)
+
+
 LAST_ACTIVE_ADMIN_ERROR = (
     "No es posible deshabilitar/bloquear a este usuario: es el único "
     "administrador activo del sistema."

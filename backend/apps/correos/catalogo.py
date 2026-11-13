@@ -193,18 +193,38 @@ PLANTILLAS = (
         clave="acceso.contrasena_cambiada",
         nombre="Contraseña actualizada",
         modulo="Acceso al sistema",
-        descripcion="Cuando la contraseña de una cuenta cambia. Llega al correo de la cuenta.",
+        descripcion=(
+            "Cuando la contraseña de una cuenta cambia, la cambie la persona o un administrador "
+            "desde Configuración › Usuarios. Llega al correo de la cuenta y nunca lleva la "
+            "contraseña."
+        ),
         asunto="Tu contraseña fue actualizada — {{sistema}}",
         html=_ACCESO_HTML.replace(
             "{CUERPO}",
             "<p>Hola {{nombre}},</p>\n"
-            "<p>Tu contraseña en {{sistema}} fue actualizada correctamente.</p>\n"
+            "{{^por_administracion}}<p>Tu contraseña en {{sistema}} fue actualizada "
+            "correctamente.</p>{{/por_administracion}}\n"
+            "{{#por_administracion}}<p>Tu contraseña en {{sistema}} fue cambiada por "
+            "administración.</p>{{/por_administracion}}\n"
+            "{{#debe_cambiarla}}<p>Al iniciar sesión se te pedirá elegir una contraseña "
+            "nueva.</p>{{/debe_cambiarla}}\n"
             "<p>Si no fuiste vos quien hizo este cambio, contactá a un administrador de inmediato.</p>",
         ),
         variables=(
             Variable("nombre", "Nombre de la persona", "Ana"),
             Variable("usuario", "Nombre de usuario", "atorres"),
             Variable("correo", "Correo de la cuenta", "ana.torres@empresa.com"),
+            # US-015 (13/11/2026): el cambio hecho por un administrador.
+            Variable(
+                "por_administracion",
+                "«sí» si la cambió un administrador (vacía si la cambió la persona)",
+                "",
+            ),
+            Variable(
+                "debe_cambiarla",
+                "«sí» si se le pedirá una contraseña nueva al entrar (vacía si no)",
+                "",
+            ),
         ),
         razon="Le llega porque la contraseña de su cuenta cambió.",
     ),

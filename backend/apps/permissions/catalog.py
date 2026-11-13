@@ -29,6 +29,12 @@ PERMISSION_CATALOG = {
                 "Enviar enlace de restablecimiento, forzar cambio de contraseña en el "
                 "próximo inicio o cerrar sesiones activas de un usuario"
             ),
+            # US-015 (13/11/2026): separados de `restablecer_password`, que
+            # solo envía el enlace. Todo lo nuevo nace con sus permisos.
+            "usuarios.cambiar_password": "Cambiar la contraseña de otra cuenta por una indicada",
+            "usuarios.clave_temporal": (
+                "Restablecer la contraseña de otra cuenta a la clave temporal"
+            ),
         },
     },
     "roles": {

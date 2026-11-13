@@ -56,6 +56,11 @@ vi.mock("../src/hooks/usePermission", () => ({
   usePermission: (codename) => permisos.has(codename),
 }));
 
+// La sección «Contraseña» (US-015) compara con quien tiene la sesión.
+vi.mock("../src/hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: 1, is_superuser: false } }),
+}));
+
 const { UserForm } = await import("../src/pages/Admin/Users/UserForm");
 
 const USUARIO = {
@@ -82,9 +87,7 @@ function pintar() {
 /** Marca una opción de restablecimiento y confirma el diálogo. */
 async function ejecutarRestablecimiento(etiqueta) {
   fireEvent.click(screen.getByLabelText(etiqueta));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Aplicar restablecimiento" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar opciones" }));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
 }
 
@@ -257,7 +260,7 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     await screen.findByText("Editar usuario");
     expect(
-      screen.queryByText("Restablecer contraseña"),
+      screen.queryByRole("heading", { name: "Contraseña" }),
     ).not.toBeInTheDocument();
   });
 
@@ -267,9 +270,9 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     pintar();
 
-    await screen.findByText("Restablecer contraseña");
+    await screen.findByRole("heading", { name: "Contraseña" });
     expect(
-      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+      screen.getByRole("button", { name: "Aplicar opciones" }),
     ).toBeDisabled();
   });
 
@@ -278,11 +281,9 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     pintar();
 
-    await screen.findByText("Restablecer contraseña");
-    fireEvent.click(screen.getByLabelText("Cerrar sesiones activas"));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
-    );
+    await screen.findByRole("heading", { name: "Contraseña" });
+    fireEvent.click(screen.getByLabelText("Cerrar sus sesiones abiertas"));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar opciones" }));
 
     expect(
       await screen.findByText(/Esta acción no puede deshacerse/),
@@ -295,10 +296,8 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     pintar();
 
-    await screen.findByText("Restablecer contraseña");
-    await ejecutarRestablecimiento(
-      "Forzar cambio de contraseña en el próximo inicio de sesión",
-    );
+    await screen.findByRole("heading", { name: "Contraseña" });
+    await ejecutarRestablecimiento("Pedir que la cambie al entrar");
 
     await waitFor(() => expect(restablecer).toHaveBeenCalled());
     expect(restablecer.mock.calls[0][1]).toEqual({
@@ -314,8 +313,8 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     pintar();
 
-    await screen.findByText("Restablecer contraseña");
-    await ejecutarRestablecimiento("Cerrar sesiones activas");
+    await screen.findByRole("heading", { name: "Contraseña" });
+    await ejecutarRestablecimiento("Cerrar sus sesiones abiertas");
 
     // Dice qué se hizo, no solo que «se ejecutó» (revisión final UX/UI,
     // 28/10/2026).
@@ -326,9 +325,11 @@ describe("Restablecer la contraseña de otra persona", () => {
         await screen.findByText("Listo: se cerraron todas sus sesiones.")
       ).closest("[role='status']"),
     ).not.toBeNull();
-    expect(screen.getByLabelText("Cerrar sesiones activas")).not.toBeChecked();
     expect(
-      screen.getByRole("button", { name: "Aplicar restablecimiento" }),
+      screen.getByLabelText("Cerrar sus sesiones abiertas"),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Aplicar opciones" }),
     ).toBeDisabled();
   });
 
@@ -342,13 +343,36 @@ describe("Restablecer la contraseña de otra persona", () => {
 
     pintar();
 
-    await screen.findByText("Restablecer contraseña");
+    await screen.findByRole("heading", { name: "Contraseña" });
     await ejecutarRestablecimiento(
       "Enviar enlace de restablecimiento por correo",
     );
 
     expect(
       await screen.findByText("El correo del usuario está vacío."),
+    ).toBeInTheDocument();
+  });
+
+  it("ofrece cambiar la contraseña con el permiso, salvo sobre un superusuario", async () => {
+    permisos.add("usuarios.cambiar_password");
+    obtener.mockResolvedValue({ ...USUARIO, is_superuser: true });
+    pintar();
+
+    await screen.findByText("Editar usuario");
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Nombres/)).toHaveValue("Ana"),
+    );
+    expect(
+      screen.queryByRole("button", { name: /Cambiar contraseña/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("con el permiso, la ficha de otra cuenta tiene el botón de cambiar", async () => {
+    permisos.add("usuarios.cambiar_password");
+    pintar();
+
+    expect(
+      await screen.findByRole("button", { name: /Cambiar contraseña/ }),
     ).toBeInTheDocument();
   });
 });

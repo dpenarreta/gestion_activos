@@ -1,0 +1,20 @@
+/* «Mostrar las contraseñas» activo: borde de 2 px (1 de borde + 1 de sombra
+   interior, para no mover el botón) y fondo de acento, con los tokens del
+   tema. Con el estado por omisión de Bootstrap casi no se distinguía en
+   oscuro (1.1:1). Solo este botón. */
+.btn.contrasena-mostrar.active {
+  background: var(--mz-blue-100);
+  border-color: var(--mz-blue-600);
+  box-shadow: inset 0 0 0 1px var(--mz-blue-600);
+  color: var(--mz-ink);
+}
+
+/* «Coinciden / No coinciden» con los colores de texto del tema (los de
+   Bootstrap daban 3.76:1 en oscuro). */
+.contrasena-coincidencia--ok {
+  color: var(--mz-ok-fg);
+}
+
+.contrasena-coincidencia--no {
+  color: var(--mz-bad-fg);
+}

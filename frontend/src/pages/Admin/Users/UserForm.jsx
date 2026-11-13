@@ -10,7 +10,6 @@ import {
   enfocarPrimerError,
   LeyendaObligatorios,
 } from "../../../components/common/Campo/Campo";
-import { ConfirmDialog } from "../../../components/common/ConfirmDialog/ConfirmDialog";
 import { ReglasContrasena } from "../../../components/common/ReglasContrasena/ReglasContrasena";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
@@ -25,6 +24,7 @@ import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 import { CargoDelUsuario } from "./CargoDelUsuario";
+import { ContrasenaDeLaCuenta } from "./ContrasenaDeLaCuenta";
 import { motivoDelAlta } from "./cargosDelAlta";
 import { SelectorDeCargo } from "./SelectorDeCargo";
 
@@ -42,38 +42,16 @@ const CAMPOS_DEL_FORMULARIO = new Set(Object.keys(EMPTY_FORM));
 const EMPTY_ALTA = { empresaId: null, rolId: null };
 const ASIGNACION_DE_CARGOS =
   "/admin/institucional/estructura?pestana=asignaciones";
-/**
- * Qué se hizo de verdad al restablecer, en vez de «La acción se ejecutó
- * correctamente»: quien lo pidió necesita saber si el enlace salió o si las
- * sesiones se cerraron (revisión final UX/UI, 28/10/2026).
- */
-function textoDelRestablecimiento(opciones) {
-  const hechos = [];
-  if (opciones.send_link) hechos.push("se envió el enlace de restablecimiento");
-  if (opciones.force_change_on_next_login) {
-    hechos.push("deberá cambiar la contraseña en su próximo ingreso");
-  }
-  if (opciones.revoke_sessions) hechos.push("se cerraron todas sus sesiones");
-  if (hechos.length === 0) return "Restablecimiento aplicado.";
-  const lista =
-    hechos.length === 1
-      ? hechos[0]
-      : `${hechos.slice(0, -1).join(", ")} y ${hechos[hechos.length - 1]}`;
-  return `Listo: ${lista}.`;
-}
-
-const EMPTY_RESET_OPTIONS = {
-  send_link: false,
-  force_change_on_next_login: false,
-  revoke_sessions: false,
-};
-
 export function UserForm() {
   const puedeEditarCodigo = usePermission("roles_pago.habilitar");
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const canResetPassword = usePermission("usuarios.restablecer_password");
+  const puedeCambiarPassword = usePermission("usuarios.cambiar_password");
+  const puedeClaveTemporal = usePermission("usuarios.clave_temporal");
+  // Si la cuenta que se mira es de un superusuario (para ocultar acciones).
+  const [esSuperusuario, setEsSuperusuario] = useState(false);
   const puedeAsignarEmpresas = usePermission("empresas.asignar");
   // Poner a alguien en un cargo es el mismo poder que en Institucional ›
   // Estructura › Asignación de cargos; el servidor lo vuelve a comprobar.
@@ -112,11 +90,6 @@ export function UserForm() {
   const [mensajeDatos, setMensajeDatos] = useState(null);
   const [accesosSinGuardar, setAccesosSinGuardar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [resetOptions, setResetOptions] = useState(EMPTY_RESET_OPTIONS);
-  const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetMessage, setResetMessage] = useState(null);
-  const [resetError, setResetError] = useState(null);
   const formRef = useRef(null);
   // Hay campo de cargo solo al crear, con los dos poderes que hacen falta
   // (darle la empresa y ponerlo en el cargo) y con la empresa ya conocida:
@@ -181,6 +154,7 @@ export function UserForm() {
         };
         setForm(cargado);
         setOriginal(cargado);
+        setEsSuperusuario(Boolean(data.is_superuser));
       })
       .catch(() => setError("No se pudo cargar el usuario."))
       .finally(() => setIsLoading(false));
@@ -372,30 +346,6 @@ export function UserForm() {
       enfocarPrimerError(formRef.current);
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  function toggleResetOption(key) {
-    setResetOptions({ ...resetOptions, [key]: !resetOptions[key] });
-  }
-
-  async function handleConfirmReset() {
-    setIsResetting(true);
-    setResetError(null);
-    try {
-      await adminUsersService.resetPassword(id, resetOptions);
-      setResetMessage(textoDelRestablecimiento(resetOptions));
-      setResetOptions(EMPTY_RESET_OPTIONS);
-    } catch (err) {
-      setResetError(
-        mensajeDeError(
-          err,
-          "No se pudo ejecutar la acción de restablecimiento.",
-        ),
-      );
-    } finally {
-      setIsResetting(false);
-      setIsConfirmResetOpen(false);
     }
   }
 
@@ -700,88 +650,20 @@ export function UserForm() {
           </AsignacionEmpresas>
         )}
 
-        {isEditing && canResetPassword && (
-          <section className="mz-card">
-            <div className="mz-card-head">
-              <h3>Restablecer contraseña</h3>
-            </div>
-            <div className="mz-card-body">
-              {resetMessage && (
-                <div className="mz-alert mz-alert--ok" role="status">
-                  <Icon name="check2-circle" />
-                  {resetMessage}
-                </div>
-              )}
-              {resetError && (
-                <div className="mz-alert mz-alert--bad" role="alert">
-                  <Icon name="x-octagon" />
-                  {resetError}
-                </div>
-              )}
-              <div className="form-check">
-                <input
-                  id="send_link"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={resetOptions.send_link}
-                  onChange={() => toggleResetOption("send_link")}
-                />
-                <label className="form-check-label" htmlFor="send_link">
-                  Enviar enlace de restablecimiento por correo
-                </label>
-              </div>
-              <div className="form-check">
-                <input
-                  id="force_change_on_next_login"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={resetOptions.force_change_on_next_login}
-                  onChange={() =>
-                    toggleResetOption("force_change_on_next_login")
-                  }
-                />
-                <label
-                  className="form-check-label"
-                  htmlFor="force_change_on_next_login"
-                >
-                  Forzar cambio de contraseña en el próximo inicio de sesión
-                </label>
-              </div>
-              <div className="form-check">
-                <input
-                  id="revoke_sessions"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={resetOptions.revoke_sessions}
-                  onChange={() => toggleResetOption("revoke_sessions")}
-                />
-                <label className="form-check-label" htmlFor="revoke_sessions">
-                  Cerrar sesiones activas
-                </label>
-              </div>
-              <div className="mz-actions justify-content-end mt-3">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={!Object.values(resetOptions).some(Boolean)}
-                  onClick={() => setIsConfirmResetOpen(true)}
-                >
-                  <Icon name="key" /> Aplicar restablecimiento
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
+        {isEditing &&
+          (canResetPassword || puedeCambiarPassword || puedeClaveTemporal) && (
+            <ContrasenaDeLaCuenta
+              usuario={{
+                id,
+                nombre: `${original.first_name} ${original.last_name}`.trim(),
+                esSuperusuario,
+              }}
+              puedeEnviarEnlace={canResetPassword}
+              puedeCambiar={puedeCambiarPassword}
+              puedeClaveTemporal={puedeClaveTemporal}
+            />
+          )}
       </div>
-
-      <ConfirmDialog
-        isOpen={isConfirmResetOpen}
-        title="Restablecer contraseña"
-        message="Esta acción no puede deshacerse. ¿Confirma que desea ejecutar las opciones seleccionadas?"
-        isLoading={isResetting}
-        onConfirm={handleConfirmReset}
-        onCancel={() => setIsConfirmResetOpen(false)}
-      />
     </div>
   );
 }

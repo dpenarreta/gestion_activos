@@ -5,8 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.authentication.models import Session
-from apps.authentication.serializers import AdminPasswordResetSerializer, SessionSerializer
-from apps.authentication.services import PasswordResetService
+from apps.authentication.serializers import (
+    AdminPasswordResetSerializer,
+    AdminSetPasswordSerializer,
+    SessionSerializer,
+)
+from apps.authentication.services import ACCION_CAMBIAR, PasswordResetService
 from apps.core.request_meta import get_request_context
 from apps.empresas.permissions import EmpresasAsignarPermission
 from apps.empresas.servicios import asignar_empresas
@@ -16,6 +20,8 @@ from .filters import filter_users
 from .models import User
 from .pagination import UserAdminPagination
 from .permissions import (
+    UsuariosCambiarPasswordPermission,
+    UsuariosClaveTemporalPermission,
     UsuariosCreatePermission,
     UsuariosDeshabilitarPermission,
     UsuariosPermission,
@@ -41,7 +47,8 @@ class UserAdminViewSet(viewsets.ModelViewSet):
 
     Cada acción exige un permiso distinto del catálogo (`usuarios.ver` /
     `usuarios.crear` / `usuarios.editar` / `usuarios.deshabilitar` /
-    `usuarios.restablecer_password`).
+    `usuarios.restablecer_password` / `usuarios.cambiar_password` /
+    `usuarios.clave_temporal`).
     """
 
     http_method_names = ["get", "post", "patch", "head", "options"]
@@ -64,6 +71,9 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         "block": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "unblock": [IsAuthenticated, UsuariosDeshabilitarPermission],
         "reset_password": [IsAuthenticated, UsuariosRestablecerPasswordPermission],
+        # US-015: dos poderes distintos de enviar el enlace; cada uno con el suyo.
+        "cambiar_password": [IsAuthenticated, UsuariosCambiarPasswordPermission],
+        "clave_temporal": [IsAuthenticated, UsuariosClaveTemporalPermission],
     }
     DEFAULT_PERMISSION_CLASSES = [IsAuthenticated, UsuariosPermission]
 
@@ -219,6 +229,52 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             **serializer.validated_data,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="password")
+    def cambiar_password(self, request, pk=None):
+        """Cambia la contraseña de otra cuenta por una indicada (US-015, CA-1).
+
+        Permiso `usuarios.cambiar_password`. Cuerpo: `password`,
+        `password_confirmacion`, `forzar_cambio` (true) y `cerrar_sesiones`
+        (true). Responde 200 con lo que se hizo, nunca con la contraseña.
+        Errores: 400 por campo (`password`, `password_confirmacion`), 403
+        `propia_cuenta` sobre la propia cuenta, 403 `permission_denied` sin el
+        permiso o sobre una cuenta con más poder, 404 fuera de su alcance."""
+        objetivo = self.get_object()
+        # Los límites antes que la contraseña (QA-FUNC, 13/11/2026): sobre una
+        # cuenta que no puede tocar, el motivo es el 403, no una clave débil.
+        PasswordResetService.exigir_limites_por_administracion(
+            actor=request.user,
+            user=objetivo,
+            accion=ACCION_CAMBIAR,
+            context=get_request_context(request),
+        )
+        serializer = AdminSetPasswordSerializer(data=request.data, context={"objetivo": objetivo})
+        serializer.is_valid(raise_exception=True)
+        datos = serializer.validated_data
+        resumen = PasswordResetService.admin_set_password(
+            actor=request.user,
+            user=objetivo,
+            password=datos["password"],
+            forzar_cambio=datos["forzar_cambio"],
+            cerrar_sesiones=datos["cerrar_sesiones"],
+            context=get_request_context(request),
+        )
+        return Response(resumen)
+
+    @action(detail=True, methods=["post"], url_path="clave-temporal")
+    def clave_temporal(self, request, pk=None):
+        """Restablece la contraseña de otra cuenta a la clave temporal del
+        servidor (US-015, CA-2). Permiso `usuarios.clave_temporal`, sin cuerpo.
+
+        Siempre obliga a cambiarla al entrar y cierra las sesiones. Responde
+        200 con lo que se hizo; la clave no viaja nunca. Errores: 400
+        `sin_clave_temporal` si el servidor no la tiene (no cambia nada), 403
+        `propia_cuenta`, 403 `permission_denied`, 404 fuera de su alcance."""
+        resumen = PasswordResetService.admin_set_temporal(
+            actor=request.user, user=self.get_object(), context=get_request_context(request)
+        )
+        return Response(resumen)
 
     @action(detail=True, methods=["post"])
     def roles(self, request, pk=None):

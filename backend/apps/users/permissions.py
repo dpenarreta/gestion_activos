@@ -38,3 +38,17 @@ class UsuariosRestablecerPasswordPermission(HasModulePermission):
 
     view_permission = "usuarios.ver"
     write_permission = "usuarios.restablecer_password"
+
+
+class UsuariosCambiarPasswordPermission(HasModulePermission):
+    """Usada en la acción `cambiar_password` (US-015)."""
+
+    view_permission = "usuarios.ver"
+    write_permission = "usuarios.cambiar_password"
+
+
+class UsuariosClaveTemporalPermission(HasModulePermission):
+    """Usada en la acción `clave_temporal` (US-015)."""
+
+    view_permission = "usuarios.ver"
+    write_permission = "usuarios.clave_temporal"

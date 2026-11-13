@@ -59,9 +59,10 @@ export function ConfirmDialog({
           <h3 id={`${id}-titulo`}>{title}</h3>
         </div>
         <div className="mz-panel-body">
-          <p id={`${id}-mensaje`} className="mb-0">
+          {/* `div` y no `p`: el mensaje puede llevar una lista. */}
+          <div id={`${id}-mensaje`} className="mb-0">
             {message}
-          </p>
+          </div>
         </div>
         <div className="mz-panel-foot">
           {/* Del mismo tamaño que el de confirmar: antes «Cancelar» iba en
