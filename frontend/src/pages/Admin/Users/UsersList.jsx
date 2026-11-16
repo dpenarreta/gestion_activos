@@ -36,6 +36,14 @@ const STATUS_PILLS = {
   blocked: "mz-pill--bad",
 };
 
+/** El nombre de la persona dueña de la cuenta: «Nombres Apellidos». */
+export function nombreDe(user) {
+  return [user.first_name, user.last_name]
+    .map((parte) => (parte ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function UsersList() {
   const multiempresa = useMultiempresa();
   const enTarjetas = useVistaDeTarjetas();
@@ -191,13 +199,12 @@ export function UsersList() {
           <thead>
             <tr>
               <th>Usuario</th>
+              {/* El nombre de la persona en lugar de «Roles globales», que casi
+                  ninguna cuenta usa (16/11/2026, a pedido del usuario). */}
+              <th>Nombre</th>
               <th>Correo</th>
               <th>Estado</th>
               <th>{multiempresa ? "Empresas" : "Roles"}</th>
-              {/* «Globales» porque los de cada empresa ya van en la columna
-                  anterior: sin el adjetivo, un guion aquí se lee como que la
-                  cuenta no tiene ningún rol en ninguna parte. */}
-              <th>Roles globales</th>
               <th>Creado</th>
               {/* Junto a «Creado» porque la pregunta es la misma mirada
                   desde los dos extremos: desde cuándo existe la cuenta y
@@ -225,10 +232,24 @@ export function UsersList() {
             {!error &&
               users.map((user) => (
                 <tr key={user.id}>
-                  {/* El superusuario lleva una sola marca, la de «Roles
-                    globales»: aquí repetía «Administrador» (auditoría UX/UI,
-                    fase 2). */}
-                  <td className="mz-strong">{user.username}</td>
+                  <td>
+                    <span className="mz-strong">{user.username}</span>
+                    {/* Superusuario es una marca de la cuenta, no un rol: tiene
+                      todos los permisos sin necesitar ninguno. */}
+                    {user.is_superuser && (
+                      <div>
+                        <span
+                          className="mz-pill mz-pill--ok mt-1"
+                          title="Marca de la cuenta: todos los permisos en todas las empresas, sin necesitar roles"
+                        >
+                          <Icon name="shield-lock" /> Superusuario (cuenta)
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {nombreDe(user) || <span className="mz-faint">—</span>}
+                  </td>
                   <td>{user.email}</td>
                   <td>
                     <span
@@ -262,20 +283,6 @@ export function UsersList() {
                         </div>
                       </div>
                     ))}
-                  </td>
-                  <td>
-                    {/* Superusuario es una marca de la cuenta, no un rol: tiene
-                      todos los permisos sin necesitar ninguno. */}
-                    {user.is_superuser && (
-                      <span
-                        className="mz-pill mz-pill--ok me-1"
-                        title="Marca de la cuenta: todos los permisos en todas las empresas, sin necesitar roles"
-                      >
-                        <Icon name="shield-lock" /> Superusuario (cuenta)
-                      </span>
-                    )}
-                    {user.roles.map((role) => role.name).join(", ") ||
-                      (user.is_superuser ? "" : "—")}
                   </td>
                   <td>{formatearFecha(user.created_at)}</td>
                   <td>
@@ -364,6 +371,7 @@ export function UsersList() {
                       {STATUS_LABELS[user.status] || user.status}
                     </span>
                   </div>
+                  {nombreDe(user) && <div>{nombreDe(user)}</div>}
                   <div className="mz-card-row__titulo mz-small">
                     {user.email}
                   </div>

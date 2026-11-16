@@ -48,6 +48,8 @@ const USUARIOS = [
   {
     id: 1,
     username: "acevallos",
+    first_name: "Ana María",
+    last_name: "Cevallos Ruiz",
     email: "ana@example.com",
     status: "active",
     is_superuser: false,
@@ -170,8 +172,25 @@ describe("El listado de usuarios", () => {
     pintar();
 
     const fila = (await screen.findByText("dpenarreta")).closest("tr");
-    expect(fila).toHaveTextContent("Administrador");
     expect(fila).toHaveTextContent("—");
+  });
+
+  it("muestra el nombre de la cuenta y no los roles globales (16/11/2026)", async () => {
+    pintar();
+
+    const fila = (await screen.findByText("acevallos")).closest("tr");
+    expect(
+      within(fila).getByText("Ana María Cevallos Ruiz"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Nombre" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "Roles globales" }),
+    ).not.toBeInTheDocument();
+    // El rol global «Administrador» de dpenarreta ya no se lista.
+    const otra = screen.getByText("dpenarreta").closest("tr");
+    expect(otra).not.toHaveTextContent("Administrador");
   });
 
   it("marca al superusuario una sola vez", async () => {
@@ -181,7 +200,10 @@ describe("El listado de usuarios", () => {
 
     const fila = (await screen.findByText("dpenarreta")).closest("tr");
     expect(within(fila).getAllByText(/Superusuario/)).toHaveLength(1);
-    expect(fila.querySelector("td").textContent).toBe("dpenarreta");
+    // La marca va bajo el usuario, en su misma celda.
+    expect(fila.querySelector("td").textContent).toBe(
+      "dpenarreta Superusuario (cuenta)",
+    );
   });
 
   it("cada «Editar» dice de quién es", async () => {
