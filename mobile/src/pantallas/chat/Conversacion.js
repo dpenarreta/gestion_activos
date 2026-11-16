@@ -98,6 +98,8 @@ export const MARGEN_RECONOCER_MS = 2 * 60_000;
 export const DISTANCIA_LEJOS = 240;
 export const TEXTO_SIN_FECHA = "Sin fecha";
 export const TEXTO_SIN_MENSAJES = "Todavía no hay mensajes. ¡Escriba el primero!";
+/** US-024 (UX H-01): lo que se encuentra en «Información del grupo». */
+export const PISTA_INFORMACION = "Abre los participantes y lo que puede hacer con el grupo";
 
 let siguienteClave = 1;
 
@@ -319,6 +321,16 @@ export function Conversacion({ id, empresa = null }) {
 
   // En un grupo, «Participantes» va en la cabecera, como un ícono (auditoría
   // UX, H-12); la línea «Grupo · N participantes» se queda en la pantalla.
+  // US-024 (UX H-01): en un grupo o un grupo por área es «Información del
+  // grupo», donde se edita y se sale; la línea también la abre.
+  const esGrupo = conversacion?.tipo === "grupo" || conversacion?.tipo === "area";
+  const abrirInformacion = useCallback(() => {
+    const params = { id: String(id) };
+    if (empresa) params.empresa = empresa;
+    if (esGrupo) params.grupo = "1";
+    router.push({ pathname: "/chat/participantes/[id]", params });
+  }, [router, id, empresa, esGrupo]);
+
   useEffect(() => {
     navegacion?.setOptions?.({
       title: nombre,
@@ -327,15 +339,11 @@ export function Conversacion({ id, empresa = null }) {
           ? () => (
               <BotonIcono
                 testID="ver-participantes"
-                icono="account-group-outline"
+                icono={esGrupo ? "information-outline" : "account-group-outline"}
                 variante="oscuro"
-                etiqueta={`Ver los participantes de ${nombre}`}
-                onPress={() =>
-                  router.push({
-                    pathname: "/chat/participantes/[id]",
-                    params: empresa ? { id: String(id), empresa } : { id: String(id) },
-                  })
-                }
+                etiqueta={esGrupo ? `Información de ${nombre}` : `Ver los participantes de ${nombre}`}
+                pista={esGrupo ? PISTA_INFORMACION : undefined}
+                onPress={abrirInformacion}
               />
             )
           : contactoId
@@ -357,7 +365,7 @@ export function Conversacion({ id, empresa = null }) {
               )
             : undefined,
     });
-  }, [navegacion, nombre, grupal, conversacion?.tipo, router, id, empresa, contactoId]);
+  }, [navegacion, nombre, grupal, conversacion?.tipo, router, id, empresa, contactoId, esGrupo, abrirInformacion]);
 
   // CA-11: mientras tiene el foco, su push no se muestra.
   useFocusEffect(useCallback(() => registrarConversacionAbierta(id, empresa), [id, empresa]));
@@ -842,10 +850,21 @@ export function Conversacion({ id, empresa = null }) {
       <View style={estilos.barra}>
         {grupal ? (
           <View style={estilos.barraFila}>
-            <Text style={estilos.tenue}>
-              {NOMBRE_DE_TIPO[conversacion?.tipo] ?? "Grupo"}
-              {conversacion?.miembros ? ` · ${conversacion.miembros} participantes` : ""}
-            </Text>
+            {/* US-024 (UX H-01): tocar la línea abre lo mismo que el ícono. */}
+            <Pressable
+              testID="linea-del-grupo"
+              onPress={abrirInformacion}
+              accessibilityRole="button"
+              accessibilityHint={esGrupo ? PISTA_INFORMACION : "Abre la lista de participantes"}
+              hitSlop={4}
+              style={({ pressed }) => [estilos.lineaDelGrupo, pressed && estilos.lineaPresionada]}
+            >
+              <Text style={estilos.enlaceTenue}>
+                {NOMBRE_DE_TIPO[conversacion?.tipo] ?? "Grupo"}
+                {conversacion?.miembros ? ` · ${conversacion.miembros} participantes` : ""}
+              </Text>
+              <Icono nombre="chevron-right" size={18} color={colores.tintaSuave} />
+            </Pressable>
           </View>
         ) : presenciaDelOtro ? (
           <Presencia presencia={presenciaDelOtro} testID="presencia-del-otro" />
@@ -1338,6 +1357,9 @@ const estilos = crearEstilos({
   contenidoError: { padding: 16, gap: 12 },
   barra: { paddingHorizontal: 12, paddingTop: 8, gap: 6, backgroundColor: colores.fondo },
   barraFila: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  lineaDelGrupo: { minHeight: AREA_TACTIL, flexDirection: "row", alignItems: "center", gap: 2 },
+  lineaPresionada: { opacity: 0.7 },
+  enlaceTenue: { fontSize: 14, color: colores.tintaSuave, textDecorationLine: "underline" },
   tenue: { fontSize: 14, color: colores.tintaSuave },
   tenueCentro: { fontSize: 15, color: colores.tintaTenue, textAlign: "center" },
   lista: { flex: 1 },

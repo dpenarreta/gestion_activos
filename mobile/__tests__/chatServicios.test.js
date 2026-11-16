@@ -3,7 +3,7 @@ import * as FileSystem from "expo-file-system";
 import { AppState } from "react-native";
 
 import { api } from "../src/api/api";
-import { chatService, notificacionesService } from "../src/api/servicios";
+import { chatService, directorioService, notificacionesService } from "../src/api/servicios";
 import {
   descargarArchivoDelChat,
   elegirArchivoParaElChat,
@@ -38,6 +38,7 @@ jest.mock("../src/api/api", () => ({
     get: jest.fn(async () => ({})),
     post: jest.fn(async () => ({})),
     put: jest.fn(async () => ({})),
+    patch: jest.fn(async () => ({})),
     url: (ruta) => `https://api.prueba/api/v1${ruta}`,
     conRenovacion: jest.fn(async (hacer, { empresa } = {}) =>
       hacer({ Authorization: "Bearer access", ...(empresa ? { "X-Empresa": empresa } : {}) }),
@@ -92,6 +93,47 @@ describe("chatService: rutas y campos del contrato", () => {
     expect(api.post).toHaveBeenCalledWith("/chat/conversaciones/7/leer/", { hasta: 99 }, {
       cabeceras: { "X-Empresa": "4" },
     });
+  });
+
+  it("US-024: crear, editar y salir de un grupo y las áreas, con la empresa de la conversación", async () => {
+    await chatService.crearGrupo({ nombre: "Equipo TI", participantes: [9, 12] });
+    await chatService.crearGrupo({ nombre: "Cartera", departamento: 4 }, { empresa: "2" });
+    await chatService.editarGrupo(7, { nombre: "Soporte", agregar: [15], quitar: [12] }, { empresa: "2" });
+    await chatService.editarGrupo(7, { nombre: "Soporte" });
+    await chatService.salir(7, { empresa: "2" });
+    await chatService.salir(8);
+    await chatService.areas();
+    await chatService.areas({ empresa: "2" });
+
+    const conDos = { cabeceras: { "X-Empresa": "2" } };
+    expect(api.post.mock.calls).toEqual([
+      ["/chat/conversaciones/", { nombre: "Equipo TI", participantes: [9, 12] }, undefined],
+      ["/chat/conversaciones/", { nombre: "Cartera", departamento: 4 }, conDos],
+      ["/chat/conversaciones/7/salir/", {}, conDos],
+      ["/chat/conversaciones/8/salir/", {}, undefined],
+    ]);
+    expect(api.patch.mock.calls).toEqual([
+      ["/chat/conversaciones/7/", { nombre: "Soporte", agregar: [15], quitar: [12] }, conDos],
+      ["/chat/conversaciones/7/", { nombre: "Soporte" }, undefined],
+    ]);
+    expect(api.get.mock.calls).toEqual([
+      ["/chat/areas/", undefined],
+      ["/chat/areas/", conDos],
+    ]);
+  });
+
+  it("US-024: el directorio, con o sin la empresa de la conversación", async () => {
+    await directorioService.buscar("");
+    await directorioService.buscar(" carla ");
+    await directorioService.buscar("", { empresa: "2" });
+    await directorioService.buscar("carla", { empresa: "2" });
+
+    expect(api.get.mock.calls).toEqual([
+      ["/chat/directorio/", undefined],
+      ["/chat/directorio/", { params: { q: "carla" } }],
+      ["/chat/directorio/", { cabeceras: { "X-Empresa": "2" } }],
+      ["/chat/directorio/", { cabeceras: { "X-Empresa": "2" }, params: { q: "carla" } }],
+    ]);
   });
 
   it("directo, leer sin «hasta» y mi estado", async () => {

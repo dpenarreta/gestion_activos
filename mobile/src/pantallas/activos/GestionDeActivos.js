@@ -2,6 +2,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
+import { veLosActivos } from "../../activos/formato";
+import { BotonFlotante } from "../../componentes/BotonFlotante";
 import { moduloPorId, vistaActiva } from "../../navegacion/modulos";
 import { useContextoDeNavegacion } from "../../navegacion/useContextoDeNavegacion";
 import { anunciar } from "../../accesibilidad/anunciar";
@@ -116,6 +118,7 @@ export function GestionDeActivos() {
         vez={primero(parametros.n)}
         empresa={empresa}
         versionEmpresa={versionEmpresa}
+        permisos={permisos}
         onAbrirActivo={abrirActivo}
       />
     );
@@ -162,6 +165,19 @@ export function GestionDeActivos() {
         </View>
       ) : null}
       {contenido}
+      {/* La burbuja de «Escanear» (16/11/2026, a pedido del usuario): solo en
+          Gestión de Activos, en todas sus vistas, y con el permiso del escáner
+          de la web (`activos.ver`, el de su ruta y su menú). Abre el escáner
+          con la cámara ya lista (`auto`). */}
+      {veLosActivos(permisos) ? (
+        <BotonFlotante
+          testID="escanear-flotante"
+          icono="barcode-scan"
+          etiqueta="Escanear la etiqueta de un activo"
+          pista="Abre la cámara para leer el código QR o de barras"
+          onPress={() => router.push({ pathname: "/activos/escanear", params: { auto: "1" } })}
+        />
+      ) : null}
     </View>
   );
 }

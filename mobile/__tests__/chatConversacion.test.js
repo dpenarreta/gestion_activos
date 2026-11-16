@@ -19,6 +19,7 @@ import {
 } from "../src/chat/avisoEnPrimerPlano";
 import {
   Conversacion,
+  PISTA_INFORMACION,
   REFRESCO_LECTURAS_MS,
   TEXTO_NO_ENCONTRADA,
   TEXTO_SIN_MENSAJES,
@@ -739,7 +740,7 @@ describe("quién leyó (CA-9)", () => {
 });
 
 describe("grupos y presencia (CA-6, CA-8)", () => {
-  it("en un grupo se ve el autor y «Participantes» va en la cabecera como ícono (H-12)", async () => {
+  it("en un grupo se ve el autor e «Información del grupo» va en la cabecera como ícono (H-12, US-024 H-01)", async () => {
     chatService.mensajes.mockResolvedValueOnce(pagina([mensaje(10, { conversacion: 7 })]));
     await render(<Conversacion id="7" />);
     expect(await screen.findByText("Grupo · 3 participantes")).toBeTruthy();
@@ -748,9 +749,10 @@ describe("grupos y presencia (CA-6, CA-8)", () => {
     expect(screen.queryByTestId("ver-participantes")).toBeNull();
     await renderCabeceraDerecha();
     const boton = screen.getByTestId("ver-participantes");
-    expect(boton.props.accessibilityLabel).toBe("Ver los participantes de Equipo TI");
+    expect(boton.props.accessibilityLabel).toBe("Información de Equipo TI");
+    expect(boton.props.accessibilityHint).toBe(PISTA_INFORMACION);
     await fireEvent.press(boton);
-    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/participantes/[id]", params: { id: "7" } });
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/participantes/[id]", params: { id: "7", grupo: "1" } });
     // En un grupo no se pide la presencia de nadie desde aquí.
     expect(chatService.presencia).not.toHaveBeenCalled();
   });
@@ -762,7 +764,20 @@ describe("grupos y presencia (CA-6, CA-8)", () => {
     await fireEvent.press(screen.getByTestId("ver-participantes"));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: "/chat/participantes/[id]",
-      params: { id: "7", empresa: "2" },
+      params: { id: "7", empresa: "2", grupo: "1" },
+    });
+  });
+
+  it("US-024 (UX H-01): la línea «Grupo · N participantes» se toca y abre lo mismo", async () => {
+    await render(<Conversacion id="7" empresa="2" />);
+    await screen.findByText("Grupo · 3 participantes");
+    const linea = screen.getByTestId("linea-del-grupo");
+    expect(linea.props.accessibilityRole).toBe("button");
+    expect(linea.props.accessibilityHint).toBe(PISTA_INFORMACION);
+    await fireEvent.press(linea);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/chat/participantes/[id]",
+      params: { id: "7", empresa: "2", grupo: "1" },
     });
   });
 

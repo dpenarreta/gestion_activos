@@ -1,10 +1,19 @@
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { activosService } from "../../api/servicios";
-import { activosEnLaWeb, alertasDelPanel, dinero, kpisDelPanel, mensajeDeActivos, textoDeAlerta } from "../../activos/formato";
-import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import {
+  activosEnLaWeb,
+  alertasDelPanel,
+  dinero,
+  kpisDelPanel,
+  mensajeDeActivos,
+  puedeRegistrarActivos,
+  textoDeAlerta,
+} from "../../activos/formato";
+import { ESPACIO_BOTON_FLOTANTE } from "../../componentes/BotonFlotante";
+import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { TONOS } from "../../soporte/formato";
 import { AREA_TACTIL, colores } from "../../tema/colores";
@@ -56,8 +65,11 @@ function Cifra({ nombre, valor, testID }) {
  *
  * Se actualiza al volver a él y al tirar hacia abajo; un refresco fallido no
  * borra lo que se ve. Al cambiar de empresa se vuelve a pedir (CA-22).
+ *
+ * Con `activos.crear`, «Registrar activo» arriba (US-023, CA-1).
  */
 export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventario, onAbrirActivo }) {
+  const router = useRouter();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
   const montado = useMontado();
@@ -237,6 +249,14 @@ export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventa
       contentContainerStyle={estilos.contenido}
       refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
     >
+      {puedeRegistrarActivos(permisos) ? (
+        <Boton
+          testID="registrar-activo-desde-el-panel"
+          titulo="Registrar activo"
+          icono="plus-circle-outline"
+          onPress={() => router.push("/activos/nuevo")}
+        />
+      ) : null}
       {contenido}
       <View style={estilos.pie}>
         <ActivosEnElNavegador accesos={activosEnLaWeb(permisos)} empresa={empresa} />
@@ -247,7 +267,8 @@ export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventa
 
 const estilos = crearEstilos({
   lista: { flex: 1 },
-  contenido: { padding: 16, paddingTop: 8, paddingBottom: 32, gap: 16 },
+  // El final queda libre para la burbuja de «Escanear» (`BotonFlotante`).
+  contenido: { padding: 16, paddingTop: 8, paddingBottom: ESPACIO_BOTON_FLOTANTE, gap: 16 },
   tenue: { fontSize: 14, color: colores.tintaSuave },
   tarjetas: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tarjeta: {

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { activosService } from "../../api/servicios";
+import { tomarResultado } from "../../activos/avisoPendiente";
 import {
   cambiosDelMovimiento,
   dinero,
@@ -11,6 +12,7 @@ import {
   garantiaDe,
   mantenimientosOrdenados,
   mensajeDeActivos,
+  puedeEditarActivos,
   TEXTO_NO_DISPONIBLE,
 } from "../../activos/formato";
 import { Alerta, Boton, Cargando, Desplegable, ErrorConReintento, Vacio } from "../../componentes/comunes";
@@ -31,6 +33,11 @@ export function rutaDeRegistrarMantenimiento(activo) {
 }
 
 const TIPOS_EN_PLURAL = { preventivo: "preventivos", correctivo: "correctivos" };
+
+/** La ruta de «Editar» (US-023, CA-4): `/activos/ID/editar`. */
+export function rutaDeEditarActivo(activo) {
+  return { pathname: "/activos/[id]/editar", params: { id: String(activo.id) } };
+}
 
 /** Los movimientos a la vista; el resto, con «Ver todos (N)» (UX H-02). */
 export const MOVIMIENTOS_A_LA_VISTA = 5;
@@ -123,14 +130,19 @@ export function FichaActivo({ id, empresa = null }) {
   const cargarRef = useRef(cargar);
   cargarRef.current = cargar;
   const primeraVez = useRef(true);
+  // US-023: lo que dejó el alta (el código de barras, a quién no le llegó
+  // el correo) o la edición («Ficha actualizada»), una sola vez; al volver
+  // de «Editar», además, la ficha se recarga.
   useFocusEffect(
     useCallback(() => {
+      const previo = tomarResultado(`activo-${id}`);
+      if (previo) setResultado({ ...previo, clave: Date.now() });
       if (primeraVez.current) {
         primeraVez.current = false;
         return;
       }
       if (cargaRef.current.estado === "listo") cargarRef.current({ silenciosa: true });
-    }, []),
+    }, [id]),
   );
 
   async function refrescar() {
@@ -162,6 +174,9 @@ export function FichaActivo({ id, empresa = null }) {
   const puedeAsignar = enLaActiva && operativo && permisos.includes("activos.asignar");
   const puedeCambiarEstado = enLaActiva && permisos.includes("activos.dar_baja") && activo.estado !== "dado_de_baja";
   const puedeRegistrar = enLaActiva && operativo && permisos.includes("mantenimientos.registrar");
+  // US-023 (CA-1): «Editar» con `activos.editar` y solo en la empresa activa
+  // (no desde un aviso de otra), como asignar.
+  const puedeEditar = enLaActiva && puedeEditarActivos(permisos);
   const garantia = garantiaDe(activo);
   const bitacora = mantenimientosOrdenados(mantenimientos);
   const sede = [activo.sede_nombre, activo.ciudad !== activo.sede_nombre ? activo.ciudad : null].filter(Boolean).join(", ");
@@ -175,6 +190,7 @@ export function FichaActivo({ id, empresa = null }) {
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}
       {resultado ? <Alerta tipo="bien" texto={resultado.texto} clave={resultado.clave} testID="resultado-accion" /> : null}
+      {resultado?.aviso ? <Alerta tipo="aviso" texto={resultado.aviso} testID="aviso-sin-correo" /> : null}
 
       <View style={estilos.cabecera}>
         <Text style={estilos.codigo} testID="codigo-del-activo">
@@ -222,7 +238,7 @@ export function FichaActivo({ id, empresa = null }) {
         {garantia.detalle ? <Text style={estilos.tenue}>{garantia.detalle}</Text> : null}
       </Seccion>
 
-      {puedeAsignar || puedeCambiarEstado || puedeRegistrar ? (
+      {puedeAsignar || puedeCambiarEstado || puedeRegistrar || puedeEditar ? (
         <View style={estilos.acciones}>
           {puedeAsignar ? (
             <Boton testID="asignar" titulo="Asignar" icono="account-switch-outline" onPress={() => setVentana("asignar")} />
@@ -245,12 +261,22 @@ export function FichaActivo({ id, empresa = null }) {
               onPress={() => router.push(rutaDeRegistrarMantenimiento(activo))}
             />
           ) : null}
+          {puedeEditar ? (
+            <Boton
+              testID="editar-activo"
+              titulo="Editar"
+              etiqueta="Editar la ficha técnica"
+              icono="pencil-outline"
+              variante="secundario"
+              onPress={() => router.push(rutaDeEditarActivo(activo))}
+            />
+          ) : null}
         </View>
       ) : null}
       {!enLaActiva ? (
         <Alerta
           tipo="info"
-          texto="Este activo es de otra empresa. Para asignarlo o cambiar su estado, cámbiese a ella en «Cuenta»."
+          texto="Este activo es de otra empresa. Para editarlo, asignarlo o cambiar su estado, cámbiese a ella en «Cuenta»."
         />
       ) : null}
       {!operativo ? (

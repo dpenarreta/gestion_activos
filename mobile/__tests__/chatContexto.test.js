@@ -280,6 +280,181 @@ describe("consulta periódica de novedades (CA-4)", () => {
     expect(chatService.novedades).toHaveBeenCalledTimes(2);
   });
 
+  it("US-024: al salir de un grupo, la lista lo olvida sin esperar al servidor (y sus no leídos)", async () => {
+    jest.useFakeTimers();
+    let chat;
+    function Sonda() {
+      chat = useChat();
+      return null;
+    }
+    await render(
+      <ChatProvider>
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1, 5]);
+    await act(async () => chat.olvidarConversacion("5"));
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+    expect(chat.noLeidos).toEqual({});
+    const antes = chat.conversaciones;
+    await act(async () => chat.olvidarConversacion(99));
+    expect(chat.conversaciones).toBe(antes);
+  });
+
+  it("US-024 (QA-TECH P2): una lista pedida antes de olvidar el grupo y resuelta después no lo trae de vuelta", async () => {
+    jest.useFakeTimers();
+    let chat;
+    function Sonda() {
+      chat = useChat();
+      return null;
+    }
+    await render(
+      <ChatProvider>
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    let resolver;
+    chatService.conversaciones.mockReturnValueOnce(
+      new Promise((res) => {
+        resolver = res;
+      }),
+    );
+    // El refresco al volver a la lista sale ANTES de olvidar el grupo.
+    let refresco;
+    await act(async () => {
+      refresco = chat.cargarConversaciones({ silenciosa: true });
+    });
+    await act(async () => chat.olvidarConversacion(5));
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+    await act(async () => {
+      resolver(CONVERSACIONES);
+      await refresco;
+    });
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+
+    // Una lista pedida DESPUÉS sí se aplica: es la confirmada.
+    chatService.conversaciones.mockResolvedValueOnce([CONVERSACIONES[0]]);
+    await act(async () => {
+      await chat.cargarConversaciones({ silenciosa: true });
+    });
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+  });
+
+  it("US-024 (QA-TECH P2): de una respuesta vieja, la más nueva gana aunque llegue antes", async () => {
+    jest.useFakeTimers();
+    let chat;
+    function Sonda() {
+      chat = useChat();
+      return null;
+    }
+    await render(
+      <ChatProvider>
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    let resolverVieja;
+    chatService.conversaciones
+      .mockReturnValueOnce(
+        new Promise((res) => {
+          resolverVieja = res;
+        }),
+      )
+      .mockResolvedValueOnce([CONVERSACIONES[0]]);
+    let vieja;
+    await act(async () => {
+      vieja = chat.cargarConversaciones({ silenciosa: true });
+      await chat.cargarConversaciones({ silenciosa: true });
+    });
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+    await act(async () => {
+      resolverVieja(CONVERSACIONES);
+      await vieja;
+    });
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+  });
+
+  it("US-024 (QA-TECH P2): unas novedades en vuelo al olvidar no devuelven los no leídos del grupo", async () => {
+    jest.useFakeTimers();
+    let chat;
+    function Sonda() {
+      chat = useChat();
+      return null;
+    }
+    await render(
+      <ChatProvider>
+        <Visible />
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    expect(chat.noLeidos).toEqual({ 5: 3 });
+    let resolver;
+    chatService.novedades.mockReturnValueOnce(
+      new Promise((res) => {
+        resolver = res;
+      }),
+    );
+    await esperar(INTERVALO_MS);
+    await act(async () => chat.olvidarConversacion(5));
+    const conversaciones = chatService.conversaciones.mock.calls.length;
+    await act(async () => {
+      resolver({
+        cursor: 101,
+        mensajes: [{ id: 50, conversacion: 5, propio: false, texto: "Hola" }],
+        no_leidos: { 5: 4 },
+        total_no_leidos: 4,
+      });
+    });
+    expect(chat.noLeidos).toEqual({});
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1]);
+    // Su mensaje tampoco pide otra lista.
+    expect(chatService.conversaciones.mock.calls.length).toBe(conversaciones);
+
+    // Sin lista confirmada, unas novedades pedidas después tampoco lo traen.
+    chatService.novedades.mockResolvedValueOnce({ cursor: 102, mensajes: [], no_leidos: { 5: 4 }, total_no_leidos: 4 });
+    await esperar(INTERVALO_MS);
+    expect(chat.noLeidos).toEqual({});
+
+    // Con la lista confirmada (pedida después), lo que diga el servidor vale.
+    chatService.conversaciones.mockResolvedValueOnce(CONVERSACIONES);
+    await act(async () => {
+      await chat.cargarConversaciones({ silenciosa: true });
+    });
+    chatService.novedades.mockResolvedValueOnce({ cursor: 103, mensajes: [], no_leidos: { 5: 4 }, total_no_leidos: 4 });
+    await esperar(INTERVALO_MS);
+    expect(chat.noLeidos).toEqual({ 5: 4 });
+  });
+
+  it("US-024: al cambiar de empresa se olvida lo olvidado", async () => {
+    jest.useFakeTimers();
+    let chat;
+    function Sonda() {
+      chat = useChat();
+      return null;
+    }
+    const { rerender } = await render(
+      <ChatProvider>
+        <Visible />
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    await act(async () => chat.olvidarConversacion(5));
+    mockSesion.versionEmpresa = 1;
+    await rerender(
+      <ChatProvider>
+        <Visible />
+        <Sonda />
+      </ChatProvider>,
+    );
+    await esperar(0);
+    expect(chat.conversaciones.map((c) => c.id)).toEqual([1, 5]);
+    expect(chat.noLeidos).toEqual({ 5: 3 });
+  });
+
   it("al cambiar de empresa vuelve a empezar (CA-13)", async () => {
     jest.useFakeTimers();
     const { rerender } = await render(<ChatProvider />);

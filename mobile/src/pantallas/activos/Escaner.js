@@ -74,9 +74,19 @@ function Resultado({ ficha, permisos, onVerFicha, onRegistrar, onOtro }) {
  * se lee otra vez el permiso con el tercer valor del hook
  * (`[permiso, pedir, obtener]` de `createPermissionHook`), sin salir y
  * entrar de nuevo al escáner. */
-function VistaDeCamara({ camara, activa, onLeido }) {
+function VistaDeCamara({ camara, activa, onLeido, pedirAlEntrar = false }) {
   const { CameraView, useCameraPermissions } = camara;
   const [permiso, pedirPermiso, obtenerPermiso] = useCameraPermissions();
+  const pedido = useRef(false);
+
+  // Desde la burbuja de «Escanear» (16/11/2026): la cámara arranca sola.
+  // Si la persona todavía no decidió el permiso, se le pide de una vez,
+  // sin el paso de «Usar la cámara»; una sola vez por entrada.
+  useEffect(() => {
+    if (!pedirAlEntrar || pedido.current || !permiso || permiso.granted || !permiso.canAskAgain) return;
+    pedido.current = true;
+    Promise.resolve(pedirPermiso()).catch(() => {});
+  }, [pedirAlEntrar, permiso, pedirPermiso]);
 
   useEffect(() => {
     if (typeof obtenerPermiso !== "function") return undefined;
@@ -151,7 +161,9 @@ function VistaDeCamara({ camara, activa, onLeido }) {
  * QA-FUNC B5: un código con «.» o «/» no cabe en la ruta `por-codigo/`; se
  * busca con `GET activos/?q=` y, si hay un solo activo, se abre su ficha.
  */
-export function Escaner() {
+/** `auto`: se llega desde la burbuja de «Escanear» y la cámara arranca sola
+ * (pide el permiso de inmediato si hace falta). */
+export function Escaner({ auto = false } = {}) {
   const router = useRouter();
   const { usuario } = useSesion();
   const permisos = usuario?.permissions ?? [];
@@ -250,7 +262,7 @@ export function Escaner() {
 
       {/* La cámara solo con la pantalla enfocada y sin un resultado a la
           vista; mientras busca, montada pero inactiva. */}
-      {conCamara ? <VistaDeCamara camara={camara} activa={leyendo} onLeido={alLeer} /> : null}
+      {conCamara ? <VistaDeCamara camara={camara} activa={leyendo} onLeido={alLeer} pedirAlEntrar={auto} /> : null}
 
       {estado.fase === "buscando" ? <Cargando texto={`Buscando ${estado.codigo}…`} /> : null}
       {estado.fase === "error" ? (

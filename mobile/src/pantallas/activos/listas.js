@@ -1,5 +1,6 @@
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 
+import { ESPACIO_BOTON_FLOTANTE } from "../../componentes/BotonFlotante";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { colores } from "../../tema/colores";
@@ -155,7 +156,8 @@ export function ListaPaginada({
 
 export const estilos = crearEstilos({
   lista: { flex: 1 },
-  contenido: { padding: 16, paddingTop: 8, paddingBottom: 32 },
+  // El final queda libre para la burbuja de «Escanear» (`BotonFlotante`).
+  contenido: { padding: 16, paddingTop: 8, paddingBottom: ESPACIO_BOTON_FLOTANTE },
   cabecera: { gap: 8, marginBottom: 12 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   filaBuscador: { flexDirection: "row", alignItems: "center", gap: 8 },

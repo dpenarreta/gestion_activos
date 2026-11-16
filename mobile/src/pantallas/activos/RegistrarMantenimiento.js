@@ -506,7 +506,7 @@ export function RegistrarMantenimiento({ activoId = null }) {
   const desplazable = useRef(null);
   const { bloque, refFoco, irA } = useIrAlBloque(desplazable);
   const tocado = hayCambiosEnElRegistro(iniciales, valores, lineas) || (!activoId && Boolean(activo));
-  const { salir } = useSalirConCambios(tocado && !enviando);
+  const { salir } = useSalirConCambios(tocado && !enviando, { ocupado: enviando });
 
   const cargarActivo = useCallback(async () => {
     if (!activoId) return;

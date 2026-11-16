@@ -169,6 +169,15 @@ export const MODULOS = Object.freeze([
         ruta: "/chat/nuevo",
       },
       {
+        // US-024 (16/11/2026): crear un grupo ya no abre la web. Un solo
+        // nombre en la barra, el título y la lista (UX H-14).
+        id: "crear_grupo",
+        texto: "Nuevo grupo",
+        icono: "account-multiple-plus-outline",
+        tipo: "accion",
+        ruta: "/chat/grupo-nuevo",
+      },
+      {
         // La misma lista filtrada en el teléfono a los grupos (sin API nueva).
         id: "grupos",
         texto: "Mis grupos",

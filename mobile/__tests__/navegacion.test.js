@@ -139,7 +139,7 @@ describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
       soporte: { delEquipo: true, aprobaciones: 1 },
     });
     expect(idsDe("institucional", todo)).toEqual(["inicio", "mias", "por_aprobar", "vacaciones"]);
-    expect(idsDe("chat", todo)).toEqual(["conversaciones", "nuevo", "grupos", "mi_estado"]);
+    expect(idsDe("chat", todo)).toEqual(["conversaciones", "nuevo", "crear_grupo", "grupos", "mi_estado"]);
     expect(idsDe("mesa", todo)).toEqual(["bandeja", "mis", "aprobaciones", "nuevo", "registrar"]);
     expect(moduloPorId("institucional").funcionalidades.map((f) => f.texto)).toEqual([
       "Inicio",
@@ -150,6 +150,7 @@ describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
     const acciones = MODULOS.flatMap((m) => m.funcionalidades.filter((f) => f.tipo === "accion").map((f) => f.ruta));
     expect(acciones).toEqual([
       "/chat/nuevo",
+      "/chat/grupo-nuevo",
       "/chat/mi-estado",
       "/soporte/nuevo",
       "/soporte/registrar",
@@ -248,6 +249,7 @@ describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
       "Consulta de vacaciones",
       "Conversaciones, 1 mensaje sin leer",
       "Nuevo mensaje",
+      "Nuevo grupo",
       "Mis grupos",
       "Mi estado",
       "Bandeja del equipo, 3 asignados a usted",
@@ -701,7 +703,7 @@ describe("la barra de funcionalidades (CA-2 a CA-4)", () => {
     );
     // Las acciones van después de las vistas (decisión del usuario).
     const orden = screen.getAllByTestId(/^funcion-/).map((e) => e.props.testID);
-    expect(orden).toEqual(["funcion-conversaciones", "funcion-grupos", "funcion-nuevo", "funcion-mi_estado"]);
+    expect(orden).toEqual(["funcion-conversaciones", "funcion-grupos", "funcion-nuevo", "funcion-crear_grupo", "funcion-mi_estado"]);
   });
 
   it("H-04: las acciones con contorno y sin relleno; la vista activa, rellena en amarillo", async () => {

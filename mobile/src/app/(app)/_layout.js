@@ -33,6 +33,12 @@ function cabecera() {
   };
 }
 
+/** «Información del grupo» si se abrió desde un grupo (`?grupo=1`); si no,
+ * «Participantes» (el canal general). */
+function tituloDeParticipantes(grupo) {
+  return (Array.isArray(grupo) ? grupo[0] : grupo) === "1" ? "Información del grupo" : "Participantes";
+}
+
 /** El título de la lista de un estado de la Matriz («Incumplidas»…). */
 function tituloDeLaLista(estado) {
   return estadoDeLaBandeja(Array.isArray(estado) ? estado[0] : estado)?.titulo ?? "Matriz de obligaciones";
@@ -73,9 +79,15 @@ export default function AppLayout() {
               <Stack.Screen name="permisos/nueva" options={{ ...cabecera(), title: "Nueva solicitud" }} />
               <Stack.Screen name="permisos/solicitud/[id]" options={{ ...cabecera(), title: "Solicitud de permiso" }} />
               <Stack.Screen name="chat/conversacion/[id]" options={{ ...cabecera(), title: "Conversación" }} />
-              <Stack.Screen name="chat/participantes/[id]" options={{ ...cabecera(), title: "Participantes" }} />
+              {/* US-024 (UX H-01): de un grupo, «Información del grupo». */}
+              <Stack.Screen
+                name="chat/participantes/[id]"
+                options={({ route }) => ({ ...cabecera(), title: tituloDeParticipantes(route?.params?.grupo) })}
+              />
               <Stack.Screen name="chat/contacto/[id]" options={{ ...cabecera(), title: "Contacto" }} />
               <Stack.Screen name="chat/nuevo" options={{ ...cabecera(), title: "Nuevo mensaje" }} />
+              {/* US-024: crear un grupo en la app (antes, en la web). */}
+              <Stack.Screen name="chat/grupo-nuevo" options={{ ...cabecera(), title: "Nuevo grupo" }} />
               <Stack.Screen name="chat/mi-estado" options={{ ...cabecera(), title: "Mi estado" }} />
               <Stack.Screen name="soporte/nuevo" options={{ ...cabecera(), title: "Nuevo ticket" }} />
               <Stack.Screen name="soporte/registrar" options={{ ...cabecera(), title: "Registrar ticket" }} />
@@ -92,6 +104,9 @@ export default function AppLayout() {
                   de mantenimientos y las solicitudes de equipos). */}
               <Stack.Screen name="activos/[id]" options={{ ...cabecera(), title: "Activo" }} />
               <Stack.Screen name="activos/escanear" options={{ ...cabecera(), title: "Escanear" }} />
+              {/* US-023: registrar un activo y editar su ficha técnica. */}
+              <Stack.Screen name="activos/nuevo" options={{ ...cabecera(), title: "Registrar activo" }} />
+              <Stack.Screen name="activos/[id]/editar" options={{ ...cabecera(), title: "Editar activo" }} />
               <Stack.Screen name="mantenimientos/nuevo" options={{ ...cabecera(), title: "Registrar mantenimiento" }} />
               <Stack.Screen name="mantenimientos/[id]" options={{ ...cabecera(), title: "Mantenimiento" }} />
               <Stack.Screen name="solicitudes/nueva" options={{ ...cabecera(), title: "Nueva solicitud de equipo" }} />

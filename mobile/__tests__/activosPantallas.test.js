@@ -234,6 +234,54 @@ describe("el módulo (CA-1)", () => {
   });
 });
 
+describe("la burbuja de «Escanear» (16/11/2026)", () => {
+  it("está en el módulo con `activos.ver` y abre el escáner con la cámara lista", async () => {
+    await render(<GestionDeActivos />);
+    const burbuja = await screen.findByTestId("escanear-flotante");
+    expect(burbuja.props.accessibilityLabel).toBe("Escanear la etiqueta de un activo");
+    await fireEvent.press(burbuja);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/activos/escanear", params: { auto: "1" } });
+  });
+
+  it("sin `activos.ver` (el permiso del escáner de la web) no aparece", async () => {
+    mockSesion.usuario = { permissions: ["solicitudes.ver", "solicitudes.gestionar"] };
+    mockParametros.vista = "recibidas";
+    solicitudesService.listar.mockResolvedValue({ count: 0, next: null, results: [] });
+    await render(<GestionDeActivos />);
+    expect(await screen.findByTestId("solicitudes-recibidas")).toBeTruthy();
+    expect(screen.queryByTestId("escanear-flotante")).toBeNull();
+  });
+
+  it("desde la burbuja, si el permiso de cámara no se decidió, se pide de una vez", async () => {
+    const camara = require("expo-camera");
+    const original = camara.__estado.permiso;
+    camara.__estado.permiso = { granted: false, canAskAgain: true, status: "undetermined" };
+    camaraDisponible.mockReturnValue({ CameraView: camara.CameraView, useCameraPermissions: camara.useCameraPermissions });
+    try {
+      camara.__pedir.mockClear();
+      await render(<Escaner auto />);
+      await waitFor(() => expect(camara.__pedir).toHaveBeenCalledTimes(1));
+    } finally {
+      camara.__estado.permiso = original;
+    }
+  });
+
+  it("sin la burbuja (entrada normal) no se pide el permiso solo", async () => {
+    const camara = require("expo-camera");
+    const original = camara.__estado.permiso;
+    camara.__estado.permiso = { granted: false, canAskAgain: true, status: "undetermined" };
+    camaraDisponible.mockReturnValue({ CameraView: camara.CameraView, useCameraPermissions: camara.useCameraPermissions });
+    try {
+      camara.__pedir.mockClear();
+      await render(<Escaner />);
+      expect(screen.getByTestId("dar-permiso")).toBeTruthy();
+      expect(camara.__pedir).not.toHaveBeenCalled();
+    } finally {
+      camara.__estado.permiso = original;
+    }
+  });
+});
+
 describe("el Panel (CA-3 a CA-5)", () => {
   it("las cuatro tarjetas con su cifra y su nombre accesible; cada una abre el inventario filtrado", async () => {
     await render(<GestionDeActivos />);
@@ -273,9 +321,11 @@ describe("el Panel (CA-3 a CA-5)", () => {
     mockSesion.usuario = { permissions: ["activos.ver", "activos.crear"] };
     await render(<GestionDeActivos />);
     await screen.findByTestId("kpis-activos");
-    await fireEvent.press(screen.getByRole("link", { name: "Registrar activo. Abrir en el navegador" }));
+    // US-023: «Registrar activo» ya no sale al navegador.
+    expect(screen.queryByRole("link", { name: "Registrar activo. Abrir en el navegador" })).toBeNull();
+    await fireEvent.press(screen.getByRole("link", { name: "Carga masiva. Abrir en el navegador" }));
     expect(confirmarSalida).toHaveBeenCalled();
-    await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/activos\/new\?empresa=2$/)));
+    await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/activos\/importar\?empresa=2$/)));
   });
 });
 

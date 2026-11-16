@@ -85,6 +85,18 @@ export function ChatProvider({ children }) {
   const generacion = useRef(0);
   const montado = useRef(true);
   const sondeo = useRef(null);
+  // US-024 (QA-TECH P2): un grupo del que se salió no reaparece. Cada pedido
+  // de la lista lleva su número y solo se aplica el pedido después del último
+  // aplicado y del último olvido (`corte`): una respuesta que salió antes de
+  // salir del grupo aún lo trae. `olvidadas` (id → número del olvido) filtra
+  // las novedades que estaban en vuelo; `sinConfirmar`, hasta que llegue una
+  // lista pedida después del olvido.
+  const pedidos = useRef(0);
+  const aplicado = useRef(0);
+  const corte = useRef(0);
+  const olvidos = useRef(0);
+  const olvidadas = useRef(new Map());
+  const sinConfirmar = useRef(new Set());
 
   useEffect(() => {
     montado.current = true;
@@ -96,13 +108,20 @@ export function ChatProvider({ children }) {
 
   const cargarConversaciones = useCallback(async ({ silenciosa = false } = {}) => {
     const numero = generacion.current;
+    pedidos.current += 1;
+    const pedido = pedidos.current;
+    /** Si otra lista más nueva ya se aplicó, o se olvidó algo después de pedirla. */
+    const vieja = () => pedido <= aplicado.current || pedido <= corte.current;
     if (!silenciosa) {
       setEstado((e) => (e === "listo" ? e : "cargando"));
       setError(null);
     }
     try {
       const lista = await chatService.conversaciones();
-      if (!montado.current || numero !== generacion.current) return null;
+      if (!montado.current || numero !== generacion.current || vieja()) return null;
+      aplicado.current = pedido;
+      // Pedida después de cada olvido: lo que diga ya es lo confirmado.
+      sinConfirmar.current.clear();
       const filas = Array.isArray(lista) ? lista : [];
       conocidas.current = new Set(filas.map((c) => String(c.id)));
       setConversaciones(filas);
@@ -113,6 +132,15 @@ export function ChatProvider({ children }) {
       return filas;
     } catch (e) {
       if (!montado.current || numero !== generacion.current) return null;
+      if (vieja()) {
+        // QA-TECH P3-4: si un olvido cortó la primera carga y esta falló, la
+        // lista no se queda en «Cargando» sin «Reintentar».
+        if (!silenciosa) {
+          setError(mensajeDeError(e, "No se pudieron cargar las conversaciones."));
+          setEstado((actual) => (actual === "cargando" ? "error" : actual));
+        }
+        return null;
+      }
       // Con la lista ya cargada, un fallo de un refresco no la borra.
       if (!silenciosa) {
         setError(mensajeDeError(e, "No se pudieron cargar las conversaciones."));
@@ -126,13 +154,22 @@ export function ChatProvider({ children }) {
     if (enCurso.current) return;
     enCurso.current = true;
     const numero = generacion.current;
+    const olvidoAlPedir = olvidos.current;
     try {
       const datos = await chatService.novedades(cursor.current);
       if (!montado.current || numero !== generacion.current || !datos) return;
       if (datos.cursor !== undefined && datos.cursor !== null) cursor.current = datos.cursor;
+      // Lo de un grupo olvidado mientras esta consulta iba en camino, o aún
+      // sin una lista que lo confirme, no se muestra (US-024).
+      const descartada = (id) => {
+        const clave = String(id);
+        const olvido = olvidadas.current.get(clave);
+        return olvido !== undefined && (olvido > olvidoAlPedir || sinConfirmar.current.has(clave));
+      };
       const delServidor = normalizar(datos.no_leidos);
+      for (const clave of Object.keys(delServidor)) if (descartada(clave)) delete delServidor[clave];
       setNoLeidos((actual) => (mismosNoLeidos(actual, delServidor) ? actual : delServidor));
-      const nuevos = Array.isArray(datos.mensajes) ? datos.mensajes : [];
+      const nuevos = (Array.isArray(datos.mensajes) ? datos.mensajes : []).filter((m) => !descartada(m.conversacion));
       if (nuevos.length === 0) return;
       const porConversacion = new Map();
       for (const mensaje of nuevos) {
@@ -170,6 +207,10 @@ export function ChatProvider({ children }) {
     cursor.current = null;
     enCurso.current = false;
     conocidas.current = new Set();
+    // Lo olvidado era de la empresa anterior.
+    olvidadas.current = new Map();
+    sinConfirmar.current = new Set();
+    corte.current = pedidos.current;
     setConversaciones([]);
     setNoLeidos({});
     setEstado("cargando");
@@ -240,6 +281,24 @@ export function ChatProvider({ children }) {
     });
   }, []);
 
+  /** Al salir de un grupo (US-024, CA-4) deja la lista sin esperar al
+   * servidor: volver a ella ya no lo muestra. El refresco que sigue lo
+   * confirma. */
+  const olvidarConversacion = useCallback((id) => {
+    const clave = String(id);
+    olvidos.current += 1;
+    olvidadas.current.set(clave, olvidos.current);
+    sinConfirmar.current.add(clave);
+    // Las listas pedidas hasta ahora ya no se aplican.
+    corte.current = pedidos.current;
+    conocidas.current.delete(clave);
+    setConversaciones((actual) => {
+      const restantes = actual.filter((c) => String(c.id) !== clave);
+      return restantes.length === actual.length ? actual : restantes;
+    });
+    marcarLeida(clave);
+  }, [marcarLeida]);
+
   /** Mientras se ve el chat, el sondeo va cada 4 s. Devuelve con qué
    * dejarlo. */
   const registrarVisible = useCallback(() => {
@@ -267,6 +326,7 @@ export function ChatProvider({ children }) {
       consultarAhora,
       escucharMensajes,
       marcarLeida,
+      olvidarConversacion,
       registrarVisible,
     }),
     [
@@ -279,6 +339,7 @@ export function ChatProvider({ children }) {
       consultarAhora,
       escucharMensajes,
       marcarLeida,
+      olvidarConversacion,
       registrarVisible,
     ],
   );
@@ -300,6 +361,7 @@ const SIN_CHAT = {
   consultarAhora: () => {},
   escucharMensajes: () => () => {},
   marcarLeida: () => {},
+  olvidarConversacion: () => {},
   registrarVisible: () => () => {},
 };
 

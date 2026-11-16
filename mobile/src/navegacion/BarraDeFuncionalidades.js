@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Keyboard, Platform, Pressable, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Pressable, Text, View } from "react-native";
 
+import { useTecladoAbierto } from "../accesibilidad/teclado";
 import { FilaDeslizable } from "../componentes/FilaDeslizable";
 import { Icono } from "../componentes/Icono";
 import { AREA_TACTIL, colores } from "../tema/colores";
@@ -12,25 +13,6 @@ import { funcionalidadesVisibles, moduloDePantalla, nombreAccesible, vistaActiva
 import { useContextoDeNavegacion } from "./useContextoDeNavegacion";
 
 export { vistasDelEstado };
-
-/**
- * Con el teclado abierto la barra se aparta: no tapa el campo ni le quita
- * alto a la pantalla. En iOS, con los eventos «Will» (H-15), para que se
- * aparte a la vez que sube el teclado; Android solo tiene los «Did».
- */
-function useTecladoAbierto() {
-  const [abierto, setAbierto] = useState(false);
-  useEffect(() => {
-    const ios = Platform.OS === "ios";
-    const mostrar = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", () => setAbierto(true));
-    const ocultar = Keyboard.addListener(ios ? "keyboardWillHide" : "keyboardDidHide", () => setAbierto(false));
-    return () => {
-      mostrar.remove();
-      ocultar.remove();
-    };
-  }, []);
-  return abierto;
-}
 
 /**
  * La navegación de la pantalla activa dentro de las pestañas. En

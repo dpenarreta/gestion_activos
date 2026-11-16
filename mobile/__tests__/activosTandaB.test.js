@@ -9,6 +9,7 @@ import { TEXTO_MODULO_APAGADO, TEXTO_PUEDE_HABERSE_GUARDADO } from "../src/activ
 import { hoyIso, TEXTO_SIN_VUELTA } from "../src/activos/mantenimientos";
 import { TEXTO_NOTA_OBLIGATORIA } from "../src/activos/solicitudes";
 import { GestionDeActivos } from "../src/pantallas/activos/GestionDeActivos";
+import { TEXTO_GUARDANDO, TITULO_GUARDANDO } from "../src/pantallas/activos/formularios";
 import { TEXTO_NO_OPERATIVO, TEXTO_SIN_PERMISO_REGISTRAR } from "../src/pantallas/activos/RegistrarMantenimiento";
 import PantallaMantenimiento from "../src/app/(app)/mantenimientos/[id]";
 import PantallaRegistrar from "../src/app/(app)/mantenimientos/nuevo";
@@ -618,6 +619,30 @@ describe("registrar mantenimiento (CA-14, CA-15)", () => {
     });
     expect(alerta).toHaveBeenCalledWith("¿Descartar lo que escribió?", expect.any(String), expect.any(Array), expect.any(Object));
     await waitFor(() => expect(mockNavegacion.dispatch).toHaveBeenCalledWith({ type: "GO_BACK" }));
+  });
+
+  it("US-023 (QA-FUNC B-2): salir con el envío en curso avisa «Guardando…» y no sale", async () => {
+    const espera = enEspera();
+    mantenimientosService.registrar.mockReturnValueOnce(espera.promesa);
+    await abrir();
+    await fireEvent.changeText(screen.getByTestId("mantenimiento-responsable"), "Luis Mora");
+    await fireEvent.changeText(screen.getByTestId("mantenimiento-descripcion"), "Limpieza");
+    const guardar = manejadorDe(screen.getByTestId("guardar-mantenimiento"), "onPress");
+    await act(async () => {
+      guardar();
+    });
+    expect(mantenimientosService.registrar).toHaveBeenCalledTimes(1);
+    expect(mockPrevenir.activa).toBe(true);
+    const alerta = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await act(async () => {
+      mockPrevenir.alIntentar({ data: { action: { type: "GO_BACK" } } });
+    });
+    expect(alerta).toHaveBeenCalledWith(TITULO_GUARDANDO, TEXTO_GUARDANDO);
+    expect(mockNavegacion.dispatch).not.toHaveBeenCalled();
+    await act(async () => {
+      espera.resolver(mantenimiento({ id: 78 }));
+    });
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith({ pathname: "/mantenimientos/[id]", params: { id: "78" } }));
   });
 
   it("sin permiso, o con un activo fuera de inventario, no hay formulario", async () => {

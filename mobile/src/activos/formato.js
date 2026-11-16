@@ -44,6 +44,18 @@ export function veLasRecibidas(permisos) {
   return p.includes("solicitudes.ver") && (p.includes("solicitudes.gestionar") || p.includes("solicitudes.administrar"));
 }
 
+/** «Registrar activo» en el Panel y el Inventario (US-023, CA-1):
+ * `activos.crear`, el permiso de `activos/new` en la web. */
+export function puedeRegistrarActivos(permisos) {
+  return lista(permisos).includes("activos.crear");
+}
+
+/** «Editar» en la ficha (US-023, CA-1): `activos.editar`, el de
+ * `activos/:id/editar` en la web. */
+export function puedeEditarActivos(permisos) {
+  return lista(permisos).includes("activos.editar");
+}
+
 /** Con alguna de las funcionalidades de arriba el módulo tiene pestaña. */
 export function tieneAccesoAActivos(permisos) {
   return veLosActivos(permisos) || veLosMantenimientos(permisos) || veMisSolicitudes(permisos) || veLasRecibidas(permisos);
@@ -425,9 +437,9 @@ export function transicionesDeSolicitud(estado) {
 // --- Lo que se hace en la web (CA-10) ----------------------------------------------
 
 /** Del módulo, con el permiso que lo muestra en el menú de la web
- * (`staticAdminMenu.js` y `AppRoutes.jsx`). */
+ * (`staticAdminMenu.js` y `AppRoutes.jsx`). «Registrar activo» ya no está
+ * aquí: se hace en la app desde la US-023 (16/11/2026). */
 export const ACTIVOS_EN_LA_WEB = [
-  { permisos: ["activos.crear"], nombre: "Registrar activo", ruta: "/admin/activos/new", icono: "plus-box-outline" },
   { permisos: ["activos.crear"], nombre: "Carga masiva", ruta: "/admin/activos/importar", icono: "file-excel-outline" },
   { permisos: ["alertas.ver"], nombre: "Alertas", ruta: "/admin/alertas", icono: "bell-alert-outline" },
   { permisos: ["politicas.ver"], nombre: "Renovación", ruta: "/admin/renovacion/sugerencias", icono: "autorenew" },
@@ -439,14 +451,14 @@ export function activosEnLaWeb(permisos) {
   return ACTIVOS_EN_LA_WEB.filter((a) => a.permisos.some((x) => p.includes(x)));
 }
 
-/** De la ficha de un activo: editar, imprimir la etiqueta y la ficha
- * completa (adjuntos, actas, depreciación…). */
+/** De la ficha de un activo: imprimir la etiqueta y la ficha completa
+ * (adjuntos, actas, depreciación…). «Editar» se hace en la app desde la
+ * US-023 (16/11/2026). */
 export function fichaEnLaWeb(activo, permisos) {
   const p = lista(permisos);
   const id = Number(activo?.id);
   if (!Number.isInteger(id) || id <= 0) return [];
   return [
-    { permiso: "activos.editar", nombre: "Editar activo", ruta: `/admin/activos/${id}/editar`, icono: "pencil-outline" },
     {
       permiso: "activos.imprimir_etiqueta",
       nombre: "Imprimir etiqueta",

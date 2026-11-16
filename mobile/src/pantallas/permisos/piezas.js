@@ -92,6 +92,13 @@ export function CampoTexto({
   teclado,
   placeholder,
   opcional = false,
+  // US-023 (UX H-03): aditivas, para campos como el número de serie (sin
+  // autocorrector, en mayúsculas). Sin ellas, lo de siempre.
+  autoCorrect,
+  autoCapitalize,
+  autoComplete,
+  returnKeyType,
+  onSubmitEditing,
 }) {
   const etiquetaAccesible = [
     `${etiqueta}${obligatorio ? " (obligatorio)" : ""}`,
@@ -122,6 +129,11 @@ export function CampoTexto({
         maxLength={maximo}
         keyboardType={teclado}
         placeholder={placeholder}
+        autoCorrect={autoCorrect}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
         textAlignVertical={multilinea ? "top" : "center"}
         accessibilityLabel={etiquetaAccesible}
         style={[estilos.entrada, multilinea && estilos.entradaMultilinea, error && estilos.entradaConError]}

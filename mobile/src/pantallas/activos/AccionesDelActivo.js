@@ -85,7 +85,9 @@ function Elegida({ persona, onQuitar, deshabilitado }) {
   );
 }
 
-function personaDeEmpleado(e) {
+/** Un empleado de `organizacion/empleados/` como persona elegible (lo usa
+ * también el alta de un activo, US-023). */
+export function personaDeEmpleado(e) {
   return {
     id: String(e.id),
     nombre: e.nombre_completo || [e.nombres, e.apellidos].filter(Boolean).join(" ") || `Empleado ${e.id}`,

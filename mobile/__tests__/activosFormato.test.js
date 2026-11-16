@@ -277,15 +277,14 @@ describe("ficha (CA-7)", () => {
 
   it("lo de la web según los permisos (CA-10)", () => {
     expect(fichaEnLaWeb({ id: 42 }, ["activos.ver"]).map((a) => a.ruta)).toEqual(["/admin/activos/42"]);
+    // US-023: «Editar» y «Registrar activo» se hacen en la app.
     expect(fichaEnLaWeb({ id: 42 }, ["activos.ver", "activos.editar", "activos.imprimir_etiqueta"]).map((a) => a.ruta)).toEqual([
-      "/admin/activos/42/editar",
       "/admin/activos/42?accion=etiqueta",
       "/admin/activos/42",
     ]);
     expect(fichaEnLaWeb({ id: "x" }, ["activos.ver"])).toEqual([]);
     expect(activosEnLaWeb(["activos.ver"]).map((a) => a.nombre)).toEqual(["Tipos de dispositivo"]);
     expect(activosEnLaWeb(["activos.crear", "alertas.ver"]).map((a) => a.nombre)).toEqual([
-      "Registrar activo",
       "Carga masiva",
       "Alertas",
     ]);

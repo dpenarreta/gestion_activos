@@ -202,11 +202,13 @@ export const reemplazoService = {
 };
 
 /** El directorio de la empresa (el del chat), sin quien pregunta:
- * `[{id, nombre, correo, area, cargo}]`, hasta 30. */
+ * `[{id, nombre, correo, area, cargo}]`, hasta 30. `empresa` (US-024): la de
+ * la conversación, para agregar a un grupo de otra empresa que la activa. */
 export const directorioService = {
-  buscar(texto = "") {
+  buscar(texto = "", { empresa } = {}) {
     const q = texto.trim();
-    return api.get("/chat/directorio/", q ? { params: { q } } : undefined);
+    const opciones = { ...conEmpresa(empresa), ...(q ? { params: { q } } : {}) };
+    return api.get("/chat/directorio/", Object.keys(opciones).length ? opciones : undefined);
   },
 };
 
@@ -234,6 +236,27 @@ export const chatService = {
   /** Abre (o crea) el directo con `usuario`; devuelve la fila de la lista. */
   directa(usuario) {
     return api.post("/chat/conversaciones/directa/", { usuario });
+  },
+  /** Un grupo (US-024): `{nombre, participantes: [id]}` (personalizado) o
+   * `{nombre, departamento}` (por área, con `chat.grupos_por_area`). 201 con
+   * la fila de la lista; 400 con el detalle en `nombre` o `participantes`. */
+  crearGrupo(datos, { empresa } = {}) {
+    return api.post("/chat/conversaciones/", datos, conEmpresa(empresa));
+  },
+  /** Quien administra: `{nombre?, agregar?: [id], quitar?: [id]}`. Devuelve
+   * la conversación con sus `participantes`. En un grupo por área solo
+   * cambia el nombre; a sí mismo no se quita (el servidor lo ignora). */
+  editarGrupo(id, datos, { empresa } = {}) {
+    return api.patch(`/chat/conversaciones/${idSeguro(id)}/`, datos, conEmpresa(empresa));
+  },
+  /** Salir de un grupo personalizado (204). */
+  salir(id, { empresa } = {}) {
+    return api.post(`/chat/conversaciones/${idSeguro(id)}/salir/`, {}, conEmpresa(empresa));
+  },
+  /** `[{id, nombre}]`: las áreas para un grupo por área; sin
+   * `chat.grupos_por_area`, `[]`. */
+  areas({ empresa } = {}) {
+    return api.get("/chat/areas/", conEmpresa(empresa));
   },
   /** `{mensajes, hay_mas, ultimo_leido, lecturas}`, de a 50 y del más antiguo
    * al más nuevo; `antes` pide los anteriores a ese id. */
@@ -593,6 +616,39 @@ export const activosService = {
     const q = String(texto ?? "").trim();
     return api.get("/activos/", { params: { operativos: "true", q: q || undefined } });
   },
+  /** La ficha (`ActivoDetailSerializer`), como `activosService.get` de la
+   * web: la carga «Editar» (US-023, CA-4). 404 si no existe en la empresa. */
+  detalle(id) {
+    return api.get(`/activos/${idSeguro(id)}/`);
+  },
+  /** «Registrar activo» (US-023, CA-2), con los campos de
+   * `ActivoWriteSerializer`: `{tipo, nombre, marca, modelo, numero_serie,
+   * especificaciones, observaciones, compartido, responsables, solicitado_por,
+   * departamento, sede, criticidad, uso, fecha_adquisicion, fecha_ingreso,
+   * costo_adquisicion, condicion, propiedad, concesionario, proveedor,
+   * fecha_fin_garantia}`. Pide `activos.crear`. Devuelve la ficha con su
+   * `codigo_barras` y, si alguien lo pidió, `aviso: {enviados, sin_correo,
+   * a_quien_registro}`. */
+  crear(datos) {
+    return api.post("/activos/", datos);
+  },
+  /** «Editar» (US-023, CA-4): `PATCH` con lo que cambió. El servidor no
+   * acepta aquí `responsables`, `departamento` ni `solicitado_por` (van por
+   * «Asignar»), ni el estado. Pide `activos.editar`. */
+  actualizar(id, datos) {
+    return api.patch(`/activos/${idSeguro(id)}/`, datos);
+  },
+  /** Paginado: `[{id, nombre, codigo, activo…}]`, hasta 100 por página, como
+   * la web (`tiposDispositivoService.list`). Pide `activos.ver`. */
+  tipos() {
+    return api.get("/activos/tipos/", { params: { page_size: 100 } });
+  },
+  /** Paginado: las características vigentes de un tipo, `[{id, nombre, dato,
+   * unidad, opciones, obligatoria, orden}]`, como `caracteristicasService
+   * .delTipo` de la web. Pide `activos.ver`. */
+  caracteristicas(tipo) {
+    return api.get("/activos/caracteristicas/", { params: { tipo: String(tipo), activa: "true", page_size: 100 } });
+  },
 };
 
 /**
@@ -719,6 +775,13 @@ export const organizacionService = {
     const q = texto.trim();
     return api.get("/organizacion/empleados/", { params: { activo: "true", page_size: 20, q: q || undefined } });
   },
+  /** Como `empleados`, pero también los marcados como inactivos: «Lo pidió»
+   * del alta de un activo (US-023) nombra a cualquiera, igual que la web
+   * (esa marca no la mantiene ninguna integración). */
+  todosLosEmpleados(texto = "") {
+    const q = texto.trim();
+    return api.get("/organizacion/empleados/", { params: { page_size: 20, q: q || undefined } });
+  },
   /** Paginado: `[{id, nombre, codigo}]`, los activos. El servidor da hasta
    * 100 por página (`DefaultPagination`), como a la web. */
   departamentos() {
@@ -727,5 +790,15 @@ export const organizacionService = {
   /** Paginado: `[{id, nombre, ciudad}]`, las activas. */
   sedes() {
     return api.get("/organizacion/sedes/", { params: { activa: "true", page_size: 100 } });
+  },
+  /** Paginado: `[{id, nombre…}]`, los activos (US-023): a uno dado de baja
+   * no se le registra una compra nueva. La web pide 200; el servidor da
+   * hasta 100. */
+  proveedores() {
+    return api.get("/organizacion/proveedores/", { params: { activo: "true", page_size: 100 } });
+  },
+  /** Paginado: `[{id, nombre…}]`, los partners activos (US-023). */
+  concesionarios() {
+    return api.get("/organizacion/concesionarios/", { params: { activo: "true", page_size: 100 } });
   },
 };

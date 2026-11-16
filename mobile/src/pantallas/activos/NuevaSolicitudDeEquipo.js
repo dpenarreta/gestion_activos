@@ -54,8 +54,9 @@ const SI_NO = [
 ];
 
 /** Una característica del tipo como campo, según su dato (como
- * `EspecificacionesDelTipo` de la web): número, sí/no, lista, fecha o texto. */
-function CampoDeCaracteristica({ c, valor, error, onCambio, deshabilitado, refFoco }) {
+ * `EspecificacionesDelTipo` de la web): número, sí/no, lista, fecha o texto.
+ * La usa también el alta y la edición de un activo (US-023, CA-3). */
+export function CampoDeCaracteristica({ c, valor, error, onCambio, deshabilitado, refFoco }) {
   const etiqueta = `${c.nombre}${c.unidad ? ` (${c.unidad})` : ""}`;
   const comun = { etiqueta, obligatorio: Boolean(c.obligatoria), opcional: !c.obligatoria, error, deshabilitado };
   if (c.dato === "booleano") {
@@ -98,7 +99,13 @@ function CampoDeCaracteristica({ c, valor, error, onCambio, deshabilitado, refFo
           onCambio={onCambio}
         />
         {valor ? (
-          <Boton titulo={`Quitar ${c.nombre}`} icono="calendar-remove" variante="secundario" onPress={() => onCambio("")} />
+          <Boton
+            titulo={`Quitar ${c.nombre}`}
+            icono="calendar-remove"
+            variante="secundario"
+            deshabilitado={deshabilitado}
+            onPress={() => onCambio("")}
+          />
         ) : null}
       </View>
     );

@@ -87,7 +87,8 @@ export function Boton({
  * participantes, cerrar el visor, marcar todas como leídas. La `etiqueta` es
  * obligatoria (es lo que dice el lector de pantalla) y el área táctil nunca
  * baja de `AREA_TACTIL`. `variante`: `plano` (sin borde, para cabeceras),
- * `contorno` (borde negro sobre blanco) u `oscuro` (sobre la cabecera negra).
+ * `contorno` (borde negro sobre blanco), `oscuro` (sobre la cabecera negra) o
+ * `peligro` (US-024: rojo sobre `malFondo`, para quitar a alguien).
  */
 export function BotonIcono({
   icono,
@@ -104,7 +105,7 @@ export function BotonIcono({
 }) {
   const inactivo = deshabilitado || cargando;
   const colorIcono =
-    color ?? (variante === "oscuro" ? colores.sobreCabecera : colores.primario);
+    color ?? (variante === "oscuro" ? colores.sobreCabecera : variante === "peligro" ? colores.malTexto : colores.primario);
   return (
     <Pressable
       testID={testID}
@@ -123,6 +124,9 @@ export function BotonIcono({
       style={({ pressed }) => [
         estilos.botonIcono,
         variante === "contorno" && estilos.botonIconoContorno,
+        // US-024 (UX H-12): lo que no tiene vuelta atrás (quitar a alguien de
+        // un grupo), como `Boton` `peligro`: `malTexto` sobre `malFondo`.
+        variante === "peligro" && estilos.botonIconoPeligro,
         inactivo && estilos.botonInactivo,
         pressed && !inactivo && estilos.botonPresionado,
       ]}
@@ -256,6 +260,7 @@ export const estilos = crearEstilos({
     borderRadius: 8,
   },
   botonIconoContorno: { borderWidth: 1, borderColor: colores.primario, backgroundColor: colores.superficie },
+  botonIconoPeligro: { borderWidth: 2, borderColor: colores.malTexto, backgroundColor: colores.malFondo },
   desplegable: { gap: 8 },
   desplegableTitulo: {
     minHeight: AREA_TACTIL,

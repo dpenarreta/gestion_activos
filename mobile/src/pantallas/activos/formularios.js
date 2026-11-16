@@ -122,18 +122,32 @@ export function useReenvioConfirmado() {
   );
 }
 
+export const TITULO_GUARDANDO = "Guardando…";
+export const TEXTO_GUARDANDO = "Espere a que termine de guardar antes de salir.";
+
 /**
  * Salir de una pantalla de la pila con cambios sin guardar pregunta antes
  * (`confirmarDescarte`, CA-14 y CA-19), con el gesto, la flecha o Atrás.
  * `activo`: si hay algo que perder y no se está guardando. Devuelve
  * `salir(accion)`, para irse sin preguntar tras guardar.
+ *
+ * `ocupado` (US-023, QA-FUNC B-2 y QA-TECH P3 #5): con el envío en curso no
+ * se sale; se avisa «Guardando…» y la pantalla se queda. Si no, el
+ * resultado llegaría a una pantalla que ya no está y la persona no sabría si
+ * se guardó.
  */
-export function useSalirConCambios(activo) {
+export function useSalirConCambios(activo, { ocupado = false } = {}) {
   const navegacion = useNavigation();
   const [libre, setLibre] = useState(false);
   const pendiente = useRef(null);
+  const ocupadoRef = useRef(ocupado);
+  ocupadoRef.current = ocupado;
 
-  usePreventRemove(Boolean(activo) && !libre, ({ data }) => {
+  usePreventRemove((Boolean(activo) || Boolean(ocupado)) && !libre, ({ data }) => {
+    if (ocupadoRef.current) {
+      Alert.alert(TITULO_GUARDANDO, TEXTO_GUARDANDO);
+      return;
+    }
     confirmarDescarte().then((descartar) => {
       if (!descartar) return;
       pendiente.current = () => navegacion.dispatch(data.action);

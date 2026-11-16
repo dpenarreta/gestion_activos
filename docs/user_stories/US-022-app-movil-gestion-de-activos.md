@@ -177,6 +177,7 @@ Todo lo de abajo ya existe en el backend y lo usa la web. Va con `X-Empresa`. La
 ---
 
 ### 5. Decisiones Técnicas y Supuestos
+- **Burbuja de «Escanear» (16/11/2026, a pedido del usuario):** un botón flotante redondo (`componentes/BotonFlotante.js`), amarillo de la marca con borde negro, abajo a la derecha. Aparece solo dentro de Gestión de Activos, en todas sus vistas, y nunca en otros módulos. Se controla con el permiso del escáner de la web (`activos.ver`, el de su ruta y su menú). Abre `/activos/escanear?auto=1`: la cámara arranca sola y, si la persona todavía no decidió el permiso, se le pide de una vez. Las listas y el panel dejan libre el final (`ESPACIO_BOTON_FLOTANTE`) para que no tape la última fila.
 - **Permisos compartidos con la web** (decisión del usuario, 16/11/2026): quien tiene un permiso en la web lo tiene en la app, con las mismas reglas. Por eso «Asignar» también exige `organizacion.ver` para elegir empleados, áreas y sedes, como la web, y el servidor no cambia.
 - **«En almacén»** es `disponible + en_bodega`, igual que la web (`activos/dashboard.py`).
 - **El QR** solo trae el texto de `codigo_barras` (p. ej. `GA-LAP-000042`), sin URL. El escáner lee QR y Code 128 con `expo-camera` (`CameraView` con `barcodeScannerSettings`).

@@ -8,9 +8,10 @@ import {
   FILTROS_DEL_INVENTARIO,
   filtroDelInventario,
   parametrosDelInventario,
+  puedeRegistrarActivos,
 } from "../../activos/formato";
 import { useBusquedaConEspera, useListaPaginada } from "../../activos/useListaPaginada";
-import { BotonIcono } from "../../componentes/comunes";
+import { Boton, BotonIcono } from "../../componentes/comunes";
 import { BuscadorDeLista, ChipsDeFiltro, ListaPaginada } from "./listas";
 import { FilaActivo } from "./piezas";
 
@@ -32,8 +33,11 @@ const TEXTOS = {
  * tirar hacia abajo y al volver a él, al cambiar de empresa empieza de cero
  * (CA-22) y, al buscar, lo anterior se queda a la vista mientras carga
  * (H-19). Junto al buscador, el escáner a un toque (UX H-01).
+ *
+ * Con `activos.crear`, «Registrar activo» arriba (US-023, CA-1), en la app y
+ * ya no en el navegador.
  */
-export function Inventario({ filtro: filtroPedido, vez, versionEmpresa, empresa, onAbrirActivo }) {
+export function Inventario({ filtro: filtroPedido, vez, versionEmpresa, empresa, permisos = [], onAbrirActivo }) {
   const router = useRouter();
   const [filtro, setFiltro] = useState(() => filtroDelInventario(filtroPedido).clave);
   const { texto, setTexto, busqueda, limpiar, ya } = useBusquedaConEspera(ESPERA_BUSCAR_MS);
@@ -69,6 +73,14 @@ export function Inventario({ filtro: filtroPedido, vez, versionEmpresa, empresa,
       }}
       cabecera={
         <>
+          {puedeRegistrarActivos(permisos) ? (
+            <Boton
+              testID="registrar-activo-desde-el-inventario"
+              titulo="Registrar activo"
+              icono="plus-circle-outline"
+              onPress={() => router.push("/activos/nuevo")}
+            />
+          ) : null}
           <BuscadorDeLista
             testID="buscar-activo"
             texto={texto}

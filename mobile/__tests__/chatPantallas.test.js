@@ -6,12 +6,12 @@ import { chatService, directorioService, reemplazoService } from "../src/api/ser
 import { ChatProvider } from "../src/chat/ChatContext";
 import { escucharMiEstado } from "../src/chat/miEstado";
 import { datosDeContacto, iniciales } from "../src/chat/formato";
-import { ListaChats, TEXTO_GRUPOS_EN_LA_WEB } from "../src/pantallas/chat/ListaChats";
+import { ListaChats } from "../src/pantallas/chat/ListaChats";
 import { TEXTO_HAY_MAS } from "../src/utils/busqueda";
 import { MiEstado, TEXTO_GUARDADO } from "../src/pantallas/chat/MiEstado";
 import { ESPERA_BUSCAR_MS, NuevoMensaje } from "../src/pantallas/chat/NuevoMensaje";
 import { Contacto, TEXTO_SIN_APP } from "../src/pantallas/chat/Contacto";
-import { Participantes, textoGestionEnLaWeb } from "../src/pantallas/chat/Participantes";
+import { Participantes } from "../src/pantallas/chat/Participantes";
 
 /**
  * Las pantallas del chat fuera de la conversación (US-011): la pestaña
@@ -27,6 +27,9 @@ jest.mock("expo-router", () => {
   return {
     useRouter: () => mockRouter,
     useFocusEffect: (efecto) => React.useEffect(efecto, [efecto]),
+    // US-024: «Participantes» pregunta antes de salir con cambios.
+    useNavigation: () => ({ dispatch: jest.fn() }),
+    usePreventRemove: () => {},
   };
 });
 
@@ -168,7 +171,7 @@ describe("pestaña «Chat» (CA-1, CA-14)", () => {
       </ChatProvider>,
     );
     expect(screen.getByText("Cargando conversaciones…")).toBeTruthy();
-    expect(screen.queryByText(TEXTO_GRUPOS_EN_LA_WEB)).toBeNull();
+    expect(screen.queryByTestId("crear-grupo")).toBeNull();
   });
 
   it("sin conversaciones lo dice", async () => {
@@ -220,28 +223,36 @@ describe("pestaña «Chat» (CA-1, CA-14)", () => {
     expect(screen.getByText("Canal general")).toBeTruthy();
   });
 
-  it("crear un grupo se ofrece en el navegador, en la empresa activa (CA-6)", async () => {
+  it("US-024: «Nuevo grupo» abre la pantalla de la app (ya no el navegador), una sola vez", async () => {
     await render(
       <ChatProvider>
         <ListaChats />
       </ChatProvider>,
     );
-    expect(await screen.findByText(TEXTO_GRUPOS_EN_LA_WEB)).toBeTruthy();
-    await fireEvent.press(screen.getByRole("link", { name: "Crear un grupo. Abrir en el navegador" }));
-    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/chat\?empresa=1$/));
+    const crear = await screen.findByRole("button", { name: "Nuevo grupo" });
+    expect(screen.queryByRole("link", { name: /Abrir en el navegador/ })).toBeNull();
+    await fireEvent.press(crear);
+    await fireEvent.press(crear);
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith("/chat/grupo-nuevo");
+    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 
-  it("si el navegador no abre, lo dice en la pantalla", async () => {
-    Linking.openURL.mockRejectedValueOnce(new Error("sin navegador"));
-    const WebBrowser = require("expo-web-browser");
-    WebBrowser.openBrowserAsync.mockRejectedValueOnce(new Error("sin navegador"));
+  it("US-024 (UX H-14): en «Mis grupos» el botón flotante es «Nuevo grupo», aunque no tenga ninguno", async () => {
+    chatService.conversaciones.mockResolvedValueOnce([CONVERSACIONES[1]]);
     await render(
       <ChatProvider>
-        <ListaChats />
+        <ListaChats soloGrupos />
       </ChatProvider>,
     );
-    await fireEvent.press(await screen.findByRole("link", { name: "Crear un grupo. Abrir en el navegador" }));
-    expect(await screen.findByText("No se pudo abrir el navegador del teléfono. Intente de nuevo.")).toBeTruthy();
+    expect(await screen.findByLabelText("No pertenece a ningún grupo.")).toBeTruthy();
+    expect(screen.queryByTestId("nuevo-mensaje")).toBeNull();
+    // Sin repetirlo al pie de la lista.
+    expect(screen.queryByTestId("crear-grupo")).toBeNull();
+    const flotante = screen.getByRole("button", { name: "Nuevo grupo" });
+    expect(flotante.props.accessibilityHint).toBe("Abre el formulario para crear un grupo");
+    await fireEvent.press(flotante);
+    expect(mockRouter.push).toHaveBeenCalledWith("/chat/grupo-nuevo");
   });
 
   it("filas con avatar: iniciales en un directo, ícono en el canal; «Nuevo mensaje» flotante (H-08)", async () => {
@@ -405,7 +416,8 @@ describe("participantes (CA-6, CA-8)", () => {
 
     expect(chatService.conversacion).toHaveBeenCalledWith("7", {});
     expect(screen.getByText("Equipo TI")).toBeTruthy();
-    expect(screen.getByText("Grupo · 2 participantes")).toBeTruthy();
+    expect(screen.getByText("Grupo")).toBeTruthy();
+    expect(screen.getByText("Participantes (2)")).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByTestId("participante-9").props.accessibilityLabel).toBe(
         "Carla Ruiz. Administra el grupo. Analista · Cartera. En reunión hasta las 15:00",
@@ -415,27 +427,25 @@ describe("participantes (CA-6, CA-8)", () => {
     expect(screen.getByTestId("participante-12").props.accessibilityLabel).toBe("Luis Mora. Soporte · TI");
   });
 
-  it("editar o salir del grupo se ofrece en el navegador, en esa conversación y su empresa", async () => {
+  it("US-024: editar y salir ya no se ofrecen en el navegador; se pide en la empresa de la conversación", async () => {
     chatService.conversacion.mockResolvedValueOnce(GRUPO);
     await render(<Participantes id="7" empresa="2" />);
-    expect(await screen.findByText("Para editar el grupo o salir de él, ábralo en el navegador.")).toBeTruthy();
+    expect(await screen.findByText("Equipo TI")).toBeTruthy();
     expect(chatService.conversacion).toHaveBeenCalledWith("7", { empresa: "2" });
-    await fireEvent.press(screen.getByTestId("gestionar-en-la-web"));
-    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/chat\?c=7&empresa=2$/));
+    expect(screen.queryByRole("link", { name: /Abrir en el navegador/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Cambiar el nombre" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Agregar personas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Salir del grupo" })).toBeTruthy();
   });
 
-  it("qué se ofrece en la web según el tipo y si administra", () => {
-    expect(textoGestionEnLaWeb({ tipo: "grupo", administra: false })).toBe("Para salir de él, ábralo en el navegador.");
-    expect(textoGestionEnLaWeb({ tipo: "area", administra: true })).toBe("Para editar el grupo, ábralo en el navegador.");
-    expect(textoGestionEnLaWeb({ tipo: "area", administra: false })).toBeNull();
-    expect(textoGestionEnLaWeb({ tipo: "general", administra: false })).toBeNull();
-  });
-
-  it("en el canal general no ofrece nada en la web", async () => {
+  it("en el canal general no ofrece editar ni salir", async () => {
     chatService.conversacion.mockResolvedValueOnce({ ...GRUPO, id: 1, tipo: "general", nombre: "Canal general", administra: false });
     await render(<Participantes id="1" />);
-    expect(await screen.findByText("Canal general · 2 participantes")).toBeTruthy();
-    expect(screen.queryByTestId("gestionar-en-la-web")).toBeNull();
+    expect(await screen.findByText("Participantes (2)")).toBeTruthy();
+    expect(screen.queryByTestId("renombrar-grupo")).toBeNull();
+    expect(screen.queryByTestId("abrir-agregar")).toBeNull();
+    expect(screen.queryByTestId("salir-del-grupo")).toBeNull();
+    expect(screen.queryByTestId("quitar-12")).toBeNull();
   });
 
   it("si falla ofrece «Reintentar»", async () => {

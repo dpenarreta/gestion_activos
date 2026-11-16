@@ -17,8 +17,6 @@ import { usePresencia } from "../../chat/usePresencia";
 import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
-import { abrirEnNavegador, urlWeb } from "../../navegador/enlaceWeb";
-import { useSesion } from "../../sesion/SesionContext";
 import { AREA_TACTIL, colores } from "../../tema/colores";
 import { crearEstilos } from "../../tema/tipografia";
 import { InsigniaSinLeer, Presencia, ResumenMiEstado } from "./piezas";
@@ -28,7 +26,8 @@ import { InsigniaSinLeer, Presencia, ResumenMiEstado } from "./piezas";
  * conversaciones por actividad, como las ordena el servidor. Cada una con su
  * nombre (en un directo, el de la otra persona y su presencia), el último
  * mensaje, la hora y los no leídos. Desde aquí se escribe a alguien nuevo
- * (CA-5) y se cambia «Mi estado» (CA-8). Crear un grupo se hace en la web.
+ * (CA-5) y se cambia «Mi estado» (CA-8). Desde la US-024 (16/11/2026) los
+ * grupos también se crean aquí («Crear un grupo», en la pila).
  */
 /** Con la letra del sistema a partir de este tamaño, la hora de cada fila
  * baja bajo el último mensaje (N-01, N-14). */
@@ -36,9 +35,8 @@ export const ESCALA_HORA_ABAJO = 1.3;
 /** Cuánto dura el candado de «Nuevo mensaje» si la pantalla no llega a
  * perder el foco (B7). */
 export const CANDADO_NUEVO_MS = 1000;
-
-export const TEXTO_GRUPOS_EN_LA_WEB =
-  "Crear, editar o salir de un grupo se hace en la web. En la app puede leer y escribir en sus grupos.";
+/** US-024: «Nuevo grupo» en la lista, en «Mis grupos» y en la barra. */
+export const PISTA_NUEVO_GRUPO = "Abre el formulario para crear un grupo";
 
 /**
  * `soloGrupos` (US-016): la vista «Mis grupos» del módulo Chat, la misma
@@ -47,13 +45,12 @@ export const TEXTO_GRUPOS_EN_LA_WEB =
 export function ListaChats({ soloGrupos = false }) {
   useChatVisible();
   const router = useRouter();
-  const { empresaActiva } = useSesion();
   const { conversaciones, estado, error, noLeidos, cargarConversaciones } = useChat();
   const [refrescando, setRefrescando] = useState(false);
-  const [errorNavegador, setErrorNavegador] = useState(null);
   const { fontScale } = useWindowDimensions();
   const horaAbajo = fontScale >= ESCALA_HORA_ABAJO;
-  // B7: dos toques seguidos en «Nuevo mensaje» abren una sola pantalla.
+  // B7: dos toques seguidos en «Nuevo mensaje» (o en «Crear un grupo») abren
+  // una sola pantalla.
   const abriendoNuevo = useRef(false);
   const presencia = usePresencia(conversaciones.filter((c) => c.tipo === "directa").map((c) => c.otro?.id));
 
@@ -71,10 +68,10 @@ export function ListaChats({ soloGrupos = false }) {
     }, [cargarConversaciones]),
   );
 
-  function nuevoMensaje() {
+  function abrirUnaVez(ruta) {
     if (abriendoNuevo.current) return;
     abriendoNuevo.current = true;
-    router.push("/chat/nuevo");
+    router.push(ruta);
     // Por si la navegación no llega a quitar el foco (o falla).
     setTimeout(() => {
       abriendoNuevo.current = false;
@@ -85,14 +82,6 @@ export function ListaChats({ soloGrupos = false }) {
     setRefrescando(true);
     await cargarConversaciones({ silenciosa: true });
     setRefrescando(false);
-  }
-
-  async function crearGrupoEnLaWeb() {
-    setErrorNavegador(null);
-    const abierta = await abrirEnNavegador(urlWeb("/admin/chat", { empresa: empresaActiva?.id }), {
-      avisarSiFalla: false,
-    });
-    if (abierta === false) setErrorNavegador("No se pudo abrir el navegador del teléfono. Intente de nuevo.");
   }
 
   // «Nuevo mensaje» pasa a un botón flotante (auditoría UX, H-08): la
@@ -118,17 +107,32 @@ export function ListaChats({ soloGrupos = false }) {
           lo encuentra enseguida sin recorrer todas las conversaciones; el
           `zIndex` lo mantiene encima al pintar. Amarillo de la marca con el
           ícono negro (16,0:1). */}
-      <Pressable
-        testID="nuevo-mensaje"
-        onPress={nuevoMensaje}
-        accessibilityRole="button"
-        accessibilityLabel="Nuevo mensaje"
-        accessibilityHint="Busca a una persona para escribirle"
-        hitSlop={4}
-        style={({ pressed }) => [estilos.flotante, pressed && estilos.presionado]}
-      >
-        <Icono nombre="message-plus-outline" size={26} color={colores.marcaNegro} />
-      </Pressable>
+      {/* US-024 (UX H-14): en «Mis grupos» el botón flotante crea un grupo. */}
+      {soloGrupos ? (
+        <Pressable
+          testID="nuevo-grupo"
+          onPress={() => abrirUnaVez("/chat/grupo-nuevo")}
+          accessibilityRole="button"
+          accessibilityLabel="Nuevo grupo"
+          accessibilityHint={PISTA_NUEVO_GRUPO}
+          hitSlop={4}
+          style={({ pressed }) => [estilos.flotante, pressed && estilos.presionado]}
+        >
+          <Icono nombre="account-multiple-plus-outline" size={26} color={colores.marcaNegro} />
+        </Pressable>
+      ) : (
+        <Pressable
+          testID="nuevo-mensaje"
+          onPress={() => abrirUnaVez("/chat/nuevo")}
+          accessibilityRole="button"
+          accessibilityLabel="Nuevo mensaje"
+          accessibilityHint="Busca a una persona para escribirle"
+          hitSlop={4}
+          style={({ pressed }) => [estilos.flotante, pressed && estilos.presionado]}
+        >
+          <Icono nombre="message-plus-outline" size={26} color={colores.marcaNegro} />
+        </Pressable>
+      )}
       <FlatList
         testID="lista-chats"
         style={estilos.pantalla}
@@ -138,19 +142,18 @@ export function ListaChats({ soloGrupos = false }) {
         ListHeaderComponent={cabecera}
         ListEmptyComponent={<View style={estilos.vacio}>{vacio}</View>}
         ListFooterComponent={
-          estado === "listo" ? (
+          // US-024: en la app, ya no en el navegador. En «Mis grupos» ya
+          // está el botón flotante.
+          estado === "listo" && !soloGrupos ? (
             <View style={estilos.pie}>
-              <Text style={estilos.tenue}>{TEXTO_GRUPOS_EN_LA_WEB}</Text>
               <BotonRedondo
-                testID="crear-grupo-en-la-web"
+                testID="crear-grupo"
                 icono="account-multiple-plus-outline"
-                nombre="Crear un grupo"
+                nombre="Nuevo grupo"
                 familia="chat"
-                navegador
-                etiqueta="Crear un grupo. Abrir en el navegador"
-                onPress={crearGrupoEnLaWeb}
+                pista={PISTA_NUEVO_GRUPO}
+                onPress={() => abrirUnaVez("/chat/grupo-nuevo")}
               />
-              {errorNavegador ? <Alerta tipo="mal" texto={errorNavegador} /> : null}
             </View>
           ) : null
         }
@@ -239,7 +242,6 @@ const estilos = crearEstilos({
   contenido: { paddingTop: 8, paddingBottom: 96, flexGrow: 1 },
   cabecera: { gap: 12, marginBottom: 8, paddingHorizontal: 16 },
   pie: { gap: 10, marginTop: 16, paddingHorizontal: 16 },
-  tenue: { fontSize: 14, color: colores.tintaSuave },
   vacio: { paddingHorizontal: 16 },
   // Filas de lista con una línea fina entre ellas, en vez de tarjetas.
   item: {
