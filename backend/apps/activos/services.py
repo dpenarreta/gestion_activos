@@ -11,12 +11,56 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.core.audit import record_audit_event
+from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
 
 from . import notificaciones
 from .barcode import generar_codigo_barras
 from .models import ESTADOS_ASIGNABLES, ESTADOS_FUERA_DE_INVENTARIO, Activo, MovimientoActivo
 
 MODULO = "activos"
+
+#: Cómo se reconoce cada restricción única en el mensaje del `IntegrityError`:
+#: SQL Server nombra la restricción, no la columna; SQLite y PostgreSQL, la
+#: columna. Se buscan los dos.
+_CHOQUE_CODIGO = ("codigo_barras", "activo_codigo_unico_por_empresa")
+_CHOQUE_SERIE = ("numero_serie", "activo_serie_unica_por_empresa")
+
+
+def _choca(error, marcas) -> bool:
+    texto = str(error).lower()
+    return any(marca in texto for marca in marcas)
+
+
+def _serie_repetida(numero_serie: str, empresa_id, excluir_pk=None):
+    """El activo de la empresa que ya usa esa serie, sin distinguir
+    mayúsculas: en SQL Server «sn-1» y «SN-1» chocan en la restricción."""
+    if not numero_serie:
+        return None
+    consulta = Activo.objects.filter(numero_serie__iexact=numero_serie.strip())
+    if empresa_id is not None:
+        consulta = consulta.filter(empresa_id=empresa_id)
+    if excluir_pk is not None:
+        consulta = consulta.exclude(pk=excluir_pk)
+    return consulta.only("id", "codigo_barras").first()
+
+
+def _error_de_serie(existente=None):
+    detalle = (
+        f"Ya hay un activo con ese número de serie en la empresa ({existente.codigo_barras})."
+        if existente is not None
+        else "Ya hay un activo con ese número de serie en la empresa."
+    )
+    return serializers.ValidationError({"numero_serie": [detalle]})
+
+
+def _empresa_de_alta(datos):
+    if datos.get("empresa_id"):
+        return datos["empresa_id"]
+    if datos.get("empresa") is not None:
+        return datos["empresa"].id
+    empresa = empresa_actual()
+    return None if empresa is None or empresa is SIN_EMPRESA else empresa.id
+
 
 #: Distingue «no toques la ubicación» de «déjala vacía». Sin él, una
 #: reasignación normal borraría en silencio dónde está el equipo.
@@ -60,6 +104,12 @@ class ActivoService:
                     )
                 }
             )
+        # La serie se valida antes de guardar (16/11/2026): el serializer no ve
+        # la restricción (empresa no es campo suyo) y el `IntegrityError`
+        # terminaba en un 500 en vez de un error junto al campo.
+        existente = _serie_repetida(datos.get("numero_serie", ""), _empresa_de_alta(datos))
+        if existente is not None:
+            raise _error_de_serie(existente)
         ultimo_error = None
 
         for _ in range(MAX_REINTENTOS_CODIGO):
@@ -74,7 +124,9 @@ class ActivoService:
                 # Solo reintentar si chocó el código de barras: un número de
                 # serie duplicado es un error del usuario, no una carrera, y
                 # reintentarlo cinco veces solo retrasaría el mensaje.
-                if "codigo_barras" not in str(exc).lower():
+                if _choca(exc, _CHOQUE_SERIE):
+                    raise _error_de_serie() from exc
+                if not _choca(exc, _CHOQUE_CODIGO):
                     raise
                 ultimo_error = exc
         else:
@@ -128,7 +180,17 @@ class ActivoService:
         if not nuevos:
             return activo
 
-        activo.save()
+        if "numero_serie" in nuevos:
+            existente = _serie_repetida(activo.numero_serie, activo.empresa_id, activo.pk)
+            if existente is not None:
+                raise _error_de_serie(existente)
+        try:
+            with transaction.atomic():
+                activo.save()
+        except IntegrityError as exc:
+            if _choca(exc, _CHOQUE_SERIE):
+                raise _error_de_serie() from exc
+            raise
         record_audit_event(
             actor=actor,
             action="activo.updated",
