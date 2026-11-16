@@ -200,7 +200,10 @@ export function ChatProvider({ children }) {
         const datos = await chatService.novedades(cursor.current);
         if (!vigente || !datos) return;
         cursor.current = datos.cursor;
-        setNoLeidos((actual) => ({ ...actual, ...datos.no_leidos }));
+        // Lo del servidor reemplaza lo que había: `no_leidos` solo trae las
+        // conversaciones con pendientes, así que una leída en otro equipo (la
+        // app móvil) no viene, y mezclarla dejaba su número viejo (16/11/2026).
+        setNoLeidos(datos.no_leidos ?? {});
         const nuevos = datos.mensajes ?? [];
         if (nuevos.length === 0) return;
         setMensajes((actual) => {

@@ -232,10 +232,20 @@ def enviar(actor, conversacion, *, texto="", archivo=None) -> Mensaje:
             mensaje.es_imagen = PurePath(archivo.name).suffix.lower() in EXTENSIONES_DE_IMAGEN
         mensaje.save()
         Conversacion.objects.filter(pk=conversacion.pk).update(ultimo_mensaje_en=ahora)
-        # Lo propio no queda «sin leer».
+        # Lo propio no queda «sin leer»: quien responde ya leyó lo anterior.
         Participante.objects.filter(conversacion=conversacion, usuario=actor).update(
-            ultimo_leido_id=mensaje.id
+            ultimo_leido_id=mensaje.id, leido_en=ahora
         )
+        # Y su aviso de esta conversación en la campana se apaga, responda desde
+        # la web o desde la app móvil (16/11/2026).
+        from apps.notificaciones.models import Notificacion
+
+        Notificacion.objects.todas().filter(
+            usuario=actor,
+            tipo="chat.mensaje",
+            enlace=enlace(conversacion),
+            leida_en__isnull=True,
+        ).update(leida_en=ahora)
     transaction.on_commit(lambda: avisar(mensaje))
     return mensaje
 
