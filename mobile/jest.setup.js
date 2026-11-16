@@ -217,3 +217,9 @@ jest.mock("expo-camera", () => {
     useCameraPermissions,
   };
 });
+
+// El cliente pide con el `fetch` de React Native (`src/api/fetchNativo.js`,
+// 16/11/2026). En las pruebas delega en el `global.fetch`, que es el que cada
+// suite reemplaza para simular el servidor; `fetchNativo.test.js` comprueba
+// por separado que no es el global de Expo.
+jest.mock("whatwg-fetch", () => ({ fetch: (...args) => global.fetch(...args) }));

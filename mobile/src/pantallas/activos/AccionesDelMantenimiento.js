@@ -334,7 +334,9 @@ export function FormularioAdjuntar({ mantenimiento, onCerrar, onGuardado }) {
         ) : null}
         <Boton
           testID="adjunto-camara"
-          titulo={archivo ? "Tomar otra foto" : "Tomar foto"}
+          // Siempre «Tomar foto»: con un archivo o una imagen de la galería
+          // elegidos, «Tomar otra foto» no era cierto (16/11/2026).
+          titulo="Tomar foto"
           icono="camera-outline"
           variante="secundario"
           deshabilitado={guardando}

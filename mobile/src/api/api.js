@@ -1,6 +1,7 @@
 import { API_URL, USER_AGENT } from "../config/env";
 import { almacen } from "./almacen";
 import { crearCliente } from "./cliente";
+import { fetchNativo } from "./fetchNativo";
 
 /**
  * Quién se entera de que la sesión terminó o de que hay que cambiar la
@@ -26,6 +27,9 @@ export const api = crearCliente({
   baseUrl: API_URL,
   almacen,
   userAgent: USER_AGENT,
+  // El de React Native: el global de Expo no sube archivos con `uri`
+  // (16/11/2026, ver `fetchNativo.js`).
+  fetchImpl: (...args) => fetchNativo(...args),
   alTerminarSesion: (motivo) => oyentes.alTerminarSesion(motivo),
   alExigirCambioDeContrasena: () => oyentes.alExigirCambioDeContrasena(),
 });

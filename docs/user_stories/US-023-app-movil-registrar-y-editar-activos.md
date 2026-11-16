@@ -95,6 +95,13 @@ Los campos son los de `ActivoWriteSerializer` (`backend/apps/activos/serializers
   - de QA-TECH: los P3 #1 a #5;
   - de QA-FUNC: B-2 y B-3.
 - **Verificación:** `jest` da 31 suites y 882 pruebas en verde, y `expo export --platform android` compila. En el teléfono solo se vio que el formulario de alta abre; las fichas no se guardaron.
+- **Corrección tras las pruebas con datos (16/11/2026):**
+  - **Hallazgo grave:** la app no podía subir archivos. Expo 58 reemplaza el `fetch` global por `expo/fetch`, que rechaza los archivos `{uri, name, type}` de un `FormData` con el error «Unsupported FormDataPart implementation», antes de que la petición salga del teléfono.
+  - **Afectaba a:** el respaldo de los permisos, los archivos del chat, los adjuntos de la Mesa de ayuda y los adjuntos de activos.
+  - **Arreglo:** el cliente HTTP usa el `fetch` de React Native (`whatwg-fetch`, `src/api/fetchNativo.js`), que ahora es una dependencia declarada.
+  - **Verificado en el teléfono contra producción:** se subió una imagen a un mantenimiento, apareció en la lista y se abrió en el visor. Los datos de prueba se borraron después.
+  - **Probablemente relacionado:** también explicaría el «No se pudo conectar» intermitente que dieron los catálogos.
+  - **También se corrigió** el texto «Tomar otra foto», que aparecía después de elegir un archivo.
 - **Pendientes:**
   - ~~DEV-2: serie repetida da 500~~ **Resuelto** por la otra sesión (commit 24e42bd, desplegado el 16/11/2026): ahora es 400 en `numero_serie` («Ya hay un activo con ese número de serie en la empresa (CÓDIGO).»), sin distinguir mayúsculas, y el reintento por código de barras reconoce la restricción de SQL Server. Falta probarlo desde el teléfono.
   - Probar en el dispositivo:
