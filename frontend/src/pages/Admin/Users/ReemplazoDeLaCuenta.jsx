@@ -90,7 +90,9 @@ export function ReemplazoDeLaCuenta({ usuarioId, puedeEditar }) {
           deshabilitado={!puedeEditar}
         />
         {puedeEditar ? (
-          <div className="mz-actions justify-content-end mt-3">
+          <div className="mz-actions justify-content-start mt-3">
+            {/* A la izquierda: a la derecha lo tapaban los botones flotantes
+                de Nova y el chat (revisión en vivo, 16/11/2026). */}
             <button
               type="submit"
               className="btn btn-primary"

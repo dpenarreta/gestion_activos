@@ -88,8 +88,8 @@ Hasta ahora solo lo configuraba cada persona en «Chat › Mi estado» o al pedi
   - Web: `pages/Admin/Users/ReemplazoDeLaCuenta.jsx`, `UserForm.jsx`, `components/common/Ausencia/ReemplazoEnAusencia.jsx` (servicio y textos parametrizados), `api/adminUsersService.js`.
 - **Cambio sobre el diseño inicial:** la acción usa `PATCH`, porque el viewset de usuarios no admite `PUT` y abrirlo habilitaría también la edición completa por PUT. Además, la reasignación de lo pendiente se hace en el acto, como al guardar «Mi estado», no al confirmar la transacción.
 - **Verificación ejecutada:**
+  - Revisión en vivo (16/11/2026) en tema claro y oscuro. El botón «Guardar quién aprueba» pasó a la izquierda, porque a la derecha lo tapaban los botones flotantes de Nova y del chat.
   - pytest de users, organizacion, roles, permissions, licencias y chat: 622 pasan.
   - Vitest completo: 3313 de 3313.
 - **Pendientes:**
-  - Revisión visual en vivo de la tarjeta: la sesión local se cerró al reiniciar el backend.
   - Desplegar con `-Migrar`.

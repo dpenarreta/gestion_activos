@@ -734,7 +734,12 @@ function ComoSeRegistra({
 /** El recorrido que queda configurado, en una línea por etapa. */
 function ResumenDeRuta({ flujo, opciones }) {
   const lista = (destinos) =>
-    destinos.map((d) => describir(d, opciones)).join(", ") || "nadie";
+    destinos
+      .map(
+        (d) =>
+          describir(d, opciones) + (d.correo ? " (también por correo)" : ""),
+      )
+      .join(", ") || "nadie";
   return (
     <section className="flujo-ruta" aria-labelledby="flujo-ruta">
       <h4 id="flujo-ruta" className="flujo-seccion">

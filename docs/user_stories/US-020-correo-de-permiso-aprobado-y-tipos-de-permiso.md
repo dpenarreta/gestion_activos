@@ -82,10 +82,10 @@ Los pasos 4 y 5 son el reporte de novedades y siguen fuera del sistema.
   - Permiso médico: se le suma el correo.
   - Tipos creados: Permiso personal, Calamidad doméstica, Matrimonio, Paternidad, Maternidad (Médica, documento obligatorio) y Fallecimiento de un familiar.
 - **Verificación ejecutada:**
+  - Revisión en vivo (16/11/2026) en tema claro y oscuro. Se le dio aire a la casilla y el resumen «Así queda la ruta» ahora dice «(también por correo)». El backend local seguía con el código anterior y no devolvía la marca de correo; se reinició.
   - pytest de licencias, correos, alertas, soporte, activos, matriz y notificaciones: 871 pasan.
   - Vitest completo: 3313 de 3313.
   - `makemigrations --check`: sin cambios.
 - **Pendientes:**
-  - Revisión visual en vivo del editor de tipos: la sesión local se cerró y no hubo cómo iniciarla.
   - Desplegar (licencias 0007) y correr la configuración en producción.
   - Que Gestión Humana valide los días legales y el descuento de los tipos nuevos.
