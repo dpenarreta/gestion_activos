@@ -262,3 +262,37 @@ export const caracteristicasService = {
     return apiClient.delete(`${CARACTERISTICAS}${id}/`).then((res) => res.data);
   },
 };
+
+const ACTAS_ENTREGA = "/activos/actas-entrega/";
+
+/**
+ * Acta de recepción de equipo AEE-LC-01 (16/11/2026): junta lo entregado a
+ * una persona el mismo día, guarda la prueba de funcionalidad y la
+ * descarga en Word (editable) y PDF (para imprimir y firmar).
+ */
+export const actasEntregaService = {
+  preparar(movimientoId) {
+    return apiClient
+      .get(`${ACTAS_ENTREGA}preparar/`, {
+        params: { movimiento: movimientoId },
+      })
+      .then((res) => res.data);
+  },
+  crear(payload) {
+    return apiClient.post(ACTAS_ENTREGA, payload).then((res) => res.data);
+  },
+  editar(id, payload) {
+    return apiClient
+      .patch(`${ACTAS_ENTREGA}${id}/`, payload)
+      .then((res) => res.data);
+  },
+  /** `formato`: «docx» o «pdf». Devuelve el Blob. */
+  documento(id, formato) {
+    return apiClient
+      .get(`${ACTAS_ENTREGA}${id}/documento/`, {
+        params: { formato },
+        responseType: "blob",
+      })
+      .then((res) => res.data);
+  },
+};

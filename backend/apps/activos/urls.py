@@ -6,6 +6,7 @@ from .views import (
     CategoriaActivoViewSet,
     TipoDispositivoViewSet,
 )
+from .views_acta_entrega import ActaEntregaViewSet
 from .views_plantilla import ColumnaPlantillaViewSet
 
 router = DefaultRouter()
@@ -15,6 +16,7 @@ router.register("caracteristicas", CaracteristicaTipoViewSet, basename="caracter
 router.register(
     "columnas-plantilla", ColumnaPlantillaViewSet, basename="columnas-plantilla-activos"
 )
+router.register("actas-entrega", ActaEntregaViewSet, basename="actas-entrega")
 router.register("", ActivoViewSet, basename="activos")
 
 urlpatterns = router.urls

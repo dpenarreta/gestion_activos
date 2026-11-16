@@ -1,0 +1,73 @@
+/* Acta de recepción de equipo AEE-LC-01 (16/11/2026). */
+.acta-entrega__descargas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.acta-entrega__descargas .mz-strong {
+  margin-right: auto;
+}
+
+.acta-entrega__grupo {
+  margin-bottom: 12px;
+  padding: 0;
+  border: 0;
+}
+
+.acta-entrega__grupo legend {
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.acta-entrega__equipos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acta-entrega__equipos li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.acta-entrega__pruebas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 4px 16px;
+}
+
+.acta-entrega__prueba {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.acta-entrega__prueba-nombre {
+  font-size: 13px;
+}
+
+.acta-entrega__opciones {
+  display: flex;
+  gap: 10px;
+}
+
+.acta-entrega__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  font-size: 13px;
+  cursor: pointer;
+}

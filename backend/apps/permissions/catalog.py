@@ -122,6 +122,7 @@ PERMISSION_CATALOG = {
             "activos.crear": "Registrar nuevos activos en el inventario",
             "activos.editar": "Editar la ficha técnica de un activo",
             "activos.asignar": "Asignar, trasladar y devolver activos entre custodios y áreas",
+            "activos.acta_entrega": "Generar el acta de entrega de equipos (AEE-LC-01) en Word y PDF, con la prueba de funcionalidad",
             "activos.dar_baja": "Dar de baja activos del inventario",
             "activos.imprimir_etiqueta": "Generar e imprimir etiquetas de código de barras",
             "activos.exportar": "Exportar el inventario a Excel",

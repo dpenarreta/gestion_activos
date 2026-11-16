@@ -11,6 +11,7 @@ import { CambiarEstadoDialog } from "../../../components/activos/CambiarEstadoDi
 import { EtiquetaDialog } from "../../../components/activos/EtiquetaDialog/EtiquetaDialog";
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
 import { AdjuntosPanel } from "../../../components/activos/AdjuntosPanel/AdjuntosPanel";
+import { ActaEntregaDialog } from "../../../components/activos/ActaEntregaDialog/ActaEntregaDialog";
 import { adjuntosService } from "../../../api/adjuntosService";
 import { descargarBlob } from "../../../utils/descargas";
 import { usePermission } from "../../../hooks/usePermission";
@@ -757,6 +758,9 @@ function TablaMovimientos({ movimientos, puedeArchivar, onArchivada }) {
  */
 function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
   const [ocupado, setOcupado] = useState(false);
+  // AEE-LC-01 (16/11/2026): la plantilla de TI, en Word y PDF.
+  const puedeActaEntrega = usePermission("activos.acta_entrega");
+  const [actaAbierta, setActaAbierta] = useState(false);
   const generaActa =
     movimiento.tipo === "asignacion" || movimiento.tipo === "devolucion";
 
@@ -784,8 +788,32 @@ function AccionesActa({ movimiento, puedeArchivar, onArchivada }) {
     }
   }
 
+  const conActaEntrega =
+    puedeActaEntrega &&
+    movimiento.tipo === "asignacion" &&
+    Boolean(movimiento.custodio_nuevo_nombre);
+
   return (
     <div className="d-flex gap-1">
+      {conActaEntrega && (
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-sm"
+          onClick={() => setActaAbierta(true)}
+          title="Acta de recepción de equipo (AEE-LC-01) en Word y PDF"
+        >
+          <Icon name="file-earmark-word" />
+          <span className="visually-hidden">
+            Acta de recepción de equipo AEE-LC-01
+          </span>
+        </button>
+      )}
+      {actaAbierta && (
+        <ActaEntregaDialog
+          movimientoId={movimiento.id}
+          onCerrar={() => setActaAbierta(false)}
+        />
+      )}
       <button
         type="button"
         className="btn btn-outline-secondary btn-sm"

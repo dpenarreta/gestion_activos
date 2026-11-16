@@ -650,3 +650,57 @@ class MovimientoActivo(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.get_tipo_display()} - {self.activo_id}"
+
+
+class ActaEntrega(ModeloDeEmpresa):
+    """Acta de recepción de equipo, formato AEE-LC-01 (16/11/2026).
+
+    Replica la plantilla en hoja de cálculo que TI llenaba a mano en cada
+    entrega. Agrupa las asignaciones hechas a una misma persona el mismo día
+    —laptop, mouse, cargador— en un solo papel, como se firmaba hasta ahora.
+    Lo que el sistema no conocía (la prueba de funcionalidad y las
+    observaciones) lo marca el técnico al generarla y queda guardado aquí, de
+    modo que el Word y el PDF salen siempre con lo mismo.
+    """
+
+    class Prueba(models.TextChoices):
+        OK = "ok", "Ok"
+        FALLA = "falla", "Falla"
+        NO_APLICA = "na", "No aplica"
+
+    #: Las pruebas de la Parte 2, en el orden de la plantilla.
+    PRUEBAS = (
+        ("on_off", "Prueba ON/OFF"),
+        ("sistema_operativo", "Función S.O."),
+        ("aplicaciones", "Función Aplicaciones"),
+        ("unidad_optica", "Unidad Óptica"),
+        ("impresora", "Función Impresora"),
+        ("sonido", "Prueba de Sonido"),
+        ("pantalla", "Función Pantalla"),
+        ("teclado", "Función Teclado"),
+        ("mouse", "Función Mouse"),
+    )
+
+    custodio = models.ForeignKey(
+        "organizacion.Empleado", on_delete=models.PROTECT, related_name="actas_entrega"
+    )
+    fecha = models.DateField(help_text="Fecha de entrega: la de las asignaciones.")
+    tecnico = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="actas_entrega_tecnico",
+    )
+    movimientos = models.ManyToManyField(MovimientoActivo, related_name="actas_entrega")
+    pruebas = models.JSONField(default=dict, blank=True)
+    nuevo_de_paquete = models.BooleanField(null=True, blank=True)
+    observaciones = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-fecha", "-id"]
+        verbose_name = "acta de entrega"
+        verbose_name_plural = "actas de entrega"
+
+    def __str__(self) -> str:
+        return f"Acta de entrega {self.id} - {self.custodio_id} - {self.fecha}"

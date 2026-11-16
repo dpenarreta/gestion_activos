@@ -10,6 +10,8 @@ python-json-logger==2.0.7
 drf-spectacular==0.30.0
 reportlab==5.0.1
 openpyxl==3.1.5
+# El acta de entrega AEE-LC-01 en Word editable (`apps.activos.actas_entrega`).
+python-docx==1.2.0
 # Llamadas HTTP a la API de IA (interpretación de dashboards, apps.cartera).
 # Estaba instalada en desarrollo como dependencia de otra librería y faltaba
 # aquí: el primer despliegue en el servidor no arrancaba sin ella.
