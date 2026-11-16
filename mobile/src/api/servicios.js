@@ -542,3 +542,190 @@ export const matrizService = {
     return api.get("/matriz/catalogos/", conEmpresa(empresa));
   },
 };
+
+/**
+ * Gestión de Activos (US-022, 16/11/2026), con las mismas rutas que
+ * `activosService` y `dashboardService` de la web (`backend/apps/activos/
+ * urls.py`). Todo trabaja sobre la empresa activa (`X-Empresa`); `empresa`:
+ * la de un aviso, que va como `X-Empresa` solo en esa petición (B3 de la
+ * US-009). Los campos reales están en la sección 4 de la US-022.
+ */
+export const activosService = {
+  /** `{activos: {total, en_uso, disponibles, en_bodega, en_mantenimiento,
+   * perdidos, robados, reemplazo_recomendado, sin_asignar_mas_de_90_dias…},
+   * mantenimientos: {del_mes, total_historico, costo_del_mes,
+   * costo_acumulado…}, garantias, fuera_de_operacion, equipos_mas_reparados}`.
+   * Los montos llegan como texto. */
+  panel() {
+    return api.get("/activos/dashboard/");
+  },
+  /** Paginado (`{count, next, results}`, de a 20): `q`, `estado`,
+   * `almacenados`, `operativos`, `page`. Cada fila es un
+   * `ActivoListSerializer`. */
+  listar(params = {}) {
+    return api.get("/activos/", { params });
+  },
+  /** `{activo, movimientos, mantenimientos, costos}`. 404 si no existe en la
+   * empresa. */
+  historial(id, { empresa } = {}) {
+    return api.get(`/activos/${idSeguro(id)}/historial/`, conEmpresa(empresa));
+  },
+  /** Lo leído con la cámara o escrito a mano: la ficha completa (igual que
+   * `historial`) y, si el lector cambió algo, `advertencia_lector`. 404
+   * `activo_no_encontrado`. */
+  porCodigo(codigo) {
+    return api.get(`/activos/por-codigo/${encodeURIComponent(String(codigo))}/`);
+  },
+  /** `{responsables: [ids de Empleado], departamento, sede, motivo}`: la
+   * lista completa después del cambio (vacía: devolución a bodega). Devuelve
+   * la ficha (`ActivoDetailSerializer`). */
+  asignar(id, datos) {
+    return api.post(`/activos/${idSeguro(id)}/asignar/`, datos);
+  },
+  /** `{estado, motivo}`; el motivo es obligatorio para dado de baja,
+   * perdido o robado (400 en `motivo`). */
+  cambiarEstado(id, datos) {
+    return api.post(`/activos/${idSeguro(id)}/cambiar-estado/`, datos);
+  },
+  /** El buscador de «Registrar mantenimiento» sin activo (CA-14): solo los
+   * operativos, que son los que admiten un mantenimiento. */
+  buscarOperativos(texto) {
+    const q = String(texto ?? "").trim();
+    return api.get("/activos/", { params: { operativos: "true", q: q || undefined } });
+  },
+};
+
+/**
+ * La bitácora de mantenimientos (US-022, Tanda B, 16/11/2026), con las mismas
+ * rutas que `mantenimientosService` y `componentesService` de la web
+ * (`backend/apps/mantenimientos/urls.py`). `empresa`: la de un aviso, que va
+ * como `X-Empresa` solo en esa petición (B3 de la US-009).
+ */
+export const mantenimientosService = {
+  /** Paginado (`{count, next, results}`, de a 20): `pendientes` («true»: sin
+   * fecha de salida; «false»: cerradas), `tipo`, `q`, `activo`, `page`. Cada
+   * fila es un `MantenimientoSerializer` completo (con `componentes`). */
+  listar(params = {}) {
+    return api.get("/mantenimientos/", { params });
+  },
+  detalle(id, { empresa } = {}) {
+    return api.get(`/mantenimientos/${idSeguro(id)}/`, conEmpresa(empresa));
+  },
+  /** `{activo, tipo, fecha_intervencion, fecha_salida, tipo_responsable,
+   * responsable, causa, descripcion, diagnostico, solucion, estado_final,
+   * garantia_usada, costo_mano_obra, componentes: [{componente, cantidad,
+   * costo_unitario, numero_serie_nuevo, observaciones}]}`. Devuelve el
+   * mantenimiento y, si hubo correo, `aviso: {enviados, sin_correo,
+   * a_quien_registro}`. */
+  registrar(datos) {
+    return api.post("/mantenimientos/", datos);
+  },
+  /** «Registrar salida» (CA-16): `{fecha_salida, solucion, estado_final}`.
+   * El PATCH es parcial: no exige los demás campos. */
+  cerrar(id, datos) {
+    return api.patch(`/mantenimientos/${idSeguro(id)}/`, datos);
+  },
+  /** El catálogo de repuestos, paginado: `q` busca en nombre y código. Trae
+   * también los inactivos (`activo: false`), que no se pueden elegir. */
+  componentes(texto = "") {
+    const q = texto.trim();
+    return api.get("/mantenimientos/componentes/", { params: { page_size: 50, q: q || undefined } });
+  },
+  /** `{nombre, codigo, descripcion, es_critico}`; pide
+   * `mantenimientos.componentes`. 400 si el nombre o el código ya existen. */
+  crearComponente(datos) {
+    return api.post("/mantenimientos/componentes/", datos);
+  },
+};
+
+/**
+ * Los adjuntos de un activo y de sus mantenimientos (US-022, CA-17), como
+ * `adjuntosService` de la web (`backend/apps/adjuntos/views.py`).
+ */
+export const adjuntosService = {
+  /** Paginado: `activo`, `mantenimiento`, `tipo`. Hasta 100 por página. */
+  listar({ activo, mantenimiento } = {}, { empresa } = {}) {
+    return api.get("/adjuntos/", {
+      ...conEmpresa(empresa),
+      params: { activo: activo ?? undefined, mantenimiento: mantenimiento ?? undefined, page_size: 100 },
+    });
+  },
+  /** Multipart: `activo`, `mantenimiento`, `tipo`, `descripcion` y el
+   * archivo en `archivo` (`{uri, name, type}`). */
+  subir({ activo, mantenimiento, tipo, descripcion, archivo }) {
+    const datos = new FormData();
+    datos.append("activo", String(activo));
+    if (mantenimiento) datos.append("mantenimiento", String(mantenimiento));
+    datos.append("tipo", String(tipo));
+    if (descripcion) datos.append("descripcion", String(descripcion));
+    datos.append("archivo", { uri: archivo.uri, name: archivo.name, type: archivo.type });
+    return api.post("/adjuntos/", datos, { timeoutMs: ESPERA_CON_DOCUMENTO_MS });
+  },
+  urlDescarga(id) {
+    return api.url(`/adjuntos/${idSeguro(id)}/descargar/`);
+  },
+};
+
+/**
+ * Las solicitudes de equipos (US-022, CA-18 a CA-20), como
+ * `solicitudesService` de la web (`backend/apps/solicitudes/views.py`). No
+ * son las solicitudes de permiso (`licenciasService`).
+ */
+export const solicitudesService = {
+  /** Paginado: `ambito` («mias» o «recibidas»), `abiertas` («true»), `q`,
+   * `page`. */
+  listar(params = {}) {
+    return api.get("/solicitudes/", { params });
+  },
+  /** Con `movimientos[]`. 404 si no participa en ella. */
+  detalle(id, { empresa } = {}) {
+    return api.get(`/solicitudes/${idSeguro(id)}/`, conEmpresa(empresa));
+  },
+  /** `{encargado, clase, tipo_dispositivo, componente, detalle,
+   * especificaciones, cantidad, justificacion, prioridad, fecha_necesaria}`.
+   * Devuelve la solicitud y, si hubo correo, `aviso: {enviado_a,
+   * sin_correo}`. */
+  crear(datos) {
+    return api.post("/solicitudes/", datos);
+  },
+  /** `{estado, nota}`. 403 si no es suya ni la tiene asignada; 400 en `nota`
+   * si rechaza sin motivo. */
+  cambiarEstado(id, { estado, nota }, { empresa } = {}) {
+    return api.post(`/solicitudes/${idSeguro(id)}/cambiar-estado/`, { estado, nota: nota ?? "" }, conEmpresa(empresa));
+  },
+  /** `{tipos_dispositivo: [{id, nombre, caracteristicas: [{id, nombre,
+   * dato, unidad, opciones, obligatoria, orden}]}], componentes: [{id,
+   * nombre}]}`. */
+  catalogo() {
+    return api.get("/solicitudes/catalogo/");
+  },
+  /** `[{id, nombre}]`: quienes pueden gestionar compras en la empresa. */
+  encargados() {
+    return api.get("/solicitudes/encargados/");
+  },
+};
+
+/**
+ * Los catálogos de la organización que pide «Asignar» (US-022, CA-8), los
+ * mismos de `AsignarCustodioDialog.jsx` de la web: los responsables de un
+ * activo son EMPLEADOS (`organizacion.Empleado`), no cuentas de usuario, así
+ * que no sirve el directorio del chat. Piden `organizacion.ver`, como en la
+ * web.
+ */
+export const organizacionService = {
+  /** Paginado: `[{id, nombre_completo, codigo_empleado, cargo, departamento,
+   * departamento_nombre}]`, solo los activos, hasta 20 por búsqueda. */
+  empleados(texto = "") {
+    const q = texto.trim();
+    return api.get("/organizacion/empleados/", { params: { activo: "true", page_size: 20, q: q || undefined } });
+  },
+  /** Paginado: `[{id, nombre, codigo}]`, los activos. El servidor da hasta
+   * 100 por página (`DefaultPagination`), como a la web. */
+  departamentos() {
+    return api.get("/organizacion/departamentos/", { params: { activo: "true", page_size: 100 } });
+  },
+  /** Paginado: `[{id, nombre, ciudad}]`, las activas. */
+  sedes() {
+    return api.get("/organizacion/sedes/", { params: { activa: "true", page_size: 100 } });
+  },
+};

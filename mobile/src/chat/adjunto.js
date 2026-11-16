@@ -1,4 +1,4 @@
-import { File } from "expo-file-system";
+import { Directory, File } from "expo-file-system";
 
 import {
   abrirConElSistema,
@@ -40,6 +40,9 @@ export const TEXTO_ARCHIVO_FALLO =
   "No se pudo descargar el archivo. Revise su conexión e intente de nuevo.";
 export const TEXTO_SIN_APP_PARA_ABRIR =
   "No hay una aplicación para abrir este archivo en este teléfono. Ábralo desde la web.";
+
+export const TEXTO_NO_SE_PUDO_GUARDAR =
+  "No se pudo guardar el archivo en esa carpeta. Elija otra o intente de nuevo.";
 
 const CARPETA = "chat-archivos";
 
@@ -100,4 +103,41 @@ export function abrirArchivoDelChat(archivo, nombre) {
     titulo: nombre,
     textoSinVisor: TEXTO_SIN_APP_PARA_ABRIR,
   });
+}
+
+/** Un nombre de archivo que cualquier carpeta acepta. */
+export function nombreParaGuardar(nombre) {
+  const limpio = String(nombre ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
+    .trim();
+  return limpio || "archivo";
+}
+
+/**
+ * Guarda en el teléfono un archivo del chat que no es foto (16/11/2026, a
+ * pedido del usuario: «Descargar», igual que la web). La persona elige la
+ * carpeta (Descargas, Archivos de iOS…) y ahí se escribe una copia con su
+ * nombre. Es la única excepción a «nada descargado se queda en el teléfono»
+ * (LOPDP): lo decide la persona, archivo por archivo. La copia de la caché
+ * la borra quien llama.
+ *
+ * Devuelve el `File` guardado, o `null` si la persona canceló. Lanza
+ * `TEXTO_NO_SE_PUDO_GUARDAR` si no se pudo escribir.
+ */
+export async function guardarArchivoEnElTelefono(archivo, nombre) {
+  let carpeta;
+  try {
+    carpeta = await Directory.pickDirectoryAsync();
+  } catch {
+    return null;
+  }
+  if (!carpeta) return null;
+  try {
+    const destino = carpeta.createFile(nombreParaGuardar(nombre), tipoDeArchivo(nombre));
+    await destino.write(await archivo.bytes());
+    return destino;
+  } catch {
+    throw new Error(TEXTO_NO_SE_PUDO_GUARDAR);
+  }
 }

@@ -175,3 +175,45 @@ jest.mock("./src/navegador/confirmarSalida", () => ({
   ...jest.requireActual("./src/navegador/confirmarSalida"),
   confirmarSalida: jest.fn(async () => true),
 }));
+
+// US-022: el escáner de Gestión de Activos. `CameraView` es un `View` que
+// guarda su `onBarcodeScanned` para que las pruebas «lean» un código
+// (`require("expo-camera").__leer("GA-LAP-000042")`); el permiso se cambia
+// con `__estado.permiso`. Qué devuelve `camaraDisponible` lo decide cada prueba.
+jest.mock("expo-camera", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const estado = { onBarcodeScanned: null, permiso: { granted: true, canAskAgain: true, status: "granted" } };
+  const pedir = jest.fn(async () => estado.permiso);
+  function CameraView({ onBarcodeScanned, barcodeScannerSettings, active }) {
+    estado.onBarcodeScanned = onBarcodeScanned ?? null;
+    estado.ajustes = barcodeScannerSettings;
+    estado.activa = active;
+    return React.createElement(View, { testID: "camara-nativa" });
+  }
+  // Como el hook real (`createPermissionHook`): `[permiso, pedir, obtener]`,
+  // y `obtener` vuelve a leer el permiso (al volver de los ajustes, H-06).
+  const obtener = jest.fn(async () => estado.permiso);
+  function useCameraPermissions() {
+    const [permiso, setPermiso] = React.useState(estado.permiso);
+    const leer = React.useCallback(async () => {
+      const actual = await obtener();
+      setPermiso(actual);
+      return actual;
+    }, []);
+    const solicitar = React.useCallback(async () => {
+      const actual = await pedir();
+      setPermiso(actual);
+      return actual;
+    }, []);
+    return [permiso, solicitar, leer];
+  }
+  return {
+    __estado: estado,
+    __pedir: pedir,
+    __obtener: obtener,
+    __leer: (data, type = "qr") => estado.onBarcodeScanned?.({ data, type }),
+    CameraView,
+    useCameraPermissions,
+  };
+});

@@ -339,3 +339,42 @@ describe("colores de los estados (16/11/2026)", () => {
     expect(colorDeEstado("otro").color).toBe("#444444");
   });
 });
+
+describe("guardar un archivo del chat en el teléfono (16/11/2026)", () => {
+  const { Directory } = require("expo-file-system");
+  const { guardarArchivoEnElTelefono, nombreParaGuardar } = require("../src/chat/adjunto");
+
+  it("limpia los caracteres que una carpeta no acepta", () => {
+    expect(nombreParaGuardar('acta: "final"/v2?.pdf')).toBe("acta_ _final__v2_.pdf");
+    expect(nombreParaGuardar("  ")).toBe("archivo");
+  });
+
+  it("si la persona cancela la carpeta, devuelve null", async () => {
+    Directory.pickDirectoryAsync = jest.fn(async () => {
+      throw new Error("cancelado");
+    });
+    await expect(guardarArchivoEnElTelefono({ bytes: jest.fn() }, "acta.pdf")).resolves.toBeNull();
+  });
+
+  it("escribe una copia con su nombre y tipo en la carpeta elegida", async () => {
+    const destino = { write: jest.fn(async () => {}) };
+    const carpeta = { createFile: jest.fn(() => destino) };
+    Directory.pickDirectoryAsync = jest.fn(async () => carpeta);
+    const bytes = new Uint8Array([1, 2, 3]);
+    const guardado = await guardarArchivoEnElTelefono({ bytes: async () => bytes }, "acta.pdf");
+    expect(carpeta.createFile).toHaveBeenCalledWith("acta.pdf", "application/pdf");
+    expect(destino.write).toHaveBeenCalledWith(bytes);
+    expect(guardado).toBe(destino);
+  });
+
+  it("si no se puede escribir, lo dice", async () => {
+    Directory.pickDirectoryAsync = jest.fn(async () => ({
+      createFile: () => {
+        throw new Error("sin permiso");
+      },
+    }));
+    await expect(guardarArchivoEnElTelefono({ bytes: async () => new Uint8Array() }, "acta.pdf")).rejects.toThrow(
+      "No se pudo guardar el archivo",
+    );
+  });
+});

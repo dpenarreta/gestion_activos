@@ -5,6 +5,7 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { chatService, notificacionesService } from "../src/api/servicios";
 import {
   abrirArchivoDelChat,
+  guardarArchivoEnElTelefono,
   descargarArchivoDelChat,
   elegirArchivoParaElChat,
   elegirImagenParaElChat,
@@ -84,6 +85,7 @@ jest.mock("../src/chat/adjunto", () => ({
   ...jest.requireActual("../src/chat/adjunto"),
   descargarArchivoDelChat: jest.fn(),
   abrirArchivoDelChat: jest.fn(),
+  guardarArchivoEnElTelefono: jest.fn(),
   tomarFotoParaElChat: jest.fn(),
   elegirImagenParaElChat: jest.fn(),
   elegirArchivoParaElChat: jest.fn(),
@@ -601,7 +603,7 @@ describe("adjuntos (CA-7)", () => {
     expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/^mailto:carla@grupolaar\.com/));
   });
 
-  it("una imagen recibida se ve dentro de la app y se borra al cerrar el visor", async () => {
+  it("una imagen recibida se ve en la burbuja desde que llega; el visor la usa sin volver a descargarla (16/11/2026)", async () => {
     const archivo = { uri: "file:///cache/chat-archivos/mensaje-10.jpg", exists: true, delete: jest.fn() };
     descargarArchivoDelChat.mockResolvedValueOnce(archivo);
     const conImagen = mensaje(10, {
@@ -609,30 +611,69 @@ describe("adjuntos (CA-7)", () => {
       archivo: { nombre: "foto.jpg", tamano: 1000, es_imagen: true, url: "/chat/archivos/10/" },
     });
     chatService.mensajes.mockResolvedValueOnce(pagina([conImagen]));
-    await render(<Conversacion id="5" />);
-    await fireEvent.press(await screen.findByTestId("mensaje-10"));
-
-    expect(descargarArchivoDelChat).toHaveBeenCalledWith(conImagen, {});
-    expect(await screen.findByTestId("imagen-del-chat")).toBeTruthy();
-    expect(abrirArchivoDelChat).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId("cerrar-imagen"));
-    expect(archivo.delete).toHaveBeenCalled();
-    expect(screen.queryByTestId("imagen-del-chat")).toBeNull();
-  });
-
-  it("otro archivo se abre con el sistema y se borra al salir de la conversación", async () => {
-    const archivo = { uri: "file:///cache/chat-archivos/mensaje-10.pdf", exists: true, delete: jest.fn() };
-    descargarArchivoDelChat.mockResolvedValueOnce(archivo);
-    abrirArchivoDelChat.mockResolvedValueOnce(undefined);
-    chatService.mensajes.mockResolvedValueOnce(
-      pagina([mensaje(10, { texto: "", archivo: { nombre: "acta.pdf", tamano: 2048, es_imagen: false, url: "/chat/archivos/10/" } })]),
-    );
     const { unmount } = await render(<Conversacion id="5" />);
-    await fireEvent.press(await screen.findByTestId("mensaje-10"));
-    expect(abrirArchivoDelChat).toHaveBeenCalledWith(archivo, "acta.pdf");
+
+    // Sin tocar nada: se descarga y se ve en la burbuja, sin «Ver».
+    expect(await screen.findByTestId("miniatura-10")).toBeTruthy();
+    expect((await screen.findByTestId("imagen-10")).props.source).toEqual({ uri: archivo.uri });
+    expect(descargarArchivoDelChat).toHaveBeenCalledWith(conImagen, {});
+    expect(screen.queryByText("Ver")).toBeNull();
+
+    await fireEvent.press(screen.getByTestId("mensaje-10"));
+    expect(await screen.findByTestId("imagen-del-chat")).toBeTruthy();
+    expect(descargarArchivoDelChat).toHaveBeenCalledTimes(1);
+    expect(abrirArchivoDelChat).not.toHaveBeenCalled();
+    // Cerrar el visor no la borra (la sigue usando la burbuja); salir sí (LOPDP).
+    await fireEvent.press(screen.getByTestId("cerrar-imagen"));
+    expect(screen.queryByTestId("imagen-del-chat")).toBeNull();
     expect(archivo.delete).not.toHaveBeenCalled();
     await unmount();
     expect(archivo.delete).toHaveBeenCalled();
+  });
+
+  it("si la imagen no se pudo descargar, queda su nombre con «Ver», que lo vuelve a intentar", async () => {
+    const archivo = { uri: "file:///cache/chat-archivos/mensaje-10.jpg", exists: true, delete: jest.fn() };
+    descargarArchivoDelChat.mockRejectedValueOnce(new Error("No se pudo descargar.")).mockResolvedValueOnce(archivo);
+    chatService.mensajes.mockResolvedValueOnce(
+      pagina([mensaje(10, { texto: "", archivo: { nombre: "foto.jpg", tamano: 1000, es_imagen: true, url: "/chat/archivos/10/" } })]),
+    );
+    await render(<Conversacion id="5" />);
+    expect(await screen.findByText("Ver")).toBeTruthy();
+    expect(screen.queryByTestId("miniatura-10")).toBeNull();
+    await fireEvent.press(screen.getByTestId("mensaje-10"));
+    expect(await screen.findByTestId("imagen-del-chat")).toBeTruthy();
+    expect(descargarArchivoDelChat).toHaveBeenCalledTimes(2);
+  });
+
+  it("otro archivo se guarda en el teléfono con el botón «Descargar» y la copia de la caché se borra (16/11/2026)", async () => {
+    const archivo = { uri: "file:///cache/chat-archivos/mensaje-10.pdf", exists: true, delete: jest.fn() };
+    descargarArchivoDelChat.mockResolvedValueOnce(archivo);
+    guardarArchivoEnElTelefono.mockResolvedValueOnce({ uri: "content://descargas/acta.pdf" });
+    chatService.mensajes.mockResolvedValueOnce(
+      pagina([mensaje(10, { texto: "", archivo: { nombre: "acta.pdf", tamano: 2048, es_imagen: false, url: "/chat/archivos/10/" } })]),
+    );
+    await render(<Conversacion id="5" />);
+    const boton = await screen.findByTestId("descargar-10");
+    expect(boton.props.accessibilityLabel).toBe("Descargar acta.pdf");
+    await fireEvent.press(boton);
+    expect(guardarArchivoEnElTelefono).toHaveBeenCalledWith(archivo, "acta.pdf");
+    expect(abrirArchivoDelChat).not.toHaveBeenCalled();
+    expect(archivo.delete).toHaveBeenCalled();
+    expect(await screen.findByText("Se guardó «acta.pdf» en el teléfono.")).toBeTruthy();
+  });
+
+  it("tocar la tarjeta también lo descarga; si la persona cancela, no dice nada", async () => {
+    const archivo = { uri: "file:///cache/chat-archivos/mensaje-10.pdf", exists: true, delete: jest.fn() };
+    descargarArchivoDelChat.mockResolvedValueOnce(archivo);
+    guardarArchivoEnElTelefono.mockResolvedValueOnce(null);
+    chatService.mensajes.mockResolvedValueOnce(
+      pagina([mensaje(10, { texto: "", archivo: { nombre: "acta.pdf", tamano: 2048, es_imagen: false, url: "/chat/archivos/10/" } })]),
+    );
+    await render(<Conversacion id="5" />);
+    await fireEvent.press(await screen.findByTestId("mensaje-10"));
+    expect(guardarArchivoEnElTelefono).toHaveBeenCalledWith(archivo, "acta.pdf");
+    expect(archivo.delete).toHaveBeenCalled();
+    expect(screen.queryByTestId("archivo-guardado")).toBeNull();
   });
 
   it("si no se puede descargar, lo dice", async () => {
@@ -924,9 +965,8 @@ describe("visor de imágenes (auditoría UX, H-06 y H-22)", () => {
 
       await fireEvent.press(screen.getByTestId("ampliar-imagen"));
       expect(FileSystem.File.preview).toHaveBeenCalledWith(archivo, { mimeType: "image/*", title: "foto.jpg" });
-      // Al cerrar se borra igual (LOPDP).
       await fireEvent.press(screen.getByTestId("cerrar-imagen"));
-      expect(archivo.delete).toHaveBeenCalled();
+      expect(screen.queryByTestId("imagen-del-chat")).toBeNull();
     } finally {
       Platform.OS = sistemaOriginal;
     }
@@ -1302,7 +1342,7 @@ describe("correcciones de la ronda 2 de QA", () => {
     expect(sinArchivo).toEqual([{ name: "activate", label: "Ver quién lo leyó" }]);
     const conArchivo = screen.getByTestId("mensaje-12").props.accessibilityActions;
     expect(conArchivo).toEqual([
-      { name: "activate", label: "Abrir acta.pdf" },
+      { name: "activate", label: "Descargar acta.pdf" },
       { name: "longpress", label: "Ver quién lo leyó" },
     ]);
   });

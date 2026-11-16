@@ -88,6 +88,14 @@ export default function AppLayout() {
               />
               <Stack.Screen name="matriz/dia/[fecha]" options={{ ...cabecera(), title: "Vencimientos del día" }} />
               <Stack.Screen name="matriz/periodo/[id]" options={{ ...cabecera(), title: "Obligación" }} />
+              {/* US-022: Gestión de Activos (la ficha, el escáner, la bitácora
+                  de mantenimientos y las solicitudes de equipos). */}
+              <Stack.Screen name="activos/[id]" options={{ ...cabecera(), title: "Activo" }} />
+              <Stack.Screen name="activos/escanear" options={{ ...cabecera(), title: "Escanear" }} />
+              <Stack.Screen name="mantenimientos/nuevo" options={{ ...cabecera(), title: "Registrar mantenimiento" }} />
+              <Stack.Screen name="mantenimientos/[id]" options={{ ...cabecera(), title: "Mantenimiento" }} />
+              <Stack.Screen name="solicitudes/nueva" options={{ ...cabecera(), title: "Nueva solicitud de equipo" }} />
+              <Stack.Screen name="solicitudes/[id]" options={{ ...cabecera(), title: "Solicitud de equipo" }} />
             </Stack>
           </ResumenSoporteProvider>
         </ChatProvider>

@@ -15,10 +15,21 @@ import { confirmarSalida, TEXTO_SALIR, TITULO_SALIR } from "../src/navegador/con
 const BASE = "https://intranet.laarcourier.com";
 
 describe("MODULOS_EN_APP", () => {
-  it("desde la Fase 5 trae «licencias», «chat», «soporte» y «matriz»; lo demás va al detalle con «Abrir en el navegador»", () => {
-    expect(Object.keys(MODULOS_EN_APP)).toEqual(["licencias", "chat", "soporte", "matriz"]);
-    expect(rutaEnApp({ id: 4, modulo: "activos", enlace: "/admin/activos/4" })).toBeNull();
-    expect(destinoDeNotificacion({ id: 4, modulo: "activos" })).toBe("/notificacion/4");
+  it("desde la US-022 trae también «activos», «mantenimientos», «alertas» y «solicitudes»; lo demás va al detalle con «Abrir en el navegador»", () => {
+    expect(Object.keys(MODULOS_EN_APP)).toEqual([
+      "licencias",
+      "chat",
+      "soporte",
+      "matriz",
+      "activos",
+      "mantenimientos",
+      "alertas",
+      "solicitudes",
+    ]);
+    // Tanda B de la US-022: «solicitudes» va al detalle de la solicitud de equipo.
+    expect(rutaEnApp({ id: 4, modulo: "solicitudes", enlace: "/admin/solicitudes/4" })).toBe("/solicitudes/4");
+    expect(destinoDeNotificacion({ id: 4, modulo: "solicitudes", enlace: "/admin/solicitudes/4" })).toBe("/solicitudes/4");
+    expect(destinoDeNotificacion({ id: 4, modulo: "ordenes" })).toBe("/notificacion/4");
     // US-014: la Mesa de ayuda ya no va al detalle de la notificación.
     expect(destinoDeNotificacion({ id: 4, modulo: "soporte", enlace: "/admin/soporte/tickets/9" })).toBe(
       "/soporte/ticket/9",

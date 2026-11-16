@@ -102,9 +102,16 @@ beforeEach(() => {
 });
 
 describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
-  it("CA-1: Institucional · Chat · Mesa de ayuda · Matriz de obligaciones (US-019); el Inicio es de Institucional", () => {
-    expect(MODULOS.map((m) => m.texto)).toEqual(["Institucional", "Chat", "Mesa de ayuda", "Matriz de obligaciones"]);
-    expect(MODULOS.map((m) => m.pantallas)).toEqual([["index", "permisos"], ["chat"], ["soporte"], ["matriz"]]);
+  it("CA-1: Institucional · Chat · Mesa de ayuda · Matriz de obligaciones (US-019) · Gestión de Activos (US-022); el Inicio es de Institucional", () => {
+    expect(MODULOS.map((m) => m.texto)).toEqual([
+      "Institucional",
+      "Chat",
+      "Mesa de ayuda",
+      "Matriz de obligaciones",
+      "Gestión de Activos",
+    ]);
+    expect(MODULOS.map((m) => m.pantallas)).toEqual([["index", "permisos"], ["chat"], ["soporte"], ["matriz"], ["activos"]]);
+    expect(moduloDePantalla("activos").id).toBe("activos");
     expect(moduloDePantalla("index").id).toBe("institucional");
     expect(moduloDePantalla("permisos").id).toBe("institucional");
     expect(moduloDePantalla("soporte").id).toBe("mesa");
@@ -141,7 +148,13 @@ describe("el catálogo de módulos (US-016, estructura de la ronda 1)", () => {
       "Consulta de vacaciones",
     ]);
     const acciones = MODULOS.flatMap((m) => m.funcionalidades.filter((f) => f.tipo === "accion").map((f) => f.ruta));
-    expect(acciones).toEqual(["/chat/nuevo", "/chat/mi-estado", "/soporte/nuevo", "/soporte/registrar"]);
+    expect(acciones).toEqual([
+      "/chat/nuevo",
+      "/chat/mi-estado",
+      "/soporte/nuevo",
+      "/soporte/registrar",
+      "/activos/escanear",
+    ]);
   });
 
   it("CA-6: quien no aprueba ni es del equipo no ve «Por aprobar», «Bandeja», «Aprobaciones» ni «Registrar»", () => {
@@ -861,7 +874,7 @@ describe("el navegador de módulos ((tabs)/_layout.js)", () => {
     await render(<ModulosLayout />);
     expect(mockTabs.props.backBehavior).toBe("firstRoute");
     expect(typeof mockTabs.props.tabBar).toBe("function");
-    expect(mockTabs.pantallas.map((p) => p.name)).toEqual(["index", "permisos", "chat", "soporte", "matriz"]);
+    expect(mockTabs.pantallas.map((p) => p.name)).toEqual(["index", "permisos", "chat", "soporte", "matriz", "activos"]);
     // La primera es Institucional › Inicio: Atrás vuelve a ella y desde ella
     // sale de la app.
     expect(mockTabs.pantallas.map((p) => p.name)).toEqual(MODULOS.flatMap((m) => m.pantallas));

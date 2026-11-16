@@ -20,6 +20,13 @@ const IDENTIFICADOR = "com.laarcourier.applce";
 // secreto: identifica el proyecto, no da acceso a nada.
 const EAS_PROJECT_ID = process.env.EAS_PROJECT_ID || undefined;
 
+// iOS tiene UN solo texto para el permiso de cámara (`NSCameraUsageDescription`)
+// y lo escriben dos plugins, `expo-image-picker` (US-010) y `expo-camera`
+// (US-022): el último pisaría al otro. Va el mismo texto en los dos y dice
+// sus tres usos reales (16/11/2026; UX H-07 de la US-022).
+const TEXTO_PERMISO_CAMARA =
+  "Intranet LCE usa la cámara solo para fotografiar el documento de respaldo de un permiso, tomar fotos de un equipo en mantenimiento y leer el código de los activos de la empresa en su etiqueta.";
+
 module.exports = () => ({
   expo: {
     name: "Intranet LCE",
@@ -64,6 +71,9 @@ module.exports = () => ({
       blockedPermissions: [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
+        // US-022: la cámara del escáner no graba audio; que ninguna
+        // dependencia lo vuelva a pedir.
+        "android.permission.RECORD_AUDIO",
       ],
     },
     plugins: [
@@ -86,10 +96,22 @@ module.exports = () => ({
         "expo-image-picker",
         {
           photosPermission:
-            "Intranet LCE usa sus fotos solo para adjuntar el documento de respaldo de un permiso.",
-          cameraPermission:
-            "Intranet LCE usa la cámara solo para fotografiar el documento de respaldo de un permiso.",
+            "Intranet LCE usa sus fotos solo para adjuntar el documento de respaldo de un permiso o una imagen del mantenimiento de un equipo.",
+          cameraPermission: TEXTO_PERMISO_CAMARA,
           microphonePermission: false,
+        },
+      ],
+      // US-022 (16/11/2026): el escáner de Gestión de Activos lee el QR o el
+      // código de barras de la etiqueta. Solo la cámara: sin micrófono ni
+      // grabación de audio en Android. Al agregarlo hay que recompilar la app
+      // de desarrollo; mientras, el escáner queda en «Escribir el código a
+      // mano» (`src/activos/camara.js`).
+      [
+        "expo-camera",
+        {
+          cameraPermission: TEXTO_PERMISO_CAMARA,
+          microphonePermission: false,
+          recordAudioAndroid: false,
         },
       ],
       "@react-native-community/datetimepicker",

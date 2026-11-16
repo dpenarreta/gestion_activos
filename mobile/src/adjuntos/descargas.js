@@ -13,9 +13,16 @@ import { api } from "../api/api";
  * cerrar sesión (`borrarDescargas`), junto con las copias que dejan la
  * cámara y los selectores de archivos. Desde la US-014 (13/11/2026), también
  * los adjuntos de los tickets de la Mesa de ayuda (`soporte-adjuntos`), y
- * desde la US-019 las evidencias de la Matriz (`matriz-documentos`).
+ * desde la US-019 las evidencias de la Matriz (`matriz-documentos`) y desde
+ * la US-022 los adjuntos de los mantenimientos (`activos-adjuntos`).
  */
-export const CARPETAS_DE_DESCARGAS = ["permisos-documentos", "chat-archivos", "soporte-adjuntos", "matriz-documentos"];
+export const CARPETAS_DE_DESCARGAS = [
+  "permisos-documentos",
+  "chat-archivos",
+  "soporte-adjuntos",
+  "matriz-documentos",
+  "activos-adjuntos",
+];
 
 /** Las carpetas de la caché donde `expo-image-picker` y
  * `expo-document-picker` copian lo que se elige. */

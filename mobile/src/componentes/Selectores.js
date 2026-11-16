@@ -282,18 +282,20 @@ export function SelectorDeLista({
   );
 }
 
-/** Sí o no, con el estado dicho (no solo el ícono). */
-export function Casilla({ etiqueta, marcada, onCambio, ayuda, error, refFoco, testID, obligatorio = false }) {
+/** Sí o no, con el estado dicho (no solo el ícono). `deshabilitado`
+ * (US-022, UX H-12): mientras se guarda no cambia. */
+export function Casilla({ etiqueta, marcada, onCambio, ayuda, error, refFoco, testID, obligatorio = false, deshabilitado = false }) {
   return (
     <View style={estilos.campo}>
       <Pressable
         ref={refFoco}
         testID={testID}
         onPress={() => onCambio(!marcada)}
+        disabled={deshabilitado}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: Boolean(marcada) }}
+        accessibilityState={{ checked: Boolean(marcada), disabled: deshabilitado }}
         accessibilityLabel={etiquetaAccesible({ etiqueta, obligatorio, ayuda, error })}
-        style={({ pressed }) => [estilos.casilla, pressed && estilos.presionada]}
+        style={({ pressed }) => [estilos.casilla, deshabilitado && estilos.inactivo, pressed && estilos.presionada]}
       >
         <Icono
           nombre={marcada ? "checkbox-marked-outline" : "checkbox-blank-outline"}

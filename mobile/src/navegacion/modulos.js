@@ -6,7 +6,8 @@
  * (decisión del usuario).
  *
  * Estructura (decisión del usuario, 13/11/2026, ronda 1): Institucional ·
- * Chat · Mesa de ayuda · Matriz de obligaciones (US-019). El Inicio ya no es
+ * Chat · Mesa de ayuda · Matriz de obligaciones (US-019) · Gestión de Activos
+ * (US-022, 16/11/2026). El Inicio ya no es
  * un módulo: es la primera funcionalidad de Institucional y donde se entra
  * por defecto.
  *
@@ -35,6 +36,7 @@
  * - `tipo: "accion"` abre otra pantalla del Stack (`ruta`), con su cabecera
  *   y «Volver».
  */
+import { veLasRecibidas, veLosActivos, veLosMantenimientos, veMisSolicitudes } from "../activos/formato";
 import { tieneAccesoALaMatriz } from "../matriz/formato";
 import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
 
@@ -79,6 +81,10 @@ export function veLasPorAprobar(contexto) {
 export function veLaMatriz(contexto) {
   return tieneAccesoALaMatriz(permisosDe(contexto));
 }
+
+/** Gestión de Activos (US-022, CA-1): cada funcionalidad con su permiso en
+ * la empresa activa. Sin ninguna, el módulo no tiene pestaña. */
+export const veLosActivosDe = (c) => veLosActivos(permisosDe(c));
 
 export const MODULOS = Object.freeze([
   {
@@ -275,6 +281,77 @@ export const MODULOS = Object.freeze([
         tipo: "vista",
         params: { vista: "calendario" },
         visible: veLaMatriz,
+      },
+    ],
+  },
+  {
+    // US-022 (16/11/2026): a la derecha de la Matriz, con «Panel» por
+    // defecto. La ficha (`/activos/ID`) y el escáner (`/activos/escanear`)
+    // van en la pila, con «Volver», igual que los detalles y formularios de
+    // Mantenimientos, Mis solicitudes y Recibidas (Tanda B).
+    id: "activos",
+    texto: "Gestión de Activos",
+    // El «pc-display» de la web (`Icono.js` lo dibuja como «monitor»).
+    icono: "monitor",
+    pantallas: ["activos"],
+    pantalla: "activos",
+    pathnames: ["/activos"],
+    parametro: "vista",
+    // Sin `activos.ver`, `vistaActiva` cae en la primera que se ve.
+    vistaPorDefecto: () => "panel",
+    funcionalidades: [
+      {
+        id: "panel",
+        texto: "Panel",
+        dicho: "Panel de activos",
+        icono: "view-dashboard-outline",
+        tipo: "vista",
+        params: { vista: "panel" },
+        visible: veLosActivosDe,
+      },
+      {
+        id: "inventario",
+        texto: "Inventario",
+        dicho: "Inventario de activos",
+        icono: "format-list-bulleted",
+        tipo: "vista",
+        params: { vista: "inventario" },
+        visible: veLosActivosDe,
+      },
+      {
+        id: "escanear",
+        texto: "Escanear",
+        dicho: "Escanear la etiqueta de un activo",
+        icono: "barcode-scan",
+        tipo: "accion",
+        ruta: "/activos/escanear",
+        visible: veLosActivosDe,
+      },
+      {
+        id: "mantenimientos",
+        texto: "Mantenimientos",
+        icono: "tools",
+        tipo: "vista",
+        params: { vista: "mantenimientos" },
+        visible: (c) => veLosMantenimientos(permisosDe(c)),
+      },
+      {
+        id: "mis_solicitudes",
+        texto: "Mis solicitudes",
+        dicho: "Mis solicitudes de equipos",
+        icono: "cart-outline",
+        tipo: "vista",
+        params: { vista: "mis_solicitudes" },
+        visible: (c) => veMisSolicitudes(permisosDe(c)),
+      },
+      {
+        id: "recibidas",
+        texto: "Recibidas",
+        dicho: "Solicitudes recibidas",
+        icono: "inbox-arrow-down-outline",
+        tipo: "vista",
+        params: { vista: "recibidas" },
+        visible: (c) => veLasRecibidas(permisosDe(c)),
       },
     ],
   },

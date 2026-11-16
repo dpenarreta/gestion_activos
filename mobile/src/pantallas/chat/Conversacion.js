@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -22,10 +23,10 @@ import { descartarTemporal, tamanoLegible } from "../../adjuntos/seleccion";
 import { mensajeDeError } from "../../api/errores";
 import { chatService } from "../../api/servicios";
 import {
-  abrirArchivoDelChat,
   descargarArchivoDelChat,
   elegirArchivoParaElChat,
   elegirImagenParaElChat,
+  guardarArchivoEnElTelefono,
   TEXTO_ARCHIVO_GRANDE,
   tomarFotoParaElChat,
 } from "../../chat/adjunto";
@@ -273,6 +274,14 @@ export function Conversacion({ id, empresa = null }) {
   const cargandoAnteriores = useRef(false);
   const descargando = useRef(false);
   const descargados = useRef(new Set());
+  // Las imágenes se ven en la conversación desde que llegan (16/11/2026, a
+  // pedido del usuario): cada una se descarga una sola vez con la sesión (a lo
+  // más 3 a la vez) y la usan la miniatura y el visor. Se borran al salir de
+  // la conversación, como todo lo descargado (LOPDP).
+  const [miniaturas, setMiniaturas] = useState({});
+  const imagenes = useRef(new Map());
+  const cola = useRef({ activas: 0, espera: [] });
+  const opcionesEmpresaRef = useRef(null);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const mensajesRef = useRef(mensajes);
@@ -619,25 +628,92 @@ export function Conversacion({ id, empresa = null }) {
     anunciar("Archivo quitado.");
   }
 
+  /** Corre `tarea` cuando hay lugar: a lo más 3 descargas de imágenes a la vez. */
+  function enCola(tarea) {
+    return new Promise((resolver, rechazar) => {
+      const correr = () => {
+        cola.current.activas += 1;
+        Promise.resolve()
+          .then(tarea)
+          .then(resolver, rechazar)
+          .finally(() => {
+            cola.current.activas -= 1;
+            const siguiente = cola.current.espera.shift();
+            if (siguiente) siguiente();
+          });
+      };
+      if (cola.current.activas < 3) correr();
+      else cola.current.espera.push(correr);
+    });
+  }
+
+  /** El archivo de una imagen, descargado una sola vez. Si falla, se puede
+   * volver a pedir. */
+  function obtenerImagen(mensaje) {
+    const clave = String(mensaje.id);
+    let promesa = imagenes.current.get(clave);
+    if (!promesa) {
+      promesa = enCola(() => descargarArchivoDelChat(mensaje, opcionesEmpresaRef.current ?? {})).then((archivo) => {
+        if (!montado.current) {
+          borrarArchivo(archivo);
+          throw new Error("Se salió de la conversación.");
+        }
+        descargados.current.add(archivo);
+        return archivo;
+      });
+      imagenes.current.set(clave, promesa);
+      promesa.catch(() => imagenes.current.delete(clave));
+    }
+    return promesa;
+  }
+
+  /** La miniatura de una imagen que se acaba de dibujar. */
+  function pedirMiniatura(mensaje) {
+    const clave = String(mensaje.id);
+    if (imagenes.current.has(clave)) return;
+    setMiniaturas((m) => ({ ...m, [clave]: { cargando: true } }));
+    obtenerImagen(mensaje).then(
+      (archivo) => montado.current && setMiniaturas((m) => ({ ...m, [clave]: { uri: archivo.uri } })),
+      () => montado.current && setMiniaturas((m) => ({ ...m, [clave]: { error: true } })),
+    );
+  }
+
   async function abrirArchivo(mensaje) {
     if (descargando.current || !mensaje?.archivo) return;
     descargando.current = true;
     const nombreArchivo = mensaje.archivo.nombre;
     setArchivoAbierto({ cargando: mensaje.id, error: null, imagen: null, nombre: nombreArchivo });
     try {
+      if (mensaje.archivo.es_imagen) {
+        // La misma descarga de su miniatura (si ya llegó, no se repite).
+        const imagen = await obtenerImagen(mensaje);
+        if (!montado.current) return;
+        setMiniaturas((m) => ({ ...m, [String(mensaje.id)]: { uri: imagen.uri } }));
+        setArchivoAbierto({ cargando: null, error: null, imagen: imagen.uri, nombre: nombreArchivo, archivo: imagen });
+        return;
+      }
       const archivo = await descargarArchivoDelChat(mensaje, opcionesEmpresa);
       if (!montado.current) {
         borrarArchivo(archivo);
         return;
       }
-      descargados.current.add(archivo);
-      if (mensaje.archivo.es_imagen) {
-        setArchivoAbierto({ cargando: null, error: null, imagen: archivo.uri, nombre: nombreArchivo, archivo });
-        return;
+      // Otro archivo se guarda en el teléfono, donde la persona elija
+      // (16/11/2026, igual que «Descargar» en la web). La copia de la caché
+      // se borra enseguida (LOPDP): solo queda la que la persona guardó.
+      let guardado = null;
+      try {
+        guardado = await guardarArchivoEnElTelefono(archivo, nombreArchivo);
+      } finally {
+        borrarArchivo(archivo);
       }
-      // Otro archivo lo abre otra app: se borra al salir, no antes.
-      await abrirArchivoDelChat(archivo, nombreArchivo);
-      if (montado.current) setArchivoAbierto({ cargando: null, error: null, imagen: null, nombre: "" });
+      if (!montado.current) return;
+      setArchivoAbierto({
+        cargando: null,
+        error: null,
+        imagen: null,
+        nombre: "",
+        guardado: guardado ? { texto: `Se guardó «${nombreArchivo}» en el teléfono.`, clave: Date.now() } : null,
+      });
     } catch (e) {
       if (montado.current) {
         setArchivoAbierto({
@@ -653,9 +729,7 @@ export function Conversacion({ id, empresa = null }) {
   }
 
   function cerrarVisor() {
-    const archivo = archivoAbierto.archivo;
-    borrarArchivo(archivo);
-    descargados.current.delete(archivo);
+    // La imagen la sigue usando su miniatura: se borra al salir (LOPDP).
     setArchivoAbierto({ cargando: null, error: null, imagen: null, nombre: "" });
   }
 
@@ -681,8 +755,10 @@ export function Conversacion({ id, empresa = null }) {
   // que reciben no cambian en cada render y `memo` las deja quietas al
   // escribir.
   const acciones = useRef({});
-  acciones.current = { abrirArchivo, verLecturas: setLecturasDe, reintentar, descartar, escribirPorCorreo };
+  acciones.current = { abrirArchivo, pedirMiniatura, verLecturas: setLecturasDe, reintentar, descartar, escribirPorCorreo };
+  opcionesEmpresaRef.current = opcionesEmpresa;
   const alAbrirArchivo = useCallback((m) => acciones.current.abrirArchivo(m), []);
+  const alPedirMiniatura = useCallback((m) => acciones.current.pedirMiniatura(m), []);
   const alVerLecturas = useCallback((m) => acciones.current.verLecturas(m), []);
   const alReintentar = useCallback((clave) => acciones.current.reintentar(clave), []);
   const alDescartar = useCallback((clave) => acciones.current.descartar(clave), []);
@@ -704,6 +780,8 @@ export function Conversacion({ id, empresa = null }) {
             // dibujar cuando cambian las lecturas.
             lecturas={propio ? lecturas : undefined}
             abriendo={abriendoId === item.mensaje.id}
+            miniatura={item.mensaje.archivo?.es_imagen ? miniaturas[String(item.mensaje.id)] : undefined}
+            onPedirMiniatura={alPedirMiniatura}
             onAbrirArchivo={alAbrirArchivo}
             onVerLecturas={alVerLecturas}
           />
@@ -719,7 +797,19 @@ export function Conversacion({ id, empresa = null }) {
         />
       );
     },
-    [grupal, lecturas, abriendoId, enviandoAlgo, alAbrirArchivo, alVerLecturas, alReintentar, alDescartar, alCorreo],
+    [
+      grupal,
+      lecturas,
+      abriendoId,
+      miniaturas,
+      enviandoAlgo,
+      alAbrirArchivo,
+      alPedirMiniatura,
+      alVerLecturas,
+      alReintentar,
+      alDescartar,
+      alCorreo,
+    ],
   );
 
   if (estado === "cargando" && mensajes.length === 0) return <Cargando texto="Cargando la conversación…" />;
@@ -775,6 +865,7 @@ export function Conversacion({ id, empresa = null }) {
           style={estilos.lista}
           contentContainerStyle={estilos.listaContenido}
           data={elementos}
+          extraData={miniaturas}
           keyExtractor={claveDeElemento}
           // N-04: con la persona leyendo más arriba, lo nuevo no la mueve.
           // El mismo umbral que «Ir al último»: sin un tramo en que ni se
@@ -841,6 +932,14 @@ export function Conversacion({ id, empresa = null }) {
       <View style={[estilos.redactar, { paddingBottom: 8 + (tecladoVisible ? 0 : margenes.bottom) }]}>
         {archivoAbierto.error ? (
           <Alerta tipo="mal" texto={archivoAbierto.error.texto} clave={archivoAbierto.error.clave} />
+        ) : null}
+        {archivoAbierto.guardado ? (
+          <Alerta
+            tipo="bien"
+            texto={archivoAbierto.guardado.texto}
+            clave={archivoAbierto.guardado.clave}
+            testID="archivo-guardado"
+          />
         ) : null}
         {avisos.map((a) => (
           <AvisoDeEstado key={a.usuario} nombre={a.nombre} estado={a} />
@@ -962,6 +1061,8 @@ export const Burbuja = memo(function Burbuja({
   conAutor = grupal,
   lecturas,
   abriendo,
+  miniatura,
+  onPedirMiniatura,
   onAbrirArchivo,
   onVerLecturas,
 }) {
@@ -972,6 +1073,12 @@ export const Burbuja = memo(function Burbuja({
   const soloHora = Number.isNaN(fecha.getTime()) ? "" : aHora(fecha);
   const lectura = propio ? estadoDeLectura(mensaje, lecturas, grupal) : null;
   const archivo = mensaje.archivo;
+  // Una imagen se ve en la burbuja (16/11/2026); si no se pudo descargar,
+  // queda la fila con su nombre y «Ver», que lo vuelve a intentar.
+  const conMiniatura = Boolean(archivo?.es_imagen) && !miniatura?.error;
+  useEffect(() => {
+    if (conMiniatura && !miniatura) onPedirMiniatura?.(mensaje);
+  }, [conMiniatura, miniatura, mensaje, onPedirMiniatura]);
   const etiqueta = [
     `${autor}, ${hora}`,
     mensaje.texto || null,
@@ -984,7 +1091,7 @@ export const Burbuja = memo(function Burbuja({
   // propia sin archivo también abre «quién leyó» (la larga se mantiene).
   const alTocar = archivo ? () => onAbrirArchivo(mensaje) : lectura ? () => onVerLecturas(mensaje) : undefined;
   const acciones = [
-    ...(archivo ? [{ name: "activate", label: `Abrir ${archivo.nombre}` }] : []),
+    ...(archivo ? [{ name: "activate", label: `${archivo.es_imagen ? "Abrir" : "Descargar"} ${archivo.nombre}` }] : []),
     ...(!archivo && lectura ? [{ name: "activate", label: "Ver quién lo leyó" }] : []),
     // R-05: sin archivo, «activate» ya dice «Ver quién lo leyó».
     ...(archivo && lectura ? [{ name: "longpress", label: "Ver quién lo leyó" }] : []),
@@ -1021,22 +1128,60 @@ export const Burbuja = memo(function Burbuja({
             {mensaje.texto}
           </Text>
         ) : null}
-        {archivo ? (
+        {conMiniatura ? (
+          <View style={estilos.miniatura} testID={`miniatura-${mensaje.id}`}>
+            {miniatura?.uri ? (
+              <Image
+                testID={`imagen-${mensaje.id}`}
+                source={{ uri: miniatura.uri }}
+                style={estilos.miniaturaImagen}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <ActivityIndicator color={propio ? colores.sobrePrimario : colores.primario} />
+            )}
+          </View>
+        ) : archivo?.es_imagen ? (
           <View style={[estilos.archivo, propio && estilos.archivoPropio]}>
             {abriendo ? (
               <ActivityIndicator color={propio ? colores.sobrePrimario : colores.primario} />
             ) : (
-              <Icono
-                nombre={archivo.es_imagen ? "file-image-outline" : "paperclip"}
-                size={20}
-                color={propio ? colores.sobrePrimario : colores.primario}
-              />
+              <Icono nombre="file-image-outline" size={20} color={propio ? colores.sobrePrimario : colores.primario} />
             )}
             <Text style={[estilos.archivoTexto, propio && estilos.textoPropio]}>
               {archivo.nombre}
               {archivo.tamano ? ` · ${tamanoLegible(archivo.tamano)}` : ""}
             </Text>
-            <Text style={[estilos.archivoAccion, propio && estilos.textoPropio]}>{archivo.es_imagen ? "Ver" : "Abrir"}</Text>
+            <Text style={[estilos.archivoAccion, propio && estilos.textoPropio]}>Ver</Text>
+          </View>
+        ) : archivo ? (
+          // Igual que la web (16/11/2026): tarjeta con el nombre y un botón
+          // redondo «Descargar». Tocar la tarjeta o el botón lo guarda.
+          <View style={estilos.tarjetaArchivo} testID={`archivo-${mensaje.id}`}>
+            <Icono nombre="file-document-outline" size={24} color={colores.tintaSuave} />
+            <Text style={estilos.tarjetaArchivoNombre}>
+              {archivo.nombre}
+              {archivo.tamano ? (
+                <Text style={estilos.tarjetaArchivoTamano}>{`
+${tamanoLegible(archivo.tamano)}`}</Text>
+              ) : null}
+            </Text>
+            <Pressable
+              testID={`descargar-${mensaje.id}`}
+              onPress={() => onAbrirArchivo(mensaje)}
+              disabled={abriendo}
+              accessibilityRole="button"
+              accessibilityLabel={`Descargar ${archivo.nombre}`}
+              hitSlop={6}
+              style={({ pressed }) => [estilos.botonDescargar, pressed && estilos.botonDescargarPulsado]}
+            >
+              {abriendo ? (
+                <ActivityIndicator color={colores.marcaNegro} />
+              ) : (
+                <Icono nombre="download" size={22} color={colores.marcaNegro} />
+              )}
+            </Pressable>
           </View>
         ) : null}
         <View style={estilos.pieMensaje}>
@@ -1228,6 +1373,44 @@ const estilos = crearEstilos({
   textoPropioSuave: { color: colores.tintaInactivaOscuro },
   archivo: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, minHeight: AREA_TACTIL },
   archivoPropio: {},
+  // El archivo que no es foto (16/11/2026): tarjeta clara también en las
+  // burbujas propias, con el botón amarillo de marca.
+  tarjetaArchivo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minHeight: AREA_TACTIL + 8,
+    paddingVertical: 6,
+    paddingLeft: 10,
+    paddingRight: 6,
+    borderRadius: 10,
+    backgroundColor: colores.superficie,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  tarjetaArchivoNombre: { flexShrink: 1, flexGrow: 1, fontSize: 15, color: colores.tinta },
+  tarjetaArchivoTamano: { fontSize: 12, color: colores.tintaSuave },
+  botonDescargar: {
+    width: AREA_TACTIL,
+    height: AREA_TACTIL,
+    borderRadius: AREA_TACTIL / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colores.marcaAmarillo,
+  },
+  botonDescargarPulsado: { opacity: 0.8 },
+  // La imagen ocupa el ancho de la burbuja, en un cuadro de 4:3.
+  miniatura: {
+    width: 240,
+    maxWidth: "100%",
+    aspectRatio: 4 / 3,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: colores.hundido,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniaturaImagen: { width: "100%", height: "100%" },
   archivoTexto: { flexShrink: 1, fontSize: 15, color: colores.tinta },
   archivoAccion: { fontSize: 15, fontWeight: "600", color: colores.enlace, textDecorationLine: "underline" },
   pieMensaje: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, justifyContent: "flex-end" },

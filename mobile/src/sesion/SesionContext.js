@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { almacen } from "../api/almacen";
 import { escucharSesion } from "../api/api";
 import { authService, empresasService } from "../api/servicios";
+import { olvidarResultados } from "../activos/avisoPendiente";
 import { olvidarEmpresaDeLaMatriz } from "../matriz/empresaGuardada";
 import { darDeBajaDispositivo, registrarDispositivo } from "../notificaciones/push";
 import { borrarDocumentosDescargados } from "../permisos/documentos";
@@ -94,6 +95,8 @@ export function SesionProvider({ children }) {
     // US-019 (P2-1 de QA-TECH): lo que la Matriz guardó de esta cuenta no
     // pasa a la siguiente.
     olvidarEmpresaDeLaMatriz();
+    // US-022 (LOPDP): los resultados de un alta que esperan su detalle.
+    olvidarResultados();
     if (!montado.current) return;
     setUsuario(null);
     setEmpresas({ empresas: [], activa: null });

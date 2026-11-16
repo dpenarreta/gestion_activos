@@ -25,3 +25,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-019](US-019-app-movil-matriz-de-obligaciones.md) | App móvil · Fase 5: Matriz de obligaciones (Bandeja y Calendario) | Historia de Usuario | En Progreso | 2026-11-13 |
 | [US-020](US-020-correo-de-permiso-aprobado-y-tipos-de-permiso.md) | Correo con el respaldo al aprobarse un permiso, y tipos de permiso según el flujo de GH | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-13 |
 | [US-021](US-021-perfiles-desde-nomina.md) | Perfiles de las personas desde nómina (sp_ObtenerEmpleadosActivos) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
+| [US-022](US-022-app-movil-gestion-de-activos.md) | App móvil: módulo Gestión de Activos (panel, inventario, escáner QR, mantenimientos, solicitudes) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |

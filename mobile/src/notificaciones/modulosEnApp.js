@@ -12,6 +12,10 @@
  *   aprobaciones o la Mesa de ayuda (`rutaDeSoporte`).
  * - US-019 (Fase 5, 13/11/2026): `matriz` → el detalle de la obligación
  *   (`rutaDeMatriz`); antes iba a la web.
+ * - US-022 (16/11/2026): `activos`, `mantenimientos` y `alertas` → la ficha
+ *   del activo, el inventario filtrado, la bitácora o el panel
+ *   (`rutaDeActivos`); `solicitudes` → el detalle de la solicitud de equipo
+ *   (`rutaDeSolicitudes`, Tanda B).
  */
 import { conversacionDelEnlace } from "../chat/enlace";
 
@@ -122,11 +126,99 @@ export function rutaDeMatriz(notificacion) {
   return "/matriz";
 }
 
+/** Los filtros del enlace web del inventario que la app sabe mostrar
+ * (los chips de CA-6). */
+function filtroDelEnlace(parametros) {
+  if (parametros.estado === "en_uso") return "asignados";
+  if (parametros.estado === "en_mantenimiento") return "reparacion";
+  if (parametros.almacenados === "true") return "almacen";
+  if (parametros.operativos === "false") return "fuera";
+  return null;
+}
+
+/**
+ * A dónde lleva un aviso de Gestión de Activos (CA-21 de la US-022):
+ *
+ * - `/admin/activos/ID` (lo que llegó de lo solicitado, la entrada y la
+ *   salida del taller: `activos.notificaciones`) → la ficha del activo, con
+ *   la empresa de la notificación como `X-Empresa` (B3 de la US-009);
+ * - `/admin/activos?estado=…|almacenados=true|operativos=false` (las reglas
+ *   de alertas) → el inventario con ese filtro;
+ * - `/admin/mantenimientos?pendientes=true` (la alerta de reparaciones sin
+ *   cerrar, `alertas.reglas`) → la bitácora con «Abiertos»; sin ese filtro,
+ *   la bitácora entera; `/admin/mantenimientos/ID` → su detalle;
+ * - cualquier otro (`/admin/alertas`…) → el panel, que muestra las alertas
+ *   (CA-4).
+ *
+ * El enlace puede venir con la web delante.
+ */
+export function rutaDeActivos(notificacion) {
+  const enlace = typeof notificacion?.enlace === "string" ? notificacion.enlace : "";
+  const [camino, consulta = ""] = enlace
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("#")[0]
+    .split("?");
+  const ruta = camino.replace(/\/+$/, "");
+  const empresa = idDeEmpresa(notificacion?.empresa);
+  const ficha = /^\/admin\/activos\/(\d{1,12})$/.exec(ruta);
+  if (ficha) return `/activos/${ficha[1]}${empresa ? `?empresa=${empresa}` : ""}`;
+  const mantenimiento = /^\/admin\/mantenimientos\/(\d{1,12})(?:\/editar)?$/.exec(ruta);
+  if (mantenimiento) return `/mantenimientos/${mantenimiento[1]}${empresa ? `?empresa=${empresa}` : ""}`;
+  // QA-FUNC B3: las listas llevan la empresa del aviso; el módulo pasa a
+  // ella si es de la persona o avisa que es de otra (`GestionDeActivos`).
+  const deLaEmpresa = empresa ? `&empresa=${empresa}` : "";
+  if (ruta === "/admin/mantenimientos") {
+    const pendientes = /(?:^|&)pendientes=true(?:&|$)/.test(consulta);
+    return `/activos?vista=mantenimientos${pendientes ? "&filtro=abiertos" : ""}&n=${Date.now()}${deLaEmpresa}`;
+  }
+  // `n` cambia en cada toque: el módulo vuelve a esa vista y filtro aunque
+  // ya estuviera abierto en otro.
+  if (ruta === "/admin/activos") {
+    const parametros = Object.fromEntries(
+      consulta
+        .split("&")
+        .filter(Boolean)
+        .map((par) => par.split("=")),
+    );
+    const filtro = filtroDelEnlace(parametros);
+    if (filtro) return `/activos?vista=inventario&filtro=${filtro}&n=${Date.now()}${deLaEmpresa}`;
+    return `/activos?vista=inventario&n=${Date.now()}${deLaEmpresa}`;
+  }
+  return `/activos?vista=panel&n=${Date.now()}${deLaEmpresa}`;
+}
+
+/**
+ * A dónde lleva un aviso de una solicitud de equipo (CA-21 de la US-022).
+ * Los dos avisos (`solicitudes.recibida`, al encargado, y
+ * `solicitudes.actualizada`, a quien la pidió; `solicitudes.notificaciones`)
+ * llevan `/admin/solicitudes/ID`: van a su detalle, con la empresa de la
+ * notificación como `X-Empresa` (B3 de la US-009). Cualquier otro, a «Mis
+ * solicitudes». El enlace puede venir con la web delante.
+ */
+export function rutaDeSolicitudes(notificacion) {
+  const enlace = typeof notificacion?.enlace === "string" ? notificacion.enlace : "";
+  const ruta = enlace
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("#")[0]
+    .split("?")[0]
+    .replace(/\/+$/, "");
+  const empresa = idDeEmpresa(notificacion?.empresa);
+  const detalle = /^\/admin\/solicitudes\/(\d{1,12})$/.exec(ruta);
+  if (detalle) return `/solicitudes/${detalle[1]}${empresa ? `?empresa=${empresa}` : ""}`;
+  const deLaEmpresa = empresa ? `&empresa=${empresa}` : "";
+  if (ruta === "/admin/solicitudes/recibidas") return `/activos?vista=recibidas&n=${Date.now()}${deLaEmpresa}`;
+  return `/activos?vista=mis_solicitudes&n=${Date.now()}${deLaEmpresa}`;
+}
+
 export const MODULOS_EN_APP = Object.freeze({
   licencias: rutaDeLicencias,
   chat: rutaDeChat,
   soporte: rutaDeSoporte,
   matriz: rutaDeMatriz,
+  activos: rutaDeActivos,
+  mantenimientos: rutaDeActivos,
+  alertas: rutaDeActivos,
+  solicitudes: rutaDeSolicitudes,
 });
 
 /**

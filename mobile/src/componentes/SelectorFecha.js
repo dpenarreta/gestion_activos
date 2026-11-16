@@ -23,6 +23,9 @@ import { crearEstilos } from "../tema/tipografia";
  *   movido (revisión de QA-UX, 12/11/2026).
  * - Las horas van de 5 en 5 minutos en las dos plataformas.
  * - Al desmontar, el diálogo de Android abierto se cierra.
+ * - `minimo` y `maximo` («AAAA-MM-DD»): el calendario no deja elegir fuera de
+ *   ellos (`maximo` desde la US-022, 16/11/2026: la fecha de un mantenimiento
+ *   no puede ser futura). La pantalla lo valida igual antes de enviar.
  */
 const INTERVALO_MINUTOS = 5;
 
@@ -38,6 +41,7 @@ export function SelectorFecha({
   onCambio,
   modo = "date",
   minimo,
+  maximo,
   obligatorio = false,
   error,
   ayuda,
@@ -68,6 +72,7 @@ export function SelectorFecha({
     [modo],
   );
   const minimoFecha = esFecha && minimo ? deIso(minimo) : undefined;
+  const maximoFecha = esFecha && maximo ? deIso(maximo) : undefined;
   const visible = valor ? (esFecha ? fechaCorta(valor) : valor) : "Sin elegir";
   const dicho = valor ? (esFecha ? fechaLarga(valor) : `las ${valor}`) : "sin elegir";
 
@@ -85,6 +90,7 @@ export function SelectorFecha({
         mode: modo,
         is24Hour: true,
         minimumDate: minimoFecha,
+        maximumDate: maximoFecha,
         minuteInterval: esFecha ? undefined : INTERVALO_MINUTOS,
         title: etiqueta,
         onValueChange: (_evento, fecha) => {
@@ -153,6 +159,7 @@ export function SelectorFecha({
             display={esFecha ? "inline" : "spinner"}
             locale="es-EC"
             minimumDate={minimoFecha}
+            maximumDate={maximoFecha}
             minuteInterval={esFecha ? undefined : INTERVALO_MINUTOS}
             onValueChange={(_evento, fecha) => {
               enRueda.current = fecha;
