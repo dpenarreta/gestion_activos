@@ -8,6 +8,7 @@ import {
   Grupos,
   ListaConversaciones,
 } from "../../components/admin/Chat/Panel";
+import { BotonGrupo } from "../../components/admin/Chat/GestionGrupo";
 import { MiEstado } from "../../components/admin/Chat/MiEstado";
 import { Presencia, usePresencia } from "../../components/admin/Chat/Presencia";
 import "../../components/admin/Chat/ChatDock.css";
@@ -108,6 +109,12 @@ export function ChatPage() {
                   />
                 </span>
               )}
+              {/* Participantes, editar y salir del grupo (16/11/2026). */}
+              <BotonGrupo
+                conversacion={conversacion}
+                className="btn btn-outline-secondary btn-sm ms-auto"
+                onSalio={() => setParametros({})}
+              />
             </header>
             <Conversacion conversacion={conversacion} />
           </>

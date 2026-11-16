@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { Conversacion } from "./Conversacion";
+import { BotonGrupo } from "./GestionGrupo";
 import {
   Directorio,
   esGrupal,
@@ -63,6 +64,10 @@ function Ventana({ ventana }) {
             </span>
           )}
         </button>
+        <BotonGrupo
+          conversacion={conversacion}
+          className="chat-ventana__accion"
+        />
         {/* Con varias ventanas abiertas, «Cerrar» a secas no decía cuál
             (revisión final UX/UI, 28/10/2026). */}
         <button
