@@ -153,15 +153,23 @@ describe("Las vistas", () => {
   });
 
   it("Gantt: una barra por tarea que dice sus fechas y su estado", async () => {
-    pintar("/admin/gestion-humana/tareas?vista=gantt");
-    expect(
-      await screen.findByRole("table", { name: /Cronograma de las tareas/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        "Del 01/11/2026 al 15/11/2026 · En progreso · 40 % de avance",
-      ),
-    ).toHaveLength(1);
+    // Un día dentro del rango de la tarea: pasado el 15/11/2026 la barra dice
+    // además «vencida», y la prueba fallaba según el día en que corría.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 10, 12));
+    try {
+      pintar("/admin/gestion-humana/tareas?vista=gantt");
+      expect(
+        await screen.findByRole("table", { name: /Cronograma de las tareas/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          "Del 01/11/2026 al 15/11/2026 · En progreso · 40 % de avance",
+        ),
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("Repositorio: los meses cerrados y, al elegir uno, sus tareas", async () => {

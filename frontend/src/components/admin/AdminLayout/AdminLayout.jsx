@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAppearance } from "../../../context/AppearanceContext";
 import { UnsavedChangesProvider } from "../../../context/UnsavedChangesContext";
+import { ActualizacionAutomatica } from "../ActualizacionAutomatica/ActualizacionAutomatica";
 import { LlamadasProvider } from "../../../pages/Soporte/Llamadas";
 import { useAdminMenu } from "../../../hooks/useAdminMenu";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
@@ -246,6 +247,9 @@ export function AdminLayout() {
 
   return (
     <UnsavedChangesProvider>
+      {/* Con una versión nueva publicada, se recarga sola cuando no hay nada
+          que guardar (16/11/2026). */}
+      <ActualizacionAutomatica />
       {/* Las llamadas del ticket: suenan en cualquier pantalla y siguen al
           navegar. */}
       <LlamadasProvider>

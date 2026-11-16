@@ -33,8 +33,12 @@ export function UnsavedChangesProvider({ children }) {
       if (verificador.current === funcion) verificador.current = null;
     };
   }, []);
-  const haySinGuardar = () =>
-    isDirtyRef.current || Boolean(verificador.current?.());
+  // Estable: la usa también la recarga automática por versión nueva
+  // (`ActualizacionAutomatica`, 16/11/2026).
+  const haySinGuardar = useCallback(
+    () => isDirtyRef.current || Boolean(verificador.current?.()),
+    [],
+  );
 
   useEffect(() => {
     function handleBeforeUnload(event) {
@@ -45,7 +49,7 @@ export function UnsavedChangesProvider({ children }) {
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
+  }, [haySinGuardar]);
 
   const guardedNavigate = useCallback(
     async (to, options) => {
@@ -58,12 +62,18 @@ export function UnsavedChangesProvider({ children }) {
       navigate(to, options);
       return true;
     },
-    [navigate],
+    [navigate, haySinGuardar],
   );
 
   return (
     <UnsavedChangesContext.Provider
-      value={{ isDirty, setIsDirty, guardedNavigate, registrarVerificador }}
+      value={{
+        isDirty,
+        setIsDirty,
+        guardedNavigate,
+        registrarVerificador,
+        haySinGuardar,
+      }}
     >
       {children}
     </UnsavedChangesContext.Provider>
