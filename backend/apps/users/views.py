@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -38,6 +40,8 @@ from .serializers import (
     UserAdminUpdateSerializer,
 )
 from .services import UserAdminService
+
+logger = logging.getLogger(__name__)
 
 
 class UserAdminViewSet(viewsets.ModelViewSet):
@@ -165,6 +169,16 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             )
         except (PermissionError, ValueError) as error:
             raise ValidationError({"empresas": [str(error)]}) from error
+        # Con su ficha de empleado desde el primer momento (16/11/2026): sin
+        # ella no se le puede entregar un equipo hasta la sincronización de
+        # nómina de esa noche. Solo aquí y no en `create_user`, porque el alta
+        # desde Organización › Empleados crea su propia ficha después.
+        from apps.organizacion.fichas import asegurar_ficha
+
+        try:
+            asegurar_ficha(user)
+        except Exception:  # noqa: BLE001 — la cuenta ya está creada
+            logger.exception("No se pudo crear la ficha de empleado de la cuenta %s", user.pk)
         return Response(UserAdminDetailSerializer(user).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):

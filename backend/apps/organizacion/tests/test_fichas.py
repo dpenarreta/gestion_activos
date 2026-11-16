@@ -93,3 +93,32 @@ def test_es_idempotente_y_omite_al_superusuario_sin_codigo(empresa):
     assert segunda["creadas"] == 0
     assert Empleado.objects.todas().filter(usuario=usuario).count() == 1
     assert not Empleado.objects.todas().filter(usuario__username="admin_fichas").exists()
+
+
+def test_la_cuenta_creada_en_configuracion_nace_con_su_ficha(empresa):
+    """Configuración › Usuarios › Nuevo usuario: la ficha se crea en el
+    momento, sin esperar a la sincronización de nómina (16/11/2026)."""
+    from rest_framework.test import APIClient
+
+    admin = User.objects.create_superuser(
+        username="admin_alta", email="admin_alta@grupolaar.com", password="Sup3r-Secr3t!"
+    )
+    cliente = APIClient()
+    cliente.force_authenticate(user=admin)
+
+    respuesta = cliente.post(
+        "/api/v1/admin/users/",
+        {
+            "email": "nueva.persona@grupolaar.com",
+            "first_name": "Nueva",
+            "last_name": "Persona",
+            "password": "Sup3r-Secr3t!2026",
+        },
+        format="json",
+    )
+
+    assert respuesta.status_code == 201, respuesta.content
+    ficha = Empleado.objects.todas().get(usuario_id=respuesta.json()["id"])
+    assert ficha.nombre_completo == "Nueva Persona"
+    assert ficha.correo == "nueva.persona@grupolaar.com"
+    assert ficha.departamento.nombre == AREA_PENDIENTE

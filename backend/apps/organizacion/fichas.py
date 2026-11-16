@@ -27,7 +27,7 @@ from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from apps.empresas.contexto import usando_empresa
+from apps.empresas.contexto import SIN_EMPRESA, empresa_actual, usando_empresa
 from apps.empresas.models import Empresa
 
 from .models import DatosDeContacto, Departamento, Empleado
@@ -45,8 +45,11 @@ def _empresa_de(usuario):
     )
     if membresia is not None:
         return membresia.empresa
-    # Las cuentas de nómina nacen sin membresía: son de la empresa de nómina,
-    # que hoy es la única (o la primera).
+    # Sin membresía (las cuentas de nómina, o una recién creada sin
+    # empresas): la empresa en la que se está trabajando, o la primera.
+    activa = empresa_actual()
+    if activa is not None and activa is not SIN_EMPRESA:
+        return activa
     return Empresa.objects.order_by("id").first()
 
 
