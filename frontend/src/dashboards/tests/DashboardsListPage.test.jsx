@@ -298,7 +298,12 @@ describe('DashboardsListPage', () => {
     dashboardLayoutService.obtenerAcceso.mockResolvedValue({
       dashboard_id: 'finanzas', owner: { id: 5, username: 'ana' }, roles_editores: [], roles_lectores: [],
     })
-    usersService.list.mockResolvedValue({ results: [{ id: 5, username: 'ana' }, { id: 7, username: 'luis' }] })
+    usersService.list.mockResolvedValue({
+      results: [
+        { id: 5, username: 'ana', first_name: 'Ana', last_name: 'Ríos' },
+        { id: 7, username: 'fmarroquin', first_name: 'Fernanda', last_name: 'Marroquín' },
+      ],
+    })
     dashboardLayoutService.actualizarAcceso.mockResolvedValue({})
     dashboardLayoutService.reasignarDueno.mockResolvedValue({})
     renderPagina(['dashboard.reasignar_dueno'])
@@ -306,11 +311,18 @@ describe('DashboardsListPage', () => {
     const tarjeta = await screen.findByTestId('dashboard-card-finanzas')
     await userEvent.click(within(tarjeta).getByRole('button', { name: 'Editar "Finanzas"' }))
 
-    const selectorDueno = await screen.findByLabelText('Dueño')
-    await userEvent.selectOptions(selectorDueno, '7')
+    // Un buscador en el servidor (16/11/2026): con 715 cuentas, el `select` de
+    // las primeras 100 dejaba fuera a la jefa de Cartera.
+    await userEvent.type(await screen.findByLabelText('Buscar por nombre o usuario'), 'fernanda')
+    await waitFor(() =>
+      expect(usersService.list).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'fernanda', status: 'active' }),
+      ),
+    )
+    await userEvent.click(await screen.findByRole('radio', { name: /Fernanda Marroquín \(fmarroquin\)/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    expect(dashboardLayoutService.reasignarDueno).toHaveBeenCalledWith('finanzas', '7')
+    expect(dashboardLayoutService.reasignarDueno).toHaveBeenCalledWith('finanzas', 7)
   })
 
   it('con dashboard.editar y puede_administrar_acceso a la vez, el modal muestra ambas secciones y guarda ambas', async () => {

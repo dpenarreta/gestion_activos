@@ -374,7 +374,12 @@ def obtener_acceso(dashboard_id):
     dashboard = _obtener_dashboard_o_error(dashboard_id)
     return {
         'dashboard_id': dashboard.dashboard_id,
-        'owner': {'id': dashboard.owner_id, 'username': dashboard.owner.username} if dashboard.owner_id else None,
+        # Con el nombre (16/11/2026): el buscador de dueño muestra personas, no usuarios.
+        'owner': {
+            'id': dashboard.owner_id,
+            'username': dashboard.owner.username,
+            'full_name': dashboard.owner.get_full_name(),
+        } if dashboard.owner_id else None,
         'roles_editores': [{'id': g.id, 'name': g.name} for g in dashboard.roles_editores.order_by('name')],
         'roles_lectores': [{'id': g.id, 'name': g.name} for g in dashboard.roles_lectores.order_by('name')],
     }

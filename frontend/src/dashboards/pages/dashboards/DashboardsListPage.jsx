@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import * as dashboardLayoutService from '../../services/dashboardLayoutService'
 import * as rolesService from '../../services/rolesService'
 import * as usersService from '../../services/usersService'
+import { SelectorDePersonas } from '../../../pages/GestionHumana/SelectorDePersonas'
 
 function rutaDashboard(dashboardId) {
   return `/admin/dashboards/${dashboardId}`
@@ -112,7 +113,8 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
 
   const [cargandoAcceso, setCargandoAcceso] = useState(false)
   const [rolesDisponibles, setRolesDisponibles] = useState([])
-  const [usuariosDisponibles, setUsuariosDisponibles] = useState([])
+  // El dueño elegido como persona ({id, full_name, username}) para el buscador.
+  const [duenoElegido, setDuenoElegido] = useState(null)
   const [editores, setEditores] = useState([])
   const [lectores, setLectores] = useState([])
   const [duenoId, setDuenoId] = useState('')
@@ -145,16 +147,15 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
     setBusquedaRol('')
     setAnuncioAcceso((actual) => ({ texto: '', n: actual.n }))
     setRolesDisponibles([])
-    setUsuariosDisponibles([])
+    setDuenoElegido(null)
     setEditores([])
     setLectores([])
     setDuenoId('')
     setDuenoOriginalId('')
     const solicitudes = [rolesService.list(), dashboardLayoutService.obtenerAcceso(dashboard.dashboard_id)]
-    if (puedeReasignarDueno) solicitudes.push(usersService.list({ page_size: 200 }))
 
     Promise.all(solicitudes)
-      .then(([rolesData, acceso, usuariosData]) => {
+      .then(([rolesData, acceso]) => {
         if (!vigente) return
         const idsEditores = acceso.roles_editores.map((r) => r.id)
         setRolesDisponibles(rolesData.results || [])
@@ -164,7 +165,7 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
         const ownerId = acceso.owner?.id || ''
         setDuenoId(ownerId)
         setDuenoOriginalId(ownerId)
-        if (usuariosData) setUsuariosDisponibles(usuariosData.results || [])
+        setDuenoElegido(acceso.owner ? personaDeUsuario(acceso.owner) : null)
       })
       .catch(() => { if (vigente) setErrorAcceso(true) })
       .finally(() => { if (vigente) setCargandoAcceso(false) })
@@ -446,15 +447,26 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
                       No se pudo cargar el dueño. Use «Reintentar» en Permisos.
                     </p>
                   ) : puedeReasignarDueno ? (
-                    <Form.Group controlId="acceso-dueno">
-                      <Form.Label className="fw-bold">Dueño</Form.Label>
-                      <Form.Select value={duenoId} onChange={(e) => setDuenoId(e.target.value)} disabled={guardando}>
-                        <option value="">Sin dueño</option>
-                        {usuariosDisponibles.map((u) => (
-                          <option key={u.id} value={u.id}>{u.username}</option>
-                        ))}
-                      </Form.Select>
-                    </Form.Group>
+                    // Un buscador y no un `select` con las primeras cuentas: con las
+                    // cuentas de nómina (715) el listado de 100 dejaba fuera a
+                    // personas activas como la jefa de Cartera (16/11/2026).
+                    <SelectorDePersonas
+                      id="acceso-dueno"
+                      leyenda="Dueño"
+                      etiquetaBuscador="Buscar por nombre o usuario"
+                      multiple={false}
+                      elegidos={duenoElegido ? [duenoElegido] : []}
+                      onCambio={(lista) => {
+                        const persona = lista[0] ?? null
+                        setDuenoElegido(persona)
+                        setDuenoId(persona ? persona.id : '')
+                      }}
+                      buscar={buscarDuenos}
+                      deshabilitado={guardando}
+                      textoSinElegir="Sin dueño. Busque a la persona y elíjala."
+                      textoNadie="No hay cuentas activas con ese nombre."
+                      mensajeDeError="No se pudo buscar en las cuentas."
+                    />
                   ) : (
                     <p className="chart-panel__subtitle mb-0">
                       Reasignar el dueño requiere el permiso «Reasignar el dueño de cualquier dashboard»;
@@ -475,6 +487,24 @@ function ModalEditarDashboard({ show, dashboard, onHide, onEditado }) {
       </Form>
     </ModalConCambios>
   )
+}
+
+/** Persona para el buscador a partir de una cuenta del sistema. */
+export function personaDeUsuario(usuario) {
+  const nombre =
+    usuario.full_name ||
+    [usuario.first_name, usuario.last_name].filter(Boolean).join(' ').trim()
+  return {
+    id: usuario.id,
+    username: usuario.username,
+    full_name: nombre ? `${nombre} (${usuario.username})` : usuario.username,
+  }
+}
+
+/** Solo cuentas activas: un dueño que no puede entrar no administra nada. */
+export async function buscarDuenos(texto) {
+  const datos = await usersService.list({ q: texto, status: 'active', page_size: 50 })
+  return (datos.results || []).map(personaDeUsuario)
 }
 
 function ModalEliminarDashboard({ show, dashboard, onHide, onEliminado }) {

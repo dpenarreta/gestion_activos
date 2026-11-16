@@ -126,7 +126,7 @@ class DashboardAccesoViewTests(TestCase):
         resp = self.client.get(f'/api/v1/dashboards/{self.raiz.dashboard_id}/acceso')
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data['owner'], {'id': self.dueno.id, 'username': self.dueno.username})
+        self.assertEqual(data['owner'], {'id': self.dueno.id, 'username': self.dueno.username, 'full_name': self.dueno.get_full_name()})
         self.assertEqual([r['id'] for r in data['roles_editores']], [self.editor.id])
         self.assertEqual([r['id'] for r in data['roles_lectores']], [self.lector.id])
 
@@ -191,7 +191,7 @@ class DashboardDuenoViewTests(TestCase):
         self.client.force_authenticate(user=admin)
         resp = self.client.patch(f'/api/v1/dashboards/{self.raiz.dashboard_id}/dueno', {'owner_id': self.nuevo_dueno.id}, format='json')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()['owner'], {'id': self.nuevo_dueno.id, 'username': self.nuevo_dueno.username})
+        self.assertEqual(resp.json()['owner'], {'id': self.nuevo_dueno.id, 'username': self.nuevo_dueno.username, 'full_name': self.nuevo_dueno.get_full_name()})
         self.raiz.refresh_from_db()
         self.assertEqual(self.raiz.owner_id, self.nuevo_dueno.id)
 
