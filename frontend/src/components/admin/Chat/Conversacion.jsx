@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { chatService } from "../../../api/chatService";
 import { blobDeImagen } from "../../../utils/blobs";
@@ -145,11 +145,18 @@ export function Conversacion({ conversacion, compacta = false }) {
   const chat = useChat();
   const datos = chat.mensajes[conversacion.id];
   const [texto, setTexto] = useState("");
+  // El campo crece con el texto hasta 3 líneas y, de ahí, se desplaza por
+  // dentro (16/11/2026). La ventana del chat no crece: se achica la lista de
+  // mensajes, igual en el panel flotante y en la página completa.
+  useLayoutEffect(() => {
+    ajustarAltura(campoTexto.current);
+  }, [texto]);
   const [archivo, setArchivo] = useState(null);
   const [error, setError] = useState(null);
   const [demasiadoGrande, setDemasiadoGrande] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const fondo = useRef(null);
+  const campoTexto = useRef(null);
   const entradaArchivo = useRef(null);
   const cantidad = datos?.lista.length ?? 0;
   const grupal = conversacion.tipo !== "directa";
@@ -351,6 +358,7 @@ export function Conversacion({ conversacion, compacta = false }) {
             />
           </label>
           <textarea
+            ref={campoTexto}
             className="form-control form-control-sm"
             rows={1}
             maxLength={4000}
@@ -377,4 +385,28 @@ export function Conversacion({ conversacion, compacta = false }) {
       </form>
     </div>
   );
+}
+
+/** Máximo de líneas visibles del campo antes de desplazarse por dentro. */
+export const LINEAS_MAXIMAS = 3;
+
+/** Ajusta el alto del campo a su contenido, hasta `LINEAS_MAXIMAS` líneas. */
+export function ajustarAltura(campo) {
+  if (!campo) return;
+  const estilo = window.getComputedStyle(campo);
+  const tamano = parseFloat(estilo.fontSize) || 14;
+  const linea = parseFloat(estilo.lineHeight) || tamano * 1.5;
+  const relleno =
+    (parseFloat(estilo.paddingTop) || 0) +
+    (parseFloat(estilo.paddingBottom) || 0);
+  const borde =
+    (parseFloat(estilo.borderTopWidth) || 0) +
+    (parseFloat(estilo.borderBottomWidth) || 0);
+  const maximo = linea * LINEAS_MAXIMAS + relleno + borde;
+  campo.style.height = "auto";
+  const necesario = campo.scrollHeight + borde;
+  campo.style.height = `${Math.min(necesario, maximo)}px`;
+  // Un píxel de margen: el redondeo del navegador no debe activar el
+  // desplazamiento justo en la tercera línea.
+  campo.style.overflowY = necesario > maximo + 1 ? "auto" : "hidden";
 }
