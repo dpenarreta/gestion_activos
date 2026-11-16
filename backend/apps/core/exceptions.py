@@ -2,9 +2,11 @@
 
 import logging
 import math
+import re
 
 from django.db import transaction
-from rest_framework.exceptions import Throttled
+from django.http import Http404
+from rest_framework.exceptions import NotFound, Throttled
 from rest_framework.views import exception_handler
 
 from .audit import record_audit_event
@@ -89,6 +91,27 @@ def _audit_validation_failure(request, view, status_code) -> None:
         logger.exception("No se pudo auditar un fallo de validación")
 
 
+#: El 404 de un registro que no existe (16/11/2026). Django lo redacta en
+#: inglés y con el nombre del modelo —«No Solicitud matches the given
+#: query.»— y llegaba tal cual a la pantalla.
+MENSAJE_NO_ENCONTRADO = (
+    "No se encontró lo que busca: puede que no exista, que se haya eliminado "
+    "o que no tenga acceso."
+)
+_NO_COINCIDE = re.compile(r"^No .+ matches the given query\.?$")
+
+
+def _es_no_encontrado_tecnico(exc, mensaje) -> bool:
+    """El 404 de `get_object_or_404` o de una vista de detalle de DRF, o el
+    «Not found.» genérico: textos técnicos que no son para la persona."""
+    if isinstance(exc, Http404):
+        return True
+    texto = str(mensaje or "").strip()
+    return isinstance(exc, NotFound) and (
+        bool(_NO_COINCIDE.match(texto)) or texto in ("Not found.", "No encontrado.")
+    )
+
+
 def _mensaje_de_espera(segundos) -> str:
     """El 429 en palabras: el de DRF decía «Solicitud fue regulada
     (throttled). Se espera que esté disponible en 1391 segundos»."""
@@ -151,6 +174,9 @@ def api_exception_handler(exc, context):
     details = (
         response.data if isinstance(response.data, dict) and "detail" not in response.data else None
     )
+    if _es_no_encontrado_tecnico(exc, message):
+        message = MENSAJE_NO_ENCONTRADO
+        details = None
     if isinstance(exc, Throttled):
         # Un límite propio puede traer su mensaje (`mensaje`), como los
         # envíos del código del rol de pagos (US-002, 11/11/2026), y solo ese
