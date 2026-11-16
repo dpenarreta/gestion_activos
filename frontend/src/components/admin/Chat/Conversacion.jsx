@@ -47,22 +47,60 @@ function Imagen({ archivo }) {
   );
 }
 
-function Archivo({ archivo }) {
+/*
+ * Un archivo que no es foto: el nombre y un botón redondo «Descargar». Pulsar
+ * cualquiera de los dos lo descarga directamente (16/11/2026).
+ */
+export function Archivo({ archivo }) {
+  const [descargando, setDescargando] = useState(false);
+  const [error, setError] = useState(false);
   if (archivo.es_imagen) return <Imagen archivo={archivo} />;
+  async function descargar() {
+    if (descargando) return;
+    setDescargando(true);
+    setError(false);
+    try {
+      descargarBlob(await chatService.archivo(archivo.url), archivo.nombre);
+    } catch {
+      setError(true);
+    } finally {
+      setDescargando(false);
+    }
+  }
   return (
-    <button
-      type="button"
-      className="btn btn-link btn-sm p-0 chat-archivo"
-      onClick={async () => {
-        try {
-          descargarBlob(await chatService.archivo(archivo.url), archivo.nombre);
-        } catch {
-          /* El archivo ya no está disponible. */
-        }
-      }}
-    >
-      <Icon name="paperclip" /> {archivo.nombre}
-    </button>
+    <div className="chat-archivo">
+      <button
+        type="button"
+        className="chat-archivo__nombre"
+        onClick={descargar}
+        title={`Descargar ${archivo.nombre}`}
+      >
+        <Icon name="file-earmark-text" className="chat-archivo__icono" />
+        <span>{archivo.nombre}</span>
+      </button>
+      <button
+        type="button"
+        className="chat-archivo__descargar"
+        onClick={descargar}
+        disabled={descargando}
+        aria-label={`Descargar ${archivo.nombre}`}
+        title="Descargar"
+      >
+        {descargando ? (
+          <span
+            className="spinner-border spinner-border-sm"
+            aria-hidden="true"
+          />
+        ) : (
+          <Icon name="download" />
+        )}
+      </button>
+      {error && (
+        <span className="chat-archivo__error" role="alert">
+          El archivo ya no está disponible.
+        </span>
+      )}
+    </div>
   );
 }
 

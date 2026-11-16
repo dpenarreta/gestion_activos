@@ -318,6 +318,81 @@
   margin-top: 4px;
 }
 
+/* Archivos que no son fotos: nombre y botón redondo «Descargar»; los dos
+   descargan (16/11/2026). */
+.chat-archivo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 10px;
+  background: var(--mz-raised);
+  border: 1px solid var(--mz-border);
+}
+
+.chat-archivo__nombre {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mz-ink);
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.chat-archivo__nombre:hover span,
+.chat-archivo__nombre:focus-visible span {
+  text-decoration: underline;
+}
+
+.chat-archivo__icono {
+  flex: none;
+  font-size: 20px;
+  color: var(--mz-ink-faint);
+}
+
+.chat-archivo__descargar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--marca-amarillo, #fce200);
+  color: #000;
+  cursor: pointer;
+}
+
+.chat-archivo__descargar:hover {
+  background: var(--marca-amarillo-hover, #e6ce00);
+}
+
+.chat-archivo__descargar:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.chat-archivo__descargar:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.chat-archivo__error {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--bs-danger, #b42318);
+}
+
 .chat-aviso {
   margin: 6px 8px 0;
   font-size: 12px;
