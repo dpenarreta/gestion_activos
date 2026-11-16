@@ -2,7 +2,20 @@
  * «hace 5 min», «hace 3 h», «ayer» o la fecha: lo mismo que la campana web
  * (`haceCuanto` en `CampanaNotificaciones.jsx`).
  */
-const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
 
 export function haceCuanto(fecha, ahora = new Date()) {
   const momento = new Date(fecha);
@@ -16,6 +29,35 @@ export function haceCuanto(fecha, ahora = new Date()) {
   // Sin `toLocaleDateString`: Hermes en Android no siempre trae los datos de
   // idioma y saldría en inglés.
   return `${momento.getDate()} ${MESES[momento.getMonth()]}`;
+}
+
+/**
+ * Hace cuánto llegó una notificación (16/11/2026, a pedido del usuario):
+ * siempre relativo, sin fecha (la fecha va aparte, abajo a la derecha):
+ * «hace 5 min», «hace 3 h», «ayer», «hace 3 días», «hace 2 semanas»,
+ * «hace 2 meses», «hace 1 año».
+ */
+export function haceCuantoLlego(fecha, ahora = new Date()) {
+  const momento = new Date(fecha);
+  if (Number.isNaN(momento.getTime())) return "";
+  const minutos = Math.max(0, Math.floor((ahora - momento) / 60_000));
+  if (minutos < 1) return "hace un momento";
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  if (horas < 48) return "ayer";
+  const dias = Math.floor(horas / 24);
+  if (dias < 7) return `hace ${dias} días`;
+  if (dias < 30) {
+    const semanas = Math.floor(dias / 7);
+    return semanas === 1 ? "hace 1 semana" : `hace ${semanas} semanas`;
+  }
+  if (dias < 365) {
+    const meses = Math.floor(dias / 30);
+    return meses === 1 ? "hace 1 mes" : `hace ${meses} meses`;
+  }
+  const anios = Math.floor(dias / 365);
+  return anios === 1 ? "hace 1 año" : `hace ${anios} años`;
 }
 
 /** Fecha y hora completas para el detalle: «12 nov 2026, 09:05». */
@@ -121,7 +163,8 @@ export function fechaYHora(valor) {
 export function diasAtras(valor, ahora = new Date()) {
   const fecha = valor instanceof Date ? valor : new Date(valor);
   if (!valor || Number.isNaN(fecha.getTime())) return null;
-  const inicio = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const inicio = (d) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   return Math.round((inicio(ahora) - inicio(fecha)) / 86400000);
 }
 

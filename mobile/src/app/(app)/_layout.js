@@ -68,7 +68,7 @@ export default function AppLayout() {
               {/* US-016: Avisos y Cuenta salen de la barra y se abren desde la
                   cabecera de los módulos, con su cabecera y «Volver». */}
               <Stack.Screen name="notificaciones" options={{ ...cabecera(), title: "Notificaciones" }} />
-              <Stack.Screen name="cuenta" options={{ ...cabecera(), title: "Cuenta" }} />
+              <Stack.Screen name="cuenta" options={{ ...cabecera(), title: "Mi perfil" }} />
               <Stack.Screen name="notificacion/[id]" options={{ ...cabecera(), title: "Notificación" }} />
               <Stack.Screen name="permisos/nueva" options={{ ...cabecera(), title: "Nueva solicitud" }} />
               <Stack.Screen name="permisos/solicitud/[id]" options={{ ...cabecera(), title: "Solicitud de permiso" }} />

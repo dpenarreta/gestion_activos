@@ -4,11 +4,17 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { mensajeDeError } from "../api/errores";
 import { notificacionesService } from "../api/servicios";
-import { Alerta, Boton, Cargando, ErrorConReintento } from "../componentes/comunes";
+import {
+  Alerta,
+  Boton,
+  Cargando,
+  ErrorConReintento,
+} from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
 import { anunciar } from "../accesibilidad/anunciar";
 import { useSesion } from "../sesion/SesionContext";
 import { estaLeida, iconoDe } from "../notificaciones/abrir";
+import { coloresDe } from "../notificaciones/coloresDeModulo";
 import { useContador } from "../notificaciones/ContadorContext";
 import { volverAlModulo } from "../navegacion/abrir";
 import { esRutaDeModulo } from "../navegacion/modulos";
@@ -81,8 +87,9 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
         .then((cambio) => {
           if (!cambio || !montado.current) return;
           const nombre =
-            (empresasRef.current ?? []).find((e) => String(e.id) === String(empresa))?.nombre ??
-            "otra empresa";
+            (empresasRef.current ?? []).find(
+              (e) => String(e.id) === String(empresa),
+            )?.nombre ?? "otra empresa";
           const texto = textoCambioDeEmpresa(nombre);
           setAvisoEmpresa(texto);
           // Es informativa (no interrumpe como un error), pero cambia lo que
@@ -95,7 +102,10 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
       let datos = await notificacionesService.detalle(id, { empresa });
       if (!estaLeida(datos)) {
         try {
-          datos = (await notificacionesService.leer(id, { empresa })) ?? { ...datos, leida: true };
+          datos = (await notificacionesService.leer(id, { empresa })) ?? {
+            ...datos,
+            leida: true,
+          };
         } catch {
           // Se intentará de nuevo la próxima vez que se abra.
         }
@@ -134,12 +144,16 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
       setMostrarCargando(false);
       return undefined;
     }
-    const espera = setTimeout(() => setMostrarCargando(true), ESPERA_CARGANDO_MS);
+    const espera = setTimeout(
+      () => setMostrarCargando(true),
+      ESPERA_CARGANDO_MS,
+    );
     return () => clearTimeout(espera);
   }, [estado]);
 
   if (estado === "cargando" || estado === "redirigiendo") {
-    if (estado === "cargando" && mostrarCargando) return <Cargando texto="Cargando la notificación…" />;
+    if (estado === "cargando" && mostrarCargando)
+      return <Cargando texto="Cargando la notificación…" />;
     // Estado neutro: el fondo y un indicador, sin texto que cambie enseguida.
     return (
       <View
@@ -162,7 +176,10 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
   }
 
   // La empresa de la notificación; si la API no la trae, la del push.
-  const url = urlWebDeNotificacion({ ...notificacion, empresa: notificacion.empresa ?? empresa });
+  const url = urlWebDeNotificacion({
+    ...notificacion,
+    empresa: notificacion.empresa ?? empresa,
+  });
 
   async function abrir() {
     setErrorNavegador(null);
@@ -172,23 +189,43 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
   }
 
   return (
-    <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
+    <ScrollView
+      style={estilos.pantalla}
+      contentContainerStyle={estilos.contenido}
+    >
       {avisoEmpresa && <Alerta tipo="info" texto={avisoEmpresa} />}
       <View style={estilos.modulo}>
-        <View style={estilos.icono}>
-          <Icono bootstrap={iconoDe(notificacion)} size={24} color={colores.primario} />
+        <View
+          style={[
+            estilos.icono,
+            { backgroundColor: coloresDe(notificacion).fondo },
+          ]}
+        >
+          <Icono
+            bootstrap={iconoDe(notificacion)}
+            size={24}
+            color={coloresDe(notificacion).icono}
+          />
         </View>
         <Text style={estilos.moduloTexto}>{notificacion.modulo_nombre}</Text>
       </View>
       <Text style={estilos.titulo} accessibilityRole="header">
         {notificacion.titulo}
       </Text>
-      {notificacion.resumen ? <Text style={estilos.resumen}>{notificacion.resumen}</Text> : null}
-      <Text style={estilos.fecha}>{fechaCompleta(notificacion.created_at)}</Text>
+      {notificacion.resumen ? (
+        <Text style={estilos.resumen}>{notificacion.resumen}</Text>
+      ) : null}
+      <Text style={estilos.fecha}>
+        {fechaCompleta(notificacion.created_at)}
+      </Text>
 
       <Alerta
         tipo="info"
-        texto={url ? TEXTO_FUERA_DE_LA_APP : textoSinEnlace(notificacion.modulo_nombre)}
+        texto={
+          url
+            ? TEXTO_FUERA_DE_LA_APP
+            : textoSinEnlace(notificacion.modulo_nombre)
+        }
       />
       {url && (
         <Boton
@@ -207,13 +244,17 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
 const estilos = crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14 },
-  neutro: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colores.fondo },
+  neutro: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colores.fondo,
+  },
   modulo: { flexDirection: "row", alignItems: "center", gap: 10 },
   icono: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: colores.acento,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },

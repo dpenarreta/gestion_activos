@@ -1,11 +1,23 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { inicioService } from "../api/servicios";
 import { useChat } from "../chat/ChatContext";
 import { textoSinLeer } from "../chat/formato";
-import { Alerta, Cargando, ErrorConReintento, Vacio } from "../componentes/comunes";
+import {
+  Alerta,
+  Cargando,
+  ErrorConReintento,
+  Vacio,
+} from "../componentes/comunes";
 import { Icono, nombreDeIcono } from "../componentes/Icono";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useContador } from "../notificaciones/ContadorContext";
@@ -14,10 +26,28 @@ import { useSesion } from "../sesion/SesionContext";
 import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
 import { useResumenSoporte } from "../soporte/ResumenSoporteContext";
 import { AREA_TACTIL, colores } from "../tema/colores";
+import { CalendarioInicio } from "./CalendarioInicio";
 import { CarruselNoticias } from "./CarruselNoticias";
 import { crearEstilos } from "../tema/tipografia";
+import { diaEnZona } from "../matriz/formato";
+import { coloresDeFamilia } from "../notificaciones/coloresDeModulo";
 
-export const TEXTO_SIN_CARGO = "Todavía no tiene un cargo asignado en el organigrama.";
+/** Las pestañas del bloque de noticias de Inicio. */
+export const PESTANAS_DE_INICIO = [
+  {
+    id: "noticias",
+    nombre: "Noticias y eventos",
+    icono: "newspaper-variant-outline",
+  },
+  {
+    id: "calendario",
+    nombre: "Calendario de eventos",
+    icono: "calendar-month-outline",
+  },
+];
+
+export const TEXTO_SIN_CARGO =
+  "Todavía no tiene un cargo asignado en el organigrama.";
 
 /**
  * Los accesos «Para todos» de la web (`InicioInstitucional.jsx`, ACCESOS), con
@@ -30,6 +60,7 @@ export const TEXTO_SIN_CARGO = "Todavía no tiene un cargo asignado en el organi
 export const ACCESOS = [
   {
     to: "/admin/ayuda",
+    familia: "soporte",
     icono: "headset",
     nombre: "Mesa de ayuda",
     texto: "Pedir ayuda a TI y seguir sus tickets",
@@ -37,6 +68,7 @@ export const ACCESOS = [
   },
   {
     to: "/admin/chat",
+    familia: "chat",
     icono: "chat-dots",
     nombre: "Chat",
     texto: "Canal general, mensajes directos y grupos",
@@ -44,12 +76,14 @@ export const ACCESOS = [
   },
   {
     to: "/admin/institucional/codigos",
+    familia: "institucional",
     icono: "journal-text",
     nombre: "Códigos de conducta",
     texto: "Las normas de conducta y disciplinarias de la empresa",
   },
   {
     to: "/admin/institucional/permisos",
+    familia: "permisos",
     icono: "calendar-check",
     nombre: "Solicitud de permisos",
     texto: "Pedir permisos y aprobar los que le toquen",
@@ -57,12 +91,20 @@ export const ACCESOS = [
   },
   {
     to: "/admin/institucional/vacaciones",
+    familia: "vacaciones",
     icono: "sun",
     nombre: "Mis vacaciones",
     texto: "Días pendientes de gozar, por período",
     rutaApp: { pathname: "/permisos", params: { seccion: "vacaciones" } },
   },
-  { to: "/admin/perfil", icono: "person-vcard", nombre: "Mi perfil", texto: "Su información personal y su cargo" },
+  {
+    to: "/admin/perfil",
+    familia: "perfil",
+    icono: "person-vcard",
+    nombre: "Mi perfil",
+    texto: "Su información personal y su cargo",
+    rutaApp: { pathname: "/cuenta", params: {} },
+  },
 ];
 
 /**
@@ -78,7 +120,9 @@ export const ACCESOS = [
  * debajo (nunca negativo).
  */
 export function avisosDeOtrosModulos(noLeidas, noLeidosChat = {}) {
-  const conversaciones = Object.values(noLeidosChat).filter((n) => Number(n) > 0).length;
+  const conversaciones = Object.values(noLeidosChat).filter(
+    (n) => Number(n) > 0,
+  ).length;
   return Math.max(0, (Number(noLeidas) || 0) - conversaciones);
 }
 
@@ -95,39 +139,55 @@ export function pendientesDeHoy({
   if (ticketsAsignados > 0) {
     lista.push({
       clave: "soporte-asignados",
+      familia: "soporte",
       icono: "headset",
       texto:
-        ticketsAsignados === 1 ? "1 ticket asignado a usted" : `${ticketsAsignados} tickets asignados a usted`,
+        ticketsAsignados === 1
+          ? "1 ticket asignado a usted"
+          : `${ticketsAsignados} tickets asignados a usted`,
       ruta: { pathname: "/soporte", params: { vista: "bandeja" } },
     });
   }
   if (ticketsMios > 0) {
     lista.push({
       clave: "soporte-mios",
+      familia: "soporte",
       icono: "ticket-outline",
-      texto: ticketsMios === 1 ? "1 ticket suyo necesita algo de usted" : `${ticketsMios} tickets suyos necesitan algo de usted`,
+      texto:
+        ticketsMios === 1
+          ? "1 ticket suyo necesita algo de usted"
+          : `${ticketsMios} tickets suyos necesitan algo de usted`,
       ruta: { pathname: "/soporte", params: { vista: "mis" } },
     });
   }
   if (ticketsPorAprobar > 0) {
     lista.push({
       clave: "soporte-aprobaciones",
+      familia: "soporte",
       icono: "clipboard-check-outline",
-      texto: ticketsPorAprobar === 1 ? "1 ticket por aprobar" : `${ticketsPorAprobar} tickets por aprobar`,
+      texto:
+        ticketsPorAprobar === 1
+          ? "1 ticket por aprobar"
+          : `${ticketsPorAprobar} tickets por aprobar`,
       ruta: { pathname: "/soporte", params: { vista: "aprobaciones" } },
     });
   }
   if (porAprobar > 0) {
     lista.push({
       clave: "por-aprobar",
+      familia: "permisos",
       icono: "calendar-check-outline",
-      texto: porAprobar === 1 ? "1 solicitud por aprobar" : `${porAprobar} solicitudes por aprobar`,
+      texto:
+        porAprobar === 1
+          ? "1 solicitud por aprobar"
+          : `${porAprobar} solicitudes por aprobar`,
       ruta: { pathname: "/permisos", params: { seccion: "por_aprobar" } },
     });
   }
   if (mensajes > 0) {
     lista.push({
       clave: "mensajes",
+      familia: "chat",
       icono: "chat-processing-outline",
       texto: textoSinLeer(mensajes),
       ruta: { pathname: "/chat", params: {} },
@@ -136,8 +196,12 @@ export function pendientesDeHoy({
   if (avisos > 0) {
     lista.push({
       clave: "avisos",
+      familia: "sistema",
       icono: "bell-badge-outline",
-      texto: avisos === 1 ? "1 aviso de otros módulos" : `${avisos} avisos de otros módulos`,
+      texto:
+        avisos === 1
+          ? "1 aviso de otros módulos"
+          : `${avisos} avisos de otros módulos`,
       ruta: { pathname: "/notificaciones", params: {} },
     });
   }
@@ -150,8 +214,11 @@ export function pendientesDeHoy({
 export function accesosPara(permisos = []) {
   return ACCESOS.map((a) => {
     if (a.to !== "/admin/ayuda") return a;
-    if (esDelEquipo(permisos)) return { ...a, texto: "Su bandeja, sus tickets y pedir ayuda a TI" };
-    return rutaDeAltaPropia(permisos) ? a : { ...a, texto: "Seguir sus tickets" };
+    if (esDelEquipo(permisos))
+      return { ...a, texto: "Su bandeja, sus tickets y pedir ayuda a TI" };
+    return rutaDeAltaPropia(permisos)
+      ? a
+      : { ...a, texto: "Seguir sus tickets" };
   });
 }
 
@@ -161,9 +228,17 @@ export function Inicio() {
   // El perfil solo adorna el saludo: mientras carga o si falla no se dice
   // «no tiene cargo», que sería falso (CA-5; auditoría UX web, 28/10/2026).
   const [perfil, setPerfil] = useState({ estado: "cargando", datos: null });
-  const [noticias, setNoticias] = useState({ estado: "cargando", lista: [], segundos: 6 });
+  const [noticias, setNoticias] = useState({
+    estado: "cargando",
+    lista: [],
+    segundos: 6,
+  });
   const [avisoRefresco, setAvisoRefresco] = useState(null);
   const [refrescando, setRefrescando] = useState(false);
+  // Sube con cada pull-to-refresh: el calendario se vuelve a pedir.
+  const [recarga, setRecarga] = useState(0);
+  const [pestana, setPestana] = useState("noticias");
+  const [hayHoy, setHayHoy] = useState(false);
   const montado = useRef(true);
   // Cada carga lleva un número: al cambiar de empresa, la respuesta de la
   // anterior ya no se pinta.
@@ -181,11 +256,14 @@ export function Inicio() {
   const cargarPerfil = useCallback(async (numero) => {
     try {
       const datos = await inicioService.misDatos();
-      if (montado.current && numero === consulta.current) setPerfil({ estado: "listo", datos: datos ?? null });
+      if (montado.current && numero === consulta.current)
+        setPerfil({ estado: "listo", datos: datos ?? null });
     } catch {
       // Si falla se calla: el perfil solo adorna. Se conserva lo que hubiera.
       if (montado.current && numero === consulta.current) {
-        setPerfil((p) => (p.estado === "listo" ? p : { estado: "error", datos: null }));
+        setPerfil((p) =>
+          p.estado === "listo" ? p : { estado: "error", datos: null },
+        );
       }
     }
   }, []);
@@ -195,23 +273,46 @@ export function Inicio() {
    * desmontar el carrusel (perdía la posición y la pausa), y si falla con
    * noticias ya cargadas las conserva y lo dice arriba.
    */
-  const cargarNoticias = useCallback(async (numero, { silenciosa = false } = {}) => {
-    if (!silenciosa) setNoticias((n) => ({ ...n, estado: "cargando" }));
-    try {
-      const [lista, ajustes] = await Promise.all([
-        inicioService.noticias(),
-        inicioService.carrusel().catch(() => null),
-      ]);
-      if (!montado.current || numero !== consulta.current) return;
-      setNoticias({ estado: "listo", lista, segundos: Number(ajustes?.segundos) || 6 });
-      setAvisoRefresco(null);
-    } catch {
-      if (!montado.current || numero !== consulta.current) return;
-      if (silenciosa && estadoNoticias.current === "listo") {
-        setAvisoRefresco("No se pudieron actualizar las noticias. Se muestran las anteriores.");
-      } else {
-        setNoticias((n) => ({ ...n, estado: "error" }));
+  const cargarNoticias = useCallback(
+    async (numero, { silenciosa = false } = {}) => {
+      if (!silenciosa) setNoticias((n) => ({ ...n, estado: "cargando" }));
+      try {
+        const [lista, ajustes] = await Promise.all([
+          inicioService.noticias(),
+          inicioService.carrusel().catch(() => null),
+        ]);
+        if (!montado.current || numero !== consulta.current) return;
+        setNoticias({
+          estado: "listo",
+          lista,
+          segundos: Number(ajustes?.segundos) || 6,
+        });
+        setAvisoRefresco(null);
+      } catch {
+        if (!montado.current || numero !== consulta.current) return;
+        if (silenciosa && estadoNoticias.current === "listo") {
+          setAvisoRefresco(
+            "No se pudieron actualizar las noticias. Se muestran las anteriores.",
+          );
+        } else {
+          setNoticias((n) => ({ ...n, estado: "error" }));
+        }
       }
+    },
+    [],
+  );
+
+  /** El punto amarillo de la pestaña «Calendario de eventos» (16/11/2026,
+   * a pedido del usuario): si hoy (en hora de Ecuador) hay alguna fecha en
+   * el calendario. Si falla, simplemente no se muestra. */
+  const cargarHoy = useCallback(async (numero) => {
+    try {
+      const hoy = diaEnZona(new Date(), "America/Guayaquil");
+      const lista = await inicioService.calendario(hoy, hoy);
+      if (montado.current && numero === consulta.current)
+        setHayHoy(lista.length > 0);
+    } catch {
+      // Se conserva lo que hubiera.
     }
   }, []);
 
@@ -219,16 +320,23 @@ export function Inicio() {
     const numero = ++consulta.current;
     cargarPerfil(numero);
     cargarNoticias(numero);
-  }, [cargarPerfil, cargarNoticias, versionEmpresa]);
+    cargarHoy(numero);
+  }, [cargarPerfil, cargarNoticias, cargarHoy, versionEmpresa]);
 
   async function refrescar() {
     const numero = ++consulta.current;
     setRefrescando(true);
-    await Promise.all([cargarPerfil(numero), cargarNoticias(numero, { silenciosa: true })]);
+    setRecarga((r) => r + 1);
+    await Promise.all([
+      cargarPerfil(numero),
+      cargarNoticias(numero, { silenciosa: true }),
+      cargarHoy(numero),
+    ]);
     if (montado.current) setRefrescando(false);
   }
 
-  const nombre = usuario?.first_name || perfil.datos?.nombres || usuario?.username || "";
+  const nombre =
+    usuario?.first_name || perfil.datos?.nombres || usuario?.username || "";
   const cargo = perfil.datos?.cargo?.nombre;
   const empresa = empresaActiva?.id;
   const { porAprobar } = useResumenPermisos();
@@ -243,6 +351,9 @@ export function Inicio() {
     ticketsMios: soporte.misPendientes,
     ticketsPorAprobar: soporte.aprobaciones,
   });
+  // Con letra grande (más del 130 %) los nombres no entran en 4 columnas.
+  const { fontScale } = useWindowDimensions();
+  const columnas = fontScale > 1.3 ? 3 : 4;
   const accesos = accesosPara(usuario?.permissions);
   const enLaApp = accesos.filter((a) => a.rutaApp);
   const enElNavegador = accesos.filter((a) => !a.rutaApp);
@@ -263,7 +374,9 @@ export function Inicio() {
       testID="inicio"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={
+        <RefreshControl refreshing={refrescando} onRefresh={refrescar} />
+      }
     >
       <View style={estilos.saludo}>
         <Text style={estilos.titulo} accessibilityRole="header">
@@ -274,14 +387,21 @@ export function Inicio() {
             <Text style={estilos.cargo}>{`${cargo}.`}</Text>
           ) : (
             <Pressable
-              onPress={() => abrirEnNavegador(urlWeb("/admin/perfil", { empresa }))}
+              onPress={() =>
+                abrirEnNavegador(urlWeb("/admin/perfil", { empresa }))
+              }
               accessibilityRole="link"
               accessibilityHint="Se abre en el navegador"
               style={estilos.enlaceCargo}
             >
               <Text style={estilos.cargo}>
-                {TEXTO_SIN_CARGO} <Text style={estilos.enlace}>Elegirlo en Mi perfil</Text>{" "}
-                <Icono nombre="open-in-new" size={16} color={colores.primario} />
+                {TEXTO_SIN_CARGO}{" "}
+                <Text style={estilos.enlace}>Elegirlo en Mi perfil</Text>{" "}
+                <Icono
+                  nombre="open-in-new"
+                  size={16}
+                  color={colores.primario}
+                />
               </Text>
             </Pressable>
           ))}
@@ -299,45 +419,135 @@ export function Inicio() {
               onPress={() => irA(p.ruta)}
               accessibilityRole="button"
               accessibilityLabel={p.texto}
-              style={({ pressed }) => [estilos.pendiente, pressed && estilos.presionada]}
+              style={({ pressed }) => [
+                estilos.pendiente,
+                pressed && estilos.presionada,
+              ]}
             >
-              <Icono nombre={p.icono} size={22} color={colores.primario} />
+              {/* El ícono con el color de su módulo (16/11/2026). */}
+              <View
+                style={[
+                  estilos.pendienteIcono,
+                  { backgroundColor: coloresDeFamilia(p.familia).fondo },
+                ]}
+              >
+                <Icono
+                  nombre={p.icono}
+                  size={20}
+                  color={coloresDeFamilia(p.familia).icono}
+                />
+              </View>
               <Text style={estilos.pendienteTexto}>{p.texto}</Text>
-              <Icono nombre="chevron-right" size={22} color={colores.tintaTenue} />
+              <Icono
+                nombre="chevron-right"
+                size={22}
+                color={colores.tintaTenue}
+              />
             </Pressable>
           ))}
         </View>
       ) : null}
 
+      {/* Noticias y calendario como pestañas (16/11/2026, a pedido del
+          usuario): se ve uno a la vez para ahorrar espacio. Al cambiar, el
+          carrusel se desmonta y no sigue pasando noticias sin verse. */}
       <View style={estilos.seccion}>
-        <Text style={estilos.subtitulo} accessibilityRole="header">
-          Noticias y eventos
-        </Text>
-        {avisoRefresco && <Alerta tipo="aviso" texto={avisoRefresco} />}
-        {noticias.estado === "cargando" ? (
-          <Cargando texto="Cargando noticias…" />
-        ) : noticias.estado === "error" ? (
-          <ErrorConReintento
-            texto="No se pudieron cargar las noticias."
-            onReintentar={() => cargarNoticias(++consulta.current)}
-          />
-        ) : noticias.lista.length === 0 ? (
-          <Vacio texto="No hay noticias publicadas por ahora." icono="newspaper-variant-outline" />
+        <View style={estilos.pestanas} accessibilityRole="tablist">
+          {PESTANAS_DE_INICIO.map((p) => {
+            const activa = pestana === p.id;
+            const conPunto = p.id === "calendario" && hayHoy;
+            return (
+              <Pressable
+                key={p.id}
+                testID={`inicio-pestana-${p.id}`}
+                onPress={() => setPestana(p.id)}
+                accessibilityRole="tab"
+                accessibilityLabel={
+                  conPunto ? `${p.nombre}, hay fechas hoy` : p.nombre
+                }
+                accessibilityState={{ selected: activa }}
+                style={({ pressed }) => [
+                  estilos.pestana,
+                  activa && estilos.pestanaActiva,
+                  pressed && estilos.presionada,
+                ]}
+              >
+                <View>
+                  <Icono
+                    nombre={p.icono}
+                    size={20}
+                    color={activa ? colores.tinta : colores.tintaTenue}
+                  />
+                  {conPunto ? (
+                    <View
+                      style={estilos.punto}
+                      testID="inicio-punto-calendario"
+                    />
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    estilos.pestanaTexto,
+                    activa && estilos.pestanaTextoActiva,
+                  ]}
+                >
+                  {p.nombre}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {pestana === "noticias" ? (
+          <>
+            {avisoRefresco && <Alerta tipo="aviso" texto={avisoRefresco} />}
+            {noticias.estado === "cargando" ? (
+              <Cargando texto="Cargando noticias…" />
+            ) : noticias.estado === "error" ? (
+              <ErrorConReintento
+                texto="No se pudieron cargar las noticias."
+                onReintentar={() => cargarNoticias(++consulta.current)}
+              />
+            ) : noticias.lista.length === 0 ? (
+              <Vacio
+                texto="No hay noticias publicadas por ahora."
+                icono="newspaper-variant-outline"
+              />
+            ) : (
+              <CarruselNoticias
+                noticias={noticias.lista}
+                segundos={noticias.segundos}
+              />
+            )}
+          </>
         ) : (
-          <CarruselNoticias noticias={noticias.lista} segundos={noticias.segundos} />
+          <CalendarioInicio recarga={recarga} version={versionEmpresa} />
         )}
       </View>
 
       {/* Los accesos, separados por dónde se abren (auditoría UX, H-09). */}
       {/* Un encabezado sin nada debajo no se pinta. */}
+      {/* Los accesos, separados por dónde se abren (auditoría UX, H-09), y
+          desde el 16/11/2026, a pedido del usuario, como botones redondos en
+          cuadrícula y no tarjetas a todo el ancho. Cada sección dice en una
+          línea dónde se abre. Un encabezado sin nada debajo no se pinta. */}
       {enLaApp.length > 0 ? (
         <View style={estilos.seccion}>
           <Text style={estilos.subtitulo} accessibilityRole="header">
             En la app
           </Text>
-          {enLaApp.map((a) => (
-            <Acceso key={a.to} a={a} onAbrir={abrirAcceso} />
-          ))}
+          <Text style={estilos.ayudaTexto}>
+            Se abren aquí mismo, dentro de la app.
+          </Text>
+          <View style={estilos.cuadricula}>
+            {enLaApp.map((a) => (
+              <Acceso
+                key={a.to}
+                a={a}
+                onAbrir={abrirAcceso}
+                columnas={columnas}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -349,40 +559,62 @@ export function Inicio() {
             </Text>
             <Icono nombre="open-in-new" size={18} color={colores.tintaSuave} />
           </View>
-          <Text style={estilos.navegadorTexto}>Se abren en el navegador del teléfono.</Text>
-          {enElNavegador.map((a) => (
-            <Acceso key={a.to} a={a} onAbrir={abrirAcceso} />
-          ))}
+          <Text style={estilos.ayudaTexto}>
+            Se abren en el navegador del teléfono.
+          </Text>
+          <View style={estilos.cuadricula}>
+            {enElNavegador.map((a) => (
+              <Acceso
+                key={a.to}
+                a={a}
+                onAbrir={abrirAcceso}
+                columnas={columnas}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
     </ScrollView>
   );
 }
 
-/** Un acceso: dentro de la app (flecha) o en el navegador (ícono de salida). */
-function Acceso({ a, onAbrir }) {
+/** Un acceso como botón redondo: el ícono en un círculo amarillo y el
+ * nombre debajo. La descripción no se ve, pero la dice el lector de pantalla.
+ * Los del navegador llevan una marca de «sale de la app» en el círculo. */
+function Acceso({ a, onAbrir, columnas = 4 }) {
+  const enApp = Boolean(a.rutaApp);
+  const color = coloresDeFamilia(a.familia);
   return (
     <Pressable
       testID={`acceso-${a.to}`}
       onPress={() => onAbrir(a)}
-      accessibilityRole={a.rutaApp ? "button" : "link"}
-      accessibilityLabel={a.rutaApp ? `${a.nombre}. ${a.texto}` : `${a.nombre}. ${a.texto}. Abrir en el navegador`}
-      style={({ pressed }) => [estilos.tarjeta, pressed && estilos.presionada]}
+      accessibilityRole={enApp ? "button" : "link"}
+      accessibilityLabel={
+        enApp
+          ? `${a.nombre}. ${a.texto}`
+          : `${a.nombre}. ${a.texto}. Abrir en el navegador`
+      }
+      style={({ pressed }) => [
+        estilos.acceso,
+        { width: `${100 / columnas}%` },
+        pressed && estilos.accesoPresionado,
+      ]}
     >
-      <View style={estilos.tarjetaIcono}>
-        <Icono nombre={nombreDeIcono(a.icono)} size={24} color={colores.primario} />
+      {/* El color de su módulo (16/11/2026); los del navegador se
+          distinguen por la marca de «sale de la app». */}
+      <View style={[estilos.circulo, { backgroundColor: color.fondo }]}>
+        <Icono nombre={nombreDeIcono(a.icono)} size={28} color={color.icono} />
+        {!enApp ? (
+          <View style={estilos.marcaNavegador}>
+            <Icono
+              nombre="open-in-new"
+              size={12}
+              color={colores.sobrePrimario}
+            />
+          </View>
+        ) : null}
       </View>
-      <View style={estilos.tarjetaTexto}>
-        <Text style={estilos.tarjetaNombre}>{a.nombre}</Text>
-        <Text style={estilos.tarjetaDescripcion}>{a.texto}</Text>
-      </View>
-      <View style={estilos.flecha}>
-        <Icono
-          nombre={a.rutaApp ? "chevron-right" : "open-in-new"}
-          size={a.rutaApp ? 24 : 20}
-          color={colores.tintaTenue}
-        />
-      </View>
+      <Text style={estilos.accesoNombre}>{a.nombre}</Text>
     </Pressable>
   );
 }
@@ -397,30 +629,45 @@ const estilos = crearEstilos({
   enlace: { color: colores.enlace, textDecorationLine: "underline" },
   seccion: { gap: 10 },
   subtitulo: { fontSize: 18, fontWeight: "700", color: colores.tinta },
-  tarjeta: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-    minHeight: AREA_TACTIL,
-    borderRadius: 10,
-    backgroundColor: colores.superficie,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
   presionada: { backgroundColor: colores.realce },
-  tarjetaIcono: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colores.acento,
+  ayudaTexto: { fontSize: 14, color: colores.tintaTenue, flexShrink: 1 },
+  cuadricula: { flexDirection: "row", flexWrap: "wrap", rowGap: 12 },
+  acceso: {
+    minHeight: AREA_TACTIL,
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  accesoPresionado: { backgroundColor: colores.realce },
+  // El fondo lo pone el color del módulo.
+  circulo: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
   },
-  tarjetaTexto: { flex: 1, gap: 2 },
-  tarjetaNombre: { fontSize: 16, fontWeight: "600", color: colores.tinta },
-  tarjetaDescripcion: { fontSize: 14, color: colores.tintaSuave },
-  navegadorTexto: { fontSize: 13, color: colores.tintaTenue, flexShrink: 1 },
-  flecha: { justifyContent: "center" },
+  marcaNavegador: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colores.primario,
+    borderWidth: 2,
+    borderColor: colores.fondo,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accesoNombre: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colores.tinta,
+    textAlign: "center",
+  },
   tituloNavegador: { flexDirection: "row", alignItems: "center", gap: 8 },
   paraHoy: {
     gap: 6,
@@ -438,5 +685,56 @@ const estilos = crearEstilos({
     paddingHorizontal: 4,
     borderRadius: 8,
   },
-  pendienteTexto: { flex: 1, fontSize: 16, fontWeight: "600", color: colores.tinta },
+  pestanas: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: colores.borde,
+  },
+  pestana: {
+    flex: 1,
+    minHeight: AREA_TACTIL,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderBottomWidth: 3,
+    borderBottomColor: "transparent",
+    marginBottom: -1,
+  },
+  // Amarillo de la marca con borde negro: sobre el gris claro el amarillo
+  // solo no llega al 3:1 que pide un elemento gráfico (WCAG 1.4.11).
+  punto: {
+    position: "absolute",
+    top: -3,
+    right: -7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colores.acento,
+    borderWidth: 1.5,
+    borderColor: colores.marcaNegro,
+  },
+  pestanaActiva: { borderBottomColor: colores.acento },
+  pestanaTexto: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colores.tintaTenue,
+    textAlign: "center",
+    flexShrink: 1,
+  },
+  pestanaTextoActiva: { fontWeight: "700", color: colores.tinta },
+  pendienteIcono: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendienteTexto: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: colores.tinta,
+  },
 });

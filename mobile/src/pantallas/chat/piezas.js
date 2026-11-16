@@ -5,6 +5,7 @@ import { chatService } from "../../api/servicios";
 import { escucharMiEstado } from "../../chat/miEstado";
 import {
   extrasDePresencia,
+  colorDeEstado,
   ICONO_DE_ESTADO,
   iconoDePresencia,
   textoAvisoDeEstado,
@@ -24,7 +25,9 @@ import { crearEstilos } from "../../tema/tipografia";
 /** El color del ícono de presencia; el texto siempre lo acompaña. */
 function colorDePresencia(presencia) {
   const clave = presencia?.estado?.clave;
-  if (clave && clave !== "vacaciones_proximas") return colores.avisoTexto;
+  // Cada estado con su color (16/11/2026).
+  if (clave && clave !== "vacaciones_proximas")
+    return colorDeEstado(clave).color;
   return presencia?.en_linea ? colores.bienTexto : colores.tintaTenue;
 }
 
@@ -36,8 +39,17 @@ export function Presencia({ presencia, compacta = false, testID }) {
   const extras = extrasDePresencia(presencia);
   const completo = [texto, ...extras].join(" · ");
   return (
-    <View style={estilos.presencia} testID={testID} accessible accessibilityLabel={completo}>
-      <Icono nombre={iconoDePresencia(presencia)} size={14} color={colorDePresencia(presencia)} />
+    <View
+      style={estilos.presencia}
+      testID={testID}
+      accessible
+      accessibilityLabel={completo}
+    >
+      <Icono
+        nombre={iconoDePresencia(presencia)}
+        size={14}
+        color={colorDePresencia(presencia)}
+      />
       <Text style={estilos.presenciaTexto}>{compacta ? texto : completo}</Text>
     </View>
   );
@@ -49,8 +61,21 @@ export function AvisoDeEstado({ nombre, estado, testID }) {
   if (!texto) return null;
   const icono = ICONO_DE_ESTADO[estado.clave] ?? "calendar-clock";
   return (
-    <View style={estilos.aviso} testID={testID} accessible accessibilityLabel={texto}>
-      <Icono nombre={icono} size={18} color={colores.avisoTexto} />
+    <View
+      style={estilos.aviso}
+      testID={testID}
+      accessible
+      accessibilityLabel={texto}
+    >
+      <Icono
+        nombre={icono}
+        size={18}
+        color={
+          ICONO_DE_ESTADO[estado.clave]
+            ? colorDeEstado(estado.clave).color
+            : colores.avisoTexto
+        }
+      />
       <Text style={estilos.avisoTexto}>{texto}</Text>
     </View>
   );
@@ -60,8 +85,14 @@ export function AvisoDeEstado({ nombre, estado, testID }) {
 export function InsigniaSinLeer({ cantidad }) {
   if (!cantidad) return null;
   return (
-    <View style={estilos.insignia} accessible accessibilityLabel={textoSinLeer(cantidad)}>
-      <Text style={estilos.insigniaTexto}>{cantidad > 99 ? "99+" : cantidad}</Text>
+    <View
+      style={estilos.insignia}
+      accessible
+      accessibilityLabel={textoSinLeer(cantidad)}
+    >
+      <Text style={estilos.insigniaTexto}>
+        {cantidad > 99 ? "99+" : cantidad}
+      </Text>
     </View>
   );
 }
@@ -79,7 +110,9 @@ export const NOMBRES_DE_ESTADO = {
 /** La clave del estado que se ve («disponible» si no rige ninguno). */
 export function claveVigente(datos) {
   const vigente = datos?.vigente;
-  return vigente && vigente.clave !== "vacaciones_proximas" && NOMBRES_DE_ESTADO[vigente.clave]
+  return vigente &&
+    vigente.clave !== "vacaciones_proximas" &&
+    NOMBRES_DE_ESTADO[vigente.clave]
     ? vigente.clave
     : "disponible";
 }
@@ -89,7 +122,11 @@ export function claveVigente(datos) {
  * cuándo). Se lee al aparecer, al volver la app al frente y cuando se guarda
  * en «Mi estado». Lo usan la pestaña «Chat» y «Cuenta».
  */
-export function ResumenMiEstado({ onAbrir, testID = "resumen-mi-estado", compacta = false }) {
+export function ResumenMiEstado({
+  onAbrir,
+  testID = "resumen-mi-estado",
+  compacta = false,
+}) {
   const [datos, setDatos] = useState(null);
   const montado = useRef(true);
 
@@ -128,9 +165,25 @@ export function ResumenMiEstado({ onAbrir, testID = "resumen-mi-estado", compact
       accessibilityRole="button"
       accessibilityLabel={`Mi estado en el chat: ${nombre}${detalle && detalle !== nombre ? `. ${detalle}` : ""}`}
       accessibilityHint="Abre la pantalla para cambiar su estado"
-      style={({ pressed }) => [estilos.miEstado, compacta && estilos.miEstadoCompacto, pressed && estilos.presionado]}
+      style={({ pressed }) => [
+        estilos.miEstado,
+        compacta && estilos.miEstadoCompacto,
+        pressed && estilos.presionado,
+      ]}
     >
-      <Icono nombre={ICONO_DE_ESTADO[clave]} size={20} color={colores.primario} />
+      {/* El ícono del estado en su color, sobre su fondo (16/11/2026). */}
+      <View
+        style={[
+          estilos.miEstadoIcono,
+          { backgroundColor: colorDeEstado(clave).fondo },
+        ]}
+      >
+        <Icono
+          nombre={ICONO_DE_ESTADO[clave]}
+          size={20}
+          color={colorDeEstado(clave).color}
+        />
+      </View>
       {compacta ? (
         // Una sola fila en la pestaña «Chat» (auditoría UX, H-08).
         <View style={estilos.miEstadoTexto}>
@@ -138,13 +191,17 @@ export function ResumenMiEstado({ onAbrir, testID = "resumen-mi-estado", compact
             <Text style={estilos.miEstadoEtiqueta}>Mi estado: </Text>
             {nombre}
           </Text>
-          {detalle && detalle !== nombre ? <Text style={estilos.miEstadoDetalle}>{detalle}</Text> : null}
+          {detalle && detalle !== nombre ? (
+            <Text style={estilos.miEstadoDetalle}>{detalle}</Text>
+          ) : null}
         </View>
       ) : (
         <View style={estilos.miEstadoTexto}>
           <Text style={estilos.miEstadoEtiqueta}>Mi estado</Text>
           <Text style={estilos.miEstadoNombre}>{nombre}</Text>
-          {detalle && detalle !== nombre ? <Text style={estilos.miEstadoDetalle}>{detalle}</Text> : null}
+          {detalle && detalle !== nombre ? (
+            <Text style={estilos.miEstadoDetalle}>{detalle}</Text>
+          ) : null}
         </View>
       )}
       <Icono nombre="chevron-right" size={22} color={colores.tintaTenue} />
@@ -153,7 +210,12 @@ export function ResumenMiEstado({ onAbrir, testID = "resumen-mi-estado", compact
 }
 
 const estilos = crearEstilos({
-  presencia: { flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 },
+  presencia: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 1,
+  },
   presenciaTexto: { fontSize: 13, color: colores.tintaSuave, flexShrink: 1 },
   aviso: {
     flexDirection: "row",
@@ -166,7 +228,12 @@ const estilos = crearEstilos({
   avisoTexto: { flex: 1, fontSize: 14, color: colores.avisoTexto },
   // Sin alto fijo: con la letra al 200 % el número crece y la insignia con
   // él (N-01).
-  insignia: { ...CONTROLES.insignia, minWidth: 24, borderRadius: 12, justifyContent: "center" },
+  insignia: {
+    ...CONTROLES.insignia,
+    minWidth: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+  },
   insigniaTexto: CONTROLES.insigniaTexto,
   miEstado: {
     flexDirection: "row",
@@ -180,10 +247,22 @@ const estilos = crearEstilos({
     borderColor: colores.bordeControl,
     backgroundColor: colores.superficie,
   },
-  miEstadoCompacto: { paddingVertical: 4, borderWidth: 0, backgroundColor: "transparent", paddingHorizontal: 0 },
+  miEstadoCompacto: {
+    paddingVertical: 4,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    paddingHorizontal: 0,
+  },
   presionado: { backgroundColor: colores.realce },
   miEstadoTexto: { flex: 1 },
   miEstadoEtiqueta: { fontSize: 13, color: colores.tintaTenue },
   miEstadoNombre: { fontSize: 16, fontWeight: "600", color: colores.tinta },
+  miEstadoIcono: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   miEstadoDetalle: { fontSize: 13, color: colores.tintaSuave },
 });

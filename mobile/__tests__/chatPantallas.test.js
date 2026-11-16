@@ -503,6 +503,15 @@ describe("mi estado (CA-8)", () => {
     expect(screen.getByTestId("almuerzo-minutos")).toBeTruthy();
   });
 
+  it("al elegir otro estado después de «Almuerzo», el horario se vuelve a plegar (16/11/2026)", async () => {
+    await render(<MiEstado />);
+    await fireEvent.press(await screen.findByTestId("estado-almuerzo"));
+    expect(screen.getByTestId("almuerzo-minutos")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("estado-disponible"));
+    expect(screen.queryByTestId("almuerzo-minutos")).toBeNull();
+    expect(screen.getByTestId("almuerzo-plegable").props.accessibilityState).toMatchObject({ expanded: false });
+  });
+
   it("al elegir «Almuerzo», o si ya está en almuerzo, el horario se abre", async () => {
     await render(<MiEstado />);
     await fireEvent.press(await screen.findByRole("radio", { name: "Almuerzo" }));

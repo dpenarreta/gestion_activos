@@ -329,7 +329,7 @@ describe("pestaña «Chat» (CA-1)", () => {
     expect(await screen.findByText("Canal general")).toBeTruthy();
   });
 
-  it("US-016: «Mis grupos» filtra la lista en el teléfono a los grupos y los de área", async () => {
+  it("US-016: «Mis grupos» filtra la lista en el teléfono al general, los grupos y los de área", async () => {
     chatService.conversaciones.mockResolvedValue([
       ...CONVERSACIONES,
       { ...CONVERSACIONES[0], id: 7, tipo: "grupo", nombre: "Equipo TI" },
@@ -342,13 +342,15 @@ describe("pestaña «Chat» (CA-1)", () => {
     );
     expect(await screen.findByText("Equipo TI")).toBeTruthy();
     expect(screen.getByText("Cartera")).toBeTruthy();
-    expect(screen.queryByText("Canal general")).toBeNull();
+    // El canal general también (16/11/2026); los directos, no.
+    expect(screen.getByText("Canal general")).toBeTruthy();
     expect(screen.queryByText("Carla Ruiz")).toBeNull();
     // Sin API nueva: la misma lista de conversaciones.
     expect(chatService.conversaciones).toHaveBeenCalledTimes(1);
   });
 
   it("US-016: sin grupos, «Mis grupos» lo dice", async () => {
+    chatService.conversaciones.mockResolvedValue(CONVERSACIONES.filter((c) => c.tipo === "directa"));
     await render(
       <ChatProvider>
         <ListaChats soloGrupos />

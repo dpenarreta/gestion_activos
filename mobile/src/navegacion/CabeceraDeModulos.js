@@ -26,7 +26,7 @@ export function nombreDeLaCampana(noLeidas) {
   return noLeidas > 0 ? `Avisos: notificaciones, ${noLeidas} sin leer` : "Avisos: notificaciones";
 }
 
-export const NOMBRE_DE_CUENTA = "Cuenta: empresa y cerrar sesión";
+export const NOMBRE_DE_CUENTA = "Mi perfil: sus datos, empresa y cerrar sesión";
 
 /**
  * Un botón de la cabecera negra (Avisos y Cuenta): 48 × 48 dp como mínimo,

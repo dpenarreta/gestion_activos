@@ -1,21 +1,43 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
 
 import { anunciar } from "../accesibilidad/anunciar";
 import { mensajeDeError } from "../api/errores";
 import { notificacionesService } from "../api/servicios";
-import { Alerta, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../componentes/comunes";
+import {
+  Alerta,
+  Cargando,
+  ErrorConReintento,
+  Vacio,
+} from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
 import { volverAlModulo } from "../navegacion/abrir";
 import { esRutaDeModulo } from "../navegacion/modulos";
-import { destinoDeNotificacion, estaLeida, iconoDe } from "../notificaciones/abrir";
+import {
+  destinoDeNotificacion,
+  estaLeida,
+  iconoDe,
+} from "../notificaciones/abrir";
+import { coloresDe } from "../notificaciones/coloresDeModulo";
 import { useContador } from "../notificaciones/ContadorContext";
 import { rutaEnApp } from "../notificaciones/modulosEnApp";
 import { useSesion } from "../sesion/SesionContext";
 import { AREA_TACTIL, colores } from "../tema/colores";
 import { CONTROLES } from "../tema/controles";
-import { claveDeDia, grupoDeFecha, haceCuanto } from "../utils/fechas";
+import {
+  claveDeDia,
+  fechaCompleta,
+  grupoDeFecha,
+  haceCuantoLlego,
+} from "../utils/fechas";
 import { useMedianoche } from "../utils/useMedianoche";
 import { crearEstilos } from "../tema/tipografia";
 
@@ -24,7 +46,8 @@ import { crearEstilos } from "../tema/tipografia";
  * reciente a la más antigua, paginadas con scroll infinito y pull-to-refresh,
  * con filtro «No leídas» y «Marcar todas como leídas».
  */
-export const TEXTO_TODAS_LEIDAS = "Todas las notificaciones quedaron como leídas.";
+export const TEXTO_TODAS_LEIDAS =
+  "Todas las notificaciones quedaron como leídas.";
 
 /**
  * Las filas de la lista con un encabezado «Hoy», «Ayer» o «Anteriores» antes
@@ -90,7 +113,10 @@ export function ListaNotificaciones({ mapa } = {}) {
       if (refrescar) setRefrescando(true);
       else setEstado("cargando");
       try {
-        const datos = await notificacionesService.listar({ pagina: 1, soloNoLeidas });
+        const datos = await notificacionesService.listar({
+          pagina: 1,
+          soloNoLeidas,
+        });
         if (!montado.current || numero !== consulta.current) return;
         setItems(Array.isArray(datos?.results) ? datos.results : []);
         setSiguiente(datos?.next ? 2 : null);
@@ -99,7 +125,11 @@ export function ListaNotificaciones({ mapa } = {}) {
         setErrorMas(null);
       } catch (e) {
         if (!montado.current || numero !== consulta.current) return;
-        if (refrescar && estadoRef.current === "listo" && itemsRef.current.length > 0) {
+        if (
+          refrescar &&
+          estadoRef.current === "listo" &&
+          itemsRef.current.length > 0
+        ) {
           // Con la lista ya a la vista, un refresco fallido no la borra: se
           // conserva y se dice arriba (revisión de QA-UX, 12/11/2026).
           setAvisoAccion(
@@ -107,11 +137,14 @@ export function ListaNotificaciones({ mapa } = {}) {
               " Se muestran las anteriores.",
           );
         } else {
-          setError(mensajeDeError(e, "No se pudieron cargar las notificaciones."));
+          setError(
+            mensajeDeError(e, "No se pudieron cargar las notificaciones."),
+          );
           setEstado("error");
         }
       } finally {
-        if (montado.current && numero === consulta.current) setRefrescando(false);
+        if (montado.current && numero === consulta.current)
+          setRefrescando(false);
       }
     },
     [soloNoLeidas],
@@ -144,7 +177,10 @@ export function ListaNotificaciones({ mapa } = {}) {
     setErrorMas(null);
     setCargandoMas(true);
     try {
-      const datos = await notificacionesService.listar({ pagina: siguiente, soloNoLeidas });
+      const datos = await notificacionesService.listar({
+        pagina: siguiente,
+        soloNoLeidas,
+      });
       if (!montado.current || numero !== consulta.current) return;
       const nuevos = Array.isArray(datos?.results) ? datos.results : [];
       setItems((actuales) => {
@@ -153,7 +189,10 @@ export function ListaNotificaciones({ mapa } = {}) {
       });
       setSiguiente(datos?.next ? siguiente + 1 : null);
     } catch (e) {
-      if (montado.current) setErrorMas(mensajeDeError(e, "No se pudieron cargar más notificaciones."));
+      if (montado.current)
+        setErrorMas(
+          mensajeDeError(e, "No se pudieron cargar más notificaciones."),
+        );
     } finally {
       if (montado.current) setCargandoMas(false);
     }
@@ -178,7 +217,9 @@ export function ListaNotificaciones({ mapa } = {}) {
       // Se ve leída enseguida; el detalle (o aquí, si va a otra pantalla de
       // la app) la marca en el servidor.
       setItems((actuales) =>
-        actuales.map((n) => (n.id === notificacion.id ? { ...n, leida: true } : n)),
+        actuales.map((n) =>
+          n.id === notificacion.id ? { ...n, leida: true } : n,
+        ),
       );
       if (rutaEnApp(notificacion, mapa)) {
         notificacionesService
@@ -208,55 +249,107 @@ export function ListaNotificaciones({ mapa } = {}) {
   const cabecera = (
     <View style={estilos.cabecera}>
       <View style={estilos.filaCabecera}>
-        {/* La pregunta se ve y se lee (revisión UX, ronda 2). */}
-        <Text style={estilos.pregunta} accessibilityRole="header">
-          Mostrar
-        </Text>
-        <View style={estilos.filtros} accessibilityRole="radiogroup" accessibilityLabel="Mostrar">
+        {/* Sin el texto «Mostrar» (16/11/2026, a pedido del usuario, para
+            ganar espacio): el lector lo sigue diciendo, es el nombre del
+            grupo de filtros. */}
+        <View
+          style={estilos.filtros}
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Mostrar"
+        >
           {[
             { valor: false, texto: "Todas" },
             { valor: true, texto: "No leídas" },
           ].map((opcion) => {
             const activa = soloNoLeidas === opcion.valor;
+            // «No leídas» con su contador encima, como un punto con número
+            // (16/11/2026, a pedido del usuario).
+            const cuenta = opcion.valor ? noLeidas : 0;
             return (
               <Pressable
                 key={opcion.texto}
                 onPress={() => setSoloNoLeidas(opcion.valor)}
                 accessibilityRole="radio"
+                accessibilityLabel={
+                  cuenta > 0
+                    ? `${opcion.texto}, ${cuenta} sin leer`
+                    : opcion.texto
+                }
                 accessibilityState={{ checked: activa }}
                 accessibilityHint="Mostrar"
                 style={[estilos.chip, activa && estilos.chipActivo]}
               >
-                <Text style={[estilos.chipTexto, activa && estilos.chipTextoActivo]}>{opcion.texto}</Text>
+                <Text
+                  style={[estilos.chipTexto, activa && estilos.chipTextoActivo]}
+                >
+                  {opcion.texto}
+                </Text>
+                {cuenta > 0 ? (
+                  <View style={estilos.contador} testID="contador-no-leidas">
+                    <Text style={estilos.contadorTexto}>
+                      {cuenta > 99 ? "99+" : cuenta}
+                    </Text>
+                  </View>
+                ) : null}
               </Pressable>
             );
           })}
         </View>
         {noLeidas > 0 && (
           <View style={estilos.marcarTodas}>
-            <BotonIcono
+            {/* Con texto visible y sin ícono, del tamaño de las píldoras,
+                para que los 3 entren en una línea (16/11/2026, a pedido del
+                usuario). Si no cabe, el texto pasa a 2 líneas. */}
+            <Pressable
               testID="marcar-todas"
-              icono="check-all"
-              etiqueta="Marcar todas como leídas"
-              variante="contorno"
-              cargando={marcando}
               onPress={marcarTodas}
-            />
+              disabled={marcando}
+              accessibilityRole="button"
+              accessibilityLabel="Marcar todo como leído"
+              accessibilityState={{ disabled: marcando, busy: marcando }}
+              style={({ pressed }) => [
+                estilos.chip,
+                estilos.chipMarcar,
+                marcando && estilos.inactivo,
+                pressed && estilos.presionado,
+              ]}
+            >
+              {marcando ? (
+                <ActivityIndicator size="small" color={colores.primario} />
+              ) : null}
+              <Text style={[estilos.chipTexto, estilos.chipMarcarTexto]}>
+                Marcar todo como leído
+              </Text>
+            </Pressable>
           </View>
         )}
       </View>
-      {avisoAccion && <Alerta texto={avisoAccion.texto} clave={avisoAccion.clave} tipo="mal" />}
+      {avisoAccion && (
+        <Alerta
+          texto={avisoAccion.texto}
+          clave={avisoAccion.clave}
+          tipo="mal"
+        />
+      )}
     </View>
   );
 
   let cuerpoVacio = null;
-  if (estado === "cargando") cuerpoVacio = <Cargando texto="Cargando notificaciones…" />;
-  else if (estado === "error") cuerpoVacio = <ErrorConReintento texto={error} onReintentar={() => cargar()} />;
+  if (estado === "cargando")
+    cuerpoVacio = <Cargando texto="Cargando notificaciones…" />;
+  else if (estado === "error")
+    cuerpoVacio = (
+      <ErrorConReintento texto={error} onReintentar={() => cargar()} />
+    );
   else
     cuerpoVacio = (
       <Vacio
         icono="bell-off-outline"
-        texto={soloNoLeidas ? "No tiene notificaciones sin leer." : "No tiene notificaciones."}
+        texto={
+          soloNoLeidas
+            ? "No tiene notificaciones sin leer."
+            : "No tiene notificaciones."
+        }
       />
     );
 
@@ -281,17 +374,27 @@ export function ListaNotificaciones({ mapa } = {}) {
           </View>
         ) : errorMas ? (
           <View style={estilos.pie}>
-            <ErrorConReintento texto={errorMas} onReintentar={() => cargarMas({ reintento: true })} />
+            <ErrorConReintento
+              texto={errorMas}
+              onReintentar={() => cargarMas({ reintento: true })}
+            />
           </View>
         ) : null
       }
       renderItem={({ item }) =>
         item.encabezado ? (
-          <Text style={estilos.grupo} accessibilityRole="header" testID={item.clave}>
+          <Text
+            style={estilos.grupo}
+            accessibilityRole="header"
+            testID={item.clave}
+          >
             {item.encabezado}
           </Text>
         ) : (
-          <ElementoNotificacion notificacion={item.notificacion} onAbrir={abrir} />
+          <ElementoNotificacion
+            notificacion={item.notificacion}
+            onAbrir={abrir}
+          />
         )
       }
       onEndReached={() => cargarMas()}
@@ -311,13 +414,16 @@ export function ListaNotificaciones({ mapa } = {}) {
 
 export function ElementoNotificacion({ notificacion, onAbrir }) {
   const leida = estaLeida(notificacion);
-  const fecha = haceCuanto(notificacion.created_at);
+  const fecha = haceCuantoLlego(notificacion.created_at);
+  const dia = fechaCompleta(notificacion.created_at);
+  const color = coloresDe(notificacion);
   const etiqueta = [
     leida ? null : "Sin leer",
     notificacion.modulo_nombre,
     notificacion.titulo,
     notificacion.resumen,
     fecha,
+    dia ? `llegó el ${dia}` : null,
   ]
     .filter(Boolean)
     .join(". ");
@@ -328,18 +434,65 @@ export function ElementoNotificacion({ notificacion, onAbrir }) {
       accessibilityRole="button"
       accessibilityLabel={etiqueta}
       accessibilityHint="Abre el detalle"
-      style={({ pressed }) => [estilos.item, !leida && estilos.itemNuevo, pressed && estilos.presionado]}
+      style={({ pressed }) => [
+        estilos.item,
+        !leida && estilos.itemNuevo,
+        pressed && estilos.presionado,
+      ]}
     >
-      <View style={estilos.icono}>
-        <Icono bootstrap={iconoDe(notificacion)} size={22} color={colores.primario} />
+      {/* Sin leer: el punto arriba a la izquierda (16/11/2026). */}
+      {!leida && (
+        <View style={estilos.punto} testID={`sin-leer-${notificacion.id}`} />
+      )}
+      {/* Cada módulo con su color (16/11/2026): el ícono sobre su fondo
+          claro, en un cuadro redondeado. */}
+      <View
+        style={[estilos.icono, { backgroundColor: color.fondo }]}
+        testID={`icono-${notificacion.id}`}
+      >
+        <Icono
+          bootstrap={iconoDe(notificacion)}
+          size={22}
+          color={color.icono}
+        />
       </View>
       <View style={estilos.texto}>
-        <Text style={estilos.modulo}>{notificacion.modulo_nombre}</Text>
-        <Text style={[estilos.titulo, !leida && estilos.tituloNuevo]}>{notificacion.titulo}</Text>
-        {notificacion.resumen ? <Text style={estilos.resumen}>{notificacion.resumen}</Text> : null}
-        <Text style={estilos.fecha}>{fecha}</Text>
+        {/* El módulo a la izquierda y hace cuánto llegó arriba a la
+            derecha (16/11/2026, a pedido del usuario). Con letra grande, la
+            fecha baja a la línea siguiente. */}
+        <View style={estilos.filaSuperior}>
+          <View
+            style={[estilos.etiqueta, { backgroundColor: color.etiqueta }]}
+            testID={`etiqueta-${notificacion.id}`}
+          >
+            <Text style={estilos.etiquetaTexto}>
+              {notificacion.modulo_nombre}
+            </Text>
+          </View>
+          <View style={estilos.filaFecha}>
+            <Icono
+              nombre="clock-outline"
+              size={14}
+              color={colores.tintaTenue}
+            />
+            <Text style={estilos.fecha} testID={`llego-${notificacion.id}`}>
+              {fecha}
+            </Text>
+          </View>
+        </View>
+        <Text style={[estilos.titulo, !leida && estilos.tituloNuevo]}>
+          {notificacion.titulo}
+        </Text>
+        {notificacion.resumen ? (
+          <Text style={estilos.resumen}>{notificacion.resumen}</Text>
+        ) : null}
+        {/* El día y la hora en que llegó, abajo a la derecha. */}
+        {dia ? (
+          <Text style={estilos.dia} testID={`dia-${notificacion.id}`}>
+            {dia}
+          </Text>
+        ) : null}
       </View>
-      {!leida && <View style={estilos.punto} />}
     </Pressable>
   );
 }
@@ -348,15 +501,27 @@ const estilos = crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 8, flexGrow: 1 },
   cabecera: { gap: 12, marginBottom: 8 },
-  filaCabecera: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
+  filaCabecera: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   pregunta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
-  filtros: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  marcarTodas: { marginLeft: "auto" },
-  chip: { ...CONTROLES.pildora, paddingHorizontal: 16 },
+  filtros: { flexDirection: "row", gap: 6 },
+  marcarTodas: { marginLeft: "auto", flexShrink: 1 },
+  chip: { ...CONTROLES.pildora, paddingHorizontal: 12 },
+  chipMarcar: { flexShrink: 1, paddingHorizontal: 10 },
+  chipMarcarTexto: { fontSize: 13, fontWeight: "600", textAlign: "center" },
+  inactivo: { opacity: 0.6 },
   chipActivo: CONTROLES.pildoraActiva,
-  chipTexto: { ...CONTROLES.pildoraTexto, fontWeight: "400" },
+  chipTexto: { ...CONTROLES.pildoraTexto, fontSize: 14, fontWeight: "400" },
   chipTextoActivo: { ...CONTROLES.pildoraTextoActivo, fontWeight: "600" },
-  grupo: { fontSize: 14, fontWeight: "700", color: colores.tintaSuave, marginTop: 8 },
+  grupo: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colores.tintaSuave,
+    marginTop: 8,
+  },
   item: {
     flexDirection: "row",
     gap: 12,
@@ -367,22 +532,78 @@ const estilos = crearEstilos({
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  itemNuevo: { borderColor: colores.primario, backgroundColor: colores.realce },
+  itemNuevo: {
+    borderColor: colores.bordeRealce,
+    backgroundColor: colores.realceSuave,
+  },
   presionado: { opacity: 0.85 },
   icono: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colores.acento,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  texto: { flex: 1, gap: 2 },
-  modulo: { fontSize: 13, color: colores.tintaTenue },
+  texto: { flex: 1, gap: 4 },
+  etiqueta: {
+    flexShrink: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  etiquetaTexto: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
+  contador: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    backgroundColor: colores.malTexto,
+    borderWidth: 2,
+    borderColor: colores.fondo,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contadorTexto: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
+  modulo: { fontSize: 13, color: colores.tintaTenue, flexShrink: 1 },
   titulo: { fontSize: 16, color: colores.tinta },
   tituloNuevo: { fontWeight: "700" },
   resumen: { fontSize: 14, color: colores.tintaSuave },
-  fecha: { fontSize: 13, color: colores.tintaTenue },
-  punto: { width: 10, height: 10, borderRadius: 5, backgroundColor: colores.primario, marginTop: 6 },
+  fecha: { fontSize: 13, color: colores.tintaTenue, flexShrink: 1 },
+  dia: {
+    fontSize: 12,
+    color: colores.tintaTenue,
+    textAlign: "right",
+    marginTop: 4,
+  },
+  filaSuperior: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    columnGap: 8,
+  },
+  filaFecha: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+  },
+  punto: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    zIndex: 1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    // Ámbar dorado (16/11/2026, prueba pedida por el usuario) con borde
+    // ámbar oscuro: sobre el gris, el amarillo solo no llega al 3:1.
+    backgroundColor: "#F59E0B",
+    borderWidth: 2,
+    borderColor: "#B45309",
+  },
   pie: { padding: 16 },
 });

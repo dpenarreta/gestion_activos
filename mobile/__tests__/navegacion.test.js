@@ -568,7 +568,7 @@ describe("la cabecera de los módulos (CA-1 y CA-5)", () => {
     await fireEvent.press(screen.getByRole("button", { name: NOMBRE_DE_CUENTA }));
     expect(mockRouter.push).toHaveBeenCalledWith("/cuenta");
     expect(nombreDeLaCampana(0)).toBe("Avisos: notificaciones");
-    expect(NOMBRE_DE_CUENTA).toBe("Cuenta: empresa y cerrar sesión");
+    expect(NOMBRE_DE_CUENTA).toBe("Mi perfil: sus datos, empresa y cerrar sesión");
   });
 
   it("CA-5 y H-07: el logotipo LAARCOURIER en negativo, a 192 × 32, es el encabezado", async () => {

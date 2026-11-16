@@ -101,10 +101,18 @@ describe("lista de notificaciones", () => {
     await render(<ListaNotificaciones />);
     await screen.findByText("No tiene notificaciones.");
 
-    await fireEvent.press(screen.getByRole("radio", { name: "No leídas" }));
+    await fireEvent.press(screen.getByRole("radio", { name: /^No leídas/ }));
 
     expect(await screen.findByText("No tiene notificaciones sin leer.")).toBeTruthy();
     expect(notificacionesService.listar).toHaveBeenLastCalledWith({ pagina: 1, soloNoLeidas: true });
+  });
+
+  it("«No leídas» lleva encima el contador de pendientes", async () => {
+    notificacionesService.listar.mockResolvedValue(pagina([]));
+    await render(<ListaNotificaciones />);
+    await screen.findByText("No tiene notificaciones.");
+    expect(screen.getByTestId("contador-no-leidas")).toHaveTextContent("1");
+    expect(screen.getByRole("radio", { name: "No leídas, 1 sin leer" })).toBeTruthy();
   });
 
   it("al tocar una notificación de un módulo que no está en la app abre su detalle", async () => {
@@ -145,7 +153,7 @@ describe("lista de notificaciones", () => {
     await render(<ListaNotificaciones />);
     await screen.findByText("Le asignaron un ticket");
 
-    await fireEvent.press(screen.getByRole("button", { name: "Marcar todas como leídas" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Marcar todo como leído" }));
 
     expect(notificacionesService.leerTodas).toHaveBeenCalledTimes(1);
     expect(mockContador.recargar).toHaveBeenCalled();
@@ -159,14 +167,14 @@ describe("lista de notificaciones", () => {
     await screen.findByText("Le asignaron un ticket");
 
     notificacionesService.listar.mockRejectedValueOnce(errorDeRed());
-    await fireEvent.press(screen.getByRole("button", { name: "Marcar todas como leídas" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Marcar todo como leído" }));
 
     expect(await screen.findByText(/Se muestran las anteriores\./)).toBeTruthy();
     expect(screen.getByText("Le asignaron un ticket")).toBeTruthy();
 
     // La siguiente carga sale bien: el aviso se va.
     notificacionesService.listar.mockResolvedValueOnce(pagina([notificacion({ leida: true })]));
-    await fireEvent.press(screen.getByRole("button", { name: "Marcar todas como leídas" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Marcar todo como leído" }));
     await waitFor(() => expect(screen.queryByText(/Se muestran las anteriores\./)).toBeNull());
   });
 
@@ -178,9 +186,9 @@ describe("lista de notificaciones", () => {
     await screen.findByText("Le asignaron un ticket");
 
     notificacionesService.listar.mockRejectedValue(errorDeRed());
-    await fireEvent.press(screen.getByRole("button", { name: "Marcar todas como leídas" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Marcar todo como leído" }));
     await screen.findByText(/Se muestran las anteriores\./);
-    await fireEvent.press(screen.getByRole("button", { name: "Marcar todas como leídas" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Marcar todo como leído" }));
     await screen.findByText(/Se muestran las anteriores\./);
 
     const avisos = anuncio.mock.calls.filter(([t]) => /Se muestran las anteriores/.test(t));
@@ -364,8 +372,8 @@ describe("agrupación por día (H-23) y cabecera en una fila (H-11)", () => {
     await render(<ListaNotificaciones />);
     await screen.findByText("De ayer");
     const encabezados = screen.getAllByRole("header");
-    expect(encabezados).toHaveLength(3);
-    ["Mostrar", "Hoy", "Ayer"].forEach((texto, i) => expect(encabezados[i]).toHaveTextContent(texto, { exact: true }));
+    expect(encabezados).toHaveLength(2);
+    ["Hoy", "Ayer"].forEach((texto, i) => expect(encabezados[i]).toHaveTextContent(texto, { exact: true }));
   });
 
   it("a las 00:00:05 «Hoy» pasa a «Ayer» solo, sin otro render (O3)", async () => {
@@ -410,13 +418,45 @@ describe("agrupación por día (H-23) y cabecera en una fila (H-11)", () => {
     }
   });
 
-  it("«Mostrar» sigue a la vista y «Marcar todas» es un ícono con nombre", async () => {
+  it("sin el texto «Mostrar» (lo dice el lector) y «Marcar todo como leído» lleva su texto a la vista", async () => {
     notificacionesService.listar.mockResolvedValue(pagina([notificacion()]));
     await render(<ListaNotificaciones />);
     await screen.findByText("Le asignaron un ticket");
-    expect(screen.getByText("Mostrar")).toBeTruthy();
+    expect(screen.queryByText("Mostrar")).toBeNull();
+    expect(screen.getByLabelText("Mostrar")).toBeTruthy();
     const marcar = screen.getByTestId("marcar-todas");
-    expect(marcar.props.accessibilityLabel).toBe("Marcar todas como leídas");
+    expect(marcar.props.accessibilityLabel).toBe("Marcar todo como leído");
     expect(marcar.props.accessibilityRole).toBe("button");
+    expect(screen.getByText("Marcar todo como leído")).toBeTruthy();
+  });
+});
+
+describe("haceCuantoLlego (16/11/2026)", () => {
+  const { haceCuantoLlego } = require("../src/utils/fechas");
+  const ahora = new Date(2026, 10, 16, 10, 0);
+  const antes = (min) => new Date(ahora.getTime() - min * 60_000);
+  it("siempre dice hace cuánto, sin la fecha", () => {
+    expect(haceCuantoLlego(antes(0), ahora)).toBe("hace un momento");
+    expect(haceCuantoLlego(antes(5), ahora)).toBe("hace 5 min");
+    expect(haceCuantoLlego(antes(180), ahora)).toBe("hace 3 h");
+    expect(haceCuantoLlego(antes(30 * 60), ahora)).toBe("ayer");
+    expect(haceCuantoLlego(new Date(2026, 10, 13, 9, 0), ahora)).toBe("hace 3 días");
+    expect(haceCuantoLlego(new Date(2026, 10, 2, 9, 0), ahora)).toBe("hace 2 semanas");
+    expect(haceCuantoLlego(new Date(2026, 8, 16, 9, 0), ahora)).toBe("hace 2 meses");
+    expect(haceCuantoLlego(new Date(2025, 10, 1, 9, 0), ahora)).toBe("hace 1 año");
+    expect(haceCuantoLlego("no", ahora)).toBe("");
+  });
+});
+
+describe("colores por módulo (16/11/2026)", () => {
+  const { coloresDe, COLORES_DE_MODULO } = require("../src/notificaciones/coloresDeModulo");
+  it("cada módulo con su familia; lo desconocido, neutro", () => {
+    expect(coloresDe({ modulo: "soporte" })).toBe(COLORES_DE_MODULO.soporte);
+    expect(coloresDe({ modulo: "licencias" })).toBe(COLORES_DE_MODULO.permisos);
+    expect(coloresDe({ modulo: "procesos" })).toBe(COLORES_DE_MODULO.institucional);
+    expect(coloresDe({ modulo: "llamados" })).toBe(COLORES_DE_MODULO.gestionHumana);
+    expect(coloresDe({ modulo: "descargas" })).toBe(COLORES_DE_MODULO.auditoria);
+    expect(coloresDe({ tipo: "matriz.recordatorio" })).toBe(COLORES_DE_MODULO.matriz);
+    expect(coloresDe({ modulo: "otro" })).toBe(COLORES_DE_MODULO.sistema);
   });
 });

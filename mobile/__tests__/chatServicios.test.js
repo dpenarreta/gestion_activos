@@ -279,7 +279,7 @@ describe("formato del chat", () => {
     expect(textoPresencia({ en_linea: false, ultima_conexion: null })).toBe("Sin conexiones");
     const almuerzo = { clave: "almuerzo", detalle: "En almuerzo hasta las 13:30", mensaje: "" };
     expect(textoPresencia({ en_linea: true, estado: almuerzo })).toBe("En almuerzo hasta las 13:30");
-    expect(iconoDePresencia({ en_linea: true, estado: almuerzo })).toBe("coffee-outline");
+    expect(iconoDePresencia({ en_linea: true, estado: almuerzo })).toBe("silverware-fork-knife");
     expect(iconoDePresencia({ en_linea: true })).toBe("circle");
     expect(iconoDePresencia({ en_linea: false })).toBe("circle-outline");
   });
@@ -325,5 +325,17 @@ describe("formato del chat", () => {
     expect(erroresDeVacaciones("2026-11-20", "2026-11-18")).toEqual({
       vacaciones_hasta: "«Hasta» no puede ser antes de «Desde».",
     });
+  });
+});
+
+describe("colores de los estados (16/11/2026)", () => {
+  const { colorDeEstado, ICONO_DE_ESTADO } = require("../src/chat/formato");
+  it("disponible en verde, almuerzo naranja con comida, vacaciones con playa, no disponible en rojo", () => {
+    expect(colorDeEstado("disponible").color).toBe("#15803D");
+    expect(colorDeEstado("almuerzo").color).toBe("#C2410C");
+    expect(ICONO_DE_ESTADO.almuerzo).toBe("silverware-fork-knife");
+    expect(ICONO_DE_ESTADO.vacaciones).toBe("beach");
+    expect(colorDeEstado("no_disponible").color).toBe("#B91C1C");
+    expect(colorDeEstado("otro").color).toBe("#444444");
   });
 });

@@ -1,4 +1,10 @@
-import { aHora, claveDeDia, diaMesAnio, diasAtras, haceCuanto } from "../utils/fechas";
+import {
+  aHora,
+  claveDeDia,
+  diaMesAnio,
+  diasAtras,
+  haceCuanto,
+} from "../utils/fechas";
 
 export { claveDeDia };
 
@@ -26,10 +32,11 @@ export function esGrupal(conversacion) {
   return conversacion?.tipo !== "directa";
 }
 
-/** «Mis grupos» (US-016, 13/11/2026): los grupos y los de área a los que
- * pertenece; sin el canal general (es de toda la empresa) ni los directos. */
+/** «Mis grupos» (US-016, 13/11/2026): el canal general (desde el
+ * 16/11/2026, a pedido del usuario: también es un grupo, el de toda la
+ * empresa), los grupos y los de área a los que pertenece; sin los directos. */
 export function esDeMisGrupos(conversacion) {
-  return conversacion?.tipo === "grupo" || conversacion?.tipo === "area";
+  return ["general", "grupo", "area"].includes(conversacion?.tipo);
 }
 
 /** «1 mensaje sin leer», «3 mensajes sin leer» (lo que oye el lector en
@@ -41,12 +48,17 @@ export function textoSinLeer(cantidad) {
 /** La línea del último mensaje en la lista, como la web. */
 export function textoUltimo(conversacion) {
   const ultimo = conversacion?.ultimo;
-  if (ultimo) return `${ultimo.propio ? "Usted" : ultimo.autor}: ${ultimo.texto}`;
+  if (ultimo)
+    return `${ultimo.propio ? "Usted" : ultimo.autor}: ${ultimo.texto}`;
   return conversacion?.tipo === "general" ? "Toda la empresa" : "Sin mensajes";
 }
 
 function mismoDia(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 /** La hora de la lista: «09:05» si es de hoy y «12/11/2026» si no. Sin
@@ -76,7 +88,10 @@ export function iniciales(nombre) {
     .split(/\s+/)
     .filter(Boolean);
   if (partes.length === 0) return "?";
-  const letras = partes.length === 1 ? partes[0].slice(0, 2) : `${partes[0][0]}${partes[1][0]}`;
+  const letras =
+    partes.length === 1
+      ? partes[0].slice(0, 2)
+      : `${partes[0][0]}${partes[1][0]}`;
   return letras.toUpperCase();
 }
 
@@ -122,7 +137,9 @@ export function extrasDePresencia(presencia) {
   return [
     elegido?.clave === "vacaciones_proximas" ? elegido.detalle : null,
     elegido?.mensaje ? `«${elegido.mensaje}»` : null,
-    vigente && elegido?.reemplazo?.nombre ? textoDeReemplazo(elegido.reemplazo.nombre) : null,
+    vigente && elegido?.reemplazo?.nombre
+      ? textoDeReemplazo(elegido.reemplazo.nombre)
+      : null,
   ].filter(Boolean);
 }
 
@@ -132,17 +149,37 @@ export function extrasDePresencia(presencia) {
  * nunca se dice solo con el color (CA-8).
  */
 export const ICONO_DE_ESTADO = {
-  disponible: "check-circle-outline",
-  almuerzo: "coffee-outline",
-  reunion: "account-group-outline",
-  no_disponible: "minus-circle-outline",
-  vacaciones: "airplane",
+  disponible: "check-circle",
+  almuerzo: "silverware-fork-knife",
+  reunion: "account-group",
+  no_disponible: "minus-circle",
+  vacaciones: "beach",
   fuera_oficina: "exit-run",
 };
 
+/**
+ * El color de cada estado (16/11/2026, a pedido del usuario): disponible en
+ * verde, almuerzo en naranja, no disponible en rojo, vacaciones en cian con
+ * la playa… Tonos -700, ≥ 4,5:1 sobre blanco y sobre su `fondo`, para el
+ * ícono y para el texto. Siempre con su ícono y su nombre (CA-8).
+ */
+export const COLOR_DE_ESTADO = {
+  disponible: { color: "#15803D", fondo: "#DCFCE7" },
+  almuerzo: { color: "#C2410C", fondo: "#FFEDD5" },
+  reunion: { color: "#1D4ED8", fondo: "#DBEAFE" },
+  no_disponible: { color: "#B91C1C", fondo: "#FEE2E2" },
+  vacaciones: { color: "#0E7490", fondo: "#CFFAFE" },
+  fuera_oficina: { color: "#7E22CE", fondo: "#F3E8FF" },
+};
+
+export function colorDeEstado(clave) {
+  return COLOR_DE_ESTADO[clave] ?? { color: "#444444", fondo: "#EBEBEB" };
+}
+
 export function iconoDePresencia(presencia) {
   const elegido = elegidoVigente(presencia);
-  if (elegido && ICONO_DE_ESTADO[elegido.clave]) return ICONO_DE_ESTADO[elegido.clave];
+  if (elegido && ICONO_DE_ESTADO[elegido.clave])
+    return ICONO_DE_ESTADO[elegido.clave];
   return presencia?.en_linea ? "circle" : "circle-outline";
 }
 
@@ -151,10 +188,14 @@ export function iconoDePresencia(presencia) {
 export function textoAvisoDeEstado(nombre, estado) {
   if (!estado?.detalle) return "";
   const proximas = estado.clave === "vacaciones_proximas";
-  const detalle = estado.detalle.charAt(0).toLowerCase() + estado.detalle.slice(1);
-  let texto = proximas ? `${nombre} ${detalle}.` : `${nombre} está ${detalle}: verá su mensaje al volver.`;
+  const detalle =
+    estado.detalle.charAt(0).toLowerCase() + estado.detalle.slice(1);
+  let texto = proximas
+    ? `${nombre} ${detalle}.`
+    : `${nombre} está ${detalle}: verá su mensaje al volver.`;
   if (estado.mensaje) texto += ` «${estado.mensaje}»`;
-  if (estado.reemplazo?.nombre) texto += ` ${textoDeReemplazo(estado.reemplazo.nombre)}.`;
+  if (estado.reemplazo?.nombre)
+    texto += ` ${textoDeReemplazo(estado.reemplazo.nombre)}.`;
   return texto;
 }
 
@@ -168,13 +209,20 @@ export function textoAvisoDeEstado(nombre, estado) {
 export function estadoDeLectura(mensaje, lecturas, grupal) {
   const lista = Array.isArray(lecturas) ? lecturas : [];
   if (lista.length === 0 || !mensaje?.id) return null;
-  const leyeron = lista.filter((l) => Number(l.ultimo_leido) >= Number(mensaje.id));
-  const pendientes = lista.filter((l) => Number(l.ultimo_leido) < Number(mensaje.id));
+  const leyeron = lista.filter(
+    (l) => Number(l.ultimo_leido) >= Number(mensaje.id),
+  );
+  const pendientes = lista.filter(
+    (l) => Number(l.ultimo_leido) < Number(mensaje.id),
+  );
   const todos = leyeron.length === lista.length;
   let texto;
   if (!grupal) texto = leyeron.length ? "Leído" : "Enviado";
   else if (todos) texto = "Leído por todos";
-  else texto = leyeron.length ? `Leído por ${leyeron.length} de ${lista.length}` : "Enviado";
+  else
+    texto = leyeron.length
+      ? `Leído por ${leyeron.length} de ${lista.length}`
+      : "Enviado";
   return { texto, leido: leyeron.length > 0, todos, leyeron, pendientes };
 }
 
@@ -184,5 +232,7 @@ export function textoLeidoEn(leidoEn, ahora = new Date()) {
   if (!leidoEn) return "Lo leyó";
   const fecha = new Date(leidoEn);
   if (Number.isNaN(fecha.getTime())) return "Lo leyó";
-  return mismoDia(fecha, ahora) ? `Lo leyó a las ${aHora(fecha)}` : `Lo leyó el ${horaDeMensaje(leidoEn, ahora)}`;
+  return mismoDia(fecha, ahora)
+    ? `Lo leyó a las ${aHora(fecha)}`
+    : `Lo leyó el ${horaDeMensaje(leidoEn, ahora)}`;
 }

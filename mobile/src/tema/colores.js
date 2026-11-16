@@ -50,6 +50,12 @@ export const colores = {
   presionadoOscuro: "#2E2E2E",
   enlace: "#6B5B00",
   realce: "#FFF9D1",
+  // Lo pendiente sin llamar tanto la atención (avisos sin leer, 16/11/2026):
+  // a pedido del usuario, un gris (plomo) suave en vez del amarillo, que
+  // desentonaba. Se distingue del blanco de las leídas; el estado no depende
+  // de este color: también lo dicen el punto, la negrita y «Sin leer».
+  realceSuave: "#EAEAEA",
+  bordeRealce: "#C4C4C4",
 
   fondo: "#F4F4F4",
   superficie: "#ffffff",

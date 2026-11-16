@@ -1,9 +1,18 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import { AccessibilityInfo, Platform, Text } from "react-native";
 
 import { inicioService, notificacionesService } from "../src/api/servicios";
-import { ContadorProvider, useContador } from "../src/notificaciones/ContadorContext";
+import {
+  ContadorProvider,
+  useContador,
+} from "../src/notificaciones/ContadorContext";
 import { CarruselNoticias } from "../src/pantallas/CarruselNoticias";
 import * as ChatContext from "../src/chat/ChatContext";
 import * as ContadorContext from "../src/notificaciones/ContadorContext";
@@ -30,12 +39,24 @@ jest.mock("../src/sesion/SesionContext", () => ({
   useSesion: () => mockSesion,
 }));
 
+// El calendario tiene sus propias pruebas (calendarioInicio.test.js).
+jest.mock("../src/pantallas/CalendarioInicio", () => {
+  const { Text } = require("react-native");
+  return {
+    CalendarioInicio: ({ recarga }) => (
+      <Text testID="calendario-inicio">{`recarga ${recarga}`}</Text>
+    ),
+  };
+});
+
 jest.mock("../src/api/servicios", () => ({
   inicioService: {
     misDatos: jest.fn(),
     noticias: jest.fn(),
     carrusel: jest.fn(async () => ({ segundos: 6 })),
-    rutaImagenNoticia: (id) => `https://api/organizacion/noticias/${id}/imagen/`,
+    calendario: jest.fn(async () => []),
+    rutaImagenNoticia: (id) =>
+      `https://api/organizacion/noticias/${id}/imagen/`,
   },
   notificacionesService: { resumen: jest.fn() },
 }));
@@ -52,7 +73,12 @@ function pendiente() {
 }
 
 const NOTICIAS = [
-  { id: 1, titulo: "Aniversario", descripcion: "Celebramos 20 años", texto_alternativo: "Equipo en la oficina" },
+  {
+    id: 1,
+    titulo: "Aniversario",
+    descripcion: "Celebramos 20 años",
+    texto_alternativo: "Equipo en la oficina",
+  },
   { id: 2, titulo: "Capacitación", descripcion: "", texto_alternativo: "" },
 ];
 
@@ -70,9 +96,13 @@ describe("Inicio: el cargo", () => {
     await render(<Inicio />);
 
     expect(screen.getByText("Hola, Ana")).toBeTruthy();
-    expect(screen.queryByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20)))).toBeNull();
+    expect(
+      screen.queryByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20))),
+    ).toBeNull();
 
-    await act(async () => perfil.resolver({ cargo: { nombre: "Analista de cartera" } }));
+    await act(async () =>
+      perfil.resolver({ cargo: { nombre: "Analista de cartera" } }),
+    );
     expect(await screen.findByText("Analista de cartera.")).toBeTruthy();
   });
 
@@ -81,12 +111,16 @@ describe("Inicio: el cargo", () => {
     await render(<Inicio />);
     await screen.findByText("No hay noticias publicadas por ahora.");
 
-    expect(screen.queryByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20)))).toBeNull();
+    expect(
+      screen.queryByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20))),
+    ).toBeNull();
   });
 
   it("si cargó y no tiene cargo, lo dice con el enlace a Mi perfil", async () => {
     await render(<Inicio />);
-    expect(await screen.findByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20)))).toBeTruthy();
+    expect(
+      await screen.findByText(new RegExp(TEXTO_SIN_CARGO.slice(0, 20))),
+    ).toBeTruthy();
   });
 
   it("sin nombre, da la bienvenida", async () => {
@@ -102,14 +136,18 @@ describe("Inicio: el cargo", () => {
 describe("Inicio: las noticias", () => {
   it("sin noticias lo dice", async () => {
     await render(<Inicio />);
-    expect(await screen.findByText("No hay noticias publicadas por ahora.")).toBeTruthy();
+    expect(
+      await screen.findByText("No hay noticias publicadas por ahora."),
+    ).toBeTruthy();
   });
 
   it("si fallan ofrece «Reintentar»", async () => {
     inicioService.noticias.mockRejectedValueOnce(new Error("red"));
     await render(<Inicio />);
 
-    expect(await screen.findByText("No se pudieron cargar las noticias.")).toBeTruthy();
+    expect(
+      await screen.findByText("No se pudieron cargar las noticias."),
+    ).toBeTruthy();
     inicioService.noticias.mockResolvedValueOnce(NOTICIAS);
     await fireEvent.press(screen.getByRole("button", { name: "Reintentar" }));
     expect(await screen.findByText("Aniversario")).toBeTruthy();
@@ -122,7 +160,8 @@ describe("Inicio: las noticias", () => {
 
     const recarga = pendiente();
     inicioService.noticias.mockReturnValueOnce(recarga.promesa);
-    const refresco = screen.getByTestId("inicio").props.refreshControl.props.onRefresh;
+    const refresco =
+      screen.getByTestId("inicio").props.refreshControl.props.onRefresh;
     let hecho;
     await act(async () => {
       hecho = refresco();
@@ -136,7 +175,45 @@ describe("Inicio: las noticias", () => {
       await hecho;
     });
     expect(screen.getByText("Aniversario")).toBeTruthy();
-    expect(screen.getByText(/No se pudieron actualizar las noticias/)).toBeTruthy();
+    expect(
+      screen.getByText(/No se pudieron actualizar las noticias/),
+    ).toBeTruthy();
+    // El calendario va en su pestaña y también se recarga.
+    expect(screen.queryByTestId("calendario-inicio")).toBeNull();
+    await fireEvent.press(
+      screen.getByRole("tab", { name: "Calendario de eventos" }),
+    );
+    expect(screen.getByTestId("calendario-inicio")).toHaveTextContent(
+      "recarga 1",
+    );
+    expect(screen.queryByText("Aniversario")).toBeNull();
+    await fireEvent.press(
+      screen.getByRole("tab", { name: "Noticias y eventos" }),
+    );
+    expect(screen.getByText("Aniversario")).toBeTruthy();
+  });
+
+  it("pone un punto en «Calendario de eventos» si hoy hay alguna fecha", async () => {
+    inicioService.calendario.mockResolvedValueOnce([
+      { id: 1, titulo: "Cierre", tipo: "evento", fecha: "2026-11-16" },
+    ]);
+    await render(<Inicio />);
+    expect(await screen.findByTestId("inicio-punto-calendario")).toBeTruthy();
+    expect(
+      screen.getByRole("tab", {
+        name: "Calendario de eventos, hay fechas hoy",
+      }),
+    ).toBeTruthy();
+    const [desde, hasta] = inicioService.calendario.mock.calls[0];
+    expect(desde).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(hasta).toBe(desde);
+  });
+
+  it("sin fechas hoy no hay punto", async () => {
+    await render(<Inicio />);
+    await screen.findByText("No hay noticias publicadas por ahora.");
+    await waitFor(() => expect(inicioService.calendario).toHaveBeenCalled());
+    expect(screen.queryByTestId("inicio-punto-calendario")).toBeNull();
   });
 
   it("al cambiar de empresa vuelve a pedir el perfil y las noticias", async () => {
@@ -146,14 +223,18 @@ describe("Inicio: las noticias", () => {
     mockSesion.versionEmpresa = 1;
     await rerender(<Inicio />);
 
-    await waitFor(() => expect(inicioService.noticias).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(inicioService.noticias).toHaveBeenCalledTimes(2),
+    );
     expect(inicioService.misDatos).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("carrusel de noticias (WCAG 2.2.2)", () => {
   async function montarCarrusel(noticias = NOTICIAS) {
-    const resultado = await render(<CarruselNoticias noticias={noticias} segundos={6} />);
+    const resultado = await render(
+      <CarruselNoticias noticias={noticias} segundos={6} />,
+    );
     await fireEvent(screen.getByTestId("carrusel-noticias"), "layout", {
       nativeEvent: { layout: { width: 320, height: 300 } },
     });
@@ -162,10 +243,18 @@ describe("carrusel de noticias (WCAG 2.2.2)", () => {
 
   it("se puede pausar y reanudar con un botón visible", async () => {
     await montarCarrusel();
-    await fireEvent.press(screen.getByRole("button", { name: "Pausar el carrusel" }));
-    expect(screen.getByRole("button", { name: "Reanudar el carrusel" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Reanudar el carrusel" }));
-    expect(screen.getByRole("button", { name: "Pausar el carrusel" })).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Pausar el carrusel" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Reanudar el carrusel" }),
+    ).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Reanudar el carrusel" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Pausar el carrusel" }),
+    ).toBeTruthy();
   });
 
   it("las flechas lo pausan y, en iOS, anuncian la posición", async () => {
@@ -174,11 +263,15 @@ describe("carrusel de noticias (WCAG 2.2.2)", () => {
     const anuncio = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     await montarCarrusel();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Noticia siguiente" }));
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Noticia siguiente" }),
+    );
 
     expect(screen.getByText("Noticia 2 de 2")).toBeTruthy();
     expect(screen.getByText("Capacitación")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reanudar el carrusel" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Reanudar el carrusel" }),
+    ).toBeTruthy();
     expect(anuncio).toHaveBeenCalledWith("Noticia 2 de 2");
     Platform.OS = os;
   });
@@ -191,12 +284,19 @@ describe("carrusel de noticias (WCAG 2.2.2)", () => {
 
   it("solo la diapositiva visible es accesible", async () => {
     await montarCarrusel();
-    expect(screen.getByTestId("diapositiva-1").props.importantForAccessibility).toBe("auto");
-    expect(screen.getByTestId("diapositiva-2", { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+    expect(
+      screen.getByTestId("diapositiva-1").props.importantForAccessibility,
+    ).toBe("auto");
+    expect(
+      screen.getByTestId("diapositiva-2", { includeHiddenElements: true }).props
+        .accessibilityElementsHidden,
+    ).toBe(true);
     // La segunda, sin texto alternativo, no se anuncia mientras no se ve.
     expect(screen.queryByLabelText("Imagen de la noticia")).toBeNull();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Noticia siguiente" }));
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Noticia siguiente" }),
+    );
     expect(screen.getByLabelText("Imagen de la noticia")).toBeTruthy();
     expect(screen.queryByLabelText("Equipo en la oficina")).toBeNull();
   });
@@ -209,20 +309,34 @@ describe("carrusel de noticias (WCAG 2.2.2)", () => {
 
   it("vuelve a la primera cuando cambian las noticias", async () => {
     const { rerender } = await montarCarrusel();
-    await fireEvent.press(screen.getByRole("button", { name: "Noticia siguiente" }));
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Noticia siguiente" }),
+    );
     expect(screen.getByText("Noticia 2 de 2")).toBeTruthy();
 
     await rerender(
-      <CarruselNoticias noticias={[{ id: 3, titulo: "Nueva" }, { id: 4, titulo: "Otra" }]} segundos={6} />,
+      <CarruselNoticias
+        noticias={[
+          { id: 3, titulo: "Nueva" },
+          { id: 4, titulo: "Otra" },
+        ]}
+        segundos={6}
+      />,
     );
     expect(screen.getByText("Noticia 1 de 2")).toBeTruthy();
     expect(screen.getByText("Nueva")).toBeTruthy();
   });
 
   it("con menos movimiento pedido no se mueve solo ni ofrece pausa", async () => {
-    jest.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(true);
+    jest
+      .spyOn(AccessibilityInfo, "isReduceMotionEnabled")
+      .mockResolvedValue(true);
     await montarCarrusel();
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Pausar el carrusel" })).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Pausar el carrusel" }),
+      ).toBeNull(),
+    );
   });
 });
 
@@ -233,7 +347,10 @@ describe("contador de no leídas", () => {
   }
 
   it("lee el resumen y lo vuelve a leer al cambiar de empresa", async () => {
-    notificacionesService.resumen.mockResolvedValue({ no_leidas: 3, recientes: [] });
+    notificacionesService.resumen.mockResolvedValue({
+      no_leidas: 3,
+      recientes: [],
+    });
     const { rerender } = await render(
       <ContadorProvider>
         <Numero />
@@ -242,7 +359,10 @@ describe("contador de no leídas", () => {
     expect(await screen.findByText("no leídas: 3")).toBeTruthy();
     expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(3);
 
-    notificacionesService.resumen.mockResolvedValue({ no_leidas: 0, recientes: [] });
+    notificacionesService.resumen.mockResolvedValue({
+      no_leidas: 0,
+      recientes: [],
+    });
     mockSesion.versionEmpresa = 1;
     await rerender(
       <ContadorProvider>
@@ -260,9 +380,15 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
   });
 
   function conPendientes({ porAprobar = 0, mensajes = 0, avisos = 0 }) {
-    jest.spyOn(ResumenPermisos, "useResumenPermisos").mockReturnValue({ porAprobar, puedeSolicitar: true, cargado: true });
-    jest.spyOn(ChatContext, "useChat").mockReturnValue({ totalNoLeidos: mensajes });
-    jest.spyOn(ContadorContext, "useContador").mockReturnValue({ noLeidas: avisos, recargar: jest.fn() });
+    jest
+      .spyOn(ResumenPermisos, "useResumenPermisos")
+      .mockReturnValue({ porAprobar, puedeSolicitar: true, cargado: true });
+    jest
+      .spyOn(ChatContext, "useChat")
+      .mockReturnValue({ totalNoLeidos: mensajes });
+    jest
+      .spyOn(ContadorContext, "useContador")
+      .mockReturnValue({ noLeidas: avisos, recargar: jest.fn() });
   }
 
   it("N-15: los avisos del chat no se cuentan dos veces", async () => {
@@ -271,12 +397,22 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
     expect(avisosDeOtrosModulos(1, { 5: 3, 7: 1 })).toBe(0);
     expect(avisosDeOtrosModulos(3, undefined)).toBe(3);
 
-    jest.spyOn(ResumenPermisos, "useResumenPermisos").mockReturnValue({ porAprobar: 0, puedeSolicitar: true, cargado: true });
-    jest.spyOn(ChatContext, "useChat").mockReturnValue({ totalNoLeidos: 4, noLeidos: { 5: 3, 7: 1 } });
-    jest.spyOn(ContadorContext, "useContador").mockReturnValue({ noLeidas: 3, recargar: jest.fn() });
+    jest
+      .spyOn(ResumenPermisos, "useResumenPermisos")
+      .mockReturnValue({ porAprobar: 0, puedeSolicitar: true, cargado: true });
+    jest
+      .spyOn(ChatContext, "useChat")
+      .mockReturnValue({ totalNoLeidos: 4, noLeidos: { 5: 3, 7: 1 } });
+    jest
+      .spyOn(ContadorContext, "useContador")
+      .mockReturnValue({ noLeidas: 3, recargar: jest.fn() });
     await render(<Inicio />);
-    expect(await screen.findByRole("button", { name: "4 mensajes sin leer" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "1 aviso de otros módulos" })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "4 mensajes sin leer" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "1 aviso de otros módulos" }),
+    ).toBeTruthy();
   });
 
   it("un encabezado de accesos sin accesos debajo no se pinta", async () => {
@@ -284,11 +420,17 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
     const originales = [...ACCESOS];
     try {
       // Sin ningún acceso en la app.
-      ACCESOS.splice(0, ACCESOS.length, ...originales.filter((a) => !a.rutaApp));
+      ACCESOS.splice(
+        0,
+        ACCESOS.length,
+        ...originales.filter((a) => !a.rutaApp),
+      );
       await render(<Inicio />);
       await screen.findByText("No hay noticias publicadas por ahora.");
       expect(screen.queryByRole("header", { name: "En la app" })).toBeNull();
-      expect(screen.getByRole("header", { name: "En el navegador" })).toBeTruthy();
+      expect(
+        screen.getByRole("header", { name: "En el navegador" }),
+      ).toBeTruthy();
     } finally {
       ACCESOS.splice(0, ACCESOS.length, ...originales);
     }
@@ -296,15 +438,18 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
 
   it("pendientesDeHoy: solo lo que tiene algo, con el plural correcto", () => {
     expect(pendientesDeHoy({})).toEqual([]);
-    expect(pendientesDeHoy({ porAprobar: 1, mensajes: 1, avisos: 1 }).map((p) => p.texto)).toEqual([
+    expect(
+      pendientesDeHoy({ porAprobar: 1, mensajes: 1, avisos: 1 }).map(
+        (p) => p.texto,
+      ),
+    ).toEqual([
       "1 solicitud por aprobar",
       "1 mensaje sin leer",
       "1 aviso de otros módulos",
     ]);
-    expect(pendientesDeHoy({ porAprobar: 3, avisos: 2 }).map((p) => p.texto)).toEqual([
-      "3 solicitudes por aprobar",
-      "2 avisos de otros módulos",
-    ]);
+    expect(
+      pendientesDeHoy({ porAprobar: 3, avisos: 2 }).map((p) => p.texto),
+    ).toEqual(["3 solicitudes por aprobar", "2 avisos de otros módulos"]);
   });
 
   it("sin nada pendiente, el bloque no aparece", async () => {
@@ -317,19 +462,33 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
   it("muestra lo pendiente tras el saludo y cada fila lleva a su lugar", async () => {
     conPendientes({ porAprobar: 2, mensajes: 5, avisos: 1 });
     await render(<Inicio />);
-    expect(await screen.findByRole("header", { name: "Para hoy" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "2 solicitudes por aprobar" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "1 aviso de otros módulos" })).toBeTruthy();
+    expect(
+      await screen.findByRole("header", { name: "Para hoy" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "2 solicitudes por aprobar" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "1 aviso de otros módulos" }),
+    ).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId("para-hoy-por-aprobar"));
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: "/permisos",
       params: { seccion: "por_aprobar", n: expect.any(String) },
     });
-    await fireEvent.press(screen.getByRole("button", { name: "5 mensajes sin leer" }));
-    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/chat", params: { n: expect.any(String) } });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "5 mensajes sin leer" }),
+    );
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/chat",
+      params: { n: expect.any(String) },
+    });
     await fireEvent.press(screen.getByTestId("para-hoy-avisos"));
-    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/notificaciones", params: { n: expect.any(String) } });
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/notificaciones",
+      params: { n: expect.any(String) },
+    });
   });
 
   it("US-014: «Mesa de ayuda» está en la app (sustituye «Soporte TI») y abre la sección", async () => {
@@ -337,33 +496,75 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
     await render(<Inicio />);
     await screen.findByText("No hay noticias publicadas por ahora.");
     expect(screen.queryByText("Soporte TI")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: /^Mesa de ayuda\. / }));
-    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/soporte", params: { n: expect.any(String) } });
-    expect(accesosPara(["soporte.atender"]).find((a) => a.to === "/admin/ayuda").texto).toMatch(/^Su bandeja/);
-    expect(accesosPara([]).find((a) => a.to === "/admin/ayuda").texto).toBe("Seguir sus tickets");
+    await fireEvent.press(
+      screen.getByRole("button", { name: /^Mesa de ayuda\. / }),
+    );
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/soporte",
+      params: { n: expect.any(String) },
+    });
+    expect(
+      accesosPara(["soporte.atender"]).find((a) => a.to === "/admin/ayuda")
+        .texto,
+    ).toMatch(/^Su bandeja/);
+    expect(accesosPara([]).find((a) => a.to === "/admin/ayuda").texto).toBe(
+      "Seguir sus tickets",
+    );
   });
 
   it("US-014 (CA-2): «Para hoy» cuenta la Mesa de ayuda con el plural correcto y lleva a cada vista", async () => {
     expect(
-      pendientesDeHoy({ ticketsAsignados: 1, ticketsMios: 1, ticketsPorAprobar: 1 }).map((p) => p.texto),
-    ).toEqual(["1 ticket asignado a usted", "1 ticket suyo necesita algo de usted", "1 ticket por aprobar"]);
+      pendientesDeHoy({
+        ticketsAsignados: 1,
+        ticketsMios: 1,
+        ticketsPorAprobar: 1,
+      }).map((p) => p.texto),
+    ).toEqual([
+      "1 ticket asignado a usted",
+      "1 ticket suyo necesita algo de usted",
+      "1 ticket por aprobar",
+    ]);
     expect(
-      pendientesDeHoy({ ticketsAsignados: 3, ticketsMios: 2, ticketsPorAprobar: 4 }).map((p) => p.texto),
-    ).toEqual(["3 tickets asignados a usted", "2 tickets suyos necesitan algo de usted", "4 tickets por aprobar"]);
+      pendientesDeHoy({
+        ticketsAsignados: 3,
+        ticketsMios: 2,
+        ticketsPorAprobar: 4,
+      }).map((p) => p.texto),
+    ).toEqual([
+      "3 tickets asignados a usted",
+      "2 tickets suyos necesitan algo de usted",
+      "4 tickets por aprobar",
+    ]);
 
     conPendientes({});
-    jest
-      .spyOn(ResumenSoporte, "useResumenSoporte")
-      .mockReturnValue({ asignados: 2, misPendientes: 1, aprobaciones: 3, recargar: jest.fn() });
+    jest.spyOn(ResumenSoporte, "useResumenSoporte").mockReturnValue({
+      asignados: 2,
+      misPendientes: 1,
+      aprobaciones: 3,
+      recargar: jest.fn(),
+    });
     await render(<Inicio />);
-    await fireEvent.press(await screen.findByRole("button", { name: "2 tickets asignados a usted" }));
+    await fireEvent.press(
+      await screen.findByRole("button", {
+        name: "2 tickets asignados a usted",
+      }),
+    );
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: "/soporte",
       params: { vista: "bandeja", n: expect.any(String) },
     });
-    await fireEvent.press(screen.getByRole("button", { name: "1 ticket suyo necesita algo de usted" }));
-    expect(mockRouter.push).toHaveBeenLastCalledWith({ pathname: "/soporte", params: { vista: "mis", n: expect.any(String) } });
-    await fireEvent.press(screen.getByRole("button", { name: "3 tickets por aprobar" }));
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "1 ticket suyo necesita algo de usted",
+      }),
+    );
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: "/soporte",
+      params: { vista: "mis", n: expect.any(String) },
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "3 tickets por aprobar" }),
+    );
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: "/soporte",
       params: { vista: "aprobaciones", n: expect.any(String) },
@@ -375,8 +576,16 @@ describe("Inicio: «Para hoy» y los accesos (auditoría UX, H-09)", () => {
     await render(<Inicio />);
     await screen.findByText("No hay noticias publicadas por ahora.");
     expect(screen.getByRole("header", { name: "En la app" })).toBeTruthy();
-    expect(screen.getByRole("header", { name: "En el navegador" })).toBeTruthy();
+    expect(
+      screen.getByRole("header", { name: "En el navegador" }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Chat\. / })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /^Mi perfil\. .*Abrir en el navegador$/ })).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: /^Códigos de conducta\. .*Abrir en el navegador$/,
+      }),
+    ).toBeTruthy();
+    // 16/11/2026: «Mi perfil» ya se ve en la app (solo lectura).
+    expect(screen.getByRole("button", { name: /^Mi perfil\. / })).toBeTruthy();
   });
 });

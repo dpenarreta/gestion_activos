@@ -47,6 +47,12 @@ export const inicioService = {
   misDatos() {
     return api.get("/organizacion/mis-datos/");
   },
+  /** Las fechas del calendario de Inicio entre `desde` y `hasta`
+   * («AAAA-MM-DD», hasta 400 días): feriados, eventos y celebraciones. */
+  async calendario(desde, hasta) {
+    const datos = await api.get("/organizacion/calendario/", { params: { desde, hasta } });
+    return Array.isArray(datos) ? datos : [];
+  },
   rutaImagenNoticia(id) {
     return api.url(`/organizacion/noticias/${encodeURIComponent(id)}/imagen/`);
   },

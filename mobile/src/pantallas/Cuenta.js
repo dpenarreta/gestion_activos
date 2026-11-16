@@ -1,7 +1,14 @@
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 
 import { anunciar } from "../accesibilidad/anunciar";
 import { mensajeDeError } from "../api/errores";
@@ -11,19 +18,24 @@ import { estadoDelPermiso, registrarDispositivo } from "../notificaciones/push";
 import { useSesion } from "../sesion/SesionContext";
 import { useCerrarSesion } from "../sesion/useCerrarSesion";
 import { ResumenMiEstado } from "./chat/piezas";
+import { MiPerfil } from "./MiPerfil";
 import { colores } from "../tema/colores";
 import { CONTROLES } from "../tema/controles";
 import { crearEstilos } from "../tema/tipografia";
 
 /** El nombre con el rol que se ejerce en ella, como el selector web. */
 function conRol(empresa) {
-  return empresa.roles?.length ? `${empresa.nombre} — ${empresa.roles.join(", ")}` : empresa.nombre;
+  return empresa.roles?.length
+    ? `${empresa.nombre} — ${empresa.roles.join(", ")}`
+    : empresa.nombre;
 }
 
 const TEXTOS_AVISOS = {
   activado: "El permiso de avisos está concedido en este teléfono.",
-  denegado: "Los avisos están desactivados. Puede activarlos en los ajustes del teléfono.",
-  sin_decidir: "Todavía no ha decidido si quiere recibir avisos en este teléfono.",
+  denegado:
+    "Los avisos están desactivados. Puede activarlos en los ajustes del teléfono.",
+  sin_decidir:
+    "Todavía no ha decidido si quiere recibir avisos en este teléfono.",
   no_disponible: "Este dispositivo no recibe avisos.",
 };
 
@@ -78,12 +90,23 @@ function BloqueAvisos() {
           accessibilityLabel="Consultando el estado de los avisos…"
         >
           <ActivityIndicator color={colores.primario} />
-          <Text style={estilos.texto}>Consultando el estado de los avisos…</Text>
+          <Text style={estilos.texto}>
+            Consultando el estado de los avisos…
+          </Text>
         </View>
       )}
-      {estado && <Text style={estilos.texto}>{TEXTOS_AVISOS[estado] ?? TEXTOS_AVISOS.sin_decidir}</Text>}
+      {estado && (
+        <Text style={estilos.texto}>
+          {TEXTOS_AVISOS[estado] ?? TEXTOS_AVISOS.sin_decidir}
+        </Text>
+      )}
       {estado === "sin_decidir" && (
-        <Boton titulo="Activar los avisos" icono="bell-ring-outline" cargando={pidiendo} onPress={activar} />
+        <Boton
+          titulo="Activar los avisos"
+          icono="bell-ring-outline"
+          cargando={pidiendo}
+          onPress={activar}
+        />
       )}
       {(estado === "activado" || estado === "denegado") && (
         <Boton
@@ -98,7 +121,8 @@ function BloqueAvisos() {
 }
 
 /**
- * La cuenta: quién está dentro, en qué empresa (con selector si tiene más de
+ * «Mi perfil» y la cuenta: quién está dentro, sus datos, cargo y línea de
+ * supervisión (solo lectura, `MiPerfil`), y debajo la cuenta: quién está dentro, en qué empresa (con selector si tiene más de
  * una, CA-13), los avisos y «Cerrar sesión» (CA-4). La lista de empresas sale
  * de `/empresas/mias/`, lo mismo que el selector de la web: `/auth/me/` no la
  * trae.
@@ -126,30 +150,49 @@ export function Cuenta() {
       await cambiarEmpresa(empresa.id);
       anunciar(`Ahora trabaja en ${empresa.nombre}.`);
     } catch (e) {
-      if (montado.current) setError(mensajeDeError(e, "No se pudo cambiar de empresa."));
+      if (montado.current)
+        setError(mensajeDeError(e, "No se pudo cambiar de empresa."));
     } finally {
       if (montado.current) setCambiando(null);
     }
   }
 
-  const nombre = [usuario?.first_name, usuario?.last_name].filter(Boolean).join(" ") || usuario?.username;
-  const unica = empresas[0] || empresaActiva;
+  const nombre =
+    [usuario?.first_name, usuario?.last_name].filter(Boolean).join(" ") ||
+    usuario?.username;
 
   return (
-    <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
+    <ScrollView
+      style={estilos.pantalla}
+      contentContainerStyle={estilos.contenido}
+    >
       <View style={estilos.bloque}>
         <Text style={estilos.titulo} accessibilityRole="header">
           {nombre}
         </Text>
-        {usuario?.email ? <Text style={estilos.texto}>{usuario.email}</Text> : null}
+        {usuario?.email ? (
+          <Text style={estilos.texto}>{usuario.email}</Text>
+        ) : null}
       </View>
 
-      <View style={estilos.bloque}>
-        <Text style={estilos.subtitulo} accessibilityRole="header">
-          Empresa
-        </Text>
-        {empresas.length > 1 ? (
-          <View accessibilityRole="radiogroup" accessibilityLabel="Empresa en la que trabaja" style={estilos.lista}>
+      {/* 16/11/2026, a pedido del usuario: el icono de la cuenta abre «Mi
+          perfil» (solo lectura); empresa, chat, avisos y cerrar sesión
+          siguen debajo. */}
+      <MiPerfil />
+
+      {/* «Empresa» solo si tiene más de una, para elegir en cuál trabaja
+          (16/11/2026, a pedido del usuario: con una sola, el dato ya está en
+          su perfil y el bloque sobraba). */}
+      {empresas.length > 1 ? (
+        <View style={estilos.bloque}>
+          <Text style={estilos.subtitulo} accessibilityRole="header">
+            Empresa
+          </Text>
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Empresa en la que trabaja"
+            style={estilos.lista}
+          >
             {empresas.map((empresa) => {
               const activa = String(empresa.id) === String(empresaActiva?.id);
               const esta = cambiando === empresa.id;
@@ -160,9 +203,17 @@ export function Cuenta() {
                   onPress={() => elegir(empresa)}
                   disabled={Boolean(cambiando)}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: activa, busy: esta, disabled: Boolean(cambiando) }}
+                  accessibilityState={{
+                    checked: activa,
+                    busy: esta,
+                    disabled: Boolean(cambiando),
+                  }}
                   accessibilityLabel={conRol(empresa)}
-                  style={[estilos.opcion, activa && estilos.opcionActiva, cambiando && !esta && estilos.opcionInactiva]}
+                  style={[
+                    estilos.opcion,
+                    activa && estilos.opcionActiva,
+                    cambiando && !esta && estilos.opcionInactiva,
+                  ]}
                 >
                   {esta ? (
                     <ActivityIndicator color={colores.primario} />
@@ -181,11 +232,9 @@ export function Cuenta() {
               El Inicio y las notificaciones muestran lo de la empresa elegida.
             </Text>
           </View>
-        ) : (
-          <Text style={estilos.texto}>{unica ? conRol(unica) : "—"}</Text>
-        )}
-        {error && <Alerta tipo="mal" texto={error} />}
-      </View>
+          {error && <Alerta tipo="mal" texto={error} />}
+        </View>
+      ) : null}
 
       {/* US-011: mi estado en el chat, el mismo de la web. */}
       <View style={estilos.bloque}>
@@ -217,7 +266,12 @@ const estilos = crearEstilos({
   texto: { fontSize: 16, color: colores.tintaSuave, flexShrink: 1 },
   ayuda: { fontSize: 14, color: colores.tintaTenue },
   lista: { gap: 8 },
-  fila: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
+  fila: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 10,
+  },
   opcion: { ...CONTROLES.opcion, padding: 12, borderRadius: 10 },
   opcionActiva: CONTROLES.opcionActiva,
   opcionInactiva: { opacity: 0.6 },

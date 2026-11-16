@@ -1,12 +1,20 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { anunciar } from "../../accesibilidad/anunciar";
 import { useIrAlBloque } from "../../accesibilidad/irAlBloque";
 import { erroresPorCampo, mensajeDeError } from "../../api/errores";
 import { chatService } from "../../api/servicios";
-import { ICONO_DE_ESTADO } from "../../chat/formato";
+import { colorDeEstado, ICONO_DE_ESTADO } from "../../chat/formato";
 import {
   ALMUERZO_MAXIMO,
   ALMUERZO_MINIMO,
@@ -20,11 +28,20 @@ import {
   horaDeHoy,
   textoVacacionesSugeridas,
 } from "../../chat/miEstado";
-import { Alerta, Boton, Cargando, Desplegable, ErrorConReintento } from "../../componentes/comunes";
+import {
+  Alerta,
+  Boton,
+  Cargando,
+  Desplegable,
+  ErrorConReintento,
+} from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { SelectorFecha } from "../../componentes/SelectorFecha";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
-import { useReemplazoEnAusencia, YA_QUEDO_GUARDADO } from "../../permisos/useReemplazoEnAusencia";
+import {
+  useReemplazoEnAusencia,
+  YA_QUEDO_GUARDADO,
+} from "../../permisos/useReemplazoEnAusencia";
 import { colores } from "../../tema/colores";
 import { CONTROLES } from "../../tema/controles";
 import { crearEstilos } from "../../tema/tipografia";
@@ -57,7 +74,8 @@ export function MiEstado() {
       const d = await chatService.miEstado();
       if (montado.current) setDatos(d);
     } catch (e) {
-      if (montado.current) setErrorCarga(mensajeDeError(e, "No se pudo cargar su estado."));
+      if (montado.current)
+        setErrorCarga(mensajeDeError(e, "No se pudo cargar su estado."));
     }
   }, []);
 
@@ -91,25 +109,36 @@ export function FormularioEstado({ datos, onGuardado }) {
   const vigente = datos.vigente;
   // Si lo que rige es una ausencia (también la de un permiso aprobado), la
   // pantalla abre en ella.
-  const [estado, setEstado] = useState(AUSENCIAS.includes(vigente?.clave) ? vigente.clave : datos.estado);
+  const [estado, setEstado] = useState(
+    AUSENCIAS.includes(vigente?.clave) ? vigente.clave : datos.estado,
+  );
   // «Fuera de la oficina» por un permiso aprobado: no lo eligió la persona.
-  const fueraPorPermiso = vigente?.clave === "fuera_oficina" && datos.estado !== "fuera_oficina";
+  const fueraPorPermiso =
+    vigente?.clave === "fuera_oficina" && datos.estado !== "fuera_oficina";
   const [eligio, setEligio] = useState(false);
   const [regresoFuera, setRegresoFuera] = useState(
-    datos.estado === "fuera_oficina" && datos.hasta ? fechaLocal(datos.hasta) : "",
+    datos.estado === "fuera_oficina" && datos.hasta
+      ? fechaLocal(datos.hasta)
+      : "",
   );
   const [errores, setErrores] = useState({});
   const ausente = AUSENCIAS.includes(estado);
   const porPermiso = fueraPorPermiso && !eligio && estado === "fuera_oficina";
   const reemplazo = useReemplazoEnAusencia({ activo: ausente });
   const [mensaje, setMensaje] = useState(
-    (vigente?.clave === "vacaciones" ? datos.mensaje_vacaciones : datos.mensaje) ?? "",
+    (vigente?.clave === "vacaciones"
+      ? datos.mensaje_vacaciones
+      : datos.mensaje) ?? "",
   );
   const [hasta, setHasta] = useState("");
   const [inicio, setInicio] = useState(datos.almuerzo_inicio || "");
   const [minutos, setMinutos] = useState(String(datos.almuerzo_minutos || 60));
-  const [desde, setDesde] = useState(datos.vacaciones_desde ?? sugeridas?.desde ?? "");
-  const [regreso, setRegreso] = useState(datos.vacaciones_hasta ?? sugeridas?.hasta ?? "");
+  const [desde, setDesde] = useState(
+    datos.vacaciones_desde ?? sugeridas?.desde ?? "",
+  );
+  const [regreso, setRegreso] = useState(
+    datos.vacaciones_hasta ?? sugeridas?.hasta ?? "",
+  );
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
   // «Mi horario de almuerzo» plegado salvo que haga falta: al estar en
@@ -132,7 +161,8 @@ export function FormularioEstado({ datos, onGuardado }) {
     };
   }, []);
 
-  const limpiarError = (campo) => setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
+  const limpiarError = (campo) =>
+    setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
 
   async function guardar(cambios, conReemplazo = false) {
     if (enCurso.current) return;
@@ -147,7 +177,8 @@ export function FormularioEstado({ datos, onGuardado }) {
       if (conReemplazo) {
         const resultado = await reemplazo.guardar();
         if (!resultado.ok) {
-          if (montado.current) setError({ texto: resultado.mensaje, clave: Date.now() });
+          if (montado.current)
+            setError({ texto: resultado.mensaje, clave: Date.now() });
           return;
         }
         reemplazoGuardado = resultado.guardado;
@@ -164,10 +195,16 @@ export function FormularioEstado({ datos, onGuardado }) {
           irA("almuerzo");
         }
         const base =
-          campos.hasta || campos.vacaciones_desde || campos.vacaciones_hasta || campos.almuerzo_minutos
+          campos.hasta ||
+          campos.vacaciones_desde ||
+          campos.vacaciones_hasta ||
+          campos.almuerzo_minutos
             ? "Revise los campos marcados."
             : mensajeDeError(e, "No se pudo guardar su estado.");
-        setError({ texto: reemplazoGuardado ? `${base} ${YA_QUEDO_GUARDADO}` : base, clave: Date.now() });
+        setError({
+          texto: reemplazoGuardado ? `${base} ${YA_QUEDO_GUARDADO}` : base,
+          clave: Date.now(),
+        });
       }
     } finally {
       enCurso.current = false;
@@ -184,7 +221,11 @@ export function FormularioEstado({ datos, onGuardado }) {
     }
     if (estado === "vacaciones") propios = erroresDeVacaciones(desde, regreso);
     const cuantos = Number(minutos);
-    if (!Number.isInteger(cuantos) || cuantos < ALMUERZO_MINIMO || cuantos > ALMUERZO_MAXIMO) {
+    if (
+      !Number.isInteger(cuantos) ||
+      cuantos < ALMUERZO_MINIMO ||
+      cuantos > ALMUERZO_MAXIMO
+    ) {
       propios.almuerzo_minutos = `El almuerzo dura entre ${ALMUERZO_MINIMO} y ${ALMUERZO_MAXIMO} minutos.`;
       setAlmuerzoAbierto(true);
       // Si es el único error, se va a él; si hay otros, están más arriba.
@@ -196,7 +237,10 @@ export function FormularioEstado({ datos, onGuardado }) {
       setError({ texto: "Revise los campos marcados.", clave: Date.now() });
       return;
     }
-    const almuerzo = { almuerzo_inicio: inicio || null, almuerzo_minutos: cuantos };
+    const almuerzo = {
+      almuerzo_inicio: inicio || null,
+      almuerzo_minutos: cuantos,
+    };
     // Con la ausencia del permiso sin tocar: solo el almuerzo y, antes, el
     // reemplazo.
     if (porPermiso) {
@@ -208,7 +252,8 @@ export function FormularioEstado({ datos, onGuardado }) {
       cambios.vacaciones_desde = desde || null;
       cambios.vacaciones_hasta = regreso || null;
     }
-    if (estado === "reunion" || estado === "no_disponible") cambios.hasta = horaDeHoy(hasta);
+    if (estado === "reunion" || estado === "no_disponible")
+      cambios.hasta = horaDeHoy(hasta);
     if (estado === "fuera_oficina") cambios.hasta = regresoFuera;
     guardar(cambios, ausente);
   }
@@ -228,11 +273,23 @@ export function FormularioEstado({ datos, onGuardado }) {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        {error ? <Alerta tipo="mal" texto={error.texto} clave={error.clave} /> : null}
-        {vigente?.detalle ? <Alerta tipo="info" texto={`Ahora: ${vigente.detalle}.`} /> : null}
+        {error ? (
+          <Alerta tipo="mal" texto={error.texto} clave={error.clave} />
+        ) : null}
+        {vigente?.detalle ? (
+          <Alerta tipo="info" texto={`Ahora: ${vigente.detalle}.`} />
+        ) : null}
 
-        <View accessibilityRole="radiogroup" accessibilityLabel="¿Cómo está?" style={estilos.grupo}>
-          <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="¿Cómo está?"
+          style={estilos.grupo}
+        >
+          <Text
+            style={estilos.etiqueta}
+            importantForAccessibility="no"
+            accessibilityElementsHidden
+          >
             ¿Cómo está?
           </Text>
           {ESTADOS.map((opcion) => {
@@ -245,31 +302,60 @@ export function FormularioEstado({ datos, onGuardado }) {
                   setEstado(opcion.clave);
                   setEligio(true);
                   setErrores({});
-                  if (opcion.clave === "almuerzo") setAlmuerzoAbierto(true);
+                  // Abierto solo con «Almuerzo»: al elegir otro estado se
+                  // pliega (16/11/2026, quedaba abierto). Sigue pudiendo
+                  // abrirse a mano para cambiar el horario.
+                  setAlmuerzoAbierto(opcion.clave === "almuerzo");
                 }}
                 disabled={guardando}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: activa, disabled: guardando }}
                 accessibilityLabel={opcion.nombre}
-                style={[estilos.opcion, activa && estilos.opcionActiva]}
+                // El borde en el color del estado (16/11/2026); el elegido,
+                // con borde grueso y el fondo claro de su color. La marca del
+                // radio dice cuál está elegido sin depender del color.
+                style={[
+                  estilos.opcion,
+                  { borderColor: colorDeEstado(opcion.clave).color },
+                  activa && {
+                    borderWidth: 2,
+                    backgroundColor: colorDeEstado(opcion.clave).fondo,
+                  },
+                ]}
               >
                 <Icono
                   nombre={activa ? "radiobox-marked" : "radiobox-blank"}
                   size={22}
                   color={activa ? colores.primario : colores.bordeControl}
                 />
-                <Icono nombre={ICONO_DE_ESTADO[opcion.clave]} size={20} color={colores.tintaSuave} />
+                {/* Cada estado con su color e ícono (16/11/2026). */}
+                <View
+                  style={[
+                    estilos.iconoEstado,
+                    { backgroundColor: colorDeEstado(opcion.clave).fondo },
+                  ]}
+                >
+                  <Icono
+                    nombre={ICONO_DE_ESTADO[opcion.clave]}
+                    size={20}
+                    color={colorDeEstado(opcion.clave).color}
+                  />
+                </View>
                 <Text style={estilos.opcionTexto}>{opcion.nombre}</Text>
               </Pressable>
             );
           })}
         </View>
-        {ausente ? <Text style={estilos.leyenda}>Los campos con * son obligatorios.</Text> : null}
+        {ausente ? (
+          <Text style={estilos.leyenda}>
+            Los campos con * son obligatorios.
+          </Text>
+        ) : null}
 
         {estado === "almuerzo" ? (
           <Text style={estilos.texto}>
-            Durará {minutos} minutos desde ahora; después vuelve solo a «Disponible». Quien le escriba sabrá que está en
-            almuerzo.
+            Durará {minutos} minutos desde ahora; después vuelve solo a
+            «Disponible». Quien le escriba sabrá que está en almuerzo.
           </Text>
         ) : null}
 
@@ -286,14 +372,21 @@ export function FormularioEstado({ datos, onGuardado }) {
               deshabilitado={guardando}
             />
             {hasta ? (
-              <Boton titulo="Quitar la hora" variante="secundario" icono="close" onPress={() => setHasta("")} />
+              <Boton
+                titulo="Quitar la hora"
+                variante="secundario"
+                icono="close"
+                onPress={() => setHasta("")}
+              />
             ) : null}
           </View>
         ) : null}
 
         {estado === "vacaciones" ? (
           <View style={estilos.grupo}>
-            {sugeridas ? <Alerta tipo="info" texto={textoVacacionesSugeridas(sugeridas)} /> : null}
+            {sugeridas ? (
+              <Alerta tipo="info" texto={textoVacacionesSugeridas(sugeridas)} />
+            ) : null}
             <View style={estilos.filaFechas}>
               <SelectorFecha
                 testID="vacaciones-desde"
@@ -322,7 +415,8 @@ export function FormularioEstado({ datos, onGuardado }) {
               />
             </View>
             <Text style={estilos.ayuda}>
-              Antes de salir, quien le escriba verá cuándo estará de vacaciones; mientras duren, que está de vacaciones.
+              Antes de salir, quien le escriba verá cuándo estará de vacaciones;
+              mientras duren, que está de vacaciones.
             </Text>
             {datos.vacaciones_desde ? (
               <Boton
@@ -362,7 +456,11 @@ export function FormularioEstado({ datos, onGuardado }) {
 
         {estado !== "disponible" && !porPermiso ? (
           <View style={estilos.grupo}>
-            <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
+            <Text
+              style={estilos.etiqueta}
+              importantForAccessibility="no"
+              accessibilityElementsHidden
+            >
               Mensaje para quien le escriba (opcional)
             </Text>
             <TextInput
@@ -371,7 +469,9 @@ export function FormularioEstado({ datos, onGuardado }) {
               onChangeText={setMensaje}
               maxLength={140}
               editable={!guardando}
-              placeholder={ausente ? "Para lo urgente, escriba a…" : "Vuelvo pronto"}
+              placeholder={
+                ausente ? "Para lo urgente, escriba a…" : "Vuelvo pronto"
+              }
               placeholderTextColor={colores.tintaTenue}
               accessibilityLabel="Mensaje para quien le escriba (opcional), hasta 140 caracteres"
               style={estilos.entrada}
@@ -379,16 +479,29 @@ export function FormularioEstado({ datos, onGuardado }) {
           </View>
         ) : null}
 
-        {ausente ? <ReemplazoEnAusencia reemplazo={reemplazo} deshabilitado={guardando} /> : null}
+        {ausente ? (
+          <ReemplazoEnAusencia
+            reemplazo={reemplazo}
+            deshabilitado={guardando}
+          />
+        ) : null}
 
-        <View style={estilos.bloque} testID="bloque-almuerzo" {...bloque("almuerzo")}>
+        <View
+          style={estilos.bloque}
+          testID="bloque-almuerzo"
+          {...bloque("almuerzo")}
+        >
           {/* R-02: un encabezado de verdad y, debajo, el botón que abre o
               cierra, con `expanded`. */}
           <Text style={estilos.subtitulo} accessibilityRole="header">
             Mi horario de almuerzo
           </Text>
           <Desplegable
-            titulo={almuerzoAbierto ? "Ocultar el horario" : "Ver o cambiar el horario"}
+            titulo={
+              almuerzoAbierto
+                ? "Ocultar el horario"
+                : "Ver o cambiar el horario"
+            }
             abierto={almuerzoAbierto}
             onCambiar={setAlmuerzoAbierto}
             testID="almuerzo-plegable"
@@ -403,7 +516,11 @@ export function FormularioEstado({ datos, onGuardado }) {
                 deshabilitado={guardando}
               />
               <View style={estilos.campoMinutos}>
-                <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
+                <Text
+                  style={estilos.etiqueta}
+                  importantForAccessibility="no"
+                  accessibilityElementsHidden
+                >
                   Minutos
                 </Text>
                 <TextInput
@@ -417,21 +534,37 @@ export function FormularioEstado({ datos, onGuardado }) {
                   keyboardType="number-pad"
                   editable={!guardando}
                   accessibilityLabel={`Minutos de almuerzo, entre ${ALMUERZO_MINIMO} y ${ALMUERZO_MAXIMO}${
-                    errores.almuerzo_minutos ? `. Error: ${errores.almuerzo_minutos}` : ""
+                    errores.almuerzo_minutos
+                      ? `. Error: ${errores.almuerzo_minutos}`
+                      : ""
                   }`}
-                  style={[estilos.entrada, errores.almuerzo_minutos && estilos.entradaConError]}
+                  style={[
+                    estilos.entrada,
+                    errores.almuerzo_minutos && estilos.entradaConError,
+                  ]}
                 />
-                {errores.almuerzo_minutos ? <Text style={estilos.error}>{errores.almuerzo_minutos}</Text> : null}
+                {errores.almuerzo_minutos ? (
+                  <Text style={estilos.error}>{errores.almuerzo_minutos}</Text>
+                ) : null}
               </View>
             </View>
-            <Text style={estilos.ayuda}>A esa hora el chat de la web le ofrecerá marcar que salió a almorzar.</Text>
+            <Text style={estilos.ayuda}>
+              A esa hora el chat de la web le ofrecerá marcar que salió a
+              almorzar.
+            </Text>
           </Desplegable>
         </View>
 
         <View style={estilos.acciones}>
           <Boton
             testID="guardar-estado"
-            titulo={guardando ? "Guardando…" : estado === "almuerzo" ? "Salgo a almorzar" : "Guardar"}
+            titulo={
+              guardando
+                ? "Guardando…"
+                : estado === "almuerzo"
+                  ? "Salgo a almorzar"
+                  : "Guardar"
+            }
             icono="content-save-outline"
             cargando={guardando}
             onPress={enviar}
@@ -445,6 +578,13 @@ export function FormularioEstado({ datos, onGuardado }) {
 }
 
 const estilos = crearEstilos({
+  iconoEstado: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   grupo: { gap: 6 },
