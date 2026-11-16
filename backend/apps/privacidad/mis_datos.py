@@ -190,6 +190,8 @@ def _perfil(ctx: Contexto) -> list[dict]:
             # su perfil y lo guarda el sistema.
             ("tiene_telefono_corporativo", "tiene_telefono_corporativo"),
             ("telefono_corporativo", "telefono_corporativo"),
+            ("tiene_linea_fija", "tiene_linea_fija"),
+            ("extension_de_linea_fija", "linea_fija_extension"),
             ("correo_personal", "correo_personal"),
             ("correo_personal_autorizado_el", "correo_personal_aceptado_en"),
             ("area", "departamento__nombre"),

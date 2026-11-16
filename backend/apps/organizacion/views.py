@@ -450,6 +450,8 @@ class MisDatosView(APIView):
             version_telefono=datos.get("version_telefono"),
             tiene_telefono_corporativo=datos["tiene_telefono_corporativo"],
             telefono_corporativo=datos["telefono_corporativo"],
+            tiene_linea_fija=datos["tiene_linea_fija"],
+            linea_fija_extension=datos["linea_fija_extension"],
         )
         return Response({**contacto.de(request.user), **contacto.opciones()})
 

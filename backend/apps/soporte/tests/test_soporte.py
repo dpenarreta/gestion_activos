@@ -221,7 +221,9 @@ def test_el_telefono_del_ticket_es_el_corporativo_si_lo_tiene(mesa):
 
     with usando_empresa(mesa["empresa"]):
         DatosDeContacto.objects.filter(usuario=carla).update(
-            tiene_telefono_corporativo=True, telefono_corporativo="02 298 7654"
+            tiene_telefono_corporativo=True,
+            tiene_linea_fija=False,
+            telefono_corporativo="02 298 7654",
         )
     with mock.patch.object(services, "repartir", return_value=0):
         corporativo = _crear(mesa)
@@ -229,7 +231,7 @@ def test_el_telefono_del_ticket_es_el_corporativo_si_lo_tiene(mesa):
 
     with usando_empresa(mesa["empresa"]):
         DatosDeContacto.objects.filter(usuario=carla).update(
-            tiene_telefono_corporativo=False, telefono_corporativo=""
+            tiene_telefono_corporativo=False, tiene_linea_fija=False, telefono_corporativo=""
         )
     with mock.patch.object(services, "repartir", return_value=0):
         sin_corporativo = _crear(mesa)
@@ -260,6 +262,7 @@ def test_si_faltan_datos_se_pide_completar_mis_datos(mesa):
             "telefono": "0991234567",
             "acepta_telefono": True,
             "tiene_telefono_corporativo": False,
+            "tiene_linea_fija": False,
             "area": mesa["area"].id,
             "agencia": mesa["sede"].id,
             "cargo": cargo.id,
@@ -431,8 +434,7 @@ def test_lo_atendido_sin_respuesta_se_cierra_solo(mesa, settings):
     with usando_empresa(mesa["empresa"]):
         Ticket.objects.filter(pk=ticket.pk).update(
             # Una semana y un día: más de 3 días hábiles, caiga en el día que caiga.
-            atendido_en=timezone.now()
-            - datetime.timedelta(days=8)
+            atendido_en=timezone.now() - datetime.timedelta(days=8)
         )
     services.ciclo()
     ticket.refresh_from_db()

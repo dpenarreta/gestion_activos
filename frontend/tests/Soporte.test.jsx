@@ -75,6 +75,7 @@ const MIS_DATOS = {
   telefono: "0994182273",
   // Respondió que no tiene teléfono corporativo (10/11/2026).
   tiene_telefono_corporativo: false,
+  tiene_linea_fija: false,
   telefono_corporativo: "",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },

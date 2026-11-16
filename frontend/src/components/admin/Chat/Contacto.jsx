@@ -101,6 +101,14 @@ export function TarjetaContacto({ persona }) {
               valor={contacto.telefono_corporativo}
             />
           )}
+          {/* La extensión de su línea fija (16/11/2026): dato de trabajo. */}
+          {contacto.extension && (
+            <Dato
+              etiqueta="Extensión de línea fija"
+              icono="telephone-forward"
+              valor={contacto.extension}
+            />
+          )}
           {contacto.telefono && (
             <Dato
               etiqueta="Teléfono personal"
@@ -110,6 +118,7 @@ export function TarjetaContacto({ persona }) {
           )}
           {!contacto.correo &&
             !contacto.telefono_corporativo &&
+            !contacto.extension &&
             !contacto.telefono && (
               <p className="mz-small mz-faint mb-0">
                 No tiene datos de contacto para mostrar.

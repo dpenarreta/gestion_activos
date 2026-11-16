@@ -44,6 +44,10 @@ function SusDatos({ datos, onEditar }) {
     // (10/11/2026).
     datos.telefono_corporativo && `Corporativo ${datos.telefono_corporativo}`,
     datos.telefono && `Personal ${datos.telefono}`,
+    // La extensión de su línea fija, si la tiene (16/11/2026).
+    datos.tiene_linea_fija &&
+      datos.linea_fija_extension &&
+      `Extensión ${datos.linea_fija_extension}`,
     datos.area?.nombre,
     datos.agencia?.nombre,
   ].filter(Boolean);

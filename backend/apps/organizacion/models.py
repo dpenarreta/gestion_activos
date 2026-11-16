@@ -708,6 +708,11 @@ class DatosDeContacto(ModeloDeEmpresa):
     tiene_telefono_corporativo = models.BooleanField(null=True, blank=True)
     #: El número corporativo; obligatorio si respondió que sí, vacío si no.
     telefono_corporativo = models.CharField(max_length=30, blank=True)
+    #: Si tiene línea fija (16/11/2026). `None`: todavía no respondió, y «Mi
+    #: perfil» se lo pide. Como el corporativo, es dato de trabajo.
+    tiene_linea_fija = models.BooleanField(null=True, blank=True)
+    #: La extensión de su línea fija; obligatoria si respondió que sí.
+    linea_fija_extension = models.CharField(max_length=10, blank=True)
 
     class ReemplazoModo(models.TextChoices):
         JEFE = "jefe", "Mi jefe inmediato"

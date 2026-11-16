@@ -39,6 +39,7 @@ const COMPLETOS = {
   correo_institucional: true,
   telefono: "0994182273",
   tiene_telefono_corporativo: false,
+  tiene_linea_fija: false,
   telefono_corporativo: "",
   area: { id: 2, nombre: "Cobranzas" },
   agencia: { id: 1, nombre: "Loja · Agencia" },
@@ -103,6 +104,7 @@ describe("Perfil obligatorio al entrar", () => {
       "Apellidos: completo",
       "Correo institucional: completo",
       "¿Tiene teléfono o línea corporativa?: completo",
+      "¿Tiene línea fija?: completo",
       "Área: completo",
       "Agencia: falta",
       "Cargo: falta",
@@ -282,6 +284,7 @@ const SIN_RESPONDER = {
   ...COMPLETOS,
   telefono: "",
   tiene_telefono_corporativo: null,
+  tiene_linea_fija: false,
   telefono_corporativo: "",
   faltan: ["telefono_corporativo"],
 };
@@ -340,6 +343,7 @@ describe("Teléfono corporativo en el perfil obligatorio", () => {
     misDatos.guardar.mockResolvedValue({
       ...COMPLETOS,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
     });
     render(<AvisoPerfil />);
@@ -378,6 +382,7 @@ describe("Teléfono corporativo en el perfil obligatorio", () => {
     expect(misDatos.guardar).toHaveBeenCalledWith(
       expect.objectContaining({
         tiene_telefono_corporativo: true,
+        tiene_linea_fija: false,
         telefono_corporativo: "0987654321",
         telefono: "",
         acepta_telefono: false,
@@ -389,6 +394,7 @@ describe("Teléfono corporativo en el perfil obligatorio", () => {
     misDatos.obtener.mockResolvedValue({
       ...SIN_RESPONDER,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       agencia: null,
       faltan: ["agencia"],
@@ -413,6 +419,7 @@ describe("Teléfono corporativo en el perfil obligatorio", () => {
     expect(misDatos.guardar).toHaveBeenCalledWith(
       expect.objectContaining({
         tiene_telefono_corporativo: false,
+        tiene_linea_fija: false,
         telefono_corporativo: "",
       }),
     );
@@ -422,6 +429,7 @@ describe("Teléfono corporativo en el perfil obligatorio", () => {
     misDatos.obtener.mockResolvedValue({
       ...SIN_RESPONDER,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       faltan: ["telefono_corporativo"],
     });

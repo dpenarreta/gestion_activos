@@ -68,6 +68,7 @@ def _perfil():
         "apellidos": "Vera Núñez",
         "telefono": "0991112222",
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,

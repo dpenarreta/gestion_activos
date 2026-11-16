@@ -61,6 +61,7 @@ const DATOS = {
   correo_institucional: true,
   telefono: "",
   tiene_telefono_corporativo: null,
+  tiene_linea_fija: false,
   telefono_corporativo: "",
   telefono_autorizacion: {
     texto: "Autorizo a la empresa a guardar mi número de teléfono personal.",
@@ -116,6 +117,7 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     misDatos.guardar.mockResolvedValue({
       ...DATOS,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       faltan: [],
     });
@@ -138,6 +140,7 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     expect(misDatos.guardar).toHaveBeenCalledWith(
       expect.objectContaining({
         tiene_telefono_corporativo: true,
+        tiene_linea_fija: false,
         telefono_corporativo: "0987654321",
         acepta_telefono: false,
       }),
@@ -148,11 +151,13 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     misDatos.guardar.mockResolvedValue({
       ...DATOS,
       tiene_telefono_corporativo: false,
+      tiene_linea_fija: false,
       faltan: [],
     });
     const grupo = await pintar({
       ...DATOS,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       faltan: [],
     });
@@ -162,6 +167,7 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     await waitFor(() => expect(misDatos.guardar).toHaveBeenCalled());
     expect(misDatos.guardar.mock.calls[0][0]).toMatchObject({
       tiene_telefono_corporativo: false,
+      tiene_linea_fija: false,
       telefono_corporativo: "",
     });
   });
@@ -285,6 +291,7 @@ describe("Mi perfil: teléfono corporativo y personal", () => {
     await waitFor(() => expect(misDatos.guardar).toHaveBeenCalled());
     expect(misDatos.guardar.mock.calls[0][0]).toMatchObject({
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       telefono: "",
       acepta_telefono: false,
@@ -386,6 +393,7 @@ describe("Mi perfil: los errores de los teléfonos (auditoría 11/11/2026)", () 
     const grupo = await pintar({
       ...DATOS,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       faltan: [],
     });
@@ -419,6 +427,7 @@ describe("Mi perfil: autorización y avisos (auditoría 11/11/2026)", () => {
     const grupo = await pintar({
       ...DATOS,
       tiene_telefono_corporativo: true,
+      tiene_linea_fija: false,
       telefono_corporativo: "0987654321",
       faltan: [],
     });
@@ -430,5 +439,74 @@ describe("Mi perfil: autorización y avisos (auditoría 11/11/2026)", () => {
           /se quitará el número corporativo 0987654321/.test(r.textContent),
         ),
     ).toBe(true);
+  });
+});
+
+describe("Mi perfil: línea fija (16/11/2026)", () => {
+  it("la respuesta es obligatoria y con «Sí» pide la extensión y la envía", async () => {
+    misDatos.guardar.mockResolvedValue({
+      ...DATOS,
+      tiene_telefono_corporativo: false,
+      tiene_linea_fija: true,
+      linea_fija_extension: "2045",
+      faltan: [],
+    });
+    await pintar({
+      ...DATOS,
+      tiene_telefono_corporativo: false,
+      tiene_linea_fija: null,
+    });
+    const fija = screen.getByRole("radiogroup", {
+      name: /¿Tiene línea fija\?/,
+    });
+    expect(within(fija).getByLabelText("Sí")).not.toBeChecked();
+    fireEvent.submit(fija.closest("form"));
+    expect(
+      await screen.findByText("Indique si tiene línea fija."),
+    ).toBeInTheDocument();
+    expect(misDatos.guardar).not.toHaveBeenCalled();
+
+    fireEvent.click(within(fija).getByLabelText("Sí"));
+    const extension = screen.getByLabelText(/^Extensión de su línea fija/);
+    expect(extension).toBeRequired();
+    fireEvent.submit(extension.closest("form"));
+    expect(
+      await screen.findByText("Escriba la extensión de su línea fija."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(extension, { target: { value: "2045" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(
+      await screen.findByText("Sus datos quedaron guardados."),
+    ).toBeInTheDocument();
+    expect(misDatos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tiene_linea_fija: true,
+        linea_fija_extension: "2045",
+      }),
+    );
+  });
+
+  it("con «No» no pide extensión ni la envía", async () => {
+    misDatos.guardar.mockResolvedValue({ ...DATOS, faltan: [] });
+    await pintar({
+      ...DATOS,
+      tiene_telefono_corporativo: false,
+      tiene_linea_fija: true,
+      linea_fija_extension: "2045",
+    });
+    const fija = screen.getByRole("radiogroup", {
+      name: /¿Tiene línea fija\?/,
+    });
+    fireEvent.click(within(fija).getByLabelText("No"));
+    expect(screen.queryByLabelText(/^Extensión de su línea fija/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await screen.findByText("Sus datos quedaron guardados.");
+    expect(misDatos.guardar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tiene_linea_fija: false,
+        linea_fija_extension: "",
+      }),
+    );
   });
 });

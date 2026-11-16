@@ -73,6 +73,8 @@ OBLIGATORIOS = (
     "agencia",
     "cargo",
     "telefono_corporativo",
+    # 16/11/2026: responder si tiene línea fija y, si la tiene, la extensión.
+    "linea_fija",
 )
 
 #: Los dominios del correo institucional.
@@ -87,6 +89,7 @@ ETIQUETAS = {
     # Lo que falta es la respuesta, y «No» vale: con «Teléfono corporativo»
     # quien no tiene uno creía que debía conseguir un número (11/11/2026).
     "telefono_corporativo": "¿Tiene teléfono o línea corporativa?",
+    "linea_fija": "¿Tiene línea fija?",
     "area": "Área",
     "agencia": "Agencia",
     "cargo": "Cargo",
@@ -102,6 +105,7 @@ SIN_AUTORIZACION = (
 )
 
 SIN_TELEFONO_CORPORATIVO = "Escriba su teléfono corporativo."
+SIN_EXTENSION = "Escriba la extensión de su línea fija."
 
 #: Para quien llama a `guardar` sin la respuesta del teléfono corporativo: se
 #: conserva lo que ya estaba guardado (ni se borra ni se da por respondido).
@@ -177,6 +181,8 @@ def de(usuario) -> dict:
         "cargo": {"id": cargo.id, "nombre": nombre_con_unidad(cargo)} if cargo else None,
         "tiene_telefono_corporativo": propios.tiene_telefono_corporativo if propios else None,
         "telefono_corporativo": (propios.telefono_corporativo if propios else "") or "",
+        "tiene_linea_fija": propios.tiene_linea_fija if propios else None,
+        "linea_fija_extension": (propios.linea_fija_extension if propios else "") or "",
         "en_nomina": empleado is not None,
         # Su cédula, traída de nómina (US-021): solo la ve ella.
         "cedula": usuario.cedula or "",
@@ -197,6 +203,8 @@ def de(usuario) -> dict:
         # Respondió que no tiene, o que sí y escribió el número.
         "telefono_corporativo": datos["tiene_telefono_corporativo"] is False
         or bool(datos["tiene_telefono_corporativo"] and datos["telefono_corporativo"]),
+        "linea_fija": datos["tiene_linea_fija"] is False
+        or bool(datos["tiene_linea_fija"] and datos["linea_fija_extension"]),
     }
     datos["faltan"] = [clave for clave in OBLIGATORIOS if not presentes[clave]]
     return datos
@@ -222,6 +230,8 @@ def para_compartir(usuario) -> dict:
         "telefono_corporativo": (
             propios.telefono_corporativo if propios and propios.tiene_telefono_corporativo else ""
         ),
+        # La extensión de su línea fija, si la tiene (16/11/2026): dato de trabajo.
+        "extension": (propios.linea_fija_extension if propios and propios.tiene_linea_fija else ""),
         "cargo": cargo.nombre if cargo else "",
         "area": area.nombre if area else "",
     }
@@ -289,6 +299,8 @@ def guardar(
     version_telefono=None,
     tiene_telefono_corporativo=SIN_CAMBIOS,
     telefono_corporativo="",
+    tiene_linea_fija=SIN_CAMBIOS,
+    linea_fija_extension="",
 ) -> dict:
     """Actualiza su nombre (en la cuenta) y sus teléfonos, área, agencia y
     cargo (en «Mi perfil»).
@@ -369,6 +381,12 @@ def guardar(
                     raise ValidationError({"telefono_corporativo": [SIN_TELEFONO_CORPORATIVO]})
                 propios.tiene_telefono_corporativo = bool(tiene_telefono_corporativo)
                 propios.telefono_corporativo = corporativo if tiene_telefono_corporativo else ""
+            if tiene_linea_fija is not SIN_CAMBIOS and tiene_linea_fija is not None:
+                extension = (linea_fija_extension or "").strip()[:10]
+                if tiene_linea_fija and not extension:
+                    raise ValidationError({"linea_fija_extension": [SIN_EXTENSION]})
+                propios.tiene_linea_fija = bool(tiene_linea_fija)
+                propios.linea_fija_extension = extension if tiene_linea_fija else ""
             propios.departamento = departamento
             propios.sede = sede
             propios.cargo = cargo

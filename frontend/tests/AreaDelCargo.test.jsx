@@ -61,6 +61,7 @@ const DATOS = {
   correo_institucional: true,
   telefono: "",
   tiene_telefono_corporativo: false,
+  tiene_linea_fija: false,
   telefono_corporativo: "",
   telefono_autorizacion: { texto: "Autorizo.", aceptado: false },
   area: null,

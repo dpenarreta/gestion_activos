@@ -53,7 +53,7 @@ def test_la_ficha_de_empleado_da_los_valores_iniciales(db):
     assert datos["en_nomina"] is True
     # La ficha de empleado no guarda la agencia; el cargo se elige. El
     # teléfono es opcional (26/10/2026) y no está autorizado todavía.
-    assert datos["faltan"] == ["agencia", "cargo", "telefono_corporativo"]
+    assert datos["faltan"] == ["agencia", "cargo", "telefono_corporativo", "linea_fija"]
     assert datos["telefono_autorizacion"]["aceptado"] is False
 
 
@@ -74,6 +74,7 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
         "agencia",
         "cargo",
         "telefono_corporativo",
+        "linea_fija",
     ]
     assert [a["nombre"] for a in inicial["areas"]] == ["Comercial"]
 
@@ -97,6 +98,7 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
             "telefono": "0991112222",
             "acepta_telefono": True,
             "tiene_telefono_corporativo": False,
+            "tiene_linea_fija": False,
             "area": area.id,
             "agencia": sede.id,
             "cargo": cargo.id,
@@ -129,6 +131,7 @@ def test_el_cargo_se_elige_del_catalogo_y_es_obligatorio(db):
         "telefono": "0991112222",
         "acepta_telefono": True,
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -200,6 +203,7 @@ def test_el_cargo_lo_elige_una_sola_vez_y_despues_lo_cambia_ti(db):
         "telefono": "0991112222",
         "acepta_telefono": True,
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": sede.id,
     }
@@ -240,6 +244,7 @@ def test_el_telefono_se_guarda_solo_con_autorizacion_y_queda_la_constancia(db):
         "apellidos": "Vera",
         "telefono": "0991112222",
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,
@@ -293,6 +298,7 @@ def test_el_telefono_es_opcional_pero_si_se_escribe_pide_autorizacion(db):
         "nombres": "Rosa",
         "apellidos": "Vera",
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,

@@ -60,6 +60,7 @@ const NOMBRES = {
   telefono: "teléfono",
   // Falta la respuesta, no un número: «No» también vale (11/11/2026).
   telefono_corporativo: "si tiene teléfono o línea corporativa",
+  linea_fija: "si tiene línea fija",
   area: "área",
   agencia: "agencia",
   cargo: "cargo",
@@ -71,6 +72,7 @@ export const DATOS_OBLIGATORIOS = [
   ["apellidos", "Apellidos"],
   ["correo", "Correo institucional"],
   ["telefono_corporativo", "¿Tiene teléfono o línea corporativa?"],
+  ["linea_fija", "¿Tiene línea fija?"],
   ["area", "Área"],
   ["agencia", "Agencia"],
   ["cargo", "Cargo"],
@@ -95,6 +97,8 @@ function MarcaObligatorio() {
 const CAMPOS_PROPIOS = new Set([
   "tiene_telefono_corporativo",
   "telefono_corporativo",
+  "tiene_linea_fija",
+  "linea_fija_extension",
   "telefono",
   "acepta_telefono",
   // El área también (US-005, 11/11/2026): el rechazo «la cambia Gestión
@@ -129,6 +133,10 @@ export function FormularioMisDatos({
     // personales.
     tiene_telefono_corporativo: datos.tiene_telefono_corporativo ?? null,
     telefono_corporativo: datos.telefono_corporativo ?? "",
+    // La línea fija (16/11/2026): la respuesta es obligatoria (`null` es
+    // «sin responder»); con «Sí», la extensión también.
+    tiene_linea_fija: datos.tiene_linea_fija ?? null,
+    linea_fija_extension: datos.linea_fija_extension ?? "",
   });
   const [error, setError] = useState(null);
   // Los errores que se muestran junto a su campo (los del teléfono
@@ -140,6 +148,7 @@ export function FormularioMisDatos({
   // grupo es un `radiogroup` con `aria-invalid`, y cada radio enlaza el
   // motivo).
   const primeraOpcion = useRef(null);
+  const primeraOpcionFija = useRef(null);
   // La casilla de la autorización cuando no hay texto: su «Reintentar».
   const casillaTelefono = useRef(null);
   // Ya tiene cargo: lo eligió (o se lo asignaron) y no lo cambia desde aquí.
@@ -224,6 +233,17 @@ export function FormularioMisDatos({
   // La autorización se exige solo si escribe un teléfono personal.
   const conTelefono = sinCorporativo && valores.telefono.trim() !== "";
 
+  const conLineaFija = valores.tiene_linea_fija === true;
+
+  function responderLineaFija(tiene) {
+    setValores((actual) => ({ ...actual, tiene_linea_fija: tiene }));
+    setErrores((actual) => ({
+      ...actual,
+      tiene_linea_fija: undefined,
+      linea_fija_extension: undefined,
+    }));
+  }
+
   function responderCorporativo(tiene) {
     setValores((actual) => ({ ...actual, tiene_telefono_corporativo: tiene }));
     setErrores((actual) => ({
@@ -243,6 +263,16 @@ export function FormularioMisDatos({
         "Indique si tiene teléfono o línea corporativa asignada.";
     } else if (conCorporativo && valores.telefono_corporativo.trim() === "") {
       faltan.telefono_corporativo = "Escriba su teléfono corporativo.";
+    }
+    if (valores.tiene_linea_fija === null) {
+      faltan.tiene_linea_fija = "Indique si tiene línea fija.";
+    } else if (conLineaFija && valores.linea_fija_extension.trim() === "") {
+      faltan.linea_fija_extension = "Escriba la extensión de su línea fija.";
+    } else if (
+      conLineaFija &&
+      !/^\d+$/.test(valores.linea_fija_extension.trim())
+    ) {
+      faltan.linea_fija_extension = "La extensión lleva solo números.";
     }
     if (conTelefono && !textoDeAutorizacion) {
       // Sin el texto del servidor no hay qué autorizar (cargando o no
@@ -274,6 +304,7 @@ export function FormularioMisDatos({
       setErrores(faltan);
       setError(null);
       if (faltan.tiene_telefono_corporativo) primeraOpcion.current?.focus();
+      else if (faltan.tiene_linea_fija) primeraOpcionFija.current?.focus();
       else if (faltan.acepta_telefono === SIN_AUTORIZACION) {
         enfocarSinAutorizacion();
       } else enfocarPrimerError(formulario.current);
@@ -292,6 +323,9 @@ export function FormularioMisDatos({
             ? valores.telefono_corporativo.trim()
             : "",
           telefono: sinCorporativo ? valores.telefono : "",
+          linea_fija_extension: conLineaFija
+            ? valores.linea_fija_extension.trim()
+            : "",
           acepta_telefono: conTelefono && valores.acepta_telefono,
           ...(conTelefono && valores.acepta_telefono && versionTelefono
             ? { version_telefono: versionTelefono }
@@ -332,6 +366,8 @@ export function FormularioMisDatos({
   }
 
   const errorPregunta = errores.tiene_telefono_corporativo;
+  const errorPreguntaFija = errores.tiene_linea_fija;
+  const errorExtension = errores.linea_fija_extension;
   const errorCorporativo = errores.telefono_corporativo;
   const errorPersonal = errores.telefono;
   // Si el texto llega después, el aviso de que faltaba ya no aplica.
@@ -662,6 +698,105 @@ export function FormularioMisDatos({
                 acéptelo de nuevo.
               </div>
             )}
+          </div>
+        </div>
+      )}
+      <div className="col-12">
+        <fieldset
+          className="mis-datos__pregunta"
+          role="radiogroup"
+          aria-required="true"
+          aria-invalid={errorPreguntaFija ? "true" : undefined}
+          aria-describedby={errorPreguntaFija ? "md-fija-falta" : undefined}
+        >
+          <legend className="form-label">
+            ¿Tiene línea fija?
+            <MarcaObligatorio />
+          </legend>
+          <div className="mis-datos__si-no">
+            {[
+              [true, "Sí", "md-fija-si"],
+              [false, "No", "md-fija-no"],
+            ].map(([valor, etiqueta, id]) => (
+              <div key={id} className="form-check">
+                <input
+                  id={id}
+                  type="radio"
+                  name="tiene_linea_fija"
+                  className={`form-check-input${errorPreguntaFija ? " is-invalid" : ""}`}
+                  required
+                  ref={valor ? primeraOpcionFija : undefined}
+                  aria-describedby={
+                    errorPreguntaFija ? "md-fija-falta" : undefined
+                  }
+                  onInvalid={() =>
+                    setErrores((actual) => ({
+                      ...actual,
+                      tiene_linea_fija: revisar().tiene_linea_fija,
+                    }))
+                  }
+                  checked={valores.tiene_linea_fija === valor}
+                  onChange={() => responderLineaFija(valor)}
+                />
+                <label className="form-check-label" htmlFor={id}>
+                  {etiqueta}
+                </label>
+              </div>
+            ))}
+          </div>
+          {errorPreguntaFija && (
+            <div
+              id="md-fija-falta"
+              className="invalid-feedback d-block"
+              role="alert"
+            >
+              <Icon name="exclamation-circle" /> {errorPreguntaFija}
+            </div>
+          )}
+        </fieldset>
+      </div>
+      {conLineaFija && (
+        <div className="col-12 col-md-6">
+          <label className="form-label" htmlFor="md-extension">
+            Extensión de su línea fija
+            <MarcaObligatorio />
+          </label>
+          <input
+            id="md-extension"
+            className={`form-control${errorExtension ? " is-invalid" : ""}`}
+            required
+            maxLength={10}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-invalid={errorExtension ? "true" : undefined}
+            aria-describedby={
+              errorExtension
+                ? "md-extension-error md-extension-ayuda"
+                : "md-extension-ayuda"
+            }
+            onInvalid={() =>
+              setErrores((actual) => ({
+                ...actual,
+                linea_fija_extension: revisar().linea_fija_extension,
+              }))
+            }
+            value={valores.linea_fija_extension}
+            onChange={(e) => {
+              fijar("linea_fija_extension")(e);
+              setErrores((actual) => ({
+                ...actual,
+                linea_fija_extension: undefined,
+              }));
+            }}
+          />
+          {errorExtension && (
+            <div id="md-extension-error" className="invalid-feedback d-block">
+              <Icon name="exclamation-circle" /> {errorExtension}
+            </div>
+          )}
+          <div id="md-extension-ayuda" className="form-text">
+            Solo números, por ejemplo 1234. La verán sus compañeros en el
+            directorio del chat, junto a la línea corporativa.
           </div>
         </div>
       )}

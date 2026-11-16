@@ -109,6 +109,7 @@ def _datos(arbol, area, cargo):
         "nombres": "María José",
         "apellidos": "Peña Núñez",
         "tiene_telefono_corporativo": False,
+        "tiene_linea_fija": False,
         "area": area.id,
         "agencia": arbol["sede"].id,
         "cargo": cargo.id,
@@ -676,6 +677,7 @@ def _guardar(usuario, arbol, area):
         sede=arbol["sede"],
         cargo=arbol["gestor"],
         tiene_telefono_corporativo=False,
+        tiene_linea_fija=False,
     )
 
 

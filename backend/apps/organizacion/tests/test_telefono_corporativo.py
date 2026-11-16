@@ -47,6 +47,7 @@ def perfil(db):
         "area": area.id,
         "agencia": sede.id,
         "cargo": cargo.id,
+        "tiene_linea_fija": False,
     }
     return {"empresa": empresa, "usuario": usuario, "cliente": cliente, "base": base}
 
@@ -133,6 +134,7 @@ def test_el_corporativo_no_pide_autorizacion_y_el_personal_si(perfil):
     corporativo = {
         **base,
         "tiene_telefono_corporativo": True,
+        "tiene_linea_fija": False,
         "telefono_corporativo": "02 298 7654",
     }
     sin_autorizar = cliente.put(URL, corporativo, format="json")
@@ -167,6 +169,7 @@ def test_con_corporativo_no_se_guarda_el_personal(perfil):
         {
             **base,
             "tiene_telefono_corporativo": True,
+            "tiene_linea_fija": False,
             "telefono_corporativo": "02 298 7654",
             "telefono": "0991112222",
         },
@@ -184,6 +187,7 @@ def test_los_demas_ven_el_corporativo_sin_autorizacion(perfil):
             usuario=perfil["usuario"],
             telefono="0991112222",  # personal sin autorizar: no se muestra
             tiene_telefono_corporativo=True,
+            tiene_linea_fija=False,
             telefono_corporativo="02 298 7654",
         )
         compartido = contacto.para_compartir(perfil["usuario"])
@@ -192,7 +196,7 @@ def test_los_demas_ven_el_corporativo_sin_autorizacion(perfil):
 
     with usando_empresa(perfil["empresa"]):
         DatosDeContacto.objects.filter(usuario=perfil["usuario"]).update(
-            tiene_telefono_corporativo=False, telefono_corporativo=""
+            tiene_telefono_corporativo=False, tiene_linea_fija=False, telefono_corporativo=""
         )
         assert contacto.para_compartir(perfil["usuario"])["telefono_corporativo"] == ""
 
@@ -222,6 +226,7 @@ def test_sin_la_respuesta_contacto_guardar_conserva_lo_guardado(perfil):
             sede=None,
             cargo=cargo,
             tiene_telefono_corporativo=True,
+            tiene_linea_fija=False,
             telefono_corporativo="02 298 7654",
         )
         contacto.guardar(
@@ -245,3 +250,37 @@ def test_las_etiquetas_distinguen_los_dos_telefonos():
     assert contacto.ETIQUETAS["telefono_corporativo"] == "¿Tiene teléfono o línea corporativa?"
     assert "telefono_corporativo" in contacto.OBLIGATORIOS
     assert "telefono" not in contacto.OBLIGATORIOS
+
+
+# --- Línea fija (16/11/2026) ---------------------------------------------------------------
+
+
+def test_la_linea_fija_se_responde_y_con_si_pide_la_extension(perfil):
+    cliente, base = perfil["cliente"], perfil["base"]
+    base = {**base, "tiene_telefono_corporativo": False}
+    sin_respuesta = {k: v for k, v in base.items() if k != "tiene_linea_fija"}
+    respuesta = cliente.put(URL, sin_respuesta, format="json")
+    assert respuesta.status_code == 400
+    assert "tiene_linea_fija" in respuesta.json()["error"]["details"]
+
+    sin_extension = cliente.put(URL, {**base, "tiene_linea_fija": True}, format="json")
+    assert sin_extension.status_code == 400
+    assert "linea_fija_extension" in sin_extension.json()["error"]["details"]
+
+    letras = cliente.put(
+        URL, {**base, "tiene_linea_fija": True, "linea_fija_extension": "12a"}, format="json"
+    )
+    assert letras.status_code == 400
+
+    con_si = cliente.put(
+        URL, {**base, "tiene_linea_fija": True, "linea_fija_extension": " 2045 "}, format="json"
+    ).json()
+    assert (con_si["tiene_linea_fija"], con_si["linea_fija_extension"]) == (True, "2045")
+    assert "linea_fija" not in con_si["faltan"]
+    assert contacto.para_compartir(perfil["usuario"])["extension"] == "2045"
+
+    con_no = cliente.put(
+        URL, {**base, "tiene_linea_fija": False, "linea_fija_extension": "2045"}, format="json"
+    ).json()
+    assert (con_no["tiene_linea_fija"], con_no["linea_fija_extension"]) == (False, "")
+    assert contacto.para_compartir(perfil["usuario"])["extension"] == ""

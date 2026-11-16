@@ -347,6 +347,14 @@ class MisDatosSerializer(serializers.Serializer):
     telefono_corporativo = serializers.CharField(
         max_length=30, required=False, allow_blank=True, default=""
     )
+    #: «¿Tiene línea fija?» (16/11/2026): la respuesta es obligatoria; con sí,
+    #: la extensión también (solo dígitos, hasta 10).
+    tiene_linea_fija = serializers.BooleanField(
+        error_messages={"required": "Responda si tiene línea fija."}
+    )
+    linea_fija_extension = serializers.CharField(
+        max_length=10, required=False, allow_blank=True, default=""
+    )
 
     def validate_nombres(self, valor):
         if not valor.strip():
@@ -380,6 +388,16 @@ class MisDatosSerializer(serializers.Serializer):
                 )
             except serializers.ValidationError as error:
                 raise serializers.ValidationError({"telefono_corporativo": error.detail}) from None
+        # La extensión solo cuenta con «sí»; con «no» se descarta lo que venga.
+        if not datos.get("tiene_linea_fija"):
+            datos["linea_fija_extension"] = ""
+        else:
+            extension = datos.get("linea_fija_extension", "").strip()
+            if extension and not extension.isdigit():
+                raise serializers.ValidationError(
+                    {"linea_fija_extension": "La extensión lleva solo números."}
+                )
+            datos["linea_fija_extension"] = extension
         return datos
 
 
