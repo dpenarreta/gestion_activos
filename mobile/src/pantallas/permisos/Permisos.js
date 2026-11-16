@@ -109,6 +109,9 @@ export function Permisos() {
                 ruta="/admin/institucional/permisos"
                 empresa={empresaActiva?.id}
                 texto={TEXTO_SOLO_EN_LA_WEB}
+                nombre="Abrir permisos"
+                icono="calendar-check-outline"
+                familia="permisos"
                 testID="permisos-en-la-web"
               />
             ) : null

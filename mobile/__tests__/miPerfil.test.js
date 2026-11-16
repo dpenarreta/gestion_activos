@@ -76,6 +76,10 @@ describe("lo puro de Mi perfil", () => {
       "área, agencia y cargo",
     );
   });
+
+  it("nombra la línea fija como la pregunta de la web", () => {
+    expect(queFalta(["linea_fija"])).toBe("si tiene línea fija");
+  });
 });
 
 describe("<MiPerfil />", () => {
@@ -123,5 +127,39 @@ describe("<MiPerfil />", () => {
     ).toBeTruthy();
     await fireEvent.press(screen.getByText("Reintentar"));
     expect(await screen.findByTestId("mis-datos")).toBeTruthy();
+  });
+});
+
+describe("encabezado de Mi perfil (16/11/2026)", () => {
+  const { nombreCorto } = require("../src/pantallas/MiPerfil");
+  it("un nombre y un apellido", () => {
+    expect(nombreCorto("Daniel Alejandro", "Peñarreta Torres")).toBe(
+      "Daniel Peñarreta",
+    );
+    expect(nombreCorto("Ana", "")).toBe("Ana");
+  });
+
+  it("nombre, código si lo hay y el cargo en lugar del correo", async () => {
+    inicioService.misDatos.mockResolvedValueOnce({
+      ...DATOS,
+      codigo_empleado: "E-123",
+    });
+    await render(
+      <MiPerfil usuario={{ username: "ana", email: "ana@grupolaar.com" }} />,
+    );
+    const encabezado = await screen.findByTestId("encabezado-perfil");
+    expect(within(encabezado).getByText("Ana Pérez")).toBeTruthy();
+    expect(
+      within(encabezado).getByLabelText("Código de empleado E-123"),
+    ).toBeTruthy();
+    expect(within(encabezado).getByText("Analista · TI")).toBeTruthy();
+    expect(within(encabezado).queryByText("ana@grupolaar.com")).toBeNull();
+  });
+
+  it("sin código registrado no se muestra esa parte", async () => {
+    inicioService.misDatos.mockResolvedValueOnce(DATOS);
+    await render(<MiPerfil />);
+    await screen.findByTestId("encabezado-perfil");
+    expect(screen.queryByTestId("codigo-empleado")).toBeNull();
   });
 });

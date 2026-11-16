@@ -5,11 +5,12 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { chatService, directorioService, reemplazoService } from "../src/api/servicios";
 import { ChatProvider } from "../src/chat/ChatContext";
 import { escucharMiEstado } from "../src/chat/miEstado";
-import { iniciales } from "../src/chat/formato";
+import { datosDeContacto, iniciales } from "../src/chat/formato";
 import { ListaChats, TEXTO_GRUPOS_EN_LA_WEB } from "../src/pantallas/chat/ListaChats";
 import { TEXTO_HAY_MAS } from "../src/utils/busqueda";
 import { MiEstado, TEXTO_GUARDADO } from "../src/pantallas/chat/MiEstado";
 import { ESPERA_BUSCAR_MS, NuevoMensaje } from "../src/pantallas/chat/NuevoMensaje";
+import { Contacto, TEXTO_SIN_APP } from "../src/pantallas/chat/Contacto";
 import { Participantes, textoGestionEnLaWeb } from "../src/pantallas/chat/Participantes";
 
 /**
@@ -43,6 +44,7 @@ jest.mock("../src/api/servicios", () => ({
     presencia: jest.fn(),
     miEstado: jest.fn(),
     guardarEstado: jest.fn(),
+    contacto: jest.fn(),
   },
   directorioService: { buscar: jest.fn() },
   reemplazoService: { obtener: jest.fn(), guardar: jest.fn() },
@@ -225,7 +227,7 @@ describe("pestaña «Chat» (CA-1, CA-14)", () => {
       </ChatProvider>,
     );
     expect(await screen.findByText(TEXTO_GRUPOS_EN_LA_WEB)).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Crear un grupo. Abrir en el navegador" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Crear un grupo. Abrir en el navegador" }));
     expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/chat\?empresa=1$/));
   });
 
@@ -238,7 +240,7 @@ describe("pestaña «Chat» (CA-1, CA-14)", () => {
         <ListaChats />
       </ChatProvider>,
     );
-    await fireEvent.press(await screen.findByRole("button", { name: "Crear un grupo. Abrir en el navegador" }));
+    await fireEvent.press(await screen.findByRole("link", { name: "Crear un grupo. Abrir en el navegador" }));
     expect(await screen.findByText("No se pudo abrir el navegador del teléfono. Intente de nuevo.")).toBeTruthy();
   });
 
@@ -442,6 +444,86 @@ describe("participantes (CA-6, CA-8)", () => {
     expect(await screen.findByText(/No se pudo conectar con el servidor/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Reintentar" }));
     expect(await screen.findByText("Equipo TI")).toBeTruthy();
+  });
+});
+
+describe("ficha de contacto (16/11/2026)", () => {
+  /** Con la forma real de `organizacion.contacto.para_compartir`. */
+  const FICHA = {
+    id: 9,
+    nombre: "Carla Ruiz",
+    correo: "carla@grupolaar.com",
+    telefono: "",
+    telefono_corporativo: "099 123 4567",
+    extension: "214",
+    cargo: "Analista",
+    area: "Cartera",
+  };
+  const VACIA = { id: 3, nombre: "Ana", correo: "", telefono: "", telefono_corporativo: "", extension: "", cargo: "", area: "" };
+
+  it("el teléfono: el corporativo si lo tiene; si no, el personal", () => {
+    const conAmbos = datosDeContacto({ ...FICHA, telefono: "0987654321" });
+    expect(conAmbos.find((f) => f.clave === "telefono")).toMatchObject({
+      etiqueta: "Teléfono corporativo",
+      valor: "099 123 4567",
+      accion: "tel:0991234567",
+    });
+    const soloPersonal = datosDeContacto({ ...FICHA, telefono_corporativo: "", telefono: "0987654321" });
+    expect(soloPersonal.find((f) => f.clave === "telefono")).toMatchObject({ etiqueta: "Teléfono personal", valor: "0987654321" });
+    expect(datosDeContacto(FICHA).map((f) => f.clave)).toEqual(["correo", "telefono", "extension", "area", "cargo"]);
+  });
+
+  it("lo que no hay no se muestra", () => {
+    expect(datosDeContacto(VACIA)).toEqual([]);
+    expect(datosDeContacto(null)).toEqual([]);
+  });
+
+  it("muestra correo, teléfono, extensión, área y cargo, en la empresa del chat", async () => {
+    chatService.contacto.mockResolvedValueOnce(FICHA);
+    await render(<Contacto id="9" empresa="2" />);
+    expect(await screen.findByText("Carla Ruiz")).toBeTruthy();
+    expect(chatService.contacto).toHaveBeenCalledWith("9", { empresa: "2" });
+    expect(screen.getByText("carla@grupolaar.com")).toBeTruthy();
+    expect(screen.getByText("Teléfono corporativo")).toBeTruthy();
+    expect(screen.getByText("214")).toBeTruthy();
+    expect(screen.getByText("Cartera")).toBeTruthy();
+    expect(screen.getByText("Analista")).toBeTruthy();
+    // La extensión no se marca sola: no lleva botón.
+    expect(screen.queryByTestId("abrir-extension")).toBeNull();
+  });
+
+  it("«Llamar» y «Correo» abren su app; si no se puede, lo dice con el dato", async () => {
+    chatService.contacto.mockResolvedValueOnce(FICHA);
+    await render(<Contacto id="9" />);
+    await screen.findByText("Carla Ruiz");
+    await fireEvent.press(screen.getByRole("button", { name: "Escribir un correo a Carla Ruiz: carla@grupolaar.com" }));
+    expect(Linking.openURL).toHaveBeenCalledWith("mailto:carla@grupolaar.com");
+    Linking.openURL.mockRejectedValueOnce(new Error("sin app"));
+    await fireEvent.press(screen.getByRole("button", { name: "Llamar a Carla Ruiz: 099 123 4567" }));
+    expect(Linking.openURL).toHaveBeenCalledWith("tel:0991234567");
+    expect(await screen.findByText(`${TEXTO_SIN_APP.telefono} 099 123 4567`)).toBeTruthy();
+  });
+
+  it("sin datos lo dice; si falla ofrece «Reintentar»", async () => {
+    chatService.contacto.mockRejectedValueOnce(errorDeRed()).mockResolvedValueOnce(VACIA);
+    await render(<Contacto id="3" />);
+    expect(await screen.findByText(/No se pudo conectar con el servidor/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("No tiene datos de contacto para mostrar.")).toBeTruthy();
+  });
+
+  it("desde los participantes, tocar a alguien abre su ficha", async () => {
+    chatService.conversacion.mockResolvedValueOnce({
+      id: 7,
+      tipo: "grupo",
+      nombre: "Equipo TI",
+      miembros: 1,
+      administra: false,
+      participantes: [{ ...CARLA, administra: false }],
+    });
+    await render(<Participantes id="7" empresa="2" />);
+    await fireEvent.press(await screen.findByTestId("participante-9"));
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
   });
 });
 

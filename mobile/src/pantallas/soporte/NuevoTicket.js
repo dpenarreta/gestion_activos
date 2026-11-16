@@ -320,6 +320,9 @@ export function NuevoTicket() {
           ruta="/admin/perfil"
           empresa={empresa}
           titulo="Completar «Mi perfil» en el navegador"
+          nombre="Completar mi perfil"
+          icono="account-edit-outline"
+          familia="perfil"
         />
         <Boton
           testID="revisar-de-nuevo"
@@ -358,6 +361,9 @@ export function NuevoTicket() {
             ruta="/admin/perfil"
             empresa={empresa}
             titulo="Completar «Mi perfil» en el navegador"
+          nombre="Completar mi perfil"
+          icono="account-edit-outline"
+          familia="perfil"
           />
         ) : null}
         <Text style={estilos.leyenda}>Los campos con * son obligatorios.</Text>
@@ -390,6 +396,9 @@ export function NuevoTicket() {
           ruta="/admin/perfil"
           empresa={empresa}
           titulo="Cambiar mis datos en el navegador"
+          nombre="Cambiar mis datos"
+          icono="account-edit-outline"
+          familia="perfil"
         />
         <Boton
           testID="crear-ticket"

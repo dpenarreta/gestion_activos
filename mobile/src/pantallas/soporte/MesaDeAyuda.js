@@ -1,8 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Alerta, Boton } from "../../componentes/comunes";
+import { BotonRedondo, CuadriculaRedonda } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
 import { abrirEnNavegador, TEXTO_NAVEGADOR_FALLO, urlWeb } from "../../navegador/enlaceWeb";
 import { moduloPorId, vistaActiva } from "../../navegacion/modulos";
@@ -11,7 +12,7 @@ import { useSesion } from "../../sesion/SesionContext";
 import { tomarAviso } from "../../soporte/avisoPendiente";
 import { accesosEnElNavegador, rutaDeAltaPropia } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { colores } from "../../tema/colores";
 import { CONTROLES } from "../../tema/controles";
 import { crearEstilos } from "../../tema/tipografia";
 import { Aprobaciones } from "./Aprobaciones";
@@ -52,7 +53,7 @@ export function MasEnElNavegador({ permisos, empresa }) {
   async function abrir(ruta) {
     setError(null);
     const abierta = await abrirEnNavegador(urlWeb(ruta, { empresa }), { avisarSiFalla: false });
-    if (!abierta) setError(TEXTO_NAVEGADOR_FALLO);
+    if (abierta === false) setError(TEXTO_NAVEGADOR_FALLO);
   }
   return (
     <View style={estilos.navegador} testID="mas-en-el-navegador">
@@ -63,20 +64,23 @@ export function MasEnElNavegador({ permisos, empresa }) {
         <Icono nombre="open-in-new" size={18} color={colores.tintaSuave} />
       </View>
       <Text style={estilos.tenue}>Se abren en el navegador del teléfono.</Text>
-      {accesos.map((a) => (
-        <Pressable
-          key={a.ruta}
-          testID={`web-${a.ruta}`}
-          onPress={() => abrir(a.ruta)}
-          accessibilityRole="link"
-          accessibilityLabel={`${a.nombre}. Abrir en el navegador`}
-          style={({ pressed }) => [estilos.acceso, pressed && estilos.presionada]}
-        >
-          <Icono nombre={a.icono} size={22} color={colores.primario} />
-          <Text style={estilos.accesoTexto}>{a.nombre}</Text>
-          <Icono nombre="open-in-new" size={20} color={colores.tintaTenue} />
-        </Pressable>
-      ))}
+      {/* Botones redondos con la marca de «sale de la app» (16/11/2026). */}
+      <CuadriculaRedonda columnas={3}>
+        {(ancho) =>
+          accesos.map((a) => (
+            <BotonRedondo
+              key={a.ruta}
+              testID={`web-${a.ruta}`}
+              icono={a.icono}
+              nombre={a.nombre}
+              familia="soporte"
+              navegador
+              ancho={ancho}
+              onPress={() => abrir(a.ruta)}
+            />
+          ))
+        }
+      </CuadriculaRedonda>
       {error ? <Alerta tipo="mal" texto={error} /> : null}
     </View>
   );
@@ -169,17 +173,4 @@ const estilos = crearEstilos({
   navegador: { gap: 8 },
   navegadorTitulo: { flexDirection: "row", alignItems: "center", gap: 8 },
   subtitulo: { fontSize: 17, fontWeight: "700", color: colores.titulo },
-  acceso: {
-    minHeight: AREA_TACTIL,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: colores.superficie,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  accesoTexto: { flex: 1, fontSize: 16, fontWeight: "600", color: colores.tinta },
-  presionada: { backgroundColor: colores.realce },
 });

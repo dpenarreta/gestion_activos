@@ -728,7 +728,7 @@ describe("la ficha del técnico (CA-10 a CA-15, CA-21)", () => {
     soporteService.ticket.mockResolvedValue(detalle({ registrar_horas: true }));
     await render(<TicketDetalle id="9" />);
     expect(await screen.findByText(TEXTO_FUERA_DE_HORARIO)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Registrar las horas en el navegador" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Registrar las horas en el navegador" })).toBeTruthy();
   });
 
   it("N-01: lo del equipo, a la derecha en su ficha; lo de «Usted», a la derecha en la de quien pide", async () => {

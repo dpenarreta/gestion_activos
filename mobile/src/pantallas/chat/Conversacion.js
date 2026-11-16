@@ -242,6 +242,7 @@ export function Conversacion({ id, empresa = null }) {
   const conversacion = deLaLista ?? detalle;
   // Mientras no se sabe qué conversación es (B5), no se trata como grupo.
   const grupal = conversacion ? esGrupal(conversacion) : false;
+  const contactoId = !grupal ? (conversacion?.otro?.id ?? null) : null;
   const nombre = conversacion?.nombre ?? "Conversación";
 
   const [estado, setEstado] = useState("cargando");
@@ -328,9 +329,26 @@ export function Conversacion({ id, empresa = null }) {
                 }
               />
             )
-          : undefined,
+          : contactoId
+            ? // En un directo, la ficha de contacto de la otra persona
+              // (16/11/2026, a pedido del usuario).
+              () => (
+                <BotonIcono
+                  testID="ver-contacto"
+                  icono="card-account-details-outline"
+                  variante="oscuro"
+                  etiqueta={`Ver el contacto de ${nombre}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/chat/contacto/[id]",
+                      params: empresa ? { id: String(contactoId), empresa } : { id: String(contactoId) },
+                    })
+                  }
+                />
+              )
+            : undefined,
     });
-  }, [navegacion, nombre, grupal, conversacion?.tipo, router, id, empresa]);
+  }, [navegacion, nombre, grupal, conversacion?.tipo, router, id, empresa, contactoId]);
 
   // CA-11: mientras tiene el foco, su push no se muestra.
   useFocusEffect(useCallback(() => registrarConversacionAbierta(id, empresa), [id, empresa]));

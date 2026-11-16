@@ -6,11 +6,11 @@ import { mensajeDeError } from "../api/errores";
 import { notificacionesService } from "../api/servicios";
 import {
   Alerta,
-  Boton,
   Cargando,
   ErrorConReintento,
 } from "../componentes/comunes";
-import { Icono } from "../componentes/Icono";
+import { BotonRedondo } from "../componentes/BotonRedondo";
+import { Icono, nombreDeIcono } from "../componentes/Icono";
 import { anunciar } from "../accesibilidad/anunciar";
 import { useSesion } from "../sesion/SesionContext";
 import { estaLeida, iconoDe } from "../notificaciones/abrir";
@@ -185,7 +185,7 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
     setErrorNavegador(null);
     // El fallo se muestra aquí, junto al botón, y no en un Alert.
     const abierta = await abrirEnNavegador(url, { avisarSiFalla: false });
-    if (!abierta && montado.current) setErrorNavegador(TEXTO_NAVEGADOR_FALLO);
+    if (abierta === false && montado.current) setErrorNavegador(TEXTO_NAVEGADOR_FALLO);
   }
 
   return (
@@ -228,10 +228,13 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
         }
       />
       {url && (
-        <Boton
+        <BotonRedondo
           testID="abrir-en-navegador"
-          titulo="Abrir en el navegador"
-          icono="open-in-new"
+          icono={nombreDeIcono(iconoDe(notificacion))}
+          nombre="Abrir en el navegador"
+          color={coloresDe(notificacion)}
+          navegador
+          etiqueta="Abrir en el navegador"
           pista="Abre esta notificación en la web de la intranet"
           onPress={abrir}
         />

@@ -168,3 +168,10 @@ jest.mock("expo-splash-screen", () => ({
 jest.mock("expo-router/build/react-navigation/elements/Header/HeaderHeightContext.js", () => ({
   HeaderHeightContext: require("react").createContext(undefined),
 }));
+
+// Salir al navegador (16/11/2026): en las pruebas la persona confirma; las de
+// `enlaces.test.js` prueban la pregunta de verdad (`jest.requireActual`).
+jest.mock("./src/navegador/confirmarSalida", () => ({
+  ...jest.requireActual("./src/navegador/confirmarSalida"),
+  confirmarSalida: jest.fn(async () => true),
+}));

@@ -3,6 +3,7 @@ import { AppState, ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { mensajeDeError } from "../api/errores";
+import { BotonRedondo } from "../componentes/BotonRedondo";
 import { Alerta, Boton } from "../componentes/comunes";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useSesion } from "../sesion/SesionContext";
@@ -73,7 +74,14 @@ export function AccionPendiente() {
         </Text>
         <Text style={estilos.texto}>{esContrasena ? TEXTO_CONTRASENA : TEXTO_CONSENTIMIENTO}</Text>
         {error && <Alerta texto={error} tipo="mal" />}
-        <Boton titulo="Abrir en el navegador" icono="open-in-new" onPress={() => abrirEnNavegador(url)} />
+        <BotonRedondo
+          testID="accion-en-la-web"
+          icono={esContrasena ? "lock-reset" : "shield-check-outline"}
+          nombre="Abrir en el navegador"
+          familia={esContrasena ? "sistema" : "institucional"}
+          navegador
+          onPress={() => abrirEnNavegador(url)}
+        />
         {!esContrasena && (
           <Boton titulo="Ya lo hice" variante="secundario" cargando={comprobando} onPress={comprobar} />
         )}

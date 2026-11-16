@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { matrizService } from "../../api/servicios";
+import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Alerta, Boton, Cargando, Desplegable, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { tamanoLegible } from "../../adjuntos/seleccion";
@@ -293,7 +294,7 @@ export function DetallePeriodo({ id, empresa = null }) {
   async function abrirFuente() {
     setErrorFuente(null);
     const abierta = await abrirEnNavegador(fuente, { avisarSiFalla: false });
-    if (!abierta) setErrorFuente(TEXTO_NAVEGADOR_FALLO);
+    if (abierta === false) setErrorFuente(TEXTO_NAVEGADOR_FALLO);
   }
 
   return (
@@ -342,6 +343,9 @@ export function DetallePeriodo({ id, empresa = null }) {
               ruta={rutaWebDelPeriodo(periodo.id)}
               empresa={empresaWeb}
               texto={textoAccionesEnLaWeb(periodo.acciones)}
+              nombre="Abrir el período"
+              icono="file-document-outline"
+              familia="matriz"
               testID="abrir-periodo-en-la-web"
             />
           </View>
@@ -370,16 +374,15 @@ export function DetallePeriodo({ id, empresa = null }) {
                 <Text style={estilos.datoValor}>{obligacion.fundamento_legal}</Text>
               ) : null}
               {fuente ? (
-                <Pressable
-                  onPress={abrirFuente}
-                  accessibilityRole="link"
-                  accessibilityLabel="Ver la fuente del fundamento legal. Abre el navegador"
-                  style={({ pressed }) => [estilos.enlace, pressed && estilos.presionada]}
+                <BotonRedondo
                   testID="ver-fuente"
-                >
-                  <Text style={estilos.enlaceTexto}>Ver fuente</Text>
-                  <Icono nombre="open-in-new" size={18} color={colores.enlace} />
-                </Pressable>
+                  icono="scale-balance"
+                  nombre="Ver fuente"
+                  familia="matriz"
+                  navegador
+                  etiqueta="Ver la fuente del fundamento legal. Abre el navegador"
+                  onPress={abrirFuente}
+                />
               ) : null}
               {errorFuente ? <Alerta tipo="mal" texto={errorFuente} /> : null}
             </Dato>
@@ -544,8 +547,6 @@ const estilos = crearEstilos({
     borderColor: colores.bordeControl,
   },
   barraLlena: { height: "100%", backgroundColor: colores.primario },
-  enlace: { minHeight: AREA_TACTIL, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
-  enlaceTexto: { fontSize: 15, fontWeight: "600", color: colores.enlace, textDecorationLine: "underline" },
   presionada: { backgroundColor: colores.realce },
   evidencia: {
     minHeight: AREA_TACTIL,

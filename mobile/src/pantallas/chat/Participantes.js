@@ -1,11 +1,13 @@
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 
 import { mensajeDeError } from "../../api/errores";
 import { chatService } from "../../api/servicios";
 import { extrasDePresencia, NOMBRE_DE_TIPO, textoPresencia } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
-import { Alerta, Boton, Cargando, ErrorConReintento } from "../../componentes/comunes";
+import { Alerta, Cargando, ErrorConReintento } from "../../componentes/comunes";
+import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
 import { abrirEnNavegador, urlWeb } from "../../navegador/enlaceWeb";
 import { useSesion } from "../../sesion/SesionContext";
@@ -32,6 +34,7 @@ export function textoGestionEnLaWeb(conversacion) {
 }
 
 export function Participantes({ id, empresa = null }) {
+  const router = useRouter();
   const { empresaActiva } = useSesion();
   const [estado, setEstado] = useState("cargando");
   const [conversacion, setConversacion] = useState(null);
@@ -71,7 +74,7 @@ export function Participantes({ id, empresa = null }) {
     setErrorNavegador(null);
     const url = urlWeb(`/admin/chat?c=${id}`, { empresa: empresa ?? empresaActiva?.id });
     const abierta = await abrirEnNavegador(url, { avisarSiFalla: false });
-    if (!abierta) setErrorNavegador("No se pudo abrir el navegador del teléfono. Intente de nuevo.");
+    if (abierta === false) setErrorNavegador("No se pudo abrir el navegador del teléfono. Intente de nuevo.");
   }
 
   if (estado === "cargando") return <Cargando texto="Cargando participantes…" />;
@@ -103,11 +106,12 @@ export function Participantes({ id, empresa = null }) {
           {gestion ? (
             <>
               <Text style={estilos.tenue}>{gestion}</Text>
-              <Boton
+              <BotonRedondo
                 testID="gestionar-en-la-web"
-                titulo="Abrir en el navegador"
-                icono="open-in-new"
-                variante="secundario"
+                icono="account-cog-outline"
+                nombre="Gestionar el grupo"
+                familia="chat"
+                navegador
                 etiqueta={`${gestion} Abrir en el navegador`}
                 onPress={abrirEnLaWeb}
               />
@@ -120,10 +124,18 @@ export function Participantes({ id, empresa = null }) {
         const suya = presencia[String(p.id)];
         const detalle = [p.cargo, p.area].filter(Boolean).join(" · ");
         return (
-          <View
+          // Tocar a alguien abre su ficha de contacto (16/11/2026).
+          <Pressable
             testID={`participante-${p.id}`}
-            style={estilos.persona}
-            accessible
+            onPress={() =>
+              router.push({
+                pathname: "/chat/contacto/[id]",
+                params: empresa ? { id: String(p.id), empresa } : { id: String(p.id) },
+              })
+            }
+            style={({ pressed }) => [estilos.persona, pressed && estilos.presionado]}
+            accessibilityRole="button"
+            accessibilityHint="Abre su correo, teléfono, extensión y área."
             accessibilityLabel={[p.nombre, p.administra ? "Administra el grupo" : null, detalle, suya ? [textoPresencia(suya), ...extrasDePresencia(suya)].join(" · ") : null]
               .filter(Boolean)
               .join(". ")}
@@ -137,7 +149,8 @@ export function Participantes({ id, empresa = null }) {
               {suya ? <Presencia presencia={suya} /> : null}
               {detalle ? <Text style={estilos.tenue}>{detalle}</Text> : null}
             </View>
-          </View>
+            <Icono nombre="chevron-right" size={22} color={colores.tintaTenue} />
+          </Pressable>
         );
       }}
     />
@@ -163,4 +176,5 @@ const estilos = crearEstilos({
   },
   personaTexto: { flex: 1, gap: 2 },
   nombre: { fontSize: 16, fontWeight: "600", color: colores.tinta },
+  presionado: { opacity: 0.7 },
 });

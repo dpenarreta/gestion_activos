@@ -1,7 +1,8 @@
 import { memo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
-import { Alerta, Boton } from "../../componentes/comunes";
+import { BotonRedondo } from "../../componentes/BotonRedondo";
+import { Alerta } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { abrirEnNavegador, TEXTO_NAVEGADOR_FALLO, urlWeb } from "../../navegador/enlaceWeb";
 import {
@@ -174,24 +175,38 @@ export const TarjetaSolicitud = memo(function TarjetaSolicitud({ solicitud: s, c
 });
 
 /** «Abrir en el navegador» para lo que se queda en la web (CA-11), con el
- * error junto al botón si el teléfono no lo abre. */
-export function AbrirEnLaWeb({ ruta, empresa, titulo = "Abrir en el navegador", texto, testID }) {
+ * error junto al botón si el teléfono no lo abre. Desde el 16/11/2026 (a
+ * pedido del usuario) es un botón redondo con la marca de «sale de la app»:
+ * `nombre` es lo que se lee debajo del círculo (corto) y `titulo`, lo que
+ * dice el lector de pantalla. */
+export function AbrirEnLaWeb({
+  ruta,
+  empresa,
+  titulo = "Abrir en el navegador",
+  nombre,
+  icono = "web",
+  familia,
+  texto,
+  testID,
+}) {
   const [error, setError] = useState(null);
   const url = urlWeb(ruta, { empresa });
   if (!url) return null;
   async function abrir() {
     setError(null);
     const abierta = await abrirEnNavegador(url, { avisarSiFalla: false });
-    if (!abierta) setError(TEXTO_NAVEGADOR_FALLO);
+    if (abierta === false) setError(TEXTO_NAVEGADOR_FALLO);
   }
   return (
     <View style={estilos.web}>
       {texto ? <Alerta tipo="info" texto={texto} /> : null}
-      <Boton
+      <BotonRedondo
         testID={testID}
-        titulo={titulo}
-        icono="open-in-new"
-        variante="secundario"
+        icono={icono}
+        nombre={nombre ?? titulo}
+        familia={familia}
+        navegador
+        etiqueta={titulo}
         pista="Se abre en el navegador del teléfono"
         onPress={abrir}
       />

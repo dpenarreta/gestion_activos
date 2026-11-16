@@ -3,6 +3,9 @@ import * as WebBrowser from "expo-web-browser";
 import { Alert } from "react-native";
 
 import { URL_WEB } from "../config/env";
+import { confirmarSalida } from "./confirmarSalida";
+
+export { confirmarSalida, TEXTO_SALIR, TITULO_SALIR } from "./confirmarSalida";
 
 /**
  * Si `ruta` es una ruta interna de la web: empieza por «/», no por «//» (que
@@ -54,13 +57,16 @@ export const TEXTO_NAVEGADOR_FALLO =
 
 /**
  * Abre la URL en el navegador del sistema, donde la persona ya tiene su
- * sesión de la web. Si el sistema no puede, la abre dentro de la app. Si
+ * sesión de la web, después de confirmar que quiere salir de la app
+ * (`confirmarSalida`). Si el sistema no puede, la abre dentro de la app. Si
  * tampoco, lo dice con un `Alert` (salvo `avisarSiFalla: false`, para quien
- * lo muestra en la propia pantalla). Devuelve si se abrió.
+ * lo muestra en la propia pantalla). Devuelve `true` si se abrió, `false` si
+ * no se pudo y `null` si la persona decidió quedarse (no es un error).
  */
 export async function abrirEnNavegador(url, { avisarSiFalla = true } = {}) {
   let abierta = false;
   if (url) {
+    if (!(await confirmarSalida())) return null;
     try {
       await Linking.openURL(url);
       abierta = true;

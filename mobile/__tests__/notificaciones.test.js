@@ -246,7 +246,7 @@ describe("detalle de una notificación fuera de la app", () => {
     expect(mockContador.recargar).toHaveBeenCalled();
     expect(mockSesion.cambiarEmpresaSiEsSuya).not.toHaveBeenCalled();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Abrir en el navegador" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Abrir en el navegador" }));
     expect(Linking.openURL).toHaveBeenCalledWith(
       "https://intranet.laarcourier.com/admin/ayuda/55?empresa=2",
     );
@@ -276,7 +276,7 @@ describe("detalle de una notificación fuera de la app", () => {
       "Esta notificación es de Laar Express: la app pasó a esa empresa.",
     );
     // La API aún no trae `empresa`: el enlace usa la del push.
-    await fireEvent.press(screen.getByRole("button", { name: "Abrir en el navegador" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Abrir en el navegador" }));
     expect(Linking.openURL).toHaveBeenCalledWith(
       "https://intranet.laarcourier.com/admin/ayuda/55?empresa=7",
     );
@@ -288,7 +288,7 @@ describe("detalle de una notificación fuera de la app", () => {
 
     expect(await screen.findByText(textoSinEnlace("Gestión de Activos"))).toBeTruthy();
     expect(screen.queryByText(TEXTO_FUERA_DE_LA_APP)).toBeNull();
-    expect(screen.queryByRole("button", { name: "Abrir en el navegador" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Abrir en el navegador" })).toBeNull();
     expect(notificacionesService.leer).not.toHaveBeenCalled();
   });
 
@@ -300,7 +300,7 @@ describe("detalle de una notificación fuera de la app", () => {
     await render(<DetalleNotificacion id="10" />);
     await screen.findByText(TEXTO_FUERA_DE_LA_APP);
 
-    await fireEvent.press(screen.getByRole("button", { name: "Abrir en el navegador" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Abrir en el navegador" }));
 
     expect(await screen.findByText(/No se pudo abrir el navegador del teléfono/)).toBeTruthy();
   });

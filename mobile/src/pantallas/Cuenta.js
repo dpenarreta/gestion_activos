@@ -157,28 +157,17 @@ export function Cuenta() {
     }
   }
 
-  const nombre =
-    [usuario?.first_name, usuario?.last_name].filter(Boolean).join(" ") ||
-    usuario?.username;
-
   return (
     <ScrollView
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
     >
-      <View style={estilos.bloque}>
-        <Text style={estilos.titulo} accessibilityRole="header">
-          {nombre}
-        </Text>
-        {usuario?.email ? (
-          <Text style={estilos.texto}>{usuario.email}</Text>
-        ) : null}
-      </View>
-
       {/* 16/11/2026, a pedido del usuario: el icono de la cuenta abre «Mi
           perfil» (solo lectura); empresa, chat, avisos y cerrar sesión
           siguen debajo. */}
-      <MiPerfil />
+      {/* El nombre, el código y el cargo los pone el encabezado de
+          `MiPerfil` (sin el correo, 16/11/2026). */}
+      <MiPerfil usuario={usuario} />
 
       {/* «Empresa» solo si tiene más de una, para elegir en cuál trabaja
           (16/11/2026, a pedido del usuario: con una sola, el dato ya está en

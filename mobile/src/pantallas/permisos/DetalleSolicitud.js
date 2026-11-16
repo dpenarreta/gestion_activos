@@ -479,6 +479,9 @@ export function DetalleSolicitud({ id, empresa = null, creada = false }) {
       {enLaWeb.length > 0 && (
         <AbrirEnLaWeb
           testID="solicitud-en-la-web"
+          nombre="Abrir la solicitud"
+          icono="file-document-outline"
+          familia="permisos"
           ruta={`/admin/institucional/permisos?solicitud=${s.id}`}
           empresa={empresa}
           texto={enLaWeb.join(" ")}

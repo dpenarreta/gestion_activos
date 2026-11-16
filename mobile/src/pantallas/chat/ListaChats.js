@@ -14,7 +14,8 @@ import {
   textoUltimo,
 } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
-import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
 import { abrirEnNavegador, urlWeb } from "../../navegador/enlaceWeb";
 import { useSesion } from "../../sesion/SesionContext";
@@ -91,7 +92,7 @@ export function ListaChats({ soloGrupos = false }) {
     const abierta = await abrirEnNavegador(urlWeb("/admin/chat", { empresa: empresaActiva?.id }), {
       avisarSiFalla: false,
     });
-    if (!abierta) setErrorNavegador("No se pudo abrir el navegador del teléfono. Intente de nuevo.");
+    if (abierta === false) setErrorNavegador("No se pudo abrir el navegador del teléfono. Intente de nuevo.");
   }
 
   // «Nuevo mensaje» pasa a un botón flotante (auditoría UX, H-08): la
@@ -140,10 +141,12 @@ export function ListaChats({ soloGrupos = false }) {
           estado === "listo" ? (
             <View style={estilos.pie}>
               <Text style={estilos.tenue}>{TEXTO_GRUPOS_EN_LA_WEB}</Text>
-              <Boton
-                titulo="Crear un grupo en el navegador"
-                icono="open-in-new"
-                variante="secundario"
+              <BotonRedondo
+                testID="crear-grupo-en-la-web"
+                icono="account-multiple-plus-outline"
+                nombre="Crear un grupo"
+                familia="chat"
+                navegador
                 etiqueta="Crear un grupo. Abrir en el navegador"
                 onPress={crearGrupoEnLaWeb}
               />

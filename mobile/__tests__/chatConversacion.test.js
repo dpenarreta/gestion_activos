@@ -725,10 +725,18 @@ describe("grupos y presencia (CA-6, CA-8)", () => {
     });
   });
 
-  it("en un directo la cabecera no lleva «Participantes»", async () => {
-    await render(<Conversacion id="5" />);
+  it("en un directo la cabecera no lleva «Participantes» sino la ficha de contacto (16/11/2026)", async () => {
+    await render(<Conversacion id="5" empresa="2" />);
     await screen.findByText("Mensaje 11");
-    expect(opcionesDeCabecera().headerRight).toBeUndefined();
+    await renderCabeceraDerecha();
+    expect(screen.queryByTestId("ver-participantes")).toBeNull();
+    const boton = screen.getByTestId("ver-contacto");
+    expect(boton.props.accessibilityLabel).toBe("Ver el contacto de Carla Ruiz");
+    await fireEvent.press(boton);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/chat/contacto/[id]",
+      params: { id: String(CARLA.id), empresa: "2" },
+    });
   });
 
   it("mientras no se sabe qué conversación es, no ofrece «Participantes» (B5)", async () => {

@@ -908,6 +908,9 @@ export function TicketDetalle({ id, empresa = null }) {
               ruta={`/admin/soporte/tickets/${t.id}`}
               empresa={empresa}
               titulo="Registrar las horas en el navegador"
+              nombre="Registrar horas"
+              icono="clock-plus-outline"
+              familia="soporte"
             />
           </View>
         ) : null}

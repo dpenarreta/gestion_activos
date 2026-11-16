@@ -74,6 +74,7 @@ export default function AppLayout() {
               <Stack.Screen name="permisos/solicitud/[id]" options={{ ...cabecera(), title: "Solicitud de permiso" }} />
               <Stack.Screen name="chat/conversacion/[id]" options={{ ...cabecera(), title: "Conversación" }} />
               <Stack.Screen name="chat/participantes/[id]" options={{ ...cabecera(), title: "Participantes" }} />
+              <Stack.Screen name="chat/contacto/[id]" options={{ ...cabecera(), title: "Contacto" }} />
               <Stack.Screen name="chat/nuevo" options={{ ...cabecera(), title: "Nuevo mensaje" }} />
               <Stack.Screen name="chat/mi-estado" options={{ ...cabecera(), title: "Mi estado" }} />
               <Stack.Screen name="soporte/nuevo" options={{ ...cabecera(), title: "Nuevo ticket" }} />

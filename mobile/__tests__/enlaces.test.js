@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { Alert } from "react-native";
 
 import { MODULOS_EN_APP, rutaEnApp } from "../src/notificaciones/modulosEnApp";
 import { destinoDeNotificacion } from "../src/notificaciones/abrir";
@@ -9,6 +10,7 @@ import {
   urlWeb,
   urlWebDeNotificacion,
 } from "../src/navegador/enlaceWeb";
+import { confirmarSalida, TEXTO_SALIR, TITULO_SALIR } from "../src/navegador/confirmarSalida";
 
 const BASE = "https://intranet.laarcourier.com";
 
@@ -81,5 +83,39 @@ describe("enlace a la web", () => {
     Linking.openURL.mockRejectedValueOnce(new Error("sin navegador"));
     await abrirEnNavegador(`${BASE}/b`);
     expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(`${BASE}/b`);
+  });
+
+  it("antes de salir de la app pregunta; si se queda, no abre nada ni es un error (16/11/2026)", async () => {
+    confirmarSalida.mockResolvedValueOnce(false);
+    const alerta = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    expect(await abrirEnNavegador(`${BASE}/c`)).toBeNull();
+    expect(Linking.openURL).not.toHaveBeenCalledWith(`${BASE}/c`);
+    // Quedarse no muestra «No se pudo abrir».
+    expect(alerta).not.toHaveBeenCalled();
+    alerta.mockRestore();
+  });
+});
+
+describe("confirmarSalida", () => {
+  const { confirmarSalida: real } = jest.requireActual("../src/navegador/confirmarSalida");
+
+  it("pregunta con «Quedarme en la app» y «Abrir el navegador»", async () => {
+    const alerta = jest.spyOn(Alert, "alert").mockImplementation((titulo, texto, botones) => {
+      botones.find((b) => b.text === "Abrir el navegador").onPress();
+    });
+    await expect(real()).resolves.toBe(true);
+    expect(alerta).toHaveBeenCalledWith(TITULO_SALIR, TEXTO_SALIR, expect.any(Array), expect.objectContaining({ cancelable: true }));
+    alerta.mockRestore();
+  });
+
+  it("quedarse, tocar fuera o Atrás es no salir", async () => {
+    let alerta = jest.spyOn(Alert, "alert").mockImplementation((t, x, botones) => {
+      botones.find((b) => b.text === "Quedarme en la app").onPress();
+    });
+    await expect(real()).resolves.toBe(false);
+    alerta.mockRestore();
+    alerta = jest.spyOn(Alert, "alert").mockImplementation((t, x, b, opciones) => opciones.onDismiss());
+    await expect(real()).resolves.toBe(false);
+    alerta.mockRestore();
   });
 });

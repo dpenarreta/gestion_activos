@@ -299,7 +299,7 @@ describe("nuevo ticket: faltan datos del perfil (CA-5)", () => {
     await render(<NuevoTicket />);
     expect(await screen.findByText(textoFaltanDatos(["área", "agencia"]))).toBeTruthy();
     expect(screen.queryByTestId("campo-descripcion")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Completar «Mi perfil» en el navegador" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Completar «Mi perfil» en el navegador" }));
     expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/perfil\?empresa=1$/));
 
     soporteService.formularioPropio.mockResolvedValue(formulario());
@@ -320,7 +320,7 @@ describe("nuevo ticket: faltan datos del perfil (CA-5)", () => {
     await fireEvent.press(screen.getByTestId("campo-caso-opcion-21"));
     await fireEvent.press(screen.getByTestId("crear-ticket"));
     expect(await screen.findByText(textoFaltanDatos(["agencia"]))).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Completar «Mi perfil» en el navegador" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Completar «Mi perfil» en el navegador" })).toBeTruthy();
     expect(screen.getByTestId("campo-descripcion").props.value).toBe("Necesito una silla nueva para mi puesto");
   });
 });

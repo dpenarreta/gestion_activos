@@ -288,6 +288,13 @@ export const chatService = {
   guardarEstado(datos) {
     return api.put("/chat/mi-estado/", datos);
   },
+  /** La ficha de contacto de una persona de la empresa, la misma de la web
+   * (`organizacion.contacto.para_compartir`): `{id, nombre, correo,
+   * telefono, telefono_corporativo, extension, cargo, area}`; lo que no
+   * tiene o no autorizó viene vacío. */
+  contacto(usuario, { empresa } = {}) {
+    return api.get(`/chat/personas/${idSeguro(usuario)}/contacto/`, conEmpresa(empresa));
+  },
   /** La URL del archivo de un mensaje (`archivo.url`, relativa a la API):
    * se descarga con la sesión, nunca se abre en el navegador. */
   urlArchivo(ruta) {

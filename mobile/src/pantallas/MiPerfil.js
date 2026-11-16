@@ -29,6 +29,8 @@ const NOMBRES_DE_LO_QUE_FALTA = {
   telefono: "teléfono",
   telefono_corporativo: "teléfono corporativo",
   tiene_telefono_corporativo: "si tiene teléfono corporativo",
+  // Aviso de contrato del 16/11/2026 (2ed5676): «¿Tiene línea fija?».
+  linea_fija: "si tiene línea fija",
   area: "área",
   agencia: "agencia",
   cargo: "cargo",
@@ -269,9 +271,58 @@ function MiSupervision({ linea, cargo }) {
   );
 }
 
+/** «Daniel Peñarreta» de «Daniel Alejandro» y «Peñarreta Torres»: el
+ * primer nombre y el primer apellido. */
+export function nombreCorto(nombres, apellidos) {
+  const primero = (texto) =>
+    String(texto ?? "")
+      .trim()
+      .split(/\s+/)[0] || "";
+  return [primero(nombres), primero(apellidos)].filter(Boolean).join(" ");
+}
+
+/**
+ * El encabezado de «Mi perfil» (16/11/2026, a pedido del usuario): un nombre
+ * y un apellido con el código de empleado al lado (solo si tiene uno
+ * registrado) y, debajo, el cargo en lugar del correo.
+ */
+function Encabezado({ usuario, datos }) {
+  const nombre =
+    nombreCorto(
+      datos?.nombres ?? usuario?.first_name,
+      datos?.apellidos ?? usuario?.last_name,
+    ) ||
+    usuario?.username ||
+    "";
+  const codigo = String(
+    datos?.codigo_empleado ?? usuario?.codigo_empleado ?? "",
+  ).trim();
+  const cargo = datos?.cargo?.nombre;
+  return (
+    <View style={estilos.encabezado} testID="encabezado-perfil">
+      <View style={estilos.filaNombre}>
+        <Text style={estilos.nombre} accessibilityRole="header">
+          {nombre}
+        </Text>
+        {codigo ? (
+          <View
+            style={estilos.codigo}
+            accessible
+            accessibilityLabel={`Código de empleado ${codigo}`}
+            testID="codigo-empleado"
+          >
+            <Text style={estilos.codigoTexto}>{codigo}</Text>
+          </View>
+        ) : null}
+      </View>
+      {cargo ? <Text style={estilos.cargoEncabezado}>{cargo}</Text> : null}
+    </View>
+  );
+}
+
 /** Los tres bloques de «Mi perfil», con su carga, error y «Editar en el
  * navegador». Se vuelve a pedir al cambiar de empresa. */
-export function MiPerfil() {
+export function MiPerfil({ usuario } = {}) {
   const { empresaActiva, versionEmpresa } = useSesion();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null });
   const consulta = useRef(0);
@@ -302,19 +353,28 @@ export function MiPerfil() {
   }, [cargar, versionEmpresa]);
 
   if (carga.estado === "cargando" && !carga.datos)
-    return <Cargando texto="Cargando su perfil…" />;
+    return (
+      <View style={estilos.contenedor}>
+        <Encabezado usuario={usuario} />
+        <Cargando texto="Cargando su perfil…" />
+      </View>
+    );
   if (carga.estado === "error")
     return (
-      <ErrorConReintento
-        texto="No se pudo cargar su perfil."
-        onReintentar={cargar}
-      />
+      <View style={estilos.contenedor}>
+        <Encabezado usuario={usuario} />
+        <ErrorConReintento
+          texto="No se pudo cargar su perfil."
+          onReintentar={cargar}
+        />
+      </View>
     );
 
   const d = carga.datos;
   const telefono = telefonoAMostrar(d);
   return (
     <View style={estilos.contenedor} testID="mi-perfil">
+      <Encabezado usuario={usuario} datos={d} />
       <Tarjeta
         icono="card-account-details-outline"
         titulo="Mis datos"
@@ -344,6 +404,9 @@ export function MiPerfil() {
           ruta="/admin/perfil"
           empresa={empresaActiva?.id}
           titulo="Editar en el navegador"
+          nombre="Editar mi perfil"
+          icono="account-edit-outline"
+          familia="perfil"
           texto="En la app su perfil solo se consulta. Para cambiarlo, ábralo en el navegador."
         />
       </Tarjeta>
@@ -355,6 +418,27 @@ export function MiPerfil() {
 
 const estilos = crearEstilos({
   contenedor: { gap: 16 },
+  encabezado: { gap: 4 },
+  filaNombre: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
+  nombre: {
+    flexShrink: 1,
+    fontSize: 22,
+    fontWeight: "700",
+    color: colores.tinta,
+  },
+  codigo: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: colores.hundido,
+  },
+  codigoTexto: { fontSize: 13, fontWeight: "600", color: colores.tintaSuave },
+  cargoEncabezado: { fontSize: 16, color: colores.tintaSuave },
   tarjeta: {
     gap: 10,
     padding: 14,

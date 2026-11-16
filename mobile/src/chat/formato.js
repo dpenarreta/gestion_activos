@@ -236,3 +236,53 @@ export function textoLeidoEn(leidoEn, ahora = new Date()) {
     ? `Lo leyó a las ${aHora(fecha)}`
     : `Lo leyó el ${horaDeMensaje(leidoEn, ahora)}`;
 }
+
+/**
+ * Lo que se muestra de la ficha de contacto de una persona en el chat
+ * (16/11/2026, a pedido del usuario): su correo corporativo, un teléfono (el
+ * corporativo si lo tiene; si no, el personal, que solo llega si autorizó
+ * compartirlo), la extensión de su línea fija, su área y su cargo. Lo que no
+ * hay no se muestra. `accion`: la URL que abre la app de llamadas o de correo.
+ */
+export function datosDeContacto(contacto) {
+  if (!contacto) return [];
+  const limpio = (valor) => String(valor ?? "").trim();
+  const filas = [];
+  const correo = limpio(contacto.correo);
+  if (correo) {
+    filas.push({
+      clave: "correo",
+      etiqueta: "Correo corporativo",
+      valor: correo,
+      icono: "email-outline",
+      accion: `mailto:${correo}`,
+      verbo: "Escribir un correo a",
+    });
+  }
+  const corporativo = limpio(contacto.telefono_corporativo);
+  const personal = limpio(contacto.telefono);
+  const telefono = corporativo || personal;
+  if (telefono) {
+    filas.push({
+      clave: "telefono",
+      etiqueta: corporativo ? "Teléfono corporativo" : "Teléfono personal",
+      valor: telefono,
+      icono: corporativo ? "cellphone" : "phone-outline",
+      accion: `tel:${telefono.replace(/[^\d+]/g, "")}`,
+      verbo: "Llamar a",
+    });
+  }
+  const extension = limpio(contacto.extension);
+  if (extension) {
+    filas.push({ clave: "extension", etiqueta: "Extensión de línea fija", valor: extension, icono: "phone-classic" });
+  }
+  const area = limpio(contacto.area);
+  if (area) {
+    filas.push({ clave: "area", etiqueta: "Área", valor: area, icono: "sitemap-outline" });
+  }
+  const cargo = limpio(contacto.cargo);
+  if (cargo) {
+    filas.push({ clave: "cargo", etiqueta: "Cargo", valor: cargo, icono: "briefcase-outline" });
+  }
+  return filas;
+}

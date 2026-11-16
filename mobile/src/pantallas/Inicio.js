@@ -18,6 +18,7 @@ import {
   ErrorConReintento,
   Vacio,
 } from "../componentes/comunes";
+import { BotonRedondo } from "../componentes/BotonRedondo";
 import { Icono, nombreDeIcono } from "../componentes/Icono";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useContador } from "../notificaciones/ContadorContext";
@@ -386,24 +387,21 @@ export function Inicio() {
           (cargo ? (
             <Text style={estilos.cargo}>{`${cargo}.`}</Text>
           ) : (
-            <Pressable
-              onPress={() =>
-                abrirEnNavegador(urlWeb("/admin/perfil", { empresa }))
-              }
-              accessibilityRole="link"
-              accessibilityHint="Se abre en el navegador"
-              style={estilos.enlaceCargo}
-            >
-              <Text style={estilos.cargo}>
-                {TEXTO_SIN_CARGO}{" "}
-                <Text style={estilos.enlace}>Elegirlo en Mi perfil</Text>{" "}
-                <Icono
-                  nombre="open-in-new"
-                  size={16}
-                  color={colores.primario}
-                />
-              </Text>
-            </Pressable>
+            // Sale de la app: botón redondo con su marca (16/11/2026).
+            <>
+              <Text style={estilos.cargo}>{TEXTO_SIN_CARGO}</Text>
+              <BotonRedondo
+                testID="elegir-cargo"
+                icono="account-edit-outline"
+                nombre="Elegir mi cargo"
+                familia="perfil"
+                navegador
+                etiqueta="Elegir mi cargo en Mi perfil. Abrir en el navegador"
+                onPress={() =>
+                  abrirEnNavegador(urlWeb("/admin/perfil", { empresa }))
+                }
+              />
+            </>
           ))}
       </View>
 
@@ -583,39 +581,19 @@ export function Inicio() {
  * Los del navegador llevan una marca de «sale de la app» en el círculo. */
 function Acceso({ a, onAbrir, columnas = 4 }) {
   const enApp = Boolean(a.rutaApp);
-  const color = coloresDeFamilia(a.familia);
+  // El color de su módulo (16/11/2026); los del navegador se distinguen por
+  // la marca de «sale de la app» (`BotonRedondo`).
   return (
-    <Pressable
+    <BotonRedondo
       testID={`acceso-${a.to}`}
+      icono={nombreDeIcono(a.icono)}
+      nombre={a.nombre}
+      familia={a.familia}
+      navegador={!enApp}
+      etiqueta={enApp ? `${a.nombre}. ${a.texto}` : `${a.nombre}. ${a.texto}. Abrir en el navegador`}
+      ancho={`${100 / columnas}%`}
       onPress={() => onAbrir(a)}
-      accessibilityRole={enApp ? "button" : "link"}
-      accessibilityLabel={
-        enApp
-          ? `${a.nombre}. ${a.texto}`
-          : `${a.nombre}. ${a.texto}. Abrir en el navegador`
-      }
-      style={({ pressed }) => [
-        estilos.acceso,
-        { width: `${100 / columnas}%` },
-        pressed && estilos.accesoPresionado,
-      ]}
-    >
-      {/* El color de su módulo (16/11/2026); los del navegador se
-          distinguen por la marca de «sale de la app». */}
-      <View style={[estilos.circulo, { backgroundColor: color.fondo }]}>
-        <Icono nombre={nombreDeIcono(a.icono)} size={28} color={color.icono} />
-        {!enApp ? (
-          <View style={estilos.marcaNavegador}>
-            <Icono
-              nombre="open-in-new"
-              size={12}
-              color={colores.sobrePrimario}
-            />
-          </View>
-        ) : null}
-      </View>
-      <Text style={estilos.accesoNombre}>{a.nombre}</Text>
-    </Pressable>
+    />
   );
 }
 
@@ -625,49 +603,11 @@ const estilos = crearEstilos({
   saludo: { gap: 4 },
   titulo: { fontSize: 24, fontWeight: "700", color: colores.tinta },
   cargo: { fontSize: 16, color: colores.tintaSuave },
-  enlaceCargo: { minHeight: AREA_TACTIL, justifyContent: "center" },
-  enlace: { color: colores.enlace, textDecorationLine: "underline" },
   seccion: { gap: 10 },
   subtitulo: { fontSize: 18, fontWeight: "700", color: colores.tinta },
   presionada: { backgroundColor: colores.realce },
   ayudaTexto: { fontSize: 14, color: colores.tintaTenue, flexShrink: 1 },
   cuadricula: { flexDirection: "row", flexWrap: "wrap", rowGap: 12 },
-  acceso: {
-    minHeight: AREA_TACTIL,
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  accesoPresionado: { backgroundColor: colores.realce },
-  // El fondo lo pone el color del módulo.
-  circulo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  marcaNavegador: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colores.primario,
-    borderWidth: 2,
-    borderColor: colores.fondo,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  accesoNombre: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colores.tinta,
-    textAlign: "center",
-  },
   tituloNavegador: { flexDirection: "row", alignItems: "center", gap: 8 },
   paraHoy: {
     gap: 6,
