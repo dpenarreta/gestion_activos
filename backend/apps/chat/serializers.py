@@ -63,8 +63,11 @@ class EditarGrupoSerializer(serializers.Serializer):
     agregar = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(is_active=True), many=True, required=False
     )
+    # Cualquier cuenta, activa o no (16/11/2026): una persona dada de baja
+    # (las bajas nocturnas de nómina) seguía en el grupo sin poder quitarla.
+    # El servicio solo borra a quien es participante de esa conversación.
     quitar = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(is_active=True), many=True, required=False
+        queryset=User.objects.all(), many=True, required=False
     )
 
 

@@ -165,6 +165,26 @@ def test_grupos_personalizados_y_quien_los_administra(empresa):
     assert cliente_ana.post(f"{URL}conversaciones/{general['id']}/salir/").status_code == 400
 
 
+def test_quien_administra_quita_del_grupo_a_una_persona_inactiva(empresa):
+    """Una baja de nómina deja la cuenta inactiva pero en el grupo: quien lo
+    administra tiene que poder quitarla (16/11/2026, QA-FUNC US-024)."""
+    ana, beto = (_persona(n, empresa) for n in ("ana", "beto"))
+    cliente_ana = _cliente(ana, empresa)
+    grupo = cliente_ana.post(
+        f"{URL}conversaciones/",
+        {"nombre": "Cierre de mes", "participantes": [beto.id]},
+        format="json",
+    ).json()
+    beto.is_active = False
+    beto.save(update_fields=["is_active"])
+    url = f"{URL}conversaciones/{grupo['id']}/"
+
+    respuesta = cliente_ana.patch(url, {"quitar": [beto.id]}, format="json")
+
+    assert respuesta.status_code == 200, respuesta.content
+    assert beto.id not in [p["id"] for p in respuesta.json()["participantes"]]
+
+
 def test_un_grupo_por_area_reune_a_las_personas_del_area(empresa):
     with usando_empresa(empresa):
         area = Departamento.objects.create(nombre="Operaciones", codigo="OPE")
